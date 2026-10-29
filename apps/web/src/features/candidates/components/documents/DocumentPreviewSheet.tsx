@@ -10,6 +10,7 @@ import type { DocumentScope } from "../../api/documentsApi";
 import type { PersonDocument, PersonDocumentVersion } from "../../api/types";
 import { formatBytes } from "../../lib/documents";
 import type { PersonDocuments } from "../../lib/usePersonDocuments";
+import { formatInstantDateTime } from "../../../../lib/datetime";
 
 export interface PreviewTarget {
   documentId: string;
@@ -77,7 +78,7 @@ export function DocumentPreviewSheet({
             <p className="truncate font-mono text-[11.5px] text-u-text3">
               v{version.versionNo} · {version.fileName} · {formatBytes(version.sizeBytes)} ·{" "}
               {version.uploadedByName ?? "Someone"},{" "}
-              {new Date(version.uploadedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+              {formatInstantDateTime(version.uploadedAt)}
             </p>
           </div>
           {document.versions.length > 1 && (

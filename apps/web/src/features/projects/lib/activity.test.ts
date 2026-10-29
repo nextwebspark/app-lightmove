@@ -88,6 +88,6 @@ describe("formatActivityTime", () => {
     expect(formatActivityTime("2026-09-24T09:00:00Z", now)).toBe("3 hours ago");
     expect(formatActivityTime("2026-09-23T09:00:00Z", now)).toBe("Yesterday");
     expect(formatActivityTime("2026-09-20T09:00:00Z", now)).toBe("4 days ago");
-    expect(formatActivityTime("2026-09-01T09:00:00Z", now)).toBe("01 Sept 2026");
+    expect(formatActivityTime("2026-09-01T09:00:00Z", now)).toBe("01 Sep 2026");
   });
 });

@@ -2,6 +2,7 @@ import { Icon, ICONS } from "../../../../components/layout/Icon";
 import type { PersonDocument, PersonDocumentVersion } from "../../api/types";
 import { primaryCvOf } from "../../lib/documents";
 import type { PersonDocuments } from "../../lib/usePersonDocuments";
+import { formatShortDate } from "../../../../lib/datetime";
 
 const PART = "flex items-center gap-1.5 text-u-accent hover:bg-u-accent/15";
 
@@ -16,10 +17,7 @@ export function PrimaryCvChip({
   const cv = primaryCvOf(documents.documents.data ?? []);
   if (!cv) return null;
   const latest = cv.versions[0];
-  const label = `CV · v${latest.versionNo} · ${new Date(latest.uploadedAt).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-  })}`;
+  const label = `CV · v${latest.versionNo} · ${formatShortDate(latest.uploadedAt) ?? "—"}`;
 
   return (
     <span className="inline-flex items-stretch overflow-hidden rounded-[6px] border border-u-accent/45 bg-u-accent-tint">

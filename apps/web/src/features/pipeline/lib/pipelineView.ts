@@ -2,9 +2,10 @@ import { moveItem } from "../../../lib/moveItem";
 import type { CandidatePipelineStage } from "../../candidates/api/types";
 import type { PipelineCatalog, PipelineStatus } from "../../workspace/api/types";
 import type { PipelineRankMove, PipelineRow } from "../api/types";
+import { formatShortDate } from "../../../lib/datetime";
 
 export function shortDate(moment: Date | string): string {
-  return new Date(moment).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+  return formatShortDate(moment) ?? "—";
 }
 
 /** Whole days since the status changed, never negative. */

@@ -11,6 +11,7 @@ import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as projectsApi from "../api/projectsApi";
 import type { Project } from "../api/types";
 import { TeamAccessPage } from "./TeamAccessPage";
+import { FOLLOWING_DATE_TIME } from "../../../test/fixtures/user";
 
 vi.mock("../../auth/api/authApi");
 vi.mock("../api/projectsApi", async (importOriginal) => ({
@@ -54,6 +55,7 @@ describe("TeamAccessPage", () => {
     emailVerified: true,
     hasPassword: true,
     timezone: "Asia/Dubai",
+    dateTime: FOLLOWING_DATE_TIME,
     locale: "en",
     platformActions: [],
     pendingInvitations: [],

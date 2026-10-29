@@ -13,6 +13,7 @@ import * as templateAdminApi from "../features/templates/api/templateAdminApi";
 import * as triageApi from "../features/triage/api/triageApi";
 import * as workspaceApi from "../features/workspace/api/workspaceApi";
 import { AppRoutes } from "./routes";
+import { FOLLOWING_DATE_TIME, WORKSPACE_DATE_TIME } from "../test/fixtures/user";
 
 vi.mock("../features/auth/api/authApi");
 vi.mock("../features/oauth/api/oauthConsentApi");
@@ -54,6 +55,7 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[], mode: "AGENCY" | "CO
   emailVerified: true,
   hasPassword: true,
   timezone: "Asia/Dubai",
+  dateTime: FOLLOWING_DATE_TIME,
   locale: "en",
   platformActions: [],
   pendingInvitations: [],
@@ -80,6 +82,7 @@ const unverifiedUser = () => ({
   emailVerified: false,
   hasPassword: true,
   timezone: "Asia/Dubai",
+  dateTime: FOLLOWING_DATE_TIME,
   locale: "en",
   platformActions: [],
   pendingInvitations: [],
@@ -311,6 +314,7 @@ describe("routes — the settings gates", () => {
       createdAt: "2026-03-14T09:00:00Z",
       persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
       company: null,
+      dateTime: WORKSPACE_DATE_TIME,
     });
 
     renderAt("/settings/general");

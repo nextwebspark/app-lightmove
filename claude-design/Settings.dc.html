@@ -187,15 +187,6 @@
                   <div style="border-radius:6px;border:1px solid var(--line-soft);background:var(--panel);padding:9px 12px;font:500 13px var(--mono);color:var(--text2)">{{ roleReadOnly }}</div>
                 </label>
                 <label style="display:block;margin-bottom:16px">
-                  <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Timezone</span>
-                  <select value="{{ pTz }}" onChange="{{ onProfileTz }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                    <option value="Asia/Dubai">Gulf Standard Time (GMT+4)</option>
-                    <option value="Asia/Riyadh">Arabia Standard Time (GMT+3)</option>
-                    <option value="Etc/GMT">GMT</option>
-                    <option value="Europe/Paris">Central European Time</option>
-                  </select>
-                </label>
-                <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Language</span>
                   <select value="{{ pLocale }}" onChange="{{ onProfileLocale }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                     <option value="en">English</option>
@@ -203,6 +194,47 @@
                     <option value="fr">Français</option>
                   </select>
                 </label>
+              </div>
+              <!-- Each select opens on "Workspace default · …" — following the admin's choice, so a later change reaches them — and offers the same fixed lists as General. -->
+              <div style="margin-top:8px;border-top:1px solid var(--line-soft);padding-top:20px">
+                <div style="font:600 14px var(--sans)">Date &amp; time</div>
+                <div style="margin:2px 0 16px;font:400 11.5px var(--mono);color:var(--text3)">Keep your workspace's, or choose your own. Your choice applies in every workspace you belong to.</div>
+                <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:16px">
+                  <label style="display:block;margin-bottom:16px">
+                    <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Timezone</span>
+                    <select value="{{ pTz }}" onChange="{{ onProfileTz }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                      <option value="">Workspace default · (GMT+04:00) Dubai, Abu Dhabi</option>
+                      <option value="Asia/Riyadh">(GMT+03:00) Riyadh, Jeddah</option>
+                      <option value="Asia/Dubai">(GMT+04:00) Dubai, Abu Dhabi</option>
+                      <option value="UTC">(GMT+00:00) Coordinated Universal Time</option>
+                      <option value="Europe/Paris">(GMT+01:00) Paris</option>
+                    </select>
+                    <span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--text3)">Sequences, scheduled emails and your daily digest follow this clock</span>
+                  </label>
+                  <label style="display:block;margin-bottom:16px">
+                    <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Date format</span>
+                    <select style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
+                      <option>Workspace default · 04 Dec 2026 · DD MMM YYYY</option>
+                      <option>04 Dec 2026 · DD MMM YYYY</option>
+                      <option>Dec 4, 2026 · MMM D, YYYY</option>
+                      <option>04/12/2026 · DD/MM/YYYY</option>
+                      <option>12/04/2026 · MM/DD/YYYY</option>
+                      <option>2026-12-04 · YYYY-MM-DD</option>
+                    </select>
+                  </label>
+                  <label style="display:block;margin-bottom:16px">
+                    <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Time format</span>
+                    <select style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
+                      <option>Workspace default · 14:30 · 24-hour</option>
+                      <option>14:30 · 24-hour</option>
+                      <option>2:30 PM · 12-hour</option>
+                    </select>
+                  </label>
+                </div>
+                <div style="border-radius:8px;border:1px solid var(--line-soft);background:var(--panel);padding:10px 12px">
+                  <div style="font:600 9.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Preview</div>
+                  <div style="margin-top:4px;font:500 13px var(--mono);color:var(--text)">Fri, 04 Dec 2026, 14:30 GMT+4 · Dubai, Abu Dhabi</div>
+                </div>
               </div>
               <div style="margin-top:20px;display:flex;justify-content:flex-end">
                 <button onClick="{{ saveProfile }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Save changes</button>
@@ -441,6 +473,54 @@
               </div>
               <div style="margin-top:20px;display:flex;justify-content:flex-end">
                 <button onClick="{{ saveWorkspace }}" disabled="{{ wsNameBlank }}" style="{{ wsSaveStyle }}" style-hover="filter:brightness(1.05)">Save changes</button>
+              </div>
+            </div>
+            <!-- How dates and times read for everyone. Every field opens on a value: the country's zone and the one standard format (DD MMM YYYY, 24-hour). Fixed lists only — 42 zones, 5 date shapes, 2 clocks. A member may choose their own in Profile. -->
+            <div data-screen-label="Date &amp; time" style="margin-top:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:20px">
+              <div style="margin-bottom:16px;display:flex;align-items:flex-start;gap:12px">
+                <div style="flex:1">
+                  <div style="font:600 14px var(--sans)">Date &amp; time</div>
+                  <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">How dates and times read for everyone in {{ wsName }}. Members can choose their own in Settings → Profile.</div>
+                </div>
+                <button style="flex:none;border:0;background:none;padding:0;font:500 12px var(--sans);color:var(--sky);cursor:pointer">Reset to standard</button>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:16px">
+                <label style="display:block;margin-bottom:16px">
+                  <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Time zone</span>
+                  <select style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
+                    <option>(GMT+03:00) Riyadh, Jeddah</option>
+                    <option selected>(GMT+04:00) Dubai, Abu Dhabi</option>
+                    <option>(GMT+04:00) Muscat</option>
+                    <option>(GMT+00:00) London</option>
+                  </select>
+                  <span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--text3)">From United Arab Emirates</span>
+                </label>
+                <label style="display:block;margin-bottom:16px">
+                  <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Date format</span>
+                  <select style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
+                    <option selected>04 Dec 2026 · DD MMM YYYY</option>
+                    <option>Dec 4, 2026 · MMM D, YYYY</option>
+                    <option>04/12/2026 · DD/MM/YYYY</option>
+                    <option>12/04/2026 · MM/DD/YYYY</option>
+                    <option>2026-12-04 · YYYY-MM-DD</option>
+                  </select>
+                </label>
+                <div style="margin-bottom:16px">
+                  <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Time format</span>
+                  <div role="radiogroup" aria-label="Time format" style="display:inline-flex;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
+                    <button role="radio" aria-checked="true" style="border:0;border-radius:4px;padding:6px 10px;font:500 12.5px var(--sans);background:var(--sky-dim);color:var(--text);cursor:pointer">14:30 · 24-hour</button>
+                    <button role="radio" aria-checked="false" style="border:0;border-radius:4px;padding:6px 10px;font:500 12.5px var(--sans);background:none;color:var(--text3);cursor:pointer">2:30 PM · 12-hour</button>
+                  </div>
+                </div>
+              </div>
+              <div style="border-radius:8px;border:1px solid var(--line-soft);background:var(--panel);padding:10px 12px">
+                <div style="font:600 9.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Preview</div>
+                <div style="margin-top:4px;font:500 13px var(--mono);color:var(--text)">Fri, 04 Dec 2026, 14:30 GMT+4 · Dubai, Abu Dhabi</div>
+                <div style="margin-top:4px;font:400 11px var(--sans);color:var(--text3)">Applies to 12 of 14 members · 2 chose their own</div>
+              </div>
+              <div style="margin-top:12px;font:400 11px var(--sans);color:var(--text3)">The time zone also sets when sequences send and when daily digests arrive for members who follow the workspace.</div>
+              <div style="margin-top:20px;display:flex;justify-content:flex-end">
+                <button style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Save date &amp; time</button>
               </div>
             </div>
             <!-- Who the workspace hires for. Choosing the other card opens a confirmation: every colleague's labels and screens change with it, no record does. -->

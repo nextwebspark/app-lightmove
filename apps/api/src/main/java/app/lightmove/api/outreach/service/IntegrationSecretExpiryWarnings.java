@@ -1,5 +1,6 @@
 package app.lightmove.api.outreach.service;
 
+import app.lightmove.api.common.time.service.DateTimeFormats;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
@@ -13,13 +14,12 @@ import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
+import app.lightmove.api.workspace.service.DateTimePreferenceService;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Locale;
 import java.util.OptionalInt;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -38,8 +38,6 @@ public class IntegrationSecretExpiryWarnings {
 
     static final List<Integer> THRESHOLDS = List.of(30, 7, 0);
 
-    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH);
-
     private final WorkspaceMailIntegrationRepository integrations;
     private final WorkspaceMemberRepository members;
     private final WorkspaceRepository workspaces;
@@ -48,6 +46,7 @@ public class IntegrationSecretExpiryWarnings {
     private final EmailSender emailSender;
     private final LightMoveProperties properties;
     private final Clock clock;
+    private final DateTimePreferenceService dateTimePreferences;
 
     @Scheduled(cron = "${lightmove.outreach.secret-expiry-check}", zone = "UTC")
     public void warn() {
@@ -77,12 +76,14 @@ public class IntegrationSecretExpiryWarnings {
                 .orElse("your workspace");
         long daysLeft = ChronoUnit.DAYS.between(today, integration.getSecretExpiresOn());
         String link = properties.web().baseUrl() + "/settings/integrations";
+        String expiresOn = DateTimeFormats.of(dateTimePreferences.workspaceDefaultsOf(integration.getWorkspaceId()))
+                .date(integration.getSecretExpiresOn());
         List<UUID> admins = members.findUserIdsHoldingAction(integration.getWorkspaceId(),
                 WorkspaceAction.WORKSPACE_MANAGE.name(), MemberStatus.ACTIVE);
         for (User admin : users.findAllById(admins)) {
             emailSender.send(templates.buildIntegrationSecretExpiryEmail(admin.getEmail(), admin.getFullName(),
                     workspaceName, integration.getProvider().displayName(),
-                    DATE.format(integration.getSecretExpiresOn()), daysLeft, link));
+                    expiresOn, daysLeft, link));
         }
     }
 }

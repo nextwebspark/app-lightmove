@@ -5,6 +5,8 @@ const valid = {
   fullName: "Alok Kumar",
   title: "Managing Partner",
   timezone: "Asia/Dubai",
+  dateFormat: "",
+  timeFormat: "",
   locale: "en",
 };
 
@@ -37,19 +39,30 @@ describe("profileSchema", () => {
   });
 
   /** A stale tab offering a value the server no longer accepts fails here, with the field named. */
-  it("refuses a timezone or language outside the pickers", () => {
-    for (const refused of ["Mars/Olympus", "EST", "Etc/GMT"]) {
+  it("refuses a timezone, format or language outside the pickers", () => {
+    for (const refused of ["Mars/Olympus", "EST", "Etc/GMT", "America/Argentina/Buenos_Aires"]) {
       const zone = profileSchema.safeParse({ ...valid, timezone: refused });
       expect(issueFor(zone, "timezone")).toBe("Pick a timezone from the list");
     }
-    expect(profileSchema.safeParse({ ...valid, timezone: "America/Argentina/Buenos_Aires" }).success).toBe(true);
+    expect(profileSchema.safeParse({ ...valid, timezone: "America/Sao_Paulo" }).success).toBe(true);
     expect(profileSchema.safeParse({ ...valid, timezone: "UTC" }).success).toBe(true);
+    expect(issueFor(profileSchema.safeParse({ ...valid, dateFormat: "D/M/Y" }), "dateFormat")).toBe(
+      "Pick a date format from the list",
+    );
+    expect(issueFor(profileSchema.safeParse({ ...valid, timeFormat: "H36" }), "timeFormat")).toBe(
+      "Pick a time format from the list",
+    );
 
     const language = profileSchema.safeParse({ ...valid, locale: "zz" });
     expect(issueFor(language, "locale")).toBe("Pick a language from the list");
   });
 
-  it("keeps a zone saved before the region rule, while a new choice must be a region's", () => {
+  it("takes an empty choice as the workspace's", () => {
+    expect(profileSchema.safeParse({ ...valid, timezone: "", dateFormat: "", timeFormat: "" }).success).toBe(true);
+    expect(profileSchema.safeParse({ ...valid, dateFormat: "MMM_D_YYYY", timeFormat: "H12" }).success).toBe(true);
+  });
+
+  it("keeps a zone saved before the fixed list, while a new choice must be listed", () => {
     const saved = profileSchemaFor("US/Pacific");
     expect(saved.safeParse({ ...valid, timezone: "US/Pacific" }).success).toBe(true);
     expect(issueFor(saved.safeParse({ ...valid, timezone: "EST" }), "timezone")).toBe("Pick a timezone from the list");

@@ -7,6 +7,7 @@ import { AuthProvider } from "../AuthProvider";
 import { SignupPage } from "./SignupPage";
 import * as authApi from "../api/authApi";
 import { ApiRequestError } from "../../../lib/apiClient";
+import { FOLLOWING_DATE_TIME } from "../../../test/fixtures/user";
 
 vi.mock("../api/authApi");
 
@@ -83,6 +84,7 @@ describe("SignupPage", () => {
         emailVerified: false,
         hasPassword: true,
         timezone: "Asia/Dubai",
+        dateTime: FOLLOWING_DATE_TIME,
         locale: "en",
         platformActions: [],
         pendingInvitations: [],

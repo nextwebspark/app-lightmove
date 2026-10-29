@@ -21,5 +21,6 @@ public record WorkspaceResponse(
         long memberCount,
         Instant createdAt,
         HiringPersona persona,
-        WorkspaceCompanyResponse company
+        WorkspaceCompanyResponse company,
+        WorkspaceDateTimeResponse dateTime
 ) {}

@@ -45,7 +45,10 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 |---|---|---|---|
 | ☐ Default region / currency | select | unchecked | toast |
 | ☐ Persona chips | ≤ 20 items, no item length | ≤ 20 × 96/160/64 | toast |
-| Profile timezone | a region's zone or UTC, from the grouped list; the saved value passes unchanged (kept in the list if the browser lists none) | `@NotBlank @Size(64)`; a new choice must be a region's own zone or `UTC` the JDK knows, never a legacy alias like `EST` (`VALIDATION_FAILED` on `timezone`) — a zone saved before V148 saves unchanged | field |
+| Profile timezone | Workspace default (empty, sent as null), or one of the fixed list's 42 zones (`lib/datetime/timeZones.ts`); the saved value passes unchanged (kept in the list, marked "no longer offered") | `@Size(64)`, null follows the workspace; a new choice must be on `data/time-zones.json` (`StandardTimeZones`, `VALIDATION_FAILED` on `timezone`) — a zone saved before V160 saves unchanged | field |
+| Profile date format / time format | Workspace default (null) or one of the 5 date shapes / 2 clocks | `DateFormatStyle` / `TimeFormatStyle` enums, null follows the workspace; anything else is a 400 | field |
+| Workspace time zone (General → Date & time) | one of the fixed 42, opening on the country's; equal to it is sent as null | `@Size(64)`; a new choice must be listed (`VALIDATION_FAILED` on `timeZone`), null is the country's | toast |
+| Workspace date format / time format | one of the 5 / 2, opening on the standard (`DD_MMM_YYYY`, `H24`); equal to it is sent as null | the enums, null is the standard; anything else is a 400 | toast |
 | Candidate tag label | trimmed, ≤ 40 | `@NotBlank @Size(40)` | toast |
 | API key name | trimmed, ≤ 80 | `@NotBlank @Size(80)` | banner |
 | Task preset name | trimmed, ≤ 80, one line | `@NotBlank @Size(80)`, no line break | toast |

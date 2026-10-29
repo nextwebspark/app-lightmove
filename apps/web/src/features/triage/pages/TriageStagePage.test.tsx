@@ -26,6 +26,7 @@ import { pickStatus } from "../../../test/pickStatus";
 import { TriageStagePage } from "./TriageStagePage";
 import * as companyNotesApi from "../api/companyNotesApi";
 import { typeInto } from "../../../test/noteEditor";
+import { FOLLOWING_DATE_TIME } from "../../../test/fixtures/user";
 
 vi.mock("../../../lib/countries", () => import("../../../test/countries"));
 
@@ -139,6 +140,7 @@ const lead = {
   emailVerified: true,
   hasPassword: true,
   timezone: "Asia/Dubai",
+  dateTime: FOLLOWING_DATE_TIME,
   locale: "en",
   platformActions: [],
   pendingInvitations: [],

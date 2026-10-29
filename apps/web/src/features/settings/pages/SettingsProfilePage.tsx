@@ -22,7 +22,10 @@ export function SettingsProfilePage() {
       fullName: values.fullName,
       // An empty box is "no title", which the contract spells null rather than "".
       title: values.title === "" ? null : values.title,
-      timezone: values.timezone,
+      // An empty choice keeps the workspace's, which the contract spells null.
+      timezone: values.timezone || null,
+      dateFormat: values.dateFormat || null,
+      timeFormat: values.timeFormat || null,
       locale: values.locale,
     });
     // The topbar avatar and the roster read the same name, and reload() re-mints the token first.
@@ -51,9 +54,12 @@ export function SettingsProfilePage() {
           defaultValues={{
             fullName: user.fullName,
             title: user.title ?? "",
-            timezone: user.timezone,
+            timezone: user.dateTime.own.timeZone ?? "",
+            dateFormat: user.dateTime.own.dateFormat ?? "",
+            timeFormat: user.dateTime.own.timeFormat ?? "",
             locale: user.locale,
           }}
+          workspace={user.dateTime.workspace}
           onSave={handleSave}
         />
       </div>

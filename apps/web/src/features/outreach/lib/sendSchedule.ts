@@ -1,3 +1,11 @@
+import {
+  formatClock,
+  formatWeekdayDate,
+  formatWeekdayDateTime,
+  instantOf,
+  wallClockOf,
+  type WallClock,
+} from "../../../lib/datetime";
 import type { SequenceSchedule, SequenceStep, StartMode, Weekday } from "../api/sequenceApi";
 
 /**
@@ -51,9 +59,9 @@ export function daysLabelOf(days: readonly Weekday[]): string {
   return ordered.map((weekday) => weekday.label).join(", ");
 }
 
-/** "Mon–Fri, 08:00–18:00". */
+/** "Mon–Fri, 08:00–18:00" (or "8:00 AM–6:00 PM"). */
 export function scheduleLabelOf(schedule: SequenceSchedule): string {
-  return `${daysLabelOf(schedule.days)}, ${clockOf(schedule.windowStart)}–${clockOf(schedule.windowEnd)}`;
+  return `${daysLabelOf(schedule.days)}, ${formatClock(schedule.windowStart)}–${formatClock(schedule.windowEnd)}`;
 }
 
 /** "Dubai" for "Asia/Dubai": how a zone is named in a sentence. */
@@ -61,64 +69,7 @@ export function zoneCityOf(timeZone: string): string {
   return (timeZone.split("/").pop() ?? timeZone).replace(/_/g, " ");
 }
 
-interface WallClock {
-  /** `YYYY-MM-DD`. */
-  date: string;
-  /** `HH:mm`. */
-  time: string;
-  weekday: Weekday;
-}
-
-const WEEKDAY_BY_SHORT: Record<string, Weekday> = {
-  Mon: "MONDAY",
-  Tue: "TUESDAY",
-  Wed: "WEDNESDAY",
-  Thu: "THURSDAY",
-  Fri: "FRIDAY",
-  Sat: "SATURDAY",
-  Sun: "SUNDAY",
-};
-
-/** The date, time and weekday an instant reads as on a clock in `timeZone`. */
-export function wallClockOf(instant: Date, timeZone: string): WallClock {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat("en-GB", {
-      timeZone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      weekday: "short",
-      hourCycle: "h23",
-    })
-      .formatToParts(instant)
-      .map((part) => [part.type, part.value]),
-  );
-  return {
-    date: `${parts.year}-${parts.month}-${parts.day}`,
-    time: `${parts.hour}:${parts.minute}`,
-    weekday: WEEKDAY_BY_SHORT[parts.weekday],
-  };
-}
-
-/** The instant a wall clock in `timeZone` shows `date` at `time`. */
-export function instantOf(date: string, time: string, timeZone: string): Date {
-  const [year, month, day] = date.split("-").map(Number);
-  const [hour, minute] = time.split(":").map(Number);
-  const asIfUtc = Date.UTC(year, month - 1, day, hour, minute);
-  let guess = asIfUtc - offsetOf(new Date(asIfUtc), timeZone);
-  guess = asIfUtc - offsetOf(new Date(guess), timeZone);
-  return new Date(guess);
-}
-
-function offsetOf(instant: Date, timeZone: string): number {
-  const clock = wallClockOf(instant, timeZone);
-  const [year, month, day] = clock.date.split("-").map(Number);
-  const [hour, minute] = clock.time.split(":").map(Number);
-  const seconds = instant.getUTCSeconds() * 1000 + instant.getUTCMilliseconds();
-  return Date.UTC(year, month - 1, day, hour, minute) - (instant.getTime() - seconds);
-}
+export { instantOf, wallClockOf };
 
 /** A `YYYY-MM-DD` day moved by whole days. */
 function shiftDate(date: string, days: number): string {
@@ -203,12 +154,10 @@ export function isOutsideSchedule(schedule: SequenceSchedule, at: Date, timeZone
 
 /** "Tue 7 Oct" in `timeZone`. */
 export function dayLabelOf(at: Date, timeZone: string): string {
-  return at
-    .toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone })
-    .replace(",", "");
+  return formatWeekdayDate(at, { timeZone }) ?? "";
 }
 
 /** "Tue 7 Oct, 09:30" in `timeZone`. */
 export function whenLabelOf(at: Date, timeZone: string): string {
-  return `${dayLabelOf(at, timeZone)}, ${wallClockOf(at, timeZone).time}`;
+  return formatWeekdayDateTime(at, { timeZone }) ?? "";
 }

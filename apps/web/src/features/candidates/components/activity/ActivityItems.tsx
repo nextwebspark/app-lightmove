@@ -20,6 +20,7 @@ import {
   type TaskState,
 } from "../../lib/activityPresentation";
 import { ActorFace, KindTile } from "./ActivityVisuals";
+import { datePartsOf, formatInstantTime } from "../../../../lib/datetime";
 
 interface ItemProps {
   entry: PersonTimelineEntry;
@@ -320,9 +321,9 @@ function MeetingPreview({ preview }: { preview: Extract<ActivityPreview, { type:
       {isValid && (
         <span className="w-10 flex-none overflow-hidden rounded-lg border border-u-border-strong bg-u-surface text-center" aria-hidden="true">
           <span className={cn("block py-0.5 text-eyebrow font-semibold uppercase tracking-[0.08em]", preview.cancelled ? "bg-u-offlimits-tint text-u-offlimits" : "bg-u-direct-tint text-u-direct")}>
-            {at.toLocaleDateString("en-GB", { month: "short" })}
+            {datePartsOf(at)?.month}
           </span>
-          <span className="block pb-1 pt-0.5 font-mono text-body font-medium text-u-text">{at.getDate()}</span>
+          <span className="block pb-1 pt-0.5 font-mono text-body font-medium text-u-text">{datePartsOf(at)?.day}</span>
         </span>
       )}
       <span className="min-w-0 text-body">
@@ -384,6 +385,5 @@ function Chip({ children, tone }: { children: ReactNode; tone?: "ai" }) {
 }
 
 function clockOf(isoInstant: string): string {
-  const at = new Date(isoInstant);
-  return Number.isNaN(at.getTime()) ? "—" : at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return formatInstantTime(isoInstant) ?? "—";
 }

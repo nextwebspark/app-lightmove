@@ -1,9 +1,12 @@
 package app.lightmove.api.core.security.controller;
 
+import app.lightmove.api.common.time.model.DateTimePreferences;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.dto.AuthResponse;
+import app.lightmove.api.core.security.dto.DateTimeChoiceResponse;
 import app.lightmove.api.core.security.dto.PendingInvitationSummary;
+import app.lightmove.api.core.security.dto.UserDateTimeResponse;
 import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.PlatformAccess;
@@ -20,6 +23,7 @@ import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.InvitationRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
+import app.lightmove.api.workspace.service.DateTimePreferenceService;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
@@ -46,6 +50,7 @@ public class AuthResponseAssembler {
     private final UserRepository users;
     private final WorkspaceSelection selection;
     private final PlatformAccess platform;
+    private final DateTimePreferenceService dateTimePreferences;
 
     public AuthResponse assemble(TokenPair tokens, User user, WorkspaceMember membership) {
         return new AuthResponse(
@@ -58,6 +63,8 @@ public class AuthResponseAssembler {
     public UserResponse user(User user, WorkspaceMember membership) {
         List<WorkspaceMember> memberships = selection.all(user.getId());
         Map<UUID, Workspace> byId = workspacesOf(memberships);
+        Workspace current = membership == null || !membership.isActive() ? null : byId.get(membership.getWorkspaceId());
+        DateTimePreferences effective = dateTimePreferences.forPerson(user, current);
         return new UserResponse(
                 user.getId(),
                 user.getEmail(),
@@ -66,7 +73,11 @@ public class AuthResponseAssembler {
                 user.getAvatarUrl(),
                 user.isEmailVerified(),
                 user.hasPassword(),
-                user.getTimezone(),
+                effective.zone().getId(),
+                new UserDateTimeResponse(
+                        DateTimeChoiceResponse.of(effective),
+                        new DateTimeChoiceResponse(user.getTimezone(), user.getDateFormat(), user.getTimeFormat()),
+                        current == null ? null : DateTimeChoiceResponse.of(dateTimePreferences.forWorkspace(current))),
                 user.getLocale(),
                 currentSummary(membership, byId),
                 memberships.stream()

@@ -1,11 +1,11 @@
 package app.lightmove.api.notification.service;
 
 import app.lightmove.api.common.constant.ApiValueEnum;
-import app.lightmove.api.core.security.service.UserTimezones;
 import app.lightmove.api.notification.constant.NotificationKind;
 import app.lightmove.api.notification.constant.NotificationPreferenceKind;
 import app.lightmove.api.notification.dto.NotificationKindPreferenceDto;
 import app.lightmove.api.notification.dto.NotificationPreferencesDto;
+import app.lightmove.api.workspace.service.DateTimePreferenceService;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
@@ -29,7 +29,7 @@ public class NotificationPreferenceService {
             .collect(Collectors.toUnmodifiableSet());
 
     private final NotificationPreferences preferences;
-    private final UserTimezones timezones;
+    private final DateTimePreferenceService timezones;
 
     @Transactional(readOnly = true)
     public NotificationPreferencesDto of(UUID userId, UUID workspaceId) {
@@ -37,7 +37,7 @@ public class NotificationPreferenceService {
         return new NotificationPreferencesDto(Arrays.stream(NotificationPreferenceKind.values())
                 .map(kind -> new NotificationKindPreferenceDto(kind.value(), chosen.get(kind).inApp(),
                         EMAILED.contains(kind) && chosen.get(kind).email()))
-                .toList(), preferences.digest(userId, workspaceId), timezones.zoneOf(userId).getId());
+                .toList(), preferences.digest(userId, workspaceId), timezones.zoneOf(workspaceId, userId).getId());
     }
 
     @Transactional

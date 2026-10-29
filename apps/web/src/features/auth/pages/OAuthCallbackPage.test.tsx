@@ -6,6 +6,7 @@ import { AuthProvider } from "../AuthProvider";
 import { OAuthCallbackPage } from "./OAuthCallbackPage";
 import * as authApi from "../api/authApi";
 import { restoreSession, setAccessToken } from "../../../lib/apiClient";
+import { FOLLOWING_DATE_TIME } from "../../../test/fixtures/user";
 
 vi.mock("../api/authApi");
 
@@ -38,6 +39,7 @@ describe("OAuthCallbackPage", () => {
     emailVerified: true,
     hasPassword: true,
     timezone: "Asia/Dubai",
+    dateTime: FOLLOWING_DATE_TIME,
     locale: "en",
     platformActions: [],
     pendingInvitations: [],

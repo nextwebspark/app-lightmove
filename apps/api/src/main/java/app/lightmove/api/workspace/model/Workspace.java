@@ -3,6 +3,8 @@ package app.lightmove.api.workspace.model;
 import app.lightmove.api.common.constant.DefaultCurrency;
 import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.common.persona.model.PersonaSeed;
+import app.lightmove.api.common.time.constant.DateFormatStyle;
+import app.lightmove.api.common.time.constant.TimeFormatStyle;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.persistence.model.BaseEntity;
@@ -96,6 +98,20 @@ public class Workspace extends BaseEntity {
     @Column(nullable = false, length = 32)
     private String plan = "FREE";
 
+    /** Null is the country's; read through {@code DateTimePreferenceService}, never alone (V160). */
+    @Column(name = "time_zone", length = 64)
+    private String timeZone;
+
+    /** Null is the standard {@link DateFormatStyle#STANDARD}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "date_format", length = 16)
+    private DateFormatStyle dateFormat;
+
+    /** Null is the standard {@link TimeFormatStyle#STANDARD}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "time_format", length = 4)
+    private TimeFormatStyle timeFormat;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private WorkspaceStatus status = WorkspaceStatus.ACTIVE;
@@ -133,6 +149,13 @@ public class Workspace extends BaseEntity {
     /** The one write of the calendar sync, so every switch passes the audited path that calls it. */
     public void changeCalendarSync(CalendarSync calendarSync) {
         this.calendarSync = Objects.requireNonNull(calendarSync, "calendarSync");
+    }
+
+    /** The one write of the date and time settings, so every change passes the audited path that calls it. */
+    public void changeDateTime(String timeZone, DateFormatStyle dateFormat, TimeFormatStyle timeFormat) {
+        this.timeZone = timeZone;
+        this.dateFormat = dateFormat;
+        this.timeFormat = timeFormat;
     }
 
     public void describePersona(HiringPersona persona) {

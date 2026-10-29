@@ -30,6 +30,8 @@ import { firstNameOf, type TeammateOption } from "../lib/team";
 import { usePositionTeam } from "../lib/usePositionTeam";
 import { useTasksChanged } from "../lib/useTasksChanged";
 import { AssigneePicker } from "./AssigneePicker";
+import { TimeInput } from "../../../components/ui/TimeInput";
+import { zoneCityLabel } from "../../../lib/datetime";
 
 /** Whose next action the modal sets, and the task it edits when there is one. */
 export interface NextActionTarget {
@@ -444,12 +446,11 @@ function NextActionForm({
               value={due.date}
               onChange={(date) => setDue((current) => ({ ...current, date }))}
             />
-            <Input
-              type="time"
-              aria-label="Due time"
+            <TimeInput
+              ariaLabel="Due time"
               disabled={readOnly}
               value={due.time}
-              onChange={(event) => setDue((current) => ({ ...current, time: event.target.value }))}
+              onChange={(time) => setDue((current) => ({ ...current, time }))}
             />
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -477,7 +478,7 @@ function NextActionForm({
           </div>
           {dueAt && (
             <span className="text-meta text-u-text2">
-              Due {formatInstantDateTime(dueAt)} · {viewerTimeZone()}
+              Due {formatInstantDateTime(dueAt)} · {zoneCityLabel(viewerTimeZone())}
             </span>
           )}
         </div>

@@ -1,7 +1,8 @@
 package app.lightmove.api.core.security.model;
-import app.lightmove.api.core.security.constant.UserStatus;
-
+import app.lightmove.api.common.time.constant.DateFormatStyle;
+import app.lightmove.api.common.time.constant.TimeFormatStyle;
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.core.security.constant.UserStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -9,7 +10,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -46,9 +46,22 @@ public class User extends BaseEntity {
     @Column(name = "avatar_source", length = 32)
     private String avatarSource;
 
+    /** The person's own clock, or null to keep the workspace's (V160); read through {@code DateTimePreferenceService}. */
     @Setter
-    @Column(nullable = false, length = 64)
-    private String timezone = "Asia/Dubai";
+    @Column(length = 64)
+    private String timezone;
+
+    /** Null keeps the workspace's. */
+    @Setter
+    @Enumerated(EnumType.STRING)
+    @Column(name = "date_format", length = 16)
+    private DateFormatStyle dateFormat;
+
+    /** Null keeps the workspace's. */
+    @Setter
+    @Enumerated(EnumType.STRING)
+    @Column(name = "time_format", length = 4)
+    private TimeFormatStyle timeFormat;
 
     @Setter
     @Column(nullable = false, length = 16)
@@ -129,10 +142,6 @@ public class User extends BaseEntity {
         user.termsAcceptedAt = verifiedAt;
         user.privacyPolicyVersion = privacyPolicyVersion;
         return user;
-    }
-
-    public ZoneId zone() {
-        return ZoneId.of(timezone);
     }
 
     public boolean hasPassword() {

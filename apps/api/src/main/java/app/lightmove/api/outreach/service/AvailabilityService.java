@@ -9,7 +9,6 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.OutreachSettings;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.security.service.UserTimezones;
 import app.lightmove.api.outreach.constant.WorkingHoursSource;
 import app.lightmove.api.outreach.dto.MyAvailabilityResponse;
 import app.lightmove.api.outreach.dto.UpdateAvailabilityRequest;
@@ -29,6 +28,7 @@ import app.lightmove.api.outreach.model.WorkspaceAvailability;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.repository.MemberAvailabilityRepository;
 import app.lightmove.api.outreach.repository.WorkspaceAvailabilityRepository;
+import app.lightmove.api.workspace.service.DateTimePreferenceService;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.DayOfWeek;
@@ -64,7 +64,7 @@ public class AvailabilityService {
     private final MailboxConnectionRepository mailboxes;
     private final MailboxGateway gateway;
     private final WorkspaceSettingsService workspaces;
-    private final UserTimezones timezones;
+    private final DateTimePreferenceService timezones;
     private final AuditService audit;
     private final ApplicationEventPublisher events;
     private final LightMoveProperties properties;
@@ -148,7 +148,7 @@ public class AvailabilityService {
                 own.map(MemberAvailability::getDailyEmailCap).map(cap -> Math.min(cap, workspaceCap))
                         .orElse(null),
                 workspaceCap,
-                timezones.zoneOf(userId).getId(), calendarStatesHours);
+                timezones.zoneOf(workspaceId, userId).getId(), calendarStatesHours);
     }
 
     /** Settings → Meetings & email. Recorded only where something changed, as every workspace setting is. */

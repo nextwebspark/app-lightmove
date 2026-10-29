@@ -1,5 +1,7 @@
 package app.lightmove.api.core.security.dto;
 
+import app.lightmove.api.common.time.constant.DateFormatStyle;
+import app.lightmove.api.common.time.constant.TimeFormatStyle;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -19,9 +21,15 @@ public record UpdateProfileRequest(
         @Size(max = 120, message = "That title is too long")
         String title,
 
-        @NotBlank(message = "Pick a timezone")
+        /** Null follows the workspace's time zone. */
         @Size(max = 64, message = "That is not a timezone")
         String timezone,
+
+        /** Null follows the workspace's date format. */
+        DateFormatStyle dateFormat,
+
+        /** Null follows the workspace's time format. */
+        TimeFormatStyle timeFormat,
 
         @NotBlank(message = "Pick a language")
         @Size(max = 16, message = "That is not a language")

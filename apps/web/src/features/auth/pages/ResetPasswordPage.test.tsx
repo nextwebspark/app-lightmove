@@ -8,6 +8,7 @@ import type { User } from "../api/types";
 import { AuthProvider } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import { ResetPasswordPage } from "./ResetPasswordPage";
+import { FOLLOWING_DATE_TIME } from "../../../test/fixtures/user";
 
 vi.mock("../api/authApi");
 
@@ -46,6 +47,7 @@ describe("ResetPasswordPage", () => {
       emailVerified: true,
       hasPassword: true,
       timezone: "Asia/Dubai",
+      dateTime: FOLLOWING_DATE_TIME,
       locale: "en",
       platformActions: [],
       pendingInvitations: [],

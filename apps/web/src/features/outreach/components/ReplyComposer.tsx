@@ -18,6 +18,7 @@ import { isLive } from "../lib/runVocabulary";
 import { HALF_HOURS, instantOf, wallClockOf, whenLabelOf } from "../lib/sendSchedule";
 import { firstNameOf } from "../lib/sequenceTokens";
 import type { MailboxConnect } from "../lib/useMailboxConnect";
+import { formatClock, getDateTimePreferences } from "../../../lib/datetime";
 
 /** As far ahead as the server takes a scheduled email. */
 const SCHEDULE_HORIZON_DAYS = 60;
@@ -66,7 +67,7 @@ export function ReplyComposer({
       candidateId={executive.candidateId}
       firstName={firstName}
       fromAddress={"connection" in mailbox ? mailbox.connection.address : null}
-      timeZone={"connection" in mailbox ? mailbox.connection.timeZone : "UTC"}
+      timeZone={"connection" in mailbox ? mailbox.connection.timeZone : getDateTimePreferences().timeZone}
       emails={contact.emails.map((email) => email.address)}
       replySubject={composer.replySubject}
       replyStopsRun={composer.replyStopsRun}
@@ -350,7 +351,7 @@ function SchedulePicker({
             <Select aria-label="Send at" value={time} onChange={(event) => setTime(event.target.value)}>
               {HALF_HOURS.map((halfHour) => (
                 <option key={halfHour} value={halfHour}>
-                  {halfHour}
+                  {formatClock(halfHour)}
                 </option>
               ))}
             </Select>

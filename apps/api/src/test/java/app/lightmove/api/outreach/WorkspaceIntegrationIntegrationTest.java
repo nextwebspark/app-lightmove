@@ -288,7 +288,7 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
         expiryWarnings.warnAt(LocalDate.parse("2031-02-20"));
         expiryWarnings.warnAt(LocalDate.parse("2031-02-21"));
         assertThat(expiryWarningsTo(adminEmail))
-                .containsExactly("Your Microsoft 365 app's client secret expires on 15 March 2031");
+                .containsExactly("Your Microsoft 365 app's client secret expires on 15 Mar 2031");
         UUID integrationId = UUID.fromString(jdbc.queryForObject("SELECT id::text FROM app_lm_workspace_mail_integration "
                 + "WHERE workspace_id = ?::uuid AND provider = 'MICROSOFT'", String.class, workspaceOf(admin)));
         assertThat(integrations.claimExpiryWarning(integrationId, LocalDate.parse("2031-03-15"), 30))

@@ -1,6 +1,7 @@
 import { formatInstantDate, formatInstantDateTime, formatInstantTime } from "../../../lib/format";
 import type { DrawerSection } from "../../candidates/lib/drawerTabs";
 import type { NotificationKind, NotificationResponse } from "../api/types";
+import { dayKeyOf, daysBetween, instantOf, shiftDay, wallClockOf } from "../../../lib/datetime";
 
 /** The bell's count: hidden at none, and never wider than "9+". */
 export function unreadBadgeOf(unreadCount: number): string | null {
@@ -79,7 +80,7 @@ export function snoozeOptionsOf(now: Date = new Date()): SnoozeOption[] {
   const choices: [SnoozeChoice, string, Date][] = [
     ["hour", "In 1 hour", new Date(now.getTime() + 3_600_000)],
     ["tomorrow", "Tomorrow", atNine(now, 1)],
-    ["week", "Next week", atNine(now, (8 - now.getDay()) % 7 || 7)],
+    ["week", "Next week", atNine(now, (8 - WEEKDAY_INDEX[wallClockOf(now).weekday]) % 7 || 7)],
   ];
   return choices.map(([key, label, until]) => ({
     key,
@@ -89,12 +90,13 @@ export function snoozeOptionsOf(now: Date = new Date()): SnoozeOption[] {
   }));
 }
 
+const WEEKDAY_INDEX = { SUNDAY: 0, MONDAY: 1, TUESDAY: 2, WEDNESDAY: 3, THURSDAY: 4, FRIDAY: 5, SATURDAY: 6 };
+
+/** 09:00 so many days from today, on the person's own clock. */
 function atNine(now: Date, daysAhead: number): Date {
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysAhead, 9, 0, 0, 0);
+  return instantOf(shiftDay(dayKeyOf(now), daysAhead), "09:00");
 }
 
 function daysBefore(isoInstant: string, now: Date): number {
-  const moment = new Date(isoInstant);
-  const startOf = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-  return Math.round((startOf(now) - startOf(moment)) / 86_400_000);
+  return daysBetween(dayKeyOf(new Date(isoInstant)), dayKeyOf(now));
 }

@@ -30,6 +30,7 @@ import { PersonTimelineTab } from "./PersonTimelineTab";
 import { PersonContactTab } from "./PersonContactTab";
 import { AddToPositionDialog } from "./AddToPositionDialog";
 import { focusNoteComposer } from "../../../notes/lib/focusNoteComposer";
+import { formatInstantDateTime } from "../../../../lib/datetime";
 
 const TAB_ID_PREFIX = "person-drawer";
 
@@ -193,7 +194,7 @@ function PersonDrawerBody({
               {doNotContact.reason && ` ${doNotContact.reason}`}
               <span className="mt-0.5 block font-mono text-[11px] text-u-text3">
                 Set by {doNotContact.setByName ?? "someone"}
-                {doNotContact.setAt && ` · ${new Date(doNotContact.setAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`}
+                {doNotContact.setAt && ` · ${formatInstantDateTime(doNotContact.setAt)}`}
               </span>
             </div>
           )}

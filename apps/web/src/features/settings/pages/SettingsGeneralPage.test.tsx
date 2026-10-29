@@ -8,12 +8,14 @@ import type { CompanySuggestion } from "../../strategy/api/types";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import type { WorkspaceDetail } from "../../workspace/api/types";
 import { SettingsGeneralPage } from "./SettingsGeneralPage";
+import { WORKSPACE_DATE_TIME } from "../../../test/fixtures/user";
 
 vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../workspace/api/workspaceApi")>()),
   workspace: vi.fn(),
   updateWorkspace: vi.fn(),
   changeMode: vi.fn(),
+  updateDateTime: vi.fn(),
 }));
 
 vi.mock("../../strategy/api/companiesApi", async (importOriginal) => ({
@@ -53,6 +55,7 @@ const typedWorkspace = {
   createdAt: "2026-09-01T00:00:00Z",
   persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
   company: null,
+  dateTime: WORKSPACE_DATE_TIME,
 } satisfies WorkspaceDetail;
 
 const renderPage = () =>
@@ -70,6 +73,60 @@ beforeEach(() => {
   vi.mocked(workspaceApi.updateWorkspace).mockResolvedValue(typedWorkspace);
   vi.mocked(workspaceApi.changeMode).mockResolvedValue({ ...typedWorkspace, mode: "AGENCY" });
   vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [alFuttaim] });
+  vi.mocked(workspaceApi.updateDateTime).mockResolvedValue(typedWorkspace);
+});
+
+describe("SettingsGeneralPage — the workspace's date and time", () => {
+  it("opens on the country's zone and the standard formats, already chosen", async () => {
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "Date & time" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Time zone")).toHaveValue("Asia/Dubai");
+    expect(screen.getByLabelText("Date format")).toHaveValue("DD_MMM_YYYY");
+    expect(screen.getByRole("radio", { name: "14:30 · 24-hour" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByText("Applies to everyone in the workspace")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reset to standard" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save date & time" })).toBeDisabled();
+  });
+
+  it("saves the admin's choice from the fixed lists, previewed before it is saved", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.selectOptions(await screen.findByLabelText("Time zone"), "Europe/London");
+    await user.selectOptions(screen.getByLabelText("Date format"), "MMM_D_YYYY");
+    await user.click(screen.getByRole("radio", { name: "2:30 PM · 12-hour" }));
+    expect(screen.getByText(/^\w{3}, \w{3} \d{1,2}, \d{4}, \d{1,2}:\d{2} [AP]M GMT(\+1)? · London$/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save date & time" }));
+
+    await waitFor(() =>
+      expect(workspaceApi.updateDateTime).toHaveBeenCalledWith({
+        timeZone: "Europe/London",
+        dateFormat: "MMM_D_YYYY",
+        timeFormat: "H12",
+      }),
+    );
+    expect(await screen.findByText("Date and time saved")).toBeInTheDocument();
+  });
+
+  it("puts the standard back in one click, saved as not chosen so the country's still reaches it", async () => {
+    vi.mocked(workspaceApi.workspace).mockResolvedValue({
+      ...typedWorkspace,
+      memberCount: 4,
+      dateTime: { ...WORKSPACE_DATE_TIME, timeZone: "Asia/Riyadh", dateFormat: "YYYY_MM_DD", membersFollowing: 3 },
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText("Applies to 3 of 4 members · 1 chose their own")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Reset to standard" }));
+    expect(screen.getByLabelText("Time zone")).toHaveValue("Asia/Dubai");
+    await user.click(screen.getByRole("button", { name: "Save date & time" }));
+
+    await waitFor(() =>
+      expect(workspaceApi.updateDateTime).toHaveBeenCalledWith({ timeZone: null, dateFormat: null, timeFormat: null }),
+    );
+  });
 });
 
 describe("SettingsGeneralPage — the workspace's firm", () => {

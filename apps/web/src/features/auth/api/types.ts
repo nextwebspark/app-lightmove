@@ -6,6 +6,8 @@
  * OpenAPI document instead of maintaining it twice.
  */
 
+import type { DateFormatStyle, DateTimePreferences, TimeFormatStyle } from "../../../lib/datetime";
+
 export type WorkspaceRole = "ADMIN" | "MEMBER" | "CLIENT";
 
 /**
@@ -58,8 +60,11 @@ export interface User {
    */
   hasPassword: boolean;
 
-  /** IANA zone id, e.g. "Asia/Dubai" — the user's own choice in Settings → Profile. */
+  /** IANA zone id every date reads in: the user's own choice, else the workspace's (`dateTime.effective`). */
   timezone: string;
+
+  /** The zone and formats every date reads in, and the own and workspace choices they are settled from. */
+  dateTime: UserDateTime;
   /** Their language tag ("en" | "ar" | "fr"), stored ahead of the app being translated. */
   locale: string;
 
@@ -123,7 +128,10 @@ export interface LoginRequest {
 export interface UpdateProfileRequest {
   fullName: string;
   title: string | null;
-  timezone: string;
+  /** Null keeps the workspace's, as do the two formats. */
+  timezone: string | null;
+  dateFormat: DateFormatStyle | null;
+  timeFormat: TimeFormatStyle | null;
   locale: string;
 }
 
@@ -205,4 +213,18 @@ export interface ApiError {
   kind?: string;
   /** Present on TRIAL_ENDED: when the workspace's trial ended. */
   trialEndedAt?: string;
+}
+
+/** A zone and two formats; on `own` each is null where the person keeps the workspace's. */
+export interface DateTimeChoice {
+  timeZone: string | null;
+  dateFormat: DateFormatStyle | null;
+  timeFormat: TimeFormatStyle | null;
+}
+
+export interface UserDateTime {
+  effective: DateTimePreferences;
+  own: DateTimeChoice;
+  /** Null outside a workspace. */
+  workspace: DateTimePreferences | null;
 }

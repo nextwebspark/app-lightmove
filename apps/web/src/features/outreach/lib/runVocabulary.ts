@@ -1,5 +1,6 @@
 import type { OutreachRun, RunStatus, StopReason } from "../api/runApi";
 import { canSendFrom, type MailboxState } from "./mailboxState";
+import { formatInstantTime, formatWeekdayDate } from "../../../lib/datetime";
 
 /** A run's chip, worded and coloured as `Outreach.dc.html`'s `STATE` table. */
 export const RUN_STATES: Record<RunStatus, { label: string; className: string }> = {
@@ -83,11 +84,8 @@ export function runNoteOf(run: OutreachRun): string {
   }
 }
 
-/** "Fri 3 Oct · 09:00", in the viewer's own zone. */
+/** "Fri 3 Oct · 09:00", in the person's own zone and formats. */
 export function sendTimeOf(isoInstant: string): string {
-  const at = new Date(isoInstant);
-  if (Number.isNaN(at.getTime())) return "—";
-  const day = at.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-  const time = at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-  return `${day.replace(",", "")} · ${time}`;
+  const day = formatWeekdayDate(isoInstant);
+  return day === null ? "—" : `${day} · ${formatInstantTime(isoInstant)}`;
 }

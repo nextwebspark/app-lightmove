@@ -152,7 +152,7 @@ describe("ActivityTimeline", () => {
       renderTimeline();
       await screen.findByRole("button", { name: /wrote a note/ });
       const time = document.querySelector("time[datetime='2026-10-27T14:02:00Z']");
-      expect(time).toHaveAttribute("title", expect.stringMatching(/Tue 27 Oct 2026/));
+      expect(time).toHaveAttribute("title", expect.stringMatching(/Tue, 27 Oct 2026/));
       expect(time).toHaveAttribute("title", expect.stringMatching(/(GMT|UTC)/));
     });
   });
@@ -730,7 +730,7 @@ describe("ActivityTimeline", () => {
         line(1, "EMAIL_SENT", { occurredAt: "2026-10-20T09:00:00Z", details: { sequenceId: "s1", sequence: "CFO approach", step: "1" } }),
       );
       renderTimeline();
-      let dialog = await open(/^Dana Aboud sent an email, Tue 27 Oct/);
+      let dialog = await open(/^Dana Aboud sent an email, Tue, 27 Oct/);
       expect(await within(dialog).findByText(/no longer in the conversation's history/)).toBeInTheDocument();
       await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
 
