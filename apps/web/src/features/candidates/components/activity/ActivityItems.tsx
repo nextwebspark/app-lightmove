@@ -50,7 +50,7 @@ export function ActivityCard({ entry, executive, projectId, now, onOpen, notes, 
   const note = preview?.type === "note" && entry.details.noteId ? notes?.get(entry.details.noteId) : undefined;
   const taskState = entry.details.taskId ? taskStates?.get(entry.details.taskId) : undefined;
   const aside = preview ? null : asideOf(entry);
-  const noteEdit = note ? editOf(note) : preview?.type === "note" ? preview.edited : null;
+  const noteEdit = latestEditOf(note, preview);
   return (
     <li className="relative">
       <KindTile icon={iconOf(entry)} size="tile" className="absolute -start-[42px] top-2.5 bg-u-surface" />
@@ -407,8 +407,10 @@ function Chip({ children, tone, title }: { children: ReactNode; tone?: "ai"; tit
   );
 }
 
-function editOf(note: PersonNote): NoteEdit | null {
-  return note.editedAt ? { at: note.editedAt, byName: note.editedByName } : null;
+/** The cached note can lag the server's line, so either one saying the note was edited is enough. */
+function latestEditOf(note: PersonNote | undefined, preview: ActivityPreview | null): NoteEdit | null {
+  const fromNote = note?.editedAt ? { at: note.editedAt, byName: note.editedByName } : null;
+  return fromNote ?? (preview?.type === "note" ? preview.edited : null);
 }
 
 function clockOf(isoInstant: string): string {
