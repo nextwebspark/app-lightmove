@@ -174,15 +174,28 @@ nothing itself — it builds the same requests the Companies drawer posts and ha
 already lives. **An imported row is never resolved against the market and never researched** — a file
 states its own figures and arrives a thousand rows at once, so the two things a one-at-a-time capture
 affords are exactly the two it cannot.
-A stage also leaves as a file: **Export** on the Companies toolbar downloads the whole stage —
-every row, not the page on screen, narrowed by whichever of the grid's three header filters are in
-force, rows as well as companies, so the file is what the screen was showing — carrying every
+A stage also leaves as a file: **Export** (under the toolbar's Advanced ▾) downloads the whole stage —
+every row, not the page on screen, narrowed by the toolbar's search and whichever of the grid's three header filters
+are in force, rows as well as companies, so the file is what the screen was showing — carrying every
 column the grid draws and every custom column the mandate added, with the two Links icons spelled
 out as Website and Company LinkedIn. It is `WORK_VIEW`, the gate that reads the grid, so a client
 representative may take the mandate they can already read; unlike every other read it records an
 audit event, because a mandate leaving as a file is not the same act as reading a page of it. Past
 `lightmove.export.*` it refuses rather than truncating.
-The In-universe page also reads as a **map**: a Table | Map toggle on its toolbar (offered only
+**The Companies toolbar** (`Position.dc.html`) is one search box in every view, the view control, the three
+primary actions — Find executives, Add executive, Add company, which keep their places in every view and are greyed
+(`aria-disabled`, saying where they work) where the view cannot take them, as both companies' actions are on the
+Pipeline — and **Advanced ▾** (`AdvancedMenu`) for the rest, by view: show/hide and manage columns on the table, the
+map's layers, the board's Inactive column and pipeline stages, Add to sequence where something can be ticked, Import
+and Export. The search is matched by the server, the same rule in every read (`search` on the triage list, its
+people reads, the export and the talent map, the pipeline's `q`): a company by name, place or industry, an executive
+by name, title, place or employer, and — only for a `WORK_EXECUTE` holder, decided server-side — the company's and
+the person's live notes readable from this position and the person's tags; a matching company keeps all its people.
+In universe reads as **Table | Map | Pipeline** (`?view=`, remembered per mandate): **Pipeline** is the position's
+board by pipeline stage — the retired CRM Pipeline page, board only, every executive on the position whatever their
+Companies stage, staff only (`WORK_EXECUTE`); `/projects/{id}/pipeline` and its `?candidate=` links land there
+(`positionPipelinePath`).
+The In-universe page also reads as a **map**: the Map view (offered only
 where a Mapbox public token is configured) swaps the grid for a mapping panel (country → company →
 executives) beside a Mapbox globe, with a pin per company and
 per executive and the same two drawers opened from a pin's popup or a panel row. Nothing carries a
@@ -581,8 +594,8 @@ Manager names and the `deploy.yml` switches (`GOOGLE_MAIL_ENABLED`, `MICROSOFT_M
 `RECALL_ENABLED`, each off until its secrets exist) — and the five admin guides beside it are what the
 `*_GUIDE_URL` settings link Settings → Integrations to once published.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
-**Add to sequence** — from In universe / Shortlisted (the ticked companies' executives) or the executive
-drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out
+**Add to sequence** — from In universe / Shortlisted (the ticked companies' executives), In universe's Pipeline (the
+ticked executives) or the executive drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out
 of the running, already in a live sequence); the openers and Start decide the same rules again
 (`RecipientEligibility`), so nobody skipped is sent to the model, charged for or enrolled. Each person's first email is rendered and **frozen on their enrollment** with their own opener,
 so an edit reaches nobody else; Start creates `SCHEDULED` rows and sends nothing. The

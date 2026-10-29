@@ -1,5 +1,5 @@
-// The spreadsheet in both directions, in a real browser: Import from the Companies toolbar, and
-// Export of a stage back out as a file.
+// The spreadsheet in both directions, in a real browser: Import from the Companies toolbar's Advanced
+// menu, and Export of a stage back out as a file.
 //
 // 18-import-export.sh proves the HTTP contract. This proves the screen's half: that a file picked in
 // the dialog is read, that its mapping step shows every column landing on a known field with no
@@ -187,11 +187,21 @@ async function signIn(email) {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
 }
-/** Presses the toolbar's Export and reads the file the browser was handed. */
+const advancedButton = () => page.getByRole("button", { name: /^Advanced/ });
+/** Opens the toolbar's Advanced ▾ (clicking it while open would close it) and answers the item matching `label`. */
+async function advancedItem(label) {
+  if ((await advancedButton().getAttribute("aria-expanded")) !== "true") {
+    await advancedButton().click();
+    await page.getByRole("menu", { name: "Advanced" }).waitFor({ timeout: 10000 });
+  }
+  return page.getByRole("menuitem", { name: label });
+}
+/** Presses Advanced → Export CSV and reads the file the browser was handed. */
 async function exportFile() {
+  const item = await advancedItem(/^Export CSV/);
   const [download] = await Promise.all([
     page.waitForEvent("download", { timeout: 20000 }),
-    page.getByRole("button", { name: "Export", exact: true }).click(),
+    item.click(),
   ]);
   const path = await download.path();
   return { name: download.suggestedFilename(), lines: csvLines(readFileSync(path, "utf8")) };
@@ -231,7 +241,7 @@ try {
   await step("I1.2", "the lead signs in and opens the Import dialog", async () => {
     await signIn(LEAD_EMAIL);
     await openUniverse();
-    await page.getByRole("button", { name: "Import", exact: true }).click();
+    await (await advancedItem(/^Import spreadsheet/)).click();
     check("I1.2", "the lead signs in and opens the Import dialog", 1,
       await page.getByRole("dialog", { name: "Import companies and people" }).count());
   });
@@ -358,7 +368,8 @@ try {
     page = await context.newPage();
     await signIn(REP_EMAIL);
     await openUniverse();
-    check("I3.1a", "no Import button is offered to a client seat", 0, await page.getByRole("button", { name: "Import", exact: true }).count());
+    check("I3.1a", "no Import is offered to a client seat", 0, await (await advancedItem(/^Import spreadsheet/)).count());
+    await page.keyboard.press("Escape");
     const file = await exportFile();
     check("I3.1", "the representative's Export downloads the same whole stage", `${whole.lines.length}|${whole.lines[0]}`,
       `${file.lines.length}|${file.lines[0]}`);

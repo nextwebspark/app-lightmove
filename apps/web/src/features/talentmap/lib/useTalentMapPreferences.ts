@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
-/** How the Companies screen is read: the grid, or the globe. */
-export type CompaniesView = "table" | "map";
+/** How In universe is read: the grid, the globe, or its executives' pipeline board. */
+export type CompaniesView = "table" | "map" | "pipeline";
 
 export interface TalentMapPreferences {
   view: CompaniesView;
@@ -52,7 +52,7 @@ function read(projectId: string): TalentMapPreferences {
     if (!raw) return DEFAULTS;
     const parsed = JSON.parse(raw) as Partial<TalentMapPreferences>;
     return {
-      view: parsed.view === "map" ? "map" : "table",
+      view: parsed.view === "map" || parsed.view === "pipeline" ? parsed.view : "table",
       panelCollapsed: parsed.panelCollapsed === true,
       showExecutives: parsed.showExecutives !== false,
     };

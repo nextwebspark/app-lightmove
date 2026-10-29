@@ -56,6 +56,23 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
     Page<TriageCompany> findByProjectIdAndCompanyNameContainingIgnoreCase(
             UUID projectId, String companyName, Pageable pageable);
 
+    /**
+     * The company half of the mandate's one search rule: its name, city, country or industry, and — only for
+     * {@code includeStaffContent}, a reader holding {@code WORK_EXECUTE} — its live notes. {@code pattern} is
+     * {@code SearchText.likePattern}. The executive half is {@code candidate}'s, which this side never reads.
+     */
+    @Query(value = "select t.id as \"id\", t.status as \"status\" from app_lm_project_triage_company t "
+            + "where t.project_id = :projectId and ("
+            + "  lower(t.company_name) like :pattern escape '\\' "
+            + "  or lower(coalesce(t.company_city, '')) like :pattern escape '\\' "
+            + "  or lower(coalesce(t.company_country, '')) like :pattern escape '\\' "
+            + "  or lower(coalesce(t.industry, '')) like :pattern escape '\\' "
+            + "  or (:includeStaffContent and exists ("
+            + "    select 1 from app_lm_company_note n where n.triage_company_id = t.id and n.deleted_at is null "
+            + "    and lower(n.body) like :pattern escape '\\')))", nativeQuery = true)
+    List<SearchMatchedCompany> findSearchMatches(@Param("projectId") UUID projectId, @Param("pattern") String pattern,
+                                                 @Param("includeStaffContent") boolean includeStaffContent);
+
     Page<TriageCompany> findByProjectIdAndStatusAndIdNotIn(
             UUID projectId, TriageCompanyStatus status, Collection<UUID> excludedIds, Pageable pageable);
 

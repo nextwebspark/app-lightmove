@@ -37,6 +37,7 @@ export const TRIAGE_KEY = (
   executiveQuery: string,
   /** The Status column's own header filter — independent of the two text ones above it. */
   executiveStatuses: string[],
+  search: string,
   sort: GridSort<TriageSortField>,
 ) =>
   [
@@ -48,6 +49,7 @@ export const TRIAGE_KEY = (
     executiveQuery,
     // Sorted: the same ticked set in a different click order must not read as a different cache entry.
     [...executiveStatuses].sort(),
+    search,
     sort.field,
     sort.direction,
   ] as const;
@@ -62,6 +64,8 @@ export function getTriageCompanies(
   executiveQuery: string,
   /** The Status column's own header filter — a closed checkbox set, ORed together server-side. */
   executiveStatuses: string[],
+  /** The toolbar's search, shared by every view: a company, its executives and, for staff, notes and tags. */
+  search: string,
   sort: GridSort<TriageSortField>,
   signal?: AbortSignal,
 ): Promise<TriageCompaniesPage> {
@@ -79,6 +83,7 @@ export function getTriageCompanies(
   // Repeated rather than joined: the server binds `executiveStatuses` as a list, and joining with a
   // separator would need one no ticked status could ever contain.
   for (const status of executiveStatuses) params.append("executiveStatuses", status);
+  if (search.trim()) params.set("search", search.trim());
   return request<TriageCompaniesPage>(`/projects/${projectId}/triage?${params}`, { signal });
 }
 
@@ -102,6 +107,7 @@ export function getTriageCounts(projectId: string, signal?: AbortSignal): Promis
     "",
     "",
     [],
+    "",
     { field: "added", direction: "desc" },
     signal,
   ).then((page) => page.counts);

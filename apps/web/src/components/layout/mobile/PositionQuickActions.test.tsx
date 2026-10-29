@@ -69,7 +69,7 @@ describe("PositionQuickActions", () => {
     await userEvent.click(screen.getByRole("button", { name: /Write a note/ }));
     await userEvent.click(await screen.findByRole("button", { name: /^Executive 3(?!\d)/ }));
 
-    expect(screen.getByTestId("landed")).toHaveTextContent("/projects/p1/pipeline?view=list&candidate=c3&tab=notes");
+    expect(screen.getByTestId("landed")).toHaveTextContent("/projects/p1/companies/universe?view=pipeline&candidate=c3&tab=notes");
     expect(sessionStorage.getItem("lm.person-drawer.tab.position")).toBeNull();
   });
 

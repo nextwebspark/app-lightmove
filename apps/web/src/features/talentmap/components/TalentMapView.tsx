@@ -10,7 +10,6 @@ import type { TalentMapPage } from "../api/types";
 import { countOf, toFeatureCollection } from "../lib/talentMapFeatures";
 import {
   buildTree,
-  filterTree,
   nodesOf,
   pathTo,
   UNLOCATED_KEY,
@@ -32,13 +31,13 @@ const TalentMapGlobe = lazy(() => import("./TalentMapGlobe"));
  * existing drawers on demand — opened from a row or a pin exactly as the grid opens them.
  *
  * <p>Selection and hover live here and are handed to both halves, so a row and its pin are one
- * thing touched two ways. The tree is built from the page once and narrowed by the toolbar's search
- * on every keystroke; the globe draws whatever the narrowed tree holds.
+ * thing touched two ways. The tree is built from the page, which the server has already narrowed by the
+ * toolbar's search; the globe draws whatever the tree holds.
  */
 export function TalentMapView({
   projectId,
   page,
-  query,
+  searching,
   accessToken,
   canWrite,
   loading,
@@ -51,7 +50,8 @@ export function TalentMapView({
 }: {
   projectId: string;
   page: TalentMapPage | undefined;
-  query: string;
+  /** Whether the server narrowed the page by the toolbar's search, which only the empty line says. */
+  searching: boolean;
   accessToken: string;
   canWrite: boolean;
   loading: boolean;
@@ -68,13 +68,12 @@ export function TalentMapView({
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 
   const tree = useMemo(() => (page ? buildTree(page) : null), [page]);
-  const visible = useMemo(() => (tree ? filterTree(tree, query) : null), [tree, query]);
   const features = useMemo(
     () =>
-      visible
-        ? toFeatureCollection(visible, preferences.showExecutives)
+      tree
+        ? toFeatureCollection(tree, preferences.showExecutives)
         : { type: "FeatureCollection" as const, features: [] },
-    [visible, preferences.showExecutives],
+    [tree, preferences.showExecutives],
   );
   const nodesById = useMemo(() => {
     const index = new Map<string, TreeCompany | TreeExecutive>();
@@ -127,7 +126,7 @@ export function TalentMapView({
   };
 
   const collapsed = preferences.panelCollapsed;
-  const counts = visible?.counts;
+  const counts = tree?.counts;
 
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col lg:flex-row">
@@ -182,16 +181,16 @@ export function TalentMapView({
 
         {!collapsed && (
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {loading && !visible ? (
+            {loading && !tree ? (
               <div className="flex flex-col gap-3 p-3" role="status" aria-label="Loading">
                 {Array.from({ length: 7 }, (_, index) => (
                   <Skeleton key={index} className={cn("h-4", index % 3 === 0 ? "w-32" : "ms-4 w-44")} />
                 ))}
               </div>
-            ) : visible ? (
+            ) : tree ? (
               <>
                 <TalentMapTree
-                  tree={visible}
+                  tree={tree}
                   projectId={projectId}
                   expanded={expanded}
                   onToggle={toggle}
@@ -203,7 +202,7 @@ export function TalentMapView({
                 />
                 {counts && counts.companies === 0 && counts.executives === 0 && (
                   <p className="px-3 py-4 text-[12.5px] text-u-text3">
-                    {query ? "Nothing matches that search." : "Nothing mapped yet."}
+                    {searching ? "Nothing matches that search." : "Nothing mapped yet."}
                   </p>
                 )}
               </>
@@ -296,7 +295,7 @@ export function TalentMapView({
           </div>
         )}
 
-        {visible && features.features.length === 0 && !loading && !error && !unsupported && (
+        {tree && features.features.length === 0 && !loading && !error && !unsupported && (
           <div className="pointer-events-none absolute inset-x-0 top-1/3 flex justify-center px-4">
             <div className="max-w-[360px] rounded-[10px] border border-u-border-strong bg-u-surface/95 px-4 py-3 text-center text-[12.5px] text-u-text2 shadow-u-e3 backdrop-blur">
               <div className="font-semibold text-u-text">Nothing to place on the map yet</div>

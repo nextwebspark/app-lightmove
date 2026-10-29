@@ -719,10 +719,6 @@
     "arbitraryText": 5,
     "arbitraryRadius": 1
   },
-  "features/triage/components/TriageToolbar.tsx": {
-    "arbitraryRadius": 2,
-    "arbitraryText": 2
-  },
   "features/triage/lib/triageCompanyColumns.tsx": {
     "arbitraryRadius": 3,
     "arbitraryText": 9

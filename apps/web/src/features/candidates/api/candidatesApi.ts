@@ -27,6 +27,8 @@ export interface CandidateQuery {
   /** The other side: people whose employer is not one of the mandate's companies. */
   unmapped?: boolean;
   query?: string;
+  /** The toolbar's search: someone kept when they or their company match it. */
+  search?: string;
   /** The Companies stage the people are listed at — their own, not their company's (#903). */
   triageStatus?: TriageCompanyStatus;
 }
@@ -38,6 +40,7 @@ export const CANDIDATES_KEY = (projectId: string, scope: CandidateQuery) =>
     scope.unmapped ?? false,
     scope.query ?? "",
     scope.triageStatus ?? null,
+    scope.search ?? "",
   ] as const;
 
 /**
@@ -96,6 +99,7 @@ function getCandidatesPage(
   scope.triageCompanyIds?.forEach((id) => params.append("triageCompanyId", id));
   if (scope.unmapped) params.set("unmapped", "true");
   if (scope.query) params.set("q", scope.query);
+  if (scope.search?.trim()) params.set("search", scope.search.trim());
   if (scope.triageStatus) params.set("triageStatus", scope.triageStatus);
   if (page > 0) params.set("page", String(page));
   return request<CandidatesPage>(`/projects/${projectId}/candidates?${params}`, { signal });

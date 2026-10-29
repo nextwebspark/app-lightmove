@@ -4,8 +4,9 @@ import java.util.List;
 
 /**
  * A Companies grid request, untrusted as written: the service resolves every token against its enum,
- * so no caller string reaches an ORDER BY. Null means unspecified (the stage's default).
+ * so no caller string reaches an ORDER BY. Null means unspecified (the stage's default). {@code search} is
+ * the mandate's one search box, ANDed with the three header filters.
  */
 public record TriageCompanyListCriteria(String status, String nameQuery, String executiveQuery,
-                                        List<String> executiveStatuses,
+                                        List<String> executiveStatuses, String search,
                                         String sort, String direction, Integer page, Integer size) {}

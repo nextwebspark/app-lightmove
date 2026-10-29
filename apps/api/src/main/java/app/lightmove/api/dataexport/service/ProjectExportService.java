@@ -84,7 +84,7 @@ public class ProjectExportService {
 
     private static boolean isUnfiltered(TriageCompanyFilters filters) {
         return blank(filters.companyName()) && blank(filters.executiveName())
-                && filters.executiveStatuses().isEmpty();
+                && filters.executiveStatuses().isEmpty() && blank(filters.search());
     }
 
     private static boolean blank(String value) {

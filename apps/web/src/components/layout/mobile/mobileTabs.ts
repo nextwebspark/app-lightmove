@@ -12,8 +12,8 @@ export function workspaceTabs(clientOnly: boolean, listSearch = ""): MobileTab[]
 }
 
 /**
- * A position's bottom bar. A researcher's day is the companies, the pipeline and the conversations; a client seat
- * reads the brief, the map and the report.
+ * A position's bottom bar. A researcher's day is the brief, the companies — the pipeline is one of their views — and
+ * the conversations; a client seat reads the brief, the map and the report.
  */
 export function positionTabs(projectId: string, isStaff: boolean): MobileTab[] {
   const base = `/projects/${projectId}`;
@@ -25,8 +25,8 @@ export function positionTabs(projectId: string, isStaff: boolean): MobileTab[] {
   };
   return isStaff
     ? [
+        { to: base, label: "Brief", icon: ICONS.position, end: true },
         companies,
-        { to: `${base}/pipeline`, label: "Pipeline", icon: ICONS.pipeline },
         { to: `${base}/outreach`, label: "Outreach", icon: ICONS.outreach },
       ]
     : [

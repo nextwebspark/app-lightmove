@@ -446,7 +446,7 @@ describe("OutreachPage", () => {
 
     expect(await screen.findByRole("heading", { name: "No conversations yet" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "In universe" })).toHaveAttribute("href", "/projects/p1/companies/universe");
-    expect(screen.getByRole("link", { name: "Pipeline" })).toHaveAttribute("href", "/projects/p1/pipeline");
+    expect(screen.getByRole("link", { name: "Pipeline" })).toHaveAttribute("href", "/projects/p1/companies/universe?view=pipeline");
   });
 
   it("reads the queue and the open conversation again the moment the stream says outreach moved", async () => {

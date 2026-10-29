@@ -47,6 +47,7 @@ const ROUTES = [
   { path: "/projects/proj-1/companies/universe", name: "project-companies-universe" },
   { path: "/projects/proj-1/companies/shortlisted", name: "project-companies-shortlisted" },
   { path: "/projects/proj-1/companies/declined", name: "project-companies-declined" },
+  { path: "/projects/proj-1/companies/universe?view=pipeline", name: "project-companies-pipeline" },
   { path: "/projects/proj-1/reports", name: "project-reports" },
   // One chapter renders at a time, so each is its own sweep: the charts live past the first.
   { path: "/projects/proj-1/reports?chapter=market", name: "project-reports-market" },

@@ -4,7 +4,7 @@ import { messageFor } from "../../../lib/errorCodes";
 import { useProjectRowsChanged } from "../../../lib/projectRows";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import * as pipelineApi from "../api/pipelineApi";
-import type { PipelinePage, PipelineRankMove, PipelineRow, PipelineStageCount } from "../api/types";
+import type { PipelinePage, PipelineRow, PipelineStageCount } from "../api/types";
 import type { BoardPlacement } from "./pipelineView";
 
 type Snapshot = [QueryKey, PipelinePage | undefined][];
@@ -49,27 +49,6 @@ export function useClientVisibility(projectId: string) {
     onSuccess: (saved) => {
       patchRow(queryClient, projectId, saved.candidateId, () => saved);
     },
-  });
-}
-
-/** A row dragged within its stage: the list shows the new order at once, and the server keeps it. */
-export function useRankMove(projectId: string, queryKey: QueryKey) {
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  return useMutation({
-    mutationFn: ({ candidateId, move }: { candidateId: string; move: PipelineRankMove; rows: PipelineRow[] }) =>
-      pipelineApi.movePipelineRank(projectId, candidateId, move),
-    onMutate: async ({ rows }) => {
-      await queryClient.cancelQueries({ queryKey });
-      const previous = queryClient.getQueryData<PipelinePage>(queryKey);
-      if (previous) queryClient.setQueryData<PipelinePage>(queryKey, { ...previous, rows });
-      return previous;
-    },
-    onError: (error, _variables, previous) => {
-      if (previous) queryClient.setQueryData(queryKey, previous);
-      toast.error(messageFor(error));
-    },
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: pipelineApi.PIPELINE_KEY_PREFIX(projectId) }),
   });
 }
 

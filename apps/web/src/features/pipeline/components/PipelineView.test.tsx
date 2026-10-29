@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
@@ -16,7 +17,7 @@ import * as tasksApi from "../../tasks/api/tasksApi";
 import * as catalogApi from "../../workspace/api/pipelineApi";
 import * as pipelineApi from "../api/pipelineApi";
 import type { PipelineRow } from "../api/types";
-import PipelinePage from "./PipelinePage";
+import { PipelineView } from "./PipelineView";
 
 const viewer: { id: string; fullName: string; avatarUrl: null; workspace: { roles: WorkspaceRole[] } } = {
   id: "u1",
@@ -130,27 +131,50 @@ function LocationProbe() {
   return <output aria-label="Location">{useLocation().search}</output>;
 }
 
-function renderPage(search = "?view=list") {
+function View({ search }: { search: string }) {
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
+  const [inactiveOpen, setInactiveOpen] = useState(false);
+  return (
+    <PipelineView
+      project={project}
+      search={search}
+      selectedIds={selectedIds}
+      onToggleSelected={(candidateId) =>
+        setSelectedIds((current) => {
+          const next = new Set(current);
+          if (next.has(candidateId)) next.delete(candidateId);
+          else next.add(candidateId);
+          return next;
+        })
+      }
+      inactiveOpen={inactiveOpen}
+      onInactiveOpenChange={setInactiveOpen}
+    />
+  );
+}
+
+function renderView({ address = "?view=pipeline", search = "" }: { address?: string; search?: string } = {}) {
   return render(
-    <MemoryRouter initialEntries={[`/projects/p1/pipeline${search}`]}>
+    <MemoryRouter initialEntries={[`/projects/p1/companies/universe${address}`]}>
       <LocationProbe />
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <ToastProvider>
-          <Routes>
-            <Route element={<Outlet context={{ project }} />}>
-              <Route path="/projects/:projectId/pipeline" element={<PipelinePage />} />
-              <Route path="/projects/:projectId/companies/universe" element={<p>In universe</p>} />
-            </Route>
-          </Routes>
+          <View search={search} />
         </ToastProvider>
       </QueryClientProvider>
     </MemoryRouter>,
   );
 }
 
-const row = (name: string) => screen.getByRole("row", { name });
+const card = (name: string) => screen.getByRole("article", { name });
 
-describe("PipelinePage", () => {
+function dropOn(name: string, column: HTMLElement) {
+  fireEvent.dragStart(card(name));
+  fireEvent.dragOver(column);
+  fireEvent.drop(column);
+}
+
+describe("PipelineView", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     viewer.workspace.roles = ["ADMIN"];
@@ -165,126 +189,49 @@ describe("PipelinePage", () => {
       },
     ]);
     vi.mocked(tasksApi.getTaskPresets).mockResolvedValue([]);
-    vi.mocked(pipelineApi.getPipeline).mockImplementation(async (_projectId, query) => ({
-      ...aPipelinePage(query.pipelineStage ? rows.filter((r) => r.pipelineStage.key === query.pipelineStage) : rows),
-      stageCounts: aPipelinePage(rows).stageCounts,
-    }));
+    vi.mocked(pipelineApi.getPipeline).mockResolvedValue(aPipelinePage(rows));
   });
 
-  it("opens as the board, and as the list once asked", async () => {
-    renderPage("");
-
-    expect(await screen.findByRole("radio", { name: "Board" })).toBeChecked();
-    expect(await screen.findByRole("region", { name: "Qualified" })).toBeInTheDocument();
-    expect(screen.queryByRole("group", { name: "Stages" })).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("radio", { name: "List" }));
-
-    expect(await screen.findByRole("row", { name: "Amal Haddad" })).toBeInTheDocument();
-    expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent("?view=list");
-  });
-
-  it("counts each stage on its pill, the closed stage as Inactive, and everyone on All", async () => {
-    renderPage();
-    await screen.findByRole("row", { name: "Amal Haddad" });
-    const pills = within(screen.getByRole("group", { name: "Stages" }));
-
-    expect(pills.getByRole("button", { name: /^All\s*7(?!\d)/ })).toHaveAttribute("aria-pressed", "true");
-    expect(pills.getByRole("button", { name: /^Identified\s*2(?!\d)/ })).toBeInTheDocument();
-    expect(pills.getByRole("button", { name: /^Contacted\s*1(?!\d)/ })).toBeInTheDocument();
-    expect(pills.getByRole("button", { name: /^Interested\s*0(?!\d)/ })).toBeInTheDocument();
-    expect(pills.getByRole("button", { name: /^Inactive\s*3(?!\d)/ })).toBeInTheDocument();
-  });
-
-  it("narrows to a stage, keeps it in the address, and shows everyone again on All", async () => {
-    renderPage();
-    await screen.findByRole("row", { name: "Amal Haddad" });
-    const pills = within(screen.getByRole("group", { name: "Stages" }));
-
-    await userEvent.click(pills.getByRole("button", { name: /^Qualified\s*1(?!\d)/ }));
-    await waitFor(() =>
-      expect(pipelineApi.getPipeline).toHaveBeenLastCalledWith("p1", { q: "", pipelineStage: "qualified" }, expect.anything()),
-    );
-    await waitFor(() => expect(screen.queryByRole("row", { name: "Amal Haddad" })).not.toBeInTheDocument());
-    expect(pills.getByRole("button", { name: /^Qualified\s*1(?!\d)/ })).toHaveAttribute("aria-pressed", "true");
-    expect(pills.getByRole("button", { name: /^All\s*7(?!\d)/ })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent("?view=list&stage=qualified");
-
-    await userEvent.click(pills.getByRole("button", { name: /^All\s*7(?!\d)/ }));
-    await screen.findByRole("row", { name: "Amal Haddad" });
-    expect(pipelineApi.getPipeline).toHaveBeenLastCalledWith("p1", { q: "", pipelineStage: "" }, expect.anything());
-    expect(pills.getByRole("button", { name: /^All\s*7(?!\d)/ })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent(/^\?view=list$/);
-  });
-
-  it("clears a stage when its pill is pressed again", async () => {
-    renderPage("?stage=qualified");
-    const pills = within(await screen.findByRole("group", { name: "Stages" }));
-
-    await userEvent.click(pills.getByRole("button", { name: /^Qualified\s*1(?!\d)/ }));
-    await screen.findByRole("row", { name: "Amal Haddad" });
-    expect(pills.getByRole("button", { name: /^All\s*7(?!\d)/ })).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("opens on the stage the address names", async () => {
-    renderPage("?stage=qualified");
+  it("reads the position's pipeline narrowed by the toolbar's search", async () => {
+    renderView({ search: "carla" });
 
     await waitFor(() =>
-      expect(pipelineApi.getPipeline).toHaveBeenCalledWith("p1", { q: "", pipelineStage: "qualified" }, expect.anything()),
+      expect(pipelineApi.getPipeline).toHaveBeenCalledWith("p1", { q: "carla", pipelineStage: "" }, expect.anything()),
     );
-    expect(await screen.findByRole("row", { name: "Dina Farouk" })).toBeInTheDocument();
-    expect(screen.queryByRole("row", { name: "Amal Haddad" })).not.toBeInTheDocument();
   });
 
-  it("shows everyone when the address names a stage the workspace does not have", async () => {
-    renderPage("?stage=nonsense");
+  it("says when the search matches nobody", async () => {
+    vi.mocked(pipelineApi.getPipeline).mockResolvedValue(aPipelinePage([]));
+    renderView({ search: "nobody" });
 
-    expect(await screen.findByRole("row", { name: "Amal Haddad" })).toBeInTheDocument();
-    await waitFor(() =>
-      expect(pipelineApi.getPipeline).toHaveBeenLastCalledWith("p1", { q: "", pipelineStage: "" }, expect.anything()),
-    );
-    const pills = within(screen.getByRole("group", { name: "Stages" }));
-    expect(pills.getByRole("button", { name: /^All\s*7(?!\d)/ })).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByText("No executives match that search.")).toBeInTheDocument();
   });
 
-  it("draws each row's stage with its status beneath, and its next action with its due, assignee and how many more", async () => {
-    renderPage();
-    await screen.findByRole("row", { name: "Carla Mendes" });
+  it("says when the position has no executives yet", async () => {
+    vi.mocked(pipelineApi.getPipeline).mockResolvedValue(aPipelinePage([]));
+    renderView();
 
-    expect(within(row("Bilal Saeed")).getByText("Identified")).toBeInTheDocument();
-    expect(within(row("Bilal Saeed")).getByText("Researching")).toBeInTheDocument();
-    const carla = within(row("Carla Mendes"));
-    expect(carla.getByText("Send follow-up note")).toBeInTheDocument();
-    const overdue = carla.getByText(/^Overdue · \d{2} [A-Z][a-z]{2} \d{4}$/);
-    expect(overdue).toHaveAttribute("data-tone", "overdue");
-    expect(overdue).toHaveClass("text-u-offlimits");
-    expect(carla.getByText("· +2 more")).toBeInTheDocument();
-    expect(carla.getByTitle("Assigned to Sara Al-Mansour")).toBeInTheDocument();
-    const today = within(row("Dina Farouk")).getByText("Today · 23:59");
-    expect(today).toHaveAttribute("data-tone", "today");
-    expect(today).toHaveClass("text-u-signal");
-    expect(within(row("Dina Farouk")).queryByText(/more/)).not.toBeInTheDocument();
-    expect(within(row("Amal Haddad")).getByRole("button", { name: "Set next action" })).toBeInTheDocument();
+    expect(
+      await screen.findByText("No executives on this position yet. Add one, or find executives from Table."),
+    ).toBeInTheDocument();
   });
 
-  it("draws the board card's next action, its +N and its assignee, and offers one where there is none", async () => {
-    renderPage("");
+  it("draws the card's next action, its +N and its assignee, and offers one where there is none", async () => {
+    renderView();
 
     const carla = within(await screen.findByRole("article", { name: "Carla Mendes" }));
     expect(carla.getByText("Send follow-up note")).toBeInTheDocument();
     expect(carla.getByText("+2")).toBeInTheDocument();
     expect(carla.getByTitle("Assigned to Sara Al-Mansour")).toBeInTheDocument();
-    expect(
-      within(screen.getByRole("article", { name: "Amal Haddad" })).getByText("No next action · Set one"),
-    ).toBeInTheDocument();
+    expect(within(card("Amal Haddad")).getByText("No next action · Set one")).toBeInTheDocument();
   });
 
   it("sets a next action in the modal, with me first and chosen, and posts it as a task", async () => {
     vi.mocked(tasksApi.createTask).mockResolvedValue({} as never);
-    renderPage();
-    await screen.findByRole("row", { name: "Amal Haddad" });
+    renderView();
+    await screen.findByRole("article", { name: "Amal Haddad" });
 
-    await userEvent.click(within(row("Amal Haddad")).getByRole("button", { name: "Set next action" }));
+    await userEvent.click(within(card("Amal Haddad")).getByRole("button", { name: "No next action · Set one" }));
     const field = await screen.findByRole("combobox", { name: "What needs doing" });
     const dialog = within(screen.getByRole("dialog", { name: "Set next action" }));
     await userEvent.type(field, "Book introductory call");
@@ -301,7 +248,7 @@ describe("PipelinePage", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Set next action" })).not.toBeInTheDocument());
   });
 
-  it("opens the earliest task to edit from the board card", async () => {
+  it("opens the earliest task to edit from the card", async () => {
     vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({
       open: [
         {
@@ -331,7 +278,7 @@ describe("PipelinePage", () => {
       done: [],
       doneCount: 0,
     });
-    renderPage("");
+    renderView();
 
     await userEvent.click(
       within(await screen.findByRole("article", { name: "Carla Mendes" })).getByRole("button", {
@@ -346,24 +293,23 @@ describe("PipelinePage", () => {
   });
 
   it("opens the executive the address names, and drops them from it on close", async () => {
-    renderPage("?view=list&candidate=c");
+    renderView({ address: "?view=pipeline&candidate=c" });
 
     expect(await screen.findByRole("dialog", { name: "Executive c" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Close drawer" }));
 
     expect(screen.queryByRole("dialog", { name: "Executive c" })).not.toBeInTheDocument();
-    expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent(/^\?view=list$/);
+    expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent(/^\?view=pipeline$/);
   });
 
   it("writes the executive it opens into the address", async () => {
-    renderPage();
-    await screen.findByRole("row", { name: "Amal Haddad" });
+    renderView();
 
-    await userEvent.click(within(row("Amal Haddad")).getByRole("button", { name: "Amal Haddad" }));
+    await userEvent.click(await screen.findByRole("article", { name: "Amal Haddad" }));
 
     expect(await screen.findByRole("dialog", { name: "Executive a" })).toBeInTheDocument();
-    expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent("?view=list&candidate=a");
+    expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent("?view=pipeline&candidate=a");
   });
 
   it("flips client visibility at once and puts it back when the server refuses", async () => {
@@ -373,42 +319,22 @@ describe("PipelinePage", () => {
         refuse = reject;
       }),
     );
-    renderPage();
-    await screen.findByRole("row", { name: "Amal Haddad" });
-    const toggle = within(row("Amal Haddad")).getByRole("switch", { name: "Visible to client: Amal Haddad" });
+    renderView();
+    await screen.findByRole("article", { name: "Amal Haddad" });
+    const toggle = within(card("Amal Haddad")).getByRole("switch", { name: "Visible to client: Amal Haddad" });
     expect(toggle).toHaveAttribute("aria-checked", "true");
 
     await userEvent.click(toggle);
     await waitFor(() => expect(toggle).toHaveAttribute("aria-checked", "false"));
     expect(pipelineApi.setClientVisibility).toHaveBeenCalledWith("p1", "a", false);
+    expect(screen.queryByRole("dialog", { name: /^Executive/ })).not.toBeInTheDocument();
 
     refuse(new ApiRequestError({ code: "FORBIDDEN", detail: "no", status: 403, correlationId: "c1" }));
     await waitFor(() =>
-      expect(within(row("Amal Haddad")).getByRole("switch", { name: /Amal Haddad/ })).toHaveAttribute(
+      expect(within(card("Amal Haddad")).getByRole("switch", { name: /Amal Haddad/ })).toHaveAttribute(
         "aria-checked",
         "true",
       ),
-    );
-  });
-
-  it("reorders a row within its stage at once, sending its new neighbours", async () => {
-    vi.mocked(pipelineApi.movePipelineRank).mockReturnValue(new Promise(() => {}));
-    renderPage();
-    await screen.findByRole("row", { name: "Amal Haddad" });
-
-    fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Amal Haddad" }), { key: "ArrowDown" });
-
-    await waitFor(() =>
-      expect(pipelineApi.movePipelineRank).toHaveBeenCalledWith("p1", "a", {
-        afterCandidateId: "b",
-        beforeCandidateId: null,
-      }),
-    );
-    await waitFor(() =>
-      expect(screen.getAllByRole("row").map((r) => r.getAttribute("aria-label")).slice(1, 3)).toEqual([
-        "Bilal Saeed",
-        "Amal Haddad",
-      ]),
     );
   });
 
@@ -418,14 +344,10 @@ describe("PipelinePage", () => {
       status: "screened",
       statusLabel: "Screened",
     } as Candidate);
-    renderPage();
-    await screen.findByRole("row", { name: "Amal Haddad" });
-    await userEvent.click(screen.getByRole("radio", { name: "Board" }));
+    renderView();
     const qualified = await screen.findByRole("region", { name: "Qualified" });
 
-    fireEvent.dragStart(screen.getByRole("article", { name: "Amal Haddad" }));
-    fireEvent.dragOver(qualified);
-    fireEvent.drop(qualified);
+    dropOn("Amal Haddad", qualified);
 
     await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "screened"));
     await waitFor(() =>
@@ -444,12 +366,10 @@ describe("PipelinePage", () => {
         refuse = reject;
       }),
     );
-    renderPage("");
+    renderView();
     const qualified = await screen.findByRole("region", { name: "Qualified" });
 
-    fireEvent.dragStart(screen.getByRole("article", { name: "Amal Haddad" }));
-    fireEvent.dragOver(qualified);
-    fireEvent.drop(qualified);
+    dropOn("Amal Haddad", qualified);
 
     expect(within(qualified).getByRole("article", { name: "Amal Haddad" })).toBeInTheDocument();
     expect(
@@ -472,12 +392,10 @@ describe("PipelinePage", () => {
     vi.mocked(pipelineApi.movePipelineRank).mockRejectedValue(
       new ApiRequestError({ code: "PIPELINE_ORDER_INVALID", detail: "moved", status: 409, correlationId: "c1" }),
     );
-    renderPage("");
+    renderView();
     const qualified = await screen.findByRole("region", { name: "Qualified" });
 
-    fireEvent.dragStart(screen.getByRole("article", { name: "Amal Haddad" }));
-    fireEvent.dragOver(qualified);
-    fireEvent.drop(qualified);
+    dropOn("Amal Haddad", qualified);
 
     expect(await screen.findByText("The pipeline changed meanwhile. Reload and try again.")).toBeInTheDocument();
     expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "screened");
@@ -486,12 +404,10 @@ describe("PipelinePage", () => {
 
   it("reorders a card within its own column without changing its status", async () => {
     vi.mocked(pipelineApi.movePipelineRank).mockReturnValue(new Promise(() => {}));
-    renderPage("");
+    renderView();
     const identified = await screen.findByRole("region", { name: "Identified" });
 
-    fireEvent.dragStart(within(identified).getByRole("article", { name: "Amal Haddad" }));
-    fireEvent.dragOver(identified);
-    fireEvent.drop(identified);
+    dropOn("Amal Haddad", identified);
 
     await waitFor(() =>
       expect(pipelineApi.movePipelineRank).toHaveBeenCalledWith("p1", "a", {
@@ -500,47 +416,45 @@ describe("PipelinePage", () => {
       }),
     );
     expect(candidatesApi.changeCandidateStatus).not.toHaveBeenCalled();
-    expect(within(identified).getAllByRole("article").map((card) => card.getAttribute("aria-label"))).toEqual([
+    expect(within(identified).getAllByRole("article").map((article) => article.getAttribute("aria-label"))).toEqual([
       "Bilal Saeed",
       "Amal Haddad",
     ]);
   });
 
-  it("ticks a card on the board and keeps the tick on the list", async () => {
-    renderPage("");
-    const card = await screen.findByRole("article", { name: "Amal Haddad" });
+  it("ticks a card without opening it", async () => {
+    renderView();
+    const amal = await screen.findByRole("article", { name: "Amal Haddad" });
 
-    await userEvent.click(within(card).getByRole("checkbox", { name: "Select Amal Haddad" }));
+    await userEvent.click(within(amal).getByRole("checkbox", { name: "Select Amal Haddad" }));
 
-    expect(within(card).getByRole("checkbox", { name: "Select Amal Haddad" })).toBeChecked();
+    expect(within(amal).getByRole("checkbox", { name: "Select Amal Haddad" })).toBeChecked();
+    expect(within(card("Bilal Saeed")).getByRole("checkbox", { name: "Select Bilal Saeed" })).not.toBeChecked();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("radio", { name: "List" }));
-
-    const listed = await screen.findByRole("row", { name: "Amal Haddad" });
-    expect(within(listed).getByRole("checkbox", { name: "Select Amal Haddad" })).toBeChecked();
-    expect(within(row("Bilal Saeed")).getByRole("checkbox", { name: "Select Bilal Saeed" })).not.toBeChecked();
   });
 
-  it("groups the Inactive panel by status, only the statuses someone holds", async () => {
-    renderPage();
-    await screen.findByRole("row", { name: "Amal Haddad" });
-    await userEvent.click(screen.getByRole("radio", { name: "Board" }));
-    const inactive = within(await screen.findByRole("region", { name: "Inactive" }));
+  it("folds the Inactive column, and unfolded groups it by status, only the statuses someone holds", async () => {
+    renderView();
+    const column = await screen.findByRole("region", { name: "Inactive" });
+    const inactive = within(column);
+    const fold = inactive.getByRole("button", { name: /^Inactive/ });
 
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+    expect(inactive.queryByRole("group")).not.toBeInTheDocument();
+
+    await userEvent.click(fold);
+
+    expect(fold).toHaveAttribute("aria-expanded", "true");
     const offLimits = within(inactive.getByRole("group", { name: "Off-limits" }));
     expect(offLimits.getByText("Elias Nader")).toBeInTheDocument();
     expect(offLimits.getByText("Ghada Omar")).toBeInTheDocument();
     expect(within(inactive.getByRole("group", { name: "Not interested" })).getByText("Farah Aziz")).toBeInTheDocument();
     expect(inactive.queryByRole("group", { name: "Withdrew" })).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Declined" })).not.toBeInTheDocument();
-  });
 
-  it("sends someone without a staff seat to In universe", async () => {
-    viewer.workspace.roles = ["MEMBER"];
-    renderPage();
+    await userEvent.click(fold);
 
-    expect(await screen.findByText("In universe")).toBeInTheDocument();
-    expect(pipelineApi.getPipeline).not.toHaveBeenCalled();
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+    expect(inactive.queryByRole("group", { name: "Off-limits" })).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,7 @@
 package app.lightmove.api.triagecompany.service;
 
 import app.lightmove.api.core.security.rbac.ProjectAudience;
+import app.lightmove.api.core.text.model.SearchText;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.Collection;
 import java.util.List;
@@ -22,6 +23,13 @@ public interface MappedExecutiveLookup {
     Set<UUID> triageCompanyIdsMatchingExecutiveName(UUID projectId, TriageCompanyStatus stage, String executiveName,
                                                     ProjectAudience audience);
 
+    /**
+     * Companies with someone listed at {@code stage} whom the search box matches on their own — the executive half
+     * of the one search rule, notes and tags included only for a staff {@code audience}.
+     */
+    Set<UUID> triageCompanyIdsWithExecutivesMatching(UUID projectId, TriageCompanyStatus stage, SearchText search,
+                                                     ProjectAudience audience);
+
     /** Among the people listed at {@code stage}. Never asked with an empty list. */
     Set<UUID> triageCompanyIdsWithExecutiveStatusIn(UUID projectId, TriageCompanyStatus stage,
                                                     List<String> executiveStatuses, ProjectAudience audience);
@@ -41,9 +49,10 @@ public interface MappedExecutiveLookup {
 
     /**
      * Ranked by each company's best (lowest) executive status; a company with no executive ranks last
-     * either way. Honours the same filters as the ordinary listing.
+     * either way. Honours the same filters as the ordinary listing; {@code withinIds}, when not null, is the
+     * search's companies, already listed at {@code status} — never empty.
      */
     Page<UUID> triageCompanyIdsRankedByExecutiveStatus(UUID projectId, TriageCompanyStatus status,
-            String companyName, String executiveName, List<String> executiveStatuses,
+            String companyName, String executiveName, List<String> executiveStatuses, Set<UUID> withinIds,
             boolean ascending, Pageable pageable, ProjectAudience audience);
 }
