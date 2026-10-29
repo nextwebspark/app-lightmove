@@ -26,7 +26,7 @@ import { PersonHeaderLayout } from "../ProfileParts";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonNotesTab } from "./PersonNotesTab";
 import { PersonProfileTab } from "./PersonProfileTab";
-import { PersonTimelineTab } from "./PersonTimelineTab";
+import { ActivityTimeline } from "../activity/ActivityTimeline";
 import { PersonContactTab } from "./PersonContactTab";
 import { AddToPositionDialog } from "./AddToPositionDialog";
 import { focusNoteComposer } from "../../../notes/lib/focusNoteComposer";
@@ -239,8 +239,22 @@ function PersonDrawerBody({
           </div>
         )}
         {tab === "activity" && (
-          <div className="py-4">
-            <PersonTimelineTab personId={person.personId} />
+          <div className="pb-4">
+            <ActivityTimeline
+              scope={{ kind: "person", personId: person.personId }}
+              executive={{
+                fullName: person.fullName,
+                face: (size, className) => <PersonAvatar person={person} size={size} className={className} />,
+              }}
+              documents={documents.documents.data}
+              destinations={{
+                onShowNote: () => onTabChange("notes"),
+                onOpenTab: onTabChange,
+                onOpenMeetings: () => onTabChange("positions"),
+                onOpenTask: () => onTabChange("positions"),
+                onPreviewDocument: openPreview,
+              }}
+            />
           </div>
         )}
         {tab === "positions" && (

@@ -744,30 +744,38 @@
         </sc-if>
 
         <sc-if value="{{ tabTimeline }}" hint-placeholder-val="{{ false }}">
-          <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:6px">
-            <sc-for list="{{ tlChips }}" as="kc" hint-placeholder-count="5">
-              <button onClick="{{ setTlKind }}" data-id="{{ kc.key }}" style="border-radius:999px;border:1px solid {{ kc.border }};padding:4px 10px;font:500 11.5px var(--mono);color:{{ kc.color }};background:{{ kc.bg }};cursor:pointer" style-hover="color:var(--text)">{{ kc.label }}</button>
-            </sc-for>
+          <!-- The person's own changes and each position's milestones, as the position drawer's cards; a position's notes, emails, calls and tasks stay in that position's drawer. -->
+          <div style="display:flex;align-items:center;gap:6px;margin-top:12px;padding:0 0 10px;margin-bottom:4px;border-bottom:1px solid var(--line-soft)">
+            <span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);font:500 12.5px var(--sans);color:var(--text)">All activity <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg></span>
+            <span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);font:500 12.5px var(--sans);color:var(--text)">Everyone <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg></span>
+            <span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);font:500 12.5px var(--sans);color:var(--text)">Every position <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg></span>
+            <span style="margin-left:auto;font:400 11px var(--mono);color:var(--text3)">{{ dv.tlCount }}</span>
           </div>
-          <p style="margin:10px 2px 4px;font:400 11px var(--mono);color:var(--text3)">Everything done to this person, by whom and when, on every position. Nothing here can be edited.</p>
-          <div data-screen-label="Timeline" role="feed" aria-label="Timeline">
+          <div data-screen-label="Timeline" role="feed" aria-label="Activity">
             <sc-for list="{{ dv.tlDays }}" as="td" hint-placeholder-count="2">
               <section style="padding-top:10px">
-                <div style="padding:4px 0 6px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">{{ td.label }}</div>
-                <sc-for list="{{ td.entries }}" as="te" hint-placeholder-count="3">
-                  <div style="display:flex;gap:12px;padding:7px 0">
-                    <span style="display:grid;width:26px;height:26px;flex:none;place-items:center;border-radius:50%;background:{{ te.iconBg }};color:{{ te.iconFg }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ te.icon }}"></path></svg></span>
-                    <div style="min-width:0;flex:1">
-                      <p style="margin:0;font:400 13px/1.5 var(--sans);color:var(--text2)"><sc-for list="{{ te.parts }}" as="pt"><span style="{{ pt.style }}">{{ pt.t }}</span></sc-for></p>
-                      <p title="{{ te.exact }}" style="margin:1px 0 0;font:400 11px var(--mono);color:var(--text3)">{{ te.time }}{{ te.detailSuffix }}</p>
-                      <sc-if value="{{ te.hasExcerpt }}"><p style="margin:5px 0 0;border-left:2px solid var(--line);padding:1px 0 1px 10px;font:400 12.5px/1.5 var(--sans);color:var(--text2)">{{ te.excerpt }}</p></sc-if>
+                <div style="padding:4px 0 8px;font:600 12.5px var(--sans);color:var(--text)">{{ td.label }}</div>
+                <div style="position:relative;display:flex;flex-direction:column;gap:8px;padding-left:42px">
+                  <span style="position:absolute;left:15px;top:6px;bottom:6px;width:1px;background:var(--line)"></span>
+                  <sc-for list="{{ td.entries }}" as="te" hint-placeholder-count="3">
+                    <div style="position:relative">
+                      <span style="position:absolute;left:-42px;top:10px;display:grid;place-items:center;width:30px;height:30px;background:var(--panel);color:var(--text3)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ te.icon }}"></path></svg></span>
+                      <div style="display:flex;flex-direction:column;gap:6px;border:1px solid var(--line-soft);border-radius:12px;background:var(--bg);padding:10px 12px 11px;cursor:pointer" style-hover="border-color:var(--line)">
+                        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                          <span style="{{ te.avStyle }}">{{ te.actorInitials }}</span>
+                          <p style="flex:1;min-width:0;margin:0;font:400 12.5px/1.4 var(--sans);color:var(--text2)"><sc-for list="{{ te.parts }}" as="pt"><span style="{{ pt.style }}">{{ pt.t }}</span></sc-for></p>
+                          <span title="{{ te.exact }}" style="flex:none;font:400 11px var(--mono);color:var(--text3)">{{ te.time }}</span>
+                        </div>
+                        <sc-if value="{{ te.hasDetail }}"><p style="margin:0 0 0 36px;font:400 12px/1.5 var(--sans);color:var(--text2)">{{ te.detail }}</p></sc-if>
+                        <sc-if value="{{ te.hasPos }}"><span style="margin-left:36px;width:fit-content;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:999px;padding:1px 8px;background:var(--line-soft);font:500 11px var(--sans);color:var(--text2)">{{ te.pos }}</span></sc-if>
+                      </div>
                     </div>
-                  </div>
-                </sc-for>
+                  </sc-for>
+                </div>
               </section>
             </sc-for>
-            <sc-if value="{{ dv.noTimeline }}"><p style="margin:0;padding:20px 0;text-align:center;font:400 12.5px var(--mono);color:var(--text3)">Nothing of this kind recorded yet.</p></sc-if>
-            <sc-if value="{{ dv.tlCut }}"><button onClick="{{ showMoreTimeline }}" style="margin:6px 0 16px;padding:0;font:500 12px var(--mono);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="text-decoration:underline">{{ dv.tlMoreLabel }}</button></sc-if>
+            <sc-if value="{{ dv.noTimeline }}"><p style="margin:0;padding:20px 0;font:400 12.5px var(--mono);color:var(--text3)">Nothing recorded for this person yet.</p></sc-if>
+            <sc-if value="{{ dv.hasTimeline }}"><p style="margin:0;padding:16px 0 8px 42px;font:400 11px var(--mono);color:var(--text3)">Start of this person's history</p></sc-if>
           </div>
         </sc-if>
 
@@ -1212,7 +1220,6 @@ const KIND_GROUP = {
   TAGGED: "tags", UNTAGGED: "tags", OWNER_CHANGED: "tags",
   DOCUMENT_ADDED: "documents", DOCUMENT_VERSION_ADDED: "documents", DOCUMENT_VERSION_REMOVED: "documents", DOCUMENT_REMOVED: "documents"
 };
-const TIMELINE_CUT = 5;
 const CAREER_CUT = 4;
 const ALWAYS_OPEN = ["summary", "experience"];
 const drawerTabOf = (t) => (t === "notes" || t === "documents" ? "records" : ["profile", "contact", "records", "timeline"].includes(t) ? t : "profile");
@@ -1295,14 +1302,14 @@ class Component extends DCLogic {
       q: "", quick: "all", filtersOpen: flag("filtersOpen", false), railOpen: null,
       tagMode: "any", tagSel: {}, fPos: "all", fStatus: "all", fOwner: "all", fCountry: "all",
       sortField: "activity", sortDir: "desc", sel: {},
-      openId: drawerOpen ? "e01" : null, drawerTab: docTabFirst ? "records" : drawerTabOf(pick("drawerTab", "profile")), summaryMore: false, careerAll: false, tlAll: false,
+      openId: drawerOpen ? "e01" : null, drawerTab: docTabFirst ? "records" : drawerTabOf(pick("drawerTab", "profile")), summaryMore: false, careerAll: false,
       docs: DOC_SEED.filter((d) => docsState !== "empty" || d.person !== "e01").map((d) => Object.assign({}, d, { versions: d.versions.map((v) => Object.assign({}, v)) })),
       histOpen: docsState === "history" ? { d1: true } : {}, docMenu: null, renameId: null, renameText: "", dropping: docsState === "dropping",
       tray: (TRAY_FILES[trayState] || []).map((f, i) => ({ id: `t${i}`, file: f.file, kb: f.kb, cat: guessCat(f.file), dupOf: f.dupOf || null, forDoc: null, separate: false })),
       preview: dialog === "preview" ? { doc: "d1", no: 3 } : null,
       sec: { summary: true, experience: true, compensation: false, background: false },
       tagPickerOpen: flag("tagPickerOpen", false), tagQuery: "",
-      noteKind: "call", notePos: "none", noteText: "", tlKind: "all",
+      noteKind: "call", notePos: "none", noteText: "",
       dialog, dialogTarget: "selection", bulkPos: "leasing", bulkTagMode: "add", bulkTagSel: { relocate: true }, bulkOwner: "yh",
       mergeQuery: "", mergePick: dialog === "merge" ? "e15" : null, mergeKeep: {},
       aActor: "all", aPos: "all", aRange: "30", aKind: "all", feedLimit: 24, tick: 0
@@ -1426,7 +1433,7 @@ class Component extends DCLogic {
       parts: [S(MEMBERS[e.actor].name), T(" "), ...this.phrase(e, s, withPerson)],
       hasDetail: !!detail, detail, detailSuffix: detail ? ` · ${detail}` : "",
       hasExcerpt: !!e.excerpt, excerpt: e.excerpt || "",
-      icon: KIND_ICON[e.kind], iconBg: tone[0], iconFg: tone[1],
+      icon: KIND_ICON[e.kind], iconBg: tone[0], iconFg: tone[1], hasPos: !withPerson && !!e.pos, pos: e.pos ? POS[e.pos].title : "",
       time: timeOf(e.at), exact: exactOf(e.at)
     };
   }
@@ -1464,8 +1471,8 @@ class Component extends DCLogic {
       { id: "background", title: "Background", summary: [x.nat, x.gender, x.years ? `${x.years} yrs` : null].filter(Boolean).join(" · ") || "Nothing on file" }
     ];
     const notes = s.notes.filter((n) => n.person === x.id).sort((a, b) => (b.pinned - a.pinned) || b.at.localeCompare(a.at));
-    const timeline = all.filter((e) => s.tlKind === "all" || KIND_GROUP[e.kind] === s.tlKind);
-    const shownTimeline = s.tlAll ? timeline : timeline.slice(0, TIMELINE_CUT);
+    // A position's notes stay in that position's drawer; this reads the person and each position's milestones.
+    const timeline = all.filter((e) => e.kind !== "NOTE_ADDED");
     const careerShown = s.careerAll ? career : career.slice(0, CAREER_CUT);
     const summaryLong = (x.summary || "").length > 220;
     const kindPill = (kind) => `display:inline-flex;border-radius:5px;padding:2px 7px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;${kind === "Work" ? "background:var(--sky-dim);color:var(--sky)" : "background:var(--amber-dim);color:var(--amber)"}`;
@@ -1507,8 +1514,8 @@ class Component extends DCLogic {
         hasPos: !!n.pos, pos: n.pos ? POS[n.pos].title : "", edited: !!n.edited, editedLine: n.edited ? `Edited by ${MEMBERS[n.edited.by].name} · ${exactOf(n.edited.at)}` : "",
         canEdit: true, border: n.pinned ? "color-mix(in srgb,var(--amber) 45%,transparent)" : "var(--line-soft)", bg: n.pinned ? "var(--panel2)" : "var(--panel)" }; }),
       noNotes: notes.length === 0, noteCount: notes.length,
-      tlDays: this.byDay(shownTimeline, s, false), noTimeline: timeline.length === 0, eventCount: all.length,
-      tlCut: timeline.length > TIMELINE_CUT && !s.tlAll || s.tlAll && timeline.length > shownTimeline.length, tlMoreLabel: "See more"
+      tlDays: this.byDay(timeline, s, false), noTimeline: timeline.length === 0, hasTimeline: timeline.length > 0, eventCount: all.length,
+      tlCount: `${timeline.length} ${timeline.length === 1 ? "event" : "events"}`
     };
   }
 
@@ -1800,7 +1807,6 @@ class Component extends DCLogic {
       notePlaceholder: { general: "What your team should know about this person…", call: "What was said on the call, and what happens next…", meeting: "Where you met, what came out of it…", email: "What was sent or received, and the reply…" }[s.noteKind],
       notePosOptions: [{ value: "none", label: "No position — about the person" }, ...(x ? x.maps.map((m) => ({ value: m.pos, label: POS[m.pos].title })) : [])],
       saveNoteOpacity: s.noteText.trim() ? 1 : 0.5,
-      tlChips: KIND_CHIPS.map(([key, label]) => Object.assign({ key, label }, chipStyle(s.tlKind === key))),
 
       showAddToPosition: s.dialog === "addToPosition" && targetPeople.length > 0, showTagDialog: s.dialog === "tag" && targetPeople.length > 0,
       showOwnerDialog: s.dialog === "owner" && targetPeople.length > 0, showMerge: s.dialog === "merge" && !!x, showPreview: pv.shown,
@@ -1845,8 +1851,8 @@ class Component extends DCLogic {
         this.setState({ dialog: key, dialogTarget: "selection", bulkTagSel: {}, bulkTagMode: "add" });
       },
       exportView: () => this.showToast(`Exported ${rows.length} people as a CSV — recorded in the audit trail`),
-      openRow: (e) => this.setState({ openId: e.currentTarget.dataset.id, drawerTab: "profile", summaryMore: false, careerAll: false, tlAll: false, tagPickerOpen: false, notePos: "none", noteText: "", tlKind: "all" }),
-      openFromFeed: (e) => this.setState({ openId: e.currentTarget.dataset.id, drawerTab: "timeline", summaryMore: false, careerAll: false, tlAll: false, tagPickerOpen: false, notePos: "none", noteText: "", tlKind: "all" }),
+      openRow: (e) => this.setState({ openId: e.currentTarget.dataset.id, drawerTab: "profile", summaryMore: false, careerAll: false, tagPickerOpen: false, notePos: "none", noteText: "" }),
+      openFromFeed: (e) => this.setState({ openId: e.currentTarget.dataset.id, drawerTab: "timeline", summaryMore: false, careerAll: false, tagPickerOpen: false, notePos: "none", noteText: "" }),
       closeDrawer: () => this.setState({ openId: null, tagPickerOpen: false }),
 
       setActivitySelect: (e) => this.setState({ [e.currentTarget.dataset.id]: e.target.value, feedLimit: 24 }),
@@ -1856,7 +1862,6 @@ class Component extends DCLogic {
       setDrawerTab: (e) => this.setState({ drawerTab: e.currentTarget.dataset.id }),
       toggleSummaryMore: () => this.setState({ summaryMore: !s.summaryMore }),
       toggleCareerAll: () => this.setState({ careerAll: !s.careerAll }),
-      showMoreTimeline: () => this.setState({ tlAll: true }),
       copyContact: (e) => this.showToast(`${e.currentTarget.dataset.id === "email" ? "Email" : e.currentTarget.dataset.id === "phone" ? "Phone" : "LinkedIn URL"} copied`),
       toggleSec: (e) => { const id = e.currentTarget.dataset.id; this.setState({ sec: Object.assign({}, s.sec, { [id]: !s.sec[id] }) }); },
       setOwner: (e) => {
@@ -1899,7 +1904,6 @@ class Component extends DCLogic {
       },
       togglePin: (e) => { const id = e.currentTarget.dataset.id; this.setState({ notes: s.notes.map((n) => (n.id === id ? Object.assign({}, n, { pinned: !n.pinned }) : n)) }); },
       deleteNote: (e) => { const id = e.currentTarget.dataset.id; this.setState({ notes: s.notes.filter((n) => n.id !== id) }); this.showToast("Note deleted · Undo"); },
-      setTlKind: (e) => this.setState({ tlKind: e.currentTarget.dataset.id }),
 
       pickFiles: () => {
         const picked = [{ file: "Fatima_Al_Mazrouei_CV.pdf", kb: 431 }, { file: "Hogan_assessment_report.pdf", kb: 860 }];

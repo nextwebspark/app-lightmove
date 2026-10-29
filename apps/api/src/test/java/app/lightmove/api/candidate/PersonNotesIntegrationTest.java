@@ -628,11 +628,13 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
                 from app_lm_project p where p.id = ?::uuid
                 """, personId, "{\"noteId\":\"" + noteId + "\",\"kind\":\"CALL\"}", cfo);
 
+        // The Candidates page's person timeline carries no notes (they stay with the Notes tab and each position).
+        assertThat(kindsOf(workspaceRead("/api/v1/candidates/" + personId + "/timeline", null)))
+                .isNotEmpty().noneMatch(kind -> kind.startsWith("NOTE_"));
+        assertThat(workspaceRead("/api/v1/candidates/" + personId + "/timeline", "notes")).isEmpty();
         List<JsonNode> reads = List.of(
                 timeline(cfo, candidateId, null).get("entries"),
                 timeline(cfo, candidateId, "notes").get("entries"),
-                workspaceRead("/api/v1/candidates/" + personId + "/timeline", null),
-                workspaceRead("/api/v1/candidates/" + personId + "/timeline", "notes"),
                 workspaceRead("/api/v1/candidates/activity", "notes"));
         for (JsonNode entries : reads) {
             List<JsonNode> noteLines = new ArrayList<>();
