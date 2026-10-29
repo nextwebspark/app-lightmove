@@ -19,8 +19,8 @@ public enum TimelineGroup implements ApiValueEnum {
             PersonActivityKind.CLIENT_VISIBILITY_CHANGED, PersonActivityKind.TASK_CREATED,
             PersonActivityKind.TASK_COMPLETED, PersonActivityKind.TASK_REOPENED, PersonActivityKind.TASK_REASSIGNED,
             PersonActivityKind.TASK_CANCELLED)),
-    NOTES("notes", EnumSet.of(PersonActivityKind.NOTE_ADDED, PersonActivityKind.NOTE_EDITED,
-            PersonActivityKind.NOTE_REMOVED, PersonActivityKind.NOTE_RESTORED)),
+    NOTES("notes", EnumSet.of(PersonActivityKind.NOTE_ADDED, PersonActivityKind.NOTE_REMOVED,
+            PersonActivityKind.NOTE_RESTORED)),
     CONTACTS("contacts", EnumSet.of(PersonActivityKind.CONTACTS_EDITED, PersonActivityKind.CONTACT_FOUND,
             PersonActivityKind.DO_NOT_CONTACT_SET, PersonActivityKind.DO_NOT_CONTACT_CLEARED,
             PersonActivityKind.OUTREACH_ENROLLED, PersonActivityKind.EMAIL_SENT, PersonActivityKind.EMAIL_REPLIED,
@@ -37,9 +37,9 @@ public enum TimelineGroup implements ApiValueEnum {
     private final String value;
     private final Set<PersonActivityKind> kinds;
 
-    /** The kinds a filter shows; every kind when no group is asked for, a 400 for a group nobody offers. */
+    /** The kinds a filter shows; every live kind when no group is asked for, a 400 for a group nobody offers. */
     public static Set<PersonActivityKind> kindsOf(String group) {
         TimelineGroup chosen = ApiValueEnum.parse(TimelineGroup.class, group, null, "timeline group");
-        return chosen == null ? EnumSet.allOf(PersonActivityKind.class) : chosen.kinds();
+        return chosen == null ? EnumSet.complementOf(EnumSet.copyOf(PersonActivityKind.RETIRED)) : chosen.kinds();
     }
 }
