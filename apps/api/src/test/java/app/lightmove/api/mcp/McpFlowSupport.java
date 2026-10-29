@@ -1,15 +1,17 @@
 package app.lightmove.api.mcp;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.core.security.oauth.OAuthFlowSupport;
+import app.lightmove.api.triagecompany.LegacyShortlist;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import tools.jackson.databind.JsonNode;
@@ -21,6 +23,8 @@ public abstract class McpFlowSupport extends OAuthFlowSupport {
     protected static final String METADATA = "/.well-known/oauth-protected-resource";
     protected static final String LIST_TOOLS = """
             {"jsonrpc":"2.0","id":2,"method":"tools/list"}""";
+
+    @Autowired private JdbcTemplate shortlistDb;
 
     protected MockHttpServletRequestBuilder call(String bearer, String jsonRpc) {
         MockHttpServletRequestBuilder request = post(MCP)
@@ -112,13 +116,9 @@ public abstract class McpFlowSupport extends OAuthFlowSupport {
                 .andReturn()).get("id").asText();
     }
 
-    protected void shortlist(String admin, String projectId, String companyId) throws Exception {
-        mvc.perform(patch("/api/v1/projects/" + projectId + "/triage/" + companyId)
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"status":"shortlisted"}"""))
-                .andExpect(status().isOk());
+    /** Shortlisted is no longer filed at; a company an older release left there is still read. */
+    protected void shortlist(String admin, String projectId, String companyId) {
+        LegacyShortlist.shortlist(shortlistDb, companyId);
     }
 
     protected void map(String admin, String projectId, String candidateJson) throws Exception {

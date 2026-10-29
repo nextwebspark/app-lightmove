@@ -2,13 +2,13 @@ package app.lightmove.api.publicapi;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.triagecompany.LegacyShortlist;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -133,12 +133,7 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
         String projectId = project(admin, "Chief Financial Officer");
         String acwa = capture(admin, projectId, "ACWA Power");
         String masdar = capture(admin, projectId, "Masdar");
-        mvc.perform(patch("/api/v1/projects/" + projectId + "/triage/" + masdar)
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"status":"shortlisted"}"""))
-                .andExpect(status().isOk());
+        LegacyShortlist.shortlist(db, masdar);
         map(admin, projectId, acwa, "Layla Haddad", "contacted");
         map(admin, projectId, acwa, "Omar Said", "identified");
         map(admin, projectId, masdar, "Yasmin Farouk", "identified");

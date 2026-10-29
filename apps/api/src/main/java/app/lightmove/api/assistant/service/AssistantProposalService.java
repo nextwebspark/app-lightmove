@@ -13,6 +13,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.triagecompany.constant.TriageCompanySource;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.AddSelectedTriageCompaniesRequest;
 import app.lightmove.api.triagecompany.dto.TriageBulkAddResponse;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
@@ -54,6 +55,7 @@ public class AssistantProposalService {
                 .map(AssistantThread::getProjectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         projectAccess.requireAction(userId, workspaceId, projectId, ProjectAction.WORK_EXECUTE);
+        TriageCompanyStatus.parseDestination(request.status());
 
         List<String> chosen = request.companyIds().stream().distinct().toList();
         AssistantProposal card = turn.getProposal();

@@ -109,6 +109,8 @@ is held back rather than sent (the step does not save until it is named) and the
 | ☐ Languages | one string ≤ 1200 | ≤ 20 × 60 | banner |
 | ☐ Phone | none | a digit | banner |
 | ☐ Candidates search `q`, `page` | none | unbounded `q`; `page × size` overflows | — |
+| ☐ Companies search box `search` (triage list, its people read, talent map, export; the Pipeline's `q`) | trimmed | trimmed, case-insensitive substring with `%` and `_` literal (`SearchText`), unbounded; notes and tags match only for `WORK_EXECUTE` | — |
+| Companies stage a write files at | In universe or Declined | `shortlisted` refused by every door — add, capture, bulk, company move, executive move, People filing, assistant accept: 400 `VALIDATION_FAILED` on `status` ("Shortlisted is no longer a stage. File at In universe or Declined."); reads still take it | toast |
 | Next action title | trimmed, ≤ 200, one line, required | `@NotBlank @Size(200)`, no line break (it becomes an email subject) | banner |
 | Next action detail | trimmed, ≤ 500 | `@Size(500)` | banner |
 | Note body | the note editor's Markdown, trimmed, mentions written as tokens, ≤ 10000 stored (held under the box) | `@NotBlank @Size(10000)`; V142's CHECK | toast |

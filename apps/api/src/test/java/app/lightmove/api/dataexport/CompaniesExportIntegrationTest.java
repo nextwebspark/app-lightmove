@@ -82,7 +82,7 @@ class CompaniesExportIntegrationTest extends FlowTestSupport {
         String projectId = project(admin);
         String companyId = capture(admin, projectId, "ACWA Power");
         mapUnmapped(admin, projectId, "Yasmin Farouk", "Masdar");
-        move(admin, projectId, companyId, "shortlisted");
+        move(admin, projectId, companyId, "declined");
 
         assertThat(rowsOf(export(admin, projectId, null, null)))
                 .singleElement()
@@ -90,7 +90,7 @@ class CompaniesExportIntegrationTest extends FlowTestSupport {
                     assertThat(row.get(0)).isEqualTo("Masdar");
                     assertThat(row.get(4)).isEqualTo("Yasmin Farouk");
                 });
-        assertThat(rowsOf(export(admin, projectId, "shortlisted", null)))
+        assertThat(rowsOf(export(admin, projectId, "declined", null)))
                 .singleElement()
                 .satisfies(row -> assertThat(row.get(0)).isEqualTo("ACWA Power"));
     }

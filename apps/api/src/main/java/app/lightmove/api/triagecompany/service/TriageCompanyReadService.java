@@ -8,6 +8,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.text.model.SearchText;
 import app.lightmove.api.core.text.service.SuppliedText;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.strategy.constant.SortDirection;
@@ -22,6 +23,7 @@ import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.model.TriageCompanyLogo;
 import app.lightmove.api.triagecompany.model.TriageCompanyMatches;
+import app.lightmove.api.triagecompany.repository.SearchMatchedCompany;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import java.util.Collection;
 import java.util.HashSet;
@@ -78,10 +80,12 @@ public class TriageCompanyReadService {
         String executiveName = SuppliedText.blankToNull(criteria.executiveQuery());
         List<String> executiveStatuses = resolveExecutiveStatuses(workspaceId, projectId,
                 criteria.executiveStatuses());
+        SearchText search = SearchText.ofOrNull(criteria.search());
         Page<TriageCompany> found = EXECUTIVE_STATUS_SORT_TOKEN.equals(criteria.sort())
                 ? findOrderedByExecutiveStatus(projectId, status, companyName, executiveName,
-                        executiveStatuses, resolveDirection(criteria.direction()), PageRequest.of(page, size), audience)
-                : findWithFilters(projectId, status, companyName, executiveName, executiveStatuses,
+                        executiveStatuses, search, resolveDirection(criteria.direction()), PageRequest.of(page, size),
+                        audience)
+                : findWithFilters(projectId, status, companyName, executiveName, executiveStatuses, search,
                         PageRequest.of(page, size, resolveSort(criteria)), audience);
 
         boolean staff = audience == ProjectAudience.STAFF;
@@ -100,9 +104,17 @@ public class TriageCompanyReadService {
 
     private Page<TriageCompany> findWithFilters(UUID projectId, TriageCompanyStatus status,
                                                 String companyName, String executiveName,
-                                                List<String> executiveStatuses,
+                                                List<String> executiveStatuses, SearchText search,
                                                 PageRequest pageRequest, ProjectAudience audience) {
+        Set<UUID> searched = search == null ? null : listedAtMatching(projectId, status, search, audience);
+        if (searched != null && searched.isEmpty()) {
+            return Page.empty(pageRequest);
+        }
         if (executiveName == null && executiveStatuses.isEmpty()) {
+            if (searched != null) {
+                return triaged.findByProjectIdAndIdInAndCompanyNameFilter(projectId, searched, companyName,
+                        pageRequest);
+            }
             Set<UUID> movedHere = executives.triageCompanyIdsWithExecutivesMovedTo(projectId, status, audience);
             if (!movedHere.isEmpty()) {
                 return triaged.findByProjectIdAndStatusOrIdInAndCompanyNameFilter(
@@ -115,10 +127,48 @@ public class TriageCompanyReadService {
         }
         // Every match is a company with someone listed at this stage, so each belongs on it whatever its own stage.
         Set<UUID> matchingIds = matchingExecutiveIds(projectId, status, executiveName, executiveStatuses, audience);
+        if (searched != null) {
+            matchingIds = new HashSet<>(matchingIds);
+            matchingIds.retainAll(searched);
+        }
         if (matchingIds.isEmpty()) {
             return Page.empty(pageRequest);
         }
         return triaged.findByProjectIdAndIdInAndCompanyNameFilter(projectId, matchingIds, companyName, pageRequest);
+    }
+
+    /**
+     * The companies listed at {@code status} that the search keeps: one matching on its own facts (a stage lists
+     * a company of another stage only for a person of its moved there, #903), or one with somebody listed at
+     * {@code status} who matches.
+     */
+    private Set<UUID> listedAtMatching(UUID projectId, TriageCompanyStatus status, SearchText search,
+                                       ProjectAudience audience) {
+        List<SearchMatchedCompany> ownMatches = triaged.findSearchMatches(projectId, search.likePattern(),
+                audience == ProjectAudience.STAFF);
+        Set<UUID> kept = new HashSet<>(
+                executives.triageCompanyIdsWithExecutivesMatching(projectId, status, search, audience));
+        Set<UUID> movedHere = ownMatches.stream().anyMatch(match -> !status.name().equals(match.getStatus()))
+                ? executives.triageCompanyIdsWithExecutivesMovedTo(projectId, status, audience) : Set.of();
+        ownMatches.stream()
+                .filter(match -> status.name().equals(match.getStatus()) || movedHere.contains(match.getId()))
+                .map(SearchMatchedCompany::getId)
+                .forEach(kept::add);
+        return kept;
+    }
+
+    /**
+     * The mandate's companies the search box matches on their own facts, whatever their stage — the company half
+     * of the one search rule, for {@code candidate}'s reads to keep every executive of such a company. A company's
+     * notes count only for a staff {@code audience}.
+     */
+    @Transactional(readOnly = true)
+    public Set<UUID> idsMatchingSearch(UUID workspaceId, UUID projectId, SearchText search,
+                                       ProjectAudience audience) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return triaged.findSearchMatches(projectId, search.likePattern(), audience == ProjectAudience.STAFF).stream()
+                .map(SearchMatchedCompany::getId)
+                .collect(Collectors.toSet());
     }
 
     /** Both filters are independent: each resolves to a company set and the two are intersected. */
@@ -142,11 +192,16 @@ public class TriageCompanyReadService {
     /** Ranked ids come from {@code candidate}'s side of the boundary; the rows are re-fetched here. */
     private Page<TriageCompany> findOrderedByExecutiveStatus(UUID projectId, TriageCompanyStatus status,
                                                               String companyName, String executiveName,
-                                                              List<String> executiveStatuses,
+                                                              List<String> executiveStatuses, SearchText search,
                                                               SortDirection direction, PageRequest pageRequest,
                                                               ProjectAudience audience) {
+        Set<UUID> searched = search == null ? null : listedAtMatching(projectId, status, search, audience);
+        if (searched != null && searched.isEmpty()) {
+            return Page.empty(pageRequest);
+        }
         Page<UUID> ranked = executives.triageCompanyIdsRankedByExecutiveStatus(projectId, status,
-                companyName, executiveName, executiveStatuses, direction == SortDirection.ASC, pageRequest, audience);
+                companyName, executiveName, executiveStatuses, searched, direction == SortDirection.ASC, pageRequest,
+                audience);
         if (ranked.isEmpty()) {
             return new PageImpl<>(List.of(), pageRequest, ranked.getTotalElements());
         }
@@ -207,7 +262,8 @@ public class TriageCompanyReadService {
                 .and(NEWEST_FIRST));
         Page<TriageCompany> found = findWithFilters(projectId, status,
                 SuppliedText.blankToNull(filters.companyName()), SuppliedText.blankToNull(filters.executiveName()),
-                resolveExecutiveStatuses(workspaceId, projectId, filters.executiveStatuses()), wholeStage, audience);
+                resolveExecutiveStatuses(workspaceId, projectId, filters.executiveStatuses()),
+                SearchText.ofOrNull(filters.search()), wholeStage, audience);
         Map<UUID, User> addedBy = withAddedBy && audience == ProjectAudience.STAFF
                 ? addersOf(found.getContent()) : Map.of();
         return new TriageCompaniesResponse(

@@ -151,7 +151,7 @@ class CompanyCaptureResolutionIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"companyName":"Al Rawabi","source":"extension","status":"shortlisted",
+                                {"companyName":"Al Rawabi","source":"extension","status":"declined",
                                  "note":"CEO met at GITEX",
                                  "companyLinkedinUrl":"https://www.linkedin.com/company/alrawabi/"}"""))
                 .andExpect(status().isConflict());

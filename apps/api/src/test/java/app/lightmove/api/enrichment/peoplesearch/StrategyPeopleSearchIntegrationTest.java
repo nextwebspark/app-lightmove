@@ -220,7 +220,7 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a person filed to the shortlist takes their employer there, unless the mandate already holds it elsewhere")
+    @DisplayName("a person filed as declined takes their employer there, unless the mandate already holds it elsewhere")
     void filesTheEmployerAtTheChosenStage() throws Exception {
         String projectId = mandate("Staging Firm");
         saveFilter(projectId, CFO_FILTER);
@@ -229,11 +229,16 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
         mvc.perform(post(peopleUrl(projectId) + "/add").header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"linkedinSlugs\":[\"sample-cfo-12ab\"],\"status\":\"shortlisted\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        mvc.perform(post(peopleUrl(projectId) + "/add").header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"linkedinSlugs\":[\"sample-cfo-12ab\"],\"status\":\"declined\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.added").value(1))
                 .andExpect(jsonPath("$.elsewhere").value(0));
         assertThat(db.queryForObject("select status from app_lm_project_triage_company where project_id = ?::uuid",
-                String.class, projectId)).isEqualTo("SHORTLISTED");
+                String.class, projectId)).isEqualTo("DECLINED");
 
         String otherProject = mandate("Declined Staging Firm");
         declined(otherProject, "Harbour Group");
@@ -241,7 +246,7 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
         search(otherProject, 1);
         mvc.perform(post(peopleUrl(otherProject) + "/add").header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"linkedinSlugs\":[\"sample-cfo-12ab\"],\"status\":\"shortlisted\"}"))
+                        .content("{\"linkedinSlugs\":[\"sample-cfo-12ab\"],\"status\":\"inUniverse\"}"))
                 .andExpect(jsonPath("$.added").value(1))
                 .andExpect(jsonPath("$.elsewhere").value(1));
         assertThat(db.queryForObject("select status from app_lm_project_triage_company where project_id = ?::uuid",

@@ -165,8 +165,13 @@ class AssistantIntegrationTest extends FlowTestSupport {
         universe.company("a2", "Marafiq").industry("oil & energy").employees(2_400).insert();
         String turnId = turnWithCard(firm);
 
+        // Shortlisted is retired as a destination: refused, and the card is still there to file.
         mvc.perform(accept(firm.admin, turnId, """
                         {"companyIds":["a1"],"status":"shortlisted"}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        mvc.perform(accept(firm.admin, turnId, """
+                        {"companyIds":["a1"],"status":"declined"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.added").value(1));
 
@@ -174,7 +179,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 + " WHERE project_id = ?", UUID.fromString(firm.projectId)))
                 .containsEntry("company_name", "ACWA Power")
                 .containsEntry("source", "ASSISTANT")
-                .containsEntry("status", "SHORTLISTED");
+                .containsEntry("status", "DECLINED");
 
         mvc.perform(accept(firm.admin, turnId, """
                         {"companyIds":["a2"]}"""))
@@ -190,7 +195,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
         universe.company("a2", "Marafiq").employees(2_400).insert();
         String turnId = turnWithCard(firm);
         mvc.perform(accept(firm.admin, turnId, """
-                        {"companyIds":["a1"],"status":"shortlisted"}"""))
+                        {"companyIds":["a1"],"status":"declined"}"""))
                 .andExpect(status().isOk());
         String threadId = db.queryForObject("SELECT thread_id FROM app_lm_assistant_turn WHERE id = ?",
                 UUID.class, UUID.fromString(turnId)).toString();
@@ -206,7 +211,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 .contains("<suggested_companies title=\"Two utilities\">")
                 .contains("- [new] a1 · ACWA Power · Saudi Arabia")
                 .contains("- [new] a2 · Marafiq · Saudi Arabia")
-                .contains("Filed 1 as Shortlisted");
+                .contains("Filed 1 as Declined");
     }
 
     @Test
@@ -271,7 +276,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.turns[0].proposal.companies[1].stage").value("declined"));
 
         mvc.perform(accept(firm.admin, turnId, """
-                        {"companyIds":["a1","a2"],"status":"shortlisted"}"""))
+                        {"companyIds":["a1","a2"],"status":"inUniverse"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.added").value(1))
                 .andExpect(jsonPath("$.skipped").value(1));
@@ -309,7 +314,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 UUID.fromString(turnId));
 
         mvc.perform(accept(firm.admin, turnId, """
-                        {"companyIds":["ikea"],"status":"shortlisted"}"""))
+                        {"companyIds":["ikea"],"status":"declined"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.added").value(1));
 
@@ -317,7 +322,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 + " FROM app_lm_project_triage_company WHERE project_id = ?", UUID.fromString(firm.projectId)))
                 .containsEntry("company_name", "IKEA")
                 .containsEntry("source", "ASSISTANT")
-                .containsEntry("status", "SHORTLISTED")
+                .containsEntry("status", "DECLINED")
                 .containsEntry("num_employees", 160000)
                 .containsEntry("website", "https://www.ikea.com");
     }
@@ -510,8 +515,11 @@ class AssistantIntegrationTest extends FlowTestSupport {
         Firm firm = firm("Assistant Rank Stage Firm");
         universe.company("a1", "ACWA Power").industry("oil & energy").employees(4_000).insert();
         universe.company("a2", "Marafiq").industry("utilities").employees(2_400).insert();
-        file(firm, "a1", "shortlisted");
+        file(firm, "a1", "inUniverse");
         file(firm, "a2", "inUniverse");
+        // Shortlisted is no longer filed at; a company an older release left there is still read.
+        db.update("UPDATE app_lm_project_triage_company SET status = 'SHORTLISTED' WHERE apollo_account_id = 'a1'"
+                + " AND project_id = ?", UUID.fromString(firm.projectId));
         model.callToolWhenSystemContains(AGENT_MARKER, "listMandateCompanies", "{\"stage\":\"shortlisted\"}");
 
         askAndAwait(firm.admin, firm.projectId, null, "Split my shortlist into tiers by fit");

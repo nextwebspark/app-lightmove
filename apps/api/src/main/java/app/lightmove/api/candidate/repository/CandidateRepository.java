@@ -51,12 +51,12 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     /** {@link #findByProjectId} as a client seat reads it: nobody hidden from the client. */
     Page<Candidate> findByProjectIdAndClientVisibleTrue(UUID projectId, Pageable pageable);
 
-    /** The Pipeline page's read: the whole position, each row with its person, status and stage. */
+    /** The Pipeline's read: the position's people listed at one Companies stage, with person, status and stage. */
     @Query("""
             select c from Candidate c join fetch c.person join fetch c.status s join fetch s.stage
-            where c.projectId = :projectId
+            where c.projectId = :projectId and c.triageStatus = :triageStatus
             """)
-    List<Candidate> findPipelineOfProject(UUID projectId);
+    List<Candidate> findPipelineOfProject(UUID projectId, TriageCompanyStatus triageStatus);
 
     @Query("select c.status.stage.id from Candidate c where c.id = :id and c.projectId = :projectId")
     Optional<UUID> findStageIdByIdAndProjectId(UUID id, UUID projectId);
@@ -263,6 +263,32 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     Set<UUID> findTriageCompanyIdsByProjectId(UUID projectId);
 
     /**
+     * The executive half of the mandate's one search rule: name, title, city, country or employer name, and — only
+     * for {@code includeStaffContent}, a reader holding {@code WORK_EXECUTE} — the person's live notes this position
+     * reads ({@code NoteViewpoint}: its own and the person-level ones, never another position's) and their tags.
+     * {@code pattern} is {@code SearchText.likePattern}; the company half is {@code triagecompany}'s.
+     */
+    @Query(value = "select c.id as \"id\", c.triage_company_id as \"triageCompanyId\", "
+            + "c.triage_status as \"triageStatus\" "
+            + "from app_lm_project_candidate c join app_lm_person p on p.id = c.person_id "
+            + "where c.project_id = :projectId and (:clientVisibleOnly = false or c.client_visible) and ("
+            + "  lower(p.full_name) like :pattern escape '\\' "
+            + "  or lower(coalesce(p.title, '')) like :pattern escape '\\' "
+            + "  or lower(coalesce(p.location_city, '')) like :pattern escape '\\' "
+            + "  or lower(coalesce(p.location_country, '')) like :pattern escape '\\' "
+            + "  or lower(coalesce(c.company_name, '')) like :pattern escape '\\' "
+            + "  or (:includeStaffContent and exists ("
+            + "    select 1 from app_lm_person_note n where n.person_id = c.person_id and n.deleted_at is null "
+            + "    and (n.project_id = c.project_id or n.project_id is null) "
+            + "    and lower(n.body) like :pattern escape '\\')) "
+            + "  or (:includeStaffContent and exists ("
+            + "    select 1 from app_lm_person_tag pt join app_lm_workspace_candidate_tag tag on tag.id = pt.tag_id "
+            + "    where pt.person_id = c.person_id and lower(tag.label) like :pattern escape '\\')))",
+            nativeQuery = true)
+    List<SearchMatchedCandidate> findSearchMatches(UUID projectId, String pattern, boolean includeStaffContent,
+                                                   boolean clientVisibleOnly);
+
+    /**
      * Ids of the mandate's triaged companies with a mapped executive at one of these status keys — the
      * seam behind {@code MappedExecutiveLookupAdapter}'s answer to {@code triagecompany}'s Status
      * column filter. A key names one status of the project's own workspace, which is the only kind of
@@ -339,6 +365,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
                     + "  and (:clientVisibleOnly = false or x.client_visible) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
+                    + "and (:searched = false or t.id in (:withinIds)) "
                     + "group by t.id "
                     + "order by (case when :ascending then 1 else -1 end) * min(cg.position * 1000 + cs.position) "
                     + "asc nulls last, t.created_at desc",
@@ -352,10 +379,12 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
                     + "  where x.triage_company_id = t.id and x.triage_status = :status "
                     + "  and (:clientVisibleOnly = false or x.client_visible) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
-                    + "))",
+                    + ")) "
+                    + "and (:searched = false or t.id in (:withinIds))",
             nativeQuery = true)
     Page<UUID> findTriageCompanyIdsRankedByExecutiveStatus(
             UUID projectId, String status, String companyName, String executiveName,
+            boolean searched, Collection<UUID> withinIds,
             boolean ascending, boolean clientVisibleOnly, Pageable pageable);
 
     /** {@link #findTriageCompanyIdsRankedByExecutiveStatus} narrowed to companies with at least one
@@ -379,6 +408,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
                     + "  and (:clientVisibleOnly = false or x.client_visible) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
+                    + "and (:searched = false or t.id in (:withinIds)) "
                     + "and exists ("
                     + "  select 1 from app_lm_project_candidate y "
                     + "  join app_lm_workspace_candidate_status ys on ys.id = y.status_id "
@@ -399,6 +429,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
                     + "  and (:clientVisibleOnly = false or x.client_visible) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
+                    + "and (:searched = false or t.id in (:withinIds)) "
                     + "and exists ("
                     + "  select 1 from app_lm_project_candidate y "
                     + "  join app_lm_workspace_candidate_status ys on ys.id = y.status_id "
@@ -408,6 +439,6 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
             nativeQuery = true)
     Page<UUID> findTriageCompanyIdsRankedByExecutiveStatusAndExecutiveStatuses(
             UUID projectId, String status, String companyName, String executiveName,
-            List<String> executiveStatuses, boolean ascending, boolean clientVisibleOnly,
-            Pageable pageable);
+            List<String> executiveStatuses, boolean searched, Collection<UUID> withinIds,
+            boolean ascending, boolean clientVisibleOnly, Pageable pageable);
 }

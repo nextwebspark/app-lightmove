@@ -7,6 +7,7 @@ import app.lightmove.api.candidate.dto.PipelineStageCountResponse;
 import app.lightmove.api.candidate.dto.PositionPipelineResponse;
 import app.lightmove.api.candidate.dto.RankPipelineRowRequest;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.CandidateSearchMatches;
 import app.lightmove.api.candidate.model.CandidateStage;
 import app.lightmove.api.candidate.model.PipelineCatalog;
 import app.lightmove.api.candidate.repository.CandidateRepository;
@@ -14,14 +15,16 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
+import app.lightmove.api.core.text.model.SearchText;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import jakarta.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -30,7 +33,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * A position's Pipeline page: every executive by stage and then the team's own order, the drag that sets
+ * A position's Pipeline view of In universe: every executive listed there by stage and then the team's own order,
+ * narrowed by the Companies search box's one rule (staff, so notes and tags count too), the drag that sets
  * that order, the next action (the earliest open task, {@link NextActionLookup}) and whether a client seat
  * sees them. Staff-only throughout; a stage change is the ordinary status change, to the stage's default status.
  */
@@ -61,6 +65,7 @@ public class PositionPipelineService {
     private final PersonActivityRecorder activity;
     private final NextActionLookup nextActions;
     private final AuditService audit;
+    private final CandidateSearchService searches;
 
     @Transactional(readOnly = true)
     public PositionPipelineResponse pipelineOf(UUID workspaceId, UUID projectId, String query, String stageKey) {
@@ -69,8 +74,12 @@ public class PositionPipelineService {
         if (stageKey != null && !stageKey.isBlank() && catalog.stageByKey(stageKey.strip()).isEmpty()) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown pipeline stage: " + stageKey);
         }
-        List<Candidate> matching = candidates.findPipelineOfProject(projectId).stream()
-                .filter(row -> matches(row, query))
+        SearchText search = SearchText.ofOrNull(query);
+        CandidateSearchMatches searched = search == null ? null
+                : searches.matchesOf(workspaceId, projectId, search, ProjectAudience.STAFF);
+        List<Candidate> matching = candidates.findPipelineOfProject(projectId, TriageCompanyStatus.IN_UNIVERSE)
+                .stream()
+                .filter(row -> searched == null || searched.keeps(row.getId(), row.getTriageCompanyId()))
                 .sorted(PIPELINE_ORDER)
                 .toList();
         Map<String, Long> perStage = matching.stream()
@@ -194,19 +203,6 @@ public class PositionPipelineService {
             return low.add(RANK_STEP);
         }
         return low.add(high).divide(TWO, MathContext.DECIMAL128);
-    }
-
-    private static boolean matches(Candidate row, String query) {
-        if (query == null || query.isBlank()) {
-            return true;
-        }
-        String needle = query.strip().toLowerCase(Locale.ROOT);
-        return contains(row.getPerson().getFullName(), needle) || contains(row.getPerson().getTitle(), needle)
-                || contains(row.getCompanyName(), needle);
-    }
-
-    private static boolean contains(String haystack, String needle) {
-        return haystack != null && haystack.toLowerCase(Locale.ROOT).contains(needle);
     }
 
     private static PipelineStageCountResponse countOf(CandidateStage stage, long count) {

@@ -25,6 +25,7 @@ import app.lightmove.api.candidate.model.CandidateContactState;
 import app.lightmove.api.candidate.model.CandidateDetails;
 import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.CandidateProfile;
+import app.lightmove.api.candidate.model.CandidateSearchMatches;
 import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
@@ -52,6 +53,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
+import app.lightmove.api.core.text.model.SearchText;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
@@ -128,6 +130,7 @@ public class CandidateService {
     private final CandidatePipelineCatalog pipeline;
     private final PersonEmployerResolver employerResolver;
     private final UserRepository users;
+    private final CandidateSearchService searches;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -137,7 +140,8 @@ public class CandidateService {
                             ApplicationEventPublisher events, ProjectStreamPublisher stream,
                             CandidateRequestReader requests, CandidateResponseMapper responses,
                             CandidatePipelineCatalog pipeline, PersonEmployerResolver employerResolver,
-                            UserRepository users, LightMoveProperties properties) {
+                            UserRepository users, CandidateSearchService searches,
+                            LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
         this.matcher = matcher;
@@ -156,6 +160,7 @@ public class CandidateService {
         this.pipeline = pipeline;
         this.employerResolver = employerResolver;
         this.users = users;
+        this.searches = searches;
     }
 
     /**
@@ -197,10 +202,13 @@ public class CandidateService {
         }
         TriageCompanyStatus triageStatus = criteria.triageStatus() == null || criteria.triageStatus().isBlank()
                 ? null : TriageCompanyStatus.parseOrInUniverse(criteria.triageStatus());
+        SearchText search = SearchText.ofOrNull(criteria.search());
+        CandidateSearchMatches searched = search == null ? null
+                : searches.matchesOf(workspaceId, projectId, search, audience);
         Page<Candidate> found = candidates.findAll(CandidateListFilter.of(projectId, audience.clientVisibleOnly(),
                 statusIds, companyIds,
                 Boolean.TRUE.equals(criteria.unmapped()), nameQuery, textQuery, criteria.withinTriageCompanyIds(),
-                triageStatus), pageRequest);
+                triageStatus, searched), pageRequest);
 
         return new CandidatesResponse(
                 found.getContent().stream().map(responses::toDto).toList(),
@@ -492,7 +500,8 @@ public class CandidateService {
                                                 HttpServletRequest httpRequest) {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
-        TriageCompanyStatus to = ApiValueEnum.require(TriageCompanyStatus.class, request.status(), "stage");
+        TriageCompanyStatus to = TriageCompanyStatus.requireDestination(
+                ApiValueEnum.require(TriageCompanyStatus.class, request.status(), "stage"));
         TriageCompanyStatus from = candidate.getTriageStatus();
         if (!candidate.moveToStage(to)) {
             return responses.toDto(candidate);

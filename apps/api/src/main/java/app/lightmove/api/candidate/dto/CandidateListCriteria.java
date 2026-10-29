@@ -14,8 +14,10 @@ import java.util.UUID;
  * employer, where {@code nameQuery} matches the name alone, and {@code withinTriageCompanyIds} holds the people to a
  * whole stage's companies — unlike the page of companies {@code triageCompanyIds} names, never capped.
  * {@code triageStatus} is a Companies stage token: the people listed under that stage themselves (V150), null is all.
+ * {@code search} is the mandate's one search box: someone who matches, or whose company does
+ * ({@code CandidateSearchService}).
  */
 public record CandidateListCriteria(List<UUID> triageCompanyIds, Boolean unmapped, String nameQuery,
                                     String textQuery, Collection<UUID> withinTriageCompanyIds,
                                     String status, String pipelineStage, String triageStatus,
-                                    Integer page, Integer size) {}
+                                    String search, Integer page, Integer size) {}

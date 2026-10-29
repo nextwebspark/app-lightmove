@@ -53,12 +53,13 @@ public class TriageCompanyController {
                                         @RequestParam(required = false) String q,
                                         @RequestParam(required = false) String executiveQuery,
                                         @RequestParam(required = false) List<String> executiveStatuses,
+                                        @RequestParam(required = false) String search,
                                         @RequestParam(required = false) String sort,
                                         @RequestParam(required = false) String direction,
                                         @RequestParam(required = false) Integer page,
                                         @RequestParam(required = false) Integer size) {
         TriageCompanyListCriteria criteria = new TriageCompanyListCriteria(
-                status, q, executiveQuery, executiveStatuses, sort, direction, page, size);
+                status, q, executiveQuery, executiveStatuses, search, sort, direction, page, size);
         return reads.list(principal.requireWorkspaceId(), projectId, criteria,
                 projectAccess.audienceOf(principal.userId(), principal.requireWorkspaceId(), projectId));
     }

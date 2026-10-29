@@ -114,22 +114,22 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
         String projectId = project(admin);
         universe.company("a1", "ACWA Power").industry("oil & energy").employees(10).insert();
 
-        // Picking a company while looking at the shortlist means shortlisting it. Landing it in the
+        // Picking a company while looking at the Declined page means declining it. Landing it in the
         // universe would drop it off the screen it was added from.
         String id = body(mvc.perform(post(triageUrl(projectId))
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"apolloAccountId":"a1","status":"shortlisted","note":"Met their CFO"}"""))
+                                {"apolloAccountId":"a1","status":"declined","note":"Met their CFO"}"""))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("shortlisted"))
+                .andExpect(jsonPath("$.status").value("declined"))
                 .andExpect(jsonPath("$.source").value("strategy"))
                 // The snapshot is still the market's, whatever the caller sent alongside the stage.
                 .andExpect(jsonPath("$.companyName").value("ACWA Power"))
                 .andReturn()).get("id").asText();
         assertThat(noteBodiesOf(admin, projectId, id)).containsExactly("Met their CFO");
 
-        mvc.perform(get(triageUrl(projectId)).param("status", "shortlisted")
+        mvc.perform(get(triageUrl(projectId)).param("status", "declined")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.totalCount").value(1))
                 .andExpect(jsonPath("$.counts.inUniverse").value(0));
@@ -151,7 +151,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"apolloAccountId":"a1","status":"shortlisted","note":"Worth a look"}"""))
+                                {"apolloAccountId":"a1","status":"inUniverse","note":"Worth a look"}"""))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("declined"));
         assertThat(noteBodiesOf(admin, projectId, triageId)).containsExactly("Worth a look");
@@ -221,18 +221,18 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"status":"shortlisted"}"""))
+                                {"status":"declined"}"""))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("shortlisted"));
+                .andExpect(jsonPath("$.status").value("declined"));
 
         // The counts travel with every page, because the sub-nav is visible on all of them.
-        mvc.perform(get(triageUrl(projectId)).param("status", "shortlisted")
+        mvc.perform(get(triageUrl(projectId)).param("status", "declined")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.totalCount").value(1))
                 .andExpect(jsonPath("$.companies[0].companyName").value("ACWA Power"))
                 .andExpect(jsonPath("$.counts.inUniverse").value(1))
-                .andExpect(jsonPath("$.counts.shortlisted").value(1))
-                .andExpect(jsonPath("$.counts.declined").value(0));
+                .andExpect(jsonPath("$.counts.shortlisted").value(0))
+                .andExpect(jsonPath("$.counts.declined").value(1));
     }
 
     @Test
@@ -248,16 +248,16 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.noExecutiveFound").value(true))
                 .andExpect(jsonPath("$.status").value("inUniverse"));
 
-        // Shortlisting a flagged company must not silently clear the flag.
+        // Declining a flagged company must not silently clear the flag.
         patchUniverse(admin, projectId, id, """
-                {"status":"shortlisted"}""")
-                .andExpect(jsonPath("$.status").value("shortlisted"))
+                {"status":"declined"}""")
+                .andExpect(jsonPath("$.status").value("declined"))
                 .andExpect(jsonPath("$.noExecutiveFound").value(true));
 
         patchUniverse(admin, projectId, id, """
                 {"noExecutiveFound":false}""")
                 .andExpect(jsonPath("$.noExecutiveFound").value(false))
-                .andExpect(jsonPath("$.status").value("shortlisted"));
+                .andExpect(jsonPath("$.status").value("declined"));
     }
 
     @Test
@@ -414,17 +414,16 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"apolloAccountIds":["a1","a3"],"status":"shortlisted"}"""))
+                                {"apolloAccountIds":["a1","a3"],"status":"inUniverse"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.added").value(2))
                 .andExpect(jsonPath("$.skipped").value(0));
 
-        mvc.perform(get(triageUrl(projectId)).param("status", "shortlisted")
-                        .header("Authorization", "Bearer " + admin))
-                .andExpect(jsonPath("$.totalCount").value(2));
         // Only the two that were ticked. The one left alone is still nobody's decision.
-        mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
-                .andExpect(jsonPath("$.counts.inUniverse").value(0));
+        mvc.perform(get(triageUrl(projectId)).param("status", "inUniverse")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.totalCount").value(2))
+                .andExpect(jsonPath("$.counts.declined").value(0));
     }
 
     @Test
@@ -822,16 +821,16 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"companyName":"Captured Co","source":"extension","status":"shortlisted",
+                                {"companyName":"Captured Co","source":"extension","status":"declined",
                                  "sourceUrl":"https://linkedin.com/company/captured"}"""))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.source").value("extension"))
-                .andExpect(jsonPath("$.status").value("shortlisted"))
+                .andExpect(jsonPath("$.status").value("declined"))
                 .andExpect(jsonPath("$.sourceUrl").value("https://linkedin.com/company/captured"));
 
-        mvc.perform(get(triageUrl(projectId)).param("status", "shortlisted")
+        mvc.perform(get(triageUrl(projectId)).param("status", "declined")
                         .header("Authorization", "Bearer " + admin))
-                .andExpect(jsonPath("$.counts.shortlisted").value(1));
+                .andExpect(jsonPath("$.counts.declined").value(1));
     }
 
     @Test
