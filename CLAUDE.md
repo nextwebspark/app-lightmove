@@ -22,8 +22,9 @@ screens, a project's Team & access tab, the client registry with representative 
 scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
 searches saved against it, and the two Companies pages (In universe / Declined) where a
 mandate triages what it took from it. There is no Shortlisted stage: V160 deleted
-the companies and unmapped the executives that held it, so a request naming it is an unknown value
-(`VALIDATION_FAILED`); the pipeline *status* "Shortlisted" is unrelated. A company reaches those pages four ways — out of the market
+the companies and unmapped the executives that held it, so a read naming it is an unknown value (`VALIDATION_FAILED`),
+while a write naming it lands In universe (`TriageCompanyStatus.parseDestination`) until the extension builds that
+still send it are gone (#1109); the pipeline *status* "Shortlisted" is unrelated. A company reaches those pages four ways — out of the market
 (Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
 /triage` with an id the server resolves), typed in by hand, captured by the browser plugin
 (`POST /triage/capture`), or **imported from a spreadsheet**. Strategy's rows also carry a tick box:

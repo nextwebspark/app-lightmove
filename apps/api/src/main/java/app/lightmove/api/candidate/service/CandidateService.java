@@ -500,7 +500,9 @@ public class CandidateService {
                                                 HttpServletRequest httpRequest) {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
-        TriageCompanyStatus to = ApiValueEnum.require(TriageCompanyStatus.class, request.status(), "stage");
+        TriageCompanyStatus to = TriageCompanyStatus.isRemovedShortlisted(request.status())
+                ? TriageCompanyStatus.IN_UNIVERSE
+                : ApiValueEnum.require(TriageCompanyStatus.class, request.status(), "stage");
         TriageCompanyStatus from = candidate.getTriageStatus();
         if (!candidate.moveToStage(to)) {
             return responses.toDto(candidate);

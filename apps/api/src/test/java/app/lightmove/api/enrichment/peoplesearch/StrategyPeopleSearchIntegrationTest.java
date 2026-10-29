@@ -228,11 +228,6 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
 
         mvc.perform(post(peopleUrl(projectId) + "/add").header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"linkedinSlugs\":[\"sample-cfo-12ab\"],\"status\":\"shortlisted\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
-        mvc.perform(post(peopleUrl(projectId) + "/add").header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"linkedinSlugs\":[\"sample-cfo-12ab\"],\"status\":\"declined\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.added").value(1))

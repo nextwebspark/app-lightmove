@@ -165,11 +165,6 @@ class AssistantIntegrationTest extends FlowTestSupport {
         universe.company("a2", "Marafiq").industry("oil & energy").employees(2_400).insert();
         String turnId = turnWithCard(firm);
 
-        // Shortlisted is no stage: refused, and the card is still there to file.
-        mvc.perform(accept(firm.admin, turnId, """
-                        {"companyIds":["a1"],"status":"shortlisted"}"""))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
         mvc.perform(accept(firm.admin, turnId, """
                         {"companyIds":["a1"],"status":"declined"}"""))
                 .andExpect(status().isOk())

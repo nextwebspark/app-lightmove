@@ -11,13 +11,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
-/** Shortlisted is no Companies stage: a write or a read naming it is an unknown stage, and nothing moves. */
+/** Shortlisted is no Companies stage: a write naming it lands in universe, a read naming it is an unknown stage. */
 @IntegrationTest
 class ShortlistedRetiredIntegrationTest extends PipelineFlowSupport {
 
     @Test
-    @DisplayName("every door that files, moves or reads a stage refuses Shortlisted with a 400")
-    void everyDoorRefuses() throws Exception {
+    @DisplayName("a write naming Shortlisted lands in universe, for extension builds from before it; a read still refuses it")
+    void writesLandInUniverseReadsRefuse() throws Exception {
         firm("Shortlist Retired Firm");
         String projectId = mandate("Chief Financial Officer");
         String triage = "/api/v1/projects/" + projectId + "/triage";
@@ -25,24 +25,30 @@ class ShortlistedRetiredIntegrationTest extends PipelineFlowSupport {
         String khaled = add(projectId, """
                 {"triageCompanyId":"%s","fullName":"Khaled Al Beirouty"}""".formatted(alshaya)).get("id").asText();
 
-        assertRefused(write(admin, "POST", triage, """
-                {"apolloAccountId":"a1","status":"shortlisted"}"""));
-        assertRefused(write(admin, "POST", triage + "/capture", """
-                {"companyName":"Shortlisted Co","status":"shortlisted"}"""));
-        assertRefused(write(admin, "POST", triage + "/bulk", """
-                {"apolloAccountIds":["a1"],"status":"shortlisted"}"""));
-        assertRefused(write(admin, "PATCH", triage + "/" + alshaya, """
-                {"status":"shortlisted"}"""));
-        assertRefused(write(admin, "PUT", candidatesUrl(projectId) + "/" + khaled + "/triage-status", """
-                {"status":"shortlisted"}"""));
+        MvcResult captured = write(admin, "POST", triage + "/capture", """
+                {"companyName":"Shortlisted Co","status":"shortlisted"}""");
+        assertThat(captured.getResponse().getStatus()).isEqualTo(201);
+        assertThat(body(captured).get("status").asText()).isEqualTo("inUniverse");
+        assertThat(write(admin, "POST", triage + "/bulk", """
+                {"apolloAccountIds":["a1"],"status":"shortlisted"}""").getResponse().getStatus()).isNotEqualTo(400);
+
+        write(admin, "PATCH", triage + "/" + alshaya, """
+                {"status":"declined"}""");
+        write(admin, "PATCH", triage + "/" + alshaya, """
+                {"status":"shortlisted"}""");
+        assertThat(db.queryForObject("select status from app_lm_project_triage_company where id = ?::uuid",
+                String.class, alshaya)).isEqualTo("IN_UNIVERSE");
+
+        write(admin, "PUT", candidatesUrl(projectId) + "/" + khaled + "/triage-status", """
+                {"status":"declined"}""");
+        write(admin, "PUT", candidatesUrl(projectId) + "/" + khaled + "/triage-status", """
+                {"status":"shortlisted"}""");
+        assertThat(db.queryForObject("select triage_status from app_lm_project_candidate where id = ?::uuid",
+                String.class, khaled)).isEqualTo("IN_UNIVERSE");
+
         assertRefused(read(triage + "?status=shortlisted"));
         assertRefused(read(candidatesUrl(projectId) + "?triageStatus=shortlisted"));
         assertRefused(read("/api/v1/projects/" + projectId + "/export/companies?status=shortlisted"));
-
-        assertThat(db.queryForObject("select status from app_lm_project_triage_company where id = ?::uuid",
-                String.class, alshaya)).isEqualTo("IN_UNIVERSE");
-        assertThat(db.queryForObject("select triage_status from app_lm_project_candidate where id = ?::uuid",
-                String.class, khaled)).isEqualTo("IN_UNIVERSE");
     }
 
     @Test

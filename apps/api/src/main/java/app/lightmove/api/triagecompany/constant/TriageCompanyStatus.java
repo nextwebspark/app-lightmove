@@ -25,4 +25,17 @@ public enum TriageCompanyStatus implements ApiValueEnum {
     public static TriageCompanyStatus parseOrInUniverse(String token) {
         return ApiValueEnum.parse(TriageCompanyStatus.class, token, IN_UNIVERSE, "status");
     }
+
+    /** The stage a write files or moves to; in universe when blank. */
+    public static TriageCompanyStatus parseDestination(String token) {
+        return isRemovedShortlisted(token) ? IN_UNIVERSE : parseOrInUniverse(token);
+    }
+
+    /**
+     * Shortlisted is gone (V160), but extension builds from before it still send it: a write naming it lands in
+     * universe rather than failing, until those builds are updated and #1109 retires this. Reads still refuse it.
+     */
+    public static boolean isRemovedShortlisted(String token) {
+        return token != null && "shortlisted".equalsIgnoreCase(token.strip());
+    }
 }

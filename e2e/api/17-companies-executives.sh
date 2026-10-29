@@ -87,11 +87,13 @@ check_status N17.1.11 "a hand-typed company's facts can be edited" 200
 check N17.1.12 "…and an omitted field is a cleared one" "$ALPHA Group|" "$(json '.companyName')|$(json '.companyCity // empty')"
 put_json "$TRIAGE/$ALPHA_ID" "$(jq -nc --arg n "$BETA" '{companyName:$n}')" -H "$LEAD_AUTH"
 check_code N17.1.13 "renaming onto a name the mandate already holds" 409 TRIAGE_COMPANY_ALREADY_HELD
-# Shortlisted was removed: it is no stage at all, so every door and every read refuses it as unknown.
+# Shortlisted was removed (V160). A write still naming it — an extension build from before — lands In universe;
+# a read naming it is an unknown stage (N17.3.16).
 capture "$LEAD_AUTH" "Removed Stage $RUN_TAG" '.status = "shortlisted"'
-check_code N17.1.14 "a company typed in at Shortlisted, no such stage" 400 VALIDATION_FAILED
-check N17.1.15 "…and nothing is filed" "0" \
-  "$(sql "SELECT count(*) FROM app_lm_project_triage_company WHERE project_id = '$P' AND company_name = 'Removed Stage $RUN_TAG'")"
+check N17.1.14 "a company typed in at Shortlisted lands In universe" "201 inUniverse" "$LAST_STATUS $(json '.status')"
+REMOVED_STAGE_ID=$(json '.id')
+http DELETE "$TRIAGE/$REMOVED_STAGE_ID" -H "$LEAD_AUTH"
+check_status N17.1.15 "…and is removed again, so the cases below count what they did" 204
 ALPHA="$ALPHA Group"
 
 section "N17.2  taking companies from the market"
@@ -108,10 +110,6 @@ post_json "$TRIAGE/bulk" '{"apolloAccountIds":["e2e-ghost-1"],"status":"archived
 check_code N17.2.5 "a selection filed at an unknown stage" 400 VALIDATION_FAILED
 post_json "$TRIAGE/bulk" '{"apolloAccountIds":[]}' -H "$LEAD_AUTH"
 check_code N17.2.6 "an empty selection" 400 VALIDATION_FAILED
-post_json "$TRIAGE/bulk" '{"apolloAccountIds":["e2e-ghost-1"],"status":"shortlisted"}' -H "$LEAD_AUTH"
-check_code N17.2.13 "a selection filed at Shortlisted, no such stage" 400 VALIDATION_FAILED
-post_json "$TRIAGE" '{"apolloAccountId":"e2e-ghost-1","status":"shortlisted"}' -H "$LEAD_AUTH"
-check_code N17.2.14 "one company taken at Shortlisted, no such stage" 400 VALIDATION_FAILED
 
 MARKET_IDS=$(sql "SELECT apollo_account_id FROM app_lm_apollo_companies ORDER BY apollo_account_id LIMIT 4")
 if [ "$(printf '%s\n' "$MARKET_IDS" | grep -c .)" -lt 4 ]; then
@@ -127,8 +125,8 @@ else
   bulk_at "$M1" inUniverse; R1="$(json '.added')"
   bulk_at "$M3" declined;   R3="$(json '.added')"
   bulk_at "$M2" shortlisted
-  check N17.2.7 "one bulk request per stage files each company where it was sent, never at Shortlisted" "1 1 400 0" \
-    "$R1 $R3 $LAST_STATUS $(sql "SELECT count(*) FROM app_lm_project_triage_company WHERE project_id = '$P' AND apollo_account_id = '$M2'")"
+  check N17.2.7 "one bulk request per stage files each company where it was sent, Shortlisted In universe" "1 1 200 IN_UNIVERSE" \
+    "$R1 $R3 $LAST_STATUS $(sql "SELECT status FROM app_lm_project_triage_company WHERE project_id = '$P' AND apollo_account_id = '$M2'")"
   get "$TRIAGE?status=declined" -H "$LEAD_AUTH"
   check N17.2.8 "the declined one is on the declined page, marked as the market's" "strategy|$M3" \
     "$(json ".companies[] | select(.apolloAccountId == \"$M3\") | .source")|$(json ".companies[] | select(.apolloAccountId == \"$M3\") | .apolloAccountId")"
@@ -175,8 +173,9 @@ get "$TRIAGE?sort=vibes" -H "$LEAD_AUTH"
 check_code N17.3.13 "sorting by an unknown field" 400 VALIDATION_FAILED
 
 patch_json "$TRIAGE/$ALPHA_ID" '{"status":"shortlisted"}' -H "$LEAD_AUTH"
-check_code N17.3.14 "moving a company to Shortlisted, no such stage" 400 VALIDATION_FAILED
-check N17.3.15 "…leaves it where it was" "DECLINED" "$(sql "SELECT status FROM app_lm_project_triage_company WHERE id = '$ALPHA_ID'")"
+check_status N17.3.14 "moving a company to Shortlisted is taken" 200
+check N17.3.15 "…as a move In universe" "IN_UNIVERSE" "$(sql "SELECT status FROM app_lm_project_triage_company WHERE id = '$ALPHA_ID'")"
+patch_json "$TRIAGE/$ALPHA_ID" '{"status":"declined"}' -H "$LEAD_AUTH"
 
 get "$TRIAGE?status=shortlisted" -H "$LEAD_AUTH"
 check_code N17.3.16 "listing Shortlisted, no such stage" 400 VALIDATION_FAILED
@@ -246,8 +245,9 @@ check_code N17.4.26 "a status that is not on the line" 400 VALIDATION_FAILED
 patch_json "$PEOPLE/$LAYLA" '{"status":"engaged"}' -H "$RESEARCHER_AUTH"
 check N17.4.27 "a researcher moves it too — WORK_EXECUTE" "200 engaged" "$LAST_STATUS $(json '.status')"
 put_json "$PEOPLE/$LAYLA/triage-status" '{"status":"shortlisted"}' -H "$LEAD_AUTH"
-check_code N17.4.28 "one executive moved to Shortlisted, no such stage" 400 VALIDATION_FAILED
-check N17.4.29 "…stays where their company is" "DECLINED" "$(sql "SELECT triage_status FROM app_lm_project_candidate WHERE id = '$LAYLA'")"
+check_status N17.4.28 "one executive moved to Shortlisted is taken" 200
+check N17.4.29 "…as a move In universe" "IN_UNIVERSE" "$(sql "SELECT triage_status FROM app_lm_project_candidate WHERE id = '$LAYLA'")"
+put_json "$PEOPLE/$LAYLA/triage-status" '{"status":"declined"}' -H "$LEAD_AUTH"
 
 section "N17.5  the contact ledger"
 

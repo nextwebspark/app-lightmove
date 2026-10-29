@@ -110,7 +110,7 @@ public class TriageCompanyService {
         projects.requireInWorkspace(projectId, workspaceId);
         String accountId = request.apolloAccountId();
         // Before the held check, so an unknown stage is a 400 whether or not the company is held.
-        TriageCompanyStatus landingStatus = TriageCompanyStatus.parseOrInUniverse(request.status());
+        TriageCompanyStatus landingStatus = TriageCompanyStatus.parseDestination(request.status());
 
         // Already held answers with the row's stage untouched, so re-adding cannot un-decline a company; a note
         // sent with it is still filed, rather than lost.
@@ -157,7 +157,7 @@ public class TriageCompanyService {
         projects.requireInWorkspace(projectId, workspaceId);
 
         TriageCompanySource source = resolveCapturableSource(request.source());
-        TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(request.status());
+        TriageCompanyStatus status = TriageCompanyStatus.parseDestination(request.status());
         CapturedCompanyDetails details = new CapturedCompanyDetails(
                 request.companyName(), request.industry(), request.companyCountry(),
                 request.companyCity(), request.numEmployees(), request.annualRevenue(),
@@ -226,7 +226,7 @@ public class TriageCompanyService {
                                      String status, HttpServletRequest httpRequest) {
         projects.requireInWorkspace(projectId, workspaceId);
         ResolvedCapture resolved = resolveCapture(
-                projectId, userId, details, source, TriageCompanyStatus.parseOrInUniverse(status));
+                projectId, userId, details, source, TriageCompanyStatus.parseDestination(status));
         if (!resolved.created()) {
             return false;
         }
@@ -392,7 +392,7 @@ public class TriageCompanyService {
                                              AddSelectedTriageCompaniesRequest request,
                                              TriageCompanySource source,
                                              HttpServletRequest httpRequest) {
-        TriageCompanyStatus landingStatus = TriageCompanyStatus.parseOrInUniverse(request.status());
+        TriageCompanyStatus landingStatus = TriageCompanyStatus.parseDestination(request.status());
         // Distinct: ON CONFLICT DO NOTHING cannot deduplicate two rows inside one statement.
         List<String> accountIds = request.apolloAccountIds().stream().distinct().toList();
 
@@ -426,7 +426,9 @@ public class TriageCompanyService {
         TriageCompany company = triaged.requireInProject(triageCompanyId, projectId);
 
         if (request.status() != null) {
-            TriageCompanyStatus status = TriageCompanyStatus.fromValue(request.status());
+            TriageCompanyStatus status = TriageCompanyStatus.isRemovedShortlisted(request.status())
+                    ? TriageCompanyStatus.IN_UNIVERSE
+                    : TriageCompanyStatus.fromValue(request.status());
             if (status == null) {
                 throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown status: " + request.status());
             }
