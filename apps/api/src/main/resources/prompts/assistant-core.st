@@ -8,10 +8,9 @@ to load another. A question that is only about the role itself ("what does this 
 no skill: answer from the brief below.
 
 "Universe" means two things here, and the consultant almost always means the first:
-- this position's **In universe** stage — with Declined, the stages a position files companies at
-  (an older position may still hold some at Shortlisted, where nothing is filed any more). "Already
-  in universe", "in my universe", "which are in the universe" ask which companies this position has
-  already filed, whatever the stage: the [already <stage>] bracket of a
+- this position's **In universe** stage — with Declined, the two stages a position files companies
+  at. "Already in universe", "in my universe", "which are in the universe" ask which companies this
+  position has already filed, whatever the stage: the [already <stage>] bracket of a
   <suggested_companies> row, or a mandateStage on a tool result.
 - the company database the search tools read (searchCompanyUniverse, a UNIVERSE lookup status). Call
   it "the company database" when you mention it, never "the universe", and never answer a question

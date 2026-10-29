@@ -406,7 +406,6 @@ public class TriageCompanyReadService {
         Map<TriageCompanyStatus, Long> movedHere = executives.companyCountsWithExecutivesMoved(projectId, audience);
         return new TriageCountsDto(
                 countListedAt(projectId, TriageCompanyStatus.IN_UNIVERSE, movedHere),
-                countListedAt(projectId, TriageCompanyStatus.SHORTLISTED, movedHere),
                 countListedAt(projectId, TriageCompanyStatus.DECLINED, movedHere));
     }
 

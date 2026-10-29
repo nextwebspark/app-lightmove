@@ -16,10 +16,8 @@ import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -56,40 +54,16 @@ class ReportSourceLoader {
     ReportSources load(UUID workspaceId, UUID projectId, ProjectAudience audience) {
         Project project = projects.requireInWorkspace(projectId, workspaceId);
 
-        TriageCompaniesResponse shortlisted = stage(workspaceId, projectId, TriageCompanyStatus.SHORTLISTED,
-                caps.maxCompanies(), audience);
-        int budgetLeft = caps.maxCompanies() - shortlisted.companies().size();
-        TriageCompaniesResponse inUniverse = stage(workspaceId, projectId, TriageCompanyStatus.IN_UNIVERSE,
-                Math.max(budgetLeft, 1), audience);
-        // A company is listed on both stages while one of its people was moved alone (#903); it is one company.
-        // The overlap is counted on the pages read, so past the cap the total may still count a few twice.
-        Set<UUID> shortlistedIds = shortlisted.companies().stream().map(TriageCompanyResponse::id)
-                .collect(Collectors.toSet());
-        List<TriageCompanyResponse> inUniverseOnly = inUniverse.companies().stream()
-                .filter(company -> !shortlistedIds.contains(company.id()))
-                .toList();
-        List<TriageCompanyResponse> universe = new ArrayList<>(
-                inUniverseOnly.stream().limit(Math.max(budgetLeft, 0)).toList());
-        universe.addAll(shortlisted.companies());
-        long listedTwice = inUniverse.companies().size() - inUniverseOnly.size();
+        TriageCompaniesResponse universe = triage.listAllOfStage(workspaceId, projectId,
+                TriageCompanyStatus.IN_UNIVERSE, TriageCompanyFilters.none(), caps.maxCompanies(), audience);
 
         CandidatesResponse people = candidates.listAllOfProject(workspaceId, projectId, caps.maxCandidates(),
                 audience);
         int interestedFrom = pipeline.progressAnchors(workspaceId).interestedFrom();
-        List<ExecutiveRow> executives = pair(people, universe, interestedFrom);
+        List<ExecutiveRow> executives = pair(people, universe.companies(), interestedFrom);
 
-        return new ReportSources(project, universe, inUniverse.totalCount() + shortlisted.totalCount() - listedTwice,
-                executives, people.totalCount(), positions.compensationOf(workspaceId, projectId));
-    }
-
-    /**
-     * One cap for the whole universe, not one per stage. The shortlist is read first because it is
-     * the smaller and the more worked; the rest of the budget goes to the companies still in universe.
-     * A page cannot be empty, so a spent budget still reads one row — for the stage's total — and keeps none.
-     */
-    private TriageCompaniesResponse stage(UUID workspaceId, UUID projectId, TriageCompanyStatus status, int cap,
-                                          ProjectAudience audience) {
-        return triage.listAllOfStage(workspaceId, projectId, status, TriageCompanyFilters.none(), cap, audience);
+        return new ReportSources(project, universe.companies(), universe.totalCount(), executives,
+                people.totalCount(), positions.compensationOf(workspaceId, projectId));
     }
 
     private static List<ExecutiveRow> pair(CandidatesResponse people, List<TriageCompanyResponse> universe,

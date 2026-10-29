@@ -11,7 +11,7 @@ public record PublicCompany(
         @Schema(description = "This company's id within the position; an executive's companyId names it")
         UUID id,
         @Schema(description = "Where the position has filed it",
-                allowableValues = {"inUniverse", "shortlisted", "declined"}, example = "shortlisted")
+                allowableValues = {"inUniverse", "declined"}, example = "inUniverse")
         String stage,
         @Schema(description = "The company's name", example = "ACWA Power") String name,
         @Schema(description = "Its industry", nullable = true, example = "utilities") String industry,

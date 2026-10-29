@@ -9,7 +9,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubGeocoder;
-import app.lightmove.api.triagecompany.LegacyShortlist;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -23,7 +22,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.SerializationFeature;
 import tools.jackson.databind.node.ArrayNode;
@@ -52,7 +50,6 @@ class CandidateReadsGoldenIntegrationTest extends FlowTestSupport {
     private static final String CITY = "Goldenvale";
 
     @Autowired StubGeocoder geocoder;
-    @Autowired JdbcTemplate shortlistDb;
 
     private final Map<String, String> aliases = new LinkedHashMap<>();
 
@@ -69,7 +66,6 @@ class CandidateReadsGoldenIntegrationTest extends FlowTestSupport {
         String ethnicity = fieldKeyOf(admin, cfo, defineColumn(admin, cfo, "Ethnicity"));
         String almarai = alias(capture(admin, cfo, "Golden Contract Foods", "food & beverages", null), "company:foods");
         String panda = alias(capture(admin, cfo, "Golden Contract Retail", "retail", null), "company:retail");
-        LegacyShortlist.shortlist(shortlistDb, panda);
         alias(capture(admin, cfo, "Golden Contract Declined", "retail", "declined"), "company:declined");
 
         JsonNode yasmin = candidate(admin, cfo, """
@@ -113,8 +109,8 @@ class CandidateReadsGoldenIntegrationTest extends FlowTestSupport {
         assertGolden("talent-map.json", canonicalJson(read(admin, "/api/v1/projects/" + cfo + "/talent-map")));
         assertGolden("report.json", canonicalJson(read(admin, "/api/v1/projects/" + cfo + "/report")));
         assertGolden("export-universe.csv", scrub(read(admin, "/api/v1/projects/" + cfo + "/export/companies")));
-        assertGolden("export-shortlisted.csv",
-                scrub(read(admin, "/api/v1/projects/" + cfo + "/export/companies?status=shortlisted")));
+        assertGolden("export-declined.csv",
+                scrub(read(admin, "/api/v1/projects/" + cfo + "/export/companies?status=declined")));
     }
 
     /** apps/api, found from target/test-classes so an IDE started anywhere reads the same files. */

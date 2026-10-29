@@ -76,6 +76,62 @@
     "aiInferredFields" : [ ],
     "career" : [ ],
     "clientVisible" : true,
+    "companyName" : "Golden Contract Retail",
+    "compensation" : {
+      "allowanceLines" : [ ],
+      "allowances" : null,
+      "baseSalary" : 400000,
+      "bonus" : null,
+      "currency" : "AED",
+      "longTermIncentive" : null,
+      "longTermIncentiveTypes" : [ ],
+      "noticePeriod" : null
+    },
+    "contacts" : {
+      "emails" : [ ],
+      "emailsLookedUpAt" : null,
+      "phones" : [ ],
+      "phonesLookedUpAt" : null,
+      "source" : null
+    },
+    "customFields" : { },
+    "education" : [ ],
+    "enrichedAt" : null,
+    "fullName" : "Omar Haddad",
+    "gender" : "male",
+    "id" : "<candidate:omar@cfo>",
+    "languages" : [ ],
+    "linkedinUrl" : null,
+    "linkedinUrlLocked" : false,
+    "locationCity" : "Dubai",
+    "locationCountry" : "United Arab Emirates",
+    "nationality" : "Egypt",
+    "personId" : "<person:omar>",
+    "pipelineStage" : {
+      "colour" : "neutral",
+      "key" : "identified",
+      "kind" : "active",
+      "label" : "Identified",
+      "position" : 1
+    },
+    "seniority" : "N-1",
+    "skills" : [ ],
+    "source" : "manual",
+    "sourceUrl" : null,
+    "status" : "identified",
+    "statusChangedAt" : "<instant>",
+    "statusColour" : "neutral",
+    "statusLabel" : "Identified",
+    "summary" : null,
+    "title" : "Finance Director",
+    "triageCompanyId" : "<company:retail>",
+    "triageStatus" : "inUniverse",
+    "yearsExperience" : null
+  }, {
+    "addedAt" : "<instant>",
+    "aiInferredFields" : [ ],
+    "career" : [ ],
+    "clientVisible" : true,
     "companyName" : "Somewhere Untriaged",
     "compensation" : {
       "allowanceLines" : [ ],
@@ -152,6 +208,30 @@
     "sourceUrl" : null,
     "status" : "inUniverse",
     "website" : null
+  }, {
+    "addedAt" : "<instant>",
+    "addedByAvatarUrl" : null,
+    "addedByName" : null,
+    "addedByUserId" : null,
+    "annualRevenue" : null,
+    "apolloAccountId" : null,
+    "companyCity" : "Goldenvale",
+    "companyCountry" : "Saudi Arabia",
+    "companyLinkedinUrl" : null,
+    "companyName" : "Golden Contract Retail",
+    "customFields" : { },
+    "foundedYear" : null,
+    "id" : "<company:retail>",
+    "industry" : "retail",
+    "logoUrl" : null,
+    "noExecutiveFound" : false,
+    "noteCount" : null,
+    "numEmployees" : null,
+    "shortDescription" : null,
+    "source" : "manual",
+    "sourceUrl" : null,
+    "status" : "inUniverse",
+    "website" : null
   } ],
   "geocodingPending" : 0,
   "locations" : {
@@ -173,5 +253,5 @@
     }
   },
   "totalCandidates" : 3,
-  "totalCompanies" : 1
+  "totalCompanies" : 2
 }

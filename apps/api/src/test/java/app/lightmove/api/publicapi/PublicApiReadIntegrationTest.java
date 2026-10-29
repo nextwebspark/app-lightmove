@@ -2,13 +2,13 @@ package app.lightmove.api.publicapi;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.triagecompany.LegacyShortlist;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -133,7 +133,12 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
         String projectId = project(admin, "Chief Financial Officer");
         String acwa = capture(admin, projectId, "ACWA Power");
         String masdar = capture(admin, projectId, "Masdar");
-        LegacyShortlist.shortlist(db, masdar);
+        mvc.perform(patch("/api/v1/projects/" + projectId + "/triage/" + masdar)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"status":"declined"}"""))
+                .andExpect(status().isOk());
         map(admin, projectId, acwa, "Layla Haddad", "contacted");
         map(admin, projectId, acwa, "Omar Said", "identified");
         map(admin, projectId, masdar, "Yasmin Farouk", "identified");
@@ -143,11 +148,12 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
         String candidates = PROJECTS + "/" + projectId + "/candidates";
 
         String first = secret(admin, scopes);
-        JsonNode shortlisted = read(first, companies + "?stage=shortlisted", 200);
-        assertThat(shortlisted.get("totalCount").asLong()).isEqualTo(1);
-        assertThat(shortlisted.at("/data/0/name").asText()).isEqualTo("Masdar");
-        assertThat(shortlisted.at("/data/0/stage").asText()).isEqualTo("shortlisted");
-        assertThat(read(first, companies + "?stage=archived", 400).get("code").asText()).isEqualTo("VALIDATION_FAILED");
+        JsonNode declined = read(first, companies + "?stage=declined", 200);
+        assertThat(declined.get("totalCount").asLong()).isEqualTo(1);
+        assertThat(declined.at("/data/0/name").asText()).isEqualTo("Masdar");
+        assertThat(declined.at("/data/0/stage").asText()).isEqualTo("declined");
+        assertThat(read(first, companies + "?stage=shortlisted", 400).get("code").asText())
+                .as("no longer a stage").isEqualTo("VALIDATION_FAILED");
         assertThat(names(read(first, candidates + "?status=contacted", 200))).containsExactly("Layla Haddad");
         JsonNode atMasdar = read(first, candidates + "?companyId=" + masdar, 200);
         assertThat(names(atMasdar)).containsExactly("Yasmin Farouk");
@@ -225,9 +231,9 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
         assertThat(universe.at("/companies/1/executives")).isEmpty();
         assertThat(names(universe, "unassigned")).containsExactly("Yasmin Farouk");
 
-        JsonNode shortlisted = read(reader, url + "?stage=shortlisted", 200);
-        assertThat(shortlisted.get("companies")).isEmpty();
-        assertThat(shortlisted.get("unassigned")).isEmpty();
+        JsonNode declined = read(reader, url + "?stage=declined", 200);
+        assertThat(declined.get("companies")).isEmpty();
+        assertThat(declined.get("unassigned")).isEmpty();
     }
 
     private JsonNode read(String secret, String url, int expectedStatus) throws Exception {

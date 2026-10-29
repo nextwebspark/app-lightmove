@@ -33,7 +33,7 @@ public class CompanySearchTools {
             total and how many are shown — when those differ you are seeing the largest, not all of \
             them, so narrow the search rather than reporting the list as the whole market. Each \
             company comes with an Apollo account id, which is what identifies it everywhere else, \
-            and a mandateStage when this mandate has already filed it (inUniverse, shortlisted or \
+            and a mandateStage when this mandate has already filed it (inUniverse or \
             declined). When an industry is given, the answer also lists the industries adjacent to it.""")
     public CompanyMatches searchCompanyUniverse(
             @ToolParam(required = false, description = "Countries; at most five")

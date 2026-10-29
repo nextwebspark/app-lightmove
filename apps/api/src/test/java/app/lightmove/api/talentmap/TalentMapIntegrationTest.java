@@ -142,12 +142,15 @@ class TalentMapIntegrationTest extends FlowTestSupport {
         candidate(f.admin, f.projectId, """
                 {"fullName":"Lina Said","employerName":"Somewhere Untriaged"}""");
 
-        mvc.perform(get(mapUrl(f.projectId) + "?status=shortlisted")
+        mvc.perform(get(mapUrl(f.projectId) + "?status=declined")
                         .header("Authorization", "Bearer " + f.admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.companies").isEmpty())
                 .andExpect(jsonPath("$.candidates").isEmpty());
         mvc.perform(get(mapUrl(f.projectId) + "?status=sideways")
+                        .header("Authorization", "Bearer " + f.admin))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get(mapUrl(f.projectId) + "?status=shortlisted")
                         .header("Authorization", "Bearer " + f.admin))
                 .andExpect(status().isBadRequest());
     }

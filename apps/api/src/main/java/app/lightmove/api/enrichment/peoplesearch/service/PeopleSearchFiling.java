@@ -58,7 +58,7 @@ public class PeopleSearchFiling {
      * would hold the request for their sum.
      */
     public AddPeopleResponse add(UUID userId, UUID workspaceId, UUID projectId, AddPeopleRequest request) {
-        TriageCompanyStatus stage = TriageCompanyStatus.parseDestination(request.status());
+        TriageCompanyStatus stage = TriageCompanyStatus.parseOrInUniverse(request.status());
         Set<String> held = candidates.mappedProfileSlugsOf(workspaceId, projectId);
         int skipped = 0;
         int unavailable = 0;

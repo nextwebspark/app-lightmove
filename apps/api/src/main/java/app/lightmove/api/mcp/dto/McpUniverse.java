@@ -6,7 +6,7 @@ import org.jspecify.annotations.Nullable;
 
 /** What {@code uncava_get_universe} answers: one stage, its companies with their executives nested. */
 public record McpUniverse(
-        @Schema(description = "The stage read: inUniverse, shortlisted or declined") String stage,
+        @Schema(description = "The stage read: inUniverse or declined") String stage,
         @Schema(description = "The stage's companies, by name") List<McpUniverseCompany> companies,
         @Schema(description = "Every company of the stage, including any this answer was cut short of")
         int totalCompanies,

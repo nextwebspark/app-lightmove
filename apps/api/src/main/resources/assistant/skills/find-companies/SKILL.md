@@ -49,7 +49,7 @@ are the similar-companies playbook's: load it instead.
    with the brand it runs ("Majid Al Futtaim, which operates Carrefour"). Name UNVERIFIED names only
    as ones you could not verify — never as missing from the company database. A company with a
    mandateStage is already in this position: say in one clause which leading ones are and at what
-   stage ("Lulu and Carrefour are already shortlisted"), never present them as new. The list shows
+   stage ("Lulu and Carrefour are already in universe"), never present them as new. The list shows
    them with their stage.
 4. Close by offering the two or three adjacent industries that suit this role, one short reason
    each, and an offer to search them. A functional role (finance, HR, legal, technology) transfers

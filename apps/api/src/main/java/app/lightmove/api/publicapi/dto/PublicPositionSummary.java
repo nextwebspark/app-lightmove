@@ -19,7 +19,7 @@ public record PublicPositionSummary(
                 example = "{\"identified\": 64, \"contacted\": 39, \"interested\": 4, \"qualified\": 0, "
                         + "\"shortlisted\": 0, \"declined\": 6}")
         Map<String, Long> pipelineStages,
-        @Schema(description = "Universe or shortlisted companies with at least one executive mapped", example = "31")
+        @Schema(description = "Universe companies with at least one executive mapped", example = "31")
         long mappedCompanies,
         @Schema(description = "The position's dates") PublicTimeline timeline
 ) {}

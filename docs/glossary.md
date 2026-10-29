@@ -17,7 +17,7 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Hiring manager** / **Client contact** | the people there who read the work | a literal either way: `useWorkspaceVocabulary().contact` |
 | **Executive** | a person mapped at a company on a position | — |
 | **Candidate** | the same person on the workspace's Candidates page | — |
-| **Universe** | the companies a position has taken from the market (In universe / Shortlisted / Declined) | triage |
+| **Universe** | the companies a position has taken from the market (In universe / Declined) | triage |
 | **Conversation** | everything with one executive on one position on the Outreach page: emails both ways, run events, notes, meetings | thread, inbox |
 | **To do** | the Outreach page's filter of the people waiting on someone; its groups are Needs reply, Follow-ups, Before first email and Delivery problems | Action queue, Needs action, inbox |
 | **Working hours** | the days and hours a consultant works, which a booking link offers times inside (Outlook's own, theirs, or the workspace's) | availability window, office hours |

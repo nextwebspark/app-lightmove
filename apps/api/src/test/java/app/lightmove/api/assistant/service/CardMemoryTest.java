@@ -16,17 +16,17 @@ class CardMemoryTest {
     private static final AssistantProposal CARD = new AssistantProposal("Top retail in UAE", List.of(
             new ProposedCompany("a1", null, "Lulu Group", "United Arab Emirates", 42_000, null, null, null),
             new ProposedCompany(null, "majid-al-futtaim", "Majid Al Futtaim", "United Arab Emirates", null,
-                    null, "Carrefour", "shortlisted")), Map.of());
+                    null, "Carrefour", "declined")), Map.of());
 
     @Test
     @DisplayName("every company is replayed by the key proposeCompanies takes, its state first in brackets")
     void replaysTheCard() {
-        assertThat(CardMemory.render(CARD, new ProposalOutcome("shortlisted", 1, 1), true)).isEqualTo("""
+        assertThat(CardMemory.render(CARD, new ProposalOutcome("declined", 1, 1), true)).isEqualTo("""
                 <suggested_companies title="Top retail in UAE">
                 - [new] a1 · Lulu Group · United Arab Emirates · 42,000 staff
-                - [already shortlisted] majid-al-futtaim · Majid Al Futtaim · United Arab Emirates \
+                - [already declined] majid-al-futtaim · Majid Al Futtaim · United Arab Emirates \
                 · researched on LinkedIn · operates Carrefour
-                Filed 1 as Shortlisted (1 already in the mandate)
+                Filed 1 as Declined (1 already in the mandate)
                 </suggested_companies>""");
     }
 

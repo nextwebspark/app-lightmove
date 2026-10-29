@@ -17,8 +17,8 @@ import org.springframework.http.MediaType;
  * <p>Reading the triaged list is WORK_VIEW — the read half every seated role holds, a CLIENT
  * representative included, so they can follow a mandate. <b>Changing a triage state is
  * WORK_EXECUTE</b>, and the gap between the two is the point: a client representative must be able to
- * see that a company was shortlisted without being able to shortlist one, or to move a company their
- * own firm dislikes to Declined.
+ * see where a company stands without being able to move it — to Declined, say, because their own firm
+ * dislikes it.
  */
 @IntegrationTest
 class TriageAuthorizationIntegrationTest extends FlowTestSupport {

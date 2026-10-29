@@ -231,7 +231,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.totalCount").value(1))
                 .andExpect(jsonPath("$.companies[0].companyName").value("ACWA Power"))
                 .andExpect(jsonPath("$.counts.inUniverse").value(1))
-                .andExpect(jsonPath("$.counts.shortlisted").value(0))
+                .andExpect(jsonPath("$.counts.shortlisted").doesNotExist())
                 .andExpect(jsonPath("$.counts.declined").value(1));
     }
 

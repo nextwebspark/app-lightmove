@@ -141,7 +141,7 @@ class McpToolsIntegrationTest extends McpFlowSupport {
         String finance = project(admin, "Chief Financial Officer");
         String acwa = capture(admin, finance, "ACWA Power");
         String masdar = capture(admin, finance, "Masdar");
-        shortlist(admin, finance, masdar);
+        decline(admin, finance, masdar);
         map(admin, finance, """
                 {"triageCompanyId":"%s","fullName":"Layla Haddad","title":"CFO","status":"interested",
                  "emails":[{"value":"layla@acwa.example","kind":"work"}],
@@ -151,10 +151,10 @@ class McpToolsIntegrationTest extends McpFlowSupport {
                 {"triageCompanyId":"%s","fullName":"Omar Saleh","title":"Finance Director"}""".formatted(masdar));
 
         String plain = keyOf(admin, "companies:read", "candidates:read", "mcp:use");
-        JsonNode shortlisted = resultOf(tool(plain, "uncava_list_companies",
-                "{\"positionId\":\"" + finance + "\",\"stage\":\"shortlisted\"}"));
-        assertThat(shortlisted.at("/companies/0/name").asText()).isEqualTo("Masdar");
-        assertThat(shortlisted.get("totalCount").asLong()).isEqualTo(1);
+        JsonNode declined = resultOf(tool(plain, "uncava_list_companies",
+                "{\"positionId\":\"" + finance + "\",\"stage\":\"declined\"}"));
+        assertThat(declined.at("/companies/0/name").asText()).isEqualTo("Masdar");
+        assertThat(declined.get("totalCount").asLong()).isEqualTo(1);
         JsonNode interested = resultOf(tool(plain, "uncava_list_candidates",
                 "{\"positionId\":\"" + finance + "\",\"status\":\"interested\",\"response_format\":\"detailed\"}"));
         assertThat(interested.at("/candidates/0/fullName").asText()).isEqualTo("Layla Haddad");

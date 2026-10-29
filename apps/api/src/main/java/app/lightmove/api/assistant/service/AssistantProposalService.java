@@ -55,7 +55,7 @@ public class AssistantProposalService {
                 .map(AssistantThread::getProjectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         projectAccess.requireAction(userId, workspaceId, projectId, ProjectAction.WORK_EXECUTE);
-        TriageCompanyStatus.parseDestination(request.status());
+        TriageCompanyStatus.parseOrInUniverse(request.status());
 
         List<String> chosen = request.companyIds().stream().distinct().toList();
         AssistantProposal card = turn.getProposal();

@@ -165,7 +165,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
         universe.company("a2", "Marafiq").industry("oil & energy").employees(2_400).insert();
         String turnId = turnWithCard(firm);
 
-        // Shortlisted is retired as a destination: refused, and the card is still there to file.
+        // Shortlisted is no stage: refused, and the card is still there to file.
         mvc.perform(accept(firm.admin, turnId, """
                         {"companyIds":["a1"],"status":"shortlisted"}"""))
                 .andExpect(status().isBadRequest())
@@ -200,7 +200,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
         String threadId = db.queryForObject("SELECT thread_id FROM app_lm_assistant_turn WHERE id = ?",
                 UUID.class, UUID.fromString(turnId)).toString();
 
-        askAndAwait(firm.admin, firm.projectId, threadId, "Shortlist the other one too");
+        askAndAwait(firm.admin, firm.projectId, threadId, "Decline the other one too");
 
         assertThat(agentPrompt().getInstructions())
                 .filteredOn(message -> message.getMessageType() == MessageType.ASSISTANT)
@@ -509,20 +509,17 @@ class AssistantIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("asked to rank the shortlist, the model reads that stage of this position alone, with what each "
+    @DisplayName("asked to rank a stage, the model reads that stage of this position alone, with what each "
             + "company does")
     void readsAStageOfThePositionToRank() throws Exception {
         Firm firm = firm("Assistant Rank Stage Firm");
         universe.company("a1", "ACWA Power").industry("oil & energy").employees(4_000).insert();
         universe.company("a2", "Marafiq").industry("utilities").employees(2_400).insert();
-        file(firm, "a1", "inUniverse");
+        file(firm, "a1", "declined");
         file(firm, "a2", "inUniverse");
-        // Shortlisted is no longer filed at; a company an older release left there is still read.
-        db.update("UPDATE app_lm_project_triage_company SET status = 'SHORTLISTED' WHERE apollo_account_id = 'a1'"
-                + " AND project_id = ?", UUID.fromString(firm.projectId));
-        model.callToolWhenSystemContains(AGENT_MARKER, "listMandateCompanies", "{\"stage\":\"shortlisted\"}");
+        model.callToolWhenSystemContains(AGENT_MARKER, "listMandateCompanies", "{\"stage\":\"declined\"}");
 
-        askAndAwait(firm.admin, firm.projectId, null, "Split my shortlist into tiers by fit");
+        askAndAwait(firm.admin, firm.projectId, null, "Split the declined ones into tiers by fit");
 
         assertThat(toolResult("listMandateCompanies"))
                 .contains("ACWA Power")

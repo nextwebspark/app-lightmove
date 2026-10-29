@@ -36,19 +36,18 @@ public class McpUniverseTool {
     private final McpPaging paging;
 
     @McpTool(name = GET, generateOutputSchema = true, title = "Read a stage with its executives",
-            description = "Read one stage of a position — inUniverse (the default), shortlisted or declined — as its "
+            description = "Read one stage of a position — inUniverse (the default) or declined — as its "
                     + "companies, each with its executives listed at that stage, in one call; executives at no "
                     + "company come back as unassigned. Use it to summarise or compare a whole market at once; for a "
                     + "stage too large for one answer, page through uncava_list_companies and uncava_list_candidates "
-                    + "instead. Example: stage \"shortlisted\" with response_format \"detailed\" for a shortlist "
-                    + "briefing.",
+                    + "instead. Example: response_format \"detailed\" for a briefing on the whole universe.",
             annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false, idempotentHint = true,
                     openWorldHint = false))
     @McpToolScopes({ApiKeyScope.COMPANIES_READ, ApiKeyScope.CANDIDATES_READ})
     public McpUniverse getUniverse(
             McpTransportContext context,
             @McpToolParam(description = "The position's id, from uncava_search_positions") UUID positionId,
-            @McpToolParam(description = "inUniverse (the default), shortlisted or declined", required = false)
+            @McpToolParam(description = "inUniverse (the default) or declined", required = false)
             String stage,
             @McpToolParam(description = "concise (the default) or detailed: every field of each company and executive",
                     required = false) String response_format) {

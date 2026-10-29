@@ -33,7 +33,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** One read's company budget: a single cap across the shortlist and the universe, and an honest total. */
+/** One read's company budget: the universe held to one cap, and an honest total. */
 class ReportSourceLoaderTest {
 
     private static final UUID WORKSPACE = UUID.randomUUID();
@@ -55,10 +55,9 @@ class ReportSourceLoaderTest {
     }
 
     @Test
-    @DisplayName("the universe is given what the shortlist left of the cap, and the read says it was cut")
-    void shortlistSpendsTheBudgetFirst() {
-        stage(TriageCompanyStatus.SHORTLISTED, 3, companies(2), 2);
-        stage(TriageCompanyStatus.IN_UNIVERSE, 1, companies(1), 5);
+    @DisplayName("a universe past the cap is read up to it, counted whole, and the read says it was cut")
+    void aUniversePastTheCapIsCut() {
+        universe(3, companies(3), 7);
 
         ReportSources sources = loaderCappedAt(3).load(WORKSPACE, PROJECT, READER);
 
@@ -68,25 +67,9 @@ class ReportSourceLoaderTest {
     }
 
     @Test
-    @DisplayName("a shortlist that fills the cap leaves the universe counted but unread")
-    void aSpentBudgetKeepsNoUniverseRow() {
-        stage(TriageCompanyStatus.SHORTLISTED, 2, companies(2), 4);
-        stage(TriageCompanyStatus.IN_UNIVERSE, 1, companies(1), 9);
-
-        ReportSources sources = loaderCappedAt(2).load(WORKSPACE, PROJECT, READER);
-
-        assertThat(sources.universe()).hasSize(2);
-        assertThat(sources.universeTotal()).isEqualTo(13);
-        assertThat(sources.isTruncated()).isTrue();
-        verify(triage).listAllOfStage(WORKSPACE, PROJECT, TriageCompanyStatus.IN_UNIVERSE,
-                TriageCompanyFilters.none(), 1, READER);
-    }
-
-    @Test
     @DisplayName("the band is read through the seam that never drafts a brief: a client seat can open the report")
     void theBriefIsNeverDraftedByARead() {
-        stage(TriageCompanyStatus.SHORTLISTED, 10, companies(0), 0);
-        stage(TriageCompanyStatus.IN_UNIVERSE, 10, companies(0), 0);
+        universe(10, companies(0), 0);
 
         loaderCappedAt(10).load(WORKSPACE, PROJECT, READER);
 
@@ -97,12 +80,11 @@ class ReportSourceLoaderTest {
     @Test
     @DisplayName("a mandate inside the cap is read whole")
     void insideTheCapNothingIsCut() {
-        stage(TriageCompanyStatus.SHORTLISTED, 10, companies(1), 1);
-        stage(TriageCompanyStatus.IN_UNIVERSE, 9, companies(4), 4);
+        universe(10, companies(4), 4);
 
         ReportSources sources = loaderCappedAt(10).load(WORKSPACE, PROJECT, READER);
 
-        assertThat(sources.universe()).hasSize(5);
+        assertThat(sources.universe()).hasSize(4);
         assertThat(sources.isTruncated()).isFalse();
     }
 
@@ -111,8 +93,9 @@ class ReportSourceLoaderTest {
                 capped(new ReportSettings(maxCompanies, 5000, 6, 8, 9, 3, 12)));
     }
 
-    private void stage(TriageCompanyStatus status, int askedCap, List<TriageCompanyResponse> answered, long total) {
-        when(triage.listAllOfStage(WORKSPACE, PROJECT, status, TriageCompanyFilters.none(), askedCap, READER))
+    private void universe(int askedCap, List<TriageCompanyResponse> answered, long total) {
+        when(triage.listAllOfStage(WORKSPACE, PROJECT, TriageCompanyStatus.IN_UNIVERSE, TriageCompanyFilters.none(),
+                askedCap, READER))
                 .thenReturn(new TriageCompaniesResponse(answered, total, 0, askedCap, null));
     }
 

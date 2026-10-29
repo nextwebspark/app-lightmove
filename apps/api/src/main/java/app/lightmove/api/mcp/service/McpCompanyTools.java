@@ -31,17 +31,17 @@ public class McpCompanyTools {
     private final McpPaging paging;
 
     @McpTool(name = LIST, generateOutputSchema = true, title = "List a position's companies",
-            description = "List the companies a position has filed at one stage — inUniverse (the default), "
-                    + "shortlisted or declined — newest first, a page at a time. Use it to see a market or a "
-                    + "shortlist; to see the executives at those companies too, in one call, use "
-                    + "uncava_get_universe. Example: stage \"shortlisted\" lists the shortlist.",
+            description = "List the companies a position has filed at one stage — inUniverse (the default) or "
+                    + "declined — newest first, a page at a time. Use it to see a market; to see the executives at "
+                    + "those companies too, in one call, use uncava_get_universe. Example: stage \"declined\" "
+                    + "lists the companies the position ruled out.",
             annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false, idempotentHint = true,
                     openWorldHint = false))
     @McpToolScopes(ApiKeyScope.COMPANIES_READ)
     public McpCompanyPage listCompanies(
             McpTransportContext context,
             @McpToolParam(description = "The position's id, from uncava_search_positions") UUID positionId,
-            @McpToolParam(description = "inUniverse (the default), shortlisted or declined", required = false)
+            @McpToolParam(description = "inUniverse (the default) or declined", required = false)
             String stage,
             @McpToolParam(description = "The nextCursor of the previous page; omit for the first", required = false)
             String cursor,

@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * Everything one report read is computed from, gathered once so the chapters agree. {@code universe}
- * is the companies in universe or shortlisted; the totals are whole even where lists were capped.
+ * is the companies in universe; the totals are whole even where lists were capped.
  */
 public record ReportSources(
         Project project,

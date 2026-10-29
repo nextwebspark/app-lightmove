@@ -42,7 +42,7 @@ class CandidateTriageStatusIntegrationTest extends PipelineFlowSupport {
         JsonNode counts = triage(projectId, "declined", null).get("counts");
         assertThat(counts.get("inUniverse").asLong()).isEqualTo(1);
         assertThat(counts.get("declined").asLong()).isEqualTo(1);
-        assertThat(counts.get("shortlisted").asLong()).isZero();
+        assertThat(counts.has("shortlisted")).isFalse();
     }
 
     @Test
@@ -53,14 +53,14 @@ class CandidateTriageStatusIntegrationTest extends PipelineFlowSupport {
         String alshaya = capture(projectId, "Alshaya");
         String khaled = executive(projectId, alshaya, "Khaled Al Beirouty");
         executive(projectId, alshaya, "Rana Haddad");
-        // Shortlisted is retired as a destination; a row an older release left there is the third stage.
-        db.update("update app_lm_project_candidate set triage_status = 'SHORTLISTED' where id = ?::uuid", khaled);
+        stage(admin, projectId, khaled, "declined");
 
         assertThat(moveCompany(projectId, alshaya, """
                 {"status":"declined"}""")).isEqualTo(200);
 
-        assertThat(people(projectId, alshaya, "declined")).containsExactly("Rana Haddad");
-        assertThat(people(projectId, alshaya, "shortlisted")).containsExactly("Khaled Al Beirouty");
+        assertThat(people(projectId, alshaya, "declined"))
+                .containsExactlyInAnyOrder("Rana Haddad", "Khaled Al Beirouty");
+        assertThat(stageLines(projectId, khaled)).as("already there, so not carried").hasSize(1);
         assertThat(companies(projectId, "inUniverse", null)).isEmpty();
         executive(projectId, alshaya, "Layla Haddad");
         assertThat(people(projectId, alshaya, "declined")).contains("Layla Haddad");

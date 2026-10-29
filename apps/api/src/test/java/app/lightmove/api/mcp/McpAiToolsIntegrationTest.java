@@ -34,7 +34,7 @@ class McpAiToolsIntegrationTest extends McpFlowSupport {
         String acwa = capture(admin, finance, "ACWA Power");
         String masdar = capture(admin, finance, "Masdar");
         capture(admin, finance, "Aramco");
-        shortlist(admin, finance, masdar);
+        decline(admin, finance, masdar);
         map(admin, finance, """
                 {"triageCompanyId":"%s","fullName":"Layla Haddad","status":"interested"}""".formatted(acwa));
         map(admin, finance, """
@@ -48,11 +48,12 @@ class McpAiToolsIntegrationTest extends McpFlowSupport {
         assertThat(withoutNulls(tool)).isEqualTo(withoutNulls(rest));
         assertThat(rest.at("/position/title").asText()).isEqualTo("Chief Financial Officer");
         assertThat(rest.at("/companies/inUniverse").asLong()).isEqualTo(2);
-        assertThat(rest.at("/companies/shortlisted").asLong()).isEqualTo(1);
+        assertThat(rest.at("/companies/declined").asLong()).isEqualTo(1);
+        assertThat(rest.at("/companies").has("shortlisted")).isFalse();
         assertThat(rest.at("/executives/identified").asLong()).isEqualTo(2);
         assertThat(rest.at("/executives/interested").asLong()).isEqualTo(1);
         assertThat(rest.at("/executives/offLimits").asLong()).as("every status, zero included").isZero();
-        assertThat(rest.at("/mappedCompanies").asLong()).isEqualTo(2);
+        assertThat(rest.at("/mappedCompanies").asLong()).as("declined companies left out").isEqualTo(1);
         assertThat(rest.at("/timeline").has("deliveryDate")).isTrue();
 
         assertThat(db.queryForObject("""
@@ -146,7 +147,7 @@ class McpAiToolsIntegrationTest extends McpFlowSupport {
         String finance = project(admin, "Chief Financial Officer");
         String acwa = capture(admin, finance, "ACWA Power");
         String masdar = capture(admin, finance, "Masdar");
-        shortlist(admin, finance, masdar);
+        decline(admin, finance, masdar);
         map(admin, finance, """
                 {"triageCompanyId":"%s","fullName":"Layla Haddad","title":"Group CFO"}""".formatted(acwa));
         map(admin, finance, """
@@ -163,8 +164,8 @@ class McpAiToolsIntegrationTest extends McpFlowSupport {
         assertThat(names(resultOf(tool(key, "uncava_search_candidates", "{\"positionId\":\"" + finance
                 + "\",\"query\":\"masdar\"}")).get("candidates"))).as("an employer").containsExactly("Omar Saleh");
         assertThat(names(resultOf(tool(key, "uncava_search_candidates", "{\"positionId\":\"" + finance
-                + "\",\"query\":\"cfo\",\"stage\":\"shortlisted\"}")).get("candidates")))
-                .as("held to the shortlist").containsExactly("Omar Saleh");
+                + "\",\"query\":\"cfo\",\"stage\":\"declined\"}")).get("candidates")))
+                .as("held to the declined companies").containsExactly("Omar Saleh");
         assertThat(names(rest(key, PROJECTS + finance + "/candidates?q=cfo&stage=inUniverse&status=identified", 200)
                 .get("data"))).containsExactlyInAnyOrder("Layla Haddad", "Rania Cfoza");
         assertThat(refusalOf(tool(key, "uncava_search_candidates", "{\"positionId\":\"" + finance

@@ -12,7 +12,7 @@ import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
- * An earlier card, written back into the chat the model reads, so a follow-up ("shortlist the first
+ * An earlier card, written back into the chat the model reads, so a follow-up ("file the first
  * three", "more like these") knows what the card held. The answer never lists the card's companies,
  * so without this the model would be asked about companies it cannot see. Everything here is copied
  * from the stored card, never from the model's text.
@@ -38,7 +38,7 @@ final class CardMemory {
     /**
      * {@code listed} false leaves the rows out and says how many there were. Each row opens with its
      * state in brackets — written here, never taken from third-party text, which cannot contain a
-     * bracket — so a company name that reads "already shortlisted" cannot pass for one.
+     * bracket — so a company name that reads "already declined" cannot pass for one.
      */
     static String render(AssistantProposal card, ProposalOutcome outcome, boolean listed) {
         List<String> lines = new ArrayList<>();
@@ -77,7 +77,7 @@ final class CardMemory {
         return CARD_BLOCK.matcher(answer).replaceAll("").strip();
     }
 
-    /** "[shortlisted] 5a1b… · Lulu Group · United Arab Emirates · 42,000 staff · operates Carrefour". */
+    /** "[already declined] 5a1b… · Lulu Group · United Arab Emirates · 42,000 staff · operates Carrefour". */
     private static String describe(ProposedCompany company) {
         List<String> parts = new ArrayList<>();
         parts.add(company.key());
@@ -107,7 +107,6 @@ final class CardMemory {
         }
         return switch (stage) {
             case IN_UNIVERSE -> "In universe";
-            case SHORTLISTED -> "Shortlisted";
             case DECLINED -> "Declined";
         };
     }

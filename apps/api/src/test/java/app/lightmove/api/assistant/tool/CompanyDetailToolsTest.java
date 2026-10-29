@@ -57,7 +57,7 @@ class CompanyDetailToolsTest {
                 1986, "Rivoli is a leading luxury watch and eyewear retailer in the Middle East.", null,
                 List.of("watches", "eyewear"), "{}")));
         when(triaged.stagesOf(any(), any(), anyList(), anyList()))
-                .thenReturn(new MandateStages(Map.of("a1", TriageCompanyStatus.SHORTLISTED), Map.of()));
+                .thenReturn(new MandateStages(Map.of("a1", TriageCompanyStatus.DECLINED), Map.of()));
 
         CompanyDetails details = tools.readCompanyDetails(List.of("rivoli-group", " a1 ", "nobody-knows", "a1"),
                 toolContext());
@@ -67,7 +67,7 @@ class CompanyDetailToolsTest {
         assertThat(details.companies().get(1)).satisfies(seddiqi -> {
             assertThat(seddiqi.niche()).containsExactly("luxury watches", "fine jewellery");
             assertThat(seddiqi.sectorGroup()).isNotBlank();
-            assertThat(seddiqi.mandateStage()).isEqualTo("shortlisted");
+            assertThat(seddiqi.mandateStage()).isEqualTo("declined");
         });
         assertThat(details.companies().getFirst()).satisfies(rivoli -> {
             assertThat(rivoli.linkedinSlug()).isEqualTo("rivoli-group");
@@ -106,24 +106,24 @@ class CompanyDetailToolsTest {
         TriageCompanyResponse seddiqi = filed("a1", "Ahmed Seddiqi & Sons", "luxury goods & jewelry");
         TriageCompanyResponse typed = filed(null, "Hand-typed Boutique", "retail");
         when(triaged.listAllOfStage(eq(context.workspaceId()), eq(context.projectId()),
-                eq(TriageCompanyStatus.SHORTLISTED), any(), eq(CompanyDetailTools.MAX_MANDATE_COMPANIES),
+                eq(TriageCompanyStatus.DECLINED), any(), eq(CompanyDetailTools.MAX_MANDATE_COMPANIES),
                 eq(ProjectAudience.STAFF)))
                 .thenReturn(new TriageCompaniesResponse(List.of(seddiqi, typed), 140, 0, 100, null));
         when(market.byAccountIds(List.of("a1"))).thenReturn(List.of(
                 row("a1", "Ahmed Seddiqi & Sons", "luxury goods & jewelry", 950, List.of("luxury watches"))));
         when(market.nicheKeywordCounts(anyList())).thenReturn(Map.of("luxury watches", 40L));
 
-        MandateCompanies shortlist = tools.listMandateCompanies("Shortlisted", toolContext());
+        MandateCompanies declined = tools.listMandateCompanies("Declined", toolContext());
 
-        assertThat(shortlist.stage()).isEqualTo("shortlisted");
-        assertThat(shortlist.total()).isEqualTo(140);
-        assertThat(shortlist.companies()).extracting(CompanyDetail::companyName, CompanyDetail::niche,
+        assertThat(declined.stage()).isEqualTo("declined");
+        assertThat(declined.total()).isEqualTo(140);
+        assertThat(declined.companies()).extracting(CompanyDetail::companyName, CompanyDetail::niche,
                         CompanyDetail::mandateStage)
                 .containsExactly(
-                        tuple("Ahmed Seddiqi & Sons", List.of("luxury watches"), "shortlisted"),
-                        tuple("Hand-typed Boutique", List.of(), "shortlisted"));
+                        tuple("Ahmed Seddiqi & Sons", List.of("luxury watches"), "declined"),
+                        tuple("Hand-typed Boutique", List.of(), "declined"));
         assertThat(recorder.steps()).singleElement().satisfies(step -> {
-            assertThat(step.label()).isEqualTo("Reading the shortlisted companies");
+            assertThat(step.label()).isEqualTo("Reading the declined companies");
             assertThat(step.detail()).isEqualTo("The first 2 of 140");
         });
     }
@@ -132,8 +132,8 @@ class CompanyDetailToolsTest {
     @DisplayName("a stage is understood however the model spells it, and the universe is the default")
     void readsTheStageLeniently() {
         assertThat(CompanyDetailTools.stageOf("in universe")).isEqualTo(TriageCompanyStatus.IN_UNIVERSE);
-        assertThat(CompanyDetailTools.stageOf("SHORTLISTED")).isEqualTo(TriageCompanyStatus.SHORTLISTED);
-        assertThat(CompanyDetailTools.stageOf("declined")).isEqualTo(TriageCompanyStatus.DECLINED);
+        assertThat(CompanyDetailTools.stageOf("DECLINED")).isEqualTo(TriageCompanyStatus.DECLINED);
+        assertThat(CompanyDetailTools.stageOf("shortlisted")).isEqualTo(TriageCompanyStatus.IN_UNIVERSE);
         assertThat(CompanyDetailTools.stageOf(null)).isEqualTo(TriageCompanyStatus.IN_UNIVERSE);
         assertThat(CompanyDetailTools.stageOf("the best ones")).isEqualTo(TriageCompanyStatus.IN_UNIVERSE);
     }
@@ -149,7 +149,7 @@ class CompanyDetailToolsTest {
     }
 
     private static TriageCompanyResponse filed(String apolloAccountId, String name, String industry) {
-        return new TriageCompanyResponse(UUID.randomUUID(), apolloAccountId, "manual", "shortlisted", null, false,
+        return new TriageCompanyResponse(UUID.randomUUID(), apolloAccountId, "manual", "declined", null, false,
                 name, industry, UAE, "Dubai", 500, null, null, null, null, null, null, null, Map.of(), Instant.EPOCH, null, null, null);
     }
 }

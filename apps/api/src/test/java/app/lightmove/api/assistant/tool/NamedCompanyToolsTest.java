@@ -72,13 +72,13 @@ class NamedCompanyToolsTest {
                 new NamedCompanyResolver.ResolvedName(finding("IKEA", RESEARCHED, null, "ikea", null, false), ikea),
                 new NamedCompanyResolver.ResolvedName(finding("Lulu", UNIVERSE, "a4", null, null, false), null)), 1));
         when(triaged.stagesOf(any(), any(), any(), any())).thenReturn(new MandateStages(
-                Map.of("a3", TriageCompanyStatus.SHORTLISTED), Map.of("ikea", TriageCompanyStatus.DECLINED)));
+                Map.of("a3", TriageCompanyStatus.IN_UNIVERSE), Map.of("ikea", TriageCompanyStatus.DECLINED)));
 
         NamedCompanies found = tools().lookUpCompaniesByName(
                 NamedCompanyResolverTest.names("Carrefour", "IKEA", "Lulu"), "United Arab Emirates", context());
 
         assertThat(found.companies()).extracting(NamedCompanyFinding::mandateStage)
-                .containsExactly("shortlisted", "declined", null);
+                .containsExactly("inUniverse", "declined", null);
         assertThat(recorder.steps()).singleElement().satisfies(step ->
                 assertThat(step.detail()).endsWith("2 already in the mandate"));
     }

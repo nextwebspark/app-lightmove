@@ -2,23 +2,18 @@ package app.lightmove.api.candidate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.IntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MvcResult;
-import tools.jackson.databind.JsonNode;
 
-/**
- * Shortlisted is retired as a destination: every door that files or moves a company or an executive refuses it,
- * while a row already there stays and every read still answers the stage.
- */
+/** Shortlisted is no Companies stage: a write or a read naming it is an unknown stage, and nothing moves. */
 @IntegrationTest
 class ShortlistedRetiredIntegrationTest extends PipelineFlowSupport {
 
     @Test
-    @DisplayName("every write door refuses Shortlisted with a 400, and nothing moves")
+    @DisplayName("every door that files, moves or reads a stage refuses Shortlisted with a 400")
     void everyDoorRefuses() throws Exception {
         firm("Shortlist Retired Firm");
         String projectId = mandate("Chief Financial Officer");
@@ -37,30 +32,18 @@ class ShortlistedRetiredIntegrationTest extends PipelineFlowSupport {
                 {"status":"shortlisted"}"""));
         assertRefused(write(admin, "PUT", candidatesUrl(projectId) + "/" + khaled + "/triage-status", """
                 {"status":"shortlisted"}"""));
+        assertRefused(read(triage + "?status=shortlisted"));
+        assertRefused(read(candidatesUrl(projectId) + "?triageStatus=shortlisted"));
+        assertRefused(read("/api/v1/projects/" + projectId + "/export/companies?status=shortlisted"));
 
-        assertThat(db.queryForObject("select count(*) from app_lm_project_triage_company where project_id = ?::uuid "
-                + "and status = 'SHORTLISTED'", Long.class, projectId)).isZero();
+        assertThat(db.queryForObject("select status from app_lm_project_triage_company where id = ?::uuid",
+                String.class, alshaya)).isEqualTo("IN_UNIVERSE");
         assertThat(db.queryForObject("select triage_status from app_lm_project_candidate where id = ?::uuid",
                 String.class, khaled)).isEqualTo("IN_UNIVERSE");
     }
 
-    @Test
-    @DisplayName("a company already at Shortlisted stays there and is still read")
-    void anOldShortlistIsStillRead() throws Exception {
-        firm("Shortlist Legacy Firm");
-        String projectId = mandate("Chief Financial Officer");
-        String alshaya = capture(projectId, "Alshaya");
-        db.update("update app_lm_project_triage_company set status = 'SHORTLISTED' where id = ?::uuid", alshaya);
-
-        JsonNode page = body(mvc.perform(get("/api/v1/projects/" + projectId + "/triage")
-                        .param("status", "shortlisted")
-                        .header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
-                .andReturn());
-        assertThat(page.at("/companies/0/companyName").asText()).isEqualTo("Alshaya");
-        assertThat(page.at("/counts/shortlisted").asLong()).isEqualTo(1);
-        assertThat(write(admin, "PATCH", "/api/v1/projects/" + projectId + "/triage/" + alshaya, """
-                {"status":"inUniverse"}""").getResponse().getStatus()).isEqualTo(200);
+    private MvcResult read(String url) throws Exception {
+        return mvc.perform(get(url).header("Authorization", "Bearer " + admin)).andReturn();
     }
 
     private void assertRefused(MvcResult result) throws Exception {

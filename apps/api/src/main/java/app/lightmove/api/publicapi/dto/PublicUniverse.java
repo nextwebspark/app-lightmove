@@ -5,7 +5,7 @@ import java.util.List;
 
 @Schema(name = "Universe", description = "One stage of a position: every company, each with its executives")
 public record PublicUniverse(
-        @Schema(description = "The stage read", allowableValues = {"inUniverse", "shortlisted", "declined"},
+        @Schema(description = "The stage read", allowableValues = {"inUniverse", "declined"},
                 example = "inUniverse")
         String stage,
         @Schema(description = "Every company of the stage, by name") List<PublicUniverseCompany> companies,
