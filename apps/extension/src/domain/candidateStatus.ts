@@ -4,7 +4,7 @@
  * Four of the seven tokens the API's `CandidateStatus` accepts. `engaged`, `interested` and
  * `notInterested` are absent deliberately: each is the outcome of a conversation, judged in the
  * drawer with the whole mandate in view, not something stated in passing from a profile page — the
- * same reasoning that keeps `declined` out of `TRIAGE_DESTINATIONS`.
+ * same reasoning that files a captured company in universe and never as declined.
  *
  * The labels are a deliberate copy of the web app's `candidateVocabulary.ts`; `apps/extension` imports
  * nothing from `apps/web`, and a shared package for four strings would couple two builds for less than

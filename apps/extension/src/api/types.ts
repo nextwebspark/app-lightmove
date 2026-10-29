@@ -1,5 +1,4 @@
 import type { CandidateCaptureStatus } from "../domain/candidateStatus";
-import type { TriageDestination } from "../domain/triageDestination";
 
 /**
  * The API payloads the extension touches, and nothing more.
@@ -41,15 +40,13 @@ export interface ProjectSummary {
 /**
  * The body of `POST /projects/{id}/triage/capture`.
  *
- * The API's own `CaptureCompanyRequest`, which already exists for this plugin — the endpoint was built
- * for the two destination buttons in `Extension.dc.html`. Field names are the server's; nothing here
- * is invented, and the extension adds no endpoint of its own.
+ * The API's own `CaptureCompanyRequest`, which already exists for this plugin. It sends no `status`:
+ * the server files a capture in universe, the one stage a capture may land in. Field names are the
+ * server's; nothing here is invented, and the extension adds no endpoint of its own.
  */
 export interface CaptureCompanyRequest {
   /** `extension` — the provenance the Companies screen shows. `strategy` is refused here. */
   source: "extension";
-  /** The landing stage, from whichever destination button was pressed. */
-  status: TriageDestination;
   companyName: string;
   companyLinkedinUrl?: string | null;
   /** The page this was read from. */
@@ -61,7 +58,6 @@ export interface CaptureCompanyRequest {
 export interface TriagedCompany {
   id: string;
   source: "strategy" | "manual" | "extension";
-  status: TriageDestination | "declined";
   companyName: string;
 }
 

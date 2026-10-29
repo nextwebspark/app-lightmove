@@ -1,9 +1,9 @@
 # UNCAVA Capture
 
 A Chrome extension that reads whatever the page you are looking at is about — a company or a person —
-and writes it into a mandate. A company lands in its triage as **in universe** or **shortlisted**; a
-person lands in its people, mapped to one of its triaged companies where the mandate already holds
-their employer under that name.
+and writes it into a mandate. A company lands in its triage as **in universe**; a person lands in
+its people, mapped to one of its triaged companies where the mandate already holds their employer
+under that name.
 
 Its own workspace: it imports nothing from `apps/web` and shares no build with it. What it does share
 is the API, and **everything it writes with already existed there**, behind the same `WORK_EXECUTE`
@@ -155,7 +155,7 @@ thing you need to know about any file here.
 | `src/content/` | injected into a page | the page reader — never a credential |
 | `src/popup/` | a document destroyed on close | React; asks the worker for everything |
 | `src/api/` | (imported by the worker) | the only code that knows the API exists |
-| `src/domain/` | anywhere | domain normalisation, the two destinations, the statuses a capture may file |
+| `src/domain/` | anywhere | domain normalisation, the statuses a capture may file |
 
 ## What a capture reads, and why so little
 

@@ -4,7 +4,7 @@ import { ICONS } from "../lib/icons";
 
 interface CaptureSavedScreenProps {
   subjectName: string;
-  /** Where it landed, in the mandate's own words — the server's answer, never the button pressed. */
+  /** Where it landed, in the mandate's own words. */
   landedIn: string;
   projectName: string;
   projectId: string;
@@ -17,10 +17,6 @@ interface CaptureSavedScreenProps {
 
 /**
  * The confirmation, after a capture lands. One screen for both subjects.
- *
- * States where it went rather than only that it saved: a company already sitting in the shortlist
- * stays there when captured to the universe, so the receipt has to say what is true rather than what
- * was asked for.
  */
 export function CaptureSavedScreen({
   subjectName,

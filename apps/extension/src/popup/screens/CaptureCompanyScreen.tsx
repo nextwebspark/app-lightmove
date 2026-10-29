@@ -1,9 +1,7 @@
-import { useState } from "react";
 import { FIELD_LIMITS, cappedAt } from "../../api/fieldLimits";
-import { DESTINATION_PAST_TENSE, type TriageDestination } from "../../domain/triageDestination";
 import { DetectedFieldInput } from "../components/DetectedFieldInput";
 import { PageReadNote } from "../components/PageReadNote";
-import { DestinationButtons } from "../components/DestinationButtons";
+import { Icon } from "../components/Icon";
 import { ProjectSelect } from "../components/ProjectSelect";
 import { SectionLabel } from "../components/SectionLabel";
 import { useCaptureCompany } from "../hooks/useCaptureCompany";
@@ -16,9 +14,10 @@ import { SubjectRow } from "../components/SubjectRow";
 import { useCloseAfterSave } from "../hooks/useCloseAfterSave";
 import { useUndoCapture } from "../hooks/useUndoCapture";
 import { CaptureSavedScreen } from "./CaptureSavedScreen";
+import { ICONS } from "../lib/icons";
 
 /**
- * The capture form: the name the page said, editable, and where it should go.
+ * The capture form: the name the page said, editable, filed in the mandate's universe.
  *
  * V1 captures the name and — silently — the company's URLs; everything richer is enrichment, later
  * and server-side. The row carries `source: "extension"` and no universe id — a captured company is
@@ -28,8 +27,6 @@ export function CaptureCompanyScreen({ page, projects }: CaptureScreenProps) {
   const capture = useCaptureCompany();
   const { settings } = useCaptureSettings();
   const undo = useUndoCapture();
-
-  const [attemptedDestination, setAttemptedDestination] = useState<TriageDestination | null>(null);
 
   // Keyed on the page rather than its address; see the person screen for why both rules are what they
   // are. The note is never seeded, only reset when the panel moves to another page.
@@ -45,14 +42,12 @@ export function CaptureCompanyScreen({ page, projects }: CaptureScreenProps) {
   // A name and a mandate. That is what the API requires, and the popup should not invent more.
   const canSave = Boolean(companyName.trim()) && Boolean(projects.selectedProjectId);
 
-  const handleCapture = (destination: TriageDestination) => {
+  const handleCapture = () => {
     if (!projects.selectedProjectId) {
       return;
     }
-    setAttemptedDestination(destination);
     capture.save({
       projectId: projects.selectedProjectId,
-      destination,
       capture: {
         source: "extension",
         companyName: cappedAt(companyName, FIELD_LIMITS.companyName) ?? "",
@@ -66,21 +61,19 @@ export function CaptureCompanyScreen({ page, projects }: CaptureScreenProps) {
   const handleCaptureAnother = () => {
     capture.reset();
     undo.reset();
-    setAttemptedDestination(null);
     editNote("");
     void page.rescan();
   };
 
   useCloseAfterSave(Boolean(capture.saved), settings.closesAfterSave);
 
-  if (capture.saved && projects.selectedProjectId && attemptedDestination) {
-    const landed = capture.saved.status === "declined" ? attemptedDestination : capture.saved.status;
+  if (capture.saved && projects.selectedProjectId) {
     const savedId = capture.saved.id;
     const projectId = projects.selectedProjectId;
     return (
       <CaptureSavedScreen
         subjectName={capture.saved.companyName}
-        landedIn={DESTINATION_PAST_TENSE[landed]}
+        landedIn="the universe"
         projectName={projects.selectedProjectName ?? "this mandate"}
         projectId={projectId}
         sourceUrl={page.sourceUrl}
@@ -128,12 +121,15 @@ export function CaptureCompanyScreen({ page, projects }: CaptureScreenProps) {
           onSelect={projects.selectProject}
           isLoading={projects.isLoading}
         />
-        <DestinationButtons
-          onCapture={handleCapture}
-          isSaving={capture.isSaving}
-          savingDestination={capture.isSaving ? attemptedDestination : null}
-          isDisabled={!canSave}
-        />
+        <button
+          type="button"
+          onClick={handleCapture}
+          disabled={!canSave || capture.isSaving}
+          className="flex w-full items-center justify-center gap-[7px] rounded-lg bg-u-accent-solid py-2 text-[13px] font-semibold text-white disabled:opacity-50"
+        >
+          <Icon d={ICONS.plus} />
+          {capture.isSaving ? "Adding…" : "Add to universe"}
+        </button>
       </div>
     </>
   );

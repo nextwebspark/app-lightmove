@@ -8,7 +8,8 @@ description: LightMove Capture — the Chrome extension in apps/extension. Manif
 `apps/extension` is a Manifest V3 browser action: a **side panel** (not a popup — it stays open while
 the consultant moves between profiles, and follows the active tab) that reads whatever the page a
 consultant is standing on is about — a company or a person — and writes it into a mandate. A company
-lands in its triage as **in universe** or **shortlisted**; a person lands in its people, mapped to one
+lands in its triage **in universe** (Add to universe, the one destination; Shortlisted is retired and the API refuses
+it); a person lands in its people, mapped to one
 of its triaged companies when the mandate already holds their employer under that name.
 `claude-design/Extension.dc.html` is the design source of truth — read the
 relevant state before building a screen, the same rule the web app follows.
