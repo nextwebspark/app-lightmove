@@ -126,6 +126,8 @@ const fatima: PoolRow = {
     projectTitle: "Chief Financial Officer",
     details: { from: "contacted", to: "engaged" },
     noteExcerpt: null,
+    noteEditedAt: null,
+    noteEditedByName: null,
   },
 };
 

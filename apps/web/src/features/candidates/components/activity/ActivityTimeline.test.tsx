@@ -47,6 +47,8 @@ const line = (id: number, kind: PersonActivityKind, overrides: Partial<PersonTim
   projectTitle: "Group CFO",
   details: {},
   noteExcerpt: null,
+  noteEditedAt: null,
+  noteEditedByName: null,
   changes: [],
   ...overrides,
 });
@@ -298,6 +300,46 @@ describe("ActivityTimeline", () => {
       expect(await within(card).findByText("Notice is three months")).toBeInTheDocument();
       expect(within(card).getByText("Wants Abu Dhabi")).toBeInTheDocument();
       expect(within(card).queryByText(/- Notice is three months/)).not.toBeInTheDocument();
+    });
+
+    it("marks a note edited since it was written, from the note it shows or the server's line", async () => {
+      vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([
+        callNote,
+        { ...callNote, id: "n2", kind: "general", body: "Prefers a listed company.", format: "plain", editedAt: null, editedByName: null },
+      ]);
+      history(
+        line(3, "NOTE_ADDED", { details: { noteId: "n1", kind: "CALL" }, noteExcerpt: "Open" }),
+        line(2, "NOTE_ADDED", { details: { noteId: "n2", kind: "GENERAL" }, noteExcerpt: "Prefers" }),
+        line(1, "NOTE_ADDED", {
+          details: { noteId: "elsewhere", kind: "MEETING" },
+          noteExcerpt: "Intro call summary",
+          noteEditedAt: "2026-10-27T11:00:00Z",
+          noteEditedByName: "Omar Khalil",
+        }),
+      );
+      renderTimeline();
+      const call = await screen.findByRole("button", { name: /^Dana Aboud logged a call, edited/ });
+      expect(within(call).getByText("Edited")).toHaveAttribute("title", expect.stringMatching(/^Edited by Omar Khalil/));
+      const meeting = screen.getByRole("button", { name: /^Dana Aboud logged a meeting, edited/ });
+      expect(within(meeting).getByText("Edited")).toBeInTheDocument();
+      const note = await screen.findByRole("button", { name: /^Dana Aboud wrote a note/ });
+      expect(within(note).queryByText("Edited")).not.toBeInTheDocument();
+    });
+
+    it("trusts the server's line when the cached note has not caught up with an edit", async () => {
+      vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([{ ...callNote, editedAt: null, editedByName: null }]);
+      history(
+        line(1, "NOTE_ADDED", {
+          details: { noteId: "n1", kind: "CALL" },
+          noteExcerpt: "Open",
+          noteEditedAt: "2026-10-27T10:00:00Z",
+          noteEditedByName: "Omar Khalil",
+        }),
+      );
+      renderTimeline();
+      const call = await screen.findByRole("button", { name: /^Dana Aboud logged a call, edited/ });
+      expect(await within(call).findByText("Notice is three months")).toBeInTheDocument();
+      expect(within(call).getByText("Edited")).toHaveAttribute("title", expect.stringMatching(/^Edited by Omar Khalil/));
     });
 
     it("falls back to the server's opening words when the notes cannot be read, or no longer hold it", async () => {
