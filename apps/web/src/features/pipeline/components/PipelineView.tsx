@@ -14,8 +14,8 @@ import { useBoardMove, useClientVisibility } from "../lib/usePipelineWrites";
 import { PipelineBoard } from "./PipelineBoard";
 
 /**
- * In universe read as its executives' pipeline (`Position.dc.html`, `view=pipeline`): the board, narrowed by the
- * toolbar's search, which the server matches as it does the grid's. `?candidate=` opens that executive's drawer —
+ * In universe read as the position's pipeline (`Position.dc.html`, `view=pipeline`): every executive on the position
+ * as a board, narrowed by the toolbar's search, which the server matches as it does the grid's. `?candidate=` opens that executive's drawer —
  * where a notification, an email and My tasks send someone. Staff-only: the read is the position's WORK_EXECUTE.
  */
 export function PipelineView({
@@ -94,7 +94,7 @@ export function PipelineView({
             <p role="status" className="px-5 pt-3 text-note text-u-text3">
               {search.trim()
                 ? "No executives match that search."
-                : "No executives in the universe yet. Add one, or find executives from Table."}
+                : "No executives on this position yet. Add one, or find executives from Table."}
             </p>
           )}
           <PipelineBoard

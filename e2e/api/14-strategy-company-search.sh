@@ -255,7 +255,7 @@ get "/projects/$PROJECT/triage?status=declined" -H "$AUTH"
 check 14.54 "…and appears on that stage" "1" \
   "$(printf '%s' "$LAST_BODY" | jq --arg a "$TAKE" '[.companies[] | select(.apolloAccountId==$a)] | length')"
 # Null leaves the other half alone: moving a company must not silently clear the note explaining why.
-http PATCH "/projects/$PROJECT/triage/$TRIAGE_ID" -H 'Content-Type: application/json' -H "$AUTH" -d '{"status":"inUniverse"}'
+http PATCH "/projects/$PROJECT/triage/$TRIAGE_ID" -H 'Content-Type: application/json' -H "$AUTH" -d '{"status":"shortlisted"}'
 check 14.55 "moving stage again keeps the note" "Client conflict" "$(json '.note')"
 http PATCH "/projects/$PROJECT/triage/$TRIAGE_ID" -H 'Content-Type: application/json' -H "$AUTH" -d '{"status":"NOT_A_STAGE"}'
 check_status 14.56 "an unknown stage is refused" 400

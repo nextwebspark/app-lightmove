@@ -42,7 +42,7 @@ class CandidateTriageStatusIntegrationTest extends PipelineFlowSupport {
         JsonNode counts = triage(projectId, "declined", null).get("counts");
         assertThat(counts.get("inUniverse").asLong()).isEqualTo(1);
         assertThat(counts.get("declined").asLong()).isEqualTo(1);
-        assertThat(counts.has("shortlisted")).isFalse();
+        assertThat(counts.get("shortlisted").asLong()).isZero();
     }
 
     @Test
@@ -56,14 +56,13 @@ class CandidateTriageStatusIntegrationTest extends PipelineFlowSupport {
         stage(admin, projectId, khaled, "declined");
 
         assertThat(moveCompany(projectId, alshaya, """
-                {"status":"declined"}""")).isEqualTo(200);
+                {"status":"shortlisted"}""")).isEqualTo(200);
 
-        assertThat(people(projectId, alshaya, "declined"))
-                .containsExactlyInAnyOrder("Rana Haddad", "Khaled Al Beirouty");
-        assertThat(stageLines(projectId, khaled)).as("already there, so not carried").hasSize(1);
+        assertThat(people(projectId, alshaya, "shortlisted")).containsExactly("Rana Haddad");
+        assertThat(people(projectId, alshaya, "declined")).containsExactly("Khaled Al Beirouty");
         assertThat(companies(projectId, "inUniverse", null)).isEmpty();
         executive(projectId, alshaya, "Layla Haddad");
-        assertThat(people(projectId, alshaya, "declined")).contains("Layla Haddad");
+        assertThat(people(projectId, alshaya, "shortlisted")).contains("Layla Haddad");
     }
 
     @Test
@@ -74,15 +73,15 @@ class CandidateTriageStatusIntegrationTest extends PipelineFlowSupport {
         String alshaya = capture(projectId, "Alshaya");
         String khaled = executive(projectId, alshaya, "Khaled Al Beirouty");
         String rana = executive(projectId, alshaya, "Rana Haddad");
-        stage(admin, projectId, khaled, "declined");
+        stage(admin, projectId, khaled, "shortlisted");
 
         moveCompany(projectId, alshaya, """
-                {"status":"declined","executiveIds":["%s"]}""".formatted(rana));
+                {"status":"shortlisted","executiveIds":["%s"]}""".formatted(rana));
         moveCompany(projectId, alshaya, """
                 {"status":"inUniverse","executiveIds":["%s"]}""".formatted(rana));
 
         assertThat(people(projectId, alshaya, "inUniverse")).containsExactly("Rana Haddad");
-        assertThat(people(projectId, alshaya, "declined")).containsExactly("Khaled Al Beirouty");
+        assertThat(people(projectId, alshaya, "shortlisted")).containsExactly("Khaled Al Beirouty");
     }
 
     @Test
@@ -98,13 +97,13 @@ class CandidateTriageStatusIntegrationTest extends PipelineFlowSupport {
         moveCompany(projectId, alshaya, """
                 {"status":"declined"}""");
         moveCompany(projectId, alshaya, """
-                {"status":"inUniverse"}""");
+                {"status":"shortlisted"}""");
 
         List<JsonNode> lines = stageLines(projectId, khaled);
         assertThat(lines).hasSize(2);
         assertThat(lines.get(1).at("/details/from").asText()).isEqualTo("inUniverse");
         assertThat(lines.get(1).at("/details/to").asText()).isEqualTo("declined");
-        assertThat(lines.get(0).at("/details/to").asText()).isEqualTo("inUniverse");
+        assertThat(lines.get(0).at("/details/to").asText()).isEqualTo("shortlisted");
         assertThat(lines.get(0).at("/details/withCompany").asText()).isEqualTo("true");
     }
 

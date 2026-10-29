@@ -112,7 +112,7 @@ const OTHER_CCY = CCY === "USD" ? "EUR" : "USD";
 const capture = async (companyName, status, industry, companyCountry, companyCity) =>
   (await api(`/projects/${PROJECT}/triage/capture`, { method: "POST", token, body: { companyName, status, industry, companyCountry, companyCity, source: "manual" } })).body.id;
 const AURORA = await capture("Aurora Holdings", "inUniverse", "Financial Services", "United Arab Emirates", "Dubai");
-const BASALT = await capture("Basalt Mining", "inUniverse", "Mining & Metals", "Saudi Arabia", "Riyadh");
+const BASALT = await capture("Basalt Mining", "shortlisted", "Mining & Metals", "Saudi Arabia", "Riyadh");
 await capture("Cedar Retail", "inUniverse", "Retail", "Kuwait", "Kuwait City");
 const DELTA = await capture("Delta Contracting", "declined", "Construction", "Bahrain", "Manama");
 const COMPANIES_SEEDED = 4;

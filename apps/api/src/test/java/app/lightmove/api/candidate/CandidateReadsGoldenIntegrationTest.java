@@ -65,7 +65,7 @@ class CandidateReadsGoldenIntegrationTest extends FlowTestSupport {
 
         String ethnicity = fieldKeyOf(admin, cfo, defineColumn(admin, cfo, "Ethnicity"));
         String almarai = alias(capture(admin, cfo, "Golden Contract Foods", "food & beverages", null), "company:foods");
-        String panda = alias(capture(admin, cfo, "Golden Contract Retail", "retail", null), "company:retail");
+        String panda = alias(capture(admin, cfo, "Golden Contract Retail", "retail", "shortlisted"), "company:retail");
         alias(capture(admin, cfo, "Golden Contract Declined", "retail", "declined"), "company:declined");
 
         JsonNode yasmin = candidate(admin, cfo, """
@@ -109,8 +109,8 @@ class CandidateReadsGoldenIntegrationTest extends FlowTestSupport {
         assertGolden("talent-map.json", canonicalJson(read(admin, "/api/v1/projects/" + cfo + "/talent-map")));
         assertGolden("report.json", canonicalJson(read(admin, "/api/v1/projects/" + cfo + "/report")));
         assertGolden("export-universe.csv", scrub(read(admin, "/api/v1/projects/" + cfo + "/export/companies")));
-        assertGolden("export-declined.csv",
-                scrub(read(admin, "/api/v1/projects/" + cfo + "/export/companies?status=declined")));
+        assertGolden("export-shortlisted.csv",
+                scrub(read(admin, "/api/v1/projects/" + cfo + "/export/companies?status=shortlisted")));
     }
 
     /** apps/api, found from target/test-classes so an IDE started anywhere reads the same files. */

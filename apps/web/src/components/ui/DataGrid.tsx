@@ -179,7 +179,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   groupBy,
 }: {
   table: ReactTable<TFeatures, TData>;
-  /** Names the grid for screen readers — "Companies", "Declined companies". */
+  /** Names the grid for screen readers — "Companies", "Shortlisted companies". */
   label: string;
   loading: boolean;
   error: boolean;

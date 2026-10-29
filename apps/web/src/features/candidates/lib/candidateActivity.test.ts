@@ -98,15 +98,9 @@ describe("timelineLines", () => {
       detail: "In universe → Declined",
     });
     expect(
-      lineOf({ kind: "TRIAGE_STATUS_CHANGED", details: { from: "inUniverse", to: "declined", withCompany: "true" } })
+      lineOf({ kind: "TRIAGE_STATUS_CHANGED", details: { from: "inUniverse", to: "shortlisted", withCompany: "true" } })
         .detail,
-    ).toBe("In universe → Declined · With their company");
-  });
-
-  it("names the removed Shortlisted stage on a line filed before it went", () => {
-    expect(lineOf({ kind: "TRIAGE_STATUS_CHANGED", details: { from: "inUniverse", to: "shortlisted" } }).detail).toBe(
-      "In universe → Shortlisted",
-    );
+    ).toBe("In universe → Shortlisted · With their company");
   });
 
   it("says whether the executive was shown to the client or hidden from them", () => {

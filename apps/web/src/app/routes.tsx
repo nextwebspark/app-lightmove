@@ -142,7 +142,7 @@ export function AppRoutes() {
       <Route element={<RequireWorkspace><ProjectLayout /></RequireWorkspace>}>
         <Route path="/projects/:projectId" element={<PositionPage />} />
         <Route path="/projects/:projectId/strategy" element={<StrategyPage />} />
-        {/* The Companies section: one route pattern, two stages, each its own URL so a declined list
+        {/* The Companies section: one route pattern, three stages, each its own URL so a shortlist
             can be sent to a colleague. An unknown stage redirects rather than rendering an empty grid
             for something that does not exist. */}
         <Route path="/projects/:projectId/companies/:stage" element={<TriageStagePage />} />

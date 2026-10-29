@@ -103,7 +103,7 @@ public class PublicProjectsController {
             @Parameter(hidden = true) @AuthenticationPrincipal ApiKeyPrincipal key,
             @Parameter(description = "The position's id") @PathVariable UUID projectId,
             @Parameter(description = "The stage to read",
-                    schema = @Schema(type = "string", allowableValues = {"inUniverse", "declined"},
+                    schema = @Schema(type = "string", allowableValues = {"inUniverse", "shortlisted", "declined"},
                             defaultValue = "inUniverse"))
             @RequestParam(required = false) String stage,
             @Parameter(description = "Page number, from 0", schema = @Schema(type = "integer", minimum = "0", defaultValue = "0"))
@@ -140,7 +140,7 @@ public class PublicProjectsController {
             @RequestParam(required = false) String q,
             @Parameter(description = "Only executives listed at this stage. Each executive holds a stage of their own: "
                     + "their company's when mapped, then wherever they were moved",
-                    schema = @Schema(type = "string", allowableValues = {"inUniverse", "declined"}))
+                    schema = @Schema(type = "string", allowableValues = {"inUniverse", "shortlisted", "declined"}))
             @RequestParam(required = false) String stage,
             @Parameter(description = "Page number, from 0", schema = @Schema(type = "integer", minimum = "0", defaultValue = "0"))
             @RequestParam(required = false) Integer page,
@@ -230,7 +230,7 @@ public class PublicProjectsController {
             @Parameter(hidden = true) @AuthenticationPrincipal ApiKeyPrincipal key,
             @Parameter(description = "The position's id") @PathVariable UUID projectId,
             @Parameter(description = "The stage to read",
-                    schema = @Schema(type = "string", allowableValues = {"inUniverse", "declined"},
+                    schema = @Schema(type = "string", allowableValues = {"inUniverse", "shortlisted", "declined"},
                             defaultValue = "inUniverse"))
             @RequestParam(required = false) String stage,
             HttpServletRequest request) {

@@ -57,13 +57,6 @@ describe("the company the panel offers to capture", () => {
     expect(view.companyName().readOnly).toBe(true);
   });
 
-  it("offers the universe as the one place a company is filed", () => {
-    renderScreen(pageRead());
-
-    expect(screen.getByRole("button", { name: "Add to universe" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /shortlist/i })).toBeNull();
-  });
-
   it("leaves the name typeable when the page named nobody, so the row can still be filed", async () => {
     const view = renderScreen(pageRead({ company: { companyName: null, linkedinUrl: null } }));
     expect(view.companyName().readOnly).toBe(false);

@@ -2,7 +2,7 @@ import type { LightMoveApiClient } from "./lightMoveApiClient";
 import type { CaptureCompanyRequest, TriagedCompany } from "./types";
 
 /**
- * Writes the company into a mandate's universe. The API's own
+ * Writes the company into a mandate's triage, at the stage the footer button named. The API's own
  * endpoint; `source: "extension"` is the only difference from a company typed in by hand, and a name
  * the mandate already holds is refused rather than merged.
  */

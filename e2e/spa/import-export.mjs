@@ -188,7 +188,7 @@ async function signIn(email) {
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
 }
 const advancedButton = () => page.getByRole("button", { name: /^Advanced/ });
-/** Opens the toolbar's Advanced ▾ (clicking it while open would close it) and answers the item starting `label`. */
+/** Opens the toolbar's Advanced ▾ (clicking it while open would close it) and answers the item matching `label`. */
 async function advancedItem(label) {
   if ((await advancedButton().getAttribute("aria-expanded")) !== "true") {
     await advancedButton().click();
@@ -371,9 +371,7 @@ try {
     check("I3.1a", "no Import is offered to a client seat", 0, await (await advancedItem(/^Import spreadsheet/)).count());
     await page.keyboard.press("Escape");
     const file = await exportFile();
-    // Who filed a row is the staff file's Added by column, never a client seat's.
-    const clientHeader = whole.lines[0].split(",").filter((column) => column !== "Added by").join(",");
-    check("I3.1", "the representative's Export downloads the same whole stage, without Added by", `${whole.lines.length}|${clientHeader}`,
+    check("I3.1", "the representative's Export downloads the same whole stage", `${whole.lines.length}|${whole.lines[0]}`,
       `${file.lines.length}|${file.lines[0]}`);
     const repId = sql(`SELECT id FROM app_lm_user WHERE email = '${REP_EMAIL}'`);
     check("I3.1b", "…recorded against the representative", "1",

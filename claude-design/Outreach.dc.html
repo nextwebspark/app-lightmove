@@ -1132,7 +1132,7 @@ class Component extends DCLogic {
       iconStyle: `flex:none;color:${active ? "var(--amber)" : "currentColor"}` });
     const navGroups = [
       { label: "Position", items: [navItem("Brief", I.position, "Brief.dc.html", false), navItem("Strategy", I.strategy, "Strategy.dc.html", false)] },
-      { label: "Companies", items: [navItem("In universe", I.globe, "Position.dc.html?page=universe", false, 24), navItem("Declined", I.close, "Position.dc.html?page=declined", false, 6)] },
+      { label: "Companies", items: [navItem("In universe", I.globe, "Position.dc.html?page=universe", false, 24), navItem("Shortlisted", I.star, "Position.dc.html?page=shortlisted", false, 9), navItem("Declined", I.close, "Position.dc.html?page=declined", false, 6)] },
       { label: "People", items: [navItem("Outreach", I.outreach, "Outreach.dc.html", true, 9)] },
       { label: "Project", items: [navItem("Reports", I.reports, "Position.dc.html?page=reports", false), navItem("Team & access", I.team, "Position.dc.html?page=team", false)] }
     ];
@@ -1210,7 +1210,7 @@ class Component extends DCLogic {
       isEmpty: s.empty, hasData: !s.empty,
       howSteps: [
         { n: "1", t: "Write the sequence", d: "A first email and up to two follow-ups, with tokens and an AI opener for each person." },
-        { n: "2", t: "Add people", d: "Tick companies on In universe, or add one person from their drawer." },
+        { n: "2", t: "Add people", d: "Tick companies on In universe or Shortlisted, or add one person from their drawer." },
         { n: "3", t: "Review, then start", d: "Read each person's first email before it goes. Replies stop the sequence." }
       ],
       kpis, seqCards, filterChips, rows,

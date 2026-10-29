@@ -328,8 +328,8 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
       // until something else happens to invalidate it.
       void refreshScopedReads();
       // The stage that comes back, never the one asked for: a company the mandate already holds is
-      // returned untouched, so "In universe" on a declined row files nothing. Saying it did would
-      // leave a mandate believing in a universe entry that is not there. The search itself excludes
+      // returned untouched, so "Shortlisted" on a declined row files nothing. Saying it did would
+      // leave a mandate believing in a shortlist entry that is not there. The search itself excludes
       // an already-triaged company, so this only fires from a race — the panel open on a row another
       // tab just triaged — not from the ordinary path.
       toast(

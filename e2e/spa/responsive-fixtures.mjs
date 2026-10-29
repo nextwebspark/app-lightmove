@@ -302,7 +302,7 @@ const REPORT = {
   },
 };
 
-const TRIAGE_COUNTS = { inUniverse: 128, declined: 61 };
+const TRIAGE_COUNTS = { inUniverse: 128, shortlisted: 24, declined: 61 };
 
 // Every third one is hand-typed, and a hand-typed company has no universe id to carry — which is
 // also what decides whether its panel offers an Edit button.

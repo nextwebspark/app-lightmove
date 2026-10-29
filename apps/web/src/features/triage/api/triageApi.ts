@@ -211,7 +211,7 @@ export function addMarketCompany(
  * chances for a partial failure nobody can describe, and a toast that could only guess at its number.
  *
  * <p>Companies the mandate already holds keep the stage they are at and count as skipped — declining
- * a selection that happens to include a company already in the universe does not move it.
+ * a selection that happens to include an already-shortlisted company does not move it.
  */
 export function addSelectedCompanies(
   projectId: string,

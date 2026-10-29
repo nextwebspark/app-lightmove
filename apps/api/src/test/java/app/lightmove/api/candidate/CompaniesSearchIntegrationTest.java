@@ -145,22 +145,23 @@ class CompaniesSearchIntegrationTest extends PipelineFlowSupport {
     }
 
     @Test
-    @DisplayName("the Pipeline lists only people in the universe, and its search is the same rule")
-    void pipelineIsTheUniverse() throws Exception {
+    @DisplayName("the Pipeline lists every executive whatever their stage, and its search is the same rule")
+    void pipelineSearchIsTheSameRule() throws Exception {
         universe("Search Pipeline Firm");
         note(projectId, khaled, "Speaks fluent Mandarin", false);
         write(admin, "PUT", candidatesUrl(projectId) + "/" + rana + "/triage-status", """
                 {"status":"declined"}""");
 
-        assertThat(pipelineNames(null)).containsExactlyInAnyOrder("Khaled Al Beirouty", "Omar Farouk");
+        assertThat(pipelineNames(null)).containsExactlyInAnyOrder("Khaled Al Beirouty", "Rana Haddad", "Omar Farouk");
         long counted = 0;
         for (JsonNode stage : pipeline(null).get("stageCounts")) {
             counted += stage.get("count").asLong();
         }
-        assertThat(counted).isEqualTo(2);
+        assertThat(counted).isEqualTo(3);
         assertThat(pipelineNames("mandarin")).containsExactly("Khaled Al Beirouty");
-        assertThat(pipelineNames("retail")).containsExactly("Khaled Al Beirouty");
-        assertThat(pipelineNames("treasurer")).isEmpty();
+        assertThat(pipelineNames("retail")).containsExactlyInAnyOrder("Khaled Al Beirouty", "Rana Haddad");
+        assertThat(pipelineNames("treasurer")).containsExactly("Rana Haddad");
+        assertThat(pipelineNames("nothing like it")).isEmpty();
     }
 
     private String company(String project, String name, String city, String country, String industry)

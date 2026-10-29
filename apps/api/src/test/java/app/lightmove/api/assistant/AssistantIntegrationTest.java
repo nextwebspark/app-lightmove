@@ -166,7 +166,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
         String turnId = turnWithCard(firm);
 
         mvc.perform(accept(firm.admin, turnId, """
-                        {"companyIds":["a1"],"status":"declined"}"""))
+                        {"companyIds":["a1"],"status":"shortlisted"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.added").value(1));
 
@@ -174,7 +174,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 + " WHERE project_id = ?", UUID.fromString(firm.projectId)))
                 .containsEntry("company_name", "ACWA Power")
                 .containsEntry("source", "ASSISTANT")
-                .containsEntry("status", "DECLINED");
+                .containsEntry("status", "SHORTLISTED");
 
         mvc.perform(accept(firm.admin, turnId, """
                         {"companyIds":["a2"]}"""))
@@ -190,12 +190,12 @@ class AssistantIntegrationTest extends FlowTestSupport {
         universe.company("a2", "Marafiq").employees(2_400).insert();
         String turnId = turnWithCard(firm);
         mvc.perform(accept(firm.admin, turnId, """
-                        {"companyIds":["a1"],"status":"declined"}"""))
+                        {"companyIds":["a1"],"status":"shortlisted"}"""))
                 .andExpect(status().isOk());
         String threadId = db.queryForObject("SELECT thread_id FROM app_lm_assistant_turn WHERE id = ?",
                 UUID.class, UUID.fromString(turnId)).toString();
 
-        askAndAwait(firm.admin, firm.projectId, threadId, "Decline the other one too");
+        askAndAwait(firm.admin, firm.projectId, threadId, "Shortlist the other one too");
 
         assertThat(agentPrompt().getInstructions())
                 .filteredOn(message -> message.getMessageType() == MessageType.ASSISTANT)
@@ -206,7 +206,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 .contains("<suggested_companies title=\"Two utilities\">")
                 .contains("- [new] a1 · ACWA Power · Saudi Arabia")
                 .contains("- [new] a2 · Marafiq · Saudi Arabia")
-                .contains("Filed 1 as Declined");
+                .contains("Filed 1 as Shortlisted");
     }
 
     @Test
@@ -271,7 +271,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.turns[0].proposal.companies[1].stage").value("declined"));
 
         mvc.perform(accept(firm.admin, turnId, """
-                        {"companyIds":["a1","a2"],"status":"inUniverse"}"""))
+                        {"companyIds":["a1","a2"],"status":"shortlisted"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.added").value(1))
                 .andExpect(jsonPath("$.skipped").value(1));
@@ -309,7 +309,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 UUID.fromString(turnId));
 
         mvc.perform(accept(firm.admin, turnId, """
-                        {"companyIds":["ikea"],"status":"declined"}"""))
+                        {"companyIds":["ikea"],"status":"shortlisted"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.added").value(1));
 
@@ -317,7 +317,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 + " FROM app_lm_project_triage_company WHERE project_id = ?", UUID.fromString(firm.projectId)))
                 .containsEntry("company_name", "IKEA")
                 .containsEntry("source", "ASSISTANT")
-                .containsEntry("status", "DECLINED")
+                .containsEntry("status", "SHORTLISTED")
                 .containsEntry("num_employees", 160000)
                 .containsEntry("website", "https://www.ikea.com");
     }
@@ -504,17 +504,17 @@ class AssistantIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("asked to rank a stage, the model reads that stage of this position alone, with what each "
+    @DisplayName("asked to rank the shortlist, the model reads that stage of this position alone, with what each "
             + "company does")
     void readsAStageOfThePositionToRank() throws Exception {
         Firm firm = firm("Assistant Rank Stage Firm");
         universe.company("a1", "ACWA Power").industry("oil & energy").employees(4_000).insert();
         universe.company("a2", "Marafiq").industry("utilities").employees(2_400).insert();
-        file(firm, "a1", "declined");
+        file(firm, "a1", "shortlisted");
         file(firm, "a2", "inUniverse");
-        model.callToolWhenSystemContains(AGENT_MARKER, "listMandateCompanies", "{\"stage\":\"declined\"}");
+        model.callToolWhenSystemContains(AGENT_MARKER, "listMandateCompanies", "{\"stage\":\"shortlisted\"}");
 
-        askAndAwait(firm.admin, firm.projectId, null, "Split the declined ones into tiers by fit");
+        askAndAwait(firm.admin, firm.projectId, null, "Split my shortlist into tiers by fit");
 
         assertThat(toolResult("listMandateCompanies"))
                 .contains("ACWA Power")

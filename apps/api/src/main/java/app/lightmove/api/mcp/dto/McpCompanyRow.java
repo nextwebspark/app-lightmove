@@ -10,7 +10,7 @@ public record McpCompanyRow(
         @Schema(description = "This company's id within the position; uncava_list_candidates takes it as companyId")
         UUID id,
         @Schema(description = "The company's name") String name,
-        @Schema(description = "Where the position has filed it: inUniverse or declined") String stage,
+        @Schema(description = "Where the position has filed it: inUniverse, shortlisted or declined") String stage,
         @Schema(description = "Its industry", nullable = true) @Nullable String industry,
         @Schema(description = "Its headquarters country", nullable = true) @Nullable String country,
         @Schema(description = "Every field of the company; present only with response_format=detailed",

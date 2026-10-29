@@ -927,6 +927,7 @@ class Component extends DCLogic {
 
     this.STAGES = [
       { status: 'inUniverse', label: 'In universe', icon: this.I.globe, count: 'universe' },
+      { status: 'shortlisted', label: 'Shortlisted', icon: this.I.star, count: 'shortlisted' },
       { status: 'declined', label: 'Declined', icon: this.I.close, count: 'declined' },
     ];
 
@@ -1047,7 +1048,7 @@ class Component extends DCLogic {
     this.state = {
       dark: true, toast: '', wsMenuOpen: false, department, roleTitle,
       collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
-      counts: { universe: 24, declined: 6 },
+      counts: { universe: 24, shortlisted: 9, declined: 6 },
       showFilters: flag('filtersOpen', props.filtersOpen ?? true),
       mode: text('mode', props.mode ?? 'companies'),
       peopleView: text('peopleView', props.peopleView ?? 'table'),
@@ -1205,6 +1206,7 @@ class Component extends DCLogic {
       { label: 'Position', items: [navItem('Brief', I.position, 'Position.dc.html', false), navItem('Strategy', I.strategy, 'Strategy.dc.html', true)] },
       { label: 'Companies', items: [
         navItem('In universe', I.globe, 'Position.dc.html?page=universe', false, st.counts.universe),
+        navItem('Shortlisted', I.star, 'Position.dc.html?page=shortlisted', false, st.counts.shortlisted),
         navItem('Declined', I.close, 'Position.dc.html?page=declined', false, st.counts.declined),
       ] },
       { label: 'People', items: [navItem('Outreach', I.outreach, 'Position.dc.html?page=outreach', false)] },

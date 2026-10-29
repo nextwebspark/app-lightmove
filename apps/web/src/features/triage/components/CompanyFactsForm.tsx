@@ -344,8 +344,8 @@ export function capturePayloadOf(
   return {
     ...editPayloadOf(parsed),
     source: "manual",
-    // Adding a company while looking at Declined means declining it — bouncing it to the universe and
-    // making the consultant move it back would be the screen ignoring what it was told.
+    // Adding a company while looking at the shortlist means shortlisting it — bouncing it to the
+    // universe and making the consultant move it back would be the screen ignoring what it was told.
     status: landingStatus,
     note: parsed.note || undefined,
   };

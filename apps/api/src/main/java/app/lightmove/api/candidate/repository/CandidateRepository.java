@@ -51,12 +51,12 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     /** {@link #findByProjectId} as a client seat reads it: nobody hidden from the client. */
     Page<Candidate> findByProjectIdAndClientVisibleTrue(UUID projectId, Pageable pageable);
 
-    /** The Pipeline's read: the position's people listed at one Companies stage, with person, status and stage. */
+    /** The Pipeline page's read: the whole position, each row with its person, status and stage. */
     @Query("""
             select c from Candidate c join fetch c.person join fetch c.status s join fetch s.stage
-            where c.projectId = :projectId and c.triageStatus = :triageStatus
+            where c.projectId = :projectId
             """)
-    List<Candidate> findPipelineOfProject(UUID projectId, TriageCompanyStatus triageStatus);
+    List<Candidate> findPipelineOfProject(UUID projectId);
 
     @Query("select c.status.stage.id from Candidate c where c.id = :id and c.projectId = :projectId")
     Optional<UUID> findStageIdByIdAndProjectId(UUID id, UUID projectId);

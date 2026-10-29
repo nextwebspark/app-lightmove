@@ -1,6 +1,6 @@
 ---
 name: earlier-list
-description: Answer about, list, refine or act on companies suggested earlier in this chat - "what are these companies", "list them", "which are already in universe or declined", "the first three", "drop the Saudi ones", "more like these". To rank, tier or prioritise them, use rank-companies.
+description: Answer about, list, refine or act on companies suggested earlier in this chat - "what are these companies", "list them", "which are already in universe or shortlisted", "the first three", "drop the Saudi ones", "more like these". To rank, tier or prioritise them, use rank-companies.
 ---
 
 # Working from an earlier list
@@ -13,7 +13,7 @@ whether the mandate holds a company; the text after it is the company's own.
 - **Asked what they are, or to list them:** list them from the block — name, country and headcount,
   one per line, with the stage of any already in the mandate. These names came from the tools when
   they were suggested, so you may state them. Call no tool for this.
-- **Asked which are already in universe or declined, or which are new:** answer from the
+- **Asked which are already in universe, shortlisted or declined, or which are new:** answer from the
   brackets alone — name the companies whose bracket is [already <stage>], with the stage, and say how
   many are [new]. If every row is [new], say none of them is in this position yet. Whether a company
   sits in the company database, or was researched on LinkedIn, is not what was asked.

@@ -226,11 +226,10 @@ describe("StrategyPage — People mode", () => {
 
     await user.click(await screen.findByRole("button", { name: "Search" }));
     await user.click((await screen.findAllByRole("checkbox", { name: "Select Person first" }))[0]);
-    expect(screen.queryByRole("button", { name: "Shortlisted" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Declined" }));
+    await user.click(screen.getByRole("button", { name: "Shortlisted" }));
 
-    await waitFor(() => expect(peopleApi.addPeople).toHaveBeenCalledWith("p1", ["first"], "declined"));
-    expect(await screen.findByText("1 person added to Declined")).toBeInTheDocument();
+    await waitFor(() => expect(peopleApi.addPeople).toHaveBeenCalledWith("p1", ["first"], "shortlisted"));
+    expect(await screen.findByText("1 person added to Shortlisted")).toBeInTheDocument();
     expect(screen.getAllByText("In mandate").length).toBeGreaterThan(0);
   });
 
@@ -333,8 +332,8 @@ describe("StrategyPage — People mode", () => {
     expect(cards.queryByRole("checkbox", { name: "Select Person held" })).not.toBeInTheDocument();
 
     await user.click(cards.getByRole("checkbox", { name: "Select Person first" }));
-    await user.click(screen.getByRole("button", { name: "In universe" }));
-    await waitFor(() => expect(peopleApi.addPeople).toHaveBeenCalledWith("p1", ["first"], "inUniverse"));
+    await user.click(screen.getByRole("button", { name: "Shortlisted" }));
+    await waitFor(() => expect(peopleApi.addPeople).toHaveBeenCalledWith("p1", ["first"], "shortlisted"));
 
     await user.click(cards.getByRole("button", { name: "Person held" }));
     expect(await screen.findByRole("dialog", { name: "Person held" })).toBeInTheDocument();

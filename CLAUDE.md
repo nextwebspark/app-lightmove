@@ -20,15 +20,12 @@ workspace, `wsId`, moved by `POST /auth/switch-workspace` or, audited, by a web 
 has ended), the projects/clients
 screens, a project's Team & access tab, the client registry with representative invites and their
 scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
-searches saved against it, and the two Companies pages (In universe / Declined) where a
-mandate triages what it took from it. There is no Shortlisted stage: V160 deleted
-the companies and unmapped the executives that held it, so a read naming it is an unknown value (`VALIDATION_FAILED`),
-while a write naming it lands In universe (`TriageCompanyStatus.parseDestination`) until the extension builds that
-still send it are gone (#1109); the pipeline *status* "Shortlisted" is unrelated. A company reaches those pages four ways — out of the market
+searches saved against it, and the three Companies pages (In universe / Shortlisted / Declined) where a
+mandate triages what it took from it. A company reaches those pages four ways — out of the market
 (Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
 /triage` with an id the server resolves), typed in by hand, captured by the browser plugin
 (`POST /triage/capture`), or **imported from a spreadsheet**. Strategy's rows also carry a tick box:
-a selection raises a floating bar over the grid whose two buttons file every ticked company at one
+a selection raises a floating bar over the grid whose three buttons file every ticked company at one
 stage in one request (`POST /triage/bulk`), so a mandate can decline forty companies without first
 taking them into the universe.
 **A company's notes are a feed (V143)**, the person's notes' shape for a company of one mandate: authored, timed,
@@ -45,7 +42,7 @@ Deleting one drops the project↔company row only — and its notes: the Apollo 
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
 with three of them is three lines and one with none keeps its "Add executive" slot. **Each executive holds a stage
-of their own** (V150, #903): their company's when filed or remapped, then wherever their line's own
+of their own** (V150, #903): their company's when filed or remapped, then wherever their line's own Shortlist /
 Decline / Back to universe sent them (`PUT …/candidates/{id}/triage-status`) — a line's buttons and trash act on its
 person alone. A stage lists its own companies plus any company with someone listed there; the company's own move
 (its drawer, or the line of a company with nobody on that stage) carries everyone at it (`TriageCompanyMoved`). An executive is also
@@ -194,9 +191,10 @@ and Export. The search is matched by the server, the same rule in every read (`s
 people reads, the export and the talent map, the pipeline's `q`): a company by name, place or industry, an executive
 by name, title, place or employer, and — only for a `WORK_EXECUTE` holder, decided server-side — the company's and
 the person's live notes readable from this position and the person's tags; a matching company keeps all its people.
-In universe reads as **Table | Map | Pipeline** (`?view=`, remembered per mandate): **Pipeline** is the executives'
-board by pipeline stage — the retired CRM Pipeline page, board only, its executives those listed In universe, staff
-only (`WORK_EXECUTE`); `/projects/{id}/pipeline` and its `?candidate=` links land there (`positionPipelinePath`).
+In universe reads as **Table | Map | Pipeline** (`?view=`, remembered per mandate): **Pipeline** is the position's
+board by pipeline stage — the retired CRM Pipeline page, board only, every executive on the position whatever their
+Companies stage, staff only (`WORK_EXECUTE`); `/projects/{id}/pipeline` and its `?candidate=` links land there
+(`positionPipelinePath`).
 The In-universe page also reads as a **map**: the Map view (offered only
 where a Mapbox public token is configured) swaps the grid for a mapping panel (country → company →
 executives) beside a Mapbox globe, with a pin per company and
@@ -253,7 +251,7 @@ the free count: the search asks exactly the question it is cached under, since t
 workspace, and people at declined companies — the whole stage, by name or LinkedIn slug — are left off
 the page as it is read, so declining someone never turns a paid page into a new question. A person already mapped
 comes back, and is billed, because ContactOut cannot exclude one — the grid marks them "In mandate".
-The selection bar and the person panel file the ticked people at **In universe or
+The selection bar and the person panel file the ticked people at **In universe, Shortlisted or
 Declined** — the stage lands on their employer, filed by `captureFromResearch` as `PEOPLE_SEARCH` and
 matched to the market where it can be, while an employer already held keeps its stage — from the
 cache, never the vendor (`addResearched`, `PEOPLE_SEARCH`, `enriched_by = CONTACTOUT`, no AI
@@ -450,7 +448,7 @@ frequency, competency panel, …) lives in `common/constant` for exactly that re
 is the market side** — the saved filter, the saved searches, the reads over the Apollo universe, and
 every band/facet/taxonomy the search is expressed in. A *strategy company* is a row of the market that
 belongs to nobody. **`triagecompany` is the mapping side** — one project↔company row per decision,
-carrying a triage stage (in universe / declined) and a write-time snapshot. A *triage
+carrying a triage stage (in universe / shortlisted / declined) and a write-time snapshot. A *triage
 company* is a decision. Searching goes in `strategy` however company-shaped its name; `triagecompany`
 holds only what a mandate *did* about a company. **`candidate` is the people side** — a workspace
 `Person` per human, and one `Candidate` row per mandate that maps them, belonging to the *project* and
@@ -596,8 +594,8 @@ Manager names and the `deploy.yml` switches (`GOOGLE_MAIL_ENABLED`, `MICROSOFT_M
 `RECALL_ENABLED`, each off until its secrets exist) — and the five admin guides beside it are what the
 `*_GUIDE_URL` settings link Settings → Integrations to once published.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
-**Add to sequence** — from In universe (the ticked companies' executives, or the ticked executives on its
-Pipeline) or the executive drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out
+**Add to sequence** — from In universe / Shortlisted (the ticked companies' executives), In universe's Pipeline (the
+ticked executives) or the executive drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out
 of the running, already in a live sequence); the openers and Start decide the same rules again
 (`RecipientEligibility`), so nobody skipped is sent to the model, charged for or enrolled. Each person's first email is rendered and **frozen on their enrollment** with their own opener,
 so an edit reaches nobody else; Start creates `SCHEDULED` rows and sends nothing. The
@@ -1301,11 +1299,6 @@ V147 adds `app_lm_outreach_message_attachment` — an own email's files in order
 bucket's `storage_key`, `source` `UPLOAD | PERSON_DOCUMENT` and the copied version's id, SET NULL); no bytes in the database.
 V150 gives `app_lm_project_candidate` `triage_status` (`IN_UNIVERSE | SHORTLISTED | DECLINED`, backfilled from each
 row's company): the Companies stage the executive is listed at, their own.
-V160 removes the Shortlisted stage: it deletes every company at `SHORTLISTED` and unmaps every executive at it (an
-`UNMAPPED` line each, the person kept, and one `SHORTLISTED_STAGE_RETIRED` audit row per position with the counts).
-It leaves both stage CHECKs as they were — the previous revision still serves during the rollout and may write the
-value — and `@SQLRestriction` on `TriageCompany` and `Candidate` keeps any such straggler out of every read; the
-follow-up migration deletes the stragglers, narrows both CHECKs to `IN_UNIVERSE | DECLINED` and drops the restriction.
 V151 adds `app_lm_meeting_recording` — one Notetaker bot per row: the call snapshotted (meeting id kept bare, never a
 foreign key, since a calendar re-read replaces its rows), Recall's bot id (unique), status, Recall's last code and
 sub-code, the transcript as jsonb and the note it became; one live row per call by partial unique index.

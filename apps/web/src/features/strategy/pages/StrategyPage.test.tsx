@@ -1183,17 +1183,16 @@ describe("StrategyPage — picking companies out of the market in bulk", () => {
     await userEvent.click(screen.getByRole("checkbox", { name: "Select all companies on this page" }));
     expect(await screen.findByRole("region", { name: "2 companies selected" })).toBeInTheDocument();
 
-    expect(screen.queryByRole("button", { name: "Shortlisted" })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "In universe" }));
+    await userEvent.click(screen.getByRole("button", { name: "Shortlisted" }));
 
     await waitFor(() =>
-      expect(triageApi.addSelectedCompanies).toHaveBeenCalledWith("p1", ["a1", "a2"], "inUniverse"),
+      expect(triageApi.addSelectedCompanies).toHaveBeenCalledWith("p1", ["a1", "a2"], "shortlisted"),
     );
     // The action consumed the selection, so the bar goes with it rather than inviting a second press.
     await waitFor(() =>
       expect(screen.queryByRole("region", { name: /selected/ })).not.toBeInTheDocument(),
     );
-    expect(await screen.findByText("2 companies moved to In universe")).toBeInTheDocument();
+    expect(await screen.findByText("2 companies moved to Shortlisted")).toBeInTheDocument();
   });
 
   it("refetches the grid once the bar's move succeeds, so a moved company stops showing", async () => {
@@ -1207,7 +1206,7 @@ describe("StrategyPage — picking companies out of the market in bulk", () => {
     await screen.findByText("ACWA Power");
 
     await userEvent.click(screen.getByRole("checkbox", { name: "Select ACWA Power" }));
-    await userEvent.click(screen.getByRole("button", { name: "In universe" }));
+    await userEvent.click(screen.getByRole("button", { name: "Shortlisted" }));
 
     await waitFor(() => expect(screen.queryByText("ACWA Power")).not.toBeInTheDocument());
     expect(strategyApi.getCompanies).toHaveBeenCalledTimes(2);
@@ -1326,7 +1325,7 @@ describe("StrategyPage — the market company panel", () => {
     vi.mocked(strategyApi.getStrategy).mockResolvedValue(strategyOf());
     vi.mocked(companiesApi.getFacets).mockResolvedValue(FACETS);
     vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf());
-    vi.mocked(triageApi.addMarketCompany).mockResolvedValue(triagedAs("declined"));
+    vi.mocked(triageApi.addMarketCompany).mockResolvedValue(triagedAs("shortlisted"));
     vi.mocked(strategyApi.putOffLimits).mockResolvedValue(strategyOf());
   });
 
@@ -1349,28 +1348,27 @@ describe("StrategyPage — the market company panel", () => {
     renderPage();
     const panel = await openPanel();
 
-    expect(within(panel).queryByRole("button", { name: "Shortlisted" })).not.toBeInTheDocument();
-    await userEvent.click(within(panel).getByRole("button", { name: "Declined" }));
+    await userEvent.click(within(panel).getByRole("button", { name: "Shortlisted" }));
 
-    expect(triageApi.addMarketCompany).toHaveBeenCalledWith("p1", "a1", { status: "declined" });
+    expect(triageApi.addMarketCompany).toHaveBeenCalledWith("p1", "a1", { status: "shortlisted" });
     // Reading is done once a decision is made; leaving it open invites a second one on the same row.
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(await screen.findByText(/added to Declined/i)).toBeInTheDocument();
+    expect(await screen.findByText(/added to Shortlisted/i)).toBeInTheDocument();
   });
 
   it("says a company was left where it is rather than claiming the move", async () => {
     // The search excludes an already-triaged company, but a race is still possible — another tab
     // triages this row between the search rendering it and this panel's click — and POST /triage
     // returns such a row untouched. Reporting the stage that was asked for would have a mandate
-    // believing in a universe entry that does not exist.
+    // believing in a shortlist entry that does not exist.
     vi.mocked(triageApi.addMarketCompany).mockResolvedValue(triagedAs("declined"));
     renderPage();
     const panel = await openPanel();
 
-    await userEvent.click(within(panel).getByRole("button", { name: "In universe" }));
+    await userEvent.click(within(panel).getByRole("button", { name: "Shortlisted" }));
 
     expect(await screen.findByText(/already in this mandate, at Declined/i)).toBeInTheDocument();
-    expect(screen.queryByText(/added to In universe/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/added to Shortlisted/i)).not.toBeInTheDocument();
   });
 
   it("shows each tag once, however the market spells it into both lists", async () => {

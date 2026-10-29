@@ -14,7 +14,7 @@
 #   company            stage        executives (filed by)
 #   Aurora Holdings    inUniverse   Fatima  F  Emirati             C-Suite  brief ccy 1.0M+0.1M allow+0.2M bonus  (lead)
 #                                   Karim   M  Egyptian            N-1      brief ccy 500k                        (lead)
-#   Basalt Mining      inUniverse   Rana    O  Arab expat, non-GCC C-Suite  OTHER ccy 300k                        (lead)
+#   Basalt Mining      shortlisted  Rana    O  Arab expat, non-GCC C-Suite  OTHER ccy 300k                        (lead)
 #                                   James   –  British             N-1      —                                     (researcher)
 #   Cedar Retail       inUniverse   —
 #   Delta Contracting  declined     Noura   F  Saudi               C-Suite  —                                     (researcher)
@@ -118,10 +118,10 @@ if [ "$BRIEF_CCY" = "USD" ]; then OTHER_CCY="EUR"; else OTHER_CCY="USD"; fi
 note 19.2 "brief currency is '${BRIEF_CCY:-none}', the other currency seeded is $OTHER_CCY"
 
 AURORA=$(capture_company "Aurora Holdings" inUniverse "Financial Services" "United Arab Emirates" "Dubai")
-BASALT=$(capture_company "Basalt Mining" inUniverse "Mining & Metals" "Saudi Arabia" "Riyadh")
+BASALT=$(capture_company "Basalt Mining" shortlisted "Mining & Metals" "Saudi Arabia" "Riyadh")
 CEDAR=$(capture_company "Cedar Retail" inUniverse "Retail" "Kuwait" "Kuwait City")
 DELTA=$(capture_company "Delta Contracting" declined "Construction" "Bahrain" "Manama")
-check 19.3 "four companies are typed in, three in universe and one declined" "4" \
+check 19.3 "four companies are typed in, one per stage and a spare" "4" \
   "$(sql "SELECT count(*) FROM app_lm_project_triage_company WHERE project_id = '$PROJECT'")"
 
 FATIMA=$(add_candidate "$LEAD" "$(jq -nc --arg c "$AURORA" --arg ccy "${BRIEF_CCY:-AED}" \
@@ -167,7 +167,7 @@ rj() { printf '%s' "$REPORT" | jq -r "$1" 2>/dev/null; }
 
 check 19.11 "it has a head and the four chapters" "head,progress,market,remuneration,diversity" \
   "$(rj '[keys_unsorted[]] | join(",")')"
-check 19.12 "the universe is the in-universe companies, never the declined" "3" \
+check 19.12 "the universe is the in-universe and shortlisted companies, never the declined" "3" \
   "$(rj '.head.universeCount')"
 check 19.13 "every executive is counted, whichever stage their company sits at" "5" "$(rj '.head.executivesMapped')"
 check 19.14 "…and nothing was truncated" "false" "$(rj '.head.truncated')"
@@ -271,8 +271,8 @@ fi
 
 get "/projects/$PROJECT/talent-map" -H "$LEAD"
 check_status 19.82 "the In universe stage reads as a map" 200
-check 19.83 "…its three companies" "3/3" "$(json '"\(.companies | length)/\(.totalCompanies)"')"
-check 19.84 "…the people at them, while the total counts the whole mandate" "4/5" \
+check 19.83 "…its two companies" "2/2" "$(json '"\(.companies | length)/\(.totalCompanies)"')"
+check 19.84 "…the people at them, while the total counts the whole mandate" "2/5" \
   "$(json '"\(.candidates | length)/\(.totalCandidates)"')"
 check 19.85 "…and a locations map beside them" "object" "$(json '.locations | type')"
 if [ "$MAP_ENABLED" = "false" ]; then
@@ -287,7 +287,8 @@ else
 fi
 
 get "/projects/$PROJECT/talent-map?status=shortlisted" -H "$LEAD"
-check_code 19.88 "Shortlisted is no stage, so it has no map" 400 VALIDATION_FAILED
+check 19.88 "the Shortlisted stage is its own map: one company, its two people" "1/2" \
+  "$(json '"\(.companies | length)/\(.candidates | length)"')"
 get "/projects/$PROJECT/talent-map?status=declined" -H "$LEAD"
 check 19.89 "the Declined stage carries the declined company and its executive" "Delta Contracting/1" \
   "$(json '"\(.companies[0].companyName)/\(.candidates | length)"')"

@@ -16,30 +16,17 @@ class CardMemoryTest {
     private static final AssistantProposal CARD = new AssistantProposal("Top retail in UAE", List.of(
             new ProposedCompany("a1", null, "Lulu Group", "United Arab Emirates", 42_000, null, null, null),
             new ProposedCompany(null, "majid-al-futtaim", "Majid Al Futtaim", "United Arab Emirates", null,
-                    null, "Carrefour", "declined")), Map.of());
+                    null, "Carrefour", "shortlisted")), Map.of());
 
     @Test
     @DisplayName("every company is replayed by the key proposeCompanies takes, its state first in brackets")
     void replaysTheCard() {
-        assertThat(CardMemory.render(CARD, new ProposalOutcome("declined", 1, 1), true)).isEqualTo("""
+        assertThat(CardMemory.render(CARD, new ProposalOutcome("shortlisted", 1, 1), true)).isEqualTo("""
                 <suggested_companies title="Top retail in UAE">
                 - [new] a1 · Lulu Group · United Arab Emirates · 42,000 staff
-                - [already declined] majid-al-futtaim · Majid Al Futtaim · United Arab Emirates \
+                - [already shortlisted] majid-al-futtaim · Majid Al Futtaim · United Arab Emirates \
                 · researched on LinkedIn · operates Carrefour
-                Filed 1 as Declined (1 already in the mandate)
-                </suggested_companies>""");
-    }
-
-    @Test
-    @DisplayName("a card stored at the retired Shortlisted stage reads as no longer in the mandate, never In universe")
-    void replaysTheRetiredShortlistedStageAsGone() {
-        AssistantProposal card = new AssistantProposal("Top retail in UAE", List.of(
-                new ProposedCompany("a1", null, "Lulu Group", null, null, null, null, "shortlisted")), Map.of());
-
-        assertThat(CardMemory.render(card, new ProposalOutcome("shortlisted", 3, 0), true)).isEqualTo("""
-                <suggested_companies title="Top retail in UAE">
-                - [no longer in the mandate] a1 · Lulu Group
-                Filed 3, no longer in the mandate
+                Filed 1 as Shortlisted (1 already in the mandate)
                 </suggested_companies>""");
     }
 

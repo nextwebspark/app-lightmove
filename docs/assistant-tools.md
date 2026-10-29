@@ -2,7 +2,7 @@
 
 A chat inside a project. You ask for companies ("top 10 retail companies in the UAE"). The assistant
 searches the company universe (`app_lm_apollo_companies`) and answers with **suggested companies**,
-listed under the answer, that you tick and file into the mandate as In universe or Declined. You can also ask about
+listed under the answer, that you tick and file into the mandate as In universe, Shortlisted or Declined. You can also ask about
 the executives the mandate has mapped ("who have we mapped at Aldar?"); that answer is text only.
 
 ## One agent, playbooks on demand

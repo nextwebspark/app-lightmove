@@ -102,13 +102,13 @@ class CompanySearchToolsTest {
         when(market.matching(any())).thenReturn(CompanyMatches.of(2, 2, List.of(
                 summary("a1", "Lulu Retail"), summary("a2", "Carrefour"))));
         when(triaged.stagesOf(any(), any(), any(), any())).thenReturn(new MandateStages(
-                Map.of("a1", TriageCompanyStatus.IN_UNIVERSE), Map.of("carrefour", TriageCompanyStatus.DECLINED)));
+                Map.of("a1", TriageCompanyStatus.SHORTLISTED), Map.of("carrefour", TriageCompanyStatus.DECLINED)));
 
         CompanyMatches matches = tools().searchCompanyUniverse(List.of("United Arab Emirates"), null, null,
                 null, null, null, context());
 
         assertThat(matches.companies()).extracting(MarketCompanySummary::mandateStage)
-                .containsExactly("inUniverse", "declined");
+                .containsExactly("shortlisted", "declined");
         assertThat(recorder.steps()).singleElement().extracting(AssistantStep::detail)
                 .isEqualTo("2 matched · 2 already in the mandate");
     }

@@ -227,7 +227,7 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         mvc.perform(patch(triageUrl(projectId) + "/" + ids[6])
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":\"declined\"}"))
+                        .content("{\"status\":\"shortlisted\"}"))
                 .andExpect(status().isOk());
 
         mvc.perform(post(sourcingUrl(projectId))

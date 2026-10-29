@@ -27,7 +27,6 @@ import app.lightmove.api.triagecompany.model.StageSearchMatches;
 import app.lightmove.api.triagecompany.model.TriageCompanyMatches;
 import app.lightmove.api.triagecompany.repository.SearchMatchedCompany;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -61,9 +60,6 @@ public class TriageCompanyReadService {
 
     /** A status key's shape, checked before {@code candidate} is asked whether the workspace holds it. */
     private static final Pattern EXECUTIVE_STATUS_KEY = Pattern.compile("^[a-z][A-Za-z0-9]{0,39}$");
-
-    private static final Map<String, TriageCompanyStatus> STAGES_BY_NAME = Arrays.stream(TriageCompanyStatus.values())
-            .collect(Collectors.toUnmodifiableMap(Enum::name, Function.identity()));
 
     private final TriageCompanyRepository triaged;
     private final ProjectRepository projects;
@@ -187,11 +183,7 @@ public class TriageCompanyReadService {
         Map<UUID, TriageCompanyStatus> stageById = new HashMap<>();
         for (SearchMatchedCompany match : triaged.findSearchMatches(projectId, search.likePattern(),
                 audience == ProjectAudience.STAFF)) {
-            // A stage V160 retired, written by the previous revision while this one rolled out: no company to list.
-            TriageCompanyStatus stage = STAGES_BY_NAME.get(match.getStatus());
-            if (stage != null) {
-                stageById.put(match.getId(), stage);
-            }
+            stageById.put(match.getId(), TriageCompanyStatus.valueOf(match.getStatus()));
         }
         return new CompanySearchMatches(stageById);
     }
@@ -457,6 +449,7 @@ public class TriageCompanyReadService {
         Map<TriageCompanyStatus, Long> movedHere = executives.companyCountsWithExecutivesMoved(projectId, audience);
         return new TriageCountsDto(
                 countListedAt(projectId, TriageCompanyStatus.IN_UNIVERSE, movedHere),
+                countListedAt(projectId, TriageCompanyStatus.SHORTLISTED, movedHere),
                 countListedAt(projectId, TriageCompanyStatus.DECLINED, movedHere));
     }
 

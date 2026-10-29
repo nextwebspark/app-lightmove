@@ -1,8 +1,8 @@
-A position's companies live on two pages: **In universe** and **Declined**.
+A position's companies live on three pages: **In universe**, **Shortlisted** and **Declined**.
 
 - Each row is a person at a company. A company with three executives shows three lines; one with none keeps an **Add executive** slot.
 - Move a company between the pages as you decide about it. Removing one from the position never deletes the company itself.
-- One search box narrows whichever view is open — companies, executives and, for your team, notes and tags.
-- **Table | Map | Pipeline** reads In universe as the grid, a map (where your workspace has maps turned on), or its executives' pipeline board, where you drag a card to move them on.
-- **Find executives**, **Add executive** and **Add company** stay on the toolbar; everything else is under **Advanced**, and changes with the view: columns in the table, the map's layers, the board's Inactive column, **Import** and **Export**.
-- **Export** downloads the whole page — every row, narrowed by the search and filters you've set — as a spreadsheet.
+- Add a company the market doesn't carry by typing it in.
+- The search box finds companies by name, place or industry, and executives by name, title, place or employer — and, for your team, by their notes and tags. It works in every view.
+- **Export**, **Import**, columns and the rest are under **Advanced**. Export downloads the whole page — every row, narrowed by your search and filters — as a spreadsheet.
+- **Table | Map | Pipeline** on In universe shows the same companies and executives on a map, where your workspace has maps turned on, or as the position's pipeline board, where you drag executives between stages.

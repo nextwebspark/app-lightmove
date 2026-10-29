@@ -21,7 +21,7 @@ public record PublicProject(
         @Schema(description = "When the map or shortlist is due", nullable = true, example = "2026-11-30")
         LocalDate deliveryDate,
         @Schema(description = "When the hire is wanted", nullable = true, example = "2027-01-15") LocalDate targetDate,
-        @Schema(description = "Companies in the universe, declined ones left out", example = "48")
+        @Schema(description = "Companies in the universe or shortlisted, declined ones left out", example = "48")
         long companies,
         @Schema(description = "Executives still in the running", example = "112") long candidates,
         @Schema(description = "When the position was created") Instant createdAt

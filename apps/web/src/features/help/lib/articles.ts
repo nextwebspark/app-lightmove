@@ -27,7 +27,7 @@ const CATALOG: Omit<HelpArticle, "body">[] = [
   },
   {
     slug: "companies-pages",
-    title: "In universe and Declined",
+    title: "In universe, Shortlisted and Declined",
     summary: "Decide about companies and keep a record of why.",
     pages: [/^\/projects\/[^/]+\/companies/],
   },

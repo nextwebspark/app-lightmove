@@ -324,7 +324,7 @@ const pageOf = (overrides: Partial<TriageCompaniesPage> = {}): TriageCompaniesPa
   totalCount: 1,
   page: 0,
   size: 25,
-  counts: { inUniverse: 1, declined: 0 },
+  counts: { inUniverse: 1, shortlisted: 0, declined: 0 },
   ...overrides,
 });
 
@@ -546,12 +546,12 @@ describe("TriageStagePage", () => {
 
   it("reads the stage from the URL and asks the API for that status", async () => {
     vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
-      pageOf({ companies: [{ ...acwa, status: "declined" }], counts: { inUniverse: 0, declined: 1 } }),
+      pageOf({ companies: [{ ...acwa, status: "shortlisted" }], counts: { inUniverse: 0, shortlisted: 1, declined: 0 } }),
     );
-    renderStage("declined");
+    renderStage("shortlisted");
 
     expect(await screen.findByText("ACWA Power")).toBeInTheDocument();
-    expect(vi.mocked(triageApi.getTriageCompanies).mock.calls[0][1]).toBe("declined");
+    expect(vi.mocked(triageApi.getTriageCompanies).mock.calls[0][1]).toBe("shortlisted");
   });
 
   it("the Status column's checkbox filter offers only the statuses on the grid, and ticks into the server read", async () => {
@@ -688,22 +688,22 @@ describe("TriageStagePage", () => {
   });
 
   it("moves a company through the existing PATCH rather than a stage-specific endpoint", async () => {
-    vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, status: "declined" });
+    vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, status: "shortlisted" });
     renderStage();
 
     await screen.findByText("ACWA Power");
-    await userEvent.click(screen.getByRole("button", { name: /^Decline: ACWA Power/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Shortlist: ACWA Power/i }));
 
     await waitFor(() =>
       expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", {
-        status: "declined",
+        status: "shortlisted",
         executiveIds: [],
       }),
     );
   });
 
   it("undoes a move by sending the company back with exactly the people it carried", async () => {
-    vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, status: "declined" });
+    vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, status: "shortlisted" });
     // The grid's read names a query; the move's own read of who stands with the company does not.
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
       peopleOf(scope.query === undefined && !scope.unmapped ? [{ ...yasmin, triageStatus: "inUniverse" }] : []),
@@ -711,16 +711,16 @@ describe("TriageStagePage", () => {
     renderStage();
 
     await screen.findByText("ACWA Power");
-    await userEvent.click(screen.getByRole("button", { name: /^Decline: ACWA Power/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Shortlist: ACWA Power/i }));
     await waitFor(() =>
       expect(candidatesApi.getCandidates).toHaveBeenCalledWith("p1", {
         triageCompanyIds: ["u1"],
         triageStatus: "inUniverse",
       }),
     );
-    expect(await screen.findByText("ACWA Power and 1 executive moved to declined")).toBeInTheDocument();
+    expect(await screen.findByText("ACWA Power and 1 executive moved to the shortlist")).toBeInTheDocument();
     expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", {
-      status: "declined",
+      status: "shortlisted",
       executiveIds: ["c1"],
     });
     await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
@@ -745,6 +745,7 @@ describe("TriageStagePage", () => {
     // Every button on a row should do something: a declined company is not offered Decline.
     expect(screen.queryByRole("button", { name: /^Decline: ACWA Power/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Back to universe: ACWA Power/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Shortlist: ACWA Power/i })).toBeInTheDocument();
   });
 
   it("marks a company as no executive found from the add form, closing it unsaved", async () => {
@@ -826,7 +827,7 @@ describe("TriageStagePage", () => {
   it("keeps one row's busy state independent of another's, so a second row's write cannot re-enable it early", async () => {
     const gulf = { ...acwa, id: "u2", apolloAccountId: "a2", companyName: "Gulf Industrial" };
     vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
-      pageOf({ companies: [acwa, gulf], totalCount: 2, counts: { inUniverse: 2, declined: 0 } }),
+      pageOf({ companies: [acwa, gulf], totalCount: 2, counts: { inUniverse: 2, shortlisted: 0, declined: 0 } }),
     );
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
       peopleOf(scope.unmapped ? [] : [{ ...yasmin, triageCompanyId: "u2", companyName: "Gulf Industrial" }]),
@@ -846,7 +847,7 @@ describe("TriageStagePage", () => {
     await userEvent.click(screen.getByRole("button", { name: /Add an executive at ACWA Power/i }));
     const form = await screen.findByRole("dialog", { name: /Add executive/i });
     await userEvent.click(within(form).getByRole("button", { name: /^No executive found$/i }));
-    const acwaMoveButton = screen.getByRole("button", { name: /^Decline: ACWA Power/i });
+    const acwaMoveButton = screen.getByRole("button", { name: /Shortlist: ACWA Power/i });
     expect(acwaMoveButton).toBeDisabled();
 
     // A write on Gulf's own row — a different id — starts and fully settles while ACWA's is still
@@ -900,10 +901,10 @@ describe("TriageStagePage", () => {
           numEmployees: 3000 },
       ],
     });
-    vi.mocked(triageApi.addMarketCompany).mockResolvedValue({ ...acwa, status: "declined" });
-    renderStage("declined");
+    vi.mocked(triageApi.addMarketCompany).mockResolvedValue({ ...acwa, status: "shortlisted" });
+    renderStage("shortlisted");
 
-    await screen.findByRole("table", { name: /Declined companies/i });
+    await screen.findByRole("table", { name: /Shortlisted companies/i });
     await userEvent.click(screen.getByRole("button", { name: /Add company/i }));
 
     const dialog = await screen.findByRole("dialog", { name: /Add a company/i });
@@ -926,7 +927,7 @@ describe("TriageStagePage", () => {
     // so the row keeps the export's figures and a Source badge that means what it says.
     await waitFor(() =>
       expect(triageApi.addMarketCompany).toHaveBeenCalledWith("p1", "a7", {
-        status: "declined",
+        status: "shortlisted",
         note: "Met their CFO",
       }),
     );
@@ -955,12 +956,12 @@ describe("TriageStagePage", () => {
 
   it("captures a hand-typed company into the stage being viewed", async () => {
     vi.mocked(triageApi.captureCompany).mockResolvedValue({
-      ...acwa, id: "u2", apolloAccountId: null, source: "manual", status: "declined",
+      ...acwa, id: "u2", apolloAccountId: null, source: "manual", status: "shortlisted",
       companyName: "Gulf Industrial",
     });
-    renderStage("declined");
+    renderStage("shortlisted");
 
-    await screen.findByRole("table", { name: /Declined companies/i });
+    await screen.findByRole("table", { name: /Shortlisted companies/i });
     await userEvent.click(screen.getByRole("button", { name: /Add company/i }));
 
     const dialog = await screen.findByRole("dialog", { name: /Add a company/i });
@@ -987,8 +988,8 @@ describe("TriageStagePage", () => {
       expect(triageApi.captureCompany).toHaveBeenCalledWith("p1", expect.objectContaining({
         companyName: "Gulf Industrial",
         source: "manual",
-        // Added while looking at Declined means declined — not bounced to the universe.
-        status: "declined",
+        // Added while looking at the shortlist means shortlisted — not bounced to the universe.
+        status: "shortlisted",
         numEmployees: 2400,
         // Picked from the market's own vocabulary, so a hand-typed company files under the names the
         // Strategy filter searches by rather than one reader's wording of them.
@@ -1052,7 +1053,7 @@ describe("TriageStagePage", () => {
 
   it("points an empty universe at Strategy rather than showing the market", async () => {
     vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
-      pageOf({ companies: [], totalCount: 0, counts: { inUniverse: 0, declined: 0 } }),
+      pageOf({ companies: [], totalCount: 0, counts: { inUniverse: 0, shortlisted: 0, declined: 0 } }),
     );
     renderStage();
 
@@ -1089,15 +1090,15 @@ describe("TriageStagePage", () => {
     // Mirrors the server: reading is WORK_VIEW, every write is WORK_EXECUTE. Offering the buttons
     // would only ever earn a 403.
     await waitFor(() =>
-      expect(screen.queryByRole("button", { name: /^Decline: ACWA Power/i })).not.toBeInTheDocument(),
+      expect(screen.queryByRole("button", { name: /Shortlist: ACWA Power/i })).not.toBeInTheDocument(),
     );
     expect(screen.queryByRole("button", { name: /Add company/i })).not.toBeInTheDocument();
   });
 
   it("exports the stage on screen, narrowed by whatever the search box holds", async () => {
-    renderStage("declined");
+    renderStage("shortlisted");
 
-    const grid = await screen.findByRole("table", { name: /Declined companies/i });
+    const grid = await screen.findByRole("table", { name: /Shortlisted companies/i });
     await screen.findByText("ACWA Power");
     await userEvent.click(within(grid).getByRole("button", { name: "Company column menu" }));
     await userEvent.type(screen.getByRole("textbox", { name: "Filter by company name" }), "acwa");
@@ -1115,9 +1116,9 @@ describe("TriageStagePage", () => {
     // file is the whole stage rather than one page of it.
     await waitFor(() =>
       expect(exportApi.saveCompaniesCsv).toHaveBeenCalledWith(
-        "p1", "declined",
+        "p1", "shortlisted",
         { search: "finance", query: "acwa", executiveQuery: "", executiveStatuses: [] },
-        ["Acme Corp", "CFO", "Declined"]),
+        ["Acme Corp", "CFO", "Shortlisted"]),
     );
   });
 
@@ -1249,9 +1250,9 @@ describe("TriageStagePage", () => {
       );
     }
     // #903: a line's buttons used to be its company's, so declining one person declined everyone there.
-    expect(screen.getByRole("button", { name: /^Decline: Yasmin El-Sayed/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Decline: Omar Haddad/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Decline: ACWA Power/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Shortlist: Yasmin El-Sayed" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Shortlist: Omar Haddad" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Shortlist: ACWA Power/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Remove ACWA Power from this mandate/i })).not.toBeInTheDocument();
   });
 
@@ -1451,7 +1452,7 @@ describe("TriageStagePage", () => {
   it("drops the capped-read line when the company filter leaves no companies to count it over", async () => {
     vi.mocked(triageApi.getTriageCompanies).mockImplementation(async (_project, _status, _page, _size, q) =>
       q
-        ? pageOf({ companies: [], totalCount: 0, counts: { inUniverse: 0, declined: 0 } })
+        ? pageOf({ companies: [], totalCount: 0, counts: { inUniverse: 0, shortlisted: 0, declined: 0 } })
         : pageOf(),
     );
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
@@ -1494,7 +1495,7 @@ describe("TriageStagePage", () => {
 
     await screen.findByText("Wei Ling Tan");
     // No company to act on, so the line's moves and removal are the person's own.
-    expect(screen.getByRole("button", { name: /^Decline: Wei Ling Tan/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Shortlist: Wei Ling Tan" })).toBeInTheDocument();
     await userEvent.click(
       screen.getByRole("button", { name: /Remove Wei Ling Tan from this mandate/i }),
     );
@@ -1731,8 +1732,8 @@ describe("TriageStagePage", () => {
 
   it("offers Import only on the universe, where an imported company lands", async () => {
     // The importer captures at `inUniverse` and an update never moves a stage, so the item on
-    // Declined would write rows onto a page the user is not looking at.
-    renderStage("declined");
+    // Shortlisted or Declined would write rows onto a page the user is not looking at.
+    renderStage("shortlisted");
     await screen.findByText("ACWA Power");
     await openAdvanced();
 
@@ -1791,7 +1792,7 @@ describe("TriageStagePage", () => {
       expect(await screen.findByRole("radiogroup", { name: "View" })).toBeInTheDocument();
       unmount();
 
-      renderStage("declined");
+      renderStage("shortlisted");
       await screen.findByText("ACWA Power");
       expect(screen.queryByRole("radiogroup", { name: "View" })).not.toBeInTheDocument();
     });
@@ -1988,7 +1989,7 @@ describe("TriageStagePage — full screen", () => {
 
   afterEach(() => fullscreenApi.restore());
 
-  it.each(["universe", "declined"])("is offered on %s", async (slug) => {
+  it.each(["universe", "shortlisted", "declined"])("is offered on %s", async (slug) => {
     renderStage(slug);
 
     expect(await screen.findByRole("button", { name: "Full screen", pressed: false }))

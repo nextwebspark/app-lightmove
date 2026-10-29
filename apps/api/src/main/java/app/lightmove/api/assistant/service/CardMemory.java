@@ -12,7 +12,7 @@ import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
- * An earlier card, written back into the chat the model reads, so a follow-up ("file the first
+ * An earlier card, written back into the chat the model reads, so a follow-up ("shortlist the first
  * three", "more like these") knows what the card held. The answer never lists the card's companies,
  * so without this the model would be asked about companies it cannot see. Everything here is copied
  * from the stored card, never from the model's text.
@@ -28,13 +28,6 @@ final class CardMemory {
     /** Long enough for a legal name, short enough that no name reads as a paragraph of instructions. */
     private static final int MAX_TEXT = 80;
 
-    /**
-     * A card filed or shown at Shortlisted before V160 removed that stage, and every company and executive at it:
-     * replayed as what it now is, never as a stage the mandate still has.
-     */
-    private static final String RETIRED_SHORTLISTED = "shortlisted";
-    private static final String NO_LONGER_IN_MANDATE = "no longer in the mandate";
-
     private static final Pattern CARD_BLOCK =
             Pattern.compile("(?s)<suggested_companies\\b[^>]*>.*?</suggested_companies>");
     private static final Pattern MARKUP_CHARACTERS = Pattern.compile("[<>\"\\[\\]]");
@@ -45,7 +38,7 @@ final class CardMemory {
     /**
      * {@code listed} false leaves the rows out and says how many there were. Each row opens with its
      * state in brackets — written here, never taken from third-party text, which cannot contain a
-     * bracket — so a company name that reads "already declined" cannot pass for one.
+     * bracket — so a company name that reads "already shortlisted" cannot pass for one.
      */
     static String render(AssistantProposal card, ProposalOutcome outcome, boolean listed) {
         List<String> lines = new ArrayList<>();
@@ -58,9 +51,7 @@ final class CardMemory {
             lines.add("(" + card.companies().size() + " companies, not listed again here)");
         }
         if (outcome != null) {
-            String filedAs = RETIRED_SHORTLISTED.equals(outcome.status()) ? ", " + NO_LONGER_IN_MANDATE
-                    : " as " + stageLabel(outcome.status());
-            lines.add("Filed " + outcome.added() + filedAs
+            lines.add("Filed " + outcome.added() + " as " + stageLabel(outcome.status())
                     + (outcome.skipped() > 0 ? " (" + outcome.skipped() + " already in the mandate)" : ""));
         }
         lines.add("</suggested_companies>");
@@ -86,7 +77,7 @@ final class CardMemory {
         return CARD_BLOCK.matcher(answer).replaceAll("").strip();
     }
 
-    /** "[already declined] 5a1b… · Lulu Group · United Arab Emirates · 42,000 staff · operates Carrefour". */
+    /** "[shortlisted] 5a1b… · Lulu Group · United Arab Emirates · 42,000 staff · operates Carrefour". */
     private static String describe(ProposedCompany company) {
         List<String> parts = new ArrayList<>();
         parts.add(company.key());
@@ -103,8 +94,8 @@ final class CardMemory {
         if (company.operates() != null) {
             parts.add("operates " + plain(company.operates()));
         }
-        String state = RETIRED_SHORTLISTED.equals(company.stage()) ? NO_LONGER_IN_MANDATE
-                : company.alreadyInMandate() ? "already " + stageLabel(company.stage()).toLowerCase(Locale.ROOT)
+        String state = company.alreadyInMandate()
+                ? "already " + stageLabel(company.stage()).toLowerCase(Locale.ROOT)
                 : "new";
         return "[" + state + "] " + String.join(" · ", parts);
     }
@@ -116,6 +107,7 @@ final class CardMemory {
         }
         return switch (stage) {
             case IN_UNIVERSE -> "In universe";
+            case SHORTLISTED -> "Shortlisted";
             case DECLINED -> "Declined";
         };
     }

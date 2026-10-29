@@ -127,11 +127,8 @@ CAPTURED_ID=$(json '.id')
 get "/projects/$PROJECT/triage/$CAPTURED_ID/notes" -H "$AUTH"
 check 15.24 "the consultant's note is filed as the company's first note" "Met at Gulfood." "$(json '.[0].body')"
 
-# There is no Shortlisted stage: the extension offers Add to universe alone, and a build from before that still asks
-# for Shortlisted has its capture filed In universe rather than refused.
 post_json "$CAPTURE" "$(capture_body shortlisted "Shortlisted $CAPTURED_NAME")" -H "$EXT_AUTH"
-check 15.25 "an older build's Shortlist capture lands In universe" "201 inUniverse" "$LAST_STATUS $(json '.status')"
-check 15.25b "…and is filed there" "IN_UNIVERSE" "$(sql "SELECT status FROM app_lm_project_triage_company WHERE company_name = 'Shortlisted $CAPTURED_NAME'")"
+check 15.25 "the other destination button lands it shortlisted" "shortlisted" "$(json '.status')"
 
 get "/projects/$PROJECT/triage?status=inUniverse" -H "$AUTH"
 check 15.26 "and the mandate sees it on its own Companies screen" "1" "$(json '.totalCount')"

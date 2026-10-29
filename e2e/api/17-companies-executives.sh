@@ -77,23 +77,16 @@ capture "$LEAD_AUTH" "   "
 check_code N17.1.8 "a company with no name" 400 VALIDATION_FAILED
 
 BETA="Sahara Logistics $RUN_TAG"
-capture "$RESEARCHER_AUTH" "$BETA" '.status = "declined"'
+capture "$RESEARCHER_AUTH" "$BETA" '.status = "shortlisted"'
 check_status N17.1.9 "a researcher may type one in too — WORK_EXECUTE" 201
 BETA_ID=$(json '.id')
-check N17.1.10 "…at the stage they named" "declined" "$(json '.status')"
+check N17.1.10 "…at the stage they named" "shortlisted" "$(json '.status')"
 
 put_json "$TRIAGE/$ALPHA_ID" "$(jq -nc --arg n "$ALPHA Group" '{companyName:$n, companyCountry:"Qatar"}')" -H "$LEAD_AUTH"
 check_status N17.1.11 "a hand-typed company's facts can be edited" 200
 check N17.1.12 "…and an omitted field is a cleared one" "$ALPHA Group|" "$(json '.companyName')|$(json '.companyCity // empty')"
 put_json "$TRIAGE/$ALPHA_ID" "$(jq -nc --arg n "$BETA" '{companyName:$n}')" -H "$LEAD_AUTH"
 check_code N17.1.13 "renaming onto a name the mandate already holds" 409 TRIAGE_COMPANY_ALREADY_HELD
-# Shortlisted was removed (V160). A write still naming it — an extension build from before — lands In universe;
-# a read naming it is an unknown stage (N17.3.16).
-capture "$LEAD_AUTH" "Removed Stage $RUN_TAG" '.status = "shortlisted"'
-check N17.1.14 "a company typed in at Shortlisted lands In universe" "201 inUniverse" "$LAST_STATUS $(json '.status')"
-REMOVED_STAGE_ID=$(json '.id')
-http DELETE "$TRIAGE/$REMOVED_STAGE_ID" -H "$LEAD_AUTH"
-check_status N17.1.15 "…and is removed again, so the cases below count what they did" 204
 ALPHA="$ALPHA Group"
 
 section "N17.2  taking companies from the market"
@@ -122,22 +115,21 @@ else
   M3=$(printf '%s\n' "$MARKET_IDS" | sed -n 3p); M4=$(printf '%s\n' "$MARKET_IDS" | sed -n 4p)
   bulk_at() { post_json "$TRIAGE/bulk" "$(jq -nc --arg a "$1" --arg s "$2" '{apolloAccountIds:[$a], status:$s}')" -H "$LEAD_AUTH"; }
 
-  bulk_at "$M1" inUniverse; R1="$(json '.added')"
-  bulk_at "$M3" declined;   R3="$(json '.added')"
-  bulk_at "$M2" shortlisted
-  check N17.2.7 "one bulk request per stage files each company where it was sent, Shortlisted In universe" "1 1 200 IN_UNIVERSE" \
-    "$R1 $R3 $LAST_STATUS $(sql "SELECT status FROM app_lm_project_triage_company WHERE project_id = '$P' AND apollo_account_id = '$M2'")"
+  bulk_at "$M1" inUniverse;  R1="$(json '.added')"
+  bulk_at "$M2" shortlisted; R2="$(json '.added')"
+  bulk_at "$M3" declined;    R3="$(json '.added')"
+  check N17.2.7 "one bulk request per stage files each company where it was sent" "1 1 1" "$R1 $R2 $R3"
   get "$TRIAGE?status=declined" -H "$LEAD_AUTH"
   check N17.2.8 "the declined one is on the declined page, marked as the market's" "strategy|$M3" \
     "$(json ".companies[] | select(.apolloAccountId == \"$M3\") | .source")|$(json ".companies[] | select(.apolloAccountId == \"$M3\") | .apolloAccountId")"
   bulk_at "$M3" inUniverse
   check N17.2.9 "re-adding a declined company does not resurrect it" "0/1" "$(json '.added')/$(json '.skipped')"
 
-  post_json "$TRIAGE" "$(jq -nc --arg a "$M4" '{apolloAccountId:$a, status:"declined", note:"From the market"}')" -H "$LEAD_AUTH"
+  post_json "$TRIAGE" "$(jq -nc --arg a "$M4" '{apolloAccountId:$a, status:"shortlisted", note:"From the market"}')" -H "$LEAD_AUTH"
   check_status N17.2.10 "one market company taken in by id" 201
   MARKET_ROW=$(json '.id')
-  post_json "$TRIAGE" "$(jq -nc --arg a "$M4" '{apolloAccountId:$a, status:"inUniverse"}')" -H "$LEAD_AUTH"
-  check N17.2.11 "a second click answers the held row, stage untouched" "$MARKET_ROW declined" "$(json '.id') $(json '.status')"
+  post_json "$TRIAGE" "$(jq -nc --arg a "$M4" '{apolloAccountId:$a, status:"declined"}')" -H "$LEAD_AUTH"
+  check N17.2.11 "a second click answers the held row, stage untouched" "$MARKET_ROW shortlisted" "$(json '.id') $(json '.status')"
   put_json "$TRIAGE/$MARKET_ROW" '{"companyName":"Renamed Market Co"}' -H "$LEAD_AUTH"
   check_code N17.2.12 "a market company's facts are not the mandate's to edit" 409 TRIAGE_COMPANY_NOT_EDITABLE
 fi
@@ -146,24 +138,24 @@ section "N17.3  moving between stages"
 
 post_json "$TRIAGE/$ALPHA_ID/notes" '{"kind":"general","body":"Strong finance bench"}' -H "$LEAD_AUTH"
 check_status N17.3.1 "a note is added to the company" 201
-patch_json "$TRIAGE/$ALPHA_ID" '{"status":"declined"}' -H "$LEAD_AUTH"
-check N17.3.2 "the company moves to declined" "declined" "$(json '.status')"
+patch_json "$TRIAGE/$ALPHA_ID" '{"status":"shortlisted"}' -H "$LEAD_AUTH"
+check N17.3.2 "the company moves to shortlisted" "shortlisted" "$(json '.status')"
 get "$TRIAGE/$ALPHA_ID/notes" -H "$LEAD_AUTH"
 check N17.3.3 "…and its notes stay with it" "Strong finance bench" "$(json '.[0].body')"
 patch_json "$TRIAGE/$ALPHA_ID" '{"noExecutiveFound":true}' -H "$LEAD_AUTH"
-check N17.3.4 "flagging no executive found leaves the stage" "true declined" "$(json '.noExecutiveFound') $(json '.status')"
-get "$TRIAGE?status=declined" -H "$LEAD_AUTH"
+check N17.3.4 "flagging no executive found leaves the stage" "true shortlisted" "$(json '.noExecutiveFound') $(json '.status')"
+get "$TRIAGE?status=shortlisted" -H "$LEAD_AUTH"
 check N17.3.5 "the staff grid counts the company's notes" "1" "$(json ".companies[] | select(.id == \"$ALPHA_ID\") | .noteCount")"
 patch_json "$TRIAGE/$ALPHA_ID" '{"status":"archived"}' -H "$LEAD_AUTH"
 check_code N17.3.6 "an unknown stage" 400 VALIDATION_FAILED
 patch_json "$TRIAGE/$(new_uuid)" '{"status":"declined"}' -H "$LEAD_AUTH"
 check_code N17.3.7 "a company this mandate does not hold" 404 NOT_FOUND
 
-get "$TRIAGE?status=declined" -H "$LEAD_AUTH"
-check_status N17.3.8 "the declined page reads" 200
+get "$TRIAGE?status=shortlisted" -H "$LEAD_AUTH"
+check_status N17.3.8 "the shortlisted page reads" 200
 check N17.3.9 "…holding both hand-typed companies" "2" \
   "$(json "[.companies[] | select(.id == \"$ALPHA_ID\" or .id == \"$BETA_ID\")] | length")"
-check N17.3.10 "…and its badge counts the page's stage" "true" "$(json '.counts.declined == .totalCount')"
+check N17.3.10 "…and its badge counts the page's stage" "true" "$(json '.counts.shortlisted == .totalCount')"
 get "$TRIAGE?status=inUniverse" -H "$LEAD_AUTH"
 check N17.3.11 "the in-universe page no longer lists them" "0" \
   "$(json "[.companies[] | select(.id == \"$ALPHA_ID\" or .id == \"$BETA_ID\")] | length")"
@@ -171,16 +163,6 @@ get "$TRIAGE?status=everything" -H "$LEAD_AUTH"
 check_code N17.3.12 "listing an unknown stage" 400 VALIDATION_FAILED
 get "$TRIAGE?sort=vibes" -H "$LEAD_AUTH"
 check_code N17.3.13 "sorting by an unknown field" 400 VALIDATION_FAILED
-
-patch_json "$TRIAGE/$ALPHA_ID" '{"status":"shortlisted"}' -H "$LEAD_AUTH"
-check_status N17.3.14 "moving a company to Shortlisted is taken" 200
-check N17.3.15 "…as a move In universe" "IN_UNIVERSE" "$(sql "SELECT status FROM app_lm_project_triage_company WHERE id = '$ALPHA_ID'")"
-patch_json "$TRIAGE/$ALPHA_ID" '{"status":"declined"}' -H "$LEAD_AUTH"
-
-get "$TRIAGE?status=shortlisted" -H "$LEAD_AUTH"
-check_code N17.3.16 "listing Shortlisted, no such stage" 400 VALIDATION_FAILED
-get "$TRIAGE?status=inUniverse" -H "$LEAD_AUTH"
-check N17.3.17 "the badges count the two stages and nothing else" "declined,inUniverse" "$(json '.counts | keys | join(",")')"
 
 section "N17.4  executives"
 
@@ -244,10 +226,6 @@ patch_json "$PEOPLE/$LAYLA" '{"status":"hired"}' -H "$LEAD_AUTH"
 check_code N17.4.26 "a status that is not on the line" 400 VALIDATION_FAILED
 patch_json "$PEOPLE/$LAYLA" '{"status":"engaged"}' -H "$RESEARCHER_AUTH"
 check N17.4.27 "a researcher moves it too — WORK_EXECUTE" "200 engaged" "$LAST_STATUS $(json '.status')"
-put_json "$PEOPLE/$LAYLA/triage-status" '{"status":"shortlisted"}' -H "$LEAD_AUTH"
-check_status N17.4.28 "one executive moved to Shortlisted is taken" 200
-check N17.4.29 "…as a move In universe" "IN_UNIVERSE" "$(sql "SELECT triage_status FROM app_lm_project_candidate WHERE id = '$LAYLA'")"
-put_json "$PEOPLE/$LAYLA/triage-status" '{"status":"declined"}' -H "$LEAD_AUTH"
 
 section "N17.5  the contact ledger"
 
@@ -400,7 +378,7 @@ http DELETE "$COLUMNS/$COL_BOARD" -H "$LEAD_AUTH"
 check_status N17.7.24 "a column is deleted" 204
 get "$COLUMNS" -H "$LEAD_AUTH"
 check N17.7.25 "…and is gone from the grid" "0" "$(json "[.columns[] | select(.id == \"$COL_BOARD\")] | length")"
-get "$TRIAGE?status=declined" -H "$LEAD_AUTH"
+get "$TRIAGE?status=shortlisted" -H "$LEAD_AUTH"
 check N17.7.26 "…while the rows keep their values: only the definition goes" "Chair" \
   "$(json ".companies[] | select(.id == \"$ALPHA_ID\") | .customFields.boardSeat")"
 # The key was slugged from the ORIGINAL label and survived the rename, so it is that label which
@@ -443,7 +421,7 @@ check N17.8.11 "…while the workspace's person keeps their contact rows" "1" \
 
 section "N17.9  the client seat reads, and writes nothing"
 
-get "$TRIAGE?status=declined" -H "$CLIENT_AUTH"
+get "$TRIAGE?status=shortlisted" -H "$CLIENT_AUTH"
 check_status N17.9.1 "the client seat reads the companies" 200
 check N17.9.2 "…the same page staff see" "true" "$(json "[.companies[].id] | index(\"$ALPHA_ID\") != null")"
 get "$PEOPLE" -H "$CLIENT_AUTH"

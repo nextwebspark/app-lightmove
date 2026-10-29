@@ -112,12 +112,12 @@ public abstract class McpFlowSupport extends OAuthFlowSupport {
                 .andReturn()).get("id").asText();
     }
 
-    protected void decline(String admin, String projectId, String companyId) throws Exception {
+    protected void shortlist(String admin, String projectId, String companyId) throws Exception {
         mvc.perform(patch("/api/v1/projects/" + projectId + "/triage/" + companyId)
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"status":"declined"}"""))
+                                {"status":"shortlisted"}"""))
                 .andExpect(status().isOk());
     }
 

@@ -33,8 +33,18 @@ const DECLINE_TOOLTIP = "Decline — kept as a record that this company was asse
  * stage it is already in, so every button on a row and in the panel's footer does something.
  */
 export const MOVES: Record<TriageCompanyStatus, TriageMove[]> = {
-  inUniverse: [{ status: "declined", label: "Decline", icon: ICONS.close, tooltip: DECLINE_TOOLTIP }],
-  declined: [{ status: "inUniverse", label: "Back to universe", icon: ICONS.globe }],
+  inUniverse: [
+    { status: "shortlisted", label: "Shortlist", icon: ICONS.star },
+    { status: "declined", label: "Decline", icon: ICONS.close, tooltip: DECLINE_TOOLTIP },
+  ],
+  shortlisted: [
+    { status: "inUniverse", label: "Back to universe", icon: ICONS.globe },
+    { status: "declined", label: "Decline", icon: ICONS.close, tooltip: DECLINE_TOOLTIP },
+  ],
+  declined: [
+    { status: "inUniverse", label: "Back to universe", icon: ICONS.globe },
+    { status: "shortlisted", label: "Shortlist", icon: ICONS.star },
+  ],
 };
 
 /** A move on one executive's line, read on hover: Decline rules out the person, never their company. */

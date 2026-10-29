@@ -146,13 +146,13 @@ class ProposalToolsTest {
         recorder.researched("ikea", new CapturedCompanyDetails("IKEA", "Retail", "Sweden", "Delft", 160_000,
                 null, null, "https://www.linkedin.com/company/ikea", 1943, null, null, null, null));
         when(triaged.stagesOf(any(), any(), any(), any())).thenReturn(new MandateStages(
-                Map.of("a1", TriageCompanyStatus.IN_UNIVERSE), Map.of("ikea", TriageCompanyStatus.DECLINED)));
+                Map.of("a1", TriageCompanyStatus.SHORTLISTED), Map.of("ikea", TriageCompanyStatus.DECLINED)));
 
         CardResult result = tools().proposeCompanies("Three", List.of("a1", "a2", "ikea"), context());
 
         assertThat(result).isEqualTo(new CardResult(3, 2, 0));
         assertThat(recorder.proposal().companies()).extracting("companyName", "stage").containsExactly(
-                tuple("Marafiq", null), tuple("IKEA", "declined"), tuple("ACWA Power", "inUniverse"));
+                tuple("Marafiq", null), tuple("IKEA", "declined"), tuple("ACWA Power", "shortlisted"));
         assertThat(recorder.steps()).singleElement().extracting(AssistantStep::detail)
                 .isEqualTo("3 suggested, 2 already in the mandate");
     }

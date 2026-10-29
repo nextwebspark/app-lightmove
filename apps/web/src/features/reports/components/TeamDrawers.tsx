@@ -92,7 +92,7 @@ export function CoverageCompanyDrawer({ company, onClose }: { company: CompanyCo
         <DrawerKpis columns={2}>
           <DrawerKpi value={company.executives} label="Mapped" />
           <DrawerKpi value={company.contributors} label="Researchers" />
-          <DrawerKpi value={company.stage === "declined" ? "Declined" : "Universe"} label="Stage" />
+          <DrawerKpi value={company.stage === "shortlisted" ? "Shortlist" : "Universe"} label="Stage" />
           <DrawerKpi value={company.lastAddedAt ? formatRelativeTime(company.lastAddedAt) : "—"} label="Last added" />
         </DrawerKpis>
       </DrawerSection>

@@ -16,9 +16,9 @@ class CandidateTriageStatusTest {
 
     @Test
     void starts_at_the_stage_of_the_company_it_is_filed_at() {
-        Candidate candidate = filedAt(UUID.randomUUID(), TriageCompanyStatus.DECLINED);
+        Candidate candidate = filedAt(UUID.randomUUID(), TriageCompanyStatus.SHORTLISTED);
 
-        assertThat(candidate.getTriageStatus()).isEqualTo(TriageCompanyStatus.DECLINED);
+        assertThat(candidate.getTriageStatus()).isEqualTo(TriageCompanyStatus.SHORTLISTED);
     }
 
     @Test
@@ -34,21 +34,21 @@ class CandidateTriageStatusTest {
     void keeps_their_own_stage_while_staying_at_the_same_company() {
         UUID companyId = UUID.randomUUID();
         Candidate candidate = filedAt(companyId, TriageCompanyStatus.IN_UNIVERSE);
-        candidate.moveToStage(TriageCompanyStatus.DECLINED);
+        candidate.moveToStage(TriageCompanyStatus.SHORTLISTED);
 
         candidate.remapTo(companyId, TriageCompanyStatus.IN_UNIVERSE);
 
-        assertThat(candidate.getTriageStatus()).isEqualTo(TriageCompanyStatus.DECLINED);
+        assertThat(candidate.getTriageStatus()).isEqualTo(TriageCompanyStatus.SHORTLISTED);
     }
 
     @Test
     void takes_the_stage_of_a_new_company() {
         Candidate candidate = filedAt(UUID.randomUUID(), TriageCompanyStatus.IN_UNIVERSE);
-        candidate.moveToStage(TriageCompanyStatus.DECLINED);
+        candidate.moveToStage(TriageCompanyStatus.SHORTLISTED);
 
-        candidate.remapTo(UUID.randomUUID(), TriageCompanyStatus.IN_UNIVERSE);
+        candidate.remapTo(UUID.randomUUID(), TriageCompanyStatus.DECLINED);
 
-        assertThat(candidate.getTriageStatus()).isEqualTo(TriageCompanyStatus.IN_UNIVERSE);
+        assertThat(candidate.getTriageStatus()).isEqualTo(TriageCompanyStatus.DECLINED);
     }
 
     private static Candidate filedAt(UUID triageCompanyId, TriageCompanyStatus companyStatus) {

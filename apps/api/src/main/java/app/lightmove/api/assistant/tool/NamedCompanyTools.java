@@ -57,7 +57,7 @@ public class NamedCompanyTools {
             client), UNVERIFIED (could not be confirmed anywhere) or NOT_CHECKED. global marks a \
             company found as its own headquarters abroad; operates names the brand a company runs \
             locally; mandateStage is set when this mandate has already filed the company \
-            (inUniverse or declined). State figures only as returned here. Call it once \
+            (inUniverse, shortlisted or declined). State figures only as returned here. Call it once \
             per answer.""")
     public NamedCompanies lookUpCompaniesByName(
             @ToolParam(description = "Companies, at most ten") List<NamedCompanyRequest> companies,

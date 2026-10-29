@@ -255,11 +255,11 @@ class CandidateEnrichmentTest {
         Candidate candidate = onMandate(null, details("Sample Person", null, null, null, null, null));
         UUID companyId = UUID.randomUUID();
 
-        candidate.employBy(companyId, "Al Rawabi Dairy", TriageCompanyStatus.DECLINED);
+        candidate.employBy(companyId, "Al Rawabi Dairy", TriageCompanyStatus.SHORTLISTED);
 
         assertThat(candidate.getTriageCompanyId()).isEqualTo(companyId);
         assertThat(candidate.getCompanyName()).isEqualTo("Al Rawabi Dairy");
-        assertThat(candidate.getTriageStatus()).isEqualTo(TriageCompanyStatus.DECLINED);
+        assertThat(candidate.getTriageStatus()).isEqualTo(TriageCompanyStatus.SHORTLISTED);
     }
 
     private static Person captured(CandidateDetails details) {

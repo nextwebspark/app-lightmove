@@ -1,6 +1,6 @@
 ---
 name: rank-companies
-description: Rank, tier, prioritise, group or score companies by how well they fit this position - "rank these by relevance to the job description", "split the list into tier 1, 2 and 3", "which are the best fit", "prioritise my universe", "group the universe". Use for companies suggested earlier in this chat or already filed in this position.
+description: Rank, tier, prioritise, group or score companies by how well they fit this position - "rank these by relevance to the job description", "split the list into tier 1, 2 and 3", "which are the best fit", "prioritise my shortlist", "group the universe". Use for companies suggested earlier in this chat or already filed in this position.
 ---
 
 # Ranking and tiering companies
@@ -13,7 +13,7 @@ do not have the list or the job description, and never ask the consultant to pas
    - "these", "the list", "them", or no set named: every row of the most recent
      <suggested_companies> block that lists rows — and of the earlier blocks too when the consultant
      says "all of them" or names a number that only they reach together;
-   - "my universe", "the declined ones": call listMandateCompanies with that stage.
+   - "my shortlist", "the universe", "the declined ones": call listMandateCompanies with that stage.
    If no block lists rows and no stage was named, call listMandateCompanies with inUniverse.
 2. For companies from a block, call readCompanyDetails with their keys, all in one call. Companies from
    listMandateCompanies already carry their details.
@@ -29,7 +29,7 @@ do not have the list or the job description, and never ask the consultant to pas
    missing.
 5. Answer:
    - one line naming the criteria you ranked by, and the stage you read when it came from
-     listMandateCompanies ("your universe");
+     listMandateCompanies ("your shortlist");
    - when listMandateCompanies' total is more than the companies it returned, say the ranking covers
      the first of them in name order ("the first 100 of 140");
    - tiers: "Tier 1 — best fit", "Tier 2", "Tier 3" as plain lines, each followed by its companies,

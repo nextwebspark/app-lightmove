@@ -141,7 +141,7 @@ public class PublicReadService {
             }
         });
         return new PublicPositionSummary(PublicProject.of(project),
-                new PublicStageCounts(stages.inUniverse(), stages.declined()),
+                new PublicStageCounts(stages.inUniverse(), stages.shortlisted(), stages.declined()),
                 executives, pipelineStages, project.mappedCompanies(),
                 new PublicTimeline(project.startDate(), project.mappingTargetDate(), project.deliveryDate(),
                         project.targetDate()));

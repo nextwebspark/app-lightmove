@@ -75,7 +75,7 @@ public class McpPositionTools {
 
     @McpTool(name = SUMMARY, generateOutputSchema = true, title = "Summarise a position",
             description = "Where a position stands, in one call: the position, its companies at each stage "
-                    + "(inUniverse, declined), its executives at each status, how many companies have an "
+                    + "(inUniverse, shortlisted, declined), its executives at each status, how many companies have an "
                     + "executive mapped, and its dates. The natural first call on a position, before listing or "
                     + "searching its companies and executives.",
             annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false, idempotentHint = true,

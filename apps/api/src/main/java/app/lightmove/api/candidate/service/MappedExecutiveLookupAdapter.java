@@ -9,7 +9,6 @@ import app.lightmove.api.core.text.model.SearchText;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.service.MappedExecutiveLookup;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -31,10 +30,6 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
-
-    private static final Set<String> STAGE_NAMES = Arrays.stream(TriageCompanyStatus.values())
-            .map(Enum::name)
-            .collect(Collectors.toUnmodifiableSet());
 
     private final CandidateRepository candidates;
     private final ProjectRepository projects;
@@ -74,9 +69,7 @@ class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
 
     @Override
     public Map<TriageCompanyStatus, Long> companyCountsWithExecutivesMoved(UUID projectId, ProjectAudience audience) {
-        // A stage V160 retired, written by the previous revision while this one rolled out, is no stage to count.
         return candidates.countCompaniesWithExecutivesMovedByStage(projectId, audience.clientVisibleOnly()).stream()
-                .filter(count -> STAGE_NAMES.contains(count.getTriageStatus()))
                 .collect(Collectors.toMap(count -> TriageCompanyStatus.valueOf(count.getTriageStatus()),
                         MovedCompanyCount::getCompanies));
     }

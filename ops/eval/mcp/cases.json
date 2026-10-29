@@ -27,8 +27,8 @@
     "maxCalls": 3
   },
   {
-    "id": "universe-companies",
-    "prompt": "List the companies in the universe on the {position} position.",
+    "id": "shortlist",
+    "prompt": "List the shortlisted companies on the {position} position.",
     "first": "uncava_search_positions",
     "usesAny": [
       "uncava_list_companies",
@@ -38,7 +38,7 @@
   },
   {
     "id": "finance-people",
-    "prompt": "On the {position} position, who are the finance executives (CFOs or finance directors) at the companies in its universe?",
+    "prompt": "On the {position} position, who are the finance executives (CFOs or finance directors) at the shortlisted companies?",
     "first": "uncava_search_positions",
     "maxCalls": 5,
     "usesAny": [
@@ -47,8 +47,8 @@
     ]
   },
   {
-    "id": "universe-briefing",
-    "prompt": "Write me a short briefing on the {position} universe: each company in it with the executives mapped there.",
+    "id": "shortlist-briefing",
+    "prompt": "Write me a short briefing on the {position} shortlist: each shortlisted company with the executives mapped there.",
     "first": "uncava_search_positions",
     "uses": [
       "uncava_get_universe"

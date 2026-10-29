@@ -289,7 +289,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
-            "enum" : [ "inUniverse", "declined" ]
+            "enum" : [ "inUniverse", "shortlisted", "declined" ]
           }
         }, {
           "description" : "Page number, from 0",
@@ -489,7 +489,7 @@
           "schema" : {
             "type" : "string",
             "default" : "inUniverse",
-            "enum" : [ "inUniverse", "declined" ]
+            "enum" : [ "inUniverse", "shortlisted", "declined" ]
           }
         }, {
           "description" : "Page number, from 0",
@@ -790,7 +790,7 @@
           "schema" : {
             "type" : "string",
             "default" : "inUniverse",
-            "enum" : [ "inUniverse", "declined" ]
+            "enum" : [ "inUniverse", "shortlisted", "declined" ]
           }
         } ],
         "responses" : {
@@ -1166,8 +1166,8 @@
           "stage" : {
             "type" : "string",
             "description" : "Where the position has filed it",
-            "enum" : [ "inUniverse", "declined" ],
-            "example" : "inUniverse"
+            "enum" : [ "inUniverse", "shortlisted", "declined" ],
+            "example" : "shortlisted"
           },
           "website" : {
             "type" : [ "string", "null" ],
@@ -1440,7 +1440,7 @@
           "companies" : {
             "type" : "integer",
             "format" : "int64",
-            "description" : "Companies in the universe, declined ones left out",
+            "description" : "Companies in the universe or shortlisted, declined ones left out",
             "example" : 48
           },
           "createdAt" : {
@@ -1547,7 +1547,7 @@
           "mappedCompanies" : {
             "type" : "integer",
             "format" : "int64",
-            "description" : "Universe companies with at least one executive mapped",
+            "description" : "Universe or shortlisted companies with at least one executive mapped",
             "example" : 31
           },
           "pipelineStages" : {
@@ -1591,6 +1591,12 @@
             "format" : "int64",
             "description" : "Companies in the universe",
             "example" : 48
+          },
+          "shortlisted" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Companies shortlisted",
+            "example" : 12
           }
         }
       },
@@ -1638,7 +1644,7 @@
           "stage" : {
             "type" : "string",
             "description" : "The stage read",
-            "enum" : [ "inUniverse", "declined" ],
+            "enum" : [ "inUniverse", "shortlisted", "declined" ],
             "example" : "inUniverse"
           },
           "unassigned" : {

@@ -7,7 +7,7 @@ export const MCP_SCOPE: ApiKeyScope = "mcp:use";
 /** What each scope reads, in the API's own order; the personal-data pair says so, and `mcp:use` comes last. */
 export const API_KEY_SCOPES: readonly { scope: ApiKeyScope; note: string; personalData: boolean }[] = [
   { scope: "projects:read", note: "Positions: title, stage, type, dates and counts.", personalData: false },
-  { scope: "companies:read", note: "Each position's companies — in universe and declined.", personalData: false },
+  { scope: "companies:read", note: "Each position's companies — in universe, shortlisted and declined.", personalData: false },
   { scope: "candidates:read", note: "Each position's executives: profile, company and status.", personalData: false },
   { scope: "candidates.contacts:read", note: "Their emails and phone numbers.", personalData: true },
   { scope: "candidates.compensation:read", note: "Their salary, bonus, allowances and incentives.", personalData: true },

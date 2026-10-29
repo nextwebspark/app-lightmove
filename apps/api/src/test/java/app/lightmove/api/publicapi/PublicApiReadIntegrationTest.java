@@ -137,7 +137,7 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"status":"declined"}"""))
+                                {"status":"shortlisted"}"""))
                 .andExpect(status().isOk());
         map(admin, projectId, acwa, "Layla Haddad", "contacted");
         map(admin, projectId, acwa, "Omar Said", "identified");
@@ -148,12 +148,11 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
         String candidates = PROJECTS + "/" + projectId + "/candidates";
 
         String first = secret(admin, scopes);
-        JsonNode declined = read(first, companies + "?stage=declined", 200);
-        assertThat(declined.get("totalCount").asLong()).isEqualTo(1);
-        assertThat(declined.at("/data/0/name").asText()).isEqualTo("Masdar");
-        assertThat(declined.at("/data/0/stage").asText()).isEqualTo("declined");
-        assertThat(read(first, companies + "?stage=shortlisted", 400).get("code").asText())
-                .as("no longer a stage").isEqualTo("VALIDATION_FAILED");
+        JsonNode shortlisted = read(first, companies + "?stage=shortlisted", 200);
+        assertThat(shortlisted.get("totalCount").asLong()).isEqualTo(1);
+        assertThat(shortlisted.at("/data/0/name").asText()).isEqualTo("Masdar");
+        assertThat(shortlisted.at("/data/0/stage").asText()).isEqualTo("shortlisted");
+        assertThat(read(first, companies + "?stage=archived", 400).get("code").asText()).isEqualTo("VALIDATION_FAILED");
         assertThat(names(read(first, candidates + "?status=contacted", 200))).containsExactly("Layla Haddad");
         JsonNode atMasdar = read(first, candidates + "?companyId=" + masdar, 200);
         assertThat(names(atMasdar)).containsExactly("Yasmin Farouk");
@@ -231,9 +230,9 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
         assertThat(universe.at("/companies/1/executives")).isEmpty();
         assertThat(names(universe, "unassigned")).containsExactly("Yasmin Farouk");
 
-        JsonNode declined = read(reader, url + "?stage=declined", 200);
-        assertThat(declined.get("companies")).isEmpty();
-        assertThat(declined.get("unassigned")).isEmpty();
+        JsonNode shortlisted = read(reader, url + "?stage=shortlisted", 200);
+        assertThat(shortlisted.get("companies")).isEmpty();
+        assertThat(shortlisted.get("unassigned")).isEmpty();
     }
 
     private JsonNode read(String secret, String url, int expectedStatus) throws Exception {

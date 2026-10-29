@@ -57,10 +57,9 @@ describe("the assistant's company card", () => {
     const { onAccept } = mount();
 
     await userEvent.click(screen.getByRole("checkbox", { name: "Include Company a2" }));
-    expect(screen.queryByRole("button", { name: "Shortlist" })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Decline" }));
+    await userEvent.click(screen.getByRole("button", { name: "Shortlist" }));
 
-    expect(onAccept).toHaveBeenCalledWith(["a1"], "declined");
+    expect(onAccept).toHaveBeenCalledWith(["a1"], "shortlisted");
   });
 
   it("offers nothing to file when nothing is ticked", async () => {
@@ -87,9 +86,9 @@ describe("the assistant's company card", () => {
     expect(screen.getByText("Operates Carrefour")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "LinkedIn" })).toHaveAttribute("href", "https://www.linkedin.com/company/ikea");
 
-    await userEvent.click(screen.getByRole("button", { name: "Universe" }));
+    await userEvent.click(screen.getByRole("button", { name: "Shortlist" }));
 
-    expect(onAccept).toHaveBeenCalledWith(["a1", "ikea"], "inUniverse");
+    expect(onAccept).toHaveBeenCalledWith(["a1", "ikea"], "shortlisted");
   });
 
   it("shows a company the mandate already holds with its stage, unticked and not offered for filing", async () => {
@@ -105,23 +104,21 @@ describe("the assistant's company card", () => {
     expect(held).not.toBeChecked();
     expect(held).toBeDisabled();
 
-    await userEvent.click(screen.getByRole("button", { name: "Decline" }));
+    await userEvent.click(screen.getByRole("button", { name: "Shortlist" }));
 
-    expect(onAccept).toHaveBeenCalledWith(["a1"], "declined");
+    expect(onAccept).toHaveBeenCalledWith(["a1"], "shortlisted");
   });
 
   it("offers nothing to file when every company is already in the mandate", () => {
     mount({
       proposal: {
         title: "Utilities",
-        companies: [company("a1", { stage: "inUniverse" }), company("a2", { stage: "declined" })],
+        companies: [company("a1", { stage: "inUniverse" }), company("a2", { stage: "shortlisted" })],
       },
     });
 
     expect(screen.getByText("All already in this mandate")).toBeInTheDocument();
-    expect(screen.getByText("Declined")).toHaveAttribute("title", "Already in this mandate as Declined");
-    expect(screen.getByRole("button", { name: "Universe" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Decline" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Shortlist" })).toBeDisabled();
   });
 
   it("shows what was filed instead of the buttons once filed", () => {

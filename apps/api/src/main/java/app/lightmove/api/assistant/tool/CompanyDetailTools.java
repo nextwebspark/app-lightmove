@@ -94,11 +94,11 @@ public class CompanyDetailTools {
     }
 
     @Tool(description = """
-            Read the companies this mandate has already filed at one stage — "the universe", "the \
-            declined ones" — with what each does, to rank, tier or compare them. Answers the stage it \
-            read, the first 100 in name order, and total, how many the stage holds.""")
+            Read the companies this mandate has already filed at one stage — "my shortlist", "the \
+            universe", "the declined ones" — with what each does, to rank, tier or compare them. Answers \
+            the stage it read, the first 100 in name order, and total, how many the stage holds.""")
     public MandateCompanies listMandateCompanies(
-            @ToolParam(required = false, description = "inUniverse or declined; inUniverse when omitted")
+            @ToolParam(required = false, description = "inUniverse, shortlisted or declined; inUniverse when omitted")
             String stage,
             ToolContext toolContext) {
         AssistantToolContext context = AssistantToolContext.from(toolContext);
@@ -152,7 +152,7 @@ public class CompanyDetailTools {
         return Optional.ofNullable(LinkedInUrls.companySlugOrNull(key)).orElse(key.toLowerCase(Locale.ROOT));
     }
 
-    /** "declined", "Declined", "DECLINED" and "in universe" alike; the universe when nothing fits. */
+    /** "shortlisted", "Shortlisted", "SHORTLISTED" and "in universe" alike; the universe when nothing fits. */
     static TriageCompanyStatus stageOf(String stage) {
         String asked = stage == null ? "" : NOT_A_LETTER.matcher(stage).replaceAll("").toLowerCase(Locale.ROOT);
         return Arrays.stream(TriageCompanyStatus.values())
@@ -164,6 +164,7 @@ public class CompanyDetailTools {
     private static String labelOf(TriageCompanyStatus status) {
         return switch (status) {
             case IN_UNIVERSE -> "in-universe";
+            case SHORTLISTED -> "shortlisted";
             case DECLINED -> "declined";
         };
     }

@@ -2,7 +2,8 @@
 
 Uncava runs an MCP server, so an AI app such as Claude, ChatGPT, Cursor or your own agent can read your positions
 and the companies and executives they hold, and answer questions about them. For example, you can ask it: "Who are
-the finance chiefs mapped on the Group CFO search?" or "Brief me on where the Riyadh COO mapping stands."
+the finance chiefs at the shortlisted companies on the Group CFO search?" or "Brief me on where the Riyadh COO
+mapping stands."
 
 - **Server URL:** your Uncava address followed by `/api/v1/mcp`, which is `https://beta.uncava.com/api/v1/mcp`.
   You can copy it from **Settings → Connected AI apps**.
@@ -144,7 +145,7 @@ page is refused, because that page is a browser origin other than Uncava's.
 | `uncava_search_positions` | The positions you can read, newest first, optionally by role title. **Start here**: every other tool takes a `positionId` from it | `projects:read` |
 | `uncava_get_position` | One position: role, client, type, stage, dates and counts | `projects:read` |
 | `uncava_get_position_summary` | Where a position stands: companies at each stage, executives at each status, how many companies have someone mapped, and its dates | `projects:read` |
-| `uncava_list_companies` | A position's companies at one stage (in universe or declined) | `companies:read` |
+| `uncava_list_companies` | A position's companies at one stage (in universe, shortlisted or declined) | `companies:read` |
 | `uncava_get_company` | One company of a position, with the executives mapped at it | `companies:read` (executives also need `candidates:read`) |
 | `uncava_list_candidates` | A position's executives, optionally at one status or one company | `candidates:read` |
 | `uncava_search_candidates` | A position's executives whose name, title or employer contains some text, optionally at one stage or status | `candidates:read` |

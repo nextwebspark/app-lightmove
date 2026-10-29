@@ -13,7 +13,6 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.triagecompany.constant.TriageCompanySource;
-import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.AddSelectedTriageCompaniesRequest;
 import app.lightmove.api.triagecompany.dto.TriageBulkAddResponse;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
@@ -55,7 +54,6 @@ public class AssistantProposalService {
                 .map(AssistantThread::getProjectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         projectAccess.requireAction(userId, workspaceId, projectId, ProjectAction.WORK_EXECUTE);
-        String stage = TriageCompanyStatus.parseDestination(request.status()).value();
 
         List<String> chosen = request.companyIds().stream().distinct().toList();
         AssistantProposal card = turn.getProposal();
@@ -78,19 +76,19 @@ public class AssistantProposalService {
         List<String> accountIds = fileable.stream().filter(key -> !card.researched().containsKey(key)).toList();
         TriageBulkAddResponse fromUniverse = accountIds.isEmpty() ? new TriageBulkAddResponse(0, 0)
                 : triage.addSelected(userId, workspaceId, projectId,
-                        new AddSelectedTriageCompaniesRequest(accountIds, stage),
+                        new AddSelectedTriageCompaniesRequest(accountIds, request.status()),
                         TriageCompanySource.ASSISTANT, httpRequest);
         long researchedAdded = fileable.stream()
                 .filter(card.researched()::containsKey)
                 .filter(slug -> triage.captureResearched(userId, workspaceId, projectId,
-                        card.researched().get(slug), TriageCompanySource.ASSISTANT, stage, httpRequest))
+                        card.researched().get(slug), TriageCompanySource.ASSISTANT, request.status(), httpRequest))
                 .count();
         int researchedChosen = fileable.size() - accountIds.size();
         TriageBulkAddResponse filed = new TriageBulkAddResponse(
                 fromUniverse.added() + (int) researchedAdded,
                 fromUniverse.skipped() + researchedChosen - (int) researchedAdded
                         + chosen.size() - fileable.size());
-        turn.recordAccepted(new ProposalOutcome(stage, filed.added(), filed.skipped()));
+        turn.recordAccepted(new ProposalOutcome(request.status(), filed.added(), filed.skipped()));
         turns.save(turn);
         return filed;
     }

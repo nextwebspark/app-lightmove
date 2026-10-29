@@ -13,7 +13,7 @@ interface ProjectSelectProps {
 /**
  * Which mandate the company goes to.
  *
- * The full-width select the design puts above the save button. It lists exactly what
+ * The full-width select the design puts above the two destination buttons. It lists exactly what
  * `GET /projects` returned — the API already scopes that to the caller's workspace and their seats,
  * so the popup neither filters nor adds to it.
  */

@@ -66,7 +66,7 @@ public class McpCandidateTools {
             description = "Find a position's executives whose name, title or employer contains some text, optionally "
                     + "only at companies of one stage or at one status. Use it to answer a question about particular "
                     + "people rather than paging through uncava_list_candidates. Example: query \"CFO\" with stage "
-                    + "\"inUniverse\" finds the finance chiefs still in the universe.",
+                    + "\"shortlisted\" finds the finance chiefs at the shortlisted companies.",
             annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false, idempotentHint = true,
                     openWorldHint = false))
     @McpToolScopes(ApiKeyScope.CANDIDATES_READ)
@@ -74,7 +74,7 @@ public class McpCandidateTools {
             McpTransportContext context,
             @McpToolParam(description = "The position's id, from uncava_search_positions") UUID positionId,
             @McpToolParam(description = "Text to find in a name, a title or an employer, ignoring case") String query,
-            @McpToolParam(description = "Only executives listed at this stage: inUniverse or declined. "
+            @McpToolParam(description = "Only executives listed at this stage: inUniverse, shortlisted or declined. "
                     + "Each executive holds a stage of their own, their company's unless moved alone",
                     required = false) String stage,
             @McpToolParam(description = "Only executives at this status key of the workspace's pipeline, such as "

@@ -92,11 +92,12 @@ const DEFAULT_SORT: GridSort<TriageSortField> = { field: "added", direction: "de
 /** Where a move sends a company, in words, for the toast that confirms it. */
 const MOVE_LABELS: Record<TriageCompanyStatus, string> = {
   inUniverse: "the universe",
+  shortlisted: "the shortlist",
   declined: "declined",
 };
 
 /**
- * One stage of a mandate's companies — In universe or Declined — as its own page. In universe reads as a
+ * One stage of a mandate's companies — In universe, Shortlisted or Declined — as its own page. In universe reads as a
  * Table, a Map or its executives' Pipeline, one search box narrowing whichever is open.
  *
  * <p>The stage comes from the URL rather than a prop, so all three are one route pattern and a stage
@@ -337,7 +338,7 @@ function TriageStage() {
   /**
    * Every write invalidates the whole prefix rather than this stage's key. A move changes two stages
    * and all three counts, and a page that refreshed only the list it was looking at would show the
-   * company gone and the sidebar's Declined badge still one short.
+   * company gone and the sidebar's shortlist badge still one short.
    */
   const refreshEveryStage = () =>
     void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
