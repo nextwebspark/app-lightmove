@@ -6,11 +6,13 @@ import { AuthLogo, Button, Card, Field, FormError, Input } from "../../../compon
 import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
 import { ThemeToggle } from "../../theme/ThemeToggle";
+import { isMfaChallenge } from "../api/types";
 import { useAuth } from "../AuthProvider";
 import { messageForOAuthError } from "../oauthErrors";
 import { landingAfterSignIn, rememberReturnTo, safeReturnTo } from "../returnTo";
 import { OAuthButtons } from "../components/OAuthButtons";
 import { loginSchema, type LoginValues } from "../schemas";
+import { TWO_FACTOR_SIGN_IN_PATH } from "./TwoFactorChallengePage";
 
 /** Sign in. A port of claude-design/Login.dc.html. */
 export function LoginPage() {
@@ -70,10 +72,14 @@ export function LoginPage() {
   const onSubmit = async (values: LoginValues) => {
     setFormError(null);
     try {
-      const user = await signIn(values.email, values.password);
+      const answer = await signIn(values.email, values.password);
+      if (isMfaChallenge(answer)) {
+        navigate(TWO_FACTOR_SIGN_IN_PATH, { state: returnTo ? { from: returnTo } : undefined });
+        return;
+      }
       // Only once they are somewhere they can be: an unverified user or one mid-wizard belongs at the
       // step homeFor names, not at the page they were reaching for.
-      navigate(landingAfterSignIn(user, returnTo), { replace: true });
+      navigate(landingAfterSignIn(answer, returnTo), { replace: true });
     } catch (error) {
       setFormError(
         error instanceof ApiRequestError

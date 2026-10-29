@@ -15,6 +15,7 @@ import { InviteStepPage } from "../features/auth/pages/InviteStepPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
 import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
+import { TWO_FACTOR_SIGN_IN_PATH, TwoFactorChallengePage } from "../features/auth/pages/TwoFactorChallengePage";
 import { SignupPage } from "../features/auth/pages/SignupPage";
 import { SignupVerifyStepPage } from "../features/auth/pages/SignupVerifyStepPage";
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
@@ -74,6 +75,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<AnonymousOnly><LoginPage /></AnonymousOnly>} />
+      <Route path={TWO_FACTOR_SIGN_IN_PATH} element={<AnonymousOnly><TwoFactorChallengePage /></AnonymousOnly>} />
       <Route path="/signup" element={<AnonymousOnly><SignupPage /></AnonymousOnly>} />
       <Route path="/forgot-password" element={<AnonymousOnly><ForgotPasswordPage /></AnonymousOnly>} />
 

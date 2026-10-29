@@ -3,10 +3,12 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Card, Field, Input, Logo } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
+import { isMfaChallenge } from "../api/types";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import { SendFailedNotice } from "../components/SendFailedNotice";
 import { homeFor } from "../homeFor";
+import { TWO_FACTOR_SIGN_IN_PATH } from "./TwoFactorChallengePage";
 
 type State = "verifying" | "success" | "failed";
 
@@ -52,7 +54,11 @@ export function VerifyEmailPage() {
 
     void (async () => {
       try {
-        await verifyEmail(token);
+        if (isMfaChallenge(await verifyEmail(token))) {
+          // Verified, but this person turned two-factor on: the link signs nobody in past the code.
+          navigate(TWO_FACTOR_SIGN_IN_PATH, { replace: true });
+          return;
+        }
         setState("success");
       } catch (error) {
         setState("failed");
@@ -63,7 +69,7 @@ export function VerifyEmailPage() {
         );
       }
     })();
-  }, [searchParams, verifyEmail]);
+  }, [searchParams, verifyEmail, navigate]);
 
   // A second click on the same link burns nothing and is the commonest way to reach the failure branch.
   // Someone already verified in this browser has done what the link was for, so say so.

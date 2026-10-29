@@ -4,9 +4,11 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Card, Field, FormError, Input, Logo } from "../../../components/ui";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
+import { isMfaChallenge } from "../api/types";
 import { useAuth } from "../AuthProvider";
 import { homeFor } from "../homeFor";
 import { resetPasswordSchema, type ResetPasswordValues } from "../schemas";
+import { TWO_FACTOR_SIGN_IN_PATH } from "./TwoFactorChallengePage";
 
 /**
  * Where the emailed reset link lands: choose a new password, typed twice, and walk straight into the
@@ -38,9 +40,14 @@ export function ResetPasswordPage() {
     if (!token) return;
     setFormError(null);
     try {
-      const user = await resetPassword(token, values.password);
+      const answer = await resetPassword(token, values.password);
+      if (isMfaChallenge(answer)) {
+        // The password is set; the code is still owed, as after a sign-in.
+        navigate(TWO_FACTOR_SIGN_IN_PATH, { replace: true });
+        return;
+      }
       // Signed in — route exactly as login does, on what is true of them right now.
-      navigate(homeFor(user), { replace: true });
+      navigate(homeFor(answer), { replace: true });
     } catch (error) {
       const code = codeOf(error);
       if (code === "TOKEN_INVALID" || code === "TOKEN_EXPIRED") {

@@ -9,10 +9,15 @@ import type {
   InvitationPreview,
   InviteRequest,
   LoginRequest,
+  MfaChangeRequest,
+  MfaSetup,
+  MfaStatus,
+  SignInAnswer,
   SignupRequest,
   UpdateProfileRequest,
   User,
 } from "./types";
+import { isMfaChallenge } from "./types";
 
 /**
  * Every call the auth module makes. One place, so a URL or a method never has to be remembered twice.
@@ -31,14 +36,35 @@ export async function signup(payload: SignupRequest): Promise<AuthResponse> {
   return session;
 }
 
-export async function login(payload: LoginRequest): Promise<AuthResponse> {
-  const session = await request<AuthResponse>("/auth/login", {
+/** A session, or for a person with two-factor on a challenge: then no token yet, and the code finishes it. */
+export async function login(payload: LoginRequest): Promise<SignInAnswer> {
+  const answer = await request<SignInAnswer>("/auth/login", {
     method: "POST",
     body: payload,
     anonymous: true,
   });
+  return adoptIfSession(answer);
+}
+
+/**
+ * Completes a challenged sign-in. The challenge rides its own cookie, so the code is all this sends; a wrong one
+ * leaves the challenge standing for another try.
+ */
+export async function verifySecondFactor(code: string): Promise<AuthResponse> {
+  const session = await request<AuthResponse>("/auth/mfa/verify", {
+    method: "POST",
+    body: { code },
+    anonymous: true,
+  });
   setAccessToken(session.accessToken);
   return session;
+}
+
+function adoptIfSession(answer: SignInAnswer): SignInAnswer {
+  if (!isMfaChallenge(answer)) {
+    setAccessToken(answer.accessToken);
+  }
+  return answer;
 }
 
 export async function logout(): Promise<void> {
@@ -69,17 +95,16 @@ export function providers(): Promise<AuthProviders> {
  * mailbox — so this installs the access token, exactly like login. Anonymous because the browser that
  * opens the link is usually not the one that signed up.
  */
-export async function verifyEmail(token: string): Promise<AuthResponse> {
+export async function verifyEmail(token: string): Promise<SignInAnswer> {
   // Body, not a query param, and that is load-bearing: it forces application/json, and so the CORS
   // preflight that stops a cross-site form POST planting a refresh cookie on this CSRF-exempt route.
   // See VerifyEmailRequest. It also keeps a live credential out of the URL.
-  const session = await request<AuthResponse>("/auth/verify", {
+  const answer = await request<SignInAnswer>("/auth/verify", {
     method: "POST",
     body: { token },
     anonymous: true,
   });
-  setAccessToken(session.accessToken);
-  return session;
+  return adoptIfSession(answer);
 }
 
 export function resendVerification(email: string): Promise<void> {
@@ -103,14 +128,13 @@ export function requestPasswordReset(email: string): Promise<void> {
  * Redeems the emailed reset link. The server signs the user in on success — the token proved the
  * mailbox, which is everything a login proves — so this installs the access token exactly like login.
  */
-export async function resetPassword(token: string, password: string): Promise<AuthResponse> {
-  const session = await request<AuthResponse>("/auth/password/reset", {
+export async function resetPassword(token: string, password: string): Promise<SignInAnswer> {
+  const answer = await request<SignInAnswer>("/auth/password/reset", {
     method: "POST",
     body: { token, password },
     anonymous: true,
   });
-  setAccessToken(session.accessToken);
-  return session;
+  return adoptIfSession(answer);
 }
 
 // ── Settings → Security ─────────────────────────────────────────────────────
@@ -127,6 +151,32 @@ export async function changePassword(payload: ChangePasswordRequest): Promise<Au
   });
   setAccessToken(session.accessToken);
   return session;
+}
+
+export function mfaStatus(): Promise<MfaStatus> {
+  return request<MfaStatus>("/auth/mfa");
+}
+
+/** Answers the secret once; the caller keeps it in component state, never a query cache. */
+export function startMfaSetup(): Promise<MfaSetup> {
+  return request<MfaSetup>("/auth/mfa/setup", { method: "POST", withCsrf: true });
+}
+
+/** Answers the recovery codes once, and ends every other session. */
+export function enableMfa(payload: MfaChangeRequest): Promise<{ recoveryCodes: string[] }> {
+  return request<{ recoveryCodes: string[] }>("/auth/mfa/enable", { method: "POST", body: payload, withCsrf: true });
+}
+
+export function disableMfa(payload: MfaChangeRequest): Promise<void> {
+  return request<void>("/auth/mfa/disable", { method: "POST", body: payload, withCsrf: true });
+}
+
+export function regenerateRecoveryCodes(payload: MfaChangeRequest): Promise<{ recoveryCodes: string[] }> {
+  return request<{ recoveryCodes: string[] }>("/auth/mfa/recovery-codes", {
+    method: "POST",
+    body: payload,
+    withCsrf: true,
+  });
 }
 
 export function listSessions(): Promise<ActiveSession[]> {

@@ -82,6 +82,19 @@ describe("ResetPasswordPage", () => {
     expect(authApi.resetPassword).not.toHaveBeenCalled();
   });
 
+  it("sends someone with two-factor on to the code step: the link alone signs nobody in", async () => {
+    const user = userEvent.setup();
+    vi.mocked(authApi.resetPassword).mockResolvedValue({ mfaRequired: true, expiresIn: 300 });
+
+    renderAt("/auth/reset-password?token=abc");
+
+    await user.type(screen.getByPlaceholderText("8+ characters"), "brandnew42");
+    await user.type(screen.getByPlaceholderText("Re-enter your password"), "brandnew42");
+    await user.click(screen.getByRole("button", { name: /set password and sign in/i }));
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/login/two-factor", { replace: true }));
+  });
+
   it("signs a workspace user straight into the app", async () => {
     const user = userEvent.setup();
     vi.mocked(authApi.resetPassword).mockResolvedValue(

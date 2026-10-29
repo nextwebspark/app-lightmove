@@ -101,6 +101,33 @@ export const inviteSchema = z.object({
   ),
 });
 
+/**
+ * Two-factor codes, read as the server reads them: an app's six digits with any grouping space dropped, and a recovery
+ * code's sixteen characters with its hyphens, spaces and case forgiven. What is sent is what was typed, trimmed.
+ */
+export function isAuthenticatorCode(value: string): boolean {
+  return /^\d{6}$/.test(value.replace(/\s/g, ""));
+}
+
+export function isRecoveryCode(value: string): boolean {
+  return /^[A-Z2-7]{16}$/.test(value.replace(/[\s-]/g, "").toUpperCase());
+}
+
+export const authenticatorCodeSchema = z.object({
+  code: z.string().refine(isAuthenticatorCode, "Enter the 6-digit code from your authenticator app"),
+});
+
+export const recoveryCodeSchema = z.object({
+  code: z.string().refine(isRecoveryCode, "Enter a recovery code, like ABCD-EFGH-IJKL-MNOP"),
+});
+
+/** Settings' changes take either: whichever the person has to hand. */
+export const secondFactorCodeRule = z
+  .string()
+  .refine((value) => isAuthenticatorCode(value) || isRecoveryCode(value), "Enter a 6-digit code or a recovery code");
+
+export type SecondFactorCodeValues = z.infer<typeof authenticatorCodeSchema>;
+
 export type LoginValues = z.infer<typeof loginSchema>;
 export type SignupValues = z.infer<typeof signupSchema>;
 export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
