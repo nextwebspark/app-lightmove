@@ -588,6 +588,15 @@ describe("routes — a position's views in the rail", () => {
 
   const rail = async () => within(await screen.findByRole("navigation", { name: "Main" }));
 
+  it("lists In universe alone under Market mapping while Shortlisted and Declined are off", async () => {
+    renderAt("/projects/p1/team");
+    const nav = await rail();
+
+    expect(nav.getByRole("link", { name: /In universe/ })).toBeInTheDocument();
+    expect(nav.queryByRole("link", { name: /Shortlisted/ })).not.toBeInTheDocument();
+    expect(nav.queryByRole("link", { name: /Declined/ })).not.toBeInTheDocument();
+  });
+
   it("nests Strategy's, In universe's and Outreach's views for staff, each a link to its own reading", async () => {
     renderAt("/projects/p1/team");
     const nav = await rail();

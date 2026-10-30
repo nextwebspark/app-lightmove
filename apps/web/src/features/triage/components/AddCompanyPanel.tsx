@@ -13,6 +13,7 @@ import type { CustomColumn } from "../../customcolumns/api/types";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompanyStatus } from "../api/types";
 import { stageByStatus } from "../lib/triageStages";
+import { isStageOffered } from "../lib/triageVocabulary";
 import { capturePayloadOf, CompanyFactsForm } from "./CompanyFactsForm";
 import { CompanyFactsSections } from "./CompanyFactsSections";
 
@@ -102,7 +103,9 @@ export function AddCompanyPanel({
       toast(
         saved.status === landingStatus
           ? `${saved.companyName} is in this mandate — ${stageByStatus(saved.status).label}`
-          : `${saved.companyName} is already in this mandate — ${stageByStatus(saved.status).label}`,
+          : isStageOffered(saved.status)
+            ? `${saved.companyName} is already in this mandate — ${stageByStatus(saved.status).label}`
+            : `${saved.companyName} is already in this mandate`,
       );
       onClose();
     },

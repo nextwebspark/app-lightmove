@@ -30,6 +30,10 @@ import { aPipelinePage, aPipelineRow } from "../../../test/fixtures/pipelineRows
 import * as companyNotesApi from "../api/companyNotesApi";
 import { typeInto } from "../../../test/noteEditor";
 
+vi.mock("../lib/triageStages", async (importOriginal) =>
+  (await import("../../../test/shortlistAndDecline")).withShortlistAndDecline(await importOriginal()),
+);
+
 vi.mock("../../../lib/countries", () => import("../../../test/countries"));
 
 vi.mock("../../auth/api/authApi");

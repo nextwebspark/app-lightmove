@@ -1,4 +1,5 @@
 import { MCP_GUIDE_PATH } from "../../docs/lib/paths";
+import { SHORTLIST_AND_DECLINE_OFFERED } from "../../triage/lib/triageStages";
 
 const bodies = import.meta.glob<string>("../../../../../../docs/help/*.md", {
   query: "?raw",
@@ -70,7 +71,9 @@ const CATALOG: Omit<HelpArticle, "body">[] = [
   },
 ];
 
-export const HELP_ARTICLES: HelpArticle[] = CATALOG.map((article) => ({
+export const HELP_ARTICLES: HelpArticle[] = CATALOG.filter(
+  (article) => SHORTLIST_AND_DECLINE_OFFERED || article.slug !== "companies-pages",
+).map((article) => ({
   ...article,
   body: article.href ? null : (bodies[`../../../../../../docs/help/${article.slug}.md`] ?? ""),
 }));

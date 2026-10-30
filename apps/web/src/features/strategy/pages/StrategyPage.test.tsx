@@ -14,6 +14,10 @@ import { stubFullscreenApi } from "../../../test/fullscreen";
 import { NO_PEOPLE_FILTER } from "./PeopleStrategyEditor";
 import { StrategyPage } from "./StrategyPage";
 
+vi.mock("../../triage/lib/triageStages", async (importOriginal) =>
+  (await import("../../../test/shortlistAndDecline")).withShortlistAndDecline(await importOriginal()),
+);
+
 vi.mock("../../../lib/countries", () => import("../../../test/countries"));
 
 vi.mock("../api/strategyApi", async (importOriginal) => ({
