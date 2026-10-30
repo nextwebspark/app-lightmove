@@ -331,7 +331,7 @@ async function linesFromFixtures(
     (scope.executiveStatuses.length === 0 || scope.executiveStatuses.includes(candidate.status)) &&
     candidate.fullName.toLowerCase().includes(scope.executiveQuery.toLowerCase());
   const people = (mapped?.candidates ?? []).filter(matches);
-  const lines = companies.companies.flatMap((company): StageLinesPage["lines"] => {
+  const lines = companies.companies.flatMap<StageLinesPage["lines"][number]>((company) => {
     const at = people.filter((candidate) => candidate.triageCompanyId === company.id);
     return at.length === 0 ? [{ company, candidate: null }] : at.map((candidate) => ({ company, candidate }));
   });
@@ -1973,7 +1973,9 @@ describe("TriageStagePage", () => {
         addedAt: new Date().toISOString(),
         enrichedAt: null,
       };
-      vi.mocked(candidatesApi.getCandidates).mockResolvedValue(peopleOf([capture]));
+      vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+        peopleOf(scope.unmapped ? [] : [capture]),
+      );
       renderStage();
       await screen.findByText("Faisal Khan");
 

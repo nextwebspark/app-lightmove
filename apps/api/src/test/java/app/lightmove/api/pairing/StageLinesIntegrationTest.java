@@ -2,6 +2,7 @@ package app.lightmove.api.pairing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -108,6 +109,163 @@ class StageLinesIntegrationTest extends FlowTestSupport {
         }
     }
 
+    @Test
+    @DisplayName("an executive at no company of the mandate sorts among the rest, and a company-name filter leaves them out")
+    void unassignedExecutiveSortsAmongTheRest() throws Exception {
+        String admin = adminOf("Lines Unassigned Firm");
+        String projectId = project(admin);
+        seed(projectId, row("a1", "Alpha Industrial", "Kuwait"));
+        mapExecutive(admin, projectId, companyNamed(projectId, "Alpha Industrial"), "Zaid Haddad", null);
+        mvc.perform(post("/api/v1/projects/" + projectId + "/candidates")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Amal Nasser","employerName":"Outside Holdings"}"""))
+                .andExpect(status().isCreated());
+
+        JsonNode page = lines(admin, projectId, "executive", "asc");
+        assertThat(executivesOf(page)).containsExactly("Amal Nasser", "Zaid Haddad");
+        assertThat(page.at("/lines/0/company").isNull()).isTrue();
+        assertThat(page.at("/lines/0/candidate/companyName").asText()).isEqualTo("Outside Holdings");
+
+        JsonNode filtered = body(mvc.perform(get(linesUrl(projectId)).param("q", "alpha")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(executivesOf(filtered)).containsExactly("Zaid Haddad");
+    }
+
+    @Test
+    @DisplayName("the executive filters narrow lines per person, so a kept company draws only its matching colleague")
+    void executiveFiltersNarrowPerPerson() throws Exception {
+        String admin = adminOf("Lines Filter Firm");
+        String projectId = project(admin);
+        seed(projectId, row("a1", "Alpha Industrial", "Bahrain"), row("a2", "Beta Trading", "Bahrain"));
+        String alpha = companyNamed(projectId, "Alpha Industrial");
+        mapExecutive(admin, projectId, alpha, "Yasmin Saleh", null, "interested");
+        mapExecutive(admin, projectId, alpha, "Karim Aziz", null, "identified");
+
+        JsonNode byName = body(mvc.perform(get(linesUrl(projectId)).param("executiveQuery", "yasmin")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(executivesOf(byName)).containsExactly("Yasmin Saleh");
+        assertThat(byName.get("totalCount").asInt()).isEqualTo(1);
+
+        JsonNode byStatus = body(mvc.perform(get(linesUrl(projectId)).param("executiveStatuses", "identified")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(executivesOf(byStatus)).containsExactly("Karim Aziz");
+        assertThat(byStatus.at("/counts/inUniverse").asInt()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Status sorts in the pipeline's order, not by the status's name, with the empty slot last")
+    void statusSortsInPipelineOrder() throws Exception {
+        String admin = adminOf("Lines Status Firm");
+        String projectId = project(admin);
+        seed(projectId, row("a1", "Alpha Industrial", "Qatar"), row("a2", "Beta Trading", "Qatar"),
+                row("a3", "Gamma Group", "Qatar"));
+        mapExecutive(admin, projectId, companyNamed(projectId, "Alpha Industrial"), "Further Along", null, "interested");
+        mapExecutive(admin, projectId, companyNamed(projectId, "Beta Trading"), "Just Found", null, "identified");
+
+        assertThat(executivesOf(lines(admin, projectId, "executiveStatus", "asc")))
+                .containsExactly("Just Found", "Further Along", "—");
+        assertThat(executivesOf(lines(admin, projectId, "executiveStatus", "desc")))
+                .containsExactly("Further Along", "Just Found", "—");
+    }
+
+    @Test
+    @DisplayName("a mandate's own number column sorts by value, not as text, with a company holding none last")
+    void customNumberColumnSortsByValue() throws Exception {
+        String admin = adminOf("Lines Custom Firm");
+        String projectId = project(admin);
+        seed(projectId, row("a1", "Alpha Industrial", "Oman"), row("a2", "Beta Trading", "Oman"),
+                row("a3", "Gamma Group", "Oman"));
+        mvc.perform(post("/api/v1/projects/" + projectId + "/custom-columns")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"target":"company","label":"Sites","dataType":"number"}"""))
+                .andExpect(status().isCreated());
+        setSites(admin, projectId, "Alpha Industrial", "10");
+        setSites(admin, projectId, "Beta Trading", "9");
+
+        assertThat(companiesOf(lines(admin, projectId, "custom:company:sites", "asc")))
+                .containsExactly("Beta Trading", "Alpha Industrial", "Gamma Group");
+        assertThat(companiesOf(lines(admin, projectId, "custom:company:sites", "desc")))
+                .containsExactly("Alpha Industrial", "Beta Trading", "Gamma Group");
+    }
+
+    @Test
+    @DisplayName("lines page in sorted order, and the count is of lines rather than companies")
+    void pagesFollowTheOrder() throws Exception {
+        String admin = adminOf("Lines Paging Firm");
+        String projectId = project(admin);
+        seed(projectId, row("a1", "Alpha Industrial", "Kuwait"), row("a2", "Beta Trading", "Kuwait"));
+        String alpha = companyNamed(projectId, "Alpha Industrial");
+        mapExecutive(admin, projectId, alpha, "Chadi Maalouf", null);
+        mapExecutive(admin, projectId, alpha, "Amira Fawzi", null);
+
+        JsonNode second = body(mvc.perform(get(linesUrl(projectId)).param("sort", "executive").param("direction", "asc")
+                        .param("page", "1").param("size", "2")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(second.get("totalCount").asInt()).isEqualTo(3);
+        assertThat(executivesOf(second)).containsExactly("—");
+        assertThat(second.at("/lines/0/company/companyName").asText()).isEqualTo("Beta Trading");
+    }
+
+    @Test
+    @DisplayName("a page past the end reads empty, however far past, never a failure")
+    void pageFarPastTheEndReadsEmpty() throws Exception {
+        String admin = adminOf("Lines Far Page Firm");
+        String projectId = project(admin);
+        seed(projectId, row("a1", "Alpha Industrial", "Kuwait"));
+
+        JsonNode farPast = body(mvc.perform(get(linesUrl(projectId)).param("page", "100000000").param("size", "25")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(farPast.get("lines")).isEmpty();
+        assertThat(farPast.get("totalCount").asInt()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a client seat reads the lines without the firm's notes or adders, and may not sort by either")
+    void clientSeatReadsWithoutStaffFacts() throws Exception {
+        String admin = adminOf("Lines Client Firm");
+        String projectId = project(admin);
+        seed(projectId, row("a1", "Alpha Industrial", "Oman"));
+        mapExecutive(admin, projectId, companyNamed(projectId, "Alpha Industrial"), "Huda Rashid", null);
+        String client = clientOn(admin, projectId);
+
+        JsonNode page = lines(client, projectId, "executive", "asc");
+        assertThat(page.at("/lines/0/company/companyName").asText()).isEqualTo("Alpha Industrial");
+        assertThat(page.at("/lines/0/company/noteCount").isNull()).isTrue();
+        assertThat(page.at("/lines/0/company/addedByName").isNull()).isTrue();
+        assertThat(page.get("addedBy").isNull()).isTrue();
+
+        for (String staffOnly : List.of("note", "addedBy")) {
+            mvc.perform(get(linesUrl(projectId)).param("sort", staffOnly)
+                            .header("Authorization", "Bearer " + client))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Test
+    @DisplayName("a member with no seat on the position cannot read its lines")
+    void unseatedMemberRefused() throws Exception {
+        String admin = adminOf("Lines Seat Firm");
+        String projectId = project(admin);
+        inviteAndAccept(admin, "Sara Al-Mansour", "sara@" + domain, "MEMBER");
+
+        mvc.perform(get(linesUrl(projectId)).header("Authorization", "Bearer " + login("sara@" + domain)))
+                .andExpect(status().isForbidden());
+    }
+
     private JsonNode lines(String token, String projectId, String sort, String direction) throws Exception {
         return body(mvc.perform(get(linesUrl(projectId)).param("sort", sort).param("direction", direction)
                         .header("Authorization", "Bearer " + token))
@@ -130,13 +288,47 @@ class StageLinesIntegrationTest extends FlowTestSupport {
 
     private void mapExecutive(String token, String projectId, String triageCompanyId, String fullName,
                               String locationCountry) throws Exception {
+        mapExecutive(token, projectId, triageCompanyId, fullName, locationCountry, null);
+    }
+
+    private void mapExecutive(String token, String projectId, String triageCompanyId, String fullName,
+                              String locationCountry, String status) throws Exception {
         String country = locationCountry == null ? "" : ",\"locationCountry\":\"%s\"".formatted(locationCountry);
+        String pipelineStatus = status == null ? "" : ",\"status\":\"%s\"".formatted(status);
         mvc.perform(post("/api/v1/projects/" + projectId + "/candidates")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"triageCompanyId":"%s","fullName":"%s"%s}""".formatted(triageCompanyId, fullName, country)))
+                                {"triageCompanyId":"%s","fullName":"%s"%s%s}"""
+                                .formatted(triageCompanyId, fullName, country, pipelineStatus)))
                 .andExpect(status().isCreated());
+    }
+
+    private void setSites(String token, String projectId, String companyName, String sites) throws Exception {
+        mvc.perform(patch("/api/v1/projects/" + projectId + "/triage/" + companyNamed(projectId, companyName)
+                                + "/custom-fields")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customFields":{"sites":"%s"}}""".formatted(sites)))
+                .andExpect(status().isOk());
+    }
+
+    private String clientOn(String leadToken, String projectId) throws Exception {
+        String clientEmail = "client@lines-" + domain;
+        mvc.perform(post("/api/v1/projects/" + projectId + "/representatives/invitations")
+                        .header("Authorization", "Bearer " + leadToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"A Client","position":"Chair","email":"%s"}""".formatted(clientEmail)))
+                .andExpect(status().isOk());
+        return body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s","fullName":"A Client","password":"%s"}"""
+                                .formatted(email.latestTokenFor(clientEmail), PASSWORD)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("accessToken").asText();
     }
 
     private String companyNamed(String projectId, String companyName) {

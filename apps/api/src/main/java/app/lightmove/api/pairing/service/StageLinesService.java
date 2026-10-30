@@ -64,7 +64,7 @@ public class StageLinesService {
         List<StageLineResponse> lines = linesOf(paired);
         lines.sort(StageLineOrder.of(sort, factsFor(workspaceId, projectId, sort, paired, staff)));
 
-        int from = Math.min(lines.size(), page * size);
+        int from = (int) Math.min(lines.size(), (long) page * size);
         List<StageLineResponse> shown = lines.subList(from, Math.min(lines.size(), from + size));
         return new StageLinesResponse(withNoteCounts(projectId, shown, staff),
                 staff ? addersOf(workspaceId, projectId, peopleOf(shown)) : null,
