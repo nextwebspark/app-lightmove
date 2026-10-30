@@ -62,3 +62,26 @@ describe("the Added by cell", () => {
     expect(screen.getByText("Omar S.")).toBeInTheDocument();
   });
 });
+
+function renderActions(row: TriageCompanyRow) {
+  const column = createTriageCompanyColumns([], { staff: true }).find((candidate) => candidate.id === "actions");
+  const cell = column?.cell as (info: unknown) => ReactElement;
+  const meta = { canWrite: true, busyIds: new Set<string>() };
+  return render(cell({ row: { original: row }, table: { options: { meta } } }));
+}
+
+describe("the Actions cell, while Shortlisted and Declined are off", () => {
+  it("offers a company only its removal", () => {
+    renderActions({ company: { ...COMPANY, status: "inUniverse" }, candidate: null });
+
+    expect(screen.queryByRole("button", { name: /^(Shortlist|Decline)/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove ACWA Power from this mandate" })).toBeInTheDocument();
+  });
+
+  it("offers an executive's line only its removal", () => {
+    renderActions({ company: { ...COMPANY, status: "inUniverse" }, candidate: EXECUTIVE });
+
+    expect(screen.queryByRole("button", { name: /^(Shortlist|Decline)/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Layla Haddad from this mandate" })).toBeInTheDocument();
+  });
+});

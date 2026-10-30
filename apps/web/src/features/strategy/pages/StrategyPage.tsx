@@ -18,7 +18,8 @@ import { useAutosave } from "../../../lib/useAutosave";
 import { FULLSCREEN_PANEL, hiddenBesideRail, useFullscreen } from "../../../lib/useFullscreen";
 import * as triageApi from "../../triage/api/triageApi";
 import type { TriageCompanyStatus } from "../../triage/api/types";
-import { TRIAGE_STAGES, stageByStatus } from "../../triage/lib/triageStages";
+import { OFFERED_TRIAGE_STAGES, stageByStatus } from "../../triage/lib/triageStages";
+import { isStageOffered } from "../../triage/lib/triageVocabulary";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
 import type {
@@ -340,7 +341,9 @@ function StrategyEditor({ toggle }: { toggle: ModeToggle | null }) {
       toast(
         added.status === status
           ? `${company.companyName} added to ${stageByStatus(status).label}`
-          : `${company.companyName} is already in this mandate, at ${stageByStatus(added.status).label}`,
+          : isStageOffered(added.status)
+            ? `${company.companyName} is already in this mandate, at ${stageByStatus(added.status).label}`
+            : `${company.companyName} is already in this mandate`,
       );
     },
     onError: (error) => toast.error(messageFor(error)),
@@ -487,7 +490,7 @@ function StrategyEditor({ toggle }: { toggle: ModeToggle | null }) {
               plural="companies"
               onClear={clearSelection}
             >
-              {TRIAGE_STAGES.map((stage) => (
+              {OFFERED_TRIAGE_STAGES.map((stage) => (
                 <SelectionAction
                   key={stage.status}
                   icon={stage.icon}

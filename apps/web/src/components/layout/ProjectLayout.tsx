@@ -21,7 +21,7 @@ import { positionTabs } from "./mobile/mobileTabs";
 import { PositionQuickActions } from "./mobile/PositionQuickActions";
 import { type SidebarGroup } from "./Sidebar";
 import * as triageApi from "../../features/triage/api/triageApi";
-import { stageByStatus, TRIAGE_STAGES } from "../../features/triage/lib/triageStages";
+import { OFFERED_TRIAGE_STAGES, stageByStatus } from "../../features/triage/lib/triageStages";
 import {
   CHOSEN_VIEW_STATE,
   COMPANIES_VIEW_LABELS,
@@ -163,7 +163,7 @@ export function ProjectLayout() {
       label: "Market mapping",
       // The three triage stages, each its own page: a consultant works one at a time and sends a
       // colleague the shortlist, not "the Companies screen, then the second tab".
-      items: TRIAGE_STAGES.map((stage) => ({
+      items: OFFERED_TRIAGE_STAGES.map((stage) => ({
         to: `${base}/companies/${stage.slug}`,
         label: stage.label,
         icon: stage.icon,

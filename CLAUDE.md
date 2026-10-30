@@ -21,7 +21,9 @@ has ended), the projects/clients
 screens, a project's Team & access tab, the client registry with representative invites and their
 scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
 searches saved against it, and the three Companies pages (In universe / Shortlisted / Declined) where a
-mandate triages what it took from it. A company reaches those pages four ways — out of the market
+mandate triages what it took from it — **Shortlisted and Declined are switched off on screen for now**
+(`SHORTLIST_AND_DECLINE_OFFERED` in `triageStages.ts`: the web app offers In universe alone and redirects the other
+two; the API, the stored rows and the extension keep all three). A company reaches those pages four ways — out of the market
 (Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
 /triage` with an id the server resolves), typed in by hand, captured by the browser plugin
 (`POST /triage/capture`), or **imported from a spreadsheet**. Strategy's rows also carry a tick box:

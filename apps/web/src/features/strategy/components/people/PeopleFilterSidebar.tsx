@@ -313,7 +313,7 @@ export function PeopleFilterSidebar({
               ariaLabel="Excluded companies"
               maxItems={50}
             />
-            <Hint>This mandate&rsquo;s declined companies are always left out.</Hint>
+            <Hint>Companies this mandate already ruled out are always left out.</Hint>
             <Label>Company size</Label>
             <CheckRows
               options={facets?.companySizes}

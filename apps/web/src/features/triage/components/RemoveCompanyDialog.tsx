@@ -1,5 +1,6 @@
 import { Button, Modal } from "../../../components/ui";
 import type { TriageCompany } from "../api/types";
+import { SHORTLIST_AND_DECLINE_OFFERED } from "../lib/triageStages";
 
 /**
  * Confirms removing a company from the mandate.
@@ -49,8 +50,8 @@ export function RemoveCompanyDialog({
         for every other mandate.
       </p>
       <p className="mt-2.5 text-[13px]/[1.6] text-u-text3">
-        Removing is not remembered, so a later bulk add from Strategy could bring it back. To rule it
-        out for good, decline it instead.
+        Removing is not remembered, so a later bulk add from Strategy could bring it back.
+        {SHORTLIST_AND_DECLINE_OFFERED && " To rule it out for good, decline it instead."}
       </p>
 
       <div className="mt-5 flex justify-end gap-2">

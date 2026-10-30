@@ -552,8 +552,8 @@ try {
 
   // ---------------------------------------------------------------- S9 triage hand-off
   section("S9  what the mandate takes from the market");
-  // A row carries a tick box, not a +: a selection raises a floating bar whose three buttons file every
-  // ticked company at one stage in one request (POST /triage/bulk).
+  // A row carries a tick box, not a +: a selection raises a floating bar that files every ticked company in one
+  // request (POST /triage/bulk). Shortlisted and Declined are switched off on screen, so it offers In universe alone.
   const tick = (name) => page.getByRole("checkbox", { name: `Select ${name}`, exact: true }).click();
   const filedAt = (status) => num(`SELECT count(*) FROM app_lm_project_triage_company WHERE project_id = '${PROJECT}' AND status = '${status}'`);
   await step("S9.1", "ticked rows are filed at the stage the bar names", async () => {
@@ -573,13 +573,12 @@ try {
     const next = await columnValues("COMPANY");
     check("S9.1e", "a filed company no longer appears in the market", false, next.includes(names[0]) || next.includes(names[1]));
     await tick(next[0]);
-    await page.getByRole("button", { name: /^Shortlisted/ }).last().click();
+    check("S9.1f", "the bar offers no Shortlisted or Declined", 0,
+      await page.getByRole("button", { name: /^(Shortlisted|Declined)$/ }).count());
+    await page.getByRole("button", { name: /^In universe/ }).last().click();
     await page.waitForTimeout(2000);
-    check("S9.1f", "the bar files a shortlist in one step", 1, filedAt("SHORTLISTED"));
-    await tick(next[1]);
-    await page.getByRole("button", { name: /^Declined/ }).last().click();
-    await page.waitForTimeout(2000);
-    check("S9.1g", "and declines without taking the company into the universe first", 1, filedAt("DECLINED"));
+    check("S9.1g", "and nothing is filed anywhere but in universe", "3/0",
+      `${filedAt("IN_UNIVERSE")}/${filedAt("SHORTLISTED") + filedAt("DECLINED")}`);
     await shot("bulk-filed");
   });
   await step("S9.2", "'Add all' over the whole universe is refused, out loud", async () => {
