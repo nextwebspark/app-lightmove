@@ -3,6 +3,7 @@ package app.lightmove.api.workspace.repository;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -56,6 +57,15 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
                                     @Param("clientRole") String clientRole);
 
     long countByWorkspaceIdAndStatus(UUID workspaceId, MemberStatus status);
+
+    /** Which of these people are also active somewhere else: a two-factor reset here would reach that workspace too. */
+    @Query("""
+            select distinct m.userId from WorkspaceMember m
+            where m.userId in :userIds and m.workspaceId <> :workspaceId and m.status = :status
+            """)
+    List<UUID> findUserIdsActiveElsewhere(@Param("userIds") Collection<UUID> userIds,
+                                          @Param("workspaceId") UUID workspaceId,
+                                          @Param("status") MemberStatus status);
 
     @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByIdAndWorkspaceId(UUID id, UUID workspaceId);

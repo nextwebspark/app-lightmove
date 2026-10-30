@@ -34,6 +34,7 @@ describe("SettingsProfilePage — your own profile", () => {
     timezone: "Asia/Dubai",
     locale: "en",
     platformActions: [],
+    twoFactorEnrolmentRequired: false,
     pendingInvitations: [],
   workspaces: [],
     workspace: {

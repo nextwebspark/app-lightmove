@@ -1,3 +1,4 @@
+import type { WorkspaceRole } from "../../auth/api/types";
 import type { OAuthClientKind } from "../../oauth/api/types";
 
 /** Settings → Integrations' contract, hand-mirrored from the API like the other modules'. */
@@ -113,4 +114,25 @@ export interface OAuthGrant {
   connectedAt: string;
   lastUsedAt: string | null;
   expiresAt: string | null;
+}
+
+/** One member's two-factor standing, as an admin of the workspace sees it. */
+export interface MemberTwoFactor {
+  memberId: string;
+  userId: string;
+  fullName: string;
+  email: string;
+  avatarUrl: string | null;
+  roles: WorkspaceRole[];
+  enabled: boolean;
+  enabledAt: string | null;
+  /** Never the admin's own, nor a member also in another workspace: the factor is the person's, everywhere. */
+  resettable: boolean;
+}
+
+/** Settings → Security's admin card. `offered` false: the deployment offers no two-factor, so nothing is enforced. */
+export interface WorkspaceTwoFactor {
+  offered: boolean;
+  required: boolean;
+  members: MemberTwoFactor[];
 }

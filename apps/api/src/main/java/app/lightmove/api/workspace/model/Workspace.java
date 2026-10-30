@@ -59,6 +59,10 @@ public class Workspace extends BaseEntity {
     @Column(name = "calendar_sync", nullable = false, length = 16)
     private CalendarSync calendarSync = CalendarSync.RECALL;
 
+    /** Every member must hold a two-factor factor to read this workspace (V163). */
+    @Column(name = "require_mfa", nullable = false)
+    private boolean requireMfa;
+
     /** The universe row this firm was picked as at signup; null for a firm typed in by hand (V68). */
     @Column(name = "apollo_account_id")
     private String apolloAccountId;
@@ -133,6 +137,11 @@ public class Workspace extends BaseEntity {
     /** The one write of the calendar sync, so every switch passes the audited path that calls it. */
     public void changeCalendarSync(CalendarSync calendarSync) {
         this.calendarSync = Objects.requireNonNull(calendarSync, "calendarSync");
+    }
+
+    /** The one write of the two-factor requirement, so every switch passes the audited path that calls it. */
+    public void changeRequireMfa(boolean requireMfa) {
+        this.requireMfa = requireMfa;
     }
 
     public void describePersona(HiringPersona persona) {

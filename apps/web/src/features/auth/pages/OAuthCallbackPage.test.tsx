@@ -40,6 +40,7 @@ describe("OAuthCallbackPage", () => {
     timezone: "Asia/Dubai",
     locale: "en",
     platformActions: [],
+    twoFactorEnrolmentRequired: false,
     pendingInvitations: [],
   workspaces: [],
     workspace: null,
@@ -103,6 +104,18 @@ describe("OAuthCallbackPage", () => {
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith("/login?error=EMAIL_NOT_VERIFIED", { replace: true }),
     );
+    expect(authApi.me).not.toHaveBeenCalled();
+  });
+
+  it("sends a provider sign-in that still owes a two-factor code on to the code step, adopting nothing", async () => {
+    window.history.replaceState(null, "", "/auth/callback?challenge=two-factor");
+
+    renderPage();
+
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith("/login/two-factor", { replace: true, state: undefined }),
+    );
+    expect(setAccessToken).not.toHaveBeenCalled();
     expect(authApi.me).not.toHaveBeenCalled();
   });
 
@@ -185,6 +198,26 @@ describe("OAuthCallbackPage", () => {
           expect.objectContaining({
             outcome: { status: "error", code: "OAUTH_CANCELLED" },
           }),
+          window.location.origin,
+        ),
+      );
+      expect(navigate).not.toHaveBeenCalled();
+
+      vi.unstubAllGlobals();
+    });
+
+    it("reports a sign-in that still owes a two-factor code as its own outcome", async () => {
+      openAsPopup();
+      window.history.replaceState(null, "", "/auth/callback?challenge=two-factor");
+      const postMessage = vi.fn();
+      vi.stubGlobal("opener", { postMessage });
+      vi.spyOn(window, "close").mockImplementation(() => {});
+
+      renderPage();
+
+      await waitFor(() =>
+        expect(postMessage).toHaveBeenCalledWith(
+          expect.objectContaining({ outcome: { status: "secondFactor" } }),
           window.location.origin,
         ),
       );

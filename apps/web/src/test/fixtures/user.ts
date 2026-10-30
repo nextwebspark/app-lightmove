@@ -33,6 +33,7 @@ export function aUser(overrides: Partial<User> = {}): User {
     timezone: "Asia/Dubai",
     locale: "en",
     platformActions: [],
+    twoFactorEnrolmentRequired: false,
     pendingInvitations: [],
     workspaces: workspace ? [workspace] : [],
     ...overrides,

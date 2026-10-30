@@ -1,6 +1,7 @@
 package app.lightmove.api.core.security.oauth;
 
 import app.lightmove.api.core.config.McpSettings;
+import app.lightmove.api.core.security.mfa.MfaPolicy;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import java.util.Map;
@@ -32,7 +33,8 @@ import org.springframework.util.StringUtils;
  *   <li>{@code resource} (RFC 8707) naming the MCP endpoint and nothing else — it becomes the token's audience;</li>
  *   <li>a PKCE challenge, S256 only;</li>
  *   <li>once someone is signed in, a {@code workspace_id} where they are staff ({@code API_KEY_MANAGE}, the same door
- *       an API key needs) — a pure client representative connects no AI app.</li>
+ *       an API key needs) — a pure client representative connects no AI app — and which requires no factor they
+ *       have not set up.</li>
  * </ul>
  */
 public class McpAuthorizationRules {
@@ -44,12 +46,14 @@ public class McpAuthorizationRules {
     private final McpServerIdentity identity;
     private final WorkspaceAccess access;
     private final OAuth2AuthorizationService authorizations;
+    private final MfaPolicy mfaPolicy;
 
     public McpAuthorizationRules(McpServerIdentity identity, WorkspaceAccess access,
-                                 OAuth2AuthorizationService authorizations) {
+                                 OAuth2AuthorizationService authorizations, MfaPolicy mfaPolicy) {
         this.identity = identity;
         this.access = access;
         this.authorizations = authorizations;
+        this.mfaPolicy = mfaPolicy;
     }
 
     /** The authorize request's whole check: the redirect, the framework's own scope check, then ours. */
@@ -130,7 +134,8 @@ public class McpAuthorizationRules {
     private boolean isEligible(String principalName, Optional<UUID> workspaceId) {
         Optional<UUID> userId = HashingAuthorizationService.parseUuid(principalName);
         return userId.isPresent() && workspaceId.isPresent()
-                && access.holdsAction(userId.get(), workspaceId.get(), WorkspaceAction.API_KEY_MANAGE);
+                && access.holdsAction(userId.get(), workspaceId.get(), WorkspaceAction.API_KEY_MANAGE)
+                && !mfaPolicy.owesEnrolment(userId.get(), workspaceId.get());
     }
 
     private static boolean isSignedIn(Authentication principal) {

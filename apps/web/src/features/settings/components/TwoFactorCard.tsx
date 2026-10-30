@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense, useState } from "react";
-import { Link } from "react-router-dom";
 import { Toggle, useToast } from "../../../components/ui";
 import { formatInstantDate } from "../../../lib/format";
 import * as authApi from "../../auth/api/authApi";
+import type { MfaChangeRequest } from "../../auth/api/types";
 import { RecoveryCodesModal } from "./RecoveryCodesModal";
 import { TwoFactorChangeModal } from "./TwoFactorChangeModal";
 
@@ -42,7 +42,7 @@ export function TwoFactorCard({
     toast("Two-factor authentication is on");
   };
 
-  const handleDisable = async (values: { currentPassword: string; code: string }) => {
+  const handleDisable = async (values: MfaChangeRequest) => {
     await authApi.disableMfa(values);
     setOpenDialog(null);
     void refreshStatus();
@@ -50,7 +50,7 @@ export function TwoFactorCard({
     toast("Two-factor authentication is off");
   };
 
-  const handleRegenerate = async (values: { currentPassword: string; code: string }) => {
+  const handleRegenerate = async (values: MfaChangeRequest) => {
     const { recoveryCodes } = await authApi.regenerateRecoveryCodes(values);
     setOpenDialog(null);
     setRevealedCodes(recoveryCodes);
@@ -58,7 +58,10 @@ export function TwoFactorCard({
   };
 
   const enabled = status.data?.enabled ?? false;
-  const canTurnOn = !!status.data?.offered && hasPassword;
+  const canTurnOn = !!status.data?.offered;
+  const requiredBy = status.data?.requiredBy ?? [];
+  // Turning it off while a workspace requires it would only send them straight back to set it up.
+  const lockedOn = enabled && !!status.data?.offered && requiredBy.length > 0;
 
   return (
     <div className="rounded-[10px] border border-u-border bg-u-raised p-5">
@@ -75,7 +78,7 @@ export function TwoFactorCard({
         )}
         <Toggle
           checked={enabled}
-          disabled={!status.isSuccess || (!enabled && !canTurnOn)}
+          disabled={!status.isSuccess || (!enabled && !canTurnOn) || lockedOn}
           label="Two-factor authentication"
           onChange={() => setOpenDialog(enabled ? "disable" : "enable")}
         />
@@ -85,11 +88,8 @@ export function TwoFactorCard({
         <p className="mt-3 font-mono text-meta text-u-text3">Couldn't load your two-factor settings.</p>
       )}
 
-      {status.isSuccess && !enabled && status.data.offered && !hasPassword && (
-        <p className="mt-3 font-mono text-meta text-u-text3">
-          You sign in with a connected provider. To turn this on,{" "}
-          <Link to="/forgot-password">send yourself a set-password link</Link> first.
-        </p>
+      {lockedOn && (
+        <p className="mt-3 font-mono text-meta text-u-text3">Required by {requiredBy.join(", ")}.</p>
       )}
 
       {status.isSuccess && enabled && (
@@ -112,7 +112,11 @@ export function TwoFactorCard({
 
       {openDialog === "enable" && (
         <Suspense fallback={null}>
-          <EnableTwoFactorModal onEnabled={handleEnabled} onClose={() => setOpenDialog(null)} />
+          <EnableTwoFactorModal
+            hasPassword={hasPassword}
+            onEnabled={handleEnabled}
+            onClose={() => setOpenDialog(null)}
+          />
         </Suspense>
       )}
 
@@ -122,6 +126,7 @@ export function TwoFactorCard({
           intro="Signing in will ask for your password alone, and every other device will be signed out."
           confirmLabel="Turn off"
           tone="danger"
+          hasPassword={hasPassword}
           onConfirm={handleDisable}
           onClose={() => setOpenDialog(null)}
         />
@@ -132,6 +137,7 @@ export function TwoFactorCard({
           title="Get new recovery codes"
           intro="Your current recovery codes will stop working, including any you have left."
           confirmLabel="Get new codes"
+          hasPassword={hasPassword}
           onConfirm={handleRegenerate}
           onClose={() => setOpenDialog(null)}
         />

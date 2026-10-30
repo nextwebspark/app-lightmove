@@ -79,6 +79,7 @@ describe("AcceptInvitePage", () => {
         timezone: "Asia/Dubai",
         locale: "en",
         platformActions: [],
+        twoFactorEnrolmentRequired: false,
         pendingInvitations: [],
   workspaces: [],
         workspace: {
@@ -163,6 +164,7 @@ describe("AcceptInvitePage", () => {
       timezone: "Asia/Dubai",
       locale: "en",
       platformActions: [],
+      twoFactorEnrolmentRequired: false,
       pendingInvitations: [],
   workspaces: [],
       workspace: null,
@@ -219,6 +221,7 @@ describe("AcceptInvitePage", () => {
       timezone: "Asia/Dubai",
       locale: "en",
       platformActions: [],
+      twoFactorEnrolmentRequired: false,
       pendingInvitations: [
         { id: "inv-1", workspaceName: "NextWebSpark Search", role: "MEMBER" as const, inviterName: "Alok Kumar" },
       ],

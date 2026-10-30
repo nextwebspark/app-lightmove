@@ -6,6 +6,7 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.apikey.ApiKeyService;
+import app.lightmove.api.core.security.mfa.MfaPolicy;
 import app.lightmove.api.core.security.oauth.OAuthGrantService;
 import app.lightmove.api.workspace.constant.CalendarSync;
 import app.lightmove.api.workspace.constant.InvitationStatus;
@@ -41,6 +42,7 @@ public class WorkspaceSettingsService {
     private final ApplicationEventPublisher events;
     private final ApiKeyService apiKeys;
     private final OAuthGrantService oauthGrants;
+    private final MfaPolicy mfaPolicy;
 
     @Transactional(readOnly = true)
     public WorkspaceDetail get(UUID workspaceId) {
@@ -112,6 +114,34 @@ public class WorkspaceSettingsService {
                     .record();
             events.publishEvent(new CalendarSyncChanged(workspaceId, calendarSync));
         }
+        return detail(workspace);
+    }
+
+    /**
+     * Requiring a factor of every member. Turning it on asks that the feature be offered — it is enforced nowhere
+     * otherwise — and that the admin already hold one, or their own next request would send them to set one up.
+     */
+    @Transactional
+    public WorkspaceDetail changeRequireMfa(UUID actorId, UUID workspaceId, boolean required,
+                                            HttpServletRequest request) {
+        Workspace workspace = requireWorkspace(workspaceId);
+        boolean previous = workspace.isRequireMfa();
+        if (previous == required) {
+            return detail(workspace);
+        }
+        if (required && !mfaPolicy.isOffered()) {
+            throw ApiException.of(ErrorCode.MFA_UNAVAILABLE);
+        }
+        if (required && !mfaPolicy.hasFactor(actorId)) {
+            throw ApiException.of(ErrorCode.MFA_ENABLE_YOURS_FIRST);
+        }
+        workspace.changeRequireMfa(required);
+        audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
+                .actor(actorId).workspace(workspaceId).from(request)
+                .detail("section", "requireMfa")
+                .detail("from", String.valueOf(previous))
+                .detail("to", String.valueOf(required))
+                .record();
         return detail(workspace);
     }
 

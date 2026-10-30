@@ -7,6 +7,7 @@ import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import { messageForOAuthError } from "../oauthErrors";
 import { startOAuthSignIn } from "../oauthPopup";
+import { TWO_FACTOR_SIGN_IN_PATH } from "../pages/TwoFactorChallengePage";
 import { landingAfterSignIn, takeReturnTo } from "../returnTo";
 
 /**
@@ -81,6 +82,11 @@ export function OAuthButtons({ onError }: OAuthButtonsProps) {
             const returnTo = takeReturnTo();
             navigate(landingAfterSignIn(user, returnTo), { replace: true });
           })();
+        },
+        onSecondFactor: () => {
+          // No session yet: the challenge cookie waits for the code, as after a password.
+          const returnTo = takeReturnTo();
+          navigate(TWO_FACTOR_SIGN_IN_PATH, { state: returnTo ? { from: returnTo } : undefined });
         },
         onError: (code) => {
           setPendingProviderId(null);

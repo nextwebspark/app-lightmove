@@ -58,6 +58,7 @@ describe("ProjectsPage — pure client", () => {
     timezone: "Asia/Dubai",
     locale: "en",
     platformActions: [],
+    twoFactorEnrolmentRequired: false,
     pendingInvitations: [],
   workspaces: [],
     workspace: {
@@ -180,6 +181,7 @@ describe("ProjectsPage — staff, an empty workspace and My tasks", () => {
     timezone: "Asia/Dubai",
     locale: "en",
     platformActions: [],
+    twoFactorEnrolmentRequired: false,
     pendingInvitations: [],
     workspaces: [],
     workspace: {
@@ -277,6 +279,7 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
     timezone: "Asia/Dubai",
     locale: "en",
     platformActions: [],
+    twoFactorEnrolmentRequired: false,
     pendingInvitations: [],
     workspaces: [],
     workspace: {

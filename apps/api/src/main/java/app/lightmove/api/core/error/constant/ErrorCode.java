@@ -67,6 +67,23 @@ public enum ErrorCode {
     /** Not offered: switched off, or nowhere to keep the secret encrypted. */
     MFA_UNAVAILABLE(HttpStatus.CONFLICT, "Two-factor authentication is not available yet"),
 
+    /** The session's workspace requires a factor this person has not set up: only enrolment is open to them. */
+    MFA_ENROLMENT_REQUIRED(HttpStatus.FORBIDDEN, "This workspace requires two-factor authentication. Set it up to continue"),
+
+    /** Requiring it of everyone without holding it would send the admin straight to enrolment. */
+    MFA_ENABLE_YOURS_FIRST(HttpStatus.CONFLICT, "Turn on two-factor authentication for your own account first"),
+
+    MFA_RESET_SELF(HttpStatus.CONFLICT, "To turn off your own two-factor authentication, use the switch above"),
+
+    /** The factor is the person's: a reset here would weaken their sign-in to every other workspace too. */
+    MFA_RESET_OTHER_WORKSPACES(HttpStatus.CONFLICT,
+            "This person is also in another workspace, so their two-factor authentication can't be reset here"),
+
+    /** A person with no password proves it is them by having signed in moments ago. */
+    MFA_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign out and back in, then turn on two-factor authentication within 10 minutes"),
+
+    MFA_REQUIRED_BY_WORKSPACE(HttpStatus.CONFLICT, "A workspace you belong to requires two-factor authentication"),
+
     /** Also served for a session belonging to somebody else — a 403 would confirm the id names a real one. */
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "That session is no longer active"),
 

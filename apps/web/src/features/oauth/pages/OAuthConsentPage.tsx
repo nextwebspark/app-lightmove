@@ -7,7 +7,7 @@ import { cn } from "../../../lib/cn";
 import { initials } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
 import type { User } from "../../auth/api/types";
-import { homeFor } from "../../auth/homeFor";
+import { homeFor, TWO_FACTOR_SETUP_PATH } from "../../auth/homeFor";
 import type { ApiKeyScope } from "../../settings/api/types";
 import { answerConsent, getConsentContext, storeAuthorizationRequest } from "../api/oauthConsentApi";
 import type { ConsentContext, ConsentWorkspace } from "../api/types";
@@ -66,6 +66,10 @@ export function OAuthConsentPage() {
   }
   if (!user.workspace) {
     return <Navigate to={homeFor(user)} replace />;
+  }
+  // The workspace requires two-factor authentication of them: set up first, then back here with the request.
+  if (user.twoFactorEnrolmentRequired) {
+    return <Navigate to={TWO_FACTOR_SETUP_PATH} replace state={{ from: location.pathname + location.search }} />;
   }
 
   return <ConsentForm clientRequest={clientRequest} user={user} />;

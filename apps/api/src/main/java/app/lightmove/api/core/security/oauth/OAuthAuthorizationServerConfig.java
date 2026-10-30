@@ -5,6 +5,7 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.ratelimit.service.RateLimiter;
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
+import app.lightmove.api.core.security.mfa.MfaPolicy;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.service.ClientIpResolver;
 import com.nimbusds.jose.jwk.source.JWKSource;
@@ -102,13 +103,14 @@ public class OAuthAuthorizationServerConfig {
                                                  AuthorizationServerSettings settings,
                                                  JwtDecoder sessionDecoder,
                                                  WorkspaceAccess access,
+                                                 MfaPolicy mfaPolicy,
                                                  JsonMapper json,
                                                  AuditService audit,
                                                  RateLimiter limiter,
                                                  ClientIpResolver clientIps,
                                                  LightMoveProperties properties,
                                                  Clock clock) throws Exception {
-        McpAuthorizationRules rules = new McpAuthorizationRules(identity, access, authorizations);
+        McpAuthorizationRules rules = new McpAuthorizationRules(identity, access, authorizations, mfaPolicy);
         AuthorizationEndpointReplies replies = new AuthorizationEndpointReplies(identity, json);
 
         JwtGenerator accessTokens = new JwtGenerator(new NimbusJwtEncoder(mcpJwkSource));

@@ -5,6 +5,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.PendingInvitationSummary;
 import app.lightmove.api.core.security.dto.UserResponse;
+import app.lightmove.api.core.security.mfa.MfaPolicy;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.PlatformAccess;
 import app.lightmove.api.core.security.rbac.Role;
@@ -46,6 +47,7 @@ public class AuthResponseAssembler {
     private final UserRepository users;
     private final WorkspaceSelection selection;
     private final PlatformAccess platform;
+    private final MfaPolicy mfaPolicy;
 
     public AuthResponse assemble(TokenPair tokens, User user, WorkspaceMember membership) {
         return new AuthResponse(
@@ -69,6 +71,8 @@ public class AuthResponseAssembler {
                 user.getTimezone(),
                 user.getLocale(),
                 currentSummary(membership, byId),
+                membership != null && membership.isActive()
+                        && mfaPolicy.owesEnrolment(user.getId(), membership.getWorkspaceId()),
                 memberships.stream()
                         .filter(member -> byId.containsKey(member.getWorkspaceId()))
                         .map(member -> toSummary(byId.get(member.getWorkspaceId()), member))

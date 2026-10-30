@@ -260,13 +260,15 @@ lightmove:
     lockout:
       max-failed-attempts: 5
       duration: 15m
-    # Two-factor authentication (#1081). Off until every sign-in door asks for the code (#1082): a factor the
-    # Google button walks past is worse than none. Offered only where lightmove.crypto.keyset is set as well,
-    # since the secret is kept encrypted. A person who already has it is asked for the code whatever this says.
+    # Two-factor authentication (#1081, #1082). Every sign-in door asks for the code, the OAuth callback included;
+    # off in deployments until its rollout. Offered only where lightmove.crypto.keyset is set as well, since the
+    # secret is kept encrypted. A person who already has it is asked for the code whatever this says, and no
+    # workspace's requirement is enforced while it is off.
     mfa:
       enabled: ${MFA_ENABLED:false}
       challenge-ttl: 5m
       challenge-cookie-name: lm_mfa_challenge
+      recent-sign-in: 10m
     rate-limit:
       # Right for production; useless for anyone testing, who will create half a dozen accounts in a row
       # and be locked out by their own fourth attempt. application-local.yml already raises these for

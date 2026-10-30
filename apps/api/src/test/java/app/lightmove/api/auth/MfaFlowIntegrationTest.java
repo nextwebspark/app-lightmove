@@ -331,16 +331,60 @@ class MfaFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("an account with no password of its own is told to set one before turning it on")
-    void providerOnlyAccountIsRefusedSetup() throws Exception {
+    @DisplayName("an account with no password turns it on with a code alone, moments after signing in")
+    void providerOnlyAccountEnrolsRightAfterSigningIn() throws Exception {
         String sara = "sara@" + domain;
-        String token = verifiedUser("Sara G", sara);
+        verifiedUser("Sara G", sara);
+        MvcResult session = loginRaw(sara, PASSWORD);
+        String token = body(session).get("accessToken").asText();
+        Cookie refresh = session.getResponse().getCookie("lm_refresh");
         jdbc.update("UPDATE app_lm_user SET password_hash = NULL WHERE email = ?", sara);
 
-        MvcResult refused = mvc.perform(post("/api/v1/auth/mfa/setup")
-                        .header("Authorization", "Bearer " + token).with(csrf()))
-                .andReturn();
-        assertThat(codeOf(refused)).isEqualTo("PASSWORD_NOT_SET");
+        String secret = body(postAs(token, refresh, "/api/v1/auth/mfa/setup", null)).get("secret").asText();
+        MvcResult enabled = postAs(token, refresh, "/api/v1/auth/mfa/enable",
+                Map.of("code", TestTotp.codeAt(secret, Instant.now())));
+
+        assertThat(enabled.getResponse().getStatus()).as(enabled.getResponse().getContentAsString()).isEqualTo(200);
+        assertThat(body(enabled).get("recoveryCodes")).hasSize(10);
+    }
+
+    @Test
+    @DisplayName("an account with no password is asked to sign in again once its sign-in is ten minutes old")
+    void providerOnlyAccountWithAnOldSignInIsAskedToSignInAgain() throws Exception {
+        String sara = "sara@" + domain;
+        verifiedUser("Sara G", sara);
+        MvcResult session = loginRaw(sara, PASSWORD);
+        String token = body(session).get("accessToken").asText();
+        Cookie refresh = session.getResponse().getCookie("lm_refresh");
+        jdbc.update("UPDATE app_lm_user SET password_hash = NULL WHERE email = ?", sara);
+        jdbc.update("""
+                UPDATE app_lm_refresh_token SET created_at = now() - interval '11 minutes'
+                WHERE user_id = (SELECT id FROM app_lm_user WHERE email = ?)
+                """, sara);
+
+        String secret = body(postAs(token, refresh, "/api/v1/auth/mfa/setup", null)).get("secret").asText();
+        MvcResult refused = postAs(token, refresh, "/api/v1/auth/mfa/enable",
+                Map.of("code", TestTotp.codeAt(secret, Instant.now())));
+
+        assertThat(codeOf(refused)).isEqualTo("MFA_SIGN_IN_AGAIN");
+        assertThat(status(token).get("enabled").asBoolean()).isFalse();
+    }
+
+    @Test
+    @DisplayName("an account with a password is still asked for it, on its own field")
+    void anAccountWithAPasswordMustGiveIt() throws Exception {
+        String sara = "sara@" + domain;
+        verifiedUser("Sara G", sara);
+        MvcResult session = loginRaw(sara, PASSWORD);
+        String token = body(session).get("accessToken").asText();
+        Cookie refresh = session.getResponse().getCookie("lm_refresh");
+
+        String secret = body(postAs(token, refresh, "/api/v1/auth/mfa/setup", null)).get("secret").asText();
+        MvcResult refused = postAs(token, refresh, "/api/v1/auth/mfa/enable",
+                Map.of("code", TestTotp.codeAt(secret, Instant.now())));
+
+        assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
+        assertThat(body(refused).at("/fieldErrors/currentPassword").isMissingNode()).isFalse();
     }
 
     // Helpers

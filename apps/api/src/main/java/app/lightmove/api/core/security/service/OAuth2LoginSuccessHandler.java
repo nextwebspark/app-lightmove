@@ -6,14 +6,16 @@ import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.constant.PrivacyPolicy;
+import app.lightmove.api.core.security.mfa.MfaChallengeCookieFactory;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
+import app.lightmove.api.core.security.model.MfaChallengeIssued;
+import app.lightmove.api.core.security.model.SignInOutcome;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.model.UserIdentity;
 import app.lightmove.api.core.security.repository.UserIdentityRepository;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
 import app.lightmove.api.core.security.token.TokenPair;
-import app.lightmove.api.core.security.token.TokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -33,8 +35,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
- * After an identity provider says who you are: the provider authenticates, but we mint our own tokens.
- * Nothing here names a provider — every claim read is standard OIDC — so a provider stays a yml block.
+ * After an identity provider says who you are: the provider authenticates, but we mint our own tokens — or, for a
+ * person with a second factor, a challenge for the code, as a right password earns. Nothing here names a provider —
+ * every claim read is standard OIDC — so a provider stays a yml block.
  */
 @Component
 @RequiredArgsConstructor
@@ -43,11 +46,15 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     private static final int MAX_AVATAR_URL_LENGTH = 2048;
 
+    /** The SPA's callback page reads this to send the sign-in on to the code step. */
+    static final String SECOND_FACTOR_PARAM = "challenge";
+    static final String SECOND_FACTOR_VALUE = "two-factor";
+
     private final UserRepository users;
     private final UserIdentityRepository identities;
-    private final WorkspaceSelection selection;
-    private final TokenService tokens;
+    private final SignInCompletion signIn;
     private final RefreshCookieFactory refreshCookie;
+    private final MfaChallengeCookieFactory mfaChallengeCookie;
     private final EmailAddressValidator emailValidator;
     private final AuditService audit;
     private final LightMoveProperties properties;
@@ -72,9 +79,19 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         String provider = oauthToken.getAuthorizedClientRegistrationId().toUpperCase(Locale.ROOT);
 
         try {
-            AuthenticatedSession session = transactions
-                    .execute(status -> establishSession(provider, oidcUser, request));
-            TokenPair pair = session.tokens();
+            SignInOutcome outcome = transactions.execute(status -> establishSession(provider, oidcUser, request));
+            if (outcome instanceof MfaChallengeIssued challenge) {
+                // No session yet: the challenge cookie waits for the code, which the opener sends, so nothing
+                // crosses between the popup and the app but the outcome.
+                response.addHeader(HttpHeaders.SET_COOKIE, mfaChallengeCookie.create(challenge).toString());
+                response.sendRedirect(UriComponentsBuilder
+                        .fromUriString(properties.web().baseUrl() + properties.web().oauthSuccessPath())
+                        .queryParam(SECOND_FACTOR_PARAM, SECOND_FACTOR_VALUE)
+                        .build()
+                        .toUriString());
+                return;
+            }
+            TokenPair pair = ((AuthenticatedSession) outcome).tokens();
 
             response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.create(pair.refreshToken()).toString());
 
@@ -98,11 +115,12 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     }
 
     /**
-     * Finds or creates the local user and issues our tokens. Matched on the provider's subject first:
-     * matching on email alone would attach the account to whoever now holds a recycled address.
+     * Finds or creates the local user and issues our tokens, or a challenge where the person holds a factor.
+     * Matched on the provider's subject first: matching on email alone would attach the account to whoever now
+     * holds a recycled address.
      */
     // No @Transactional: a self-call bypasses the proxy; the TransactionTemplate owns the transaction.
-    AuthenticatedSession establishSession(String provider, OidcUser oidcUser, HttpServletRequest request) {
+    SignInOutcome establishSession(String provider, OidcUser oidcUser, HttpServletRequest request) {
         // A registration id colliding with 'LOCAL' would let a federated identity masquerade as a password one.
         if (UserIdentity.LOCAL_PROVIDER.equals(provider)) {
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS,
@@ -131,11 +149,14 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         refreshProfile(provider, user, oidcUser, email);
 
-        user.recordSuccessfulLogin(Instant.now());
-        audit.event(AuthEventType.OAUTH_LOGIN_SUCCEEDED).actor(user.getId()).from(request)
-                .detail("provider", provider).record();
-
-        return tokens.issue(user, selection.signIn(user), request);
+        // A challenge leaves the failed-attempt count as it is: only the right code clears it, as after a password.
+        SignInOutcome outcome = signIn.complete(user, request);
+        if (outcome instanceof AuthenticatedSession) {
+            user.recordSuccessfulLogin(Instant.now());
+            audit.event(AuthEventType.OAUTH_LOGIN_SUCCEEDED).actor(user.getId()).from(request)
+                    .detail("provider", provider).record();
+        }
+        return outcome;
     }
 
     private User linkOrRegister(String provider, String email, String subject, OidcUser oidcUser,

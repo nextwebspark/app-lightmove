@@ -22,7 +22,7 @@ vi.mock("../../../lib/apiClient", async (importOriginal) => ({
 
 const { restoreSession } = await import("../../../lib/apiClient");
 
-const TWO_FACTOR_OFF: MfaStatus = { offered: true, enabled: false, enabledAt: null, recoveryCodesLeft: 0 };
+const TWO_FACTOR_OFF: MfaStatus = { offered: true, enabled: false, enabledAt: null, recoveryCodesLeft: 0, requiredBy: [] };
 
 const HOUR_AGO = new Date(Date.now() - 3_600_000).toISOString();
 const NOW = new Date().toISOString();
@@ -40,6 +40,7 @@ describe("SettingsSecurityPage", () => {
     timezone: "Asia/Dubai",
     locale: "en",
     platformActions: [],
+    twoFactorEnrolmentRequired: false,
     pendingInvitations: [],
   workspaces: [],
     workspace: {
@@ -314,6 +315,7 @@ describe("SettingsSecurityPage", () => {
         enabled: true,
         enabledAt: "2026-10-01T09:00:00Z",
         recoveryCodesLeft: 7,
+        requiredBy: [],
       });
       vi.mocked(authApi.disableMfa).mockResolvedValue(undefined);
       const user = userEvent.setup();
@@ -335,12 +337,36 @@ describe("SettingsSecurityPage", () => {
       expect(await screen.findByText("Two-factor authentication is off")).toBeInTheDocument();
     });
 
-    it("asks an account with no password to set one before turning it on", async () => {
+    it("turns on for an account with no password with the app's code alone", async () => {
       vi.mocked(authApi.me).mockResolvedValue({ ...member, hasPassword: false });
+      vi.mocked(authApi.startMfaSetup).mockResolvedValue(SETUP);
+      vi.mocked(authApi.enableMfa).mockResolvedValue({ recoveryCodes: RECOVERY_CODES });
+      const user = userEvent.setup();
       renderPage();
 
-      expect(await screen.findByText(/To turn this on/)).toBeInTheDocument();
-      expect(screen.getByRole("switch", { name: /two-factor/i })).toBeDisabled();
+      const dialog = await openEnableDialog(user);
+      expect(await within(dialog).findByText("JBSWY3DPEHPK3PXP")).toBeInTheDocument();
+      expect(within(dialog).queryByLabelText(/current password/i)).not.toBeInTheDocument();
+
+      await user.type(within(dialog).getByLabelText(/code from your app/i), "123456");
+      await user.click(within(dialog).getByRole("button", { name: "Turn on" }));
+
+      await screen.findByRole("list", { name: /recovery codes/i });
+      expect(authApi.enableMfa).toHaveBeenCalledWith({ code: "123456" });
+    });
+
+    it("cannot be turned off while a workspace requires it, and says which", async () => {
+      vi.mocked(authApi.mfaStatus).mockResolvedValue({
+        offered: true,
+        enabled: true,
+        enabledAt: "2026-10-01T09:00:00Z",
+        recoveryCodesLeft: 10,
+        requiredBy: ["Meridian"],
+      });
+      renderPage();
+
+      expect(await screen.findByText("Required by Meridian.")).toBeInTheDocument();
+      expect(screen.getByRole("switch", { name: /^two-factor/i })).toBeDisabled();
     });
   });
 });

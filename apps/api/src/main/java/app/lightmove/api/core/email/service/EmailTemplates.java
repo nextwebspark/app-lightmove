@@ -95,6 +95,18 @@ public class EmailTemplates {
                         + "and tell your workspace admin.")));
     }
 
+    public EmailMessage buildTwoFactorResetEmail(String recipient, String recipientName, String workspaceName,
+                                                 String signInLink) {
+        return renderer.render(recipient, "Your Uncava two-factor authentication was reset", EmailContent.of(
+                "Two-factor authentication was reset",
+                EmailParagraph.of("Hi %s — an admin of %s reset your two-factor authentication, and every "
+                        + "signed-in device was signed out. Signing in no longer asks for a code until you set it up "
+                        + "again.", plain(firstName(recipientName)), plain(workspaceName)),
+                new EmailAction("Sign in", signInLink),
+                EmailNote.of("If you did not ask for this, reset your password now and tell your workspace "
+                        + "admin.")));
+    }
+
     public EmailMessage buildInvitationEmail(String recipient, String inviterName, String workspaceName,
                                              String role, String acceptLink) {
         return renderer.render(recipient,

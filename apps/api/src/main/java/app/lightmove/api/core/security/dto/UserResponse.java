@@ -30,6 +30,12 @@ public record UserResponse(
         /** The session's workspace — the token's {@code wsId} — or null; the frontend routes on it. */
         WorkspaceSummary workspace,
 
+        /**
+         * The session's workspace requires a factor this person has not set up: every read of it is refused until
+         * they do, and the SPA sends them to set one up.
+         */
+        boolean twoFactorEnrolmentRequired,
+
         /** Every active membership, oldest first — what the switcher lists. */
         List<WorkspaceSummary> workspaces,
 
