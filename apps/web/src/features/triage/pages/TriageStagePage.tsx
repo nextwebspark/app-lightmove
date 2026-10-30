@@ -221,14 +221,13 @@ function TriageStage() {
   useEffect(() => {
     if (viewChosen && requestedView === view && mapPreferences.view !== view) setMapPreferences({ view });
   }, [viewChosen, requestedView, view, mapPreferences.view, setMapPreferences]);
-  useEffect(
-    () => {
-      companySelection.clear();
-      setPipelineSelection(new Set());
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [view],
-  );
+  // A tick made on one reading of the stage must not ride silently into another.
+  const [tickedInView, setTickedInView] = useState(view);
+  if (tickedInView !== view) {
+    setTickedInView(view);
+    companySelection.clear();
+    setPipelineSelection(new Set());
+  }
   const navigate = useNavigate();
   const handleViewChange = (next: CompaniesView) => {
     setSearchParams(

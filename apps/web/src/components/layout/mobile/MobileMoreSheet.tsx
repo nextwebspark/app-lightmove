@@ -11,6 +11,7 @@ import { Toggle } from "../../ui";
 import { Icon, ICONS } from "../Icon";
 import { useAccountActions, type AccountAction } from "../useAccountActions";
 import type { SidebarGroup, SidebarItem } from "../Sidebar";
+import { hasActiveView } from "../sidebarViews";
 
 export const MOBILE_MORE_ID = "mobile-more";
 
@@ -87,8 +88,8 @@ export function MobileMoreSheet({
                         to={item.to}
                         end={item.end}
                         onClick={onClose}
-                        aria-current={viewActive(item) ? "false" : "page"}
-                        className={({ isActive }) => rowClass(isActive && !viewActive(item), "rounded-none")}
+                        aria-current={hasActiveView(item) ? "false" : "page"}
+                        className={({ isActive }) => rowClass(isActive && !hasActiveView(item), "rounded-none")}
                       >
                         <Icon d={item.icon} size={18} className="flex-none text-u-text3" />
                         <span className="min-w-0 flex-1 truncate">{item.label}</span>
@@ -189,10 +190,6 @@ function AccountRow({ action, onClose }: { action: AccountAction; onClose: () =>
       <span className="flex-1 text-start">{action.label}</span>
     </button>
   );
-}
-
-function viewActive(item: SidebarItem) {
-  return item.children?.some((view) => view.active) ?? false;
 }
 
 function rowClass(isActive: boolean, extra?: string) {

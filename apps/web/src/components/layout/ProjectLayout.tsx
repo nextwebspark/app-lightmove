@@ -21,13 +21,14 @@ import { positionTabs } from "./mobile/mobileTabs";
 import { PositionQuickActions } from "./mobile/PositionQuickActions";
 import { type SidebarGroup } from "./Sidebar";
 import * as triageApi from "../../features/triage/api/triageApi";
-import { TRIAGE_STAGES } from "../../features/triage/lib/triageStages";
+import { stageByStatus, TRIAGE_STAGES } from "../../features/triage/lib/triageStages";
 import {
   CHOSEN_VIEW_STATE,
+  COMPANIES_VIEW_LABELS,
   resolveCompaniesView,
   useCompaniesViews,
 } from "../../features/triage/lib/useCompaniesViews";
-import { readTalentMapPreferences, type CompaniesView } from "../../features/talentmap/lib/useTalentMapPreferences";
+import { readTalentMapPreferences } from "../../features/talentmap/lib/useTalentMapPreferences";
 import { ProjectBreadcrumb } from "./Topbar";
 import { usePositionsOrigin } from "../../features/projects/lib/positionsOrigin";
 
@@ -121,7 +122,7 @@ export function ProjectLayout() {
 
   const base = `/projects/${project.id}`;
   const query = new URLSearchParams(search);
-  const universePath = `${base}/companies/${TRIAGE_STAGES.find((stage) => stage.status === "inUniverse")!.slug}`;
+  const universePath = `${base}/companies/${stageByStatus("inUniverse").slug}`;
   const universeView =
     currentPath === universePath
       ? resolveCompaniesView(universeViews, query.get("view"), readTalentMapPreferences(project.id).view)
@@ -279,9 +280,3 @@ export function ProjectLayout() {
 export interface ProjectOutletContext {
   project: Project;
 }
-
-const COMPANIES_VIEW_LABELS: Record<CompaniesView, { label: string; icon: string }> = {
-  table: { label: "Table", icon: ICONS.table },
-  map: { label: "Map", icon: ICONS.mapPin },
-  pipeline: { label: "Pipeline", icon: ICONS.pipeline },
-};

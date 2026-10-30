@@ -1,7 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
+import { ICONS } from "../../../components/layout/Icon";
 import * as talentMapApi from "../../talentmap/api/talentMapApi";
 import type { CompaniesView } from "../../talentmap/lib/useTalentMapPreferences";
 import type { TriageCompanyStatus } from "../api/types";
+
+/** How each view is named and drawn, wherever it is offered: the rail and the page's own switch. */
+export const COMPANIES_VIEW_LABELS: Record<CompaniesView, { label: string; icon: string }> = {
+  table: { label: "Table", icon: ICONS.table },
+  map: { label: "Map", icon: ICONS.mapPin },
+  pipeline: { label: "Pipeline", icon: ICONS.pipeline },
+};
 
 /**
  * The readings a Companies stage offers — In universe's table, map and pipeline, every other stage its table — shared

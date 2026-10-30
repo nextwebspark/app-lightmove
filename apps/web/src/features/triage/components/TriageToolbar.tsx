@@ -4,6 +4,7 @@ import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { cn } from "../../../lib/cn";
 import { hiddenBesideRail } from "../../../lib/useFullscreen";
 import type { CompaniesView } from "../../talentmap/lib/useTalentMapPreferences";
+import { COMPANIES_VIEW_LABELS } from "../lib/useCompaniesViews";
 import { AdvancedMenu, type AdvancedMenuSection } from "./AdvancedMenu";
 
 const TOOLBAR_BUTTON =
@@ -11,11 +12,6 @@ const TOOLBAR_BUTTON =
   "px-3 py-2 font-sans text-body font-medium text-u-text2 transition hover:border-u-text3 hover:text-u-text " +
   "aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:border-u-border-strong aria-disabled:hover:text-u-text2";
 
-const VIEW_OPTIONS = {
-  table: { value: "table", label: "Table", icon: <Icon d={ICONS.table} size={13} /> },
-  map: { value: "map", label: "Map", icon: <Icon d={ICONS.mapPin} size={13} /> },
-  pipeline: { value: "pipeline", label: "Pipeline", icon: <Icon d={ICONS.pipeline} size={13} /> },
-} as const;
 
 /** A primary action the current view cannot take: still drawn where it always is, greyed, saying where it can. */
 export interface UnavailableAction {
@@ -100,7 +96,11 @@ export function TriageToolbar({
       {views.length > 1 && (
         <SegmentedControl
           label="View"
-          options={views.map((option) => VIEW_OPTIONS[option])}
+          options={views.map((option) => ({
+            value: option,
+            label: COMPANIES_VIEW_LABELS[option].label,
+            icon: <Icon d={COMPANIES_VIEW_LABELS[option].icon} size={13} />,
+          }))}
           value={view}
           onChange={onViewChange}
           className={hiddenBesideRail(isFullscreen)}

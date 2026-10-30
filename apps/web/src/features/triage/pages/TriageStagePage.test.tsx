@@ -1902,6 +1902,32 @@ describe("TriageStagePage", () => {
       expect(await screen.findByRole("tree", { name: "Mapping" })).toBeInTheDocument();
     });
 
+    it("remembers a chosen view the history entry still carries, as after a reload or Back", async () => {
+      vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
+      const { unmount } = render(
+        <MemoryRouter
+          initialEntries={[{ pathname: "/projects/p1/companies/universe", search: "?view=map", state: CHOSEN_VIEW_STATE }]}
+        >
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+            <AuthProvider>
+              <ToastProvider>
+                <Routes>
+                  <Route element={<Outlet context={{ project }} />}>
+                    <Route path="/projects/:projectId/companies/:stage" element={<TriageStagePage />} />
+                  </Route>
+                </Routes>
+              </ToastProvider>
+            </AuthProvider>
+          </QueryClientProvider>
+        </MemoryRouter>,
+      );
+      await screen.findByRole("tree", { name: "Mapping" });
+      unmount();
+
+      renderStage();
+      expect(await screen.findByRole("tree", { name: "Mapping" })).toBeInTheDocument();
+    });
+
     it("opens a view a link only names, a notification's, without remembering it", async () => {
       vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
       localStorage.setItem("lm.companies.map.p1", JSON.stringify({ view: "map" }));

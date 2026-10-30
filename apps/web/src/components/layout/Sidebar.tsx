@@ -4,6 +4,7 @@ import { cn } from "../../lib/cn";
 import { useHelp } from "../../features/help/HelpProvider";
 import { APP_VERSION } from "../../lib/version";
 import { Icon, ICONS } from "./Icon";
+import { hasActiveView } from "./sidebarViews";
 import { useSidebarCollapsed } from "./useSidebarCollapsed";
 
 export interface SidebarItem {
@@ -140,7 +141,7 @@ function SidebarRow({ item, collapsed }: { item: SidebarItem; collapsed: boolean
   const { pathname } = useLocation();
   const viewsId = useId();
   const views = item.children ?? [];
-  const viewActive = views.some((view) => view.active);
+  const viewActive = hasActiveView(item);
   const inSection =
     views.length > 0 && (viewActive || matchPath({ path: item.to, end: item.end ?? false }, pathname) !== null);
   // A chevron press holds until the section is entered or left, which opens or closes the views again. The
@@ -161,6 +162,7 @@ function SidebarRow({ item, collapsed }: { item: SidebarItem; collapsed: boolean
       to={item.to}
       end={item.end}
       title={item.leavesShell ?? item.label}
+      // NavLink applies it only while active, and an undefined one falls back to its own "page".
       aria-current={viewShown ? "false" : "page"}
       className={({ isActive }) =>
         railRowClass(
@@ -204,33 +206,51 @@ function SidebarRow({ item, collapsed }: { item: SidebarItem; collapsed: boolean
           </button>
         )}
       </div>
-      <div
-        id={viewsId}
-        role="group"
-        aria-label={item.label}
-        hidden={!open}
-        className={cn(
-          "mt-px flex flex-col gap-px",
-          collapsed ? "mb-1.5 rounded-lg border border-u-border p-0.5" : "mb-1 ml-[18px] border-l border-u-border pl-2",
-        )}
-      >
-        {views.map((view) => (
-          <Link
-            key={view.key}
-            to={view.to}
-            state={view.state}
-            title={view.label}
-            aria-current={view.active ? "page" : undefined}
-            className={railRowClass(
-              collapsed,
-              cn("gap-2 py-1.5 text-body", view.active ? "bg-u-raised text-u-text [&_svg]:text-u-accent" : "text-u-text2"),
-            )}
-          >
-            <Icon d={view.icon} size={14} className="flex-none" />
-            <span className={cn("whitespace-nowrap", labelsHidden)}>{view.label}</span>
-          </Link>
-        ))}
-      </div>
+      <SidebarViews id={viewsId} label={item.label} views={views} open={open} collapsed={collapsed} />
+    </div>
+  );
+}
+
+function SidebarViews({
+  id,
+  label,
+  views,
+  open,
+  collapsed,
+}: {
+  id: string;
+  label: string;
+  views: SidebarSubItem[];
+  open: boolean;
+  collapsed: boolean;
+}) {
+  return (
+    <div
+      id={id}
+      role="group"
+      aria-label={label}
+      hidden={!open}
+      className={cn(
+        "mt-px flex flex-col gap-px",
+        collapsed ? "mb-1.5 rounded-lg border border-u-border p-0.5" : "mb-1 ml-[18px] border-l border-u-border pl-2",
+      )}
+    >
+      {views.map((view) => (
+        <Link
+          key={view.key}
+          to={view.to}
+          state={view.state}
+          title={view.label}
+          aria-current={view.active ? "page" : undefined}
+          className={railRowClass(
+            collapsed,
+            cn("gap-2 py-1.5 text-body", view.active ? "bg-u-raised text-u-text [&_svg]:text-u-accent" : "text-u-text2"),
+          )}
+        >
+          <Icon d={view.icon} size={14} className="flex-none" />
+          <span className={cn("whitespace-nowrap", collapsed && "hidden")}>{view.label}</span>
+        </Link>
+      ))}
     </div>
   );
 }
