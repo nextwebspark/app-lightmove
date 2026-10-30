@@ -16,10 +16,7 @@ import { PipelineRetireDialog } from "./PipelineRetireDialog";
 import { ColourDot, DragHandle, RenameActions, RenameForm } from "./PipelineRowControls";
 import { PipelineStatusList } from "./PipelineStatusList";
 
-/**
- * One stage as a row that opens onto its statuses. A stage given no `onStep` is not reordered: the closed
- * stage, which stays last, and every stage for a member who is not an admin.
- */
+/** One stage as a row that opens onto its statuses. A stage given no `onStep` is not reordered: a member's view. */
 export function PipelineStageCard({
   stage,
   isAdmin,
@@ -90,7 +87,8 @@ function StageHeader({
     rename,
   );
   const statuses = liveStatuses(stage);
-  const isClosed = stage.kind === "closed";
+  // Nothing a card could stand at, so the board draws no column for it — an old Declined stage, say.
+  const offTheBoard = statuses.length > 0 && statuses.every((status) => status.outOfProcess);
   const renameFormId = `rename-stage-${stage.id}`;
 
   const toast = useToast();
@@ -116,11 +114,6 @@ function StageHeader({
   return (
     <div className={cn("flex flex-wrap items-center gap-2.5 px-4 py-2", shown && "border-b border-u-border")}>
       {onStep && <DragHandle label={`Reorder ${stage.label} stage`} sortable={sortable} onStep={onStep} />}
-      {isAdmin && isClosed && (
-        <span title="The closed stage stays last" className="grid w-3.5 place-items-center text-u-text3">
-          <Icon d={ICONS.lock} size={12} />
-        </span>
-      )}
       <ColourDot
         colour={stage.colour}
         name={`${stage.label} stage`}
@@ -153,15 +146,17 @@ function StageHeader({
         {!rename.renaming && (
           <>
             <span className="flex-none text-body font-semibold text-u-text">{stage.label}</span>{" "}
-            <span
-              className={cn(
-                "flex-none rounded-full px-2 py-0.5 font-mono text-meta font-medium",
-                isClosed ? "bg-u-raised text-u-text3" : "bg-u-accent-tint text-u-accent",
-              )}
-            >
-              {isClosed ? "Closed" : "Active"}
+            {offTheBoard && (
+              <span
+                title="Every status here is out of process, so the board draws no column for it"
+                className="flex-none rounded-full bg-u-raised px-2 py-0.5 font-mono text-meta font-medium text-u-text3"
+              >
+                Not on the board
+              </span>
+            )}{" "}
+            <span className="flex-none font-mono text-meta text-u-text3">
+              {statusCountLabel(statuses.length, statuses.filter((status) => status.outOfProcess).length)}
             </span>{" "}
-            <span className="flex-none font-mono text-meta text-u-text3">{statusCountLabel(statuses.length)}</span>{" "}
             {!shown && (
               <span className="min-w-0 truncate font-mono text-meta text-u-text3">
                 {statusPreview(statuses.map((status) => status.label))}
@@ -181,18 +176,16 @@ function StageHeader({
       {isAdmin && (
         <span className="ms-auto flex flex-none gap-1">
           <RenameActions formId={renameFormId} rename={rename} saving={isPending} />
-          {!isClosed && (
-            <Button
-              variant="ghost"
-              size="xs"
-              title="Retire this stage"
-              aria-label={`Retire ${stage.label} stage`}
-              disabled={isPending || checking}
-              onClick={() => void handleRetire()}
-            >
-              <Icon d={ICONS.archive} size={14} />
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="xs"
+            title="Retire this stage"
+            aria-label={`Retire ${stage.label} stage`}
+            disabled={isPending || checking}
+            onClick={() => void handleRetire()}
+          >
+            <Icon d={ICONS.archive} size={14} />
+          </Button>
         </span>
       )}
       <PipelineRetireDialog

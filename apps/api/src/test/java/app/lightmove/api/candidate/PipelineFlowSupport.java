@@ -115,6 +115,26 @@ public abstract class PipelineFlowSupport extends FlowTestSupport {
                 .andReturn());
     }
 
+    /**
+     * Gives the firm a stage of ways out alone, last, as a workspace seeded before V163 keeps its old closed stage:
+     * the frozen kind still CLOSED, every status out of process and none of them its default.
+     */
+    protected void formerClosedStage(String label, String... statusKeys) throws Exception {
+        catalog();
+        String stageId = db.queryForObject("""
+                INSERT INTO app_lm_workspace_candidate_stage (workspace_id, key, label, colour, kind, position)
+                SELECT ?::uuid, 'declined', ?, 'RED', 'CLOSED', max(position) + 1
+                FROM app_lm_workspace_candidate_stage WHERE workspace_id = ?::uuid
+                RETURNING id""", String.class, workspaceId, label, workspaceId);
+        for (int index = 0; index < statusKeys.length; index++) {
+            db.update("""
+                    INSERT INTO app_lm_workspace_candidate_status
+                        (workspace_id, stage_id, key, label, colour, position, is_default, out_of_process)
+                    VALUES (?::uuid, ?::uuid, ?, ?, 'NEUTRAL', ?, false, true)""",
+                    workspaceId, stageId, statusKeys[index], statusKeys[index], index + 1);
+        }
+    }
+
     protected MvcResult write(String token, String method, String url, String json) throws Exception {
         var request = switch (method) {
             case "POST" -> post(url);

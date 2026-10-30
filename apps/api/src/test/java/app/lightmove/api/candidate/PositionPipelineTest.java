@@ -30,28 +30,35 @@ class PositionPipelineTest extends PipelineFlowSupport {
     }
 
     @Test
-    @DisplayName("rows read by stage, then first mapped; every live stage is counted, the search honoured")
+    @DisplayName("rows read by stage, then first mapped; each stage counts those in process, the rest inactive")
     void readsByStage() throws Exception {
         String layla = person("Layla Haddad", "contacted");
         String omar = person("Omar Said", "identified");
         String hana = person("Hana Aziz", "offLimits");
-        String karim = person("Karim Nassar", "researching");
+        String karim = person("Karim Nassar", "source");
 
         JsonNode pipeline = pipeline("");
-        assertThat(ids(pipeline)).containsExactly(omar, karim, layla, hana);
+        assertThat(ids(pipeline)).containsExactly(omar, hana, karim, layla);
         assertThat(count(pipeline, "identified")).isEqualTo(2);
         assertThat(count(pipeline, "qualified")).isZero();
-        assertThat(count(pipeline, "declined")).isEqualTo(1);
-        assertThat(pipeline.at("/rows/2/statusLabel").asText()).isEqualTo("Contacted");
-        assertThat(pipeline.at("/rows/2/pipelineStage/key").asText()).isEqualTo("contacted");
+        assertThat(pipeline.get("inactiveCount").asLong()).isEqualTo(1);
+        assertThat(pipeline.at("/rows/1/outOfProcess").asBoolean()).isTrue();
+        assertThat(pipeline.at("/rows/0/outOfProcess").asBoolean()).isFalse();
+        assertThat(pipeline.at("/rows/3/statusLabel").asText()).isEqualTo("Awaiting reply");
+        assertThat(pipeline.at("/rows/3/pipelineStage/key").asText()).isEqualTo("contacted");
 
-        JsonNode declined = pipeline("?pipelineStage=declined");
-        assertThat(ids(declined)).containsExactly(hana);
-        assertThat(count(declined, "identified")).as("a stage filter leaves every pill's count").isEqualTo(2);
+        JsonNode research = pipeline("?pipelineStage=identified");
+        assertThat(ids(research)).containsExactly(omar, hana, karim);
+        assertThat(count(research, "contacted")).as("a stage filter leaves every pill's count").isEqualTo(1);
+
+        formerClosedStage("Declined", "placedElsewhere");
+        assertThat(pipeline("").get("stageCounts")).as("a stage of ways out alone is no column")
+                .noneMatch(stage -> stage.get("key").asText().equals("declined"));
 
         JsonNode searched = pipeline("?q=layla");
         assertThat(ids(searched)).containsExactly(layla);
         assertThat(count(searched, "identified")).isZero();
+        assertThat(searched.get("inactiveCount").asLong()).isZero();
     }
 
     @Test

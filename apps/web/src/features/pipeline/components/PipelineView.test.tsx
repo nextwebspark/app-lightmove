@@ -6,7 +6,7 @@ import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
-import { aSeededCatalog } from "../../../test/fixtures/pipelineCatalog";
+import { aCurrentCatalog, aSeededCatalog } from "../../../test/fixtures/pipelineCatalog";
 import { aNextAction, aPipelinePage, aPipelineRow } from "../../../test/fixtures/pipelineRows";
 import type { WorkspaceRole } from "../../auth/api/types";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
@@ -445,16 +445,75 @@ describe("PipelineView", () => {
     await userEvent.click(fold);
 
     expect(fold).toHaveAttribute("aria-expanded", "true");
-    const offLimits = within(inactive.getByRole("group", { name: "Off-limits" }));
+    const offLimits = within(inactive.getByRole("group", { name: "Off-limits · Declined" }));
     expect(offLimits.getByText("Elias Nader")).toBeInTheDocument();
     expect(offLimits.getByText("Ghada Omar")).toBeInTheDocument();
-    expect(within(inactive.getByRole("group", { name: "Not interested" })).getByText("Farah Aziz")).toBeInTheDocument();
-    expect(inactive.queryByRole("group", { name: "Withdrew" })).not.toBeInTheDocument();
+    expect(
+      within(inactive.getByRole("group", { name: "Not interested · Declined" })).getByText("Farah Aziz"),
+    ).toBeInTheDocument();
+    expect(inactive.queryByRole("group", { name: "Withdrew · Declined" })).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Declined" })).not.toBeInTheDocument();
 
     await userEvent.click(fold);
 
     expect(fold).toHaveAttribute("aria-expanded", "false");
-    expect(inactive.queryByRole("group", { name: "Off-limits" })).not.toBeInTheDocument();
+    expect(inactive.queryByRole("group", { name: "Off-limits · Declined" })).not.toBeInTheDocument();
+  });
+
+  describe("on a catalog whose ways out sit under each stage", () => {
+    const current = aCurrentCatalog();
+    const flaggedRows: PipelineRow[] = [
+      aPipelineRow({ candidateId: "a", status: "contacted", fullName: "Amal Haddad" }, current),
+      aPipelineRow({ candidateId: "b", status: "notInterested", fullName: "Bilal Saeed" }, current),
+      aPipelineRow({ candidateId: "c", status: "identified", fullName: "Carla Mendes" }, current),
+    ];
+
+    beforeEach(() => {
+      vi.mocked(catalogApi.pipelineCatalog).mockResolvedValue(current);
+      vi.mocked(pipelineApi.getPipeline).mockResolvedValue(aPipelinePage(flaggedRows, current));
+    });
+
+    it("draws someone at a status out of process in Inactive, not in their stage's column", async () => {
+      renderView();
+      const approach = await screen.findByRole("region", { name: "Approach" });
+
+      expect(within(approach).getByRole("article", { name: "Amal Haddad" })).toBeInTheDocument();
+      expect(within(approach).queryByRole("article", { name: "Bilal Saeed" })).not.toBeInTheDocument();
+      const inactive = within(screen.getByRole("region", { name: "Inactive" }));
+      await userEvent.click(inactive.getByRole("button", { name: /^Inactive/ }));
+      expect(
+        within(inactive.getByRole("group", { name: "Not interested · Approach" })).getByText("Bilal Saeed"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("2 active executives across 5 stages")).toBeInTheDocument();
+    });
+
+    it("asks which way out a card dropped on Inactive takes, its own stage's first", async () => {
+      vi.mocked(candidatesApi.changeCandidateStatus).mockReturnValue(new Promise(() => {}));
+      renderView();
+      await screen.findByRole("region", { name: "Approach" });
+
+      dropOn("Amal Haddad", screen.getByRole("region", { name: "Inactive" }));
+
+      const chooser = within(screen.getByRole("group", { name: "Mark Amal Haddad out of process" }));
+      const choices = chooser.getAllByRole("button").map((button) => button.textContent);
+      expect(choices.slice(0, 2)).toEqual(["Not interestedApproach", "UnresponsiveApproach"]);
+      await userEvent.click(chooser.getByRole("button", { name: /^Unresponsive/ }));
+
+      await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "unresponsive"));
+    });
+
+    it("brings an inactive card dropped on its own stage back to that stage's default", async () => {
+      vi.mocked(candidatesApi.changeCandidateStatus).mockReturnValue(new Promise(() => {}));
+      renderView();
+      const approach = await screen.findByRole("region", { name: "Approach" });
+      const inactive = within(screen.getByRole("region", { name: "Inactive" }));
+      await userEvent.click(inactive.getByRole("button", { name: /^Inactive/ }));
+
+      fireEvent.dragStart(inactive.getByLabelText("Bilal Saeed"));
+      fireEvent.dragOver(approach);
+      fireEvent.drop(approach);
+
+      await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "b", "contacted"));
+    });
   });
 });

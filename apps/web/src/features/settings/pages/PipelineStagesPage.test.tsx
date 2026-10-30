@@ -57,7 +57,7 @@ function seededAutomations(overrides: Partial<Record<StatusAutomationTrigger, Pa
   return rows.map((row) => ({ ...row, ...overrides[row.trigger] }));
 }
 const toggle = (label: string) =>
-  within(card(label)).getByRole("button", { name: new RegExp(`^${label} (Active|Closed) \\d+ status`) });
+  within(card(label)).getByRole("button", { name: new RegExp(`^${label} (Not on the board )?\\d+ status`) });
 const open = (label: string) => userEvent.click(toggle(label));
 
 function withStage(catalog: PipelineCatalog, label: string): PipelineCatalog {
@@ -66,7 +66,6 @@ function withStage(catalog: PipelineCatalog, label: string): PipelineCatalog {
     key: "assessed",
     label,
     colour: "neutral",
-    kind: "active" as const,
     position: 6,
     system: false,
     retired: false,
@@ -125,9 +124,9 @@ describe("PipelineStagesPage", () => {
       "Shortlisted",
       "Declined",
     ]);
-    expect(within(card("Contacted")).getByText("Active")).toBeInTheDocument();
+    expect(within(card("Contacted")).queryByText("Not on the board")).not.toBeInTheDocument();
     expect(within(card("Contacted")).getByText("4 statuses")).toBeInTheDocument();
-    expect(within(card("Declined")).getByText("Closed")).toBeInTheDocument();
+    expect(within(card("Declined")).getByText("Not on the board")).toBeInTheDocument();
 
     const contacted = within(card("Contacted")).getByRole("listitem", { name: "Contacted" });
     expect(within(contacted).getByText("Default")).toBeInTheDocument();
@@ -172,9 +171,9 @@ describe("PipelineStagesPage", () => {
     renderPage();
     await screen.findByRole("region", { name: "Identified" });
 
-    expect(toggle("Contacted")).toHaveAccessibleName("Contacted Active 4 statuses Contacted, Follow-up sent, Engaged +1");
+    expect(toggle("Contacted")).toHaveAccessibleName("Contacted 4 statuses Contacted, Follow-up sent, Engaged +1");
     await open("Contacted");
-    expect(toggle("Contacted")).toHaveAccessibleName("Contacted Active 4 statuses");
+    expect(toggle("Contacted")).toHaveAccessibleName("Contacted 4 statuses");
 
     await userEvent.click(within(card("Qualified")).getByRole("button", { name: "Rename" }));
     expect(within(card("Qualified")).getByRole("button", { name: "Qualified stage" })).toHaveAttribute(
@@ -205,7 +204,9 @@ describe("PipelineStagesPage", () => {
 
     await userEvent.type(within(card("Interested")).getByLabelText("New status in Interested"), "Second look");
     await userEvent.click(within(card("Interested")).getByRole("button", { name: "Add status" }));
-    await waitFor(() => expect(pipelineApi.createStatus).toHaveBeenCalledWith("stage-interested", "Second look"));
+    await waitFor(() =>
+      expect(pipelineApi.createStatus).toHaveBeenCalledWith("stage-interested", "Second look", undefined, false),
+    );
 
     const considering = within(card("Interested")).getByRole("listitem", { name: "Considering" });
     await userEvent.click(within(considering).getByRole("button", { name: "Rename" }));
@@ -251,7 +252,7 @@ describe("PipelineStagesPage", () => {
     expect(screen.queryByText("Renamed on every position")).not.toBeInTheDocument();
   });
 
-  it("reorders stages from the handle, keeping the closed stage last", async () => {
+  it("reorders any stage from the handle, an old Declined included", async () => {
     const catalog = aSeededCatalog();
     vi.mocked(pipelineApi.reorderStages).mockImplementation(async (ids) => ({
       stages: ids.map((id) => catalog.stages.find((stage) => stage.id === id)!),
@@ -288,7 +289,17 @@ describe("PipelineStagesPage", () => {
         "stage-declined",
       ]),
     );
-    expect(screen.queryByRole("button", { name: "Reorder Declined stage" })).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Declined stage" }), { key: "ArrowUp" });
+    await waitFor(() =>
+      expect(pipelineApi.reorderStages).toHaveBeenLastCalledWith([
+        "stage-contacted",
+        "stage-identified",
+        "stage-interested",
+        "stage-shortlisted",
+        "stage-declined",
+        "stage-qualified",
+      ]),
+    );
   });
 
   it("reorders statuses within their stage", async () => {
@@ -382,7 +393,7 @@ describe("PipelineStagesPage", () => {
       expect(pipelineApi.updateStage).toHaveBeenCalledWith("stage-contacted", { retired: true, retireStatuses: true }),
     );
 
-    expect(within(card("Declined")).queryByRole("button", { name: "Retire Declined stage" })).not.toBeInTheDocument();
+    expect(within(card("Declined")).getByRole("button", { name: "Retire Declined stage" })).toBeInTheDocument();
   });
 
   it("asks before retiring a status an automation moves people to", async () => {
@@ -402,6 +413,46 @@ describe("PipelineStagesPage", () => {
     expect(pipelineApi.updateStatus).not.toHaveBeenCalled();
     await userEvent.click(within(dialog).getByRole("button", { name: "Retire status" }));
     await waitFor(() => expect(pipelineApi.updateStatus).toHaveBeenCalledWith("status-engaged", { retired: true }));
+  });
+
+  it("takes a status out of process after saying who holds it, and never the stage's default", async () => {
+    vi.mocked(pipelineApi.updateStatus).mockResolvedValue(aSeededCatalog());
+    vi.mocked(pipelineApi.statusRetirePreview).mockResolvedValue({
+      statuses: [{ statusId: "status-followUpSent", label: "Follow-up sent", holders: 3 }],
+      automations: [],
+    });
+    renderPage();
+    await screen.findByRole("region", { name: "Contacted" });
+    await open("Contacted");
+
+    expect(within(card("Contacted")).getByRole("switch", { name: "Out of process: Contacted" })).toBeDisabled();
+    await userEvent.click(within(card("Contacted")).getByRole("switch", { name: "Out of process: Follow-up sent" }));
+    const dialog = await screen.findByRole("dialog", { name: "Mark Follow-up sent out of process?" });
+    expect(within(dialog).getByText("3 candidates")).toBeInTheDocument();
+    expect(pipelineApi.updateStatus).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Mark out of process" }));
+
+    await waitFor(() =>
+      expect(pipelineApi.updateStatus).toHaveBeenCalledWith("status-followUpSent", { outOfProcess: true }),
+    );
+  });
+
+  it("adds a status already out of process, and lets a status of an old Declined back into process", async () => {
+    vi.mocked(pipelineApi.createStatus).mockResolvedValue(aSeededCatalog());
+    renderPage();
+    await screen.findByRole("region", { name: "Interested" });
+    await open("Interested");
+
+    await userEvent.type(within(card("Interested")).getByLabelText("New status in Interested"), "Gone quiet");
+    await userEvent.click(within(card("Interested")).getByRole("checkbox", { name: "Out of process" }));
+    await userEvent.click(within(card("Interested")).getByRole("button", { name: "Add status" }));
+    await waitFor(() =>
+      expect(pipelineApi.createStatus).toHaveBeenCalledWith("stage-interested", "Gone quiet", undefined, true),
+    );
+
+    await open("Declined");
+    expect(within(card("Declined")).getByText("7 statuses · 7 out of process")).toBeInTheDocument();
+    expect(within(card("Declined")).getByRole("switch", { name: "Out of process: Withdrew" })).toBeEnabled();
   });
 
   it("chooses where an outreach event moves people, leaving on and off to the switch", async () => {

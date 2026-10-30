@@ -3,7 +3,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import { useState, type FormEvent } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, Input, useToast } from "../../../components/ui";
+import { Button, Input, Toggle, useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { moveItem } from "../../../lib/moveItem";
@@ -30,7 +30,10 @@ export function PipelineStatusList({ stage, isAdmin }: { stage: PipelineStage; i
   const toast = useToast();
   const sensors = useSortableSensors();
   const [newStatus, setNewStatus] = useState("");
-  const addStatus = usePipelineWrite((label: string) => pipelineApi.createStatus(stage.id, label));
+  const [newOutOfProcess, setNewOutOfProcess] = useState(false);
+  const addStatus = usePipelineWrite(({ label, outOfProcess }: { label: string; outOfProcess: boolean }) =>
+    pipelineApi.createStatus(stage.id, label, undefined, outOfProcess),
+  );
   const automations = useStatusAutomations().data ?? [];
   const statuses = liveStatuses(stage);
   const defaultStatus = defaultStatusOf(stage);
@@ -58,9 +61,10 @@ export function PipelineStatusList({ stage, isAdmin }: { stage: PipelineStage; i
     event.preventDefault();
     const label = newStatus.trim();
     if (!label) return;
-    addStatus.mutate(label, {
+    addStatus.mutate({ label, outOfProcess: newOutOfProcess }, {
       onSuccess: () => {
         setNewStatus("");
+        setNewOutOfProcess(false);
         toast("Status added");
       },
       onError: (error) => toast.error(messageFor(error)),
@@ -109,6 +113,14 @@ export function PipelineStatusList({ stage, isAdmin }: { stage: PipelineStage; i
             maxLength={PIPELINE_NAME_LIMIT}
             className="max-w-[240px] py-1.5"
           />
+          <label className="flex items-center gap-1.5 text-meta text-u-text2">
+            <input
+              type="checkbox"
+              checked={newOutOfProcess}
+              onChange={(event) => setNewOutOfProcess(event.target.checked)}
+            />
+            Out of process
+          </label>
           <Button type="submit" variant="secondary" size="xs" disabled={!newStatus.trim()} loading={addStatus.isPending}>
             <Icon d={ICONS.plus} size={12} />
             Add status
@@ -136,6 +148,7 @@ function StatusRow({
   const toast = useToast();
   const { catalog } = usePipelineCatalog();
   const [preview, setPreview] = useState<PipelineRetirePreview | null>(null);
+  const [outPreview, setOutPreview] = useState<PipelineRetirePreview | null>(null);
   const [checking, setChecking] = useState(false);
   const sortable = useSortable({ id: status.id, disabled: !isAdmin });
   const rename = useRenameDraft(status.label);
@@ -145,6 +158,25 @@ function StatusRow({
   );
   const renameFormId = `rename-status-${status.id}`;
   const retire = () => change({ retired: true }, "Status retired; candidates who hold it keep it");
+  const markOut = () => change({ outOfProcess: true }, "Out of process; whoever holds it is now Inactive");
+  const outLocked = isDefault;
+
+  const handleOutOfProcess = async (out: boolean) => {
+    if (!out) {
+      change({ outOfProcess: false }, "Back in process; whoever holds it returns to its stage");
+      return;
+    }
+    setChecking(true);
+    try {
+      const read = await pipelineApi.statusRetirePreview(status.id);
+      if (retireTouchesAnyone(read)) setOutPreview(read);
+      else markOut();
+    } catch (error) {
+      toast.error(messageFor(error));
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const handleRetire = async () => {
     setChecking(true);
@@ -192,6 +224,15 @@ function StatusRow({
           Default
         </span>
       )}
+      {/* An admin reads it off the row's switch. */}
+      {status.outOfProcess && !isAdmin && (
+        <span
+          title="Whoever holds it is Inactive on the board and is not approached again"
+          className="rounded-sm bg-u-offlimits-tint px-1.5 py-px font-mono text-eyebrow font-medium text-u-offlimits"
+        >
+          Out of process
+        </span>
+      )}
       {automations.map((automation) => (
         <span
           key={automation.trigger}
@@ -204,7 +245,19 @@ function StatusRow({
       ))}
       {isAdmin && (
         <span className="ms-auto flex items-center gap-1">
-          {!isDefault && (
+          <span
+            className="flex items-center gap-1.5 px-1.5 text-meta text-u-text3"
+            title={isDefault ? "The default status stays in process" : undefined}
+          >
+            <Toggle
+              checked={status.outOfProcess}
+              label={`Out of process: ${status.label}`}
+              disabled={isPending || checking || outLocked}
+              onChange={(out) => void handleOutOfProcess(out)}
+            />
+            Out of process
+          </span>
+          {!isDefault && !status.outOfProcess && (
             <Button
               variant="ghost"
               size="xs"
@@ -239,6 +292,20 @@ function StatusRow({
           retire();
         }}
         onClose={() => setPreview(null)}
+      />
+      <PipelineRetireDialog
+        open={outPreview !== null}
+        title={`Mark ${status.label} out of process?`}
+        confirmLabel="Mark out of process"
+        catalog={catalog}
+        preview={outPreview}
+        pending={isPending}
+        explanation="They move to Inactive on every position, and any live sequence stops before its next email. Nothing is deleted, and you can bring the status back into the process at any time."
+        onConfirm={() => {
+          setOutPreview(null);
+          markOut();
+        }}
+        onClose={() => setOutPreview(null)}
       />
     </li>
   );

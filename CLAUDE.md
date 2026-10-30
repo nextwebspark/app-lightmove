@@ -1340,6 +1340,22 @@ replay guard), `app_lm_user_mfa_recovery_code` (SHA-256 per code, spent by a con
 `app_lm_mfa_challenge` (a right password's single-use challenge, hashed), and adds `MFA_CHANGED` to the refresh token's
 revoke reasons. Account data, keyed on the user, never a workspace. Offered only where `lightmove.auth.mfa.enabled` and a
 keyset are both set; off in deployments until the OAuth door asks for the code too (#1082).
+V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage
+alike: whoever holds a flagged status is Inactive on the board, skipped and stopped by outreach (`LEFT_THE_RUNNING`),
+moved by no automation and left out of the projects list's Candidates and Engaged — whatever stage it sits under, so
+`hasLeftTheRunning()` and every query read the column alone. The stage's `kind` is frozen (unmapped, its old values
+kept so a revision still reading it during the deploy treats an old Declined stage as closed; a cleanup drops it): the
+old closed stage's statuses were backfilled flagged and lost their default mark, and it is now a stage like any other,
+reordered and retired freely. A stage's default is always a live status in process (`PIPELINE_DEFAULT_IN_PROCESS`),
+since a card dropped on the stage lands there, so a stage of ways out alone has none and the board draws no column
+for it (`PipelineCatalog.holdsAStatusInProcess`; Settings says "Not on the board"). The pipeline's edits are three
+services by subject — `PipelineCatalogService` (reads and the confirmations' previews), `PipelineStageService`,
+`PipelineStatusService` — over `PipelineRules`, `PipelineDefaultMarks` and `PipelineEditAudit`. The seed
+(`app_lm_seed_candidate_pipeline`) is now ALAC Partners' own five stages — Research, Approach, Assessment, Shortlist,
+Offer, each with its ways out flagged — under the legacy stage and system-status keys, and a workspace still holding
+V131's seed to the letter, that nobody's candidates hold and no automation names, was reseeded onto it; every other
+catalog was left as it stood. The public API and MCP no longer carry a stage `kind`; an executive's `outOfProcess`
+says it.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

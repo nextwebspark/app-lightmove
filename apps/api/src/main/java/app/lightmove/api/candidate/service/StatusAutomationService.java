@@ -24,10 +24,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Which status each outreach event moves a candidate forward to, per workspace (V140): always a status of an
- * active stage. No row is the seeded behaviour, so a workspace that never opened the card works as it always did.
- * A switched-on rule whose status was retired is reported broken and moves nobody: it never fails the send or
- * booking that fired it.
+ * Which status each outreach event moves a candidate forward to, per workspace (V140): always a status in
+ * process. No row is the seeded behaviour, so a workspace that never opened the card works as it always did.
+ * A switched-on rule whose status was retired or taken out of process since is reported broken and moves
+ * nobody: it never fails the send or booking that fired it.
  */
 @Service
 @RequiredArgsConstructor
@@ -37,7 +37,7 @@ public class StatusAutomationService {
     private final CandidatePipelineCatalog catalogs;
     private final AuditService audit;
 
-    /** The live active status {@code trigger} moves people to; empty when it is off, unset, retired or closed. */
+    /** The live in-process status {@code trigger} moves people to; empty when it is off, unset, retired or out. */
     @Transactional(readOnly = true)
     public Optional<CandidateStatusDefinition> targetOf(UUID workspaceId, StatusAutomationTrigger trigger) {
         PipelineCatalog catalog = catalogs.catalogOf(workspaceId);
@@ -46,7 +46,7 @@ public class StatusAutomationService {
             return Optional.empty();
         }
         return statusIn(catalog, rule.statusId())
-                .filter(status -> !status.isRetired() && !status.getStage().isClosed());
+                .filter(status -> !status.isRetired() && !status.isOutOfProcess());
     }
 
     @Transactional(readOnly = true)
@@ -80,13 +80,14 @@ public class StatusAutomationService {
         if (statusId != null) {
             CandidateStatusDefinition status = statusIn(catalog, statusId)
                     .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-            // A paused rule must still be switchable off, so a retired status is refused only for a rule turned on.
+            // A paused rule must still be switchable off, so a retired or flagged status is refused only for a rule
+            // turned on.
             if (request.enabled() && status.isRetired()) {
                 throw ApiException.of(ErrorCode.PIPELINE_STATUS_RETIRED);
             }
-            if (status.getStage().isClosed()) {
+            if (request.enabled() && status.isOutOfProcess()) {
                 throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "statusId",
-                        "Choose a status of an active stage");
+                        "Choose a status that is in process");
             }
         }
         jdbc.update("""
@@ -124,7 +125,9 @@ public class StatusAutomationService {
     private static StatusAutomationResponse toResponse(PipelineCatalog catalog, StatusAutomationTrigger trigger,
                                                        Rule rule) {
         boolean broken = rule.enabled() && rule.statusId() != null
-                && statusIn(catalog, rule.statusId()).map(CandidateStatusDefinition::isRetired).orElse(true);
+                && statusIn(catalog, rule.statusId())
+                        .map(status -> status.isRetired() || status.isOutOfProcess())
+                        .orElse(true);
         return new StatusAutomationResponse(trigger.value(), rule.enabled(), rule.statusId(), broken);
     }
 

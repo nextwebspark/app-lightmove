@@ -15,7 +15,6 @@ export interface CandidatePipelineStage {
   key: string;
   label: string;
   colour: string;
-  kind: "active" | "closed";
   position: number;
 }
 
@@ -98,6 +97,8 @@ export interface Candidate {
   status: CandidateStatus;
   statusLabel?: string;
   statusColour?: string;
+  /** Their status is a way out of the process: Inactive on the board, approached no more. */
+  statusOutOfProcess?: boolean;
   pipelineStage?: CandidatePipelineStage;
   statusChangedAt?: string;
   /** Whether a client seat on the position sees this executive. */

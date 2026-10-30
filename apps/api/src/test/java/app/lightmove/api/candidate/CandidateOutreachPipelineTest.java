@@ -22,9 +22,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Outreach reads the pipeline by stage: anyone at a status of the closed stage — a workspace's own included —
- * is out of the running and never approached, and the moves an email or a booked call make go forward only,
- * by the pipeline's own order, never back from where a consultant put someone.
+ * Outreach reads the pipeline by status: anyone at a status out of process — wherever it sits, a workspace's own
+ * and an old closed stage's included — is out of the running and never approached, and the moves an email or a
+ * booked call make go forward only, by the pipeline's own order, never back from where a consultant put someone
+ * and never from a status out of process.
  */
 @IntegrationTest
 class CandidateOutreachPipelineTest extends PipelineFlowSupport {
@@ -41,62 +42,64 @@ class CandidateOutreachPipelineTest extends PipelineFlowSupport {
     }
 
     @Test
-    @DisplayName("every status of the closed stage leaves the running, a workspace's own included")
-    void theClosedStageIsOutOfTheRunning() throws Exception {
-        String declined = stageIn(catalog(), "declined").get("id").asText();
-        write(admin, "POST", PIPELINE + "/statuses", """
-                {"stageId":"%s","label":"Placed elsewhere"}""".formatted(declined));
+    @DisplayName("a status out of process leaves the running wherever it sits, a workspace's own and an old closed stage's")
+    void anOutOfProcessStatusIsOutOfTheRunning() throws Exception {
+        write(admin, "PATCH", PIPELINE + "/statuses/" + statusIn(catalog(), "callArranged").get("id").asText(), """
+                {"outOfProcess":true}""");
+        formerClosedStage("Declined", "placedElsewhere");
+        UUID flagged = candidate("callArranged");
         UUID placed = candidate("placedElsewhere");
         UUID withdrew = candidate("withdrew");
-        UUID researching = candidate("researching");
+        UUID source = candidate("source");
 
         Map<UUID, OutreachSkipReason> reasons = new HashMap<>();
         RecipientEligibility eligibility = new RecipientEligibility(Map.of());
         for (OutreachRecipient recipient : outreach.recipientsOf(UUID.fromString(workspaceId),
-                UUID.fromString(projectId), List.of(placed, withdrew, researching), List.of())) {
+                UUID.fromString(projectId), List.of(flagged, placed, withdrew, source), List.of())) {
             reasons.put(recipient.candidateId(), eligibility.skipReasonOf(recipient));
         }
 
+        assertThat(reasons.get(flagged)).isEqualTo(OutreachSkipReason.LEFT_THE_RUNNING);
         assertThat(reasons.get(placed)).isEqualTo(OutreachSkipReason.LEFT_THE_RUNNING);
         assertThat(reasons.get(withdrew)).isEqualTo(OutreachSkipReason.LEFT_THE_RUNNING);
-        assertThat(reasons.get(researching)).isEqualTo(OutreachSkipReason.NO_EMAIL);
+        assertThat(reasons.get(source)).isEqualTo(OutreachSkipReason.NO_EMAIL);
     }
 
     @Test
-    @DisplayName("the first email moves someone not yet contacted to Contacted, and nobody further on or ruled out")
+    @DisplayName("the first email moves someone not yet contacted to Awaiting reply, and nobody further on or out of process")
     void anEmailMovesForwardOnly() throws Exception {
-        UUID researching = candidate("researching");
-        UUID followedUp = candidate("followUpSent");
-        UUID screened = candidate("screened");
-        UUID withdrew = candidate("withdrew");
+        UUID source = candidate("source");
+        UUID arranging = candidate("callBeingArranged");
+        UUID screening = candidate("interested");
+        UUID outOfScope = candidate("outOfScope");
 
-        for (UUID candidateId : List.of(researching, followedUp, screened, withdrew)) {
+        for (UUID candidateId : List.of(source, arranging, screening, outOfScope)) {
             transactions.executeWithoutResult(status -> outreach.recordEmailSent(null, UUID.fromString(projectId),
                     candidateId, UUID.randomUUID(), "Opening", 1, UUID.randomUUID()));
         }
 
-        assertThat(statusOf(researching)).isEqualTo("contacted");
-        assertThat(statusOf(followedUp)).isEqualTo("followUpSent");
-        assertThat(statusOf(screened)).isEqualTo("screened");
-        assertThat(statusOf(withdrew)).isEqualTo("withdrew");
+        assertThat(statusOf(source)).isEqualTo("contacted");
+        assertThat(statusOf(arranging)).isEqualTo("callBeingArranged");
+        assertThat(statusOf(screening)).isEqualTo("interested");
+        assertThat(statusOf(outOfScope)).isEqualTo("outOfScope");
     }
 
     @Test
-    @DisplayName("a booked call moves someone short of Engaged there, and nobody past it")
+    @DisplayName("a booked call moves someone short of Confirming interest there, and nobody past it or out of process")
     void aBookingMovesForwardOnly() throws Exception {
         UUID identified = candidate("identified");
-        UUID followedUp = candidate("followUpSent");
-        UUID callBooked = candidate("callBooked");
+        UUID awaiting = candidate("contacted");
+        UUID callArranged = candidate("callArranged");
         UUID offLimits = candidate("offLimits");
 
-        for (UUID candidateId : List.of(identified, followedUp, callBooked, offLimits)) {
+        for (UUID candidateId : List.of(identified, awaiting, callArranged, offLimits)) {
             transactions.executeWithoutResult(status -> outreach.recordMeetingBooked(null,
                     UUID.fromString(projectId), candidateId, Instant.now(), false));
         }
 
         assertThat(statusOf(identified)).isEqualTo("engaged");
-        assertThat(statusOf(followedUp)).isEqualTo("engaged");
-        assertThat(statusOf(callBooked)).isEqualTo("callBooked");
+        assertThat(statusOf(awaiting)).isEqualTo("engaged");
+        assertThat(statusOf(callArranged)).isEqualTo("callArranged");
         assertThat(statusOf(offLimits)).isEqualTo("offLimits");
     }
 
@@ -109,7 +112,7 @@ class CandidateOutreachPipelineTest extends PipelineFlowSupport {
             write(admin, "PATCH", PIPELINE + "/statuses/" + status.get("id").asText(), """
                     {"stageId":"%s"}""".formatted(identifiedStage));
         }
-        UUID emailed = candidate("researching");
+        UUID emailed = candidate("source");
         UUID booked = candidate("identified");
 
         transactions.executeWithoutResult(status -> outreach.recordEmailSent(null, UUID.fromString(projectId),

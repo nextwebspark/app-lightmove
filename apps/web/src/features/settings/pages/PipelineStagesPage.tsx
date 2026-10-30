@@ -42,18 +42,16 @@ export function PipelineStagesPage() {
 
   const pausedAutomations = (useStatusAutomations().data ?? []).filter((automation) => automation.broken).length;
   const stages = query.data ? liveStages(query.data) : [];
-  const activeStages = stages.filter((stage) => stage.kind === "active");
-  const closedStages = stages.filter((stage) => stage.kind === "closed");
-  const activeIds = activeStages.map((stage) => stage.id);
+  const stageIds = stages.map((stage) => stage.id);
   const allOpen = stages.length > 0 && stages.every((stage) => openIds.has(stage.id));
 
   const moveStage = (from: number, to: number) => {
-    if (from < 0 || to < 0 || to >= activeIds.length || from === to) return;
-    reorder([...moveItem(activeIds, from, to), ...closedStages.map((stage) => stage.id)]);
+    if (from < 0 || to < 0 || to >= stageIds.length || from === to) return;
+    reorder(moveItem(stageIds, from, to));
   };
 
   const handleStageDragEnd = ({ active, over }: DragEndEvent) => {
-    if (over) moveStage(activeIds.indexOf(String(active.id)), activeIds.indexOf(String(over.id)));
+    if (over) moveStage(stageIds.indexOf(String(active.id)), stageIds.indexOf(String(over.id)));
   };
 
   const handleToggle = (id: string) =>
@@ -129,10 +127,9 @@ export function PipelineStagesPage() {
             measuring={STAGE_MEASURING}
             onDragEnd={handleStageDragEnd}
           >
-            {/* The modifier bounds a drag to this element, so it holds the active stages alone and none passes Declined. */}
             <div className="flex flex-col gap-2">
-              <SortableContext items={activeIds} strategy={verticalListSortingStrategy}>
-                {activeStages.map((stage, index) => (
+              <SortableContext items={stageIds} strategy={verticalListSortingStrategy}>
+                {stages.map((stage, index) => (
                   <PipelineStageCard
                     key={stage.id}
                     stage={stage}
@@ -143,17 +140,6 @@ export function PipelineStagesPage() {
                   />
                 ))}
               </SortableContext>
-            </div>
-            <div className="mt-2 flex flex-col gap-2">
-              {closedStages.map((stage) => (
-                <PipelineStageCard
-                  key={stage.id}
-                  stage={stage}
-                  isAdmin={isAdmin}
-                  open={openIds.has(stage.id)}
-                  onToggle={() => handleToggle(stage.id)}
-                />
-              ))}
             </div>
           </DndContext>
         </>
@@ -176,8 +162,10 @@ export function PipelineStagesPage() {
             </Button>
           </form>
           <p className="mt-3 max-w-[620px] font-mono text-meta text-u-text3">
-            A new stage is active and goes in before Declined, which stays last. A rename or a new colour reaches
-            every position at once. Dropping a candidate on a stage&apos;s column gives them its default status.
+            A new stage goes in last. A rename or a new colour reaches every position at once.
+            Dropping a candidate on a stage&apos;s column gives them its default status, which is always in process.
+            A status marked Out of process sends whoever holds it to the board&apos;s Inactive column, whatever its
+            stage, and nobody there is approached again.
           </p>
         </>
       )}

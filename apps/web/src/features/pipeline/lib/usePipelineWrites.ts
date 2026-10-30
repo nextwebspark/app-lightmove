@@ -80,8 +80,8 @@ export function useBoardMove(projectId: string, queryKey: QueryKey) {
       if (previous) {
         queryClient.setQueryData<PipelinePage>(queryKey, {
           ...previous,
+          ...recounted(previous, placement),
           rows: placement.rows,
-          stageCounts: recounted(previous.stageCounts, placement.fromStageKey, placement.stageKey),
         });
       }
       return previous;
@@ -98,9 +98,21 @@ export function useBoardMove(projectId: string, queryKey: QueryKey) {
   });
 }
 
-function recounted(stageCounts: PipelineStageCount[], from: string, to: string): PipelineStageCount[] {
-  if (from === to) return stageCounts;
-  return stageCounts.map((stage) =>
-    stage.key === from ? { ...stage, count: stage.count - 1 } : stage.key === to ? { ...stage, count: stage.count + 1 } : stage,
-  );
+/** A stage counts its rows in process; one out of process counts as inactive instead, whatever its stage. */
+function recounted(
+  page: PipelinePage,
+  placement: BoardPlacement,
+): { stageCounts: PipelineStageCount[]; inactiveCount: number } {
+  const slotOf = (row: PipelineRow | undefined) =>
+    row === undefined ? undefined : row.outOfProcess ? null : row.pipelineStage.key;
+  const from = slotOf(page.rows.find((row) => row.candidateId === placement.candidateId));
+  const to = slotOf(placement.rows.find((row) => row.candidateId === placement.candidateId));
+  const unchanged = { stageCounts: page.stageCounts, inactiveCount: page.inactiveCount };
+  if (from === undefined || to === undefined || from === to) return unchanged;
+  return {
+    stageCounts: page.stageCounts.map((stage) =>
+      stage.key === from ? { ...stage, count: stage.count - 1 } : stage.key === to ? { ...stage, count: stage.count + 1 } : stage,
+    ),
+    inactiveCount: page.inactiveCount + (to === null ? 1 : 0) - (from === null ? 1 : 0),
+  };
 }

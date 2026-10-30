@@ -81,9 +81,12 @@ public class PositionPipelineService {
                 .sorted(PIPELINE_ORDER)
                 .toList();
         Map<String, Long> perStage = matching.stream()
+                .filter(row -> !row.getStatus().isOutOfProcess())
                 .collect(Collectors.groupingBy(row -> row.getStatus().getStage().getStageKey(), Collectors.counting()));
+        long inactive = matching.stream().filter(row -> row.getStatus().isOutOfProcess()).count();
         List<PipelineStageCountResponse> counts = catalog.stages().stream()
-                .filter(stage -> !stage.isRetired() || perStage.containsKey(stage.getStageKey()))
+                .filter(stage -> (!stage.isRetired() && catalog.holdsAStatusInProcess(stage))
+                        || perStage.containsKey(stage.getStageKey()))
                 .map(stage -> countOf(stage, perStage.getOrDefault(stage.getStageKey(), 0L)))
                 .toList();
         List<Candidate> shown = stageKey == null || stageKey.isBlank() ? matching : matching.stream()
@@ -91,7 +94,7 @@ public class PositionPipelineService {
                 .toList();
         Map<UUID, CandidateNextActionDto> next = nextActionsOf(projectId, shown);
         return new PositionPipelineResponse(shown.stream().map(row -> toRow(row, next)).toList(), counts,
-                shown.size());
+                inactive, shown.size());
     }
 
     /** One executive as the Pipeline draws them, for a read that shows a single person (the outreach conversation). */
@@ -205,7 +208,7 @@ public class PositionPipelineService {
 
     private static PipelineStageCountResponse countOf(CandidateStage stage, long count) {
         return new PipelineStageCountResponse(stage.getStageKey(), stage.getLabel(), stage.getColour().value(),
-                stage.getKind().value(), stage.getPosition(), count);
+                stage.getPosition(), count);
     }
 
     private Map<UUID, CandidateNextActionDto> nextActionsOf(UUID projectId, List<Candidate> rows) {
@@ -217,7 +220,8 @@ public class PositionPipelineService {
         return new PipelineRowResponse(row.getId(), row.getPerson().getId(), row.getPerson().getFullName(),
                 row.getPerson().getTitle(), row.getCompanyName(), row.getTriageCompanyId(),
                 row.getStatus().getStatusKey(), row.getStatus().getLabel(), row.getStatus().getColour().value(),
-                CandidateResponseMapper.stageOf(row.getStatus()), row.getCreatedAt(), row.getStatusChangedAt(),
+                row.getStatus().isOutOfProcess(), CandidateResponseMapper.stageOf(row.getStatus()),
+                row.getCreatedAt(), row.getStatusChangedAt(),
                 next.get(row.getId()),
                 row.isClientVisible(), row.getPerson().getProfile().enrichedAt());
     }

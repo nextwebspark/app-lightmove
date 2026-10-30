@@ -82,27 +82,27 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     /**
      * The projects list's "Candidates" number, for every mandate on the page at once so the list stays
      * one query rather than one per row. Grouped, so a mandate with nobody mapped is missing from the
-     * result rather than zero. Everyone at a status of the closed stage has left the running.
+     * result rather than zero. Everyone at an out-of-process status has left the running.
      */
     @Query("select c.projectId as projectId, count(c) as total "
             + "from Candidate c where c.projectId in :projectIds "
-            + "and c.status.stage.kind <> app.lightmove.api.candidate.constant.PipelineStageKind.CLOSED "
+            + "and c.status.outOfProcess = false "
             + "and (:clientVisibleOnly = false or c.clientVisible = true) "
             + "group by c.projectId")
     List<CandidateCount> countStillInTheRunningByProjectIdIn(Collection<UUID> projectIds,
                                                              boolean clientVisibleOnly);
 
     /**
-     * Engaged: the built-in Engaged status, and anyone at a running stage from the one the built-in
-     * Interested status sits under onwards — so a workspace's own later stages count without naming them,
-     * and the number every position showed before the catalog is the number it shows now.
+     * Engaged, of those still in process: the built-in Engaged status, and anyone at a stage from the one the
+     * built-in Interested status sits under onwards — so a workspace's own later stages count without naming
+     * them, and the number every position showed before the catalog is the number it shows now.
      * {@code interestedFrom} is that stage's position, the caller's one read of the catalog.
      */
     @Query("select c.projectId as projectId, count(c) as total "
             + "from Candidate c where c.projectId in :projectIds "
+            + "and c.status.outOfProcess = false "
             + "and (c.status.systemKey = app.lightmove.api.candidate.constant.CandidateSystemStatus.ENGAGED "
-            + "  or (c.status.stage.kind = app.lightmove.api.candidate.constant.PipelineStageKind.ACTIVE "
-            + "  and c.status.stage.position >= :interestedFrom)) "
+            + "  or c.status.stage.position >= :interestedFrom) "
             + "and (:clientVisibleOnly = false or c.clientVisible = true) "
             + "group by c.projectId")
     List<CandidateCount> countEngagedByProjectIdIn(Collection<UUID> projectIds, int interestedFrom,

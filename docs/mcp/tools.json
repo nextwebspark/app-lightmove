@@ -239,6 +239,10 @@
               "type" : [ "string", "null" ],
               "description" : "Their nationality group"
             },
+            "outOfProcess" : {
+              "type" : "boolean",
+              "description" : "Whether the status is a way out of the process: whoever holds one is no longer pursued on this position, whatever stage it sits under"
+            },
             "personId" : {
               "type" : "string",
               "format" : "uuid",
@@ -252,17 +256,12 @@
                     "type" : "string",
                     "description" : "The stage's key, stable across renames"
                   },
-                  "kind" : {
-                    "type" : "string",
-                    "description" : "Whether the stage keeps someone in the running; closed means they have left it",
-                    "enum" : [ "active", "closed" ]
-                  },
                   "label" : {
                     "type" : "string",
                     "description" : "The stage's name as the workspace spells it"
                   }
                 },
-                "required" : [ "key", "kind", "label" ],
+                "required" : [ "key", "label" ],
                 "description" : "The stage of the workspace's pipeline an executive's status sits under"
               }, {
                 "description" : "The pipeline stage the status sits under"
@@ -302,7 +301,7 @@
               "description" : "Years of experience"
             }
           },
-          "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
+          "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "outOfProcess", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
           "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
         }, {
           "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
@@ -317,6 +316,10 @@
         "format" : "uuid",
         "description" : "This executive's id within the position"
       },
+      "outOfProcess" : {
+        "type" : "boolean",
+        "description" : "Whether the status is a way out of the process: they are no longer pursued on this position, whatever stage it sits under"
+      },
       "personId" : {
         "type" : "string",
         "format" : "uuid",
@@ -324,7 +327,7 @@
       },
       "pipelineStage" : {
         "type" : [ "string", "null" ],
-        "description" : "The key of the pipeline stage the status sits under, such as identified, contacted, interested or declined"
+        "description" : "The key of the pipeline stage the status sits under, such as identified, contacted, interested or qualified"
       },
       "status" : {
         "type" : "string",
@@ -339,7 +342,7 @@
         "description" : "Their current title"
       }
     },
-    "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "pipelineStage", "status", "statusLabel", "title" ]
+    "required" : [ "companyId", "companyName", "detail", "fullName", "id", "outOfProcess", "personId", "pipelineStage", "status", "statusLabel", "title" ]
   },
   "annotations" : {
     "title" : "",
@@ -709,6 +712,10 @@
                     "type" : [ "string", "null" ],
                     "description" : "Their nationality group"
                   },
+                  "outOfProcess" : {
+                    "type" : "boolean",
+                    "description" : "Whether the status is a way out of the process: whoever holds one is no longer pursued on this position, whatever stage it sits under"
+                  },
                   "personId" : {
                     "type" : "string",
                     "format" : "uuid",
@@ -722,17 +729,12 @@
                           "type" : "string",
                           "description" : "The stage's key, stable across renames"
                         },
-                        "kind" : {
-                          "type" : "string",
-                          "description" : "Whether the stage keeps someone in the running; closed means they have left it",
-                          "enum" : [ "active", "closed" ]
-                        },
                         "label" : {
                           "type" : "string",
                           "description" : "The stage's name as the workspace spells it"
                         }
                       },
-                      "required" : [ "key", "kind", "label" ],
+                      "required" : [ "key", "label" ],
                       "description" : "The stage of the workspace's pipeline an executive's status sits under"
                     }, {
                       "description" : "The pipeline stage the status sits under"
@@ -772,7 +774,7 @@
                     "description" : "Years of experience"
                   }
                 },
-                "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
+                "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "outOfProcess", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
                 "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
               }, {
                 "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
@@ -787,6 +789,10 @@
               "format" : "uuid",
               "description" : "This executive's id within the position"
             },
+            "outOfProcess" : {
+              "type" : "boolean",
+              "description" : "Whether the status is a way out of the process: they are no longer pursued on this position, whatever stage it sits under"
+            },
             "personId" : {
               "type" : "string",
               "format" : "uuid",
@@ -794,7 +800,7 @@
             },
             "pipelineStage" : {
               "type" : [ "string", "null" ],
-              "description" : "The key of the pipeline stage the status sits under, such as identified, contacted, interested or declined"
+              "description" : "The key of the pipeline stage the status sits under, such as identified, contacted, interested or qualified"
             },
             "status" : {
               "type" : "string",
@@ -809,7 +815,7 @@
               "description" : "Their current title"
             }
           },
-          "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "pipelineStage", "status", "statusLabel", "title" ]
+          "required" : [ "companyId", "companyName", "detail", "fullName", "id", "outOfProcess", "personId", "pipelineStage", "status", "statusLabel", "title" ]
         }
       },
       "nextCursor" : {
@@ -1384,6 +1390,10 @@
                   "type" : [ "string", "null" ],
                   "description" : "Their nationality group"
                 },
+                "outOfProcess" : {
+                  "type" : "boolean",
+                  "description" : "Whether the status is a way out of the process: whoever holds one is no longer pursued on this position, whatever stage it sits under"
+                },
                 "personId" : {
                   "type" : "string",
                   "format" : "uuid",
@@ -1397,17 +1407,12 @@
                         "type" : "string",
                         "description" : "The stage's key, stable across renames"
                       },
-                      "kind" : {
-                        "type" : "string",
-                        "description" : "Whether the stage keeps someone in the running; closed means they have left it",
-                        "enum" : [ "active", "closed" ]
-                      },
                       "label" : {
                         "type" : "string",
                         "description" : "The stage's name as the workspace spells it"
                       }
                     },
-                    "required" : [ "key", "kind", "label" ],
+                    "required" : [ "key", "label" ],
                     "description" : "The stage of the workspace's pipeline an executive's status sits under"
                   }, {
                     "description" : "The pipeline stage the status sits under"
@@ -1447,7 +1452,7 @@
                   "description" : "Years of experience"
                 }
               },
-              "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
+              "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "outOfProcess", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
               "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
             }, {
               "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
@@ -1462,6 +1467,10 @@
             "format" : "uuid",
             "description" : "This executive's id within the position"
           },
+          "outOfProcess" : {
+            "type" : "boolean",
+            "description" : "Whether the status is a way out of the process: they are no longer pursued on this position, whatever stage it sits under"
+          },
           "personId" : {
             "type" : "string",
             "format" : "uuid",
@@ -1469,7 +1478,7 @@
           },
           "pipelineStage" : {
             "type" : [ "string", "null" ],
-            "description" : "The key of the pipeline stage the status sits under, such as identified, contacted, interested or declined"
+            "description" : "The key of the pipeline stage the status sits under, such as identified, contacted, interested or qualified"
           },
           "status" : {
             "type" : "string",
@@ -1484,7 +1493,7 @@
             "description" : "Their current title"
           }
         },
-        "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "pipelineStage", "status", "statusLabel", "title" ]
+        "required" : [ "companyId", "companyName", "detail", "fullName", "id", "outOfProcess", "personId", "pipelineStage", "status", "statusLabel", "title" ]
       }
     },
     "type" : "object",
@@ -1906,6 +1915,10 @@
                     "type" : [ "string", "null" ],
                     "description" : "Their nationality group"
                   },
+                  "outOfProcess" : {
+                    "type" : "boolean",
+                    "description" : "Whether the status is a way out of the process: whoever holds one is no longer pursued on this position, whatever stage it sits under"
+                  },
                   "personId" : {
                     "type" : "string",
                     "format" : "uuid",
@@ -1919,17 +1932,12 @@
                           "type" : "string",
                           "description" : "The stage's key, stable across renames"
                         },
-                        "kind" : {
-                          "type" : "string",
-                          "description" : "Whether the stage keeps someone in the running; closed means they have left it",
-                          "enum" : [ "active", "closed" ]
-                        },
                         "label" : {
                           "type" : "string",
                           "description" : "The stage's name as the workspace spells it"
                         }
                       },
-                      "required" : [ "key", "kind", "label" ],
+                      "required" : [ "key", "label" ],
                       "description" : "The stage of the workspace's pipeline an executive's status sits under"
                     }, {
                       "description" : "The pipeline stage the status sits under"
@@ -1969,7 +1977,7 @@
                     "description" : "Years of experience"
                   }
                 },
-                "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
+                "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "outOfProcess", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
                 "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
               }, {
                 "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
@@ -1984,6 +1992,10 @@
               "format" : "uuid",
               "description" : "This executive's id within the position"
             },
+            "outOfProcess" : {
+              "type" : "boolean",
+              "description" : "Whether the status is a way out of the process: they are no longer pursued on this position, whatever stage it sits under"
+            },
             "personId" : {
               "type" : "string",
               "format" : "uuid",
@@ -1991,7 +2003,7 @@
             },
             "pipelineStage" : {
               "type" : [ "string", "null" ],
-              "description" : "The key of the pipeline stage the status sits under, such as identified, contacted, interested or declined"
+              "description" : "The key of the pipeline stage the status sits under, such as identified, contacted, interested or qualified"
             },
             "status" : {
               "type" : "string",
@@ -2006,7 +2018,7 @@
               "description" : "Their current title"
             }
           },
-          "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "pipelineStage", "status", "statusLabel", "title" ]
+          "required" : [ "companyId", "companyName", "detail", "fullName", "id", "outOfProcess", "personId", "pipelineStage", "status", "statusLabel", "title" ]
         }
       },
       "nextCursor" : {
@@ -2463,6 +2475,10 @@
                     "type" : [ "string", "null" ],
                     "description" : "Their nationality group"
                   },
+                  "outOfProcess" : {
+                    "type" : "boolean",
+                    "description" : "Whether the status is a way out of the process: whoever holds one is no longer pursued on this position, whatever stage it sits under"
+                  },
                   "personId" : {
                     "type" : "string",
                     "format" : "uuid",
@@ -2476,17 +2492,12 @@
                           "type" : "string",
                           "description" : "The stage's key, stable across renames"
                         },
-                        "kind" : {
-                          "type" : "string",
-                          "description" : "Whether the stage keeps someone in the running; closed means they have left it",
-                          "enum" : [ "active", "closed" ]
-                        },
                         "label" : {
                           "type" : "string",
                           "description" : "The stage's name as the workspace spells it"
                         }
                       },
-                      "required" : [ "key", "kind", "label" ],
+                      "required" : [ "key", "label" ],
                       "description" : "The stage of the workspace's pipeline an executive's status sits under"
                     }, {
                       "description" : "The pipeline stage the status sits under"
@@ -2526,7 +2537,7 @@
                     "description" : "Years of experience"
                   }
                 },
-                "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
+                "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "outOfProcess", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
                 "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
               }, {
                 "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
@@ -2541,6 +2552,10 @@
               "format" : "uuid",
               "description" : "This executive's id within the position"
             },
+            "outOfProcess" : {
+              "type" : "boolean",
+              "description" : "Whether the status is a way out of the process: they are no longer pursued on this position, whatever stage it sits under"
+            },
             "personId" : {
               "type" : "string",
               "format" : "uuid",
@@ -2548,7 +2563,7 @@
             },
             "pipelineStage" : {
               "type" : [ "string", "null" ],
-              "description" : "The key of the pipeline stage the status sits under, such as identified, contacted, interested or declined"
+              "description" : "The key of the pipeline stage the status sits under, such as identified, contacted, interested or qualified"
             },
             "status" : {
               "type" : "string",
@@ -2563,7 +2578,7 @@
               "description" : "Their current title"
             }
           },
-          "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "pipelineStage", "status", "statusLabel", "title" ]
+          "required" : [ "companyId", "companyName", "detail", "fullName", "id", "outOfProcess", "personId", "pipelineStage", "status", "statusLabel", "title" ]
         }
       },
       "nextCursor" : {

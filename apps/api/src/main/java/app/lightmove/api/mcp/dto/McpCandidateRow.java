@@ -19,8 +19,11 @@ public record McpCandidateRow(
                 + "identified, contacted, engaged, interested, notInterested, offLimits or outOfScope")
         String status,
         @Schema(description = "The status's name as the workspace spells it") String statusLabel,
+        @Schema(description = "Whether the status is a way out of the process: they are no longer pursued on this "
+                + "position, whatever stage it sits under")
+        boolean outOfProcess,
         @Schema(description = "The key of the pipeline stage the status sits under, such as identified, contacted, "
-                + "interested or declined", nullable = true)
+                + "interested or qualified", nullable = true)
         @Nullable String pipelineStage,
         @Schema(description = "Every field of the executive; present only with response_format=detailed. Its contacts "
                 + "and compensation are filled only where the connection holds their scopes", nullable = true)
@@ -31,7 +34,7 @@ public record McpCandidateRow(
         return new McpCandidateRow(candidate.id(), candidate.personId(), candidate.fullName(),
                 McpFreeText.capped(candidate.title(), McpFreeText.MAX_LINE),
                 candidate.companyId(), candidate.companyName(), candidate.status(), candidate.statusLabel(),
-                candidate.pipelineStage() == null ? null : candidate.pipelineStage().key(),
+                candidate.outOfProcess(), candidate.pipelineStage() == null ? null : candidate.pipelineStage().key(),
                 detailed ? McpFreeText.capped(candidate) : null);
     }
 }

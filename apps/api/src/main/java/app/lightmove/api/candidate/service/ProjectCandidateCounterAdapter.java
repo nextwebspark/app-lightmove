@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
  * {@code ProjectCompanyCounterAdapter} applies to declined companies. The two numbers sit side by
  * side under one "Pipeline" heading and read as a pair, so counting everyone here and only the live
  * companies there would make one heading mean two things. Every executive ever mapped, ruled out or
- * not, is still on the Candidates screen — the closed stage keeps them deliberately, because the same
+ * not, is still on the Candidates screen — an out-of-process status keeps them deliberately, because the same
  * name comes up on the next mandate. Engaged and reached out are read by stage, so a workspace's own
  * statuses count where its admin put them. A mandate its caller reads as a client seat counts only the
  * executives shown to the client.

@@ -9,7 +9,9 @@ import app.lightmove.api.candidate.dto.StatusAutomationResponse;
 import app.lightmove.api.candidate.dto.UpdatePipelineStageRequest;
 import app.lightmove.api.candidate.dto.UpdatePipelineStatusRequest;
 import app.lightmove.api.candidate.dto.UpdateStatusAutomationRequest;
-import app.lightmove.api.candidate.service.CandidatePipelineService;
+import app.lightmove.api.candidate.service.PipelineCatalogService;
+import app.lightmove.api.candidate.service.PipelineStageService;
+import app.lightmove.api.candidate.service.PipelineStatusService;
 import app.lightmove.api.candidate.service.StatusAutomationService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
@@ -43,13 +45,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class CandidatePipelineController {
 
-    private final CandidatePipelineService pipeline;
+    private final PipelineCatalogService catalogs;
+    private final PipelineStageService stages;
+    private final PipelineStatusService statuses;
     private final StatusAutomationService automations;
 
     @GetMapping
     @PreAuthorize("@workspaceAuthorizer.member(principal)")
     public PipelineCatalogResponse catalog(@AuthenticationPrincipal AuthPrincipal principal) {
-        return pipeline.catalog(principal.requireWorkspaceId());
+        return catalogs.catalog(principal.requireWorkspaceId());
     }
 
     @PostMapping("/stages")
@@ -58,7 +62,7 @@ public class CandidatePipelineController {
     public PipelineCatalogResponse createStage(@AuthenticationPrincipal AuthPrincipal principal,
                                                @Valid @RequestBody CreatePipelineStageRequest request,
                                                HttpServletRequest httpRequest) {
-        return pipeline.createStage(principal.userId(), principal.requireWorkspaceId(), request, httpRequest);
+        return stages.createStage(principal.userId(), principal.requireWorkspaceId(), request, httpRequest);
     }
 
     @PatchMapping("/stages/{stageId}")
@@ -67,7 +71,7 @@ public class CandidatePipelineController {
                                                @PathVariable UUID stageId,
                                                @Valid @RequestBody UpdatePipelineStageRequest request,
                                                HttpServletRequest httpRequest) {
-        return pipeline.updateStage(principal.userId(), principal.requireWorkspaceId(), stageId, request,
+        return stages.updateStage(principal.userId(), principal.requireWorkspaceId(), stageId, request,
                 httpRequest);
     }
 
@@ -76,7 +80,7 @@ public class CandidatePipelineController {
     public PipelineCatalogResponse reorderStages(@AuthenticationPrincipal AuthPrincipal principal,
                                                  @Valid @RequestBody ReorderPipelineRequest request,
                                                  HttpServletRequest httpRequest) {
-        return pipeline.reorderStages(principal.userId(), principal.requireWorkspaceId(), request.ids(),
+        return stages.reorderStages(principal.userId(), principal.requireWorkspaceId(), request.ids(),
                 httpRequest);
     }
 
@@ -86,7 +90,7 @@ public class CandidatePipelineController {
                                                    @PathVariable UUID stageId,
                                                    @Valid @RequestBody ReorderPipelineRequest request,
                                                    HttpServletRequest httpRequest) {
-        return pipeline.reorderStatuses(principal.userId(), principal.requireWorkspaceId(), stageId,
+        return statuses.reorderStatuses(principal.userId(), principal.requireWorkspaceId(), stageId,
                 request.ids(), httpRequest);
     }
 
@@ -96,7 +100,7 @@ public class CandidatePipelineController {
     public PipelineCatalogResponse createStatus(@AuthenticationPrincipal AuthPrincipal principal,
                                                 @Valid @RequestBody CreatePipelineStatusRequest request,
                                                 HttpServletRequest httpRequest) {
-        return pipeline.createStatus(principal.userId(), principal.requireWorkspaceId(), request, httpRequest);
+        return statuses.createStatus(principal.userId(), principal.requireWorkspaceId(), request, httpRequest);
     }
 
     @PatchMapping("/statuses/{statusId}")
@@ -105,7 +109,7 @@ public class CandidatePipelineController {
                                                 @PathVariable UUID statusId,
                                                 @Valid @RequestBody UpdatePipelineStatusRequest request,
                                                 HttpServletRequest httpRequest) {
-        return pipeline.updateStatus(principal.userId(), principal.requireWorkspaceId(), statusId, request,
+        return statuses.updateStatus(principal.userId(), principal.requireWorkspaceId(), statusId, request,
                 httpRequest);
     }
 
@@ -113,14 +117,14 @@ public class CandidatePipelineController {
     @PreAuthorize("@workspaceAuthorizer.staffOnly(principal)")
     public PipelineRetirePreviewResponse stageRetirePreview(@AuthenticationPrincipal AuthPrincipal principal,
                                                             @PathVariable UUID stageId) {
-        return pipeline.stageRetirePreview(principal.requireWorkspaceId(), stageId);
+        return catalogs.stageRetirePreview(principal.requireWorkspaceId(), stageId);
     }
 
     @GetMapping("/statuses/{statusId}/retire-preview")
     @PreAuthorize("@workspaceAuthorizer.staffOnly(principal)")
     public PipelineRetirePreviewResponse statusRetirePreview(@AuthenticationPrincipal AuthPrincipal principal,
                                                              @PathVariable UUID statusId) {
-        return pipeline.statusRetirePreview(principal.requireWorkspaceId(), statusId);
+        return catalogs.statusRetirePreview(principal.requireWorkspaceId(), statusId);
     }
 
     @GetMapping("/automations")

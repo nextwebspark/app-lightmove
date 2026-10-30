@@ -31,10 +31,15 @@ export function reorderStages(ids: string[]): Promise<PipelineCatalog> {
   return request<PipelineCatalog>("/workspace/pipeline/stages/order", { method: "PUT", body: { ids } });
 }
 
-export function createStatus(stageId: string, label: string, colour?: string): Promise<PipelineCatalog> {
+export function createStatus(
+  stageId: string,
+  label: string,
+  colour?: string,
+  outOfProcess?: boolean,
+): Promise<PipelineCatalog> {
   return request<PipelineCatalog>("/workspace/pipeline/statuses", {
     method: "POST",
-    body: { stageId, label, colour },
+    body: { stageId, label, colour, outOfProcess },
   });
 }
 

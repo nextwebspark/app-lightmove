@@ -37,7 +37,7 @@ class StatusAutomationTest extends PipelineFlowSupport {
     }
 
     @Test
-    @DisplayName("a workspace that never chose sends an email to Contacted and a booking to Engaged, and a reply nowhere")
+    @DisplayName("a workspace that never chose sends an email to Awaiting reply and a booking to Confirming interest")
     void theSeededRulesAreTodaysBehaviour() throws Exception {
         JsonNode catalog = catalog();
         JsonNode rules = automations(admin);
@@ -56,10 +56,10 @@ class StatusAutomationTest extends PipelineFlowSupport {
     void theWorkspacesChoiceIsWherePeopleGo() throws Exception {
         JsonNode catalog = catalog();
         write(admin, "PUT", AUTOMATIONS + "/emailSent", """
-                {"enabled":true,"statusId":"%s"}""".formatted(statusIn(catalog, "followUpSent").get("id").asText()));
+                {"enabled":true,"statusId":"%s"}""".formatted(statusIn(catalog, "callBeingArranged").get("id").asText()));
         write(admin, "PUT", AUTOMATIONS + "/replied", """
                 {"enabled":true,"statusId":"%s"}""".formatted(statusIn(catalog, "interested").get("id").asText()));
-        JsonNode emailed = candidate("researching");
+        JsonNode emailed = candidate("source");
         JsonNode replied = candidate("contacted");
 
         transactions.executeWithoutResult(status -> outreach.recordEmailSent(null, UUID.fromString(projectId),
@@ -68,7 +68,7 @@ class StatusAutomationTest extends PipelineFlowSupport {
                 UUID.fromString(projectId), UUID.fromString(replied.get("personId").asText()), UUID.randomUUID(),
                 "Opening", UUID.randomUUID()));
 
-        assertThat(statusOf(idOf(emailed))).isEqualTo("followUpSent");
+        assertThat(statusOf(idOf(emailed))).isEqualTo("callBeingArranged");
         assertThat(statusOf(idOf(replied))).isEqualTo("interested");
     }
 
@@ -87,6 +87,27 @@ class StatusAutomationTest extends PipelineFlowSupport {
         assertThat(statusOf(idOf(booked))).isEqualTo("identified");
         assertThat(codeOf(write(admin, "PUT", AUTOMATIONS + "/callBooked", """
                 {"enabled":true,"statusId":"%s"}""".formatted(engaged)))).isEqualTo("PIPELINE_STATUS_RETIRED");
+    }
+
+    @Test
+    @DisplayName("a rule whose status is taken out of process is paused, moves nobody, and still switches off")
+    void anOutOfProcessTargetPausesTheRule() throws Exception {
+        String engaged = statusIn(catalog(), "engaged").get("id").asText();
+        write(admin, "PATCH", PIPELINE + "/statuses/" + engaged, """
+                {"outOfProcess":true}""");
+        JsonNode booked = candidate("identified");
+
+        transactions.executeWithoutResult(status -> outreach.recordMeetingBooked(null,
+                UUID.fromString(projectId), idOf(booked), Instant.now(), false));
+
+        assertThat(rule(automations(admin), "callBooked").get("broken").asBoolean()).isTrue();
+        assertThat(statusOf(idOf(booked))).isEqualTo("identified");
+
+        JsonNode rules = body(write(admin, "PUT", AUTOMATIONS + "/callBooked", """
+                {"enabled":false,"statusId":"%s"}""".formatted(engaged)));
+        assertThat(rule(rules, "callBooked").get("enabled").asBoolean()).isFalse();
+        assertThat(codeOf(write(admin, "PUT", AUTOMATIONS + "/callBooked", """
+                {"enabled":true,"statusId":"%s"}""".formatted(engaged)))).isEqualTo("VALIDATION_FAILED");
     }
 
     @Test
@@ -117,7 +138,7 @@ class StatusAutomationTest extends PipelineFlowSupport {
     }
 
     @Test
-    @DisplayName("a rule never points into the closed stage, nor at another workspace's status")
+    @DisplayName("a rule never points at a status out of process, nor at another workspace's status")
     void aRuleTargetsAnActiveStatusOfItsOwnWorkspace() throws Exception {
         String withdrew = statusIn(catalog(), "withdrew").get("id").asText();
         String foreign = db.queryForObject("""

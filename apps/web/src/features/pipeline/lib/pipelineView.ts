@@ -1,5 +1,5 @@
 import type { CandidatePipelineStage } from "../../candidates/api/types";
-import type { PipelineCatalog, PipelineStatus } from "../../workspace/api/types";
+import type { PipelineCatalog, PipelineStage, PipelineStatus } from "../../workspace/api/types";
 import type { PipelineRankMove, PipelineRow } from "../api/types";
 
 export function shortDate(moment: Date | string): string {
@@ -15,7 +15,7 @@ export function daysInStage(statusChangedAt: string, now: Date = new Date()): nu
 /** Where a dropped card goes: its stage, the status it is given (null keeps its own), and the card it lands before. */
 export interface BoardTarget {
   stage: CandidatePipelineStage;
-  status: Pick<PipelineStatus, "key" | "label" | "colour"> | null;
+  status: Pick<PipelineStatus, "key" | "label" | "colour" | "outOfProcess"> | null;
   beforeId: string | null;
 }
 
@@ -70,6 +70,7 @@ function withStatus(
     status: status.key,
     statusLabel: status.label,
     statusColour: status.colour,
+    outOfProcess: status.outOfProcess,
     pipelineStage: stage,
     statusChangedAt: now.toISOString(),
   };
@@ -108,16 +109,23 @@ function endOfStage(rows: readonly PipelineRow[], stage: CandidatePipelineStage)
 export interface InactiveGroup {
   status: string;
   label: string;
+  /** The stage the status sits under, since a way out may sit under any stage. */
+  stageLabel: string;
   rows: PipelineRow[];
 }
 
-/** The closed stage's people grouped by status, in the catalog's order; only statuses someone holds. */
+/** Everyone out of process grouped by status, in the catalog's order; only statuses someone holds. */
 export function inactiveGroupsOf(rows: readonly PipelineRow[], catalog: PipelineCatalog): InactiveGroup[] {
-  const closed = rows.filter((row) => row.pipelineStage.kind === "closed");
+  const out = rows.filter((row) => row.outOfProcess);
   const order = catalog.stages.flatMap((stage) => stage.statuses.map((status) => status.key));
   const groups = new Map<string, InactiveGroup>();
-  for (const row of closed) {
-    const group = groups.get(row.status) ?? { status: row.status, label: row.statusLabel, rows: [] };
+  for (const row of out) {
+    const group = groups.get(row.status) ?? {
+      status: row.status,
+      label: row.statusLabel,
+      stageLabel: row.pipelineStage.label,
+      rows: [],
+    };
     group.rows.push(row);
     groups.set(row.status, group);
   }
@@ -126,4 +134,32 @@ export function inactiveGroupsOf(rows: readonly PipelineRow[], catalog: Pipeline
     return index === -1 ? Number.MAX_SAFE_INTEGER : index;
   };
   return [...groups.values()].sort((a, b) => rank(a.status) - rank(b.status));
+}
+
+/** A way out of the process a card can be given, with the stage it sits under. */
+export interface OutOfProcessChoice {
+  stage: CandidatePipelineStage;
+  status: PipelineStatus;
+}
+
+/**
+ * Every live status out of process, the card's own stage's first and then in pipeline order: what a card
+ * dropped on Inactive itself is offered.
+ */
+export function outOfProcessChoicesFor(catalog: PipelineCatalog, stageKey: string): OutOfProcessChoice[] {
+  const choices = catalog.stages
+    .filter((stage) => !stage.retired)
+    .flatMap((stage) =>
+      stage.statuses
+        .filter((status) => status.outOfProcess && !status.retired)
+        .map((status) => ({ stage: candidateStageOf(stage), status })),
+    );
+  return [
+    ...choices.filter((choice) => choice.stage.key === stageKey),
+    ...choices.filter((choice) => choice.stage.key !== stageKey),
+  ];
+}
+
+export function candidateStageOf({ key, label, colour, position }: PipelineStage): CandidatePipelineStage {
+  return { key, label, colour, position };
 }

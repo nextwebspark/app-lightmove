@@ -165,7 +165,8 @@ function conversation(overrides: Partial<Conversation> = {}): Conversation {
       status: "interested",
       statusLabel: "Interested",
       statusColour: "green",
-      pipelineStage: { key: "interested", label: "Interested", colour: "green", kind: "active", position: 3 },
+      outOfProcess: false,
+      pipelineStage: { key: "interested", label: "Interested", colour: "green", position: 3 },
       addedAt: "2026-09-20T05:00:00Z",
       statusChangedAt: "2026-10-01T05:00:00Z",
       nextAction: null,
@@ -402,6 +403,7 @@ describe("OutreachPage", () => {
         { candidateId: "c9", personId: "person-9", fullName: "Khalid Nasser", title: "Treasurer", companyName: "Emaar", statusLabel: "Identified", addedAt: "2026-10-20T05:00:00Z" },
       ] as never,
       stageCounts: [],
+      inactiveCount: 0,
       total: 2,
     });
     renderPage();
