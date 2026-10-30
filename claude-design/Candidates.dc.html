@@ -546,7 +546,7 @@
             <div data-screen-label="Note composer" style="border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:12px">
               <div role="radiogroup" aria-label="Kind of note" style="display:flex;flex-wrap:wrap;gap:4px">
                 <sc-for list="{{ noteKinds }}" as="nk" hint-placeholder-count="4">
-                  <button onClick="{{ setNoteKind }}" data-id="{{ nk.key }}" role="radio" aria-checked="{{ nk.on }}" style="{{ nk.style }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ nk.icon }}"></path></svg>{{ nk.label }}</button>
+                  <button onClick="{{ setNoteKind }}" data-id="{{ nk.key }}" role="radio" aria-checked="{{ nk.on }}" style="{{ nk.style }}"><sc-if value="{{ nk.icon }}" hint-placeholder-val="{{ true }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ nk.icon }}"></path></svg></sc-if><sc-if value="{{ nk.brand }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="width:11px;height:10px;border-radius:2px;background:var(--text);color:var(--panel);font:700 7.5px/10px var(--sans);text-align:center">in</span></sc-if>{{ nk.label }}</button>
                 </sc-for>
               </div>
               <textarea value="{{ noteText }}" onChange="{{ onNoteText }}" rows="3" maxLength="4000" aria-label="Note" placeholder="{{ notePlaceholder }}" style="margin-top:8px;width:100%;resize:vertical;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px/1.55 var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
@@ -1068,7 +1068,9 @@ const NOTE_KINDS = [
   { key: "general", label: "Note", icon: I.note, fg: "var(--text2)", bg: "var(--panel2)" },
   { key: "call", label: "Call", icon: I.phone, fg: "var(--u-accent)", bg: "var(--u-accent-tint)" },
   { key: "meeting", label: "Meeting", icon: I.members, fg: "var(--u-adjacent)", bg: "var(--u-adjacent-tint)" },
-  { key: "email", label: "Email", icon: I.mail, fg: "var(--u-chart-5)", bg: "color-mix(in srgb, var(--u-chart-5) 16%, transparent)" }
+  { key: "email", label: "Email", icon: I.mail, fg: "var(--u-chart-5)", bg: "color-mix(in srgb, var(--u-chart-5) 16%, transparent)" },
+  // LinkedIn wears the network's own "in" bug, never a stroke glyph or a tint of ours.
+  { key: "linkedin", label: "LinkedIn", icon: null, fg: "var(--text2)", bg: "var(--panel2)" }
 ];
 const NOTE_KIND = Object.fromEntries(NOTE_KINDS.map((k) => [k.key, k]));
 
@@ -1801,7 +1803,7 @@ class Component extends DCLogic {
       }),
       tabProfile: s.drawerTab === "profile", tabContact: s.drawerTab === "contact", tabRecords: s.drawerTab === "records", tabTimeline: s.drawerTab === "timeline", dc, pv,
       tagPickerOpen: s.tagPickerOpen, tagQuery: s.tagQuery, tagQueryTrim: tq, tagOptions, canCreateTag: !!tq && !s.tags.some((t) => t.label.toLowerCase() === tq.toLowerCase()),
-      noteKinds: NOTE_KINDS.map((k) => { const on = s.noteKind === k.key; return { key: k.key, label: k.label, icon: k.icon, on,
+      noteKinds: NOTE_KINDS.map((k) => { const on = s.noteKind === k.key; return { key: k.key, label: k.label, icon: k.icon, brand: !k.icon, on,
         style: `display:inline-flex;align-items:center;gap:6px;border-radius:6px;padding:5px 10px;font:500 12px var(--sans);cursor:pointer;${on ? `border:1px solid transparent;background:${k.bg};color:${k.fg}` : "border:1px solid var(--line);background:var(--panel);color:var(--text3)"}` }; }),
       noteText: s.noteText, notePos: s.notePos,
       notePlaceholder: { general: "What your team should know about this person…", call: "What was said on the call, and what happens next…", meeting: "Where you met, what came out of it…", email: "What was sent or received, and the reply…" }[s.noteKind],

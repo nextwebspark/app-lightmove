@@ -260,7 +260,7 @@ export interface NationalityReading {
 }
 
 /** What a note records, as the composer offers it. */
-export type PersonNoteKind = "general" | "call" | "meeting" | "email";
+export type PersonNoteKind = "general" | "call" | "meeting" | "email" | "linkedin";
 
 /**
  * A note on a workspace person. Staff-only: one about a position is read there alone, one about no position

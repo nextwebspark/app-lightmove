@@ -1,3 +1,5 @@
+import type { PersonNoteKind } from "../../candidates/api/types";
+
 /** A job on one executive of one position — the card's Next action is the earliest open one. Staff-only. */
 export type TaskKind = "call" | "email" | "meeting" | "follow_up" | "todo";
 
@@ -15,7 +17,8 @@ export interface TaskPerson {
   avatarUrl: string | null;
 }
 
-export type TaskNoteKind = "general" | "call" | "meeting" | "email";
+/** A note's kind as the server names it: a person's note's own, by construction. */
+export type TaskNoteKind = PersonNoteKind;
 
 /** The note a task or a bell row came from, named by its kind and date — never by what it says. */
 export interface TaskNote {

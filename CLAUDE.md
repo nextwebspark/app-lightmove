@@ -64,7 +64,7 @@ LinkedIn profile is refused (`PERSON_PROFILE_HELD`). A plugin capture of someone
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
-**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email), authored,
+**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`), authored,
 timed and **staff-only** — `CandidateResponse`, the talent map and the report carry none, because a client
 seat reads all three (decision D1). A note is about one position or about the person: read from a position,
 only that position's and the person's ("All positions") show, and another position's is not found

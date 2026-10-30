@@ -100,6 +100,7 @@ const NOTE_TITLES: Record<PersonNoteKind, string> = {
   call: "Call note",
   meeting: "Meeting note",
   email: "Email note",
+  linkedin: "LinkedIn note",
 };
 
 /** What a history card says about one event: its tag, its tone, its title and the line beneath, as the mockup draws them. */
@@ -208,6 +209,7 @@ export function glanceOf(
   let bounces = 0;
   let meetings = 0;
   let calls = 0;
+  let linkedin = 0;
   let notes = 0;
   let latest: { at: string; time: number } | null = null;
   for (const event of events) {
@@ -222,6 +224,7 @@ export function glanceOf(
     if (event.type === "MEETING") meetings++;
     if (event.type === "NOTE") {
       if (event.note.kind === "call") calls++;
+      else if (event.note.kind === "linkedin") linkedin++;
       else notes++;
     }
     const at = new Date(event.at).getTime();
@@ -236,6 +239,7 @@ export function glanceOf(
     { count: scheduled, noun: "scheduled", tone: "signal" },
     { count: meetings, noun: meetings === 1 ? "meeting" : "meetings", tone: "green" },
     { count: calls, noun: calls === 1 ? "call" : "calls", tone: "accent" },
+    { count: linkedin, noun: "LinkedIn", tone: "accent" },
     { count: notes, noun: notes === 1 ? "note" : "notes", tone: "neutral" },
   ];
   const since = latest === null ? null : sinceOf(latest.at, now);

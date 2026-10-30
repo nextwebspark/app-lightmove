@@ -766,6 +766,15 @@ describe("OutreachPage", () => {
     expect(within(dialog).getByRole("button", { name: "Expand" })).toBeInTheDocument();
   });
 
+  it("logs a LinkedIn message from the dock, filed as LinkedIn", async () => {
+    renderPage(OPEN);
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Log LinkedIn" }));
+    const dialog = await screen.findByRole("dialog", { name: "Log a LinkedIn message with Fatima Al Mazrouei" });
+    expect(within(dialog).getByRole("radio", { name: "LinkedIn" })).toHaveAttribute("aria-checked", "true");
+  });
+
   it("holds a note being written against Escape, as it does an email", async () => {
     renderPage(OPEN);
     await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
