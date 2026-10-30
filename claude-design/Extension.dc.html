@@ -148,16 +148,37 @@
                 </div>
               </sc-if>
 
-              <sc-if value="{{ it.vSavedBanner }}">
-                <div role="status" style="flex:none;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line-soft);background:var(--green-dim);padding:9px 14px">
-                  <span aria-hidden="true" style="display:grid;width:22px;height:22px;flex:none;place-items:center;border-radius:999px;background:var(--green);color:#06150e">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+              <sc-if value="{{ it.vChecking }}">
+                <div role="status" style="flex:1;display:flex;flex-direction:column;gap:12px;padding:14px">
+                  <span style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text3)"><span style="width:12px;height:12px;border-radius:999px;border:2px solid var(--line);border-top-color:var(--amber-btn);animation:spin 1s linear infinite"></span>Checking whether this position already has them…</span>
+                  <div style="display:flex;align-items:center;gap:11px;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:12px">
+                    <span style="width:44px;height:44px;border-radius:999px;background:var(--panel);animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite"></span>
+                    <span style="flex:1;display:flex;flex-direction:column;gap:7px"><span style="height:12px;width:60%;border-radius:4px;background:var(--panel);animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite"></span><span style="height:10px;width:80%;border-radius:4px;background:var(--panel);animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite"></span></span>
+                  </div>
+                  <span style="height:36px;border-radius:8px;background:var(--panel2);animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite"></span>
+                  <span style="height:120px;border-radius:8px;background:var(--panel2);animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite"></span>
+                </div>
+              </sc-if>
+
+              <!-- Added just now (green, with Undo) or already on this position (accent: who filed them and when; nothing to undo). -->
+              <sc-if value="{{ it.vBanner }}">
+                <div role="status" style="{{ it.bannerStyle }}">
+                  <span aria-hidden="true" style="{{ it.bannerIconStyle }}">
+                    <sc-if value="{{ it.isAdded }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+                    <sc-if value="{{ it.isHeld }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM16 11l2 2 4-4"></path></svg></sc-if>
                   </span>
                   <span style="flex:1;min-width:0">
-                    <span style="display:block;font:600 12.5px var(--sans);color:var(--text)">{{ it.savedTitle }}</span>
-                    <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text2)">{{ it.savedDetail }}</span>
+                    <span style="display:block;font:600 12.5px var(--sans);color:var(--text)">{{ it.bannerTitle }}</span>
+                    <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text2)">{{ it.bannerDetail }}</span>
                   </span>
-                  <button onClick="{{ onUndo }}" data-frame="{{ it.id }}" style="flex:none;border-radius:6px;border:1px solid color-mix(in srgb,var(--green) 40%,transparent);background:none;padding:4px 10px;font:600 11.5px var(--sans);color:var(--green);cursor:pointer" style-hover="background:color-mix(in srgb,var(--green) 12%,transparent)">Undo</button>
+                  <sc-if value="{{ it.isAdded }}">
+                    <button onClick="{{ onUndo }}" data-frame="{{ it.id }}" style="flex:none;border-radius:6px;border:1px solid color-mix(in srgb,var(--green) 40%,transparent);background:none;padding:4px 10px;font:600 11.5px var(--sans);color:var(--green);cursor:pointer" style-hover="background:color-mix(in srgb,var(--green) 12%,transparent)">Undo</button>
+                  </sc-if>
+                  <sc-if value="{{ it.isHeld }}">
+                    <a href="Position.dc.html?page=universe" target="_blank" style="flex:none;display:inline-flex;align-items:center;gap:4px;font:500 11.5px var(--sans);color:var(--sky)">Open
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>
+                    </a>
+                  </sc-if>
                 </div>
               </sc-if>
 
@@ -170,10 +191,14 @@
                     </div>
                   </sc-if>
 
-                  <!-- The subject: who or what the page is about. The segmented control corrects a wrong guess; nothing else does. -->
+                  <!-- The subject: who or what the page is about — the address decides, /in/ a person, /company/ a company. -->
                   <sc-if value="{{ it.showSubject }}">
                   <div style="display:flex;align-items:center;gap:11px;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:11px 12px">
-                    <span style="{{ it.tileStyle }}">{{ it.initials }}</span>
+                    <span style="position:relative;flex:none">
+                      <sc-if value="{{ it.hasPhoto }}"><img src="{{ it.photoSrc }}" alt="{{ it.photoAlt }}" style="{{ it.photoStyle }}"></sc-if>
+                      <sc-if value="{{ it.noPhoto }}"><span style="{{ it.tileStyle }}">{{ it.initials }}</span></sc-if>
+                      <sc-if value="{{ it.photoPending }}"><span title="Fetching the profile photo" style="position:absolute;right:-2px;bottom:-2px;width:14px;height:14px;border-radius:999px;border:2px solid var(--panel2);background:var(--panel);display:grid;place-items:center"><span style="width:8px;height:8px;border-radius:999px;border:1.5px solid var(--line);border-top-color:var(--amber);animation:spin 1s linear infinite"></span></span></sc-if>
+                    </span>
                     <span style="flex:1;min-width:0">
                       <sc-if value="{{ it.nameLocked }}">
                         <span title="Read from the page" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 14.5px/1.3 var(--sans);color:var(--text)">{{ it.nameValue }}</span>
@@ -181,36 +206,27 @@
                       <sc-if value="{{ it.nameEditable }}">
                         <input value="{{ it.nameValue }}" onChange="{{ onName }}" data-frame="{{ it.id }}" aria-label="{{ it.nameLabel }}" placeholder="{{ it.nameLabel }}" style="display:block;width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:5px 8px;font:500 13.5px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                       </sc-if>
+                      <sc-if value="{{ it.hasHeadline }}"><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px;font:400 12px/1.4 var(--sans);color:var(--text2)">{{ it.headline }}</span></sc-if>
                       <span style="display:flex;align-items:center;gap:5px;margin-top:2px;font:400 11px var(--mono);color:var(--text3)">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.56V9h3.56v11.45z"></path></svg>
                         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.slugText }}</span>
                       </span>
-                      <sc-if value="{{ it.showSavedPills }}">
-                        <span style="display:flex;flex-wrap:wrap;gap:5px;margin-top:7px">
-                          <span style="{{ it.savedStatusPill }}"><span style="{{ it.statusDotStyle }}"></span>{{ it.savedStatusText }}</span>
-                        </span>
+                      <sc-if value="{{ it.showCompanyStage }}">
+                        <span style="display:flex;flex-wrap:wrap;gap:5px;margin-top:7px"><span style="{{ it.companyStagePill }}">In universe</span></span>
                       </sc-if>
                     </span>
-                    <sc-if value="{{ it.showSubjectSwitch }}">
-                      <span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none">
-                        <span role="radiogroup" aria-label="This page is about" style="display:flex;border-radius:6px;border:1px solid var(--line);padding:2px;background:var(--panel)">
-                          <sc-for list="{{ it.subjects }}" as="sb">
-                            <button role="radio" aria-checked="{{ sb.on }}" onClick="{{ onSubject }}" data-frame="{{ it.id }}" data-v="{{ sb.id }}" style="{{ sb.style }}">{{ sb.label }}</button>
-                          </sc-for>
-                        </span>
-                        <button onClick="{{ onRescan }}" data-frame="{{ it.id }}" title="Read the page again" style="display:inline-flex;align-items:center;gap:4px;border:none;background:none;padding:0;font:500 10.5px var(--sans);color:var(--text3);cursor:pointer" style-hover="color:var(--text)">
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8M21 3v5h-5"></path></svg>
-                          Re-scan
-                        </button>
-                      </span>
+                    <sc-if value="{{ it.showRescan }}">
+                      <button onClick="{{ onRescan }}" data-frame="{{ it.id }}" title="Read the page again" aria-label="Read the page again" style="align-self:flex-start;display:grid;place-items:center;width:26px;height:26px;flex:none;border-radius:6px;border:1px solid var(--line);background:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8M21 3v5h-5"></path></svg>
+                      </button>
                     </sc-if>
                   </div>
                   </sc-if>
 
-                  <!-- ======================= THE FORM ======================= -->
-                  <sc-if value="{{ it.vForm }}">
+                  <!-- ======================= STATUS AND TAGS: the form's, and the record's to change ======================= -->
+                  <sc-if value="{{ it.showPersonFields }}">
                     <sc-if value="{{ it.isPerson }}">
-                      <div style="{{ S.sectionHead }}"><span style="{{ S.label }}">Status</span><span style="{{ S.labelHint }}">Your workspace's pipeline</span></div>
+                      <div style="{{ S.sectionHead }}"><span style="{{ S.label }}">Status</span><span style="{{ S.labelHint }}">{{ it.statusHint }}</span></div>
                       <div style="position:relative">
                         <button onClick="{{ onStatusOpen }}" data-frame="{{ it.id }}" aria-haspopup="listbox" aria-expanded="{{ it.statusOpen }}" style="{{ it.statusFieldStyle }}" style-hover="border-color:var(--text3)">
                           <span style="{{ it.statusDotStyle }}"></span>
@@ -284,8 +300,19 @@
                         </sc-if>
                       </div>
                     </sc-if>
+                  </sc-if>
 
-                    <div style="{{ S.sectionHead }}"><span style="{{ S.label }}">Note</span><span style="{{ S.labelHint }}">Optional · your team only</span></div>
+                  <sc-if value="{{ it.vSaved }}">
+                    <div style="{{ S.sectionHead }}">
+                      <span style="{{ S.label }}">Notes · {{ it.noteCount }}</span>
+                      <span style="{{ S.labelHint }}">Your team only</span>
+                    </div>
+                  </sc-if>
+                  <!-- ======================= THE COMPOSER: the form's note, or the record's next one ======================= -->
+                  <sc-if value="{{ it.showComposer }}">
+                    <sc-if value="{{ it.vForm }}">
+                      <div style="{{ S.sectionHead }}"><span style="{{ S.label }}">Note</span><span style="{{ S.labelHint }}">Optional · your team only</span></div>
+                    </sc-if>
                     <div role="radiogroup" aria-label="Kind of note" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
                       <sc-for list="{{ it.kindChips }}" as="kc" hint-placeholder-count="4">
                         <button role="radio" aria-checked="{{ kc.on }}" onClick="{{ onKind }}" data-frame="{{ it.id }}" data-v="{{ kc.id }}" style="{{ kc.style }}">{{ kc.label }}</button>
@@ -293,14 +320,14 @@
                     </div>
                     <div style="border-radius:8px;border:1px solid var(--line);background:var(--panel)">
                       <div style="{{ S.toolbarRow }}">
-                        <sc-for list="{{ toolbar }}" as="tb" hint-placeholder-count="12">
+                        <sc-for list="{{ it.toolbar }}" as="tb" hint-placeholder-count="12">
                           <sc-if value="{{ tb.sep }}"><span style="width:1px;height:14px;margin:0 3px;background:var(--line)"></span></sc-if>
                           <sc-if value="{{ tb.btn }}"><button title="{{ tb.title }}" aria-label="{{ tb.title }}" style="{{ tb.style }}" style-hover="background:var(--panel2);color:var(--text)"><sc-if value="{{ tb.isText }}">{{ tb.text }}</sc-if><sc-if value="{{ tb.isIcon }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ tb.d }}"></path></svg></sc-if></button></sc-if>
                         </sc-for>
                         <span style="flex:1"></span>
                         <button onClick="{{ onExpand }}" data-frame="{{ it.id }}" title="Expand — write in a larger view" aria-label="Expand — write in a larger view" style="{{ S.toolBtn }}" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg></button>
                       </div>
-                      <div style="min-height:92px;padding:10px 12px;font:400 13px/1.55 var(--sans);color:var(--text)">
+                      <div onClick="{{ onFillNote }}" data-frame="{{ it.id }}" style="min-height:92px;padding:10px 12px;font:400 13px/1.55 var(--sans);color:var(--text);cursor:text">
                         <sc-if value="{{ it.noteEmpty }}"><span style="color:var(--text3)">{{ it.notePlaceholder }}</span></sc-if>
                         <sc-for list="{{ it.noteBlocks }}" as="b" hint-placeholder-count="3">
                           <sc-if value="{{ b.h }}"><div style="margin:0 0 4px;font:600 14px/1.4 var(--sans);color:var(--text)">{{ b.text }}</div></sc-if>
@@ -320,11 +347,15 @@
                       <div style="display:flex;align-items:center;gap:8px;margin-top:9px">
                         <span style="font-size:11px;color:var(--text3)">Who reads it</span>
                         <span role="radiogroup" aria-label="Who reads this note" style="display:flex;gap:6px">
-                          <sc-for list="{{ it.scopeChips }}" as="sc"><button role="radio" aria-checked="{{ sc.on }}" onClick="{{ onScope }}" data-frame="{{ it.id }}" data-v="{{ sc.id }}" title="{{ sc.title }}" style="{{ sc.style }}">{{ sc.label }}</button></sc-for>
+                          <sc-for list="{{ it.scopeChips }}" as="sc" hint-placeholder-count="2"><button role="radio" aria-checked="{{ sc.on }}" onClick="{{ onScope }}" data-frame="{{ it.id }}" data-v="{{ sc.id }}" title="{{ sc.title }}" style="{{ sc.style }}">{{ sc.label }}</button></sc-for>
                         </span>
+                        <sc-if value="{{ it.vSaved }}"><span style="flex:1"></span><button onClick="{{ onSaveNote }}" data-frame="{{ it.id }}" disabled="{{ it.noteEmpty }}" style="{{ it.saveNoteStyle }}">Save note</button></sc-if>
                       </div>
                     </sc-if>
-                    <sc-if value="{{ it.isCompany }}">
+                    <sc-if value="{{ it.companySaveRow }}">
+                      <div style="display:flex;justify-content:flex-end;margin-top:9px"><button onClick="{{ onSaveNote }}" data-frame="{{ it.id }}" disabled="{{ it.noteEmpty }}" style="{{ it.saveNoteStyle }}">Save note</button></div>
+                    </sc-if>
+                    <sc-if value="{{ it.showCompanyHint }}">
                       <p style="margin:12px 0 0;display:flex;gap:7px;font-size:11.5px;line-height:1.5;color:var(--text3)">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex:none;margin-top:2px"><circle cx="12" cy="12" r="9"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
                         The company goes into this position's universe. Shortlist or decline it later from the Companies screen.
@@ -332,27 +363,8 @@
                     </sc-if>
                   </sc-if>
 
-                  <!-- ======================= THE RECORD, after a save ======================= -->
+                  <!-- ======================= THE RECORD: the position's notes on them ======================= -->
                   <sc-if value="{{ it.vSaved }}">
-                    <sc-if value="{{ it.isPerson }}">
-                      <div style="{{ S.sectionHead }}"><span style="{{ S.label }}">Tags</span></div>
-                      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
-                        <sc-for list="{{ it.tagChips }}" as="tc"><span style="{{ tc.style }}">{{ tc.label }}<button onClick="{{ onRemoveTag }}" data-frame="{{ it.id }}" data-v="{{ tc.id }}" aria-label="Remove {{ tc.label }}" style="border:none;background:none;padding:0 0 0 3px;color:inherit;opacity:.7;cursor:pointer;font:inherit">×</button></span></sc-for>
-                        <button style="display:inline-flex;align-items:center;gap:4px;border-radius:999px;border:1px dashed var(--line);background:none;padding:2px 9px;font:500 11.5px var(--sans);color:var(--text3);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">+ Add tag</button>
-                      </div>
-                    </sc-if>
-
-                    <div style="{{ S.sectionHead }}">
-                      <span style="{{ S.label }}">Notes · {{ it.noteCount }}</span>
-                      <a href="Position.dc.html?page=universe" target="_blank" style="display:inline-flex;align-items:center;gap:5px;font:500 11.5px var(--sans);color:var(--sky)">Open in Uncava
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>
-                      </a>
-                    </div>
-                    <button onClick="{{ onExpand }}" data-frame="{{ it.id }}" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:8px;border:1px solid color-mix(in srgb,var(--amber) 28%,transparent);background:var(--amber-dim);padding:10px 12px;font:400 12.5px var(--sans);color:var(--amber);cursor:pointer;text-align:left" style-hover="border-color:var(--amber)">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
-                      <span style="flex:1">{{ it.addNotePrompt }}</span>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex:none"><path d="M12 5v14M5 12h14"></path></svg>
-                    </button>
                     <ul style="list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:8px">
                       <sc-for list="{{ it.notes }}" as="nc" hint-placeholder-count="2">
                         <li style="{{ nc.cardStyle }}">
@@ -445,7 +457,7 @@
                     </div>
                     <div style="flex:1;min-height:0;display:flex;flex-direction:column;border-radius:8px;border:1px solid var(--line)">
                       <div style="{{ S.toolbarRow }}">
-                        <sc-for list="{{ toolbar }}" as="tb">
+                        <sc-for list="{{ it.toolbar }}" as="tb">
                           <sc-if value="{{ tb.sep }}"><span style="width:1px;height:14px;margin:0 3px;background:var(--line)"></span></sc-if>
                           <sc-if value="{{ tb.btn }}"><button title="{{ tb.title }}" aria-label="{{ tb.title }}" style="{{ tb.style }}" style-hover="background:var(--panel2);color:var(--text)"><sc-if value="{{ tb.isText }}">{{ tb.text }}</sc-if><sc-if value="{{ tb.isIcon }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ tb.d }}"></path></svg></sc-if></button></sc-if>
                         </sc-for>
@@ -601,11 +613,11 @@
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">EX</text></svg></template>
 </x-dc>
 
-<script type="text/x-dc" data-dc-script data-props="{&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;canvas&quot;,&quot;options&quot;:[&quot;canvas&quot;,&quot;signed-out&quot;,&quot;person&quot;,&quot;switcher-open&quot;,&quot;status-open&quot;,&quot;tags-open&quot;,&quot;note-expanded&quot;,&quot;company&quot;,&quot;refused&quot;,&quot;no-position&quot;,&quot;saved-person&quot;,&quot;saved-company&quot;,&quot;note-deleted&quot;,&quot;settings&quot;,&quot;connect-pairing&quot;,&quot;connect-paired&quot;,&quot;connect-not-installed&quot;,&quot;connect-failed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;canvas&quot;,&quot;options&quot;:[&quot;canvas&quot;,&quot;signed-out&quot;,&quot;checking&quot;,&quot;person&quot;,&quot;held-person&quot;,&quot;held-company&quot;,&quot;switcher-open&quot;,&quot;status-open&quot;,&quot;tags-open&quot;,&quot;note-expanded&quot;,&quot;company&quot;,&quot;refused&quot;,&quot;no-position&quot;,&quot;saved-person&quot;,&quot;saved-company&quot;,&quot;note-deleted&quot;,&quot;settings&quot;,&quot;connect-pairing&quot;,&quot;connect-paired&quot;,&quot;connect-not-installed&quot;,&quot;connect-failed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    const screens = ['canvas', 'signed-out', 'person', 'switcher-open', 'status-open', 'tags-open', 'note-expanded', 'company', 'refused', 'no-position', 'saved-person', 'saved-company', 'note-deleted', 'settings', 'connect-pairing', 'connect-paired', 'connect-not-installed', 'connect-failed'];
+    const screens = ['canvas', 'signed-out', 'checking', 'person', 'held-person', 'held-company', 'switcher-open', 'status-open', 'tags-open', 'note-expanded', 'company', 'refused', 'no-position', 'saved-person', 'saved-company', 'note-deleted', 'settings', 'connect-pairing', 'connect-paired', 'connect-not-installed', 'connect-failed'];
     let screen = screens.indexOf(props.screen) >= 0 ? props.screen : 'canvas';
     if (typeof location !== 'undefined') {
       const q = new URLSearchParams(location.search).get('screen');
@@ -648,8 +660,12 @@ class Component extends DCLogic {
       { id: 't6', label: 'Open to work', colour: 'neutral', holders: 7 },
     ];
 
+    // Stand-ins for what the API serves: the person's stored photo (…/candidates/{id}/photo) and the company row's logo.
+    this.photoSrc = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 88 88'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23b9a58f'/><stop offset='1' stop-color='%23715c4b'/></linearGradient></defs><rect width='88' height='88' fill='url(%23g)'/><circle cx='44' cy='36' r='16' fill='%23ead6c1'/><path d='M12 88c3-19 16-29 32-29s29 10 32 29z' fill='%23263040'/><path d='M38 59l6 9 6-9' fill='%23f4f6f8'/></svg>";
+    this.logoSrc = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 88 88'><rect width='88' height='88' fill='%23ffffff'/><path d='M18 62 44 20l26 42z' fill='%23137a63'/><circle cx='44' cy='54' r='9' fill='%23f0b23b'/></svg>";
+
     this.refusals = {
-      CANDIDATE_ALREADY_MAPPED: 'Hessa Al Qubaisi is already on this position. Open her in Uncava to add a note or change her status.',
+      CANDIDATE_ALREADY_MAPPED: 'This position already has someone matching this profile.',
     };
 
     const seg = (text, kind) => ({ text, kind: kind || 'plain' });
@@ -670,17 +686,20 @@ class Component extends DCLogic {
       { id: 'loading', label: 'Loading', caption: 'asking the worker for the session' },
       { id: 'unreachable', label: 'Not responding', caption: 'the worker did not answer' },
       { id: 'reading', label: 'First read', caption: 'the panel’s first page read' },
-      { id: 'person', label: 'Person', caption: 'linkedin.com/in/ — status, tags, a note' },
+      { id: 'checking', label: 'Checking', caption: 'is this profile already on the position?' },
+      { id: 'person', label: 'Person · new', caption: 'linkedin.com/in/ — status, tags, a note' },
+      { id: 'heldPerson', label: 'Person · already on the position', caption: 'opens on the record, ready for a new note' },
+      { id: 'heldCompany', label: 'Company · already in the universe', caption: 'its logo, its stage, its notes' },
       { id: 'switcher', label: 'Position switcher', caption: 'search, recent first, by client' },
       { id: 'status', label: 'Status picker', caption: 'the workspace’s stages and statuses' },
       { id: 'tags', label: 'Tags', caption: 'the workspace’s catalog, or a new one' },
       { id: 'expanded', label: 'Note · expanded', caption: 'the composer fills the panel' },
-      { id: 'company', label: 'Company', caption: 'linkedin.com/company/ — into the universe' },
-      { id: 'refused', label: 'Person · refused', caption: 'CANDIDATE_ALREADY_MAPPED' },
+      { id: 'company', label: 'Company · new', caption: 'linkedin.com/company/ — into the universe' },
+      { id: 'refused', label: 'Person · matched on save', caption: 'held under another address — opens the record' },
       { id: 'noPosition', label: 'No position', caption: 'nothing live to file into' },
       { id: 'linkedinOnly', label: 'Not LinkedIn', caption: 'LINKEDIN_ONLY' },
-      { id: 'savedPerson', label: 'Person · filed', caption: 'the record: tags and the position’s notes' },
-      { id: 'savedCompany', label: 'Company · filed', caption: 'the company’s notes on this position' },
+      { id: 'savedPerson', label: 'Person · just added', caption: 'Undo; the photo arrives with research' },
+      { id: 'savedCompany', label: 'Company · just added', caption: 'Undo; the company’s notes on this position' },
       { id: 'noteDeleted', label: 'Note deleted', caption: 'the toast’s Undo restores it' },
       { id: 'settings', label: 'Settings', caption: 'extension-local only' },
     ];
@@ -699,9 +718,26 @@ class Component extends DCLogic {
   }
 
   seedNotes(subject) {
+    if (subject === 'held') {
+      return [
+        { id: 'h1', author: 'Sara Al-Mansour', kind: 'Call', when: '24 Oct', pinned: true, editable: false, about: 'About Group Chief Financial Officer', blocks: [
+          { type: 'h', text: 'Intro call' },
+          { type: 'p', segs: [{ text: 'Interested in the group role; ' }, { text: 'package expectation 15% above brief', kind: 'bold' }, { text: '.' }] },
+          { type: 'check', done: true, segs: [{ text: 'Send the position description' }] },
+        ] },
+        { id: 'h2', author: 'Yara Haddad', kind: 'LinkedIn', when: '12 Oct', pinned: false, editable: true, about: 'About Group Chief Financial Officer', blocks: [
+          { type: 'p', segs: [{ text: 'Connected and sent a short InMail; he replied within the hour.' }] },
+        ] },
+      ];
+    }
+    if (subject === 'heldCompany') {
+      return [
+        { id: 'c1', author: 'Omar Khalid', kind: 'Note', when: '3 Oct', pinned: false, editable: false, about: '', blocks: this.companyNote },
+      ];
+    }
     if (subject === 'company') {
       return [
-        { id: 'n1', author: 'Yara Haddad', kind: 'Note', when: 'Just now', pinned: false, editable: true, about: 'About Group Chief Financial Officer', blocks: this.companyNote },
+        { id: 'n1', author: 'Yara Haddad', kind: 'Note', when: 'Just now', pinned: false, editable: true, about: '', blocks: this.companyNote },
       ];
     }
     return [
@@ -717,7 +753,7 @@ class Component extends DCLogic {
       view: 'capture', subject: 'person', reading: false, rescanning: false,
       personName: 'Faisal Al Nuaimi', personLocked: true, personSlug: 'linkedin.com/in/faisal-al-nuaimi',
       companyName: 'ACWA Power', companyLocked: true, companySlug: 'linkedin.com/company/acwa-power',
-      readError: null, refusal: null, positionId: 'p1', positions: true,
+      readError: null, refusal: null, positionId: 'p1', positions: true, checking: false, held: null, photo: null,
       status: null, tags: ['t1', 't4'], kind: 'general', scope: 'position', noteFilled: true,
       overlay: null, positionQuery: '', tagQuery: '', expanded: false,
       saved: null, notes: [], toast: null, removed: null,
@@ -730,7 +766,10 @@ class Component extends DCLogic {
       loading: mk({ view: 'loading' }),
       unreachable: mk({ view: 'unreachable' }),
       reading: mk({ reading: true }),
+      checking: mk({ checking: true }),
       person: mk({}),
+      heldPerson: mk({ held: { by: 'Sara Al-Mansour', when: '12 Oct' }, status: 'callArranged', tags: ['t2', 't4'], noteFilled: false, kind: 'general', photo: 'person', notes: this.seedNotes('held') }),
+      heldCompany: mk(Object.assign({ held: { by: 'Omar Khalid', when: '3 Oct' }, noteFilled: false, photo: 'logo', notes: this.seedNotes('heldCompany') }, company)),
       switcher: mk({ overlay: 'switcher' }),
       status: mk({ overlay: 'status', status: 'engaged' }),
       tags: mk({ overlay: 'tags', tagQuery: 'Open' }),
@@ -739,9 +778,9 @@ class Component extends DCLogic {
       refused: mk({ personName: 'Hessa Al Qubaisi', personSlug: 'linkedin.com/in/hessa-al-qubaisi', refusal: 'CANDIDATE_ALREADY_MAPPED', noteFilled: false, tags: [] }),
       noPosition: mk({ positions: false, positionId: null, noteFilled: false, tags: [] }),
       linkedinOnly: mk({ readError: 'LINKEDIN_ONLY', personName: '', personLocked: false, personSlug: 'Nothing to read on this page', noteFilled: false, tags: [] }),
-      savedPerson: mk({ saved: 'person', notes: this.seedNotes('person') }),
-      savedCompany: mk(Object.assign({ saved: 'company', notes: this.seedNotes('company') }, company)),
-      noteDeleted: mk({ saved: 'person', notes: this.seedNotes('person').slice(1), toast: 'Note deleted', removed: this.seedNotes('person')[0] }),
+      savedPerson: mk({ saved: 'person', notes: this.seedNotes('person'), photo: 'pending', noteFilled: false }),
+      savedCompany: mk(Object.assign({ saved: 'company', notes: this.seedNotes('company'), photo: 'logo', noteFilled: false }, company)),
+      noteDeleted: mk({ saved: 'person', photo: 'pending', noteFilled: false, notes: this.seedNotes('person').slice(1), toast: 'Note deleted', removed: this.seedNotes('person')[0] }),
       settings: mk({ view: 'settings' }),
     };
   }
@@ -834,7 +873,9 @@ class Component extends DCLogic {
     const hasName = Boolean(name.trim());
     const position = this.positions.find((p) => p.id === f.positionId) || null;
     const vCapture = f.view === 'capture';
-    const isSaved = Boolean(f.saved) && f.saved === f.subject;
+    const isAdded = Boolean(f.saved) && f.saved === f.subject;
+    const isHeld = Boolean(f.held);
+    const isSaved = isAdded || isHeld;
     const busy = f.saving;
     const canSave = hasName && Boolean(position) && !f.readError;
 
@@ -888,12 +929,36 @@ class Component extends DCLogic {
       vSettings: f.view === 'settings',
       vCapture: vCapture,
       vReading: vCapture && f.reading,
-      vBody: vCapture && !f.reading,
+      vChecking: vCapture && !f.reading && f.checking,
+      vBody: vCapture && !f.reading && !f.checking,
       vForm: !isSaved && !f.readError,
       showSubject: !f.readError,
+      showPersonFields: isPerson && !f.readError,
+      showComposer: !f.readError,
+      statusHint: isSaved ? 'Changes it on this position' : 'Your workspace’s pipeline',
+      showCompanyHint: !isPerson && !isSaved,
+      companySaveRow: !isPerson && isSaved,
+      showCompanyStage: !isPerson && isSaved,
+      companyStagePill: this.pill('neutral'),
+      showRescan: !isSaved,
+      hasPhoto: f.photo === 'person' || f.photo === 'logo',
+      noPhoto: !(f.photo === 'person' || f.photo === 'logo'),
+      photoPending: f.photo === 'pending',
+      photoSrc: f.photo === 'logo' ? this.logoSrc : this.photoSrc,
+      photoAlt: name,
+      photoStyle: 'display:block;width:44px;height:44px;object-fit:cover;' + (isPerson ? 'border-radius:999px;' : 'border-radius:9px;border:1px solid var(--line-soft);'),
+      hasHeadline: isSaved,
+      headline: isAdded && isPerson ? 'Researching the profile — photo and career follow' : (f.headline || (isPerson ? 'Chief Financial Officer · ACWA Power' : 'Renewable energy · Riyadh, Saudi Arabia')),
+      saveNoteStyle: 'height:30px;border:none;border-radius:6px;background:var(--amber-btn);padding:0 12px;font:600 12px var(--sans);color:var(--on-amber);cursor:pointer;' + (noteSource.length === 0 ? 'opacity:.45;cursor:default;' : ''),
       vSaved: isSaved,
-      vSavedBanner: vCapture && !f.reading && isSaved,
-      vFooter: vCapture && !f.reading && !isSaved && !f.readError,
+      vBanner: vCapture && !f.reading && !f.checking && isSaved,
+      isAdded: isAdded,
+      isHeld: isHeld,
+      bannerStyle: 'flex:none;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line-soft);padding:9px 14px;background:' + (isAdded ? 'var(--green-dim)' : 'var(--amber-dim)'),
+      bannerIconStyle: 'display:grid;width:22px;height:22px;flex:none;place-items:center;border-radius:999px;' + (isAdded ? 'background:var(--green);color:#06150e' : 'background:var(--amber-btn);color:#fff'),
+      bannerTitle: isAdded ? (isPerson ? 'Added to the position' : 'Added to the universe') : (isPerson ? 'Already on this position' : 'Already in this position’s universe'),
+      bannerDetail: isAdded ? (position ? position.title + ' · ' + (isPerson ? (current ? current.status.label : '') : 'In universe') : '') : (isHeld ? 'Added ' + f.held.when + ' by ' + f.held.by + (isPerson && current ? ' · ' + current.stage.label : '') : ''),
+      vFooter: vCapture && !f.reading && !f.checking && !isSaved && !f.readError,
 
       hasPosition: Boolean(position),
       noPosition: !position,
@@ -911,18 +976,13 @@ class Component extends DCLogic {
       isPerson: isPerson,
       isCompany: !isPerson,
       showLinkedInOnly: f.readError === 'LINKEDIN_ONLY',
-      tileStyle: this.tileStyle(name || '?', isPerson, 42) + (f.rescanning ? pulse : ''),
+      tileStyle: this.tileStyle(name || '?', isPerson, 44) + (f.rescanning ? pulse : ''),
       initials: hasName ? this.initialsOf(name) : '',
       nameLabel: isPerson ? 'Full name' : 'Company name',
       nameValue: name,
       nameLocked: locked && hasName,
       nameEditable: !(locked && hasName),
       slugText: isPerson ? f.personSlug : f.companySlug,
-      showSubjectSwitch: !isSaved,
-      subjects: ['person', 'company'].map((s) => ({
-        id: s, label: s === 'person' ? 'Person' : 'Company', on: f.subject === s,
-        style: 'border:none;border-radius:4px;padding:2px 8px;font:500 11px var(--sans);cursor:pointer;' + (f.subject === s ? 'background:var(--panel2);color:var(--text)' : 'background:none;color:var(--text3)'),
-      })),
 
       statusOpen: f.overlay === 'status',
       statusLabel: current ? current.status.label : '',
@@ -946,10 +1006,11 @@ class Component extends DCLogic {
       tagOptions: tagOptions,
       canCreateTag: Boolean(tq) && !this.tagCatalog.some((t) => t.label.toLowerCase() === tq),
 
-      kindChips: [['general', 'Note'], ['call', 'Call'], ['meeting', 'Meeting'], ['email', 'Email']].map(([k, l]) => ({ id: k, label: l, on: f.kind === k, style: this.chip(f.kind === k) })),
+      toolbar: this.toolbarFor(isPerson),
+      kindChips: [['general', 'Note'], ['call', 'Call'], ['meeting', 'Meeting'], ['email', 'Email'], ['linkedin', 'LinkedIn']].map(([k, l]) => ({ id: k, label: l, on: f.kind === k, style: this.chip(f.kind === k) })),
       scopeChips: [['position', 'This position'], ['everywhere', 'All positions']].map(([k, l]) => ({ id: k, label: l, on: f.scope === k, title: k === 'position' && position ? position.title : '', style: this.chip(f.scope === k) })),
       noteEmpty: noteSource.length === 0,
-      notePlaceholder: isPerson ? 'What was said, and what happens next…' : 'Why this company is in the universe…',
+      notePlaceholder: isSaved ? (isPerson ? 'Add a note, call, meeting, email or LinkedIn message…' : 'Add a note on ' + name + '…') : (isPerson ? 'What was said, and what happens next…' : 'Why this company is in the universe…'),
       noteBlocks: this.blocksOf(noteSource),
       hasMentions: mentions.length > 0,
       mentions: mentions,
@@ -982,10 +1043,35 @@ class Component extends DCLogic {
       toast: f.toast,
 
       toggles: [
-        toggle('isPageTypeDetected', 'Detect person or company', 'Follow what the page turned out to be', f.isPageTypeDetected, true),
-        toggle('closesAfterSave', 'Close after save', 'Closes the panel once the note and tags are filed', f.closesAfterSave, false),
+        toggle('closesAfterSave', 'Close after save', 'Closes the panel once the note and tags are filed', f.closesAfterSave, true),
       ],
     };
+  }
+
+  // The note editor's toolbar, exactly apps/web's NoteToolbar: marks, headings, lists, quote, link, and @ where a note may mention.
+  toolbarFor(mentions) {
+    const toolBtn = this.toolBtnStyle;
+    const icon = (title, d) => ({ btn: true, isIcon: true, title, d, style: toolBtn });
+    const text = (title, t) => ({ btn: true, isText: true, title, text: t, style: toolBtn });
+    const sep = { sep: true };
+    const items = [
+      icon('Bold (⌘B)', 'M6 4h8a4 4 0 0 1 0 8H6zM6 12h9a4 4 0 0 1 0 8H6z'),
+      icon('Italic (⌘I)', 'M19 4h-9M14 20H5M14.7 4.5 9.3 19.5'),
+      icon('Underline (⌘U)', 'M6 4v6a6 6 0 0 0 12 0V4M4 20h16'),
+      icon('Strikethrough', 'M16 4H9a3 3 0 0 0-2.83 4M14 12a4 4 0 0 1 0 8H6M4 12h16'),
+      sep,
+      text('Heading', 'H2'),
+      text('Subheading', 'H3'),
+      sep,
+      icon('Bulleted list', 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01'),
+      icon('Numbered list', 'M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1'),
+      icon('Checklist', 'm3 17 2 2 4-4M3 7l2 2 4-4M13 6h8M13 12h8M13 18h8'),
+      sep,
+      icon('Quote', 'M3 21c3 0 7-1 7-8V5H3v8h4M14 21c3 0 7-1 7-8V5h-7v8h4'),
+      icon('Link (⌘K)', 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'),
+    ];
+    if (mentions) items.push(text('Mention a teammate (type @)', '@'));
+    return items;
   }
 
   connectView(id, meta, isCanvas) {
@@ -1012,7 +1098,7 @@ class Component extends DCLogic {
     const s = this.state;
     const isCanvas = s.screen === 'canvas';
     const popupByScreen = {
-      'signed-out': 'signedOut', person: 'person', 'switcher-open': 'switcher', 'status-open': 'status', 'tags-open': 'tags',
+      'signed-out': 'signedOut', checking: 'checking', person: 'person', 'held-person': 'heldPerson', 'held-company': 'heldCompany', 'switcher-open': 'switcher', 'status-open': 'status', 'tags-open': 'tags',
       'note-expanded': 'expanded', company: 'company', refused: 'refused', 'no-position': 'noPosition',
       'saved-person': 'savedPerson', 'saved-company': 'savedCompany', 'note-deleted': 'noteDeleted', settings: 'settings',
     };
@@ -1025,7 +1111,7 @@ class Component extends DCLogic {
     const settleAfterRead = (id) => this.later(900, () => this.patch(id, { reading: false }));
     const toggleOverlay = (e, which) => { const id = frameOf(e); this.patch(id, { overlay: frame(id).overlay === which ? null : which }); };
 
-    const toolBtn = 'display:grid;place-items:center;min-width:23px;height:23px;padding:0 2px;border:none;border-radius:5px;background:none;color:var(--text3);cursor:pointer;font:600 10.5px var(--sans)';
+    const toolBtn = this.toolBtnStyle = 'display:grid;place-items:center;min-width:23px;height:23px;padding:0 2px;border:none;border-radius:5px;background:none;color:var(--text3);cursor:pointer;font:600 10.5px var(--sans)';
     const icon = (title, d) => ({ btn: true, isIcon: true, title, d, style: toolBtn });
     const text = (title, t) => ({ btn: true, isText: true, title, text: t, style: toolBtn });
     const sep = { sep: true };
@@ -1070,24 +1156,6 @@ class Component extends DCLogic {
         secondarySm: 'border-radius:6px;border:1px solid var(--line);background:none;padding:5px 10px;font:600 11.5px var(--sans);color:var(--text2);cursor:pointer',
       },
 
-      // The note editor's toolbar, exactly apps/web's NoteToolbar: marks, headings, lists, quote, link, mention.
-      toolbar: [
-        icon('Bold (⌘B)', 'M6 4h8a4 4 0 0 1 0 8H6zM6 12h9a4 4 0 0 1 0 8H6z'),
-        icon('Italic (⌘I)', 'M19 4h-9M14 20H5M14.7 4.5 9.3 19.5'),
-        icon('Underline (⌘U)', 'M6 4v6a6 6 0 0 0 12 0V4M4 20h16'),
-        icon('Strikethrough', 'M16 4H9a3 3 0 0 0-2.83 4M14 12a4 4 0 0 1 0 8H6M4 12h16'),
-        sep,
-        text('Heading', 'H2'),
-        text('Subheading', 'H3'),
-        sep,
-        icon('Bulleted list', 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01'),
-        icon('Numbered list', 'M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1'),
-        icon('Checklist', 'm3 17 2 2 4-4M3 7l2 2 4-4M13 6h8M13 12h8M13 18h8'),
-        sep,
-        icon('Quote', 'M3 21c3 0 7-1 7-8V5H3v8h4M14 21c3 0 7-1 7-8V5h-7v8h4'),
-        icon('Link (⌘K)', 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'),
-        text('Mention a teammate (type @)', '@'),
-      ],
 
       toggleTheme: () => {
         const d = !this.state.dark;
@@ -1102,7 +1170,6 @@ class Component extends DCLogic {
       onRetry: (e) => { const id = frameOf(e); this.patch(id, { view: 'loading' }); this.later(700, () => { this.patch(id, { view: 'capture', reading: true }); settleAfterRead(id); }); },
       onRescan: (e) => { const id = frameOf(e); this.patch(id, { rescanning: true }); this.later(900, () => this.patch(id, { rescanning: false })); },
       onName: (e) => { const id = frameOf(e); this.patch(id, frame(id).subject === 'person' ? { personName: e.target.value } : { companyName: e.target.value }); },
-      onSubject: (e) => this.patch(frameOf(e), { subject: valueOf(e), overlay: null, refusal: null }),
       onSwitcher: (e) => toggleOverlay(e, 'switcher'),
       onPositionQuery: (e) => this.patch(frameOf(e), { positionQuery: e.target.value }),
       onPickPosition: (e) => this.patch(frameOf(e), { positionId: valueOf(e), overlay: null, positionQuery: '', refusal: null }),
@@ -1135,7 +1202,7 @@ class Component extends DCLogic {
           const note = { id: 'n' + Date.now(), author: this.user.fullName, kind: ({ general: 'Note', call: 'Call', meeting: 'Meeting', email: 'Email' })[f.kind], when: 'Just now', pinned: false, editable: true, about: f.scope === 'position' ? 'About ' + (this.positions.find((p) => p.id === f.positionId) || {}).title : 'All positions', blocks: [{ type: 'p', segs: [{ text: 'Follow-up noted from the panel.' }] }] };
           this.patch(id, { expanded: false, notes: [note].concat(f.notes) });
         } else {
-          this.patch(id, { expanded: false, saved: f.subject, notes: this.seedNotes(f.subject) });
+          this.patch(id, { expanded: false, saved: f.subject, notes: this.seedNotes(f.subject), noteFilled: false });
         }
       },
       onSave: (e) => {
@@ -1145,11 +1212,21 @@ class Component extends DCLogic {
         this.patch(id, { saving: true, refusal: null });
         this.later(700, () => {
           if (id === 'refused') {
-            this.patch(id, { saving: false, refusal: 'CANDIDATE_ALREADY_MAPPED' });
+            this.patch(id, { saving: false, held: { by: 'Yousef Iman', when: '2 Sep' }, headline: 'Group Treasurer · Mubadala', photo: 'person', status: 'contacted', notes: this.seedNotes('held'), noteFilled: false });
           } else {
-            this.patch(id, { saving: false, saved: frame(id).subject, notes: this.seedNotes(frame(id).subject) });
+            this.patch(id, { saving: false, saved: frame(id).subject, notes: this.seedNotes(frame(id).subject), noteFilled: false, photo: frame(id).subject === 'person' ? 'pending' : 'logo' });
           }
         });
+      },
+      onFillNote: (e) => this.patch(frameOf(e), { noteFilled: true }),
+      onSaveNote: (e) => {
+        const id = frameOf(e);
+        const f = frame(id);
+        if (!f.noteFilled) return;
+        const kindLabel = ({ general: 'Note', call: 'Call', meeting: 'Meeting', email: 'Email', linkedin: 'LinkedIn' })[f.kind];
+        const position = this.positions.find((p) => p.id === f.positionId) || {};
+        const note = { id: 'n' + Date.now(), author: this.user.fullName, kind: kindLabel, when: 'Just now', pinned: false, editable: true, about: f.scope === 'position' ? 'About ' + position.title : 'All positions', blocks: f.subject === 'person' ? this.personNote : this.companyNote };
+        this.patch(id, { notes: [note].concat(f.notes), noteFilled: false });
       },
       onUndo: (e) => this.patch(frameOf(e), { saved: null, notes: [], toast: null }),
       onPin: (e) => {
