@@ -1,9 +1,11 @@
 import type { CustomFieldValues } from "../../customcolumns/api/types";
 import { request } from "../../../lib/apiClient";
+import { CANDIDATES_KEY_PREFIX } from "../../candidates/api/candidatesApi";
 import type { GridSort } from "../../../lib/useGridSort";
 import type {
   BulkAddResult,
   CaptureCompanyPayload,
+  StageLinesPage,
   EditCompanyPayload,
   TriageCompaniesPage,
   TriageCompany,
@@ -23,36 +25,6 @@ import type {
  */
 
 export const TRIAGE_KEY_PREFIX = (projectId: string) => ["triage", projectId] as const;
-
-/**
- * The key carries everything the request varies by, so each stage, page, search and ordering is its
- * own cache entry — and a write still invalidates all of them at once through the prefix.
- */
-export const TRIAGE_KEY = (
-  projectId: string,
-  status: TriageCompanyStatus,
-  page: number,
-  size: number,
-  query: string,
-  executiveQuery: string,
-  /** The Status column's own header filter — independent of the two text ones above it. */
-  executiveStatuses: string[],
-  search: string,
-  sort: GridSort<TriageSortField>,
-) =>
-  [
-    ...TRIAGE_KEY_PREFIX(projectId),
-    status,
-    page,
-    size,
-    query,
-    executiveQuery,
-    // Sorted: the same ticked set in a different click order must not read as a different cache entry.
-    [...executiveStatuses].sort(),
-    search,
-    sort.field,
-    sort.direction,
-  ] as const;
 
 export function getTriageCompanies(
   projectId: string,
@@ -85,6 +57,57 @@ export function getTriageCompanies(
   for (const status of executiveStatuses) params.append("executiveStatuses", status);
   if (search.trim()) params.set("search", search.trim());
   return request<TriageCompaniesPage>(`/projects/${projectId}/triage?${params}`, { signal });
+}
+
+/**
+ * The grid's lines carry people as well as companies, so they hang under the people's prefix: every edit to an
+ * executive, from whichever drawer, already invalidates it. A company's own writes refresh it by name.
+ */
+export const STAGE_LINES_KEY_PREFIX = (projectId: string) => [...CANDIDATES_KEY_PREFIX(projectId), "stage-lines"] as const;
+
+export interface StageLinesQuery {
+  status: TriageCompanyStatus;
+  page: number;
+  size: number;
+  /** The Company column's own header filter. */
+  query: string;
+  /** The Executive column's own header filter. */
+  executiveQuery: string;
+  /** The Status column's own header filter, ORed together server-side. */
+  executiveStatuses: string[];
+  /** The toolbar's search, shared by every view. */
+  search: string;
+  sort: GridSort<TriageSortField>;
+}
+
+export const STAGE_LINES_KEY = (projectId: string, scope: StageLinesQuery) =>
+  [
+    ...STAGE_LINES_KEY_PREFIX(projectId),
+    scope.status,
+    scope.page,
+    scope.size,
+    scope.query,
+    scope.executiveQuery,
+    [...scope.executiveStatuses].sort(),
+    scope.search,
+    scope.sort.field,
+    scope.sort.direction,
+  ] as const;
+
+/** One page of a stage's grid lines — people at companies — ordered across the whole stage by the sorted column. */
+export function getStageLines(projectId: string, scope: StageLinesQuery, signal?: AbortSignal): Promise<StageLinesPage> {
+  const params = new URLSearchParams({
+    status: scope.status,
+    page: String(scope.page),
+    size: String(scope.size),
+    sort: scope.sort.field,
+    direction: scope.sort.direction,
+  });
+  if (scope.query) params.set("q", scope.query);
+  if (scope.executiveQuery) params.set("executiveQuery", scope.executiveQuery);
+  for (const status of scope.executiveStatuses) params.append("executiveStatuses", status);
+  if (scope.search.trim()) params.set("search", scope.search.trim());
+  return request<StageLinesPage>(`/projects/${projectId}/triage/lines?${params}`, { signal });
 }
 
 export const TRIAGE_COUNTS_KEY = (projectId: string) =>

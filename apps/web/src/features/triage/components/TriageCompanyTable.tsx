@@ -28,8 +28,8 @@ import { triageRowId, type TriageCompanyRow } from "../lib/triageRows";
  * <p>A row is a person at a company rather than a company — see {@link TriageCompanyRow} — so the page
  * hands this the expanded lines and the grid never has to know how they were paired up.
  *
- * <p>Sorting and paging are the server's, exactly as on Strategy — a header click changes the query
- * rather than the array.
+ * <p>Sorting and paging are the server's, which orders the whole stage's lines; a header opens the column's
+ * menu, and a sort there changes the query rather than the array.
  */
 export function TriageCompanyTable({
   rows,
@@ -57,6 +57,7 @@ export function TriageCompanyTable({
   busyIds,
   canWrite,
   onEditColumn,
+  onDeleteColumn,
   columnFilters,
   selection,
 }: {
@@ -91,6 +92,8 @@ export function TriageCompanyTable({
   canWrite: boolean;
   /** Opens a mandate's own column for rename, from its header menu — the real `CustomColumn` id. */
   onEditColumn?: (customColumnId: string) => void;
+  /** Removes a mandate's own column, from its header menu — the real `CustomColumn` id. */
+  onDeleteColumn?: (customColumnId: string) => void;
   /** The grid's own Company and Executive header filters, keyed by their built-in column ids. */
   columnFilters?: Record<string, DataGridColumnFilter>;
   /**
@@ -153,6 +156,8 @@ export function TriageCompanyTable({
     pageCompanyIds.length > 0 && pageCompanyIds.every((id) => selection?.selectedIds.has(id));
   const someOnPageSelected = pageCompanyIds.some((id) => selection?.selectedIds.has(id));
   const [asCards] = useState(isBelowTableWidth);
+  const customColumnOf = (gridColumnId: string) =>
+    customColumns.find((entry) => customColumnId(entry) === gridColumnId);
 
   return (
     <DataGrid
@@ -208,11 +213,19 @@ export function TriageCompanyTable({
       errorMessage="That list could not be loaded. Refresh, or check you still have access to this mandate."
       emptyMessage={emptyMessage}
       columnFilters={columnFilters}
+      menuOnHeaderClick
       onEditColumn={
         onEditColumn &&
         ((gridColumnId: string) => {
-          const column = customColumns.find((entry) => customColumnId(entry) === gridColumnId);
+          const column = customColumnOf(gridColumnId);
           if (column) onEditColumn(column.id);
+        })
+      }
+      onDeleteColumn={
+        onDeleteColumn &&
+        ((gridColumnId: string) => {
+          const column = customColumnOf(gridColumnId);
+          if (column) onDeleteColumn(column.id);
         })
       }
     />
