@@ -37,7 +37,17 @@ import { DEFAULT_COLUMN_MIN, type GridLayout } from "../../lib/useGridLayout";
 export interface DataGridColumnLayout {
   share: number;
   min: number;
+  /** What the column holds, for the header menu's sort hints ("A → Z", "1 → 9"). Left out, no hint is drawn. */
+  sortKind?: DataGridSortKind;
 }
+
+export type DataGridSortKind = "text" | "number" | "date";
+
+const SORT_HINTS: Record<DataGridSortKind, { asc: string; desc: string }> = {
+  text: { asc: "A → Z", desc: "Z → A" },
+  number: { asc: "1 → 9", desc: "9 → 1" },
+  date: { asc: "Old → New", desc: "New → Old" },
+};
 
 /** One column's own text filter, offered as a "Filter by" section of that column's header menu. */
 export interface DataGridTextFilter {
@@ -175,8 +185,10 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   renderCard,
   onRowClick,
   onEditColumn,
+  onDeleteColumn,
   columnFilters,
   groupBy,
+  menuOnHeaderClick = false,
 }: {
   table: ReactTable<TFeatures, TData>;
   /** Names the grid for screen readers — "Companies", "Shortlisted companies". */
@@ -223,6 +235,8 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
    * and off every column in a grid (Strategy's) that has none at all.
    */
   onEditColumn?: (columnId: string) => void;
+  /** Removes a mandate's own column, from its header menu's "Delete column"; left out, nothing offers it. */
+  onDeleteColumn?: (columnId: string) => void;
   /**
    * A filter offered from a column's own header menu, keyed by column id — free text ("type a few
    * letters" narrowing) or a closed checkbox set for a column whose values are a fixed vocabulary. A
@@ -235,6 +249,11 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
    * names the group on every card.
    */
   groupBy?: DataGridGrouping<TData>;
+  /**
+   * The whole header opens the column's menu — sort, move, freeze, filter, hide — rather than a click sorting and a
+   * small arrow beside the name opening the menu, which readers did not find.
+   */
+  menuOnHeaderClick?: boolean;
 }) {
   /*
    * The one cast, and the reason GridFeatures exists. Every caller registers at least those four
@@ -405,6 +424,11 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
     setAnnouncement(freeze ? `${titleOf(column)} frozen` : `${titleOf(column)} unfrozen`);
   };
 
+  const hideColumn = (column: GridColumn<TData>) => {
+    column.toggleVisibility(false);
+    setAnnouncement(`${titleOf(column)} hidden`);
+  };
+
   const onHeaderKeyDown = (event: KeyboardEvent, column: GridColumn<TData>) => {
     if (!event.altKey || !isMovable(column)) return;
     const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
@@ -568,9 +592,20 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                   aria-sort={sorted ? (sorted === "asc" ? "ascending" : "descending") : undefined}
                   onPointerDown={movable ? (event) => startReorder(event, column) : undefined}
                   onKeyDown={(event) => onHeaderKeyDown(event, column)}
+                  // A drag that crossed the threshold is a move, and must not also open the menu.
+                  onClickCapture={
+                    menuOnHeaderClick
+                      ? (event) => {
+                          if (!draggedRef.current) return;
+                          draggedRef.current = false;
+                          event.stopPropagation();
+                        }
+                      : undefined
+                  }
                   aria-keyshortcuts={movable ? "Alt+ArrowLeft Alt+ArrowRight" : undefined}
-                  // The sort button is the tab stop where there is one; without it the cell is.
-                  tabIndex={movable && !sortable ? 0 : undefined}
+                  // The sort button is the tab stop where there is one; without it the cell is. A header that opens
+                  // its menu is a button itself, and every movable column has a menu to open.
+                  tabIndex={!menuOnHeaderClick && movable && !sortable ? 0 : undefined}
                   style={pinned === "start" ? { insetInlineStart: pinnedOffsets[column.id] ?? 0 } : undefined}
                   className={cn(
                     "group/header relative min-w-0",
@@ -583,27 +618,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                   {/* The slot rides the first column, which in every caller is the pinned one, so
                       the boxes stay on screen when the row scrolls away from its own name. */}
                   <LeadingSlot lead={index === 0 && headerLead}>
-                    <span className="flex min-w-0 items-center gap-1">
-                      <span className="min-w-0 flex-1">
-                        {sortable ? (
-                          <button
-                            type="button"
-                            // A drag that crossed the threshold is a move, and must not also sort.
-                            onClick={(event) => {
-                              if (draggedRef.current) {
-                                draggedRef.current = false;
-                                return;
-                              }
-                              column.getToggleSortingHandler()?.(event);
-                            }}
-                            className="block w-full text-left transition hover:opacity-80"
-                          >
-                            {label}
-                          </button>
-                        ) : (
-                          label
-                        )}
-                      </span>
+                    {menuOnHeaderClick ? (
                       <HeaderMenu
                         column={column}
                         visibleColumns={visibleColumns}
@@ -612,8 +627,43 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                         onMove={moveByStep}
                         onFreeze={setFrozen}
                         onEditColumn={onEditColumn}
+                        onHide={hideColumn}
+                        onDeleteColumn={onDeleteColumn}
+                        headerLabel={label}
                       />
-                    </span>
+                    ) : (
+                      <span className="flex min-w-0 items-center gap-1">
+                        <span className="min-w-0 flex-1">
+                          {sortable ? (
+                            <button
+                              type="button"
+                              // A drag that crossed the threshold is a move, and must not also sort.
+                              onClick={(event) => {
+                                if (draggedRef.current) {
+                                  draggedRef.current = false;
+                                  return;
+                                }
+                                column.getToggleSortingHandler()?.(event);
+                              }}
+                              className="block w-full text-left transition hover:opacity-80"
+                            >
+                              {label}
+                            </button>
+                          ) : (
+                            label
+                          )}
+                        </span>
+                        <HeaderMenu
+                          column={column}
+                          visibleColumns={visibleColumns}
+                          frozen={layout.pinnedIds.includes(column.id)}
+                          filter={columnFilters?.[column.id]}
+                          onMove={moveByStep}
+                          onFreeze={setFrozen}
+                          onEditColumn={onEditColumn}
+                        />
+                      </span>
+                    )}
                   </LeadingSlot>
 
                   <span
@@ -795,12 +845,9 @@ function titleOf<TData extends RowData>(column: GridColumn<TData>): string {
 }
 
 /**
- * The menu every column header opens on click: sort, move, freeze, filter, and — for a mandate's own
- * column — edit. Standardised rather than scattered across per-column affordances, so a reader learns
- * the one place every column's behaviour lives instead of a different gesture per column.
- *
- * <p>Hidden entirely when it would offer nothing: a column that cannot sort, move, freeze, filter or
- * (being built in) be edited has no menu to open, not an empty one.
+ * The menu every column header opens: filter, sort, move, freeze and — for a mandate's own column — edit, in one place
+ * a reader learns once. Hidden when it would offer nothing. Given `headerLabel`, the whole header is its trigger and
+ * the menu also marks the active sort, hides a built-in column and deletes a mandate's own.
  */
 function HeaderMenu<TData extends RowData>({
   column,
@@ -810,21 +857,27 @@ function HeaderMenu<TData extends RowData>({
   onMove,
   onFreeze,
   onEditColumn,
+  onHide,
+  onDeleteColumn,
+  headerLabel,
 }: {
   column: GridColumn<TData>;
   visibleColumns: readonly GridColumn<TData>[];
   /** Whether this is the one column, beyond the grid's own always-pinned one, that a user froze. */
   frozen: boolean;
-  /** This column's own filter, if the caller offers one — text or a closed checkbox set — narrowed
-   *  here rather than in a row of its own under the header labels, so a filtered column reads like a
-   *  sorted or frozen one: a state set from the same menu, not a second control competing for the
-   *  same strip of space. */
+  /** This column's own filter, if the caller offers one — text or a closed checkbox set. */
   filter?: DataGridColumnFilter;
   onMove: (column: GridColumn<TData>, step: 1 | -1) => void;
   onFreeze: (column: GridColumn<TData>, freeze: boolean) => void;
   onEditColumn?: (columnId: string) => void;
+  onHide?: (column: GridColumn<TData>) => void;
+  onDeleteColumn?: (columnId: string) => void;
+  /** The header's own label, which becomes the menu's trigger. */
+  headerLabel?: ReactNode;
 }) {
+  const asHeader = headerLabel !== undefined;
   const sortable = column.getCanSort();
+  const sorted = column.getIsSorted();
   const pinned = column.getIsPinned();
   // The grid's own pinned column (Company, always first) didn't get that way from this menu and
   // cannot be moved or unfrozen from it either — only a column a user froze can be undone here.
@@ -834,26 +887,54 @@ function HeaderMenu<TData extends RowData>({
   const rightNeighbour = visibleColumns[index + 1];
   const canMoveLeft = !pinned && !!leftNeighbour && !leftNeighbour.getIsPinned();
   const canMoveRight = !pinned && !!rightNeighbour && !rightNeighbour.getIsPinned();
-  const editable = !!onEditColumn && column.id.startsWith("custom:");
+  const custom = column.id.startsWith("custom:");
+  const editable = !!onEditColumn && custom;
+  const deletable = asHeader && !!onDeleteColumn && custom;
+  const hideable = asHeader && !!onHide && !custom && column.getCanHide();
   const filtered = filter?.kind === "check" ? filter.selected.length > 0 : !!filter?.value;
+  const hints = column.columnDef.meta?.sortKind ? SORT_HINTS[column.columnDef.meta.sortKind] : undefined;
 
-  if (!sortable && !canMoveLeft && !canMoveRight && structurallyPinned && !editable && !filter) {
-    return null;
-  }
+  const offersSomething =
+    sortable || canMoveLeft || canMoveRight || !structurallyPinned || editable || deletable || hideable || !!filter;
+  if (!offersSomething) return asHeader ? headerLabel : null;
+
+  const sections = [
+    sortable || canMoveLeft || canMoveRight,
+    !structurallyPinned,
+    editable || deletable || hideable,
+  ];
 
   return (
     <Popover
       label={`${titleOf(column)} column menu`}
       align="left"
-      width={190}
-      trigger={() => <Icon d={filtered ? ICONS.filter : ICONS.chevronDown} size={12} />}
-      triggerClassName={cn(
-        "grid size-5 shrink-0 place-items-center rounded-[4px] transition hover:bg-u-raised",
-        "aria-expanded:opacity-100 focus-visible:opacity-100",
-        filtered
-          ? "text-u-accent opacity-100"
-          : "text-u-text3 opacity-0 hover:text-u-text group-hover/header:opacity-100",
-      )}
+      width={asHeader ? 220 : 190}
+      hasPopup={asHeader ? "menu" : undefined}
+      trigger={() =>
+        asHeader ? (
+          <>
+            <span className="min-w-0 flex-1">{headerLabel}</span>
+            {filtered && <Icon d={ICONS.filter} size={11} className="flex-none text-u-accent" />}
+          </>
+        ) : (
+          <Icon d={filtered ? ICONS.filter : ICONS.chevronDown} size={12} />
+        )
+      }
+      triggerClassName={
+        asHeader
+          ? cn(
+              "-mx-1.5 -my-1 flex w-[calc(100%+12px)] min-w-0 cursor-pointer items-center gap-1 rounded-[5px] px-1.5 py-1 text-left transition",
+              "hover:bg-u-surface aria-expanded:bg-u-surface focus-visible:outline focus-visible:outline-u-accent",
+              filtered && "text-u-accent",
+            )
+          : cn(
+              "grid size-5 shrink-0 place-items-center rounded-[4px] transition hover:bg-u-raised",
+              "aria-expanded:opacity-100 focus-visible:opacity-100",
+              filtered
+                ? "text-u-accent opacity-100"
+                : "text-u-text3 opacity-0 hover:text-u-text group-hover/header:opacity-100",
+            )
+      }
     >
       {(close) => (
         <div className="flex flex-col">
@@ -900,15 +981,15 @@ function HeaderMenu<TData extends RowData>({
                   />
                 )}
               </div>
-              {(sortable || canMoveLeft || canMoveRight || !structurallyPinned || editable) && (
-                <div className="my-1 border-t border-u-border" />
-              )}
+              {sections.some(Boolean) && <MenuDivider />}
             </>
           )}
           {sortable && (
             <MenuItem
               icon={ICONS.arrowUp}
               label="Sort ascending"
+              hint={hints?.asc}
+              active={asHeader && sorted === "asc"}
               onClick={() => {
                 column.toggleSorting(false);
                 close();
@@ -919,6 +1000,8 @@ function HeaderMenu<TData extends RowData>({
             <MenuItem
               icon={ICONS.arrowDown}
               label="Sort descending"
+              hint={hints?.desc}
+              active={asHeader && sorted === "desc"}
               onClick={() => {
                 column.toggleSorting(true);
                 close();
@@ -946,27 +1029,49 @@ function HeaderMenu<TData extends RowData>({
             />
           )}
           {!structurallyPinned && (
-            <MenuItem
-              icon={frozen ? ICONS.unlock : ICONS.lock}
-              label={frozen ? "Unfreeze column" : "Freeze column"}
-              onClick={() => {
-                onFreeze(column, !frozen);
-                close();
-              }}
-            />
-          )}
-          {editable && (
             <>
-              <div className="my-1 border-t border-u-border" />
+              {asHeader && sections[0] && <MenuDivider />}
               <MenuItem
-                icon={ICONS.pencil}
-                label="Edit field"
+                icon={frozen ? ICONS.unlock : ICONS.lock}
+                label={frozen ? "Unfreeze column" : "Freeze column"}
                 onClick={() => {
-                  onEditColumn?.(column.id);
+                  onFreeze(column, !frozen);
                   close();
                 }}
               />
             </>
+          )}
+          {sections[2] && (sections[0] || sections[1]) && <MenuDivider />}
+          {editable && (
+            <MenuItem
+              icon={ICONS.pencil}
+              label="Edit field"
+              onClick={() => {
+                onEditColumn?.(column.id);
+                close();
+              }}
+            />
+          )}
+          {hideable && (
+            <MenuItem
+              icon={ICONS.eyeOff}
+              label="Hide column"
+              onClick={() => {
+                close();
+                onHide?.(column);
+              }}
+            />
+          )}
+          {deletable && (
+            <MenuItem
+              icon={ICONS.trash}
+              label="Delete column"
+              tone="danger"
+              onClick={() => {
+                close();
+                onDeleteColumn?.(column.id);
+              }}
+            />
           )}
         </div>
       )}
@@ -974,15 +1079,44 @@ function HeaderMenu<TData extends RowData>({
   );
 }
 
-function MenuItem({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
+function MenuDivider() {
+  return <div className="my-1 border-t border-u-border" />;
+}
+
+function MenuItem({
+  icon,
+  label,
+  hint,
+  active = false,
+  tone,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  /** What the item does in the column's own terms ("A → Z"), drawn after the label. */
+  hint?: string;
+  /** The column is already sorted this way: the row is tinted rather than given a mark, so every row keeps one shape. */
+  active?: boolean;
+  tone?: "danger";
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left font-sans text-[13px] text-u-text2 transition hover:bg-u-raised hover:text-u-text"
+      aria-current={active || undefined}
+      className={cn(
+        "flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left font-sans text-[13px] transition hover:bg-u-raised",
+        tone === "danger" ? "text-u-offlimits" : active ? "bg-u-raised text-u-text" : "text-u-text2 hover:text-u-text",
+      )}
     >
-      <Icon d={icon} size={14} className="text-u-text3" />
-      {label}
+      <Icon
+        d={icon}
+        size={14}
+        className={tone === "danger" ? "text-u-offlimits" : active ? "text-u-accent" : "text-u-text3"}
+      />
+      <span className="flex-1">{label}</span>
+      {hint && <span className="font-mono text-[11px] text-u-text3">{hint}</span>}
     </button>
   );
 }

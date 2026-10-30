@@ -17,6 +17,7 @@ import {
   DataGridCell,
   GRID_ICON_BUTTON,
   type DataGridColumnLayout,
+  type DataGridSortKind,
 } from "../../../components/ui/DataGrid";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { cn } from "../../../lib/cn";
@@ -25,7 +26,7 @@ import type { Candidate, CandidateStatus } from "../../candidates/api/types";
 import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
 import { StatusPicker } from "../../candidates/components/StatusPicker";
 import { statusStyle } from "../../candidates/lib/pipelineStatus";
-import type { CustomColumn } from "../../customcolumns/api/types";
+import type { CustomColumn, CustomColumnType } from "../../customcolumns/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import { candidateMoveTooltip, MOVES, removeTooltip, SOURCE_STYLES } from "./triageVocabulary";
 import type { TriageCompanyRow } from "./triageRows";
@@ -78,9 +79,8 @@ interface TriageTableMeta {
 }
 
 /**
- * No pagination, filtering or sorted row model registered: all three are the server's, and a client
- * row model would re-sort the one page of rows this holds as though they were the whole result. The same
- * three features Strategy registers, because it is the same grid.
+ * No pagination, filtering or sorted row model registered: all three are the server's, which orders the whole
+ * stage's lines, and a client row model would re-sort one page as though it were the whole result.
  */
 export const triageTableFeatures = tableFeatures({
   columnOrderingFeature,
@@ -97,18 +97,11 @@ const PILL =
   "inline-flex items-center rounded-[4px] px-[6px] py-[2px] font-mono text-[10px] font-bold uppercase tracking-[0.04em]";
 
 /**
- * The Companies grid's columns — the same widths, shapes and sort tokens as Strategy's, so moving
- * between the market and what a mandate took from it does not feel like moving between two products.
+ * The Companies grid's columns — the same widths and shapes as Strategy's, so moving between the market and what a
+ * mandate took from it does not feel like moving between two products.
  *
- * <p>Each sortable column's id is its wire sort token, the same string `TriageSortField` allowlists,
- * so there is no click-to-field mapping that can drift.
- *
- * <p><b>A row is a person at a company, not a company.</b> Executive, Title and Status are the mandate's
- * mapping of who sits there, and a company with three of them is three lines with the company
- * repeated. Executive and Title do not sort: neither is in the server's allowlist, and could not be —
- * the grid is paged by company, so ordering by a person's own field would order a page rather than a
- * result. Status is the one exception — the server ranks a *company* by the best status among its own
- * executives, which is a question about the page's companies after all, just answered by a join.
+ * <p>Each sortable column's id is its wire sort token, the same string `TriageSortField` allowlists. A row is a person
+ * at a company, and the server orders the stage's lines, so Executive or Title sorts the people themselves.
  *
  * <p>Two columns Strategy has are deliberately absent: `Fit`, which has no score to show, and the
  * Facebook and X links, which the snapshot does not carry. One is added — `Source`, last in the order
@@ -121,7 +114,7 @@ const BUILT_IN_COLUMNS = helper.columns([
     header: "Company",
     enableHiding: false,
     // The floor covers a twenty-odd-character name: logo and gutters eat 54px before a letter draws.
-    meta: { share: 22, min: 230 },
+    meta: { share: 22, min: 230, sortKind: "text" },
     cell: (info) => {
       const { company } = info.row.original;
       const name = info.getValue();
@@ -277,17 +270,14 @@ const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => rowLocation(row).country, {
     id: "country",
     header: "Country",
-    meta: { share: 12, min: 82 },
+    meta: { share: 12, min: 82, sortKind: "text" },
     cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
   helper.accessor((row) => row.candidate?.fullName ?? null, {
     id: "executive",
     header: "Executive",
-    // Not in the server's sort allowlist, and could not be: the grid is paged by company, so sorting
-    // by a person would order one page rather than the mandate.
-    enableSorting: false,
-    meta: { share: 14, min: 150 },
+    meta: { share: 14, min: 150, sortKind: "text" },
     cell: (info) => {
       const { company, candidate } = info.row.original;
       const meta = info.table.options.meta;
@@ -345,8 +335,7 @@ const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => row.candidate?.title ?? null, {
     id: "executiveTitle",
     header: "Title",
-    enableSorting: false,
-    meta: { share: 14, min: 130 },
+    meta: { share: 14, min: 130, sortKind: "text" },
     cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
@@ -369,9 +358,7 @@ const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => row.candidate?.status ?? null, {
     id: "executiveStatus",
     header: "Status",
-    // The one exception to the "person-level fields don't sort" rule below: the server ranks a page
-    // by each company's best-status executive rather than trying to order people directly, over a
-    // query built for exactly this column — see `TriageCompanyRepository`'s executive-status methods.
+    // Sorts in the workspace's pipeline order, not by the status's name.
     meta: { share: 0, min: 150 },
     cell: (info) => {
       const { candidate } = info.row.original;
@@ -400,28 +387,28 @@ const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => row.company?.industry ?? null, {
     id: "sector",
     header: "Sector",
-    meta: { share: 18, min: 100 },
+    meta: { share: 18, min: 100, sortKind: "text" },
     cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
   helper.accessor((row) => rowLocation(row).city, {
     id: "location",
     header: "City",
-    meta: { share: 11, min: 82 },
+    meta: { share: 11, min: 82, sortKind: "text" },
     cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
   helper.accessor((row) => row.company?.annualRevenue ?? null, {
     id: "revenue",
     header: "Revenue",
-    meta: { share: 11, min: 82 },
+    meta: { share: 11, min: 82, sortKind: "number" },
     cell: (info) => <DataGridCell value={formatMoney(info.getValue())} />,
   }),
 
   helper.accessor((row) => row.company?.numEmployees ?? null, {
     id: "employees",
     header: "Employees",
-    meta: { share: 9, min: 74 },
+    meta: { share: 9, min: 74, sortKind: "number" },
     cell: (info) => <DataGridCell value={info.getValue()?.toLocaleString() ?? null} />,
   }),
 
@@ -429,8 +416,7 @@ const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => row.company?.noteCount ?? null, {
     id: "note",
     header: "Notes",
-    enableSorting: false,
-    meta: { share: 9, min: 88 },
+    meta: { share: 9, min: 88, sortKind: "number" },
     cell: (info) => {
       const { company } = info.row.original;
       const meta = info.table.options.meta;
@@ -457,22 +443,21 @@ const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => row.company?.foundedYear ?? null, {
     id: "founded",
     header: "Founded",
-    meta: { share: 5, min: 84 },
+    meta: { share: 5, min: 84, sortKind: "number" },
     cell: (info) => <DataGridCell value={info.getValue()?.toString() ?? null} />,
   }),
 
   helper.accessor((row) => row.company?.addedAt ?? row.candidate?.addedAt ?? null, {
     id: "added",
     header: "Added",
-    meta: { share: 8, min: 96 },
+    meta: { share: 8, min: 96, sortKind: "date" },
     cell: (info) => <DataGridCell value={formatInstantDate(info.getValue())} />,
   }),
 
   helper.accessor((row) => row.company?.addedByName ?? row.candidateAddedBy?.name ?? null, {
     id: "addedBy",
     header: "Added by",
-    enableSorting: false,
-    meta: { share: 9, min: 150 },
+    meta: { share: 9, min: 150, sortKind: "text" },
     cell: (info) => <AddedByCell row={info.row.original} />,
   }),
 
@@ -487,8 +472,7 @@ const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => row.company?.source ?? null, {
     id: "source",
     header: "Source",
-    enableSorting: false,
-    meta: { share: 0, min: 84 },
+    meta: { share: 0, min: 84, sortKind: "text" },
     cell: (info) => {
       const source = info.getValue();
       if (!source) return <DataGridCell value={null} />;
@@ -497,6 +481,14 @@ const BUILT_IN_COLUMNS = helper.columns([
     },
   }),
 ]);
+
+/** How a mandate's own column sorts on the server, by what it holds; a yes/no column has no hint to draw. */
+const CUSTOM_SORT_KINDS: Record<CustomColumnType, DataGridSortKind | undefined> = {
+  text: "text",
+  number: "number",
+  date: "date",
+  boolean: undefined,
+};
 
 /**
  * The grid's columns for one mandate: the built-ins above, then a column per custom column the
@@ -518,10 +510,7 @@ export function createTriageCompanyColumns(customColumns: readonly CustomColumn[
       helper.accessor((row) => customValueOf(row, column), {
         id: customColumnId(column),
         header: column.label,
-        // Never: sorting is the server's, and its allowlist is the built-in columns. A header that
-        // looked clickable and re-ordered nothing would be worse than one that does not.
-        enableSorting: false,
-        meta: { share: 0, min: 120 },
+        meta: { share: 0, min: 120, sortKind: CUSTOM_SORT_KINDS[column.dataType] },
         cell: (info) => <DataGridCell value={info.getValue()} />,
       }),
     );
@@ -656,15 +645,20 @@ export const TRIAGE_COLUMN_PINNING: ColumnPinningState = {
   end: [],
 };
 
-/** The sortable column ids, which are also the server's sort tokens. */
+/** The built-in sortable column ids, which are also the server's sort tokens; a mandate's own columns sort too. */
 export const TRIAGE_SORT_FIELDS = [
   "name",
-  "sector",
+  "executive",
+  "executiveTitle",
   "country",
   "location",
-  "employees",
+  "executiveStatus",
+  "sector",
   "revenue",
+  "employees",
+  "note",
   "founded",
   "added",
-  "executiveStatus",
+  "addedBy",
+  "source",
 ] as const satisfies readonly TriageSortField[];

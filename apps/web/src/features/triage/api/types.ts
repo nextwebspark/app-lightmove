@@ -1,3 +1,4 @@
+import type { AddedBy, Candidate } from "../../candidates/api/types";
 import type { CustomFieldValues } from "../../customcolumns/api/types";
 
 /** Where a company stands in a mandate's triage. There is no untriaged state — that has no row. */
@@ -74,20 +75,46 @@ export interface BulkAddResult {
 }
 
 /**
- * The columns a Companies grid can be sorted by. Mirrors the server's allowlist token for token, plus
- * `executiveStatus` — kept outside that allowlist on the server (it ranks by a joined table's
- * aggregate, not a flat property) but still a real, server-ordered sort from here.
+ * The columns a Companies grid can be sorted by — each the column's own id, which is also the server's sort token.
+ * The grid orders its lines, so a person's own fields sort by the person whatever company they sit at; a mandate's
+ * own column sorts as `custom:<target>:<fieldKey>`.
  */
 export type TriageSortField =
   | "name"
-  | "sector"
+  | "executive"
+  | "executiveTitle"
   | "country"
   | "location"
-  | "employees"
+  | "executiveStatus"
+  | "sector"
   | "revenue"
+  | "employees"
   | "founded"
   | "added"
-  | "executiveStatus";
+  | "addedBy"
+  | "note"
+  | "source"
+  | `custom:${string}`;
+
+/** One grid line: a person at a company — `candidate` null on a company nobody is listed at yet, `company` null on an
+ *  executive whose employer is not in the mandate. */
+export interface StageLine {
+  company: TriageCompany | null;
+  candidate: Candidate | null;
+}
+
+/** One page of a stage's lines, ordered across the whole stage. */
+export interface StageLinesPage {
+  lines: StageLine[];
+  /** Who filed each executive, by candidate id: a staff read's alone, null for a client seat. */
+  addedBy: Record<string, AddedBy> | null;
+  totalCount: number;
+  page: number;
+  size: number;
+  counts: TriageCounts;
+  /** The stage ran past what one read orders, so the order covers its first companies by name. */
+  truncated: boolean;
+}
 
 /**
  * A company the mandate supplies itself — typed into the Add company form, or read off a live page by
