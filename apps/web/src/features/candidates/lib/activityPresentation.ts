@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { ICONS } from "../../../components/layout/Icon";
 import type { FieldChange, PersonActivityKind, PersonNoteKind, PersonTimelineEntry } from "../api/types";
 import { DOCUMENT_NOUNS, DOORS, NOTE_VERBS, statusLabel, triageStageLabel } from "./candidateActivity";
-import { NOTE_GLYPHS, noteKindOf } from "./noteKinds";
+import { noteKindOf } from "./noteKinds";
 
 /**
  * The executive drawer's Activity tab, worked out in data: which kind of event a line is, how it is drawn, who did it
@@ -116,22 +116,20 @@ export function isOrigin(entry: PersonTimelineEntry): boolean {
   return entry.kind === "ADDED_TO_POOL" || entry.kind === "MAPPED";
 }
 
-/** The kind of the note a line is about, where the line draws one; a removed note's line draws the bin instead. */
+/** The kind of the note a line is about, whose mark the line draws; a removed note's line draws the bin instead. */
 export function noteKindOfEntry(entry: PersonTimelineEntry): PersonNoteKind | null {
   return entry.kind === "NOTE_ADDED" || entry.kind === "NOTE_EDITED" || entry.kind === "NOTE_RESTORED"
     ? noteKindOf(entry.details.kind)
     : null;
 }
 
-export function iconOf(entry: PersonTimelineEntry): string {
+/** A line's stroke glyph; null for a note's line, which draws its kind's mark (`noteKindOfEntry`). */
+export function iconOf(entry: PersonTimelineEntry): string | null {
   switch (entry.kind) {
     case "NOTE_ADDED":
     case "NOTE_EDITED":
-    case "NOTE_RESTORED": {
-      // LinkedIn's mark is no stroke path: a tile draws it through `noteKindOfEntry`, and this is the plain fallback.
-      const kind = noteKindOf(entry.details.kind);
-      return kind === "linkedin" ? ICONS.fileText : NOTE_GLYPHS[kind];
-    }
+    case "NOTE_RESTORED":
+      return null;
     case "NOTE_REMOVED":
       return ICONS.trash;
     case "EMAIL_SENT":

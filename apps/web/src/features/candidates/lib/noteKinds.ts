@@ -22,6 +22,11 @@ export function noteKindLabel(kind: PersonNoteKind): string {
   return NOTE_KINDS.find((option) => option.value === kind)?.label ?? "Note";
 }
 
+/** A kind drawn by a network's own mark, which is never set in a disc or tinted (`NetworkMark`'s rules). */
+export function isBrandMark(kind: PersonNoteKind): kind is "linkedin" {
+  return kind === "linkedin";
+}
+
 /** A note's kind as a note carries it (`call`) or as a timeline line does (`CALL`); an unknown one is a general note. */
 export function noteKindOf(value: string | null | undefined): PersonNoteKind {
   const kind = (value ?? "general").toLowerCase();

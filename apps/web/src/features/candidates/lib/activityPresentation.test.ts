@@ -61,16 +61,14 @@ describe("activity presentation", () => {
       const entry = line(1, kind);
       expect(ACTIVITY_FAMILIES.map((option) => option.family), kind).toContain(familyOf(entry));
       expect(verbOf(entry), kind).not.toBe("updated the record");
-      expect(iconOf(entry), kind).toBeTruthy();
+      expect(iconOf(entry) ?? noteKindOfEntry(entry), kind).toBeTruthy();
     }
   });
 
-  it("draws a call log with a handset, a logged email with an envelope and a meeting with a camera", async () => {
+  it("leaves a note's line to its kind's mark, and draws a removed note's with the bin", async () => {
     const { ICONS } = await import("../../../components/layout/Icon");
-    expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "CALL" } }))).toBe(ICONS.phoneCall);
-    expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "EMAIL" } }))).toBe(ICONS.mail);
-    expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "MEETING" } }))).toBe(ICONS.video);
-    expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "GENERAL" } }))).toBe(ICONS.fileText);
+    expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "CALL" } }))).toBeNull();
+    expect(iconOf(line(1, "NOTE_REMOVED", { details: { kind: "CALL" } }))).toBe(ICONS.trash);
   });
 
   it("hands a note line's kind to its tile, LinkedIn's included, and none for a removed note's bin", () => {

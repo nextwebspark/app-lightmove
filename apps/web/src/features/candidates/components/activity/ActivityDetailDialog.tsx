@@ -19,8 +19,6 @@ import {
   doorOf,
   fieldLabel,
   fullDateTime,
-  iconOf,
-  noteKindOfEntry,
   shortDateTime,
   verbOf,
   actorNameOf,
@@ -32,7 +30,7 @@ import {
 import { STOP_REASONS, statusLabel } from "../../lib/candidateActivity";
 import { noteKindLabel, noteKindOf } from "../../lib/noteKinds";
 import { StatusPill } from "./ActivityItems";
-import { ActorFace, KindTile } from "./ActivityVisuals";
+import { ActorFace, EntryKindTile } from "./ActivityVisuals";
 
 export interface ActivityDestinations {
   onShowNote: (noteId: string) => void;
@@ -102,7 +100,7 @@ export function ActivityDetailDialog({
     >
       <div className="flex flex-col gap-4 pb-4">
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-u-border bg-u-bg px-3 py-2.5">
-          <KindTile icon={iconOf(entry)} noteKind={noteKindOfEntry(entry)} size="head" />
+          <EntryKindTile entry={entry} size="head" />
           <ActorFace actor={actor} executive={executive} size="lg" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-body font-semibold text-u-text">{name}</p>

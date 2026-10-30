@@ -1,6 +1,6 @@
 import { Icon } from "../../../components/layout/Icon";
 import { NetworkMark } from "../../../components/ui/NetworkMark";
-import { NOTE_GLYPHS, noteKindOf } from "../lib/noteKinds";
+import { isBrandMark, NOTE_GLYPHS, noteKindOf } from "../lib/noteKinds";
 
 /**
  * A note's kind as a glyph, the one drawing every screen asks for: the composer's chips, a note's card, the Activity
@@ -18,7 +18,7 @@ export function NoteKindMark({
   className?: string;
 }) {
   const known = noteKindOf(kind);
-  if (known === "linkedin") {
+  if (isBrandMark(known)) {
     return <NetworkMark network="linkedin" size={Math.round(size * 0.85)} className={className} />;
   }
   return <Icon d={NOTE_GLYPHS[known]} size={size} className={className} />;

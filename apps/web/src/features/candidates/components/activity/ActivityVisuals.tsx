@@ -2,29 +2,40 @@ import { Icon } from "../../../../components/layout/Icon";
 import { Avatar } from "../../../../components/ui/Avatar";
 import { AppIcon } from "../../../../components/ui";
 import { cn } from "../../../../lib/cn";
-import type { PersonNoteKind } from "../../api/types";
-import type { ActivityActor, ActivityExecutive } from "../../lib/activityPresentation";
+import type { ReactNode } from "react";
+import type { PersonTimelineEntry } from "../../api/types";
+import { iconOf, noteKindOfEntry, type ActivityActor, type ActivityExecutive } from "../../lib/activityPresentation";
 import { NoteKindMark } from "../NoteKindMark";
 
 
+type TileSize = "dot" | "tile" | "head";
+
 /** A kind's glyph, grey and plain as the app's menus draw theirs: on the spine, in a fold, in a menu, at a dialog's head. */
-export function KindTile({
-  icon,
-  size,
-  noteKind = null,
-  className,
-}: {
-  icon: string;
-  size: "dot" | "tile" | "head";
-  /** A note line's own kind, drawn by its mark in place of `icon` — LinkedIn's being the network's. */
-  noteKind?: PersonNoteKind | null;
-  className?: string;
-}) {
+export function KindTile({ icon, size, className }: { icon: string; size: TileSize; className?: string }) {
+  return (
+    <TileFrame size={size} className={className}>
+      <Icon d={icon} size={GLYPH_SIZE[size]} />
+    </TileFrame>
+  );
+}
+
+/** A timeline line's tile: its kind's glyph, or for a note the note's own kind — LinkedIn's being the network's mark. */
+export function EntryKindTile({ entry, size, className }: { entry: PersonTimelineEntry; size: TileSize; className?: string }) {
+  const icon = iconOf(entry);
+  return (
+    <TileFrame size={size} className={className}>
+      {icon ? <Icon d={icon} size={GLYPH_SIZE[size]} /> : <NoteKindMark kind={noteKindOfEntry(entry)} size={GLYPH_SIZE[size]} />}
+    </TileFrame>
+  );
+}
+
+const GLYPH_SIZE: Record<TileSize, number> = { dot: 14, tile: 16, head: 20 };
+
+function TileFrame({ size, className, children }: { size: TileSize; className?: string; children: ReactNode }) {
   const box = size === "dot" ? "size-[22px]" : size === "tile" ? "size-[30px]" : "size-9";
-  const glyphSize = size === "dot" ? 14 : size === "tile" ? 16 : 20;
   return (
     <span className={cn("grid flex-none place-items-center text-u-text3", box, className)} aria-hidden="true">
-      {noteKind ? <NoteKindMark kind={noteKind} size={glyphSize} /> : <Icon d={icon} size={glyphSize} />}
+      {children}
     </span>
   );
 }

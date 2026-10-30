@@ -51,21 +51,21 @@ export function ConversationDock({
       aria-label="Conversation actions"
       className="flex flex-none flex-wrap items-center gap-1.5 border-t border-u-border bg-u-surface px-5 py-2.5"
     >
-      <DockButton icon={ICONS.mail} onClick={() => setIsEmailing(true)}>
+      <DockButton icon={<Icon d={ICONS.mail} size={14} />} onClick={() => setIsEmailing(true)}>
         {composer.replySubject !== null ? "Reply" : "Write email"}
       </DockButton>
-      <DockButton icon={ICONS.phone} onClick={() => setNoteKind("call")}>
+      <DockButton icon={<Icon d={ICONS.phone} size={14} />} onClick={() => setNoteKind("call")}>
         Log call
       </DockButton>
       <DockButton icon={<NoteKindMark kind="linkedin" size={14} />} onClick={() => setNoteKind("linkedin")}>
         Log LinkedIn
       </DockButton>
-      <DockButton icon={ICONS.pencil} onClick={() => setNoteKind("general")}>
+      <DockButton icon={<Icon d={ICONS.pencil} size={14} />} onClick={() => setNoteKind("general")}>
         Add note
       </DockButton>
       {canEnrol && (
         <span className="ms-auto">
-          <DockButton icon={ICONS.outreach} onClick={() => setIsEnrolling(true)}>
+          <DockButton icon={<Icon d={ICONS.outreach} size={14} />} onClick={() => setIsEnrolling(true)}>
             Add to sequence
           </DockButton>
         </span>
@@ -110,15 +110,14 @@ export function ConversationDock({
   );
 }
 
-/** `icon` is a stroke glyph's path, or a drawn mark where the glyph is a brand's own (LinkedIn's). */
-function DockButton({ icon, onClick, children }: { icon: string | ReactNode; onClick: () => void; children: ReactNode }) {
+function DockButton({ icon, onClick, children }: { icon: ReactNode; onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="inline-flex items-center gap-1.5 rounded-u-control border border-u-border-strong bg-u-surface px-3 py-1.5 text-note font-medium text-u-text2 transition hover:border-u-text3 hover:text-u-text"
     >
-      {typeof icon === "string" ? <Icon d={icon} size={14} /> : icon}
+      {icon}
       {children}
     </button>
   );

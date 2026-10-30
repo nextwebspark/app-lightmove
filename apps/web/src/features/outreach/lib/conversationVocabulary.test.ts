@@ -206,6 +206,31 @@ describe("glanceOf", () => {
   const run = (status: OutreachRun["status"]) =>
     ({ status, sequenceName: "CFO — first approach", sentCount: 1, stepCount: 3 }) as OutreachRun;
 
+  it("counts LinkedIn notes apart from calls and other notes", () => {
+    const noteOf = (id: string, kind: PersonNote["kind"]) => ({
+      type: "NOTE" as const,
+      at: "2026-10-20T05:00:00Z",
+      note: {
+        id,
+        kind,
+        body: "Spoke",
+        format: "plain" as const,
+        pinned: false,
+        projectId: "p1",
+        projectTitle: "Group CFO",
+        authorUserId: "u1",
+        authorName: "Yara Haddad",
+        authorAvatarUrl: null,
+        createdAt: "2026-10-20T05:00:00Z",
+        editedAt: null,
+        editedByName: null,
+        editable: true,
+      },
+    });
+    const glance = glanceOf([noteOf("n1", "call"), noteOf("n2", "linkedin"), noteOf("n3", "general")], null, NOW);
+    expect(glance.facts.map((fact) => `${fact.count} ${fact.noun}`)).toEqual(["1 call", "1 LinkedIn", "1 note"]);
+  });
+
   it("counts only what happened, and dates the last touch by the latest of it", () => {
     const glance = glanceOf([later, reply, sent], null, NOW);
     expect(glance.facts.map((fact) => `${fact.count} ${fact.noun}`)).toEqual(["1 sent", "1 reply", "1 scheduled"]);
