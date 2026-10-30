@@ -212,10 +212,15 @@ describe("StrategyPage — People mode", () => {
     renderPeopleMode();
     await screen.findByText("1,240");
 
+    // Enter straight after the last letter, inside the autosave's debounce: the whole name is saved before the page
+    // is bought, so a search is never asked of a half-typed one.
     await user.type(screen.getByRole("searchbox", { name: "Search people by name" }), "Sara{Enter}");
 
     expect((await screen.findAllByText("Person first")).length).toBeGreaterThan(0);
     expect(peopleApi.putPeopleFilter).toHaveBeenLastCalledWith("p1", { ...CFO_FILTER, name: "Sara" });
+    expect(vi.mocked(peopleApi.putPeopleFilter).mock.invocationCallOrder.at(-1)).toBeLessThan(
+      vi.mocked(peopleApi.searchPeople).mock.invocationCallOrder[0],
+    );
     expect(vi.mocked(peopleApi.searchPeople).mock.calls).toEqual([["p1", 1]]);
   });
 

@@ -427,6 +427,7 @@ function TriageStage() {
   const findExecutivesCap = sourcing.config?.maxCompaniesPerRun ?? 0;
   const mailbox = useMailbox(canWrite);
   const mailboxConnect = useMailboxConnect();
+  const mailboxState = mailboxStateOf(mailbox);
   const emailOffered = canWrite && mailbox.data?.offered === true && !isArchived(project);
   /** Ticked companies' or executives' people go to Add to sequence; never from Declined. */
   const addToSequenceOffered = emailOffered && stage.status !== "declined";
@@ -841,10 +842,11 @@ function TriageStage() {
         isFullscreen={isFullscreen}
         addToSequence={addToSequenceOffered ? { onPress: enrolTicked, unavailable: toolbarEnrolUnavailable() } : undefined}
         sendEmail={
-          emailOffered && (
+          emailOffered &&
+          mailboxState.kind !== "unavailable" && (
             <NewEmailButton
               projectId={project.id}
-              mailbox={mailboxStateOf(mailbox)}
+              mailbox={mailboxState}
               connector={mailboxConnect}
               onPick={setEmailing}
               label="Send email"

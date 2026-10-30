@@ -18,7 +18,6 @@ export const TOOLBAR_OUTLINE = cn(
   "aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-u-surface",
 );
 
-/** The row's one filled action. */
 export const TOOLBAR_PRIMARY = cn(
   TOOLBAR_CONTROL,
   "bg-u-accent-solid px-3.5 font-semibold text-white hover:bg-u-accent-solid-hover",
@@ -26,20 +25,17 @@ export const TOOLBAR_PRIMARY = cn(
   "disabled:cursor-not-allowed disabled:opacity-50",
 );
 
-/** A quiet control: no border, a fill only while hovered. */
 export const TOOLBAR_GHOST = cn(
   TOOLBAR_CONTROL,
   "px-2.5 text-u-text2 hover:bg-u-raised hover:text-u-text disabled:cursor-not-allowed disabled:opacity-40",
 );
 
-/** A quiet control that opens a popover, filled while it is open. */
 export const TOOLBAR_MENU = cn(TOOLBAR_GHOST, "aria-expanded:bg-u-raised aria-expanded:text-u-text");
 
-/** A count beside a ghost control's label, such as the filters in force or the columns hidden. */
 export const TOOLBAR_COUNT =
   "rounded-[4px] border border-u-border bg-u-raised px-1.5 py-px font-sans text-[10.5px] font-medium text-u-text2";
 
-/** The count that is the control's point, such as the saved searches. */
+/** Accent only where the count is the control's point, such as the saved searches. */
 export const TOOLBAR_COUNT_ACCENT =
   "rounded-[4px] bg-u-accent-tint px-[5px] py-[2px] font-sans text-[10px] font-bold text-u-accent";
 

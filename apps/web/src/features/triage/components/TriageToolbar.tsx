@@ -72,61 +72,70 @@ export function TriageToolbar({
   advancedDot?: string;
 }) {
   const groups = [
-    (addToSequence || sendEmail) && (
-      <>
-        {addToSequence && (
-          <ToolbarAction
-            icon={ICONS.outreach}
-            unavailable={addToSequence.unavailable}
-            onClick={addToSequence.onPress}
-            className={TOOLBAR_OUTLINE}
-          >
-            Add to sequence
-          </ToolbarAction>
-        )}
-        {sendEmail}
-      </>
-    ),
-    (findExecutives || advanced) && (
-      <>
-        {findExecutives && (
-          <ToolbarAction
-            icon={ICONS.search}
-            pulsing={findExecutives.running}
-            busy={findExecutives.running}
-            title={
-              findExecutives.running
-                ? "A run is in progress"
-                : "Find executives at the ticked companies, or at the first ones with nobody mapped"
-            }
-            onClick={findExecutives.onPress}
-            className={TOOLBAR_PRIMARY}
-          >
-            {findExecutives.running
-              ? `Finding executives… ${findExecutives.progress ?? ""}`.trimEnd()
-              : "Find executives"}
-          </ToolbarAction>
-        )}
-        {advanced && <AdvancedMenu sections={advanced} dot={advancedDot} />}
-      </>
-    ),
-    create && (
-      <ToolbarMenu
-        label="Create"
-        icon={ICONS.plus}
-        width={240}
-        sections={[
-          {
-            label: "",
-            items: [
-              { key: "executive", label: "Add executive", icon: ICONS.userPlus, onSelect: create.onAddExecutive },
-              { key: "company", label: "Add company", icon: ICONS.plus, onSelect: create.onAddCompany },
-            ],
-          },
-        ]}
-      />
-    ),
-  ].filter(Boolean);
+    {
+      key: "outreach",
+      node: (addToSequence || sendEmail) && (
+        <>
+          {addToSequence && (
+            <ToolbarAction
+              icon={ICONS.outreach}
+              unavailable={addToSequence.unavailable}
+              onClick={addToSequence.onPress}
+              className={TOOLBAR_OUTLINE}
+            >
+              Add to sequence
+            </ToolbarAction>
+          )}
+          {sendEmail}
+        </>
+      ),
+    },
+    {
+      key: "grid",
+      node: (findExecutives || advanced) && (
+        <>
+          {findExecutives && (
+            <ToolbarAction
+              icon={ICONS.search}
+              pulsing={findExecutives.running}
+              busy={findExecutives.running}
+              title={
+                findExecutives.running
+                  ? "A run is in progress"
+                  : "Find executives at the ticked companies, or at the first ones with nobody mapped"
+              }
+              onClick={findExecutives.onPress}
+              className={TOOLBAR_PRIMARY}
+            >
+              {findExecutives.running
+                ? `Finding executives… ${findExecutives.progress ?? ""}`.trimEnd()
+                : "Find executives"}
+            </ToolbarAction>
+          )}
+          {advanced && <AdvancedMenu sections={advanced} dot={advancedDot} />}
+        </>
+      ),
+    },
+    {
+      key: "create",
+      node: create && (
+        <ToolbarMenu
+          label="Create"
+          icon={ICONS.plus}
+          width={240}
+          sections={[
+            {
+              label: "",
+              items: [
+                { key: "executive", label: "Add executive", icon: ICONS.userPlus, onSelect: create.onAddExecutive },
+                { key: "company", label: "Add company", icon: ICONS.plus, onSelect: create.onAddCompany },
+              ],
+            },
+          ]}
+        />
+      ),
+    },
+  ].filter((group) => group.node);
   return (
     <div className={TOOLBAR_ROW}>
       <ToolbarSearch value={search} onChange={onSearch} label={searchPlaceholder} placeholder={searchPlaceholder} />
@@ -147,9 +156,9 @@ export function TriageToolbar({
 
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
         {groups.map((group, index) => (
-          <Fragment key={index}>
+          <Fragment key={group.key}>
             {index > 0 && <ToolbarDivider />}
-            {group}
+            {group.node}
           </Fragment>
         ))}
       </div>
