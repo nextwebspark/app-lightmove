@@ -166,8 +166,8 @@ then each tag (`useCaptureSequence`); a note or tag that fails leaves the row fi
 record's composer. The editor is **a copy of `apps/web/src/features/notes`** under `popup/notes/` (Tiptap, the same
 pinned versions), each file headed with its original — change one, change both. The panel's differences: Expand opens
 `PanelSheet` (the whole panel) rather than a modal, the editor is always framed under its toolbar band, and the toolbar
-is 2px narrower a button so it holds one line at 400px. The LinkedIn note kind waits behind
-`LINKEDIN_NOTE_KIND_OFFERED` until the API takes it.
+is 2px narrower a button so it holds one line at 400px. A note's kind is drawn by `NoteKindMark` — LinkedIn by the
+network's own white bug (`public/brand`), never a stroke glyph, as apps/web's `NetworkMark` rules.
 
 How the two fields are read (`background/activePage.ts:readActivePage`, no scrolling):
 

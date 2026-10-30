@@ -4,6 +4,7 @@ import { ICONS } from "../lib/icons";
 import { initials } from "../lib/initials";
 import { Icon } from "./Icon";
 import { LogoTile } from "./LogoTile";
+import { LinkedInMark } from "./NetworkMark";
 
 /**
  * Who or what the page is about: their photo or the company's logo, the name — locked while it is what the page said,
@@ -88,7 +89,7 @@ export function SubjectCard({
         )}
         {linkedinUrl && (
           <span className="mt-0.5 flex min-w-0 items-center gap-1.5 font-mono text-[11px] text-u-text3">
-            <Icon d={ICONS.linkedin} size={11} className="flex-none" />
+            <LinkedInMark size={11} />
             <span className="truncate">{displayAddress(linkedinUrl)}</span>
           </span>
         )}
