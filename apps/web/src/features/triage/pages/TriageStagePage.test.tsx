@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
+import { Link, MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import { AuthProvider } from "../../auth/AuthProvider";
@@ -14,6 +14,7 @@ import type { Compensation } from "../../position/api/types";
 import type { Project } from "../../projects/api/types";
 import * as companiesApi from "../../strategy/api/companiesApi";
 import * as talentMapApi from "../../talentmap/api/talentMapApi";
+import { CHOSEN_VIEW_STATE } from "../lib/useCompaniesViews";
 import type { TalentMapPage } from "../../talentmap/api/types";
 import type { CompanyResult, Facets } from "../../strategy/api/types";
 import * as exportApi from "../api/exportApi";
@@ -1860,6 +1861,71 @@ describe("TriageStagePage", () => {
       expect(screen.getByRole("radio", { name: "Map" })).toHaveAttribute("aria-checked", "true");
     });
 
+    it("follows a view the address names from outside the page, as the rail's links do, and remembers it", async () => {
+      vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
+      // Ticking is offered beside Find executives.
+      vi.mocked(sourcingApi.getSourcingConfig).mockResolvedValue({ ...SOURCING_OFF, enabled: true });
+      const railTree = (
+        <MemoryRouter initialEntries={["/projects/p1/companies/universe"]}>
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+            <AuthProvider>
+              <ToastProvider>
+                <Link to="/projects/p1/companies/universe?view=map" state={CHOSEN_VIEW_STATE}>
+                  Rail map
+                </Link>
+                <Link to="/projects/p1/companies/universe?view=table" state={CHOSEN_VIEW_STATE}>
+                  Rail table
+                </Link>
+                <Routes>
+                  <Route element={<Outlet context={{ project }} />}>
+                    <Route path="/projects/:projectId/companies/:stage" element={<TriageStagePage />} />
+                  </Route>
+                </Routes>
+              </ToastProvider>
+            </AuthProvider>
+          </QueryClientProvider>
+        </MemoryRouter>
+      );
+      const { unmount } = render(railTree);
+      await userEvent.click(await screen.findByRole("checkbox", { name: "Select ACWA Power" }));
+
+      await userEvent.click(screen.getByRole("link", { name: "Rail map" }));
+      expect(await screen.findByRole("tree", { name: "Mapping" })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("link", { name: "Rail table" }));
+      // A tick made on one reading of the stage does not ride into another.
+      expect(await screen.findByRole("checkbox", { name: "Select ACWA Power" })).not.toBeChecked();
+      await userEvent.click(screen.getByRole("link", { name: "Rail map" }));
+      await screen.findByRole("tree", { name: "Mapping" });
+      unmount();
+
+      renderStage();
+      expect(await screen.findByRole("tree", { name: "Mapping" })).toBeInTheDocument();
+    });
+
+    it("opens a view a link only names, a notification's, without remembering it", async () => {
+      vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
+      localStorage.setItem("lm.companies.map.p1", JSON.stringify({ view: "map" }));
+      const { unmount } = render(stageTree("universe", project, "?view=table"));
+      await screen.findByText("ACWA Power");
+      await waitFor(() => expect(talentMapApi.getTalentMapConfig).toHaveBeenCalled());
+      unmount();
+
+      renderStage();
+      expect(await screen.findByRole("tree", { name: "Mapping" })).toBeInTheDocument();
+    });
+
+    it("leaves In universe's remembered view alone when another stage's address names one", async () => {
+      vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
+      localStorage.setItem("lm.companies.map.p1", JSON.stringify({ view: "map" }));
+      const { unmount } = render(stageTree("shortlisted", project, "?view=table"));
+      await screen.findByText("ACWA Power");
+      await waitFor(() => expect(talentMapApi.getTalentMapConfig).toHaveBeenCalled());
+      unmount();
+
+      renderStage();
+      expect(await screen.findByRole("tree", { name: "Mapping" })).toBeInTheDocument();
+    });
+
     it("polls the points alone while places are still resolving, and folds them into the map it has", async () => {
       vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
       vi.mocked(talentMapApi.getTalentMap).mockResolvedValue({ ...mapPageOf(), locations: {}, geocodingPending: 1 });
@@ -2045,6 +2111,16 @@ describe("TriageStagePage — full screen", () => {
     expect(screen.getByRole("textbox", { name: "Filter by company name" })).toBeInTheDocument();
     expect(within(grid).getByText("ACWA Power")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Full screen" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("keeps the toolbar's view switch beside the rail only in full screen, which covers the rail", async () => {
+    renderStage();
+    const views = await screen.findByRole("radiogroup", { name: "View" });
+    expect(views).toHaveClass("lg:hidden");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Full screen" }));
+
+    expect(screen.getByRole("radiogroup", { name: "View" })).not.toHaveClass("lg:hidden");
   });
 
   it("collapses when the browser leaves full screen on its own", async () => {

@@ -170,4 +170,6 @@ export const ICONS = {
   bell: "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0",
   /** Two ticked rows beside three lines — Settings → Task presets. */
   checklist: "M3 5l2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8",
+  /** Numbered lines — a position's outreach sequences. */
+  listOrdered: "M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M4.5 14a1.5 1.5 0 0 1 2.5-1.1Q4.5 15.5 4 18h3",
 } as const;

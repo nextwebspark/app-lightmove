@@ -22,6 +22,12 @@ import { PositionQuickActions } from "./mobile/PositionQuickActions";
 import { type SidebarGroup } from "./Sidebar";
 import * as triageApi from "../../features/triage/api/triageApi";
 import { TRIAGE_STAGES } from "../../features/triage/lib/triageStages";
+import {
+  CHOSEN_VIEW_STATE,
+  resolveCompaniesView,
+  useCompaniesViews,
+} from "../../features/triage/lib/useCompaniesViews";
+import { readTalentMapPreferences, type CompaniesView } from "../../features/talentmap/lib/useTalentMapPreferences";
 import { ProjectBreadcrumb } from "./Topbar";
 import { usePositionsOrigin } from "../../features/projects/lib/positionsOrigin";
 
@@ -49,15 +55,15 @@ const FULL_BLEED_TABS = ["/companies/", "/strategy", "/reports"];
 
 /**
  * The project workspace shell (Project.dc.html): breadcrumb topbar, the mandate sidebar — Position
- * and Strategy under "Position", the three triage stages under "Market mapping" (In universe's views include
- * the pipeline), Outreach under "CRM" for staff — and the routed page.
+ * and Strategy under "Position", the three triage stages under "Market mapping", Outreach under "CRM" for staff,
+ * with Strategy's, In universe's and Outreach's views nested under them (Position.dc.html) — and the routed page.
  * The project itself is resolved from the cached list query; a deep link waits for the load and only
  * shows the not-found screen once the id is confirmed unreadable.
  */
 export function ProjectLayout() {
   const { projectId } = useParams();
   const origin = usePositionsOrigin(projectId);
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const navigate = useNavigate();
   const toast = useToast();
   const [confirmingArchive, setConfirmingArchive] = useState(false);
@@ -67,14 +73,14 @@ export function ProjectLayout() {
   // wide grid ending in mid-air.
   // Conversations, the sequences list and the sequence editor each own the viewport under the one Outreach header, so
   // moving between them never moves the frame.
-  const outreachPath = pathname.replace(/\/$/, "");
+  const currentPath = pathname.replace(/\/$/, "");
   const sequencesPath = `/projects/${projectId}/outreach/sequences`;
   const isOutreachWorkspace =
-    outreachPath === `/projects/${projectId}/outreach` ||
-    outreachPath === sequencesPath ||
-    outreachPath.startsWith(`${sequencesPath}/`);
+    currentPath === `/projects/${projectId}/outreach` ||
+    currentPath === sequencesPath ||
+    currentPath.startsWith(`${sequencesPath}/`);
   const fillsViewport = isOutreachWorkspace || VIEWPORT_FILLING_TABS.some((tab) => pathname.includes(tab));
-  const isBriefTab = pathname.replace(/\/$/, "") === `/projects/${projectId}`;
+  const isBriefTab = currentPath === `/projects/${projectId}`;
   const fullBleed = isBriefTab || isOutreachWorkspace || FULL_BLEED_TABS.some((tab) => pathname.includes(tab));
 
   const { data: projects, isPending } = useQuery({
@@ -93,6 +99,7 @@ export function ProjectLayout() {
 
   const { user } = useAuth();
   const isStaff = project ? canExecuteProjectWork(project, user?.id, user?.workspace?.roles) : false;
+  const { views: universeViews } = useCompaniesViews("inUniverse", isStaff);
 
   if (!project) {
     if (isPending) {
@@ -113,12 +120,42 @@ export function ProjectLayout() {
   }
 
   const base = `/projects/${project.id}`;
+  const query = new URLSearchParams(search);
+  const universePath = `${base}/companies/${TRIAGE_STAGES.find((stage) => stage.status === "inUniverse")!.slug}`;
+  const universeView =
+    currentPath === universePath
+      ? resolveCompaniesView(universeViews, query.get("view"), readTalentMapPreferences(project.id).view)
+      : null;
+  const peopleMode = currentPath === `${base}/strategy` && query.get("mode") === "people";
   const groups: SidebarGroup[] = [
     {
       label: "Position",
       items: [
         { to: base, label: "Brief", icon: ICONS.position, end: true },
-        { to: `${base}/strategy`, label: "Strategy", icon: ICONS.strategy },
+        {
+          to: `${base}/strategy`,
+          label: "Strategy",
+          icon: ICONS.strategy,
+          // People mode is the position's WORK_EXECUTE, as StrategyPage decides it.
+          children: isStaff
+            ? [
+                {
+                  key: "companies",
+                  to: `${base}/strategy`,
+                  label: "Companies",
+                  icon: ICONS.building,
+                  active: currentPath === `${base}/strategy` && !peopleMode,
+                },
+                {
+                  key: "people",
+                  to: `${base}/strategy?mode=people`,
+                  label: "People",
+                  icon: ICONS.candidates,
+                  active: peopleMode,
+                },
+              ]
+            : undefined,
+        },
       ],
     },
     {
@@ -130,6 +167,17 @@ export function ProjectLayout() {
         label: stage.label,
         icon: stage.icon,
         count: triageCounts?.[stage.status],
+        children:
+          stage.status === "inUniverse" && universeViews.length > 1
+            ? universeViews.map((view) => ({
+                key: view,
+                to: `${universePath}?view=${view}`,
+                state: CHOSEN_VIEW_STATE,
+                label: COMPANIES_VIEW_LABELS[view].label,
+                icon: COMPANIES_VIEW_LABELS[view].icon,
+                active: universeView === view,
+              }))
+            : undefined,
       })),
     },
     {
@@ -137,7 +185,27 @@ export function ProjectLayout() {
       items: [
         ...(isStaff
           ? [
-              { to: `${base}/outreach`, label: "Outreach", icon: ICONS.outreach },
+              {
+                to: `${base}/outreach`,
+                label: "Outreach",
+                icon: ICONS.outreach,
+                children: [
+                  {
+                    key: "conversations",
+                    to: `${base}/outreach`,
+                    label: "Conversations",
+                    icon: ICONS.mail,
+                    active: currentPath === `${base}/outreach`,
+                  },
+                  {
+                    key: "sequences",
+                    to: sequencesPath,
+                    label: "Sequences",
+                    icon: ICONS.listOrdered,
+                    active: currentPath === sequencesPath || currentPath.startsWith(`${sequencesPath}/`),
+                  },
+                ],
+              },
             ]
           : []),
       ],
@@ -211,3 +279,9 @@ export function ProjectLayout() {
 export interface ProjectOutletContext {
   project: Project;
 }
+
+const COMPANIES_VIEW_LABELS: Record<CompaniesView, { label: string; icon: string }> = {
+  table: { label: "Table", icon: ICONS.table },
+  map: { label: "Map", icon: ICONS.mapPin },
+  pipeline: { label: "Pipeline", icon: ICONS.pipeline },
+};
