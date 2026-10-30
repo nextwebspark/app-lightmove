@@ -21,7 +21,7 @@ import { forgetOpenAssistant } from "../assistant/assistantStorage";
 import { isReturningMailboxPopup } from "../outreach/lib/mailboxPopup";
 import * as authApi from "./api/authApi";
 import { isReturningSignInPopup } from "./oauthPopup";
-import type { User } from "./api/types";
+import { isMfaChallenge, type MfaChallenge, type SignInAnswer, type User } from "./api/types";
 import { describeWorkspaceMove, rememberWorkspaceMove } from "./workspaceMoveNotice";
 
 /**
@@ -37,14 +37,20 @@ interface AuthContextValue {
   /** True until the initial session restore settles. Render nothing routing-dependent before then. */
   loading: boolean;
 
-  signIn: (email: string, password: string) => Promise<User>;
+  /** The user, or for a person with two-factor on a challenge: no session until `completeSecondFactor`. */
+  signIn: (email: string, password: string) => Promise<User | MfaChallenge>;
+  /** Finishes a challenged sign-in with a code from the authenticator app, or a recovery code. */
+  completeSecondFactor: (code: string) => Promise<User>;
   signUp: (fullName: string, email: string, password: string) => Promise<User>;
   /** Creates the invited account and adopts the session it returns — the invitee is in immediately. */
   acceptInviteSignup: (token: string, fullName: string, password: string) => Promise<User>;
   /** Redeems a verification link and adopts the session it returns — proving the mailbox is the sign-in. */
-  verifyEmail: (token: string) => Promise<User>;
-  /** Redeems a reset link and adopts the session it returns — no second sign-in with the new password. */
-  resetPassword: (token: string, password: string) => Promise<User>;
+  verifyEmail: (token: string) => Promise<User | MfaChallenge>;
+  /**
+   * Redeems a reset link and adopts the session it returns — no second sign-in with the new password. Someone with
+   * two-factor on still owes the code: the link proves the mailbox, which alone is not meant to be enough.
+   */
+  resetPassword: (token: string, password: string) => Promise<User | MfaChallenge>;
   signOut: () => Promise<void>;
 
   /** Re-reads the user from the server. Call after anything that changes their workspace or role. */
@@ -202,9 +208,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [startFreshSession],
   );
 
+  /** The user is set only once there is a session: set on a challenge, AnonymousOnly would leave the code step. */
+  const adoptAnswer = useCallback(
+    (answer: SignInAnswer): User | MfaChallenge => {
+      if (isMfaChallenge(answer)) {
+        return answer;
+      }
+      startFreshSession();
+      setUser(answer.user);
+      return answer.user;
+    },
+    [startFreshSession],
+  );
+
   const signIn = useCallback(
-    async (email: string, password: string) => {
-      const session = await authApi.login({ email, password });
+    async (email: string, password: string) => adoptAnswer(await authApi.login({ email, password })),
+    [adoptAnswer],
+  );
+
+  const completeSecondFactor = useCallback(
+    async (code: string) => {
+      const session = await authApi.verifySecondFactor(code);
       startFreshSession();
       setUser(session.user);
       return session.user;
@@ -240,23 +264,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const verifyEmail = useCallback(
-    async (token: string) => {
-      const session = await authApi.verifyEmail(token);
-      startFreshSession();
-      setUser(session.user);
-      return session.user;
-    },
-    [startFreshSession],
+    async (token: string) => adoptAnswer(await authApi.verifyEmail(token)),
+    [adoptAnswer],
   );
 
   const resetPassword = useCallback(
-    async (token: string, password: string) => {
-      const session = await authApi.resetPassword(token, password);
-      startFreshSession();
-      setUser(session.user);
-      return session.user;
-    },
-    [startFreshSession],
+    async (token: string, password: string) => adoptAnswer(await authApi.resetPassword(token, password)),
+    [adoptAnswer],
   );
 
   const signOut = useCallback(async () => {
@@ -356,6 +370,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       signIn,
+      completeSecondFactor,
       signUp,
       acceptInviteSignup,
       verifyEmail,
@@ -371,6 +386,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       signIn,
+      completeSecondFactor,
       signUp,
       acceptInviteSignup,
       verifyEmail,

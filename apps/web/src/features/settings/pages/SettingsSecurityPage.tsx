@@ -76,7 +76,7 @@ export function SettingsSecurityPage() {
       </div>
 
       <div className="mb-4">
-        <TwoFactorCard />
+        <TwoFactorCard hasPassword={user.hasPassword} onSessionsChanged={() => void refreshSessions()} />
       </div>
 
       <ActiveSessionsCard

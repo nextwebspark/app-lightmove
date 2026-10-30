@@ -260,6 +260,13 @@ lightmove:
     lockout:
       max-failed-attempts: 5
       duration: 15m
+    # Two-factor authentication (#1081). Off until every sign-in door asks for the code (#1082): a factor the
+    # Google button walks past is worse than none. Offered only where lightmove.crypto.keyset is set as well,
+    # since the secret is kept encrypted. A person who already has it is asked for the code whatever this says.
+    mfa:
+      enabled: ${MFA_ENABLED:false}
+      challenge-ttl: 5m
+      challenge-cookie-name: lm_mfa_challenge
     rate-limit:
       # Right for production; useless for anyone testing, who will create half a dozen accounts in a row
       # and be locked out by their own fourth attempt. application-local.yml already raises these for
@@ -273,6 +280,8 @@ lightmove:
       signup-attempts-per-hour: ${AUTH_SIGNUP_ATTEMPTS_PER_HOUR:5}
       verification-resends-per-hour: ${AUTH_VERIFICATION_RESENDS_PER_HOUR:3}
       password-reset-requests-per-hour: ${AUTH_PASSWORD_RESET_REQUESTS_PER_HOUR:3}
+      mfa-verify-attempts-per-minute: ${AUTH_MFA_VERIFY_ATTEMPTS_PER_MINUTE:10}
+      mfa-change-attempts-per-hour: ${AUTH_MFA_CHANGE_ATTEMPTS_PER_HOUR:10}
       extension-pairings-per-hour: ${AUTH_EXTENSION_PAIRINGS_PER_HOUR:5}
       extension-pairings-per-hour-per-ip: ${AUTH_EXTENSION_PAIRINGS_PER_HOUR_PER_IP:60}
       onboarding-company-searches-per-minute: ${AUTH_ONBOARDING_COMPANY_SEARCHES_PER_MINUTE:60}

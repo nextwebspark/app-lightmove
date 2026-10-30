@@ -52,6 +52,21 @@ public enum ErrorCode {
     /** Provider-only account: attaching a password is the reset flow's job, which proves the mailbox first. */
     PASSWORD_NOT_SET(HttpStatus.CONFLICT, "This account signs in with a provider and has no password to change"),
 
+    /**
+     * Every refusal of a two-factor code: wrong, replayed, an expired or spent challenge, a locked account. Only
+     * the password's holder reaches this step, so it may name the code; it must not say which of those it was.
+     */
+    MFA_CODE_INVALID(HttpStatus.BAD_REQUEST, "That code didn't work. Check your authenticator app and try again"),
+
+    MFA_ALREADY_ENABLED(HttpStatus.CONFLICT, "Two-factor authentication is already on"),
+    MFA_NOT_ENABLED(HttpStatus.CONFLICT, "Two-factor authentication is not on"),
+
+    /** The setup's secret is gone (another tab started over, or it was turned on there); the QR shown is stale. */
+    MFA_SETUP_NOT_STARTED(HttpStatus.CONFLICT, "Start setting up two-factor authentication again"),
+
+    /** Not offered: switched off, or nowhere to keep the secret encrypted. */
+    MFA_UNAVAILABLE(HttpStatus.CONFLICT, "Two-factor authentication is not available yet"),
+
     /** Also served for a session belonging to somebody else — a 403 would confirm the id names a real one. */
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "That session is no longer active"),
 

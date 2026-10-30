@@ -104,6 +104,44 @@ export interface AuthResponse {
   user: User;
 }
 
+/**
+ * A right password, or emailed link, from a person with two-factor authentication on: no session yet. The challenge
+ * itself is an httpOnly cookie the browser holds, so nothing here is a credential.
+ */
+export interface MfaChallenge {
+  mfaRequired: true;
+  /** Seconds the code may still be typed in before signing in starts again. */
+  expiresIn: number;
+}
+
+/** What login, a reset link and a verification link answer. */
+export type SignInAnswer = AuthResponse | MfaChallenge;
+
+export function isMfaChallenge(answer: SignInAnswer | User): answer is MfaChallenge {
+  return "mfaRequired" in answer && answer.mfaRequired === true;
+}
+
+/** Settings → Security's two-factor card. Never the secret or a code: those are shown once. */
+export interface MfaStatus {
+  /** Whether it may be turned on here; someone who has it may always turn it off. */
+  offered: boolean;
+  enabled: boolean;
+  enabledAt: string | null;
+  recoveryCodesLeft: number;
+}
+
+/** The secret, once, for the QR code drawn from `otpauthUri` or typed in as a setup key. */
+export interface MfaSetup {
+  secret: string;
+  otpauthUri: string;
+}
+
+/** Turning two-factor on or off, or new recovery codes: the current password and a code, both. */
+export interface MfaChangeRequest {
+  currentPassword: string;
+  code: string;
+}
+
 export interface SignupRequest {
   fullName: string;
   email: string;

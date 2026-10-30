@@ -43,7 +43,7 @@ class TinkSecretCipherTest {
                 new EncryptionContext(UUID.randomUUID(), context.purpose())))
                 .isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> cipher.decrypt(ciphertext,
-                new EncryptionContext(context.workspaceId(), "integration-client-secret:ZOOM")))
+                new EncryptionContext(context.ownerId(), "integration-client-secret:ZOOM")))
                 .isInstanceOf(IllegalStateException.class);
     }
 

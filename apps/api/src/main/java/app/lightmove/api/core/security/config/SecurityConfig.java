@@ -128,6 +128,8 @@ public class SecurityConfig {
                                 API + "/auth/verify/resend",
                                 API + "/auth/password/forgot",
                                 API + "/auth/password/reset",
+                                // Completes a sign-in, like login; its challenge cookie is SameSite and httpOnly.
+                                API + "/auth/mfa/verify",
                                 // The extension's refresh token travels in the body, not a cookie.
                                 // Deliberately not /auth/extension/**: minting a token stays protected.
                                 API + "/auth/extension/refresh",
@@ -143,6 +145,7 @@ public class SecurityConfig {
                                 API + "/auth/verify/resend",
                                 API + "/auth/password/forgot",
                                 API + "/auth/password/reset",
+                                API + "/auth/mfa/verify",   // authenticated by the challenge cookie and the code
                                 API + "/auth/csrf",
                                 API + "/auth/providers",
                                 API + "/auth/extension/refresh",

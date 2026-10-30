@@ -427,6 +427,43 @@ use**. Presenting an already-rotated token is treated as theft and revokes the w
 token lives in **JS memory only** — never `localStorage`, because one compromised npm dependency would
 otherwise walk away with a 30-day credential to a product holding executive-candidate PII.
 
+## Two-factor authentication is the person's, and every sign-in door asks for it
+
+**The factor belongs to the person, not to a membership** (`core/security/mfa`, V162). Sign-in happens before a
+workspace is chosen, and one person may be in several (V81), so a factor per membership would be a second
+authenticator entry per firm for the same login. What a workspace may decide is whether its members must have one
+(#1082); the factor itself is `app_lm_user_mfa_factor`, keyed on the user. Its secret is sealed by `core/crypto` under
+`EncryptionContext.ofUser` — the owner a user, the purpose prefixed `user:` so a user-bound ciphertext can never pass as
+a workspace-bound one — and is answered once, at setup, never again. Recovery codes are 80 random bits each, so a bare
+SHA-256 of one is as safe in the table as any token's, and one conditional `UPDATE … WHERE used_at IS NULL` spends one,
+so two sign-ins racing on a code cannot both get it.
+
+**Every door that turns a proved password or mailbox into a session asks `SignInCompletion`**: login, a password reset
+and a verification link. A reset is the one that matters — it proves the mailbox, and a reset that signed straight in
+would let whoever reads the inbox skip the factor, which is exactly what the factor exists to stop. Signup and
+invitation signup make brand-new accounts with no factor; a password change and extension pairing start from a session
+that already passed. The OAuth callback joins them in #1082. Until then `lightmove.auth.mfa.enabled` keeps the feature
+off in deployments, because a factor the Google button walks past is worse than none — and a person who already has
+one is asked for the code whatever the switch says.
+
+**The challenge rides a cookie, never a body.** A right password from a factor holder earns `lm_mfa_challenge` —
+httpOnly, SameSite as the refresh cookie, scoped to `/api/v1/auth/mfa`, five minutes, stored as its hash, single use —
+and no refresh cookie. That is what lets #1082's OAuth popup finish the same way: the popup leaves the cookie, reports
+only an outcome, and the opener sends the code; no credential crosses between the windows. The verify route is
+CSRF-exempt like login, which is safe because the cookie it needs is SameSite.
+
+**A right password does not clear the lockout counter for a factor holder; only the right code does**, and a wrong code
+counts exactly as a wrong password (`LoginLockout`): same five strikes, same one email. Clearing it at the password
+would hand anyone who has the password unlimited guesses at a six-digit code, five at a time. For the same reason a
+reset that ends in a challenge leaves the count alone. Every refusal at the code step is one answer,
+`MFA_CODE_INVALID` — wrong, replayed, expired, locked — with the real reason in the audit trail; it may name the code,
+since only the password's holder reaches it. A code is refused a second time in its 30-second step
+(`last_used_step`, under the factor's row lock).
+
+**Turning it on asks for the current password as well as a code.** Without it a stolen session could enrol the
+thief's phone and lock the owner out; it is the same reason a password change asks for the old one. Turning it on or
+off ends every other session (`MFA_CHANGED`, not theft on replay) and tells the mailbox.
+
 ## The SPA and the API are one origin
 
 That cookie is `SameSite=Strict` and **host-only** (no `domain`), and the SPA calls a relative `/api/v1`.

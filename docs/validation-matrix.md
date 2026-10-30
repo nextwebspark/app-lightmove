@@ -39,6 +39,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | ☐ Invite accept full name | 1–160, not trimmed | `@NotBlank @Size(160)` | banner |
 | ☐ Invite team rows | email per row, no cap | `List<@Valid InviteRequest>`, no cap | banner, row unnamed |
 | ☐ Organisation name | trimmed 1–160, no `maxLength` | `@NotBlank @Size(160)` | banner |
+| Sign-in code (two-factor step) | six digits, spaces dropped; a recovery code instead is 16 Base32 characters, hyphens, spaces and case forgiven | `@NotBlank @Size(32)`; six digits within one 30-second step of now and after the last one used, or an unused recovery code; every refusal `MFA_CODE_INVALID`, counted towards the lock | banner |
 
 ### Settings
 | Field | Client | Server | Shown as |
@@ -48,6 +49,9 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Profile timezone | a region's zone or UTC, from the grouped list; the saved value passes unchanged (kept in the list if the browser lists none) | `@NotBlank @Size(64)`; a new choice must be a region's own zone or `UTC` the JDK knows, never a legacy alias like `EST` (`VALIDATION_FAILED` on `timezone`) — a zone saved before V148 saves unchanged | field |
 | Candidate tag label | trimmed, ≤ 40 | `@NotBlank @Size(40)` | toast |
 | API key name | trimmed, ≤ 80 | `@NotBlank @Size(80)` | banner |
+| Two-factor: current password | required | `@NotBlank`; must match (`CURRENT_PASSWORD_INVALID` on `currentPassword`); none set is `PASSWORD_NOT_SET` | field |
+| Two-factor: code to turn on | six digits, spaces dropped | `@NotBlank @Size(32)`; the app's code for the new secret (`MFA_CODE_INVALID` on `code`) | field |
+| Two-factor: code to turn off or get new recovery codes | six digits or a recovery code | `@NotBlank @Size(32)`; the app's code or an unused recovery code (`MFA_CODE_INVALID` on `code`) | field |
 | Task preset name | trimmed, ≤ 80, one line | `@NotBlank @Size(80)`, no line break | toast |
 | Pipeline automation status | live statuses of active stages only; the switch turns on only with one chosen | `@NotNull enabled`; on needs a `statusId` (`VALIDATION_FAILED` on `statusId`); the status the workspace's (404), of an active stage (`VALIDATION_FAILED`), live when switched on (`PIPELINE_STATUS_RETIRED`) | toast |
 | Retiring a stage or status | asks first when anyone holds it or an automation points at it | a stage with live statuses needs `retireStatuses` (`PIPELINE_STAGE_NOT_EMPTY`); never the closed or the last active stage (`PIPELINE_STAGE_REQUIRED`), nor the last live active status (`PIPELINE_STATUS_REQUIRED`) | toast |

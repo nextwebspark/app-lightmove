@@ -74,6 +74,27 @@ public class EmailTemplates {
                         + "now and tell your workspace admin.")));
     }
 
+    /** To the mailbox, as a password change is: a stolen session that turned it on would lock the owner out. */
+    public EmailMessage buildTwoFactorEnabledEmail(String recipient, String recipientName, String securityLink) {
+        return renderer.render(recipient, "Two-factor authentication is on for your Uncava account", EmailContent.of(
+                "Two-factor authentication is on",
+                EmailParagraph.of("Hi %s — signing in to Uncava now asks for a code from your authenticator "
+                        + "app, and every other signed-in device was signed out.", plain(firstName(recipientName))),
+                new EmailAction("Review your security settings", securityLink),
+                EmailNote.of("If this was you, keep your recovery codes somewhere safe. If it was not, reset "
+                        + "your password now and tell your workspace admin.")));
+    }
+
+    public EmailMessage buildTwoFactorDisabledEmail(String recipient, String recipientName, String resetLink) {
+        return renderer.render(recipient, "Two-factor authentication is off for your Uncava account", EmailContent.of(
+                "Two-factor authentication is off",
+                EmailParagraph.of("Hi %s — signing in to Uncava no longer asks for a code, and every other "
+                        + "signed-in device was signed out.", plain(firstName(recipientName))),
+                new EmailAction("Reset your password", resetLink),
+                EmailNote.of("If this was you, nothing more to do. If it was not, reset your password now "
+                        + "and tell your workspace admin.")));
+    }
+
     public EmailMessage buildInvitationEmail(String recipient, String inviterName, String workspaceName,
                                              String role, String acceptLink) {
         return renderer.render(recipient,

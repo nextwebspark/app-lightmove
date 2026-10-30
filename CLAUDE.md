@@ -951,6 +951,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **No token passthrough:** an MCP tool calls our services in-process as its `McpCaller`; a caller's token is never forwarded to another service, ours or a provider's.
 - **An API key reaches only `/api/v1/public/**`**, and `/api/v1/mcp` once it holds `mcp:use`; read-only, and never more than its scopes ∩ its owner's live permissions — re-read every call; a session token opens neither.
 - **Auth errors are deliberately vague** — one sentence, one timing, for every password-login failure.
+- **Two-factor is the person's, and every sign-in door asks `SignInCompletion`** — a right password or reset link from a factor holder earns the `lm_mfa_challenge` cookie, never a session; only the right code clears the lock.
 
 ## Database
 
@@ -1333,6 +1334,12 @@ V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kin
 V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),
 the profile's old `Etc/GMT` becomes `UTC`, and every mailbox's `time_zone` is set to its user's — kept so from then by
 the profile write, and taken by a new connection.
+V162 adds two-factor authentication (#1081): `app_lm_user_mfa_factor` (one per user, the authenticator secret sealed by
+`core/crypto` under `EncryptionContext.ofUser`, `enabled_at` null while setup waits for a first code, `last_used_step` the
+replay guard), `app_lm_user_mfa_recovery_code` (SHA-256 per code, spent by a conditional update) and
+`app_lm_mfa_challenge` (a right password's single-use challenge, hashed), and adds `MFA_CHANGED` to the refresh token's
+revoke reasons. Account data, keyed on the user, never a workspace. Offered only where `lightmove.auth.mfa.enabled` and a
+keyset are both set; off in deployments until the OAuth door asks for the code too (#1082).
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

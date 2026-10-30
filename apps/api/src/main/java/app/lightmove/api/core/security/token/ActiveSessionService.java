@@ -36,12 +36,12 @@ public class ActiveSessionService {
 
     @Transactional(readOnly = true)
     public List<ActiveSessionResponse> list(UUID userId, String presentedRefreshToken) {
-        return liveSessions(userId, currentFamilyId(userId, presentedRefreshToken));
+        return liveSessions(userId, requireCurrentFamily(userId, presentedRefreshToken));
     }
 
     @Transactional
     public void revoke(UUID userId, UUID sessionId, String presentedRefreshToken, HttpServletRequest request) {
-        if (currentFamilyId(userId, presentedRefreshToken).equals(sessionId)) {
+        if (requireCurrentFamily(userId, presentedRefreshToken).equals(sessionId)) {
             throw ApiException.of(ErrorCode.CURRENT_SESSION_NOT_REVOCABLE);
         }
 
@@ -58,7 +58,7 @@ public class ActiveSessionService {
     /** @return how many sessions ended, for the confirmation the SPA shows. */
     @Transactional
     public int revokeOthers(UUID userId, String presentedRefreshToken, HttpServletRequest request) {
-        UUID keptFamilyId = currentFamilyId(userId, presentedRefreshToken);
+        UUID keptFamilyId = requireCurrentFamily(userId, presentedRefreshToken);
 
         // Counted from the live list rather than from the update's row count: an expired token that was
         // never revoked still satisfies `revoked_at IS NULL`, so the update would report sessions the
@@ -74,6 +74,16 @@ public class ActiveSessionService {
                 .detail("sessions", ended).record();
 
         return ended;
+    }
+
+    /**
+     * A change to how the caller signs in: every session but {@code keptFamilyId} ends, for {@code reason}. The
+     * family is resolved by {@link #requireCurrentFamily} before the change is checked, so a caller with no live
+     * session is refused before anything is spent.
+     */
+    @Transactional
+    public void endOtherSessions(UUID userId, UUID keptFamilyId, RevokeReason reason) {
+        refreshTokens.revokeAllForUserExceptFamily(userId, keptFamilyId, reason, Instant.now());
     }
 
     private List<ActiveSessionResponse> liveSessions(UUID userId, UUID currentFamilyId) {
@@ -98,7 +108,8 @@ public class ActiveSessionService {
      * The family the caller is signed in on. Rejects a cookie that is missing, dead, or somebody else's
      * — the last of which would otherwise let a caller mark another user's session as their own.
      */
-    private UUID currentFamilyId(UUID userId, String presentedRefreshToken) {
+    @Transactional(readOnly = true)
+    public UUID requireCurrentFamily(UUID userId, String presentedRefreshToken) {
         if (presentedRefreshToken == null || presentedRefreshToken.isBlank()) {
             throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID, "No refresh cookie on the request");
         }
