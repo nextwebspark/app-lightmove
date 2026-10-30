@@ -31,12 +31,14 @@ export interface ApiClientOptions {
 }
 
 export interface ApiRequestOptions {
-  method?: "GET" | "POST" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
 }
 
 export interface LightMoveApiClient {
   request<T>(path: string, options?: ApiRequestOptions): Promise<T>;
+  /** A file the API streams, such as a stored photo; null when there is none (404). */
+  requestBlob(path: string): Promise<Blob | null>;
 }
 
 export function createLightMoveApiClient(options: ApiClientOptions): LightMoveApiClient {
@@ -62,23 +64,37 @@ export function createLightMoveApiClient(options: ApiClientOptions): LightMoveAp
     });
   };
 
+  const sendRenewingOnce = async (path: string, request: ApiRequestOptions) => {
+    let response = await send(path, request, await options.currentAccessToken());
+
+    // One retry, for an expired token only. A second 401 means the session is genuinely over and
+    // retrying again would just spend refresh tokens against a server that has already said no.
+    if (response.status === 401) {
+      const renewed = await options.renewAccessToken();
+      if (renewed) {
+        response = await send(path, request, renewed);
+      }
+    }
+    return response;
+  };
+
   return {
     async request<T>(path: string, request: ApiRequestOptions = {}): Promise<T> {
-      let response = await send(path, request, await options.currentAccessToken());
-
-      // One retry, for an expired token only. A second 401 means the session is genuinely over and
-      // retrying again would just spend refresh tokens against a server that has already said no.
-      if (response.status === 401) {
-        const renewed = await options.renewAccessToken();
-        if (renewed) {
-          response = await send(path, request, renewed);
-        }
-      }
-
+      const response = await sendRenewingOnce(path, request);
       if (!response.ok) {
         throw new ApiRequestError(await toProblem(response));
       }
       return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
+    },
+    async requestBlob(path: string): Promise<Blob | null> {
+      const response = await sendRenewingOnce(path, {});
+      if (response.status === 404) {
+        return null;
+      }
+      if (!response.ok) {
+        throw new ApiRequestError(await toProblem(response));
+      }
+      return response.blob();
     },
   };
 }

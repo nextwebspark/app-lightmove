@@ -41,8 +41,8 @@ export function ProjectSelect({
         className="mt-1 w-full rounded-[7px] border border-u-border-strong bg-u-raised px-2.5 py-[7px] font-mono text-[12px] text-u-text outline-none focus:border-u-accent disabled:text-u-text3"
       >
         {unsetLabel && <option value="">{unsetLabel}</option>}
-        {isLoading && <option value="">Loading mandates…</option>}
-        {!isLoading && projects.length === 0 && <option value="">No mandates available</option>}
+        {isLoading && <option value="">Loading positions…</option>}
+        {!isLoading && projects.length === 0 && <option value="">No positions available</option>}
         {projects.map((project) => (
           <option key={project.id} value={project.id}>
             {project.clientName ? `${project.positionTitle} — ${project.clientName}` : project.positionTitle}

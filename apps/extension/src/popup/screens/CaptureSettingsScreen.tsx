@@ -40,26 +40,20 @@ export function CaptureSettingsScreen({ user, projects, onBack, onSignOut }: Cap
       </header>
 
       <div className="flex-1 overflow-y-auto p-3.5">
-        <SectionLabel className="mb-2">Default destination</SectionLabel>
+        <SectionLabel className="mb-2">Default position</SectionLabel>
         <ProjectSelect
           projects={projects.projects}
           selectedProjectId={settings.defaultProjectId}
           onSelect={(projectId) => update({ defaultProjectId: projectId || null })}
           isLoading={projects.isLoading}
-          unsetLabel="Ask every time — offer the last one used"
+          unsetLabel="The last one used"
         />
 
         <SectionLabel className="mb-2 mt-[18px]">Behaviour</SectionLabel>
         <div className="divide-y divide-u-border rounded-lg border border-u-border-strong">
           <ToggleRow
-            label="Auto-detect page type"
-            hint="Opens the Person or Company tab to match the page"
-            isOn={settings.isPageTypeDetected}
-            onToggle={(isOn) => update({ isPageTypeDetected: isOn })}
-          />
-          <ToggleRow
             label="Close after save"
-            hint="Closes the popup once a capture lands"
+            hint="Closes the panel once the note and tags are filed"
             isOn={settings.closesAfterSave}
             onToggle={(isOn) => update({ closesAfterSave: isOn })}
           />
