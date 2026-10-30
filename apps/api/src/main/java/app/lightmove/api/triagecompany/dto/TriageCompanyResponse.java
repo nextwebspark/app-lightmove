@@ -33,4 +33,12 @@ public record TriageCompanyResponse(
         UUID addedByUserId,
         String addedByName,
         String addedByAvatarUrl
-) {}
+) {
+
+    public TriageCompanyResponse withNoteCount(Integer count) {
+        return new TriageCompanyResponse(id, apolloAccountId, source, status, count, noExecutiveFound, companyName,
+                industry, companyCountry, companyCity, numEmployees, annualRevenue, website, companyLinkedinUrl,
+                foundedYear, shortDescription, sourceUrl, logoUrl, customFields, addedAt, addedByUserId, addedByName,
+                addedByAvatarUrl);
+    }
+}

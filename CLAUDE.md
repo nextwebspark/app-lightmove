@@ -41,7 +41,11 @@ where someone else filed them, read from the candidates list's staff-only `added
 Deleting one drops the project↔company row only — and its notes: the Apollo universe is read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
-with three of them is three lines and one with none keeps its "Add executive" slot. **Each executive holds a stage
+with three of them is three lines and one with none keeps its "Add executive" slot. The grid reads those lines whole —
+`GET …/triage/lines` (`pairing`'s `StageLinesService`) pairs the stage and orders it as one list by the sorted column,
+so Executive or Title sorts the people whatever company they sit at, text naturally (`NaturalTextOrder`: case aside,
+numbers by value) — and its header opens the column's menu (sort, move, freeze, filter, hide; a mandate's own column
+edits and deletes there). **Each executive holds a stage
 of their own** (V150, #903): their company's when filed or remapped, then wherever their line's own Shortlist /
 Decline / Back to universe sent them (`PUT …/candidates/{id}/triage-status`) — a line's buttons and trash act on its
 person alone. A stage lists its own companies plus any company with someone listed there; the company's own move
