@@ -205,7 +205,7 @@
         "fullName" : "Yasmin El-Sayed",
         "id" : "<candidate:yasmin@cfo>",
         "status" : "interested",
-        "statusLabel" : "Interested"
+        "statusLabel" : "Screening arranged"
       } ],
       "level" : "C-Suite",
       "sector" : "food & beverages"
@@ -248,7 +248,7 @@
       "id" : "<candidate:yasmin@cfo>",
       "nationality" : "Saudi",
       "status" : "interested",
-      "statusLabel" : "Interested",
+      "statusLabel" : "Screening arranged",
       "title" : "CFO",
       "totalPackage" : 370000
     } ],

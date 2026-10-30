@@ -4,6 +4,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useState, type FormEvent } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Input, useToast } from "../../../components/ui";
+import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/ActionMenu";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { moveItem } from "../../../lib/moveItem";
@@ -23,7 +24,7 @@ import { inOrderOf, PIPELINE_NAME_LIMIT, retireTouchesAnyone } from "../lib/pipe
 import { usePipelineReorder } from "../lib/usePipelineReorder";
 import { usePipelineRowChange, useRenameDraft } from "../lib/usePipelineRowEdits";
 import { PipelineRetireDialog } from "./PipelineRetireDialog";
-import { ColourDot, DragHandle, RenameActions, RenameForm } from "./PipelineRowControls";
+import { ColourDot, ColourSwatches, DragHandle, RenameActions, RenameForm } from "./PipelineRowControls";
 
 /** One stage's statuses, reordered within the stage alone, and the form that adds one. */
 export function PipelineStatusList({ stage, isAdmin }: { stage: PipelineStage; isAdmin: boolean }) {
@@ -86,6 +87,7 @@ export function PipelineStatusList({ stage, isAdmin }: { stage: PipelineStage; i
               <StatusRow
                 key={status.id}
                 status={status}
+                stageLabel={stage.label}
                 isDefault={defaultStatus?.id === status.id}
                 isAdmin={isAdmin}
                 automations={automationsInto(automations, status.id)}
@@ -121,12 +123,14 @@ export function PipelineStatusList({ stage, isAdmin }: { stage: PipelineStage; i
 
 function StatusRow({
   status,
+  stageLabel,
   isDefault,
   isAdmin,
   automations,
   onStep,
 }: {
   status: PipelineStatus;
+  stageLabel: string;
   isDefault: boolean;
   isAdmin: boolean;
   /** The switched-on automations that move people to this status. */
@@ -136,6 +140,7 @@ function StatusRow({
   const toast = useToast();
   const { catalog } = usePipelineCatalog();
   const [preview, setPreview] = useState<PipelineRetirePreview | null>(null);
+  const [outPreview, setOutPreview] = useState<PipelineRetirePreview | null>(null);
   const [checking, setChecking] = useState(false);
   const sortable = useSortable({ id: status.id, disabled: !isAdmin });
   const rename = useRenameDraft(status.label);
@@ -145,6 +150,24 @@ function StatusRow({
   );
   const renameFormId = `rename-status-${status.id}`;
   const retire = () => change({ retired: true }, "Status retired; candidates who hold it keep it");
+  const markOut = () => change({ outOfProcess: true }, "Out of process; whoever holds it is now Inactive");
+
+  const handleOutOfProcess = async (out: boolean) => {
+    if (!out) {
+      change({ outOfProcess: false }, "Back in process; whoever holds it returns to its stage");
+      return;
+    }
+    setChecking(true);
+    try {
+      const read = await pipelineApi.statusRetirePreview(status.id);
+      if (retireTouchesAnyone(read)) setOutPreview(read);
+      else markOut();
+    } catch (error) {
+      toast.error(messageFor(error));
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const handleRetire = async () => {
     setChecking(true);
@@ -170,13 +193,7 @@ function StatusRow({
       )}
     >
       {isAdmin && <DragHandle label={`Reorder ${status.label}`} sortable={sortable} onStep={onStep} />}
-      <ColourDot
-        colour={status.colour}
-        name={status.label}
-        size="status"
-        editable={isAdmin}
-        onChange={(colour) => change({ colour })}
-      />
+      <ColourDot colour={status.colour} size="status" />
       {rename.renaming ? (
         <RenameForm
           formId={renameFormId}
@@ -192,6 +209,14 @@ function StatusRow({
           Default
         </span>
       )}
+      {status.outOfProcess && (
+        <span
+          title="Whoever holds it is Inactive on the board and is not approached again"
+          className="rounded-sm bg-u-offlimits-tint px-1.5 py-px font-mono text-eyebrow font-medium text-u-offlimits"
+        >
+          Out of process
+        </span>
+      )}
       {automations.map((automation) => (
         <span
           key={automation.trigger}
@@ -204,27 +229,69 @@ function StatusRow({
       ))}
       {isAdmin && (
         <span className="ms-auto flex items-center gap-1">
-          {!isDefault && (
-            <Button
-              variant="ghost"
-              size="xs"
-              disabled={isPending}
-              onClick={() => change({ isDefault: true }, "Default status changed")}
-            >
-              Make default
-            </Button>
-          )}
           <RenameActions formId={renameFormId} rename={rename} saving={isPending} />
-          <Button
-            variant="ghost"
-            size="xs"
-            title="Stop offering this status; candidates keep it"
-            aria-label={`Retire ${status.label}`}
-            disabled={isPending || checking}
-            onClick={() => void handleRetire()}
-          >
-            <Icon d={ICONS.archive} size={13} />
-          </Button>
+          {!rename.renaming && (
+            <ActionMenu label={`${status.label} options`}>
+              {(close) => {
+                const choose = (action: () => void) => () => {
+                  close();
+                  action();
+                };
+                return (
+                  <>
+                    <ColourSwatches
+                      colour={status.colour}
+                      onChange={(colour) => {
+                        close();
+                        change({ colour });
+                      }}
+                    />
+                    <MenuItem icon={ICONS.pencil} onSelect={choose(rename.begin)}>
+                      Rename
+                    </MenuItem>
+                    {!isDefault && !status.outOfProcess && (
+                      <MenuItem
+                        icon={ICONS.star}
+                        onSelect={choose(() => change({ isDefault: true }, "Default status changed"))}
+                      >
+                        Make default
+                      </MenuItem>
+                    )}
+                    <MenuSeparator />
+                    {status.outOfProcess ? (
+                      <MenuItem
+                        icon={ICONS.back}
+                        note={`Whoever holds it returns to ${stageLabel}`}
+                        disabled={isPending || checking}
+                        onSelect={choose(() => void handleOutOfProcess(false))}
+                      >
+                        Bring back into process
+                      </MenuItem>
+                    ) : (
+                      <MenuItem
+                        icon={ICONS.ban}
+                        note={isDefault ? "The default stays in process" : "Whoever holds it moves to Inactive"}
+                        disabled={isDefault || isPending || checking}
+                        onSelect={choose(() => void handleOutOfProcess(true))}
+                      >
+                        Mark out of process
+                      </MenuItem>
+                    )}
+                    <MenuSeparator />
+                    <MenuItem
+                      icon={ICONS.archive}
+                      tone="danger"
+                      note="Stop offering it; candidates keep it"
+                      disabled={isPending || checking}
+                      onSelect={choose(() => void handleRetire())}
+                    >
+                      Retire
+                    </MenuItem>
+                  </>
+                );
+              }}
+            </ActionMenu>
+          )}
         </span>
       )}
       <PipelineRetireDialog
@@ -239,6 +306,20 @@ function StatusRow({
           retire();
         }}
         onClose={() => setPreview(null)}
+      />
+      <PipelineRetireDialog
+        open={outPreview !== null}
+        title={`Mark ${status.label} out of process?`}
+        confirmLabel="Mark out of process"
+        catalog={catalog}
+        preview={outPreview}
+        pending={isPending}
+        explanation="They move to Inactive on every position, and any live sequence stops before its next email. Nothing is deleted, and you can bring the status back into the process at any time."
+        onConfirm={() => {
+          setOutPreview(null);
+          markOut();
+        }}
+        onClose={() => setOutPreview(null)}
       />
     </li>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aSeededCatalog } from "../../../test/fixtures/pipelineCatalog";
+import { aCurrentCatalog, aSeededCatalog } from "../../../test/fixtures/pipelineCatalog";
 import { executiveStatusOptions, statusKeysOf } from "./executiveStatusFilter";
 
 describe("the Status column's filter", () => {
@@ -10,6 +10,14 @@ describe("the Status column's filter", () => {
       { value: "contacted", label: "Contacted", indent: true },
       { value: "engaged", label: "Engaged", indent: true },
       { value: "offLimits", label: "Off-limits", indent: false },
+    ]);
+  });
+
+  it("says which statuses under an active stage are ways out of the process", () => {
+    expect(executiveStatusOptions(aCurrentCatalog(), new Set(["contacted", "notInterested"]))).toEqual([
+      { value: "stage:contacted", label: "All Approach" },
+      { value: "contacted", label: "Awaiting reply", indent: true },
+      { value: "notInterested", label: "Not interested · Out of process", indent: true },
     ]);
   });
 

@@ -168,8 +168,9 @@ public class CandidateOutreachService {
     }
 
     /**
-     * Only ever forward, and never out of the closed stage: automation does not undo a consultant's call. An
-     * automation that is off, or whose status was retired, moves nobody and never fails the event behind it.
+     * Only ever forward, and never from a status out of process: automation does not undo a consultant's call.
+     * An automation that is off, or whose status was retired or taken out, moves nobody and never fails the
+     * event behind it.
      */
     private void moveForwardTo(Candidate candidate, UUID actor, StatusAutomationTrigger trigger) {
         CandidateStatusDefinition was = candidate.getStatus();

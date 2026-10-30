@@ -13,7 +13,7 @@ public final class PipelineTestStatuses {
     public static CandidateStatusDefinition active(String key, String label, int stagePosition) {
         CandidateStage stage = CandidateStage.added(UUID.randomUUID(), key + "Stage", label, PipelineColour.NEUTRAL,
                 stagePosition, null);
-        return CandidateStatusDefinition.added(stage, key, label, PipelineColour.NEUTRAL, 1, true, null);
+        return CandidateStatusDefinition.added(stage, key, label, PipelineColour.NEUTRAL, 1, true, false, null);
     }
 
     public static CandidateStatusDefinition identified() {

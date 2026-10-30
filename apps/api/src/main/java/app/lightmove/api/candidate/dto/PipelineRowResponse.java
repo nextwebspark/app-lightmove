@@ -17,6 +17,8 @@ public record PipelineRowResponse(
         String status,
         String statusLabel,
         String statusColour,
+        /** Whoever holds an out-of-process status is drawn in Inactive, whatever stage it sits under. */
+        boolean outOfProcess,
         CandidatePipelineStageDto pipelineStage,
         Instant addedAt,
         Instant statusChangedAt,

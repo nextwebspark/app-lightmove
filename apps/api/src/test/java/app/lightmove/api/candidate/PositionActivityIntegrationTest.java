@@ -112,7 +112,7 @@ class PositionActivityIntegrationTest extends FlowTestSupport {
         String credit = mandate("Head of Credit Risk");
         String onCfo = add(cfo, FATIMA).get("id").asText();
         String onCredit = add(credit, FATIMA).get("id").asText();
-        for (String status : List.of("researching", "contacted", "engaged")) {
+        for (String status : List.of("source", "contacted", "engaged")) {
             setStatus(cfo, onCfo, status);
             setStatus(credit, onCredit, status);
         }

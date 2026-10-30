@@ -6,6 +6,8 @@ describe("statusCountLabel", () => {
     expect(statusCountLabel(1)).toBe("1 status");
     expect(statusCountLabel(0)).toBe("0 statuses");
     expect(statusCountLabel(4)).toBe("4 statuses");
+    expect(statusCountLabel(6, 2)).toBe("6 statuses · 2 out of process");
+    expect(statusCountLabel(3, 0)).toBe("3 statuses");
   });
 });
 

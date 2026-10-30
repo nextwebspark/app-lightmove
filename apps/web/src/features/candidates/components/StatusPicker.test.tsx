@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { aSeededCatalog, withRetiredStatus } from "../../../test/fixtures/pipelineCatalog";
+import { aCurrentCatalog, aSeededCatalog, withRetiredStatus } from "../../../test/fixtures/pipelineCatalog";
 import * as pipelineApi from "../../workspace/api/pipelineApi";
 import { StatusPicker } from "./StatusPicker";
 
@@ -64,6 +64,24 @@ describe("StatusPicker", () => {
     ]);
     expect(within(list).getByRole("option", { name: "Contacted" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("combobox", { name: "Search statuses for Status" })).toHaveFocus();
+  });
+
+  it("marks a way out of the process under an active stage, and not a closed stage's every status", async () => {
+    vi.mocked(pipelineApi.pipelineCatalog).mockResolvedValue(aCurrentCatalog());
+    renderPicker("contacted");
+    await waitFor(() => expect(pipelineApi.pipelineCatalog).toHaveBeenCalled());
+    await userEvent.click(screen.getByRole("button", { name: /^Status:/ }));
+    const list = await screen.findByRole("listbox", { name: "Status" });
+
+    expect(await within(list).findByRole("group", { name: "Approach" })).toBeInTheDocument();
+    expect(under(list, "Approach")).toEqual([
+      "Awaiting reply",
+      "Confirming interest",
+      "Call being arranged",
+      "Call arranged",
+      "Not interestedOut of process",
+      "UnresponsiveOut of process",
+    ]);
   });
 
   it("narrows to the statuses a typed word names", async () => {

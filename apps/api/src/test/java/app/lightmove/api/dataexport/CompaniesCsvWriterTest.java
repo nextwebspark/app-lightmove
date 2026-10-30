@@ -204,8 +204,8 @@ class CompaniesCsvWriterTest {
         return new PersonBuilder(new CandidateResponse(UUID.randomUUID(), null, null, name, null, null,
                 "identified", null, null, null, null, null, null, Set.of(), null, null,
                 List.of(), List.of(), List.of(), List.of(), "manual", null, Map.of(), null, null,
-                new CandidateContactsDto(List.of(), List.of(), null, null, null), null, false, "Identified", "neutral",
-                new CandidatePipelineStageDto("identified", "Identified", "neutral", "active", 1), null, true,
+                new CandidateContactsDto(List.of(), List.of(), null, null, null), null, false, "Identified", "neutral", false,
+                new CandidatePipelineStageDto("identified", "Identified", "neutral", 1), null, true,
                 "inUniverse"));
     }
 
@@ -327,7 +327,8 @@ class CompaniesCsvWriterTest {
                     response.compensation(), response.career(), response.languages(),
                     response.education(), response.skills(), response.source(), response.sourceUrl(),
                     customFields, response.addedAt(), response.enrichedAt(), contacts, response.personId(),
-                    response.linkedinUrlLocked(), labelOf(status), response.statusColour(), response.pipelineStage(),
+                    response.linkedinUrlLocked(), labelOf(status), response.statusColour(),
+                    response.statusOutOfProcess(), response.pipelineStage(),
                     response.statusChangedAt(), response.clientVisible(), response.triageStatus()));
         }
 

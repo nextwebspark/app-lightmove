@@ -36,6 +36,9 @@ public record PublicCandidate(
         String status,
         @Schema(description = "The status's name as the workspace spells it", example = "Contacted")
         String statusLabel,
+        @Schema(description = "Whether the status is a way out of the process: whoever holds one is no longer "
+                + "pursued on this position, whatever stage it sits under", example = "false")
+        boolean outOfProcess,
         @Schema(description = "The pipeline stage the status sits under") PublicPipelineStage pipelineStage,
         @Schema(description = "Their LinkedIn profile", nullable = true,
                 example = "https://www.linkedin.com/in/layla-haddad") String linkedinUrl,
@@ -66,7 +69,8 @@ public record PublicCandidate(
         return new PublicCandidate(candidate.id(), candidate.personId(), candidate.triageCompanyId(),
                 candidate.companyName(), candidate.fullName(), candidate.title(),
                 recorded(proposed, BackgroundField.SENIORITY, candidate.seniority()),
-                candidate.status(), candidate.statusLabel(), PublicPipelineStage.of(candidate.pipelineStage()),
+                candidate.status(), candidate.statusLabel(), candidate.statusOutOfProcess(),
+                PublicPipelineStage.of(candidate.pipelineStage()),
                 candidate.linkedinUrl(), candidate.locationCity(), candidate.locationCountry(),
                 recorded(proposed, BackgroundField.NATIONALITY, candidate.nationality()),
                 recorded(proposed, BackgroundField.GENDER, candidate.gender()),
@@ -87,7 +91,8 @@ public record PublicCandidate(
     /** This executive with their free text rewritten — summary as prose, titles as lines — and every other field kept. */
     public PublicCandidate withFreeText(UnaryOperator<String> prose, UnaryOperator<String> line) {
         return new PublicCandidate(id, personId, companyId, companyName, fullName, line.apply(title), seniority, status,
-                statusLabel, pipelineStage, linkedinUrl, city, country, nationality, gender, yearsExperience, prose.apply(summary),
+                statusLabel, outOfProcess, pipelineStage, linkedinUrl, city, country, nationality, gender,
+                yearsExperience, prose.apply(summary),
                 career.stream()
                         .map(entry -> new PublicCareerEntry(entry.company(), line.apply(entry.title()), entry.period(),
                                 entry.location()))

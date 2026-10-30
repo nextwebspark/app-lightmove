@@ -56,6 +56,8 @@ public record CandidateResponse(
         /** {@code status}'s label and colour in the workspace's catalog, drawn as held even once it is retired. */
         String statusLabel,
         String statusColour,
+        /** Whether {@code status} is a way out of the process: Inactive on the board, approached no more. */
+        boolean statusOutOfProcess,
         /** The stage {@code status} sits under — read through the status, never stored beside it. */
         CandidatePipelineStageDto pipelineStage,
         Instant statusChangedAt,

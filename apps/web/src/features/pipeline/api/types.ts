@@ -24,6 +24,8 @@ export interface PipelineRow {
   status: string;
   statusLabel: string;
   statusColour: string;
+  /** Out of process: drawn in Inactive, whatever stage the status sits under. */
+  outOfProcess: boolean;
   pipelineStage: CandidatePipelineStage;
   addedAt: string;
   statusChangedAt: string;
@@ -33,7 +35,7 @@ export interface PipelineRow {
   enrichedAt?: string | null;
 }
 
-/** Every live stage with how many of the rows sit in it — the search narrows it, the stage filter does not. */
+/** Every live stage with how many rows sit in it in process — the search narrows it, the stage filter does not. */
 export interface PipelineStageCount extends CandidatePipelineStage {
   count: number;
 }
@@ -41,6 +43,8 @@ export interface PipelineStageCount extends CandidatePipelineStage {
 export interface PipelinePage {
   rows: PipelineRow[];
   stageCounts: PipelineStageCount[];
+  /** Rows at a status out of process, whatever their stage. */
+  inactiveCount: number;
   total: number;
 }
 

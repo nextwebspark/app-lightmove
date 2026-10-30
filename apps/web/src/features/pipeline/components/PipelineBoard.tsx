@@ -9,11 +9,14 @@ import type { PipelineCatalog } from "../../workspace/api/types";
 import type { PipelineRow, PipelineStageCount } from "../api/types";
 import {
   boardPlacementOf,
+  candidateStageOf,
   daysInStage,
   inactiveGroupsOf,
+  outOfProcessChoicesFor,
   shortDate,
   type BoardPlacement,
   type BoardTarget,
+  type OutOfProcessChoice,
 } from "../lib/pipelineView";
 import { VisibilityToggle } from "./PipelineControls";
 import { BoardNextAction } from "./PipelineNextAction";
@@ -26,10 +29,11 @@ interface DropSlot {
 }
 
 /**
- * The pipeline as a board: one column per active stage, and the closed stage beside them as Inactive,
- * grouped by status. A card dropped in its own column is reordered; on another column it takes that
- * stage's default status and lands where it was dropped; on an Inactive group, that status. A stage with
- * no default to give accepts only its own cards.
+ * The pipeline as a board: one column per active stage holding those in process, and Inactive beside them
+ * holding everyone at a status out of process, grouped by status. A card dropped in its own column is
+ * reordered; on another column — or an inactive card on its own — it takes that stage's default status and
+ * lands where it was dropped; on an Inactive group, that status; on Inactive itself, the way out chosen from
+ * those offered. A stage with no default to give accepts only its own cards.
  */
 export function PipelineBoard({
   projectId,
@@ -62,14 +66,16 @@ export function PipelineBoard({
   const [dragging, setDragging] = useState<PipelineRow | null>(null);
   const [over, setOver] = useState<DropSlot | null>(null);
   const [landed, setLanded] = useState<{ basis: readonly PipelineRow[]; rows: PipelineRow[] } | null>(null);
+  const [choosing, setChoosing] = useState<{ row: PipelineRow; choices: OutOfProcessChoice[] } | null>(null);
   if (landed && landed.basis !== rows) setLanded(null);
   const shown = landed?.basis === rows ? landed.rows : rows;
 
-  const columns = stageCounts.filter((stage) => stage.kind === "active");
-  const closed = stageCounts.find((stage) => stage.kind === "closed") ?? null;
-  const inactive = shown.filter((row) => row.pipelineStage.kind === "closed");
+  const columns = stageCounts;
+  const inactive = shown.filter((row) => row.outOfProcess);
   const groups = inactiveGroupsOf(shown, catalog);
   const activeCount = shown.length - inactive.length;
+  const waysOut = outOfProcessChoicesFor(catalog, "");
+  const offersAWayOut = waysOut.length > 0 || inactive.length > 0;
 
   const defaultOf = (stageKey: string) => {
     const stage = catalog.stages.find((candidate) => candidate.key === stageKey);
@@ -78,7 +84,9 @@ export function PipelineBoard({
 
   const columnTarget = (stage: PipelineStageCount, beforeId: string | null): BoardTarget | null => {
     if (!dragging) return null;
-    if (dragging.pipelineStage.key === stage.key) return { stage: stageOf(stage), status: null, beforeId };
+    if (dragging.pipelineStage.key === stage.key && !dragging.outOfProcess) {
+      return { stage: stageOf(stage), status: null, beforeId };
+    }
     const fallback = defaultOf(stage.key);
     return fallback ? { stage: stageOf(stage), status: fallback, beforeId } : null;
   };
@@ -101,9 +109,11 @@ export function PipelineBoard({
       setOver((current) => (current?.key === key ? null : current));
     },
     onDrop: (event: DragEvent<HTMLElement>) => {
-      event.preventDefault();
       const target = targetAt(event);
-      const placement = dragging && target ? boardPlacementOf(shown, dragging.candidateId, target) : null;
+      // Only a slot that takes the card claims the drop; Inactive around a group must still hear a refused one.
+      if (!target) return;
+      event.preventDefault();
+      const placement = dragging ? boardPlacementOf(shown, dragging.candidateId, target) : null;
       setDragging(null);
       setOver(null);
       if (!placement) return;
@@ -111,6 +121,39 @@ export function PipelineBoard({
       onMove(placement);
     },
   });
+
+  const place = (row: PipelineRow, choice: OutOfProcessChoice) => {
+    const target = { stage: choice.stage, status: choice.status, beforeId: null };
+    const placement = boardPlacementOf(shown, row.candidateId, target);
+    if (!placement) return;
+    setLanded({ basis: rows, rows: placement.rows });
+    onMove(placement);
+  };
+
+  /** Dropped on Inactive itself: one way out is taken at once, several are asked about. */
+  const inactiveDrop = {
+    // A group inside the column claims its own drag and drop first; the column takes only what none did.
+    onDragOver: (event: DragEvent<HTMLElement>) => {
+      if (!dragging || dragging.outOfProcess || waysOut.length === 0 || event.defaultPrevented) return;
+      event.preventDefault();
+      if (over?.key !== "inactive") setOver({ key: "inactive", beforeId: null, lands: true });
+    },
+    onDragLeave: (event: DragEvent<HTMLElement>) => {
+      if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+      setOver((current) => (current?.key === "inactive" ? null : current));
+    },
+    onDrop: (event: DragEvent<HTMLElement>) => {
+      if (event.defaultPrevented) return;
+      event.preventDefault();
+      const row = dragging;
+      setDragging(null);
+      setOver(null);
+      if (!row || row.outOfProcess) return;
+      const choices = outOfProcessChoicesFor(catalog, row.pipelineStage.key);
+      if (choices.length === 1) place(row, choices[0]);
+      else if (choices.length > 1) setChoosing({ row, choices });
+    },
+  };
 
   const cardDrag = (row: PipelineRow) => ({
     draggable: true,
@@ -132,7 +175,7 @@ export function PipelineBoard({
       <div className="flex min-h-0 flex-1 items-stretch gap-2 overflow-x-auto [scrollbar-width:none]">
         {columns.map((stage) => {
           const fallback = defaultOf(stage.key);
-          const cards = shown.filter((row) => row.pipelineStage.key === stage.key);
+          const cards = shown.filter((row) => row.pipelineStage.key === stage.key && !row.outOfProcess);
           const slot = dragging && over?.key === stage.key && over.lands ? over : null;
           const restages = slot !== null && dragging?.pipelineStage.key !== stage.key;
           const lineBefore = (candidateId: string) => slot?.beforeId === candidateId;
@@ -230,12 +273,14 @@ export function PipelineBoard({
           );
         })}
 
-        {closed && (
+        {offersAWayOut && (
           <section
             aria-label="Inactive"
+            {...inactiveDrop}
             className={cn(
-              "flex flex-none flex-col gap-4 overflow-y-auto rounded-u-chip border border-u-border px-3 py-2.5",
+              "flex flex-none flex-col gap-4 overflow-y-auto rounded-u-chip border px-3 py-2.5 transition-colors",
               inactiveOpen ? "w-40" : "w-[100px]",
+              over?.key === "inactive" && dragging ? "border-u-text3" : "border-u-border",
             )}
           >
             <button
@@ -252,37 +297,53 @@ export function PipelineBoard({
               <span className="text-note font-semibold text-u-text2">Inactive</span>
               <span className="text-meta text-u-text3">{inactive.length}</span>
             </button>
-            {inactiveOpen && (
+            {choosing && (
+              <OutOfProcessChooser
+                name={choosing.row.fullName}
+                choices={choosing.choices}
+                onChoose={(choice) => {
+                  setChoosing(null);
+                  place(choosing.row, choice);
+                }}
+                onCancel={() => setChoosing(null)}
+              />
+            )}
+            {inactiveOpen && !choosing && (
               <>
                 <span className="text-meta text-u-text3">Outside the active search flow</span>
-                {groups.length === 0 && (
-                  <InactiveGroup
-                    label={closed.label}
-                    rows={[]}
-                    isOver={dragging !== null && over?.key === `status:${closed.key}` && over.lands}
-                    dropProps={dropTarget(`status:${closed.key}`, () => {
-                      const fallback = defaultOf(closed.key);
-                      return fallback ? { stage: stageOf(closed), status: fallback, beforeId: null } : null;
-                    })}
-                  />
-                )}
                 {groups.map((group) => {
-                  const status = findStatus(catalog, group.status)?.status;
+                  const found = findStatus(catalog, group.status);
+                  const status = found?.status;
                   const accepts = Boolean(status && !status.retired) && dragging?.status !== group.status;
                   return (
                     <InactiveGroup
                       key={group.status}
-                      label={group.label}
+                      label={`${group.label} · ${group.stageLabel}`}
+                      outcome={group.label}
                       rows={group.rows}
                       isOver={dragging !== null && over?.key === `status:${group.status}` && over.lands}
                       onOpen={onOpen}
                       cardDrag={cardDrag}
                       dropProps={dropTarget(`status:${group.status}`, () =>
-                        status && accepts ? { stage: stageOf(closed), status, beforeId: null } : null,
+                        found && status && accepts
+                          ? { stage: candidateStageOf(found.stage), status, beforeId: null }
+                          : null,
                       )}
                     />
                   );
                 })}
+                {waysOut.length > 0 && (
+                  <span
+                    className={cn(
+                      "grid min-h-[60px] place-items-center rounded-u-chip border border-dashed p-2 text-center text-eyebrow transition-colors",
+                      over?.key === "inactive" && dragging
+                        ? "border-u-text3 text-u-text2"
+                        : "border-u-border text-u-text3",
+                    )}
+                  >
+                    Drop here to mark out of process
+                  </span>
+                )}
                 {inactive.length > 0 && inactive.every((row) => !row.clientVisible) && (
                   <span className="flex items-center gap-1.5 text-eyebrow text-u-text3">
                     <Icon d={ICONS.eyeOff} size={12} />
@@ -308,8 +369,42 @@ export function PipelineBoard({
   );
 }
 
+/** Which way out a card dropped on Inactive takes: the card's own stage's statuses come first. */
+function OutOfProcessChooser({
+  name,
+  choices,
+  onChoose,
+  onCancel,
+}: {
+  name: string;
+  choices: readonly OutOfProcessChoice[];
+  onChoose: (choice: OutOfProcessChoice) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div role="group" aria-label={`Mark ${name} out of process`} className="flex flex-col gap-1.5">
+      <span className="text-meta text-u-text2">Mark {name} as</span>
+      {choices.map((choice) => (
+        <button
+          key={choice.status.id}
+          type="button"
+          onClick={() => onChoose(choice)}
+          className="flex flex-col items-start rounded-u-control px-2 py-1.5 text-start hover:bg-u-raised"
+        >
+          <span className="text-meta font-medium text-u-text">{choice.status.label}</span>
+          <span className="text-eyebrow text-u-text3">{choice.stage.label}</span>
+        </button>
+      ))}
+      <button type="button" onClick={onCancel} className="self-start px-2 py-1 text-meta text-u-text3 hover:text-u-text">
+        Cancel
+      </button>
+    </div>
+  );
+}
+
 function InactiveGroup({
   label,
+  outcome,
   rows,
   isOver,
   onOpen,
@@ -317,6 +412,8 @@ function InactiveGroup({
   dropProps,
 }: {
   label: string;
+  /** What each card's date line says it became. */
+  outcome: string;
   rows: readonly PipelineRow[];
   isOver: boolean;
   onOpen?: (candidateId: string) => void;
@@ -350,7 +447,7 @@ function InactiveGroup({
             {[row.title, row.companyName].filter(Boolean).join(" · ")}
           </span>
           <span className="text-eyebrow text-u-text3">
-            {label} {shortDate(row.statusChangedAt)}
+            {outcome} {shortDate(row.statusChangedAt)}
           </span>
         </div>
       ))}
@@ -381,6 +478,6 @@ function beforeIdAt(column: HTMLElement, clientY: number): string | null {
   return null;
 }
 
-function stageOf({ key, label, colour, kind, position }: PipelineStageCount): CandidatePipelineStage {
-  return { key, label, colour, kind, position };
+function stageOf({ key, label, colour, position }: PipelineStageCount): CandidatePipelineStage {
+  return { key, label, colour, position };
 }

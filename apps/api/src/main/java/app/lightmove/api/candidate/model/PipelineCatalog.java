@@ -1,7 +1,6 @@
 package app.lightmove.api.candidate.model;
 
 import app.lightmove.api.candidate.constant.CandidateSystemStatus;
-import app.lightmove.api.candidate.constant.PipelineStageKind;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -44,19 +43,24 @@ public record PipelineCatalog(List<CandidateStage> stages, List<CandidateStatusD
         return liveStatusesOf(stage).stream().filter(CandidateStatusDefinition::isDefaultOfStage).findFirst();
     }
 
+    /** A stage the board draws: one with a live status in process for a card to stand at. */
+    public boolean holdsAStatusInProcess(CandidateStage stage) {
+        return liveStatusesOf(stage).stream().anyMatch(CandidateStatusDefinition::isInProcess);
+    }
+
     public List<CandidateStage> liveStages() {
         return stages.stream().filter(stage -> !stage.isRetired()).toList();
     }
 
     /**
-     * Where someone filed with no status stands: the first live active stage's default — Identified, in
-     * the seeded catalog, which is where every profile has always started.
+     * Where someone filed with no status stands: the first live stage's default in process — Identified, in the
+     * seeded catalog, which is where every profile has always started.
      */
     public CandidateStatusDefinition defaultStatus() {
         return liveStages().stream()
-                .filter(stage -> stage.getKind() == PipelineStageKind.ACTIVE)
                 .map(this::defaultOf)
                 .flatMap(Optional::stream)
+                .filter(status -> !status.isOutOfProcess())
                 .findFirst()
                 .orElseGet(() -> bySystemKey(CandidateSystemStatus.IDENTIFIED));
     }

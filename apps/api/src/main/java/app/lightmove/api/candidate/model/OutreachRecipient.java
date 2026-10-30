@@ -6,7 +6,7 @@ import java.util.UUID;
 /**
  * An executive as outreach reads them: enough to decide whether they may be approached and to fill a
  * sequence's tokens. Never sent to a model — the opener is drafted from the {@link CandidateDossier}.
- * {@code status} is the status key; {@code leftTheRunning} says it sits under the closed stage.
+ * {@code status} is the status key; {@code leftTheRunning} says it is out of process.
  */
 public record OutreachRecipient(UUID candidateId, UUID personId, UUID triageCompanyId, String fullName,
                                 String title, String companyName, String locationCity, String locationCountry,

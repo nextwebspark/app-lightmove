@@ -780,7 +780,7 @@ function TriageStage() {
             key: "inactive",
             label: "Inactive column",
             icon: ICONS.eyeOff,
-            hint: "Declined and ruled-out executives",
+            hint: "Executives at an out-of-process status",
             checked: inactiveOpen,
             onSelect: () => setInactiveOpen((open) => !open),
           },

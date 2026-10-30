@@ -46,18 +46,18 @@ export function statusById(catalog: PipelineCatalog, statusId: string | null): P
 
 /**
  * Whether an automation moving to `targetId` would move someone at `fromKey`: forward only by the pipeline's
- * order, and never out of the closed stage — the server's own rule, mirrored for what a toast promises.
+ * order, and never from a status out of process — the server's own rule, mirrored for what a toast promises.
  */
 export function wouldMoveForward(catalog: PipelineCatalog, fromKey: string, targetId: string): boolean {
   const rank = (match: (status: PipelineStatus) => boolean) => {
     for (const stage of catalog.stages) {
       const status = stage.statuses.find(match);
-      if (status) return { closed: stage.kind === "closed", order: [stage.position, status.position] as const };
+      if (status) return { out: status.outOfProcess, order: [stage.position, status.position] as const };
     }
     return null;
   };
   const from = rank((status) => status.key === fromKey);
   const to = rank((status) => status.id === targetId);
-  if (!from || !to || from.closed) return false;
+  if (!from || !to || from.out || to.out) return false;
   return from.order[0] < to.order[0] || (from.order[0] === to.order[0] && from.order[1] < to.order[1]);
 }

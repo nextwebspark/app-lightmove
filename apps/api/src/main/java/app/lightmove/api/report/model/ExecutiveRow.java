@@ -1,6 +1,5 @@
 package app.lightmove.api.report.model;
 
-import app.lightmove.api.candidate.constant.PipelineStageKind;
 import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.candidate.dto.CandidatePipelineStageDto;
 import app.lightmove.api.candidate.dto.CandidateResponse;
@@ -38,13 +37,12 @@ public record ExecutiveRow(CandidateResponse executive, TriageCompanyResponse co
     }
 
     /**
-     * Interested, or further on and still in the running: an active stage at or after the one the built-in
-     * Interested status sits under ({@code interestedFrom}, its position).
+     * Interested, or further on and still in process: a stage at or after the one the built-in Interested status
+     * sits under ({@code interestedFrom}, its position).
      */
     public boolean isInterestedOrLater() {
         CandidatePipelineStageDto stage = executive.pipelineStage();
-        return stage != null && PipelineStageKind.ACTIVE.value().equals(stage.kind())
-                && stage.position() >= interestedFrom;
+        return stage != null && !executive.statusOutOfProcess() && stage.position() >= interestedFrom;
     }
 
     /** Null while nobody recorded one, which the chapter reports rather than guesses. */
