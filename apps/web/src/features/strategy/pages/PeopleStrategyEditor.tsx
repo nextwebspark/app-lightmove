@@ -19,6 +19,7 @@ import { messageFor } from "../../../lib/errorCodes";
 import { LeaveGuard } from "../../../components/layout/LeaveGuard";
 import { useAutosave } from "../../../lib/useAutosave";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
+import type { ModeToggle } from "../components/StrategyModeToggle";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { useAuth } from "../../auth/AuthProvider";
 import { isBillingRefusal } from "../../billing/lib/billingView";
@@ -89,7 +90,7 @@ export function PeopleStrategyEditor({
 }: {
   projectId: string;
   /** The Companies | People control, drawn by whichever mode is on screen. */
-  toggle: ReactNode;
+  toggle: ModeToggle | null;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -306,7 +307,7 @@ export function PeopleStrategyEditor({
     <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
       <LeaveGuard hasUnsavedChanges={autosave.hasUnsavedChanges} flush={autosave.flush} />
       <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-u-border bg-u-raised px-3 py-2 sm:px-5 sm:py-1.5">
-        {toggle}
+        {toggle?.(isFullscreen)}
         <SaveSearchMenu
           searches={peopleSearches}
           isActive={(search: SavedSearch) => search.peopleFilter !== null && samePeopleFilter(filter, search.peopleFilter)}

@@ -91,11 +91,32 @@
         <div>
           <div style="padding:14px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);display:{{ labelDisp }}">{{ g.label }}</div>
           <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
-            <a href="{{ it.href }}" title="{{ it.label }}" style="{{ it.rowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="{{ it.iconStyle }}"><path d="{{ it.icon }}"></path></svg>
-              <span style="white-space: nowrap; display: {{ labelDisp }}">{{ it.label }}</span>
-              <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto;font:500 11px var(--mono);color:var(--text3);display:{{ labelDisp }}">{{ it.count }}</span></sc-if>
-            </a>
+            <!-- A section with views of its own (Strategy, In universe, Outreach) nests them under its row, behind a guide
+                 line: open while you are in it, the chevron opening or closing any of them by hand. Collapsed, the
+                 views stay reachable as their icons alone. -->
+            <div>
+              <div style="display:flex;align-items:center;gap:2px">
+                <a href="{{ it.href }}" title="{{ it.label }}" style="{{ it.rowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="{{ it.iconStyle }}"><path d="{{ it.icon }}"></path></svg>
+                  <span style="white-space: nowrap; display: {{ labelDisp }}">{{ it.label }}</span>
+                  <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto;font:500 11px var(--mono);color:var(--text3);display:{{ labelDisp }}">{{ it.count }}</span></sc-if>
+                </a>
+                <sc-if value="{{ it.hasKids }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ toggleNav }}" data-id="{{ it.key }}" aria-expanded="{{ it.openStr }}" aria-controls="{{ it.kidsId }}" aria-label="{{ it.viewsLabel }}" title="{{ it.toggleLabel }}" style="{{ it.chevStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style="{{ it.chevIconStyle }}"><path d="{{ ic.chevronDown }}"></path></svg></button>
+                </sc-if>
+              </div>
+              <sc-if value="{{ it.open }}" hint-placeholder-val="{{ false }}">
+                <div id="{{ it.kidsId }}" role="group" aria-label="{{ it.label }}" style="{{ it.kidsStyle }}">
+                  <sc-for list="{{ it.kids }}" as="k" hint-placeholder-count="2">
+                    <a href="{{ k.href }}" title="{{ k.label }}" aria-current="{{ k.current }}" style="{{ k.rowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="{{ k.iconStyle }}"><path d="{{ k.icon }}"></path></svg>
+                      <span style="white-space:nowrap;display:{{ labelDisp }}">{{ k.label }}</span>
+                    </a>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
           </sc-for>
         </div>
       </sc-for>
@@ -124,14 +145,6 @@
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="{{ ic.close }}"></path></svg></button>
               </sc-if>
             </div>
-            <sc-if value="{{ viewsOffered }}" hint-placeholder-val="{{ true }}">
-              <div role="radiogroup" aria-label="View" style="display:inline-flex;flex:none;align-items:center;border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:2px">
-                <sc-for list="{{ viewOpts }}" as="v" hint-placeholder-count="3">
-                  <button role="radio" aria-checked="{{ v.on }}" data-id="{{ v.key }}" onClick="{{ setView }}" style="{{ v.style }}">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ v.icon }}"></path></svg>{{ v.label }}</button>
-                </sc-for>
-              </div>
-            </sc-if>
             <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
               <sc-if value="{{ canFind }}" hint-placeholder-val="{{ true }}">
                 <button onClick="{{ findExecutives }}" title="{{ findTitle }}" aria-disabled="{{ findDisabled }}" style="{{ findBtnStyle }}" style-hover="{{ findBtnHover }}">
@@ -3223,7 +3236,7 @@ class Component extends DCLogic {
       view: pick("page", "") === "pipeline" ? "pipeline" : pick("view", "table"), drawer: pick("drawer", "none"), dialog: pick("dialog", "none"),
       importStep: pick("importStep", "map"), empty: flag("empty", false), clientRep: flag("clientRep", false),
       chapter, teamModal: pick("teamModal", "none"), canManage: flag("canManage", true),
-      dark: true, collapsed, wsMenu: false, colMenu: false,
+      dark: true, collapsed, navOpen: {}, wsMenu: false, colMenu: false,
       sort: { field: "added", dir: "desc" },
       vis: { founded: false, description: false, source: false },
       toast: null, coId: "c01", candId: "e01", removeId: "c01", contactEditing: false, compEditing: false, compForm: null,
@@ -3481,7 +3494,6 @@ class Component extends DCLogic {
     const cw = this.canWrite();
     const view = this.currentView();
     const offered = this.viewsOffered();
-    const VIEW_DEF = { table: ["Table", I.table], map: ["Map", I.globe], pipeline: ["Pipeline", I.pipeline] };
     const BTN_HOVER = "border-color:var(--text3);color:var(--text)";
     const btnStyle = (off) => `display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:${off ? "var(--text3)" : "var(--text2)"};cursor:${off ? "not-allowed" : "pointer"};opacity:${off ? 0.5 : 1}`;
     const hidden = COLS.filter((c) => !c.fixed && !this.visible(c.id)).length;
@@ -3499,8 +3511,6 @@ class Component extends DCLogic {
     return {
       searchQuery: s.searchQuery, hasSearch: !!s.searchQuery,
       searchPlaceholder: !cw ? "Search companies and executives…" : view === "pipeline" ? "Search executives, companies, notes, tags…" : "Search companies, executives, notes, tags…",
-      viewsOffered: offered.length > 1,
-      viewOpts: offered.map((key) => ({ key, label: VIEW_DEF[key][0], icon: VIEW_DEF[key][1], on: String(key === view), style: segD(key === view) })),
       canFind: cw && stageKey === "u",
       findDisabled: view === "pipeline", findBtnStyle: btnStyle(view === "pipeline"), findBtnHover: view === "pipeline" ? "" : BTN_HOVER,
       findTitle: view === "pipeline" ? "Find executives from Table, where companies are ticked" : "Find executives at the ticked companies, or at the first 5 with nobody mapped",
@@ -4417,6 +4427,7 @@ class Component extends DCLogic {
       closeCopilot: () => set({ copilot: false }),
       applyCallChange: () => { set({ callChanges: false }); this.showToast("3 changes saved to Fatima's record"); },
       toggleTheme: () => { const d = !this.state.dark; document.documentElement.setAttribute("data-theme", d ? "dark" : "light"); try { localStorage.setItem("lm-theme", d ? "dark" : "light"); } catch (e) { /* storage unavailable */ } set({ dark: d }); },
+      toggleNav: (e) => set({ navOpen: { ...this.state.navOpen, [id(e)]: e.currentTarget.getAttribute("aria-expanded") !== "true" } }),
       toggleCollapse: () => { const c = !this.state.collapsed; try { localStorage.setItem("lm-side-collapsed", c ? "1" : "0"); } catch (e) { /* storage unavailable */ } set({ collapsed: c }); },
       setViewTable: () => set({ view: "table" }),
       setViewMap: () => set({ view: "map" }),
@@ -4669,19 +4680,42 @@ class Component extends DCLogic {
     const collapsed = s.collapsed;
     const counts = { u: this.liveCompanies("u").length, s: this.liveCompanies("s").length, d: this.liveCompanies("d").length };
     if (s.empty && stageKey) counts[stageKey] = 0;
-    const navItem = (label, icon, href, active, count) => ({ label, icon, href, hasCount: count !== undefined, count,
-      rowStyle: `display:flex;width:100%;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13.5px;text-decoration:none;justify-content:${collapsed ? "center" : "flex-start"};background:${active ? "var(--panel2)" : "transparent"};color:${active ? "var(--text)" : "var(--text2)"}`,
+    const navSub = (label, icon, href, active) => ({ label, icon, href, active, current: active ? "page" : "false",
+      rowStyle: `display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:6px;font-size:13px;text-decoration:none;justify-content:${collapsed ? "center" : "flex-start"};background:${active ? "var(--panel2)" : "transparent"};color:${active ? "var(--text)" : "var(--text2)"}`,
       iconStyle: `flex:none;color:${active ? "var(--amber)" : "currentColor"}` });
+    const navItem = (label, icon, href, active, count, key, kids = []) => {
+      const childActive = kids.some((k) => k.active);
+      const toggled = s.navOpen[key];
+      const open = kids.length > 0 && (toggled !== undefined ? toggled : active || childActive);
+      const filled = active && !childActive;
+      return { key, label, icon, href, hasCount: count !== undefined, count, kids, hasKids: kids.length > 0, open, openStr: String(open),
+        kidsId: `nav-${key}`, viewsLabel: `${label} views`, toggleLabel: `${open ? "Hide" : "Show"} ${label} views`,
+        rowStyle: `display:flex;flex:1;min-width:0;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13.5px;text-decoration:none;justify-content:${collapsed ? "center" : "flex-start"};background:${filled ? "var(--panel2)" : "transparent"};color:${active || childActive ? "var(--text)" : "var(--text2)"}`,
+        iconStyle: `flex:none;color:${filled ? "var(--amber)" : "currentColor"}`,
+        chevStyle: `display:${collapsed ? "none" : "grid"};place-items:center;flex:none;width:24px;height:24px;border-radius:5px;border:none;background:none;padding:0;color:var(--text3);cursor:pointer`,
+        chevIconStyle: `display:block;transition:transform .15s;transform:rotate(${open ? 0 : -90}deg)`,
+        kidsStyle: collapsed ? "display:flex;flex-direction:column;gap:1px;margin:2px 0 6px;padding:2px;border:1px solid var(--line-soft);border-radius:8px"
+          : "display:flex;flex-direction:column;gap:1px;margin:1px 0 4px 18px;padding-left:8px;border-left:1px solid var(--line-soft)" };
+    };
+    const universeView = stageKey === "u" ? this.currentView() : null;
+    const NAV_VIEWS = { table: ["Table", I.table], map: ["Map", I.mapPin], pipeline: ["Pipeline", I.pipeline] };
+    const universeKids = ["table", "map"].concat(cw ? ["pipeline"] : [])
+      .map((v) => navSub(NAV_VIEWS[v][0], NAV_VIEWS[v][1], `Position.dc.html?page=${STAGES.u.slug}&view=${v}`, universeView === v));
     const navGroups = [
-      { label: "Position", items: [navItem("Brief", I.position, "Position.dc.html", false), navItem("Strategy", I.strategy, "Strategy.dc.html", false)] },
-      { label: "Market mapping", items: [navItem(STAGES.u.label, STAGES.u.icon, `Position.dc.html?page=${STAGES.u.slug}`, stageKey === "u", counts.u)] },
+      { label: "Position", items: [
+        navItem("Brief", I.position, "Position.dc.html", false, undefined, "brief"),
+        navItem("Strategy", I.strategy, "Strategy.dc.html", false, undefined, "strategy", cw ? [
+          navSub("Companies", I.building, "Strategy.dc.html", false),
+          navSub("People", I.candidates, "Strategy.dc.html?mode=people", false)] : [])] },
+      { label: "Market mapping", items: [navItem(STAGES.u.label, STAGES.u.icon, `Position.dc.html?page=${STAGES.u.slug}`, stageKey === "u", counts.u, "universe", universeKids)] },
       { label: "CRM", items: [
-        navItem("Outreach", I.outreach, "Outreach.dc.html", false),
-        navItem("Sequences", I.listOrdered, "Position.dc.html?page=sequences", s.page === "sequences"),
-        navItem("Benchmark", I.target, "Position.dc.html?page=benchmark", s.page === "benchmark"),
-        navItem("Activity", I.activity, "Position.dc.html?page=activity", s.page === "activity")
+        navItem("Outreach", I.outreach, "Outreach.dc.html", false, undefined, "outreach", [
+          navSub("Conversations", I.mail, "Outreach.dc.html", false),
+          navSub("Sequences", I.listOrdered, "Position.dc.html?page=sequences", s.page === "sequences")]),
+        navItem("Benchmark", I.target, "Position.dc.html?page=benchmark", s.page === "benchmark", undefined, "benchmark"),
+        navItem("Activity", I.activity, "Position.dc.html?page=activity", s.page === "activity", undefined, "activity")
       ] },
-      { label: "Project", items: [navItem("Reports", I.reports, "Position.dc.html?page=reports", isReports), navItem("Team & access", I.team, "Position.dc.html?page=team", s.page === "team")] }
+      { label: "Project", items: [navItem("Reports", I.reports, "Position.dc.html?page=reports", isReports, undefined, "reports"), navItem("Team & access", I.team, "Position.dc.html?page=team", s.page === "team", undefined, "team")] }
     ];
     const view = this.currentView();
     const stage = isStage ? Object.assign(this.stageVals(stageKey), this.toolbarVals(stageKey)) : {};

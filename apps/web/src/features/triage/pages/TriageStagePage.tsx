@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
-import { Navigate, useNavigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { ICONS } from "../../../components/layout/Icon";
 import { FullscreenButton } from "../../../components/ui";
@@ -63,6 +63,7 @@ import {
 import { awaitingResearch, type TriageCompanyRow } from "../lib/triageRows";
 import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
 import { companiesOf } from "../lib/sourcingSummary";
+import { CHOSEN_VIEW_STATE, isChosenView, resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
 import { useCompanySelection } from "../lib/useCompanySelection";
 import { useExecutiveSourcing } from "../lib/useExecutiveSourcing";
 import { useProjectStream, type ProjectStreamKind } from "../../../lib/useProjectStream";
@@ -210,34 +211,25 @@ function TriageStage() {
   const [sort, setSort] = useGridSort<TriageSortField>("companies", project.id, TRIAGE_SORT_FIELDS, DEFAULT_SORT);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [mapPreferences, setMapPreferences] = useTalentMapPreferences(project.id);
-
-  /**
-   * Whether this deployment draws a map at all. A refused or failed read means no toggle rather than
-   * a broken globe — the grid is the screen, the map is the second reading of it. Read once and kept:
-   * a token does not change while a tab is open.
-   */
-  const mapConfig = useQuery({
-    queryKey: talentMapApi.TALENT_MAP_CONFIG_KEY,
-    queryFn: ({ signal }) => talentMapApi.getTalentMapConfig(signal),
-    staleTime: Infinity,
-  });
-  const mapOffered =
-    stage.status === "inUniverse" && mapConfig.data?.enabled === true && !!mapConfig.data.publicToken;
-  // The pipeline is the position's WORK_EXECUTE, so a client seat reads the table and the map alone.
-  const views: CompaniesView[] =
-    stage.status === "inUniverse"
-      ? ["table", ...(mapOffered ? (["map"] as const) : []), ...(canWrite ? (["pipeline"] as const) : [])]
-      : ["table"];
-  // A link names its view (a notification opens the pipeline); otherwise the one last chosen here.
+  const { views, mapConfig } = useCompaniesViews(stage.status, canWrite);
   const requestedView = searchParams.get("view");
-  const view: CompaniesView =
-    views.find((offered) => offered === requestedView) ??
-    (views.includes(mapPreferences.view) ? mapPreferences.view : "table");
-  const navigate = useNavigate();
-  const handleViewChange = (next: CompaniesView) => {
-    setMapPreferences({ view: next });
+  const view = resolveCompaniesView(views, requestedView, mapPreferences.view);
+  // A chosen view is remembered once the page shows it, never while it is only the fallback of a map config still
+  // loading — and only on In universe, the one stage with views to remember.
+  const { state: locationState } = useLocation();
+  const viewChosen = isChosenView(locationState) && views.length > 1;
+  useEffect(() => {
+    if (viewChosen && requestedView === view && mapPreferences.view !== view) setMapPreferences({ view });
+  }, [viewChosen, requestedView, view, mapPreferences.view, setMapPreferences]);
+  // A tick made on one reading of the stage must not ride silently into another.
+  const [tickedInView, setTickedInView] = useState(view);
+  if (tickedInView !== view) {
+    setTickedInView(view);
     companySelection.clear();
     setPipelineSelection(new Set());
+  }
+  const navigate = useNavigate();
+  const handleViewChange = (next: CompaniesView) => {
     setSearchParams(
       (current) => {
         const params = new URLSearchParams(current);
@@ -248,7 +240,7 @@ function TriageStage() {
         params.delete("tab");
         return params;
       },
-      { replace: true },
+      { replace: true, state: CHOSEN_VIEW_STATE },
     );
   };
 
@@ -866,6 +858,7 @@ function TriageStage() {
         views={views}
         view={view}
         onViewChange={handleViewChange}
+        isFullscreen={isFullscreen}
         canWrite={canWrite}
         onAddCompany={() => setOpenCompany({ company: null })}
         addCompanyUnavailable={view === "pipeline" ? { reason: "Add companies from Table or Map" } : undefined}

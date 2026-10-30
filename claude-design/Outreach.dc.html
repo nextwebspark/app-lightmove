@@ -59,11 +59,28 @@
         <div>
           <div style="padding:14px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">{{ g.label }}</div>
           <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
-            <a href="{{ it.href }}" style="{{ it.rowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="{{ it.iconStyle }}"><path d="{{ it.icon }}"></path></svg>
-              <span style="white-space:nowrap">{{ it.label }}</span>
-              <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span></sc-if>
-            </a>
+            <!-- Position.dc.html's rail: a section's views nest under its row behind a guide line. -->
+            <div style="display:flex;align-items:center;gap:2px">
+              <a href="{{ it.href }}" style="{{ it.rowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="{{ it.iconStyle }}"><path d="{{ it.icon }}"></path></svg>
+                <span style="white-space:nowrap">{{ it.label }}</span>
+                <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span></sc-if>
+              </a>
+              <sc-if value="{{ it.hasKids }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ toggleNav }}" data-id="{{ it.key }}" aria-expanded="{{ it.openStr }}" aria-controls="{{ it.kidsId }}" aria-label="{{ it.viewsLabel }}" title="{{ it.toggleLabel }}" style="display:grid;place-items:center;flex:none;width:24px;height:24px;border-radius:5px;border:none;background:none;padding:0;color:var(--text3);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="{{ it.chevIconStyle }}"><path d="{{ ic.chevronDown }}"></path></svg></button>
+              </sc-if>
+            </div>
+            <sc-if value="{{ it.open }}" hint-placeholder-val="{{ false }}">
+              <div id="{{ it.kidsId }}" role="group" aria-label="{{ it.label }}" style="display:flex;flex-direction:column;gap:1px;margin:1px 0 4px 18px;padding-left:8px;border-left:1px solid var(--line-soft)">
+                <sc-for list="{{ it.kids }}" as="k" hint-placeholder-count="2">
+                  <a href="{{ k.href }}" aria-current="{{ k.current }}" style="{{ k.rowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="{{ k.iconStyle }}"><path d="{{ k.icon }}"></path></svg>
+                    <span style="white-space:nowrap">{{ k.label }}</span>
+                  </a>
+                </sc-for>
+              </div>
+            </sc-if>
           </sc-for>
         </div>
       </sc-for>
@@ -754,6 +771,11 @@ const I = {
   outreach: "M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z",
   userPlus: "M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM20 8v6M23 11h-6",
   sparkle: "M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z",
+  chevronDown: "m6 9 6 6 6-6",
+  table: "M3 5h18v14H3zM3 10h18M3 15h18M9 5v14",
+  mapPin: "M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0ZM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+  pipeline: "M4 4h5v16H4zM10.5 4h5v10h-5zM17 4h3v7h-3z",
+  listOrdered: "M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M4.5 14a1.5 1.5 0 0 1 2.5-1.1Q4.5 15.5 4 18h3",
   building: "M6 22V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v18M2 22h20M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M10 22v-4h4v4",
   chevronRight: "m9 18 6-6-6-6",
   position: "M12 2 3 7l9 5 9-5-9-5ZM3 12l9 5 9-5M3 17l9 5 9-5",
@@ -940,7 +962,7 @@ class Component extends DCLogic {
     const pick = (k, d) => q.get(k) || (p[k] !== undefined ? p[k] : d);
     const flag = (k, d) => { const v = q.get(k); if (v !== null) return v === "true" || v === "1"; return p[k] !== undefined ? !!p[k] : d; };
     this.state = {
-      page: pick("page", "overview"), mailbox: pick("mailbox", "connected"), empty: flag("empty", false),
+      page: pick("page", "overview"), navOpen: {}, mailbox: pick("mailbox", "connected"), empty: flag("empty", false),
       dialog: pick("dialog", "none"), enrolStep: pick("enrolStep", "choose"), drawer: pick("drawer", "none"),
       filter: "all", seqId: "s1", step: 1, previewId: "e01", reviewId: "e03", seqName: "CFO — first approach",
       bodies: STEP_BODIES.slice(), openers: { e03: PEOPLE.e03.opener, e04: PEOPLE.e04.opener }, edited: {},
@@ -1130,14 +1152,34 @@ class Component extends DCLogic {
   renderVals() {
     const s = this.state;
     const isOverview = s.page !== "sequence";
-    const navItem = (label, icon, href, active, count) => ({ label, icon, href, hasCount: count !== undefined, count,
-      rowStyle: `display:flex;width:100%;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13.5px;text-decoration:none;background:${active ? "var(--panel2)" : "transparent"};color:${active ? "var(--text)" : "var(--text2)"}`,
+    const navSub = (label, icon, href, active) => ({ label, icon, href, active, current: active ? "page" : "false",
+      rowStyle: `display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:6px;font-size:13px;text-decoration:none;background:${active ? "var(--panel2)" : "transparent"};color:${active ? "var(--text)" : "var(--text2)"}`,
       iconStyle: `flex:none;color:${active ? "var(--amber)" : "currentColor"}` });
+    const navItem = (label, icon, href, active, count, key, kids = []) => {
+      const childActive = kids.some((k) => k.active);
+      const toggled = s.navOpen[key];
+      const open = kids.length > 0 && (toggled !== undefined ? toggled : active || childActive);
+      const filled = active && !childActive;
+      return { key, label, icon, href, hasCount: count !== undefined, count, kids, hasKids: kids.length > 0, open, openStr: String(open),
+        kidsId: `nav-${key}`, viewsLabel: `${label} views`, toggleLabel: `${open ? "Hide" : "Show"} ${label} views`,
+        rowStyle: `display:flex;flex:1;min-width:0;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13.5px;text-decoration:none;background:${filled ? "var(--panel2)" : "transparent"};color:${active || childActive ? "var(--text)" : "var(--text2)"}`,
+        iconStyle: `flex:none;color:${filled ? "var(--amber)" : "currentColor"}`,
+        chevIconStyle: `display:block;transition:transform .15s;transform:rotate(${open ? 0 : -90}deg)` };
+    };
     const navGroups = [
-      { label: "Position", items: [navItem("Brief", I.position, "Brief.dc.html", false), navItem("Strategy", I.strategy, "Strategy.dc.html", false)] },
-      { label: "Companies", items: [navItem("In universe", I.globe, "Position.dc.html?page=universe", false, 24), navItem("Shortlisted", I.star, "Position.dc.html?page=shortlisted", false, 9), navItem("Declined", I.close, "Position.dc.html?page=declined", false, 6)] },
-      { label: "People", items: [navItem("Outreach", I.outreach, "Outreach.dc.html", true, 9)] },
-      { label: "Project", items: [navItem("Reports", I.reports, "Position.dc.html?page=reports", false), navItem("Team & access", I.team, "Position.dc.html?page=team", false)] }
+      { label: "Position", items: [
+        navItem("Brief", I.position, "Brief.dc.html", false, undefined, "brief"),
+        navItem("Strategy", I.strategy, "Strategy.dc.html", false, undefined, "strategy", [
+          navSub("Companies", I.building, "Strategy.dc.html", false), navSub("People", I.candidates, "Strategy.dc.html?mode=people", false)])] },
+      { label: "Companies", items: [
+        navItem("In universe", I.globe, "Position.dc.html?page=universe", false, 24, "universe", [
+          navSub("Table", I.table, "Position.dc.html?page=universe&view=table", false), navSub("Map", I.mapPin, "Position.dc.html?page=universe&view=map", false),
+          navSub("Pipeline", I.pipeline, "Position.dc.html?page=universe&view=pipeline", false)]),
+        navItem("Shortlisted", I.star, "Position.dc.html?page=shortlisted", false, 9, "shortlisted"),
+        navItem("Declined", I.close, "Position.dc.html?page=declined", false, 6, "declined")] },
+      { label: "People", items: [navItem("Outreach", I.outreach, "Outreach.dc.html", true, 9, "outreach", [
+        navSub("Conversations", I.mail, "Outreach.dc.html", isOverview), navSub("Sequences", I.listOrdered, "Outreach.dc.html?page=sequence", !isOverview)])] },
+      { label: "Project", items: [navItem("Reports", I.reports, "Position.dc.html?page=reports", false, undefined, "reports"), navItem("Team & access", I.team, "Position.dc.html?page=team", false, undefined, "team")] }
     ];
 
     const { rows, counts } = this.rowVals();
@@ -1237,6 +1279,7 @@ class Component extends DCLogic {
       connect: () => { set({ mailbox: "connected" }); this.showToast("Connected yara.haddad@alfuttaim.com"); },
       openEditor: (e) => set({ page: "sequence", empty: false, seqName: e.currentTarget.dataset.id === "s2" ? "Treasury bench — warm intro" : e.currentTarget.dataset.id === "new" ? "Untitled sequence" : "CFO — first approach" }),
       backToOverview: () => set({ page: "overview" }),
+      toggleNav: (e) => set({ navOpen: { ...this.state.navOpen, [e.currentTarget.dataset.id]: e.currentTarget.getAttribute("aria-expanded") !== "true" } }),
       saveSeq: () => this.showToast("Sequence saved. People already in it get the new wording from their next step."),
       onSeqName: (e) => set({ seqName: e.target.value }),
       onStepBody: (e) => { const i = Number(e.currentTarget.dataset.id) - 1; const b = s.bodies.slice(); b[i] = e.target.value; set({ bodies: b }); },
