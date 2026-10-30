@@ -17,7 +17,6 @@ import type {
 import { CompanySearchCombobox } from "../CompanySearchCombobox";
 import { FacetsUnavailable } from "../FacetsUnavailable";
 import { FilterAccordion, type SelectedTag } from "../../../../components/ui/FilterAccordion";
-import { SHORTLIST_AND_DECLINE_OFFERED } from "../../../triage/lib/triageStages";
 import { LocationFilter } from "./LocationFilter";
 
 type AccordionKey =
@@ -314,7 +313,7 @@ export function PeopleFilterSidebar({
               ariaLabel="Excluded companies"
               maxItems={50}
             />
-            {SHORTLIST_AND_DECLINE_OFFERED && <Hint>This mandate&rsquo;s declined companies are always left out.</Hint>}
+            <Hint>Companies this mandate already ruled out are always left out.</Hint>
             <Label>Company size</Label>
             <CheckRows
               options={facets?.companySizes}

@@ -48,9 +48,14 @@ export const MOVES: Record<TriageCompanyStatus, TriageMove[]> = {
   ],
 };
 
+/** Whether a screen may name a stage; one switched off is only ever "in this mandate". */
+export function isStageOffered(status: TriageCompanyStatus): boolean {
+  return OFFERED_TRIAGE_STAGES.some((stage) => stage.status === status);
+}
+
 /** {@link MOVES} narrowed to the stages the screens offer — none from In universe while Shortlisted and Declined are off. */
 export function offeredMoves(status: TriageCompanyStatus): TriageMove[] {
-  return MOVES[status].filter((move) => OFFERED_TRIAGE_STAGES.some((stage) => stage.status === move.status));
+  return MOVES[status].filter((move) => isStageOffered(move.status));
 }
 
 /** A move on one executive's line, read on hover: Decline rules out the person, never their company. */

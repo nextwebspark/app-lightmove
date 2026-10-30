@@ -4,8 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { AssistantProposal, ProposedCompany } from "../api/types";
 import { AssistantProposalCard } from "./AssistantProposalCard";
 
-// Shortlisted and Declined are switched off on screen for now; these tests keep that half covered for when it returns.
-vi.mock("../../triage/lib/triageStages", () => import("../../../test/shortlistAndDecline").then((stages) => stages.triageStagesWithShortlistAndDecline()));
+vi.mock("../../triage/lib/triageStages", async (importOriginal) =>
+  (await import("../../../test/shortlistAndDecline")).withShortlistAndDecline(await importOriginal()),
+);
 
 function company(id: string, over: Partial<ProposedCompany> = {}): ProposedCompany {
   return {

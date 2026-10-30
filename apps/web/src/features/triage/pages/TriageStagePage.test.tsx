@@ -30,8 +30,9 @@ import { aPipelinePage, aPipelineRow } from "../../../test/fixtures/pipelineRows
 import * as companyNotesApi from "../api/companyNotesApi";
 import { typeInto } from "../../../test/noteEditor";
 
-// Shortlisted and Declined are switched off on screen for now; these tests keep that half covered for when it returns.
-vi.mock("../lib/triageStages", () => import("../../../test/shortlistAndDecline").then((stages) => stages.triageStagesWithShortlistAndDecline()));
+vi.mock("../lib/triageStages", async (importOriginal) =>
+  (await import("../../../test/shortlistAndDecline")).withShortlistAndDecline(await importOriginal()),
+);
 
 vi.mock("../../../lib/countries", () => import("../../../test/countries"));
 

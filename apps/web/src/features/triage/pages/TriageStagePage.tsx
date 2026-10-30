@@ -61,7 +61,7 @@ import {
   TRIAGE_SORT_FIELDS,
 } from "../lib/triageCompanyColumns";
 import { awaitingResearch, type TriageCompanyRow } from "../lib/triageRows";
-import { offeredStageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
+import { OFFERED_TRIAGE_STAGES, offeredStageBySlug } from "../lib/triageStages";
 import { companiesOf } from "../lib/sourcingSummary";
 import { CHOSEN_VIEW_STATE, isChosenView, resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
 import { useCompanySelection } from "../lib/useCompanySelection";
@@ -103,7 +103,7 @@ const MOVE_LABELS: Record<TriageCompanyStatus, string> = {
  * Table, a Map or its executives' Pipeline, one search box narrowing whichever is open.
  *
  * <p>The stage comes from the URL rather than a prop, so all three are one route pattern and a stage
- * added to {@link TRIAGE_STAGES} is reachable without touching the router. An unknown slug redirects
+ * added to {@link OFFERED_TRIAGE_STAGES} is reachable without touching the router. An unknown slug redirects
  * rather than rendering an empty grid for a stage that does not exist, and so does a stage that is not offered.
  *
  * <p>A mandate nobody has triaged shows an empty stage rather than the market. That is the change
@@ -112,11 +112,12 @@ const MOVE_LABELS: Record<TriageCompanyStatus, string> = {
  */
 export function TriageStagePage() {
   const { stage: stageSlug } = useParams();
+  const { search } = useLocation();
   const { project } = useOutletContext<ProjectOutletContext>();
   const stage = stageSlug ? offeredStageBySlug(stageSlug) : undefined;
 
   if (!stage) {
-    return <Navigate to={`/projects/${project.id}/companies/${TRIAGE_STAGES[0].slug}`} replace />;
+    return <Navigate to={`/projects/${project.id}/companies/${OFFERED_TRIAGE_STAGES[0].slug}${search}`} replace />;
   }
   // Keyed on the project too, not just the stage: the outlet context updates in place on a project
   // switch (react-router does not remount a route element just because a param changed), so without

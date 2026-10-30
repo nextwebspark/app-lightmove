@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { OFFERED_TRIAGE_STAGES, offeredStageBySlug, SHORTLIST_AND_DECLINE_OFFERED, stageByStatus } from "./triageStages";
-import { offeredMoves, removeTooltip } from "./triageVocabulary";
+import { OFFERED_TRIAGE_STAGES, offeredStageBySlug, stageByStatus } from "./triageStages";
+import { isStageOffered, offeredMoves, removeTooltip } from "./triageVocabulary";
 
 describe("Shortlisted and Declined, switched off", () => {
-  it("is off", () => {
-    expect(SHORTLIST_AND_DECLINE_OFFERED).toBe(false);
-  });
-
   it("offers In universe alone", () => {
     expect(OFFERED_TRIAGE_STAGES.map((stage) => stage.status)).toEqual(["inUniverse"]);
+    expect([isStageOffered("inUniverse"), isStageOffered("shortlisted"), isStageOffered("declined")]).toEqual([
+      true,
+      false,
+      false,
+    ]);
     expect(offeredStageBySlug("universe")?.status).toBe("inUniverse");
     expect(offeredStageBySlug("shortlisted")).toBeUndefined();
     expect(offeredStageBySlug("declined")).toBeUndefined();

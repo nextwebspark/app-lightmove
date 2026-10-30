@@ -227,7 +227,7 @@ async function headerFilter(columnName, ariaLabel, value) {
 
 try {
   // ---------------------------------------------------------------- C1.1 access
-  section("C1  the three stage pages draw exactly their stage");
+  section("C1  the stage page draws exactly its stage");
   await step("C1.1", "the lead signs in through /login and lands on the universe page", async () => {
     await page.goto(stageUrl("universe"));
     await page.waitForURL(/\/login/, { timeout: 15000 });
@@ -259,20 +259,24 @@ try {
     check("C1.4", "a company with nobody keeps one line and its Add executive slot", "1/1", `${lines}/${slot}`);
   });
 
-  await step("C1.5", "Shortlisted and Declined each list exactly their own company", async () => {
-    await openStage("shortlisted");
-    const shortlisted = await until(async () => sortedJoin(await companyNames()), CEDAR);
-    await openStage("declined");
-    const declined = await until(async () => sortedJoin(await companyNames()), DHOW);
-    check("C1.5", "Shortlisted and Declined each list exactly their own company", `${CEDAR} / ${DHOW}`, `${shortlisted} / ${declined}`);
+  // Shortlisted and Declined are switched off on screen (SHORTLIST_AND_DECLINE_OFFERED); the API still holds them.
+  await step("C1.5", "a link to Shortlisted or Declined lands on In universe", async () => {
+    const landed = [];
+    for (const slug of ["shortlisted", "declined"]) {
+      await page.goto(stageUrl(slug));
+      await page.waitForURL((url) => url.pathname.endsWith("/companies/universe"), { timeout: 15000 }).catch(() => {});
+      landed.push(new URL(page.url()).pathname.split("/").pop());
+    }
+    check("C1.5", "a link to Shortlisted or Declined lands on In universe", "universe/universe", landed.join("/"));
   });
 
-  await step("C1.6", "the sidebar's three counts are the API's", async () => {
+  await step("C1.6", "the sidebar offers In universe alone, with the API's count", async () => {
+    await openStage("universe");
     const counts = (await triagePage("inUniverse")).counts;
-    const want = `${counts.inUniverse}/${counts.shortlisted}/${counts.declined}`;
-    const seen = await until(async () => `${await sidebarCount("In universe")}/${await sidebarCount("Shortlisted")}/${await sidebarCount("Declined")}`, want);
-    check("C1.6", "the sidebar's three counts are the API's", want, seen);
-    check("C1.6b", "…which are the seeded 2/1/1", "2/1/1", want);
+    check("C1.6", "the sidebar's In universe count is the API's", counts.inUniverse, await until(() => sidebarCount("In universe"), counts.inUniverse));
+    const hidden = await page.locator("nav a").filter({ hasText: /^(Shortlisted|Declined)/ }).count();
+    check("C1.6b", "…and offers no Shortlisted or Declined link", 0, hidden);
+    check("C1.6c", "…while the API still counts the seeded 2/1/1", "2/1/1", `${counts.inUniverse}/${counts.shortlisted}/${counts.declined}`);
   });
 
   // ---------------------------------------------------------------- C2 add by hand
@@ -374,30 +378,21 @@ try {
   });
 
   // ---------------------------------------------------------------- C6 moves
-  section("C6  moving a company between stages");
-  await step("C6.1", "the row's Shortlist action moves it off In universe and onto Shortlisted", async () => {
+  section("C6  no stage moves are offered");
+  await step("C6.1", "a row offers its removal and no Shortlist or Decline", async () => {
     await openStage("universe");
-    await page.getByRole("button", { name: `Shortlist: ${BEACON}` }).first().click();
-    const gone = await until(async () => (await companyNames()).includes(BEACON), false);
-    await openStage("shortlisted");
-    const arrived = await until(async () => (await companyNames()).includes(BEACON), true);
-    check("C6.1", "the row's Shortlist action moves it off In universe and onto Shortlisted", "false/true", `${gone}/${arrived}`);
-    check("C6.1b", "…and the database agrees", "SHORTLISTED",
-      sql(`SELECT status FROM app_lm_project_triage_company WHERE id = '${BEACON_ID}'`));
+    const moves = await page.getByRole("button", { name: /^(Shortlist|Decline|Back to universe): / }).count();
+    const removable = (await page.getByRole("button", { name: /^Remove .* from this mandate$/ }).count()) > 0;
+    check("C6.1", "a row offers its removal and no Shortlist or Decline", "0/true", `${moves}/${removable}`);
   });
-  await step("C6.2", "the drawer's Decline moves a shortlisted company onto Declined", async () => {
-    await page.getByRole("button", { name: `Open ${CEDAR}` }).first().click();
-    await dialog(CEDAR).getByRole("button", { name: "Decline", exact: true }).click();
-    const gone = await until(async () => (await companyNames()).includes(CEDAR), false);
-    await openStage("declined");
-    const arrived = await until(async () => (await companyNames()).includes(CEDAR), true);
-    check("C6.2", "the drawer's Decline moves a shortlisted company onto Declined", "false/true", `${gone}/${arrived}`);
-  });
-  await step("C6.3", "the sidebar counts follow the moves", async () => {
-    const counts = (await triagePage("inUniverse")).counts;
-    const want = `${counts.inUniverse}/${counts.shortlisted}/${counts.declined}`;
-    check("C6.3", "the sidebar counts follow the moves (2/1/2 after adding Falcon, moving Beacon and Cedar)", "2/1/2",
-      await until(async () => `${await sidebarCount("In universe")}/${await sidebarCount("Shortlisted")}/${await sidebarCount("Declined")}`, want));
+  await step("C6.2", "the company drawer's footer offers Remove alone", async () => {
+    await page.getByRole("button", { name: `Open ${BEACON}` }).first().click();
+    const drawer = dialog(BEACON);
+    await drawer.waitFor();
+    const moves = await drawer.getByRole("button", { name: /^(Shortlist|Decline|Back to universe)$/ }).count();
+    const remove = await drawer.getByRole("button", { name: "Remove", exact: true }).count();
+    check("C6.2", "the company drawer's footer offers Remove alone", "0/1", `${moves}/${remove}`);
+    await drawer.getByRole("button", { name: "Close" }).first().click().catch(() => page.keyboard.press("Escape"));
   });
 
   // ---------------------------------------------------------------- C7 custom columns
