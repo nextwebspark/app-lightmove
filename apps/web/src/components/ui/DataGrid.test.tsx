@@ -657,7 +657,7 @@ describe("DataGrid header menu — opened from the whole header", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Revenue column menu" }));
 
-    expect(screen.getByRole("button", { name: "Sort ascending 1 → 9" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sort descending 9 → 1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Sort ascending\s*1 → 9$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Sort descending\s*9 → 1$/ })).toBeInTheDocument();
   });
 });
