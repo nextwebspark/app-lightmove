@@ -12,6 +12,13 @@ import type { MailboxConnect } from "../lib/useMailboxConnect";
 import { MailboxProviderMark } from "./MailboxProviderMark";
 import { ZoomConnectControl } from "./ZoomConnectControl";
 
+/** Whether {@link MailboxChip} draws anything for this state, so the header knows to divide it from the action. */
+export function mailboxChipShows(
+  state: MailboxState,
+): state is Exclude<MailboxState, { kind: "loading" | "refused" | "unavailable" }> {
+  return state.kind !== "loading" && state.kind !== "refused" && state.kind !== "unavailable";
+}
+
 /**
  * The consultant's own mailbox in the Outreach header: which address sends and how much of today's allowance it has
  * used, with its settings — a test email, Zoom and Disconnect — one click away.
@@ -26,11 +33,8 @@ export function MailboxChip({
   /** The mailbox is read again before Disconnect asks: runs and scheduled emails end without this page knowing. */
   onAsked: () => void;
 }) {
+  if (!mailboxChipShows(state)) return null;
   switch (state.kind) {
-    case "loading":
-    case "refused":
-    case "unavailable":
-      return null;
     case "none":
       return state.providers.length === 1 ? (
         <button
@@ -80,7 +84,7 @@ export function MailboxChip({
 }
 
 const NOT_CONNECTED_CHIP =
-  "inline-flex items-center gap-2 rounded-u-control border border-u-border px-2.5 py-1.5 text-note font-medium text-u-text2 hover:border-u-border-strong hover:text-u-text disabled:opacity-50";
+  "inline-flex h-[34px] items-center gap-2 rounded-u-control border border-u-border-strong px-3 text-note font-medium text-u-text2 hover:bg-u-raised hover:text-u-text disabled:opacity-50";
 
 function NotConnectedLabel() {
   return (
@@ -130,7 +134,7 @@ function ConnectedChip({
         width={300}
         hasPopup="dialog"
         label={`Mailbox ${connection.address}`}
-        triggerClassName="inline-flex min-w-0 max-w-full items-center gap-2 rounded-u-control border border-u-border px-2.5 py-1.5 font-mono text-note text-u-text2 hover:border-u-border-strong hover:text-u-text"
+        triggerClassName="inline-flex h-[34px] min-w-0 max-w-full items-center gap-2 rounded-u-control border border-u-border-strong px-3 font-sans text-note text-u-text transition hover:bg-u-raised"
         trigger={() => (
           <>
             <span

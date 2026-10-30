@@ -1,4 +1,3 @@
-import { Icon, ICONS } from "../../../components/layout/Icon";
 import { LinesSkeleton, SegmentedControl } from "../../../components/ui";
 import { PersonAvatar } from "../../candidates/components/pool/PersonAvatar";
 import { cn } from "../../../lib/cn";
@@ -20,7 +19,7 @@ const FILTERS: readonly { view: ConversationView; label: string }[] = [
 
 /**
  * The Outreach page's left pane: everyone on the position the team is in conversation with, newest first, narrowed
- * to what is to do — grouped by what it is — scheduled or sent, Team or Mine, with a search over names and emails.
+ * to what is to do — grouped by what it is — scheduled or sent, Team or Mine, narrowed by the header's search over names and emails.
  */
 export function ConversationListPane({
   view,
@@ -29,17 +28,16 @@ export function ConversationListPane({
   list,
   selectedCandidateId,
   onViewChange,
-  onQueryChange,
   onWhoChange,
   onSelect,
 }: {
   view: ConversationView;
   who: ConversationScope;
+  /** The header's search, which the empty line answers to. */
   query: string;
   list: { data?: ConversationList; isError: boolean; isPending: boolean; error: unknown };
   selectedCandidateId: string | null;
   onViewChange: (view: ConversationView) => void;
-  onQueryChange: (query: string) => void;
   onWhoChange: (who: ConversationScope) => void;
   onSelect: (candidateId: string) => void;
 }) {
@@ -51,18 +49,6 @@ export function ConversationListPane({
         <SegmentedControl label="Whose" options={SCOPES} value={who} onChange={onWhoChange} className="ms-auto" />
       </div>
       <div className="flex flex-col gap-2.5 px-4 pb-3 pt-2.5">
-        <label className="flex items-center gap-2 rounded-u-control border border-u-border bg-u-surface px-2.5 py-1.5">
-          <Icon d={ICONS.search} size={13} className="flex-none text-u-text3" />
-          <input
-            type="search"
-            aria-label="Search people or emails"
-            placeholder="Search people or emails…"
-            value={query}
-            maxLength={100}
-            onChange={(event) => onQueryChange(event.target.value)}
-            className="min-w-0 flex-1 bg-transparent text-note text-u-text outline-none placeholder:text-u-text3"
-          />
-        </label>
         <div role="group" aria-label="Show" className="flex flex-wrap gap-1.5">
           {FILTERS.map((filter) => {
             const isOn = filter.view === view;

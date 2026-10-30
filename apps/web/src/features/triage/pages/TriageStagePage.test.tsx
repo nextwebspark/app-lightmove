@@ -27,6 +27,8 @@ import { pickStatus } from "../../../test/pickStatus";
 import { TriageStagePage } from "./TriageStagePage";
 import * as pipelineApi from "../../pipeline/api/pipelineApi";
 import { aPipelinePage, aPipelineRow } from "../../../test/fixtures/pipelineRows";
+import * as mailboxApi from "../../outreach/api/mailboxApi";
+import type { Mailbox } from "../../outreach/api/mailboxApi";
 import * as companyNotesApi from "../api/companyNotesApi";
 import { typeInto } from "../../../test/noteEditor";
 
@@ -90,6 +92,10 @@ vi.mock("../api/companyNotesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof companyNotesApi>()),
   getCompanyNotes: vi.fn(),
   writeCompanyNote: vi.fn(),
+}));
+vi.mock("../../outreach/api/mailboxApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../outreach/api/mailboxApi")>()),
+  getMailbox: vi.fn(),
 }));
 vi.mock("../../pipeline/api/pipelineApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../pipeline/api/pipelineApi")>()),
@@ -420,11 +426,38 @@ const stageTree = (slug: string, proj: Project, search = "") => (
 
 const renderStage = (slug = "universe", proj: Project = project) => render(stageTree(slug, proj));
 
-/** Everything but the three primary actions is under Advanced ▾. */
+/** The rarer settings and data actions are under Advanced ▾. */
 const openAdvanced = async () => userEvent.click(await screen.findByRole("button", { name: /^Advanced/ }));
+
+/** Add executive and Add company are under Create ▾. */
+const openCreate = async () => userEvent.click(await screen.findByRole("button", { name: /^Create/ }));
 
 /** The strip is the nearest `role="status"` box around one of its lines. */
 const stripAround = (line: HTMLElement) => line.closest('[role="status"]') as HTMLElement;
+
+const NO_OUTREACH: Mailbox = { offered: false, providers: [], bookingLinkOffered: false, connection: null };
+
+const CONNECTED_MAILBOX: Mailbox = {
+  offered: true,
+  providers: ["google"],
+  bookingLinkOffered: false,
+  connection: {
+    address: "alok@firm.example",
+    provider: "google",
+    status: "ACTIVE",
+    dailyCap: 50,
+    timeZone: "Asia/Dubai",
+    connectedAt: "2026-10-01T09:00:00Z",
+    movesOffNylas: false,
+    runsStoppedByMove: 0,
+    liveSequences: 0,
+    livePeople: 0,
+    readsReplies: true,
+    reconnectToReadReplies: false,
+    sentToday: 0,
+    scheduledEmails: 0,
+  },
+};
 
 const SOURCING_OFF = { enabled: false, maxCompaniesPerRun: 5, hitsPerCompany: 10, picksPerCompany: 3, lostAfterSeconds: 240 };
 
@@ -470,6 +503,7 @@ describe("TriageStagePage", () => {
     vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue({ enabled: false, publicToken: null });
     vi.mocked(talentMapApi.getTalentMap).mockResolvedValue(mapPageOf());
     vi.mocked(pipelineApi.getPipeline).mockResolvedValue(aPipelinePage([]));
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue(NO_OUTREACH);
     // Off unless a test turns it on: most of this suite is about the grid, not Find executives.
     vi.mocked(sourcingApi.getSourcingConfig).mockResolvedValue(SOURCING_OFF);
     vi.mocked(sourcingApi.getLatestSourcingRun).mockResolvedValue(null);
@@ -821,7 +855,8 @@ describe("TriageStagePage", () => {
     renderStage();
 
     await screen.findByText("ACWA Power");
-    await userEvent.click(screen.getByRole("button", { name: "Add executive" }));
+    await openCreate();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Add executive" }));
 
     const form = await screen.findByRole("dialog", { name: /Add executive/i });
     expect(within(form).queryByRole("button", { name: /^No executive found$/i })).not.toBeInTheDocument();
@@ -956,7 +991,8 @@ describe("TriageStagePage", () => {
     renderStage("shortlisted");
 
     await screen.findByRole("table", { name: /Shortlisted companies/i });
-    await userEvent.click(screen.getByRole("button", { name: /Add company/i }));
+    await openCreate();
+    await userEvent.click(screen.getByRole("menuitem", { name: /^Add company/i }));
 
     const dialog = await screen.findByRole("dialog", { name: /Add a company/i });
     await userEvent.type(within(dialog).getByLabelText(/Company name/i), "acwa");
@@ -991,7 +1027,8 @@ describe("TriageStagePage", () => {
     renderStage();
 
     await screen.findByRole("table", { name: /In universe companies/i });
-    await userEvent.click(screen.getByRole("button", { name: /Add company/i }));
+    await openCreate();
+    await userEvent.click(screen.getByRole("menuitem", { name: /^Add company/i }));
 
     const dialog = await screen.findByRole("dialog", { name: /Add a company/i });
     await userEvent.type(within(dialog).getByLabelText(/Company name/i), "A Quiet Family Holding");
@@ -1013,7 +1050,8 @@ describe("TriageStagePage", () => {
     renderStage("shortlisted");
 
     await screen.findByRole("table", { name: /Shortlisted companies/i });
-    await userEvent.click(screen.getByRole("button", { name: /Add company/i }));
+    await openCreate();
+    await userEvent.click(screen.getByRole("menuitem", { name: /^Add company/i }));
 
     const dialog = await screen.findByRole("dialog", { name: /Add a company/i });
     await userEvent.type(within(dialog).getByLabelText(/Company name/i), "Gulf Industrial");
@@ -1055,7 +1093,8 @@ describe("TriageStagePage", () => {
     renderStage();
 
     await screen.findByRole("table", { name: /In universe companies/i });
-    await userEvent.click(screen.getByRole("button", { name: /Add company/i }));
+    await openCreate();
+    await userEvent.click(screen.getByRole("menuitem", { name: /^Add company/i }));
 
     const dialog = await screen.findByRole("dialog", { name: /Add a company/i });
     await userEvent.type(within(dialog).getByLabelText(/Company name/i), "Quiet Holdings");
@@ -1115,7 +1154,8 @@ describe("TriageStagePage", () => {
     renderStage();
     await screen.findByText("ACWA Power");
 
-    await userEvent.click(await screen.findByRole("button", { name: "Add executive" }));
+    await openCreate();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Add executive" }));
 
     expect(await screen.findByText(/^From brief$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR - Saudi Riyal");
@@ -1143,7 +1183,7 @@ describe("TriageStagePage", () => {
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: /Shortlist: ACWA Power/i })).not.toBeInTheDocument(),
     );
-    expect(screen.queryByRole("button", { name: /Add company/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Create/ })).not.toBeInTheDocument();
   });
 
   it("exports the stage on screen, narrowed by whatever the search box holds", async () => {
@@ -1727,7 +1767,7 @@ describe("TriageStagePage", () => {
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: /Add an executive at ACWA Power/i })).not.toBeInTheDocument(),
     );
-    expect(screen.queryByRole("button", { name: /^Add executive$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Create/ })).not.toBeInTheDocument();
   });
 
   it("renders a mandate's own columns as grid columns, with the values on the rows", async () => {
@@ -1999,22 +2039,73 @@ describe("TriageStagePage", () => {
       expect(await screen.findByText("Rania Khoury")).toBeInTheDocument();
       expect(screen.queryByRole("table", { name: /In universe companies/i })).not.toBeInTheDocument();
 
-      await userEvent.type(screen.getByRole("searchbox", { name: /^Search executives/ }), "treasury");
+      await userEvent.type(screen.getByRole("searchbox", { name: "Search companies, executives, notes, tags…" }), "treasury");
       await waitFor(() =>
         expect(pipelineApi.getPipeline).toHaveBeenLastCalledWith(
           "p1", { q: "treasury", pipelineStage: "" }, expect.anything()),
       );
 
-      // The board has no companies to add to or tick: both stay in place, greyed, saying where they work.
-      expect(screen.getByRole("button", { name: "Add company" })).toHaveAttribute("aria-disabled", "true");
-      expect(screen.getByRole("button", { name: "Add company" })).toHaveAttribute("title", "Add companies from Table or Map");
-      expect(screen.getByRole("button", { name: "Add executive" })).not.toHaveAttribute("aria-disabled");
+      // The board takes only the outreach pair: Find executives, Advanced and Create are the grid's.
+      expect(screen.queryByRole("button", { name: /Find executives/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Advanced/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Create/ })).not.toBeInTheDocument();
+    });
 
-      await openAdvanced();
-      expect(screen.getByRole("menuitemcheckbox", { name: /^Inactive column/ })).toHaveAttribute("aria-checked", "true");
-      expect(screen.queryByRole("menuitem", { name: /Show \/ hide columns/ })).not.toBeInTheDocument();
-      await userEvent.click(screen.getByRole("menuitemcheckbox", { name: /^Inactive column/ }));
-      expect(screen.getByRole("menuitemcheckbox", { name: /^Inactive column/ })).toHaveAttribute("aria-checked", "false");
+    it("greys the board's Add to sequence until an executive is ticked", async () => {
+      vi.mocked(mailboxApi.getMailbox).mockResolvedValue(CONNECTED_MAILBOX);
+      render(stageTree("universe", project, "?view=pipeline"));
+
+      const toolbarSequence = await screen.findByRole("button", { name: "Add to sequence" });
+      expect(toolbarSequence).toHaveAttribute("aria-disabled", "true");
+      expect(toolbarSequence).toHaveAttribute("title", "Tick executives on the board first");
+      expect(screen.getByRole("button", { name: "Send email" })).toBeInTheDocument();
+    });
+
+    it("holds Add to sequence greyed until a company is ticked", async () => {
+      vi.mocked(mailboxApi.getMailbox).mockResolvedValue(CONNECTED_MAILBOX);
+      renderStage();
+
+      const toolbarSequence = await screen.findByRole("button", { name: "Add to sequence" });
+      expect(toolbarSequence).toHaveAttribute("aria-disabled", "true");
+      expect(toolbarSequence).toHaveAttribute("title", "Tick companies first");
+
+      await userEvent.click(await screen.findByRole("checkbox", { name: "Select ACWA Power" }));
+      expect(toolbarSequence).not.toHaveAttribute("aria-disabled");
+      await userEvent.click(toolbarSequence);
+      expect(await screen.findByRole("dialog", { name: "Add to sequence" })).toBeInTheDocument();
+    });
+
+    it("greys Add to sequence on the map, which ticks nothing", async () => {
+      vi.mocked(mailboxApi.getMailbox).mockResolvedValue(CONNECTED_MAILBOX);
+      vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
+      renderStage();
+
+      await userEvent.click(await screen.findByRole("radio", { name: "Map" }));
+      const toolbarSequence = await screen.findByRole("button", { name: "Add to sequence" });
+      expect(toolbarSequence).toHaveAttribute("aria-disabled", "true");
+      expect(toolbarSequence).toHaveAttribute("title", "Add to sequence from Table or Pipeline");
+    });
+
+    it("writes to anyone on the position from Send email, in place", async () => {
+      vi.mocked(mailboxApi.getMailbox).mockResolvedValue(CONNECTED_MAILBOX);
+      vi.mocked(pipelineApi.getPipeline).mockResolvedValue(
+        aPipelinePage([aPipelineRow({ candidateId: "c7", fullName: "Rania Khoury", status: "contacted" })]),
+      );
+      renderStage();
+
+      await userEvent.click(await screen.findByRole("button", { name: "Send email" }));
+      await userEvent.click(await screen.findByRole("option", { name: /Rania Khoury/ }));
+
+      expect(await screen.findByRole("dialog", { name: "Email Rania Khoury" })).toBeInTheDocument();
+    });
+
+    it("offers neither outreach action where outreach is not set up", async () => {
+      renderStage();
+
+      await screen.findByText("ACWA Power");
+      await waitFor(() => expect(mailboxApi.getMailbox).toHaveBeenCalled());
+      expect(screen.queryByRole("button", { name: "Add to sequence" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Send email" })).not.toBeInTheDocument();
     });
 
     it("opens the pipeline a notification links to, on the executive's drawer", async () => {
@@ -2133,7 +2224,7 @@ describe("TriageStagePage — full screen", () => {
     renderStage();
     await userEvent.click(await screen.findByRole("button", { name: "Full screen" }));
 
-    expect(screen.getByRole("button", { name: "Add company" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Create/ })).toBeInTheDocument();
     const grid = await screen.findByRole("table", { name: /In universe companies/i });
     await userEvent.click(within(grid).getByRole("button", { name: "Company column menu" }));
     // Portalled to the body rather than nested in the grid, so it cannot be clipped by the table's own

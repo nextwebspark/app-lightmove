@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Popover } from "../../../components/ui/Popover";
+import { TOOLBAR_MENU } from "../../../components/ui/Toolbar";
 import { cn } from "../../../lib/cn";
 
 export interface AdvancedMenuItem {
@@ -20,31 +21,44 @@ export interface AdvancedMenuItem {
 }
 
 export interface AdvancedMenuSection {
+  /** Drawn as the group's heading; a menu of one unheaded group leaves it empty. */
   label: string;
   items: AdvancedMenuItem[];
 }
 
-const TRIGGER =
-  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-u-border-strong bg-u-surface " +
-  "py-2 pl-3 pr-2.5 font-sans text-body font-medium text-u-text2 transition hover:border-u-text3 hover:text-u-text " +
-  "aria-expanded:border-u-text3 aria-expanded:text-u-text";
-
 /**
- * The toolbar's Advanced ▾: whatever In universe offers beyond its three primary actions, grouped, and
+ * The toolbar's Advanced ▾: whatever In universe offers beyond its primary actions, grouped, and
  * different per view (`Position.dc.html`'s `advancedItems`). `dot` names a setting inside that is on.
  */
 export function AdvancedMenu({ sections, dot }: { sections: AdvancedMenuSection[]; dot?: string }) {
+  return <ToolbarMenu label="Advanced" icon={ICONS.sliders} width={288} sections={sections} dot={dot} />;
+}
+
+/** A toolbar menu: a quiet trigger, and grouped rows that act, switch in place or open a panel. */
+export function ToolbarMenu({
+  label,
+  icon,
+  width,
+  sections,
+  dot,
+}: {
+  label: string;
+  icon: string;
+  width: number;
+  sections: AdvancedMenuSection[];
+  dot?: string;
+}) {
   return (
     <Popover
       align="right"
-      width={288}
+      width={width}
       hasPopup="menu"
       title={dot}
-      triggerClassName={TRIGGER}
+      triggerClassName={TOOLBAR_MENU}
       trigger={(open) => (
         <>
-          <Icon d={ICONS.sliders} size={14} className="flex-none" />
-          Advanced
+          <Icon d={icon} size={15} className="flex-none" />
+          {label}
           {dot && <span aria-hidden="true" className="size-1.5 flex-none rounded-full bg-u-accent" />}
           <Icon
             d={ICONS.chevronDown}
@@ -54,12 +68,20 @@ export function AdvancedMenu({ sections, dot }: { sections: AdvancedMenuSection[
         </>
       )}
     >
-      {(close) => <AdvancedMenuPanel sections={sections} close={close} />}
+      {(close) => <ToolbarMenuPanel label={label} sections={sections} close={close} />}
     </Popover>
   );
 }
 
-function AdvancedMenuPanel({ sections, close }: { sections: AdvancedMenuSection[]; close: () => void }) {
+function ToolbarMenuPanel({
+  label,
+  sections,
+  close,
+}: {
+  label: string;
+  sections: AdvancedMenuSection[];
+  close: () => void;
+}) {
   const [openPanel, setOpenPanel] = useState<string | null>(null);
   const panelItem = sections.flatMap((section) => section.items).find((item) => item.key === openPanel);
 
@@ -81,11 +103,11 @@ function AdvancedMenuPanel({ sections, close }: { sections: AdvancedMenuSection[
   }
 
   return (
-    <div role="menu" aria-label="Advanced">
+    <div role="menu" aria-label={label}>
       {sections.map((section, index) => (
-        <div key={section.label} role="group" aria-label={section.label}>
+        <div key={section.label || index} role="group" aria-label={section.label || undefined}>
           {index > 0 && <div className="mx-1 my-1.5 h-px bg-u-border" />}
-          <div className="px-2 pb-1 pt-2 type-micro-label text-u-text3">{section.label}</div>
+          {section.label && <div className="px-2 pb-1 pt-2 type-micro-label text-u-text3">{section.label}</div>}
           {section.items.map((item) => (
             <MenuRow
               key={item.key}

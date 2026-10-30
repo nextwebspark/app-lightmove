@@ -1,9 +1,9 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
-import { Navigate, useLocation, useNavigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useOutletContext, useParams, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { ICONS } from "../../../components/layout/Icon";
-import { FullscreenButton } from "../../../components/ui";
+import { FullscreenButton, TOOLBAR_OUTLINE } from "../../../components/ui";
 import { ColumnPickerList, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { SelectionAction, SelectionActionBar } from "../../../components/ui/SelectionActionBar";
@@ -29,9 +29,13 @@ import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import { useDeleteCustomColumn } from "../../customcolumns/lib/useDeleteCustomColumn";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import * as positionApi from "../../position/api/positionApi";
+import { EmailComposerDialog } from "../../outreach/components/EmailComposerDialog";
 import { EnrolDialog } from "../../outreach/components/EnrolDialog";
+import { NewEmailButton, type EmailRecipient } from "../../outreach/components/NewEmailButton";
+import { mailboxStateOf } from "../../outreach/lib/mailboxState";
 import { refreshOutreachActivity } from "../../outreach/lib/outreachRefresh";
 import { useMailbox } from "../../outreach/lib/useMailbox";
+import { useMailboxConnect } from "../../outreach/lib/useMailboxConnect";
 import { canExecuteProjectWork } from "../../projects/lib/access";
 import { isArchived } from "../../projects/lib/filtering";
 import { PipelineView } from "../../pipeline/components/PipelineView";
@@ -54,7 +58,7 @@ import { ImportSpreadsheetDialog } from "../components/ImportSpreadsheetDialog";
 import { ManageColumnsDialog } from "../components/ManageColumnsDialog";
 import { RemoveCompanyDialog } from "../components/RemoveCompanyDialog";
 import { TriageCompanyTable } from "../components/TriageCompanyTable";
-import { TriageToolbar } from "../components/TriageToolbar";
+import { TriageToolbar, type UnavailableAction } from "../components/TriageToolbar";
 import {
   createTriageCompanyColumns,
   defaultTriageColumnVisibility,
@@ -183,6 +187,7 @@ function TriageStage() {
   const companySelection = useCompanySelection();
   const [confirmingFindExecutives, setConfirmingFindExecutives] = useState(false);
   const [enrolment, setEnrolment] = useState<Enrolment | null>(null);
+  const [emailing, setEmailing] = useState<EmailRecipient | null>(null);
   const [pipelineSelection, setPipelineSelection] = useState<ReadonlySet<string>>(() => new Set());
   const [inactiveOpen, setInactiveOpen] = useState(true);
   const [managingColumns, setManagingColumns] = useState(false);
@@ -215,6 +220,7 @@ function TriageStage() {
   const { views, mapConfig } = useCompaniesViews(stage.status, canWrite);
   const requestedView = searchParams.get("view");
   const view = resolveCompaniesView(views, requestedView, mapPreferences.view);
+  const isBoard = view === "pipeline";
   // A chosen view is remembered once the page shows it, never while it is only the fallback of a map config still
   // loading — and only on In universe, the one stage with views to remember.
   const { state: locationState } = useLocation();
@@ -229,7 +235,6 @@ function TriageStage() {
     companySelection.clear();
     setPipelineSelection(new Set());
   }
-  const navigate = useNavigate();
   const handleViewChange = (next: CompaniesView) => {
     setSearchParams(
       (current) => {
@@ -421,12 +426,10 @@ function TriageStage() {
   const findExecutivesOffered = canWrite && stage.status === "inUniverse" && sourcing.offered;
   const findExecutivesCap = sourcing.config?.maxCompaniesPerRun ?? 0;
   const mailbox = useMailbox(canWrite);
+  const mailboxConnect = useMailboxConnect();
+  const emailOffered = canWrite && mailbox.data?.offered === true && !isArchived(project);
   /** Ticked companies' or executives' people go to Add to sequence; never from Declined. */
-  const addToSequenceOffered =
-    canWrite &&
-    stage.status !== "declined" &&
-    mailbox.data?.offered === true &&
-    !isArchived(project);
+  const addToSequenceOffered = emailOffered && stage.status !== "declined";
   const selectionOffered = view === "table" && (findExecutivesOffered || addToSequenceOffered);
   const selectionCap = addToSequenceOffered ? Math.max(findExecutivesCap, ADD_TO_SEQUENCE_COMPANY_CAP) : findExecutivesCap;
   const selectionAction = addToSequenceOffered ? "Add to sequence" : "Find executives";
@@ -710,7 +713,15 @@ function TriageStage() {
     });
   };
 
-  /** What Advanced ▾ holds, per view (`Position.dc.html`'s `advancedItems`): only what that view can use. */
+  /** The toolbar's Add to sequence, greyed with the way in until something is ticked; the map ticks nothing. */
+  const toolbarEnrolUnavailable = (): UnavailableAction | undefined => {
+    if (view === "map") return { reason: "Add to sequence from Table or Pipeline" };
+    const ticked = view === "pipeline" ? pipelineSelection.size : companySelection.selectedIds.size;
+    if (ticked > 0) return undefined;
+    return { reason: view === "pipeline" ? "Tick executives on the board first" : "Tick companies first" };
+  };
+
+  /** What Advanced ▾ holds on Table and Map (`Position.dc.html`'s `advancedItems`): only what that view can use. */
   const advancedSections = (): AdvancedMenuSection[] => {
     const sections: AdvancedMenuSection[] = [];
     if (view === "table") {
@@ -765,30 +776,9 @@ function TriageStage() {
           },
         ],
       });
-    } else {
-      sections.push({
-        label: "Board",
-        items: [
-          {
-            key: "inactive",
-            label: "Inactive column",
-            icon: ICONS.eyeOff,
-            hint: "Executives at an out-of-process status",
-            checked: inactiveOpen,
-            onSelect: () => setInactiveOpen((open) => !open),
-          },
-          {
-            key: "stages",
-            label: "Edit pipeline stages…",
-            icon: ICONS.settings,
-            hint: "Workspace settings",
-            onSelect: () => navigate("/settings/pipeline-stages"),
-          },
-        ],
-      });
     }
-    if (addToSequenceOffered && view !== "map") {
-      const ticked = view === "pipeline" ? pipelineSelection.size : companySelection.selectedIds.size;
+    if (addToSequenceOffered && view === "table") {
+      const ticked = companySelection.selectedIds.size;
       sections.push({
         label: "Outreach",
         items: [
@@ -797,12 +787,7 @@ function TriageStage() {
             label: "Add to sequence…",
             icon: ICONS.outreach,
             disabled: ticked === 0,
-            hint:
-              ticked > 0
-                ? `${ticked} ticked`
-                : view === "pipeline"
-                  ? "Tick executives on the board first"
-                  : "Tick companies first",
+            hint: ticked > 0 ? `${ticked} ticked` : "Tick companies first",
             onSelect: enrolTicked,
           },
         ],
@@ -849,35 +834,45 @@ function TriageStage() {
       <TriageToolbar
         search={search}
         onSearch={setSearch}
-        searchPlaceholder={
-          !canWrite
-            ? "Search companies and executives…"
-            : view === "pipeline"
-              ? "Search executives, companies, notes, tags…"
-              : "Search companies, executives, notes, tags…"
-        }
+        searchPlaceholder={!canWrite ? "Search companies and executives…" : "Search companies, executives, notes, tags…"}
         views={views}
         view={view}
         onViewChange={handleViewChange}
         isFullscreen={isFullscreen}
-        canWrite={canWrite}
-        onAddCompany={() => setOpenCompany({ company: null })}
-        addCompanyUnavailable={view === "pipeline" ? { reason: "Add companies from Table or Map" } : undefined}
-        onAddExecutive={() => setProfile({ candidate: null, company: null })}
+        addToSequence={addToSequenceOffered ? { onPress: enrolTicked, unavailable: toolbarEnrolUnavailable() } : undefined}
+        sendEmail={
+          emailOffered && (
+            <NewEmailButton
+              projectId={project.id}
+              mailbox={mailboxStateOf(mailbox)}
+              connector={mailboxConnect}
+              onPick={setEmailing}
+              label="Send email"
+              icon={ICONS.mail}
+              triggerClassName={TOOLBAR_OUTLINE}
+            />
+          )
+        }
+        create={
+          canWrite && !isBoard
+            ? {
+                onAddExecutive: () => setProfile({ candidate: null, company: null }),
+                onAddCompany: () => setOpenCompany({ company: null }),
+              }
+            : undefined
+        }
         findExecutives={
-          findExecutivesOffered
+          findExecutivesOffered && !isBoard
             ? {
                 onPress: handleFindExecutives,
                 running: sourcing.isRunning,
                 progress: sourcing.run && sourcing.isRunning
                   ? `${sourcing.run.companiesDone}/${sourcing.run.companiesTotal}`
                   : undefined,
-                unavailable:
-                  view === "pipeline" ? { reason: "Find executives from Table, where companies are ticked" } : undefined,
               }
             : undefined
         }
-        advanced={advancedSections()}
+        advanced={isBoard ? undefined : advancedSections()}
         advancedDot={
           view === "table" && hiddenColumnCount > 0
             ? `${hiddenColumnCount} column${hiddenColumnCount === 1 ? "" : "s"} hidden`
@@ -1098,6 +1093,15 @@ function TriageStage() {
           trailing={<FullscreenButton active={isFullscreen} onToggle={toggleFullscreen} />}
         />
       </div>
+      )}
+
+      {emailing && (
+        <EmailComposerDialog
+          projectId={project.id}
+          candidateId={emailing.candidateId}
+          fullName={emailing.fullName}
+          onClose={() => setEmailing(null)}
+        />
       )}
 
       {enrolment && (

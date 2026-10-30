@@ -26,7 +26,7 @@ import { mailboxStateOf } from "../lib/mailboxState";
 import { useMailbox } from "../lib/useMailbox";
 import { useMailboxConnect } from "../lib/useMailboxConnect";
 import { MailboxBanner } from "../components/MailboxBanner";
-import { MailboxChip } from "../components/MailboxChip";
+import { MailboxChip, mailboxChipShows } from "../components/MailboxChip";
 import { OutreachHeader } from "../components/OutreachHeader";
 import { SequenceStatePill } from "../components/SequenceStatePill";
 
@@ -82,9 +82,15 @@ export function SequenceEditorPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <OutreachHeader projectId={project.id} section="sequences">
-        <MailboxChip state={mailboxState} connector={connector} onAsked={() => void mailbox.refetch()} />
-      </OutreachHeader>
+      <OutreachHeader
+        projectId={project.id}
+        section="sequences"
+        chip={
+          mailboxChipShows(mailboxState) && (
+            <MailboxChip state={mailboxState} connector={connector} onAsked={() => void mailbox.refetch()} />
+          )
+        }
+      />
       <MailboxBanner state={mailboxState} connector={connector} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         {sequenceId !== NEW_SEQUENCE && !sequence.data ? (

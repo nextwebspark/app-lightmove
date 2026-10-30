@@ -1,7 +1,9 @@
 import type { ColumnVisibilityState } from "@tanstack/react-table";
 import { Icon, ICONS } from "../layout/Icon";
+import { cn } from "../../lib/cn";
 import { Popover } from "./Popover";
 import { FilterCheckRow } from "./FilterCheckRow";
+import { TOOLBAR_COUNT, TOOLBAR_COUNT_ACCENT, TOOLBAR_MENU } from "./Toolbar";
 
 /** One column a user may turn off: the table's column id, and the header it is known by. */
 export interface HideableColumn {
@@ -25,6 +27,7 @@ export function ColumnPicker({
   defaults,
   onChange,
   onResetLayout,
+  variant = "default",
 }: {
   columns: HideableColumn[];
   visibility: ColumnVisibilityState;
@@ -33,7 +36,10 @@ export function ColumnPicker({
   onChange: (visibility: ColumnVisibilityState) => void;
   /** Also puts back the widths and order the user dragged, so one button undoes every column change. */
   onResetLayout?: () => void;
+  /** `toolbar` is the shared toolbar row's quiet menu (`Toolbar.tsx`), with a neutral count and a chevron. */
+  variant?: "default" | "toolbar";
 }) {
+  const isToolbar = variant === "toolbar";
   // Absent means visible: the state records only the exceptions.
   const isVisible = (id: string) => visibility[id] !== false;
   const hiddenCount = columns.filter((column) => !isVisible(column.id)).length;
@@ -42,15 +48,24 @@ export function ColumnPicker({
     <Popover
       align="right"
       width={220}
-      triggerClassName="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] p-2 font-sans text-[13px] text-u-text3 transition hover:bg-u-surface hover:text-u-text"
-      trigger={() => (
+      triggerClassName={
+        isToolbar
+          ? TOOLBAR_MENU
+          : "inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] p-2 font-sans text-[13px] text-u-text3 transition hover:bg-u-surface hover:text-u-text"
+      }
+      trigger={(open) => (
         <>
-          <Icon d={ICONS.columns} size={14} className="flex-none" />
+          <Icon d={ICONS.columns} size={isToolbar ? 15 : 14} className="flex-none" />
           Columns
           {hiddenCount > 0 && (
-            <span className="rounded-[4px] bg-u-accent-tint px-[5px] py-[2px] font-sans text-[10px] font-bold text-u-accent">
-              {hiddenCount} hidden
-            </span>
+            <span className={isToolbar ? TOOLBAR_COUNT : TOOLBAR_COUNT_ACCENT}>{hiddenCount} hidden</span>
+          )}
+          {isToolbar && (
+            <Icon
+              d={ICONS.chevronDown}
+              size={12}
+              className={cn("flex-none text-u-text3 transition-transform", open && "rotate-180")}
+            />
           )}
         </>
       )}

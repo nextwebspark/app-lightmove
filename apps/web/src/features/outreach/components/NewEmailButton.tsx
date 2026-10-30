@@ -3,6 +3,7 @@ import { useId, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { LinesSkeleton } from "../../../components/ui";
 import { Popover } from "../../../components/ui/Popover";
+import { TOOLBAR_PRIMARY } from "../../../components/ui/Toolbar";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import * as pipelineApi from "../../pipeline/api/pipelineApi";
@@ -10,41 +11,56 @@ import { PersonAvatar } from "../../candidates/components/pool/PersonAvatar";
 import type { PipelineRow } from "../../pipeline/api/types";
 import type { MailboxState } from "../lib/mailboxState";
 import type { MailboxConnect } from "../lib/useMailboxConnect";
-import { ConnectFirstButton, mailboxBlockerOf } from "./ConnectFirstButton";
-import { OUTREACH_PRIMARY_ACTION } from "./OutreachHeader";
+import { ConnectFirstButton, mailboxBlockerOf, WAITING_ON_MAILBOX } from "./ConnectFirstButton";
 
 /** Who is offered before anything is typed: the newest on the position, the likeliest first approach. */
 const SUGGESTED = 5;
 /** Matches drawn at once; a position of hundreds is narrowed by typing, never by scrolling. */
 const SHOWN = 8;
 
+/** Who the picker chose. */
+export interface EmailRecipient {
+  candidateId: string;
+  fullName: string;
+}
+
 /**
- * The Conversations view's action: type anyone on the position — however many it maps — and their conversation opens
- * ready to write. While no mailbox can send, it offers the connection instead.
+ * Type anyone on the position — however many it maps — and write to them: the Conversations view's New email, and
+ * In universe's Send email. While no mailbox can send, it offers the connection instead.
  */
 export function NewEmailButton({
   projectId,
   mailbox,
   connector,
   onPick,
+  label = "New email",
+  icon = ICONS.plus,
+  triggerClassName = TOOLBAR_PRIMARY,
 }: {
   projectId: string;
   mailbox: MailboxState;
   connector: MailboxConnect;
-  onPick: (candidateId: string) => void;
+  onPick: (recipient: EmailRecipient) => void;
+  label?: string;
+  icon?: string;
+  triggerClassName?: string;
 }) {
-  const label = (
+  const content = (
     <>
-      <Icon d={ICONS.plus} size={13} />
-      New email
+      <Icon d={icon} size={14} className="flex-none" />
+      {label}
     </>
   );
   if (mailbox.kind === "unavailable") return null;
   const blocker = mailboxBlockerOf(mailbox);
   if (blocker) {
     return (
-      <ConnectFirstButton state={blocker} connector={connector}>
-        {label}
+      <ConnectFirstButton
+        state={blocker}
+        connector={connector}
+        triggerClassName={cn(WAITING_ON_MAILBOX, "h-[34px] py-0 text-body")}
+      >
+        {content}
       </ConnectFirstButton>
     );
   }
@@ -54,15 +70,15 @@ export function NewEmailButton({
       width={340}
       hasPopup="dialog"
       disabled={mailbox.kind === "loading"}
-      triggerClassName={cn(OUTREACH_PRIMARY_ACTION, "disabled:opacity-50")}
-      trigger={() => label}
+      triggerClassName={cn(triggerClassName, "disabled:opacity-50")}
+      trigger={() => content}
     >
       {(close) => (
         <PersonPicker
           projectId={projectId}
-          onPick={(candidateId) => {
+          onPick={(recipient) => {
             close();
-            onPick(candidateId);
+            onPick(recipient);
           }}
         />
       )}
@@ -70,7 +86,7 @@ export function NewEmailButton({
   );
 }
 
-function PersonPicker({ projectId, onPick }: { projectId: string; onPick: (candidateId: string) => void }) {
+function PersonPicker({ projectId, onPick }: { projectId: string; onPick: (recipient: EmailRecipient) => void }) {
   const listId = useId();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -93,7 +109,7 @@ function PersonPicker({ projectId, onPick }: { projectId: string; onPick: (candi
       setActive(Math.max(highlighted - 1, 0));
     } else if (event.key === "Enter" && shown[highlighted]) {
       event.preventDefault();
-      onPick(shown[highlighted].candidateId);
+      onPick(shown[highlighted]);
     }
   };
 
@@ -143,7 +159,7 @@ function PersonPicker({ projectId, onPick }: { projectId: string; onPick: (candi
                 aria-selected={index === highlighted}
                 onMouseEnter={() => setActive(index)}
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={() => onPick(row.candidateId)}
+                onClick={() => onPick(row)}
                 className={cn(
                   "flex cursor-pointer items-center gap-2.5 rounded-u-control px-2 py-1.5",
                   index === highlighted && "bg-u-raised",

@@ -206,6 +206,30 @@ describe("StrategyPage — People mode", () => {
     expect(vi.mocked(peopleApi.searchPeople).mock.calls.at(-1)).toEqual(["p1", 2]);
   });
 
+  it("searches a name from the toolbar: typing keeps it on the filter, Enter brings the top 25", async () => {
+    const user = userEvent.setup();
+    vi.mocked(peopleApi.searchPeople).mockResolvedValueOnce(pageOf(1, [personOf("first")]));
+    renderPeopleMode();
+    await screen.findByText("1,240");
+
+    await user.type(screen.getByRole("searchbox", { name: "Search people by name" }), "Sara{Enter}");
+
+    expect((await screen.findAllByText("Person first")).length).toBeGreaterThan(0);
+    expect(peopleApi.putPeopleFilter).toHaveBeenLastCalledWith("p1", { ...CFO_FILTER, name: "Sara" });
+    expect(vi.mocked(peopleApi.searchPeople).mock.calls).toEqual([["p1", 1]]);
+  });
+
+  it("counts the rail's panels in force beside Hide Filters, the name being the toolbar's own", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(strategyOf({ ...CFO_FILTER, name: "Sara" }));
+    renderPeopleMode();
+
+    await waitFor(() =>
+      expect(screen.getByRole("searchbox", { name: "Search people by name" })).toHaveValue("Sara"),
+    );
+    expect(within(screen.getByRole("button", { name: /Hide Filters/ })).getByText("2")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Name" })).not.toBeInTheDocument();
+  });
+
   it("opens on the people already bought for the saved filter, without a search", async () => {
     vi.mocked(peopleApi.getPeopleResults).mockResolvedValue({
       pages: [pageOf(1, [personOf("first")], 0), pageOf(2, [personOf("second")], 0)],
