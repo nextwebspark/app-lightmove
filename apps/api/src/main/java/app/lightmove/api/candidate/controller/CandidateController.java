@@ -3,6 +3,7 @@ package app.lightmove.api.candidate.controller;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
+import app.lightmove.api.candidate.dto.HeldCandidateResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateTriageStatusRequest;
@@ -75,6 +76,20 @@ public class CandidateController {
         ProjectAudience audience = audienceOf(principal, projectId);
         CandidatesResponse found = candidates.list(principal.requireWorkspaceId(), projectId, criteria, audience);
         return audience == ProjectAudience.STAFF ? candidates.withAddedBy(principal.requireWorkspaceId(), projectId, found) : found;
+    }
+
+    /**
+     * Whether this position already maps the profile at {@code linkedinUrl}: the plugin asks before it offers to file
+     * someone, and opens their record instead. 204 when it does not.
+     */
+    @GetMapping("/held")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public ResponseEntity<HeldCandidateResponse> held(@AuthenticationPrincipal AuthPrincipal principal,
+                                                      @PathVariable UUID projectId,
+                                                      @RequestParam String linkedinUrl) {
+        return candidates.heldAt(principal.requireWorkspaceId(), projectId, linkedinUrl)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     /** One executive whole — the report opens a person from a figure that carries only their id. */

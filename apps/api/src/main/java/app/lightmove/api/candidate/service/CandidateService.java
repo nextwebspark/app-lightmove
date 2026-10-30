@@ -11,6 +11,7 @@ import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.AddedByResponse;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
+import app.lightmove.api.candidate.dto.HeldCandidateResponse;
 import app.lightmove.api.candidate.dto.MapPeopleToPositionResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
@@ -272,6 +273,25 @@ public class CandidateService {
             throw ApiException.of(ErrorCode.NOT_FOUND);
         }
         return responses.toDto(candidate);
+    }
+
+    /**
+     * The executive this position already maps at {@code linkedinUrl}'s profile, if any: what the plugin asks
+     * before it offers to file someone. Settled on the slug as {@link #refuseHeldProfile} is, so it finds the row
+     * a save from the same page would collide with.
+     */
+    @Transactional(readOnly = true)
+    public Optional<HeldCandidateResponse> heldAt(UUID workspaceId, UUID projectId, String linkedinUrl) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
+        if (slug == null) {
+            return Optional.empty();
+        }
+        return candidates.findByProjectIdAndProfileSlugLike(projectId, slug).stream()
+                .filter(held -> slug.equals(LinkedInUrls.profileSlugOrNull(held.getPerson().getLinkedinUrl())))
+                .findFirst()
+                .map(held -> new HeldCandidateResponse(responses.toDto(held), adderOf(projectId, held.getId()),
+                        employerResolver.logoOfMapping(workspaceId, held)));
     }
 
     /**
@@ -942,6 +962,16 @@ public class CandidateService {
      * <p>{@code selfId} is the row being edited, excluded so that saving someone without changing
      * their URL does not collide with themselves.
      */
+    private AddedByResponse adderOf(UUID projectId, UUID candidateId) {
+        return candidates.findAttributionByProjectIdAndIdIn(projectId, List.of(candidateId)).stream()
+                .map(CandidateAttribution::getAddedBy)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .flatMap(users::findById)
+                .map(adder -> new AddedByResponse(adder.getId(), adder.getFullName(), adder.getAvatarUrl()))
+                .orElse(null);
+    }
+
     private void refuseHeldProfile(UUID projectId, String linkedinUrl, UUID selfId) {
         String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
         if (slug == null) {
