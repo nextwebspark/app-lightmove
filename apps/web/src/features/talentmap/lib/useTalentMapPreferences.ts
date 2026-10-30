@@ -22,8 +22,8 @@ export function useTalentMapPreferences(projectId: string) {
   // The mandate is held beside the preferences rather than read once on mount: a caller that keeps
   // this hook across a project switch would otherwise write the old mandate's habits under the new
   // mandate's key, overwriting what that project had saved.
-  const [held, setHeld] = useState(() => ({ projectId, preferences: read(projectId) }));
-  const preferences = held.projectId === projectId ? held.preferences : read(projectId);
+  const [held, setHeld] = useState(() => ({ projectId, preferences: readTalentMapPreferences(projectId) }));
+  const preferences = held.projectId === projectId ? held.preferences : readTalentMapPreferences(projectId);
   if (held.projectId !== projectId) {
     setHeld({ projectId, preferences });
   }
@@ -46,7 +46,8 @@ export function useTalentMapPreferences(projectId: string) {
   return [preferences, update] as const;
 }
 
-function read(projectId: string): TalentMapPreferences {
+/** What is stored for a mandate, read fresh: the rail reads the view the page last chose without holding its own copy. */
+export function readTalentMapPreferences(projectId: string): TalentMapPreferences {
   try {
     const raw = localStorage.getItem(storageKey(projectId));
     if (!raw) return DEFAULTS;

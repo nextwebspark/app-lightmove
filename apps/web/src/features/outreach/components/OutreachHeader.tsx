@@ -15,9 +15,9 @@ export const OUTREACH_PRIMARY_ACTION =
   "inline-flex flex-none items-center gap-1.5 whitespace-nowrap rounded-u-control border border-u-accent-solid bg-u-accent-solid px-3 py-1.5 text-note font-medium text-white hover:bg-u-accent-solid-hover";
 
 /**
- * The header both Outreach views share, the sequence editor under Sequences included: Conversations or Sequences, and
- * whatever the view puts beside it — the mailbox chip and its own action. Sequences from the editor is the way back
- * to the list.
+ * The header both Outreach views share, the sequence editor under Sequences included: the mailbox chip and the view's
+ * own action. From `lg` the rail holds Conversations and Sequences; below it, where there is no rail, the header's
+ * switch does, and Sequences from the editor is the way back to the list.
  */
 export function OutreachHeader({
   projectId,
@@ -37,6 +37,7 @@ export function OutreachHeader({
         label="Outreach view"
         options={SECTIONS}
         value={section}
+        className="lg:hidden"
         onChange={(next) => {
           const to = next === "sequences" ? `${base}/sequences` : base;
           if (pathname.replace(/\/$/, "") !== to) navigate(to);
