@@ -909,7 +909,7 @@ function HeaderMenu<TData extends RowData>({
       label={`${titleOf(column)} column menu`}
       align="left"
       width={asHeader ? 220 : 190}
-      hasPopup={asHeader ? "menu" : undefined}
+      hasPopup={asHeader ? "dialog" : undefined}
       trigger={() =>
         asHeader ? (
           <>

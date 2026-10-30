@@ -6,6 +6,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { useToast } from "../../../components/ui/Toast";
 import { messageFor } from "../../../lib/errorCodes";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
+import { useDeleteCustomColumn } from "../../customcolumns/lib/useDeleteCustomColumn";
 import type {
   CustomColumn,
   CustomColumnTarget,
@@ -108,14 +109,7 @@ export function ManageColumnsDialog({
     onError: (error) => toast.error(messageFor(error)),
   });
 
-  const remove = useMutation({
-    mutationFn: (id: string) => customColumnsApi.deleteCustomColumn(projectId, id),
-    onSuccess: () => {
-      refresh();
-      toast("Column removed. The values stay on the rows.");
-    },
-    onError: (error) => toast.error(messageFor(error)),
-  });
+  const remove = useDeleteCustomColumn(projectId);
 
   /**
    * Moves one column and sends the whole resulting order. Scoped to its own grid, because the two
@@ -217,7 +211,7 @@ export function ManageColumnsDialog({
                   </button>
                   <button
                     type="button"
-                    onClick={() => remove.mutate(column.id)}
+                    onClick={() => remove.mutate(column)}
                     disabled={remove.isPending}
                     className={`${ROW_BUTTON} text-u-offlimits hover:border-u-offlimits`}
                   >

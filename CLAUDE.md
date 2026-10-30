@@ -44,8 +44,8 @@ companies, added by hand from the Companies grid — where a row is a *person at
 with three of them is three lines and one with none keeps its "Add executive" slot. The grid reads those lines whole —
 `GET …/triage/lines` (`pairing`'s `StageLinesService`) pairs the stage and orders it as one list by the sorted column,
 so Executive or Title sorts the people whatever company they sit at, text naturally (`NaturalTextOrder`: case aside,
-numbers by value) — and its header opens the column's menu (sort, move, freeze, filter, hide; a mandate's own column
-edits and deletes there). **Each executive holds a stage
+numbers by value) — and its header opens the column's menu (sort, move, freeze, hide, and the Company, Executive and Status
+filters; a mandate's own column edits there and deletes with an Undo). **Each executive holds a stage
 of their own** (V150, #903): their company's when filed or remapped, then wherever their line's own Shortlist /
 Decline / Back to universe sent them (`PUT …/candidates/{id}/triage-status`) — a line's buttons and trash act on its
 person alone. A stage lists its own companies plus any company with someone listed there; the company's own move

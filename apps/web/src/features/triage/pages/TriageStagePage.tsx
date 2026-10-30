@@ -26,6 +26,7 @@ import {
 import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandidateDialog";
 import { useChangeCandidateStatus } from "../../candidates/lib/useChangeCandidateStatus";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
+import { useDeleteCustomColumn } from "../../customcolumns/lib/useDeleteCustomColumn";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import * as positionApi from "../../position/api/positionApi";
 import { EnrolDialog } from "../../outreach/components/EnrolDialog";
@@ -560,14 +561,11 @@ function TriageStage() {
 
   const rows = useMemo(() => {
     const addedBy = lines.data?.addedBy ?? {};
-    return (lines.data?.lines ?? []).map(
-      (line) =>
-        ({
-          company: line.company,
-          candidate: line.candidate,
-          candidateAddedBy: line.candidate ? addedBy[line.candidate.id] : undefined,
-        }) as TriageCompanyRow,
-    );
+    return (lines.data?.lines ?? []).flatMap((line): TriageCompanyRow[] => {
+      const candidateAddedBy = line.candidate ? addedBy[line.candidate.id] : undefined;
+      if (line.company) return [{ company: line.company, candidate: line.candidate, candidateAddedBy }];
+      return line.candidate ? [{ company: null, candidate: line.candidate, candidateAddedBy }] : [];
+    });
   }, [lines.data]);
 
   /**
@@ -693,15 +691,7 @@ function TriageStage() {
 
   const changeCandidateStatus = useChangeCandidateStatus(project.id, refreshPeople);
 
-  /** As Manage custom columns removes one: the definition goes and the values stay on the rows, so nothing asks. */
-  const deleteColumn = useMutation({
-    mutationFn: (customColumnId: string) => customColumnsApi.deleteCustomColumn(project.id, customColumnId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: customColumnsApi.CUSTOM_COLUMNS_KEY(project.id) });
-      toast("Column removed. The values stay on the rows.");
-    },
-    onError: (error) => toast.error(messageFor(error)),
-  });
+  const deleteColumn = useDeleteCustomColumn(project.id);
 
   const togglePipelineSelected = (candidateId: string) =>
     setPipelineSelection((current) => {
@@ -1026,7 +1016,14 @@ function TriageStage() {
             setEditColumnId(customColumnId);
             setManagingColumns(true);
           }}
-          onDeleteColumn={canWrite ? (customColumnId) => deleteColumn.mutate(customColumnId) : undefined}
+          onDeleteColumn={
+            canWrite
+              ? (customColumnId) => {
+                  const column = customColumns.find((entry) => entry.id === customColumnId);
+                  if (column) deleteColumn.mutate(column);
+                }
+              : undefined
+          }
           onMove={(company, status) => {
             markBusy(company.id);
             move.mutate({ company, status });
@@ -1204,7 +1201,6 @@ function TriageStage() {
     </div>
   );
 }
-
 
 function executivesOf(count: number): string {
   return count === 1 ? "1 executive" : `${count} executives`;

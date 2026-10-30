@@ -3,6 +3,7 @@ package app.lightmove.api.triagecompany.dto;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import lombok.With;
 
 /**
  * A triaged company from its stored snapshot. {@code id} is the triage row's, not the company's;
@@ -14,7 +15,7 @@ public record TriageCompanyResponse(
         String apolloAccountId,
         String source,
         String status,
-        Integer noteCount,
+        @With Integer noteCount,
         boolean noExecutiveFound,
         String companyName,
         String industry,
@@ -33,12 +34,4 @@ public record TriageCompanyResponse(
         UUID addedByUserId,
         String addedByName,
         String addedByAvatarUrl
-) {
-
-    public TriageCompanyResponse withNoteCount(Integer count) {
-        return new TriageCompanyResponse(id, apolloAccountId, source, status, count, noExecutiveFound, companyName,
-                industry, companyCountry, companyCity, numEmployees, annualRevenue, website, companyLinkedinUrl,
-                foundedYear, shortDescription, sourceUrl, logoUrl, customFields, addedAt, addedByUserId, addedByName,
-                addedByAvatarUrl);
-    }
-}
+) {}

@@ -47,6 +47,7 @@ vi.mock("../../customcolumns/api/customColumnsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof customColumnsApi>()),
   getCustomColumns: vi.fn(),
   deleteCustomColumn: vi.fn(),
+  defineCustomColumn: vi.fn(),
 }));
 vi.mock("../api/exportApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/exportApi")>()),
@@ -1554,7 +1555,7 @@ describe("TriageStagePage", () => {
     );
   });
 
-  it("deletes a mandate's own column from its header menu, and offers no delete on a built-in one", async () => {
+  it("deletes a mandate's own column from its header menu with an Undo, and offers no delete on a built-in one", async () => {
     vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [ethnicity] });
     vi.mocked(customColumnsApi.deleteCustomColumn).mockResolvedValue(undefined);
     renderStage();
@@ -1567,6 +1568,16 @@ describe("TriageStagePage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Delete column" }));
 
     await waitFor(() => expect(customColumnsApi.deleteCustomColumn).toHaveBeenCalledWith("p1", "cc1"));
+
+    vi.mocked(customColumnsApi.defineCustomColumn).mockResolvedValue(ethnicity);
+    await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() =>
+      expect(customColumnsApi.defineCustomColumn).toHaveBeenCalledWith("p1", {
+        target: "candidate",
+        label: "Ethnicity",
+        dataType: "text",
+      }),
+    );
   });
 
   it("opens a company as a read-only panel from its name", async () => {
