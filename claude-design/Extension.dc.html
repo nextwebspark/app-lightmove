@@ -51,11 +51,11 @@
       <div>
         <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Browser extension · Chrome side panel</div>
         <h1 style="font:700 26px/1.15 var(--sans);letter-spacing:-.02em;margin:9px 0 0">UNCAVA Capture</h1>
-        <p style="font:400 13px/1.6 var(--sans);color:var(--text2);max-width:640px;margin:8px 0 0">The side panel, drawn at 400 × 600 and always dark. It reads the LinkedIn profile or company page the consultant is on — a name, and the URL sent unshown — and files it into a mandate. It is paired to the workspace through the /extension/connect page below, never by sharing the app's cookie.</p>
+        <p style="font:400 13px/1.6 var(--sans);color:var(--text2);max-width:680px;margin:8px 0 0">The side panel, drawn at 400 × 640 and always dark. The position is the panel's context, chosen at the top before anything else and kept until changed. Below it, the LinkedIn profile or company page the consultant is on: a person is filed with the workspace's own pipeline status, its tags and a note; a company goes into the universe with a note. The note is the app's own composer — kinds, formatting, @mentions, who reads it. Once filed, the panel stays on the record: the position's notes on that person or company, added to, edited, pinned and deleted with Undo.</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <span style="display:inline-flex;align-items:center;padding:5px 11px;border-radius:6px;background:var(--panel2);border:1px solid var(--line-soft);font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">{{ stateCount }}</span>
-        <button onClick="{{ toggleTheme }}" style="display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--text2);font:500 12px var(--sans);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">{{ themeLabel }}</button>
+        <button onClick="{{ toggleTheme }}" style="display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--text2);font:500 12px var(--sans);cursor:pointer">{{ themeLabel }}</button>
       </div>
     </div>
   </sc-if>
@@ -65,7 +65,7 @@
       <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:0 0 14px">Side panel</div>
     </sc-if>
     <div style="{{ popupRowStyle }}">
-      <sc-for list="{{ popupFrames }}" as="it" hint-placeholder-count="10">
+      <sc-for list="{{ popupFrames }}" as="it" hint-placeholder-count="12">
         <div style="width:400px;flex:none">
           <sc-if value="{{ it.showCaption }}" hint-placeholder-val="{{ true }}">
             <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
@@ -73,206 +73,447 @@
               <span style="font:400 11.5px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.caption }}</span>
             </div>
           </sc-if>
-          <div data-popup="" data-screen-label="{{ it.screenLabel }}" style="width:400px;height:600px;display:flex;flex-direction:column;overflow:hidden;background:var(--panel);color:var(--text);font:400 14px/1.5 var(--sans);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);text-align:left">
+          <div data-popup="" data-screen-label="{{ it.screenLabel }}" style="position:relative;width:400px;height:640px;display:flex;flex-direction:column;overflow:hidden;background:var(--panel);color:var(--text);font:400 13px/1.5 var(--sans);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)">
 
             <sc-if value="{{ it.vLoading }}">
-              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:12.5px;color:var(--text3)">Loading…</div>
+              <div role="status" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px">
+                <span style="width:20px;height:20px;border-radius:999px;border:2px solid var(--line);border-top-color:var(--amber-btn);animation:spin 1s linear infinite"></span>
+                <span style="font-size:12px;color:var(--text3)">Loading…</span>
+              </div>
             </sc-if>
 
             <sc-if value="{{ it.vUnreachable }}">
-              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 24px;text-align:center">
-                <h1 style="margin:0;font-size:15px;font-weight:600">UNCAVA Capture is not responding</h1>
-                <p style="margin:8px 0 0;max-width:280px;font-size:12.5px;line-height:1.6;color:var(--text2)">Its background worker did not answer. Your session is untouched — try again rather than reconnecting.</p>
-                <button onClick="{{ onRetry }}" data-frame="{{ it.id }}" style="margin-top:16px;border:none;border-radius:6px;background:var(--amber-btn);padding:9px 16px;font-size:13px;font-weight:500;color:var(--on-amber);cursor:pointer">Try again</button>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 28px;text-align:center">
+                <h1 style="margin:0;font:600 15px var(--sans)">UNCAVA Capture is not responding</h1>
+                <p style="margin:8px 0 0;max-width:290px;font-size:12.5px;line-height:1.6;color:var(--text2)">Its background worker did not answer. Your session is untouched — try again rather than reconnecting.</p>
+                <button onClick="{{ onRetry }}" data-frame="{{ it.id }}" style="{{ S.primarySm }}">Try again</button>
               </div>
             </sc-if>
 
             <sc-if value="{{ it.vSignedOut }}">
-              <header style="display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--line-soft);padding:11px 14px">
-                <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:24px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
-                <span style="font:600 13px var(--mono);letter-spacing:.02em">UNCAVA Capture</span>
+              <header style="{{ S.header }}">
+                <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:22px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="5" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+                <span style="flex:1;font:600 12.5px var(--mono);letter-spacing:.02em">UNCAVA Capture</span>
               </header>
-              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 14px;text-align:center">
-                <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:56px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
-                <h1 style="margin:16px 0 0;font-size:15px;font-weight:600">Connect to UNCAVA</h1>
-                <p style="margin:8px 0 0;max-width:280px;font-size:12.5px;line-height:1.6;color:var(--text2)">Open your workspace to link this extension to your account. You will not need to sign in again here.</p>
-                <button onClick="{{ onConnect }}" data-frame="{{ it.id }}" style="margin-top:16px;display:inline-flex;align-items:center;gap:8px;border:none;border-radius:6px;background:var(--amber-btn);padding:9px 16px;font-size:13px;font-weight:500;color:var(--on-amber);cursor:pointer">
-                  Open Uncava
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"></path></svg>
-                </button>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 28px;text-align:center">
+                <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:52px;width:auto;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+                <h1 style="margin:18px 0 0;font:600 15px var(--sans)">Connect to Uncava</h1>
+                <p style="margin:8px 0 0;max-width:290px;font-size:12.5px;line-height:1.6;color:var(--text2)">Open your workspace to link this extension to your account. You will not need to sign in again here.</p>
+                <button onClick="{{ onConnect }}" data-frame="{{ it.id }}" style="{{ S.primarySm }}">Open Uncava</button>
                 <p style="margin:10px 0 0;font:400 11px var(--mono);color:var(--text3)">{{ connectUrl }}</p>
               </div>
-              <footer style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line-soft);padding:10px 14px;font:400 11px var(--mono);color:var(--text3)">
-                <span>Not connected</span>
-                <button onClick="{{ onConnect }}" data-frame="{{ it.id }}" style="background:none;border:none;padding:0;font:inherit;color:var(--sky);cursor:pointer" style-hover="text-decoration:underline">Already connected? Recheck</button>
-              </footer>
             </sc-if>
 
             <sc-if value="{{ it.vCapture }}">
-              <header style="display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--line-soft);padding:11px 14px">
-                <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:24px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+              <header style="{{ S.header }}">
+                <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:22px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="5" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
                 <span style="flex:1;font:600 12.5px var(--mono);letter-spacing:.02em">UNCAVA Capture</span>
-                <button onClick="{{ onOpenSettings }}" data-frame="{{ it.id }}" aria-label="Settings" style="display:grid;place-items:center;width:26px;height:26px;padding:0;border-radius:6px;border:1px solid var(--line);background:none;font-size:13px;color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1"></path></svg>
+                <button onClick="{{ onOpenSettings }}" data-frame="{{ it.id }}" aria-label="Settings" style="{{ S.iconBtn }}" style-hover="color:var(--text);border-color:var(--text3)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"></path><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"></path></svg>
                 </button>
-                <button onClick="{{ onSignOut }}" data-frame="{{ it.id }}" title="{{ userTitle }}" style="padding:0;border:none;background:none;border-radius:999px;cursor:pointer">
-                  <span style="display:grid;width:26px;height:26px;place-items:center;border-radius:999px;background:var(--green-dim);font:700 10.5px var(--mono);color:var(--green)" title="{{ userName }}">{{ userInitials }}</span>
-                </button>
+                <span title="{{ userTitle }}" style="display:grid;width:26px;height:26px;place-items:center;border-radius:999px;background:var(--green-dim);font:700 10.5px var(--mono);color:var(--green)">{{ userInitials }}</span>
               </header>
 
-              <div role="tablist" style="display:flex;gap:2px;border-bottom:1px solid var(--line-soft);padding:0 14px">
-                <sc-for list="{{ it.tabs }}" as="tb" hint-placeholder-count="2">
-                  <button role="tab" onClick="{{ onTab }}" data-frame="{{ it.id }}" data-v="{{ tb.id }}" style="{{ tb.style }}" style-hover="color:var(--text2)">{{ tb.id }}</button>
-                </sc-for>
+              <!-- The position is the panel's context: chosen first, kept until changed, every field below files into it. -->
+              <div style="flex:none;border-bottom:1px solid var(--line-soft);padding:10px 14px 11px;background:var(--panel)">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                  <span style="{{ S.label }}">Filing to</span>
+                  <sc-if value="{{ it.hasPosition }}"><span style="font:400 10.5px var(--mono);color:var(--text3)">{{ it.positionCount }}</span></sc-if>
+                </div>
+                <sc-if value="{{ it.hasPosition }}">
+                  <button onClick="{{ onSwitcher }}" data-frame="{{ it.id }}" aria-haspopup="listbox" aria-expanded="{{ it.switcherOpen }}" style="{{ it.positionButtonStyle }}" style-hover="border-color:var(--text3)">
+                    <span style="{{ it.positionTileStyle }}">{{ it.positionInitials }}</span>
+                    <span style="flex:1;min-width:0;text-align:left">
+                      <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px/1.35 var(--sans);color:var(--text)">{{ it.positionTitle }}</span>
+                      <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px/1.35 var(--sans);color:var(--text3)">{{ it.positionClient }}</span>
+                    </span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;color:var(--text3)"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"></path></svg>
+                  </button>
+                </sc-if>
+                <sc-if value="{{ it.noPosition }}">
+                  <div style="border-radius:8px;border:1px dashed var(--line);padding:10px 12px">
+                    <p style="margin:0;font:600 12.5px var(--sans);color:var(--text)">No position to file into</p>
+                    <p style="margin:3px 0 0;font-size:11.5px;line-height:1.5;color:var(--text3)">You are not on any live position. Start one in Uncava, or ask a position's lead to add you to its team.</p>
+                    <a href="Workspace.dc.html" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;font:500 12px var(--sans);color:var(--sky)">Open Uncava
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>
+                    </a>
+                  </div>
+                </sc-if>
               </div>
 
               <sc-if value="{{ it.vReading }}">
-                <div role="status" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:48px 0">
+                <div role="status" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px">
                   <span style="width:20px;height:20px;border-radius:999px;border:2px solid var(--line);border-top-color:var(--amber-btn);animation:spin 1s linear infinite"></span>
                   <p style="margin:0;font-size:11.5px;color:var(--text3)">Reading this page…</p>
                 </div>
               </sc-if>
 
-              <sc-if value="{{ it.vForm }}">
-                <div style="display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line-soft);background:var(--sky-dim);padding:9px 14px">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;color:var(--sky)"><path d="M20 6 9 17l-5-5"></path></svg>
-                  <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text2)">{{ it.sourceText }}</span>
-                  <button onClick="{{ onRescan }}" data-frame="{{ it.id }}" style="background:none;border:none;padding:0;font-size:11px;font-weight:500;color:var(--sky);cursor:pointer" style-hover="text-decoration:underline">Re-scan</button>
+              <sc-if value="{{ it.vSavedBanner }}">
+                <div role="status" style="flex:none;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line-soft);background:var(--green-dim);padding:9px 14px">
+                  <span aria-hidden="true" style="display:grid;width:22px;height:22px;flex:none;place-items:center;border-radius:999px;background:var(--green);color:#06150e">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+                  </span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font:600 12.5px var(--sans);color:var(--text)">{{ it.savedTitle }}</span>
+                    <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text2)">{{ it.savedDetail }}</span>
+                  </span>
+                  <button onClick="{{ onUndo }}" data-frame="{{ it.id }}" style="flex:none;border-radius:6px;border:1px solid color-mix(in srgb,var(--green) 40%,transparent);background:none;padding:4px 10px;font:600 11.5px var(--sans);color:var(--green);cursor:pointer" style-hover="background:color-mix(in srgb,var(--green) 12%,transparent)">Undo</button>
                 </div>
+              </sc-if>
 
+              <sc-if value="{{ it.vBody }}">
                 <div style="flex:1;min-height:0;overflow-y:auto;padding:14px">
                   <sc-if value="{{ it.showLinkedInOnly }}">
-                    <div style="margin-bottom:14px;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:8px 10px;font-size:11.5px;line-height:1.5;color:var(--text2)">
-                      <p style="margin:0">UNCAVA Capture reads LinkedIn only, for now. To add a person or a company by hand, open Uncava.</p>
-                      <a href="Position.dc.html?page=universe" target="_blank" style="display:inline-block;margin-top:8px;border-radius:6px;background:var(--amber-btn);padding:6px 10px;font-size:11.5px;font-weight:500;color:var(--on-amber)">Open Uncava</a>
+                    <div style="margin-bottom:14px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px;font-size:12px;line-height:1.5;color:var(--text2)">
+                      <p style="margin:0">UNCAVA Capture reads LinkedIn only, for now. To add a person or a company by hand, open the position in Uncava.</p>
+                      <a href="Position.dc.html?page=universe" target="_blank" style="display:inline-block;margin-top:8px;font:500 12px var(--sans);color:var(--sky)">Open Uncava ↗</a>
                     </div>
                   </sc-if>
 
-                  <div style="margin-bottom:14px;display:flex;align-items:center;gap:10px">
+                  <!-- The subject: who or what the page is about. The segmented control corrects a wrong guess; nothing else does. -->
+                  <sc-if value="{{ it.showSubject }}">
+                  <div style="display:flex;align-items:center;gap:11px;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:11px 12px">
                     <span style="{{ it.tileStyle }}">{{ it.initials }}</span>
-                    <span style="min-width:0;flex:1;overflow:hidden">
-                      <sc-if value="{{ it.hasName }}">
-                        <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14.5px;font-weight:600;color:var(--text)">{{ it.nameValue }}</span>
+                    <span style="flex:1;min-width:0">
+                      <sc-if value="{{ it.nameLocked }}">
+                        <span title="Read from the page" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 14.5px/1.3 var(--sans);color:var(--text)">{{ it.nameValue }}</span>
                       </sc-if>
-                      <sc-if value="{{ it.noName }}">
-                        <span style="{{ it.namePlaceholderStyle }}"></span>
+                      <sc-if value="{{ it.nameEditable }}">
+                        <input value="{{ it.nameValue }}" onChange="{{ onName }}" data-frame="{{ it.id }}" aria-label="{{ it.nameLabel }}" placeholder="{{ it.nameLabel }}" style="display:block;width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:5px 8px;font:500 13.5px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                      </sc-if>
+                      <span style="display:flex;align-items:center;gap:5px;margin-top:2px;font:400 11px var(--mono);color:var(--text3)">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.56V9h3.56v11.45z"></path></svg>
+                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.slugText }}</span>
+                      </span>
+                      <sc-if value="{{ it.showSavedPills }}">
+                        <span style="display:flex;flex-wrap:wrap;gap:5px;margin-top:7px">
+                          <span style="{{ it.savedStatusPill }}"><span style="{{ it.statusDotStyle }}"></span>{{ it.savedStatusText }}</span>
+                        </span>
                       </sc-if>
                     </span>
-                  </div>
-
-                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Detected</div>
-                  <div>
-                    <label style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">{{ it.nameLabel }}</label>
-                    <sc-if value="{{ it.nameLocked }}">
-                      <input value="{{ it.nameValue }}" onChange="{{ onName }}" data-frame="{{ it.id }}" aria-label="{{ it.nameLabel }}" style="{{ it.inputStyle }}">
+                    <sc-if value="{{ it.showSubjectSwitch }}">
+                      <span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none">
+                        <span role="radiogroup" aria-label="This page is about" style="display:flex;border-radius:6px;border:1px solid var(--line);padding:2px;background:var(--panel)">
+                          <sc-for list="{{ it.subjects }}" as="sb">
+                            <button role="radio" aria-checked="{{ sb.on }}" onClick="{{ onSubject }}" data-frame="{{ it.id }}" data-v="{{ sb.id }}" style="{{ sb.style }}">{{ sb.label }}</button>
+                          </sc-for>
+                        </span>
+                        <button onClick="{{ onRescan }}" data-frame="{{ it.id }}" title="Read the page again" style="display:inline-flex;align-items:center;gap:4px;border:none;background:none;padding:0;font:500 10.5px var(--sans);color:var(--text3);cursor:pointer" style-hover="color:var(--text)">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8M21 3v5h-5"></path></svg>
+                          Re-scan
+                        </button>
+                      </span>
                     </sc-if>
-                    <sc-if value="{{ it.nameEditable }}">
-                      <input value="{{ it.nameValue }}" onChange="{{ onName }}" data-frame="{{ it.id }}" aria-label="{{ it.nameLabel }}" style="{{ it.inputStyle }}" style-focus="border-color:var(--sky)">
+                  </div>
+                  </sc-if>
+
+                  <!-- ======================= THE FORM ======================= -->
+                  <sc-if value="{{ it.vForm }}">
+                    <sc-if value="{{ it.isPerson }}">
+                      <div style="{{ S.sectionHead }}"><span style="{{ S.label }}">Status</span><span style="{{ S.labelHint }}">Your workspace's pipeline</span></div>
+                      <div style="position:relative">
+                        <button onClick="{{ onStatusOpen }}" data-frame="{{ it.id }}" aria-haspopup="listbox" aria-expanded="{{ it.statusOpen }}" style="{{ it.statusFieldStyle }}" style-hover="border-color:var(--text3)">
+                          <span style="{{ it.statusDotStyle }}"></span>
+                          <span style="font:500 13px var(--sans);color:var(--text)">{{ it.statusLabel }}</span>
+                          <span style="font:400 11.5px var(--sans);color:var(--text3)">· {{ it.statusStage }}</span>
+                          <span style="flex:1"></span>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
+                        </button>
+                        <sc-if value="{{ it.statusOpen }}">
+                          <div role="listbox" aria-label="Status" style="{{ S.popover }}">
+                            <div style="{{ S.popoverSearch }}">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="color:var(--text3)"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                              <input placeholder="Find a status" aria-label="Find a status" style="{{ S.popoverInput }}">
+                            </div>
+                            <div style="max-height:286px;overflow-y:auto;padding:4px 5px 6px">
+                              <sc-for list="{{ it.statusGroups }}" as="sg" hint-placeholder-count="5">
+                                <div style="display:flex;align-items:center;gap:7px;padding:8px 8px 4px">
+                                  <span style="{{ sg.dot }}"></span>
+                                  <span style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">{{ sg.label }}</span>
+                                </div>
+                                <sc-for list="{{ sg.statuses }}" as="so" hint-placeholder-count="4">
+                                  <button role="option" aria-selected="{{ so.on }}" onClick="{{ onPickStatus }}" data-frame="{{ it.id }}" data-v="{{ so.key }}" style="{{ so.style }}" style-hover="background:var(--panel2)">
+                                    <span style="{{ so.dot }}"></span>
+                                    <span style="flex:1;font:400 12.5px var(--sans);color:var(--text)">{{ so.label }}</span>
+                                    <sc-if value="{{ so.outOfProcess }}"><span style="{{ S.oopChip }}">Out of process</span></sc-if>
+                                    <sc-if value="{{ so.isStart }}"><span style="font:400 10.5px var(--sans);color:var(--text3)">Starting status</span></sc-if>
+                                    <sc-if value="{{ so.on }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--amber)"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+                                  </button>
+                                </sc-for>
+                              </sc-for>
+                            </div>
+                          </div>
+                        </sc-if>
+                      </div>
+
+                      <div style="{{ S.sectionHead }}"><span style="{{ S.label }}">Tags</span><span style="{{ S.labelHint }}">On the person, every position</span></div>
+                      <div style="position:relative">
+                        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+                          <sc-for list="{{ it.tagChips }}" as="tc" hint-placeholder-count="2">
+                            <span style="{{ tc.style }}">{{ tc.label }}<button onClick="{{ onRemoveTag }}" data-frame="{{ it.id }}" data-v="{{ tc.id }}" aria-label="Remove {{ tc.label }}" style="border:none;background:none;padding:0 0 0 3px;color:inherit;opacity:.7;cursor:pointer;font:inherit">×</button></span>
+                          </sc-for>
+                          <button onClick="{{ onTagsOpen }}" data-frame="{{ it.id }}" aria-haspopup="listbox" aria-expanded="{{ it.tagsOpen }}" style="display:inline-flex;align-items:center;gap:4px;border-radius:999px;border:1px dashed var(--line);background:none;padding:2px 9px;font:500 11.5px var(--sans);color:var(--text3);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                            Add tag
+                          </button>
+                        </div>
+                        <sc-if value="{{ it.tagsOpen }}">
+                          <div role="listbox" aria-multiselectable="true" aria-label="Tags" style="{{ S.popover }}">
+                            <div style="{{ S.popoverSearch }}">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="color:var(--text3)"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                              <input value="{{ it.tagQuery }}" onChange="{{ onTagQuery }}" data-frame="{{ it.id }}" placeholder="Find or create a tag" aria-label="Find or create a tag" style="{{ S.popoverInput }}">
+                            </div>
+                            <div style="max-height:220px;overflow-y:auto;padding:5px">
+                              <sc-for list="{{ it.tagOptions }}" as="to" hint-placeholder-count="5">
+                                <button role="option" aria-selected="{{ to.on }}" onClick="{{ onToggleTag }}" data-frame="{{ it.id }}" data-v="{{ to.id }}" style="{{ S.option }}" style-hover="background:var(--panel2)">
+                                  <span style="{{ to.box }}"><sc-if value="{{ to.on }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></sc-if></span>
+                                  <span style="{{ to.pill }}">{{ to.label }}</span>
+                                  <span style="flex:1"></span>
+                                  <span style="font:400 10.5px var(--mono);color:var(--text3)">{{ to.holders }}</span>
+                                </button>
+                              </sc-for>
+                              <sc-if value="{{ it.canCreateTag }}">
+                                <button onClick="{{ onCreateTag }}" data-frame="{{ it.id }}" style="{{ S.option }};border-top:1px solid var(--line-soft);border-radius:0 0 6px 6px;margin-top:4px;padding-top:9px" style-hover="background:var(--panel2)">
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" style="color:var(--amber)"><path d="M12 5v14M5 12h14"></path></svg>
+                                  <span style="font:400 12.5px var(--sans);color:var(--text)">Create tag “{{ it.tagQuery }}”</span>
+                                </button>
+                              </sc-if>
+                            </div>
+                            <p style="margin:0;border-top:1px solid var(--line-soft);padding:7px 10px;font-size:10.5px;line-height:1.5;color:var(--text3)">Tags are your workspace's. An admin renames or retires them in Settings → Candidate tags.</p>
+                          </div>
+                        </sc-if>
+                      </div>
                     </sc-if>
-                  </div>
 
-                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Notes</div>
-                  <textarea rows="3" value="{{ it.noteValue }}" onChange="{{ onNote }}" data-frame="{{ it.id }}" aria-label="Notes" placeholder="{{ it.notePlaceholder }}" style="display:block;width:100%;resize:vertical;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px;font:400 12.5px/1.55 var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
-
-                  <sc-if value="{{ it.isPerson }}">
-                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Status</div>
-                    <select value="{{ it.status }}" onChange="{{ onStatus }}" data-frame="{{ it.id }}" aria-label="Status" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                      <sc-for list="{{ statusOptions }}" as="so" hint-placeholder-count="4">
-                        <option value="{{ so.id }}">{{ so.label }}</option>
+                    <div style="{{ S.sectionHead }}"><span style="{{ S.label }}">Note</span><span style="{{ S.labelHint }}">Optional · your team only</span></div>
+                    <div role="radiogroup" aria-label="Kind of note" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+                      <sc-for list="{{ it.kindChips }}" as="kc" hint-placeholder-count="4">
+                        <button role="radio" aria-checked="{{ kc.on }}" onClick="{{ onKind }}" data-frame="{{ it.id }}" data-v="{{ kc.id }}" style="{{ kc.style }}">{{ kc.label }}</button>
                       </sc-for>
-                    </select>
-                  </sc-if>
-                </div>
-
-                <div style="display:flex;flex-direction:column;gap:9px;border-top:1px solid var(--line-soft);padding:11px 14px">
-                  <sc-if value="{{ it.hasRefusal }}">
-                    <p role="alert" style="margin:0;border-radius:6px;border:1px solid var(--line-soft);background:var(--red-dim);padding:8px 10px;font-size:11.5px;line-height:1.5;color:var(--red)">{{ it.refusalText }}</p>
-                  </sc-if>
-                  <div>
-                    <label style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">Project</label>
-                    <select value="{{ it.projectId }}" onChange="{{ onProject }}" data-frame="{{ it.id }}" style="margin-top:4px;width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                      <sc-for list="{{ projectOptions }}" as="po" hint-placeholder-count="5">
-                        <option value="{{ po.id }}">{{ po.label }}</option>
-                      </sc-for>
-                    </select>
-                  </div>
-                  <sc-if value="{{ it.isPerson }}">
-                    <button onClick="{{ onSavePerson }}" data-frame="{{ it.id }}" disabled="{{ it.saveDisabled }}" style="{{ it.saveStyle }}">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>
-                      {{ it.saveLabel }}
-                    </button>
-                  </sc-if>
-                  <sc-if value="{{ it.isCompany }}">
-                    <div style="display:flex;gap:8px">
-                      <button onClick="{{ onDestination }}" data-frame="{{ it.id }}" data-v="inUniverse" disabled="{{ it.destDisabled }}" style="{{ it.destPrimaryStyle }}">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>
-                        {{ it.destPrimaryLabel }}
-                      </button>
-                      <button onClick="{{ onDestination }}" data-frame="{{ it.id }}" data-v="shortlisted" disabled="{{ it.destDisabled }}" style="{{ it.destSecondaryStyle }}" style-hover="border-color:var(--text3);color:var(--text)">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
-                        {{ it.destSecondaryLabel }}
-                      </button>
                     </div>
+                    <div style="border-radius:8px;border:1px solid var(--line);background:var(--panel)">
+                      <div style="{{ S.toolbarRow }}">
+                        <sc-for list="{{ toolbar }}" as="tb" hint-placeholder-count="12">
+                          <sc-if value="{{ tb.sep }}"><span style="width:1px;height:14px;margin:0 3px;background:var(--line)"></span></sc-if>
+                          <sc-if value="{{ tb.btn }}"><button title="{{ tb.title }}" aria-label="{{ tb.title }}" style="{{ tb.style }}" style-hover="background:var(--panel2);color:var(--text)"><sc-if value="{{ tb.isText }}">{{ tb.text }}</sc-if><sc-if value="{{ tb.isIcon }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ tb.d }}"></path></svg></sc-if></button></sc-if>
+                        </sc-for>
+                        <span style="flex:1"></span>
+                        <button onClick="{{ onExpand }}" data-frame="{{ it.id }}" title="Expand — write in a larger view" aria-label="Expand — write in a larger view" style="{{ S.toolBtn }}" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg></button>
+                      </div>
+                      <div style="min-height:92px;padding:10px 12px;font:400 13px/1.55 var(--sans);color:var(--text)">
+                        <sc-if value="{{ it.noteEmpty }}"><span style="color:var(--text3)">{{ it.notePlaceholder }}</span></sc-if>
+                        <sc-for list="{{ it.noteBlocks }}" as="b" hint-placeholder-count="3">
+                          <sc-if value="{{ b.h }}"><div style="margin:0 0 4px;font:600 14px/1.4 var(--sans);color:var(--text)">{{ b.text }}</div></sc-if>
+                          <sc-if value="{{ b.p }}"><p style="margin:0 0 6px"><sc-for list="{{ b.segs }}" as="sg"><span style="{{ sg.style }}">{{ sg.text }}</span></sc-for></p></sc-if>
+                          <sc-if value="{{ b.li }}"><div style="display:flex;gap:8px;margin:0 0 3px;padding-left:4px"><span style="color:var(--text3)">•</span><span><sc-for list="{{ b.segs }}" as="sg"><span style="{{ sg.style }}">{{ sg.text }}</span></sc-for></span></div></sc-if>
+                          <sc-if value="{{ b.check }}"><div style="display:flex;align-items:flex-start;gap:8px;margin:0 0 3px;padding-left:2px"><span style="{{ b.box }}"></span><span style="{{ b.textStyle }}"><sc-for list="{{ b.segs }}" as="sg"><span style="{{ sg.style }}">{{ sg.text }}</span></sc-for></span></div></sc-if>
+                        </sc-for>
+                      </div>
+                      <sc-if value="{{ it.hasMentions }}">
+                        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;border-top:1px solid var(--line-soft);padding:7px 12px">
+                          <span style="font-size:11px;color:var(--text3)">Notifies</span>
+                          <sc-for list="{{ it.mentions }}" as="m"><span style="{{ S.mentionChip }}">@{{ m }}</span></sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                    <sc-if value="{{ it.isPerson }}">
+                      <div style="display:flex;align-items:center;gap:8px;margin-top:9px">
+                        <span style="font-size:11px;color:var(--text3)">Who reads it</span>
+                        <span role="radiogroup" aria-label="Who reads this note" style="display:flex;gap:6px">
+                          <sc-for list="{{ it.scopeChips }}" as="sc"><button role="radio" aria-checked="{{ sc.on }}" onClick="{{ onScope }}" data-frame="{{ it.id }}" data-v="{{ sc.id }}" title="{{ sc.title }}" style="{{ sc.style }}">{{ sc.label }}</button></sc-for>
+                        </span>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ it.isCompany }}">
+                      <p style="margin:12px 0 0;display:flex;gap:7px;font-size:11.5px;line-height:1.5;color:var(--text3)">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex:none;margin-top:2px"><circle cx="12" cy="12" r="9"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+                        The company goes into this position's universe. Shortlist or decline it later from the Companies screen.
+                      </p>
+                    </sc-if>
+                  </sc-if>
+
+                  <!-- ======================= THE RECORD, after a save ======================= -->
+                  <sc-if value="{{ it.vSaved }}">
+                    <sc-if value="{{ it.isPerson }}">
+                      <div style="{{ S.sectionHead }}"><span style="{{ S.label }}">Tags</span></div>
+                      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+                        <sc-for list="{{ it.tagChips }}" as="tc"><span style="{{ tc.style }}">{{ tc.label }}<button onClick="{{ onRemoveTag }}" data-frame="{{ it.id }}" data-v="{{ tc.id }}" aria-label="Remove {{ tc.label }}" style="border:none;background:none;padding:0 0 0 3px;color:inherit;opacity:.7;cursor:pointer;font:inherit">×</button></span></sc-for>
+                        <button style="display:inline-flex;align-items:center;gap:4px;border-radius:999px;border:1px dashed var(--line);background:none;padding:2px 9px;font:500 11.5px var(--sans);color:var(--text3);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">+ Add tag</button>
+                      </div>
+                    </sc-if>
+
+                    <div style="{{ S.sectionHead }}">
+                      <span style="{{ S.label }}">Notes · {{ it.noteCount }}</span>
+                      <a href="Position.dc.html?page=universe" target="_blank" style="display:inline-flex;align-items:center;gap:5px;font:500 11.5px var(--sans);color:var(--sky)">Open in Uncava
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>
+                      </a>
+                    </div>
+                    <button onClick="{{ onExpand }}" data-frame="{{ it.id }}" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:8px;border:1px solid color-mix(in srgb,var(--amber) 28%,transparent);background:var(--amber-dim);padding:10px 12px;font:400 12.5px var(--sans);color:var(--amber);cursor:pointer;text-align:left" style-hover="border-color:var(--amber)">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+                      <span style="flex:1">{{ it.addNotePrompt }}</span>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex:none"><path d="M12 5v14M5 12h14"></path></svg>
+                    </button>
+                    <ul style="list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:8px">
+                      <sc-for list="{{ it.notes }}" as="nc" hint-placeholder-count="2">
+                        <li style="{{ nc.cardStyle }}">
+                          <div style="display:flex;align-items:center;gap:7px">
+                            <span style="{{ nc.avatar }}">{{ nc.initials }}</span>
+                            <span style="font:600 12.5px var(--sans);color:var(--text)">{{ nc.author }}</span>
+                            <span style="border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 9.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">{{ nc.kind }}</span>
+                            <sc-if value="{{ nc.pinned }}"><span style="display:inline-flex;align-items:center;gap:3px;font:600 10px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--amber)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5M9 10.8V4h6v6.8l3 3.2H6Z"></path></svg>Pinned</span></sc-if>
+                            <span style="margin-left:auto;font:400 11px var(--mono);color:var(--text3)">{{ nc.when }}</span>
+                          </div>
+                          <div style="margin-top:6px;font:400 12.5px/1.55 var(--sans);color:var(--text2)">
+                            <sc-for list="{{ nc.blocks }}" as="b">
+                              <sc-if value="{{ b.h }}"><div style="margin:0 0 3px;font:600 13px/1.4 var(--sans);color:var(--text)">{{ b.text }}</div></sc-if>
+                              <sc-if value="{{ b.p }}"><p style="margin:0 0 5px"><sc-for list="{{ b.segs }}" as="sg"><span style="{{ sg.style }}">{{ sg.text }}</span></sc-for></p></sc-if>
+                              <sc-if value="{{ b.li }}"><div style="display:flex;gap:8px;margin:0 0 2px;padding-left:4px"><span style="color:var(--text3)">•</span><span><sc-for list="{{ b.segs }}" as="sg"><span style="{{ sg.style }}">{{ sg.text }}</span></sc-for></span></div></sc-if>
+                              <sc-if value="{{ b.check }}"><div style="display:flex;align-items:flex-start;gap:8px;margin:0 0 2px;padding-left:2px"><span style="{{ b.box }}"></span><span style="{{ b.textStyle }}"><sc-for list="{{ b.segs }}" as="sg"><span style="{{ sg.style }}">{{ sg.text }}</span></sc-for></span></div></sc-if>
+                            </sc-for>
+                          </div>
+                          <div style="display:flex;align-items:center;gap:10px;margin-top:6px;font:400 11px var(--mono);color:var(--text3)">
+                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ nc.about }}</span>
+                            <span style="margin-left:auto;display:flex;gap:2px">
+                              <button onClick="{{ onPin }}" data-frame="{{ it.id }}" data-v="{{ nc.id }}" title="{{ nc.pinLabel }}" aria-label="{{ nc.pinLabel }}" style="{{ nc.pinStyle }}" style-hover="background:var(--panel2);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5M9 10.8V4h6v6.8l3 3.2H6Z"></path></svg></button>
+                              <sc-if value="{{ nc.editable }}">
+                                <button title="Edit" aria-label="Edit" style="{{ S.noteAction }}" style-hover="background:var(--panel2);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
+                                <button onClick="{{ onDeleteNote }}" data-frame="{{ it.id }}" data-v="{{ nc.id }}" title="Delete" aria-label="Delete" style="{{ S.noteAction }}" style-hover="background:var(--red-dim);color:var(--red)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"></path></svg></button>
+                              </sc-if>
+                            </span>
+                          </div>
+                        </li>
+                      </sc-for>
+                    </ul>
                   </sc-if>
                 </div>
               </sc-if>
 
-              <sc-if value="{{ it.vSaved }}">
-                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 24px;text-align:center">
-                  <span aria-hidden="true" style="display:grid;width:46px;height:46px;place-items:center;border-radius:999px;background:var(--green-dim);color:var(--green)">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
-                  </span>
-                  <h2 style="margin:14px 0 0;font-size:15px;font-weight:600">{{ it.savedTitle }}</h2>
-                  <p style="margin:8px 0 0;font-size:12.5px;line-height:1.6;color:var(--text2)">Filed in <span style="font-weight:600;color:var(--text)">{{ it.landedIn }}</span>.</p>
-                  <dl style="margin:14px 0 0;width:100%;border-radius:9px;background:var(--panel2);padding:8px 10px;text-align:left">
-                    <sc-for list="{{ it.receipt }}" as="rr" hint-placeholder-count="3">
-                      <div style="display:flex;align-items:baseline;gap:8px;padding:3px 0">
-                        <dt style="width:68px;flex:none;font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">{{ rr.label }}</dt>
-                        <dd style="margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px;color:var(--text2)">{{ rr.value }}</dd>
-                      </div>
-                    </sc-for>
-                  </dl>
-                  <div style="margin-top:16px;display:flex;gap:8px">
-                    <a href="Position.dc.html?page=universe" target="_blank" style="border-radius:6px;border:1px solid var(--line);padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--text2)" style-hover="border-color:var(--text3);color:var(--text)">View in project</a>
-                    <button onClick="{{ onCaptureAnother }}" data-frame="{{ it.id }}" style="border:none;border-radius:6px;background:var(--amber-btn);padding:8px 14px;font-size:12.5px;font-weight:500;color:var(--on-amber);cursor:pointer">Capture another</button>
-                  </div>
-                  <sc-if value="{{ it.showUndo }}">
-                    <button onClick="{{ onUndo }}" data-frame="{{ it.id }}" disabled="{{ it.undoing }}" style="{{ it.undoStyle }}" style-hover="text-decoration:underline">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7v6h6M3 13a9 9 0 1 0 3-7.7L3 8"></path></svg>
-                      {{ it.undoLabel }}
-                    </button>
+              <sc-if value="{{ it.vFooter }}">
+                <div style="flex:none;display:flex;flex-direction:column;gap:9px;border-top:1px solid var(--line-soft);padding:12px 14px;background:var(--panel)">
+                  <sc-if value="{{ it.hasRefusal }}">
+                    <div role="alert" style="border-radius:8px;border:1px solid color-mix(in srgb,var(--red) 30%,transparent);background:var(--red-dim);padding:9px 11px;font-size:12px;line-height:1.5;color:var(--red)">
+                      {{ it.refusalText }}
+                      <a href="Position.dc.html?page=universe" target="_blank" style="display:block;margin-top:5px;font-weight:600;color:var(--red)">Open in Uncava ↗</a>
+                    </div>
                   </sc-if>
+                  <button onClick="{{ onSave }}" data-frame="{{ it.id }}" disabled="{{ it.saveDisabled }}" style="{{ it.saveStyle }}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                    <span>{{ it.saveLabel }}</span>
+                    <span style="margin-left:6px;border-radius:4px;background:rgba(255,255,255,.16);padding:0 5px;font:500 10.5px var(--mono)">⌘↵</span>
+                  </button>
+                </div>
+              </sc-if>
+
+              <!-- The position switcher: one deliberate choice at the top, searchable, the recent ones first. -->
+              <sc-if value="{{ it.switcherOpen }}">
+                <div onClick="{{ onSwitcher }}" data-frame="{{ it.id }}" style="position:absolute;inset:0;z-index:19;background:rgba(0,0,0,.35)"></div>
+                <div role="dialog" aria-label="Choose a position" style="position:absolute;left:10px;right:10px;top:146px;z-index:20;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);overflow:hidden">
+                  <div style="{{ S.popoverSearch }}">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="color:var(--text3)"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                    <input value="{{ it.positionQuery }}" onChange="{{ onPositionQuery }}" data-frame="{{ it.id }}" placeholder="Search positions or clients" aria-label="Search positions or clients" style="{{ S.popoverInput }}">
+                  </div>
+                  <div role="listbox" aria-label="Positions" style="max-height:340px;overflow-y:auto;padding:4px 5px 6px">
+                    <sc-for list="{{ it.positionGroups }}" as="pg" hint-placeholder-count="3">
+                      <div style="padding:9px 8px 4px;font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">{{ pg.label }}</div>
+                      <sc-for list="{{ pg.items }}" as="po" hint-placeholder-count="3">
+                        <button role="option" aria-selected="{{ po.on }}" onClick="{{ onPickPosition }}" data-frame="{{ it.id }}" data-v="{{ po.id }}" style="{{ po.style }}" style-hover="background:var(--panel2)">
+                          <span style="{{ po.tile }}">{{ po.initials }}</span>
+                          <span style="flex:1;min-width:0;text-align:left">
+                            <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 12.5px/1.35 var(--sans);color:var(--text)">{{ po.title }}</span>
+                            <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px/1.35 var(--sans);color:var(--text3)">{{ po.client }}</span>
+                          </span>
+                          <sc-if value="{{ po.on }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;color:var(--amber)"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+                        </button>
+                      </sc-for>
+                    </sc-for>
+                    <sc-if value="{{ it.noPositionMatch }}"><p style="margin:0;padding:14px 10px;font-size:12px;color:var(--text3)">No position matches “{{ it.positionQuery }}”.</p></sc-if>
+                  </div>
+                  <p style="margin:0;border-top:1px solid var(--line-soft);padding:7px 11px;font-size:10.5px;line-height:1.5;color:var(--text3)">The positions you work on. Archived ones are left out.</p>
+                </div>
+              </sc-if>
+
+              <!-- Expand: the whole composer — its kind, who reads it and its save — fills the panel; Collapse sits where Expand was. -->
+              <sc-if value="{{ it.expanded }}">
+                <div role="dialog" aria-label="{{ it.expandTitle }}" style="position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;background:var(--panel)">
+                  <header style="{{ S.header }}">
+                    <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px var(--sans)">{{ it.expandTitle }}</span>
+                    <button onClick="{{ onCollapse }}" data-frame="{{ it.id }}" title="Collapse" aria-label="Collapse" style="{{ S.iconBtn }}" style-hover="color:var(--text);border-color:var(--text3)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"></path></svg></button>
+                  </header>
+                  <div style="flex:1;min-height:0;display:flex;flex-direction:column;padding:12px 14px;gap:10px">
+                    <div role="radiogroup" aria-label="Kind of note" style="display:flex;flex-wrap:wrap;gap:6px">
+                      <sc-for list="{{ it.kindChips }}" as="kc"><button role="radio" aria-checked="{{ kc.on }}" onClick="{{ onKind }}" data-frame="{{ it.id }}" data-v="{{ kc.id }}" style="{{ kc.style }}">{{ kc.label }}</button></sc-for>
+                    </div>
+                    <div style="flex:1;min-height:0;display:flex;flex-direction:column;border-radius:8px;border:1px solid var(--line)">
+                      <div style="{{ S.toolbarRow }}">
+                        <sc-for list="{{ toolbar }}" as="tb">
+                          <sc-if value="{{ tb.sep }}"><span style="width:1px;height:14px;margin:0 3px;background:var(--line)"></span></sc-if>
+                          <sc-if value="{{ tb.btn }}"><button title="{{ tb.title }}" aria-label="{{ tb.title }}" style="{{ tb.style }}" style-hover="background:var(--panel2);color:var(--text)"><sc-if value="{{ tb.isText }}">{{ tb.text }}</sc-if><sc-if value="{{ tb.isIcon }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ tb.d }}"></path></svg></sc-if></button></sc-if>
+                        </sc-for>
+                      </div>
+                      <div style="flex:1;overflow-y:auto;padding:12px 14px;font:400 14px/1.6 var(--sans);color:var(--text)">
+                        <sc-for list="{{ it.noteBlocks }}" as="b">
+                          <sc-if value="{{ b.h }}"><div style="margin:0 0 6px;font:600 15px/1.4 var(--sans)">{{ b.text }}</div></sc-if>
+                          <sc-if value="{{ b.p }}"><p style="margin:0 0 8px"><sc-for list="{{ b.segs }}" as="sg"><span style="{{ sg.style }}">{{ sg.text }}</span></sc-for></p></sc-if>
+                          <sc-if value="{{ b.li }}"><div style="display:flex;gap:8px;margin:0 0 4px;padding-left:4px"><span style="color:var(--text3)">•</span><span><sc-for list="{{ b.segs }}" as="sg"><span style="{{ sg.style }}">{{ sg.text }}</span></sc-for></span></div></sc-if>
+                          <sc-if value="{{ b.check }}"><div style="display:flex;align-items:flex-start;gap:8px;margin:0 0 4px;padding-left:2px"><span style="{{ b.box }}"></span><span style="{{ b.textStyle }}"><sc-for list="{{ b.segs }}" as="sg"><span style="{{ sg.style }}">{{ sg.text }}</span></sc-for></span></div></sc-if>
+                        </sc-for>
+                      </div>
+                      <sc-if value="{{ it.hasMentions }}">
+                        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;border-top:1px solid var(--line-soft);padding:7px 12px">
+                          <span style="font-size:11px;color:var(--text3)">Notifies</span>
+                          <sc-for list="{{ it.mentions }}" as="m"><span style="{{ S.mentionChip }}">@{{ m }}</span></sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                    <sc-if value="{{ it.isPerson }}">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span style="font-size:11px;color:var(--text3)">Who reads it</span>
+                        <span role="radiogroup" aria-label="Who reads this note" style="display:flex;gap:6px">
+                          <sc-for list="{{ it.scopeChips }}" as="sc"><button role="radio" aria-checked="{{ sc.on }}" onClick="{{ onScope }}" data-frame="{{ it.id }}" data-v="{{ sc.id }}" title="{{ sc.title }}" style="{{ sc.style }}">{{ sc.label }}</button></sc-for>
+                        </span>
+                      </div>
+                    </sc-if>
+                  </div>
+                  <div style="flex:none;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--line-soft);padding:12px 14px">
+                    <button onClick="{{ onCollapse }}" data-frame="{{ it.id }}" style="{{ S.secondary }}">{{ it.expandCancel }}</button>
+                    <button onClick="{{ onExpandedSave }}" data-frame="{{ it.id }}" style="{{ S.primary }}">{{ it.expandSave }}</button>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ it.toast }}">
+                <div role="status" style="position:absolute;left:14px;right:14px;bottom:14px;z-index:40;display:flex;align-items:center;gap:10px;border-radius:8px;background:#f4f6f8;padding:9px 12px;box-shadow:var(--shadow);color:#0e1013;font:500 12.5px var(--sans)">
+                  <span style="flex:1">{{ it.toast }}</span>
+                  <button onClick="{{ onToastUndo }}" data-frame="{{ it.id }}" style="border:none;background:none;padding:0;font:600 12.5px var(--sans);color:#4f5bd5;cursor:pointer">Undo</button>
                 </div>
               </sc-if>
             </sc-if>
 
             <sc-if value="{{ it.vSettings }}">
               <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
-                <header style="display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--line-soft);padding:11px 14px">
-                  <button onClick="{{ onBack }}" data-frame="{{ it.id }}" aria-label="Back to capture" style="display:grid;place-items:center;width:26px;height:26px;padding:0;border-radius:6px;border:1px solid var(--line);background:none;color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
+                <header style="{{ S.header }}">
+                  <button onClick="{{ onBack }}" data-frame="{{ it.id }}" aria-label="Back to capture" style="{{ S.iconBtn }}" style-hover="color:var(--text);border-color:var(--text3)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
                   </button>
                   <span style="flex:1;font:600 12.5px var(--mono);letter-spacing:.02em">Settings</span>
                 </header>
                 <div style="flex:1;overflow-y:auto;padding:14px">
-                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Default destination</div>
-                  <div>
-                    <label style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">Project</label>
-                    <select value="{{ it.defaultProjectId }}" onChange="{{ onDefaultProject }}" data-frame="{{ it.id }}" style="margin-top:4px;width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                      <option value="">Ask every time — offer the last one used</option>
-                      <sc-for list="{{ projectOptions }}" as="po" hint-placeholder-count="5">
-                        <option value="{{ po.id }}">{{ po.label }}</option>
-                      </sc-for>
-                    </select>
-                  </div>
+                  <div style="{{ S.label }};margin-bottom:8px">Default position</div>
+                  <button style="display:flex;width:100%;align-items:center;gap:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px;cursor:pointer;text-align:left">
+                    <span style="flex:1;min-width:0">
+                      <span style="display:block;font:500 12.5px var(--sans);color:var(--text)">The last one used</span>
+                      <span style="display:block;font-size:11px;color:var(--text3)">Or pin one position to open on every time</span>
+                    </span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--text3)"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"></path></svg>
+                  </button>
 
-                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Behaviour</div>
-                  <div style="border-radius:6px;border:1px solid var(--line)">
+                  <div style="{{ S.label }};margin:20px 0 8px">Behaviour</div>
+                  <div style="border-radius:8px;border:1px solid var(--line)">
                     <sc-for list="{{ it.toggles }}" as="tg" hint-placeholder-count="2">
                       <div style="{{ tg.rowStyle }}">
                         <span style="flex:1">
                           <span style="display:block;font-size:12.5px;font-weight:500;color:var(--text)">{{ tg.label }}</span>
-                          <span style="display:block;font-size:10.5px;color:var(--text3)">{{ tg.hint }}</span>
+                          <span style="display:block;font-size:11px;color:var(--text3)">{{ tg.hint }}</span>
                         </span>
                         <button role="switch" aria-label="{{ tg.label }}" onClick="{{ onToggle }}" data-frame="{{ it.id }}" data-v="{{ tg.id }}" style="{{ tg.trackStyle }}">
                           <span aria-hidden="true" style="{{ tg.knobStyle }}"></span>
@@ -281,16 +522,16 @@
                     </sc-for>
                   </div>
 
-                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Session</div>
-                  <div style="display:flex;align-items:center;gap:10px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px">
-                    <span style="display:grid;width:26px;height:26px;flex:none;place-items:center;border-radius:999px;background:var(--green-dim);font:700 10.5px var(--mono);color:var(--green)" title="{{ userName }}">{{ userInitials }}</span>
+                  <div style="{{ S.label }};margin:20px 0 8px">Session</div>
+                  <div style="display:flex;align-items:center;gap:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:9px 11px">
+                    <span style="display:grid;width:28px;height:28px;flex:none;place-items:center;border-radius:999px;background:var(--green-dim);font:700 10.5px var(--mono);color:var(--green)">{{ userInitials }}</span>
                     <span style="flex:1;overflow:hidden">
                       <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;font-weight:500;color:var(--text)">{{ userName }}</span>
-                      <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;color:var(--text3)">{{ userEmail }}</span>
+                      <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text3)">{{ userEmail }} · {{ workspaceName }}</span>
                     </span>
-                    <button onClick="{{ onSignOut }}" data-frame="{{ it.id }}" style="border-radius:6px;border:1px solid var(--line);background:none;padding:6px 10px;font-size:11.5px;font-weight:600;color:var(--text2);cursor:pointer" style-hover="border-color:var(--red);color:var(--red)">Sign out</button>
+                    <button onClick="{{ onSignOut }}" data-frame="{{ it.id }}" style="{{ S.secondarySm }}" style-hover="border-color:var(--text3);color:var(--text)">Sign out</button>
                   </div>
-                  <p style="margin:8px 0 0;font-size:10.5px;line-height:1.5;color:var(--text3)">Signing out here ends only the extension's session. Your browser stays signed in, and the session appears in Settings → Active sessions until you end it from either side.</p>
+                  <p style="margin:8px 0 0;font-size:11px;line-height:1.5;color:var(--text3)">Signing out here ends only the extension's session. To file into another workspace, switch to it in Uncava and connect again.</p>
                 </div>
               </div>
             </sc-if>
@@ -333,7 +574,7 @@
 
               <sc-if value="{{ c.isPaired }}">
                 <h1 style="margin:24px 0 0;font:600 18px/28px var(--sans);color:var(--text)">Uncava Capture is connected</h1>
-                <p style="margin:8px 0 0;font-size:14px;line-height:1.625;color:var(--text2)">You can close this tab. Open the extension from your toolbar, or press ⌥⇧L, on any company page to capture it into a mandate.</p>
+                <p style="margin:8px 0 0;font-size:14px;line-height:1.625;color:var(--text2)">You can close this tab. Open the extension from your toolbar, or press ⌥⇧L, on a LinkedIn profile or company page to file it into a position.</p>
                 <p style="margin:16px 0 0;font-size:12px;line-height:16px;color:var(--text3)">It appears in Settings → Active sessions as <span style="font-weight:500">Uncava Capture</span>, and you can end it there at any time without signing out of this browser.</p>
               </sc-if>
 
@@ -359,45 +600,88 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">EX</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;canvas&quot;,&quot;options&quot;:[&quot;canvas&quot;,&quot;signed-out&quot;,&quot;person&quot;,&quot;company&quot;,&quot;saved&quot;,&quot;settings&quot;,&quot;connect-pairing&quot;,&quot;connect-paired&quot;,&quot;connect-not-installed&quot;,&quot;connect-failed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+
+<script type="text/x-dc" data-dc-script data-props="{&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;canvas&quot;,&quot;options&quot;:[&quot;canvas&quot;,&quot;signed-out&quot;,&quot;person&quot;,&quot;switcher-open&quot;,&quot;status-open&quot;,&quot;tags-open&quot;,&quot;note-expanded&quot;,&quot;company&quot;,&quot;refused&quot;,&quot;no-position&quot;,&quot;saved-person&quot;,&quot;saved-company&quot;,&quot;note-deleted&quot;,&quot;settings&quot;,&quot;connect-pairing&quot;,&quot;connect-paired&quot;,&quot;connect-not-installed&quot;,&quot;connect-failed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    const screens = ['canvas', 'signed-out', 'person', 'company', 'saved', 'settings', 'connect-pairing', 'connect-paired', 'connect-not-installed', 'connect-failed'];
+    const screens = ['canvas', 'signed-out', 'person', 'switcher-open', 'status-open', 'tags-open', 'note-expanded', 'company', 'refused', 'no-position', 'saved-person', 'saved-company', 'note-deleted', 'settings', 'connect-pairing', 'connect-paired', 'connect-not-installed', 'connect-failed'];
     let screen = screens.indexOf(props.screen) >= 0 ? props.screen : 'canvas';
     if (typeof location !== 'undefined') {
       const q = new URLSearchParams(location.search).get('screen');
       if (q && screens.indexOf(q) >= 0) screen = q;
     }
     this.connectUrl = 'https://beta.uncava.com/extension/connect';
-    this.user = { fullName: 'Yara Haddad', email: 'yara@alfuttaim.com', initials: 'YH' };
-    this.projects = [
-      { id: 'p1', positionTitle: 'Senior Manager, Product Planning (Toyota & Lexus)', clientName: 'Automotive' },
-      { id: 'p2', positionTitle: 'Aftersales Operations Manager', clientName: 'Automotive' },
-      { id: 'p3', positionTitle: 'Leasing Director, Mixed-Use Retail', clientName: 'Real Estate' },
-      { id: 'p5', positionTitle: 'Buying Director, IKEA UAE', clientName: 'Retail' },
-      { id: 'p6', positionTitle: 'Head of Credit Risk', clientName: 'Financial Services' },
+    this.workspaceName = 'Meridian Search Partners';
+    this.user = { fullName: 'Yara Haddad', email: 'yara@meridiansearch.com', initials: 'YH' };
+
+    // The positions the consultant works on (GET /projects, archived ones left out). Recent is the extension's own memory.
+    this.positions = [
+      { id: 'p1', title: 'Group Chief Financial Officer', client: 'Meridian Energy Group' },
+      { id: 'p2', title: 'Head of Credit Risk', client: 'Gulf Commercial Bank' },
+      { id: 'p3', title: 'Chief Digital Officer', client: 'Meridian Energy Group' },
+      { id: 'p4', title: 'Aftersales Operations Manager', client: 'Al Noor Automotive' },
+      { id: 'p5', title: 'Leasing Director, Mixed-Use Retail', client: 'Dune Properties' },
+      { id: 'p6', title: 'Buying Director', client: 'Oasis Retail Group' },
     ];
-    this.statuses = [
-      { id: 'identified', label: 'Identified' },
-      { id: 'contacted', label: 'Contacted' },
-      { id: 'offLimits', label: 'Off-limits' },
-      { id: 'outOfScope', label: 'Out of scope' },
+    this.recent = ['p1', 'p2', 'p4'];
+    this.team = ['Sara Al-Mansour', 'Yousef Iman', 'Omar Khalid'];
+
+    // The workspace's own pipeline (GET /workspace/pipeline): its stages in order, each status with its colour, the
+    // stage's default marked, a way out flagged out of process. This is the seed a new workspace starts from.
+    const st = (key, label, colour, isDefault, outOfProcess) => ({ key, label, colour, isDefault: Boolean(isDefault), outOfProcess: Boolean(outOfProcess) });
+    this.pipeline = [
+      { key: 'identified', label: 'Research', colour: 'neutral', statuses: [st('identified', 'Identified', 'neutral', 1), st('outOfScope', 'Out of scope', 'neutral', 0, 1), st('offLimits', 'Off-limits', 'neutral', 0, 1), st('source', 'Source', 'neutral')] },
+      { key: 'contacted', label: 'Approach', colour: 'violet', statuses: [st('contacted', 'Awaiting reply', 'accent', 1), st('engaged', 'Confirming interest', 'accent'), st('callBeingArranged', 'Call being arranged', 'violet'), st('callArranged', 'Call arranged', 'violet'), st('notInterested', 'Not interested', 'violet', 0, 1), st('unresponsive', 'Unresponsive', 'violet', 0, 1)] },
+      { key: 'interested', label: 'Assessment', colour: 'signal', statuses: [st('interested', 'Screening arranged', 'signal', 1), st('screenedOut', 'Screened-out', 'signal', 0, 1), st('interviewBeingArranged', 'Interview being arranged', 'signal'), st('interviewArranged', 'Interview arranged', 'signal'), st('recommended', 'Recommended', 'signal'), st('hold', 'Hold', 'signal')] },
+      { key: 'qualified', label: 'Shortlist', colour: 'adjacent', statuses: [st('presentedAwaitingFeedback', 'Presented – awaiting feedback', 'adjacent'), st('shortlisted', 'Shortlisted', 'adjacent', 1), st('clientRejected', 'Client rejected', 'adjacent', 0, 1)] },
+      { key: 'shortlisted', label: 'Offer', colour: 'violet', statuses: [st('references', 'References', 'violet', 1), st('offerExtended', 'Offer extended', 'violet'), st('placed', 'Placed', 'violet'), st('declinedOffer', 'Declined offer', 'violet', 0, 1)] },
     ];
+    this.startingStatus = 'identified';
+
+    this.tagCatalog = [
+      { id: 't1', label: 'Open to relocate', colour: 'green', holders: 41 },
+      { id: 't2', label: 'Referral', colour: 'accent', holders: 18 },
+      { id: 't3', label: 'Prior placement', colour: 'violet', holders: 9 },
+      { id: 't4', label: 'Arabic speaker', colour: 'adjacent', holders: 63 },
+      { id: 't5', label: 'Board-ready', colour: 'signal', holders: 12 },
+      { id: 't6', label: 'Open to work', colour: 'neutral', holders: 7 },
+    ];
+
     this.refusals = {
-      CANDIDATE_ALREADY_MAPPED: 'This position already maps someone with that name. Open them on the Companies screen instead.',
-      TRIAGE_COMPANY_ALREADY_HELD: 'This position already holds a company with that name. Open it on the Companies screen instead.',
+      CANDIDATE_ALREADY_MAPPED: 'Hessa Al Qubaisi is already on this position. Open her in Uncava to add a note or change her status.',
     };
+
+    const seg = (text, kind) => ({ text, kind: kind || 'plain' });
+    this.personNote = [
+      { type: 'h', text: 'Why now' },
+      { type: 'p', segs: [seg('CFO at ACWA Power for '), seg('six years', 'bold'), seg('; led the 2024 green-bond programme. Heard from '), seg('Sara Al-Mansour', 'mention'), seg(' he is open to a group role.')] },
+      { type: 'li', segs: [seg('Saudi-based, '), seg('open to Abu Dhabi', 'bold')] },
+      { type: 'check', done: false, segs: [seg('Confirm notice period before the first call')] },
+    ];
+    this.companyNote = [
+      { type: 'h', text: 'Why in universe' },
+      { type: 'p', segs: [seg('Closest peer on '), seg('utility-scale renewables', 'bold'), seg(' — finance team built for a listing.')] },
+      { type: 'li', segs: [seg('CFO office in Riyadh; Group Treasury in Dubai')] },
+    ];
+
     this.popupMeta = [
       { id: 'signedOut', label: 'Signed out', caption: 'not paired yet' },
       { id: 'loading', label: 'Loading', caption: 'asking the worker for the session' },
       { id: 'unreachable', label: 'Not responding', caption: 'the worker did not answer' },
       { id: 'reading', label: 'First read', caption: 'the panel’s first page read' },
-      { id: 'person', label: 'Person', caption: 'a linkedin.com/in/ profile' },
-      { id: 'company', label: 'Company', caption: 'a linkedin.com/company/ page' },
-      { id: 'refusal', label: 'Person · refused', caption: 'CANDIDATE_ALREADY_MAPPED' },
+      { id: 'person', label: 'Person', caption: 'linkedin.com/in/ — status, tags, a note' },
+      { id: 'switcher', label: 'Position switcher', caption: 'search, recent first, by client' },
+      { id: 'status', label: 'Status picker', caption: 'the workspace’s stages and statuses' },
+      { id: 'tags', label: 'Tags', caption: 'the workspace’s catalog, or a new one' },
+      { id: 'expanded', label: 'Note · expanded', caption: 'the composer fills the panel' },
+      { id: 'company', label: 'Company', caption: 'linkedin.com/company/ — into the universe' },
+      { id: 'refused', label: 'Person · refused', caption: 'CANDIDATE_ALREADY_MAPPED' },
+      { id: 'noPosition', label: 'No position', caption: 'nothing live to file into' },
       { id: 'linkedinOnly', label: 'Not LinkedIn', caption: 'LINKEDIN_ONLY' },
-      { id: 'saved', label: 'Saved', caption: 'the receipt, with Undo' },
+      { id: 'savedPerson', label: 'Person · filed', caption: 'the record: tags and the position’s notes' },
+      { id: 'savedCompany', label: 'Company · filed', caption: 'the company’s notes on this position' },
+      { id: 'noteDeleted', label: 'Note deleted', caption: 'the toast’s Undo restores it' },
       { id: 'settings', label: 'Settings', caption: 'extension-local only' },
     ];
     this.connectMeta = [
@@ -414,29 +698,51 @@ class Component extends DCLogic {
     this.setState({ dark: document.documentElement.getAttribute('data-theme') !== 'light' });
   }
 
+  seedNotes(subject) {
+    if (subject === 'company') {
+      return [
+        { id: 'n1', author: 'Yara Haddad', kind: 'Note', when: 'Just now', pinned: false, editable: true, about: 'About Group Chief Financial Officer', blocks: this.companyNote },
+      ];
+    }
+    return [
+      { id: 'n1', author: 'Yara Haddad', kind: 'Note', when: 'Just now', pinned: false, editable: true, about: 'About Group Chief Financial Officer', blocks: this.personNote },
+      { id: 'n2', author: 'Sara Al-Mansour', kind: 'Call', when: '12 Oct', pinned: true, editable: false, about: 'All positions', blocks: [
+        { type: 'p', segs: [{ text: 'Spoke at the Riyadh CFO forum. Prefers WhatsApp; ' }, { text: 'no calls before 10am', kind: 'bold' }, { text: '.' }] },
+      ] },
+    ];
+  }
+
   seedFrames() {
     const base = {
-      view: 'capture', tab: 'company', reading: false, rescanning: false,
-      personName: '', personLocked: false, personNote: '', status: 'identified',
-      companyName: '', companyLocked: false, companyNote: '',
-      sourceUrl: null, readError: null, refusesPerson: null, refusal: null,
-      projectId: 'p1', saving: null, saved: null, undoing: false, undone: false,
-      defaultProjectId: '', isPageTypeDetected: true, closesAfterSave: false,
+      view: 'capture', subject: 'person', reading: false, rescanning: false,
+      personName: 'Faisal Al Nuaimi', personLocked: true, personSlug: 'linkedin.com/in/faisal-al-nuaimi',
+      companyName: 'ACWA Power', companyLocked: true, companySlug: 'linkedin.com/company/acwa-power',
+      readError: null, refusal: null, positionId: 'p1', positions: true,
+      status: null, tags: ['t1', 't4'], kind: 'general', scope: 'position', noteFilled: true,
+      overlay: null, positionQuery: '', tagQuery: '', expanded: false,
+      saved: null, notes: [], toast: null, removed: null,
+      isPageTypeDetected: true, closesAfterSave: false,
     };
-    const personPage = { tab: 'person', sourceUrl: 'https://www.linkedin.com/in/faisal-al-nuaimi/', personName: 'Faisal Al Nuaimi', personLocked: true };
-    const companyPage = { tab: 'company', sourceUrl: 'https://www.linkedin.com/company/acwa-power/', companyName: 'ACWA Power', companyLocked: true };
     const mk = (o) => Object.assign({}, base, o);
+    const company = { subject: 'company' };
     return {
-      signedOut: mk(Object.assign({}, personPage, { view: 'signedOut' })),
+      signedOut: mk({ view: 'signedOut' }),
       loading: mk({ view: 'loading' }),
       unreachable: mk({ view: 'unreachable' }),
-      reading: mk(Object.assign({}, personPage, { reading: true })),
-      person: mk(personPage),
-      company: mk(companyPage),
-      refusal: mk({ tab: 'person', sourceUrl: 'https://www.linkedin.com/in/hessa-al-qubaisi/', personName: 'Hessa Al Qubaisi', personLocked: true, refusesPerson: 'CANDIDATE_ALREADY_MAPPED', refusal: 'CANDIDATE_ALREADY_MAPPED' }),
-      linkedinOnly: mk({ tab: 'company', readError: 'LINKEDIN_ONLY' }),
-      saved: mk(Object.assign({}, companyPage, { saved: { subject: 'company', name: 'ACWA Power', landedIn: 'the shortlist' } })),
-      settings: mk(Object.assign({}, companyPage, { view: 'settings' })),
+      reading: mk({ reading: true }),
+      person: mk({}),
+      switcher: mk({ overlay: 'switcher' }),
+      status: mk({ overlay: 'status', status: 'engaged' }),
+      tags: mk({ overlay: 'tags', tagQuery: 'Open' }),
+      expanded: mk({ expanded: true }),
+      company: mk(company),
+      refused: mk({ personName: 'Hessa Al Qubaisi', personSlug: 'linkedin.com/in/hessa-al-qubaisi', refusal: 'CANDIDATE_ALREADY_MAPPED', noteFilled: false, tags: [] }),
+      noPosition: mk({ positions: false, positionId: null, noteFilled: false, tags: [] }),
+      linkedinOnly: mk({ readError: 'LINKEDIN_ONLY', personName: '', personLocked: false, personSlug: 'Nothing to read on this page', noteFilled: false, tags: [] }),
+      savedPerson: mk({ saved: 'person', notes: this.seedNotes('person') }),
+      savedCompany: mk(Object.assign({ saved: 'company', notes: this.seedNotes('company') }, company)),
+      noteDeleted: mk({ saved: 'person', notes: this.seedNotes('person').slice(1), toast: 'Note deleted', removed: this.seedNotes('person')[0] }),
+      settings: mk({ view: 'settings' }),
     };
   }
 
@@ -458,10 +764,6 @@ class Component extends DCLogic {
     setTimeout(fn, ms);
   }
 
-  projectLabel(p) {
-    return p.clientName ? p.positionTitle + ' — ' + p.clientName : p.positionTitle;
-  }
-
   initialsOf(name) {
     const parts = name.trim().split(/\s+/).filter(Boolean);
     const first = (parts[0] && parts[0][0]) || '?';
@@ -469,45 +771,109 @@ class Component extends DCLogic {
     return (first + last).toUpperCase();
   }
 
+  // The tag and pipeline palette, as apps/web's tagStyle.ts and pipelineStatus.ts draw it.
+  colourOf(colour) {
+    return ({ neutral: 'var(--text3)', accent: 'var(--amber)', violet: 'var(--u-chart-5)', signal: 'var(--u-signal)', adjacent: 'var(--u-adjacent)', green: 'var(--green)', red: 'var(--red)' })[colour] || 'var(--text3)';
+  }
+
+  dot(colour, size) {
+    const s = size || 8;
+    return 'display:inline-block;flex:none;width:' + s + 'px;height:' + s + 'px;border-radius:999px;background:' + this.colourOf(colour);
+  }
+
+  pill(colour) {
+    const c = this.colourOf(colour);
+    return 'display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px;font:500 11.5px var(--sans);color:' + (colour === 'neutral' ? 'var(--text2)' : c) +
+      ';background:' + (colour === 'neutral' ? 'var(--panel2)' : 'color-mix(in srgb,' + c + ' 15%,transparent)');
+  }
+
+  chip(on) {
+    return 'border-radius:999px;padding:2px 10px;font:400 11px var(--mono);cursor:pointer;transition:all .12s;' +
+      (on ? 'border:1px solid var(--amber);background:var(--amber-dim);color:var(--amber)' : 'border:1px solid var(--line-soft);background:none;color:var(--text3)');
+  }
+
+  tileStyle(name, round, size) {
+    const s = size || 32;
+    return 'display:grid;flex:none;width:' + s + 'px;height:' + s + 'px;place-items:center;font:700 ' + Math.round(s * 0.34) + 'px var(--mono);' +
+      (round ? 'border-radius:999px;background:var(--amber-dim);color:var(--amber)' : 'border-radius:7px;background:var(--panel2);border:1px solid var(--line-soft);color:var(--text2)');
+  }
+
+  statusOf(key) {
+    for (const stage of this.pipeline) {
+      const found = stage.statuses.find((s) => s.key === key);
+      if (found) return { status: found, stage: stage };
+    }
+    return null;
+  }
+
+  blocksOf(blocks) {
+    const segStyle = (kind) => kind === 'bold' ? 'font-weight:600;color:var(--text)'
+      : kind === 'mention' ? 'border-radius:4px;padding:0 4px;background:var(--u-accent-tint);color:var(--u-accent);font-weight:500'
+      : '';
+    return blocks.map((b) => ({
+      h: b.type === 'h', p: b.type === 'p', li: b.type === 'li', check: b.type === 'check',
+      text: b.text || '',
+      segs: (b.segs || []).map((s) => ({ text: s.kind === 'mention' ? '@' + s.text : s.text, style: segStyle(s.kind) })),
+      box: 'flex:none;margin-top:4px;width:12px;height:12px;border-radius:3px;border:1.5px solid ' + (b.done ? 'var(--amber)' : 'var(--text3)') + ';background:' + (b.done ? 'var(--amber)' : 'none'),
+      textStyle: b.done ? 'text-decoration:line-through;color:var(--text3)' : '',
+    }));
+  }
+
+  mentionsIn(blocks) {
+    const names = [];
+    blocks.forEach((b) => (b.segs || []).forEach((s) => { if (s.kind === 'mention' && names.indexOf(s.text) < 0) names.push(s.text); }));
+    return names;
+  }
+
   popupView(id, meta, showCaption) {
     const f = this.state.frames[id];
     const pulse = 'animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite;';
-    const isPerson = f.tab === 'person';
+    const isPerson = f.subject === 'person';
     const name = isPerson ? f.personName : f.companyName;
     const locked = isPerson ? f.personLocked : f.companyLocked;
     const hasName = Boolean(name.trim());
-    const isReading = f.rescanning;
-    const canSave = hasName && Boolean(f.projectId);
+    const position = this.positions.find((p) => p.id === f.positionId) || null;
     const vCapture = f.view === 'capture';
-    const savedHere = Boolean(f.saved) && f.saved.subject === f.tab;
-    const project = this.projects.find((p) => p.id === f.projectId);
+    const isSaved = Boolean(f.saved) && f.saved === f.subject;
+    const busy = f.saving;
+    const canSave = hasName && Boolean(position) && !f.readError;
 
-    const tabStyle = (active, isFirst) =>
-      'background:none;border:none;border-bottom:2px solid ' + (active ? 'var(--amber-btn)' : 'transparent') +
-      ';padding:9px 4px;font-size:12px;text-transform:capitalize;cursor:pointer;font-family:inherit;' +
-      (isFirst ? 'margin-right:14px;' : '') +
-      (active ? 'font-weight:600;color:var(--text)' : 'font-weight:500;color:var(--text3)');
+    const statusKey = f.status || this.startingStatus;
+    const current = this.statusOf(statusKey);
 
-    const inputStyle = 'display:block;margin-top:4px;width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12.5px/1.5 var(--mono);color:var(--text);outline:none;' +
-      (locked && hasName ? 'cursor:default;border-color:var(--line-soft);background:transparent;' : '') +
-      (isReading ? pulse + 'opacity:.6;' : '');
+    const q = f.positionQuery.trim().toLowerCase();
+    const matches = this.positions.filter((p) => !q || (p.title + ' ' + p.client).toLowerCase().indexOf(q) >= 0);
+    const option = (p) => ({
+      id: p.id, title: p.title, client: p.client, initials: this.initialsOf(p.client), on: p.id === f.positionId,
+      tile: this.tileStyle(p.client, false, 28),
+      style: 'display:flex;width:100%;align-items:center;gap:10px;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;font-family:inherit;background:' + (p.id === f.positionId ? 'var(--amber-dim)' : 'none'),
+    });
+    const groups = [];
+    if (!q) groups.push({ label: 'Recent', items: this.recent.map((rid) => this.positions.find((p) => p.id === rid)).map(option) });
+    const byClient = {};
+    matches.forEach((p) => { (byClient[p.client] = byClient[p.client] || []).push(p); });
+    Object.keys(byClient).sort().forEach((client) => groups.push({ label: client, items: byClient[client].map(option) }));
 
-    const tileStyle = 'display:grid;width:40px;height:40px;flex:none;place-items:center;font:700 13px var(--mono);' +
-      (isPerson ? 'border-radius:999px;background:var(--amber-dim);color:var(--amber);' : 'border-radius:9px;background:var(--panel2);color:var(--text2);') +
-      (isReading ? pulse : '');
+    const tq = f.tagQuery.trim().toLowerCase();
+    const tagOptions = this.tagCatalog.filter((t) => !tq || t.label.toLowerCase().indexOf(tq) >= 0).map((t) => {
+      const on = f.tags.indexOf(t.id) >= 0;
+      return {
+        id: t.id, label: t.label, on: on, holders: t.holders, pill: this.pill(t.colour),
+        box: 'display:grid;place-items:center;flex:none;width:14px;height:14px;border-radius:4px;color:#fff;' + (on ? 'background:var(--amber-btn);border:1px solid var(--amber-btn)' : 'border:1px solid var(--line)'),
+      };
+    });
+    const tagChips = f.tags.map((tid) => this.tagCatalog.find((t) => t.id === tid)).filter(Boolean).map((t) => ({ id: t.id, label: t.label, style: this.pill(t.colour) }));
 
-    const busy = Boolean(f.saving);
-    const primaryBtn = 'display:flex;flex:1;align-items:center;justify-content:center;gap:7px;border-radius:6px;border:1px solid var(--amber-btn);background:var(--amber-btn);padding:9px 10px;font-size:12.5px;font-weight:500;color:var(--on-amber);cursor:pointer;';
-    const secondaryBtn = 'display:flex;flex:1;align-items:center;justify-content:center;gap:7px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:9px 10px;font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer;';
-    const dim60 = (!canSave || busy) ? 'opacity:.6;cursor:default;' : '';
+    const noteSource = !f.noteFilled ? [] : (isPerson ? this.personNote : this.companyNote);
+    const mentions = isPerson && f.scope === 'position' ? this.mentionsIn(noteSource) : [];
 
     const toggle = (tid, label, hint, isOn, isFirst) => ({
       id: tid, label: label, hint: hint,
-      rowStyle: 'display:flex;align-items:center;gap:12px;padding:8px 10px;' + (isFirst ? '' : 'border-top:1px solid var(--line-soft);'),
+      rowStyle: 'display:flex;align-items:center;gap:12px;padding:9px 11px;' + (isFirst ? '' : 'border-top:1px solid var(--line-soft);'),
       trackStyle: 'position:relative;height:18px;width:32px;flex:none;padding:0;border-radius:999px;cursor:pointer;transition:background-color .15s;' +
-        (isOn ? 'background:var(--amber-dim);border:none;' : 'background:var(--panel2);border:1px solid var(--line);'),
-      knobStyle: 'position:absolute;top:2px;height:12px;width:12px;border-radius:999px;transition:all .15s;' +
-        (isOn ? 'left:17px;background:var(--amber);' : 'left:3px;background:var(--text3);'),
+        (isOn ? 'background:var(--amber-btn);border:none;' : 'background:var(--panel2);border:1px solid var(--line);'),
+      knobStyle: 'position:absolute;top:3px;height:12px;width:12px;border-radius:999px;transition:all .15s;' +
+        (isOn ? 'left:17px;background:#fff;' : 'left:3px;background:var(--text3);'),
     });
 
     return {
@@ -522,55 +888,102 @@ class Component extends DCLogic {
       vSettings: f.view === 'settings',
       vCapture: vCapture,
       vReading: vCapture && f.reading,
-      vForm: vCapture && !f.reading && !savedHere,
-      vSaved: vCapture && !f.reading && savedHere,
-      tabs: [
-        { id: 'person', style: tabStyle(f.tab === 'person', true) },
-        { id: 'company', style: tabStyle(f.tab === 'company', false) },
-      ],
+      vBody: vCapture && !f.reading,
+      vForm: !isSaved && !f.readError,
+      showSubject: !f.readError,
+      vSaved: isSaved,
+      vSavedBanner: vCapture && !f.reading && isSaved,
+      vFooter: vCapture && !f.reading && !isSaved && !f.readError,
+
+      hasPosition: Boolean(position),
+      noPosition: !position,
+      positionCount: this.workspaceName,
+      positionTitle: position ? position.title : '',
+      positionClient: position ? position.client : '',
+      positionInitials: position ? this.initialsOf(position.client) : '',
+      positionTileStyle: this.tileStyle(position ? position.client : '?', false, 32),
+      positionButtonStyle: 'display:flex;width:100%;align-items:center;gap:10px;border-radius:8px;border:1px solid ' + (f.overlay === 'switcher' ? 'var(--amber)' : 'var(--line)') + ';background:var(--panel2);padding:7px 9px;cursor:pointer;font-family:inherit',
+      switcherOpen: f.overlay === 'switcher',
+      positionQuery: f.positionQuery,
+      positionGroups: groups,
+      noPositionMatch: Boolean(q) && matches.length === 0,
+
       isPerson: isPerson,
       isCompany: !isPerson,
-      sourceText: isReading ? 'Reading this page…' : 'Read from ' + (f.sourceUrl || 'this page'),
       showLinkedInOnly: f.readError === 'LINKEDIN_ONLY',
-      tileStyle: tileStyle,
+      tileStyle: this.tileStyle(name || '?', isPerson, 42) + (f.rescanning ? pulse : ''),
       initials: hasName ? this.initialsOf(name) : '',
-      hasName: hasName,
-      noName: !hasName,
-      namePlaceholderStyle: 'display:block;height:18px;width:60%;border-radius:4px;background:var(--panel2);' + (isReading ? pulse : ''),
       nameLabel: isPerson ? 'Full name' : 'Company name',
       nameValue: name,
       nameLocked: locked && hasName,
       nameEditable: !(locked && hasName),
-      inputStyle: inputStyle,
-      noteValue: isPerson ? f.personNote : f.companyNote,
-      notePlaceholder: isPerson ? 'Why this person matters to the position' : 'Context for the universe entry',
-      status: f.status,
-      hasRefusal: isPerson && Boolean(f.refusal),
+      slugText: isPerson ? f.personSlug : f.companySlug,
+      showSubjectSwitch: !isSaved,
+      subjects: ['person', 'company'].map((s) => ({
+        id: s, label: s === 'person' ? 'Person' : 'Company', on: f.subject === s,
+        style: 'border:none;border-radius:4px;padding:2px 8px;font:500 11px var(--sans);cursor:pointer;' + (f.subject === s ? 'background:var(--panel2);color:var(--text)' : 'background:none;color:var(--text3)'),
+      })),
+
+      statusOpen: f.overlay === 'status',
+      statusLabel: current ? current.status.label : '',
+      statusStage: current ? current.stage.label : '',
+      statusDotStyle: current ? this.dot(current.status.colour) : '',
+      statusFieldStyle: 'display:flex;width:100%;align-items:center;gap:8px;border-radius:8px;border:1px solid ' + (f.overlay === 'status' ? 'var(--amber)' : 'var(--line)') + ';background:var(--panel2);padding:8px 10px;cursor:pointer;font-family:inherit',
+
+      statusGroups: this.pipeline.map((stage) => ({
+        label: stage.label,
+        dot: this.dot(stage.colour, 7),
+        statuses: stage.statuses.map((st) => ({
+          key: st.key, label: st.label, outOfProcess: st.outOfProcess, on: st.key === statusKey, isStart: st.key === this.startingStatus && st.key !== statusKey,
+          dot: this.dot(st.colour),
+          style: 'display:flex;width:100%;align-items:center;gap:9px;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;font-family:inherit;text-align:left;background:' + (st.key === statusKey ? 'var(--amber-dim)' : 'none'),
+        })),
+      })),
+
+      tagChips: tagChips,
+      tagsOpen: f.overlay === 'tags',
+      tagQuery: f.tagQuery,
+      tagOptions: tagOptions,
+      canCreateTag: Boolean(tq) && !this.tagCatalog.some((t) => t.label.toLowerCase() === tq),
+
+      kindChips: [['general', 'Note'], ['call', 'Call'], ['meeting', 'Meeting'], ['email', 'Email']].map(([k, l]) => ({ id: k, label: l, on: f.kind === k, style: this.chip(f.kind === k) })),
+      scopeChips: [['position', 'This position'], ['everywhere', 'All positions']].map(([k, l]) => ({ id: k, label: l, on: f.scope === k, title: k === 'position' && position ? position.title : '', style: this.chip(f.scope === k) })),
+      noteEmpty: noteSource.length === 0,
+      notePlaceholder: isPerson ? 'What was said, and what happens next…' : 'Why this company is in the universe…',
+      noteBlocks: this.blocksOf(noteSource),
+      hasMentions: mentions.length > 0,
+      mentions: mentions,
+      expanded: f.expanded,
+      expandTitle: isSaved ? 'New note on ' + name : 'Note on ' + (name || 'this ' + f.subject),
+      expandCancel: isSaved ? 'Cancel' : 'Collapse',
+      expandSave: isSaved ? 'Save note' : (isPerson ? 'Add to position' : 'Add to universe'),
+
+      hasRefusal: Boolean(f.refusal),
       refusalText: f.refusal ? (this.refusals[f.refusal] || f.refusal) : '',
-      projectId: f.projectId,
       saveDisabled: !canSave || busy,
-      saveLabel: f.saving === 'person' ? 'Saving…' : 'Save to project',
-      saveStyle: 'display:flex;width:100%;align-items:center;justify-content:center;gap:7px;border:none;border-radius:6px;background:var(--amber-btn);padding:8px 0;font-size:13px;font-weight:500;color:var(--on-amber);cursor:pointer;' + ((!canSave || busy) ? 'opacity:.5;cursor:default;' : ''),
-      destDisabled: !canSave || busy,
-      destPrimaryLabel: f.saving === 'inUniverse' ? 'Adding…' : 'Add to universe',
-      destSecondaryLabel: f.saving === 'shortlisted' ? 'Adding…' : 'Add to shortlist',
-      destPrimaryStyle: primaryBtn + dim60,
-      destSecondaryStyle: secondaryBtn + dim60,
-      savedTitle: savedHere ? f.saved.name + ' added' : '',
-      landedIn: savedHere ? f.saved.landedIn : '',
-      receipt: savedHere ? [
-        { label: 'Project', value: project ? project.positionTitle : 'this position' },
-        { label: 'Landed in', value: f.saved.landedIn },
-        { label: 'Source', value: f.sourceUrl || 'Typed in the popup' },
-      ] : [],
-      showUndo: !f.undone,
-      undoing: f.undoing,
-      undoLabel: f.undoing ? 'Undoing…' : 'Undo',
-      undoStyle: 'margin-top:12px;display:inline-flex;align-items:center;gap:6px;background:none;border:none;padding:0;font-size:11.5px;color:var(--sky);cursor:pointer;' + (f.undoing ? 'opacity:.6;' : ''),
-      defaultProjectId: f.defaultProjectId,
+      saveLabel: busy ? 'Adding…' : (isPerson ? 'Add to position' : 'Add to universe'),
+      saveStyle: 'display:flex;width:100%;height:38px;align-items:center;justify-content:center;gap:7px;border:none;border-radius:7px;background:var(--amber-btn);font:600 13px var(--sans);color:var(--on-amber);cursor:pointer;' + (!canSave || busy ? 'opacity:.45;cursor:default;' : ''),
+
+      savedTitle: isPerson ? 'Added to the position' : 'Added to the universe',
+      savedDetail: position ? position.title + ' · ' + (isPerson ? (current ? current.status.label : '') : 'In universe') : '',
+      showSavedPills: isSaved,
+      savedStatusPill: current ? this.pill(isPerson ? current.status.colour : 'neutral') : '',
+      savedStatusText: isPerson ? (current ? current.status.label : '') : 'In universe',
+      noteCount: f.notes.length,
+      addNotePrompt: isPerson ? 'Add a note, call, meeting or email…' : 'Add a note on ' + name + '…',
+      notes: f.notes.map((n) => ({
+        id: n.id, author: n.author, initials: this.initialsOf(n.author), kind: n.kind, when: n.when, pinned: n.pinned, editable: n.editable, about: n.about,
+        blocks: this.blocksOf(n.blocks),
+        avatar: 'display:grid;place-items:center;flex:none;width:20px;height:20px;border-radius:999px;font:700 8.5px var(--mono);' + (n.author === this.user.fullName ? 'background:var(--green-dim);color:var(--green)' : 'background:var(--u-adjacent-tint);color:var(--u-adjacent)'),
+        cardStyle: 'border-radius:8px;padding:10px 12px;border:1px solid ' + (n.pinned ? 'color-mix(in srgb,var(--amber) 55%,transparent);background:var(--panel2)' : 'var(--line-soft)'),
+        pinLabel: n.pinned ? 'Unpin' : 'Pin',
+        pinStyle: 'display:grid;place-items:center;width:24px;height:24px;border:none;border-radius:5px;background:none;cursor:pointer;color:' + (n.pinned ? 'var(--amber)' : 'var(--text3)'),
+      })),
+      toast: f.toast,
+
       toggles: [
-        toggle('isPageTypeDetected', 'Auto-detect page type', 'Opens the Person or Company tab to match the page', f.isPageTypeDetected, true),
-        toggle('closesAfterSave', 'Close after save', 'Closes the popup once a capture lands', f.closesAfterSave, false),
+        toggle('isPageTypeDetected', 'Detect person or company', 'Follow what the page turned out to be', f.isPageTypeDetected, true),
+        toggle('closesAfterSave', 'Close after save', 'Closes the panel once the note and tags are filed', f.closesAfterSave, false),
       ],
     };
   }
@@ -598,14 +1011,24 @@ class Component extends DCLogic {
   renderVals() {
     const s = this.state;
     const isCanvas = s.screen === 'canvas';
-    const popupByScreen = { 'signed-out': 'signedOut', person: 'person', company: 'company', saved: 'saved', settings: 'settings' };
+    const popupByScreen = {
+      'signed-out': 'signedOut', person: 'person', 'switcher-open': 'switcher', 'status-open': 'status', 'tags-open': 'tags',
+      'note-expanded': 'expanded', company: 'company', refused: 'refused', 'no-position': 'noPosition',
+      'saved-person': 'savedPerson', 'saved-company': 'savedCompany', 'note-deleted': 'noteDeleted', settings: 'settings',
+    };
     const connectByScreen = { 'connect-pairing': 'pairing', 'connect-paired': 'paired', 'connect-not-installed': 'notInstalled', 'connect-failed': 'failed' };
     const popupMeta = isCanvas ? this.popupMeta : this.popupMeta.filter((m) => m.id === popupByScreen[s.screen]);
     const connectMeta = isCanvas ? this.connectMeta : this.connectMeta.filter((m) => m.id === connectByScreen[s.screen]);
     const frameOf = (e) => e.currentTarget.dataset.frame;
+    const valueOf = (e) => e.currentTarget.dataset.v;
     const frame = (id) => this.state.frames[id];
-
     const settleAfterRead = (id) => this.later(900, () => this.patch(id, { reading: false }));
+    const toggleOverlay = (e, which) => { const id = frameOf(e); this.patch(id, { overlay: frame(id).overlay === which ? null : which }); };
+
+    const toolBtn = 'display:grid;place-items:center;min-width:23px;height:23px;padding:0 2px;border:none;border-radius:5px;background:none;color:var(--text3);cursor:pointer;font:600 10.5px var(--sans)';
+    const icon = (title, d) => ({ btn: true, isIcon: true, title, d, style: toolBtn });
+    const text = (title, t) => ({ btn: true, isText: true, title, text: t, style: toolBtn });
+    const sep = { sep: true };
 
     return {
       isCanvas: isCanvas,
@@ -618,13 +1041,53 @@ class Component extends DCLogic {
       themeLabel: s.dark ? 'Light mode' : 'Dark mode',
       popupFrames: popupMeta.map((m) => this.popupView(m.id, m, isCanvas)),
       connectFrames: connectMeta.map((m) => this.connectView(m.id, m, isCanvas)),
-      projectOptions: this.projects.map((p) => ({ id: p.id, label: this.projectLabel(p) })),
-      statusOptions: this.statuses,
       connectUrl: this.connectUrl,
+      workspaceName: this.workspaceName,
       userName: this.user.fullName,
       userEmail: this.user.email,
       userInitials: this.user.initials,
-      userTitle: this.user.fullName + ' · ' + this.user.email + ' — sign out of the extension',
+      userTitle: this.user.fullName + ' · ' + this.user.email + ' · ' + this.workspaceName,
+
+      // One set of styles every frame shares, so a field, a popover and a button read the same everywhere.
+      S: {
+        header: 'flex:none;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--line-soft);padding:10px 14px',
+        label: 'font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)',
+        labelHint: 'font:400 10.5px var(--sans);color:var(--text3)',
+        sectionHead: 'display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:18px 0 7px',
+        iconBtn: 'display:grid;place-items:center;width:28px;height:28px;padding:0;border-radius:7px;border:1px solid var(--line);background:none;color:var(--text2);cursor:pointer',
+        popover: 'position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:15;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);overflow:hidden',
+        popoverSearch: 'display:flex;align-items:center;gap:7px;border-bottom:1px solid var(--line-soft);padding:8px 11px',
+        popoverInput: 'flex:1;min-width:0;border:none;background:none;padding:2px 0;font:400 12.5px var(--sans);color:var(--text);outline:none',
+        option: 'display:flex;width:100%;align-items:center;gap:9px;border:none;border-radius:6px;background:none;padding:6px 8px;cursor:pointer;font-family:inherit;text-align:left',
+        oopChip: 'border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 9px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--text3)',
+        toolbarRow: 'display:flex;flex-wrap:wrap;align-items:center;gap:1px;border-bottom:1px solid var(--line-soft);padding:4px 6px;border-radius:8px 8px 0 0',
+        toolBtn: toolBtn,
+        mentionChip: 'display:inline-flex;align-items:center;border-radius:999px;padding:1px 8px;background:var(--u-accent-tint);font:500 11.5px var(--sans);color:var(--u-accent)',
+        noteAction: 'display:grid;place-items:center;width:24px;height:24px;border:none;border-radius:5px;background:none;color:var(--text3);cursor:pointer',
+        primary: 'height:34px;border:none;border-radius:7px;background:var(--amber-btn);padding:0 14px;font:600 12.5px var(--sans);color:var(--on-amber);cursor:pointer',
+        primarySm: 'margin-top:18px;border:none;border-radius:7px;background:var(--amber-btn);padding:9px 16px;font:600 13px var(--sans);color:var(--on-amber);cursor:pointer',
+        secondary: 'height:34px;border-radius:7px;border:1px solid var(--line);background:none;padding:0 14px;font:600 12.5px var(--sans);color:var(--text2);cursor:pointer',
+        secondarySm: 'border-radius:6px;border:1px solid var(--line);background:none;padding:5px 10px;font:600 11.5px var(--sans);color:var(--text2);cursor:pointer',
+      },
+
+      // The note editor's toolbar, exactly apps/web's NoteToolbar: marks, headings, lists, quote, link, mention.
+      toolbar: [
+        icon('Bold (⌘B)', 'M6 4h8a4 4 0 0 1 0 8H6zM6 12h9a4 4 0 0 1 0 8H6z'),
+        icon('Italic (⌘I)', 'M19 4h-9M14 20H5M14.7 4.5 9.3 19.5'),
+        icon('Underline (⌘U)', 'M6 4v6a6 6 0 0 0 12 0V4M4 20h16'),
+        icon('Strikethrough', 'M16 4H9a3 3 0 0 0-2.83 4M14 12a4 4 0 0 1 0 8H6M4 12h16'),
+        sep,
+        text('Heading', 'H2'),
+        text('Subheading', 'H3'),
+        sep,
+        icon('Bulleted list', 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01'),
+        icon('Numbered list', 'M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1'),
+        icon('Checklist', 'm3 17 2 2 4-4M3 7l2 2 4-4M13 6h8M13 12h8M13 18h8'),
+        sep,
+        icon('Quote', 'M3 21c3 0 7-1 7-8V5H3v8h4M14 21c3 0 7-1 7-8V5h-7v8h4'),
+        icon('Link (⌘K)', 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'),
+        text('Mention a teammate (type @)', '@'),
+      ],
 
       toggleTheme: () => {
         const d = !this.state.dark;
@@ -632,83 +1095,80 @@ class Component extends DCLogic {
         try { localStorage.setItem('lm-theme', d ? 'dark' : 'light'); } catch (e) {}
         this.setState({ dark: d });
       },
-      onTab: (e) => this.patch(frameOf(e), { tab: e.currentTarget.dataset.v }),
       onOpenSettings: (e) => this.patch(frameOf(e), { view: 'settings' }),
       onBack: (e) => this.patch(frameOf(e), { view: 'capture' }),
-      onSignOut: (e) => this.patch(frameOf(e), { view: 'signedOut', saved: null }),
-      onConnect: (e) => {
+      onSignOut: (e) => this.patch(frameOf(e), { view: 'signedOut' }),
+      onConnect: (e) => { const id = frameOf(e); this.patch(id, { view: 'capture', reading: true }); settleAfterRead(id); },
+      onRetry: (e) => { const id = frameOf(e); this.patch(id, { view: 'loading' }); this.later(700, () => { this.patch(id, { view: 'capture', reading: true }); settleAfterRead(id); }); },
+      onRescan: (e) => { const id = frameOf(e); this.patch(id, { rescanning: true }); this.later(900, () => this.patch(id, { rescanning: false })); },
+      onName: (e) => { const id = frameOf(e); this.patch(id, frame(id).subject === 'person' ? { personName: e.target.value } : { companyName: e.target.value }); },
+      onSubject: (e) => this.patch(frameOf(e), { subject: valueOf(e), overlay: null, refusal: null }),
+      onSwitcher: (e) => toggleOverlay(e, 'switcher'),
+      onPositionQuery: (e) => this.patch(frameOf(e), { positionQuery: e.target.value }),
+      onPickPosition: (e) => this.patch(frameOf(e), { positionId: valueOf(e), overlay: null, positionQuery: '', refusal: null }),
+      onStatusOpen: (e) => toggleOverlay(e, 'status'),
+      onPickStatus: (e) => this.patch(frameOf(e), { status: valueOf(e), overlay: null }),
+      onTagsOpen: (e) => toggleOverlay(e, 'tags'),
+      onTagQuery: (e) => this.patch(frameOf(e), { tagQuery: e.target.value }),
+      onToggleTag: (e) => {
         const id = frameOf(e);
-        this.patch(id, { view: 'capture', reading: true });
-        settleAfterRead(id);
+        const tid = valueOf(e);
+        const tags = frame(id).tags;
+        this.patch(id, { tags: tags.indexOf(tid) >= 0 ? tags.filter((t) => t !== tid) : tags.concat([tid]) });
       },
-      onRetry: (e) => {
+      onRemoveTag: (e) => { const id = frameOf(e); this.patch(id, { tags: frame(id).tags.filter((t) => t !== valueOf(e)) }); },
+      onCreateTag: (e) => {
         const id = frameOf(e);
-        this.patch(id, { view: 'loading' });
-        this.later(700, () => { this.patch(id, { view: 'capture', reading: true }); settleAfterRead(id); });
+        const label = frame(id).tagQuery.trim();
+        const tid = 't' + (this.tagCatalog.length + 1);
+        this.tagCatalog.push({ id: tid, label: label, colour: 'neutral', holders: 0 });
+        this.patch(id, { tags: frame(id).tags.concat([tid]), tagQuery: '' });
       },
-      onRescan: (e) => {
-        const id = frameOf(e);
-        this.patch(id, { rescanning: true });
-        this.later(900, () => this.patch(id, { rescanning: false }));
-      },
-      onName: (e) => {
+      onKind: (e) => this.patch(frameOf(e), { kind: valueOf(e) }),
+      onScope: (e) => this.patch(frameOf(e), { scope: valueOf(e) }),
+      onExpand: (e) => this.patch(frameOf(e), { expanded: true, overlay: null }),
+      onCollapse: (e) => this.patch(frameOf(e), { expanded: false }),
+      onExpandedSave: (e) => {
         const id = frameOf(e);
         const f = frame(id);
-        const isPerson = f.tab === 'person';
-        const locked = isPerson ? f.personLocked && f.personName.trim() : f.companyLocked && f.companyName.trim();
-        if (locked) return;
-        this.patch(id, isPerson ? { personName: e.target.value, personLocked: false } : { companyName: e.target.value, companyLocked: false });
+        if (f.saved) {
+          const note = { id: 'n' + Date.now(), author: this.user.fullName, kind: ({ general: 'Note', call: 'Call', meeting: 'Meeting', email: 'Email' })[f.kind], when: 'Just now', pinned: false, editable: true, about: f.scope === 'position' ? 'About ' + (this.positions.find((p) => p.id === f.positionId) || {}).title : 'All positions', blocks: [{ type: 'p', segs: [{ text: 'Follow-up noted from the panel.' }] }] };
+          this.patch(id, { expanded: false, notes: [note].concat(f.notes) });
+        } else {
+          this.patch(id, { expanded: false, saved: f.subject, notes: this.seedNotes(f.subject) });
+        }
       },
-      onNote: (e) => {
-        const id = frameOf(e);
-        this.patch(id, frame(id).tab === 'person' ? { personNote: e.target.value } : { companyNote: e.target.value });
-      },
-      onStatus: (e) => this.patch(frameOf(e), { status: e.target.value }),
-      onProject: (e) => this.patch(frameOf(e), { projectId: e.target.value, refusal: null }),
-      onDefaultProject: (e) => this.patch(frameOf(e), { defaultProjectId: e.target.value }),
-      onToggle: (e) => {
-        const id = frameOf(e);
-        const key = e.currentTarget.dataset.v;
-        this.patch(id, { [key]: !frame(id)[key] });
-      },
-      onSavePerson: (e) => {
+      onSave: (e) => {
         const id = frameOf(e);
         const f = frame(id);
-        if (!f.personName.trim() || !f.projectId || f.saving) return;
-        this.patch(id, { saving: 'person', refusal: null });
+        if (f.saving) return;
+        this.patch(id, { saving: true, refusal: null });
         this.later(700, () => {
-          const g = frame(id);
-          if (g.refusesPerson) {
-            this.patch(id, { saving: null, refusal: g.refusesPerson });
+          if (id === 'refused') {
+            this.patch(id, { saving: false, refusal: 'CANDIDATE_ALREADY_MAPPED' });
           } else {
-            this.patch(id, { saving: null, undone: false, saved: { subject: 'person', name: g.personName.trim(), landedIn: 'this position’s people' } });
+            this.patch(id, { saving: false, saved: frame(id).subject, notes: this.seedNotes(frame(id).subject) });
           }
         });
       },
-      onDestination: (e) => {
+      onUndo: (e) => this.patch(frameOf(e), { saved: null, notes: [], toast: null }),
+      onPin: (e) => {
         const id = frameOf(e);
-        const dest = e.currentTarget.dataset.v;
+        const nid = valueOf(e);
+        this.patch(id, { notes: frame(id).notes.map((n) => n.id === nid ? Object.assign({}, n, { pinned: !n.pinned }) : n) });
+      },
+      onDeleteNote: (e) => {
+        const id = frameOf(e);
+        const nid = valueOf(e);
         const f = frame(id);
-        if (!f.companyName.trim() || !f.projectId || f.saving) return;
-        this.patch(id, { saving: dest });
-        this.later(700, () => {
-          const g = frame(id);
-          this.patch(id, { saving: null, undone: false, saved: { subject: 'company', name: g.companyName.trim(), landedIn: dest === 'inUniverse' ? 'the universe' : 'the shortlist' } });
-        });
+        this.patch(id, { notes: f.notes.filter((n) => n.id !== nid), removed: f.notes.find((n) => n.id === nid), toast: 'Note deleted' });
       },
-      onCaptureAnother: (e) => {
+      onToastUndo: (e) => {
         const id = frameOf(e);
         const f = frame(id);
-        const reset = f.tab === 'person' ? { personNote: '', status: 'identified' } : { companyNote: '' };
-        this.patch(id, Object.assign({ saved: null, undone: false, undoing: false, rescanning: true }, reset));
-        this.later(900, () => this.patch(id, { rescanning: false }));
+        this.patch(id, { notes: f.removed ? [f.removed].concat(f.notes) : f.notes, removed: null, toast: null });
       },
-      onUndo: (e) => {
-        const id = frameOf(e);
-        if (frame(id).undoing) return;
-        this.patch(id, { undoing: true });
-        this.later(700, () => this.patch(id, { undoing: false, undone: true }));
-      },
+      onToggle: (e) => { const id = frameOf(e); const key = valueOf(e); this.patch(id, { [key]: !frame(id)[key] }); },
       onPair: (e) => {
         const id = e.currentTarget.dataset.conn;
         const setConn = (obj) => this.setState((st) => ({ connect: Object.assign({}, st.connect, { [id]: Object.assign({}, st.connect[id], obj) }) }));
