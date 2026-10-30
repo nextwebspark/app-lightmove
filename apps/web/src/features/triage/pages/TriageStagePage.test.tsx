@@ -331,11 +331,12 @@ async function linesFromFixtures(
     (scope.executiveStatuses.length === 0 || scope.executiveStatuses.includes(candidate.status)) &&
     candidate.fullName.toLowerCase().includes(scope.executiveQuery.toLowerCase());
   const people = (mapped?.candidates ?? []).filter(matches);
-  const lines: StageLinesPage["lines"] = companies.companies.flatMap((company) => {
+  const lines = companies.companies.flatMap((company): StageLinesPage["lines"] => {
     const at = people.filter((candidate) => candidate.triageCompanyId === company.id);
     return at.length === 0 ? [{ company, candidate: null }] : at.map((candidate) => ({ company, candidate }));
   });
-  for (const candidate of (unmapped?.candidates ?? []).filter(matches)) lines.push({ company: null, candidate });
+  const atNoCompany = (unmapped?.candidates ?? []).filter((candidate) => candidate.triageCompanyId == null);
+  for (const candidate of atNoCompany.filter(matches)) lines.push({ company: null, candidate });
   return {
     lines,
     addedBy: { ...(mapped?.addedBy ?? {}), ...(unmapped?.addedBy ?? {}) },
@@ -1514,14 +1515,14 @@ describe("TriageStagePage", () => {
     }));
     renderStage();
 
-    expect(await screen.findByText(/lists its first companies by name/i)).toBeInTheDocument();
+    expect(await screen.findByText(/not every company or executive is listed/i)).toBeInTheDocument();
   });
 
   it("says nothing when the whole stage was sorted", async () => {
     renderStage();
 
     await screen.findByText("ACWA Power");
-    expect(screen.queryByText(/lists its first companies by name/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/not every company or executive is listed/i)).not.toBeInTheDocument();
   });
 
   it("opens a column's menu from its header and sorts the people by the executive's own name", async () => {

@@ -1115,7 +1115,7 @@ function MenuItem({
         size={14}
         className={tone === "danger" ? "text-u-offlimits" : active ? "text-u-accent" : "text-u-text3"}
       />
-      <span className="flex-1">{label}</span>
+      <span className="flex-1">{label}</span>{" "}
       {hint && <span className="font-mono text-[11px] text-u-text3">{hint}</span>}
     </button>
   );
