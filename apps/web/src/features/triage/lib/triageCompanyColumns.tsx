@@ -28,7 +28,8 @@ import { StatusPicker } from "../../candidates/components/StatusPicker";
 import { statusStyle } from "../../candidates/lib/pipelineStatus";
 import type { CustomColumn, CustomColumnType } from "../../customcolumns/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
-import { candidateMoveTooltip, MOVES, removeTooltip, SOURCE_STYLES } from "./triageVocabulary";
+import { SHORTLIST_AND_DECLINE_OFFERED } from "./triageStages";
+import { candidateMoveTooltip, offeredMoves, removeTooltip, SOURCE_STYLES } from "./triageVocabulary";
 import type { TriageCompanyRow } from "./triageRows";
 
 /**
@@ -160,7 +161,7 @@ const BUILT_IN_COLUMNS = helper.columns([
     header: "Actions",
     enableSorting: false,
     enableHiding: false,
-    meta: { share: 0, min: 134 },
+    meta: { share: 0, min: SHORTLIST_AND_DECLINE_OFFERED ? 134 : 80 },
     cell: (info) => {
       const row = info.row.original;
       const meta = info.table.options.meta;
@@ -173,10 +174,10 @@ const BUILT_IN_COLUMNS = helper.columns([
       if (row.candidate) {
         const { candidate } = row;
         const candidateBusy = meta.busyIds.has(candidate.id);
-        const stage = candidate.triageStatus ?? row.company?.status ?? "inUniverse";
+        const moves = offeredMoves(candidate.triageStatus ?? row.company?.status ?? "inUniverse");
         return (
           <span className="flex justify-start gap-1.5">
-            {MOVES[stage].map((move) => (
+            {moves.map((move) => (
               <button
                 key={move.status}
                 type="button"
@@ -189,7 +190,7 @@ const BUILT_IN_COLUMNS = helper.columns([
                 <Icon d={move.icon} size={14} />
               </button>
             ))}
-            <span aria-hidden className="mx-0.5 w-px self-stretch bg-u-border" />
+            {moves.length > 0 && <span aria-hidden className="mx-0.5 w-px self-stretch bg-u-border" />}
             <button
               type="button"
               title={removeTooltip(candidate.fullName)}
@@ -207,9 +208,10 @@ const BUILT_IN_COLUMNS = helper.columns([
       const { company } = row;
       if (!company) return null;
       const busy = meta.busyIds.has(company.id);
+      const moves = offeredMoves(company.status);
       return (
         <span className="flex justify-start gap-1.5">
-          {MOVES[company.status].map((move) => (
+          {moves.map((move) => (
             <button
               key={move.status}
               type="button"
@@ -222,7 +224,7 @@ const BUILT_IN_COLUMNS = helper.columns([
               <Icon d={move.icon} size={14} />
             </button>
           ))}
-          <span aria-hidden className="mx-0.5 w-px self-stretch bg-u-border" />
+          {moves.length > 0 && <span aria-hidden className="mx-0.5 w-px self-stretch bg-u-border" />}
           <button
             type="button"
             title={removeTooltip(company.companyName)}

@@ -16,7 +16,7 @@ import * as companyNotesApi from "../api/companyNotesApi";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompany, TriageCompanyStatus } from "../api/types";
 import { stageByStatus } from "../lib/triageStages";
-import { MOVES, removeTooltip, SOURCE_STYLES } from "../lib/triageVocabulary";
+import { offeredMoves, removeTooltip, SOURCE_STYLES } from "../lib/triageVocabulary";
 import { AddCompanyPanel } from "./AddCompanyPanel";
 import { CompanyFactsForm, editPayloadOf } from "./CompanyFactsForm";
 import { CompanyFactsSections } from "./CompanyFactsSections";
@@ -297,7 +297,7 @@ export function CompanyDrawer({
 
           {canWrite && (
             <div className="flex flex-none flex-wrap items-center gap-2 border-t border-u-border px-5 py-3">
-              {MOVES[company.status].map((move) => (
+              {offeredMoves(company.status).map((move) => (
                 <Button
                   key={move.status}
                   type="button"

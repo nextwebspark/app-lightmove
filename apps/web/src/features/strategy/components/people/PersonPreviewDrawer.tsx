@@ -25,7 +25,7 @@ import { useProfileSections, type ProfileSection } from "../../../candidates/lib
 import * as contactLookupApi from "../../../contactlookup/api/contactLookupApi";
 import { ContactPanel } from "../../../contactlookup/components/ContactPanel";
 import type { TriageCompanyStatus } from "../../../triage/api/types";
-import { TRIAGE_STAGES } from "../../../triage/lib/triageStages";
+import { OFFERED_TRIAGE_STAGES } from "../../../triage/lib/triageStages";
 import type { PersonDetails, PersonResult } from "../../api/types";
 import { PersonLinks } from "./PersonLinks";
 
@@ -230,7 +230,7 @@ function PersonProfile({
         {person.held ? (
           <p className="font-mono text-[12px] text-u-text3">Already mapped in this mandate.</p>
         ) : (
-          TRIAGE_STAGES.map((stage) => (
+          OFFERED_TRIAGE_STAGES.map((stage) => (
             <Button
               key={stage.status}
               type="button"

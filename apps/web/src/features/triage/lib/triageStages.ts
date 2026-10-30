@@ -59,6 +59,21 @@ export function stageBySlug(slug: string): TriageStage | undefined {
 }
 
 /**
+ * Shortlisted and Declined are switched off for now: the API and the rows already filed there keep them, while
+ * every screen offers In universe alone and nothing moves a company or an executive anywhere else.
+ */
+export const SHORTLIST_AND_DECLINE_OFFERED: boolean = false;
+
+/** The stages a screen may show or file at — the rail, the stage route and every "add at" button read this. */
+export const OFFERED_TRIAGE_STAGES: TriageStage[] = TRIAGE_STAGES.filter(
+  (stage) => SHORTLIST_AND_DECLINE_OFFERED || stage.status === "inUniverse",
+);
+
+export function offeredStageBySlug(slug: string): TriageStage | undefined {
+  return OFFERED_TRIAGE_STAGES.find((stage) => stage.slug === slug);
+}
+
+/**
  * The stage a stored status belongs to. Total rather than optional: every status the API can answer
  * with has a row above, and a panel that had to handle "no such stage" for a value the server just
  * sent would be guarding against its own type.

@@ -5,7 +5,7 @@ import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import { cn } from "../../../lib/cn";
 import { formatNumber } from "../../../lib/format";
 import type { TriageCompanyStatus } from "../../triage/api/types";
-import { TRIAGE_STAGES } from "../../triage/lib/triageStages";
+import { OFFERED_TRIAGE_STAGES, TRIAGE_STAGES } from "../../triage/lib/triageStages";
 import { companyKey, type AssistantProposal, type ProposalOutcome, type ProposedCompany } from "../api/types";
 
 const STAGE_BY_STATUS = new Map(TRIAGE_STAGES.map((stage) => [stage.status, stage]));
@@ -127,7 +127,7 @@ export function AssistantProposalCard({
           {allHeld ? "All already in this mandate" : acceptCountLabel(ticked.length)}
         </p>
         <div className="flex flex-wrap items-center gap-1.5">
-          {TRIAGE_STAGES.map((stage) => (
+          {OFFERED_TRIAGE_STAGES.map((stage) => (
             <button
               key={stage.status}
               type="button"

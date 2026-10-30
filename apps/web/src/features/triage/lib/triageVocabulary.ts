@@ -1,5 +1,6 @@
 import { ICONS } from "../../../components/layout/Icon";
 import type { TriageCompanySource, TriageCompanyStatus } from "../api/types";
+import { OFFERED_TRIAGE_STAGES, SHORTLIST_AND_DECLINE_OFFERED } from "./triageStages";
 
 /**
  * How a company's provenance and its available moves read on screen, in one place — the grid draws
@@ -47,6 +48,11 @@ export const MOVES: Record<TriageCompanyStatus, TriageMove[]> = {
   ],
 };
 
+/** {@link MOVES} narrowed to the stages the screens offer — none from In universe while Shortlisted and Declined are off. */
+export function offeredMoves(status: TriageCompanyStatus): TriageMove[] {
+  return MOVES[status].filter((move) => OFFERED_TRIAGE_STAGES.some((stage) => stage.status === move.status));
+}
+
 /** A move on one executive's line, read on hover: Decline rules out the person, never their company. */
 export function candidateMoveTooltip(move: TriageMove): string {
   return move.status === "declined"
@@ -60,5 +66,7 @@ export function candidateMoveTooltip(move: TriageMove): string {
  * rather than each explaining only itself.
  */
 export function removeTooltip(name: string): string {
-  return `Remove ${name} from this mandate — not remembered; use Decline to keep a record`;
+  return SHORTLIST_AND_DECLINE_OFFERED
+    ? `Remove ${name} from this mandate — not remembered; use Decline to keep a record`
+    : `Remove ${name} from this mandate`;
 }

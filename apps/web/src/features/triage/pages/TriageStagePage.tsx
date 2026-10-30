@@ -61,7 +61,7 @@ import {
   TRIAGE_SORT_FIELDS,
 } from "../lib/triageCompanyColumns";
 import { awaitingResearch, type TriageCompanyRow } from "../lib/triageRows";
-import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
+import { offeredStageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
 import { companiesOf } from "../lib/sourcingSummary";
 import { CHOSEN_VIEW_STATE, isChosenView, resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
 import { useCompanySelection } from "../lib/useCompanySelection";
@@ -104,7 +104,7 @@ const MOVE_LABELS: Record<TriageCompanyStatus, string> = {
  *
  * <p>The stage comes from the URL rather than a prop, so all three are one route pattern and a stage
  * added to {@link TRIAGE_STAGES} is reachable without touching the router. An unknown slug redirects
- * rather than rendering an empty grid for a stage that does not exist.
+ * rather than rendering an empty grid for a stage that does not exist, and so does a stage that is not offered.
  *
  * <p>A mandate nobody has triaged shows an empty stage rather than the market. That is the change
  * this screen went through: discovery moved to Strategy, and what remains here is the record of
@@ -113,7 +113,7 @@ const MOVE_LABELS: Record<TriageCompanyStatus, string> = {
 export function TriageStagePage() {
   const { stage: stageSlug } = useParams();
   const { project } = useOutletContext<ProjectOutletContext>();
-  const stage = stageSlug ? stageBySlug(stageSlug) : undefined;
+  const stage = stageSlug ? offeredStageBySlug(stageSlug) : undefined;
 
   if (!stage) {
     return <Navigate to={`/projects/${project.id}/companies/${TRIAGE_STAGES[0].slug}`} replace />;
@@ -133,7 +133,7 @@ function TriageStage() {
   const rowsChanged = useProjectRowsChanged();
   const toast = useToast();
 
-  const stage = stageBySlug(stageSlug!)!;
+  const stage = offeredStageBySlug(stageSlug!)!;
   const canWrite = canExecuteProjectWork(project, user?.id, user?.workspace?.roles);
 
   const [page, setPage] = useState(0);

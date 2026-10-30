@@ -18,7 +18,7 @@ import { useAutosave } from "../../../lib/useAutosave";
 import { FULLSCREEN_PANEL, hiddenBesideRail, useFullscreen } from "../../../lib/useFullscreen";
 import * as triageApi from "../../triage/api/triageApi";
 import type { TriageCompanyStatus } from "../../triage/api/types";
-import { TRIAGE_STAGES, stageByStatus } from "../../triage/lib/triageStages";
+import { OFFERED_TRIAGE_STAGES, stageByStatus } from "../../triage/lib/triageStages";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
 import type {
@@ -487,7 +487,7 @@ function StrategyEditor({ toggle }: { toggle: ModeToggle | null }) {
               plural="companies"
               onClear={clearSelection}
             >
-              {TRIAGE_STAGES.map((stage) => (
+              {OFFERED_TRIAGE_STAGES.map((stage) => (
                 <SelectionAction
                   key={stage.status}
                   icon={stage.icon}

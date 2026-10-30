@@ -14,6 +14,9 @@ import { stubFullscreenApi } from "../../../test/fullscreen";
 import { NO_PEOPLE_FILTER } from "./PeopleStrategyEditor";
 import { StrategyPage } from "./StrategyPage";
 
+// Shortlisted and Declined are switched off on screen for now; these tests keep that half covered for when it returns.
+vi.mock("../../triage/lib/triageStages", () => import("../../../test/shortlistAndDecline").then((stages) => stages.triageStagesWithShortlistAndDecline()));
+
 vi.mock("../../../lib/countries", () => import("../../../test/countries"));
 
 vi.mock("../api/strategyApi", async (importOriginal) => ({
