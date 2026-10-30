@@ -373,12 +373,14 @@ describe("ActivityTimeline", () => {
         { ...callNote, id: "n2", kind: "meeting", body: "Intro call summary", format: "plain", editedAt: null, editedByName: null },
         { ...callNote, id: "n3", kind: "email", body: "Sent the overview.", format: "plain", editedAt: null, editedByName: null },
         { ...callNote, id: "n4", kind: "general", body: "Prefers a listed company.", format: "plain", projectId: null, editedAt: null, editedByName: null },
+        { ...callNote, id: "n5", kind: "linkedin", body: "Accepted the request.", format: "plain", editedAt: null, editedByName: null },
       ]);
       history(
         line(4, "NOTE_ADDED", { details: { noteId: "n1", kind: "CALL" }, noteExcerpt: "Open" }),
         line(3, "NOTE_ADDED", { details: { noteId: "n2", kind: "MEETING" }, noteExcerpt: "Intro" }),
         line(2, "NOTE_ADDED", { details: { noteId: "n3", kind: "EMAIL" }, noteExcerpt: "Sent" }),
         line(1, "NOTE_ADDED", { details: { noteId: "n4", kind: "GENERAL" }, noteExcerpt: "Prefers", projectId: null, projectTitle: null }),
+        line(0, "NOTE_ADDED", { details: { noteId: "n5", kind: "LINKEDIN" }, noteExcerpt: "Accepted" }),
       );
       renderTimeline();
       const expectations: [RegExp, string, string][] = [
@@ -386,6 +388,7 @@ describe("ActivityTimeline", () => {
         [/logged a meeting/, "Meeting note", "Meeting note"],
         [/logged an email/, "Email note", "Email note"],
         [/wrote a note/, "Note", "About the person · every position"],
+        [/logged a LinkedIn message/, "LinkedIn note", "LinkedIn note"],
       ];
       for (const [card, title, text] of expectations) {
         await userEvent.click(await screen.findByRole("button", { name: card }));

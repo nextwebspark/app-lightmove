@@ -324,11 +324,13 @@ try {
     const config = (await api("/talent-map/config", { token })).body;
     await page.goto(`${WEB}/projects/${PROJECT}/companies/universe`);
     await page.getByText("Aurora Holdings").first().waitFor({ timeout: 25000 });
-    const views = page.getByRole("radiogroup", { name: "View" });
+    // From lg the views are the rail's, nested under In universe.
+    const views = page.locator("#app-nav").getByRole("group", { name: "In universe" });
+    await views.getByRole("link", { name: "Table", exact: true }).waitFor({ timeout: 10000 });
     check("R1.10", `with Mapbox ${config?.enabled ? "configured" : "unconfigured"}, the Map view is ${config?.enabled ? "offered" : "not offered"}`,
-      config?.enabled ? 1 : 0, await views.getByRole("radio", { name: "Map", exact: true }).count());
+      config?.enabled ? 1 : 0, await views.getByRole("link", { name: "Map", exact: true }).count());
     check("R1.10b", "…while staff always read it as a Table or a Pipeline", "1/1",
-      `${await views.getByRole("radio", { name: "Table", exact: true }).count()}/${await views.getByRole("radio", { name: "Pipeline", exact: true }).count()}`);
+      `${await views.getByRole("link", { name: "Table", exact: true }).count()}/${await views.getByRole("link", { name: "Pipeline", exact: true }).count()}`);
     await shot("universe");
   });
 } finally {

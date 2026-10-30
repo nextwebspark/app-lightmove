@@ -7,4 +7,4 @@
 
 Companies already on the position — In universe, Shortlisted or Declined — drop out of the results, so the list gets shorter as you decide.
 
-Switch to **People** on the Strategy toolbar to search for executives directly rather than companies.
+Choose **People** under Strategy in the side menu (on a smaller screen or in full screen, the switch at the top of the page) to search for executives directly rather than companies.

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Button } from "../../../components/ui";
@@ -9,6 +9,7 @@ import type { PersonNote, PersonNoteKind } from "../api/types";
 import { shortWhen } from "../lib/candidateActivity";
 import { NOTE_KINDS, noteKindLabel } from "../lib/noteKinds";
 import { NoteEditor } from "../../notes/components/NoteEditor";
+import { NoteKindMark } from "./NoteKindMark";
 import { ClampedNoteText } from "../../notes/components/ClampedNoteText";
 import { NoteReaderModal } from "../../notes/components/NoteReaderModal";
 import { NOTE_MAX_STORED, NOTE_TOO_LONG } from "../../tasks/lib/mentions";
@@ -19,9 +20,14 @@ export type NoteScope = "position" | "everywhere";
 
 export function NoteKindPicker({ value, onChange }: { value: PersonNoteKind; onChange: (kind: PersonNoteKind) => void }) {
   return (
-    <NoteChoiceChips label="Kind of note" options={NOTE_KINDS} value={value} onChange={onChange} className="mb-2" />
+    <NoteChoiceChips label="Kind of note" options={KIND_OPTIONS} value={value} onChange={onChange} className="mb-2" />
   );
 }
+
+const KIND_OPTIONS = NOTE_KINDS.map((option) => ({
+  ...option,
+  mark: <NoteKindMark kind={option.value} size={12} />,
+}));
 
 /** Inside a position a note is about it or about the person on every position, never about another position. */
 export function NoteScopePicker({
@@ -55,7 +61,7 @@ function NoteChoiceChips<TValue extends string>({
   className,
 }: {
   label: string;
-  options: readonly { value: TValue; label: string; title?: string }[];
+  options: readonly { value: TValue; label: string; title?: string; mark?: ReactNode }[];
   value: TValue;
   onChange: (value: TValue) => void;
   className?: string;
@@ -83,12 +89,13 @@ function NoteChoiceChips<TValue extends string>({
           title={option.title}
           onClick={() => onChange(option.value)}
           className={cn(
-            "rounded-full border px-2.5 py-0.5 font-mono text-[11px] transition",
+            "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-mono text-[11px] transition",
             value === option.value
               ? "border-u-accent bg-u-accent-tint text-u-accent"
               : "border-u-border text-u-text3 hover:text-u-text2",
           )}
         >
+          {option.mark}
           {option.label}
         </button>
       ))}
@@ -175,8 +182,11 @@ export function NoteCard({
       <div className="flex items-center gap-2">
         <Avatar id={note.authorUserId} name={authorName} src={note.authorAvatarUrl} size="sm" />
         <span className="text-[12.5px] font-semibold">{authorName}</span>
-        <span className="rounded-[4px] bg-u-raised px-1.5 py-px font-mono text-[9.5px] font-semibold uppercase tracking-[0.06em] text-u-text3">
-          {noteKindLabel(note.kind)}
+        <span className="flex items-center gap-1 text-u-text3">
+          <NoteKindMark kind={note.kind} size={12} />
+          <span className="rounded-[4px] bg-u-raised px-1.5 py-px font-mono text-[9.5px] font-semibold uppercase tracking-[0.06em]">
+            {noteKindLabel(note.kind)}
+          </span>
         </span>
         {note.pinned && (
           <span className="flex items-center gap-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-u-accent">

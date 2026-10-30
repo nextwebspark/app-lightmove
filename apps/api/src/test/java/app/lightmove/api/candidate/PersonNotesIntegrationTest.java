@@ -86,6 +86,21 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a LinkedIn exchange is filed as its own kind, and its timeline line says so")
+    void aLinkedInNoteKeepsItsKind() throws Exception {
+        firm("LinkedIn Notes Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, FATIMA).get("id").asText();
+
+        write(admin, cfo, candidateId, "linkedin", "Accepted the connection request; open to a call next week.");
+
+        assertThat(notes(admin, cfo, candidateId).get(0).get("kind").asText()).isEqualTo("linkedin");
+        JsonNode line = timeline(cfo, candidateId, "notes").get("entries").get(0);
+        assertThat(line.get("kind").asText()).isEqualTo("NOTE_ADDED");
+        assertThat(line.get("details").get("kind").asText()).isEqualTo("LINKEDIN");
+    }
+
+    @Test
     @DisplayName("a note for all positions, written from one, is read on every position the person is in")
     void anAllPositionsNoteIsReadOnEvery() throws Exception {
         firm("All Positions Notes Firm");

@@ -68,7 +68,7 @@ LinkedIn profile is refused (`PERSON_PROFILE_HELD`). A plugin capture of someone
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
-**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email), authored,
+**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`), authored,
 timed and **staff-only** — `CandidateResponse`, the talent map and the report carry none, because a client
 seat reads all three (decision D1). A note is about one position or about the person: read from a position,
 only that position's and the person's ("All positions") show, and another position's is not found
@@ -190,8 +190,8 @@ out as Website and Company LinkedIn. It is `WORK_VIEW`, the gate that reads the 
 representative may take the mandate they can already read; unlike every other read it records an
 audit event, because a mandate leaving as a file is not the same act as reading a page of it. Past
 `lightmove.export.*` it refuses rather than truncating.
-**The Companies toolbar** (`Position.dc.html`) is one search box in every view, the view control, the three
-primary actions — Find executives, Add executive, Add company, which keep their places in every view and are greyed
+**The Companies toolbar** (`Position.dc.html`) is one search box in every view, the view control (below `lg` and in full screen — the rail
+holds it otherwise), the three primary actions — Find executives, Add executive, Add company, which keep their places in every view and are greyed
 (`aria-disabled`, saying where they work) where the view cannot take them, as both companies' actions are on the
 Pipeline — and **Advanced ▾** (`AdvancedMenu`) for the rest, by view: show/hide and manage columns on the table, the
 map's layers, the board's Inactive column and pipeline stages, Add to sequence where something can be ticked, Import
@@ -199,7 +199,11 @@ and Export. The search is matched by the server, the same rule in every read (`s
 people reads, the export and the talent map, the pipeline's `q`): a company by name, place or industry, an executive
 by name, title, place or employer, and — only for a `WORK_EXECUTE` holder, decided server-side — the company's and
 the person's live notes readable from this position and the person's tags; a matching company keeps all its people.
-In universe reads as **Table | Map | Pipeline** (`?view=`, remembered per mandate): **Pipeline** is the position's
+In universe reads as **Table | Map | Pipeline** (`?view=`; the rail's views under In universe, as Strategy's Companies |
+People and Outreach's Conversations | Sequences are under theirs — `Sidebar`'s `children`, from `lg`, with the page's
+own switch below it and in full screen, `useCompaniesViews` deciding what both offer). A view someone *chose* — a rail
+link or the switch, carrying `CHOSEN_VIEW_STATE` — is remembered per mandate; a link that only names one, a
+notification's `?view=pipeline`, is a visit. **Pipeline** is the position's
 board by pipeline stage — the retired CRM Pipeline page, board only, every executive on the position whatever their
 Companies stage, staff only (`WORK_EXECUTE`); `/projects/{id}/pipeline` and its `?candidate=` links land there
 (`positionPipelinePath`).
@@ -245,8 +249,8 @@ behind ContactOut (`PeopleSearchChain`, walked by `ChainedPeopleSearch`, the cac
 out of credits included — is searched on the dataset, and filed `enriched_by = BRIGHTDATA`; the run's
 outcome records the `source` that answered. Offered where the chosen index is configured
 (`provider: brightdata`, or a ContactOut key); a client seat sees none of it. **Strategy → People**
-(`enrichment/peoplesearch`, V93) is the sixth door: a Companies | People toggle on the Strategy
-toolbar (`?mode=people`, staff only) swaps the company filter for ContactOut's People Search filter —
+(`enrichment/peoplesearch`, V93) is the sixth door: Companies | People under Strategy in the rail
+(`?mode=people`, staff only) swaps the company filter for ContactOut's People Search filter —
 only parameters its API reference lists, the values its accepted-values sheet lists
 (`data/contactout-people-vocabulary.json`; the dashboard's Revenue, Gender and exclude lists have no
 API). The filter autosaves as `app_lm_strategy.people_filter` and is counted free and live
@@ -670,7 +674,8 @@ takes a thread from the run in it.
 `Outreach.dc.html`'s three panes — `ConversationListPane`, `ConversationPane` (history and `ReplyComposer`) and
 `CandidateDetailsPane` — with `?view=&who=&q=&candidate=` in the URL; it lands on everyone (All, Team) and opens
 the top conversation where the list leaves room (the list alone on a phone), the tabs being chips in the list (All · To do · Scheduled · Sent). `OutreachHeader` is
-Conversations | Sequences (`…/outreach/sequences` and the sequence editor under it, the same frame), the mailbox chip (`MailboxChip`;
+the same frame for Conversations and Sequences (`…/outreach/sequences` and the sequence editor under it, the rail's views
+under Outreach), the mailbox chip (`MailboxChip`;
 `lib/mailboxState.ts` is the one reading the banner, chip, setup card and composer share) and the view's action —
 New email (anyone on the position) or New sequence. The executive drawer offers Write email (the same composer in
 `EmailComposerDialog`) beside Add to sequence. The conversation read gained `contact` and `composer`
