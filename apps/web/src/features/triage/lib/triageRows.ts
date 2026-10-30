@@ -28,45 +28,6 @@ export function triageRowId(row: TriageCompanyRow): string {
 }
 
 /**
- * Expands a page of companies against the people mapped at them, in the companies' server order so a
- * company's lines stay contiguous however the grid is sorted.
- *
- * <p>`unmappedCandidates` are appended after them. They belong to the mandate rather than to any
- * company on this page, so they are passed only on the page that should carry them — the caller
- * decides that, because "the last page of the universe" is a paging fact this function has no view of.
- */
-export function toTriageRows(
-  companies: TriageCompany[],
-  candidates: Candidate[],
-  unmappedCandidates: Candidate[] = [],
-  addedBy: Record<string, AddedBy> = {},
-): TriageCompanyRow[] {
-  const byCompany = new Map<string, Candidate[]>();
-  for (const candidate of candidates) {
-    if (!candidate.triageCompanyId) continue;
-    const held = byCompany.get(candidate.triageCompanyId);
-    if (held) held.push(candidate);
-    else byCompany.set(candidate.triageCompanyId, [candidate]);
-  }
-
-  const rows: TriageCompanyRow[] = [];
-  for (const company of companies) {
-    const mapped = byCompany.get(company.id) ?? [];
-    if (mapped.length === 0) {
-      rows.push({ company, candidate: null });
-      continue;
-    }
-    for (const candidate of mapped) rows.push({ company, candidate, candidateAddedBy: addedBy[candidate.id] });
-  }
-
-  for (const candidate of unmappedCandidates) {
-    rows.push({ company: null, candidate, candidateAddedBy: addedBy[candidate.id] });
-  }
-
-  return rows;
-}
-
-/**
  * Research on a plugin capture normally lands within seconds; past this, it failed and the row will
  * stay as captured — polling forever for it would be a heartbeat nobody asked for.
  */

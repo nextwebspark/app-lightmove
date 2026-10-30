@@ -15,10 +15,10 @@ import { useProjectRowsChanged } from "../../../lib/projectRows";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
-import { useGridSort, type GridSort } from "../../../lib/useGridSort";
+import { sortableFieldsOf, useGridSort, type GridSort } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
-import type { Candidate, CandidatesPage } from "../../candidates/api/types";
+import type { Candidate } from "../../candidates/api/types";
 import {
   CandidateDrawer,
   type CandidateCompanyContext,
@@ -26,6 +26,7 @@ import {
 import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandidateDialog";
 import { useChangeCandidateStatus } from "../../candidates/lib/useChangeCandidateStatus";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
+import { useDeleteCustomColumn } from "../../customcolumns/lib/useDeleteCustomColumn";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import * as positionApi from "../../position/api/positionApi";
 import { EnrolDialog } from "../../outreach/components/EnrolDialog";
@@ -59,7 +60,7 @@ import {
   defaultTriageColumnVisibility,
   TRIAGE_SORT_FIELDS,
 } from "../lib/triageCompanyColumns";
-import { awaitingResearch, toTriageRows } from "../lib/triageRows";
+import { awaitingResearch, type TriageCompanyRow } from "../lib/triageRows";
 import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
 import { companiesOf } from "../lib/sourcingSummary";
 import { useCompanySelection } from "../lib/useCompanySelection";
@@ -206,7 +207,7 @@ function TriageStage() {
       { replace: true },
     );
   }, [addRequest, user, canWrite, setSearchParams]);
-  const [sort, setSort] = useGridSort("companies", project.id, TRIAGE_SORT_FIELDS, DEFAULT_SORT);
+  const [sort, setSort] = useGridSort<TriageSortField>("companies", project.id, TRIAGE_SORT_FIELDS, DEFAULT_SORT);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [mapPreferences, setMapPreferences] = useTalentMapPreferences(project.id);
 
@@ -307,6 +308,17 @@ function TriageStage() {
   );
   const hiddenColumnCount = hideableColumns.filter((column) => columnVisibility[column.id] === false).length;
 
+  // A sort on a column this reader no longer has — a custom column removed, a staff column on a client seat — is a
+  // 400 from the server, so the grid falls back to its default rather than failing.
+  const sortableFields = useMemo(
+    () => sortableFieldsOf(createTriageCompanyColumns(customColumns, { staff: canWrite })),
+    [customColumns, canWrite],
+  );
+  useEffect(() => {
+    if (!customColumnsQuery.isSuccess || sortableFields.includes(sort.field)) return;
+    setSort(DEFAULT_SORT);
+  }, [customColumnsQuery.isSuccess, sortableFields, sort.field, setSort]);
+
   // A keystroke should narrow the list, not fire a request per character.
   useEffect(() => {
     // Trimmed once here, so a trailing space neither refetches the same page under a new key nor reads as a search.
@@ -342,8 +354,10 @@ function TriageStage() {
    * and all three counts, and a page that refreshed only the list it was looking at would show the
    * company gone and the sidebar's shortlist badge still one short.
    */
-  const refreshEveryStage = () =>
+  const refreshEveryStage = () => {
     void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
+    void queryClient.invalidateQueries({ queryKey: triageApi.STAGE_LINES_KEY_PREFIX(project.id) });
+  };
 
   const refreshPeople = () =>
     void queryClient.invalidateQueries({
@@ -452,31 +466,25 @@ function TriageStage() {
     return awaitingResearch(visiblePeople.current) ? RESEARCH_POLL_MS : false;
   };
 
-  const companies = useQuery({
-    queryKey: triageApi.TRIAGE_KEY(
-      project.id,
-      stage.status,
-      page,
-      pageSize,
-      debouncedQuery,
-      debouncedExecutiveQuery,
-      executiveStatuses,
-      debouncedSearch,
-      sort,
-    ),
-    queryFn: ({ signal }) =>
-      triageApi.getTriageCompanies(
-        project.id,
-        stage.status,
-        page,
-        pageSize,
-        debouncedQuery,
-        debouncedExecutiveQuery,
-        executiveStatuses,
-        debouncedSearch,
-        sort,
-        signal,
-      ),
+  /**
+   * The grid's lines — people at companies, a company nobody is listed at yet, an executive at no company of the
+   * mandate — ordered by the server across the whole stage, so sorting by a person's name or title sorts the people
+   * whatever company they sit at. Filtered per person there too, so a company kept for one matching colleague draws
+   * only that colleague.
+   */
+  const linesScope: triageApi.StageLinesQuery = {
+    status: stage.status,
+    page,
+    size: pageSize,
+    query: debouncedQuery,
+    executiveQuery: debouncedExecutiveQuery.trim(),
+    executiveStatuses,
+    search: debouncedSearch,
+    sort,
+  };
+  const lines = useQuery({
+    queryKey: triageApi.STAGE_LINES_KEY(project.id, linesScope),
+    queryFn: ({ signal }) => triageApi.getStageLines(project.id, linesScope, signal),
     // The grid's reads are the grid's: the map reads the whole stage in one request of its own.
     enabled: view === "table",
     // Paging without blanking the grid, which would make every page turn look like a reload.
@@ -484,83 +492,12 @@ function TriageStage() {
     refetchInterval: researchPoll,
   });
 
-  const companyIds = useMemo(
-    () => (companies.data?.companies ?? []).map((company) => company.id),
-    [companies.data],
-  );
-
-  /**
-   * The people at the companies on this page, asked for separately rather than embedded in the list
-   * above. `triagecompany` knows nothing about candidates by design — the dependency runs one way —
-   * so the grid composes the two sides here instead of either feature learning the other's storage.
-   *
-   * <p>Disabled until the companies land: firing with no ids would either ask for the whole mandate
-   * or answer nothing, and both are wrong for a page that does not exist yet.
-   *
-   * <p>No size is named. The server sizes a company-filtered read at its own ceiling, which is a
-   * number this side must not try to guess — see {@link candidatesApi.getCandidates}. The
-   * Executive-name filter goes with it for the same reason: matched on the arrived page alone, a
-   * company whose only match sat past that ceiling would draw the "no executive mapped" slot over
-   * someone it has.
-   */
-  const executiveName = debouncedExecutiveQuery.trim();
-  // Only the people listed at this stage: a company carries its people across stages since #903, and a
-  // colleague moved to Declined is a line on Declined, not here.
-  const mappedScope = {
-    triageCompanyIds: companyIds,
-    query: executiveName,
-    search: debouncedSearch,
-    triageStatus: stage.status,
-  };
-  const mappedPeople = useQuery({
-    queryKey: candidatesApi.CANDIDATES_KEY(project.id, mappedScope),
-    queryFn: ({ signal }) => candidatesApi.getCandidates(project.id, mappedScope, signal),
-    enabled: view === "table" && companyIds.length > 0,
-    placeholderData: keepPreviousData,
-    refetchInterval: researchPoll,
-  });
-
-  /**
-   * What each read is entitled to show. `enabled` stops a fetch and never the cache behind it, and
-   * `keepPreviousData` hands an uncached key the last page outright — so a gate that lives on the
-   * query alone leaks a stale page into a view that asked for nothing like it.
-   */
-  const mappedPage = companyIds.length > 0 ? mappedPeople.data : undefined;
-
-  const totalCount = companies.data?.totalCount;
+  const totalCount = lines.data?.totalCount;
   const lastPage = Math.max(0, Math.ceil((totalCount ?? 0) / pageSize) - 1);
 
-  /**
-   * Whether this render carries the employer-less executives at all — one flag for the read <i>and</i>
-   * the merge below, because `enabled` stops the fetch and not the data: gated only there, the cached
-   * page kept being merged into every filtered view. A company-name filter hides them; the Executive
-   * and Status filters narrow them.
-   */
-  const showsUnmappedPeople = view === "table" && !debouncedQuery.trim() && page === lastPage;
-
-  /**
-   * Executives whose employer is not in the mandate's universe at all. They belong to the mandate
-   * rather than to any company, so they sit after the companies on their stage's last page — the one
-   * place a reader reaches by scrolling to the end of the mapping. Grouping the grid by company is
-   * where they eventually get a heading of their own; until then, invisible would be worse.
-   *
-   * <p>The name filter goes to the server: the read is capped there, so matching it on the arrived
-   * page alone would miss everyone past the cap.
-   */
-  const unmappedScope = { unmapped: true, query: executiveName, search: debouncedSearch, triageStatus: stage.status };
-  const unmappedPeople = useQuery({
-    queryKey: candidatesApi.CANDIDATES_KEY(project.id, unmappedScope),
-    queryFn: ({ signal }) => candidatesApi.getCandidates(project.id, unmappedScope, signal),
-    enabled: showsUnmappedPeople,
-    placeholderData: keepPreviousData,
-    refetchInterval: researchPoll,
-  });
-  const unmappedPage = showsUnmappedPeople ? unmappedPeople.data : undefined;
-
-  visiblePeople.current = [
-    ...(mappedPage?.candidates ?? []),
-    ...(unmappedPage?.candidates ?? []),
-  ];
+  visiblePeople.current = (lines.data?.lines ?? [])
+    .map((line) => line.candidate)
+    .filter((candidate): candidate is Candidate => candidate !== null);
 
   /**
    * Which Status values the Status column's header menu offers — only the ones actually borne by an
@@ -573,14 +510,14 @@ function TriageStage() {
     () => new Set(),
   );
   useEffect(() => {
-    if (executiveStatuses.length > 0 || executiveName || debouncedSearch || visiblePeople.current.length === 0) return;
+    if (executiveStatuses.length > 0 || debouncedExecutiveQuery.trim() || debouncedSearch || visiblePeople.current.length === 0) return;
     setSeenExecutiveStatuses((current) => {
       const next = new Set(current);
       for (const candidate of visiblePeople.current) next.add(candidate.status);
       return next.size === current.size ? current : next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mappedPage, unmappedPage, executiveStatuses.length, executiveName, debouncedSearch]);
+  }, [lines.data, executiveStatuses.length, debouncedExecutiveQuery, debouncedSearch]);
   const executiveStatusOptions = useMemo(
     () => statusFilterOptions(pipelineCatalog, seenExecutiveStatuses),
     [pipelineCatalog, seenExecutiveStatuses],
@@ -623,35 +560,13 @@ function TriageStage() {
   }, [polledLocations, queryClient, project.id, stage.status, debouncedSearch]);
 
   const rows = useMemo(() => {
-    // The server's Executive-name and Status filters are both company-level (EXISTS: does this
-    // company have a matching executive at all), so a page can carry a company for one matching
-    // person among several. The grid's own rows are people, not companies, so each ticked/typed
-    // filter also narrows which of a kept company's executives get a line — otherwise searching
-    // "Alok" would still draw an unrelated colleague's row beneath theirs.
-    const normalisedQuery = executiveName.toLowerCase();
-    const matchesExecutiveFilters = (candidate: Candidate) => {
-      if (executiveStatuses.length > 0 && !executiveStatuses.includes(candidate.status)) return false;
-      if (normalisedQuery && !candidate.fullName.toLowerCase().includes(normalisedQuery)) return false;
-      return true;
-    };
-    const people = (mappedPage?.candidates ?? []).filter(matchesExecutiveFilters);
-    const unmapped = (unmappedPage?.candidates ?? []).filter(matchesExecutiveFilters);
-    const addedBy = { ...(mappedPage?.addedBy ?? {}), ...(unmappedPage?.addedBy ?? {}) };
-    return toTriageRows(companies.data?.companies ?? [], people, unmapped, addedBy);
-  }, [companies.data, mappedPage, unmappedPage, executiveStatuses, executiveName]);
-
-  /**
-   * What the two people reads could not fit. Both are capped by the server, and a mapping that ran
-   * past the cap would otherwise render fewer lines per company with nothing saying so — a talent map
-   * that looks complete and is not, on the screen whose whole job is showing what has been mapped.
-   *
-   * <p>Stated rather than hidden, for the same reason `totalLabel` below refuses to print a count it
-   * has not read yet.
-   */
-  const unlisted = [
-    peopleNotShown(mappedPage, "at these companies"),
-    peopleNotShown(unmappedPage, "with no company in this mandate"),
-  ].filter((line): line is string => line !== null);
+    const addedBy = lines.data?.addedBy ?? {};
+    return (lines.data?.lines ?? []).flatMap((line): TriageCompanyRow[] => {
+      const candidateAddedBy = line.candidate ? addedBy[line.candidate.id] : undefined;
+      if (line.company) return [{ company: line.company, candidate: line.candidate, candidateAddedBy }];
+      return line.candidate ? [{ company: null, candidate: line.candidate, candidateAddedBy }] : [];
+    });
+  }, [lines.data]);
 
   /**
    * A company's move carries the people still where it stood, and someone moved on their own stays put (#903). The
@@ -775,6 +690,8 @@ function TriageStage() {
   });
 
   const changeCandidateStatus = useChangeCandidateStatus(project.id, refreshPeople);
+
+  const deleteColumn = useDeleteCustomColumn(project.id);
 
   const togglePipelineSelected = (candidateId: string) =>
     setPipelineSelection((current) => {
@@ -1065,8 +982,8 @@ function TriageStage() {
           customColumns={customColumns}
           layout={layout}
           onLayoutChange={setLayout}
-          loading={companies.isFetching}
-          error={companies.isError}
+          loading={lines.isFetching}
+          error={lines.isError}
           emptyMessage={
             debouncedSearch || debouncedQuery || debouncedExecutiveQuery || executiveStatuses.length > 0
               ? "No companies match that search."
@@ -1099,6 +1016,14 @@ function TriageStage() {
             setEditColumnId(customColumnId);
             setManagingColumns(true);
           }}
+          onDeleteColumn={
+            canWrite
+              ? (customColumnId) => {
+                  const column = customColumns.find((entry) => entry.id === customColumnId);
+                  if (column) deleteColumn.mutate(column);
+                }
+              : undefined
+          }
           onMove={(company, status) => {
             markBusy(company.id);
             move.mutate({ company, status });
@@ -1164,11 +1089,11 @@ function TriageStage() {
           </SelectionActionBar>
         )}
 
-        {unlisted.map((line) => (
-          <p key={line} role="status" className="flex-none font-mono text-[11.5px] text-u-text3">
-            {line}
+        {lines.data?.truncated && (
+          <p role="status" className="flex-none font-mono text-[11.5px] text-u-text3">
+            This stage is larger than one read can sort, so not every company or executive is listed. Search or filter to narrow it.
           </p>
-        ))}
+        )}
 
         <PaginationBar
           page={page}
@@ -1275,16 +1200,6 @@ function TriageStage() {
       />
     </div>
   );
-}
-
-/**
- * One line naming what a capped read left out, or null when it left nothing out. `totalCount` is the
- * server's count of everything matching, so the gap between it and what arrived is exactly the number
- * of people this page cannot show.
- */
-function peopleNotShown(page: CandidatesPage | undefined, where: string): string | null {
-  if (!page || page.totalCount <= page.candidates.length) return null;
-  return `Showing ${page.candidates.length} of ${page.totalCount} executives ${where}.`;
 }
 
 function executivesOf(count: number): string {

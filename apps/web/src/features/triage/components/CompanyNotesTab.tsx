@@ -8,7 +8,7 @@ import { NoteEditor } from "../../notes/components/NoteEditor";
 import { NOTE_MAX_STORED, NOTE_TOO_LONG } from "../../tasks/lib/mentions";
 import * as companyNotesApi from "../api/companyNotesApi";
 import type { CompanyNote, CompanyNoteKind } from "../api/companyNotesApi";
-import { TRIAGE_KEY_PREFIX } from "../api/triageApi";
+import { STAGE_LINES_KEY_PREFIX, TRIAGE_KEY_PREFIX } from "../api/triageApi";
 import type { TriageCompany } from "../api/types";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 
@@ -130,5 +130,6 @@ function useCompanyNotesRefresh(projectId: string, companyId: string) {
   return () => {
     void queryClient.invalidateQueries({ queryKey: companyNotesApi.COMPANY_NOTES_KEY(projectId, companyId) });
     void queryClient.invalidateQueries({ queryKey: TRIAGE_KEY_PREFIX(projectId) });
+    void queryClient.invalidateQueries({ queryKey: STAGE_LINES_KEY_PREFIX(projectId) });
   };
 }

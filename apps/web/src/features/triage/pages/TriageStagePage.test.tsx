@@ -20,7 +20,7 @@ import * as exportApi from "../api/exportApi";
 import * as sourcingApi from "../api/sourcingApi";
 import type { SourcingRun } from "../api/sourcingApi";
 import * as triageApi from "../api/triageApi";
-import type { TriageCompaniesPage, TriageCompany } from "../api/types";
+import type { StageLinesPage, TriageCompaniesPage, TriageCompany } from "../api/types";
 import { stubFullscreenApi } from "../../../test/fullscreen";
 import { pickStatus } from "../../../test/pickStatus";
 import { TriageStagePage } from "./TriageStagePage";
@@ -46,6 +46,8 @@ vi.mock("../../customcolumns/api/customColumnsApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
   ...(await importOriginal<typeof customColumnsApi>()),
   getCustomColumns: vi.fn(),
+  deleteCustomColumn: vi.fn(),
+  defineCustomColumn: vi.fn(),
 }));
 vi.mock("../api/exportApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/exportApi")>()),
@@ -72,6 +74,7 @@ vi.mock("../api/triageApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
   ...(await importOriginal<typeof triageApi>()),
   getTriageCompanies: vi.fn(),
+  getStageLines: vi.fn(),
   updateTriageCompany: vi.fn(),
   deleteTriageCompany: vi.fn(),
   captureCompany: vi.fn(),
@@ -304,6 +307,48 @@ const peopleOf = (candidates: Candidate[]): CandidatesPage => ({
   size: 25,
 });
 
+/**
+ * The server's pairing, standing in for `getStageLines` so the fixtures keep describing a stage's companies
+ * (`getTriageCompanies`) and the people at them (`getCandidates`) apart: a company with nobody listed keeps a line,
+ * the executives at no company of the mandate close the last page, and the executive filters narrow per person.
+ */
+async function linesFromFixtures(
+  projectId: string,
+  scope: triageApi.StageLinesQuery,
+  signal?: AbortSignal,
+): Promise<StageLinesPage> {
+  const companies = await triageApi.getTriageCompanies(projectId, scope.status, scope.page, scope.size, scope.query,
+    scope.executiveQuery, scope.executiveStatuses, scope.search, scope.sort, signal);
+  const ids = companies.companies.map((company) => company.id);
+  const peopleScope = { query: scope.executiveQuery, search: scope.search, triageStatus: scope.status };
+  const mapped = ids.length > 0
+    ? await candidatesApi.getCandidates(projectId, { triageCompanyIds: ids, ...peopleScope }, signal)
+    : undefined;
+  const lastPage = Math.max(0, Math.ceil(companies.totalCount / scope.size) - 1);
+  const unmapped = !scope.query.trim() && scope.page === lastPage
+    ? await candidatesApi.getCandidates(projectId, { unmapped: true, ...peopleScope }, signal)
+    : undefined;
+  const matches = (candidate: Candidate) =>
+    (scope.executiveStatuses.length === 0 || scope.executiveStatuses.includes(candidate.status)) &&
+    candidate.fullName.toLowerCase().includes(scope.executiveQuery.toLowerCase());
+  const people = (mapped?.candidates ?? []).filter(matches);
+  const lines = companies.companies.flatMap<StageLinesPage["lines"][number]>((company) => {
+    const at = people.filter((candidate) => candidate.triageCompanyId === company.id);
+    return at.length === 0 ? [{ company, candidate: null }] : at.map((candidate) => ({ company, candidate }));
+  });
+  const atNoCompany = (unmapped?.candidates ?? []).filter((candidate) => candidate.triageCompanyId == null);
+  for (const candidate of atNoCompany.filter(matches)) lines.push({ company: null, candidate });
+  return {
+    lines,
+    addedBy: { ...(mapped?.addedBy ?? {}), ...(unmapped?.addedBy ?? {}) },
+    totalCount: companies.totalCount,
+    page: scope.page,
+    size: scope.size,
+    counts: companies.counts,
+    truncated: false,
+  };
+}
+
 const companyNote = (body: string): companyNotesApi.CompanyNote => ({
   id: "cn1",
   kind: "general",
@@ -409,6 +454,7 @@ describe("TriageStagePage", () => {
     const authApi = await import("../../auth/api/authApi");
     vi.mocked(authApi.me).mockResolvedValue(lead);
     vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(pageOf());
+    vi.mocked(triageApi.getStageLines).mockImplementation(linesFromFixtures);
     vi.mocked(candidatesApi.getCandidates).mockResolvedValue(peopleOf([]));
     vi.mocked(companiesApi.getFacets).mockResolvedValue(FACETS);
     vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [] });
@@ -1427,49 +1473,6 @@ describe("TriageStagePage", () => {
     await waitFor(() => expect(screen.getByText("Wei Ling Tan")).toBeInTheDocument());
   });
 
-  it("asks the server for the executives at these companies by name, not just the employer-less ones", async () => {
-    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
-      peopleOf(scope.unmapped ? [] : [yasmin]),
-    );
-    renderStage();
-    const grid = await screen.findByRole("table", { name: /In universe companies/i });
-    await screen.findByText("Yasmin El-Sayed");
-
-    await userEvent.click(within(grid).getByRole("button", { name: "Executive column menu" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "Filter by executive name" }), "Alok");
-
-    // The read is capped: a company whose only match sits past the cap would otherwise draw the
-    // "no executive mapped" slot over someone it has.
-    await waitFor(() =>
-      expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
-        "p1",
-        { triageCompanyIds: ["u1"], query: "Alok", search: "", triageStatus: "inUniverse" },
-        expect.anything(),
-      ),
-    );
-  });
-
-  it("drops the capped-read line when the company filter leaves no companies to count it over", async () => {
-    vi.mocked(triageApi.getTriageCompanies).mockImplementation(async (_project, _status, _page, _size, q) =>
-      q
-        ? pageOf({ companies: [], totalCount: 0, counts: { inUniverse: 0, shortlisted: 0, declined: 0 } })
-        : pageOf(),
-    );
-    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
-      scope.unmapped ? peopleOf([]) : { candidates: [yasmin], totalCount: 4, page: 0, size: 25 },
-    );
-    renderStage();
-    const grid = await screen.findByRole("table", { name: /In universe companies/i });
-    expect(await screen.findByText(/Showing 1 of 4 executives at these companies/i)).toBeInTheDocument();
-
-    await userEvent.click(within(grid).getByRole("button", { name: "Company column menu" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "Filter by company name" }), "Zzz");
-
-    await waitFor(() =>
-      expect(screen.queryByText(/Showing 1 of 4 executives/i)).not.toBeInTheDocument(),
-    );
-  });
-
   it("narrows the employer-less executives by the Status filter too", async () => {
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
       peopleOf(
@@ -1506,43 +1509,74 @@ describe("TriageStagePage", () => {
     await waitFor(() => expect(candidatesApi.deleteCandidate).toHaveBeenCalledWith("p1", "c9"));
   });
 
-  it("says so when the server could not fit every executive on the page", async () => {
-    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
-      scope.unmapped
-        ? peopleOf([])
-        : { ...peopleOf([yasmin]), totalCount: 137 },
-    );
+  it("says so when the stage ran past what one read can sort", async () => {
+    vi.mocked(triageApi.getStageLines).mockImplementation(async (projectId, scope, signal) => ({
+      ...(await linesFromFixtures(projectId, scope, signal)),
+      truncated: true,
+    }));
     renderStage();
 
-    // A mapping that ran past the server's cap would otherwise render fewer lines with nothing saying
-    // so — a talent map that looks complete and is not.
-    expect(
-      await screen.findByText(/Showing 1 of 137 executives at these companies/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/not every company or executive is listed/i)).toBeInTheDocument();
   });
 
-  it("says nothing when everything fitted", async () => {
-    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
-      peopleOf(scope.unmapped ? [] : [yasmin]),
-    );
-    renderStage();
-
-    await screen.findByText("Yasmin El-Sayed");
-    expect(screen.queryByText(/Showing .* of .* executives/i)).not.toBeInTheDocument();
-  });
-
-  it("names no page size of its own — the server sizes the people read", async () => {
+  it("says nothing when the whole stage was sorted", async () => {
     renderStage();
 
     await screen.findByText("ACWA Power");
-    // A client that computes its own size has to know the server's ceiling to stay under it, and the
-    // first attempt at that landed exactly on it.
+    expect(screen.queryByText(/not every company or executive is listed/i)).not.toBeInTheDocument();
+  });
+
+  it("opens a column's menu from its header and sorts the people by the executive's own name", async () => {
+    renderStage();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Executive column menu" }));
+    await userEvent.click(screen.getByRole("button", { name: /Sort ascending/ }));
+
     await waitFor(() =>
-      expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
-        "p1",
-        { triageCompanyIds: ["u1"], query: "", search: "", triageStatus: "inUniverse" },
-        expect.anything(),
-      ),
+      expect(vi.mocked(triageApi.getStageLines).mock.calls.at(-1)?.[1].sort).toEqual({
+        field: "executive",
+        direction: "asc",
+      }),
+    );
+    await userEvent.click(within(grid).getByRole("button", { name: "Executive column menu" }));
+    expect(screen.getByRole("button", { name: /Sort ascending/ })).toHaveAttribute("aria-current", "true");
+  });
+
+  it("hides a built-in column from its header menu", async () => {
+    renderStage();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Sector column menu" }));
+    await userEvent.click(screen.getByRole("button", { name: "Hide column" }));
+
+    await waitFor(() =>
+      expect(within(grid).queryByRole("button", { name: "Sector column menu" })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("deletes a mandate's own column from its header menu with an Undo, and offers no delete on a built-in one", async () => {
+    vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [ethnicity] });
+    vi.mocked(customColumnsApi.deleteCustomColumn).mockResolvedValue(undefined);
+    renderStage();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Sector column menu" }));
+    expect(screen.queryByRole("button", { name: "Delete column" })).not.toBeInTheDocument();
+
+    await userEvent.click(await within(grid).findByRole("button", { name: "Ethnicity column menu" }));
+    await userEvent.click(screen.getByRole("button", { name: "Delete column" }));
+
+    await waitFor(() => expect(customColumnsApi.deleteCustomColumn).toHaveBeenCalledWith("p1", "cc1"));
+
+    vi.mocked(customColumnsApi.defineCustomColumn).mockResolvedValue(ethnicity);
+    await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() =>
+      expect(customColumnsApi.defineCustomColumn).toHaveBeenCalledWith("p1", {
+        target: "candidate",
+        label: "Ethnicity",
+        dataType: "text",
+      }),
     );
   });
 
@@ -1950,7 +1984,9 @@ describe("TriageStagePage", () => {
         addedAt: new Date().toISOString(),
         enrichedAt: null,
       };
-      vi.mocked(candidatesApi.getCandidates).mockResolvedValue(peopleOf([capture]));
+      vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+        peopleOf(scope.unmapped ? [] : [capture]),
+      );
       renderStage();
       await screen.findByText("Faisal Khan");
 
@@ -1983,6 +2019,7 @@ describe("TriageStagePage — full screen", () => {
     const authApi = await import("../../auth/api/authApi");
     vi.mocked(authApi.me).mockResolvedValue(lead);
     vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(pageOf());
+    vi.mocked(triageApi.getStageLines).mockImplementation(linesFromFixtures);
     vi.mocked(candidatesApi.getCandidates).mockResolvedValue(peopleOf([]));
     vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [] });
   });

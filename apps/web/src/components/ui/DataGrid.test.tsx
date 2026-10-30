@@ -72,7 +72,11 @@ function Harness({
   onEditColumn,
   data = DATA,
   groupBy,
+  menuOnHeaderClick,
+  onDeleteColumn,
 }: {
+  menuOnHeaderClick?: boolean;
+  onDeleteColumn?: (columnId: string) => void;
   onLayout?: (layout: GridLayout) => void;
   columnFilters?: Record<string, DataGridColumnFilter>;
   columnDefs?: typeof columns | typeof columnsWithCustom;
@@ -110,7 +114,9 @@ function Harness({
       }}
       columnFilters={columnFilters}
       onEditColumn={onEditColumn}
+      onDeleteColumn={onDeleteColumn}
       groupBy={groupBy}
+      menuOnHeaderClick={menuOnHeaderClick}
     />
   );
 }
@@ -596,5 +602,62 @@ describe("DataGrid header menu — Sort, Move, Freeze, Edit field", () => {
     await userEvent.click(screen.getByRole("button", { name: "Ethnicity column menu" }));
 
     expect(screen.queryByRole("button", { name: "Edit field" })).not.toBeInTheDocument();
+  });
+});
+
+describe("DataGrid header menu — opened from the whole header", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("opens the column's menu from a click on its name, and that click sorts nothing", async () => {
+    render(<Harness menuOnHeaderClick />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+
+    expect(screen.getByRole("button", { name: "Sort ascending" })).toBeInTheDocument();
+    expect(onSort).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Sector" })).not.toBeInTheDocument();
+  });
+
+  it("opens no menu when the press was a drag that moved the column", async () => {
+    stubLayout();
+    render(<Harness menuOnHeaderClick />);
+    const header = screen.getByRole("button", { name: "Sector column menu" });
+
+    await userEvent.pointer([
+      { target: header, keys: "[MouseLeft>]", coords: { x: 312, y: 10 } },
+      { target: header, coords: { x: 450, y: 10 } },
+      { target: header, keys: "[/MouseLeft]", coords: { x: 450, y: 10 } },
+    ]);
+
+    expect(headers()).toEqual(["Company", "Revenue", "Sector"]);
+    expect(screen.queryByRole("button", { name: "Sort ascending" })).not.toBeInTheDocument();
+  });
+
+  it("hides a built-in column, and deletes only a mandate's own", async () => {
+    const onDeleteColumn = vi.fn();
+    render(<Harness menuOnHeaderClick columnDefs={columnsWithCustom} onDeleteColumn={onDeleteColumn} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    expect(screen.queryByRole("button", { name: "Delete column" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Hide column" }));
+    expect(screen.queryByRole("button", { name: "Sector column menu" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Ethnicity column menu" }));
+    expect(screen.queryByRole("button", { name: "Hide column" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Delete column" }));
+    expect(onDeleteColumn).toHaveBeenCalledWith("custom:ethnicity");
+  });
+
+  it("names the sort in the column's own terms when the column says what it holds", async () => {
+    const typed = helper.columns([
+      helper.accessor("name", { id: "name", header: "Company", meta: { share: 22, min: 230 } }),
+      helper.accessor("revenue", { id: "revenue", header: "Revenue", meta: { share: 11, min: 120, sortKind: "number" } }),
+    ]);
+    render(<Harness menuOnHeaderClick columnDefs={typed} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Revenue column menu" }));
+
+    expect(screen.getByRole("button", { name: "Sort ascending 1 → 9" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort descending 9 → 1" })).toBeInTheDocument();
   });
 });
