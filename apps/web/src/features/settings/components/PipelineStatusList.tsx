@@ -3,7 +3,8 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import { useState, type FormEvent } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, Input, Toggle, useToast } from "../../../components/ui";
+import { Button, Input, useToast } from "../../../components/ui";
+import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/ActionMenu";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { moveItem } from "../../../lib/moveItem";
@@ -23,17 +24,14 @@ import { inOrderOf, PIPELINE_NAME_LIMIT, retireTouchesAnyone } from "../lib/pipe
 import { usePipelineReorder } from "../lib/usePipelineReorder";
 import { usePipelineRowChange, useRenameDraft } from "../lib/usePipelineRowEdits";
 import { PipelineRetireDialog } from "./PipelineRetireDialog";
-import { ColourDot, DragHandle, RenameActions, RenameForm } from "./PipelineRowControls";
+import { ColourDot, ColourSwatches, DragHandle, RenameActions, RenameForm } from "./PipelineRowControls";
 
 /** One stage's statuses, reordered within the stage alone, and the form that adds one. */
 export function PipelineStatusList({ stage, isAdmin }: { stage: PipelineStage; isAdmin: boolean }) {
   const toast = useToast();
   const sensors = useSortableSensors();
   const [newStatus, setNewStatus] = useState("");
-  const [newOutOfProcess, setNewOutOfProcess] = useState(false);
-  const addStatus = usePipelineWrite(({ label, outOfProcess }: { label: string; outOfProcess: boolean }) =>
-    pipelineApi.createStatus(stage.id, label, undefined, outOfProcess),
-  );
+  const addStatus = usePipelineWrite((label: string) => pipelineApi.createStatus(stage.id, label));
   const automations = useStatusAutomations().data ?? [];
   const statuses = liveStatuses(stage);
   const defaultStatus = defaultStatusOf(stage);
@@ -61,10 +59,9 @@ export function PipelineStatusList({ stage, isAdmin }: { stage: PipelineStage; i
     event.preventDefault();
     const label = newStatus.trim();
     if (!label) return;
-    addStatus.mutate({ label, outOfProcess: newOutOfProcess }, {
+    addStatus.mutate(label, {
       onSuccess: () => {
         setNewStatus("");
-        setNewOutOfProcess(false);
         toast("Status added");
       },
       onError: (error) => toast.error(messageFor(error)),
@@ -90,6 +87,7 @@ export function PipelineStatusList({ stage, isAdmin }: { stage: PipelineStage; i
               <StatusRow
                 key={status.id}
                 status={status}
+                stageLabel={stage.label}
                 isDefault={defaultStatus?.id === status.id}
                 isAdmin={isAdmin}
                 automations={automationsInto(automations, status.id)}
@@ -113,14 +111,6 @@ export function PipelineStatusList({ stage, isAdmin }: { stage: PipelineStage; i
             maxLength={PIPELINE_NAME_LIMIT}
             className="max-w-[240px] py-1.5"
           />
-          <label className="flex items-center gap-1.5 text-meta text-u-text2">
-            <input
-              type="checkbox"
-              checked={newOutOfProcess}
-              onChange={(event) => setNewOutOfProcess(event.target.checked)}
-            />
-            Out of process
-          </label>
           <Button type="submit" variant="secondary" size="xs" disabled={!newStatus.trim()} loading={addStatus.isPending}>
             <Icon d={ICONS.plus} size={12} />
             Add status
@@ -133,12 +123,14 @@ export function PipelineStatusList({ stage, isAdmin }: { stage: PipelineStage; i
 
 function StatusRow({
   status,
+  stageLabel,
   isDefault,
   isAdmin,
   automations,
   onStep,
 }: {
   status: PipelineStatus;
+  stageLabel: string;
   isDefault: boolean;
   isAdmin: boolean;
   /** The switched-on automations that move people to this status. */
@@ -159,7 +151,6 @@ function StatusRow({
   const renameFormId = `rename-status-${status.id}`;
   const retire = () => change({ retired: true }, "Status retired; candidates who hold it keep it");
   const markOut = () => change({ outOfProcess: true }, "Out of process; whoever holds it is now Inactive");
-  const outLocked = isDefault;
 
   const handleOutOfProcess = async (out: boolean) => {
     if (!out) {
@@ -202,13 +193,7 @@ function StatusRow({
       )}
     >
       {isAdmin && <DragHandle label={`Reorder ${status.label}`} sortable={sortable} onStep={onStep} />}
-      <ColourDot
-        colour={status.colour}
-        name={status.label}
-        size="status"
-        editable={isAdmin}
-        onChange={(colour) => change({ colour })}
-      />
+      <ColourDot colour={status.colour} size="status" />
       {rename.renaming ? (
         <RenameForm
           formId={renameFormId}
@@ -224,8 +209,7 @@ function StatusRow({
           Default
         </span>
       )}
-      {/* An admin reads it off the row's switch. */}
-      {status.outOfProcess && !isAdmin && (
+      {status.outOfProcess && (
         <span
           title="Whoever holds it is Inactive on the board and is not approached again"
           className="rounded-sm bg-u-offlimits-tint px-1.5 py-px font-mono text-eyebrow font-medium text-u-offlimits"
@@ -245,39 +229,69 @@ function StatusRow({
       ))}
       {isAdmin && (
         <span className="ms-auto flex items-center gap-1">
-          <span
-            className="flex items-center gap-1.5 px-1.5 text-meta text-u-text3"
-            title={isDefault ? "The default status stays in process" : undefined}
-          >
-            <Toggle
-              checked={status.outOfProcess}
-              label={`Out of process: ${status.label}`}
-              disabled={isPending || checking || outLocked}
-              onChange={(out) => void handleOutOfProcess(out)}
-            />
-            Out of process
-          </span>
-          {!isDefault && !status.outOfProcess && (
-            <Button
-              variant="ghost"
-              size="xs"
-              disabled={isPending}
-              onClick={() => change({ isDefault: true }, "Default status changed")}
-            >
-              Make default
-            </Button>
-          )}
           <RenameActions formId={renameFormId} rename={rename} saving={isPending} />
-          <Button
-            variant="ghost"
-            size="xs"
-            title="Stop offering this status; candidates keep it"
-            aria-label={`Retire ${status.label}`}
-            disabled={isPending || checking}
-            onClick={() => void handleRetire()}
-          >
-            <Icon d={ICONS.archive} size={13} />
-          </Button>
+          {!rename.renaming && (
+            <ActionMenu label={`${status.label} options`}>
+              {(close) => {
+                const choose = (action: () => void) => () => {
+                  close();
+                  action();
+                };
+                return (
+                  <>
+                    <ColourSwatches
+                      colour={status.colour}
+                      onChange={(colour) => {
+                        close();
+                        change({ colour });
+                      }}
+                    />
+                    <MenuItem icon={ICONS.pencil} onSelect={choose(rename.begin)}>
+                      Rename
+                    </MenuItem>
+                    {!isDefault && !status.outOfProcess && (
+                      <MenuItem
+                        icon={ICONS.star}
+                        onSelect={choose(() => change({ isDefault: true }, "Default status changed"))}
+                      >
+                        Make default
+                      </MenuItem>
+                    )}
+                    <MenuSeparator />
+                    {status.outOfProcess ? (
+                      <MenuItem
+                        icon={ICONS.back}
+                        note={`Whoever holds it returns to ${stageLabel}`}
+                        disabled={isPending || checking}
+                        onSelect={choose(() => void handleOutOfProcess(false))}
+                      >
+                        Bring back into process
+                      </MenuItem>
+                    ) : (
+                      <MenuItem
+                        icon={ICONS.ban}
+                        note={isDefault ? "The default stays in process" : "Whoever holds it moves to Inactive"}
+                        disabled={isDefault || isPending || checking}
+                        onSelect={choose(() => void handleOutOfProcess(true))}
+                      >
+                        Mark out of process
+                      </MenuItem>
+                    )}
+                    <MenuSeparator />
+                    <MenuItem
+                      icon={ICONS.archive}
+                      tone="danger"
+                      note="Stop offering it; candidates keep it"
+                      disabled={isPending || checking}
+                      onSelect={choose(() => void handleRetire())}
+                    >
+                      Retire
+                    </MenuItem>
+                  </>
+                );
+              }}
+            </ActionMenu>
+          )}
         </span>
       )}
       <PipelineRetireDialog

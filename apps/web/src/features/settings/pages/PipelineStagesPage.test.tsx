@@ -59,6 +59,13 @@ function seededAutomations(overrides: Partial<Record<StatusAutomationTrigger, Pa
 const toggle = (label: string) =>
   within(card(label)).getByRole("button", { name: new RegExp(`^${label} (Not on the board )?\\d+ status`) });
 const open = (label: string) => userEvent.click(toggle(label));
+/** Opens a row's ⋯ and answers its menu, which is portalled out of the row. */
+async function menuOf(scope: HTMLElement, name: string) {
+  await userEvent.click(within(scope).getByRole("button", { name }));
+  return screen.getByRole("menu", { name });
+}
+const choose = async (scope: HTMLElement, name: string, item: string) =>
+  userEvent.click(within(await menuOf(scope, name)).getByRole("menuitem", { name: new RegExp(`^${item}`) }));
 
 function withStage(catalog: PipelineCatalog, label: string): PipelineCatalog {
   const added = {
@@ -130,11 +137,20 @@ describe("PipelineStagesPage", () => {
 
     const contacted = within(card("Contacted")).getByRole("listitem", { name: "Contacted" });
     expect(within(contacted).getByText("Default")).toBeInTheDocument();
-    expect(within(contacted).getByRole("button", { name: "Retire Contacted" })).toBeInTheDocument();
     expect(await within(contacted).findByText("Auto · Email sent")).toBeInTheDocument();
+    expect(within(contacted).queryByRole("button", { name: /^(Rename|Make default|Retire)/ })).not.toBeInTheDocument();
+    const contactedMenu = await menuOf(contacted, "Contacted options");
+    expect(within(contactedMenu).queryByRole("menuitem", { name: "Make default" })).not.toBeInTheDocument();
+    expect(within(contactedMenu).getByRole("menuitem", { name: /^Mark out of process/ })).toBeDisabled();
+    expect(within(contactedMenu).getByRole("menuitem", { name: /The default stays in process/ })).toBeInTheDocument();
+    expect(within(contactedMenu).getByRole("menuitemradio", { name: "Accent" })).toHaveAttribute("aria-checked", "true");
+    await userEvent.keyboard("{Escape}");
+
     const followUp = within(card("Contacted")).getByRole("listitem", { name: "Follow-up sent" });
     expect(within(followUp).queryByText(/^Auto/)).not.toBeInTheDocument();
-    expect(within(followUp).getByRole("button", { name: "Make default" })).toBeInTheDocument();
+    const followUpMenu = await menuOf(followUp, "Follow-up sent options");
+    expect(within(followUpMenu).getByRole("menuitem", { name: "Make default" })).toBeEnabled();
+    expect(within(followUpMenu).getByRole("menuitem", { name: /^Mark out of process/ })).toBeEnabled();
   });
 
   it("adds a stage and draws the catalog the server answers", async () => {
@@ -175,7 +191,7 @@ describe("PipelineStagesPage", () => {
     await open("Contacted");
     expect(toggle("Contacted")).toHaveAccessibleName("Contacted 4 statuses");
 
-    await userEvent.click(within(card("Qualified")).getByRole("button", { name: "Rename" }));
+    await choose(card("Qualified"), "Qualified stage options", "Rename");
     expect(within(card("Qualified")).getByRole("button", { name: "Qualified stage" })).toHaveAttribute(
       "aria-expanded",
       "false",
@@ -205,11 +221,12 @@ describe("PipelineStagesPage", () => {
     await userEvent.type(within(card("Interested")).getByLabelText("New status in Interested"), "Second look");
     await userEvent.click(within(card("Interested")).getByRole("button", { name: "Add status" }));
     await waitFor(() =>
-      expect(pipelineApi.createStatus).toHaveBeenCalledWith("stage-interested", "Second look", undefined, false),
+      expect(pipelineApi.createStatus).toHaveBeenCalledWith("stage-interested", "Second look"),
     );
+    expect(within(card("Interested")).queryByRole("checkbox")).not.toBeInTheDocument();
 
     const considering = within(card("Interested")).getByRole("listitem", { name: "Considering" });
-    await userEvent.click(within(considering).getByRole("button", { name: "Rename" }));
+    await choose(considering, "Considering options", "Rename");
     await userEvent.clear(within(considering).getByLabelText("Status name"));
     await userEvent.type(within(considering).getByLabelText("Status name"), "Weighing it up");
     await userEvent.click(within(considering).getByRole("button", { name: "Save" }));
@@ -218,17 +235,20 @@ describe("PipelineStagesPage", () => {
     );
     expect(await screen.findByText("Renamed on every position")).toBeInTheDocument();
 
-    await userEvent.click(within(considering).getByRole("button", { name: "Colour of Considering: Green" }));
+    await userEvent.click(
+      within(await menuOf(considering, "Considering options")).getByRole("menuitemradio", { name: "Accent" }),
+    );
     await waitFor(() => expect(pipelineApi.updateStatus).toHaveBeenCalledWith("status-considering", { colour: "accent" }));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
 
-    await userEvent.click(within(considering).getByRole("button", { name: "Make default" }));
+    await choose(considering, "Considering options", "Make default");
     await waitFor(() => expect(pipelineApi.updateStatus).toHaveBeenCalledWith("status-considering", { isDefault: true }));
 
-    await userEvent.click(within(considering).getByRole("button", { name: "Retire Considering" }));
+    await choose(considering, "Considering options", "Retire");
     await waitFor(() => expect(pipelineApi.updateStatus).toHaveBeenCalledWith("status-considering", { retired: true }));
   });
 
-  it("opens a name for typing on Rename without turning the pressed button into Save", async () => {
+  it("opens a name for typing on Rename, with Save and Cancel in place of the ⋯", async () => {
     vi.mocked(pipelineApi.updateStatus).mockResolvedValue(aSeededCatalog());
     vi.mocked(pipelineApi.updateStage).mockResolvedValue(aSeededCatalog());
     renderPage();
@@ -236,18 +256,18 @@ describe("PipelineStagesPage", () => {
     await open("Interested");
 
     const considering = within(card("Interested")).getByRole("listitem", { name: "Considering" });
-    const statusRename = within(considering).getByRole("button", { name: "Rename" });
-    await userEvent.click(statusRename);
-    expect(statusRename).not.toBeInTheDocument();
+    await choose(considering, "Considering options", "Rename");
     expect(within(considering).getByLabelText("Status name")).toHaveValue("Considering");
+    expect(within(considering).queryByRole("button", { name: "Considering options" })).not.toBeInTheDocument();
+    await userEvent.type(within(considering).getByLabelText("Status name"), " again");
+    await userEvent.click(within(considering).getByRole("button", { name: "Cancel" }));
+    expect(within(considering).queryByLabelText("Status name")).not.toBeInTheDocument();
+    expect(within(considering).getByText("Considering")).toBeInTheDocument();
     expect(pipelineApi.updateStatus).not.toHaveBeenCalled();
 
-    const stageRename = within(card("Interested"))
-      .getAllByRole("button", { name: "Rename" })
-      .find((button) => !button.closest("li"))!;
-    await userEvent.click(stageRename);
-    expect(stageRename).not.toBeInTheDocument();
+    await choose(card("Interested"), "Interested stage options", "Rename");
     expect(within(card("Interested")).getByLabelText("Stage name")).toHaveValue("Interested");
+    expect(within(card("Interested")).getAllByRole("button", { name: "Save" })).toHaveLength(1);
     expect(pipelineApi.updateStage).not.toHaveBeenCalled();
     expect(screen.queryByText("Renamed on every position")).not.toBeInTheDocument();
   });
@@ -379,11 +399,11 @@ describe("PipelineStagesPage", () => {
     renderPage();
     await screen.findByRole("region", { name: "Assessed" });
 
-    await userEvent.click(within(card("Assessed")).getByRole("button", { name: "Retire Assessed stage" }));
+    await choose(card("Assessed"), "Assessed stage options", "Retire stage");
     await waitFor(() => expect(pipelineApi.updateStage).toHaveBeenCalledWith("stage-assessed", { retired: true }));
     expect(pipelineApi.stageRetirePreview).not.toHaveBeenCalled();
 
-    await userEvent.click(within(card("Contacted")).getByRole("button", { name: "Retire Contacted stage" }));
+    await choose(card("Contacted"), "Contacted stage options", "Retire stage");
     const dialog = await screen.findByRole("dialog", { name: "Retire Contacted and its 4 statuses?" });
     expect(within(dialog).getByText("12 candidates")).toBeInTheDocument();
     expect(within(dialog).getByText("No candidates")).toBeInTheDocument();
@@ -393,7 +413,9 @@ describe("PipelineStagesPage", () => {
       expect(pipelineApi.updateStage).toHaveBeenCalledWith("stage-contacted", { retired: true, retireStatuses: true }),
     );
 
-    expect(within(card("Declined")).getByRole("button", { name: "Retire Declined stage" })).toBeInTheDocument();
+    expect(
+      within(await menuOf(card("Declined"), "Declined stage options")).getByRole("menuitem", { name: "Retire stage" }),
+    ).toBeEnabled();
   });
 
   it("asks before retiring a status an automation moves people to", async () => {
@@ -407,7 +429,7 @@ describe("PipelineStagesPage", () => {
     await open("Contacted");
 
     const engaged = within(card("Contacted")).getByRole("listitem", { name: "Engaged" });
-    await userEvent.click(within(engaged).getByRole("button", { name: "Retire Engaged" }));
+    await choose(engaged, "Engaged options", "Retire");
     const dialog = await screen.findByRole("dialog", { name: "Retire Engaged?" });
     expect(within(dialog).getByText("A call is booked → Engaged")).toBeInTheDocument();
     expect(pipelineApi.updateStatus).not.toHaveBeenCalled();
@@ -425,8 +447,8 @@ describe("PipelineStagesPage", () => {
     await screen.findByRole("region", { name: "Contacted" });
     await open("Contacted");
 
-    expect(within(card("Contacted")).getByRole("switch", { name: "Out of process: Contacted" })).toBeDisabled();
-    await userEvent.click(within(card("Contacted")).getByRole("switch", { name: "Out of process: Follow-up sent" }));
+    const followUp = within(card("Contacted")).getByRole("listitem", { name: "Follow-up sent" });
+    await choose(followUp, "Follow-up sent options", "Mark out of process");
     const dialog = await screen.findByRole("dialog", { name: "Mark Follow-up sent out of process?" });
     expect(within(dialog).getByText("3 candidates")).toBeInTheDocument();
     expect(pipelineApi.updateStatus).not.toHaveBeenCalled();
@@ -437,22 +459,21 @@ describe("PipelineStagesPage", () => {
     );
   });
 
-  it("adds a status already out of process, and lets a status of an old Declined back into process", async () => {
-    vi.mocked(pipelineApi.createStatus).mockResolvedValue(aSeededCatalog());
+  it("tags a status out of process on its row, and brings one of an old Declined back without asking", async () => {
+    vi.mocked(pipelineApi.updateStatus).mockResolvedValue(aSeededCatalog());
     renderPage();
-    await screen.findByRole("region", { name: "Interested" });
-    await open("Interested");
-
-    await userEvent.type(within(card("Interested")).getByLabelText("New status in Interested"), "Gone quiet");
-    await userEvent.click(within(card("Interested")).getByRole("checkbox", { name: "Out of process" }));
-    await userEvent.click(within(card("Interested")).getByRole("button", { name: "Add status" }));
-    await waitFor(() =>
-      expect(pipelineApi.createStatus).toHaveBeenCalledWith("stage-interested", "Gone quiet", undefined, true),
-    );
-
+    await screen.findByRole("region", { name: "Declined" });
     await open("Declined");
+
     expect(within(card("Declined")).getByText("7 statuses · 7 out of process")).toBeInTheDocument();
-    expect(within(card("Declined")).getByRole("switch", { name: "Out of process: Withdrew" })).toBeEnabled();
+    const withdrew = within(card("Declined")).getByRole("listitem", { name: "Withdrew" });
+    expect(within(withdrew).getByText("Out of process")).toBeInTheDocument();
+    const menu = await menuOf(withdrew, "Withdrew options");
+    expect(within(menu).queryByRole("menuitem", { name: "Make default" })).not.toBeInTheDocument();
+    await userEvent.click(within(menu).getByRole("menuitem", { name: /^Bring back into process/ }));
+
+    await waitFor(() => expect(pipelineApi.updateStatus).toHaveBeenCalledWith("status-withdrew", { outOfProcess: false }));
+    expect(pipelineApi.statusRetirePreview).not.toHaveBeenCalled();
   });
 
   it("chooses where an outreach event moves people, leaving on and off to the switch", async () => {
@@ -513,7 +534,7 @@ describe("PipelineStagesPage", () => {
 
     await open("Contacted");
     const engaged = within(card("Contacted")).getByRole("listitem", { name: "Engaged" });
-    await userEvent.click(within(engaged).getByRole("button", { name: "Make default" }));
+    await choose(engaged, "Engaged options", "Make default");
     expect(
       await screen.findByText("That status is retired. Ask an admin to restore it in Settings."),
     ).toBeInTheDocument();
@@ -525,12 +546,12 @@ describe("PipelineStagesPage", () => {
     await screen.findByRole("region", { name: "Identified" });
 
     expect(screen.getByText("Only workspace admins can change stages and statuses.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Rename" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: / options$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add status" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("New stage")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Reorder / })).not.toBeInTheDocument();
-    expect(within(card("Identified")).getByRole("button", { name: /^Colour of Identified stage/ })).toBeDisabled();
     await open("Identified");
     expect(within(card("Identified")).getAllByRole("listitem").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: / options$/ })).not.toBeInTheDocument();
   });
 });

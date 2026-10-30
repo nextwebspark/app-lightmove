@@ -622,7 +622,7 @@
                 <div data-id="{{ s.id }}" onDragOver="{{ psDragOver }}" onDrop="{{ psStageDrop }}" onDragEnd="{{ psDragEnd }}" style="{{ s.cardStyle }}">
                   <div style="{{ s.headStyle }}">
                     <sc-if value="{{ s.handle }}"><span draggable="true" data-id="{{ s.id }}" onDragStart="{{ psStageDragStart }}" title="Drag to reorder" style="display:grid;place-items:center;width:14px;color:var(--text3);cursor:grab"><svg width="12" height="14" viewBox="0 0 12 18" fill="currentColor"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="9" r="1.5"></circle><circle cx="9" cy="9" r="1.5"></circle><circle cx="3" cy="15" r="1.5"></circle><circle cx="9" cy="15" r="1.5"></circle></svg></span></sc-if>
-                    <button onClick="{{ psRecolour }}" data-kind="stage" data-id="{{ s.id }}" disabled="{{ s.readOnly }}" title="{{ s.dotTitle }}" aria-label="Colour of {{ s.name }}" style="{{ s.dotStyle }}"></button>
+                    <span aria-hidden="true" style="{{ s.dotStyle }}"></span>
                     <button onClick="{{ psToggle }}" data-id="{{ s.id }}" aria-expanded="{{ s.expanded }}" title="{{ s.toggleTitle }}" style="{{ s.toggleStyle }}" style-hover="background:var(--panel)">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="{{ s.chevStyle }}"><path d="M6 9l6 6 6-6"></path></svg>
                       <sc-if value="{{ s.reading }}"><span style="flex:none;font:600 14px var(--sans);color:var(--text)">{{ s.name }}</span></sc-if>
@@ -632,10 +632,21 @@
                     </button>
                     <sc-if value="{{ s.editing }}"><input value="{{ psDraft }}" onChange="{{ onPsDraft }}" aria-label="Stage name" style="width:200px;border-radius:6px;border:1px solid var(--sky);background:var(--panel);padding:5px 9px;font:600 13.5px var(--sans);color:var(--text);outline:none"></sc-if>
                     <sc-if value="{{ s.canEdit }}">
-                      <span style="margin-left:auto;display:flex;gap:4px">
-                        <sc-if value="{{ s.editing }}"><button onClick="{{ psSave }}" data-kind="stage" data-id="{{ s.id }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer">Save</button></sc-if>
-                        <sc-if value="{{ s.reading }}"><button onClick="{{ psRename }}" data-kind="stage" data-id="{{ s.id }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Rename</button></sc-if>
-                        <sc-if value="{{ s.retirable }}"><button onClick="{{ psRetireStage }}" data-id="{{ s.id }}" title="Retire this stage" aria-label="Retire {{ s.name }}" style="display:grid;place-items:center;border-radius:5px;padding:4px 7px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"></path></svg></button></sc-if>
+                      <span style="position:relative;margin-left:auto;display:flex;gap:4px">
+                        <sc-if value="{{ s.editing }}"><button onClick="{{ psSave }}" data-kind="stage" data-id="{{ s.id }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer">Save</button><button onClick="{{ psCancel }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Cancel</button></sc-if>
+                        <sc-if value="{{ s.reading }}"><button onClick="{{ psMenuToggle }}" data-key="stage:{{ s.id }}" aria-haspopup="menu" aria-expanded="{{ s.menuExpanded }}" aria-label="{{ s.name }} stage options" title="Stage options" style="{{ s.moreStyle }}" style-hover="background:var(--panel);color:var(--text);border-color:var(--line)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M5 11h2v2H5zM11 11h2v2h-2zM17 11h2v2h-2z"></path></svg></button></sc-if>
+                        <sc-if value="{{ s.menuOpen }}">
+                          <div role="menu" aria-label="{{ s.name }} stage options" style="position:absolute;top:calc(100% + 4px);right:0;z-index:30;width:220px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);box-shadow:0 12px 32px rgba(0,0,0,.28);padding:6px">
+                            <div role="group" aria-label="Colour" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 6px 8px">
+                              <sc-for list="{{ s.swatches }}" as="c"><button role="menuitemradio" aria-checked="{{ c.checked }}" aria-label="{{ c.label }}" title="{{ c.label }}" onClick="{{ psSetColour }}" data-kind="stage" data-id="{{ s.id }}" data-colour="{{ c.value }}" style="{{ c.style }}"></button></sc-for>
+                            </div>
+                            <button role="menuitem" onClick="{{ psRename }}" data-kind="stage" data-id="{{ s.id }}" style="display:flex;width:100%;align-items:center;gap:9px;border-radius:5px;padding:6px 8px;font:400 13px var(--sans);color:var(--text);background:none;border:none;cursor:pointer;text-align:left" style-hover="background:var(--panel)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"></path></svg>Rename</button>
+                            <sc-if value="{{ s.retirable }}">
+                              <div role="separator" style="margin:4px 0;height:1px;background:var(--line-soft)"></div>
+                              <button role="menuitem" onClick="{{ psRetireStage }}" data-id="{{ s.id }}" style="display:flex;width:100%;align-items:center;gap:9px;border-radius:5px;padding:6px 8px;font:400 13px var(--sans);color:var(--u-offlimits);background:none;border:none;cursor:pointer;text-align:left" style-hover="background:var(--panel)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"></path></svg>Retire stage</button>
+                            </sc-if>
+                          </div>
+                        </sc-if>
                       </span>
                     </sc-if>
                   </div>
@@ -645,20 +656,31 @@
                     <sc-for list="{{ s.statuses }}" as="x">
                       <div data-id="{{ x.id }}" data-stage="{{ x.stageId }}" onDragOver="{{ psDragOver }}" onDrop="{{ psStatusDrop }}" onDragEnd="{{ psDragEnd }}" style="{{ x.rowStyle }}">
                         <sc-if value="{{ x.handle }}"><span draggable="true" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" onDragStart="{{ psStatusDragStart }}" title="Drag to reorder" style="display:grid;place-items:center;width:12px;color:var(--text3);cursor:grab"><svg width="10" height="12" viewBox="0 0 12 18" fill="currentColor"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="9" r="1.5"></circle><circle cx="9" cy="9" r="1.5"></circle><circle cx="3" cy="15" r="1.5"></circle><circle cx="9" cy="15" r="1.5"></circle></svg></span></sc-if>
-                        <button onClick="{{ psRecolour }}" data-kind="status" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" disabled="{{ x.readOnly }}" title="{{ x.dotTitle }}" aria-label="Colour of {{ x.label }}" style="{{ x.dotStyle }}"></button>
+                        <span aria-hidden="true" style="{{ x.dotStyle }}"></span>
                         <sc-if value="{{ x.editing }}"><input value="{{ psDraft }}" onChange="{{ onPsDraft }}" aria-label="Status name" style="width:220px;border-radius:6px;border:1px solid var(--sky);background:var(--panel);padding:4px 9px;font:400 13px var(--sans);color:var(--text);outline:none"></sc-if>
                         <sc-if value="{{ x.reading }}"><span style="font:400 13px var(--sans);color:var(--text)">{{ x.label }}</span></sc-if>
                         <sc-if value="{{ x.isDefault }}"><span style="border-radius:4px;padding:1px 6px;font:500 10.5px var(--mono);color:var(--u-accent);background:var(--u-accent-tint)">Default</span></sc-if>
                         <sc-if value="{{ x.out }}"><span title="Whoever holds it is Inactive on the board and is not approached again" style="border-radius:4px;padding:1px 6px;font:500 10.5px var(--mono);color:var(--u-offlimits);background:var(--u-offlimits-tint)">Out of process</span></sc-if>
                         <sc-if value="{{ x.system }}"><span title="Built-in status — can be renamed, not retired" style="display:inline-flex;align-items:center;gap:4px;border-radius:4px;padding:1px 6px;font:500 10.5px var(--mono);color:var(--text3);background:var(--panel)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.lock }}"></path></svg>System</span></sc-if>
                         <sc-if value="{{ x.canEdit }}">
-                          <span style="margin-left:auto;display:flex;gap:4px">
-                            <sc-if value="{{ x.outSwitch }}"><button onClick="{{ psToggleOut }}" role="switch" aria-checked="{{ x.outChecked }}" aria-label="Out of process: {{ x.label }}" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" disabled="{{ x.outLocked }}" title="{{ x.outTitle }}" style="{{ x.outStyle }}"><span style="{{ x.outTrackStyle }}"><span style="{{ x.outKnobStyle }}"></span></span>Out of process</button></sc-if>
-                            <sc-if value="{{ x.makeDefault }}"><button onClick="{{ psMakeDefault }}" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" style="border-radius:5px;padding:3px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Make default</button></sc-if>
-                            <sc-if value="{{ x.editing }}"><button onClick="{{ psSave }}" data-kind="status" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" style="border-radius:5px;padding:3px 9px;font:500 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer">Save</button></sc-if>
-                            <sc-if value="{{ x.reading }}"><button onClick="{{ psRename }}" data-kind="status" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" style="border-radius:5px;padding:3px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Rename</button></sc-if>
-                            <sc-if value="{{ x.retirable }}"><button onClick="{{ psRetireStatus }}" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" title="Stop offering this status; candidates keep it" aria-label="Retire {{ x.label }}" style="display:grid;place-items:center;border-radius:5px;padding:3px 7px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"></path></svg></button></sc-if>
-                            <sc-if value="{{ x.system }}"><span title="Built-in status — can be renamed, not retired" style="display:grid;place-items:center;width:27px;color:var(--text3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.lock }}"></path></svg></span></sc-if>
+                          <span style="position:relative;margin-left:auto;display:flex;gap:4px">
+                            <sc-if value="{{ x.editing }}"><button onClick="{{ psSave }}" data-kind="status" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" style="border-radius:5px;padding:3px 9px;font:500 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer">Save</button><button onClick="{{ psCancel }}" style="border-radius:5px;padding:3px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Cancel</button></sc-if>
+                            <sc-if value="{{ x.reading }}"><button onClick="{{ psMenuToggle }}" data-key="status:{{ x.id }}" aria-haspopup="menu" aria-expanded="{{ x.menuExpanded }}" aria-label="{{ x.label }} options" title="Status options" style="{{ x.moreStyle }}" style-hover="background:var(--panel);color:var(--text);border-color:var(--line)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M5 11h2v2H5zM11 11h2v2h-2zM17 11h2v2h-2z"></path></svg></button></sc-if>
+                            <sc-if value="{{ x.menuOpen }}">
+                              <div role="menu" aria-label="{{ x.label }} options" style="position:absolute;top:calc(100% + 4px);right:0;z-index:30;width:240px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);box-shadow:0 12px 32px rgba(0,0,0,.28);padding:6px">
+                                <div role="group" aria-label="Colour" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 6px 8px">
+                                  <sc-for list="{{ x.swatches }}" as="c"><button role="menuitemradio" aria-checked="{{ c.checked }}" aria-label="{{ c.label }}" title="{{ c.label }}" onClick="{{ psSetColour }}" data-kind="status" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" data-colour="{{ c.value }}" style="{{ c.style }}"></button></sc-for>
+                                </div>
+                                <button role="menuitem" onClick="{{ psRename }}" data-kind="status" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" style="display:flex;width:100%;align-items:center;gap:9px;border-radius:5px;padding:6px 8px;font:400 13px var(--sans);background:none;border:none;cursor:pointer;text-align:left;color:var(--text)" style-hover="background:var(--panel)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"></path></svg>Rename</button>
+                                <sc-if value="{{ x.makeDefault }}"><button role="menuitem" onClick="{{ psMakeDefault }}" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" style="display:flex;width:100%;align-items:center;gap:9px;border-radius:5px;padding:6px 8px;font:400 13px var(--sans);background:none;border:none;cursor:pointer;text-align:left;color:var(--text)" style-hover="background:var(--panel)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.4l6-.8L12 3Z"></path></svg>Make default</button></sc-if>
+                                <div role="separator" style="margin:4px 0;height:1px;background:var(--line-soft)"></div>
+                                <button role="menuitem" onClick="{{ psToggleOut }}" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" disabled="{{ x.outLocked }}" aria-disabled="{{ x.outLockedAria }}" style="{{ x.outItemStyle }}" style-hover="background:var(--panel)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:2px"><path d="{{ x.outIcon }}"></path></svg><span style="display:flex;flex-direction:column">{{ x.outAction }}<span style="font:400 11.5px var(--mono);color:var(--text3)">{{ x.outNote }}</span></span></button>
+                                <sc-if value="{{ x.retirable }}">
+                                  <div role="separator" style="margin:4px 0;height:1px;background:var(--line-soft)"></div>
+                                  <button role="menuitem" onClick="{{ psRetireStatus }}" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" style="display:flex;width:100%;align-items:center;gap:9px;border-radius:5px;padding:6px 8px;font:400 13px var(--sans);background:none;border:none;cursor:pointer;text-align:left;color:var(--u-offlimits)" style-hover="background:var(--panel)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"></path></svg>Retire</button>
+                                </sc-if>
+                              </div>
+                            </sc-if>
                           </span>
                         </sc-if>
                       </div>
@@ -1947,7 +1969,7 @@ class Component extends DCLogic {
       ].map(([id, name, colour, statuses]) => ({ id, name, colour, defaultId: statuses[0][0],
         statuses: statuses.map(([sid, label, scol, system, out, holders]) => ({ id: sid, label, colour: scol, system: !!system, out: !!out, holders: holders || 0, retired: false })) })),
       psOutConfirm: null,
-      psNewStage: '', psNewStatus: {}, psEditing: null, psDraft: '', psDrag: null, psOpen: {}, psBlockedId: null,
+      psNewStage: '', psNewStatus: {}, psMenu: null, psEditing: null, psDraft: '', psDrag: null, psOpen: {}, psBlockedId: null,
       apiKeys: akEmpty ? [] : [
         { id: 'k1', name: 'Power BI dashboard', kind: 'PERSONAL', owner: 'yh', hint: 'uncava_pat_7Kq2…f9a1', scopes: ['projects:read', 'companies:read', 'candidates:read'], created: '2 Sep 2026', expires: '1 Dec 2026', expiresInDays: 57, lastUsed: '3 minutes ago from 20.46.12.7' },
         { id: 'k2', name: 'SuccessFactors sync', kind: 'SERVICE', owner: null, createdBy: 'yh', hint: 'uncava_svc_Hd81…02cc', scopes: ['projects:read', 'companies:read', 'candidates:read', 'candidates.contacts:read'], created: '30 Sep 2026', expires: '30 Sep 2027', expiresInDays: 360, lastUsed: '1 hour ago from 52.17.4.90' },
@@ -2498,8 +2520,12 @@ class Component extends DCLogic {
           psOutHolders: !x ? '' : x.holders === 1 ? '1 candidate holds ' + x.label + '.' : x.holders + ' candidates hold ' + x.label + '.' };
       })(),
       psStages: (() => {
-        const COLOURS = { green: 'var(--u-direct)', accent: 'var(--u-accent)', neutral: 'var(--text2)', violet: 'var(--u-chart-5)', adjacent: 'var(--u-adjacent)', inferred: 'var(--u-inferred)', signal: 'var(--u-signal)' };
-        const dot = (colour, size, canEdit) => 'width:' + size + 'px;height:' + size + 'px;flex:none;border-radius:50%;padding:0;border:none;background:' + COLOURS[colour] + ';cursor:' + (canEdit ? 'pointer' : 'default');
+        const COLOURS = { green: 'var(--u-direct)', accent: 'var(--u-accent)', neutral: 'var(--text2)', violet: 'var(--u-chart-5)', adjacent: 'var(--u-adjacent)', inferred: 'var(--u-inferred)', signal: 'var(--u-signal)', red: 'var(--u-offlimits)' };
+        const COLOUR_LABELS = { green: 'Green', accent: 'Accent', neutral: 'Neutral', violet: 'Violet', adjacent: 'Blue', inferred: 'Purple', signal: 'Amber', red: 'Red' };
+        const dot = (colour, size) => 'width:' + size + 'px;height:' + size + 'px;flex:none;border-radius:50%;background:' + COLOURS[colour];
+        const swatches = (current) => Object.keys(COLOURS).map((value) => ({ value, label: COLOUR_LABELS[value], checked: value === current ? 'true' : 'false',
+          style: 'width:18px;height:18px;border-radius:50%;padding:0;cursor:pointer;background:' + COLOURS[value] + ';border:2px solid ' + (value === current ? 'var(--text)' : 'transparent') + ';box-shadow:inset 0 0 0 2px var(--panel2)' }));
+        const more = (open) => 'display:grid;place-items:center;width:26px;height:26px;border-radius:6px;padding:0;cursor:pointer;color:var(--text3);border:1px solid ' + (open ? 'var(--line)' : 'transparent') + ';background:' + (open ? 'var(--panel)' : 'none');
         const drag = st.psDrag || {};
         return st.pstages.map((s) => {
           const live = s.statuses.filter((x) => !x.retired);
@@ -2512,8 +2538,10 @@ class Component extends DCLogic {
             toggleStyle: 'display:flex;align-items:center;gap:10px;min-width:0;' + (editing ? '' : 'flex:1;') + 'border-radius:6px;padding:6px;text-align:left;background:none;border:none;cursor:pointer',
             chevStyle: 'flex:none;color:var(--text2);transition:transform .2s;transform:rotate(' + (open ? 0 : -90) + 'deg)', canEdit: isAdmin, readOnly: !isAdmin, editing, reading: !editing,
             handle: isAdmin, retirable: isAdmin, offBoard: !editing && live.length > 0 && live.every((x) => x.out),
-            cardStyle: 'border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);overflow:hidden;opacity:' + (drag.kind === 'stage' && drag.id === s.id ? 0.45 : 1),
-            dotStyle: dot(s.colour, 11, isAdmin), dotTitle: isAdmin ? 'Change colour' : '',
+            menuOpen: st.psMenu === 'stage:' + s.id, menuExpanded: st.psMenu === 'stage:' + s.id ? 'true' : 'false',
+            moreStyle: more(st.psMenu === 'stage:' + s.id), swatches: swatches(s.colour),
+            cardStyle: 'border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);opacity:' + (drag.kind === 'stage' && drag.id === s.id ? 0.45 : 1),
+            dotStyle: dot(s.colour, 11),
             countLabel: (live.length === 1 ? '1 status' : live.length + ' statuses') + (live.some((x) => x.out) ? ' · ' + live.filter((x) => x.out).length + ' out of process' : ''),
             empty: !live.length, newStatus: st.psNewStatus[s.id] || '', addOpacity: (st.psNewStatus[s.id] || '').trim() ? 1 : 0.5,
             newPlaceholder: 'New status in ' + s.name,
@@ -2522,12 +2550,14 @@ class Component extends DCLogic {
               const isDefault = s.defaultId === x.id;
               return { id: x.id, stageId: s.id, label: x.label, canEdit: isAdmin, readOnly: !isAdmin, editing: xEditing, reading: !xEditing,
                 handle: isAdmin, isDefault, makeDefault: isAdmin && !isDefault && !x.out, system: x.system, retirable: isAdmin && !x.system,
-                out: x.out && !isAdmin, outSwitch: isAdmin, outLocked: isDefault, outChecked: x.out ? 'true' : 'false',
-                outTitle: isDefault ? 'The default status stays in process' : x.out ? 'Bring back into the process' : 'Whoever holds it moves to Inactive',
-                outStyle: 'display:flex;align-items:center;gap:6px;border-radius:5px;padding:3px 8px;font:500 12px var(--sans);background:none;border:none;color:var(--text3);cursor:' + (isDefault ? 'not-allowed;opacity:.45' : 'pointer'),
-                outTrackStyle: 'position:relative;width:24px;height:14px;flex:none;border-radius:999px;transition:background .15s;background:' + (x.out ? 'var(--u-offlimits)' : 'var(--line)'),
-                outKnobStyle: 'position:absolute;top:2px;left:' + (x.out ? 12 : 2) + 'px;width:10px;height:10px;border-radius:50%;background:#fff;transition:left .15s',
-                dotStyle: dot(x.colour, 9, isAdmin), dotTitle: isAdmin ? 'Change colour' : '',
+                out: x.out, outLocked: isDefault, outLockedAria: isDefault ? 'true' : 'false',
+                outAction: x.out ? 'Bring back into process' : 'Mark out of process',
+                outNote: isDefault ? 'The default stays in process' : x.out ? 'Holders return to ' + s.name : 'Whoever holds it moves to Inactive',
+                outIcon: x.out ? 'M19 12H5M12 19l-7-7 7-7' : 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM4.9 4.9l14.2 14.2',
+                outItemStyle: 'display:flex;width:100%;align-items:flex-start;gap:9px;border-radius:5px;padding:6px 8px;font:400 13px var(--sans);color:var(--text);background:none;border:none;text-align:left;cursor:' + (isDefault ? 'not-allowed;opacity:.5' : 'pointer'),
+                menuOpen: st.psMenu === 'status:' + x.id, menuExpanded: st.psMenu === 'status:' + x.id ? 'true' : 'false',
+                moreStyle: more(st.psMenu === 'status:' + x.id), swatches: swatches(x.colour),
+                dotStyle: dot(x.colour, 9),
                 rowStyle: 'display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 0' + (i ? ';border-top:1px solid var(--line-soft)' : '') + ';opacity:' + (drag.kind === 'status' && drag.id === x.id ? 0.45 : 1) };
             }) };
         });
@@ -2856,7 +2886,12 @@ class Component extends DCLogic {
       psRename: (e) => {
         const d = e.currentTarget.dataset;
         const current = d.kind === 'stage' ? st.pstages.find((s) => s.id === d.id).name : st.pstages.find((s) => s.id === d.stage).statuses.find((x) => x.id === d.id).label;
-        this.setState({ psEditing: d.kind + ':' + d.id, psDraft: current });
+        this.setState({ psMenu: null, psEditing: d.kind + ':' + d.id, psDraft: current });
+      },
+      psCancel: () => this.setState({ psEditing: null }),
+      psMenuToggle: (e) => {
+        const key = e.currentTarget.dataset.key;
+        this.setState({ psMenu: st.psMenu === key ? null : key });
       },
       psSave: (e) => {
         const d = e.currentTarget.dataset; const label = st.psDraft.trim();
@@ -2871,16 +2906,15 @@ class Component extends DCLogic {
         });
         this.showToast('Renamed on every position');
       },
-      psRecolour: (e) => {
+      psSetColour: (e) => {
         const d = e.currentTarget.dataset;
-        if (!isAdmin) return;
-        const order = ['neutral', 'accent', 'green', 'adjacent', 'violet', 'inferred'];
-        const cycle = (c) => order[(order.indexOf(c) + 1) % order.length];
+        const colour = d.colour;
         this.setState({
+          psMenu: null,
           pstages: st.pstages.map((s) => {
-            if (d.kind === 'stage') return s.id === d.id ? Object.assign({}, s, { colour: cycle(s.colour) }) : s;
+            if (d.kind === 'stage') return s.id === d.id ? Object.assign({}, s, { colour }) : s;
             if (s.id !== d.stage) return s;
-            return Object.assign({}, s, { statuses: s.statuses.map((x) => (x.id === d.id ? Object.assign({}, x, { colour: cycle(x.colour) }) : x)) });
+            return Object.assign({}, s, { statuses: s.statuses.map((x) => (x.id === d.id ? Object.assign({}, x, { colour }) : x)) });
           }),
         });
       },
@@ -2888,19 +2922,22 @@ class Component extends DCLogic {
         const d = e.currentTarget.dataset;
         const stage = st.pstages.find((s) => s.id === d.stage);
         const x = stage.statuses.find((y) => y.id === d.id);
-        if (!x.out && x.holders > 0) { this.setState({ psOutConfirm: { id: d.id, stage: d.stage } }); return; }
+        if (stage.defaultId === x.id) return;
+        if (!x.out && x.holders > 0) { this.setState({ psMenu: null, psOutConfirm: { id: d.id, stage: d.stage } }); return; }
+        this.setState({ psMenu: null });
         this.setOut(d.stage, d.id, !x.out);
       },
       closePsOut: () => this.setState({ psOutConfirm: null }),
       confirmPsOut: () => { const c = st.psOutConfirm; this.setState({ psOutConfirm: null }); this.setOut(c.stage, c.id, true); },
       psMakeDefault: (e) => {
         const d = e.currentTarget.dataset;
-        this.setState({ pstages: st.pstages.map((s) => (s.id === d.stage ? Object.assign({}, s, { defaultId: d.id }) : s)) });
+        this.setState({ psMenu: null, pstages: st.pstages.map((s) => (s.id === d.stage ? Object.assign({}, s, { defaultId: d.id }) : s)) });
         this.showToast('Default status changed');
       },
       psRetireStatus: (e) => {
         const d = e.currentTarget.dataset;
         this.setState({
+          psMenu: null,
           pstages: st.pstages.map((s) => {
             if (s.id !== d.stage) return s;
             const statuses = s.statuses.map((x) => (x.id === d.id ? Object.assign({}, x, { retired: true }) : x));
@@ -2913,8 +2950,8 @@ class Component extends DCLogic {
       psRetireStage: (e) => {
         const id = e.currentTarget.dataset.id;
         const stage = st.pstages.find((s) => s.id === id);
-        if (stage.statuses.some((x) => !x.retired)) { this.setState({ psBlockedId: id }); return; }
-        this.setState({ pstages: st.pstages.filter((s) => s.id !== id) });
+        if (stage.statuses.some((x) => !x.retired)) { this.setState({ psMenu: null, psBlockedId: id }); return; }
+        this.setState({ psMenu: null, pstages: st.pstages.filter((s) => s.id !== id) });
         this.showToast(stage.name + ' retired');
       },
       closePsBlocked: () => this.setState({ psBlockedId: null }),

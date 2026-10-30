@@ -2,7 +2,8 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, useToast } from "../../../components/ui";
+import { useToast } from "../../../components/ui";
+import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/ActionMenu";
 import { FoldBody } from "../../../components/ui/FoldBody";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
@@ -13,7 +14,7 @@ import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import { statusCountLabel, statusPreview } from "../lib/pipelineStageRows";
 import { usePipelineRowChange, useRenameDraft } from "../lib/usePipelineRowEdits";
 import { PipelineRetireDialog } from "./PipelineRetireDialog";
-import { ColourDot, DragHandle, RenameActions, RenameForm } from "./PipelineRowControls";
+import { ColourDot, ColourSwatches, DragHandle, RenameActions, RenameForm } from "./PipelineRowControls";
 import { PipelineStatusList } from "./PipelineStatusList";
 
 /** One stage as a row that opens onto its statuses. A stage given no `onStep` is not reordered: a member's view. */
@@ -114,13 +115,7 @@ function StageHeader({
   return (
     <div className={cn("flex flex-wrap items-center gap-2.5 px-4 py-2", shown && "border-b border-u-border")}>
       {onStep && <DragHandle label={`Reorder ${stage.label} stage`} sortable={sortable} onStep={onStep} />}
-      <ColourDot
-        colour={stage.colour}
-        name={`${stage.label} stage`}
-        size="stage"
-        editable={isAdmin}
-        onChange={(colour) => change({ colour })}
-      />
+      <ColourDot colour={stage.colour} size="stage" />
       {/* Named by what it shows, the spaces between its parts included; with the name being retyped it shows
           only the chevron, so it is named outright. */}
       <button
@@ -154,7 +149,8 @@ function StageHeader({
                 Not on the board
               </span>
             )}{" "}
-            <span className="flex-none font-mono text-meta text-u-text3">
+            {/* Shrinks on a phone rather than running under the ⋯. */}
+            <span className="min-w-0 truncate font-mono text-meta text-u-text3 sm:shrink-0">
               {statusCountLabel(statuses.length, statuses.filter((status) => status.outOfProcess).length)}
             </span>{" "}
             {!shown && (
@@ -174,18 +170,44 @@ function StageHeader({
         />
       )}
       {isAdmin && (
-        <span className="ms-auto flex flex-none gap-1">
+        <span className="ms-auto flex flex-none items-center gap-1">
           <RenameActions formId={renameFormId} rename={rename} saving={isPending} />
-          <Button
-            variant="ghost"
-            size="xs"
-            title="Retire this stage"
-            aria-label={`Retire ${stage.label} stage`}
-            disabled={isPending || checking}
-            onClick={() => void handleRetire()}
-          >
-            <Icon d={ICONS.archive} size={14} />
-          </Button>
+          {!rename.renaming && (
+            <ActionMenu label={`${stage.label} stage options`} width={220}>
+              {(close) => (
+                <>
+                  <ColourSwatches
+                    colour={stage.colour}
+                    onChange={(colour) => {
+                      close();
+                      change({ colour });
+                    }}
+                  />
+                  <MenuItem
+                    icon={ICONS.pencil}
+                    onSelect={() => {
+                      close();
+                      rename.begin();
+                    }}
+                  >
+                    Rename
+                  </MenuItem>
+                  <MenuSeparator />
+                  <MenuItem
+                    icon={ICONS.archive}
+                    tone="danger"
+                    disabled={isPending || checking}
+                    onSelect={() => {
+                      close();
+                      void handleRetire();
+                    }}
+                  >
+                    Retire stage
+                  </MenuItem>
+                </>
+              )}
+            </ActionMenu>
+          )}
         </span>
       )}
       <PipelineRetireDialog
