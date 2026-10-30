@@ -8,8 +8,8 @@ import java.util.UUID;
 
 /**
  * One page of a stage's grid lines, ordered across the whole stage. {@code addedBy}, keyed by candidate id, is a staff
- * read's alone and null otherwise. {@code truncated} says the stage ran past what one read pairs, so the order covers
- * the companies first by name up to that ceiling.
+ * read's alone and null otherwise. {@code truncated} says the stage ran past what one read pairs — its companies, its
+ * people or both — so the order covers only what fit under those ceilings.
  */
 public record StageLinesResponse(List<StageLineResponse> lines, Map<UUID, AddedByResponse> addedBy, long totalCount,
                                  int page, int size, TriageCountsDto counts, boolean truncated) {}

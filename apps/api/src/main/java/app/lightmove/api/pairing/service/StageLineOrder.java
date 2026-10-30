@@ -16,12 +16,14 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 /**
  * The order grid lines take under one column's sort, each value read off the line as its cell draws it. A blank sorts
@@ -31,6 +33,8 @@ import java.util.function.Function;
 public final class StageLineOrder {
 
     private static final Comparator<String> TEXT = NaturalTextOrder.INSTANCE;
+
+    private static final Pattern NUMBER_SEPARATORS = Pattern.compile("[,\\s]");
 
     private static final List<DateTimeFormatter> DATE_SPELLINGS = List.of(
             DateTimeFormatter.ISO_LOCAL_DATE,
@@ -95,15 +99,29 @@ public final class StageLineOrder {
     }
 
     private static Comparator<StageLineResponse> text(Function<StageLineResponse, String> key, boolean descending) {
-        return Comparator.comparing((StageLineResponse line) -> blankToNull(key.apply(line)),
+        return Comparator.comparing(readOnce(line -> blankToNull(key.apply(line))),
                 Comparator.nullsLast(descending ? TEXT.reversed() : TEXT));
     }
 
     private static <T extends Comparable<? super T>> Comparator<StageLineResponse> value(
             Function<StageLineResponse, T> key, boolean descending) {
         Comparator<T> order = Comparator.naturalOrder();
-        return Comparator.<StageLineResponse, T>comparing(key,
+        return Comparator.<StageLineResponse, T>comparing(readOnce(key),
                 Comparator.nullsLast(descending ? order.reversed() : order));
+    }
+
+    /**
+     * A sort asks a line's key about 2·n·log n times, and a custom number or date key is a parse: each line is read
+     * once per comparator, which serves one sort on one thread.
+     */
+    private static <T> Function<StageLineResponse, T> readOnce(Function<StageLineResponse, T> key) {
+        Map<StageLineResponse, T> read = new IdentityHashMap<>();
+        return line -> {
+            if (!read.containsKey(line)) {
+                read.put(line, key.apply(line));
+            }
+            return read.get(line);
+        };
     }
 
     private static String companyNameOf(StageLineResponse line) {
@@ -154,7 +172,7 @@ public final class StageLineOrder {
             return null;
         }
         try {
-            return new BigDecimal(stored.replaceAll("[,\\s]", ""));
+            return new BigDecimal(NUMBER_SEPARATORS.matcher(stored).replaceAll(""));
         } catch (NumberFormatException notANumber) {
             return null;
         }

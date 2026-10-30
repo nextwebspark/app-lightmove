@@ -1094,7 +1094,7 @@ function TriageStage() {
 
         {lines.data?.truncated && (
           <p role="status" className="flex-none font-mono text-[11.5px] text-u-text3">
-            This stage is larger than one read can sort, so it lists its first companies by name.
+            This stage is larger than one read can sort, so not every company or executive is listed. Search or filter to narrow it.
           </p>
         )}
 

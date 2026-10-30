@@ -112,7 +112,7 @@ export interface StageLinesPage {
   page: number;
   size: number;
   counts: TriageCounts;
-  /** The stage ran past what one read orders, so the order covers its first companies by name. */
+  /** The stage ran past what one read orders — its companies, its people or both — so some lines are left out. */
   truncated: boolean;
 }
 

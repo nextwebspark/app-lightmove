@@ -6,14 +6,9 @@ import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.service.CandidatePipelineCatalog;
 import app.lightmove.api.candidate.service.CandidateService;
-import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.config.ExportSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.error.constant.ErrorCode;
-import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
-import app.lightmove.api.customcolumn.dto.CustomColumnDto;
-import app.lightmove.api.customcolumn.service.CustomColumnService;
 import app.lightmove.api.pairing.constant.StageLineSortField;
 import app.lightmove.api.pairing.dto.StageLineResponse;
 import app.lightmove.api.pairing.dto.StageLinesCriteria;
@@ -21,7 +16,6 @@ import app.lightmove.api.pairing.dto.StageLinesResponse;
 import app.lightmove.api.pairing.model.PairedStage;
 import app.lightmove.api.pairing.model.StageLineFacts;
 import app.lightmove.api.pairing.model.StageLineSort;
-import app.lightmove.api.strategy.constant.SortDirection;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
@@ -45,13 +39,11 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class StageLinesService {
 
-    private static final String CUSTOM_SORT_PREFIX = "custom:";
-
     private final StagePairingService pairing;
     private final CandidateService candidates;
     private final CandidatePipelineCatalog pipeline;
     private final CompanyNoteService companyNotes;
-    private final CustomColumnService customColumns;
+    private final StageLineSortResolver sorts;
     private final LightMoveProperties properties;
 
     public StageLinesResponse page(UUID workspaceId, UUID projectId, StageLinesCriteria criteria,
@@ -61,11 +53,11 @@ public class StageLinesService {
         properties.company().list().requireValidPage(page, size);
         TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(criteria.status());
         boolean staff = audience == ProjectAudience.STAFF;
-        StageLineSort sort = resolveSort(workspaceId, projectId, criteria.sort(), criteria.direction(), staff);
+        StageLineSort sort = sorts.resolve(workspaceId, projectId, criteria.sort(), criteria.direction(), staff);
 
         ExportSettings caps = properties.export();
         PairedStage paired = pairing.pair(workspaceId, projectId, status,
-                new TriageCompanyFilters(criteria.companyName(), criteria.executiveName(),
+                new TriageCompanyFilters(criteria.query(), criteria.executiveQuery(),
                         criteria.executiveStatuses(), criteria.search()),
                 caps.maxCompanies(), caps.maxCandidates(), audience, staff);
 
@@ -142,31 +134,5 @@ public class StageLinesService {
 
     private static List<CandidateResponse> peopleOf(List<StageLineResponse> shown) {
         return shown.stream().map(StageLineResponse::candidate).filter(Objects::nonNull).toList();
-    }
-
-    /** Newest first when the request names nothing, as the grid opens. */
-    private StageLineSort resolveSort(UUID workspaceId, UUID projectId, String token, String directionToken,
-                                      boolean staff) {
-        boolean descending = ApiValueEnum.parse(SortDirection.class, directionToken, SortDirection.DESC,
-                "sort direction") == SortDirection.DESC;
-        if (token != null && token.startsWith(CUSTOM_SORT_PREFIX)) {
-            return new StageLineSort(null, requireCustomColumn(workspaceId, projectId, token), descending);
-        }
-        StageLineSortField field = ApiValueEnum.parse(StageLineSortField.class, token, StageLineSortField.ADDED,
-                "sort field");
-        if (field.staffOnly() && !staff) {
-            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "That is not a valid sort field",
-                    "Sort field held to staff: " + token);
-        }
-        return new StageLineSort(field, null, descending);
-    }
-
-    private CustomColumnDto requireCustomColumn(UUID workspaceId, UUID projectId, String token) {
-        String gridId = token.substring(CUSTOM_SORT_PREFIX.length());
-        return customColumns.list(workspaceId, projectId).columns().stream()
-                .filter(column -> !column.hidden() && gridId.equals(column.target() + ":" + column.fieldKey()))
-                .findFirst()
-                .orElseThrow(() -> ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                        "That is not a valid sort field", "Unknown custom sort column: " + token));
     }
 }
