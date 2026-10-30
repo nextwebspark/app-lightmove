@@ -131,6 +131,9 @@ public class PipelineStatusService {
         if (out && status.isDefaultOfStage()) {
             throw ApiException.of(ErrorCode.PIPELINE_DEFAULT_IN_PROCESS);
         }
+        if (out && !status.isRetired()) {
+            PipelineRules.refuseLeavingNoStart(catalog, List.of(status));
+        }
         status.markOutOfProcess(out);
         if (!out) {
             defaults.claimIfFree(catalog, status);
