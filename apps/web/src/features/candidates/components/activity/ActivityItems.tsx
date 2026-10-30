@@ -10,6 +10,7 @@ import {
   fieldLabel,
   fullDateTime,
   iconOf,
+  noteKindOfEntry,
   isOrigin,
   previewOf,
   shortDateTime,
@@ -55,7 +56,7 @@ export function ActivityCard({ entry, executive, now, onOpen, notes, taskStates,
   const noteEdit = latestEditOf(note, preview);
   return (
     <li className="relative">
-      <KindTile icon={iconOf(entry)} size="tile" className="absolute -start-[42px] top-2.5 bg-u-surface" />
+      <KindTile icon={iconOf(entry)} noteKind={noteKindOfEntry(entry)} size="tile" className="absolute -start-[42px] top-2.5 bg-u-surface" />
       <button
         type="button"
         onClick={() => onOpen(entry)}
@@ -101,7 +102,7 @@ function FoldLine({ entry, executive, onOpen }: Pick<ItemProps, "entry" | "execu
         aria-label={`${name} ${verbOf(entry)}${aside ? `, ${aside}` : ""}, ${fullDateTime(entry.occurredAt)}. Open details`}
         className="flex w-full min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 text-start transition hover:bg-u-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-u-accent-ring"
       >
-        <KindTile icon={iconOf(entry)} size="dot" />
+        <KindTile icon={iconOf(entry)} noteKind={noteKindOfEntry(entry)} size="dot" />
         <span className="min-w-0 flex-1 truncate text-note text-u-text2">
           {verbOf(entry).charAt(0).toUpperCase() + verbOf(entry).slice(1)}
           {aside && <span className="text-u-text3"> · {aside}</span>}

@@ -100,6 +100,7 @@ const NOTE_TITLES: Record<PersonNoteKind, string> = {
   call: "Call note",
   meeting: "Meeting note",
   email: "Email note",
+  linkedin: "LinkedIn note",
 };
 
 /** What a history card says about one event: its tag, its tone, its title and the line beneath, as the mockup draws them. */

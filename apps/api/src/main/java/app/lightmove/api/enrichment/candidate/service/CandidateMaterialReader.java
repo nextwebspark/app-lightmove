@@ -177,6 +177,7 @@ class CandidateMaterialReader {
     }
 
     private static String labelOf(String constant) {
+        if (constant.equals("LINKEDIN")) return "LinkedIn";
         String spaced = constant.replace('_', ' ').toLowerCase(Locale.ROOT);
         return constant.length() <= 2 ? constant : Character.toUpperCase(spaced.charAt(0)) + spaced.substring(1);
     }

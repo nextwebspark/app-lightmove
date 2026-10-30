@@ -2,15 +2,29 @@ import { Icon } from "../../../../components/layout/Icon";
 import { Avatar } from "../../../../components/ui/Avatar";
 import { AppIcon } from "../../../../components/ui";
 import { cn } from "../../../../lib/cn";
+import type { PersonNoteKind } from "../../api/types";
 import type { ActivityActor, ActivityExecutive } from "../../lib/activityPresentation";
+import { NoteKindMark } from "../NoteKindMark";
 
 
 /** A kind's glyph, grey and plain as the app's menus draw theirs: on the spine, in a fold, in a menu, at a dialog's head. */
-export function KindTile({ icon, size, className }: { icon: string; size: "dot" | "tile" | "head"; className?: string }) {
+export function KindTile({
+  icon,
+  size,
+  noteKind = null,
+  className,
+}: {
+  icon: string;
+  size: "dot" | "tile" | "head";
+  /** A note line's own kind, drawn by its mark in place of `icon` — LinkedIn's being the network's. */
+  noteKind?: PersonNoteKind | null;
+  className?: string;
+}) {
   const box = size === "dot" ? "size-[22px]" : size === "tile" ? "size-[30px]" : "size-9";
+  const glyphSize = size === "dot" ? 14 : size === "tile" ? 16 : 20;
   return (
     <span className={cn("grid flex-none place-items-center text-u-text3", box, className)} aria-hidden="true">
-      <Icon d={icon} size={size === "dot" ? 14 : size === "tile" ? 16 : 20} />
+      {noteKind ? <NoteKindMark kind={noteKind} size={glyphSize} /> : <Icon d={icon} size={glyphSize} />}
     </span>
   );
 }

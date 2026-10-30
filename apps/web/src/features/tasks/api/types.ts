@@ -15,7 +15,7 @@ export interface TaskPerson {
   avatarUrl: string | null;
 }
 
-export type TaskNoteKind = "general" | "call" | "meeting" | "email";
+export type TaskNoteKind = "general" | "call" | "meeting" | "email" | "linkedin";
 
 /** The note a task or a bell row came from, named by its kind and date — never by what it says. */
 export interface TaskNote {

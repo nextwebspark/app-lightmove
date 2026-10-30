@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ConversationMessage, ConversationRow } from "../api/conversationApi";
+import type { PersonNote } from "../../candidates/api/types";
 import type { OutreachRun } from "../api/runApi";
 import { composerFootnoteOf, dueChipOf, eventFaceOf, glanceOf, queueTimeOf, sinceOf } from "./conversationVocabulary";
 
@@ -90,6 +91,28 @@ describe("eventFaceOf", () => {
       title: "Call note added by Yara Haddad",
       context: "Private team note · not shared with client",
     });
+  });
+
+  it("names a LinkedIn note by the network", () => {
+    const note: PersonNote = {
+      id: "n1",
+      kind: "linkedin",
+      body: "Accepted the request",
+      format: "plain",
+      pinned: false,
+      projectId: "p1",
+      projectTitle: "Group CFO",
+      authorUserId: "u1",
+      authorName: "Yara Haddad",
+      authorAvatarUrl: null,
+      createdAt: "2026-10-20T05:00:00Z",
+      editedAt: null,
+      editedByName: null,
+      editable: true,
+    };
+    expect(eventFaceOf({ type: "NOTE", at: note.createdAt, note }, "Fatima", "p1").title).toBe(
+      "LinkedIn note added by Yara Haddad",
+    );
   });
 });
 

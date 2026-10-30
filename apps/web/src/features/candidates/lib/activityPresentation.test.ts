@@ -13,6 +13,7 @@ import {
   foldRuns,
   iconOf,
   isMinor,
+  noteKindOfEntry,
   peopleOf,
   previewOf,
   shortDate,
@@ -70,6 +71,14 @@ describe("activity presentation", () => {
     expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "EMAIL" } }))).toBe(ICONS.mail);
     expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "MEETING" } }))).toBe(ICONS.video);
     expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "GENERAL" } }))).toBe(ICONS.fileText);
+  });
+
+  it("hands a note line's kind to its tile, LinkedIn's included, and none for a removed note's bin", () => {
+    expect(noteKindOfEntry(line(1, "NOTE_ADDED", { details: { kind: "LINKEDIN" } }))).toBe("linkedin");
+    expect(noteKindOfEntry(line(1, "NOTE_RESTORED", { details: { kind: "CALL" } }))).toBe("call");
+    expect(noteKindOfEntry(line(1, "NOTE_REMOVED", { details: { kind: "LINKEDIN" } }))).toBeNull();
+    expect(noteKindOfEntry(line(1, "STATUS_CHANGED"))).toBeNull();
+    expect(verbOf(line(1, "NOTE_ADDED", { details: { kind: "LINKEDIN" } }))).toBe("logged a LinkedIn message");
   });
 
   it("draws a kind a newer server writes as a quiet record line rather than failing", () => {

@@ -20,6 +20,7 @@ import {
   fieldLabel,
   fullDateTime,
   iconOf,
+  noteKindOfEntry,
   shortDateTime,
   verbOf,
   actorNameOf,
@@ -29,7 +30,7 @@ import {
   type TaskState,
 } from "../../lib/activityPresentation";
 import { STOP_REASONS, statusLabel } from "../../lib/candidateActivity";
-import { noteKindLabel } from "../../lib/noteKinds";
+import { noteKindLabel, noteKindOf } from "../../lib/noteKinds";
 import { StatusPill } from "./ActivityItems";
 import { ActorFace, KindTile } from "./ActivityVisuals";
 
@@ -101,7 +102,7 @@ export function ActivityDetailDialog({
     >
       <div className="flex flex-col gap-4 pb-4">
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-u-border bg-u-bg px-3 py-2.5">
-          <KindTile icon={iconOf(entry)} size="head" />
+          <KindTile icon={iconOf(entry)} noteKind={noteKindOfEntry(entry)} size="head" />
           <ActorFace actor={actor} executive={executive} size="lg" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-body font-semibold text-u-text">{name}</p>
@@ -684,12 +685,6 @@ function wayOf(entry: PersonTimelineEntry, position: PositionOfLine | null, to: 
       return entry.details.taskId ? { kind: "action", label: "Open task", run: () => to.onOpenTask(entry.details.taskId) } : null;
   }
   return null;
-}
-
-/** The line's kind as the server writes it (`CALL`), read as a note's own kind (`call`); an unknown one is a general note. */
-function noteKindOf(detail: string | undefined): PersonNoteKind {
-  const kind = (detail ?? "general").toLowerCase();
-  return kind === "call" || kind === "meeting" || kind === "email" ? kind : "general";
 }
 
 function titleOf(entry: PersonTimelineEntry): string {

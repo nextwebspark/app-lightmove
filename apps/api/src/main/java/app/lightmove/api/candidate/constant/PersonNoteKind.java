@@ -14,7 +14,8 @@ public enum PersonNoteKind implements ApiValueEnum {
     GENERAL("general"),
     CALL("call"),
     MEETING("meeting"),
-    EMAIL("email");
+    EMAIL("email"),
+    LINKEDIN("linkedin");
 
     private final String value;
 

@@ -7,7 +7,7 @@ import { TRIAGE_KEY_PREFIX } from "./triageApi";
  * company drawer never asks. Keyed under the triage prefix, so whatever refreshes the grid refreshes these too.
  */
 
-export type CompanyNoteKind = "general" | "call" | "meeting" | "email";
+export type CompanyNoteKind = "general" | "call" | "meeting" | "email" | "linkedin";
 
 export interface CompanyNote {
   id: string;
