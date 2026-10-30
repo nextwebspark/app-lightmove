@@ -105,8 +105,26 @@
                   </button>
                 </sc-for>
               </div>
-              <div style="display:flex;align-items:center"><button onClick="{{ openEnrol }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:var(--amber-btn);color:var(--on-amber);font:600 12px/1 var(--sans);cursor:pointer" style-hover="filter:brightness(1.08)">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M12 5v14"></path></svg>New outreach</button></div>
+            </div>
+            <!-- The toolbar row Strategy.dc.html and Position.dc.html's In universe share: search first, the sending mailbox
+                 and the view's one filled action pushed right. -->
+            <div style="display:flex;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;padding:10px 16px;border-top:1px solid var(--line-soft);background:var(--panel)">
+              <label style="display:flex;flex:1 1 280px;max-width:360px;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:var(--text3)"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z M21 21l-4.35-4.35"></path></svg>
+                <input value="{{ oqQuery }}" onChange="{{ oqOnQuery }}" placeholder="Search people or emails…" aria-label="Search people or emails" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font:400 13px var(--sans);color:var(--text)">
+              </label>
+              <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
+                <sc-if value="{{ mailboxConnected }}" hint-placeholder-val="{{ true }}">
+                  <span title="Sending mailbox" style="display:inline-flex;align-items:center;gap:8px;height:34px;box-sizing:border-box;padding:0 12px;border-radius:6px;border:1px solid var(--line);white-space:nowrap">
+                    <span style="width:6px;height:6px;border-radius:50%;background:var(--u-direct)"></span>
+                    <span style="font:400 12.5px var(--sans);color:var(--text)">yara.haddad@alfuttaim.com</span>
+                    <span style="font:400 12px var(--sans);color:var(--text3)">0 of 50 today</span>
+                  </span>
+                  <span style="width:1px;height:20px;background:var(--line-soft)"></span>
+                </sc-if>
+                <button onClick="{{ newEmail }}" style="display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:6px;border:none;background:var(--amber-btn);font:600 13px var(--sans);color:var(--on-amber);cursor:pointer;white-space:nowrap" style-hover="background:var(--u-accent-solid-hover)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M12 5v14 M5 12h14"></path></svg>New email</button>
+              </div>
             </div>
           </div>
 
@@ -117,11 +135,6 @@
                   <span style="font:500 13px/1 var(--sans);color:var(--text)">Action queue</span>
                   <span style="font:400 11px/1 var(--sans);color:var(--text3)">{{ oqOpenLabel }}</span>
                 </div>
-                <label style="display:flex;align-items:center;gap:7px;height:32px;padding:0 8px;border-radius:6px;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line-soft);box-sizing:border-box">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex:none;color:var(--text3)"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
-                  <input value="{{ oqQuery }}" onChange="{{ oqOnQuery }}" placeholder="Search people or messages…" aria-label="Search people or messages" style="flex:1;min-width:0;background:transparent;border:none;outline:none;font:400 11px/1 var(--sans);color:var(--text)">
-                  <span style="font:400 10px/1 var(--sans);color:var(--text3)">⌘K</span>
-                </label>
                 <div style="display:flex;align-items:center;justify-content:space-between">
                   <div style="display:flex;gap:3px">
                     <button data-id="mine" onClick="{{ oqSetWho }}" style="{{ oqMineStyle }}">Mine</button>
@@ -1136,6 +1149,7 @@ class Component extends DCLogic {
       oqSetTab: (e) => set({ oqTab: e.currentTarget.dataset.id }),
       oqSetWho: (e) => set({ oqWho: e.currentTarget.dataset.id }),
       oqOnQuery: (e) => set({ oqQuery: e.target.value }),
+      newEmail: () => this.showToast("New email — pick anyone on the position, and their conversation opens ready to write"),
       oqSelect: (e) => set({ oqSel: e.currentTarget.dataset.id }),
       oqOnDraft: (e) => set({ oqDrafts: { ...(s.oqDrafts || {}), [sel]: e.target.value } }),
       oqToggleVisible: () => set({ oqVisible: { ...(s.oqVisible || {}), [sel]: !vis } }),
