@@ -373,6 +373,45 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("undoing a capture keeps a company the consultant added themselves after research filed it")
+    void undoingACaptureKeepsACompanyAddedSinceOnPurpose() throws Exception {
+        String projectId = mandate("Undo Chosen Firm");
+        universe.company("a42", "Al Rawabi Dairy").linkedin("http://www.linkedin.com/company/alrawabi").insert();
+        enricher.answerWith(RESEARCH);
+        String candidateId = capture(projectId, "Sample Person", "sample-profile");
+        mvc.perform(post(triageUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountId":"a42"}"""))
+                .andExpect(status().isCreated());
+
+        undoCapture(projectId, candidateId);
+
+        assertThat(companiesInUniverse(projectId)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("undoing a capture keeps a company moved since, even back to In universe")
+    void undoingACaptureKeepsACompanyMovedSince() throws Exception {
+        String projectId = mandate("Undo Moved Firm");
+        enricher.answerWith(RESEARCH);
+        String candidateId = capture(projectId, "Sample Person", "sample-profile");
+        String companyId = firstCandidateOf(projectId).get("triageCompanyId").asText();
+        for (String stage : List.of("shortlisted", "inUniverse")) {
+            mvc.perform(patch(triageUrl(projectId) + "/" + companyId)
+                            .header("Authorization", "Bearer " + adminToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"status\":\"" + stage + "\"}"))
+                    .andExpect(status().isOk());
+        }
+
+        undoCapture(projectId, candidateId);
+
+        assertThat(companiesInUniverse(projectId)).hasSize(1);
+    }
+
+    @Test
     @DisplayName("removing a captured person without the flag keeps the company filed for them")
     void removingACapturedPersonPlainlyKeepsTheirCompany() throws Exception {
         String projectId = mandate("Plain Removal Firm");

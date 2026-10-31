@@ -196,6 +196,11 @@ public class Candidate extends BaseEntity {
         this.companyFiledForThem = filedForThem;
     }
 
+    /** Someone chose their company on its own account, so taking them back off the mandate leaves it. */
+    public void keepCompany() {
+        this.companyFiledForThem = false;
+    }
+
     /** Answers whether anything changed. Only this person moves; their company and its other people stay. */
     public boolean moveToStage(TriageCompanyStatus newTriageStatus) {
         boolean changed = triageStatus != newTriageStatus;

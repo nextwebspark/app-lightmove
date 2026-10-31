@@ -94,12 +94,14 @@ export function useUndoCapture() {
         return removedUnlessGone(() => askOrThrow({ kind: "removeTriageCompany", projectId, triageCompanyId: triageCompanyId! }));
       }
       const target = { subject: "person" as const, projectId, candidateId };
-      const isNoteRemoved = noteId ? (await askServiceWorker({ kind: "removeNote", target, noteId })).ok : false;
+      // A note that will not go still lets the person go: the Undo the consultant asked for is the row, and a note
+      // left behind is the person's, readable and removable in Uncava.
+      const removedNoteId = noteId && (await askServiceWorker({ kind: "removeNote", target, noteId })).ok ? noteId : null;
       try {
         return await removedUnlessGone(() => askOrThrow({ kind: "removeCandidate", projectId, candidateId }));
       } catch (refusal) {
-        if (isNoteRemoved && noteId) {
-          await askServiceWorker({ kind: "restoreNote", target, noteId });
+        if (removedNoteId) {
+          await askServiceWorker({ kind: "restoreNote", target, noteId: removedNoteId });
         }
         throw refusal;
       }

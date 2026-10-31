@@ -32,6 +32,7 @@ import app.lightmove.api.triagecompany.model.FiledCompany;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyCapturedEvent;
 import app.lightmove.api.triagecompany.model.TriageCompanyMoved;
+import app.lightmove.api.triagecompany.model.TriageCompanyWorked;
 import app.lightmove.api.triagecompany.model.TriageCompanyRemoved;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
@@ -118,6 +119,7 @@ public class TriageCompanyService {
         // sent with it is still filed, rather than lost.
         Optional<TriageCompany> held = triaged.findByProjectIdAndApolloAccountId(projectId, accountId);
         if (held.isPresent()) {
+            events.publishEvent(new TriageCompanyWorked(projectId, held.get().getId()));
             companyNotes.fileFromDoor(workspaceId, held.get(), userId, request.note(), httpRequest);
             return TriageCompanyResponseMapper.toDto(held.get());
         }
@@ -428,6 +430,7 @@ public class TriageCompanyService {
                                         HttpServletRequest httpRequest) {
         projects.requireInWorkspace(projectId, workspaceId);
         TriageCompany company = triaged.requireInProject(triageCompanyId, projectId);
+        events.publishEvent(new TriageCompanyWorked(projectId, triageCompanyId));
 
         if (request.status() != null) {
             TriageCompanyStatus status = TriageCompanyStatus.fromValue(request.status());
