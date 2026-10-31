@@ -114,6 +114,13 @@ public enum ErrorCode {
             "A company taken from the market cannot be edited"),
 
     /**
+     * Removing a company takes everyone mapped at it, so a caller must say it showed that: a removal that has not
+     * (an older screen, the plugin's Undo racing a filing) is refused rather than taking people unannounced.
+     */
+    TRIAGE_COMPANY_HAS_EXECUTIVES(HttpStatus.CONFLICT,
+            "Executives are mapped at this company; removing it would remove them too"),
+
+    /**
      * Same name at the same company (or anywhere, for an employer outside the universe), or a LinkedIn
      * profile already mapped. Distinct from CONFLICT so the drawer can mark the name field.
      */

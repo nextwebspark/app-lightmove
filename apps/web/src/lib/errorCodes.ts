@@ -43,6 +43,7 @@ export type ApiErrorCode =
   | "BULK_ADD_SCOPE_TOO_LARGE"
   | "TRIAGE_COMPANY_ALREADY_HELD"
   | "TRIAGE_COMPANY_NOT_EDITABLE"
+  | "TRIAGE_COMPANY_HAS_EXECUTIVES"
   | "CANDIDATE_ALREADY_MAPPED"
   | "CANDIDATE_POSSIBLE_DUPLICATE"
   | "CANDIDATE_KEYS_NAME_ANOTHER"
@@ -353,6 +354,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   NOT_A_MEMBER: "That workspace isn't available to you any more.",
   NOT_FOUND: "That item no longer exists. Reload to see the latest.",
   TRIAGE_COMPANY_ALREADY_HELD: "This position already has a company with that name.",
+  TRIAGE_COMPANY_HAS_EXECUTIVES:
+    "Executives are mapped at this company, so nothing was removed. Check who is there, then try again.",
   IMPORT_FILE_UNREADABLE: "That file couldn't be read as a table. Check it has a header row, then try again.",
   MAILBOX_CONNECT_CANCELLED: "Your mailbox was not connected.",
   OUTREACH_BOOKING_LINK_UNAVAILABLE:

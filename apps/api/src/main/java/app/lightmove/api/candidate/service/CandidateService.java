@@ -896,21 +896,44 @@ public class CandidateService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
+    /**
+     * With {@code withCompany}, the company the person was the last one at goes too, in the same transaction: anyone
+     * else mapped there by now (on any stage) refuses the whole removal, the person included.
+     */
     @Transactional
-    public void remove(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
+    public void remove(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, boolean withCompany,
                        HttpServletRequest httpRequest) {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
+        UUID companyId = candidate.getTriageCompanyId();
 
+        unmap(candidate, userId);
+        if (withCompany && companyId != null) {
+            candidates.flush();
+            triage.removeFromProject(userId, workspaceId, projectId, companyId, false, httpRequest);
+        }
+        recordRemoved(audit.projectEvent(ProjectEventType.CANDIDATE_REMOVED, userId, workspaceId, projectId,
+                httpRequest), candidate);
+    }
+
+    /** Someone mapped at a company leaving the mandate with it ({@link CompanyRemovalFollower}). */
+    void removeWithTheirCompany(Candidate candidate, UUID removedBy, UUID workspaceId) {
+        unmap(candidate, removedBy);
+        recordRemoved(audit.event(ProjectEventType.CANDIDATE_REMOVED).actor(removedBy).workspace(workspaceId)
+                .target(AuditService.PROJECT_TARGET, candidate.getProjectId()), candidate);
+    }
+
+    private void unmap(Candidate candidate, UUID userId) {
         // The person stays with the workspace — their notes, contacts and history are the point of
         // keeping them — and the line saying which mandate let them go is written before the row goes.
         activity.record(candidate, userId, PersonActivityKind.UNMAPPED);
         candidates.delete(candidate);
+    }
 
+    private static void recordRemoved(AuditService.Builder event, Candidate candidate) {
         // The name is recorded because the row carrying it is about to stop existing, and an audit
         // entry naming only an unresolvable id answers no question later.
-        audit.projectEvent(ProjectEventType.CANDIDATE_REMOVED, userId, workspaceId, projectId, httpRequest)
-                .detail("candidateId", candidateId.toString())
+        event.detail("candidateId", candidate.getId().toString())
                 .detail("fullName", candidate.getPerson().getFullName())
                 .record();
     }

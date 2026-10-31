@@ -961,22 +961,30 @@ describe("TriageStagePage", () => {
     expect(triageApi.deleteTriageCompany).not.toHaveBeenCalled();
 
     await userEvent.click(within(dialog).getByRole("button", { name: /Remove from mandate/i }));
-    await waitFor(() => expect(triageApi.deleteTriageCompany).toHaveBeenCalledWith("p1", "u1"));
+    await waitFor(() =>
+      expect(triageApi.deleteTriageCompany).toHaveBeenCalledWith("p1", "u1", { withExecutives: false }),
+    );
   });
 
-  it("says how many executives a removal leaves on the position with no company", async () => {
+  it("warns that a company's executives, on any stage, go with it, and says so to the server", async () => {
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
       peopleOf(scope.query === undefined && !scope.unmapped && !scope.triageStatus
         ? [yasmin, { ...yasmin, id: "c2", fullName: "Omar Haddad", triageStatus: "declined" }]
         : []),
     );
+    vi.mocked(triageApi.deleteTriageCompany).mockResolvedValue(undefined);
     renderStage();
 
     await screen.findByText("ACWA Power");
     await userEvent.click(screen.getByRole("button", { name: /Remove ACWA Power from this mandate/i }));
 
     const dialog = await screen.findByRole("dialog");
-    expect(await within(dialog).findByText("Its 2 executives stay on this position, with no company.")).toBeInTheDocument();
+    expect(await within(dialog).findByText(/ACWA Power has 2 executives\. Removing the company removes all of them/))
+      .toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: /Remove from mandate/i }));
+    await waitFor(() =>
+      expect(triageApi.deleteTriageCompany).toHaveBeenCalledWith("p1", "u1", { withExecutives: true }),
+    );
   });
 
   it("takes a company the market already carries by its universe id", async () => {
@@ -1383,6 +1391,27 @@ describe("TriageStagePage", () => {
 
     await waitFor(() => expect(candidatesApi.deleteCandidate).toHaveBeenCalledWith("p1", yasmin.id));
     expect(triageApi.deleteTriageCompany).not.toHaveBeenCalled();
+  });
+
+  it("offers to take the company with its only executive, and sends that only when ticked", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin]),
+    );
+    vi.mocked(candidatesApi.deleteCandidate).mockResolvedValue(undefined);
+    renderStage();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Remove Yasmin El-Sayed from this mandate/i }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: /Remove Yasmin El-Sayed/i });
+    const alsoCompany = await within(dialog).findByRole("checkbox", { name: /Also remove ACWA Power/i });
+    expect(alsoCompany).not.toBeChecked();
+    await userEvent.click(alsoCompany);
+    await userEvent.click(within(dialog).getByRole("button", { name: /Remove from mandate/i }));
+
+    await waitFor(() =>
+      expect(candidatesApi.deleteCandidate).toHaveBeenCalledWith("p1", yasmin.id, { withCompany: true }),
+    );
   });
 
   it("asks only for the people at the companies on this page", async () => {

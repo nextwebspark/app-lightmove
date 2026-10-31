@@ -30,9 +30,9 @@ import org.hibernate.type.SqlTypes;
  * custom-column values and the AI assessment against its brief live here, so two mandates can disagree
  * about one executive while sharing everything true of them (V91).
  *
- * <p>{@code companyName} is a write-time snapshot that outlives the mapping. V36's
- * {@code ON DELETE SET NULL} is the other half of that pair: removing a company from a mandate must
- * not silently delete the people mapped at it.
+ * <p>{@code companyName} is a write-time snapshot: the employer of someone at no company of the mandate's, and the
+ * company's name for someone at one. Removing a company takes the people mapped at it after a warning
+ * ({@code CompanyRemovalFollower}), so V36's {@code ON DELETE SET NULL} no longer strands anyone.
  */
 @Entity
 @Table(name = "app_lm_project_candidate")

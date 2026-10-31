@@ -149,12 +149,18 @@ export function updateTriageCompany(
 }
 
 /**
- * Drops this mandate's decision about a company. The company itself is untouched — the Apollo
- * universe is read-only to the API — so it stays on Strategy and stays available to every other
- * mandate.
+ * Drops this mandate's decision about a company, and everyone mapped at it. The company itself is untouched — the
+ * Apollo universe is read-only to the API — so it stays on Strategy and stays available to every other mandate.
+ * `withExecutives` says the caller warned that its executives go too; without it the server refuses a company that
+ * has any.
  */
-export function deleteTriageCompany(projectId: string, triageCompanyId: string): Promise<void> {
-  return request<void>(`/projects/${projectId}/triage/${triageCompanyId}`, { method: "DELETE" });
+export function deleteTriageCompany(
+  projectId: string,
+  triageCompanyId: string,
+  options?: { withExecutives: boolean },
+): Promise<void> {
+  const query = options?.withExecutives ? "?withExecutives=true" : "";
+  return request<void>(`/projects/${projectId}/triage/${triageCompanyId}${query}`, { method: "DELETE" });
 }
 
 /**

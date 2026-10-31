@@ -130,7 +130,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the Candidates page draws the position's company logo, and research's once that company is removed")
+    @DisplayName("the Candidates page draws the position's company logo, and research's once the company and they are removed")
     void theCandidatesPageDrawsTheEmployerLogo() throws Exception {
         String projectId = mandate("Employer Logo Firm");
         enricher.answerWith(RESEARCH);
@@ -141,7 +141,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
 
         assertThat(poolRow().get("companyLogoUrl").asText()).isEqualTo("https://logos.example/filed.png");
 
-        mvc.perform(delete(triageUrl(projectId) + "/" + companyId)
+        mvc.perform(delete(triageUrl(projectId) + "/" + companyId + "?withExecutives=true")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNoContent());
 

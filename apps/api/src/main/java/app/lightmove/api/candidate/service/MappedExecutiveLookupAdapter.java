@@ -67,6 +67,11 @@ class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
     }
 
     @Override
+    public long executivesAt(UUID projectId, UUID triageCompanyId) {
+        return candidates.countByProjectIdAndTriageCompanyId(projectId, triageCompanyId);
+    }
+
+    @Override
     public Map<TriageCompanyStatus, Long> companyCountsWithExecutivesMoved(UUID projectId, ProjectAudience audience) {
         return candidates.countCompaniesWithExecutivesMovedByStage(projectId, audience.clientVisibleOnly()).stream()
                 .collect(Collectors.toMap(count -> TriageCompanyStatus.valueOf(count.getTriageStatus()),

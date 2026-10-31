@@ -31,6 +31,7 @@ import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyCapturedEvent;
 import app.lightmove.api.triagecompany.model.TriageCompanyMoved;
+import app.lightmove.api.triagecompany.model.TriageCompanyRemoved;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import jakarta.servlet.http.HttpServletRequest;
@@ -77,6 +78,7 @@ public class TriageCompanyService {
     private final ApplicationEventPublisher events;
     private final CompanyNoteService companyNotes;
     private final ProjectStreamPublisher stream;
+    private final MappedExecutiveLookup executives;
     private final LightMoveProperties properties;
 
     /**
@@ -524,21 +526,33 @@ public class TriageCompanyService {
     }
 
     /**
-     * Drops the mandate's decision only; the universe row is ETL-owned and untouched. Unlike Declining
-     * it is not remembered — a later "Add all" may take the company back in.
+     * Drops the mandate's decision and everyone mapped at the company, on every stage; the universe row is ETL-owned
+     * and untouched, and the people stay in the workspace's pool. Refused while anyone is mapped there unless
+     * {@code withExecutives} says the caller warned about them. Unlike Declining it is not remembered — a later "Add
+     * all" may take the company back in, fresh.
      */
     @Transactional
     public void removeFromProject(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
-                                  HttpServletRequest httpRequest) {
+                                  boolean withExecutives, HttpServletRequest httpRequest) {
         projects.requireInWorkspace(projectId, workspaceId);
         TriageCompany company = triaged.requireInProject(triageCompanyId, projectId);
 
+        long executivesRemoved = executives.executivesAt(projectId, triageCompanyId);
+        if (executivesRemoved > 0 && !withExecutives) {
+            throw ApiException.withProperty(ErrorCode.TRIAGE_COMPANY_HAS_EXECUTIVES, "count", executivesRemoved);
+        }
+        if (executivesRemoved > 0) {
+            events.publishEvent(new TriageCompanyRemoved(projectId, workspaceId, triageCompanyId, userId));
+            stream.publish(projectId, ProjectStreamKind.CANDIDATE_MOVED);
+        }
         triaged.delete(company);
+        stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
 
         // The name, because the row carrying it is gone and a bare id answers nothing later.
         audit.projectEvent(ProjectEventType.TRIAGE_COMPANY_REMOVED, userId, workspaceId, projectId, httpRequest)
                 .detail("triageCompanyId", triageCompanyId.toString())
                 .detail("companyName", company.getCompanyName())
+                .detail("executivesRemoved", String.valueOf(executivesRemoved))
                 .record();
     }
 

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useToast } from "../../../components/ui/Toast";
-import { messageFor } from "../../../lib/errorCodes";
+import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { useProjectRowsChanged } from "../../../lib/projectRows";
 import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../api/candidatesApi";
@@ -14,6 +14,7 @@ import * as positionApi from "../../position/api/positionApi";
 import type { Project } from "../../projects/api/types";
 import { canExecuteProjectWork } from "../../projects/lib/access";
 import type { DrawerSection, DrawerTab } from "../lib/drawerTabs";
+import { useExecutivesAtCompany } from "../lib/useExecutivesAtCompany";
 
 /**
  * The Companies grid's executive panel, opened from somewhere that holds only the executive's id — a
@@ -47,6 +48,7 @@ export function CandidateDrawerById({
   const rowsChanged = useProjectRowsChanged();
   const toast = useToast();
   const [pendingRemoval, setPendingRemoval] = useState<Candidate | null>(null);
+  const executivesAtTheirCompany = useExecutivesAtCompany(project.id, pendingRemoval?.triageCompanyId ?? null);
 
   const candidate = useQuery({
     queryKey: candidatesApi.CANDIDATE_KEY(project.id, candidateId ?? ""),
@@ -82,14 +84,26 @@ export function CandidateDrawerById({
   };
 
   const removeCandidate = useMutation({
-    mutationFn: (removed: Candidate) => candidatesApi.deleteCandidate(project.id, removed.id),
-    onSuccess: (_result, removed) => {
+    mutationFn: ({ removed, withCompany }: { removed: Candidate; withCompany: boolean }) =>
+      withCompany
+        ? candidatesApi.deleteCandidate(project.id, removed.id, { withCompany })
+        : candidatesApi.deleteCandidate(project.id, removed.id),
+    onSuccess: (_result, { removed, withCompany }) => {
       setPendingRemoval(null);
       onClose();
       refreshRows();
-      toast(`${removed.fullName} removed from this mandate`);
+      toast(
+        withCompany
+          ? `${removed.fullName} and ${removed.companyName} removed from this mandate`
+          : `${removed.fullName} removed from this mandate`,
+      );
     },
-    onError: (error) => toast.error(messageFor(error)),
+    onError: (error) => {
+      if (codeOf(error) === "TRIAGE_COMPANY_HAS_EXECUTIVES") {
+        void queryClient.invalidateQueries({ queryKey: candidatesApi.CANDIDATES_KEY_PREFIX(project.id) });
+      }
+      toast.error(messageFor(error));
+    },
   });
 
   const shown = candidateId !== null && candidate.data?.id === candidateId ? candidate.data : null;
@@ -117,9 +131,10 @@ export function CandidateDrawerById({
       />
       <RemoveCandidateDialog
         candidate={pendingRemoval}
+        soleAtCompany={executivesAtTheirCompany === 1}
         removing={removeCandidate.isPending}
         onCancel={() => setPendingRemoval(null)}
-        onConfirm={(removed) => removeCandidate.mutate(removed)}
+        onConfirm={(removed, { withCompany }) => removeCandidate.mutate({ removed, withCompany })}
       />
     </>,
     document.body,

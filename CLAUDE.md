@@ -40,7 +40,11 @@ Who filed a company (`added_by`) is the staff grid's **Added by** column, the dr
 a client seat's (`addedBy*`, null outside a staff read, as `noteCount` is); the cell adds the executive's adder's face
 where someone else filed them, read from the candidates list's staff-only `addedBy` map beside the rows, never on
 `CandidateResponse`.
-Deleting one drops the project↔company row only — and its notes: the Apollo universe is read-only to the app. On top of
+Deleting one drops the project↔company row, its notes and everyone mapped at it on any stage (the persons stay in the
+pool) — after a warning that counts them, which the server holds as `withExecutives`, refusing a removal that would
+take anyone unannounced (`TRIAGE_COMPANY_HAS_EXECUTIVES`); removing a company's last executive offers to take the
+company too (`?withCompany=true`), and nobody is left behind with a name and no company. The Apollo universe is
+read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
 with three of them is three lines and one with none keeps its "Add executive" slot. The grid reads those lines whole —

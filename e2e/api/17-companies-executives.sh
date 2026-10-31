@@ -388,7 +388,7 @@ check N17.7.27 "redefining it under its original name takes the same key back" "
 http DELETE "$COLUMNS/$(new_uuid)" -H "$LEAD_AUTH"
 check_code N17.7.28 "deleting a column this mandate does not hold" 404 NOT_FOUND
 
-section "N17.8  removing a company unmaps its executives"
+section "N17.8  removing a company takes its executives, after a warning"
 
 GAMMA="Delete Me Holdings $RUN_TAG"
 capture "$LEAD_AUTH" "$GAMMA"
@@ -399,25 +399,38 @@ FARIS_PERSON=$(json '.personId')
 check N17.8.1 "an executive is mapped at the doomed company" "$GAMMA_ID" "$(json '.triageCompanyId')"
 
 http DELETE "$TRIAGE/$GAMMA_ID" -H "$LEAD_AUTH"
-check_status N17.8.2 "the lead removes the company from the mandate" 204
+check_code N17.8.2 "a company with executives is not removed unannounced" 409 TRIAGE_COMPANY_HAS_EXECUTIVES
 get "$PEOPLE/$FARIS" -H "$LEAD_AUTH"
-check_status N17.8.3 "the executive survives it" 200
-check N17.8.4 "…unmapped, with the employer's name kept" "|$GAMMA" "$(json '.triageCompanyId // empty')|$(json '.companyName')"
-check N17.8.5 "…because the row's foreign key is ON DELETE SET NULL" "t" \
-  "$(sql "SELECT triage_company_id IS NULL FROM app_lm_project_candidate WHERE id = '$FARIS'")"
-get "$PEOPLE?unmapped=true" -H "$LEAD_AUTH"
-check N17.8.6 "…and is listed among the unmapped" "1" "$(json "[.candidates[] | select(.id == \"$FARIS\")] | length")"
-http DELETE "$TRIAGE/$GAMMA_ID" -H "$LEAD_AUTH"
-check_code N17.8.7 "removing it twice" 404 NOT_FOUND
-capture "$LEAD_AUTH" "$GAMMA"
-check_status N17.8.8 "a removed company is not remembered — it can be typed in again" 201
+check N17.8.3 "…and the executive is still mapped there" "$GAMMA_ID" "$(json '.triageCompanyId')"
 
-http DELETE "$PEOPLE/$FARIS" -H "$LEAD_AUTH"
-check_status N17.8.9 "an executive is removed" 204
+http DELETE "$TRIAGE/$GAMMA_ID?withExecutives=true" -H "$LEAD_AUTH"
+check_status N17.8.4 "the lead removes the company, having been told its executives go too" 204
 get "$PEOPLE/$FARIS" -H "$LEAD_AUTH"
-check_code N17.8.10 "…and is gone" 404 NOT_FOUND
-check N17.8.11 "…while the workspace's person keeps their contact rows" "1" \
+check_code N17.8.5 "…and the executive left the position with it" 404 NOT_FOUND
+check N17.8.6 "…while the workspace's person keeps their contact rows" "1" \
   "$(sql "SELECT count(*) FROM app_lm_person_contact WHERE person_id = '$FARIS_PERSON'")"
+get "$PEOPLE?unmapped=true" -H "$LEAD_AUTH"
+check N17.8.7 "…and nobody is left behind with a name and no company" "0" \
+  "$(json "[.candidates[] | select(.companyName == \"$GAMMA\")] | length")"
+http DELETE "$TRIAGE/$GAMMA_ID?withExecutives=true" -H "$LEAD_AUTH"
+check_code N17.8.8 "removing it twice" 404 NOT_FOUND
+capture "$LEAD_AUTH" "$GAMMA"
+check_status N17.8.9 "a removed company is not remembered — it can be typed in again" 201
+GAMMA_ID=$(json '.id')
+
+post_json "$PEOPLE" "$(person "Rana Saleh $RUN_TAG" ".triageCompanyId = \"$GAMMA_ID\"")" -H "$LEAD_AUTH"
+RANA=$(json '.id')
+http DELETE "$PEOPLE/$RANA" -H "$LEAD_AUTH"
+check_status N17.8.10 "an executive is removed on their own" 204
+check N17.8.11 "…and their company stays in universe with nobody at it" "1" \
+  "$(sql "SELECT count(*) FROM app_lm_project_triage_company WHERE id = '$GAMMA_ID'")"
+
+post_json "$PEOPLE" "$(person "Sami Haddad $RUN_TAG" ".triageCompanyId = \"$GAMMA_ID\"")" -H "$LEAD_AUTH"
+SAMI=$(json '.id')
+http DELETE "$PEOPLE/$SAMI?withCompany=true" -H "$LEAD_AUTH"
+check_status N17.8.12 "the company's last executive is removed with the company ticked" 204
+check N17.8.13 "…and the company goes with them" "0" \
+  "$(sql "SELECT count(*) FROM app_lm_project_triage_company WHERE id = '$GAMMA_ID'")"
 
 section "N17.9  the client seat reads, and writes nothing"
 
