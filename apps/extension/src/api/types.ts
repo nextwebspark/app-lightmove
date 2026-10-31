@@ -1,4 +1,3 @@
-import type { CandidateCaptureStatus } from "../domain/candidateStatus";
 import type { TriageDestination } from "../domain/triageDestination";
 
 /**
@@ -20,6 +19,10 @@ export interface WorkspaceUser {
   id: string;
   fullName: string;
   email: string;
+  /** The identity provider's picture, if they signed in with one; absent from a session stored before it was kept. */
+  avatarUrl?: string | null;
+  /** The workspace the extension is paired into; everything it files lands there. */
+  workspace?: { id: string; name: string } | null;
 }
 
 /** What `POST /auth/extension/tokens` and `/auth/extension/refresh` both answer with. */
@@ -30,25 +33,36 @@ export interface ExtensionSession {
   user: WorkspaceUser;
 }
 
-/** One entry in the popup's project dropdown, from `GET /projects`. */
+/** A seat on a position's team, as `GET /projects` lists it: who a note may mention. */
+export interface TeamMember {
+  userId: string;
+  fullName: string;
+  avatarUrl: string | null;
+  projectRoles: string[];
+}
+
+/** One position the panel can file into, from `GET /projects`. */
 export interface ProjectSummary {
   id: string;
   /** The mandate's role — the server calls it this, and there is no `name` on `ProjectResponse`. */
   positionTitle: string;
   clientName: string | null;
+  clientLogoUrl: string | null;
+  team: TeamMember[];
+  /** Set once the position is archived; the panel files into live positions only. */
+  archivedAt: string | null;
 }
 
 /**
  * The body of `POST /projects/{id}/triage/capture`.
  *
- * The API's own `CaptureCompanyRequest`, which already exists for this plugin — the endpoint was built
- * for the two destination buttons in `Extension.dc.html`. Field names are the server's; nothing here
- * is invented, and the extension adds no endpoint of its own.
+ * The API's own `CaptureCompanyRequest`, built for this plugin. Field names are the server's; nothing here is
+ * invented.
  */
 export interface CaptureCompanyRequest {
   /** `extension` — the provenance the Companies screen shows. `strategy` is refused here. */
   source: "extension";
-  /** The landing stage, from whichever destination button was pressed. */
+  /** Always the universe: the panel files a company there and nowhere else. */
   status: TriageDestination;
   companyName: string;
   companyLinkedinUrl?: string | null;
@@ -57,12 +71,20 @@ export interface CaptureCompanyRequest {
   note?: string | null;
 }
 
-/** The triage row the capture created. */
+/** A company of the position, as the capture creates it or the held lookup finds it. */
 export interface TriagedCompany {
   id: string;
-  source: "strategy" | "manual" | "extension";
-  status: TriageDestination | "declined";
+  source: string;
+  status: "inUniverse" | "shortlisted" | "declined";
   companyName: string;
+  industry: string | null;
+  companyCity: string | null;
+  companyCountry: string | null;
+  companyLinkedinUrl: string | null;
+  logoUrl: string | null;
+  addedAt: string | null;
+  /** Who filed it; a staff read's alone, which every read the panel makes is. */
+  addedByName: string | null;
 }
 
 /**
@@ -82,14 +104,117 @@ export interface SaveCandidateRequest {
    * Left out for the panel's starting choice, so the server files them at the workspace's own starting status:
    * a workspace may have retired the seeded Identified.
    */
-  status?: CandidateCaptureStatus;
+  status?: string;
   sourceUrl?: string | null;
 }
 
-/** The candidate row the capture created. */
+/** An executive of the position, as the capture creates it or a read answers it. */
 export interface CapturedCandidate {
   id: string;
+  personId: string;
   fullName: string;
+  title: string | null;
   companyName: string | null;
   triageCompanyId: string | null;
+  linkedinUrl: string | null;
+  /** When research last landed; null until then, and a person never researched has no photo. */
+  enrichedAt: string | null;
+  addedAt: string | null;
+  /** A key of the workspace's pipeline catalog. */
+  status: string;
+  statusLabel: string | null;
+  statusColour: string | null;
+  statusOutOfProcess: boolean;
+  pipelineStage: { key: string; label: string; colour: string | null } | null;
+}
+
+/** Who filed an executive into a position. */
+export interface AddedBy {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+}
+
+/** `GET /projects/{id}/candidates/held`: the executive this position already maps at a profile. */
+export interface HeldCandidate {
+  candidate: CapturedCandidate;
+  addedBy: AddedBy | null;
+  /** Their employer's logo: the company row's, else research's. */
+  companyLogoUrl: string | null;
+}
+
+/** One status of the workspace's pipeline, from `GET /workspace/pipeline`. */
+export interface PipelineStatus {
+  id: string;
+  key: string;
+  label: string;
+  colour: string | null;
+  position: number;
+  isDefault: boolean;
+  outOfProcess: boolean;
+  retired: boolean;
+}
+
+export interface PipelineStage {
+  id: string;
+  key: string;
+  label: string;
+  colour: string | null;
+  position: number;
+  retired: boolean;
+  statuses: PipelineStatus[];
+}
+
+export interface PipelineCatalog {
+  stages: PipelineStage[];
+}
+
+export type NoteKind = "general" | "call" | "meeting" | "email" | "linkedin";
+export type NoteFormat = "plain" | "markdown";
+
+/** A note on a person or a company of the position; a company's names no position. */
+export interface NoteRecord {
+  id: string;
+  kind: NoteKind;
+  body: string;
+  format: NoteFormat;
+  pinned: boolean;
+  projectId?: string | null;
+  projectTitle?: string | null;
+  authorUserId: string;
+  authorName: string | null;
+  authorAvatarUrl: string | null;
+  createdAt: string;
+  editedAt: string | null;
+  editedByName: string | null;
+  editable: boolean;
+}
+
+/** What the panel writes: always the editor's Markdown. `allPositions` only for a person's note. */
+export interface WriteNotePayload {
+  kind: NoteKind;
+  body: string;
+  format: NoteFormat;
+  allPositions?: boolean;
+}
+
+/** Whose notes: a person mapped on a position, or a company of it. */
+export type NoteTarget =
+  | { subject: "person"; projectId: string; candidateId: string }
+  | { subject: "company"; projectId: string; triageCompanyId: string };
+
+export type CandidateTagColour = "green" | "accent" | "neutral" | "violet" | "adjacent" | "signal" | "red";
+
+export interface CandidateTag {
+  id: string;
+  label: string;
+  colour: CandidateTagColour;
+  retired: boolean;
+  holders: number;
+}
+
+/** The part of the workspace's person record the panel reads: the tags they hold. */
+export interface PersonTags {
+  personId: string;
+  tagIds: string[];
 }

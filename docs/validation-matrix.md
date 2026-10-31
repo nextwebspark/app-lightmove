@@ -53,8 +53,9 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Two-factor: code to turn on | six digits, spaces dropped | `@NotBlank @Size(32)`; the app's code for the new secret (`MFA_CODE_INVALID` on `code`) | field |
 | Two-factor: code to turn off or get new recovery codes | six digits or a recovery code | `@NotBlank @Size(32)`; the app's code or an unused recovery code (`MFA_CODE_INVALID` on `code`) | field |
 | Task preset name | trimmed, ≤ 80, one line | `@NotBlank @Size(80)`, no line break | toast |
-| Pipeline automation status | live statuses of active stages only; the switch turns on only with one chosen | `@NotNull enabled`; on needs a `statusId` (`VALIDATION_FAILED` on `statusId`); the status the workspace's (404), of an active stage (`VALIDATION_FAILED`), live when switched on (`PIPELINE_STATUS_RETIRED`) | toast |
-| Retiring a stage or status | asks first when anyone holds it or an automation points at it | a stage with live statuses needs `retireStatuses` (`PIPELINE_STAGE_NOT_EMPTY`); never the closed or the last active stage (`PIPELINE_STAGE_REQUIRED`), nor the last live active status (`PIPELINE_STATUS_REQUIRED`) | toast |
+| Pipeline automation status | live statuses in process only; the switch turns on only with one chosen | `@NotNull enabled`; on needs a `statusId` (`VALIDATION_FAILED` on `statusId`); the status the workspace's (404), in process (`VALIDATION_FAILED`) and live (`PIPELINE_STATUS_RETIRED`) when switched on, so a paused rule still switches off | toast |
+| A status's ⋯ → Mark out of process | disabled on its stage's default; asks first when anyone holds it or an automation points at it | never on a stage's default, nor a flagged status made default (`PIPELINE_DEFAULT_IN_PROCESS`) | toast |
+| Retiring a stage or status | asks first when anyone holds it or an automation points at it | a stage with live statuses needs `retireStatuses` (`PIPELINE_STAGE_NOT_EMPTY`); never the last live stage (`PIPELINE_STAGE_REQUIRED`), nor the last live status in process (`PIPELINE_STATUS_REQUIRED`) | toast |
 | Working hours (Meetings & email, Availability) | each day on or off, start and end from the half-hour picker (end may be 23:59), end after start, at least one day | each day once, on the half hour or ending 23:59, end after start, ≥ 1 day (`VALIDATION_FAILED` on `weeklyHours`) | inline + toast |
 | Daily email limit | whole number, 1 to the deployment's ceiling (workspace) or the workspace's (a consultant's) | 1..`max-daily-cap` for the workspace, 1..the workspace's for a consultant (`VALIDATION_FAILED` on `dailyEmailCap`) | inline + toast |
 | ☐ Own app secret / expiry | ≤ 2048, any date | `@Size(2048)`, any date | field |
@@ -99,6 +100,7 @@ is held back rather than sent (the step does not save until it is named) and the
 |---|---|---|---|
 | ☐ Range min / max | none | `@AssertTrue` min ≤ max | toast + autosave |
 | Saved search name | trimmed, ≤ 120 | `@NotBlank @Size(120)`, unique | sentence |
+| People name (the toolbar's search box, not the rail) | ≤ 120 | `@Size(120)` | toast + autosave |
 | ☐ People chips | ≤ 50 items, no item length | ≤ 50 × 160/500 | toast |
 | ☐ People: file selected | everyone loaded | 1–25 | toast |
 
@@ -118,7 +120,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | Next action detail | trimmed, ≤ 500 | `@Size(500)` | banner |
 | Note body | the note editor's Markdown, trimmed, mentions written as tokens, ≤ 10000 stored (held under the box) | `@NotBlank @Size(10000)`; V142's CHECK | toast |
 | Note format | `markdown` from the editor | `ApiValueEnum`, plain when absent (a door's note is always plain): 400 "That is not a valid note format" | toast |
-| Note kind | four chips | `ApiValueEnum`: 400 "That is not a valid note kind" | toast |
+| Note kind | five chips (Note, Call, Meeting, Email, LinkedIn) | `ApiValueEnum`: 400 "That is not a valid note kind" | toast |
 | Note scope, a position's drawer | This position (default) or All positions, sent as `allPositions` | `allPositions: true` files it about no position; `projectId` not read; neither read on an edit; both together 400 | toast |
 | Note position, Candidates page | "About" select of the person's positions | `projectId` needs that position's `WORK_EXECUTE` (403) and a mapping there (404); with `allPositions: true` 400 | toast |
 | Another position's note, from a position | not listed | 404 on edit, pin, delete, restore and a task's `noteId` | toast |

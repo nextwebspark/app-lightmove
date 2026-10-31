@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aSeededCatalog } from "../../../test/fixtures/pipelineCatalog";
+import { aCurrentCatalog, aSeededCatalog } from "../../../test/fixtures/pipelineCatalog";
 import { aPipelineRow } from "../../../test/fixtures/pipelineRows";
 import { findStatus } from "../../candidates/lib/pipelineStatus";
 import type { PipelineRow } from "../api/types";
@@ -7,6 +7,7 @@ import {
   boardPlacementOf,
   daysInStage,
   inactiveGroupsOf,
+  outOfProcessChoicesFor,
   type BoardTarget,
 } from "./pipelineView";
 
@@ -31,8 +32,8 @@ describe("a drop on the board", () => {
   const order = (placed: PipelineRow[]) => placed.map((row) => row.candidateId);
   const targetIn = (statusKey: string, beforeId: string | null, keepStatus = false): BoardTarget => {
     const found = findStatus(aSeededCatalog(), statusKey)!;
-    const { key, label, colour, kind, position } = found.stage;
-    return { stage: { key, label, colour, kind, position }, status: keepStatus ? null : found.status, beforeId };
+    const { key, label, colour, position } = found.stage;
+    return { stage: { key, label, colour, position }, status: keepStatus ? null : found.status, beforeId };
   };
 
   it("reorders within a stage, sending only the new neighbours", () => {
@@ -83,7 +84,51 @@ describe("a drop on the board", () => {
 });
 
 describe("the board's Inactive panel", () => {
-  it("groups the closed stage by status, in the catalog's order, only where someone holds it", () => {
+  it("groups everyone out of process by status, whatever stage it sits under, in the catalog's order", () => {
+    const catalog = aCurrentCatalog();
+    const rows = [
+      aPipelineRow({ candidateId: "a", status: "withdrew" }, catalog),
+      aPipelineRow({ candidateId: "b", status: "notInterested" }, catalog),
+      aPipelineRow({ candidateId: "c", status: "contacted" }, catalog),
+      aPipelineRow({ candidateId: "d", status: "outOfScope" }, catalog),
+    ];
+
+    expect(
+      inactiveGroupsOf(rows, catalog).map((group) => [group.label, group.stageLabel, group.rows.map((r) => r.candidateId)]),
+    ).toEqual([
+      ["Out of scope", "Research", ["d"]],
+      ["Not interested", "Approach", ["b"]],
+      ["Withdrew", "Assessment", ["a"]],
+    ]);
+  });
+
+  it("offers every way out for a card dropped on Inactive, its own stage's first", () => {
+    const keys = outOfProcessChoicesFor(aCurrentCatalog(), "contacted").map((choice) => choice.status.key);
+
+    expect(keys.slice(0, 2)).toEqual(["notInterested", "unresponsive"]);
+    expect(keys).toEqual(
+      expect.arrayContaining(["outOfScope", "offLimits", "screenedOut", "withdrew", "clientRejected", "declinedOffer"]),
+    );
+    expect(keys).not.toContain("callArranged");
+  });
+
+  it("marks a card given a way out within its own stage as out of process", () => {
+    const catalog = aCurrentCatalog();
+    const rows = [aPipelineRow({ candidateId: "a", status: "contacted" }, catalog)];
+    const found = findStatus(catalog, "notInterested")!;
+    const { key, label, colour, position } = found.stage;
+
+    const placement = boardPlacementOf(rows, "a", {
+      stage: { key, label, colour, position },
+      status: found.status,
+      beforeId: null,
+    })!;
+
+    expect(placement.status).toBe("notInterested");
+    expect(placement.rows[0]).toMatchObject({ outOfProcess: true, pipelineStage: { key: "contacted" } });
+  });
+
+  it("groups a legacy closed stage by status, in the catalog's order, only where someone holds it", () => {
     const rows = [
       aPipelineRow({ candidateId: "a", status: "offLimits" }),
       aPipelineRow({ candidateId: "b", status: "notInterested" }),

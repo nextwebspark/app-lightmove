@@ -35,7 +35,9 @@ class CandidatePipelineCountsTest extends PipelineFlowSupport {
         ownStatus(catalog, "identified", "Long list");
         ownStatus(catalog, "interested", "Hot");
         ownStatus(catalog, "shortlisted", "Final two");
-        ownStatus(catalog, "declined", "Placed elsewhere");
+        write(admin, "POST", PIPELINE + "/statuses", """
+                {"stageId":"%s","label":"Placed elsewhere","outOfProcess":true}""".formatted(
+                stageIn(catalog, "contacted").get("id").asText()));
         String company = capture(projectId, "ACWA Power");
         for (String key : List.of("longList", "contacted", "engaged", "hot", "finalTwo", "placedElsewhere",
                 "offLimits")) {
@@ -46,7 +48,7 @@ class CandidatePipelineCountsTest extends PipelineFlowSupport {
 
         JsonNode project = projectRow(projectId);
         assertThat(project.get("mappedCandidates").asLong()).isEqualTo(7);
-        assertThat(project.get("candidates").asLong()).as("everyone not at a closed-stage status").isEqualTo(5);
+        assertThat(project.get("candidates").asLong()).as("everyone not at a status out of process").isEqualTo(5);
         assertThat(project.get("engagedCandidates").asLong()).as("Engaged, and Interested onwards").isEqualTo(3);
 
         JsonNode report = read("/api/v1/projects/" + projectId + "/report");
@@ -57,15 +59,15 @@ class CandidatePipelineCountsTest extends PipelineFlowSupport {
         List<String> mix = new ArrayList<>();
         team.at("/researchers/0/statusMix").forEach(row ->
                 mix.add(row.get("status").asText() + ":" + row.get("label").asText() + ":" + row.get("count").asInt()));
-        assertThat(mix).containsExactly("identified:Identified:1", "contacted:Contacted:2", "interested:Interested:1",
-                "shortlisted:Shortlisted:1", "declined:Declined:2");
+        assertThat(mix).containsExactly("identified:Research:2", "contacted:Approach:3", "interested:Assessment:1",
+                "shortlisted:Offer:1");
 
         String csv = mvc.perform(get("/api/v1/projects/" + projectId + "/export/companies")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        assertThat(csv).contains("Hot,Interested").contains("Placed elsewhere,Declined")
-                .contains("Final two,Shortlisted");
+        assertThat(csv).contains("Hot,Assessment").contains("Placed elsewhere,Approach")
+                .contains("Final two,Offer");
     }
 
     @Test
@@ -74,10 +76,10 @@ class CandidatePipelineCountsTest extends PipelineFlowSupport {
         firm("Own Stage Firm");
         String projectId = mandate("Chief Financial Officer");
         JsonNode catalog = body(write(admin, "POST", PIPELINE + "/stages", """
-                {"label":"Offer"}"""));
-        assertThat(stageIn(catalog, "offer").get("position").asInt())
+                {"label":"Onboarding"}"""));
+        assertThat(stageIn(catalog, "onboarding").get("position").asInt())
                 .isGreaterThan(stageIn(catalog, "interested").get("position").asInt());
-        ownStatus(catalog, "offer", "Offer out");
+        ownStatus(catalog, "onboarding", "Offer out");
         add(projectId, """
                 {"fullName":"Offered Person","status":"offerOut"}""");
         add(projectId, """

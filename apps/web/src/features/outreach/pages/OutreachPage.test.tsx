@@ -165,7 +165,8 @@ function conversation(overrides: Partial<Conversation> = {}): Conversation {
       status: "interested",
       statusLabel: "Interested",
       statusColour: "green",
-      pipelineStage: { key: "interested", label: "Interested", colour: "green", kind: "active", position: 3 },
+      outOfProcess: false,
+      pipelineStage: { key: "interested", label: "Interested", colour: "green", position: 3 },
       addedAt: "2026-09-20T05:00:00Z",
       statusChangedAt: "2026-10-01T05:00:00Z",
       nextAction: null,
@@ -388,8 +389,9 @@ describe("OutreachPage", () => {
     );
     renderPage("/projects/p1/outreach?q=zzz");
 
-    expect(await screen.findByRole("heading", { name: "No one matches “zzz”" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    const nobody = await screen.findByRole("heading", { name: "No one matches “zzz”" });
+    // The empty state's own button, not the search box's ×, which clears the same text.
+    await userEvent.click(within(nobody.parentElement as HTMLElement).getByRole("button", { name: "Clear search" }));
 
     await waitFor(() => expect(screen.getByLabelText("Location")).toHaveTextContent("candidate=c1"));
     expect(screen.getByLabelText("Location")).not.toHaveTextContent("q=");
@@ -402,6 +404,7 @@ describe("OutreachPage", () => {
         { candidateId: "c9", personId: "person-9", fullName: "Khalid Nasser", title: "Treasurer", companyName: "Emaar", statusLabel: "Identified", addedAt: "2026-10-20T05:00:00Z" },
       ] as never,
       stageCounts: [],
+      inactiveCount: 0,
       total: 2,
     });
     renderPage();
@@ -489,6 +492,14 @@ describe("OutreachPage", () => {
     );
     expect(screen.getByLabelText("Location")).toHaveTextContent("view=scheduled");
     expect(screen.getByLabelText("Location")).toHaveTextContent("who=mine");
+  });
+
+  it("searches from the header's toolbar, not from inside the list", async () => {
+    renderPage();
+    const list = await screen.findByRole("region", { name: "Conversations" });
+
+    expect(within(list).queryByRole("searchbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Search people or emails" })).toBeInTheDocument();
   });
 
   it("brings the search back with the address on Back, and never writes the old one over it", async () => {
@@ -762,6 +773,15 @@ describe("OutreachPage", () => {
     expect(within(dialog).queryByText("Editing in the larger view…")).not.toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("button", { name: "Collapse" }));
     expect(within(dialog).getByRole("button", { name: "Expand" })).toBeInTheDocument();
+  });
+
+  it("logs a LinkedIn message from the dock, filed as LinkedIn", async () => {
+    renderPage(OPEN);
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Log LinkedIn" }));
+    const dialog = await screen.findByRole("dialog", { name: "Log a LinkedIn message with Fatima Al Mazrouei" });
+    expect(within(dialog).getByRole("radio", { name: "LinkedIn" })).toHaveAttribute("aria-checked", "true");
   });
 
   it("holds a note being written against Escape, as it does an email", async () => {

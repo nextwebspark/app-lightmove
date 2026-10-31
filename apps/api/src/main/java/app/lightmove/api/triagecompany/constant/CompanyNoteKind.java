@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
-/** What a note on a company records, as the composer offers it — the same four a person's notes offer. */
+/** What a note on a company records, as the composer offers it — the same kinds a person's notes offer. */
 @Getter
 @Accessors(fluent = true)
 @RequiredArgsConstructor
@@ -14,7 +14,8 @@ public enum CompanyNoteKind implements ApiValueEnum {
     GENERAL("general"),
     CALL("call"),
     MEETING("meeting"),
-    EMAIL("email");
+    EMAIL("email"),
+    LINKEDIN("linkedin");
 
     private final String value;
 }

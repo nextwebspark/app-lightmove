@@ -41,6 +41,26 @@
   --color-u-inferred: #8244d6;
   --color-u-inferred-tint: rgba(130, 68, 214, 0.1);
 
+  --color-u-adjacent: #1f72d4;
+  --color-u-adjacent-tint: rgba(31, 114, 212, 0.1);
+  --color-u-chart-5: #1e8fa8;
+  --color-u-scrim: rgba(3, 7, 18, 0.4);
+
+  /* apps/web's type scale and radii, so a ported component keeps its classes. */
+  --text-eyebrow: 9.5px;
+  --text-eyebrow--line-height: 1.35;
+  --text-meta: 11px;
+  --text-meta--line-height: 1.45;
+  --text-note: 12px;
+  --text-note--line-height: 1.5;
+  --text-body: 13px;
+  --text-body--line-height: 1.55;
+  --text-lead: 15px;
+  --text-lead--line-height: 1.4;
+  --radius-u-control: 6px;
+  --radius-u-chip: 8px;
+  --radius-u-card: 12px;
+
   --font-sans: "Geist", "Inter", system-ui, sans-serif;
   --font-mono: "Geist", "Inter", system-ui, sans-serif;
 
@@ -74,8 +94,70 @@
   --color-u-direct-tint: rgba(62, 207, 142, 0.12);
   --color-u-inferred: #b07cf5;
   --color-u-inferred-tint: rgba(176, 124, 245, 0.12);
+  --color-u-adjacent: #5aa9ff;
+  --color-u-adjacent-tint: rgba(90, 169, 255, 0.12);
+  --color-u-chart-5: #4fc3d9;
+  --color-u-scrim: rgba(4, 5, 7, 0.72);
 
   --shadow-u-e3: 0 18px 44px -10px rgba(0, 0, 0, 0.8);
+}
+
+/* A formatted note's checklist, mention and placeholder: apps/web's global.css, so a note reads the same here. */
+.note-prose ul[data-type="taskList"] {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+.note-prose ul[data-type="taskList"] > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.note-prose ul[data-type="taskList"] > li > label {
+  flex: none;
+  margin-top: 0.2rem;
+}
+
+.note-prose ul[data-type="taskList"] > li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.note-prose ul[data-type="taskList"] > li[data-checked="true"] > div {
+  color: var(--color-u-text3);
+  text-decoration: line-through;
+}
+
+.note-prose span[data-type="mention"] {
+  border-radius: 9999px;
+  padding: 0 0.4rem;
+  background: var(--color-u-accent-tint);
+  color: var(--color-u-accent);
+  font-weight: 500;
+}
+
+.note-prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--color-u-text3);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 /*

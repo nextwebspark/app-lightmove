@@ -8,21 +8,27 @@ description: LightMove Capture — the Chrome extension in apps/extension. Manif
 `apps/extension` is a Manifest V3 browser action: a **side panel** (not a popup — it stays open while
 the consultant moves between profiles, and follows the active tab) that reads whatever the page a
 consultant is standing on is about — a company or a person — and writes it into a mandate. A company
-lands in its triage as **in universe** or **shortlisted**; a person lands in its people, mapped to one
+lands in its universe; a person lands in its people, mapped to one
 of its triaged companies when the mandate already holds their employer under that name.
 `claude-design/Extension.dc.html` is the design source of truth — read the
 relevant state before building a screen, the same rule the web app follows.
 
 It is a **client of the existing API**, not a second backend. It adds no table, no RBAC action and no
-stage — every endpoint it calls already existed, and it sends a strict *subset* of the fields the web
-app's own forms send:
+stage, and it sends a strict *subset* of the fields the web app's own forms send. The one read added for it is
+the pair of "already held?" lookups — staff-only, answering 204 when the position holds nothing there:
 
 | What | Endpoint | The manual surface it mirrors |
 |---|---|---|
-| The dropdown | `GET /projects` | — |
-| A company | `POST /projects/{id}/triage/capture` | `CompanyFactsForm` |
+| The position bar | `GET /projects` (live ones; `team` for @mentions, `clientLogoUrl`) | — |
+| Already on the position? | `GET /projects/{id}/candidates/held?linkedinUrl=`, `GET /projects/{id}/triage/held?linkedinUrl=&name=` | — |
+| The status picker | `GET /workspace/pipeline` | `StatusPicker` |
+| A company | `POST /projects/{id}/triage/capture` (always `inUniverse`) | `CompanyFactsForm` |
 | A person | `POST /projects/{id}/candidates` | `CandidateDrawer` |
-| Undo | `DELETE` on either row | the Companies grid's own remove |
+| A status change | `PATCH /projects/{id}/candidates/{candidateId}` | the drawer's status |
+| Notes | `…/candidates/{id}/notes[…]`, `…/triage/{id}/notes[…]` | the drawers' Notes tabs |
+| Tags | `GET|POST /candidate-tags`, `PUT|DELETE /candidates/{personId}/tags/{tagId}` | the Candidates page's tags |
+| The photo | `GET /projects/{id}/candidates/{candidateId}/photo` (as a data URL, through the worker) | the drawer's header |
+| Undo | `DELETE` on either row (and the note the capture filed) | the Companies grid's own remove |
 
 **A field the popup captures must already be a field the manual form captures.** Adding one is a change
 to both surfaces and a story of its own — never something the extension grows alone, or the two ways
@@ -136,14 +142,33 @@ flaky and was **removed**. This matches the mature tools (Clockwork, Lusha): cap
 the extension, enrich server-side later. Do not re-grow page-side field extraction; a new captured
 field is an enrichment story, not an extractor.
 
-A person capture also carries a **status**, and that one is *chosen rather than read*, so it grows no
-extractor and breaks nothing above. `domain/candidateStatus.ts` offers four of the API's seven
-`CandidateStatus` tokens — identified, contacted, off-limits, out of scope — showing identified, but sending
-no status until the consultant picks one, so the workspace's own starting status applies (V140 lets a workspace
-retire any seeded status). A picked status that was retired comes back `PIPELINE_STATUS_RETIRED`. The
-other three describe the outcome of a conversation and stay with the drawer, the same reasoning that
-keeps `declined` out of the company destinations. It needed no server change: the Add-executive drawer
-already offers the field, which is the rule a captured field has to satisfy.
+A person capture also carries a **status**, **tags** and a **note**, all *chosen rather than read*, so they grow no
+extractor and break nothing above. The status is the paired workspace's own pipeline (`GET /workspace/pipeline`,
+`domain/pipelineStatus.ts`, `StatusPicker`): live stages and statuses, a way out marked Out of process, the starting
+status preselected but **not sent** until the consultant picks another, so the server applies the workspace's own.
+A picked status since retired comes back `PIPELINE_STATUS_RETIRED`. Tags are the workspace's catalog, created by
+typing a new name, put on the person after the row is filed. A company goes **into the universe only** — shortlisting
+and declining are decisions made on the Companies screen with the universe in view.
+
+**The position is the panel's context** (`PositionBar`): chosen at the top before anything else, searched by title
+or client, the last three used first (`RECENT_PROJECTS_KEY`), archived positions never offered. Every page and every
+change of position asks the held lookups first (`useHeldRecord`): a match opens the **record** — who filed them and
+when, the photo (a data URL the worker fetched, since the panel cannot send the bearer token an `<img>` would need),
+the employer's or company's logo, the status to change, the tags, and the position's notes with a composer for the
+next one — never a form whose save would be refused. A save refused `CANDIDATE_ALREADY_MAPPED` or
+`TRIAGE_COMPANY_ALREADY_HELD` (a match by email or name the lookup cannot see) asks again and opens what it finds.
+A fresh filing opens the same record with Undo, and reads it again every 5 s for a minute while research lands.
+Person or company is decided by the address alone — there are no tabs to correct it.
+
+**Notes are written through the notes routes, never the door's `note`**: the door files plain text, and the panel
+writes the web app's Markdown with its kind, its scope and its mentions. The capture files the row, then the note,
+then each tag (`useCaptureSequence`); a note or tag that fails leaves the row filed and hands the words back to the
+record's composer. The editor is **a copy of `apps/web/src/features/notes`** under `popup/notes/` (Tiptap, the same
+pinned versions), each file headed with its original — change one, change both. The panel's differences: Expand opens
+`PanelSheet` (the whole panel) rather than a modal, the editor is always framed under its toolbar band, and the toolbar
+is 2px narrower a button so it holds one line at 400px. A note's kind is drawn by `NoteKindMark` — LinkedIn by the
+network's own white bug (`public/brand`), never a stroke glyph, as apps/web's `NetworkMark` rules. A new note opens as
+a LinkedIn note (`DEFAULT_NOTE_KIND`, the panel's own, not the web's) — the panel sits on LinkedIn.
 
 How the two fields are read (`background/activePage.ts:readActivePage`, no scrolling):
 
@@ -191,8 +216,8 @@ LinkedIn calls someone is the record; retyping it by hand is how one executive l
 under two spellings. `readOnly`, never `disabled` — the value stays focusable and copyable and the
 label still names it. The empty fallback is not optional: `canSave` gates on the name, so a read that
 came back blank (an extractor miss, or the settle deadline giving up) would otherwise be a row nobody
-could file. An edit is never overwritten by a later read; a blank always is. The note is the one field
-that is always typed, and a name locked in wrong is still editable in the web app's `CandidateDrawer`.
+could file. An edit is never overwritten by a later read; a blank always is. A name locked in wrong is still editable
+in the web app's `CandidateDrawer`.
 
 Each extractor is a **pure function over a `Document`**:
 

@@ -260,14 +260,17 @@ public enum ErrorCode {
     /** The model answered nothing usable, or could not be reached. Nothing was written or charged. */
     AI_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "The AI could not answer just now. Try again in a moment"),
 
-    /** A stage with live statuses is retired only with them; the closed stage and the last active one never are. */
+    /** A stage with live statuses is retired only with them; the last live stage never is. */
     PIPELINE_STAGE_NOT_EMPTY(HttpStatus.CONFLICT, "This stage still has live statuses; retire them with it"),
 
-    /** New people start at a live status of a live active stage, so the last of those stays. */
+    /** New people start at a live status in process, so the last of those stays. */
     PIPELINE_STATUS_REQUIRED(HttpStatus.CONFLICT,
             "The pipeline keeps at least one active status for new candidates to start at"),
 
-    PIPELINE_STAGE_REQUIRED(HttpStatus.CONFLICT, "A pipeline keeps at least one active stage and its closed stage"),
+    PIPELINE_STAGE_REQUIRED(HttpStatus.CONFLICT, "A pipeline keeps at least one stage"),
+
+    /** A stage's default is where a card dropped on it lands, so it is never a way out of the process. */
+    PIPELINE_DEFAULT_IN_PROCESS(HttpStatus.CONFLICT, "A stage's default status stays in process"),
 
     /** Stage labels are unique among stages, status labels among statuses, whatever their case. */
     PIPELINE_LABEL_TAKEN(HttpStatus.CONFLICT, "That name is already in use"),
@@ -275,7 +278,7 @@ public enum ErrorCode {
     /** A retired status stays on whoever holds it, but can no longer be given to anyone. */
     PIPELINE_STATUS_RETIRED(HttpStatus.CONFLICT, "That status is retired. Restore it in Settings to use it again"),
 
-    /** The closed stage stays last, and a reorder names every live stage or status exactly once. */
+    /** A reorder names every live stage or status exactly once. */
     PIPELINE_ORDER_INVALID(HttpStatus.CONFLICT, "That order does not match the pipeline"),
 
     /** Changing, reassigning or cancelling a task is its creator's, its assignee's, the lead's or an admin's. */

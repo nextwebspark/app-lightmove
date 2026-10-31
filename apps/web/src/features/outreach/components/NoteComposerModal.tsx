@@ -3,7 +3,7 @@ import { Modal } from "../../../components/ui";
 import type { PersonNoteKind } from "../../candidates/api/types";
 import { PositionNoteComposer } from "../../candidates/components/PersonSections";
 
-/** The conversation dock's Log call and Add note: the drawer's own note composer as a dialog, with room to write. */
+/** The conversation dock's Log call, Log LinkedIn and Add note: the drawer's own note composer as a dialog, with room to write. */
 export function NoteComposerModal({
   projectId,
   candidateId,
@@ -15,13 +15,18 @@ export function NoteComposerModal({
   projectId: string;
   candidateId: string;
   fullName: string;
-  /** Null while closed; `call` for Log call, `general` for Add note. */
+  /** Null while closed; `call` for Log call, `linkedin` for Log LinkedIn, `general` for Add note. */
   kind: PersonNoteKind | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const dialog = useComposerDialog();
-  const title = kind === "call" ? `Log a call with ${fullName}` : `Add a note on ${fullName}`;
+  const title =
+    kind === "call"
+      ? `Log a call with ${fullName}`
+      : kind === "linkedin"
+        ? `Log a LinkedIn message with ${fullName}`
+        : `Add a note on ${fullName}`;
   const close = () => {
     dialog.reset();
     onClose();

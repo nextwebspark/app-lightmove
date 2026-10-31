@@ -21,7 +21,9 @@ has ended), the projects/clients
 screens, a project's Team & access tab, the client registry with representative invites and their
 scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
 searches saved against it, and the three Companies pages (In universe / Shortlisted / Declined) where a
-mandate triages what it took from it. A company reaches those pages four ways — out of the market
+mandate triages what it took from it — **Shortlisted and Declined are switched off on screen for now**
+(`SHORTLIST_AND_DECLINE_OFFERED` in `triageStages.ts`: the web app offers In universe alone and redirects the other
+two; the API, the stored rows and the extension keep all three). A company reaches those pages four ways — out of the market
 (Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
 /triage` with an id the server resolves), typed in by hand, captured by the browser plugin
 (`POST /triage/capture`), or **imported from a spreadsheet**. Strategy's rows also carry a tick box:
@@ -50,7 +52,11 @@ of their own** (V150, #903): their company's when filed or remapped, then wherev
 Decline / Back to universe sent them (`PUT …/candidates/{id}/triage-status`) — a line's buttons and trash act on its
 person alone. A stage lists its own companies plus any company with someone listed there; the company's own move
 (its drawer, or the line of a company with nobody on that stage) carries everyone at it (`TriageCompanyMoved`). An executive is also
-captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`).
+captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`). The plugin's side panel files into
+the position chosen at its top, asks first whether that position already holds the page (`GET …/candidates/held` by
+profile slug, `GET …/triage/held` by company page then name; staff-only, 204 when not) and then opens that record —
+status, tags and the position's notes, ready for the next — rather than a form; it writes its notes through the notes
+routes in the app's own editor (never the door's plain `note`), and files a company into the universe only.
 **Every executive is a workspace person first (V91, `docs/candidate-crm.md`)**: `app_lm_person` is the
 human — profile, background, package, contact ledger, research — owned by the workspace, and a mandate's
 `Candidate` row maps that person and keeps only the mandate's own status, custom-column values and
@@ -64,7 +70,7 @@ LinkedIn profile is refused (`PERSON_PROFILE_HELD`). A plugin capture of someone
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
-**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email), authored,
+**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`), authored,
 timed and **staff-only** — `CandidateResponse`, the talent map and the report carry none, because a client
 seat reads all three (decision D1). A note is about one position or about the person: read from a position,
 only that position's and the person's ("All positions") show, and another position's is not found
@@ -186,16 +192,23 @@ out as Website and Company LinkedIn. It is `WORK_VIEW`, the gate that reads the 
 representative may take the mandate they can already read; unlike every other read it records an
 audit event, because a mandate leaving as a file is not the same act as reading a page of it. Past
 `lightmove.export.*` it refuses rather than truncating.
-**The Companies toolbar** (`Position.dc.html`) is one search box in every view, the view control, the three
-primary actions — Find executives, Add executive, Add company, which keep their places in every view and are greyed
-(`aria-disabled`, saying where they work) where the view cannot take them, as both companies' actions are on the
-Pipeline — and **Advanced ▾** (`AdvancedMenu`) for the rest, by view: show/hide and manage columns on the table, the
-map's layers, the board's Inactive column and pipeline stages, Add to sequence where something can be ticked, Import
-and Export. The search is matched by the server, the same rule in every read (`search` on the triage list, its
+**The Companies toolbar** (`Position.dc.html`) is one search box in every view, the view control (below `lg` and in full screen — the rail
+holds it otherwise), then Add to sequence and Send email (the drawer's composer, for anyone on the position) where
+outreach is offered — greyed (`aria-disabled`, saying where it works) on the map and until something is ticked — and,
+on Table and Map only, Find executives filled, **Advanced ▾** (`AdvancedMenu`) and **Create ▾** (Add executive, Add
+company). The Pipeline's row is the search and the outreach pair alone: its Inactive column folds from its own header.
+Advanced ▾ holds the rest, by view: show/hide and manage columns on the table, the map's layers, Add to sequence again
+on the table, Import and Export. Strategy's toolbar and Outreach's header are the same row (`components/ui/Toolbar`:
+search first, the page's actions pushed right), Outreach's search in it. The search is matched by the server, the same
+rule in every read (`search` on the triage list, its
 people reads, the export and the talent map, the pipeline's `q`): a company by name, place or industry, an executive
 by name, title, place or employer, and — only for a `WORK_EXECUTE` holder, decided server-side — the company's and
 the person's live notes readable from this position and the person's tags; a matching company keeps all its people.
-In universe reads as **Table | Map | Pipeline** (`?view=`, remembered per mandate): **Pipeline** is the position's
+In universe reads as **Table | Map | Pipeline** (`?view=`; the rail's views under In universe, as Strategy's Companies |
+People and Outreach's Conversations | Sequences are under theirs — `Sidebar`'s `children`, from `lg`, with the page's
+own switch below it and in full screen, `useCompaniesViews` deciding what both offer). A view someone *chose* — a rail
+link or the switch, carrying `CHOSEN_VIEW_STATE` — is remembered per mandate; a link that only names one, a
+notification's `?view=pipeline`, is a visit. **Pipeline** is the position's
 board by pipeline stage — the retired CRM Pipeline page, board only, every executive on the position whatever their
 Companies stage, staff only (`WORK_EXECUTE`); `/projects/{id}/pipeline` and its `?candidate=` links land there
 (`positionPipelinePath`).
@@ -241,13 +254,14 @@ behind ContactOut (`PeopleSearchChain`, walked by `ChainedPeopleSearch`, the cac
 out of credits included — is searched on the dataset, and filed `enriched_by = BRIGHTDATA`; the run's
 outcome records the `source` that answered. Offered where the chosen index is configured
 (`provider: brightdata`, or a ContactOut key); a client seat sees none of it. **Strategy → People**
-(`enrichment/peoplesearch`, V93) is the sixth door: a Companies | People toggle on the Strategy
-toolbar (`?mode=people`, staff only) swaps the company filter for ContactOut's People Search filter —
+(`enrichment/peoplesearch`, V93) is the sixth door: Companies | People under Strategy in the rail
+(`?mode=people`, staff only) swaps the company filter for ContactOut's People Search filter —
 only parameters its API reference lists, the values its accepted-values sheet lists
 (`data/contactout-people-vocabulary.json`; the dashboard's Revenue, Gender and exclude lists have no
-API). The filter autosaves as `app_lm_strategy.people_filter` and is counted free and live
-(`GET …/strategy/people/count`, its own 10/s pacer beside search's 60/min); **Search** is a press
-(`POST …/strategy/people/search?page=`), the top 25 in ContactOut's order — it offers no other — and
+API) — all but the name, which is the toolbar's search box, as Companies' is. The filter autosaves as
+`app_lm_strategy.people_filter` and is counted free and live
+(`GET …/strategy/people/count`, its own 10/s pacer beside search's 60/min); **Search** is a press — the rail's
+button, or Enter in the name box — (`POST …/strategy/people/search?page=`), the top 25 in ContactOut's order — it offers no other — and
 Load more the next 25. Every page goes through the V87 cache keyed on the body and the page, so the
 same question and page is never bought twice, by anyone, and the screen reopens on the pages already
 bought (`GET …/strategy/people/results`, which never buys). The mandate's declined companies narrow only
@@ -666,7 +680,8 @@ takes a thread from the run in it.
 `Outreach.dc.html`'s three panes — `ConversationListPane`, `ConversationPane` (history and `ReplyComposer`) and
 `CandidateDetailsPane` — with `?view=&who=&q=&candidate=` in the URL; it lands on everyone (All, Team) and opens
 the top conversation where the list leaves room (the list alone on a phone), the tabs being chips in the list (All · To do · Scheduled · Sent). `OutreachHeader` is
-Conversations | Sequences (`…/outreach/sequences` and the sequence editor under it, the same frame), the mailbox chip (`MailboxChip`;
+the same frame for Conversations and Sequences (`…/outreach/sequences` and the sequence editor under it, the rail's views
+under Outreach), the mailbox chip (`MailboxChip`;
 `lib/mailboxState.ts` is the one reading the banner, chip, setup card and composer share) and the view's action —
 New email (anyone on the position) or New sequence. The executive drawer offers Write email (the same composer in
 `EmailComposerDialog`) beside Add to sequence. The conversation read gained `contact` and `composer`
@@ -1339,10 +1354,23 @@ V162 adds two-factor authentication (#1081): `app_lm_user_mfa_factor` (one per u
 replay guard), `app_lm_user_mfa_recovery_code` (SHA-256 per code, spent by a conditional update) and
 `app_lm_mfa_challenge` (a right password's single-use challenge, hashed), and adds `MFA_CHANGED` to the refresh token's
 revoke reasons. Account data, keyed on the user, never a workspace. Offered only where `lightmove.auth.mfa.enabled` and a
-keyset are both set; off in deployments until its rollout.
-An account with no password (a Google or LinkedIn sign-in) turns two-factor on with the code alone, only within
-`lightmove.auth.mfa.recent-sign-in` of signing in (`MFA_SIGN_IN_AGAIN`), and turns it off or takes new recovery codes
-with the code alone.
+keyset are both set; off in deployments until the OAuth door asks for the code too (#1082).
+V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage
+alike: whoever holds a flagged status is Inactive on the board, skipped and stopped by outreach (`LEFT_THE_RUNNING`),
+moved by no automation and left out of the projects list's Candidates and Engaged — whatever stage it sits under, so
+`hasLeftTheRunning()` and every query read the column alone. The stage's `kind` is frozen (unmapped, its old values
+kept so a revision still reading it during the deploy treats an old Declined stage as closed; a cleanup drops it): the
+old closed stage's statuses were backfilled flagged and lost their default mark, and it is now a stage like any other,
+reordered and retired freely. A stage's default is always a live status in process (`PIPELINE_DEFAULT_IN_PROCESS`),
+since a card dropped on the stage lands there, so a stage of ways out alone has none and the board draws no column
+for it (`PipelineCatalog.holdsAStatusInProcess`; Settings says "Not on the board"). The pipeline's edits are three
+services by subject — `PipelineCatalogService` (reads and the confirmations' previews), `PipelineStageService`,
+`PipelineStatusService` — over `PipelineRules`, `PipelineDefaultMarks` and `PipelineEditAudit`. The seed
+(`app_lm_seed_candidate_pipeline`) is now ALAC Partners' own five stages — Research, Approach, Assessment, Shortlist,
+Offer, each with its ways out flagged — under the legacy stage and system-status keys, and a workspace still holding
+V131's seed to the letter, that nobody's candidates hold and no automation names, was reseeded onto it; every other
+catalog was left as it stood. The public API and MCP no longer carry a stage `kind`; an executive's `outOfProcess`
+says it.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

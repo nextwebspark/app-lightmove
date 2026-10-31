@@ -91,11 +91,32 @@
         <div>
           <div style="padding:14px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);display:{{ labelDisp }}">{{ g.label }}</div>
           <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
-            <a href="{{ it.href }}" title="{{ it.label }}" style="{{ it.rowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="{{ it.iconStyle }}"><path d="{{ it.icon }}"></path></svg>
-              <span style="white-space: nowrap; display: {{ labelDisp }}">{{ it.label }}</span>
-              <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto;font:500 11px var(--mono);color:var(--text3);display:{{ labelDisp }}">{{ it.count }}</span></sc-if>
-            </a>
+            <!-- A section with views of its own (Strategy, In universe, Outreach) nests them under its row, behind a guide
+                 line: open while you are in it, the chevron opening or closing any of them by hand. Collapsed, the
+                 views stay reachable as their icons alone. -->
+            <div>
+              <div style="display:flex;align-items:center;gap:2px">
+                <a href="{{ it.href }}" title="{{ it.label }}" style="{{ it.rowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="{{ it.iconStyle }}"><path d="{{ it.icon }}"></path></svg>
+                  <span style="white-space: nowrap; display: {{ labelDisp }}">{{ it.label }}</span>
+                  <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto;font:500 11px var(--mono);color:var(--text3);display:{{ labelDisp }}">{{ it.count }}</span></sc-if>
+                </a>
+                <sc-if value="{{ it.hasKids }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ toggleNav }}" data-id="{{ it.key }}" aria-expanded="{{ it.openStr }}" aria-controls="{{ it.kidsId }}" aria-label="{{ it.viewsLabel }}" title="{{ it.toggleLabel }}" style="{{ it.chevStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style="{{ it.chevIconStyle }}"><path d="{{ ic.chevronDown }}"></path></svg></button>
+                </sc-if>
+              </div>
+              <sc-if value="{{ it.open }}" hint-placeholder-val="{{ false }}">
+                <div id="{{ it.kidsId }}" role="group" aria-label="{{ it.label }}" style="{{ it.kidsStyle }}">
+                  <sc-for list="{{ it.kids }}" as="k" hint-placeholder-count="2">
+                    <a href="{{ k.href }}" title="{{ k.label }}" aria-current="{{ k.current }}" style="{{ k.rowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="{{ k.iconStyle }}"><path d="{{ k.icon }}"></path></svg>
+                      <span style="white-space:nowrap;display:{{ labelDisp }}">{{ k.label }}</span>
+                    </a>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
           </sc-for>
         </div>
       </sc-for>
@@ -115,8 +136,11 @@
     <main style="flex:1;min-width:0;overflow-y:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel)">
       <sc-if value="{{ isStage }}" hint-placeholder-val="{{ true }}">
         <div data-screen-label="{{ stageScreenLabel }}" style="display:flex;flex-direction:column;height:100%;min-height:0;width:100%">
-          <div style="min-height:52px;flex:none;display:flex;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel2);padding:8px 20px">
-            <div style="display:flex;align-items:center;gap:8px;flex:1 1 260px;min-width:220px;max-width:380px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:7px 10px 7px 12px">
+          <!-- The toolbar row Strategy.dc.html and Outreach.dc.html share: search first, the outreach pair, Find executives
+               filled, then Advanced ▾ and Create ▾ quiet. Every action keeps its place in every view, greyed where the view
+               cannot take it. -->
+          <div style="flex:none;display:flex;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel);padding:10px 16px">
+            <div style="display:flex;align-items:center;gap:8px;flex:1 1 280px;min-width:220px;max-width:360px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 10px 8px 12px">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none;color:var(--text3)"><path d="{{ ic.search }}"></path></svg>
               <input value="{{ searchQuery }}" onChange="{{ setSearchQuery }}" placeholder="{{ searchPlaceholder }}" aria-label="{{ searchPlaceholder }}" style="width:100%;min-width:0;background:transparent;border:none;outline:none;font:400 13px var(--sans);color:var(--text)">
               <sc-if value="{{ hasSearch }}" hint-placeholder-val="{{ false }}">
@@ -124,28 +148,24 @@
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="{{ ic.close }}"></path></svg></button>
               </sc-if>
             </div>
-            <sc-if value="{{ viewsOffered }}" hint-placeholder-val="{{ true }}">
-              <div role="radiogroup" aria-label="View" style="display:inline-flex;flex:none;align-items:center;border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:2px">
-                <sc-for list="{{ viewOpts }}" as="v" hint-placeholder-count="3">
-                  <button role="radio" aria-checked="{{ v.on }}" data-id="{{ v.key }}" onClick="{{ setView }}" style="{{ v.style }}">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ v.icon }}"></path></svg>{{ v.label }}</button>
-                </sc-for>
-              </div>
-            </sc-if>
-            <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-left:auto">
+              <sc-if value="{{ canWrite }}" hint-placeholder-val="{{ true }}">
+                <sc-if value="{{ canOutreach }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ enrolTicked }}" title="{{ seqTitle }}" aria-disabled="{{ seqDisabled }}" style="{{ seqBtnStyle }}" style-hover="{{ seqBtnHover }}">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.outreach }}"></path></svg>Add to sequence</button>
+                  <button onClick="{{ sendEmail }}" title="Write to anyone on this position" style="{{ emailBtnStyle }}" style-hover="background:var(--panel2)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.mail }}"></path></svg>Send email</button>
+                  <sc-if value="{{ notBoard }}" hint-placeholder-val="{{ true }}"><span style="width:1px;height:20px;background:var(--line-soft);margin:0 4px"></span></sc-if>
+                </sc-if>
+              </sc-if>
               <sc-if value="{{ canFind }}" hint-placeholder-val="{{ true }}">
                 <button onClick="{{ findExecutives }}" title="{{ findTitle }}" aria-disabled="{{ findDisabled }}" style="{{ findBtnStyle }}" style-hover="{{ findBtnHover }}">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.sparkle }}"></path></svg>Find executives</button>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.search }}"></path></svg>Find executives</button>
               </sc-if>
-              <sc-if value="{{ canWrite }}" hint-placeholder-val="{{ true }}">
-                <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.userPlus }}"></path></svg>Add executive</button>
-                <button onClick="{{ addCompany }}" title="{{ addCoTitle }}" aria-disabled="{{ addCoDisabled }}" style="{{ addCoBtnStyle }}" style-hover="{{ addCoBtnHover }}">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.plus }}"></path></svg>Add company</button>
-              </sc-if>
+              <sc-if value="{{ notBoard }}" hint-placeholder-val="{{ true }}">
               <div style="position:relative">
-                <button onClick="{{ toggleAdv }}" aria-haspopup="menu" aria-expanded="{{ advOpen }}" style="{{ advBtnStyle }}" style-hover="border-color:var(--text3);color:var(--text)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.sliders }}"></path></svg>Advanced
+                <button onClick="{{ toggleAdv }}" aria-haspopup="menu" aria-expanded="{{ advOpen }}" style="{{ advBtnStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.sliders }}"></path></svg>Advanced
                   <sc-if value="{{ advDot }}" hint-placeholder-val="{{ false }}"><span title="{{ advDotTitle }}" style="width:6px;height:6px;flex:none;border-radius:50%;background:var(--sky)"></span></sc-if>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style="{{ advChevStyle }}"><path d="{{ ic.chevronDown }}"></path></svg></button>
                 <sc-if value="{{ advOpen }}" hint-placeholder-val="{{ false }}">
@@ -185,6 +205,29 @@
                   </div>
                 </sc-if>
               </div>
+              </sc-if>
+              <sc-if value="{{ canCreate }}" hint-placeholder-val="{{ true }}">
+                <span style="width:1px;height:20px;background:var(--line-soft);margin:0 4px"></span>
+                <div style="position:relative">
+                  <button onClick="{{ toggleCreate }}" aria-haspopup="menu" aria-expanded="{{ createOpen }}" style="{{ createBtnStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.plus }}"></path></svg>Create
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style="{{ createChevStyle }}"><path d="{{ ic.chevronDown }}"></path></svg></button>
+                  <sc-if value="{{ createOpen }}" hint-placeholder-val="{{ false }}">
+                    <div onClick="{{ closeCreate }}" style="position:fixed;inset:0;z-index:39"></div>
+                    <div role="menu" aria-label="Create" style="position:absolute;right:0;top:calc(100% + 6px);z-index:40;width:240px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
+                      <button role="menuitem" onClick="{{ addExecutive }}" style="display:flex;width:100%;align-items:flex-start;gap:10px;padding:7px 8px;border-radius:6px;border:none;background:none;text-align:left;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none;margin-top:1px;color:var(--text3)"><path d="{{ ic.userPlus }}"></path></svg>
+                        <span style="flex:1;min-width:0">Add executive</span></button>
+                      <button role="menuitem" onClick="{{ addCompany }}" aria-disabled="{{ addCoDisabled }}" style="{{ addCoItemStyle }}" style-hover="{{ addCoItemHover }}">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none;margin-top:1px;color:var(--text3)"><path d="{{ ic.plus }}"></path></svg>
+                        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                          <span>Add company</span>
+                          <sc-if value="{{ addCoDisabled }}" hint-placeholder-val="{{ false }}"><span style="font:400 11px var(--sans);color:var(--text3)">{{ addCoTitle }}</span></sc-if>
+                        </span></button>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
             </div>
           </div>
 
@@ -1824,7 +1867,7 @@
                       </div>
                       <div role="radiogroup" aria-label="Kind of note" style="margin-top:16px;display:flex;flex-wrap:wrap;gap:6px">
                         <sc-for list="{{ cd.noteKinds }}" as="nk" hint-placeholder-count="4">
-                          <button onClick="{{ setNoteKind }}" data-id="{{ nk.key }}" role="radio" aria-checked="{{ nk.on }}" style="{{ nk.style }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ nk.icon }}"></path></svg>{{ nk.label }}</button>
+                          <button onClick="{{ setNoteKind }}" data-id="{{ nk.key }}" role="radio" aria-checked="{{ nk.on }}" style="{{ nk.style }}"><sc-if value="{{ nk.glyph }}" hint-placeholder-val="{{ true }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ nk.icon }}"></path></svg></sc-if><sc-if value="{{ nk.brand }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="width:12px;height:11px;border-radius:2px;background:var(--text);color:var(--panel);font:700 8px/11px var(--sans);text-align:center">in</span></sc-if>{{ nk.label }}</button>
                         </sc-for>
                       </div>
                       <p style="margin:16px 0 0;display:flex;align-items:center;gap:5px;font:400 11px var(--sans);color:var(--text3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"></path></svg>Illustrative draft · Not added to the candidate record</p>
@@ -2830,30 +2873,33 @@ const SOURCES = {
 };
 const STATUSES = [
   { value: "identified", label: "Identified", stage: "identified", fg: "var(--text2)", bg: "var(--line-soft)", tone: "untouched" },
-  { value: "researching", label: "Researching", stage: "identified", fg: "var(--text2)", bg: "var(--line-soft)", tone: "untouched" },
-  { value: "readyToApproach", label: "Ready to approach", stage: "identified", fg: "var(--text2)", bg: "var(--line-soft)", tone: "untouched" },
-  { value: "contacted", label: "Contacted", stage: "contacted", fg: "var(--sky)", bg: "var(--sky-dim)", tone: "inConversation" },
-  { value: "followUpSent", label: "Follow-up sent", stage: "contacted", fg: "var(--sky)", bg: "var(--sky-dim)", tone: "inConversation" },
-  { value: "engaged", label: "Engaged", stage: "contacted", fg: "var(--sky)", bg: "var(--sky-dim)", tone: "inConversation" },
-  { value: "callBooked", label: "Call booked", stage: "contacted", fg: "var(--sky)", bg: "var(--sky-dim)", tone: "inConversation" },
-  { value: "interested", label: "Interested", stage: "interested", fg: "var(--green)", bg: "var(--green-dim)", tone: "interested" },
-  { value: "interestedPackageGap", label: "Interested – package gap", stage: "interested", fg: "var(--green)", bg: "var(--green-dim)", tone: "interested" },
-  { value: "interestedRelocation", label: "Interested – relocation concern", stage: "interested", fg: "var(--green)", bg: "var(--green-dim)", tone: "interested" },
-  { value: "considering", label: "Considering", stage: "interested", fg: "var(--green)", bg: "var(--green-dim)", tone: "interested" },
-  { value: "screened", label: "Screened", stage: "qualified", fg: "var(--u-chart-3)", bg: "color-mix(in srgb, var(--u-chart-3) 16%, transparent)", tone: "interested" },
-  { value: "qualified", label: "Qualified", stage: "qualified", fg: "var(--u-chart-3)", bg: "color-mix(in srgb, var(--u-chart-3) 16%, transparent)", tone: "interested" },
-  { value: "referencesInProgress", label: "References in progress", stage: "qualified", fg: "var(--u-chart-3)", bg: "color-mix(in srgb, var(--u-chart-3) 16%, transparent)", tone: "interested" },
-  { value: "shortlisted", label: "Shortlisted", stage: "shortlisted", fg: "var(--u-direct)", bg: "var(--u-direct-tint)", tone: "interested" },
-  { value: "presentedToClient", label: "Presented to client", stage: "shortlisted", fg: "var(--u-direct)", bg: "var(--u-direct-tint)", tone: "interested" },
-  { value: "clientInterview", label: "Client interview", stage: "shortlisted", fg: "var(--u-direct)", bg: "var(--u-direct-tint)", tone: "interested" },
-  { value: "offer", label: "Offer", stage: "shortlisted", fg: "var(--u-direct)", bg: "var(--u-direct-tint)", tone: "interested" },
-  { value: "notInterested", label: "Not interested", stage: "declined", fg: "var(--text3)", bg: "var(--panel2)", tone: "closed" },
-  { value: "withdrew", label: "Withdrew", stage: "declined", fg: "var(--text3)", bg: "var(--panel2)", tone: "closed" },
-  { value: "notAFit", label: "Not a fit", stage: "declined", fg: "var(--text3)", bg: "var(--panel2)", tone: "closed" },
-  { value: "rejectedByClient", label: "Rejected by client", stage: "declined", fg: "var(--text3)", bg: "var(--panel2)", tone: "closed" },
-  { value: "noResponse", label: "No response", stage: "declined", fg: "var(--text3)", bg: "var(--panel2)", tone: "closed" },
-  { value: "offLimits", label: "Off-limits", stage: "declined", fg: "var(--red)", bg: "var(--red-dim)", tone: "closed" },
-  { value: "outOfScope", label: "Out of scope", stage: "declined", fg: "var(--amber)", bg: "var(--amber-dim)", tone: "untouched" }
+  { value: "outOfScope", label: "Out of scope", stage: "identified", fg: "var(--text3)", bg: "var(--panel2)", tone: "closed", out: true },
+  { value: "offLimits", label: "Off-limits", stage: "identified", fg: "var(--red)", bg: "var(--red-dim)", tone: "closed", out: true },
+  { value: "source", label: "Source", stage: "identified", fg: "var(--text2)", bg: "var(--line-soft)", tone: "untouched" },
+  { value: "contacted", label: "Awaiting reply", stage: "contacted", fg: "var(--sky)", bg: "var(--sky-dim)", tone: "inConversation" },
+  { value: "engaged", label: "Confirming interest", stage: "contacted", fg: "var(--sky)", bg: "var(--sky-dim)", tone: "inConversation" },
+  { value: "callBeingArranged", label: "Call being arranged", stage: "contacted", fg: "var(--sky)", bg: "var(--sky-dim)", tone: "inConversation" },
+  { value: "callArranged", label: "Call arranged", stage: "contacted", fg: "var(--sky)", bg: "var(--sky-dim)", tone: "inConversation" },
+  { value: "notInterested", label: "Not interested", stage: "contacted", fg: "var(--text3)", bg: "var(--panel2)", tone: "closed", out: true },
+  { value: "unresponsive", label: "Unresponsive", stage: "contacted", fg: "var(--text3)", bg: "var(--panel2)", tone: "closed", out: true },
+  { value: "interested", label: "Screening arranged", stage: "interested", fg: "var(--green)", bg: "var(--green-dim)", tone: "interested" },
+  { value: "screenedOut", label: "Screened-out", stage: "interested", fg: "var(--text3)", bg: "var(--panel2)", tone: "closed", out: true },
+  { value: "interviewBeingArranged", label: "Interview being arranged", stage: "interested", fg: "var(--green)", bg: "var(--green-dim)", tone: "interested" },
+  { value: "interviewArranged", label: "Interview arranged", stage: "interested", fg: "var(--green)", bg: "var(--green-dim)", tone: "interested" },
+  { value: "notProgressed", label: "Not progressed", stage: "interested", fg: "var(--text3)", bg: "var(--panel2)", tone: "closed", out: true },
+  { value: "recommended", label: "Recommended", stage: "interested", fg: "var(--green)", bg: "var(--green-dim)", tone: "interested" },
+  { value: "hold", label: "Hold", stage: "interested", fg: "var(--green)", bg: "var(--green-dim)", tone: "interested" },
+  { value: "withdrew", label: "Withdrew", stage: "interested", fg: "var(--text3)", bg: "var(--panel2)", tone: "closed", out: true },
+  { value: "presentedAwaitingFeedback", label: "Presented – awaiting feedback", stage: "qualified", fg: "var(--u-chart-3)", bg: "color-mix(in srgb, var(--u-chart-3) 16%, transparent)", tone: "interested" },
+  { value: "clientInterviewBeingArranged", label: "Client interview being arranged", stage: "qualified", fg: "var(--u-chart-3)", bg: "color-mix(in srgb, var(--u-chart-3) 16%, transparent)", tone: "interested" },
+  { value: "clientInterviewArranged", label: "Client interview arranged", stage: "qualified", fg: "var(--u-chart-3)", bg: "color-mix(in srgb, var(--u-chart-3) 16%, transparent)", tone: "interested" },
+  { value: "shortlisted", label: "Shortlisted", stage: "qualified", fg: "var(--u-chart-3)", bg: "color-mix(in srgb, var(--u-chart-3) 16%, transparent)", tone: "interested" },
+  { value: "clientRejected", label: "Client rejected", stage: "qualified", fg: "var(--text3)", bg: "var(--panel2)", tone: "closed", out: true },
+  { value: "references", label: "References", stage: "shortlisted", fg: "var(--u-direct)", bg: "var(--u-direct-tint)", tone: "interested" },
+  { value: "clientRejectedAfterReferences", label: "Client rejected after references", stage: "shortlisted", fg: "var(--text3)", bg: "var(--panel2)", tone: "closed", out: true },
+  { value: "offerExtended", label: "Offer extended", stage: "shortlisted", fg: "var(--u-direct)", bg: "var(--u-direct-tint)", tone: "interested" },
+  { value: "declinedOffer", label: "Declined offer", stage: "shortlisted", fg: "var(--text3)", bg: "var(--panel2)", tone: "closed", out: true },
+  { value: "placed", label: "Placed", stage: "shortlisted", fg: "var(--u-direct)", bg: "var(--u-direct-tint)", tone: "interested" }
 ];
 const STATUS = Object.fromEntries(STATUSES.map((s) => [s.value, s]));
 const TONES = {
@@ -2987,7 +3033,7 @@ const CRM = {
   e13: { tags: ["Open to work"], owner: "Yara Haddad", last: ["Marked Interested on this position", "Yara Haddad · 20 Sep"] }
 };
 const NOTE_ICON = { Call: "M7 2h10v20H7zM11 19h2", Meeting: "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4", Email: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm18 2-10 7L2 6", Note: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M8 13h8M8 17h5" };
-const NOTE_KIND_PHRASE = { note: "a note", general: "a note", call: "a call note", meeting: "a meeting note", email: "an email note" };
+const NOTE_KIND_PHRASE = { note: "a note", general: "a note", call: "a call note", meeting: "a meeting note", email: "an email note", linkedin: "a LinkedIn note" };
 const ASSESS_DEFAULT = { ea: 8, cyber: 6, itops: 7, lead: 8, stake: 6, change: 7, resil: 7 };
 const ASSESS_OPEN_DEFAULT = ["ea"];
 const REPORT_SECTIONS = [
@@ -3012,18 +3058,19 @@ const AI_PROPOSAL = {
   unknown: "Unknown: context, frequency and stakeholder outcomes. Missing evidence is not a negative finding."
 };
 const PIPE_STAGES = [
-  { key: "identified", label: "Identified", caption: "Research & review", dot: "color-mix(in srgb, var(--u-accent) 40%, var(--u-text-3))" },
-  { key: "contacted", label: "Contacted", caption: "Outreach & follow-up", dot: "color-mix(in srgb, var(--u-accent) 62%, var(--u-text-3))" },
-  { key: "interested", label: "Interested", caption: "Explore the opportunity", dot: "var(--u-adjacent)" },
-  { key: "qualified", label: "Qualified", caption: "Assess fit & readiness", dot: "var(--u-chart-3)" },
-  { key: "shortlisted", label: "Shortlisted", caption: "Ready for client review", dot: "var(--u-direct)" },
-  { key: "declined", label: "Declined", caption: "Ruled out", dot: "var(--u-offlimits)" }
+  { key: "identified", label: "Research", caption: "Research & review", dot: "color-mix(in srgb, var(--u-accent) 40%, var(--u-text-3))" },
+  { key: "contacted", label: "Approach", caption: "Outreach & follow-up", dot: "color-mix(in srgb, var(--u-accent) 62%, var(--u-text-3))" },
+  { key: "interested", label: "Assessment", caption: "Screen & interview", dot: "var(--u-adjacent)" },
+  { key: "qualified", label: "Shortlist", caption: "Ready for client review", dot: "var(--u-chart-3)" },
+  { key: "shortlisted", label: "Offer", caption: "References & offer", dot: "var(--u-direct)" }
 ];
 const PIPE_ACTIVE = ["identified", "contacted", "interested", "qualified", "shortlisted"];
 const STATUS_STAGE = Object.fromEntries(STATUSES.map((x) => [x.value, x.stage]));
-const STAGE_DEFAULT = { identified: "identified", contacted: "contacted", interested: "interested", qualified: "screened", shortlisted: "shortlisted", declined: "notInterested" };
+const STAGE_DEFAULT = { identified: "identified", contacted: "contacted", interested: "interested", qualified: "shortlisted", shortlisted: "references" };
+// A status flagged out of process sends whoever holds it to Inactive, whatever its stage.
+const isOut = (statusKey) => !!(STATUS[statusKey] && STATUS[statusKey].out);
 const PIPE_OUTCOMES = [];
-const PIPE_STATUS_OF = { e01: "qualified", e02: "identified", e03: "researching", e04: "readyToApproach", e05: "notInterested", e06: "engaged", e07: "contacted", e08: "offLimits", e09: "interestedPackageGap", e10: "identified", e11: "outOfScope", e12: "presentedToClient", e13: "shortlisted", e14: "identified" };
+const PIPE_STATUS_OF = { e01: "clientInterviewArranged", e02: "identified", e03: "source", e04: "callBeingArranged", e05: "notInterested", e06: "engaged", e07: "contacted", e08: "offLimits", e09: "interviewArranged", e10: "identified", e11: "outOfScope", e12: "presentedAwaitingFeedback", e13: "shortlisted", e14: "identified" };
 const PIPE_STAGE_DATE = { e05: "2026-09-24", e08: "2026-09-12", e01: "2026-09-22", e02: "2026-09-19", e03: "2026-09-19", e04: "2026-09-17", e06: "2026-09-11", e07: "2026-09-08", e09: "2026-08-31", e10: "2026-08-27", e11: "2026-08-18", e12: "2026-09-02", e13: "2026-09-20", e14: "2026-09-16" };
 const PIPE_AVATAR = { e05: 53, e08: 25, e01: 47, e02: 12, e03: 44, e04: 33, e06: 14, e07: 51, e09: 29, e10: 15, e11: 60, e12: 22, e13: 36, e14: 8 };
 // The card's Next action is the executive's earliest open task on this position; `more` counts the rest.
@@ -3219,7 +3266,7 @@ class Component extends DCLogic {
       view: pick("page", "") === "pipeline" ? "pipeline" : pick("view", "table"), drawer: pick("drawer", "none"), dialog: pick("dialog", "none"),
       importStep: pick("importStep", "map"), empty: flag("empty", false), clientRep: flag("clientRep", false),
       chapter, teamModal: pick("teamModal", "none"), canManage: flag("canManage", true),
-      dark: true, collapsed, wsMenu: false, colMenu: false,
+      dark: true, collapsed, navOpen: {}, wsMenu: false, colMenu: false,
       sort: { field: "added", dir: "desc" },
       vis: { founded: false, description: false, source: false },
       toast: null, coId: "c01", candId: "e01", removeId: "c01", contactEditing: false, compEditing: false, compForm: null,
@@ -3457,14 +3504,10 @@ class Component extends DCLogic {
       head("Map");
       item("mapExecs", "Executives on the map", I.candidates, { toggle: s.mapExecs });
       item("mapPanel", "Mapping panel", I.table, { toggle: s.mapPanel });
-    } else {
-      head("Board");
-      item("inactive", "Inactive column", I.eyeOff, { toggle: s.boardInactiveOpen, sub: "Declined and ruled-out executives" });
-      if (!s.clientRep) item("stages", "Edit pipeline stages…", I.settings, { sub: "Workspace settings · admins" });
     }
-    if (cw && stageKey === "u" && view !== "map") {
+    if (cw && stageKey === "u" && view === "table") {
       divider(); head("Outreach");
-      item("sequence", "Add to sequence…", I.outreach, { disabled: true, sub: view === "pipeline" ? "Tick executives on the board first" : "Tick companies first" });
+      item("sequence", "Add to sequence…", I.outreach, { disabled: true, sub: "Tick companies first" });
     }
     divider(); head("Data");
     if (cw && stageKey === "u") item("import", "Import spreadsheet…", I.importInto, { sub: "CSV or Excel · companies and people" });
@@ -3477,9 +3520,12 @@ class Component extends DCLogic {
     const cw = this.canWrite();
     const view = this.currentView();
     const offered = this.viewsOffered();
-    const VIEW_DEF = { table: ["Table", I.table], map: ["Map", I.globe], pipeline: ["Pipeline", I.pipeline] };
-    const BTN_HOVER = "border-color:var(--text3);color:var(--text)";
-    const btnStyle = (off) => `display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:${off ? "var(--text3)" : "var(--text2)"};cursor:${off ? "not-allowed" : "pointer"};opacity:${off ? 0.5 : 1}`;
+    const OUTLINE = (off) => `display:inline-flex;align-items:center;gap:7px;white-space:nowrap;height:34px;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:0 12px;font:500 13px var(--sans);color:var(--text);cursor:${off ? "not-allowed" : "pointer"};opacity:${off ? 0.5 : 1}`;
+    const FILLED = (off) => `display:inline-flex;align-items:center;gap:7px;white-space:nowrap;height:34px;box-sizing:border-box;border-radius:6px;border:none;background:var(--amber-btn);padding:0 14px;font:600 13px var(--sans);color:var(--on-amber);cursor:${off ? "not-allowed" : "pointer"};opacity:${off ? 0.5 : 1}`;
+    const GHOST = (open) => `display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-radius:6px;border:none;background:${open ? "var(--panel2)" : "none"};padding:8px 10px;font:500 13px var(--sans);color:${open ? "var(--text)" : "var(--text2)"};cursor:pointer`;
+    const CHEV = (open) => `flex:none;color:var(--text3);transition:transform .15s;transform:rotate(${open ? 180 : 0}deg)`;
+    const ticked = Object.values(s.pipelineChecked).filter(Boolean).length;
+    const seqOff = view !== "pipeline" || ticked === 0;
     const hidden = COLS.filter((c) => !c.fixed && !this.visible(c.id)).length;
     const items = this.advancedItems().map((a) => {
       const isItem = a.kind === "item";
@@ -3494,17 +3540,22 @@ class Component extends DCLogic {
     });
     return {
       searchQuery: s.searchQuery, hasSearch: !!s.searchQuery,
-      searchPlaceholder: !cw ? "Search companies and executives…" : view === "pipeline" ? "Search executives, companies, notes, tags…" : "Search companies, executives, notes, tags…",
-      viewsOffered: offered.length > 1,
-      viewOpts: offered.map((key) => ({ key, label: VIEW_DEF[key][0], icon: VIEW_DEF[key][1], on: String(key === view), style: segD(key === view) })),
-      canFind: cw && stageKey === "u",
-      findDisabled: view === "pipeline", findBtnStyle: btnStyle(view === "pipeline"), findBtnHover: view === "pipeline" ? "" : BTN_HOVER,
+      searchPlaceholder: !cw ? "Search companies and executives…" : "Search companies, executives, notes, tags…",
+      notBoard: view !== "pipeline", canCreate: cw && view !== "pipeline",
+      canFind: cw && stageKey === "u" && view !== "pipeline",
+      seqDisabled: seqOff, seqBtnStyle: OUTLINE(seqOff), seqBtnHover: seqOff ? "" : "background:var(--panel2)",
+      seqTitle: view === "map" ? "Add to sequence from Table or Pipeline" : seqOff ? (view === "pipeline" ? "Tick executives on the board first" : "Tick companies first") : `Add the ${ticked} ticked to a sequence`,
+      emailBtnStyle: OUTLINE(false),
+      findDisabled: view === "pipeline", findBtnStyle: FILLED(view === "pipeline"), findBtnHover: view === "pipeline" ? "" : "background:var(--u-accent-solid-hover)",
       findTitle: view === "pipeline" ? "Find executives from Table, where companies are ticked" : "Find executives at the ticked companies, or at the first 5 with nobody mapped",
-      addCoDisabled: view === "pipeline", addCoBtnStyle: btnStyle(view === "pipeline"), addCoBtnHover: view === "pipeline" ? "" : BTN_HOVER,
+      addCoDisabled: view === "pipeline",
+      addCoItemStyle: `display:flex;width:100%;align-items:flex-start;gap:10px;padding:7px 8px;border-radius:6px;border:none;background:none;text-align:left;font:500 13px var(--sans);color:${view === "pipeline" ? "var(--text3)" : "var(--text2)"};cursor:${view === "pipeline" ? "default" : "pointer"};opacity:${view === "pipeline" ? 0.6 : 1}`,
+      addCoItemHover: view === "pipeline" ? "" : "background:var(--panel2);color:var(--text)",
+      createOpen: !!s.createOpen, createBtnStyle: GHOST(!!s.createOpen), createChevStyle: CHEV(!!s.createOpen),
       addCoTitle: view === "pipeline" ? "Add companies from Table or Map" : "Add a company to this position",
       advOpen: s.advOpen, advMenu: s.advPanel !== "columns", advColumns: s.advPanel === "columns", advItems: items,
-      advBtnStyle: `display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid ${s.advOpen ? "var(--text3)" : "var(--line)"};background:var(--panel);padding:8px 10px 8px 12px;font:500 13px var(--sans);color:${s.advOpen ? "var(--text)" : "var(--text2)"};cursor:pointer`,
-      advChevStyle: `flex:none;color:var(--text3);transition:transform .15s;transform:rotate(${s.advOpen ? 180 : 0}deg)`,
+      advBtnStyle: GHOST(s.advOpen),
+      advChevStyle: CHEV(s.advOpen),
       advDot: view === "table" && hidden > 0, advDotTitle: `${hidden} column${hidden === 1 ? "" : "s"} hidden`
     };
   }
@@ -3791,8 +3842,8 @@ class Component extends DCLogic {
       noOtherPositions: crm.also.length === 0,
       positions: crm.also.map((a) => [a[0], a[1], a[2], a[3], false]).map(([title, status, by, when, here]) => ({
         title, here, added: `Added by ${by} · ${when}`, status: STATUS[status].label, pill: `${DPILL}color:${STATUS[status].fg};background:${STATUS[status].bg}`, border: here ? "color-mix(in srgb,var(--amber) 45%,transparent)" : "var(--line-soft)" })),
-      noteKinds: [["call", "Call", I.phone], ["note", "Note", I.noteIcon], ["meeting", "Meeting", I.members], ["email", "Email", I.mail]].map(([key, label, icon]) => { const on = s.noteKind === key;
-        return { key, label, icon, on, style: `display:inline-flex;align-items:center;gap:6px;border-radius:6px;padding:5px 10px;font:500 12px var(--sans);cursor:pointer;border:1px solid ${on ? "transparent" : "var(--line)"};background:${on ? "var(--u-accent-tint)" : "none"};color:${on ? "var(--u-accent)" : "var(--text3)"}` }; }),
+      noteKinds: [["call", "Call", I.phone], ["note", "Note", I.noteIcon], ["meeting", "Meeting", I.members], ["email", "Email", I.mail], ["linkedin", "LinkedIn", null]].map(([key, label, icon]) => { const on = s.noteKind === key;
+        return { key, label, icon, glyph: !!icon, brand: !icon, on, style: `display:inline-flex;align-items:center;gap:6px;border-radius:6px;padding:5px 10px;font:500 12px var(--sans);cursor:pointer;border:1px solid ${on ? "transparent" : "var(--line)"};background:${on ? "var(--u-accent-tint)" : "none"};color:${on ? "var(--u-accent)" : "var(--text3)"}` }; }),
       mentionOpen: !!s.mentionOpen, mentionBtnBg: s.mentionOpen ? "var(--line-soft)" : "none",
       teamAv1: avatar("ok", 20, "font-size:8px;border:2px solid var(--panel)"), teamAv2: avatar("sa", 20, "font-size:8px;border:2px solid var(--panel);margin-left:-7px"),
       mentionTeam: TEAM.filter((m) => !m.me).map((m) => ({ key: m.key, name: m.name, role: m.role, initials: initials(m.name), avStyle: avatar(m.key, 24, "font-size:9px"),
@@ -4413,16 +4464,22 @@ class Component extends DCLogic {
       closeCopilot: () => set({ copilot: false }),
       applyCallChange: () => { set({ callChanges: false }); this.showToast("3 changes saved to Fatima's record"); },
       toggleTheme: () => { const d = !this.state.dark; document.documentElement.setAttribute("data-theme", d ? "dark" : "light"); try { localStorage.setItem("lm-theme", d ? "dark" : "light"); } catch (e) { /* storage unavailable */ } set({ dark: d }); },
+      toggleNav: (e) => set({ navOpen: { ...this.state.navOpen, [id(e)]: e.currentTarget.getAttribute("aria-expanded") !== "true" } }),
       toggleCollapse: () => { const c = !this.state.collapsed; try { localStorage.setItem("lm-side-collapsed", c ? "1" : "0"); } catch (e) { /* storage unavailable */ } set({ collapsed: c }); },
       setViewTable: () => set({ view: "table" }),
       setViewMap: () => set({ view: "map" }),
       setView: (e) => set({ view: id(e), advOpen: false, advPanel: "menu" }),
       setSearchQuery: (e) => set({ searchQuery: e.target.value }),
       clearSearch: () => set({ searchQuery: "" }),
-      toggleAdv: () => set({ advOpen: !this.state.advOpen, advPanel: "menu" }),
+      toggleAdv: () => set({ advOpen: !this.state.advOpen, advPanel: "menu", createOpen: false }),
+      toggleCreate: () => set({ createOpen: !this.state.createOpen, advOpen: false, advPanel: "menu" }),
+      closeCreate: () => set({ createOpen: false }),
+      addExecutive: () => { set({ createOpen: false }); this.showToast("Opens a blank executive drawer — someone met at a company this position has not triaged"); },
+      enrolTicked: () => { if (this.currentView() === "pipeline" && Object.values(this.state.pipelineChecked).some(Boolean)) this.showToast("Opens Add to sequence for the ticked executives"); },
+      sendEmail: () => this.showToast("Send email — pick anyone on the position, then write in the composer"),
       closeAdv: () => set({ advOpen: false, advPanel: "menu" }),
       advBack: () => set({ advPanel: "menu" }),
-      addCompany: () => { if (this.currentView() !== "pipeline") this.showToast("Opens the company drawer to add one"); },
+      addCompany: () => { if (this.currentView() === "pipeline") return; set({ createOpen: false }); this.showToast("Opens the company drawer to add one"); },
       findExecutives: () => this.currentView() === "pipeline" ? null : this.showToast("Find executives — opens the run dialog for the ticked companies, or the first 5 with nobody mapped"),
       advAction: (e) => {
         const key = id(e);
@@ -4463,8 +4520,10 @@ class Component extends DCLogic {
         const ex = E.find((x) => x.id === d);
         if (!ex) return;
         const cur = this.statusOf(ex);
-        const next = STAGE_DEFAULT[to] || (STATUS[to] ? to : null);
-        if (!next || cur === next || (STAGE_DEFAULT[to] && STATUS_STAGE[cur] === to)) return;
+        // Dropped on Inactive itself: the real board asks which way out, the card's own stage's first.
+        const firstOut = (STATUSES.find((x) => x.out && x.stage === STATUS_STAGE[cur]) || STATUSES.find((x) => x.out)).value;
+        const next = to === "out" ? firstOut : STAGE_DEFAULT[to] || (STATUS[to] ? to : null);
+        if (!next || cur === next || (STAGE_DEFAULT[to] && STATUS_STAGE[cur] === to && !isOut(cur))) return;
         const movedStage = STATUS_STAGE[cur] !== STATUS_STAGE[next];
         set({ statusOf: Object.assign({}, this.state.statusOf, { [d]: next }), pipelineStageDate: movedStage ? Object.assign({}, this.state.pipelineStageDate, { [d]: "2026-10-04" }) : this.state.pipelineStageDate });
         const def = PIPE_STAGES.find((p) => p.key === STATUS_STAGE[next]);
@@ -4663,19 +4722,42 @@ class Component extends DCLogic {
     const collapsed = s.collapsed;
     const counts = { u: this.liveCompanies("u").length, s: this.liveCompanies("s").length, d: this.liveCompanies("d").length };
     if (s.empty && stageKey) counts[stageKey] = 0;
-    const navItem = (label, icon, href, active, count) => ({ label, icon, href, hasCount: count !== undefined, count,
-      rowStyle: `display:flex;width:100%;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13.5px;text-decoration:none;justify-content:${collapsed ? "center" : "flex-start"};background:${active ? "var(--panel2)" : "transparent"};color:${active ? "var(--text)" : "var(--text2)"}`,
+    const navSub = (label, icon, href, active) => ({ label, icon, href, active, current: active ? "page" : "false",
+      rowStyle: `display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:6px;font-size:13px;text-decoration:none;justify-content:${collapsed ? "center" : "flex-start"};background:${active ? "var(--panel2)" : "transparent"};color:${active ? "var(--text)" : "var(--text2)"}`,
       iconStyle: `flex:none;color:${active ? "var(--amber)" : "currentColor"}` });
+    const navItem = (label, icon, href, active, count, key, kids = []) => {
+      const childActive = kids.some((k) => k.active);
+      const toggled = s.navOpen[key];
+      const open = kids.length > 0 && (toggled !== undefined ? toggled : active || childActive);
+      const filled = active && !childActive;
+      return { key, label, icon, href, hasCount: count !== undefined, count, kids, hasKids: kids.length > 0, open, openStr: String(open),
+        kidsId: `nav-${key}`, viewsLabel: `${label} views`, toggleLabel: `${open ? "Hide" : "Show"} ${label} views`,
+        rowStyle: `display:flex;flex:1;min-width:0;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13.5px;text-decoration:none;justify-content:${collapsed ? "center" : "flex-start"};background:${filled ? "var(--panel2)" : "transparent"};color:${active || childActive ? "var(--text)" : "var(--text2)"}`,
+        iconStyle: `flex:none;color:${filled ? "var(--amber)" : "currentColor"}`,
+        chevStyle: `display:${collapsed ? "none" : "grid"};place-items:center;flex:none;width:24px;height:24px;border-radius:5px;border:none;background:none;padding:0;color:var(--text3);cursor:pointer`,
+        chevIconStyle: `display:block;transition:transform .15s;transform:rotate(${open ? 0 : -90}deg)`,
+        kidsStyle: collapsed ? "display:flex;flex-direction:column;gap:1px;margin:2px 0 6px;padding:2px;border:1px solid var(--line-soft);border-radius:8px"
+          : "display:flex;flex-direction:column;gap:1px;margin:1px 0 4px 18px;padding-left:8px;border-left:1px solid var(--line-soft)" };
+    };
+    const universeView = stageKey === "u" ? this.currentView() : null;
+    const NAV_VIEWS = { table: ["Table", I.table], map: ["Map", I.mapPin], pipeline: ["Pipeline", I.pipeline] };
+    const universeKids = ["table", "map"].concat(cw ? ["pipeline"] : [])
+      .map((v) => navSub(NAV_VIEWS[v][0], NAV_VIEWS[v][1], `Position.dc.html?page=${STAGES.u.slug}&view=${v}`, universeView === v));
     const navGroups = [
-      { label: "Position", items: [navItem("Brief", I.position, "Position.dc.html", false), navItem("Strategy", I.strategy, "Strategy.dc.html", false)] },
-      { label: "Market mapping", items: [navItem(STAGES.u.label, STAGES.u.icon, `Position.dc.html?page=${STAGES.u.slug}`, stageKey === "u", counts.u)] },
+      { label: "Position", items: [
+        navItem("Brief", I.position, "Position.dc.html", false, undefined, "brief"),
+        navItem("Strategy", I.strategy, "Strategy.dc.html", false, undefined, "strategy", cw ? [
+          navSub("Companies", I.building, "Strategy.dc.html", false),
+          navSub("People", I.candidates, "Strategy.dc.html?mode=people", false)] : [])] },
+      { label: "Market mapping", items: [navItem(STAGES.u.label, STAGES.u.icon, `Position.dc.html?page=${STAGES.u.slug}`, stageKey === "u", counts.u, "universe", universeKids)] },
       { label: "CRM", items: [
-        navItem("Outreach", I.outreach, "Outreach.dc.html", false),
-        navItem("Sequences", I.listOrdered, "Position.dc.html?page=sequences", s.page === "sequences"),
-        navItem("Benchmark", I.target, "Position.dc.html?page=benchmark", s.page === "benchmark"),
-        navItem("Activity", I.activity, "Position.dc.html?page=activity", s.page === "activity")
+        navItem("Outreach", I.outreach, "Outreach.dc.html", false, undefined, "outreach", [
+          navSub("Conversations", I.mail, "Outreach.dc.html", false),
+          navSub("Sequences", I.listOrdered, "Position.dc.html?page=sequences", s.page === "sequences")]),
+        navItem("Benchmark", I.target, "Position.dc.html?page=benchmark", s.page === "benchmark", undefined, "benchmark"),
+        navItem("Activity", I.activity, "Position.dc.html?page=activity", s.page === "activity", undefined, "activity")
       ] },
-      { label: "Project", items: [navItem("Reports", I.reports, "Position.dc.html?page=reports", isReports), navItem("Team & access", I.team, "Position.dc.html?page=team", s.page === "team")] }
+      { label: "Project", items: [navItem("Reports", I.reports, "Position.dc.html?page=reports", isReports, undefined, "reports"), navItem("Team & access", I.team, "Position.dc.html?page=team", s.page === "team", undefined, "team")] }
     ];
     const view = this.currentView();
     const stage = isStage ? Object.assign(this.stageVals(stageKey), this.toolbarVals(stageKey)) : {};
@@ -4779,7 +4861,7 @@ class Component extends DCLogic {
     const active = PIPE_ACTIVE;
     const boardCols = active.map((key, i) => {
       const def = PIPE_STAGES.find((p) => p.key === key);
-      const cards = list.filter((r) => r.stageKey === key).map(card);
+      const cards = list.filter((r) => r.stageKey === key && !isOut(r.statusKey)).map(card);
       const over = s.boardOver === key && !!s.boardDrag;
       return { key, label: def.label, caption: def.caption, count: cards.length, cards, empty: cards.length === 0,
         icon: i === active.length - 1 ? "m5 13 4 4L19 7" : "M5 12h14M12 5l7 7-7 7",
@@ -4787,17 +4869,17 @@ class Component extends DCLogic {
         lineStyle: `position:absolute;left:6px;right:6px;bottom:0;height:2px;border-radius:2px;background:${def.dot};opacity:${over ? 1 : 0.35}`,
         colStyle: `flex:1 1 0;min-width:180px;min-height:0;display:flex;flex-direction:column;gap:8px;padding:7px;border-radius:8px;box-sizing:border-box;background:var(--panel2);border:1px solid ${over ? def.dot : "transparent"};transition:border-color .15s` };
     });
-    const inactive = list.filter((r) => r.stageKey === "declined");
+    const inactive = list.filter((r) => isOut(r.statusKey));
     const group = (key, label, rowsIn) => {
-      const items = rowsIn.map((r) => ({ id: r.id, name: r.name, meta: [r.title, r.coName].filter(Boolean).join(" · "), outcome: `Declined ${shortDate(r.stIso)}` }));
+      const items = rowsIn.map((r) => ({ id: r.id, name: r.name, meta: [r.title, r.coName].filter(Boolean).join(" · "), outcome: `Out ${shortDate(r.stIso)}` }));
       const over = s.boardOver === key && !!s.boardDrag;
       return { key, label, count: items.length, items, empty: items.length === 0,
         groupStyle: `display:flex;flex-direction:column;gap:12px;border-radius:6px;outline:1px dashed ${over ? "var(--text3)" : "transparent"};outline-offset:4px` };
     };
-    const held = STATUSES.filter((x) => x.stage === "declined" && inactive.some((r) => r.statusKey === x.value));
-    const groups = held.length
-      ? held.map((x) => group(x.value, x.label, inactive.filter((r) => r.statusKey === x.value)))
-      : [group("declined", "Declined", [])];
+    const held = STATUSES.filter((x) => x.out && inactive.some((r) => r.statusKey === x.value));
+    const stageLabel = (key) => (PIPE_STAGES.find((p) => p.key === key) || {}).label;
+    const groups = held.map((x) => group(x.value, `${x.label} · ${stageLabel(x.stage)}`, inactive.filter((r) => r.statusKey === x.value)))
+      .concat([Object.assign(group("out", "Drop to mark out of process", []), { empty: false })]);
     const activeCount = list.length - inactive.length;
     const open = s.boardInactiveOpen;
     return {
@@ -4842,19 +4924,20 @@ class Component extends DCLogic {
         knobStyle: `position:absolute;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s;left:${s.pipelineVisible[e.id] !== false ? "16px" : "2px"}`
       };
     });
-    const filtered = rows.filter((r) => (s.pipelineStage === "all" || r.stageKey === s.pipelineStage) &&
+    const inTab = (r, key) => key === "all" || (key === "inactive" ? isOut(r.statusKey) : r.stageKey === key && !isOut(r.statusKey));
+    const filtered = rows.filter((r) => inTab(r, s.pipelineStage) &&
       (!s.pipelineQuery || r.name.toLowerCase().includes(s.pipelineQuery.toLowerCase()) || r.company.toLowerCase().includes(s.pipelineQuery.toLowerCase())))
       .map((r, i) => ({ ...r, rank: String(i + 1).padStart(2, "0") }));
     const counts = { all: rows.length };
-    PIPE_STAGES.forEach((p) => { counts[p.key] = rows.filter((r) => r.stageKey === p.key).length; });
+    PIPE_STAGES.concat([{ key: "inactive" }]).forEach((p) => { counts[p.key] = rows.filter((r) => inTab(r, p.key)).length; });
     const cell = (key, count, arrow) => { const active = s.pipelineStage === key;
-      const def = key === "all" ? { label: "All candidates", caption: "All stages & outcomes", dot: null } : key === "declined" ? { label: "Inactive", caption: "Declined · ruled out", dot: "var(--u-offlimits)" } : PIPE_STAGES.find((p) => p.key === key);
+      const def = key === "all" ? { label: "All candidates", caption: "All stages & outcomes", dot: null } : key === "inactive" ? { label: "Inactive", caption: "Out of process", dot: "var(--u-offlimits)" } : PIPE_STAGES.find((p) => p.key === key);
       const dot = def.dot;
       const isAll = key === "all";
       return { kind: "stage", key, label: isAll ? "All" : def.label, caption: def.caption, hasCaption: !isAll, hasUnderline: !isAll, count, active, showArrow: !!arrow, hasDot: !!dot, isStage: true,
         cellStyle: isAll
           ? `display:flex;flex:none;align-self:center;align-items:center;padding:6px 10px;cursor:pointer;border-radius:6px;border:none;background:${active ? "var(--line-soft)" : "transparent"};appearance:none;-webkit-appearance:none;outline:none;font-family:inherit;box-sizing:border-box`
-          : `display:flex;${key === "declined" ? "flex:none;width:160px;" : "flex:1 1 0;min-width:180px;"}overflow:hidden;flex-direction:column;align-items:flex-start;gap:4px;padding:8px 14px 10px;cursor:pointer;position:relative;border-radius:6px 6px 0 0;border:none;background:transparent;transition:background .15s;appearance:none;-webkit-appearance:none;outline:none;text-align:left;font-family:inherit;box-sizing:border-box`,
+          : `display:flex;${key === "inactive" ? "flex:none;width:160px;" : "flex:1 1 0;min-width:180px;"}overflow:hidden;flex-direction:column;align-items:flex-start;gap:4px;padding:8px 14px 10px;cursor:pointer;position:relative;border-radius:6px 6px 0 0;border:none;background:transparent;transition:background .15s;appearance:none;-webkit-appearance:none;outline:none;text-align:left;font-family:inherit;box-sizing:border-box`,
         dotStyle: `flex:none;width:7px;height:7px;box-sizing:border-box;border-radius:50%;${key === "identified" ? `background:transparent;border:1.5px solid ${dot}` : `background:${dot}`}`,
         labelStyle: `flex:none;white-space:nowrap;font:600 12.5px var(--sans);letter-spacing:-.005em;color:${active ? "var(--text)" : "var(--text2)"}`,
         countStyle: `flex:none;display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:4px;background:var(--line-soft);font:500 10.5px var(--mono);color:${active ? "var(--text)" : "var(--text3)"}`,
@@ -4863,7 +4946,7 @@ class Component extends DCLogic {
       cell("all", counts.all),
       ...PIPE_ACTIVE.map((key, i) => cell(key, counts[key], i < PIPE_ACTIVE.length - 1)),
       { kind: "divider", isDivider: true },
-      cell("declined", counts.declined)
+      cell("inactive", counts.inactive)
     ];
     const allChecked = filtered.length > 0 && filtered.every((r) => r.checked);
     const selectedCount = Object.values(s.pipelineChecked).filter(Boolean).length;

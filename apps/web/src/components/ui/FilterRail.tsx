@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
 import { hasRoomForRails } from "../../lib/viewport";
+import { TOOLBAR_GHOST } from "./Toolbar";
 
 const WIDTHS = {
   default: "w-[min(300px,86vw)] lg:w-[21%] lg:min-w-[280px] lg:max-w-[330px]",
@@ -79,24 +80,33 @@ export function FilterRail({
   );
 }
 
-/** The toolbar switch that shows and hides a {@link FilterRail}, with the count of axes in force. */
+/**
+ * The toolbar switch that shows and hides a {@link FilterRail}, with the count of axes in force. `toolbar` is the
+ * shared toolbar row's quiet control (`Toolbar.tsx`).
+ */
 export function FilterRailToggle({
   open,
   onToggle,
   badge,
+  variant = "default",
 }: {
   open: boolean;
   onToggle: () => void;
   badge?: ReactNode;
+  variant?: "default" | "toolbar";
 }) {
   return (
     <button
       type="button"
       onClick={onToggle}
       aria-expanded={open}
-      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] p-2 text-note text-u-text3 transition hover:bg-u-surface hover:text-u-text"
+      className={
+        variant === "toolbar"
+          ? TOOLBAR_GHOST
+          : "inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] p-2 text-note text-u-text3 transition hover:bg-u-surface hover:text-u-text"
+      }
     >
-      <Icon d="M3 4h18l-7 8v6l-4 2v-8L3 4Z" size={14} className="flex-none" />
+      <Icon d="M3 4h18l-7 8v6l-4 2v-8L3 4Z" size={variant === "toolbar" ? 15 : 14} className="flex-none" />
       {open ? "Hide Filters" : "Show Filters"}
       {badge}
     </button>

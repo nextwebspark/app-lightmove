@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { useId, useState } from "react";
+import { Link, matchPath, NavLink, useLocation, type To } from "react-router-dom";
 import { cn } from "../../lib/cn";
 import { useHelp } from "../../features/help/HelpProvider";
 import { APP_VERSION } from "../../lib/version";
 import { Icon, ICONS } from "./Icon";
+import { hasActiveView } from "./sidebarViews";
 import { useSidebarCollapsed } from "./useSidebarCollapsed";
 
 export interface SidebarItem {
@@ -17,6 +18,19 @@ export interface SidebarItem {
   title?: string;
   /** Said of an item that leads out of the shell it sits in, which it marks with an arrow. */
   leavesShell?: string;
+  /** The section's own views, nested under it: open while the section is, or by its chevron. */
+  children?: SidebarSubItem[];
+}
+
+/** One view of a section. `active` is the caller's, since a view is often a query parameter `NavLink` cannot see. */
+export interface SidebarSubItem {
+  key: string;
+  to: To;
+  /** Navigation state the link carries, such as a page's "the user chose this view" flag. */
+  state?: unknown;
+  label: string;
+  icon: string;
+  active: boolean;
 }
 
 export interface SidebarGroup {
@@ -53,14 +67,7 @@ export function Sidebar({
   }
   const collapsed = assistantOpen ? !expandedBesideAssistant : preference.collapsed;
   const toggle = assistantOpen ? () => setExpandedBesideAssistant((expanded) => !expanded) : preference.toggle;
-  const rowClass = (extra?: string) =>
-    cn(
-      "flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13.5px] transition",
-      "hover:bg-u-raised hover:text-u-text",
-      collapsed && "justify-center",
-      extra,
-    );
-
+  const rowClass = (extra?: string) => railRowClass(collapsed, extra);
   const labelsHidden = collapsed ? "hidden" : "";
 
   return (
@@ -99,32 +106,7 @@ export function Sidebar({
             {group.label}
           </div>
           {group.items.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              title={item.leavesShell ?? item.label}
-              className={({ isActive }) =>
-                rowClass(isActive ? "bg-u-raised text-u-text [&_svg]:text-u-accent" : "text-u-text2")
-              }
-            >
-              <Icon d={item.icon} className="flex-none" />
-              <span className={cn("whitespace-nowrap", labelsHidden)}>{item.label}</span>
-              {item.count !== undefined && (
-                <span
-                  className={cn(
-                    "ml-auto font-mono text-[11px] font-medium text-u-text3",
-                    labelsHidden,
-                  )}
-                >
-                  {item.count}
-                </span>
-              )}
-              {item.leavesShell && <span className="sr-only">{item.leavesShell}</span>}
-              {item.leavesShell && (
-                <Icon d={ICONS.arrowRight} size={13} className={cn("ml-auto flex-none text-u-text3", labelsHidden)} />
-              )}
-            </NavLink>
+            <SidebarRow key={item.to} item={item} collapsed={collapsed} />
           ))}
         </div>
       ))}
@@ -152,5 +134,132 @@ export function Sidebar({
         </button>
       </div>
     </nav>
+  );
+}
+
+function SidebarRow({ item, collapsed }: { item: SidebarItem; collapsed: boolean }) {
+  const { pathname } = useLocation();
+  const viewsId = useId();
+  const views = item.children ?? [];
+  const viewActive = hasActiveView(item);
+  const inSection =
+    views.length > 0 && (viewActive || matchPath({ path: item.to, end: item.end ?? false }, pathname) !== null);
+  // A chevron press holds until the section is entered or left, which opens or closes the views again. The
+  // collapsed rail has no chevron, so it always shows the section's own.
+  const [pressed, setPressed] = useState<boolean | null>(null);
+  const [pressedInSection, setPressedInSection] = useState(inSection);
+  if (pressedInSection !== inSection) {
+    setPressedInSection(inSection);
+    setPressed(null);
+  }
+  const open = views.length > 0 && (collapsed ? inSection : (pressed ?? inSection));
+  // A section shut by hand still says where you are: its own row stands in for the view inside it.
+  const viewShown = viewActive && open;
+  const labelsHidden = collapsed ? "hidden" : "";
+
+  const link = (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      title={item.leavesShell ?? item.label}
+      // NavLink applies it only while active, and an undefined one falls back to its own "page".
+      aria-current={viewShown ? "false" : "page"}
+      className={({ isActive }) =>
+        railRowClass(
+          collapsed,
+          isActive && !viewShown
+            ? "bg-u-raised text-u-text [&_svg]:text-u-accent"
+            : viewActive
+              ? "text-u-text"
+              : "text-u-text2",
+        )
+      }
+    >
+      <Icon d={item.icon} className="flex-none" />
+      <span className={cn("whitespace-nowrap", labelsHidden)}>{item.label}</span>
+      {item.count !== undefined && (
+        <span className={cn("ml-auto font-mono text-[11px] font-medium text-u-text3", labelsHidden)}>{item.count}</span>
+      )}
+      {item.leavesShell && <span className="sr-only">{item.leavesShell}</span>}
+      {item.leavesShell && (
+        <Icon d={ICONS.arrowRight} size={13} className={cn("ml-auto flex-none text-u-text3", labelsHidden)} />
+      )}
+    </NavLink>
+  );
+  if (views.length === 0) return link;
+
+  return (
+    <div>
+      <div className="flex items-center gap-0.5">
+        <div className="min-w-0 flex-1">{link}</div>
+        {!collapsed && (
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={viewsId}
+            aria-label={`${item.label} views`}
+            title={`${open ? "Hide" : "Show"} ${item.label} views`}
+            onClick={() => setPressed(!open)}
+            className="grid size-6 flex-none place-items-center rounded-md text-u-text3 transition hover:bg-u-raised hover:text-u-text"
+          >
+            <Icon d={ICONS.chevronDown} size={13} className={cn("transition-transform", !open && "-rotate-90")} />
+          </button>
+        )}
+      </div>
+      <SidebarViews id={viewsId} label={item.label} views={views} open={open} collapsed={collapsed} />
+    </div>
+  );
+}
+
+function SidebarViews({
+  id,
+  label,
+  views,
+  open,
+  collapsed,
+}: {
+  id: string;
+  label: string;
+  views: SidebarSubItem[];
+  open: boolean;
+  collapsed: boolean;
+}) {
+  return (
+    <div
+      id={id}
+      role="group"
+      aria-label={label}
+      hidden={!open}
+      className={cn(
+        "mt-px flex flex-col gap-px",
+        collapsed ? "mb-1.5 rounded-lg border border-u-border p-0.5" : "mb-1 ml-[18px] border-l border-u-border pl-2",
+      )}
+    >
+      {views.map((view) => (
+        <Link
+          key={view.key}
+          to={view.to}
+          state={view.state}
+          title={view.label}
+          aria-current={view.active ? "page" : undefined}
+          className={railRowClass(
+            collapsed,
+            cn("gap-2 py-1.5 text-body", view.active ? "bg-u-raised text-u-text [&_svg]:text-u-accent" : "text-u-text2"),
+          )}
+        >
+          <Icon d={view.icon} size={14} className="flex-none" />
+          <span className={cn("whitespace-nowrap", collapsed && "hidden")}>{view.label}</span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function railRowClass(collapsed: boolean, extra?: string) {
+  return cn(
+    "flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13.5px] transition",
+    "hover:bg-u-raised hover:text-u-text",
+    collapsed && "justify-center",
+    extra,
   );
 }

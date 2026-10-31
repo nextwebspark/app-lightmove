@@ -115,13 +115,30 @@
       <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="4">
         <div style="display:{{ labelDisp }};padding:14px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">{{ g.label }}</div>
         <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
-          <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;padding:8px 10px;border-radius:6px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }}" style-hover="background:var(--panel2);color:var(--text)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
-            <span style="display:{{ labelDisp }};white-space:nowrap">{{ it.label }}</span>
-            <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}">
-              <span style="display:{{ labelDisp }};margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span>
+          <!-- Position.dc.html's rail: a section's views nest under its row behind a guide line. -->
+          <div style="display:flex;align-items:center;gap:2px">
+            <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;flex:1;min-width:0;align-items:center;justify-content:{{ navJustify }};gap:10px;padding:8px 10px;border-radius:6px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }}" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
+              <span style="display:{{ labelDisp }};white-space:nowrap">{{ it.label }}</span>
+              <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}">
+                <span style="display:{{ labelDisp }};margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span>
+              </sc-if>
+            </a>
+            <sc-if value="{{ it.hasKids }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ toggleNav }}" data-id="{{ it.key }}" aria-expanded="{{ it.openStr }}" aria-controls="{{ it.kidsId }}" aria-label="{{ it.viewsLabel }}" title="{{ it.toggleLabel }}" style="{{ it.chevStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="{{ it.chevIconStyle }}"><path d="{{ I.chevronDown }}"></path></svg></button>
             </sc-if>
-          </a>
+          </div>
+          <sc-if value="{{ it.open }}" hint-placeholder-val="{{ false }}">
+            <div id="{{ it.kidsId }}" role="group" aria-label="{{ it.label }}" style="{{ it.kidsStyle }}">
+              <sc-for list="{{ it.kids }}" as="k" hint-placeholder-count="2">
+                <a href="{{ k.href }}" title="{{ k.label }}" aria-current="{{ k.current }}" style="{{ k.rowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="{{ k.iconStyle }}"><path d="{{ k.icon }}"></path></svg>
+                  <span style="display:{{ labelDisp }};white-space:nowrap">{{ k.label }}</span>
+                </a>
+              </sc-for>
+            </div>
+          </sc-if>
         </sc-for>
       </sc-for>
       <div style="margin-top:auto;border-top:1px solid var(--line-soft);padding-top:12px">
@@ -141,14 +158,17 @@
       <div style="display:flex;flex-direction:column;width:100%;height:100%;min-height:100%">
         <div data-screen-label="Strategy tab" style="{{ pageStyle }}">
 
-          <div data-screen-label="Strategy toolbar" style="display:flex;min-height:44px;flex:none;flex-wrap:wrap;align-items:center;column-gap:14px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel2);padding:6px 20px">
-            <div role="radiogroup" aria-label="Search for" style="display:inline-flex;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
-              <button role="radio" aria-checked="true" onClick="{{ showCompanies }}" style="{{ modeCompaniesStyle }}">Companies</button>
-              <button role="radio" aria-checked="false" onClick="{{ showPeople }}" style="{{ modePeopleStyle }}">People</button>
+          <!-- The toolbar row Position.dc.html's In universe and Outreach.dc.html share: search first, the page's own
+               controls beside it, its actions pushed right. -->
+          <div data-screen-label="Strategy toolbar" style="display:flex;flex:none;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel);padding:10px 16px">
+            <div style="display:flex;flex:1 1 280px;max-width:360px;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);padding:8px 12px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ I.search }}"></path></svg>
+              <input value="{{ q }}" onInput="{{ onQuery }}" placeholder="Search companies..." aria-label="Search companies" style="width:100%;min-width:0;background:transparent;border:none;font:400 13px var(--sans);color:var(--text);outline:none">
             </div>
+
             <div style="position:relative">
-              <button onClick="{{ toggleSaveMenu }}" aria-expanded="{{ saveMenuOpen }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:4px 0;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--amber)"><path d="{{ I.pin }}"></path></svg>
+              <button onClick="{{ toggleSaveMenu }}" aria-expanded="{{ saveMenuOpen }}" style="display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-radius:6px;padding:8px 10px;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.pin }}"></path></svg>
                 Save Search
                 <sc-if value="{{ hasSearches }}" hint-placeholder-val="{{ true }}">
                   <span style="border-radius:4px;background:var(--sky-dim);padding:2px 5px;font:700 10px var(--sans);color:var(--sky)">{{ searchCount }}</span>
@@ -214,30 +234,25 @@
               </sc-if>
             </div>
 
-            <button onClick="{{ toggleFilters }}" aria-expanded="{{ showFilters }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:8px;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg>
+            <button onClick="{{ toggleFilters }}" aria-expanded="{{ showFilters }}" style="display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-radius:6px;padding:8px 10px;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg>
               {{ filterToggleLabel }}
-              <span style="border-radius:4px;background:var(--sky-dim);padding:2px 5px;font:700 10px var(--sans);color:var(--sky)">{{ axisCount }}</span>
+              <span style="border-radius:4px;background:var(--panel2);border:1px solid var(--line-soft);padding:1px 6px;font:500 10.5px var(--sans);color:var(--text2)">{{ axisCount }}</span>
             </button>
 
-            <a href="Assistant.dc.html" style="display:inline-flex;align-items:center;gap:8px;white-space:nowrap;border-radius:6px;border:1px solid var(--u-border-strong);background:var(--u-inferred-tint);padding:8px 16px;font:500 13px var(--sans);color:var(--u-inferred)" style-hover="background:var(--u-raised)">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.sparkle }}"></path></svg>
-              <span>AI Research</span>
-            </a>
-
-            <div style="display:flex;width:240px;flex:none;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);padding:8px 12px">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ I.search }}"></path></svg>
-              <input value="{{ q }}" onInput="{{ onQuery }}" placeholder="Search companies..." aria-label="Search companies" style="width:100%;background:transparent;border:none;font:400 13px var(--sans);color:var(--text);outline:none">
-            </div>
-
             <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
+              <a href="Assistant.dc.html" style="display:inline-flex;align-items:center;gap:8px;height:34px;box-sizing:border-box;white-space:nowrap;border-radius:6px;background:var(--u-inferred);padding:0 14px;font:600 13px var(--sans);color:#fff" style-hover="filter:brightness(1.1)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.sparkle }}"></path></svg>
+                <span>AI Research</span>
+              </a>
               <div style="position:relative">
-                <button onClick="{{ toggleColumns }}" aria-expanded="{{ columnsOpen }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:8px;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.columns }}"></path></svg>
+                <button onClick="{{ toggleColumns }}" aria-expanded="{{ columnsOpen }}" style="display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-radius:6px;padding:8px 10px;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.columns }}"></path></svg>
                   Columns
                   <sc-if value="{{ hasHidden }}" hint-placeholder-val="{{ true }}">
-                    <span style="border-radius:4px;background:var(--sky-dim);padding:2px 5px;font:700 10px var(--sans);color:var(--sky)">{{ hiddenCount }} hidden</span>
+                    <span style="border-radius:4px;background:var(--panel2);border:1px solid var(--line-soft);padding:1px 6px;font:500 10.5px var(--sans);color:var(--text2)">{{ hiddenCount }} hidden</span>
                   </sc-if>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
                 </button>
                 <sc-if value="{{ columnsOpen }}" hint-placeholder-val="{{ false }}">
                   <div onClick="{{ closePopovers }}" style="position:fixed;inset:0;z-index:79"></div>
@@ -257,7 +272,8 @@
                   </div>
                 </sc-if>
               </div>
-              <button onClick="{{ addAll }}" style="white-space:nowrap;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">Add all to Universe →</button>
+              <span style="width:1px;height:20px;background:var(--line-soft)"></span>
+              <button onClick="{{ addAll }}" style="white-space:nowrap;border-radius:6px;padding:8px 10px;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Add all to Universe →</button>
             </div>
           </div>
 
@@ -639,20 +655,23 @@
              free and follows the filter; Search is a deliberate press: every page not already fetched
              is bought from ContactOut, though it is part of the plan and carries no price on screen. -->
         <div data-screen-label="Strategy tab — People" style="{{ peoplePageStyle }}">
-          <div data-screen-label="People toolbar" style="display:flex;min-height:44px;flex:none;flex-wrap:wrap;align-items:center;column-gap:14px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel2);padding:6px 20px">
-            <div role="radiogroup" aria-label="Search for" style="display:inline-flex;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
-              <button role="radio" aria-checked="false" onClick="{{ showCompanies }}" style="{{ modeCompaniesStyle }}">Companies</button>
-              <button role="radio" aria-checked="true" onClick="{{ showPeople }}" style="{{ modePeopleStyle }}">People</button>
+          <!-- The Companies toolbar's row: the name ContactOut searches on is this page's search box, the rail holds the
+               rest. Typing moves the free count; Enter is the Search press, as the rail's button is. -->
+          <div data-screen-label="People toolbar" style="display:flex;flex:none;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel);padding:10px 16px">
+            <div style="display:flex;flex:1 1 280px;max-width:360px;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);padding:8px 12px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ I.search }}"></path></svg>
+              <input placeholder="Search people by name..." aria-label="Search people by name" style="width:100%;min-width:0;background:transparent;border:none;font:400 13px var(--sans);color:var(--text);outline:none">
             </div>
-            <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:4px 0;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--amber)"><path d="{{ I.pin }}"></path></svg>
+            <button style="display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-radius:6px;padding:8px 10px;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.pin }}"></path></svg>
               Save Search
             </button>
-            <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:8px;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg>
+            <button style="display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-radius:6px;padding:8px 10px;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg>
               Hide Filters
+              <span style="border-radius:4px;background:var(--panel2);border:1px solid var(--line-soft);padding:1px 6px;font:500 10.5px var(--sans);color:var(--text2)">3</span>
             </button>
-            <div role="radiogroup" aria-label="View" style="display:inline-flex;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
+            <div role="radiogroup" aria-label="View" style="display:inline-flex;margin-left:auto;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
               <button role="radio" aria-checked="{{ peopleTableOn }}" onClick="{{ showPeopleTable }}" style="{{ viewTableStyle }}">Table</button>
               <button role="radio" aria-checked="{{ peopleCardsOn }}" onClick="{{ showPeopleCards }}" style="{{ viewCardsStyle }}">Cards</button>
             </div>
@@ -921,6 +940,12 @@ class Component extends DCLogic {
       fullscreen: 'M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7',
       fullscreenExit: 'M20 10h-6V4M4 14h6v6M14 10l7-7M3 21l7-7',
       chevronDown: 'm6 9 6 6 6-6',
+      building: 'M6 22V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v18M2 22h20M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M10 22v-4h4v4',
+      table: 'M3 5h18v14H3zM3 10h18M3 15h18M9 5v14',
+      mapPin: 'M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0ZM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+      pipeline: 'M4 4h5v16H4zM10.5 4h5v10h-5zM17 4h3v7h-3z',
+      mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm18 2-10 7L2 6',
+      listOrdered: 'M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M4.5 14a1.5 1.5 0 0 1 2.5-1.1Q4.5 15.5 4 18h3',
       chevronRight: 'm9 18 6-6-6-6',
       pin: 'M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1Z',
     };
@@ -1047,6 +1072,7 @@ class Component extends DCLogic {
 
     this.state = {
       dark: true, toast: '', wsMenuOpen: false, department, roleTitle,
+      navOpen: {},
       collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
       counts: { universe: 24, shortlisted: 9, declined: 6 },
       showFilters: flag('filtersOpen', props.filtersOpen ?? true),
@@ -1198,19 +1224,49 @@ class Component extends DCLogic {
     const f = st.filter;
     const collapsed = st.collapsed;
 
-    const navItem = (label, icon, href, active, count) => ({
-      label, icon, href, hasCount: count !== undefined, count,
-      color: active ? 'var(--text)' : 'var(--text2)', bg: active ? 'var(--panel2)' : 'transparent', iconColor: active ? 'var(--amber)' : 'currentColor',
+    const navSub = (label, icon, href, active) => ({
+      label, icon, href, active, current: active ? 'page' : 'false',
+      rowStyle: `display:flex;align-items:center;justify-content:${collapsed ? 'center' : 'flex-start'};gap:9px;padding:6px 10px;border-radius:6px;font:400 13px var(--sans);text-decoration:none;background:${active ? 'var(--panel2)' : 'transparent'};color:${active ? 'var(--text)' : 'var(--text2)'}`,
+      iconStyle: `flex:none;color:${active ? 'var(--amber)' : 'currentColor'}`,
     });
+    const navItem = (label, icon, href, active, count, key, kids = []) => {
+      const childActive = kids.some((k) => k.active);
+      const toggled = st.navOpen[key];
+      const open = kids.length > 0 && (toggled !== undefined ? toggled : active || childActive);
+      const filled = active && !childActive;
+      return {
+        key, label, icon, href, hasCount: count !== undefined, count, kids, hasKids: kids.length > 0, open, openStr: String(open),
+        kidsId: `nav-${key}`, viewsLabel: `${label} views`, toggleLabel: `${open ? 'Hide' : 'Show'} ${label} views`,
+        color: active || childActive ? 'var(--text)' : 'var(--text2)', bg: filled ? 'var(--panel2)' : 'transparent', iconColor: filled ? 'var(--amber)' : 'currentColor',
+        chevStyle: `display:${collapsed ? 'none' : 'grid'};place-items:center;flex:none;width:24px;height:24px;border-radius:5px;border:none;background:none;padding:0;color:var(--text3);cursor:pointer`,
+        chevIconStyle: `display:block;transition:transform .15s;transform:rotate(${open ? 0 : -90}deg)`,
+        kidsStyle: collapsed ? 'display:flex;flex-direction:column;gap:1px;margin:2px 0 6px;padding:2px;border:1px solid var(--line-soft);border-radius:8px'
+          : 'display:flex;flex-direction:column;gap:1px;margin:1px 0 4px 18px;padding-left:8px;border-left:1px solid var(--line-soft)',
+      };
+    };
+    const people = st.mode === 'people';
     const navGroups = [
-      { label: 'Position', items: [navItem('Brief', I.position, 'Position.dc.html', false), navItem('Strategy', I.strategy, 'Strategy.dc.html', true)] },
-      { label: 'Companies', items: [
-        navItem('In universe', I.globe, 'Position.dc.html?page=universe', false, st.counts.universe),
-        navItem('Shortlisted', I.star, 'Position.dc.html?page=shortlisted', false, st.counts.shortlisted),
-        navItem('Declined', I.close, 'Position.dc.html?page=declined', false, st.counts.declined),
+      { label: 'Position', items: [
+        navItem('Brief', I.position, 'Position.dc.html', false, undefined, 'brief'),
+        navItem('Strategy', I.strategy, 'Strategy.dc.html', true, undefined, 'strategy', [
+          navSub('Companies', I.building, 'Strategy.dc.html', !people),
+          navSub('People', I.candidates, 'Strategy.dc.html?mode=people', people),
+        ]),
       ] },
-      { label: 'People', items: [navItem('Outreach', I.outreach, 'Position.dc.html?page=outreach', false)] },
-      { label: 'Project', items: [navItem('Reports', I.reports, 'Position.dc.html?page=reports', false), navItem('Team & access', I.team, 'Position.dc.html?page=team', false)] },
+      { label: 'Companies', items: [
+        navItem('In universe', I.globe, 'Position.dc.html?page=universe', false, st.counts.universe, 'universe', [
+          navSub('Table', I.table, 'Position.dc.html?page=universe&view=table', false),
+          navSub('Map', I.mapPin, 'Position.dc.html?page=universe&view=map', false),
+          navSub('Pipeline', I.pipeline, 'Position.dc.html?page=universe&view=pipeline', false),
+        ]),
+        navItem('Shortlisted', I.star, 'Position.dc.html?page=shortlisted', false, st.counts.shortlisted, 'shortlisted'),
+        navItem('Declined', I.close, 'Position.dc.html?page=declined', false, st.counts.declined, 'declined'),
+      ] },
+      { label: 'People', items: [navItem('Outreach', I.outreach, 'Outreach.dc.html', false, undefined, 'outreach', [
+        navSub('Conversations', I.mail, 'Outreach.dc.html', false),
+        navSub('Sequences', I.listOrdered, 'Outreach.dc.html?page=sequence', false),
+      ])] },
+      { label: 'Project', items: [navItem('Reports', I.reports, 'Position.dc.html?page=reports', false, undefined, 'reports'), navItem('Team & access', I.team, 'Position.dc.html?page=team', false, undefined, 'team')] },
     ];
 
     const constrains = (r) => r !== null && (r.min !== null || r.max !== null);
@@ -1510,6 +1566,9 @@ class Component extends DCLogic {
         try { localStorage.setItem('lm-theme', dark ? 'dark' : 'light'); } catch (e) {}
         this.setState({ dark });
       },
+      toggleNav: (e) => this.setState({
+        navOpen: { ...this.state.navOpen, [e.currentTarget.dataset.id]: e.currentTarget.getAttribute('aria-expanded') !== 'true' },
+      }),
       toggleCollapse: () => {
         const next = !this.state.collapsed;
         try { localStorage.setItem('lm-side-collapsed', next ? '1' : '0'); } catch (e) {}

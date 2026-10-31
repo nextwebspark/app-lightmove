@@ -5,7 +5,8 @@ import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import { cn } from "../../../lib/cn";
 import { formatNumber } from "../../../lib/format";
 import type { TriageCompanyStatus } from "../../triage/api/types";
-import { TRIAGE_STAGES } from "../../triage/lib/triageStages";
+import { OFFERED_TRIAGE_STAGES, TRIAGE_STAGES } from "../../triage/lib/triageStages";
+import { isStageOffered } from "../../triage/lib/triageVocabulary";
 import { companyKey, type AssistantProposal, type ProposalOutcome, type ProposedCompany } from "../api/types";
 
 const STAGE_BY_STATUS = new Map(TRIAGE_STAGES.map((stage) => [stage.status, stage]));
@@ -66,6 +67,7 @@ export function AssistantProposalCard({
           const key = companyKey(company);
           const on = ticked.includes(key);
           const held = company.stage ? STAGE_BY_STATUS.get(company.stage) : undefined;
+          const namedStage = held && isStageOffered(held.status) ? held : undefined;
           return (
             <li
               key={key}
@@ -77,7 +79,13 @@ export function AssistantProposalCard({
               <SelectionCheckbox
                 checked={on}
                 disabled={Boolean(held)}
-                label={held ? `${company.companyName} is already ${held.label}` : `Include ${company.companyName}`}
+                label={
+                  namedStage
+                    ? `${company.companyName} is already ${namedStage.label}`
+                    : held
+                      ? `${company.companyName} is already in this mandate`
+                      : `Include ${company.companyName}`
+                }
                 onChange={() => toggle(key)}
               />
               <CompanyLogo name={company.companyName} logo={company.logoUrl} size={22} />
@@ -102,13 +110,13 @@ export function AssistantProposalCard({
                   )}
                   {held && (
                     <span
-                      title={`Already in this mandate as ${held.label}`}
+                      title={namedStage ? `Already in this mandate as ${namedStage.label}` : "Already in this mandate"}
                       className={cn(
                         "ms-1.5 rounded bg-u-raised px-1 py-px align-middle font-mono text-[9.5px] font-normal text-u-text2",
-                        held.status === "declined" && "text-u-offlimits",
+                        namedStage?.status === "declined" && "text-u-offlimits",
                       )}
                     >
-                      {held.label}
+                      {namedStage?.label ?? "In mandate"}
                     </span>
                   )}
                 </p>
@@ -127,7 +135,7 @@ export function AssistantProposalCard({
           {allHeld ? "All already in this mandate" : acceptCountLabel(ticked.length)}
         </p>
         <div className="flex flex-wrap items-center gap-1.5">
-          {TRIAGE_STAGES.map((stage) => (
+          {OFFERED_TRIAGE_STAGES.map((stage) => (
             <button
               key={stage.status}
               type="button"

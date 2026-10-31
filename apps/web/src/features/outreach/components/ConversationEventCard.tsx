@@ -5,6 +5,8 @@ import { Button, useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { saveBlob } from "../../../lib/saveBlob";
+import { NoteKindMark } from "../../candidates/components/NoteKindMark";
+import { isBrandMark } from "../../candidates/lib/noteKinds";
 import { formatBytes } from "../../candidates/lib/documents";
 import { ClampedNoteText } from "../../notes/components/ClampedNoteText";
 import { NoteReaderModal } from "../../notes/components/NoteReaderModal";
@@ -31,13 +33,18 @@ export function ConversationEventCard({
   viewerUserId: string | null;
 }) {
   const face = eventFaceOf(event, firstName, projectId);
+  const isBrand = event.type === "NOTE" && isBrandMark(event.note.kind);
   return (
     <li className="flex gap-3 rounded-u-chip border border-u-border bg-u-surface px-3.5 py-3">
       <span
         aria-hidden="true"
-        className={cn("grid size-6 flex-none place-items-center rounded-full bg-u-raised", TONE_TEXT[face.tone])}
+        className={cn(
+          "grid size-6 flex-none place-items-center rounded-full",
+          // A brand's mark is never set in a disc or toned: its slot keeps the size, so the cards still line up.
+          !isBrand && ["bg-u-raised", TONE_TEXT[face.tone]],
+        )}
       >
-        <Icon d={iconOf(event)} size={13} />
+        {event.type === "NOTE" ? <NoteKindMark kind={event.note.kind} size={13} /> : <Icon d={iconOf(event)} size={13} />}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-3">
@@ -208,14 +215,12 @@ function ScheduledLine({
   );
 }
 
-function iconOf(event: ConversationEvent): string {
+function iconOf(event: Exclude<ConversationEvent, { type: "NOTE" }>): string {
   switch (event.type) {
     case "MESSAGE":
       if (event.message.kind === "BOUNCE" || event.message.status === "FAILED") return ICONS.warning;
       if (event.message.status === "SCHEDULED") return ICONS.clock;
       return ICONS.mail;
-    case "NOTE":
-      return event.note.kind === "call" ? ICONS.phone : ICONS.fileText;
     case "MEETING":
       return ICONS.calendar;
     case "ACTIVITY":

@@ -35,14 +35,15 @@ class CandidateStatusChangeTest extends PipelineFlowSupport {
         JsonNode offLimits = add(projectId, """
                 {"fullName":"Rana Off Limits","status":"offLimits"}""");
         assertThat(offLimits.get("statusLabel").asText()).isEqualTo("Off-limits");
-        assertThat(offLimits.get("statusColour").asText()).isEqualTo("red");
-        assertThat(offLimits.at("/pipelineStage/key").asText()).isEqualTo("declined");
-        assertThat(offLimits.at("/pipelineStage/kind").asText()).isEqualTo("closed");
+        assertThat(offLimits.get("statusColour").asText()).isEqualTo("neutral");
+        assertThat(offLimits.get("statusOutOfProcess").asBoolean()).isTrue();
+        assertThat(offLimits.at("/pipelineStage/key").asText()).isEqualTo("identified");
 
         JsonNode filed = add(projectId, """
                 {"fullName":"No Status Given"}""");
         assertThat(filed.get("status").asText()).isEqualTo("identified");
         assertThat(filed.at("/pipelineStage/key").asText()).isEqualTo("identified");
+        assertThat(filed.get("statusOutOfProcess").asBoolean()).isFalse();
     }
 
     @Test
@@ -93,7 +94,7 @@ class CandidateStatusChangeTest extends PipelineFlowSupport {
         assertThat(line.at("/details/from").asText()).isEqualTo("identified");
         assertThat(line.at("/details/to").asText()).isEqualTo("contacted");
         assertThat(line.at("/details/fromLabel").asText()).isEqualTo("Identified");
-        assertThat(line.at("/details/toLabel").asText()).isEqualTo("Contacted");
+        assertThat(line.at("/details/toLabel").asText()).isEqualTo("Awaiting reply");
         assertThat(read(projectId, candidateId).get("statusLabel").asText()).isEqualTo("Approached");
     }
 
@@ -127,8 +128,8 @@ class CandidateStatusChangeTest extends PipelineFlowSupport {
         add(projectId, """
                 {"fullName":"Withdrew Person","status":"withdrew"}""");
 
-        assertThat(names(list(projectId, "pipelineStage", "declined")))
-                .containsExactlyInAnyOrder("Off Limits Person", "Withdrew Person");
+        assertThat(names(list(projectId, "pipelineStage", "identified")))
+                .containsExactlyInAnyOrder("Identified Person", "Off Limits Person");
         assertThat(names(list(projectId, "status", "withdrew"))).containsExactly("Withdrew Person");
         assertThat(mvc.perform(get(candidatesUrl(projectId)).param("pipelineStage", "nowhere")
                         .header("Authorization", "Bearer " + admin))
@@ -145,9 +146,9 @@ class CandidateStatusChangeTest extends PipelineFlowSupport {
         catalog = body(write(admin, "POST", PIPELINE + "/statuses", """
                 {"stageId":"%s","label":"Long list"}""".formatted(identifiedStage.get("id").asText())));
 
-        executiveAt(projectId, "Follow Up Co", "followUpSent");
+        executiveAt(projectId, "Follow Up Co", "callBeingArranged");
         executiveAt(projectId, "Contacted Co", "contacted");
-        executiveAt(projectId, "Researching Co", "researching");
+        executiveAt(projectId, "Researching Co", "source");
         executiveAt(projectId, "Long List Co", "longList");
 
         assertThat(rankedCompanies(projectId))

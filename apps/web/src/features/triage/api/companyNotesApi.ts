@@ -1,4 +1,5 @@
 import { request } from "../../../lib/apiClient";
+import type { PersonNoteKind } from "../../candidates/api/types";
 import type { NoteFormat } from "../../notes/lib/noteFormat";
 import { TRIAGE_KEY_PREFIX } from "./triageApi";
 
@@ -7,7 +8,8 @@ import { TRIAGE_KEY_PREFIX } from "./triageApi";
  * company drawer never asks. Keyed under the triage prefix, so whatever refreshes the grid refreshes these too.
  */
 
-export type CompanyNoteKind = "general" | "call" | "meeting" | "email";
+/** The same kinds a person's notes offer. */
+export type CompanyNoteKind = PersonNoteKind;
 
 export interface CompanyNote {
   id: string;

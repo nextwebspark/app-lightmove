@@ -58,6 +58,7 @@ class CandidateResponseMapper {
                 person.isLinkedinUrlLocked(),
                 candidate.getStatus().getLabel(),
                 candidate.getStatus().getColour().value(),
+                candidate.getStatus().isOutOfProcess(),
                 stageOf(candidate.getStatus()),
                 candidate.getStatusChangedAt(),
                 candidate.isClientVisible(),
@@ -67,7 +68,7 @@ class CandidateResponseMapper {
     static CandidatePipelineStageDto stageOf(CandidateStatusDefinition status) {
         CandidateStage stage = status.getStage();
         return new CandidatePipelineStageDto(stage.getStageKey(), stage.getLabel(), stage.getColour().value(),
-                stage.getKind().value(), stage.getPosition());
+                stage.getPosition());
     }
 
     static CandidateCompensationDto compensationOf(Person person) {

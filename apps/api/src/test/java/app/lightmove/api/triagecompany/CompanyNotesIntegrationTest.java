@@ -79,6 +79,18 @@ class CompanyNotesIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a LinkedIn exchange with a company is filed as its own kind")
+    void aLinkedInNoteKeepsItsKind() throws Exception {
+        firm("Company LinkedIn Note Firm");
+        String projectId = mandate("Head of Credit Risk");
+        String companyId = capture(projectId, "Harbour Ports", null);
+
+        write(admin, projectId, companyId, "linkedin", "Their talent lead replied on the company page", "plain");
+
+        assertThat(notes(admin, projectId, companyId).get(0).get("kind").asText()).isEqualTo("linkedin");
+    }
+
+    @Test
     @DisplayName("only the author or an admin changes, removes or restores a note; anyone on the team pins it")
     void onlyTheAuthorOrAnAdminChangesANote() throws Exception {
         firm("Company Note Owners Firm");

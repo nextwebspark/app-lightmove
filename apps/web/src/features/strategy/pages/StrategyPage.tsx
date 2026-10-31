@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { RowSelectionState } from "@tanstack/react-table";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { FullscreenButton } from "../../../components/ui";
@@ -15,10 +15,11 @@ import { hasRoomForRails } from "../../../lib/viewport";
 import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { LeaveGuard } from "../../../components/layout/LeaveGuard";
 import { useAutosave } from "../../../lib/useAutosave";
-import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
+import { FULLSCREEN_PANEL, hiddenBesideRail, useFullscreen } from "../../../lib/useFullscreen";
 import * as triageApi from "../../triage/api/triageApi";
 import type { TriageCompanyStatus } from "../../triage/api/types";
-import { TRIAGE_STAGES, stageByStatus } from "../../triage/lib/triageStages";
+import { OFFERED_TRIAGE_STAGES, stageByStatus } from "../../triage/lib/triageStages";
+import { isStageOffered } from "../../triage/lib/triageVocabulary";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
 import type {
@@ -39,7 +40,7 @@ import { FilterSidebar } from "../components/FilterSidebar";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { SelectionAction, SelectionActionBar } from "../../../components/ui/SelectionActionBar";
 import { StrategyToolbar } from "../components/StrategyToolbar";
-import { StrategyModeToggle, type StrategyMode } from "../components/StrategyModeToggle";
+import { StrategyModeToggle, type ModeToggle, type StrategyMode } from "../components/StrategyModeToggle";
 import { canExecuteProjectWork } from "../../projects/lib/access";
 import { PeopleStrategyEditor } from "./PeopleStrategyEditor";
 
@@ -79,7 +80,12 @@ export function StrategyPage() {
       },
       { replace: true },
     );
-  const toggle = canSearchPeople ? <StrategyModeToggle mode={mode} onChange={handleMode} /> : null;
+  // From lg the rail asks the same question, except in full screen, which covers it.
+  const toggle: ModeToggle | null = canSearchPeople
+    ? (isFullscreen) => (
+        <StrategyModeToggle mode={mode} onChange={handleMode} className={hiddenBesideRail(isFullscreen)} />
+      )
+    : null;
 
   // Keyed on the project so switching mandates remounts with that mandate's filter rather than
   // carrying the last one's draft across.
@@ -98,7 +104,7 @@ export function StrategyPage() {
  * left running would resolve after the invalidation and reinstate the pre-edit companies as fresh for
  * the whole staleTime.
  */
-function StrategyEditor({ toggle }: { toggle: ReactNode }) {
+function StrategyEditor({ toggle }: { toggle: ModeToggle | null }) {
   const { project } = useOutletContext<ProjectOutletContext>();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -335,7 +341,9 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
       toast(
         added.status === status
           ? `${company.companyName} added to ${stageByStatus(status).label}`
-          : `${company.companyName} is already in this mandate, at ${stageByStatus(added.status).label}`,
+          : isStageOffered(added.status)
+            ? `${company.companyName} is already in this mandate, at ${stageByStatus(added.status).label}`
+            : `${company.companyName} is already in this mandate`,
       );
     },
     onError: (error) => toast.error(messageFor(error)),
@@ -405,7 +413,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
     <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
       <LeaveGuard hasUnsavedChanges={autosave.hasUnsavedChanges} flush={autosave.flush} />
       <StrategyToolbar
-        leading={toggle}
+        leading={toggle?.(isFullscreen)}
         filter={filter}
         filterPending={!data}
         searches={(data?.searches ?? []).filter((search) => search.kind !== "PEOPLE")}
@@ -482,7 +490,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
               plural="companies"
               onClear={clearSelection}
             >
-              {TRIAGE_STAGES.map((stage) => (
+              {OFFERED_TRIAGE_STAGES.map((stage) => (
                 <SelectionAction
                   key={stage.status}
                   icon={stage.icon}

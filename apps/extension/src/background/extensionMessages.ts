@@ -1,10 +1,17 @@
 import type {
+  CandidateTag,
   CaptureCompanyRequest,
   CapturedCandidate,
+  HeldCandidate,
+  NoteRecord,
+  NoteTarget,
+  PersonTags,
+  PipelineCatalog,
   ProjectSummary,
   SaveCandidateRequest,
   TriagedCompany,
   WorkspaceUser,
+  WriteNotePayload,
 } from "../api/types";
 import type { ExtractedCompany } from "../content/pageReader/extractedCompany";
 import type { ExtractedPerson } from "../content/pageReader/extractedPerson";
@@ -30,6 +37,24 @@ export type ExtensionRequest =
   | { kind: "captureCandidate"; projectId: string; candidate: SaveCandidateRequest }
   | { kind: "rememberProject"; projectId: string }
   | { kind: "lastUsedProject" }
+  | { kind: "recentProjects" }
+  | { kind: "readPipeline" }
+  | { kind: "heldCandidate"; projectId: string; linkedinUrl: string }
+  | { kind: "heldCompany"; projectId: string; linkedinUrl: string | null; name: string | null }
+  | { kind: "readCandidate"; projectId: string; candidateId: string }
+  | { kind: "candidatePhoto"; projectId: string; candidateId: string }
+  | { kind: "changeCandidateStatus"; projectId: string; candidateId: string; status: string }
+  | { kind: "listNotes"; target: NoteTarget }
+  | { kind: "writeNote"; target: NoteTarget; note: WriteNotePayload }
+  | { kind: "reviseNote"; target: NoteTarget; noteId: string; note: WriteNotePayload }
+  | { kind: "removeNote"; target: NoteTarget; noteId: string }
+  | { kind: "restoreNote"; target: NoteTarget; noteId: string }
+  | { kind: "pinNote"; target: NoteTarget; noteId: string; pinned: boolean }
+  | { kind: "listCandidateTags" }
+  | { kind: "createCandidateTag"; label: string }
+  | { kind: "readPersonTags"; personId: string }
+  | { kind: "tagPerson"; personId: string; tagId: string }
+  | { kind: "untagPerson"; personId: string; tagId: string }
   | { kind: "removeTriageCompany"; projectId: string; triageCompanyId: string }
   | { kind: "removeCandidate"; projectId: string; candidateId: string }
   | { kind: "readSettings" }
@@ -80,6 +105,24 @@ export interface ExtensionReplies {
   captureCandidate: CapturedCandidate;
   rememberProject: null;
   lastUsedProject: string | null;
+  recentProjects: string[];
+  readPipeline: PipelineCatalog;
+  heldCandidate: HeldCandidate | null;
+  heldCompany: TriagedCompany | null;
+  readCandidate: CapturedCandidate;
+  candidatePhoto: string | null;
+  changeCandidateStatus: CapturedCandidate;
+  listNotes: NoteRecord[];
+  writeNote: NoteRecord;
+  reviseNote: NoteRecord;
+  removeNote: null;
+  restoreNote: NoteRecord;
+  pinNote: NoteRecord;
+  listCandidateTags: CandidateTag[];
+  createCandidateTag: CandidateTag;
+  readPersonTags: PersonTags;
+  tagPerson: PersonTags;
+  untagPerson: PersonTags;
   removeTriageCompany: null;
   removeCandidate: null;
   readSettings: CaptureSettings;

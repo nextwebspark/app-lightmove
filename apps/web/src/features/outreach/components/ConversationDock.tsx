@@ -7,12 +7,13 @@ import type { MailboxState } from "../lib/mailboxState";
 import { canEnrolFrom } from "../lib/runVocabulary";
 import { useComposerDialog } from "../lib/useComposerDialog";
 import type { MailboxConnect } from "../lib/useMailboxConnect";
+import { NoteKindMark } from "../../candidates/components/NoteKindMark";
 import { EnrolDialog } from "./EnrolDialog";
 import { NoteComposerModal } from "./NoteComposerModal";
 import { ReplyComposer } from "./ReplyComposer";
 
 /**
- * The foot of the conversation: Reply or Write email, Log call, Add note and Add to sequence, each opening its own
+ * The foot of the conversation: Reply or Write email, Log call, Log LinkedIn, Add note and Add to sequence, each opening its own
  * dialog over the history.
  */
 export function ConversationDock({
@@ -50,18 +51,21 @@ export function ConversationDock({
       aria-label="Conversation actions"
       className="flex flex-none flex-wrap items-center gap-1.5 border-t border-u-border bg-u-surface px-5 py-2.5"
     >
-      <DockButton icon={ICONS.mail} onClick={() => setIsEmailing(true)}>
+      <DockButton icon={<Icon d={ICONS.mail} size={14} />} onClick={() => setIsEmailing(true)}>
         {composer.replySubject !== null ? "Reply" : "Write email"}
       </DockButton>
-      <DockButton icon={ICONS.phone} onClick={() => setNoteKind("call")}>
+      <DockButton icon={<Icon d={ICONS.phone} size={14} />} onClick={() => setNoteKind("call")}>
         Log call
       </DockButton>
-      <DockButton icon={ICONS.pencil} onClick={() => setNoteKind("general")}>
+      <DockButton icon={<NoteKindMark kind="linkedin" size={14} />} onClick={() => setNoteKind("linkedin")}>
+        Log LinkedIn
+      </DockButton>
+      <DockButton icon={<Icon d={ICONS.pencil} size={14} />} onClick={() => setNoteKind("general")}>
         Add note
       </DockButton>
       {canEnrol && (
         <span className="ms-auto">
-          <DockButton icon={ICONS.outreach} onClick={() => setIsEnrolling(true)}>
+          <DockButton icon={<Icon d={ICONS.outreach} size={14} />} onClick={() => setIsEnrolling(true)}>
             Add to sequence
           </DockButton>
         </span>
@@ -106,14 +110,14 @@ export function ConversationDock({
   );
 }
 
-function DockButton({ icon, onClick, children }: { icon: string; onClick: () => void; children: ReactNode }) {
+function DockButton({ icon, onClick, children }: { icon: ReactNode; onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="inline-flex items-center gap-1.5 rounded-u-control border border-u-border-strong bg-u-surface px-3 py-1.5 text-note font-medium text-u-text2 transition hover:border-u-text3 hover:text-u-text"
     >
-      <Icon d={icon} size={14} />
+      {icon}
       {children}
     </button>
   );

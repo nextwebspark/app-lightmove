@@ -14,6 +14,10 @@ import { stubFullscreenApi } from "../../../test/fullscreen";
 import { NO_PEOPLE_FILTER } from "./PeopleStrategyEditor";
 import { StrategyPage } from "./StrategyPage";
 
+vi.mock("../../triage/lib/triageStages", async (importOriginal) =>
+  (await import("../../../test/shortlistAndDecline")).withShortlistAndDecline(await importOriginal()),
+);
+
 vi.mock("../../../lib/countries", () => import("../../../test/countries"));
 
 vi.mock("../api/strategyApi", async (importOriginal) => ({
@@ -1448,7 +1452,7 @@ describe("StrategyPage — full screen", () => {
     for (const control of ["Save Search", "Hide Filters", "AI Research", "Columns", "Add all to Universe →"]) {
       expect(screen.getByRole("button", { name: new RegExp(control) })).toBeInTheDocument();
     }
-    expect(screen.getByRole("textbox", { name: "Search companies" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Search companies" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Filters" })).toBeInTheDocument();
     expect(within(screen.getByRole("table", { name: "Companies" })).getByText("ACWA Power"))
       .toBeInTheDocument();

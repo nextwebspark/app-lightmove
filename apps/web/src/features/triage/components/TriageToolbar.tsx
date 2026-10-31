@@ -1,20 +1,18 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
+import {
+  TOOLBAR_OUTLINE,
+  TOOLBAR_PRIMARY,
+  TOOLBAR_ROW,
+  ToolbarDivider,
+  ToolbarSearch,
+} from "../../../components/ui/Toolbar";
 import { cn } from "../../../lib/cn";
+import { hiddenBesideRail } from "../../../lib/useFullscreen";
 import type { CompaniesView } from "../../talentmap/lib/useTalentMapPreferences";
-import { AdvancedMenu, type AdvancedMenuSection } from "./AdvancedMenu";
-
-const TOOLBAR_BUTTON =
-  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-u-border-strong bg-u-surface " +
-  "px-3 py-2 font-sans text-body font-medium text-u-text2 transition hover:border-u-text3 hover:text-u-text " +
-  "aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:border-u-border-strong aria-disabled:hover:text-u-text2";
-
-const VIEW_OPTIONS = {
-  table: { value: "table", label: "Table", icon: <Icon d={ICONS.table} size={13} /> },
-  map: { value: "map", label: "Map", icon: <Icon d={ICONS.globe} size={13} /> },
-  pipeline: { value: "pipeline", label: "Pipeline", icon: <Icon d={ICONS.pipeline} size={13} /> },
-} as const;
+import { COMPANIES_VIEW_LABELS } from "../lib/useCompaniesViews";
+import { AdvancedMenu, ToolbarMenu, type AdvancedMenuSection } from "./AdvancedMenu";
 
 /** A primary action the current view cannot take: still drawn where it always is, greyed, saying where it can. */
 export interface UnavailableAction {
@@ -23,8 +21,9 @@ export interface UnavailableAction {
 
 /**
  * The Companies stage toolbar (`Position.dc.html`): one search box whatever the view, the Table | Map |
- * Pipeline control where more than one view is offered, the three primary actions — which keep their
- * places in every view, greyed where the view cannot take them — and Advanced ▾ for everything else.
+ * Pipeline control where more than one view is offered, then Add to sequence and Send email, and — on Table
+ * and Map — Find executives, Advanced ▾ and Create ▾. The board needs nothing but the outreach pair: its own
+ * Inactive header folds Inactive, and companies are added and searched for executives from the grid.
  *
  * <p>"Add executive" maps someone with no company selected, so the row lands unmapped: the executive a
  * researcher met at a company this mandate never triaged. Adding someone <i>at</i> a company is that
@@ -37,11 +36,11 @@ export function TriageToolbar({
   views,
   view,
   onViewChange,
-  canWrite,
+  isFullscreen,
+  addToSequence,
+  sendEmail,
   findExecutives,
-  onAddExecutive,
-  onAddCompany,
-  addCompanyUnavailable,
+  create,
   advanced,
   advancedDot,
 }: {
@@ -52,86 +51,116 @@ export function TriageToolbar({
   views: readonly CompaniesView[];
   view: CompaniesView;
   onViewChange: (view: CompaniesView) => void;
-  /** False for a client representative, who reads these grids and writes nothing. */
-  canWrite: boolean;
+  /** Full screen covers the rail, so the toolbar's own view switch stands in for it. */
+  isFullscreen: boolean;
+  /** The ticked companies' or executives' people, enrolled; absent where outreach is not offered. */
+  addToSequence?: { onPress: () => void; unavailable?: UnavailableAction };
+  /** Write to anyone on the position; absent where outreach is not offered. */
+  sendEmail?: ReactNode;
   /** Find executives over the universe's companies; takes no second press while a run is in progress. */
   findExecutives?: {
     onPress: () => void;
     running: boolean;
     /** "3/5" while a run is in progress. */
     progress?: string;
-    unavailable?: UnavailableAction;
   };
-  onAddExecutive: () => void;
-  onAddCompany: () => void;
-  addCompanyUnavailable?: UnavailableAction;
-  advanced: AdvancedMenuSection[];
+  /** Create ▾; absent for a client representative, who writes nothing, and on the board. */
+  create?: { onAddExecutive: () => void; onAddCompany: () => void };
+  /** Advanced ▾; absent on the board. */
+  advanced?: AdvancedMenuSection[];
   /** Says a setting inside Advanced is on, such as hidden columns. */
   advancedDot?: string;
 }) {
-  return (
-    <div className="flex min-h-[52px] flex-none flex-wrap items-center gap-x-3 gap-y-2 border-b border-u-border bg-u-raised px-3 py-2 sm:px-5">
-      <label className="flex min-w-[200px] flex-[1_1_260px] items-center gap-2 rounded-md border border-u-border-strong bg-u-surface py-[7px] pl-3 pr-2.5 sm:max-w-[380px]">
-        <Icon d={ICONS.search} size={14} className="flex-none text-u-text3" />
-        <input
-          type="search"
-          value={search}
-          onChange={(event) => onSearch(event.target.value)}
-          placeholder={searchPlaceholder}
-          aria-label={searchPlaceholder}
-          className="w-full min-w-0 bg-transparent font-sans text-body text-u-text outline-none placeholder:text-u-text3 [&::-webkit-search-cancel-button]:hidden"
+  const groups = [
+    {
+      key: "outreach",
+      node: (addToSequence || sendEmail) && (
+        <>
+          {addToSequence && (
+            <ToolbarAction
+              icon={ICONS.outreach}
+              unavailable={addToSequence.unavailable}
+              onClick={addToSequence.onPress}
+              className={TOOLBAR_OUTLINE}
+            >
+              Add to sequence
+            </ToolbarAction>
+          )}
+          {sendEmail}
+        </>
+      ),
+    },
+    {
+      key: "grid",
+      node: (findExecutives || advanced) && (
+        <>
+          {findExecutives && (
+            <ToolbarAction
+              icon={ICONS.search}
+              pulsing={findExecutives.running}
+              busy={findExecutives.running}
+              title={
+                findExecutives.running
+                  ? "A run is in progress"
+                  : "Find executives at the ticked companies, or at the first ones with nobody mapped"
+              }
+              onClick={findExecutives.onPress}
+              className={TOOLBAR_PRIMARY}
+            >
+              {findExecutives.running
+                ? `Finding executives… ${findExecutives.progress ?? ""}`.trimEnd()
+                : "Find executives"}
+            </ToolbarAction>
+          )}
+          {advanced && <AdvancedMenu sections={advanced} dot={advancedDot} />}
+        </>
+      ),
+    },
+    {
+      key: "create",
+      node: create && (
+        <ToolbarMenu
+          label="Create"
+          icon={ICONS.plus}
+          width={240}
+          sections={[
+            {
+              label: "",
+              items: [
+                { key: "executive", label: "Add executive", icon: ICONS.userPlus, onSelect: create.onAddExecutive },
+                { key: "company", label: "Add company", icon: ICONS.plus, onSelect: create.onAddCompany },
+              ],
+            },
+          ]}
         />
-        {search && (
-          <button
-            type="button"
-            onClick={() => onSearch("")}
-            aria-label="Clear search"
-            className="grid size-5 flex-none place-items-center rounded text-u-text3 hover:bg-u-raised hover:text-u-text"
-          >
-            <Icon d={ICONS.close} size={12} />
-          </button>
-        )}
-      </label>
+      ),
+    },
+  ].filter((group) => group.node);
+  return (
+    <div className={TOOLBAR_ROW}>
+      <ToolbarSearch value={search} onChange={onSearch} label={searchPlaceholder} placeholder={searchPlaceholder} />
 
       {views.length > 1 && (
         <SegmentedControl
           label="View"
-          options={views.map((option) => VIEW_OPTIONS[option])}
+          options={views.map((option) => ({
+            value: option,
+            label: COMPANIES_VIEW_LABELS[option].label,
+            icon: <Icon d={COMPANIES_VIEW_LABELS[option].icon} size={13} />,
+          }))}
           value={view}
           onChange={onViewChange}
+          className={hiddenBesideRail(isFullscreen)}
         />
       )}
 
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-        {canWrite && (
-          <>
-            {findExecutives && (
-              <ToolbarAction
-                icon={ICONS.sparkle}
-                pulsing={findExecutives.running}
-                unavailable={findExecutives.unavailable}
-                busy={findExecutives.running}
-                title={
-                  findExecutives.running
-                    ? "A run is in progress"
-                    : "Find executives at the ticked companies, or at the first ones with nobody mapped"
-                }
-                onClick={findExecutives.onPress}
-              >
-                {findExecutives.running
-                  ? `Finding executives… ${findExecutives.progress ?? ""}`.trimEnd()
-                  : "Find executives"}
-              </ToolbarAction>
-            )}
-            <ToolbarAction icon={ICONS.userPlus} onClick={onAddExecutive}>
-              Add executive
-            </ToolbarAction>
-            <ToolbarAction icon={ICONS.plus} unavailable={addCompanyUnavailable} onClick={onAddCompany}>
-              Add company
-            </ToolbarAction>
-          </>
-        )}
-        <AdvancedMenu sections={advanced} dot={advancedDot} />
+        {groups.map((group, index) => (
+          <Fragment key={group.key}>
+            {index > 0 && <ToolbarDivider />}
+            {group.node}
+          </Fragment>
+        ))}
       </div>
     </div>
   );
@@ -144,6 +173,7 @@ function ToolbarAction({
   pulsing = false,
   title,
   onClick,
+  className,
   children,
 }: {
   icon: string;
@@ -152,6 +182,7 @@ function ToolbarAction({
   pulsing?: boolean;
   title?: string;
   onClick: () => void;
+  className: string;
   children: ReactNode;
 }) {
   const inert = Boolean(unavailable) || busy;
@@ -163,9 +194,9 @@ function ToolbarAction({
       aria-busy={busy || undefined}
       title={unavailable?.reason ?? title}
       onClick={inert ? undefined : onClick}
-      className={TOOLBAR_BUTTON}
+      className={className}
     >
-      <Icon d={icon} size={14} className={cn("flex-none", pulsing && "animate-pulse")} />
+      <Icon d={icon} size={15} className={cn("flex-none", pulsing && "animate-pulse")} />
       {children}
     </button>
   );

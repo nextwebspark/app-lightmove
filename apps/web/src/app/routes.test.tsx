@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +9,7 @@ import * as authApi from "../features/auth/api/authApi";
 import * as clientsApi from "../features/clients/api/clientsApi";
 import * as consentApi from "../features/oauth/api/oauthConsentApi";
 import * as projectsApi from "../features/projects/api/projectsApi";
+import * as talentMapApi from "../features/talentmap/api/talentMapApi";
 import * as templateAdminApi from "../features/templates/api/templateAdminApi";
 import * as triageApi from "../features/triage/api/triageApi";
 import * as workspaceApi from "../features/workspace/api/workspaceApi";
@@ -27,6 +28,10 @@ vi.mock("../features/clients/api/clientsApi", async (importOriginal) => ({
 vi.mock("../features/triage/api/triageApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../features/triage/api/triageApi")>()),
   getTriageCounts: vi.fn(),
+}));
+vi.mock("../features/talentmap/api/talentMapApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../features/talentmap/api/talentMapApi")>()),
+  getTalentMapConfig: vi.fn(),
 }));
 vi.mock("../features/templates/api/templateAdminApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../features/templates/api/templateAdminApi")>()),
@@ -541,5 +546,107 @@ describe("routes — back from a position", () => {
     expect(back).toHaveAttribute("href", "/all?stage=DELIVERED&q=cfo");
     expect(back).toHaveAttribute("title", "Back to All positions");
     expect(screen.getByRole("link", { name: "Positions" })).toHaveAttribute("href", "/all?stage=DELIVERED&q=cfo");
+  });
+});
+
+describe("routes — a position's views in the rail", () => {
+  const position = {
+    id: "p1",
+    clientId: "c1",
+    clientName: "Beta Client",
+    clientLogoUrl: null,
+    positionTitle: "CFO Search",
+    stage: "DELIVERED" as const,
+    health: "OK" as const,
+    targetDate: null,
+    projectType: "SEARCH" as const,
+    startDate: null,
+    deliveryDate: null,
+    mappingTargetDate: null,
+    team: [],
+    representatives: [],
+    companies: 0,
+    candidates: 0,
+    mappedCandidates: 0,
+    engagedCandidates: 0,
+    mappedCompanies: 0,
+    createdAt: "2026-07-13T10:00:00Z",
+    archivedAt: null,
+    archivedByName: null,
+  };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    localStorage.clear();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
+    vi.mocked(clientsApi.clients).mockResolvedValue([]);
+    vi.mocked(workspaceApi.members).mockResolvedValue([]);
+    vi.mocked(projectsApi.projects).mockResolvedValue([position]);
+    vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue({ enabled: true, publicToken: "pk.test" });
+  });
+
+  const rail = async () => within(await screen.findByRole("navigation", { name: "Main" }));
+
+  it("lists In universe alone under Market mapping while Shortlisted and Declined are off", async () => {
+    renderAt("/projects/p1/team");
+    const nav = await rail();
+
+    expect(nav.getByRole("link", { name: /In universe/ })).toBeInTheDocument();
+    expect(nav.queryByRole("link", { name: /Shortlisted/ })).not.toBeInTheDocument();
+    expect(nav.queryByRole("link", { name: /Declined/ })).not.toBeInTheDocument();
+  });
+
+  it("nests Strategy's, In universe's and Outreach's views for staff, each a link to its own reading", async () => {
+    renderAt("/projects/p1/team");
+    const nav = await rail();
+
+    await userEvent.click(nav.getByRole("button", { name: "Strategy views" }));
+    const strategy = nav.getByRole("group", { name: "Strategy" });
+    expect(within(strategy).getByRole("link", { name: "People" })).toHaveAttribute("href", "/projects/p1/strategy?mode=people");
+
+    await userEvent.click(nav.getByRole("button", { name: "In universe views" }));
+    const universe = nav.getByRole("group", { name: "In universe" });
+    expect(await within(universe).findByRole("link", { name: "Map" })).toHaveAttribute(
+      "href",
+      "/projects/p1/companies/universe?view=map",
+    );
+    expect(within(universe).getByRole("link", { name: "Pipeline" })).toBeInTheDocument();
+
+    await userEvent.click(nav.getByRole("button", { name: "Outreach views" }));
+    expect(within(nav.getByRole("group", { name: "Outreach" })).getByRole("link", { name: "Sequences" })).toHaveAttribute(
+      "href",
+      "/projects/p1/outreach/sequences",
+    );
+  });
+
+  it("gives a client seat neither People nor the pipeline", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["CLIENT"]));
+    renderAt("/projects/p1/team");
+    const nav = await rail();
+
+    expect(nav.queryByRole("button", { name: "Strategy views" })).not.toBeInTheDocument();
+    await userEvent.click(await nav.findByRole("button", { name: "In universe views" }));
+    const universe = nav.getByRole("group", { name: "In universe" });
+    expect(await within(universe).findByRole("link", { name: "Map" })).toBeInTheDocument();
+    expect(within(universe).queryByRole("link", { name: "Pipeline" })).not.toBeInTheDocument();
+  });
+
+  it("marks the view In universe opened on, the remembered one included", async () => {
+    localStorage.setItem("lm.companies.map.p1", JSON.stringify({ view: "map" }));
+    renderAt("/projects/p1/companies/universe");
+    const nav = await rail();
+
+    const universe = await nav.findByRole("group", { name: "In universe" });
+    expect(await within(universe).findByRole("link", { name: "Map" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("keeps Sequences marked inside the sequence editor", async () => {
+    renderAt("/projects/p1/outreach/sequences/s1");
+    const nav = await rail();
+
+    const outreach = await nav.findByRole("group", { name: "Outreach" });
+    expect(within(outreach).getByRole("link", { name: "Sequences" })).toHaveAttribute("aria-current", "page");
+    expect(within(outreach).getByRole("link", { name: "Conversations" })).not.toHaveAttribute("aria-current");
   });
 });

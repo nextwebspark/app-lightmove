@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { buttonClassName, EmptyState } from "../../../components/ui";
+import { buttonClassName, EmptyState, ToolbarSearch } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { useProjectStream } from "../../../lib/useProjectStream";
 import { hasRoomForRails } from "../../../lib/viewport";
@@ -15,7 +15,7 @@ import type { ConversationList, ConversationScope, ConversationView } from "../a
 import { ConversationListPane } from "../components/ConversationListPane";
 import { CONVERSATION_REFRESH_MS, ConversationPane } from "../components/ConversationPane";
 import { MailboxBanner } from "../components/MailboxBanner";
-import { MailboxChip } from "../components/MailboxChip";
+import { MailboxChip, mailboxChipShows } from "../components/MailboxChip";
 import { MailboxSetupCard } from "../components/MailboxSetupCard";
 import { NewEmailButton } from "../components/NewEmailButton";
 import { OutreachHeader } from "../components/OutreachHeader";
@@ -152,10 +152,33 @@ export function OutreachPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <h1 className="sr-only">Outreach</h1>
-      <OutreachHeader projectId={project.id} section="conversations">
-        <MailboxChip state={mailboxState} connector={connector} onAsked={() => void mailbox.refetch()} />
-        <NewEmailButton projectId={project.id} mailbox={mailboxState} connector={connector} onPick={openToWrite} />
-      </OutreachHeader>
+      <OutreachHeader
+        projectId={project.id}
+        section="conversations"
+        search={
+          <ToolbarSearch
+            value={searchText}
+            onChange={setSearchText}
+            label="Search people or emails"
+            placeholder="Search people or emails…"
+            maxLength={100}
+            className={candidateId ? "hidden lg:flex" : undefined}
+          />
+        }
+        chip={
+          mailboxChipShows(mailboxState) && (
+            <MailboxChip state={mailboxState} connector={connector} onAsked={() => void mailbox.refetch()} />
+          )
+        }
+        action={
+          <NewEmailButton
+            projectId={project.id}
+            mailbox={mailboxState}
+            connector={connector}
+            onPick={(recipient) => openToWrite(recipient.candidateId)}
+          />
+        }
+      />
       <MailboxBanner state={mailboxState} connector={connector} />
 
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[clamp(260px,24vw,336px)_minmax(0,1fr)] xl:grid-cols-[clamp(260px,24vw,336px)_minmax(420px,1fr)_clamp(260px,22vw,320px)]">
@@ -167,7 +190,6 @@ export function OutreachPage() {
             list={list}
             selectedCandidateId={candidateId}
             onViewChange={showView}
-            onQueryChange={setSearchText}
             onWhoChange={showScope}
             onSelect={openToRead}
           />
