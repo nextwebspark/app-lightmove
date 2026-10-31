@@ -19,6 +19,8 @@ export interface WorkspaceUser {
   id: string;
   fullName: string;
   email: string;
+  /** The identity provider's picture, if they signed in with one; absent from a session stored before it was kept. */
+  avatarUrl?: string | null;
   /** The workspace the extension is paired into; everything it files lands there. */
   workspace?: { id: string; name: string } | null;
 }

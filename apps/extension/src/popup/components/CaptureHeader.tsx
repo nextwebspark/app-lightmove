@@ -1,5 +1,5 @@
 import type { WorkspaceUser } from "../../api/types";
-import { BrandMark, InitialsAvatar } from "./PopupChrome";
+import { BrandMark, UserAvatar } from "./PopupChrome";
 import { ICONS } from "../lib/icons";
 import { Icon } from "./Icon";
 
@@ -30,7 +30,7 @@ export function CaptureHeader({ user, onOpenSettings, onSignOut }: CaptureHeader
           title={`${user.fullName} · ${user.email} — sign out of the extension`}
           className="rounded-full focus:outline-none focus:ring-1 focus:ring-u-accent"
         >
-          <InitialsAvatar name={user.fullName} />
+          <UserAvatar name={user.fullName} src={user.avatarUrl} />
         </button>
       )}
     </header>
