@@ -59,9 +59,6 @@ export function TwoFactorCard({
 
   const enabled = status.data?.enabled ?? false;
   const canTurnOn = !!status.data?.offered;
-  const requiredBy = status.data?.requiredBy ?? [];
-  // Turning it off while a workspace requires it would only send them straight back to set it up.
-  const lockedOn = enabled && !!status.data?.offered && requiredBy.length > 0;
 
   return (
     <div className="rounded-[10px] border border-u-border bg-u-raised p-5">
@@ -78,7 +75,7 @@ export function TwoFactorCard({
         )}
         <Toggle
           checked={enabled}
-          disabled={!status.isSuccess || (!enabled && !canTurnOn) || lockedOn}
+          disabled={!status.isSuccess || (!enabled && !canTurnOn)}
           label="Two-factor authentication"
           onChange={() => setOpenDialog(enabled ? "disable" : "enable")}
         />
@@ -86,10 +83,6 @@ export function TwoFactorCard({
 
       {status.isError && (
         <p className="mt-3 font-mono text-meta text-u-text3">Couldn't load your two-factor settings.</p>
-      )}
-
-      {lockedOn && (
-        <p className="mt-3 font-mono text-meta text-u-text3">Required by {requiredBy.join(", ")}.</p>
       )}
 
       {status.isSuccess && enabled && (

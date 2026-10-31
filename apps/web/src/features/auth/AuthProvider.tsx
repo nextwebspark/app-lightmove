@@ -11,7 +11,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  onRequestRefused,
   onSessionExpired,
   onWorkspaceMoved,
   restoreSession,
@@ -159,26 +158,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
     });
   }, [startFreshSession]);
-
-  /**
-   * A workspace's admin may require two-factor authentication while someone is in it. Their next request is refused
-   * as owing it, and reading who they are again carries the flag the router sends them to set it up on.
-   */
-  const rereadingUser = useRef(false);
-  useEffect(
-    () =>
-      onRequestRefused((error) => {
-        if (error.code !== "MFA_ENROLMENT_REQUIRED" || rereadingUser.current) return;
-        rereadingUser.current = true;
-        authApi
-          .me()
-          .then(setUser, () => undefined)
-          .finally(() => {
-            rereadingUser.current = false;
-          });
-      }),
-    [],
-  );
 
   /**
    * Other tabs share the refresh cookie, so a switch here moves them too — at their next refresh, up to

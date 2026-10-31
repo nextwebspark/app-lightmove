@@ -17,7 +17,6 @@ import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.service.CurrentPasswordCheck;
 import app.lightmove.api.core.security.token.ActiveSessionService;
 import app.lightmove.api.core.security.token.RevokeReason;
-import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.core.security.token.Tokens;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
@@ -31,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Settings → Security's two-factor card: set up, turn on, turn off, new recovery codes. Each change asks for the
  * current password, where the account has one, and a code, and ends every other session of the person's, as a
- * password change does. Also a workspace admin's reset, which ends all of them.
+ * password change does.
  */
 @Service
 @Slf4j
@@ -47,8 +46,6 @@ public class MfaService {
     private final MfaCodeVerifier codes;
     private final SecretCipher cipher;
     private final ActiveSessionService sessions;
-    private final TokenService tokens;
-    private final MfaPolicy policy;
     private final AuditService audit;
     private final EmailSender emailSender;
     private final EmailTemplates templates;
@@ -58,8 +55,8 @@ public class MfaService {
     public MfaService(AuthenticationService authentication, CurrentPasswordCheck currentPasswordCheck,
                       MfaFactorRepository factors, MfaRecoveryCodeRepository recoveryCodes,
                       MfaChallengeService challenges, MfaCodeVerifier codes, SecretCipher cipher,
-                      ActiveSessionService sessions, TokenService tokens, MfaPolicy policy, AuditService audit,
-                      EmailSender emailSender, EmailTemplates templates, LightMoveProperties properties) {
+                      ActiveSessionService sessions, AuditService audit, EmailSender emailSender,
+                      EmailTemplates templates, LightMoveProperties properties) {
         this.authentication = authentication;
         this.currentPasswordCheck = currentPasswordCheck;
         this.factors = factors;
@@ -68,8 +65,6 @@ public class MfaService {
         this.codes = codes;
         this.cipher = cipher;
         this.sessions = sessions;
-        this.tokens = tokens;
-        this.policy = policy;
         this.audit = audit;
         this.emailSender = emailSender;
         this.templates = templates;
@@ -77,8 +72,9 @@ public class MfaService {
         this.webBaseUrl = properties.web().baseUrl();
     }
 
+    /** Offered only where it is switched on and the secret can be kept encrypted. */
     public boolean isOffered() {
-        return policy.isOffered();
+        return config.enabled() && cipher.isAvailable();
     }
 
     @Transactional(readOnly = true)
@@ -88,8 +84,7 @@ public class MfaService {
                 isOffered(),
                 enabled.isPresent(),
                 enabled.map(MfaFactor::getEnabledAt).orElse(null),
-                enabled.isPresent() ? recoveryCodes.countByUserIdAndUsedAtIsNull(userId) : 0,
-                policy.workspacesRequiring(userId));
+                enabled.isPresent() ? recoveryCodes.countByUserIdAndUsedAtIsNull(userId) : 0);
     }
 
     /**
@@ -144,18 +139,12 @@ public class MfaService {
         return new RecoveryCodesResponse(issued);
     }
 
-    /**
-     * Never gated on {@link #isOffered}: a person who has it can turn it off — unless a workspace they belong to
-     * requires it, which would only send them straight back to set it up again.
-     */
+    /** Never gated on {@link #isOffered}: a person who has it can always turn it off. */
     @Transactional
     public void disable(UUID userId, String currentPassword, String code, String presentedRefreshToken,
                         HttpServletRequest request) {
         User user = authentication.requireUser(userId);
         UUID keptFamilyId = sessions.requireCurrentFamily(userId, presentedRefreshToken);
-        if (policy.isOffered() && !policy.workspacesRequiring(userId).isEmpty()) {
-            throw ApiException.of(ErrorCode.MFA_REQUIRED_BY_WORKSPACE);
-        }
         requirePasswordWhereHeld(user, currentPassword, AuthEventType.MFA_DISABLED, request);
         MfaFactor factor = requireEnabledFactor(userId);
         requireCode(factor, code, Instant.now(), AuthEventType.MFA_DISABLED, request);
@@ -185,30 +174,6 @@ public class MfaService {
 
         audit.event(AuthEventType.MFA_RECOVERY_CODES_REGENERATED).actor(userId).from(request).record();
         return new RecoveryCodesResponse(issued);
-    }
-
-    /**
-     * A workspace admin takes a member's factor away, for a member who lost their phone and their codes. Every one
-     * of the member's sessions ends, so whoever holds one signs in again — and, where a workspace requires it, sets
-     * a factor up before reading anything. Who may ask, and for whom, is the workspace's to decide before calling.
-     */
-    @Transactional
-    public void resetByAdmin(UUID adminId, UUID workspaceId, String workspaceName, UUID memberUserId,
-                             HttpServletRequest request) {
-        User member = authentication.requireUser(memberUserId);
-        MfaFactor factor = requireEnabledFactor(memberUserId);
-
-        challenges.clearFor(memberUserId);
-        recoveryCodes.deleteByUserId(memberUserId);
-        factors.delete(factor);
-        tokens.revokeAllSessions(memberUserId, RevokeReason.ADMIN_REVOKED);
-
-        log.info("Two-factor authentication reset for user {} by {} in workspace {}", memberUserId, adminId,
-                workspaceId);
-        audit.event(AuthEventType.MFA_RESET_BY_ADMIN).actor(adminId).workspace(workspaceId)
-                .target("user", memberUserId).from(request).record();
-        emailSender.send(templates.buildTwoFactorResetEmail(
-                member.getEmail(), member.getFullName(), workspaceName, webBaseUrl + "/login"));
     }
 
     /**

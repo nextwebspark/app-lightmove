@@ -85,7 +85,6 @@ describe("SignupPage", () => {
         timezone: "Asia/Dubai",
         locale: "en",
         platformActions: [],
-        twoFactorEnrolmentRequired: false,
         pendingInvitations: [],
   workspaces: [],
         workspace: null,

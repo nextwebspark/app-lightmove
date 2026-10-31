@@ -322,50 +322,6 @@
               </div>
             </div>
 
-            <!-- #1082: an admin's requirement that every member, clients included, holds two-factor; who has it; and a
-                 reset for a member who lost it (never the admin's own, never a member also in another workspace). -->
-            <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
-              <div style="margin-bottom:16px;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
-                <div style="display:flex;align-items:center;gap:12px">
-                  <div style="flex:1">
-                    <div style="font:600 13px var(--sans)">Require two-factor authentication</div>
-                    <div style="margin-top:3px;font:400 11.5px var(--mono);color:var(--text3)">Everyone in this workspace, clients included, sets it up before they can open anything.</div>
-                  </div>
-                  <button role="switch" aria-checked="true" aria-label="Require two-factor authentication" style="position:relative;height:18px;width:32px;flex:none;border-radius:999px;border:none;padding:0;background:var(--sky);cursor:pointer">
-                    <span style="position:absolute;left:16px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff"></span>
-                  </button>
-                </div>
-                <div style="margin-top:16px;border-top:1px solid var(--line-soft);padding-top:12px">
-                  <div style="margin-bottom:8px;font:400 11px var(--mono);color:var(--text3)">2 of 3 members have it on</div>
-                  <div style="display:flex;align-items:center;gap:12px;padding:6px 0">
-                    <span style="display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--panel);font:600 10px var(--sans);color:var(--text2)">SG</span>
-                    <div style="flex:1;min-width:0">
-                      <div style="font:400 12px var(--sans);color:var(--text)">Sara Ghanem (you)</div>
-                      <div style="font:400 11px var(--mono);color:var(--text3)">sara@firm.example</div>
-                    </div>
-                    <span style="font:400 11px var(--mono);color:var(--text3)">On since 1 Oct 2026</span>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:12px;padding:6px 0">
-                    <span style="display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--panel);font:600 10px var(--sans);color:var(--text2)">OK</span>
-                    <div style="flex:1;min-width:0">
-                      <div style="font:400 12px var(--sans);color:var(--text)">Omar Khalil</div>
-                      <div style="font:400 11px var(--mono);color:var(--text3)">omar@firm.example</div>
-                    </div>
-                    <span style="font:400 11px var(--mono);color:var(--text3)">On since 2 Oct 2026</span>
-                    <button style="border-radius:6px;padding:4px 8px;font:500 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Reset</button>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:12px;padding:6px 0">
-                    <span style="display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--panel);font:600 10px var(--sans);color:var(--text2)">RC</span>
-                    <div style="flex:1;min-width:0">
-                      <div style="font:400 12px var(--sans);color:var(--text)">Rana Client</div>
-                      <div style="font:400 11px var(--mono);color:var(--text3)">rana@client.example</div>
-                    </div>
-                    <span style="font:400 11px var(--mono);color:var(--text3)">Off</span>
-                  </div>
-                </div>
-              </div>
-            </sc-if>
-
             <div style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
               <div style="margin-bottom:12px;display:flex;align-items:center">
                 <div style="font:600 13px var(--sans)">Active sessions</div>

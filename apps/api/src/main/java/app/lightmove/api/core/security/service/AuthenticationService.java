@@ -9,7 +9,6 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.constant.PrivacyPolicy;
 import app.lightmove.api.core.security.constant.UserStatus;
-import app.lightmove.api.core.security.mfa.MfaPolicy;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.SignInOutcome;
 import app.lightmove.api.core.security.model.SignupCommand;
@@ -48,14 +47,13 @@ public class AuthenticationService {
     private final AuditService audit;
     private final LoginLockout lockout;
     private final SignInCompletion signIn;
-    private final MfaPolicy mfaPolicy;
     private final AuthSettings config;
 
     public AuthenticationService(UserRepository users, UserIdentityRepository identities,
                                  WorkspaceSelection selection, PasswordPolicy passwords,
                                  TokenService tokens, VerificationService verification,
                                  EmailAddressValidator emailValidator, RateLimitGuard rateLimit,
-                                 AuditService audit, LoginLockout lockout, SignInCompletion signIn, MfaPolicy mfaPolicy,
+                                 AuditService audit, LoginLockout lockout, SignInCompletion signIn,
                                  LightMoveProperties properties) {
         this.users = users;
         this.identities = identities;
@@ -68,7 +66,6 @@ public class AuthenticationService {
         this.audit = audit;
         this.lockout = lockout;
         this.signIn = signIn;
-        this.mfaPolicy = mfaPolicy;
         this.config = properties.auth();
     }
 
@@ -288,16 +285,10 @@ public class AuthenticationService {
     @Transactional
     public AuthenticatedSession pairExtension(UUID userId, UUID pairedWorkspaceId, HttpServletRequest request) {
         User user = requireUser(userId);
-        Optional<WorkspaceMember> membership = selection.select(user, pairedWorkspaceId);
-        // The pairing route is on the auth chain, which the enrolment gate does not cover: a session that may read
-        // nothing of its workspace must not mint a fourteen-day credential into it either.
-        if (membership.filter(member -> mfaPolicy.owesEnrolment(userId, member.getWorkspaceId())).isPresent()) {
-            throw ApiException.of(ErrorCode.MFA_ENROLMENT_REQUIRED);
-        }
         tokens.revokeSessionsForClient(userId, SessionClient.BROWSER_EXTENSION, RevokeReason.SUPERSEDED);
 
         // Into the web session's workspace, which the extension's family then keeps: a web switch moves nothing.
-        AuthenticatedSession paired = tokens.issue(user, membership.orElse(null),
+        AuthenticatedSession paired = tokens.issue(user, selection.select(user, pairedWorkspaceId).orElse(null),
                 request, SessionClient.BROWSER_EXTENSION);
 
         audit.event(AuthEventType.EXTENSION_PAIRED).actor(userId).from(request).record();

@@ -1,6 +1,5 @@
 package app.lightmove.api.core.security.apikey;
 
-import app.lightmove.api.core.security.mfa.MfaPolicy;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.service.ClientIpResolver;
@@ -29,7 +28,6 @@ public class ApiKeyIntrospector implements OpaqueTokenIntrospector {
 
     private final ApiKeyRepository keys;
     private final WorkspaceAccess access;
-    private final MfaPolicy mfaPolicy;
     private final PublicApiBudget budget;
     private final ClientIpResolver clientIps;
     private final Clock clock;
@@ -61,11 +59,8 @@ public class ApiKeyIntrospector implements OpaqueTokenIntrospector {
     }
 
     private boolean ownerStillEntitled(ApiKey key) {
-        // A personal key reads as its owner does, so it stops where their session would: a workspace requiring a
-        // factor they have not set up.
         return key.getKind() == ApiKeyKind.SERVICE
-                || (access.holdsAction(key.getOwnerUserId(), key.getWorkspaceId(), WorkspaceAction.API_KEY_MANAGE)
-                && !mfaPolicy.owesEnrolment(key.getOwnerUserId(), key.getWorkspaceId()));
+                || access.holdsAction(key.getOwnerUserId(), key.getWorkspaceId(), WorkspaceAction.API_KEY_MANAGE);
     }
 
     private String currentIp() {

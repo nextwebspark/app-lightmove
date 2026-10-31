@@ -8,7 +8,6 @@ import app.lightmove.api.workspace.dto.DeleteWorkspaceRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceCalendarSyncRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceModeRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspacePersonaRequest;
-import app.lightmove.api.workspace.dto.UpdateWorkspaceRequireMfaRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceSettingsRequest;
 import app.lightmove.api.workspace.dto.WorkspaceCompanyResponse;
 import app.lightmove.api.workspace.dto.WorkspaceResponse;
@@ -86,16 +85,6 @@ public class WorkspaceController {
                 principal.userId(), principal.requireWorkspaceId(), request.calendarSync(), httpRequest));
     }
 
-    /** Settings → Security: whether every member must hold a two-factor factor. */
-    @PutMapping("/require-mfa")
-    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
-    public WorkspaceResponse changeRequireMfa(@AuthenticationPrincipal AuthPrincipal principal,
-                                              @Valid @RequestBody UpdateWorkspaceRequireMfaRequest request,
-                                              HttpServletRequest httpRequest) {
-        return toResponse(settings.changeRequireMfa(
-                principal.userId(), principal.requireWorkspaceId(), request.required(), httpRequest));
-    }
-
     @DeleteMapping
     @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -109,7 +98,7 @@ public class WorkspaceController {
     private WorkspaceResponse toResponse(WorkspaceDetail detail) {
         Workspace ws = detail.workspace();
         return new WorkspaceResponse(ws.getId(), ws.getName(), ws.getSlug(), ws.getLogoMark(),
-                ws.getEmailDomain(), ws.getMode(), ws.getCalendarSync(), ws.isRequireMfa(), ws.getDefaultRegion(),
+                ws.getEmailDomain(), ws.getMode(), ws.getCalendarSync(), ws.getDefaultRegion(),
                 ws.getDefaultCurrency(), ws.getPlan(),
                 detail.memberCount(), ws.getCreatedAt(), ws.getPersona(),
                 WorkspaceCompanyResponse.of(ws.getCompany()));

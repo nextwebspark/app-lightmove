@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -56,7 +56,6 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[], mode: "AGENCY" | "CO
   timezone: "Asia/Dubai",
   locale: "en",
   platformActions: [],
-  twoFactorEnrolmentRequired: false,
   pendingInvitations: [],
   workspaces: [],
   workspace: {
@@ -83,7 +82,6 @@ const unverifiedUser = () => ({
   timezone: "Asia/Dubai",
   locale: "en",
   platformActions: [],
-  twoFactorEnrolmentRequired: false,
   pendingInvitations: [],
   workspaces: [],
   workspace: null,
@@ -145,58 +143,6 @@ describe("routes — the verification gate", () => {
     await waitFor(() =>
       expect(screen.getByTestId("pathname").textContent).toBe("/signup/workspace"),
     );
-  });
-});
-
-/**
- * A workspace that requires two-factor authentication refuses every read to a member without it, so the router sends
- * them to set it up first — from any address, keeping where they were headed for after.
- */
-describe("routes — a workspace that requires two-factor authentication", () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
-    vi.mocked(restoreSession).mockResolvedValue("token");
-    vi.mocked(projectsApi.projects).mockResolvedValue([]);
-  });
-
-  it("sends a member who has not set it up to set it up, keeping the destination", async () => {
-    vi.mocked(authApi.me).mockResolvedValue({ ...userWith(["MEMBER"]), twoFactorEnrolmentRequired: true });
-
-    renderAt("/clients");
-
-    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/two-factor/setup"));
-    expect(screen.getByTestId("from").textContent).toBe("/clients");
-    expect(await screen.findByRole("button", { name: "Set up two-factor authentication" })).toBeInTheDocument();
-    expect(screen.getByText(/Meridian requires two-factor authentication/)).toBeInTheDocument();
-  });
-
-  it("sets it up there, shows the recovery codes once, then opens where they were headed", async () => {
-    const owed = { ...userWith(["MEMBER"]), twoFactorEnrolmentRequired: true };
-    vi.mocked(authApi.me).mockResolvedValueOnce(owed).mockResolvedValue(userWith(["MEMBER"]));
-    vi.mocked(authApi.startMfaSetup).mockResolvedValue({ secret: "JBSWY3DPEHPK3PXP", otpauthUri: "otpauth://totp/x" });
-    vi.mocked(authApi.enableMfa).mockResolvedValue({ recoveryCodes: ["AAAA-BBBB-CCCC-DDDD"] });
-    vi.mocked(clientsApi.clients).mockResolvedValue([]);
-    const user = userEvent.setup();
-
-    renderAt("/clients");
-
-    await user.click(await screen.findByRole("button", { name: "Set up two-factor authentication" }));
-    const dialog = await screen.findByRole("dialog", { name: /turn on two-factor/i });
-    await user.type(await within(dialog).findByLabelText(/current password/i), "secret123");
-    await user.type(within(dialog).getByLabelText(/code from your app/i), "123456");
-    await user.click(within(dialog).getByRole("button", { name: "Turn on" }));
-    await user.click(await screen.findByRole("button", { name: /saved them/i }));
-
-    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/clients"));
-    expect(authApi.enableMfa).toHaveBeenCalledWith({ currentPassword: "secret123", code: "123456" });
-  });
-
-  it("sends someone with nothing owed on from the setup page to where they belong", async () => {
-    vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));
-
-    renderAt("/two-factor/setup");
-
-    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/"));
   });
 });
 
@@ -357,7 +303,6 @@ describe("routes — the settings gates", () => {
       logoMark: "M",
       mode: "COMPANY" as const,
       calendarSync: "RECALL" as const,
-      requireMfa: false,
       emailDomain: "firm.example",
       defaultRegion: "GCC",
       defaultCurrency: "USD",

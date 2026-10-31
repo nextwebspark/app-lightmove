@@ -952,7 +952,6 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **An API key reaches only `/api/v1/public/**`**, and `/api/v1/mcp` once it holds `mcp:use`; read-only, and never more than its scopes ∩ its owner's live permissions — re-read every call; a session token opens neither.
 - **Auth errors are deliberately vague** — one sentence, one timing, for every password-login failure.
 - **Two-factor is the person's, and every sign-in door asks `SignInCompletion`** — a right password, reset link or provider sign-in (the OAuth callback answers `?challenge=two-factor`, no token) from a factor holder earns the `lm_mfa_challenge` cookie, never a session; only the right code clears the lock.
-- **A workspace that requires two-factor reads nothing to a member without it** — `MfaPolicy.owesEnrolment`, re-read every request, gates `apiChain` (403 `MFA_ENROLMENT_REQUIRED`; `/auth/**` stays open for enrolment), extension pairing, MCP consent and calls, and personal API keys; pure clients included.
 
 ## Database
 
@@ -1341,15 +1340,9 @@ replay guard), `app_lm_user_mfa_recovery_code` (SHA-256 per code, spent by a con
 `app_lm_mfa_challenge` (a right password's single-use challenge, hashed), and adds `MFA_CHANGED` to the refresh token's
 revoke reasons. Account data, keyed on the user, never a workspace. Offered only where `lightmove.auth.mfa.enabled` and a
 keyset are both set; off in deployments until its rollout.
-V163 adds `app_lm_workspace.require_mfa` (#1082): every member, pure clients included, must hold an enabled factor to
-read the workspace. Set by an admin in Settings → Security (`PUT /workspace/require-mfa`, `WORKSPACE_MANAGE`, audited as a
-`requireMfa` section; on needs the feature offered and the admin's own factor). Enforced only while two-factor is offered,
-so a deployment that switches it off traps nobody. A session in such a workspace without a factor is sent to
-`/two-factor/setup` (`UserResponse.twoFactorEnrolmentRequired`), and a factor it requires cannot be turned off
-(`MFA_REQUIRED_BY_WORKSPACE`). An account with no password enrols with the code alone within
-`lightmove.auth.mfa.recent-sign-in` of signing in. An admin resets a member's factor (`DELETE /members/{id}/two-factor`,
-`MFA_RESET_BY_ADMIN`, the member signed out everywhere and emailed) — never their own, and never a member also in another
-workspace, since the factor is the person's.
+An account with no password (a Google or LinkedIn sign-in) turns two-factor on with the code alone, only within
+`lightmove.auth.mfa.recent-sign-in` of signing in (`MFA_SIGN_IN_AGAIN`), and turns it off or takes new recovery codes
+with the code alone.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

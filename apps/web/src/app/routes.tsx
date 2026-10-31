@@ -6,7 +6,7 @@ import { WorkspaceLayout } from "../components/layout/WorkspaceLayout";
 import { Logo, Spinner } from "../components/ui";
 import { useAuth } from "../features/auth/AuthProvider";
 import type { PlatformAction } from "../features/auth/api/types";
-import { homeFor, TWO_FACTOR_SETUP_PATH } from "../features/auth/homeFor";
+import { homeFor } from "../features/auth/homeFor";
 import { landingAfterSignIn, safeReturnTo } from "../features/auth/returnTo";
 import { hasPendingSignupRestart } from "../features/auth/signupRestart";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
@@ -16,7 +16,6 @@ import { LoginPage } from "../features/auth/pages/LoginPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
 import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { TWO_FACTOR_SIGN_IN_PATH, TwoFactorChallengePage } from "../features/auth/pages/TwoFactorChallengePage";
-import { TwoFactorEnrolmentPage } from "../features/auth/pages/TwoFactorEnrolmentPage";
 import { SignupPage } from "../features/auth/pages/SignupPage";
 import { SignupVerifyStepPage } from "../features/auth/pages/SignupVerifyStepPage";
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
@@ -105,10 +104,6 @@ export function AppRoutes() {
       {/* Signed up, waiting on the emailed link. The gate: everything below needs a verified address,
           and the API refuses /onboarding/** without one, so a bypass here would only earn a 403. */}
       <Route path="/signup/verify-email" element={<RequireAuth><SignupVerifyStepPage /></RequireAuth>} />
-
-      {/* The session's workspace requires two-factor authentication this person has not set up. Outside the app
-          shell, whose own reads the server refuses until then. */}
-      <Route path={TWO_FACTOR_SETUP_PATH} element={<RequireAuth><TwoFactorEnrolmentPage /></RequireAuth>} />
 
       {/* Verified, but not yet in a workspace. Not RequireWorkspace: the workspace is what these two
           steps create, so guarding on it would bounce the user out of their own signup. */}
@@ -301,10 +296,6 @@ function RequireWorkspace({ children }: { children: ReactNode }) {
   // extension still unpaired.
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   if (!user.workspace) return <Navigate to={homeFor(user)} replace />;
-  // Every read of the workspace is refused until then; the destination is kept for after.
-  if (user.twoFactorEnrolmentRequired) {
-    return <Navigate to={TWO_FACTOR_SETUP_PATH} replace state={{ from: location.pathname + location.search }} />;
-  }
 
   return <>{children}</>;
 }

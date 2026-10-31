@@ -56,7 +56,6 @@ describe("TeamAccessPage", () => {
     timezone: "Asia/Dubai",
     locale: "en",
     platformActions: [],
-    twoFactorEnrolmentRequired: false,
     pendingInvitations: [],
   workspaces: [],
     workspace: {

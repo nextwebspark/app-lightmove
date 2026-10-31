@@ -29,8 +29,6 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Authenticator app** | the phone app that shows the six-digit code | token, device |
 | **Setup key** | the secret typed into an authenticator app instead of scanning the QR code | seed, secret |
 | **Recovery code** | one of ten single-use codes that sign in when the phone is lost | backup code, scratch code |
-| **Require two-factor authentication** | a workspace admin's switch in Settings → Security: every member, clients included, sets it up before opening anything | enforce, mandate MFA |
-| **Reset** (two-factor) | an admin taking a member's lost two-factor away, signing them out everywhere, so they set it up again | wipe, remove factor |
 | **12d** | a trial's days left, where a phone has room for nothing longer (the topbar chip; its spoken name is "Trial · 12 days left") | — |
 
 ## Never on screen

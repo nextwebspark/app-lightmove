@@ -123,9 +123,6 @@ if [ ! -s "$PRIVATE_KEY" ] || [ ! -s "$PUBLIC_KEY" ]; then
   chmod 600 "$PRIVATE_KEY"
 fi
 
-# The dev-only Tink keyset ops/dev/api.sh and application-test.yml carry: it encrypts nothing real.
-DEV_CREDENTIAL_KEYSET='{"primaryKeyId":653769729,"key":[{"keyData":{"typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey","value":"GiDdcDK+eD7jyE+NjJ55C7Ta4t9IgqMRKbdXgoG/+4KVfw==","keyMaterialType":"SYMMETRIC"},"status":"ENABLED","keyId":653769729,"outputPrefixType":"TINK"}]}'
-
 # --- 3. api -----------------------------------------------------------------
 if curl -sf -o /dev/null "http://localhost:8080/api/v1/auth/providers"; then
   say "API already up on :8080 — leaving it alone"
@@ -134,10 +131,8 @@ else
   # EXTRA_ENV comes first so the assignments after it win: the datasource, the provider and the signing
   # keys are the things a boot variant must never be able to redirect, and `env` takes the last
   # assignment.
-  # Two-factor is offered, so 22-two-factor-policy can require it: on, with the dev-only keyset npm run dev and the
-  # tests share (never a deployment's). Ahead of EXTRA_ENV, so a boot variant may still switch it off.
   ( cd "$REPO_DIR/apps/api" && \
-    env MFA_ENABLED=true CREDENTIAL_KEYSET="$DEV_CREDENTIAL_KEYSET" $EXTRA_ENV \
+    env $EXTRA_ENV \
       SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:$PG_PORT/lightmove" \
       SPRING_DATASOURCE_USERNAME=lm_app \
       SPRING_DATASOURCE_PASSWORD=lm \

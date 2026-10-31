@@ -9,9 +9,6 @@ import app.lightmove.api.core.security.apikey.ApiKeyIntrospector;
 import app.lightmove.api.core.security.apikey.ApiKeyThrottledException;
 import app.lightmove.api.core.security.apikey.PublicApiProblemWriter;
 import app.lightmove.api.core.security.jwt.JwtPrincipalConverter;
-import app.lightmove.api.core.security.mfa.MfaEnrolmentDenial;
-import app.lightmove.api.core.security.mfa.MfaPolicy;
-import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.oauth.OAuthAuthorizationServerConfig;
 import app.lightmove.api.core.security.service.CookieAuthorizationRequestStore;
 import app.lightmove.api.core.security.service.OAuth2LoginFailureHandler;
@@ -30,7 +27,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
-import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -276,7 +272,6 @@ public class SecurityConfig {
                                  CookieAuthorizationRequestStore authorizationRequestStore,
                                  ObjectProvider<ClientRegistrationRepository> clientRegistrations,
                                  ProblemAccessDeniedHandler accessDenied,
-                                 MfaPolicy mfaPolicy,
                                  LightMoveProperties properties) throws Exception {
         AuthorizationManager<RequestAuthorizationContext> verified =
                 verifiedEmail(properties.auth().requireVerifiedEmail());
@@ -338,10 +333,8 @@ public class SecurityConfig {
                         // Stripe's likewise: its signature, checked by the payment gateway, is the credential.
                         .requestMatchers(HttpMethod.POST, API + "/billing/webhooks/stripe").permitAll()
 
-                        // Tenant data: an unverified user may not read a single candidate record, nor may anyone
-                        // without a factor in a workspace that requires one. /auth/** is another chain, so the
-                        // enrolment screen's own calls stay open; so do onboarding's, which read no workspace.
-                        .requestMatchers(API + "/**").access(enrolledWhereRequired(verified, mfaPolicy))
+                        // Tenant data: an unverified user may not read a single candidate record.
+                        .requestMatchers(API + "/**").access(verified)
 
                         .anyRequest().authenticated())
 
@@ -384,22 +377,6 @@ public class SecurityConfig {
                     && (!required || auth.getAuthorities().stream()
                     .anyMatch(a -> JwtPrincipalConverter.VERIFIED_AUTHORITY.equals(a.getAuthority())));
             return new AuthorizationDecision(ok);
-        };
-    }
-
-    /** A session in a workspace that requires a factor reads nothing of it until its holder has set one up. */
-    private static AuthorizationManager<RequestAuthorizationContext> enrolledWhereRequired(
-            AuthorizationManager<RequestAuthorizationContext> verified, MfaPolicy mfaPolicy) {
-        return (authentication, context) -> {
-            AuthorizationResult result = verified.authorize(authentication, context);
-            if (result == null || !result.isGranted()) {
-                return result;
-            }
-            if (authentication.get().getPrincipal() instanceof AuthPrincipal principal
-                    && mfaPolicy.owesEnrolment(principal.userId(), principal.workspaceId())) {
-                return new MfaEnrolmentDenial();
-            }
-            return result;
         };
     }
 

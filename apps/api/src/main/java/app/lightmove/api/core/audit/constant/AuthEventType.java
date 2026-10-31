@@ -36,8 +36,6 @@ public enum AuthEventType implements AuditEventType {
     MFA_CHALLENGE_FAILED,
     MFA_RECOVERY_CODE_USED,
     MFA_RECOVERY_CODES_REGENERATED,
-    /** A workspace admin took a member's factor away; the actor is the admin, the target the member. */
-    MFA_RESET_BY_ADMIN,
 
     OAUTH_LOGIN_SUCCEEDED,
     OAUTH_ACCOUNT_LINKED,

@@ -43,7 +43,6 @@ const userWith = (roles: ("ADMIN" | "MEMBER")[]): User => ({
   timezone: "Asia/Dubai",
   locale: "en",
   platformActions: [],
-  twoFactorEnrolmentRequired: false,
   pendingInvitations: [],
   workspaces: [],
   workspace: {

@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /** Two-factor authentication — {@code lightmove.auth.mfa.*}. */
 public record MfaSettings(
-        /** Off in deployments until its rollout; while off, no workspace's requirement is enforced. */
+        /** Off in deployments until its rollout. */
         @DefaultValue("false") boolean enabled,
 
         /** How long a correct password waits for its code: long enough to open the app, short for a stolen cookie. */

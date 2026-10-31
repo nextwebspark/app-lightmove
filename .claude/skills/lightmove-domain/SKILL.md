@@ -465,40 +465,10 @@ since only the password's holder reaches it. A code is refused a second time in 
 **Turning it on asks for the current password as well as a code.** Without it a stolen session could enrol the
 thief's phone and lock the owner out; it is the same reason a password change asks for the old one. Turning it on or
 off ends every other session (`MFA_CHANGED`, not theft on replay) and tells the mailbox. **An account with no password
-has none to give**, and a workspace that requires a factor must not strand it, so it proves itself the way a password
-would have: by a sign-in moments ago (`lightmove.auth.mfa.recent-sign-in`, 10 minutes, read as the first token of the
-session's refresh family) — a session stolen earlier cannot show one. Turning off and new recovery codes take the code
+has none to give** — a Google or LinkedIn sign-in — so it proves itself the way a password would have: by a sign-in
+moments ago (`lightmove.auth.mfa.recent-sign-in`, 10 minutes, read as the first token of the session's refresh
+family) — a session stolen earlier cannot show one. Turning off and new recovery codes take the code
 alone for such an account: a thief holding the session but not the phone has no code to give.
-
-**A workspace may require a factor; the factor stays the person's** (V163 `require_mfa`). `MfaPolicy.owesEnrolment` —
-the workspace requires it, the person has none, and the feature is offered — is read from the database on every check,
-never from a token claim, so a requirement switched on reaches live sessions at their next request, as the guard beans
-do. Enforced only while two-factor is offered: a deployment that switches it off would otherwise hold everyone at a
-screen they cannot finish. **Pure clients are included** — they read executive data on their positions, and one rule
-is easier to state to a buyer than a rule with an exception. Where it is asked:
-
-- `apiChain`'s last matcher (`enrolledWhereRequired`, beside the verified-email check), answered 403
-  `MFA_ENROLMENT_REQUIRED` by `ProblemAccessDeniedHandler` off its own `MfaEnrolmentDenial`. `/api/v1/auth/**` is the
-  cookie chain and stays open — `/me`, `/mfa/*`, switch, sign-out — which is exactly what the enrolment screen needs;
-  onboarding stays open too, reading no workspace.
-- **Extension pairing** is on the cookie chain, so `pairExtension` asks itself: a session that may read nothing of its
-  workspace must not mint a fourteen-day credential into it.
-- **MCP**: `McpAuthorizationRules.isEligible` (request and consent alike) and `McpCredentials.fromAccessToken` on every
-  call, so a connection made before the requirement stops. A **personal API key** stops with its owner
-  (`ApiKeyIntrospector`); a workspace key has no person.
-- A session is in one workspace and the policy is that workspace's, so switching, signing in and the refresh's
-  `MEMBERSHIP_ENDED` fall-through need nothing of their own: the gate keys on `wsId`, and
-  `UserResponse.twoFactorEnrolmentRequired` tells the SPA, which sends the person to `/two-factor/setup` (another of
-  their workspaces, or sign out, are the only other ways on).
-
-Turning the requirement on asks that the admin hold a factor (`MFA_ENABLE_YOURS_FIRST`), or their own next request would
-send them to set one up; a factor a workspace requires cannot be turned off (`MFA_REQUIRED_BY_WORKSPACE`).
-
-**An admin resets a member's factor only where the reset stays in their workspace.** The factor is one per person
-across every workspace (V81), so a reset in firm A would strip the factor firm B relies on. `MFA_RESET_OTHER_WORKSPACES`
-refuses a member with another active membership, and `MFA_RESET_SELF` the admin's own (Turn off is theirs). A reset
-deletes the factor, its codes and any challenge, ends **every** session of the member's (`ADMIN_REVOKED`), audits
-`MFA_RESET_BY_ADMIN` and emails the member.
 
 ## The SPA and the API are one origin
 

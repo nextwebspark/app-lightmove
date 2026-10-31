@@ -3,7 +3,6 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.service.Problems;
 
 import app.lightmove.api.core.security.jwt.JwtPrincipalConverter;
-import app.lightmove.api.core.security.mfa.MfaEnrolmentDenial;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -13,7 +12,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
-import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -51,12 +49,6 @@ public class ProblemAccessDeniedHandler implements AccessDeniedHandler {
         // Not a permissions problem: the SPA recovers by re-fetching /auth/csrf.
         if (denial instanceof CsrfException) {
             return ErrorCode.CSRF_TOKEN_INVALID;
-        }
-
-        // The SPA answers this one by sending the person to set up their factor.
-        if (denial instanceof AuthorizationDeniedException authorizationDenial
-                && authorizationDenial.getAuthorizationResult() instanceof MfaEnrolmentDenial) {
-            return ErrorCode.MFA_ENROLMENT_REQUIRED;
         }
 
         if (isRealUser(authentication) && !isVerified(authentication)) {

@@ -11,8 +11,6 @@ export interface WorkspaceDetail {
   emailDomain: string;
   mode: WorkspaceMode;
   calendarSync: CalendarSync;
-  /** Every member must hold two-factor authentication to read the workspace. */
-  requireMfa: boolean;
   defaultRegion: string;
   defaultCurrency: string;
   plan: string;

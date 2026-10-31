@@ -8,15 +8,11 @@ import * as authApi from "../../auth/api/authApi";
 import { ActiveSessionsCard } from "../components/ActiveSessionsCard";
 import { ChangePasswordForm } from "../components/ChangePasswordForm";
 import { TwoFactorCard } from "../components/TwoFactorCard";
-import { WorkspaceTwoFactorCard } from "../components/WorkspaceTwoFactorCard";
 import type { PasswordChangeValues } from "../lib/passwordChangeSchema";
 
 const SESSIONS_QUERY_KEY = ["auth", "sessions"];
 
-/**
- * Settings → Security: the caller's password, two-factor authentication and signed-in devices — and, for an admin,
- * whether the workspace requires two-factor and who has it.
- */
+/** Settings → Security: the caller's password, two-factor authentication and signed-in devices. */
 export function SettingsSecurityPage() {
   const { user } = useAuth();
   const toast = useToast();
@@ -51,7 +47,6 @@ export function SettingsSecurityPage() {
 
   // RequireWorkspace has already resolved the session; this only satisfies the type.
   if (!user) return null;
-  const isAdmin = user.workspace?.roles.includes("ADMIN") ?? false;
 
   const handleChangePassword = async (values: PasswordChangeValues) => {
     await authApi.changePassword({
@@ -83,12 +78,6 @@ export function SettingsSecurityPage() {
       <div className="mb-4">
         <TwoFactorCard hasPassword={user.hasPassword} onSessionsChanged={() => void refreshSessions()} />
       </div>
-
-      {isAdmin && (
-        <div className="mb-4">
-          <WorkspaceTwoFactorCard />
-        </div>
-      )}
 
       <ActiveSessionsCard
         sessions={sessions.data ?? []}

@@ -2,7 +2,6 @@ package app.lightmove.api.mcp.service;
 
 import app.lightmove.api.core.security.apikey.ApiKeyPrincipal;
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
-import app.lightmove.api.core.security.mfa.MfaPolicy;
 import app.lightmove.api.core.security.oauth.OAuthGrantService;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
@@ -23,8 +22,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Turns either credential into one {@link McpCaller}, re-reading what can change under a token on every call: an OAuth
- * token's grant, its user's staff access and the workspace's two-factor requirement, as a personal key's owner is
- * re-read by its introspector.
+ * token's grant and its user's staff access, as a personal key's owner is re-read by its introspector.
  */
 @Service
 @RequiredArgsConstructor
@@ -32,7 +30,6 @@ public class McpCredentials {
 
     private final OAuthGrantService grants;
     private final WorkspaceAccess access;
-    private final MfaPolicy mfaPolicy;
 
     public McpCallerAuthentication fromAccessToken(Jwt token) {
         Optional<UUID> userId = uuidOf(token.getSubject());
@@ -44,9 +41,6 @@ public class McpCredentials {
         if (!grants.isLive(grantId.get(), userId.get(), workspaceId.get())
                 || !access.holdsAction(userId.get(), workspaceId.get(), WorkspaceAction.API_KEY_MANAGE)) {
             throw refused("The connection has ended");
-        }
-        if (mfaPolicy.owesEnrolment(userId.get(), workspaceId.get())) {
-            throw refused("This workspace requires two-factor authentication");
         }
         grants.stampUse(grantId.get());
         return new McpCallerAuthentication(new McpCaller(McpCredentialKind.OAUTH, userId.get(), workspaceId.get(),

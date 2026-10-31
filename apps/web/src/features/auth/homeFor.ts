@@ -7,17 +7,12 @@
  * Order matters: an unverified user outranks a pending invitation. Verification is step 2 and the API
  * refuses /onboarding/** without it, so routing them to accept-invite first would dead-end on a 403.
  */
-/** Where someone the session's workspace requires two-factor of sets it up before anything else opens. */
-export const TWO_FACTOR_SETUP_PATH = "/two-factor/setup";
-
 export function homeFor(user: {
   emailVerified: boolean;
   workspace: { roles: string[] } | null;
-  twoFactorEnrolmentRequired?: boolean;
   pendingInvitations: readonly unknown[];
 } | null): string {
   if (!user) return "/login";
-  if (user.workspace && user.twoFactorEnrolmentRequired) return TWO_FACTOR_SETUP_PATH;
   // Everyone in a workspace lands on the projects list; the server scopes a pure client's to their seats.
   if (user.workspace) return "/";
   if (!user.emailVerified) return "/signup/verify-email";

@@ -99,7 +99,6 @@ step api/14-strategy-company-search.sh
 step api/15-extension-capture.sh
 step api/20-workspace-switching.sh
 step api/21-outreach-conversations.sh
-step api/22-two-factor-policy.sh
 
 step_node spa/run.mjs
 step_node spa/roles.mjs

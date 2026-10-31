@@ -9,7 +9,8 @@ import { TwoFactorChangeModal } from "./TwoFactorChangeModal";
 
 /**
  * Turning two-factor on: a fresh secret as a QR code and a setup key, then the app's first code and the current
- * password — the code alone for an account with no password, which the server lets in only just after a sign-in. Loaded on demand, so the QR library is fetched only by someone turning it on. The secret lives in this
+ * password — the code alone for an account with no password, which the server lets in only just after a sign-in.
+ * Loaded on demand, so the QR library is fetched only by someone turning it on. The secret lives in this
  * component's state alone and goes with it.
  */
 export default function EnableTwoFactorModal({

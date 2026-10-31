@@ -70,12 +70,6 @@ export interface User {
    */
   workspace: WorkspaceSummary | null;
 
-  /**
-   * The session's workspace requires two-factor authentication and this person has not set it up: every read of it
-   * is refused until they do, so the router sends them to set it up.
-   */
-  twoFactorEnrolmentRequired: boolean;
-
   /** Every workspace the user is an active member of, oldest first. What the switcher lists. */
   workspaces: WorkspaceSummary[];
 
@@ -134,8 +128,6 @@ export interface MfaStatus {
   enabled: boolean;
   enabledAt: string | null;
   recoveryCodesLeft: number;
-  /** The workspaces this person belongs to that require it, by name; while any does, it cannot be turned off. */
-  requiredBy: string[];
 }
 
 /** The secret, once, for the QR code drawn from `otpauthUri` or typed in as a setup key. */

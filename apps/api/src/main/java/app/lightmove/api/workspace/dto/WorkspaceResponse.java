@@ -15,7 +15,6 @@ public record WorkspaceResponse(
         String emailDomain,
         WorkspaceMode mode,
         CalendarSync calendarSync,
-        boolean requireMfa,
         String defaultRegion,
         String defaultCurrency,
         String plan,

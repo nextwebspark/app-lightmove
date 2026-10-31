@@ -262,8 +262,7 @@ lightmove:
       duration: 15m
     # Two-factor authentication (#1081, #1082). Every sign-in door asks for the code, the OAuth callback included;
     # off in deployments until its rollout. Offered only where lightmove.crypto.keyset is set as well, since the
-    # secret is kept encrypted. A person who already has it is asked for the code whatever this says, and no
-    # workspace's requirement is enforced while it is off.
+    # secret is kept encrypted. A person who already has it is asked for the code whatever this says.
     mfa:
       enabled: ${MFA_ENABLED:false}
       challenge-ttl: 5m
