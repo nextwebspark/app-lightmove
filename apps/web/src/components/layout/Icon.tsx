@@ -172,4 +172,13 @@ export const ICONS = {
   checklist: "M3 5l2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8",
   /** Numbered lines — a position's outreach sequences. */
   listOrdered: "M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M4.5 14a1.5 1.5 0 0 1 2.5-1.1Q4.5 15.5 4 18h3",
+  /** A speech bubble — a pipeline card's Add note. */
+  noteBubble: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z",
+  /** The five seeded pipeline stages' own marks, as the board's column headers draw them (`PIPE_ICONS`). */
+  stageResearch: "M3 6h1M3 12h1M3 18h1M8 6h13M8 12h13M8 18h13",
+  stageApproach: "m22 2-7 20-4-9-9-4ZM22 2 11 13",
+  stageAssessment:
+    "M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1ZM16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 14l2 2 4-4",
+  stageShortlist: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01Z",
+  stageOffer: "M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3",
 } as const;

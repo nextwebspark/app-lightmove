@@ -196,7 +196,7 @@ audit event, because a mandate leaving as a file is not the same act as reading 
 holds it otherwise), then Add to sequence and Send email (the drawer's composer, for anyone on the position) where
 outreach is offered — greyed (`aria-disabled`, saying where it works) on the map and until something is ticked — and,
 on Table and Map only, Find executives filled, **Advanced ▾** (`AdvancedMenu`) and **Create ▾** (Add executive, Add
-company). The Pipeline's row is the search and the outreach pair alone: its Inactive column folds from its own header.
+company). The Pipeline's row is the search and the outreach pair alone.
 Advanced ▾ holds the rest, by view: show/hide and manage columns on the table, the map's layers, Add to sequence again
 on the table, Import and Export. Strategy's toolbar and Outreach's header are the same row (`components/ui/Toolbar`:
 search first, the page's actions pushed right), Outreach's search in it. The search is matched by the server, the same
@@ -211,7 +211,11 @@ link or the switch, carrying `CHOSEN_VIEW_STATE` — is remembered per mandate; 
 notification's `?view=pipeline`, is a visit. **Pipeline** is the position's
 board by pipeline stage — the retired CRM Pipeline page, board only, every executive on the position whatever their
 Companies stage, staff only (`WORK_EXECUTE`); `/projects/{id}/pipeline` and its `?candidate=` links land there
-(`positionPipelinePath`).
+(`positionPipelinePath`). Its columns are the stages holding a status in process, the five seeded ones each with its
+mark (`stageMarkOf`); under them the **Out of process** band, resized from its grip, holds a cell per stage of whoever
+left at one of its ways out — a drop in a cell offers that stage's ways out alone — and a stage of ways out alone gets
+a cell of its own. A card's foot is its client-visibility eye and four actions: Log call (the numbers on the person's
+record first), Email, Add note and Schedule (Book a call, said why not where do not contact or no email stops it).
 The In-universe page also reads as a **map**: the Map view (offered only
 where a Mapbox public token is configured) swaps the grid for a mapping panel (country → company →
 executives) beside a Mapbox globe, with a pin per company and
@@ -1359,7 +1363,7 @@ An account with no password (a Google or LinkedIn sign-in) turns two-factor on w
 `lightmove.auth.mfa.recent-sign-in` of signing in (`MFA_SIGN_IN_AGAIN`), and turns it off or takes new recovery codes
 with the code alone.
 V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage
-alike: whoever holds a flagged status is Inactive on the board, skipped and stopped by outreach (`LEFT_THE_RUNNING`),
+alike: whoever holds a flagged status sits in the board's Out of process band, skipped and stopped by outreach (`LEFT_THE_RUNNING`),
 moved by no automation and left out of the projects list's Candidates and Engaged — whatever stage it sits under, so
 `hasLeftTheRunning()` and every query read the column alone. The stage's `kind` is frozen (unmapped, its old values
 kept so a revision still reading it during the deploy treats an old Declined stage as closed; a cleanup drops it): the

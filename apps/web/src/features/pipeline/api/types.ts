@@ -24,7 +24,7 @@ export interface PipelineRow {
   status: string;
   statusLabel: string;
   statusColour: string;
-  /** Out of process: drawn in Inactive, whatever stage the status sits under. */
+  /** Out of process: drawn in the band under the columns, in the cell of the stage the status sits under. */
   outOfProcess: boolean;
   pipelineStage: CandidatePipelineStage;
   addedAt: string;

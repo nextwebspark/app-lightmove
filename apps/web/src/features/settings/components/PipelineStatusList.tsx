@@ -150,7 +150,7 @@ function StatusRow({
   );
   const renameFormId = `rename-status-${status.id}`;
   const retire = () => change({ retired: true }, "Status retired; candidates who hold it keep it");
-  const markOut = () => change({ outOfProcess: true }, "Out of process; whoever holds it is now Inactive");
+  const markOut = () => change({ outOfProcess: true }, "Out of process; whoever holds it leaves the board's columns");
 
   const handleOutOfProcess = async (out: boolean) => {
     if (!out) {
@@ -211,7 +211,7 @@ function StatusRow({
       )}
       {status.outOfProcess && (
         <span
-          title="Whoever holds it is Inactive on the board and is not approached again"
+          title="Whoever holds it moves to the board's Out of process band and is not approached again"
           className="rounded-sm bg-u-offlimits-tint px-1.5 py-px font-mono text-eyebrow font-medium text-u-offlimits"
         >
           Out of process
@@ -270,7 +270,7 @@ function StatusRow({
                     ) : (
                       <MenuItem
                         icon={ICONS.ban}
-                        note={isDefault ? "The default stays in process" : "Whoever holds it moves to Inactive"}
+                        note={isDefault ? "The default stays in process" : "Whoever holds it moves out of process"}
                         disabled={isDefault || isPending || checking}
                         onSelect={choose(() => void handleOutOfProcess(true))}
                       >
@@ -314,7 +314,7 @@ function StatusRow({
         catalog={catalog}
         preview={outPreview}
         pending={isPending}
-        explanation="They move to Inactive on every position, and any live sequence stops before its next email. Nothing is deleted, and you can bring the status back into the process at any time."
+        explanation="They move out of process on every position, and any live sequence stops before its next email. Nothing is deleted, and you can bring the status back into the process at any time."
         onConfirm={() => {
           setOutPreview(null);
           markOut();
