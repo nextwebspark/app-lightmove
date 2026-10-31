@@ -523,6 +523,17 @@ tests serve recorded provider answers from a JDK `HttpServer`, every client give
 `ZoomApi` (`ZoomClient`; `RecordingZoomApi` in tests), its tokens in `ZoomTokens`, called by `MeetingService` only for
 a call booked with `MeetingVideo.ZOOM`.
 
+## Work with no principal names its workspace
+
+Row-level security (V166, `core/tenant`) gives each borrowed connection the workspace `TenantContext` names: an open
+`WorkspaceScope`, else the signed-in principal's. A `@Scheduled` job, a public webhook, or a listener woken by one
+has neither, and reads none of the protected tables. Open `WorkspaceScope.run(row.getWorkspaceId(), …)` from the row
+the work is about — **before** the transaction, since a joined one keeps its connection — and turn a statement over
+every workspace into `EveryWorkspace`'s walk. `@Async` tasks inherit the submitter's workspace through
+`MdcTaskDecorator`; a pool built by hand wraps its tasks with `MdcPropagation`, or they read nothing. Beware a check
+that treats "not found" as "allowed" (`existsByIdAndArchivedAtIsNotNull`, `NOT IN (…)`): run outside its scope it
+fails open, not closed.
+
 ## Traps this codebase has already fallen into
 
 Each of these shipped, looked correct, and did nothing. They are all covered by tests now — don't

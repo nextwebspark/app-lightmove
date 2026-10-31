@@ -18,6 +18,69 @@ forever, which is precisely what `harden.sql` revokes. In the pipeline it runs a
 instead, so a bad migration fails a deploy and the old revision keeps serving — rather than
 crash-looping production, where you can roll back an image but not a schema.
 
+## Row-level security is the backstop to the workspace filters (V166, #1084)
+
+Every workspace-scoped query still filters by `AuthPrincipal.requireWorkspaceId()`; Postgres row-level security is
+what stops one missed filter from leaking across firms. V166 forces it on the people and position core —
+`app_lm_project`, `_project_candidate`, `_project_triage_company`, `_person` and its contacts, notes, documents and
+versions, tags and photo, and `_company_note`; #1085 covers the rest. `RowLevelSecurityPosture.PROTECTED_TABLES` is
+the list, and the boot fails if any of them is not forced.
+
+- **The setting.** `app.workspace_id`, written by `core/tenant`'s `TenantAwareDataSource` on **every connection
+  checkout** — `set_config(…, false)`, overwritten each time, the empty string when there is no workspace. Not
+  `SET LOCAL` at transaction begin: Spring Data's declared query methods and a `JdbcTemplate` outside a transaction
+  run in autocommit, where a transaction-local setting is gone before the statement runs (the project authorizer's
+  `findByIdAndWorkspaceId` was the first to 404). Because every checkout overwrites it, a pooled connection never
+  carries one borrower's workspace into the next. The workspace is `TenantContext`'s: a `WorkspaceScope` if one is
+  open, else the signed-in principal's (`TenantPrincipal`: `AuthPrincipal`, `ApiKeyPrincipal`, `McpCaller`) —
+  never a request parameter.
+- **Policies fail closed.** `app_lm_tenant_visible(workspace_id)` compares the row with
+  `app_lm_current_workspace()` — `NULLIF(current_setting('app.workspace_id', true), '')::uuid`, the `NULLIF`
+  because a setting once set reads back as `''`, which would throw as a uuid. No setting, no rows; `WITH CHECK`
+  refuses an insert or update into another workspace. A person's children (contacts, tags, document versions,
+  photo) carry no workspace and are visible through `EXISTS` on their person, whose own policy answers. The two
+  grid tables carry their project's `workspace_id` (filled by `app_lm_fill_workspace_from_project`, held by a
+  composite key to the project's) so their policy is a plain comparison.
+- **System work names its workspace — per item, no bypass role.** A scheduled job, a public webhook, or an
+  `@Async` worker woken by one has no principal, so it reads nothing until it opens `WorkspaceScope.run(id, …)` from
+  the row it is working on (the enrollment, the message, the mailbox, the recording). A statement over every
+  workspace becomes a walk (`EveryWorkspace`): the note purges, the due scan, the bell's emails. `@Async` tasks and
+  hand-built pools inherit the submitter's workspace through `MdcPropagation`. A scope is refused inside a
+  transaction already holding another workspace's connection.
+- **Fail-open traps, now pinned by tests.** A check that reads "not found" as "allowed" turns RLS's empty answer
+  into a pass: `existsByIdAndArchivedAtIsNotNull` reads an unseen project as live, and `NOT IN (archived ids)`
+  excludes nothing when the subquery sees nothing. Every such read must run in the right scope.
+- **Who is above it.** A superuser skips every policy, forced or not, and so does a `BYPASSRLS` role. The runtime
+  role must be neither — `RowLevelSecurityPosture` refuses to boot otherwise (`lightmove.row-level-security.
+  require-enforced`). Tests, `npm run dev` and e2e therefore run the API as a non-superuser `lm_app` that owns the
+  database; their own fixture SQL (`@FixtureJdbc`, `dev:db:psql`, the seeds, `e2e/api/lib.sh`) runs as the
+  container's superuser, above the policies. A dev volume older than V166 has `lm_app` as its bootstrap superuser,
+  which Postgres will not demote: `npm run dev:db:reset`.
+- **Migrations.** Flyway runs as the same forced owner until #256, so its own session sets
+  `app.rls_maintenance = 'on'` (`spring.flyway.init-sqls`, the deploy step's `-initSql`), which the direct
+  policies honour; a backfill then reaches every workspace. `spring.flyway.user` gives Flyway its own DataSource —
+  on a borrowed pool connection the flag would outlive the migration and serve the app, which the posture check
+  also refuses. A standalone migration test runs as the container superuser and is unaffected.
+- **Humans.** An IAM user reading production through `psql.sh` sees no rows of these tables. To look into one
+  workspace, `SET app.workspace_id = '<id>'` first — deliberately, one workspace at a time. Until #256 the
+  break-glass for all of them is `SET app.rls_maintenance = 'on'`.
+
+**What it does not stop yet.** Until #256 `lm_app` owns these tables and can `ALTER TABLE … DISABLE ROW LEVEL
+SECURITY`, and anyone holding a connection can `set_config` either setting. So this is a backstop against
+*application bugs* — a missed filter — not against SQL injection. **When #256 lands:** ownership moves to
+`lm_migrate`, `lm_app` keeps DML only; a migration gives each protected table a `TO lm_migrate USING (true) WITH
+CHECK (true)` policy and redefines `app_lm_tenant_visible` without the maintenance arm (then drops
+`app_lm_rls_maintenance`); `spring.flyway.init-sqls` and `-initSql` go and `spring.flyway.user` names `lm_migrate`;
+the posture check also asserts the runtime role owns no protected table and lacks `CREATE` on `public`; tests and
+the dev and e2e containers split the same way (Flyway as the owner, the API as a grantee under `ALTER DEFAULT
+PRIVILEGES`); and the human break-glass becomes a role (`grant-db-user.sh --support`). FORCE stays: #256's rollback
+leaves ownership with `lm_migrate`, and FORCE keeps the owner bound whatever happens to ownership later. Even then a
+runtime role that can set `app.workspace_id` can choose its workspace: closing that needs a signed context or
+per-tenant roles, which neither issue builds.
+
+**Rollback.** `ALTER TABLE <t> NO FORCE ROW LEVEL SECURITY; ALTER TABLE <t> DISABLE ROW LEVEL SECURITY;` on the
+listed tables, as their owner, restores the pre-V166 behaviour; the column, trigger and functions can stay.
+
 ## Humans and roles
 
 `ops/cloudsql/create-database.sh` creates the database, the app user, and registers the IAM
