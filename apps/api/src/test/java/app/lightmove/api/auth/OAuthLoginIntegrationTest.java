@@ -1,11 +1,13 @@
 package app.lightmove.api.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.core.security.mfa.TestTotp;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.model.UserIdentity;
 import app.lightmove.api.core.security.repository.UserIdentityRepository;
@@ -15,6 +17,7 @@ import app.lightmove.api.core.security.service.OAuth2LoginFailureHandler;
 import app.lightmove.api.core.security.service.OAuth2LoginSuccessHandler;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
+import jakarta.servlet.http.Cookie;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -27,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -329,6 +333,52 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
                 new OAuth2AuthenticationException(new OAuth2Error(oauthErrorCode, null, null)));
 
         return response.getRedirectedUrl();
+    }
+
+    @Test
+    @DisplayName("a person with a second factor who signs in with a provider is asked for the code, as after a password")
+    void aProviderSignInStillAsksForTheCode() throws Exception {
+        String email = "sara@" + domain;
+        verifiedUser("Sara G", email);
+        String secret = enrol(email);
+
+        MockHttpServletResponse response = signIn("linkedin", "linkedin-subject-mfa", email, Map.of());
+
+        assertThat(response.getRedirectedUrl()).endsWith("/auth/callback?challenge=two-factor");
+        assertThat(response.getRedirectedUrl()).doesNotContain("#token=");
+        assertThat(response.getCookie("lm_refresh")).isNull();
+        Cookie challenge = response.getCookie("lm_mfa_challenge");
+        assertThat(challenge).isNotNull();
+        assertThat(challenge.isHttpOnly()).isTrue();
+
+        MvcResult signedIn = mvc.perform(post("/api/v1/auth/mfa/verify")
+                        .cookie(challenge)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("code", TestTotp.codeAt(secret, Instant.now().plusSeconds(30))))))
+                .andReturn();
+        assertThat(signedIn.getResponse().getStatus()).as(signedIn.getResponse().getContentAsString()).isEqualTo(200);
+        assertThat(body(signedIn).get("accessToken").asText()).isNotBlank();
+    }
+
+    /** Turns two-factor on through the password session, answering the factor's secret. */
+    private String enrol(String email) throws Exception {
+        MvcResult session = mvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("email", email, "password", PASSWORD))))
+                .andReturn();
+        String token = body(session).get("accessToken").asText();
+        Cookie refresh = session.getResponse().getCookie("lm_refresh");
+        String secret = body(mvc.perform(post("/api/v1/auth/mfa/setup")
+                        .header("Authorization", "Bearer " + token).cookie(refresh).with(csrf()))
+                .andReturn()).get("secret").asText();
+        MvcResult enabled = mvc.perform(post("/api/v1/auth/mfa/enable")
+                        .header("Authorization", "Bearer " + token).cookie(refresh).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "currentPassword", PASSWORD, "code", TestTotp.codeAt(secret, Instant.now())))))
+                .andReturn();
+        assertThat(enabled.getResponse().getStatus()).as(enabled.getResponse().getContentAsString()).isEqualTo(200);
+        return secret;
     }
 
     private String emailForThisTest() {

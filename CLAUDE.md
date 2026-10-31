@@ -970,7 +970,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **No token passthrough:** an MCP tool calls our services in-process as its `McpCaller`; a caller's token is never forwarded to another service, ours or a provider's.
 - **An API key reaches only `/api/v1/public/**`**, and `/api/v1/mcp` once it holds `mcp:use`; read-only, and never more than its scopes ∩ its owner's live permissions — re-read every call; a session token opens neither.
 - **Auth errors are deliberately vague** — one sentence, one timing, for every password-login failure.
-- **Two-factor is the person's, and every sign-in door asks `SignInCompletion`** — a right password or reset link from a factor holder earns the `lm_mfa_challenge` cookie, never a session; only the right code clears the lock.
+- **Two-factor is the person's, and every sign-in door asks `SignInCompletion`** — a right password, reset link or provider sign-in (the OAuth callback answers `?challenge=two-factor`, no token) from a factor holder earns the `lm_mfa_challenge` cookie, never a session; only the right code clears the lock.
 
 ## Database
 
@@ -1358,7 +1358,10 @@ V162 adds two-factor authentication (#1081): `app_lm_user_mfa_factor` (one per u
 replay guard), `app_lm_user_mfa_recovery_code` (SHA-256 per code, spent by a conditional update) and
 `app_lm_mfa_challenge` (a right password's single-use challenge, hashed), and adds `MFA_CHANGED` to the refresh token's
 revoke reasons. Account data, keyed on the user, never a workspace. Offered only where `lightmove.auth.mfa.enabled` and a
-keyset are both set; off in deployments until the OAuth door asks for the code too (#1082).
+keyset are both set; off in deployments until its rollout.
+An account with no password (a Google or LinkedIn sign-in) turns two-factor on with the code alone, only within
+`lightmove.auth.mfa.recent-sign-in` of signing in (`MFA_SIGN_IN_AGAIN`), and turns it off or takes new recovery codes
+with the code alone.
 V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage
 alike: whoever holds a flagged status sits in the board's Out of process band, skipped and stopped by outreach (`LEFT_THE_RUNNING`),
 moved by no automation and left out of the projects list's Candidates and Engaged — whatever stage it sits under, so
