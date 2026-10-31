@@ -218,7 +218,8 @@ up() {
   # that says nothing about the actual cause.
   docker exec "$PG_CONTAINER" pg_isready -d lightmove >/dev/null || {
     say "postgres never became ready — logs:"; docker logs --tail 40 "$PG_CONTAINER"; exit 1; }
-  ensure_app_role
+  # Not while reset snapshots a volume it is about to drop: that volume may be the very one the check refuses.
+  [ -n "${SNAPSHOT_ONLY:-}" ] || ensure_app_role
 
   # Before the API boots, so Flyway meets the table already present and V23's guard skips its body.
   [ -f "$APOLLO_CACHE" ] && apollo_restore || true
@@ -239,7 +240,7 @@ reset() {
   # `reset` from a cold container is the common case, so start it back up for as long as the dump takes.
   if ! running && docker volume inspect "$PG_VOLUME" >/dev/null 2>&1; then
     say "starting $PG_CONTAINER briefly to snapshot $APOLLO_TABLE before the wipe"
-    up >/dev/null
+    SNAPSHOT_ONLY=1 up >/dev/null
   fi
   apollo_save
 
