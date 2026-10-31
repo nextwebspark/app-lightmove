@@ -16,9 +16,8 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * An insert that ignores companies the mandate already holds — read-then-insert races
- * {@code app_lm_project_triage_company_uk}: two "Add all" clicks would fail the second whole batch — and the lock
- * that serialises a hand-shaped capture of one name.
+ * An insert that ignores companies the mandate already holds (read-then-insert races
+ * {@code app_lm_project_triage_company_uk}), and the lock that serialises a hand-shaped capture of one name.
  */
 @Repository
 @RequiredArgsConstructor
@@ -41,9 +40,8 @@ public class TriageCompanyWriter {
     private final NamedParameterJdbcTemplate jdbc;
 
     /**
-     * Holds the mandate's capture of a hand-shaped company of this name until the transaction ends, so two captures
-     * racing on one name — two research results landing together — find each other's row rather than both inserting
-     * and one failing V34's index, which aborts its whole transaction and its research with it.
+     * Until the transaction ends: two captures of one name otherwise both insert, and V34's index aborts the loser's
+     * whole transaction, its research included.
      */
     public void holdCaptureOf(UUID projectId, String companyName) {
         String nameKey = Objects.toString(companyName, "").strip().toLowerCase(Locale.ROOT);

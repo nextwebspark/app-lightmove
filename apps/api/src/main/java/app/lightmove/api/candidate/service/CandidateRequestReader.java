@@ -43,10 +43,8 @@ class CandidateRequestReader {
     private final TriageCompanyService triage;
 
     /**
-     * The company a write lands the person at: the one it names; else, for someone already at a company, that one
-     * while the write names no employer or the same one — a re-imported row without a company cell, or a drawer
-     * saved from a copy older than the research that mapped them, is not a move; else the mandate's company held
-     * under exactly the employer it names; else none.
+     * The company it names; else the one they are at while it names no other employer (a stale drawer or a
+     * company-less re-import is not a move); else the mandate's company held under exactly that employer.
      */
     UUID companyOf(UUID projectId, SaveCandidateRequest request, Candidate current) {
         if (request.triageCompanyId() != null) {

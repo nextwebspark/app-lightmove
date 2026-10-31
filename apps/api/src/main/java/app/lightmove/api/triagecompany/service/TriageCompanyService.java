@@ -324,11 +324,7 @@ public class TriageCompanyService {
                 .orElseThrow();
     }
 
-    /**
-     * The caller holds {@link TriageCompanyWriter#holdCaptureOf} and has found no row of this name. A
-     * {@code DataIntegrityViolationException} here cannot be recovered in-transaction — Postgres has aborted it — so
-     * the lock, not a catch, is what keeps two captures of one name from colliding.
-     */
+    /** The caller holds {@link TriageCompanyWriter#holdCaptureOf}: a collision here cannot be caught and recovered. */
     private ResolvedCapture saveCaptured(UUID projectId, UUID addedBy, TriageCompanySource source,
                                          TriageCompanyStatus status, CapturedCompanyDetails details) {
         return new ResolvedCapture(triaged.saveAndFlush(
