@@ -32,8 +32,8 @@ import app.lightmove.api.triagecompany.model.FiledCompany;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyCapturedEvent;
 import app.lightmove.api.triagecompany.model.TriageCompanyMoved;
-import app.lightmove.api.triagecompany.model.TriageCompanyWorked;
 import app.lightmove.api.triagecompany.model.TriageCompanyRemoved;
+import app.lightmove.api.triagecompany.model.TriageCompanyWorked;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import jakarta.servlet.http.HttpServletRequest;
@@ -550,6 +550,15 @@ public class TriageCompanyService {
             stream.publish(projectId, ProjectStreamKind.CANDIDATE_MOVED);
         }
         delete(company, executivesRemoved, userId, workspaceId, httpRequest);
+    }
+
+    /**
+     * Locks the company row before its executive's row goes: the order {@link #removeFromProject} takes them in, so a
+     * person's removal and their company's racing it wait for each other rather than deadlocking.
+     */
+    @Transactional
+    public void holdForRemoval(UUID projectId, UUID triageCompanyId) {
+        triaged.findForUpdate(triageCompanyId, projectId);
     }
 
     /**

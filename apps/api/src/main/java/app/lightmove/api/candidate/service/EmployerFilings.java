@@ -23,17 +23,17 @@ final class EmployerFilings {
     private final UUID projectId;
     private final UUID filedBy;
     private final TriageCompanySource source;
-    private final Map<String, TriageCompanyResponse> filed = new HashMap<>();
+    private final Map<String, TriageCompanyResponse> resolvedByEmployer = new HashMap<>();
 
-    /** The mandate's row for the employer, filed if it holds none; only the first person at it is told it was filed. */
+    /** The mandate's row for the employer, filed if it holds none; only the first person at it hears it was created. */
     FiledCompany rowFor(CapturedCompanyDetails employer) {
         String key = keyOf(employer);
-        TriageCompanyResponse held = filed.get(key);
+        TriageCompanyResponse held = resolvedByEmployer.get(key);
         if (held != null) {
             return FiledCompany.held(held);
         }
         FiledCompany resolved = triage.fileFromResearch(projectId, filedBy, employer, source);
-        filed.put(key, resolved.company());
+        resolvedByEmployer.put(key, resolved.company());
         return resolved;
     }
 

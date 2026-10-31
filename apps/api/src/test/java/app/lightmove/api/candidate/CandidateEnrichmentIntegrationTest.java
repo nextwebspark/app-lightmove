@@ -298,6 +298,10 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
                 select metadata ->> 'triageCompanyId' from app_lm_audit_event
                 where event_type = 'TRIAGE_COMPANY_REMOVED' and target_id = ?""", String.class, projectId))
                 .isEqualTo(companyId);
+        assertThat(db.queryForObject("""
+                select metadata ->> 'companyRemoved' from app_lm_audit_event
+                where event_type = 'CANDIDATE_REMOVED' and target_id = ?""", String.class, projectId))
+                .isEqualTo("true");
     }
 
     @Test

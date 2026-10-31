@@ -865,8 +865,8 @@ public class CandidateService {
                 && !candidate.getCompanyName().equalsIgnoreCase(employer.companyName())) {
             return;
         }
-        FiledCompany filed = filings.rowFor(employer);
-        TriageCompanyResponse company = filed.company();
+        FiledCompany row = filings.rowFor(employer);
+        TriageCompanyResponse company = row.company();
 
         boolean nameHeldThere = candidates
                 .findByProjectIdAndTriageCompanyIdAndPersonFullNameIgnoreCase(
@@ -879,7 +879,7 @@ public class CandidateService {
             return;
         }
         candidate.employBy(company.id(), company.companyName(), TriageCompanyStatus.fromValue(company.status()),
-                filed.filed());
+                row.created());
         stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
     }
 
@@ -921,17 +921,25 @@ public class CandidateService {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
         UUID companyId = candidate.getTriageCompanyId();
+        boolean asksForCompany = companyId != null
+                && (withCompany || withFiledCompany && candidate.isCompanyFiledForThem());
+        if (asksForCompany) {
+            triage.holdForRemoval(projectId, companyId);
+        }
 
         removal.unmap(candidate, userId);
-        if (withCompany && companyId != null) {
+        boolean companyRemoved = false;
+        if (asksForCompany) {
             candidates.flush();
-            triage.removeFromProject(userId, workspaceId, projectId, companyId, 0, httpRequest);
-        } else if (withFiledCompany && companyId != null && candidate.isCompanyFiledForThem()) {
-            candidates.flush();
-            triage.removeIfUntouched(userId, workspaceId, projectId, companyId, httpRequest);
+            if (withCompany) {
+                triage.removeFromProject(userId, workspaceId, projectId, companyId, 0, httpRequest);
+                companyRemoved = true;
+            } else {
+                companyRemoved = triage.removeIfUntouched(userId, workspaceId, projectId, companyId, httpRequest);
+            }
         }
         CandidateRemoval.recordRemoved(audit.projectEvent(ProjectEventType.CANDIDATE_REMOVED, userId, workspaceId,
-                projectId, httpRequest), candidate);
+                projectId, httpRequest).detail("companyRemoved", String.valueOf(companyRemoved)), candidate);
     }
 
     /**
