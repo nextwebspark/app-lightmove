@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.UUID;
 import javax.sql.DataSource;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.datasource.DelegatingDataSource;
 
 /**
@@ -35,14 +36,19 @@ class TenantAwareDataSource extends DelegatingDataSource {
     }
 
     private static Connection inCurrentWorkspace(Connection connection) throws SQLException {
-        UUID workspaceId = TenantContext.currentWorkspaceId();
-        try (PreparedStatement statement = connection.prepareStatement(SET_WORKSPACE)) {
-            statement.setString(1, workspaceId == null ? "" : workspaceId.toString());
-            statement.execute();
+        try {
+            setWorkspace(connection, TenantContext.currentWorkspaceId());
         } catch (SQLException | RuntimeException failure) {
             connection.close();
             throw failure;
         }
         return connection;
+    }
+
+    static void setWorkspace(Connection connection, @Nullable UUID workspaceId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(SET_WORKSPACE)) {
+            statement.setString(1, workspaceId == null ? "" : workspaceId.toString());
+            statement.execute();
+        }
     }
 }

@@ -1,9 +1,13 @@
 package app.lightmove.api.core.tenant;
 
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
+import org.springframework.jdbc.datasource.ConnectionHolder;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
@@ -24,19 +28,44 @@ public final class WorkspaceScope {
     }
 
     /**
-     * Refused inside a transaction begun for another workspace: a transaction joined here keeps the connection, and
-     * so the workspace, it began with, and the task would read the outer workspace's rows believing them this
-     * one's. One begun for no workspace is let through — joined, it reads nothing, which fails closed — because an
-     * after-commit listener still runs inside the committed transaction of a thread that had none.
+     * Refused inside a live transaction begun for another workspace: the task's reads would join it, on the outer
+     * workspace's connection. A connection still bound with no live transaction — an after-commit listener run on
+     * the publishing thread, which Spring reports inactive while the committed transaction's connection is still
+     * what a read joins — and one bound for no workspace are set to this workspace for the task and back after.
      */
     public static <T> T call(UUID workspaceId, Supplier<T> task) {
         Objects.requireNonNull(workspaceId, "workspaceId");
         UUID outer = TenantContext.currentWorkspaceId();
-        if (TransactionSynchronizationManager.isActualTransactionActive() && outer != null
-                && !workspaceId.equals(outer)) {
+        Connection joined = boundConnection();
+        if (joined == null || workspaceId.equals(outer)) {
+            return callBound(workspaceId, task);
+        }
+        if (outer != null && TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("A workspace scope must be entered before its transaction begins");
         }
-        return callBound(workspaceId, task);
+        setOn(joined, workspaceId);
+        try {
+            return callBound(workspaceId, task);
+        } finally {
+            setOn(joined, outer);
+        }
+    }
+
+    private static @Nullable Connection boundConnection() {
+        for (Object resource : TransactionSynchronizationManager.getResourceMap().values()) {
+            if (resource instanceof ConnectionHolder holder && holder.getConnectionHandle() != null) {
+                return holder.getConnection();
+            }
+        }
+        return null;
+    }
+
+    private static void setOn(Connection connection, @Nullable UUID workspaceId) {
+        try {
+            TenantAwareDataSource.setWorkspace(connection, workspaceId);
+        } catch (SQLException failed) {
+            throw new CannotCreateTransactionException("Could not set the workspace on the joined connection", failed);
+        }
     }
 
     static void runBound(@Nullable UUID workspaceId, Runnable task) {
