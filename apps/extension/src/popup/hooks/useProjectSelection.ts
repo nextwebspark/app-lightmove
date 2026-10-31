@@ -1,15 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { askServiceWorker } from "../../background/extensionMessages";
 import type { ProjectSummary } from "../../api/types";
 import { useCaptureSettings } from "./useCaptureSettings";
 
 /**
- * The mandate a capture will land in. Defaults to the one chosen in Settings, else the last one used.
- * Called once, in `CapturePopup`, and passed to both tabs — two selections file a person into the
- * mandate the consultant did not choose.
+ * The position a capture lands in — the panel's context, chosen at the top and kept until changed. Defaults to the one
+ * chosen in Settings, else the last one used, else the first. Archived positions are never offered.
  */
 const LAST_USED_KEY = ["extension", "lastUsedProject"] as const;
+const RECENT_KEY = ["extension", "recentProjects"] as const;
 
 export function useProjectSelection() {
   const queryClient = useQueryClient();
@@ -35,30 +35,46 @@ export function useProjectSelection() {
     },
   });
 
+  const recent = useQuery<string[]>({
+    queryKey: RECENT_KEY,
+    queryFn: async () => {
+      const result = await askServiceWorker({ kind: "recentProjects" });
+      return result.ok ? result.value : [];
+    },
+  });
+
+  const live = useMemo(() => (projects.data ?? []).filter((project) => !project.archivedAt), [projects.data]);
+
   // Chooses the default once both answers are in, and only while nothing is selected — so a
-  // consultant who has already picked a mandate never has it changed under them by a late query.
+  // consultant who has already picked a position never has it changed under them by a late query.
   useEffect(() => {
-    if (selectedProjectId || !projects.data?.length) {
+    if (selectedProjectId || !live.length) {
       return;
     }
     const preferred = [settings.defaultProjectId, lastUsed.data]
-      .map((wanted) => projects.data?.find((project) => project.id === wanted))
+      .map((wanted) => live.find((project) => project.id === wanted))
       .find(Boolean);
-    setSelectedProjectId(preferred?.id ?? projects.data[0].id);
-  }, [projects.data, lastUsed.data, settings.defaultProjectId, selectedProjectId]);
+    setSelectedProjectId(preferred?.id ?? live[0].id);
+  }, [live, lastUsed.data, settings.defaultProjectId, selectedProjectId]);
 
   const selectProject = (projectId: string) => {
     setSelectedProjectId(projectId);
     // The cache as well as storage: `staleTime` means the old answer would otherwise be served for
-    // another half-minute, and the next popup open would offer a mandate the consultant moved off.
+    // another half-minute, and the next panel open would offer a position the consultant moved off.
     queryClient.setQueryData(LAST_USED_KEY, projectId);
+    queryClient.setQueryData<string[]>(RECENT_KEY, (held) =>
+      [projectId, ...(held ?? []).filter((id) => id !== projectId)].slice(0, 3),
+    );
     void askServiceWorker({ kind: "rememberProject", projectId });
   };
 
+  const selectedProject = live.find((project) => project.id === selectedProjectId) ?? null;
+
   return {
-    projects: projects.data ?? [],
-    selectedProjectId,
-    selectedProjectName: projects.data?.find((project) => project.id === selectedProjectId)?.positionTitle ?? null,
+    projects: live,
+    recentProjectIds: recent.data ?? [],
+    selectedProjectId: selectedProject?.id ?? null,
+    selectedProject,
     selectProject,
     isLoading: projects.isPending || lastUsed.isPending,
   };

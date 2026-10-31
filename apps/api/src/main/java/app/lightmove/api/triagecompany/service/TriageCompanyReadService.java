@@ -9,6 +9,7 @@ import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.text.model.SearchText;
+import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.core.text.service.SuppliedText;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.strategy.constant.SortDirection;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -428,6 +430,28 @@ public class TriageCompanyReadService {
     public TriageCompanyResponse get(UUID workspaceId, UUID projectId, UUID triageCompanyId) {
         projects.requireInWorkspace(projectId, workspaceId);
         return TriageCompanyResponseMapper.toDto(triaged.requireInProject(triageCompanyId, projectId));
+    }
+
+    /**
+     * The company this position already holds for a LinkedIn page, if any: what the plugin asks before it offers to
+     * file one. The page's slug first, then the name {@code capture} refuses a second row under.
+     */
+    @Transactional(readOnly = true)
+    public Optional<TriageCompanyResponse> heldAt(UUID workspaceId, UUID projectId, String linkedinUrl,
+                                                  String companyName) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        Optional<TriageCompany> held = Optional.empty();
+        String slug = LinkedInUrls.companySlugOrNull(linkedinUrl);
+        if (slug != null) {
+            held = triaged.findByProjectIdAndCompanySlugLike(projectId, slug).stream()
+                    .filter(company -> slug.equals(LinkedInUrls.companySlugOrNull(company.getCompanyLinkedinUrl())))
+                    .findFirst();
+        }
+        if (held.isEmpty() && companyName != null && !companyName.isBlank()) {
+            held = triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, companyName.trim()).stream().findFirst();
+        }
+        return held.map(company -> TriageCompanyResponseMapper.toDto(company, null,
+                addersOf(List.of(company)).get(company.getAddedBy())));
     }
 
     /** Every company id at one stage, unpaged: what holds a search to a stage. */

@@ -1,5 +1,5 @@
 import type { WorkspaceUser } from "../../api/types";
-import { InitialsAvatar } from "../components/PopupChrome";
+import { UserAvatar } from "../components/PopupChrome";
 import { ProjectSelect } from "../components/ProjectSelect";
 import { SectionLabel } from "../components/SectionLabel";
 import { ToggleRow } from "../components/ToggleRow";
@@ -40,26 +40,20 @@ export function CaptureSettingsScreen({ user, projects, onBack, onSignOut }: Cap
       </header>
 
       <div className="flex-1 overflow-y-auto p-3.5">
-        <SectionLabel className="mb-2">Default destination</SectionLabel>
+        <SectionLabel className="mb-2">Default position</SectionLabel>
         <ProjectSelect
           projects={projects.projects}
           selectedProjectId={settings.defaultProjectId}
           onSelect={(projectId) => update({ defaultProjectId: projectId || null })}
           isLoading={projects.isLoading}
-          unsetLabel="Ask every time — offer the last one used"
+          unsetLabel="The last one used"
         />
 
         <SectionLabel className="mb-2 mt-[18px]">Behaviour</SectionLabel>
         <div className="divide-y divide-u-border rounded-lg border border-u-border-strong">
           <ToggleRow
-            label="Auto-detect page type"
-            hint="Opens the Person or Company tab to match the page"
-            isOn={settings.isPageTypeDetected}
-            onToggle={(isOn) => update({ isPageTypeDetected: isOn })}
-          />
-          <ToggleRow
             label="Close after save"
-            hint="Closes the popup once a capture lands"
+            hint="Closes the panel once the note and tags are filed"
             isOn={settings.closesAfterSave}
             onToggle={(isOn) => update({ closesAfterSave: isOn })}
           />
@@ -67,7 +61,7 @@ export function CaptureSettingsScreen({ user, projects, onBack, onSignOut }: Cap
 
         <SectionLabel className="mb-2 mt-[18px]">Session</SectionLabel>
         <div className="flex items-center gap-2.5 rounded-lg border border-u-border-strong bg-u-raised px-2.5 py-2">
-          {user && <InitialsAvatar name={user.fullName} />}
+          {user && <UserAvatar name={user.fullName} src={user.avatarUrl} />}
           <span className="flex-1 overflow-hidden">
             <span className="block truncate text-[12.5px] font-medium text-u-text">{user?.fullName ?? "Not paired"}</span>
             <span className="block truncate text-[10.5px] text-u-text3">{user?.email ?? ""}</span>

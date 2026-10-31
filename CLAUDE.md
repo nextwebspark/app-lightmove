@@ -52,7 +52,11 @@ of their own** (V150, #903): their company's when filed or remapped, then wherev
 Decline / Back to universe sent them (`PUT …/candidates/{id}/triage-status`) — a line's buttons and trash act on its
 person alone. A stage lists its own companies plus any company with someone listed there; the company's own move
 (its drawer, or the line of a company with nobody on that stage) carries everyone at it (`TriageCompanyMoved`). An executive is also
-captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`).
+captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`). The plugin's side panel files into
+the position chosen at its top, asks first whether that position already holds the page (`GET …/candidates/held` by
+profile slug, `GET …/triage/held` by company page then name; staff-only, 204 when not) and then opens that record —
+status, tags and the position's notes, ready for the next — rather than a form; it writes its notes through the notes
+routes in the app's own editor (never the door's plain `note`), and files a company into the universe only.
 **Every executive is a workspace person first (V91, `docs/candidate-crm.md`)**: `app_lm_person` is the
 human — profile, background, package, contact ledger, research — owned by the workspace, and a mandate's
 `Candidate` row maps that person and keeps only the mandate's own status, custom-column values and

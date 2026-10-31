@@ -13,7 +13,7 @@ describe("the project dropdown", () => {
   it("names each mandate by its role and its client", () => {
     render(
       <ProjectSelect
-        projects={[{ id: "p1", positionTitle: "Chief Operating Officer", clientName: "Al Rawabi Dairy" }]}
+        projects={[{ id: "p1", positionTitle: "Chief Operating Officer", clientName: "Al Rawabi Dairy", clientLogoUrl: null, team: [], archivedAt: null }]}
         selectedProjectId="p1"
         onSelect={vi.fn()}
         isLoading={false}
@@ -26,7 +26,7 @@ describe("the project dropdown", () => {
   it("falls back to the role alone when a mandate has no client name", () => {
     render(
       <ProjectSelect
-        projects={[{ id: "p1", positionTitle: "Group CFO", clientName: null }]}
+        projects={[{ id: "p1", positionTitle: "Group CFO", clientName: null, clientLogoUrl: null, team: [], archivedAt: null }]}
         selectedProjectId="p1"
         onSelect={vi.fn()}
         isLoading={false}

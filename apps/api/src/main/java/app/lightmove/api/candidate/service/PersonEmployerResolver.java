@@ -93,6 +93,16 @@ public class PersonEmployerResolver {
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> logoOf(entry.getValue(), filed)));
     }
 
+    /** The logo beside the employer one position recorded: its company row's, else research's where research named it. */
+    String logoOfMapping(UUID workspaceId, Candidate mapping) {
+        UUID companyId = mapping.getTriageCompanyId();
+        String onRow = companyId == null ? null : triageCompanies.logoUrlsOf(workspaceId, List.of(companyId)).get(companyId);
+        if (onRow != null || mapping.getCompanyName() == null) {
+            return onRow;
+        }
+        return researchedLogoOf(mapping.getPerson().getProfile().employer(), mapping.getCompanyName());
+    }
+
     private static String logoOf(PersonEmployer employer, Map<UUID, String> filed) {
         String onRow = employer.triageCompanyId() == null ? null : filed.get(employer.triageCompanyId());
         return onRow != null ? onRow : employer.researchedLogoUrl();

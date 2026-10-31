@@ -111,6 +111,11 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
 
     List<TriageCompany> findByProjectIdAndCompanyNameIgnoreCase(UUID projectId, String companyName);
 
+    /** Narrows to the rows whose LinkedIn page may be {@code slug}'s; a prefix matches too, so the caller settles it. */
+    @Query("select t from TriageCompany t where t.projectId = :projectId "
+            + "and lower(t.companyLinkedinUrl) like concat('%/company/', :slug, '%')")
+    List<TriageCompany> findByProjectIdAndCompanySlugLike(UUID projectId, String slug);
+
     List<TriageCompany> findByProjectIdAndApolloAccountIdIn(UUID projectId, Collection<String> apolloAccountIds);
 
     @Query("select t from TriageCompany t "
