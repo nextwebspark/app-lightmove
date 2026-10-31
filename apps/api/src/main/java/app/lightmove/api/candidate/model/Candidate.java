@@ -54,6 +54,10 @@ public class Candidate extends BaseEntity {
     @Column(name = "company_name")
     private String companyName;
 
+    /** Their company was filed into the universe for them rather than already held (V167); Undo of a capture takes it. */
+    @Column(name = "company_filed_for_them", nullable = false)
+    private boolean companyFiledForThem;
+
     /**
      * The Companies stage this person is listed under (V150): their company's when filed or remapped, then their
      * own, so moving one executive at a company leaves the colleagues where they stand.
@@ -176,15 +180,20 @@ public class Candidate extends BaseEntity {
     public void remapTo(UUID newTriageCompanyId, TriageCompanyStatus newCompanyStatus) {
         if (!Objects.equals(triageCompanyId, newTriageCompanyId)) {
             this.triageStatus = newCompanyStatus;
+            this.companyFiledForThem = false;
         }
         this.triageCompanyId = newTriageCompanyId;
     }
 
-    /** Research resolved the employer into one of the mandate's companies — map, snapshot and stage it. */
+    /**
+     * Research resolved the employer into one of the mandate's companies — map, snapshot and stage it.
+     * {@code filedForThem} when that company was filed for this person rather than already held.
+     */
     public void employBy(UUID resolvedTriageCompanyId, String resolvedEmployerName,
-                         TriageCompanyStatus resolvedCompanyStatus) {
+                         TriageCompanyStatus resolvedCompanyStatus, boolean filedForThem) {
         remapTo(resolvedTriageCompanyId, resolvedCompanyStatus);
         this.companyName = resolvedEmployerName;
+        this.companyFiledForThem = filedForThem;
     }
 
     /** Answers whether anything changed. Only this person moves; their company and its other people stay. */

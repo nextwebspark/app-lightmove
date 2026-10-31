@@ -28,6 +28,7 @@ import app.lightmove.api.triagecompany.dto.TriageBulkAddResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.dto.UpdateTriageCompanyRequest;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
+import app.lightmove.api.triagecompany.model.FiledCompany;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyCapturedEvent;
 import app.lightmove.api.triagecompany.model.TriageCompanyMoved;
@@ -213,12 +214,24 @@ public class TriageCompanyService {
     @Transactional
     public TriageCompanyResponse captureFromResearch(UUID projectId, UUID addedBy, CapturedCompanyDetails details,
                                                      TriageCompanySource source, TriageCompanyStatus status) {
+        return fileFromResearch(projectId, addedBy, details, source, status).company();
+    }
+
+    /** {@link #captureFromResearch}, answering too whether this filing put the row there. */
+    @Transactional
+    public FiledCompany fileFromResearch(UUID projectId, UUID addedBy, CapturedCompanyDetails details,
+                                         TriageCompanySource source) {
+        return fileFromResearch(projectId, addedBy, details, source, TriageCompanyStatus.IN_UNIVERSE);
+    }
+
+    private FiledCompany fileFromResearch(UUID projectId, UUID addedBy, CapturedCompanyDetails details,
+                                          TriageCompanySource source, TriageCompanyStatus status) {
         ResolvedCapture resolved = resolveCapture(projectId, addedBy, details, source, status);
         resolved.company().unflagNoExecutiveFound();
         if (resolved.created()) {
             announceForResearch(resolved.company(), projectId);
         }
-        return TriageCompanyResponseMapper.toDto(resolved.company());
+        return new FiledCompany(TriageCompanyResponseMapper.toDto(resolved.company()), resolved.created());
     }
 
     /** Files the assistant's researched company card. False when the mandate already held it. */
@@ -533,12 +546,37 @@ public class TriageCompanyService {
             events.publishEvent(new TriageCompanyRemoved(projectId, workspaceId, triageCompanyId, userId));
             stream.publish(projectId, ProjectStreamKind.CANDIDATE_MOVED);
         }
+        delete(company, executivesRemoved, userId, workspaceId, httpRequest);
+    }
+
+    /**
+     * Removes a company filed for someone who has just been taken back off the mandate, unless anyone has worked it
+     * since: still In universe, nobody mapped there and no note on it. Never refuses; false leaves it as it is.
+     */
+    @Transactional
+    public boolean removeIfUntouched(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
+                                     HttpServletRequest httpRequest) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        Optional<TriageCompany> found = triaged.findForUpdate(triageCompanyId, projectId);
+        if (found.isEmpty()
+                || found.get().getStatus() != TriageCompanyStatus.IN_UNIVERSE
+                || executives.executivesAt(projectId, triageCompanyId) > 0
+                || companyNotes.countsOf(projectId, List.of(triageCompanyId)).containsKey(triageCompanyId)) {
+            return false;
+        }
+        delete(found.get(), 0, userId, workspaceId, httpRequest);
+        return true;
+    }
+
+    private void delete(TriageCompany company, long executivesRemoved, UUID userId, UUID workspaceId,
+                        HttpServletRequest httpRequest) {
+        UUID projectId = company.getProjectId();
         triaged.delete(company);
         stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
 
         // The name, because the row carrying it is gone and a bare id answers nothing later.
         audit.projectEvent(ProjectEventType.TRIAGE_COMPANY_REMOVED, userId, workspaceId, projectId, httpRequest)
-                .detail("triageCompanyId", triageCompanyId.toString())
+                .detail("triageCompanyId", company.getId().toString())
                 .detail("companyName", company.getCompanyName())
                 .detail("executivesRemoved", String.valueOf(executivesRemoved))
                 .record();

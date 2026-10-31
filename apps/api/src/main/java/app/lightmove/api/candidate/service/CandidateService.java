@@ -66,6 +66,7 @@ import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
+import app.lightmove.api.triagecompany.model.FiledCompany;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
@@ -864,7 +865,8 @@ public class CandidateService {
                 && !candidate.getCompanyName().equalsIgnoreCase(employer.companyName())) {
             return;
         }
-        TriageCompanyResponse company = filings.rowFor(employer);
+        FiledCompany filed = filings.rowFor(employer);
+        TriageCompanyResponse company = filed.company();
 
         boolean nameHeldThere = candidates
                 .findByProjectIdAndTriageCompanyIdAndPersonFullNameIgnoreCase(
@@ -876,7 +878,8 @@ public class CandidateService {
                     company.companyName());
             return;
         }
-        candidate.employBy(company.id(), company.companyName(), TriageCompanyStatus.fromValue(company.status()));
+        candidate.employBy(company.id(), company.companyName(), TriageCompanyStatus.fromValue(company.status()),
+                filed.filed());
         stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
     }
 
@@ -908,11 +911,13 @@ public class CandidateService {
 
     /**
      * {@code withCompany} also removes the company they were the last one at; anyone else mapped there refuses the
-     * whole removal. The audit is recorded last: its writer is async and would outlive a rollback.
+     * whole removal. {@code withFiledCompany} (the plugin's Undo) takes the company only where it was filed for them
+     * and nobody has worked it since, and otherwise leaves it without refusing. The audit is recorded last: its writer
+     * is async and would outlive a rollback.
      */
     @Transactional
     public void remove(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, boolean withCompany,
-                       HttpServletRequest httpRequest) {
+                       boolean withFiledCompany, HttpServletRequest httpRequest) {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
         UUID companyId = candidate.getTriageCompanyId();
@@ -921,6 +926,9 @@ public class CandidateService {
         if (withCompany && companyId != null) {
             candidates.flush();
             triage.removeFromProject(userId, workspaceId, projectId, companyId, 0, httpRequest);
+        } else if (withFiledCompany && companyId != null && candidate.isCompanyFiledForThem()) {
+            candidates.flush();
+            triage.removeIfUntouched(userId, workspaceId, projectId, companyId, httpRequest);
         }
         CandidateRemoval.recordRemoved(audit.projectEvent(ProjectEventType.CANDIDATE_REMOVED, userId, workspaceId,
                 projectId, httpRequest), candidate);
