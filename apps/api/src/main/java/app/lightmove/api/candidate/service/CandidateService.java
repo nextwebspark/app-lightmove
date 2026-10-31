@@ -62,6 +62,7 @@ import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
@@ -72,6 +73,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -385,15 +387,15 @@ public class CandidateService {
                                  SaveCandidateRequest request, HttpServletRequest httpRequest) {
         projects.requireInWorkspace(projectId, workspaceId);
         CandidateSource source = requests.resolveSource(request.source());
-        CandidateDetails details = requests.detailsOf(projectId, request, null);
+        UUID triageCompanyId = requests.companyOf(projectId, request, null);
+        CandidateDetails details = requests.detailsOf(projectId, request.withTriageCompanyId(triageCompanyId), null);
 
-        refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), null);
+        refuseDuplicate(projectId, triageCompanyId, details.fullName(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
 
         CandidateStatusDefinition status = pipeline.requireOfferable(workspaceId, request.status());
         Optional<Person> known = personToFile(workspaceId, source, request, details);
-        Filed filed = file(userId, workspaceId, projectId, request.triageCompanyId(), source, status, details,
-                known);
+        Filed filed = file(userId, workspaceId, projectId, triageCompanyId, source, status, details, known);
         Candidate candidate = filed.candidate();
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
@@ -446,8 +448,10 @@ public class CandidateService {
         Person person = candidate.getPerson();
         ProfileChanges changes = ProfileChanges.before(person);
 
-        CandidateDetails details = requests.detailsOf(projectId, request, candidate.getTriageCompanyId());
-        refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), candidateId);
+        UUID triageCompanyId = requests.companyOf(projectId, request, candidate);
+        CandidateDetails details = requests.detailsOf(projectId, request.withTriageCompanyId(triageCompanyId),
+                candidate.getTriageCompanyId());
+        refuseDuplicate(projectId, triageCompanyId, details.fullName(), candidateId);
         refuseHeldProfile(projectId, details.linkedinUrl(), candidateId);
         ProfileClaim claim = matcher.claimOf(workspaceId, details.linkedinUrl(), person);
         if (claim == ProfileClaim.HELD) {
@@ -456,7 +460,7 @@ public class CandidateService {
         refuseRetypedCapturedProfile(person, details.linkedinUrl());
 
         boolean confirmBackground = Boolean.TRUE.equals(request.confirmBackground());
-        candidate.remapTo(request.triageCompanyId(), triageStatusOfCompany(projectId, request.triageCompanyId()));
+        candidate.remapTo(triageCompanyId, triageStatusOfCompany(projectId, triageCompanyId));
         candidate.describe(details);
         // A whole-record save that names a status moves them like the status pill does, line and all; one
         // that names none (a re-imported sheet) leaves them where they stand.
@@ -567,7 +571,7 @@ public class CandidateService {
                         PersonActivityDetails.of("vendor", enriched.vendor()));
             }
             mapToEmployer(projectId, candidate, CapturedCompanyDetails.employerNamed(enriched.employerName(),
-                    enriched.employerLinkedinUrl(), enriched.employerLogoUrl()));
+                    enriched.employerLinkedinUrl(), enriched.employerLogoUrl()), TriageCompanySource.EXTENSION);
             stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
             projects.findById(projectId).ifPresent(project -> events.publishEvent(
                     new CandidateAiEnrichRequested(candidateId, projectId, project.getWorkspaceId(),
@@ -837,7 +841,7 @@ public class CandidateService {
                 .filter(row -> !row.getProjectId().equals(projectId))
                 .toList();
         employerResolver.knownEmployerOf(workspaceId, person, elsewhere)
-                .ifPresent(employer -> mapToEmployer(projectId, candidate, employer));
+                .ifPresent(employer -> mapToEmployer(projectId, candidate, employer, TriageCompanySource.EXTENSION));
     }
 
     /**
@@ -846,7 +850,15 @@ public class CandidateService {
      * a company moved. Skipped when the mandate already maps someone of the same name at that company —
      * the scope {@link #refuseDuplicate} holds a mandate to.
      */
-    private void mapToEmployer(UUID projectId, Candidate candidate, CapturedCompanyDetails employer) {
+    private void mapToEmployer(UUID projectId, Candidate candidate, CapturedCompanyDetails employer,
+                               TriageCompanySource source) {
+        mapToEmployer(projectId, candidate, employer,
+                details -> triage.captureFromResearch(projectId, candidate.getAddedBy(), details, source));
+    }
+
+    /** {@code filing} answers the mandate's row for the employer, filing it when the mandate holds none. */
+    private void mapToEmployer(UUID projectId, Candidate candidate, CapturedCompanyDetails employer,
+                               Function<CapturedCompanyDetails, TriageCompanyResponse> filing) {
         candidate.adoptEmployer(employer.companyName());
         if (candidate.getTriageCompanyId() != null || employer.companyName() == null) {
             return;
@@ -858,7 +870,7 @@ public class CandidateService {
                 && !candidate.getCompanyName().equalsIgnoreCase(employer.companyName())) {
             return;
         }
-        TriageCompanyResponse company = triage.captureFromResearch(projectId, candidate.getAddedBy(), employer);
+        TriageCompanyResponse company = filing.apply(employer);
 
         boolean nameHeldThere = candidates
                 .findByProjectIdAndTriageCompanyIdAndPersonFullNameIgnoreCase(
@@ -872,6 +884,11 @@ public class CandidateService {
         }
         candidate.employBy(company.id(), company.companyName(), TriageCompanyStatus.fromValue(company.status()));
         stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
+    }
+
+    private static String employerKeyOf(CapturedCompanyDetails employer) {
+        return employer.companyName().strip().toLowerCase(Locale.ROOT) + "|"
+                + Objects.toString(employer.companyLinkedinUrl(), "");
     }
 
     private void keepPhoto(UUID personId, EnrichedProfile enriched) {
@@ -1090,8 +1107,10 @@ public class CandidateService {
     }
 
     /**
-     * Adds people the workspace already holds to a mandate, as Identified. Someone it already holds stays
-     * as they are. The caller has checked they may work the mandate.
+     * Adds people the workspace already holds to a mandate, as Identified, each under the employer their latest
+     * position recorded — filed into this mandate's universe as a plugin capture of someone known is, one filing per
+     * employer however many people share it. Someone it already holds stays as they are. The caller has checked they
+     * may work the mandate.
      */
     @Transactional
     public MapPeopleToPositionResponse mapFromPool(UUID userId, UUID workspaceId, UUID projectId,
@@ -1102,15 +1121,21 @@ public class CandidateService {
                 .collect(Collectors.groupingBy(row -> row.getPerson().getId()));
         List<UUID> added = new ArrayList<>();
         CandidateStatusDefinition startingStatus = pipeline.catalogOf(workspaceId).defaultStatus();
+        Map<String, TriageCompanyResponse> filedEmployers = new HashMap<>();
+        Function<CapturedCompanyDetails, TriageCompanyResponse> filing = employer -> filedEmployers.computeIfAbsent(
+                employerKeyOf(employer),
+                key -> triage.captureFromResearch(projectId, userId, employer, TriageCompanySource.MANUAL));
         for (Person person : persons) {
             List<Candidate> rows = mappedOldestFirst.getOrDefault(person.getId(), List.of());
             if (rows.stream().anyMatch(row -> row.getProjectId().equals(projectId))) {
                 continue;
             }
-            Candidate candidate = candidates.save(Candidate.mappedFromPool(projectId, userId, person,
-                    PersonEmployerResolver.employerOf(person, rows).name(), startingStatus));
+            Candidate candidate = candidates.save(Candidate.mappedFromPool(projectId, userId, person, startingStatus));
             activity.record(candidate, userId, PersonActivityKind.MAPPED,
                     PersonActivityDetails.of("door", CandidateSource.MANUAL));
+            employerResolver.knownEmployerOf(workspaceId, person, rows).ifPresentOrElse(
+                    employer -> mapToEmployer(projectId, candidate, employer, filing),
+                    () -> candidate.adoptEmployer(PersonEmployerResolver.employerOf(person, rows).name()));
             added.add(person.getId());
         }
         if (!added.isEmpty()) {

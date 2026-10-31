@@ -207,6 +207,29 @@ class SpreadsheetImportIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("re-importing people without a company column leaves each one under the company they are at")
+    void aPeopleOnlyReImportNeverUnmapsAnyone() throws Exception {
+        String admin = adminOf("Import Keeps Company Firm");
+        String projectId = project(admin);
+        importFile(admin, projectId, """
+                Company,Full Name,Work Email
+                ACWA Power,Layla Haddad,layla@acwa.example
+                """);
+        String companyId = companies(admin, projectId).get("companies").get(0).get("id").asText();
+
+        JsonNode second = importFile(admin, projectId, """
+                Full Name,Work Email,Job Title
+                Layla Haddad,layla@acwa.example,Group CFO
+                """);
+
+        assertThat(second.get("candidatesUpdated").asInt()).isEqualTo(1);
+        JsonNode layla = candidates(admin, projectId).get("candidates").get(0);
+        assertThat(layla.get("triageCompanyId").asText()).isEqualTo(companyId);
+        assertThat(layla.get("companyName").asText()).isEqualTo("ACWA Power");
+        assertThat(layla.get("title").asText()).isEqualTo("Group CFO");
+    }
+
+    @Test
     @DisplayName("a company note is filed once whether its row creates the company or finds it already held")
     void aCompanyNoteReachesAHeldCompanyToo() throws Exception {
         String admin = adminOf("Import Company Note Firm");

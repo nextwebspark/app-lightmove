@@ -9,6 +9,7 @@ import app.lightmove.api.candidate.dto.CandidateCompensationDto;
 import app.lightmove.api.candidate.dto.ContactEntryDto;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.model.AllowanceLine;
+import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateCompensation;
 import app.lightmove.api.candidate.model.CandidateContact;
@@ -40,6 +41,27 @@ class CandidateRequestReader {
     private static final int MAX_CONTACTS_PER_CHANNEL = 10;
 
     private final TriageCompanyService triage;
+
+    /**
+     * The company a write lands the person at: the one it names; else, for someone already at a company, that one
+     * while the write names no employer or the same one — a re-imported row without a company cell, or a drawer
+     * saved from a copy older than the research that mapped them, is not a move; else the mandate's company held
+     * under exactly the employer it names; else none.
+     */
+    UUID companyOf(UUID projectId, SaveCandidateRequest request, Candidate current) {
+        if (request.triageCompanyId() != null) {
+            return request.triageCompanyId();
+        }
+        String employerName = request.employerName() == null || request.employerName().isBlank()
+                ? null : request.employerName().strip();
+        if (current != null && current.getTriageCompanyId() != null
+                && (employerName == null || employerName.equalsIgnoreCase(current.getCompanyName()))) {
+            return current.getTriageCompanyId();
+        }
+        return triage.findCompanyOfProjectByName(projectId, employerName)
+                .map(TriageCompanyResponse::id)
+                .orElse(null);
+    }
 
     /**
      * Where a candidate sits. A named company is resolved through {@code triagecompany}'s public seam,

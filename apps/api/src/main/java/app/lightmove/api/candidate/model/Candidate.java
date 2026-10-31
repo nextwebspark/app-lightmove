@@ -121,10 +121,9 @@ public class Candidate extends BaseEntity {
 
     /**
      * Someone the workspace already holds, added to a mandate from the Candidates page: at the catalog's
-     * starting status, by hand, at the employer they were last recorded at, and on none of the mandate's
-     * companies.
+     * starting status, by hand, and at no company until their employer is filed.
      */
-    public static Candidate mappedFromPool(UUID projectId, UUID addedBy, Person person, String employerName,
+    public static Candidate mappedFromPool(UUID projectId, UUID addedBy, Person person,
                                            CandidateStatusDefinition startingStatus) {
         Candidate candidate = new Candidate();
         candidate.projectId = projectId;
@@ -133,7 +132,6 @@ public class Candidate extends BaseEntity {
         candidate.source = CandidateSource.MANUAL;
         candidate.status = startingStatus;
         candidate.statusChangedAt = Instant.now();
-        candidate.companyName = employerName;
         return candidate;
     }
 

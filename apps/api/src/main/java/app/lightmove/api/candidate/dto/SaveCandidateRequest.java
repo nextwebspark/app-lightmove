@@ -137,4 +137,12 @@ public record SaveCandidateRequest(
                 linkedinUrl, locationCountry, locationCity, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null);
     }
+
+    /** The same write, landing at the company the server resolved for it. */
+    public SaveCandidateRequest withTriageCompanyId(UUID resolvedTriageCompanyId) {
+        return new SaveCandidateRequest(resolvedTriageCompanyId, fullName, title, seniority, status, employerName,
+                email, phone, emails, phones, linkedinUrl, locationCountry, locationCity, nationality, gender,
+                yearsExperience, summary, note, compensation, career, languages, source, sourceUrl, customFields,
+                confirmBackground, addAsNewPerson, existingPersonId);
+    }
 }

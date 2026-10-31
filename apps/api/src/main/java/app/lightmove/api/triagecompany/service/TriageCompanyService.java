@@ -45,7 +45,6 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -166,6 +165,7 @@ public class TriageCompanyService {
                 request.website(), request.companyLinkedinUrl(), request.foundedYear(),
                 request.shortDescription(), null, request.sourceUrl(), request.note());
 
+        writer.holdCaptureOf(projectId, details.companyName());
         if (triaged.existsByProjectIdAndCompanyNameIgnoreCase(projectId, details.companyName())) {
             throw ApiException.of(ErrorCode.TRIAGE_COMPANY_ALREADY_HELD);
         }
@@ -291,6 +291,7 @@ public class TriageCompanyService {
                             .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND)), inserted > 0);
         }
 
+        writer.holdCaptureOf(projectId, details.companyName());
         List<TriageCompany> heldByName =
                 triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, details.companyName());
         if (!heldByName.isEmpty()) {
@@ -324,22 +325,14 @@ public class TriageCompanyService {
     }
 
     /**
-     * Answers with the winner's row when a concurrent capture got there first: two enrichment workers
-     * both pass the held-check, and V34's index refusing the loser would fail its whole enrichment.
+     * The caller holds {@link TriageCompanyWriter#holdCaptureOf} and has found no row of this name. A
+     * {@code DataIntegrityViolationException} here cannot be recovered in-transaction — Postgres has aborted it — so
+     * the lock, not a catch, is what keeps two captures of one name from colliding.
      */
     private ResolvedCapture saveCaptured(UUID projectId, UUID addedBy, TriageCompanySource source,
                                          TriageCompanyStatus status, CapturedCompanyDetails details) {
-        try {
-            return new ResolvedCapture(triaged.saveAndFlush(
-                    TriageCompany.captured(projectId, addedBy, source, status, details)), true);
-        } catch (DataIntegrityViolationException lostTheRace) {
-            List<TriageCompany> held =
-                    triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, details.companyName());
-            if (held.isEmpty()) {
-                throw lostTheRace;
-            }
-            return new ResolvedCapture(preferred(held), false);
-        }
+        return new ResolvedCapture(triaged.saveAndFlush(
+                TriageCompany.captured(projectId, addedBy, source, status, details)), true);
     }
 
     private void announceForResearch(TriageCompany company, UUID projectId) {
