@@ -1354,7 +1354,10 @@ V162 adds two-factor authentication (#1081): `app_lm_user_mfa_factor` (one per u
 replay guard), `app_lm_user_mfa_recovery_code` (SHA-256 per code, spent by a conditional update) and
 `app_lm_mfa_challenge` (a right password's single-use challenge, hashed), and adds `MFA_CHANGED` to the refresh token's
 revoke reasons. Account data, keyed on the user, never a workspace. Offered only where `lightmove.auth.mfa.enabled` and a
-keyset are both set; off in deployments until the OAuth door asks for the code too (#1082).
+keyset are both set; off in deployments until its rollout.
+An account with no password (a Google or LinkedIn sign-in) turns two-factor on with the code alone, only within
+`lightmove.auth.mfa.recent-sign-in` of signing in (`MFA_SIGN_IN_AGAIN`), and turns it off or takes new recovery codes
+with the code alone.
 V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage
 alike: whoever holds a flagged status is Inactive on the board, skipped and stopped by outreach (`LEFT_THE_RUNNING`),
 moved by no automation and left out of the projects list's Candidates and Engaged — whatever stage it sits under, so
