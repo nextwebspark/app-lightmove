@@ -6,9 +6,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * One audit row as the audit log may phrase it: its type, outcome, the name its target resolves to on a live row,
- * and its metadata behind {@link #text}, which answers only the keys on {@link #READABLE_KEYS}. Metadata holds emails
- * and names on some rows (#927); a key nobody listed here cannot reach a line, however a phrase is written.
+ * One audit row as a phrase may read it. Metadata holds emails and names on some rows (#927), so {@link #text} answers
+ * only {@link #READABLE_KEYS}: a key not listed cannot reach a line, however a phrase is written.
  */
 public record AuditLine(String code, AuditOutcome outcome, Map<String, Object> metadata, String targetName,
                         WorkspaceMode mode) {

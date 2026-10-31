@@ -75,10 +75,7 @@ public enum AuditLogGroup implements ApiValueEnum {
             ProjectEventType.NOTETAKER_COPILOT_ENABLED, ProjectEventType.NOTETAKER_COPILOT_DISABLED,
             ProjectEventType.NOTETAKER_COPILOT_STOPPED, ProjectEventType.NOTETAKER_COPILOT_OPENED);
 
-    /**
-     * An account's own security events, written with no workspace: each shows in every workspace the person is a
-     * member of. A successful sign-in is stamped with the workspace it opened into instead, so it is not here.
-     */
+    /** Written with no workspace, so each shows in every workspace the person is a member of. */
     public static final Set<String> ACCOUNT_SECURITY_CODES = codesOf(
             AuthEventType.LOGIN_FAILED, AuthEventType.ACCOUNT_LOCKED, AuthEventType.MFA_ENABLED,
             AuthEventType.MFA_DISABLED, AuthEventType.MFA_CHALLENGE_FAILED, AuthEventType.MFA_RECOVERY_CODE_USED,
@@ -93,7 +90,6 @@ public enum AuditLogGroup implements ApiValueEnum {
             SecurityEventType.RATE_LIMIT_EXCEEDED);
 
     private final String value;
-    /** The Category column's word in the CSV; the screen spells its own. */
     private final String label;
     private final Set<String> codes;
 
@@ -103,7 +99,6 @@ public enum AuditLogGroup implements ApiValueEnum {
         this.codes = codesOf(types);
     }
 
-    /** The group a type is listed under, if any; an ungrouped type still shows under All. */
     public static Optional<AuditLogGroup> of(String code) {
         return Arrays.stream(values()).filter(group -> group.codes.contains(code)).findFirst();
     }

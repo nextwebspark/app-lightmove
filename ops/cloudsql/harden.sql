@@ -31,8 +31,17 @@ CREATE INDEX IF NOT EXISTS app_lm_audit_event_target_idx
     WHERE outcome = 'SUCCESS';
 
 -- The customer audit log's read, one workspace newest first by id (V165 skips it for the same reason).
--- CONCURRENTLY, so audit inserts keep landing while it builds; psql runs this file statement by statement,
--- outside a transaction block, which CONCURRENTLY needs.
+-- CONCURRENTLY, so audit inserts keep landing while it builds. It cannot run inside a transaction block, so this file
+-- is fed to psql as the header says — never with -1/--single-transaction. A concurrent build that failed leaves an
+-- INVALID index IF NOT EXISTS would skip forever, so a leftover one is dropped first and built again.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
+               WHERE c.relname = 'app_lm_audit_event_workspace_id_idx' AND NOT i.indisvalid) THEN
+        DROP INDEX app_lm_audit_event_workspace_id_idx;
+    END IF;
+END
+$$;
 CREATE INDEX CONCURRENTLY IF NOT EXISTS app_lm_audit_event_workspace_id_idx
     ON app_lm_audit_event (workspace_id, id DESC);
 

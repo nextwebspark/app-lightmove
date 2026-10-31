@@ -4,10 +4,7 @@ import app.lightmove.api.workspace.constant.AuditActorKind;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * One line of the audit log. {@code summary} is phrased from an allowlist of each type's fields; the row's metadata
- * never leaves the server. {@code group} is null for a type no Category lists.
- */
+/** One line of the audit log; {@code group} is null for a type no Category lists. Metadata is never carried. */
 public record AuditLogEntryResponse(
         long id,
         Instant occurredAt,

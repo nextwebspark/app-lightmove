@@ -17,11 +17,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
 
-/**
- * The audit log's one sentence per row. Each phrase reads only {@link AuditLine#text}'s allowlisted keys; a type
- * nobody phrased reads as its own name, and a type the code does not know reads as "Other activity" — never its
- * payload. Words follow {@code docs/glossary.md}.
- */
+/** One sentence per audit row, in {@code docs/glossary.md}'s words; an unknown type is "Other activity". */
 @Component
 public class AuditLogPhrasing {
 
