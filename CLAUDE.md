@@ -1005,8 +1005,9 @@ nullable and `source` records which door the row came through (V34).
 `app_lm_companies` is the retired brightdata copy — nothing reads it, nothing refills it, and it is
 left in place rather than dropped. A mandate's whole filter is one `jsonb` column on `app_lm_strategy`
 (V30 explains why). `app_lm_project_candidate` (V36) is the people half: `project_id` is the mapping and
-`triage_company_id` is nullable with **ON DELETE SET NULL** beside a snapshotted `company_name`, so
-removing a company from a mandate unmaps its executives rather than deleting them. Since V91 it maps a
+`triage_company_id` is nullable with **ON DELETE SET NULL** beside a snapshotted `company_name`; removing a
+company now takes its executives with it (`CompanyRemovalFollower`), and V166 put back under their company the
+people an earlier removal, or a name-only Add to position, had stranded. Since V91 it maps a
 `person_id` — `app_lm_person`, tenant data scoped by `workspace_id`, holding the profile (career history
 and languages one `profile` jsonb column for V30's reasons), background, package and research — once
 per mandate (`app_lm_project_candidate_person_uk`). V91's backfill folded existing rows into one person
