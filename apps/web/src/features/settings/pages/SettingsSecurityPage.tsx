@@ -1,20 +1,48 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { useToast } from "../../../components/ui";
+import { TabList, type TabOption } from "../../../components/ui/TabList";
+import { tabPanelProps } from "../../../components/ui/tabPanelProps";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
 import { ActiveSessionsCard } from "../components/ActiveSessionsCard";
+import { AuditLogPanel } from "../components/AuditLogPanel";
 import { ChangePasswordForm } from "../components/ChangePasswordForm";
 import { TwoFactorCard } from "../components/TwoFactorCard";
 import type { PasswordChangeValues } from "../lib/passwordChangeSchema";
 
 const SESSIONS_QUERY_KEY = ["auth", "sessions"];
 
-/** Settings → Security: the caller's password, two-factor authentication and signed-in devices. */
+type SecurityTab = "account" | "audit-log";
+
+const TABS: readonly TabOption<SecurityTab>[] = [
+  { value: "account", label: "Account" },
+  { value: "audit-log", label: "Audit log" },
+];
+
+const TAB_ID_PREFIX = "security";
+
+/**
+ * Settings → Security: the caller's password, two-factor authentication and signed-in devices, and for an admin the
+ * workspace's audit log beside them (`?tab=audit-log`). The tab is presentation; the server refuses anyone else.
+ */
 export function SettingsSecurityPage() {
   const { user } = useAuth();
+  const [params, setParams] = useSearchParams();
+  const isAdmin = user?.workspace?.roles.includes("ADMIN") ?? false;
+  const tab: SecurityTab = isAdmin && params.get("tab") === "audit-log" ? "audit-log" : "account";
+  const handleTabChange = (next: SecurityTab) =>
+    setParams(
+      (current) => {
+        const updated = new URLSearchParams(current);
+        if (next === "account") updated.delete("tab");
+        else updated.set("tab", next);
+        return updated;
+      },
+      { replace: true },
+    );
   const toast = useToast();
   const queryClient = useQueryClient();
 
@@ -58,10 +86,8 @@ export function SettingsSecurityPage() {
     toast("Password updated");
   };
 
-  return (
+  const account = (
     <>
-      <PageHeader title="Security" subtitle="Password, two-factor authentication and sessions" />
-
       <div className="mb-4 rounded-[10px] border border-u-border bg-u-raised p-5">
         <div className="mb-3.5 text-[13px] font-semibold">Change password</div>
         {user.hasPassword ? (
@@ -88,6 +114,27 @@ export function SettingsSecurityPage() {
         onRevoke={revokeSession.mutate}
         onRevokeOthers={revokeOtherSessions.mutate}
       />
+    </>
+  );
+
+  return (
+    <>
+      <PageHeader
+        title="Security"
+        subtitle={
+          isAdmin
+            ? "Password, two-factor authentication, sessions and the workspace's audit log"
+            : "Password, two-factor authentication and sessions"
+        }
+      />
+      {isAdmin ? (
+        <>
+          <TabList label="Security" idPrefix={TAB_ID_PREFIX} tabs={TABS} value={tab} onChange={handleTabChange} className="mb-4" />
+          <div {...tabPanelProps(TAB_ID_PREFIX, tab)}>{tab === "audit-log" ? <AuditLogPanel /> : account}</div>
+        </>
+      ) : (
+        account
+      )}
     </>
   );
 }

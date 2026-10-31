@@ -8,9 +8,16 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { AuthProvider } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
 import type { ActiveSession, MfaStatus, User } from "../../auth/api/types";
+import * as auditLogApi from "../api/auditLogApi";
 import { SettingsSecurityPage } from "./SettingsSecurityPage";
 
 vi.mock("../../auth/api/authApi");
+vi.mock("../api/auditLogApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api/auditLogApi")>()),
+  auditLog: vi.fn(),
+  auditLogPeople: vi.fn(),
+  saveAuditLogCsv: vi.fn(),
+}));
 
 // AuthProvider exchanges the refresh cookie for a token before it will ask who the user is, so a test
 // that wants a signed-in user has to hand it one.
@@ -373,6 +380,29 @@ describe("SettingsSecurityPage", () => {
 
       await waitFor(() => expect(authApi.disableMfa).toHaveBeenCalledWith({ code: "123456" }));
       expect(await screen.findByText("Two-factor authentication is off")).toBeInTheDocument();
+    });
+  });
+
+  describe("audit log", () => {
+    it("is a tab an admin opens beside their own account", async () => {
+      vi.mocked(authApi.me).mockResolvedValue({ ...member, workspace: { ...member.workspace!, roles: ["ADMIN"] } });
+      vi.mocked(auditLogApi.auditLog).mockResolvedValue({ entries: [], nextCursor: null });
+      vi.mocked(auditLogApi.auditLogPeople).mockResolvedValue([]);
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(await screen.findByRole("tab", { name: "Audit log" }));
+
+      expect(await screen.findByText(/No activity matches these filters/)).toBeInTheDocument();
+      expect(screen.queryByText("This device")).not.toBeInTheDocument();
+    });
+
+    it("is not offered to a member, whom the server would refuse", async () => {
+      renderPage();
+
+      expect(await screen.findByText("This device")).toBeInTheDocument();
+      expect(screen.queryByRole("tab", { name: "Audit log" })).not.toBeInTheDocument();
+      expect(auditLogApi.auditLog).not.toHaveBeenCalled();
     });
   });
 });
