@@ -138,6 +138,42 @@ class AuditLogIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a member removed and invited back shows nothing of their account from the time they were away")
+    void aRejoinedMemberShowsNothingOfTheGap() throws Exception {
+        String memberEmail = "mira@" + domain;
+        inviteAndAccept(admin, "Mira Saleh", memberEmail, "MEMBER");
+        String memberId = memberIdOf(admin, memberEmail);
+        mvc.perform(delete("/api/v1/members/" + memberId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+        failLogin(memberEmail);
+        Long gapFailure = latestFailedLoginOf(memberEmail);
+
+        mvc.perform(post("/api/v1/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"%s","role":"MEMBER"}]
+                                """.formatted(memberEmail)))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/onboarding/invitations/accept")
+                        .header("Authorization", "Bearer " + login(memberEmail))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s"}
+                                """.formatted(email.latestTokenFor(memberEmail))))
+                .andExpect(status().isOk());
+        failLogin(memberEmail);
+        Long rejoinedFailure = latestFailedLoginOf(memberEmail);
+
+        JsonNode failures = page(admin, "?group=signIn&outcome=FAILURE").get("entries");
+        List<Long> shown = StreamSupport.stream(failures.spliterator(), false)
+                .filter(entry -> entry.get("type").asText().equals("LOGIN_FAILED"))
+                .map(entry -> entry.get("id").asLong())
+                .toList();
+        assertThat(shown).containsExactly(rejoinedFailure).doesNotContain(gapFailure);
+    }
+
+    @Test
     @DisplayName("no row's metadata reaches the page or the file, and a type nobody knows is a generic line")
     void metadataNeverLeaves() throws Exception {
         seed("MEMBER_INVITED", "invitation", UUID.randomUUID().toString(),
@@ -236,6 +272,11 @@ class AuditLogIntegrationTest extends FlowTestSupport {
         jdbc.update("insert into app_lm_audit_event (event_type, outcome, workspace_id, target_type, target_id, "
                         + "ip_address, metadata) values (?, 'SUCCESS', ?::uuid, ?, ?, '10.0.0.1', ?::jsonb)",
                 type, workspaceId, targetType, targetId, metadata);
+    }
+
+    private Long latestFailedLoginOf(String emailAddress) {
+        return jdbc.queryForObject("select max(e.id) from app_lm_audit_event e join app_lm_user u on u.id = e.actor_user_id "
+                + "where u.email = ? and e.event_type = 'LOGIN_FAILED'", Long.class, emailAddress);
     }
 
     private Integer exportLines() {

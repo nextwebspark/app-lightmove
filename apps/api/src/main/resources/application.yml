@@ -595,7 +595,7 @@ lightmove:
     max-companies: ${EXPORT_MAX_COMPANIES:5000}
     max-candidates: ${EXPORT_MAX_CANDIDATES:10000}
     # Settings → Security → Audit log's CSV, refused on the same terms.
-    max-audit-events: ${EXPORT_MAX_AUDIT_EVENTS:50000}
+    max-audit-events: ${EXPORT_MAX_AUDIT_EVENTS:10000}
 
   # Keys for the public API (/api/v1/public/**). Every key expires: 90 days unless its maker picks another
   # term, never past max-key-ttl. The per-user ceiling counts live personal keys only.

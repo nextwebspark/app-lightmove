@@ -26,7 +26,7 @@ class AuditTargetLabelsAdapter implements AuditTargetLabels {
             return Map.of();
         }
         return projects.findAllById(projectIds).stream()
-                .filter(project -> workspaceId.equals(project.getWorkspaceId()))
+                .filter(project -> workspaceId.equals(project.getWorkspaceId()) && project.getPositionTitle() != null)
                 .collect(Collectors.toMap(Project::getId, Project::getPositionTitle));
     }
 
@@ -36,7 +36,7 @@ class AuditTargetLabelsAdapter implements AuditTargetLabels {
             return Map.of();
         }
         return clients.findAllById(clientIds).stream()
-                .filter(client -> workspaceId.equals(client.getWorkspaceId()))
+                .filter(client -> workspaceId.equals(client.getWorkspaceId()) && client.getName() != null)
                 .collect(Collectors.toMap(Client::getId, Client::getName));
     }
 }

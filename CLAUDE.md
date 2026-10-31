@@ -832,8 +832,9 @@ unreadable, #927), a type nobody phrased reads as its own name and one the code 
 row's metadata never leaves the server. Names come from live rows (the roster, invitations, and positions and clients
 through `project`'s `AuditTargetLabelsAdapter`). Sign-ins are the account's: a successful one is stamped with the
 workspace it opened into, and an account's security events (a failed sign-in, a lockout, two-factor and password
-changes) show in every workspace the person is a member of, from the day they joined until the `MEMBER_REMOVED` line
-that ended it; a failed sign-in for an unknown address shows nowhere. Uncava staff's rows read as "Uncava", never a name
+changes) show in every workspace the person is a member of, from their latest joining (a rejoin resets it, so the
+time away never shows) until the `MEMBER_REMOVED` line that ended it; a failed sign-in for an unknown address shows
+nowhere. Uncava staff's rows read as "Uncava", never a name
 or an address. Its index `(workspace_id, id DESC)` is `harden.sql`'s in production (V165 skips it there).
 
 `publicapi` is **the public API** (epic #690, `docs/public-api.md`): read-only JSON for an ATS, a BI tool or a

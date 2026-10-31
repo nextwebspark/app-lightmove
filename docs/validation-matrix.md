@@ -53,7 +53,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Two-factor: code to turn on | six digits, spaces dropped | `@NotBlank @Size(32)`; the app's code for the new secret (`MFA_CODE_INVALID` on `code`) | field |
 | Two-factor: code to turn off or get new recovery codes | six digits or a recovery code | `@NotBlank @Size(32)`; the app's code or an unused recovery code (`MFA_CODE_INVALID` on `code`) | field |
 | Audit log dates (Settings → Security) | the end picker starts at the start date and the start picker ends at the end date | `from` before `to`, `to` exclusive (`VALIDATION_FAILED`); an unknown category or outcome is `VALIDATION_FAILED` | inline line in place of the table |
-| Audit log export | — | past `lightmove.export.max-audit-events` (50,000) the whole export is refused (`VALIDATION_FAILED`), never cut short | toast |
+| Audit log export | — | past `lightmove.export.max-audit-events` (10,000) the whole export is refused (`VALIDATION_FAILED`), never cut short | toast |
 | Task preset name | trimmed, ≤ 80, one line | `@NotBlank @Size(80)`, no line break | toast |
 | Pipeline automation status | live statuses in process only; the switch turns on only with one chosen | `@NotNull enabled`; on needs a `statusId` (`VALIDATION_FAILED` on `statusId`); the status the workspace's (404), in process (`VALIDATION_FAILED`) and live (`PIPELINE_STATUS_RETIRED`) when switched on, so a paused rule still switches off | toast |
 | A status's ⋯ → Mark out of process | disabled on its stage's default; asks first when anyone holds it or an automation points at it | never on a stage's default, nor a flagged status made default (`PIPELINE_DEFAULT_IN_PROCESS`) | toast |

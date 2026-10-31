@@ -9,5 +9,5 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record ExportSettings(
         @DefaultValue("5000") int maxCompanies,
         @DefaultValue("10000") int maxCandidates,
-        @DefaultValue("50000") int maxAuditEvents
+        @DefaultValue("10000") int maxAuditEvents
 ) {}
