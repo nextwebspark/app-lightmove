@@ -114,3 +114,45 @@ export interface OAuthGrant {
   lastUsedAt: string | null;
   expiresAt: string | null;
 }
+
+/** Settings → Security → Audit log's Category filter, as the API spells it. */
+export type AuditLogGroup =
+  | "signIn"
+  | "membersAndAccess"
+  | "exportsAndDownloads"
+  | "settings"
+  | "apiKeysAndAiApps"
+  | "outreach";
+
+export type AuditActorKind = "MEMBER" | "UNCAVA" | "API_KEY" | "SYSTEM";
+
+/** One audit log line, phrased by the server from an allowlist; no event's own payload ever reaches the client. */
+export interface AuditLogEntry {
+  id: number;
+  occurredAt: string;
+  type: string;
+  group: AuditLogGroup | null;
+  outcome: "SUCCESS" | "FAILURE";
+  actorKind: AuditActorKind;
+  actorUserId: string | null;
+  actorName: string | null;
+  actorAvatarUrl: string | null;
+  actorRemoved: boolean;
+  summary: string;
+  positionTitle: string | null;
+  ipAddress: string | null;
+}
+
+export interface AuditLogPage {
+  entries: AuditLogEntry[];
+  /** Passed back as `before`; null on the last page. */
+  nextCursor: number | null;
+}
+
+/** Someone the Person filter offers — everyone the workspace ever held, removed members included. */
+export interface AuditLogPerson {
+  userId: string;
+  name: string | null;
+  avatarUrl: string | null;
+  removed: boolean;
+}

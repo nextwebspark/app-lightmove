@@ -198,9 +198,10 @@ public class AuthenticationService {
 
         // A challenge leaves the failed-attempt count as it is: only the right code clears it (MfaChallengeService).
         SignInOutcome outcome = signIn.complete(user, request);
-        if (outcome instanceof AuthenticatedSession) {
+        if (outcome instanceof AuthenticatedSession session) {
             user.recordSuccessfulLogin(now);
-            audit.event(AuthEventType.LOGIN_SUCCEEDED).actor(user.getId()).from(request).record();
+            audit.event(AuthEventType.LOGIN_SUCCEEDED).actor(user.getId()).workspace(session.workspaceId())
+                    .from(request).record();
         }
         return outcome;
     }
@@ -291,7 +292,8 @@ public class AuthenticationService {
         AuthenticatedSession paired = tokens.issue(user, selection.select(user, pairedWorkspaceId).orElse(null),
                 request, SessionClient.BROWSER_EXTENSION);
 
-        audit.event(AuthEventType.EXTENSION_PAIRED).actor(userId).from(request).record();
+        audit.event(AuthEventType.EXTENSION_PAIRED).actor(userId).workspace(paired.workspaceId()).from(request)
+                .record();
         return paired;
     }
 

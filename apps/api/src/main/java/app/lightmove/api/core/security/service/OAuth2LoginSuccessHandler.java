@@ -151,10 +151,10 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         // A challenge leaves the failed-attempt count as it is: only the right code clears it, as after a password.
         SignInOutcome outcome = signIn.complete(user, request);
-        if (outcome instanceof AuthenticatedSession) {
+        if (outcome instanceof AuthenticatedSession session) {
             user.recordSuccessfulLogin(Instant.now());
-            audit.event(AuthEventType.OAUTH_LOGIN_SUCCEEDED).actor(user.getId()).from(request)
-                    .detail("provider", provider).record();
+            audit.event(AuthEventType.OAUTH_LOGIN_SUCCEEDED).actor(user.getId()).workspace(session.workspaceId())
+                    .from(request).detail("provider", provider).record();
         }
         return outcome;
     }

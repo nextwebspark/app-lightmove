@@ -2,6 +2,7 @@ package app.lightmove.api.core.security.model;
 import app.lightmove.api.core.security.token.TokenPair;
 
 import app.lightmove.api.workspace.model.WorkspaceMember;
+import java.util.UUID;
 
 /**
  * What signup, login and refresh produce: the tokens and whose they are.
@@ -13,4 +14,9 @@ public record AuthenticatedSession(
         User user,
         WorkspaceMember membership
 ) implements SignInOutcome {
+
+    /** The workspace the session opened into, or null — a sign-in is stamped with it so only that firm's log shows it. */
+    public UUID workspaceId() {
+        return membership == null ? null : membership.getWorkspaceId();
+    }
 }

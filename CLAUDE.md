@@ -822,6 +822,21 @@ and the New position picker; nothing is opened or restored under it (`CLIENT_ARC
 against a racing archive), and its name stays held (`CLIENT_NAME_ARCHIVED`, kept apart from
 `CLIENT_ALREADY_EXISTS`, whose caller reuses the record it names).
 
+**The customer audit log (#1083)** is Settings → Security's Audit log tab, an admin's alone: `GET
+/workspace/audit-events` (cursor-paged; actor, Category, outcome and a date range), `…/people` (everyone the workspace
+ever held, for the Person filter) and `…/export` (the same view as a CSV, itself audited `AUDIT_LOG_EXPORTED` and refused
+whole past `lightmove.export.max-audit-events`), gated `staffOnly and can(WORKSPACE_MANAGE)` so a member is refused and a
+pure client is not told it exists. It is an **allowlist**: `AuditLogGroup` names the types each Category shows,
+`AuditLogPhrasing` phrases each from `AuditLine.text`'s allowlisted keys (an email or a name in an event's metadata is
+unreadable, #927), a type nobody phrased reads as its own name and one the code does not know as "Other activity" — the
+row's metadata never leaves the server. Names come from live rows (the roster, invitations, and positions and clients
+through `project`'s `AuditTargetLabelsAdapter`). Sign-ins are the account's: a successful one is stamped with the
+workspace it opened into, and an account's security events (a failed sign-in, a lockout, two-factor and password
+changes) show in every workspace the person is a member of, from their latest joining (a rejoin resets it, so the
+time away never shows) until the `MEMBER_REMOVED` line that ended it; a failed sign-in for an unknown address shows
+nowhere. Uncava staff's rows read as "Uncava", never a name
+or an address. Its index `(workspace_id, id DESC)` is `harden.sql`'s in production (V165 skips it there).
+
 `publicapi` is **the public API** (epic #690, `docs/public-api.md`): read-only JSON for an ATS, a BI tool or a
 script, under `/api/v1/public/**` and nowhere else, documented as OpenAPI 3.1 at `/api/v1/public/openapi.json`
 with Swagger UI at `/api/v1/public/docs`. Its credential is an **API key** (V114 `app_lm_api_key`), made in
@@ -1362,6 +1377,8 @@ keyset are both set; off in deployments until its rollout.
 An account with no password (a Google or LinkedIn sign-in) turns two-factor on with the code alone, only within
 `lightmove.auth.mfa.recent-sign-in` of signing in (`MFA_SIGN_IN_AGAIN`), and turns it off or takes new recovery codes
 with the code alone.
+V165 indexes `app_lm_audit_event (workspace_id, id DESC)` for the customer audit log, guarded on ownership as V74 is:
+once `harden.sql` has run the index is its to build (`CONCURRENTLY`). An index only; no row is written.
 V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage
 alike: whoever holds a flagged status sits in the board's Out of process band, skipped and stopped by outreach (`LEFT_THE_RUNNING`),
 moved by no automation and left out of the projects list's Candidates and Engaged — whatever stage it sits under, so
