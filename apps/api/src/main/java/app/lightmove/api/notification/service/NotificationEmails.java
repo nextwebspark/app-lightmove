@@ -10,6 +10,8 @@ import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.tenant.EveryWorkspace;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.notification.constant.NotificationKind;
 import app.lightmove.api.notification.model.Notification;
 import app.lightmove.api.notification.repository.NotificationRecipientRow;
@@ -52,7 +54,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * it. A digest goes on a weekday morning, at {@code digest-hour} in the person's own zone, to anyone with tasks due
  * or mentions unread, claimed once per person per day. Every recipient is read again before anything goes:
  * someone who has left the position, or the workspace, is sent nothing about it. An email names a note and never
- * quotes it.
+ * quotes it. Both run a workspace at a time, the notes and positions they read being behind row-level security.
  */
 @Slf4j
 @Component
@@ -69,7 +71,8 @@ public class NotificationEmails {
     private static final String CLAIM_EMAILS = """
             UPDATE app_lm_notification SET emailed_at = ?, version = version + 1
              WHERE id IN (SELECT id FROM app_lm_notification
-                           WHERE email_due_at <= ? AND emailed_at IS NULL AND read_at IS NULL AND archived_at IS NULL
+                           WHERE workspace_id = ? AND email_due_at <= ? AND emailed_at IS NULL AND read_at IS NULL
+                             AND archived_at IS NULL
                              AND (snoozed_until IS NULL OR snoozed_until <= ?)
                              AND NOT EXISTS (SELECT 1 FROM app_lm_person_note n
                                               WHERE n.id = app_lm_notification.note_id AND n.deleted_at IS NOT NULL)
@@ -78,6 +81,7 @@ public class NotificationEmails {
             """;
 
     private final JdbcTemplate jdbc;
+    private final EveryWorkspace workspaces;
     private final TransactionTemplate transactions;
     private final NotificationRepository rows;
     private final NotificationPreferences preferences;
@@ -99,9 +103,13 @@ public class NotificationEmails {
 
     /** One pass; a row that fails is logged and the rows after it still sent. */
     public int emailUnreadAt(Instant now) {
+        return workspaces.sum(workspaceId -> emailUnreadIn(workspaceId, now));
+    }
+
+    private int emailUnreadIn(UUID workspaceId, Instant now) {
         Timestamp at = Timestamp.from(now);
-        List<UUID> claimed = transactions.execute(status -> jdbc.queryForList(CLAIM_EMAILS, UUID.class, at, at, at,
-                BATCH));
+        List<UUID> claimed = transactions.execute(status -> jdbc.queryForList(CLAIM_EMAILS, UUID.class, at,
+                workspaceId, at, at, BATCH));
         int sent = 0;
         for (UUID id : claimed == null ? List.<UUID>of() : claimed) {
             try {
@@ -183,7 +191,7 @@ public class NotificationEmails {
                 continue;
             }
             try {
-                sent += digestOne(recipient, user, now) ? 1 : 0;
+                sent += WorkspaceScope.call(recipient.workspaceId(), () -> digestOne(recipient, user, now)) ? 1 : 0;
             } catch (RuntimeException failure) {
                 log.error("The digest for user {} in workspace {} could not be sent", recipient.userId(),
                         recipient.workspaceId(), failure);
