@@ -189,11 +189,14 @@ representative may take the mandate they can already read; unlike every other re
 audit event, because a mandate leaving as a file is not the same act as reading a page of it. Past
 `lightmove.export.*` it refuses rather than truncating.
 **The Companies toolbar** (`Position.dc.html`) is one search box in every view, the view control (below `lg` and in full screen — the rail
-holds it otherwise), the three primary actions — Find executives, Add executive, Add company, which keep their places in every view and are greyed
-(`aria-disabled`, saying where they work) where the view cannot take them, as both companies' actions are on the
-Pipeline — and **Advanced ▾** (`AdvancedMenu`) for the rest, by view: show/hide and manage columns on the table, the
-map's layers, the board's Inactive column and pipeline stages, Add to sequence where something can be ticked, Import
-and Export. The search is matched by the server, the same rule in every read (`search` on the triage list, its
+holds it otherwise), then Add to sequence and Send email (the drawer's composer, for anyone on the position) where
+outreach is offered — greyed (`aria-disabled`, saying where it works) on the map and until something is ticked — and,
+on Table and Map only, Find executives filled, **Advanced ▾** (`AdvancedMenu`) and **Create ▾** (Add executive, Add
+company). The Pipeline's row is the search and the outreach pair alone: its Inactive column folds from its own header.
+Advanced ▾ holds the rest, by view: show/hide and manage columns on the table, the map's layers, Add to sequence again
+on the table, Import and Export. Strategy's toolbar and Outreach's header are the same row (`components/ui/Toolbar`:
+search first, the page's actions pushed right), Outreach's search in it. The search is matched by the server, the same
+rule in every read (`search` on the triage list, its
 people reads, the export and the talent map, the pipeline's `q`): a company by name, place or industry, an executive
 by name, title, place or employer, and — only for a `WORK_EXECUTE` holder, decided server-side — the company's and
 the person's live notes readable from this position and the person's tags; a matching company keeps all its people.
@@ -251,9 +254,10 @@ outcome records the `source` that answered. Offered where the chosen index is co
 (`?mode=people`, staff only) swaps the company filter for ContactOut's People Search filter —
 only parameters its API reference lists, the values its accepted-values sheet lists
 (`data/contactout-people-vocabulary.json`; the dashboard's Revenue, Gender and exclude lists have no
-API). The filter autosaves as `app_lm_strategy.people_filter` and is counted free and live
-(`GET …/strategy/people/count`, its own 10/s pacer beside search's 60/min); **Search** is a press
-(`POST …/strategy/people/search?page=`), the top 25 in ContactOut's order — it offers no other — and
+API) — all but the name, which is the toolbar's search box, as Companies' is. The filter autosaves as
+`app_lm_strategy.people_filter` and is counted free and live
+(`GET …/strategy/people/count`, its own 10/s pacer beside search's 60/min); **Search** is a press — the rail's
+button, or Enter in the name box — (`POST …/strategy/people/search?page=`), the top 25 in ContactOut's order — it offers no other — and
 Load more the next 25. Every page goes through the V87 cache keyed on the body and the page, so the
 same question and page is never bought twice, by anyone, and the screen reopens on the pages already
 bought (`GET …/strategy/people/results`, which never buys). The mandate's declined companies narrow only

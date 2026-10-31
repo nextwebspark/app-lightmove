@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Popover } from "../../../components/ui/Popover";
+import { TOOLBAR_COUNT_ACCENT, TOOLBAR_MENU } from "../../../components/ui/Toolbar";
 import { cn } from "../../../lib/cn";
 import type { SavedSearch, SearchVisibility } from "../api/types";
 import { SavedSearchRow } from "./SavedSearchRow";
@@ -71,20 +72,16 @@ export function SaveSearchMenu({
   return (
     <Popover
       width={360}
-      triggerClassName="inline-flex items-center gap-1.5 whitespace-nowrap py-1 font-sans text-[13px] text-u-text3 transition hover:text-u-text"
+      triggerClassName={TOOLBAR_MENU}
       trigger={() => (
         <>
           <Icon
             d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1Z"
-            size={14}
-            className="flex-none text-u-accent"
+            size={15}
+            className="flex-none"
           />
           Save Search
-          {searches.length > 0 && (
-            <span className="rounded-[4px] bg-u-accent-tint px-[5px] py-[2px] font-sans text-[10px] font-bold text-u-accent">
-              {searches.length}
-            </span>
-          )}
+          {searches.length > 0 && <span className={TOOLBAR_COUNT_ACCENT}>{searches.length}</span>}
         </>
       )}
     >

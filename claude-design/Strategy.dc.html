@@ -158,10 +158,17 @@
       <div style="display:flex;flex-direction:column;width:100%;height:100%;min-height:100%">
         <div data-screen-label="Strategy tab" style="{{ pageStyle }}">
 
-          <div data-screen-label="Strategy toolbar" style="display:flex;min-height:44px;flex:none;flex-wrap:wrap;align-items:center;column-gap:14px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel2);padding:6px 20px">
+          <!-- The toolbar row Position.dc.html's In universe and Outreach.dc.html share: search first, the page's own
+               controls beside it, its actions pushed right. -->
+          <div data-screen-label="Strategy toolbar" style="display:flex;flex:none;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel);padding:10px 16px">
+            <div style="display:flex;flex:1 1 280px;max-width:360px;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);padding:8px 12px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ I.search }}"></path></svg>
+              <input value="{{ q }}" onInput="{{ onQuery }}" placeholder="Search companies..." aria-label="Search companies" style="width:100%;min-width:0;background:transparent;border:none;font:400 13px var(--sans);color:var(--text);outline:none">
+            </div>
+
             <div style="position:relative">
-              <button onClick="{{ toggleSaveMenu }}" aria-expanded="{{ saveMenuOpen }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:4px 0;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--amber)"><path d="{{ I.pin }}"></path></svg>
+              <button onClick="{{ toggleSaveMenu }}" aria-expanded="{{ saveMenuOpen }}" style="display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-radius:6px;padding:8px 10px;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.pin }}"></path></svg>
                 Save Search
                 <sc-if value="{{ hasSearches }}" hint-placeholder-val="{{ true }}">
                   <span style="border-radius:4px;background:var(--sky-dim);padding:2px 5px;font:700 10px var(--sans);color:var(--sky)">{{ searchCount }}</span>
@@ -227,30 +234,25 @@
               </sc-if>
             </div>
 
-            <button onClick="{{ toggleFilters }}" aria-expanded="{{ showFilters }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:8px;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg>
+            <button onClick="{{ toggleFilters }}" aria-expanded="{{ showFilters }}" style="display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-radius:6px;padding:8px 10px;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg>
               {{ filterToggleLabel }}
-              <span style="border-radius:4px;background:var(--sky-dim);padding:2px 5px;font:700 10px var(--sans);color:var(--sky)">{{ axisCount }}</span>
+              <span style="border-radius:4px;background:var(--panel2);border:1px solid var(--line-soft);padding:1px 6px;font:500 10.5px var(--sans);color:var(--text2)">{{ axisCount }}</span>
             </button>
 
-            <a href="Assistant.dc.html" style="display:inline-flex;align-items:center;gap:8px;white-space:nowrap;border-radius:6px;border:1px solid var(--u-border-strong);background:var(--u-inferred-tint);padding:8px 16px;font:500 13px var(--sans);color:var(--u-inferred)" style-hover="background:var(--u-raised)">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.sparkle }}"></path></svg>
-              <span>AI Research</span>
-            </a>
-
-            <div style="display:flex;width:240px;flex:none;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);padding:8px 12px">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ I.search }}"></path></svg>
-              <input value="{{ q }}" onInput="{{ onQuery }}" placeholder="Search companies..." aria-label="Search companies" style="width:100%;background:transparent;border:none;font:400 13px var(--sans);color:var(--text);outline:none">
-            </div>
-
             <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
+              <a href="Assistant.dc.html" style="display:inline-flex;align-items:center;gap:8px;height:34px;box-sizing:border-box;white-space:nowrap;border-radius:6px;background:var(--u-inferred);padding:0 14px;font:600 13px var(--sans);color:#fff" style-hover="filter:brightness(1.1)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.sparkle }}"></path></svg>
+                <span>AI Research</span>
+              </a>
               <div style="position:relative">
-                <button onClick="{{ toggleColumns }}" aria-expanded="{{ columnsOpen }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:8px;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.columns }}"></path></svg>
+                <button onClick="{{ toggleColumns }}" aria-expanded="{{ columnsOpen }}" style="display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-radius:6px;padding:8px 10px;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.columns }}"></path></svg>
                   Columns
                   <sc-if value="{{ hasHidden }}" hint-placeholder-val="{{ true }}">
-                    <span style="border-radius:4px;background:var(--sky-dim);padding:2px 5px;font:700 10px var(--sans);color:var(--sky)">{{ hiddenCount }} hidden</span>
+                    <span style="border-radius:4px;background:var(--panel2);border:1px solid var(--line-soft);padding:1px 6px;font:500 10.5px var(--sans);color:var(--text2)">{{ hiddenCount }} hidden</span>
                   </sc-if>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
                 </button>
                 <sc-if value="{{ columnsOpen }}" hint-placeholder-val="{{ false }}">
                   <div onClick="{{ closePopovers }}" style="position:fixed;inset:0;z-index:79"></div>
@@ -270,7 +272,8 @@
                   </div>
                 </sc-if>
               </div>
-              <button onClick="{{ addAll }}" style="white-space:nowrap;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">Add all to Universe →</button>
+              <span style="width:1px;height:20px;background:var(--line-soft)"></span>
+              <button onClick="{{ addAll }}" style="white-space:nowrap;border-radius:6px;padding:8px 10px;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Add all to Universe →</button>
             </div>
           </div>
 
@@ -652,16 +655,23 @@
              free and follows the filter; Search is a deliberate press: every page not already fetched
              is bought from ContactOut, though it is part of the plan and carries no price on screen. -->
         <div data-screen-label="Strategy tab — People" style="{{ peoplePageStyle }}">
-          <div data-screen-label="People toolbar" style="display:flex;min-height:44px;flex:none;flex-wrap:wrap;align-items:center;column-gap:14px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel2);padding:6px 20px">
-            <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:4px 0;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--amber)"><path d="{{ I.pin }}"></path></svg>
+          <!-- The Companies toolbar's row: the name ContactOut searches on is this page's search box, the rail holds the
+               rest. Typing moves the free count; Enter is the Search press, as the rail's button is. -->
+          <div data-screen-label="People toolbar" style="display:flex;flex:none;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel);padding:10px 16px">
+            <div style="display:flex;flex:1 1 280px;max-width:360px;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);padding:8px 12px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ I.search }}"></path></svg>
+              <input placeholder="Search people by name..." aria-label="Search people by name" style="width:100%;min-width:0;background:transparent;border:none;font:400 13px var(--sans);color:var(--text);outline:none">
+            </div>
+            <button style="display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-radius:6px;padding:8px 10px;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.pin }}"></path></svg>
               Save Search
             </button>
-            <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:8px;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg>
+            <button style="display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-radius:6px;padding:8px 10px;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg>
               Hide Filters
+              <span style="border-radius:4px;background:var(--panel2);border:1px solid var(--line-soft);padding:1px 6px;font:500 10.5px var(--sans);color:var(--text2)">3</span>
             </button>
-            <div role="radiogroup" aria-label="View" style="display:inline-flex;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
+            <div role="radiogroup" aria-label="View" style="display:inline-flex;margin-left:auto;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
               <button role="radio" aria-checked="{{ peopleTableOn }}" onClick="{{ showPeopleTable }}" style="{{ viewTableStyle }}">Table</button>
               <button role="radio" aria-checked="{{ peopleCardsOn }}" onClick="{{ showPeopleCards }}" style="{{ viewCardsStyle }}">Cards</button>
             </div>

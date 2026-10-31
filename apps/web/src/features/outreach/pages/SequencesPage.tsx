@@ -4,7 +4,7 @@ import { useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { CandidateDrawerById } from "../../candidates/components/CandidateDrawerById";
 import { MailboxBanner } from "../components/MailboxBanner";
-import { MailboxChip } from "../components/MailboxChip";
+import { MailboxChip, mailboxChipShows } from "../components/MailboxChip";
 import { NewSequenceLink, OutreachHeader } from "../components/OutreachHeader";
 import { PeopleInOutreach } from "../components/PeopleInOutreach";
 import { SequenceCards } from "../components/SequenceCards";
@@ -27,10 +27,16 @@ export function SequencesPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <h1 className="sr-only">Sequences</h1>
-      <OutreachHeader projectId={project.id} section="sequences">
-        <MailboxChip state={mailboxState} connector={connector} onAsked={() => void mailbox.refetch()} />
-        <NewSequenceLink projectId={project.id} />
-      </OutreachHeader>
+      <OutreachHeader
+        projectId={project.id}
+        section="sequences"
+        chip={
+          mailboxChipShows(mailboxState) && (
+            <MailboxChip state={mailboxState} connector={connector} onAsked={() => void mailbox.refetch()} />
+          )
+        }
+        action={<NewSequenceLink projectId={project.id} />}
+      />
       <MailboxBanner state={mailboxState} connector={connector} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-screen-2xl px-4 pb-16 pt-5 md:px-7">

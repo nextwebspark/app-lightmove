@@ -620,12 +620,8 @@
     "arbitraryText": 3
   },
   "features/strategy/components/SaveSearchMenu.tsx": {
-    "arbitraryRadius": 4,
-    "arbitraryText": 7
-  },
-  "features/strategy/components/StrategyToolbar.tsx": {
-    "arbitraryRadius": 4,
-    "arbitraryText": 4
+    "arbitraryRadius": 3,
+    "arbitraryText": 5
   },
   "features/strategy/components/TagCombobox.tsx": {
     "arbitraryText": 4

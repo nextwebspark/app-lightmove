@@ -389,8 +389,9 @@ describe("OutreachPage", () => {
     );
     renderPage("/projects/p1/outreach?q=zzz");
 
-    expect(await screen.findByRole("heading", { name: "No one matches “zzz”" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    const nobody = await screen.findByRole("heading", { name: "No one matches “zzz”" });
+    // The empty state's own button, not the search box's ×, which clears the same text.
+    await userEvent.click(within(nobody.parentElement as HTMLElement).getByRole("button", { name: "Clear search" }));
 
     await waitFor(() => expect(screen.getByLabelText("Location")).toHaveTextContent("candidate=c1"));
     expect(screen.getByLabelText("Location")).not.toHaveTextContent("q=");
@@ -491,6 +492,14 @@ describe("OutreachPage", () => {
     );
     expect(screen.getByLabelText("Location")).toHaveTextContent("view=scheduled");
     expect(screen.getByLabelText("Location")).toHaveTextContent("who=mine");
+  });
+
+  it("searches from the header's toolbar, not from inside the list", async () => {
+    renderPage();
+    const list = await screen.findByRole("region", { name: "Conversations" });
+
+    expect(within(list).queryByRole("searchbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Search people or emails" })).toBeInTheDocument();
   });
 
   it("brings the search back with the address on Back, and never writes the old one over it", async () => {
