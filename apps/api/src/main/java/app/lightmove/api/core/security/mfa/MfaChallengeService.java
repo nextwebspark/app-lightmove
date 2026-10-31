@@ -126,10 +126,10 @@ public class MfaChallengeService {
             audit.event(AuthEventType.MFA_RECOVERY_CODE_USED).actor(user.getId()).from(request)
                     .detail("left", recoveryCodes.countByUserIdAndUsedAtIsNull(user.getId())).record();
         }
-        audit.event(AuthEventType.LOGIN_SUCCEEDED).actor(user.getId()).from(request)
-                .detail("secondFactor", passed.get().name()).record();
-
-        return tokens.issue(user, selection.signIn(user), request);
+        AuthenticatedSession session = tokens.issue(user, selection.signIn(user), request);
+        audit.event(AuthEventType.LOGIN_SUCCEEDED).actor(user.getId()).workspace(session.workspaceId())
+                .from(request).detail("secondFactor", passed.get().name()).record();
+        return session;
     }
 
     private ApiException refuse(UUID userId, String reason, HttpServletRequest request) {

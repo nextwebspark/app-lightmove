@@ -30,6 +30,12 @@ CREATE INDEX IF NOT EXISTS app_lm_audit_event_target_idx
     ON app_lm_audit_event (target_type, target_id, id DESC)
     WHERE outcome = 'SUCCESS';
 
+-- The customer audit log's read, one workspace newest first by id (V165 skips it for the same reason).
+-- CONCURRENTLY, so audit inserts keep landing while it builds; psql runs this file statement by statement,
+-- outside a transaction block, which CONCURRENTLY needs.
+CREATE INDEX CONCURRENTLY IF NOT EXISTS app_lm_audit_event_workspace_id_idx
+    ON app_lm_audit_event (workspace_id, id DESC);
+
 -- 2b. The contact-credit ledger (V121) is append-only on the same terms: it is what a workspace was charged,
 --     and a foothold in the app must not be able to rewrite a balance's history. V121's trigger refuses UPDATE
 --     and DELETE for every role; this takes the privilege away besides.
