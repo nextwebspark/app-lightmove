@@ -2,6 +2,7 @@ package app.lightmove.api.billing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.billing.credit.constant.CreditAction;
 import app.lightmove.api.billing.credit.constant.CreditGrantSource;
@@ -24,7 +25,7 @@ public abstract class BillingFlowSupport extends FlowTestSupport {
     private static final AtomicInteger OWNER = new AtomicInteger();
 
     @Autowired protected CreditLedger ledger;
-    @Autowired protected JdbcTemplate db;
+    @Autowired @FixtureJdbc protected JdbcTemplate db;
 
     protected UUID newWorkspace() throws Exception {
         String owner = "owner" + OWNER.incrementAndGet() + "@" + domain;

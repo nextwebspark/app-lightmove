@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
@@ -46,7 +47,7 @@ class AvailabilityIntegrationTest extends FlowTestSupport {
              {"day":"THURSDAY","start":"09:00","end":"17:00"}]""";
 
     @Autowired private RecordingMailboxGateway gateway;
-    @Autowired private JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc private JdbcTemplate jdbc;
 
     private String admin;
     private String workspaceId;

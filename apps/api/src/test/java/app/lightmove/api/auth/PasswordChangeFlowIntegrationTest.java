@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import jakarta.servlet.http.Cookie;
@@ -25,7 +26,7 @@ class PasswordChangeFlowIntegrationTest extends FlowTestSupport {
 
     private static final String NEW_PASSWORD = "brandnew42";
 
-    @Autowired JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc JdbcTemplate jdbc;
 
     @Test
     @DisplayName("the change swaps the password and hands back a working session")

@@ -3,6 +3,7 @@ package app.lightmove.api.assistant.tool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import java.util.UUID;
@@ -20,7 +21,7 @@ class MandateToolsIntegrationTest extends FlowTestSupport {
     @Autowired
     private MandateTools tools;
 
-    @Autowired
+    @Autowired @FixtureJdbc
     private JdbcTemplate db;
 
     @Test

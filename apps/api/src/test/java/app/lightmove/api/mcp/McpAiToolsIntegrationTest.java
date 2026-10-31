@@ -3,6 +3,7 @@ package app.lightmove.api.mcp;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -24,7 +25,7 @@ class McpAiToolsIntegrationTest extends McpFlowSupport {
     private static final String[] EVERY_DATA_SCOPE = {"projects:read", "companies:read", "candidates:read",
             "candidates.contacts:read", "candidates.compensation:read", "mcp:use"};
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     @Test
     @DisplayName("the summary counts companies by stage and executives by status, alike on both surfaces, each audited")

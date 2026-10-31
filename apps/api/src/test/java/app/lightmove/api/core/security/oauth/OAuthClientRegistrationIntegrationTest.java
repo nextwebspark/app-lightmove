@@ -2,6 +2,7 @@ package app.lightmove.api.core.security.oauth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.core.security.token.Tokens;
 import org.junit.jupiter.api.DisplayName;
@@ -19,7 +20,7 @@ class OAuthClientRegistrationIntegrationTest extends OAuthFlowSupport {
 
     private static final String LOOPBACK_REDIRECT = "http://localhost:4000/callback";
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
     @Autowired OAuthGrantPurge purge;
 
     @Test

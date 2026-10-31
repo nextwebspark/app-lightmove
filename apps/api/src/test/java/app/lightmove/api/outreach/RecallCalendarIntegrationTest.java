@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
@@ -51,7 +52,7 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
     @Autowired private RecordingRecallCalendarApi recall;
     @Autowired private RecordingProviderTokenClient tokenEndpoint;
     @Autowired private OutreachDispatcher dispatcher;
-    @Autowired private JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc private JdbcTemplate jdbc;
 
     private String consultant;
     private String workspaceId;

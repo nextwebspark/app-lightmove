@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.core.security.token.Tokens;
 import java.time.Instant;
@@ -23,7 +24,7 @@ class OAuthGrantIntegrationTest extends OAuthFlowSupport {
 
     private static final String GRANTS = "/api/v1/workspace/oauth-grants";
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
     @Autowired OAuthGrantPurge purge;
 
     @Test

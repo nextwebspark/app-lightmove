@@ -2,6 +2,7 @@ package app.lightmove.api.strategy;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.strategy.service.SectorTaxonomy;
 import java.util.HashSet;
@@ -28,7 +29,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @IntegrationTest
 class SectorTaxonomyCoverageIntegrationTest {
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
     @Autowired SectorTaxonomy taxonomy;
 
     @BeforeEach

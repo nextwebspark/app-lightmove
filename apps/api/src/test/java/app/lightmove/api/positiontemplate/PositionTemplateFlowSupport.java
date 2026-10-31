@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -34,7 +35,7 @@ public abstract class PositionTemplateFlowSupport extends FlowTestSupport {
     protected static final String FIRM_TEMPLATES = "/api/v1/workspace/position-templates";
     protected static final String PICKER = "/api/v1/position-templates";
 
-    @Autowired protected JdbcTemplate db;
+    @Autowired @FixtureJdbc protected JdbcTemplate db;
 
     protected record Firm(String email, String token) {
     }

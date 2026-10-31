@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -18,7 +19,7 @@ public abstract class PipelineFlowSupport extends FlowTestSupport {
 
     protected static final String PIPELINE = "/api/v1/workspace/pipeline";
 
-    @Autowired protected JdbcTemplate db;
+    @Autowired @FixtureJdbc protected JdbcTemplate db;
 
     protected String admin;
     protected String workspaceId;

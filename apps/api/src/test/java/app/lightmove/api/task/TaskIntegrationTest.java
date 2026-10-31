@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.candidate.PipelineFlowSupport;
 import app.lightmove.api.outreach.model.OutreachReplied;
@@ -35,7 +36,7 @@ class TaskIntegrationTest extends PipelineFlowSupport {
 
     @Autowired private ApplicationEventPublisher events;
     @Autowired private TransactionTemplate transactions;
-    @Autowired private JdbcTemplate db;
+    @Autowired @FixtureJdbc private JdbcTemplate db;
     @Autowired private TaskDueScanner dueScanner;
 
     private String projectId;

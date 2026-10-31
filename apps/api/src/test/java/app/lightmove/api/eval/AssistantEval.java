@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.ApolloUniverse;
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import com.google.genai.Client;
@@ -71,7 +72,7 @@ class AssistantEval extends FlowTestSupport {
     private static final Duration ANSWER_WAIT = Duration.ofSeconds(90);
     private static final int ANSWER_EXCERPT = 400;
 
-    @Autowired
+    @Autowired @FixtureJdbc
     private JdbcTemplate db;
 
     @Test
