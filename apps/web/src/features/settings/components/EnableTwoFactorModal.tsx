@@ -9,13 +9,16 @@ import { TwoFactorChangeModal } from "./TwoFactorChangeModal";
 
 /**
  * Turning two-factor on: a fresh secret as a QR code and a setup key, then the app's first code and the current
- * password. Loaded on demand, so the QR library is fetched only by someone turning it on. The secret lives in this
+ * password — the code alone for an account with no password, which the server lets in only just after a sign-in.
+ * Loaded on demand, so the QR library is fetched only by someone turning it on. The secret lives in this
  * component's state alone and goes with it.
  */
 export default function EnableTwoFactorModal({
+  hasPassword,
   onEnabled,
   onClose,
 }: {
+  hasPassword: boolean;
   onEnabled: (recoveryCodes: string[]) => void;
   onClose: () => void;
 }) {
@@ -37,6 +40,7 @@ export default function EnableTwoFactorModal({
       intro="Scan the QR code with your authenticator app, then enter the 6-digit code it shows."
       confirmLabel="Turn on"
       authenticatorOnly
+      hasPassword={hasPassword}
       onConfirm={async (values) => {
         const { recoveryCodes } = await authApi.enableMfa(values);
         onEnabled(recoveryCodes);

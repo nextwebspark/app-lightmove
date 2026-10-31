@@ -76,8 +76,11 @@ const ATTEMPT_TIMEOUT_MS = 10 * 60 * 1000;
 const POPUP_WIDTH = 500;
 const POPUP_HEIGHT = 640;
 
-/** What the popup reports back. `code` is an `ErrorCode` name the SPA maps to a sentence. */
-export type OAuthOutcome = { status: "success" } | { status: "error"; code: string };
+/**
+ * What the popup reports back. `code` is an `ErrorCode` name the SPA maps to a sentence; `secondFactor` is a person
+ * with two-factor on, whose challenge cookie the server set in place of a session.
+ */
+export type OAuthOutcome = { status: "success" } | { status: "secondFactor" } | { status: "error"; code: string };
 
 interface OAuthOutcomeMessage {
   message: typeof OAUTH_OUTCOME_MESSAGE;
@@ -88,6 +91,8 @@ interface OAuthOutcomeMessage {
 export interface OAuthSignInHandlers {
   /** The provider signed the user in. The session is established server-side; adopt it. */
   onSuccess: () => void;
+  /** The provider proved who they are, and their code is still owed: on to the code step, as after a password. */
+  onSecondFactor: () => void;
   /** The provider or our own checks refused. `code` is an `ErrorCode` name. */
   onError: (code: string) => void;
   /** The user backed out, or walked away. Not an error — say nothing and release the button. */
@@ -170,7 +175,11 @@ function listenForOutcome(popup: Window, handshakeId: string, handlers: OAuthSig
     if (!outcome) {
       return;
     }
-    settle(() => (outcome.status === "success" ? handlers.onSuccess() : handlers.onError(outcome.code)));
+    settle(() => {
+      if (outcome.status === "success") handlers.onSuccess();
+      else if (outcome.status === "secondFactor") handlers.onSecondFactor();
+      else handlers.onError(outcome.code);
+    });
   };
 
   const onWindowMessage = (event: MessageEvent) => {
@@ -278,6 +287,9 @@ function outcomeFrom(data: unknown, expectedHandshakeId: string): OAuthOutcome |
 
   if (outcome?.status === "success") {
     return { status: "success" };
+  }
+  if (outcome?.status === "secondFactor") {
+    return { status: "secondFactor" };
   }
   if (outcome?.status === "error" && typeof outcome.code === "string") {
     return { status: "error", code: outcome.code };

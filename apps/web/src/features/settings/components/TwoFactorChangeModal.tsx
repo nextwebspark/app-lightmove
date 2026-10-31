@@ -4,11 +4,13 @@ import { useForm } from "react-hook-form";
 import { Button, Field, FormError, Input, Modal } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
-import { twoFactorChangeSchema, twoFactorEnableSchema, type TwoFactorChangeValues } from "../lib/twoFactorSchema";
+import type { MfaChangeRequest } from "../../auth/api/types";
+import { twoFactorSchemaFor, type TwoFactorChangeValues } from "../lib/twoFactorSchema";
 
 /**
- * The current password and a code, the two things every two-factor change asks for. Owns the form alone: what the
- * change does is the caller's `onConfirm`, whose refusal lands back here on the field it names.
+ * The current password and a code, the two things every two-factor change asks for — the code alone for an account
+ * with no password. Owns the form alone: what the change does is the caller's `onConfirm`, whose refusal lands back
+ * here on the field it names.
  */
 export function TwoFactorChangeModal({
   title,
@@ -16,6 +18,7 @@ export function TwoFactorChangeModal({
   confirmLabel,
   tone = "primary",
   authenticatorOnly = false,
+  hasPassword = true,
   onConfirm,
   onClose,
   children,
@@ -26,7 +29,9 @@ export function TwoFactorChangeModal({
   tone?: "primary" | "danger";
   /** Turning it on: only the app's code proves the app holds the new secret. */
   authenticatorOnly?: boolean;
-  onConfirm: (values: TwoFactorChangeValues) => Promise<void>;
+  /** False for a provider-only account, which is asked for no password. */
+  hasPassword?: boolean;
+  onConfirm: (values: MfaChangeRequest) => Promise<void>;
   onClose: () => void;
   /** Drawn between the intro and the fields: turning it on shows the QR code here. */
   children?: ReactNode;
@@ -39,14 +44,16 @@ export function TwoFactorChangeModal({
     setError,
     formState: { errors, isSubmitting },
   } = useForm<TwoFactorChangeValues>({
-    resolver: zodResolver(authenticatorOnly ? twoFactorEnableSchema : twoFactorChangeSchema),
+    resolver: zodResolver(twoFactorSchemaFor({ authenticatorOnly, hasPassword })),
     defaultValues: { currentPassword: "", code: "" },
   });
 
   const submit = handleSubmit(async (values) => {
     setFormError(null);
     try {
-      await onConfirm({ currentPassword: values.currentPassword, code: values.code.trim() });
+      await onConfirm(
+        hasPassword ? { currentPassword: values.currentPassword, code: values.code.trim() } : { code: values.code.trim() },
+      );
     } catch (error) {
       if (!(error instanceof ApiRequestError)) {
         setFormError("Could not reach Uncava. Check your connection and try again.");
@@ -83,15 +90,17 @@ export function TwoFactorChangeModal({
       <p className="mb-4 text-body text-u-text2">{intro}</p>
       {children}
       <FormError message={formError} />
-      <Field label="Current password" error={errors.currentPassword?.message}>
-        <Input
-          type="password"
-          autoComplete="current-password"
-          placeholder="••••••••"
-          invalid={!!errors.currentPassword}
-          {...register("currentPassword")}
-        />
-      </Field>
+      {hasPassword && (
+        <Field label="Current password" error={errors.currentPassword?.message}>
+          <Input
+            type="password"
+            autoComplete="current-password"
+            placeholder="••••••••"
+            invalid={!!errors.currentPassword}
+            {...register("currentPassword")}
+          />
+        </Field>
+      )}
       <Field
         label={authenticatorOnly ? "Code from your app" : "Code from your app, or a recovery code"}
         error={errors.code?.message}

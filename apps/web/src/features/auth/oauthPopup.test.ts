@@ -12,7 +12,7 @@ const HANDSHAKE_COOKIE = "lm_oauth_popup";
  * broadcast reaches every open tab, so without the id one tab's sign-in would resolve another's.
  */
 describe("oauthPopup", () => {
-  const handlers = () => ({ onSuccess: vi.fn(), onError: vi.fn(), onCancel: vi.fn() });
+  const handlers = () => ({ onSuccess: vi.fn(), onSecondFactor: vi.fn(), onError: vi.fn(), onCancel: vi.fn() });
 
   let popup: { closed: boolean; close: ReturnType<typeof vi.fn> };
   let open: ReturnType<typeof vi.spyOn>;
@@ -100,6 +100,17 @@ describe("oauthPopup", () => {
     deliver(outcomeMessage(currentHandshakeId(), { status: "success" }));
 
     expect(listeners.onSuccess).toHaveBeenCalledTimes(1);
+    expect(popup.close).toHaveBeenCalled();
+  });
+
+  it("hands a sign-in that still owes a two-factor code on to the code step, not to a session", () => {
+    const listeners = handlers();
+    startOAuthSignIn("linkedin", listeners);
+
+    deliver(outcomeMessage(currentHandshakeId(), { status: "secondFactor" }));
+
+    expect(listeners.onSecondFactor).toHaveBeenCalledTimes(1);
+    expect(listeners.onSuccess).not.toHaveBeenCalled();
     expect(popup.close).toHaveBeenCalled();
   });
 

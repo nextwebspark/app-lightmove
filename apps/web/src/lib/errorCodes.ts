@@ -27,6 +27,7 @@ export type ApiErrorCode =
   | "MFA_NOT_ENABLED"
   | "MFA_SETUP_NOT_STARTED"
   | "MFA_UNAVAILABLE"
+  | "MFA_SIGN_IN_AGAIN"
   | "SESSION_NOT_FOUND"
   | "CURRENT_SESSION_NOT_REVOCABLE"
   | "WORKSPACE_NOT_FOUND"
@@ -228,6 +229,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   MFA_NOT_ENABLED: "Two-factor authentication is already off.",
   MFA_SETUP_NOT_STARTED: "That setup has ended. Start again to get a new QR code.",
   MFA_UNAVAILABLE: "Two-factor authentication is not available yet.",
+  MFA_SIGN_IN_AGAIN: "Sign out and back in, then turn on two-factor authentication within 10 minutes.",
   SESSION_NOT_FOUND: "That session has already ended.",
   CURRENT_SESSION_NOT_REVOCABLE: "Use sign out to end the session you are using.",
   STRATEGY_SEARCH_NAME_TAKEN: "A search with that name is already saved here.",

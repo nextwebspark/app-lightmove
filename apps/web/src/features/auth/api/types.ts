@@ -136,9 +136,12 @@ export interface MfaSetup {
   otpauthUri: string;
 }
 
-/** Turning two-factor on or off, or new recovery codes: the current password and a code, both. */
+/**
+ * Turning two-factor on or off, or new recovery codes: the current password, where the account has one, and a code. An
+ * account with no password sends the code alone.
+ */
 export interface MfaChangeRequest {
-  currentPassword: string;
+  currentPassword?: string;
   code: string;
 }
 

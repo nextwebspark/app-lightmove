@@ -67,6 +67,9 @@ public enum ErrorCode {
     /** Not offered: switched off, or nowhere to keep the secret encrypted. */
     MFA_UNAVAILABLE(HttpStatus.CONFLICT, "Two-factor authentication is not available yet"),
 
+    /** A person with no password proves it is them by having signed in moments ago. */
+    MFA_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign out and back in, then turn on two-factor authentication within 10 minutes"),
+
     /** Also served for a session belonging to somebody else — a 403 would confirm the id names a real one. */
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "That session is no longer active"),
 

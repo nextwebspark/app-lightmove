@@ -335,12 +335,44 @@ describe("SettingsSecurityPage", () => {
       expect(await screen.findByText("Two-factor authentication is off")).toBeInTheDocument();
     });
 
-    it("asks an account with no password to set one before turning it on", async () => {
+    it("turns on for an account with no password with the app's code alone", async () => {
       vi.mocked(authApi.me).mockResolvedValue({ ...member, hasPassword: false });
+      vi.mocked(authApi.startMfaSetup).mockResolvedValue(SETUP);
+      vi.mocked(authApi.enableMfa).mockResolvedValue({ recoveryCodes: RECOVERY_CODES });
+      const user = userEvent.setup();
       renderPage();
 
-      expect(await screen.findByText(/To turn this on/)).toBeInTheDocument();
-      expect(screen.getByRole("switch", { name: /two-factor/i })).toBeDisabled();
+      const dialog = await openEnableDialog(user);
+      expect(await within(dialog).findByText("JBSWY3DPEHPK3PXP")).toBeInTheDocument();
+      expect(within(dialog).queryByLabelText(/current password/i)).not.toBeInTheDocument();
+
+      await user.type(within(dialog).getByLabelText(/code from your app/i), "123456");
+      await user.click(within(dialog).getByRole("button", { name: "Turn on" }));
+
+      await screen.findByRole("list", { name: /recovery codes/i });
+      expect(authApi.enableMfa).toHaveBeenCalledWith({ code: "123456" });
+    });
+
+    it("turns off for an account with no password with a code alone", async () => {
+      vi.mocked(authApi.me).mockResolvedValue({ ...member, hasPassword: false });
+      vi.mocked(authApi.mfaStatus).mockResolvedValue({
+        offered: true,
+        enabled: true,
+        enabledAt: "2026-10-01T09:00:00Z",
+        recoveryCodesLeft: 10,
+      });
+      vi.mocked(authApi.disableMfa).mockResolvedValue(undefined);
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(await screen.findByRole("switch", { name: /two-factor/i }));
+      const dialog = await screen.findByRole("dialog", { name: /turn off two-factor/i });
+      expect(within(dialog).queryByLabelText(/current password/i)).not.toBeInTheDocument();
+      await user.type(within(dialog).getByLabelText(/recovery code/i), "123456");
+      await user.click(within(dialog).getByRole("button", { name: "Turn off" }));
+
+      await waitFor(() => expect(authApi.disableMfa).toHaveBeenCalledWith({ code: "123456" }));
+      expect(await screen.findByText("Two-factor authentication is off")).toBeInTheDocument();
     });
   });
 });

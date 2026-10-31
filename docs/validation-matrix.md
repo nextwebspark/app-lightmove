@@ -49,7 +49,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Profile timezone | a region's zone or UTC, from the grouped list; the saved value passes unchanged (kept in the list if the browser lists none) | `@NotBlank @Size(64)`; a new choice must be a region's own zone or `UTC` the JDK knows, never a legacy alias like `EST` (`VALIDATION_FAILED` on `timezone`) — a zone saved before V148 saves unchanged | field |
 | Candidate tag label | trimmed, ≤ 40 | `@NotBlank @Size(40)` | toast |
 | API key name | trimmed, ≤ 80 | `@NotBlank @Size(80)` | banner |
-| Two-factor: current password | required | `@NotBlank`; must match (`CURRENT_PASSWORD_INVALID` on `currentPassword`); none set is `PASSWORD_NOT_SET` | field |
+| Two-factor: current password | required where the account has a password; not drawn for one that has none | required where the account has one (`VALIDATION_FAILED` on `currentPassword` when blank); must match (`CURRENT_PASSWORD_INVALID` on `currentPassword`); an account with none turns it on only within `lightmove.auth.mfa.recent-sign-in` (10 min) of signing in (`MFA_SIGN_IN_AGAIN`), and off or new codes with the code alone | field (banner for `MFA_SIGN_IN_AGAIN`) |
 | Two-factor: code to turn on | six digits, spaces dropped | `@NotBlank @Size(32)`; the app's code for the new secret (`MFA_CODE_INVALID` on `code`) | field |
 | Two-factor: code to turn off or get new recovery codes | six digits or a recovery code | `@NotBlank @Size(32)`; the app's code or an unused recovery code (`MFA_CODE_INVALID` on `code`) | field |
 | Task preset name | trimmed, ≤ 80, one line | `@NotBlank @Size(80)`, no line break | toast |

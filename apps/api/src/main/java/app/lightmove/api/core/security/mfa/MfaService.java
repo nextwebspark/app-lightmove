@@ -29,7 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Settings → Security's two-factor card: set up, turn on, turn off, new recovery codes. Each change asks for the
- * current password and a code, and ends every other session of the person's, as a password change does.
+ * current password, where the account has one, and a code, and ends every other session of the person's, as a
+ * password change does.
  */
 @Service
 @Slf4j
@@ -94,9 +95,6 @@ public class MfaService {
     public MfaSetupResponse startSetup(UUID userId) {
         requireOffered();
         User user = authentication.requireUser(userId);
-        if (!user.hasPassword()) {
-            throw ApiException.of(ErrorCode.PASSWORD_NOT_SET);
-        }
 
         String secret = Totp.newSecret();
         String sealed = cipher.encrypt(secret, MfaFactor.secretContext(userId));
@@ -118,7 +116,7 @@ public class MfaService {
         requireOffered();
         User user = authentication.requireUser(userId);
         UUID keptFamilyId = sessions.requireCurrentFamily(userId, presentedRefreshToken);
-        currentPasswordCheck.require(user, currentPassword, AuthEventType.MFA_ENABLED, request);
+        requireOwner(user, currentPassword, keptFamilyId, AuthEventType.MFA_ENABLED, request);
 
         MfaFactor factor = factors.findForUpdateByUserId(userId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.MFA_SETUP_NOT_STARTED));
@@ -147,7 +145,7 @@ public class MfaService {
                         HttpServletRequest request) {
         User user = authentication.requireUser(userId);
         UUID keptFamilyId = sessions.requireCurrentFamily(userId, presentedRefreshToken);
-        currentPasswordCheck.require(user, currentPassword, AuthEventType.MFA_DISABLED, request);
+        requirePasswordWhereHeld(user, currentPassword, AuthEventType.MFA_DISABLED, request);
         MfaFactor factor = requireEnabledFactor(userId);
         requireCode(factor, code, Instant.now(), AuthEventType.MFA_DISABLED, request);
 
@@ -167,7 +165,7 @@ public class MfaService {
     public RecoveryCodesResponse regenerateRecoveryCodes(UUID userId, String currentPassword, String code,
                                                          HttpServletRequest request) {
         User user = authentication.requireUser(userId);
-        currentPasswordCheck.require(user, currentPassword, AuthEventType.MFA_RECOVERY_CODES_REGENERATED, request);
+        requirePasswordWhereHeld(user, currentPassword, AuthEventType.MFA_RECOVERY_CODES_REGENERATED, request);
         MfaFactor factor = requireEnabledFactor(userId);
 
         Instant now = Instant.now();
@@ -176,6 +174,35 @@ public class MfaService {
 
         audit.event(AuthEventType.MFA_RECOVERY_CODES_REGENERATED).actor(userId).from(request).record();
         return new RecoveryCodesResponse(issued);
+    }
+
+    /**
+     * The owner proves it is them before enrolling a phone: by the current password, or — an account with none —
+     * by a sign-in moments ago, which a session stolen earlier cannot show.
+     */
+    private void requireOwner(User user, String currentPassword, UUID familyId, AuthEventType event,
+                              HttpServletRequest request) {
+        if (user.hasPassword()) {
+            requirePasswordWhereHeld(user, currentPassword, event, request);
+            return;
+        }
+        Instant signedInAt = sessions.signedInAt(familyId);
+        if (signedInAt == null || signedInAt.isBefore(Instant.now().minus(config.recentSignIn()))) {
+            audit.event(event).failed().actor(user.getId()).from(request).reason("sign_in_not_recent").record();
+            throw ApiException.of(ErrorCode.MFA_SIGN_IN_AGAIN);
+        }
+    }
+
+    /** An account with no password turns it off, or takes new codes, on the strength of the code alone. */
+    private void requirePasswordWhereHeld(User user, String currentPassword, AuthEventType event,
+                                          HttpServletRequest request) {
+        if (!user.hasPassword()) {
+            return;
+        }
+        if (currentPassword == null || currentPassword.isEmpty()) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "currentPassword", "Enter your current password");
+        }
+        currentPasswordCheck.require(user, currentPassword, event, request);
     }
 
     private List<String> replaceRecoveryCodes(UUID userId, Instant now) {

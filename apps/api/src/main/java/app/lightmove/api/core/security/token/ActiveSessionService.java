@@ -104,6 +104,12 @@ public class ActiveSessionService {
                 token.getFamilyId().equals(currentFamilyId));
     }
 
+    /** When the caller's session was signed in, however often it has been refreshed since. */
+    @Transactional(readOnly = true)
+    public Instant signedInAt(UUID familyId) {
+        return refreshTokens.familyStartedAt(familyId);
+    }
+
     /**
      * The family the caller is signed in on. Rejects a cookie that is missing, dead, or somebody else's
      * — the last of which would otherwise let a caller mark another user's session as their own.
