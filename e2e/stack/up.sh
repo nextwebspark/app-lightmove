@@ -76,7 +76,7 @@ else
   docker rm -f "$PG_CONTAINER" >/dev/null 2>&1 || true
   say "starting postgres:16-alpine as $PG_CONTAINER on :$PG_PORT"
   docker run -d --name "$PG_CONTAINER" \
-    -e POSTGRES_USER=lm_app -e POSTGRES_PASSWORD=lm -e POSTGRES_DB=lightmove \
+    -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=lm -e POSTGRES_DB=lightmove \
     -p "$PG_PORT:5432" postgres:16-alpine >/dev/null
 fi
 
@@ -89,7 +89,7 @@ say "waiting for postgres to accept connections"
 # server cannot answer at all, so a success here is the server the API will actually talk to.
 pg_ready=false
 for _ in $(seq 1 60); do
-  if docker exec "$PG_CONTAINER" pg_isready -h 127.0.0.1 -p 5432 -U lm_app -d lightmove >/dev/null 2>&1; then
+  if docker exec "$PG_CONTAINER" pg_isready -h 127.0.0.1 -p 5432 -U postgres -d lightmove >/dev/null 2>&1; then
     pg_ready=true; break
   fi
   sleep 1
@@ -99,6 +99,17 @@ if [ "$pg_ready" != true ]; then
   docker logs --tail 40 "$PG_CONTAINER" 2>&1 || true
   exit 1
 fi
+
+# The API connects as lm_app, the database's owner and no superuser — production's shape until #256 — so row-level
+# security (V166) binds it; a superuser would skip every policy, and the API refuses to boot as one. The cases' own
+# SQL (api/lib.sh) runs as postgres, above the policies, as the backend tests' fixtures do.
+docker exec "$PG_CONTAINER" psql -h 127.0.0.1 -U postgres -d lightmove -v ON_ERROR_STOP=1 -qc "
+  DO \$\$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'lm_app') THEN
+      CREATE ROLE lm_app LOGIN PASSWORD 'lm' NOSUPERUSER NOBYPASSRLS;
+    END IF;
+  END \$\$;
+  ALTER DATABASE lightmove OWNER TO lm_app;" >/dev/null
 
 # --- 2. jwt signing keys ----------------------------------------------------
 # JwtConfig only lets the API conjure its own keypair on the `local`, `dev` and `test` profiles, and

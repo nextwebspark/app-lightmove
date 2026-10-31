@@ -153,6 +153,8 @@ jobs:
           # split is what removes DDL from the runtime role; until then this is still a *deploy* step
           # rather than a boot step, which is the half that matters most — a bad migration fails the
           # deploy and the previous revision keeps serving.
+          # initSql: row-level security (V166) is forced on tables this role owns, so a backfill reaches every
+          # workspace's rows only with Flyway's session in maintenance. #256 gives lm_migrate its own policy instead.
           docker run --rm --network host \
             -v "$PWD/apps/api/src/main/resources/db/migration:/flyway/sql:ro" \
             redgate/flyway:11 \
@@ -161,6 +163,7 @@ jobs:
             -password="${FLYWAY_PASSWORD}" \
             -baselineOnMigrate=true \
             -placeholders.iam_user= \
+            "-initSql=SET app.rls_maintenance = 'on'" \
             -connectRetries=5 \
             migrate
 
