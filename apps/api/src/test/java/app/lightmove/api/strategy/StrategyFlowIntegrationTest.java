@@ -13,6 +13,7 @@ import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.strategy.constant.CompanySortField;
 import app.lightmove.api.strategy.constant.SortDirection;
 import app.lightmove.api.strategy.model.CompanyRow;
@@ -671,10 +672,13 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
 
         // The bulk-write callers read scopeOf and dedupe for themselves, so it must keep a triaged
         // company; a caller asking what is still out there reads the other one.
-        assertThat(matching(strategies.scopeOf(workspaceId, project)))
-                .containsExactlyInAnyOrder("ACWA Power", "Masdar");
-        assertThat(matching(strategies.untriagedScopeOf(workspaceId, project)))
-                .containsExactly("ACWA Power");
+        // The exclusion is read when the market is, so both run in the firm's scope, as a request would.
+        WorkspaceScope.run(workspaceId, () -> {
+            assertThat(matching(strategies.scopeOf(workspaceId, project)))
+                    .containsExactlyInAnyOrder("ACWA Power", "Masdar");
+            assertThat(matching(strategies.untriagedScopeOf(workspaceId, project)))
+                    .containsExactly("ACWA Power");
+        });
     }
 
     private List<String> matching(CompanyScope scope) {

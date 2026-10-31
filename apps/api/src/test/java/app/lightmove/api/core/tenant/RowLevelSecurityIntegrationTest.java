@@ -124,7 +124,7 @@ class RowLevelSecurityIntegrationTest extends FlowTestSupport {
         assertThatThrownBy(() -> WorkspaceScope.run(firmA.workspaceId(), () -> transactions.executeWithoutResult(
                 status -> write.run())))
                 .isInstanceOf(DataAccessException.class)
-                .hasMessageContaining("row-level security policy");
+                .rootCause().hasMessageContaining("row-level security policy");
     }
 
     @Test

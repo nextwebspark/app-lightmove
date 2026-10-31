@@ -33,6 +33,9 @@ interface TestcontainersConfig {
 
     PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"))
             .withInitScript("testcontainers/app-role.sql")
+            // Every cached context keeps its pool open. Run as the superuser, the suite quietly spilled into the
+            // slots Postgres reserves for superusers; as lm_app it stopped at the default hundred.
+            .withCommand("postgres", "-c", "max_connections=300")
             // Still on: a developer who has opted in keeps the container between runs.
             .withReuse(true);
 

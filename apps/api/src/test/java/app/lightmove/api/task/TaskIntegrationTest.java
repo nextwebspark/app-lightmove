@@ -352,9 +352,9 @@ class TaskIntegrationTest extends PipelineFlowSupport {
     private void replied(UUID messageId) {
         UUID personId = db.queryForObject("select person_id from app_lm_project_candidate where id = ?::uuid",
                 UUID.class, layla);
-        transactions.executeWithoutResult(status -> events.publishEvent(new OutreachReplied(
+        inWorkspace(() -> transactions.executeWithoutResult(status -> events.publishEvent(new OutreachReplied(
                 UUID.fromString(workspaceId), UUID.fromString(projectId), UUID.fromString(layla), personId,
-                UUID.randomUUID(), UUID.fromString(researcherId), messageId)));
+                UUID.randomUUID(), UUID.fromString(researcherId), messageId))));
     }
 
     private MvcResult created(String token, String candidateId, String title, String assigneeId, String dueAt)

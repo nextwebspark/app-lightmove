@@ -8,6 +8,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
+import app.lightmove.api.core.tenant.WorkspaceScope;
+import java.util.UUID;
+import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,6 +26,15 @@ public abstract class PipelineFlowSupport extends FlowTestSupport {
 
     protected String admin;
     protected String workspaceId;
+
+    /** A call straight to the application's beans, as the firm: no request carries the workspace for it. */
+    protected void inWorkspace(Runnable work) {
+        WorkspaceScope.run(UUID.fromString(workspaceId), work);
+    }
+
+    protected <T> T inWorkspace(Supplier<T> work) {
+        return WorkspaceScope.call(UUID.fromString(workspaceId), work);
+    }
 
     protected void firm(String name) throws Exception {
         String address = "alok@" + domain;

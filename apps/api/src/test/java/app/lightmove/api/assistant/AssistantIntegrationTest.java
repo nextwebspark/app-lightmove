@@ -14,6 +14,7 @@ import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubChatModel;
 import app.lightmove.api.assistant.service.AssistantSkills;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.model.MandateStages;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
@@ -254,8 +255,8 @@ class AssistantIntegrationTest extends FlowTestSupport {
         UUID workspaceId = db.queryForObject("SELECT workspace_id FROM app_lm_project WHERE id = ?",
                 UUID.class, projectId);
 
-        MandateStages stages = triageReads.stagesOf(workspaceId, projectId, List.of("a1", "a2"),
-                List.of("MARAFIQ", "Unknown Co"));
+        MandateStages stages = WorkspaceScope.call(workspaceId, () -> triageReads.stagesOf(workspaceId, projectId,
+                List.of("a1", "a2"), List.of("MARAFIQ", "Unknown Co")));
         assertThat(stages.byAccountId()).containsExactly(Map.entry("a2", TriageCompanyStatus.DECLINED));
         assertThat(stages.stageOf(null, "marafiq")).isEqualTo(TriageCompanyStatus.DECLINED);
 

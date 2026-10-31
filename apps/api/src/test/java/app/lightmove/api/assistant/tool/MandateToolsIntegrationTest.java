@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,7 +31,8 @@ class MandateToolsIntegrationTest extends FlowTestSupport {
         Mandate mandate = mandate("Brief Reading Firm");
         TurnRecorder recorder = new TurnRecorder(step -> { });
 
-        MandateBrief brief = tools.readMandateBrief(context(mandate, recorder));
+        MandateBrief brief = WorkspaceScope.call(mandate.workspaceId(),
+                () -> tools.readMandateBrief(context(mandate, recorder)));
 
         assertThat(brief.roleTitle()).isEqualTo("Chief Financial Officer");
         assertThat(MandateBrief.class.getRecordComponents())
@@ -48,7 +50,8 @@ class MandateToolsIntegrationTest extends FlowTestSupport {
         Mandate mandate = mandate("Brief Absent Firm");
         db.update("DELETE FROM app_lm_position WHERE project_id = ?", mandate.projectId);
 
-        MandateBrief brief = tools.readMandateBrief(context(mandate, new TurnRecorder(step -> { })));
+        MandateBrief brief = WorkspaceScope.call(mandate.workspaceId(),
+                () -> tools.readMandateBrief(context(mandate, new TurnRecorder(step -> { }))));
 
         assertThat(brief.responsibilities()).isEmpty();
         assertThat(db.queryForObject("SELECT count(*) FROM app_lm_position WHERE project_id = ?",
