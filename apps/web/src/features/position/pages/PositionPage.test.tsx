@@ -37,6 +37,7 @@ vi.mock("../api/positionApi", async (importOriginal) => ({
   extractContext: vi.fn(),
   extractReporting: vi.fn(),
   extractAssessment: vi.fn(),
+  extractCompensation: vi.fn(),
 }));
 vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../projects/api/projectsApi")>()),
@@ -109,6 +110,7 @@ const seeded: Position = {
     incentiveType: null,
     incentiveAmount: null,
     incentiveVesting: null,
+    fieldSources: {},
     benefits: [],
   },
   assessment: {
@@ -500,7 +502,7 @@ describe("PositionPage", () => {
       document: { fileName: "CFO-brief.pdf", contentType: "application/pdf", fileSize: 798_720, uploadedAt: "2026-09-07T09:00:00Z" },
     };
     const emptyExtraction: PositionExtraction = {
-      extractionSource: "none",
+      extractionSource: "model",
       fields: [],
       suggestedTemplate: null,
       usualDirectReports: null,
@@ -510,6 +512,7 @@ describe("PositionPage", () => {
       vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
       vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
       vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractCompensation).mockResolvedValue(emptyExtraction);
     };
 
     it("attaches a file and then shows it as the card, with Extract with AI to read it again", async () => {
@@ -546,11 +549,14 @@ describe("PositionPage", () => {
       // One press reads every section, exactly as Extract with AI does — the screens share one reading.
       expect(positionApi.extractDetails).toHaveBeenCalledTimes(1);
 
+      await person.click(within(rail()).getByRole("link", { name: "Compensation" }));
+      expect(await screen.findByRole("button", { name: /Read from document/ })).toBeInTheDocument();
+
       await person.click(within(rail()).getByRole("link", { name: "Assessment Criteria" }));
       expect(await screen.findByRole("button", { name: /Read from document/ })).toBeInTheDocument();
     });
 
-    it("offers no read control with nothing attached, nor on Compensation once there is", async () => {
+    it("offers no read control with nothing attached", async () => {
       noReading();
       renderPage();
       const person = userEvent.setup();
@@ -560,10 +566,41 @@ describe("PositionPage", () => {
       expect(await screen.findByRole("heading", { name: "Reporting Structure" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /Read from document/ })).not.toBeInTheDocument();
 
-      vi.mocked(positionApi.getPosition).mockResolvedValue(attached);
       await person.click(within(rail()).getByRole("link", { name: "Compensation" }));
       expect(screen.queryByRole("button", { name: /Read from document/ })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /Extract with AI/ })).not.toBeInTheDocument();
+    });
+
+    it("fills the package the document states, each figure wearing its sparkle (#1049)", async () => {
+      vi.mocked(positionApi.getPosition).mockResolvedValue(attached);
+      vi.mocked(positionApi.putCompensation).mockResolvedValue(attached);
+      noReading();
+      vi.mocked(positionApi.extractCompensation).mockResolvedValue({
+        extractionSource: "model",
+        fields: [
+          { id: 1, fieldKey: "salaryMin", value: "90000", confidence: "medium", snippet: "AED90,000", origin: "document" },
+          { id: 2, fieldKey: "salaryMax", value: "120000", confidence: "medium", snippet: "AED120,000", origin: "document" },
+          { id: 3, fieldKey: "benefit", value: "Housing allowance — yearly — 100000", confidence: "medium", snippet: "Housing: 100,000 per year", origin: "document" },
+        ],
+        suggestedTemplate: null,
+        usualDirectReports: null,
+      });
+      renderPage("/?step=compensation");
+      const person = userEvent.setup();
+
+      await person.click(await screen.findByRole("button", { name: /Read from document/ }));
+
+      await waitFor(() =>
+        expect(lastCall(positionApi.putCompensation)[1]).toMatchObject({
+          salaryMin: 90_000,
+          salaryMax: 120_000,
+          fieldSources: { salaryMin: "DOCUMENT", salaryMax: "DOCUMENT" },
+          benefits: expect.arrayContaining([
+            { name: "Housing allowance", amount: 100_000, frequency: "YEARLY", source: "DOCUMENT" },
+          ]),
+        }),
+      );
+      expect(screen.getByRole("textbox", { name: "Benefit 1 name" })).toHaveValue("Housing allowance");
     });
 
     it("downloads and removes the attached file", async () => {
@@ -601,6 +638,7 @@ describe("PositionPage", () => {
       vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
       vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
       vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractCompensation).mockResolvedValue(emptyExtraction);
       vi.mocked(positionApi.putDetails).mockResolvedValue(withManualDepartment);
       renderPage();
       const person = userEvent.setup();
@@ -629,6 +667,7 @@ describe("PositionPage", () => {
       vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
       vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
       vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractCompensation).mockResolvedValue(emptyExtraction);
       vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
       renderPage();
       const person = userEvent.setup();
@@ -663,6 +702,7 @@ describe("PositionPage", () => {
       vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
       vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
       vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractCompensation).mockResolvedValue(emptyExtraction);
       vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
       renderPage();
       const person = userEvent.setup();
@@ -692,6 +732,7 @@ describe("PositionPage", () => {
         usualDirectReports: ["Head of Treasury"],
       });
       vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractCompensation).mockResolvedValue(emptyExtraction);
       vi.mocked(positionApi.putReporting).mockResolvedValue(seeded);
       renderPage();
       const person = userEvent.setup();
@@ -736,6 +777,7 @@ describe("PositionPage", () => {
         vi.mocked(positionApi.extractContext).mockResolvedValue({ ...emptyExtraction, extractionSource: "model" });
         vi.mocked(positionApi.extractReporting).mockResolvedValue({ ...emptyExtraction, extractionSource: "model" });
         vi.mocked(positionApi.extractAssessment).mockResolvedValue({ ...emptyExtraction, extractionSource: "model" });
+        vi.mocked(positionApi.extractCompensation).mockResolvedValue({ ...emptyExtraction, extractionSource: "model" });
       };
 
       it("applies it to an untouched brief without asking, and folds the same reading over the redraft", async () => {
@@ -771,6 +813,7 @@ describe("PositionPage", () => {
         vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
         vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
         vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+        vi.mocked(positionApi.extractCompensation).mockResolvedValue(emptyExtraction);
         vi.mocked(positionApi.putDetails).mockResolvedValue(attached);
         renderPage();
         const person = userEvent.setup();
@@ -820,6 +863,7 @@ describe("PositionPage", () => {
         vi.mocked(positionApi.extractContext).mockRejectedValue(unreadable);
         vi.mocked(positionApi.extractReporting).mockRejectedValue(unreadable);
         vi.mocked(positionApi.extractAssessment).mockRejectedValue(unreadable);
+        vi.mocked(positionApi.extractCompensation).mockRejectedValue(unreadable);
         renderPage();
         const person = userEvent.setup();
 
@@ -831,16 +875,50 @@ describe("PositionPage", () => {
 
       it("says so when the reader could not be reached, rather than calling the document empty", async () => {
         vi.mocked(positionApi.getPosition).mockResolvedValue(attached);
+        const unreached = { ...emptyExtraction, extractionSource: "none" as const };
         vi.mocked(positionApi.extractDetails).mockResolvedValue({ ...emptyExtraction, extractionSource: "documentHeadings" });
-        vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
-        vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
-        vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+        vi.mocked(positionApi.extractContext).mockResolvedValue(unreached);
+        vi.mocked(positionApi.extractReporting).mockResolvedValue(unreached);
+        vi.mocked(positionApi.extractAssessment).mockResolvedValue(unreached);
+        vi.mocked(positionApi.extractCompensation).mockResolvedValue(unreached);
         renderPage();
         const person = userEvent.setup();
 
         await person.click(await screen.findByRole("button", { name: /Extract with AI/ }));
 
-        expect(await screen.findByRole("alert")).toHaveTextContent("couldn't be reached");
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "The document reader couldn't be reached, so nothing was filled.",
+        );
+      });
+
+      it("names every section the reader never reached, even when the headings filled the role brief (#1049)", async () => {
+        vi.mocked(positionApi.getPosition).mockResolvedValue(attached);
+        const unreached = { ...emptyExtraction, extractionSource: "none" as const };
+        // The reader refusing every call: step one's heading reader still finds a city and names a
+        // template, and nothing else reads at all.
+        vi.mocked(positionApi.extractDetails).mockResolvedValue({
+          extractionSource: "documentHeadings",
+          fields: [{ id: 1, fieldKey: "locationCity", value: "Dubai", confidence: "medium", snippet: null, origin: "document" }],
+          suggestedTemplate: catalog[1],
+          usualDirectReports: null,
+        });
+        vi.mocked(positionApi.extractContext).mockResolvedValue(unreached);
+        vi.mocked(positionApi.extractReporting).mockResolvedValue(unreached);
+        vi.mocked(positionApi.extractAssessment).mockResolvedValue(unreached);
+        vi.mocked(positionApi.extractCompensation).mockResolvedValue(unreached);
+        vi.mocked(positionApi.putDetails).mockResolvedValue(attached);
+        renderPage();
+        const person = userEvent.setup();
+
+        await person.click(await screen.findByRole("button", { name: /Extract with AI/ }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "Couldn't read the role brief, the mandate context, the reporting line, the compensation and the assessment " +
+            "from CFO-brief.pdf — the document reader couldn't be reached. What could be read was filled.",
+        );
+        expect(screen.getByRole("textbox", { name: "City" })).toHaveValue("Dubai");
+        // A template applied off the headings alone would replace the brief with nothing read over it.
+        expect(positionApi.applyTemplate).not.toHaveBeenCalled();
       });
 
       it("names the section that failed when the rest read", async () => {
@@ -854,6 +932,7 @@ describe("PositionPage", () => {
         vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
         vi.mocked(positionApi.extractReporting).mockRejectedValue(new Error("boom"));
         vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+        vi.mocked(positionApi.extractCompensation).mockResolvedValue(emptyExtraction);
         vi.mocked(positionApi.putDetails).mockResolvedValue(attached);
         renderPage();
         const person = userEvent.setup();
@@ -872,6 +951,7 @@ describe("PositionPage", () => {
         vi.mocked(positionApi.extractContext).mockResolvedValue({ ...emptyExtraction, extractionSource: "model" });
         vi.mocked(positionApi.extractReporting).mockRejectedValue(new Error("boom"));
         vi.mocked(positionApi.extractAssessment).mockResolvedValue({ ...emptyExtraction, extractionSource: "model" });
+        vi.mocked(positionApi.extractCompensation).mockResolvedValue({ ...emptyExtraction, extractionSource: "model" });
         renderPage();
         const person = userEvent.setup();
 

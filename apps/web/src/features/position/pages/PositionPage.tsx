@@ -46,6 +46,7 @@ import {
 } from "../lib/documentFill";
 import { addSuggestedSeat } from "../lib/orgChart";
 import {
+  COMPENSATION_FIELD_KEYS,
   CONTEXT_FIELD_KEYS,
   DETAILS_FIELD_KEYS,
   isUntouched,
@@ -57,12 +58,19 @@ import { STEP_PARAM, openingStepOf, stepOf, type PositionStep, type StepKey } fr
 
 const GROUND = "flex flex-1 bg-u-bg text-u-text";
 
-const EXTRACTION_SECTIONS: readonly ExtractionSection[] = ["details", "context", "reporting", "assessment"];
+const EXTRACTION_SECTIONS: readonly ExtractionSection[] = [
+  "details",
+  "context",
+  "reporting",
+  "compensation",
+  "assessment",
+];
 
 const SECTION_NAMES: Record<ExtractionSection, string> = {
   details: "the role brief",
   context: "the mandate context",
   reporting: "the reporting line",
+  compensation: "the compensation",
   assessment: "the assessment",
 };
 
@@ -263,8 +271,8 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   /**
    * The narrower drain a document fill uses: only the channels the screens `fillBrief` actually
    * touched, in the same fixed order as `flushAll` — so `PUT /context` still never races ahead of
-   * `PUT /details`, but a fill that only touched assessment does not also flush an untouched
-   * compensation channel with nothing pending (a no-op `flush()`, but still a call worth skipping).
+   * `PUT /details`, but a fill that only touched assessment does not also flush a channel with nothing
+   * pending (a no-op `flush()`, but still a call worth skipping).
    */
   const flushDocumentFill = async (changed: ReadonlySet<StepKey>) => {
     const toFlush = new Set<(typeof channels)[number]>();
@@ -274,6 +282,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       toFlush.add(reportingSave);
     }
     if (changed.has("reporting")) toFlush.add(reportingSave);
+    if (changed.has("compensation")) toFlush.add(compensationSave);
     if (changed.has("assessment")) {
       toFlush.add(criteriaSave);
       toFlush.add(competenciesSave);
@@ -316,7 +325,11 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     if (immediate) reportingSave.saveNow();
   };
   const changeCompensation = (patch: Partial<Compensation>, immediate = false) => {
-    const next = { ...compensation, ...patch };
+    const next = {
+      ...compensation,
+      ...patch,
+      fieldSources: markManualFrom(compensation.fieldSources, patch, COMPENSATION_FIELD_KEYS),
+    };
     setCompensation(next);
     // A benefit cleared to retype is held back like a blank title: the server refuses an unnamed line.
     if (next.benefits.some((benefit) => !benefit.name.trim())) return;
@@ -424,6 +437,21 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     setReporting(next);
     reportingSave.schedule(next);
   };
+  const undoCompensationField = (fieldKey: string) => {
+    const receipt = receipts.compensation;
+    if (!receipt) return;
+    const next = undoScalar(compensation, fieldKey, receipt);
+    if (next === compensation) return;
+    setCompensation(next);
+    compensationSave.schedule(next);
+  };
+  const undoBenefit = (name: string) => {
+    const receipt = receipts.compensation;
+    if (!receipt) return;
+    const next = undoListItem(compensation, "benefits", name, receipt);
+    setCompensation(next);
+    compensationSave.schedule(next);
+  };
   const undoCriterion = (text: string) => {
     const receipt = receipts.assessment;
     if (!receipt) return;
@@ -527,26 +555,33 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   const goToStrategy = () => navigate(`/projects/${projectId}/strategy`);
 
   /**
-   * "Read from document": the four section reads, fanned out and settled independently — one section
-   * failing must leave the other three filled, per epic #393 — then folded into the brief in one pass
+   * "Read from document": the five section reads, fanned out and settled independently — one section
+   * failing must leave the others filled, per epic #393 — then folded into the brief in one pass
    * by `fillBrief`. `mutate`'s variable is the file name a receipt is stamped with, not read back off
    * `position`/`drafted`: the prop is a stale closure at the moment an attach's `onSuccess` fires this.
    *
    * <p>When the reading names a template and nobody has typed into the brief, the template is applied
    * first and the same reading is then folded over the redrafted brief — so the document's values still
-   * win over what the template seeded, without paying for the four reads twice. The check reads the
+   * win over what the template seeded, without paying for the reads twice. The check reads the
    * latest draft through a ref, not this closure: the reads take seconds, and somebody may type meanwhile.
    * The title comes from the document when it states one, not from the template.
    */
   const readDocument = useMutation({
     mutationFn: async (fileName: string) => {
-      const [detailsResult, contextResult, reportingResult, assessmentResult] = await Promise.allSettled([
-        positionApi.extractDetails(projectId),
-        positionApi.extractContext(projectId),
-        positionApi.extractReporting(projectId),
-        positionApi.extractAssessment(projectId),
-      ]);
-      const suggested = detailsResult.status === "fulfilled" ? detailsResult.value.suggestedTemplate : null;
+      const [detailsResult, contextResult, reportingResult, compensationResult, assessmentResult] =
+        await Promise.allSettled([
+          positionApi.extractDetails(projectId),
+          positionApi.extractContext(projectId),
+          positionApi.extractReporting(projectId),
+          positionApi.extractCompensation(projectId),
+          positionApi.extractAssessment(projectId),
+        ]);
+      // #1049: with the model unreachable every other section comes back empty, so a template applied
+      // off the heuristic's title would replace the brief wholesale with nothing from the document over it.
+      const suggested =
+        detailsResult.status === "fulfilled" && detailsResult.value.extractionSource === "model"
+          ? detailsResult.value.suggestedTemplate
+          : null;
       let redrafted: { brief: Position; template: PositionTemplate } | null = null;
       if (suggested && isUntouched(draftedRef.current)) {
         try {
@@ -556,10 +591,16 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
           // The template is a bonus on top of the reading; failing to apply it must not lose the reading.
         }
       }
-      return { fileName, redrafted, detailsResult, contextResult, reportingResult, assessmentResult };
+      return { fileName, redrafted, detailsResult, contextResult, reportingResult, compensationResult, assessmentResult };
     },
-    onSuccess: ({ fileName, redrafted, detailsResult, contextResult, reportingResult, assessmentResult }) => {
-      const settled = { details: detailsResult, context: contextResult, reporting: reportingResult, assessment: assessmentResult };
+    onSuccess: ({ fileName, redrafted, detailsResult, contextResult, reportingResult, compensationResult, assessmentResult }) => {
+      const settled = {
+        details: detailsResult,
+        context: contextResult,
+        reporting: reportingResult,
+        compensation: compensationResult,
+        assessment: assessmentResult,
+      };
       const results: FillResults = {};
       for (const section of EXTRACTION_SECTIONS) {
         const result = settled[section];
@@ -573,6 +614,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
             details: base.details,
             context: base.context,
             reporting: base.reporting,
+            compensation: base.compensation,
             criteria: base.assessment.criteria,
             technical: base.assessment.technical,
             behavioural: base.assessment.behavioural,
@@ -582,6 +624,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
             details,
             context,
             reporting,
+            compensation,
             criteria,
             technical: forWire(technical),
             behavioural: forWire(behavioural),
@@ -592,6 +635,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       setDetails(outcome.next.details);
       setContext(outcome.next.context);
       setReporting(outcome.next.reporting);
+      setCompensation(outcome.next.compensation);
       setCriteria(outcome.next.criteria);
       setTechnical(identify(outcome.next.technical));
       setBehavioural(identify(outcome.next.behavioural));
@@ -605,6 +649,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
         detailsSave.schedule(outcome.next.details);
         contextSave.schedule(outcome.next.context);
       }
+      if (outcome.changed.has("compensation")) compensationSave.schedule(outcome.next.compensation);
       if (outcome.changed.has("assessment")) {
         criteriaSave.schedule(outcome.next.criteria);
         competenciesSave.schedule({
@@ -725,8 +770,9 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   // would go on offering "Edit position" next to a Compensation form that is live and taking input.
   const readBack = Boolean(drafted.publication.publishedAt) && !reopened && step.key === "review";
 
+  const hasOwnReadAction = step.key === "reporting" || step.key === "compensation" || step.key === "assessment";
   const readAction =
-    (step.key === "reporting" || step.key === "assessment") && drafted.document ? (
+    hasOwnReadAction && drafted.document ? (
       <BriefButton
         variant="outline"
         onClick={onExtractDocument}
@@ -757,7 +803,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
         <div className="px-4 pb-[100px] pt-[30px] sm:px-10">
           <StepHeader step={step} action={readAction} />
 
-          {readProblem && (step.key === "brief" || step.key === "reporting" || step.key === "assessment") && (
+          {readProblem && (step.key === "brief" || hasOwnReadAction) && (
             <DocumentReadNotice
               message={readProblem}
               retrying={readDocument.isPending}
@@ -816,7 +862,13 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
             />
           )}
           {step.key === "compensation" && (
-            <CompensationStep compensation={compensation} onChange={changeCompensation} />
+            <CompensationStep
+              compensation={compensation}
+              receipt={receipts.compensation}
+              onChange={changeCompensation}
+              onUndoField={undoCompensationField}
+              onUndoBenefit={undoBenefit}
+            />
           )}
           {step.key === "assessment" && (
             <AssessmentStep
@@ -865,9 +917,9 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
 
 /**
  * The step's question and a line under it. The acts are the rail's and the page foot's, not this —
- * `action` is the one exception, "Read from document" on the Reporting and Assessment steps only: the
- * Role Brief already carries its own read control on the file card, Compensation is never read, and
- * the review has nothing left to read.
+ * `action` is the one exception, "Read from document" on the Reporting, Compensation and Assessment
+ * steps: the Role Brief already carries its own read control on the file card, and the review has
+ * nothing left to read.
  */
 function StepHeader({ step, action }: { step: PositionStep; action?: ReactNode }) {
   return (
@@ -885,8 +937,9 @@ function StepHeader({ step, action }: { step: PositionStep; action?: ReactNode }
  * The line a reading leaves when it went wrong, or null when it worked. A rejected section is an
  * HTTP failure — an unreadable file carries its own specific sentence in `detail`. A model the server
  * could not reach is not: it answers 200 with nothing proposed (`"none"`, or `"documentHeadings"` for
- * the details step's heuristic fallback), which is told apart from a document that says nothing only
- * by every model-read section coming back that way. A reading that proposed values a person had
+ * the details step's heuristic fallback). Each such section is named even when the others filled
+ * something — #1049 shipped the silence, where a reader refusing every call still read as a success
+ * because the heuristic had filled the role brief. A reading that proposed values a person had
  * already typed over is not a problem — it read fine and had nothing new.
  */
 function readProblemOf(
@@ -898,6 +951,18 @@ function readProblemOf(
   if (rejected.length === EXTRACTION_SECTIONS.length) {
     return messageFor((settled[rejected[0]] as PromiseRejectedResult).reason);
   }
+  const unreached = EXTRACTION_SECTIONS.filter((section) => {
+    const result = settled[section];
+    return result.status === "fulfilled" && result.value.extractionSource !== "model";
+  });
+  if (unreached.length > 0) {
+    if (rejected.length + unreached.length === EXTRACTION_SECTIONS.length && !changedAnything) {
+      return "The document reader couldn't be reached, so nothing was filled. Try again in a moment.";
+    }
+    const unread = EXTRACTION_SECTIONS.filter((section) => rejected.includes(section) || unreached.includes(section));
+    const list = sentenceOf(unread.map((section) => SECTION_NAMES[section]), false);
+    return `Couldn't read ${list} from ${fileName} — the document reader couldn't be reached. ${changedAnything ? "What could be read was filled. " : ""}Try again in a moment.`;
+  }
   if (rejected.length > 0) {
     const list = sentenceOf(rejected.map((section) => SECTION_NAMES[section]), false);
     return `Couldn't read ${list} from ${fileName}. ${changedAnything ? "The rest was filled." : "The rest was read, with nothing new in it."}`;
@@ -908,9 +973,6 @@ function readProblemOf(
     (section) => (settled[section] as PromiseFulfilledResult<PositionExtraction>).value,
   );
   if (readings.some((reading) => reading.fields.length > 0)) return null;
-  if (readings.every((reading) => reading.extractionSource !== "model")) {
-    return "The document reader couldn't be reached, so nothing was filled. Try again in a moment.";
-  }
   return `Nothing could be read from ${fileName} — check it is the position description.`;
 }
 

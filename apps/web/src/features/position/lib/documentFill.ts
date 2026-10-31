@@ -2,6 +2,10 @@ import type { NoticeUnit } from "../../../lib/noticePeriod";
 import { pairOfNoticePeriod } from "../../../lib/noticePeriod";
 import { SENIORITY_TIERS } from "../../../lib/seniority";
 import type {
+  BaseSalaryMode,
+  Benefit,
+  BonusBasis,
+  Compensation,
   Competency,
   Criterion,
   FieldSource,
@@ -10,9 +14,10 @@ import type {
   PositionExtraction,
   ProposalConfidence,
   ProposedField,
+  IncentiveType,
   ReportingStructure,
 } from "../api/types";
-import { EMPLOYMENT_TYPE_LABELS } from "./labels";
+import { CURRENCIES, EMPLOYMENT_TYPE_LABELS } from "./labels";
 import { mergeReportingProposals, type ChartMergeBlock } from "./orgChart";
 import type { StepKey } from "./steps";
 
@@ -42,20 +47,17 @@ export const RESPONSIBILITY_MAX_COUNT = 20;
 export const PRIORITY_MAX_COUNT = 20;
 export const CRITERIA_MAX_COUNT = 30;
 export const COMPETENCY_MAX_COUNT_PER_PANEL = 10;
+export const BENEFIT_MAX_COUNT = 20;
 
-/**
- * The four sections a document reading is extracted for — one `/extract/*` call each, unchanged by the
- * #442 rebuild's five-screen rail. Compensation is never read (#395); review has nothing of its own to
- * read.
- */
-export type ExtractionSection = "details" | "context" | "reporting" | "assessment";
+/** The five sections a document reading is extracted for — one `/extract/*` call each; review has nothing of its own to read. */
+export type ExtractionSection = "details" | "context" | "reporting" | "compensation" | "assessment";
 
 /** One settled section reading per extracted section — missing when a section's own call failed or was
  *  never run, exactly as `Promise.allSettled` leaves it. */
 export type FillResults = Partial<Record<ExtractionSection, PositionExtraction>>;
 
 /**
- * The six drafts a fill can touch, in the shape the wizard's own autosave state already keeps them —
+ * The seven drafts a fill can touch, in the shape the wizard's own autosave state already keeps them —
  * `criteria` and the two competency panels are their own snapshot fields, not one `assessment` object,
  * because `putCriteria` and `putCompetencies` are separate writes and the Assessment Criteria screen's
  * two channels must be schedulable independently of each other.
@@ -64,6 +66,7 @@ export interface PositionSnapshot {
   details: PositionDetails;
   context: MandateContext;
   reporting: ReportingStructure;
+  compensation: Compensation;
   criteria: Criterion[];
   technical: Competency[];
   behavioural: Competency[];
@@ -201,6 +204,17 @@ export function fillBrief(snapshot: PositionSnapshot, results: FillResults, file
     };
   }
 
+  // --- Compensation screen: the package's scalars and its allowances. ---
+  const compensationFill = fillCompensation(snapshot.compensation, results.compensation, skipped);
+  if (compensationFill.changed) {
+    changed.add("compensation");
+    receipts.compensation = {
+      fileName,
+      scalars: compensationFill.scalars,
+      lists: compensationFill.lists,
+    };
+  }
+
   // --- Assessment Criteria screen: the criteria list and both competency panels. ---
   const assessmentFields = results.assessment?.fields ?? [];
 
@@ -259,6 +273,7 @@ export function fillBrief(snapshot: PositionSnapshot, results: FillResults, file
       details: detailsFill.draft,
       context: contextFill.draft,
       reporting,
+      compensation: compensationFill.draft,
       criteria: criteriaFill.merged,
       technical,
       behavioural,
@@ -678,6 +693,102 @@ function fillContext(
   draft = { ...draft, strategicPriorities: priorities.merged };
 
   return { draft, scalars, lists, changed };
+}
+
+const BONUS_CEILINGS: Partial<Record<BonusBasis, number>> = {
+  PERCENT_OF_BASE: 100,
+  PERCENT_OF_TOTAL_FIXED: 100,
+  MONTHS_OF_BASE: 24,
+};
+const BASE_SALARY_MODES: readonly string[] = ["ANNUAL", "MONTHLY"];
+const BONUS_BASES: readonly string[] = ["PERCENT_OF_BASE", "PERCENT_OF_TOTAL_FIXED", "MONTHS_OF_BASE", "FIXED_AMOUNT"];
+const INCENTIVE_TYPES: readonly string[] = ["LTIP_CASH", "RSU", "OPTIONS", "PHANTOM_EQUITY"];
+
+function wholeFigure(raw: string): number | undefined {
+  const figure = Number(raw);
+  return Number.isSafeInteger(figure) && figure >= 0 ? figure : undefined;
+}
+
+function compensationLens<K extends keyof Compensation>(
+  key: K,
+  parse: (raw: string) => Compensation[K] | undefined,
+): ScalarLens<Compensation, Compensation[K]> {
+  return { key, get: (c) => c[key], set: (c, value) => ({ ...c, [key]: value }), parse };
+}
+
+const COMPENSATION_LENSES = [
+  compensationLens("currency", (raw) => ((CURRENCIES as readonly string[]).includes(raw) ? raw : undefined)),
+  compensationLens("salaryMin", wholeFigure),
+  compensationLens("salaryMax", wholeFigure),
+  compensationLens("baseSalaryMode", (raw) => (BASE_SALARY_MODES.includes(raw) ? (raw as BaseSalaryMode) : undefined)),
+  compensationLens("bonusBasis", (raw) => (BONUS_BASES.includes(raw) ? (raw as BonusBasis) : undefined)),
+  compensationLens("bonusValue", (raw) => {
+    const figure = Number(raw);
+    return Number.isFinite(figure) && figure >= 0 ? figure : undefined;
+  }),
+  compensationLens("incentiveType", (raw) => (INCENTIVE_TYPES.includes(raw) ? (raw as IncentiveType) : undefined)),
+  compensationLens("incentiveAmount", wholeFigure),
+  compensationLens("incentiveVesting", (raw) => raw || null),
+];
+
+function fillCompensation(
+  compensation: Compensation,
+  extraction: PositionExtraction | undefined,
+  skipped: SkippedField[],
+): SectionFillResult<Compensation> {
+  if (!extraction) return { draft: compensation, scalars: {}, lists: {}, changed: false };
+  const fields = extraction.fields;
+  const scalars: StepReceipt["scalars"] = {};
+  let draft = compensation;
+  let changed = false;
+
+  for (const lens of COMPENSATION_LENSES) {
+    const field = fields.find((candidate) => candidate.fieldKey === lens.key);
+    const result = fillScalar(draft, field, lens as ScalarLens<Compensation, unknown>);
+    if (result.skipped) skipped.push({ step: "compensation", fieldKey: lens.key, reason: result.skipped });
+    if (!result.changed) continue;
+    // A figure read against a basis a person kept would be refused by the autosave, so it stays unread.
+    const ceiling = result.draft.bonusBasis ? BONUS_CEILINGS[result.draft.bonusBasis] : undefined;
+    if (lens.key === "bonusValue" && ceiling !== undefined && (result.draft.bonusValue ?? 0) > ceiling) {
+      skipped.push({ step: "compensation", fieldKey: lens.key, reason: "invalid" });
+      continue;
+    }
+    draft = result.draft;
+    changed = true;
+    scalars[lens.key] = result.receipt;
+  }
+
+  const benefits = mergeProposedList(
+    draft.benefits,
+    fields,
+    ["benefit"],
+    (field) => ({ ...benefitFrom(field.value), source: "DOCUMENT" as const }),
+    (item) => item.name,
+    BENEFIT_MAX_COUNT,
+  );
+  const lists: StepReceipt["lists"] = {};
+  if (benefits.receipt) {
+    lists.benefits = benefits.receipt;
+    changed = true;
+  }
+  draft = { ...draft, benefits: benefits.merged };
+
+  return { draft, scalars, lists, changed };
+}
+
+/**
+ * Unpacks a proposed allowance's `"<name>[ — <monthly|yearly|unstated>[ — <amount>]]"` value, packed by
+ * `PositionCompensationProposer`. A period the document left unstated reads as monthly, the default a
+ * template's allowances already take; the sparkle's quote is there for a person to correct it.
+ */
+function benefitFrom(value: string): Pick<Benefit, "name" | "amount" | "frequency"> {
+  const [name = value, frequencyToken, amountToken] = value.split(PACK_SEPARATOR);
+  const amount = amountToken === undefined ? undefined : wholeFigure(amountToken);
+  return {
+    name,
+    amount: amount ?? null,
+    frequency: frequencyToken === "yearly" ? "YEARLY" : "MONTHLY",
+  };
 }
 
 // ---------------------------------------------------------------------------------------------------

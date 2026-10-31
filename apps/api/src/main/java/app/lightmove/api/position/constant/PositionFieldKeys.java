@@ -19,6 +19,9 @@ public final class PositionFieldKeys {
 
     public static final Set<String> REPORTING = Set.of("teamSize", "noticeValue", "noticeUnit");
 
+    public static final Set<String> COMPENSATION = Set.of("currency", "salaryMin", "salaryMax", "baseSalaryMode",
+            "bonusValue", "bonusBasis", "incentiveType", "incentiveAmount", "incentiveVesting");
+
     private PositionFieldKeys() {
     }
 

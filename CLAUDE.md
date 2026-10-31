@@ -386,16 +386,18 @@ counted rather than typed. Compensation states a bonus as a share of base or a *
 (`BonusBasis.FIXED_AMOUNT`, V66 widened `bonus_value` to hold money), and the assessment carries a
 **technical share** (V66 `technical_share`; the behavioural panel takes the rest) beside its two
 weighted panels. The Role Brief attaches the position description and keeps it with the mandate.
-Attaching it **reads it silently** (epic #393): the four `…/position/document/extract/*` routes —
-compensation is never read, most descriptions state no figure — fan out into `lib/documentFill.ts`'s
+Attaching it **reads it silently** (epic #393): the five `…/position/document/extract/*` routes —
+compensation among them since #1049, a figure the document does not state never proposed, and every
+list read whole up to the brief's own ceiling, the document being the source of truth — fan out into `lib/documentFill.ts`'s
 `fillBrief`, which folds every scalar and repeatable list into the brief field-by-field, source-aware
 (`TEMPLATE | DOCUMENT | MANUAL`, V67): a `DOCUMENT` value is replaced by a fresh reading, a `MANUAL`
 one never is. There is no review-then-accept panel — the old wizard's went with it — a filled field
 wears a small sparkle (`ProvenanceMarker`) instead, whose popover carries the snippet and an Undo.
 A reading that worked says nothing more than a toast; only one that went wrong leaves a line
 (`DocumentReadNotice`) — an unreadable file, a section that failed, a reader that could not be
-reached. **Extract with AI** on the file card reads again; the Reporting and Assessment
-steps carry **Read from document** in their own header, Compensation none. The reporting reading
+reached, each such section named even where the heading reader filled the rest (#1049), and no
+template applied off a reading the model never made. **Extract with AI** on the file card reads again; the
+Reporting, Compensation and Assessment steps carry **Read from document** in their own header. The reporting reading
 also offers the matched template's usual direct reports as **Suggested seats** under the chart.
 When the document reads as a template's role, that template is **applied automatically — but only
 to a brief nobody has typed into** (`isUntouched`), because applying one replaces responsibilities,
@@ -1014,8 +1016,9 @@ counts as a country only where a dedicated country column already holds that spe
 `bonus_value` to `numeric(14, 2)` for a fixed-amount bonus, and adds `technical_share` — seeded at 50
 and written explicitly from there (V40's idiom). V67 records where every field came from: a
 `source` column (`TEMPLATE | DOCUMENT | MANUAL`, V34's CHECK idiom) on each of the six owned-list tables,
-and one `field_sources` jsonb map on the brief for the ten scalars a reading can claim — the
-compensation figures and the role title are deliberately absent, having nothing to claim. The
+and one `field_sources` jsonb map on the brief for the ten scalars a reading can claim — the role
+title is deliberately absent, having nothing to claim (V160 adds the nine compensation scalars, with
+V67's backfill rule, once #1049 had the package read again). The
 criterion's `from_brief` boolean folds into that same column. Backfill keys on `version`: a brief
 nobody has saved is the template's, a saved one is somebody's, so nothing anybody typed is ever
 read back as a template default.

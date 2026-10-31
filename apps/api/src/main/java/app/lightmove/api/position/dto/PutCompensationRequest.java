@@ -4,6 +4,7 @@ import app.lightmove.api.common.constant.BaseSalaryMode;
 import app.lightmove.api.common.constant.BonusBasis;
 import app.lightmove.api.common.constant.IncentiveType;
 import app.lightmove.api.core.validation.CurrencyCode;
+import app.lightmove.api.position.constant.FieldSource;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -12,6 +13,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Snapshot PUT of step four. No minimum-below-maximum rule: autosave has to persist a band while it
@@ -38,5 +40,8 @@ public record PutCompensationRequest(
         @Size(max = 200, message = "That vesting schedule is too long") String incentiveVesting,
 
         @Size(max = 20, message = "That is too many benefits")
-        List<@Valid BenefitDto> benefits
+        List<@Valid BenefitDto> benefits,
+
+        /** Null defaults every key of this step to {@code MANUAL}. */
+        Map<String, FieldSource> fieldSources
 ) {}

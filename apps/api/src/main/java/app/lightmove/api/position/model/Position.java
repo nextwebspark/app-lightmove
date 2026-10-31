@@ -264,6 +264,7 @@ public class Position extends BaseEntity {
         this.incentiveAmount = compensation.incentiveAmount();
         this.incentiveVesting = compensation.incentiveVesting();
         replace(this.benefits, compensation.benefits());
+        mergeFieldSources(PositionFieldKeys.COMPENSATION, compensation.fieldSources());
     }
 
     public void replaceCriteria(List<PositionCriterion> newCriteria) {

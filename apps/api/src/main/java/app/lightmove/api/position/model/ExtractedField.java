@@ -14,6 +14,10 @@ import app.lightmove.api.position.constant.ProposalOrigin;
 public record ExtractedField(String fieldKey, String value, ProposalConfidence confidence, String snippet,
                              ProposalOrigin origin) {
 
+    public ExtractedField withValue(String value) {
+        return new ExtractedField(fieldKey, value, confidence, snippet, origin);
+    }
+
     public ExtractedField withConfidence(ProposalConfidence confidence) {
         return new ExtractedField(fieldKey, value, confidence, snippet, origin);
     }

@@ -1,6 +1,7 @@
 import { SegmentedControl, type SegmentedOption } from "../../../../components/ui/SegmentedControl";
-import type { BaseSalaryMode, BonusBasis, Compensation, IncentiveType } from "../../api/types";
+import type { BaseSalaryMode, Benefit, BonusBasis, Compensation, IncentiveType } from "../../api/types";
 import { formatAmount, packageTotal } from "../../lib/compensation";
+import type { StepReceipt } from "../../lib/documentFill";
 import {
   BASE_SALARY_MODE_LABELS,
   BONUS_BASIS_LABELS,
@@ -12,6 +13,7 @@ import {
 import { BenefitsTable } from "../BenefitsTable";
 import { BriefPanel, ChipGroup, Eyebrow, FieldBlock, FigureInput, UnderlineField, withRecorded, type ChipOption } from "../BriefFields";
 import { PackageSummary } from "../PackageSummary";
+import { ProvenanceMarker } from "../ProvenanceMarker";
 
 const PERIOD_OPTIONS: SegmentedOption<BaseSalaryMode>[] = (
   Object.entries(BASE_SALARY_MODE_LABELS) as [BaseSalaryMode, string][]
@@ -40,12 +42,43 @@ const BONUS_CAPTIONS: Record<BonusBasis, string> = {
 /** Step three: what the seat pays, and what that adds up to over a year. */
 export function CompensationStep({
   compensation,
+  receipt,
   onChange,
+  onUndoField,
+  onUndoBenefit,
 }: {
   compensation: Compensation;
+  /** This session's Compensation receipt — the package's scalars and the allowances a reading added. */
+  receipt?: StepReceipt;
   onChange: (patch: Partial<Compensation>, immediate?: boolean) => void;
+  onUndoField: (fieldKey: string) => void;
+  onUndoBenefit: (name: string) => void;
 }) {
   const { currency } = compensation;
+  const markerFor = (key: string) => {
+    const info = receipt?.scalars[key];
+    return (
+      <ProvenanceMarker
+        source={compensation.fieldSources[key]}
+        confidence={info?.confidence}
+        snippet={info?.snippet}
+        fileName={info && receipt?.fileName}
+        onUndo={info ? () => onUndoField(key) : undefined}
+      />
+    );
+  };
+  const benefitMarker = (benefit: Benefit) => {
+    const info = receipt?.lists.benefits?.appended[benefit.name];
+    return (
+      <ProvenanceMarker
+        source={benefit.source}
+        confidence={info?.confidence}
+        snippet={info?.snippet}
+        fileName={info && receipt?.fileName}
+        onUndo={info ? () => onUndoBenefit(benefit.name) : undefined}
+      />
+    );
+  };
   const isFixed = compensation.bonusBasis === "FIXED_AMOUNT";
   const total = packageTotal(compensation);
   const incentiveChoice: IncentiveChoice = compensation.incentiveType ?? "NONE";
@@ -62,13 +95,16 @@ export function CompensationStep({
       <BriefPanel>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Eyebrow>Base salary</Eyebrow>
-          <SegmentedControl
-            variant="uncava"
-            label="Base salary period"
-            options={PERIOD_OPTIONS}
-            value={compensation.baseSalaryMode}
-            onChange={(baseSalaryMode) => onChange({ baseSalaryMode }, true)}
-          />
+          <span className="flex items-center gap-1.5">
+            {markerFor("baseSalaryMode")}
+            <SegmentedControl
+              variant="uncava"
+              label="Base salary period"
+              options={PERIOD_OPTIONS}
+              value={compensation.baseSalaryMode}
+              onChange={(baseSalaryMode) => onChange({ baseSalaryMode }, true)}
+            />
+          </span>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <select
@@ -83,6 +119,7 @@ export function CompensationStep({
               </option>
             ))}
           </select>
+          {markerFor("currency")}
           <FigureInput
             grouped
             value={compensation.salaryMin}
@@ -91,6 +128,7 @@ export function CompensationStep({
             onChange={(salaryMin) => onChange({ salaryMin })}
             className="w-[140px]"
           />
+          {markerFor("salaryMin")}
           <span className="text-u-text3">–</span>
           <FigureInput
             grouped
@@ -100,13 +138,17 @@ export function CompensationStep({
             onChange={(salaryMax) => onChange({ salaryMax })}
             className="w-[140px]"
           />
+          {markerFor("salaryMax")}
         </div>
       </BriefPanel>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <BriefPanel>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Eyebrow>Annual bonus target</Eyebrow>
+            <span className="flex items-center gap-1.5">
+              <Eyebrow>Annual bonus target</Eyebrow>
+              {markerFor("bonusBasis")}
+            </span>
             <ChipGroup
               size="sm"
               label="Bonus basis"
@@ -129,6 +171,7 @@ export function CompensationStep({
               className={isFixed ? "w-full max-w-[240px]" : "w-[6ch]"}
             />
             {!isFixed && <span className="type-figure-input text-u-text2">%</span>}
+            {markerFor("bonusValue")}
           </div>
           <span className="mt-1 block text-note text-u-text3">
             {compensation.bonusBasis ? BONUS_CAPTIONS[compensation.bonusBasis] : "choose what the figure is read against"}
@@ -140,7 +183,10 @@ export function CompensationStep({
 
         <BriefPanel>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Eyebrow>LTIP</Eyebrow>
+            <span className="flex items-center gap-1.5">
+              <Eyebrow>LTIP</Eyebrow>
+              {markerFor("incentiveType")}
+            </span>
             <ChipGroup
               size="sm"
               label="Long-term incentive"
@@ -162,9 +208,10 @@ export function CompensationStep({
               onChange={(incentiveAmount) => onChange({ incentiveAmount })}
               className="w-full max-w-[240px]"
             />
+            {markerFor("incentiveAmount")}
           </div>
           <span className="mt-1 block text-note text-u-text3">total value</span>
-          <div className="mt-4 border-t border-u-border pt-2">
+          <div className="mt-4 flex items-center gap-1.5 border-t border-u-border pt-2">
             <UnderlineField
               value={compensation.incentiveVesting ?? ""}
               aria-label="Vesting schedule"
@@ -174,6 +221,7 @@ export function CompensationStep({
               // and unboxed rather than inheriting UnderlineField's usual box.
               className="rounded-none border-0 bg-transparent px-0 py-2 text-u-text2"
             />
+            {markerFor("incentiveVesting")}
           </div>
         </BriefPanel>
       </div>
@@ -181,6 +229,7 @@ export function CompensationStep({
       <FieldBlock label="Benefits & allowances">
         <BenefitsTable
           benefits={compensation.benefits}
+          markerFor={benefitMarker}
           onChange={(benefits, immediate) => onChange({ benefits }, immediate)}
         />
       </FieldBlock>

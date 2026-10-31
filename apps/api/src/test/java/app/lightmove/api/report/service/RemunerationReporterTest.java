@@ -9,6 +9,7 @@ import app.lightmove.api.position.dto.CompensationDto;
 import app.lightmove.api.report.dto.CompensationBandDto;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -77,6 +78,6 @@ class RemunerationReporterTest {
     private static CompensationDto brief(Long salaryMin, Long salaryMax, BaseSalaryMode mode, BigDecimal bonusValue,
                                          BonusBasis bonusBasis, Long incentiveAmount) {
         return new CompensationDto("USD", salaryMin, salaryMax, mode, bonusValue, bonusBasis,
-                incentiveAmount == null ? null : IncentiveType.LTIP_CASH, incentiveAmount, null, List.of());
+                incentiveAmount == null ? null : IncentiveType.LTIP_CASH, incentiveAmount, null, List.of(), Map.of());
     }
 }

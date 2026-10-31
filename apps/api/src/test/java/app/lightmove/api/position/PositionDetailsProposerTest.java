@@ -265,9 +265,32 @@ class PositionDetailsProposerTest extends FlowTestSupport {
 
         List<ExtractedField> responsibilityFields = proposed.fields().stream()
                 .filter(field -> field.fieldKey().equals("responsibility")).toList();
-        assertThat(responsibilityFields).hasSizeLessThanOrEqualTo(5);
+        assertThat(responsibilityFields).hasSizeLessThanOrEqualTo(20);
         responsibilityFields.forEach(field -> assertThat(field.value().length()).isLessThanOrEqualTo(200));
         assertThat(valueOf(proposed, "narrative").length()).isLessThanOrEqualTo(4000);
+    }
+
+    @Test
+    @DisplayName("every responsibility the document states is kept, in order — ten are ten, not five (#1049)")
+    void keepsEveryStatedResponsibility() throws Exception {
+        Fixture f = fixture("Extraction Ten Duties Firm", "Acme Holdings Group", "acme.example");
+        StringBuilder body = new StringBuilder("{\"roleTitle\":\"CHRO\",\"responsibilities\":[");
+        for (int i = 1; i <= 10; i++) {
+            if (i > 1) {
+                body.append(',');
+            }
+            body.append("{\"text\":\"Owns duty ").append(i).append("\"}");
+        }
+        body.append("]}");
+
+        ProposedPositionDetails proposed = proposerWith(new RecordingChatModel(body.toString()))
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
+
+        assertThat(proposed.fields().stream()
+                .filter(field -> field.fieldKey().equals("responsibility"))
+                .map(ExtractedField::value))
+                .containsExactly("Owns duty 1", "Owns duty 2", "Owns duty 3", "Owns duty 4", "Owns duty 5",
+                        "Owns duty 6", "Owns duty 7", "Owns duty 8", "Owns duty 9", "Owns duty 10");
     }
 
     @Test
@@ -308,13 +331,13 @@ class PositionDetailsProposerTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the prompt states the five-responsibility cap and that the five are the document's "
-            + "most important, not its first")
-    void promptStatesTheResponsibilityCap() throws Exception {
+    @DisplayName("the prompt asks for every stated responsibility up to the brief's ceiling, one per grouped heading")
+    void promptAsksForEveryStatedResponsibility() throws Exception {
         String text = StreamUtils.copyToString(
                 new ClassPathResource("prompts/position-extract-details-system.st").getInputStream(),
                 StandardCharsets.UTF_8);
-        assertThat(text).contains("at most 5").contains("never simply the first");
+        assertThat(text).contains("every duty or accountability").contains("at most 20")
+                .contains("one line per heading").doesNotContain("at most 5");
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────

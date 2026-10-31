@@ -56,7 +56,8 @@ final class PositionTemplateApplier {
         position.applyCompensation(new CompensationPackage(
                 body.currency(), position.getSalaryMin(), position.getSalaryMax(), body.baseSalaryMode(),
                 body.bonusValue(), body.bonusBasis(), body.incentiveType(),
-                position.getIncentiveAmount(), body.incentiveVesting(), draftedBenefits(body)));
+                position.getIncentiveAmount(), body.incentiveVesting(), draftedBenefits(body),
+                compensationFieldSources(position, body)));
 
         position.replaceCriteria(draftedCriteria(position, body));
         position.replaceCompetencies(body.competencies().stream()
@@ -85,6 +86,24 @@ final class PositionTemplateApplier {
         Map<String, FieldSource> sources = new LinkedHashMap<>();
         claim(sources, "noticeValue", body.noticeValue());
         claim(sources, "noticeUnit", body.noticeUnit());
+        return sources;
+    }
+
+    /** The three figures a template never carries keep whatever claim they already had. */
+    private static Map<String, FieldSource> compensationFieldSources(Position position, PositionTemplateBody body) {
+        Map<String, FieldSource> sources = new LinkedHashMap<>();
+        for (String kept : List.of("salaryMin", "salaryMax", "incentiveAmount")) {
+            FieldSource existing = position.getFieldSources().get(kept);
+            if (existing != null) {
+                sources.put(kept, existing);
+            }
+        }
+        claim(sources, "currency", body.currency());
+        claim(sources, "baseSalaryMode", body.baseSalaryMode());
+        claim(sources, "bonusValue", body.bonusValue());
+        claim(sources, "bonusBasis", body.bonusBasis());
+        claim(sources, "incentiveType", body.incentiveType());
+        claim(sources, "incentiveVesting", body.incentiveVesting());
         return sources;
     }
 

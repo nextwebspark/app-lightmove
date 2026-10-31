@@ -44,6 +44,15 @@ public class PositionExtractionController {
                 principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest);
     }
 
+    @PostMapping("/compensation")
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionExtractionResponse extractCompensation(
+            @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
+            HttpServletRequest httpRequest) {
+        return extraction.extractCompensation(
+                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest);
+    }
+
     @PostMapping("/assessment")
     @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
     public PositionExtractionResponse extractAssessment(

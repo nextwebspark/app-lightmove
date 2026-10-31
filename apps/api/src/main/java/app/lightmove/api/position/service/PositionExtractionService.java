@@ -10,6 +10,7 @@ import app.lightmove.api.position.dto.PositionExtractionResponse;
 import app.lightmove.api.position.dto.ProposedFieldDto;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ProposedAssessment;
+import app.lightmove.api.position.model.ProposedCompensation;
 import app.lightmove.api.position.model.ProposedMandateContext;
 import app.lightmove.api.position.model.ProposedPositionDetails;
 import app.lightmove.api.position.model.ProposedReportingStructure;
@@ -27,7 +28,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Reads the document attached to a mandate's brief into a step proposal — the one explicit act that
- * opens {@link PositionDocumentService}'s "never read" boundary. Compensation is never read.
+ * opens {@link PositionDocumentService}'s "never read" boundary.
  *
  * <p>Writes no row, and is deliberately not {@code @Transactional}: {@link ExtractionDocumentLoader}
  * holds the one short transaction, so the parse and the model round trip never pin a connection.
@@ -41,6 +42,7 @@ public class PositionExtractionService {
     private final PositionContextProposer contextProposer;
     private final PositionAssessmentProposer assessmentProposer;
     private final PositionReportingProposer reportingProposer;
+    private final PositionCompensationProposer compensationProposer;
     private final PositionTemplateService templates;
     private final AuditService audit;
     private final PositionExtractionSettings settings;
@@ -51,6 +53,7 @@ public class PositionExtractionService {
                                      PositionContextProposer contextProposer,
                                      PositionAssessmentProposer assessmentProposer,
                                      PositionReportingProposer reportingProposer,
+                                     PositionCompensationProposer compensationProposer,
                                      PositionTemplateService templates,
                                      AuditService audit, LightMoveProperties properties) {
         this.documentLoader = documentLoader;
@@ -59,6 +62,7 @@ public class PositionExtractionService {
         this.contextProposer = contextProposer;
         this.assessmentProposer = assessmentProposer;
         this.reportingProposer = reportingProposer;
+        this.compensationProposer = compensationProposer;
         this.templates = templates;
         this.audit = audit;
         this.settings = properties.position().extraction();
@@ -104,6 +108,16 @@ public class PositionExtractionService {
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
         List<String> usualDirectReports = usualDirectReportsFor(workspaceId, document.roleTitle());
         return assemble(proposed.source().value(), proposed.fields(), null, usualDirectReports);
+    }
+
+    public PositionExtractionResponse extractCompensation(UUID userId, UUID workspaceId, UUID projectId,
+                                                           HttpServletRequest httpRequest) {
+        LoadedDocument document = load(workspaceId, projectId);
+        String text = textReader.read(document.content());
+        ProposedCompensation proposed = compensationProposer.propose(
+                userId, text, document.clientId(), workspaceId);
+        recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
+        return assemble(proposed.source().value(), proposed.fields(), null, null);
     }
 
     /** Never the generic fallback: an unmatched title suggests nothing. */

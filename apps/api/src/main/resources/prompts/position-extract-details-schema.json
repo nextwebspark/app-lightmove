@@ -15,7 +15,7 @@
     "seniorityConfidence": { "type": ["string", "null"] },
     "responsibilities": {
       "type": "array",
-      "maxItems": 5,
+      "maxItems": 20,
       "items": {
         "type": "object",
         "properties": {

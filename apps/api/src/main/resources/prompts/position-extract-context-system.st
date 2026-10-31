@@ -30,11 +30,10 @@ Fields:
     the words that say which reason it is as the snippet.
   - businessDriver: a sentence or two of the business context behind the hire, if the document states
     one — often under a heading like "The Opportunity" or "Background".
-  - strategicPriorities: at most 5 of the strategic priorities or objectives the document names for
-    this role, each as its own short name (6 words or fewer, not a sentence) with its own snippet.
-    Choose the five the document itself weights most heavily — by emphasis, order, "must"/"key"/
-    "critical" wording, and how much space it gives them — never simply the first five named. Do not
-    pad the list to reach five, and do not invent a priority the document does not name.
+  - strategicPriorities: every strategic priority or objective the document names for this role, in
+    the document's order and at most 20, each as its own short name (6 words or fewer, not a sentence)
+    with its own snippet. The document is the source of truth: leave none of its stated priorities out,
+    and do not invent one it does not name.
 
 This document's confidentiality and any internal notes about the mandate are not something the
 document itself states — do not answer anything about those from this task.

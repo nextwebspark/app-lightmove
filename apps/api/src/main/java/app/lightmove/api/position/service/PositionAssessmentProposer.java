@@ -46,10 +46,10 @@ public class PositionAssessmentProposer {
             "{\"criteria\":[{\"text\":\"" + BlockedAnswer.MARKER + "\",\"mode\":\"REQUIRED\"}]}";
 
     private static final int CRITERION_TEXT_MAX_LENGTH = 300;
-    private static final int CRITERIA_MAX_COUNT = 5;
+    private static final int CRITERIA_MAX_COUNT = 30;
     private static final int COMPETENCY_NAME_MAX_LENGTH = 120;
     private static final int COMPETENCY_DESCRIPTION_MAX_LENGTH = 300;
-    private static final int COMPETENCY_MAX_COUNT_PER_PANEL = 5;
+    private static final int COMPETENCY_MAX_COUNT_PER_PANEL = 10;
     private static final int VOCABULARY_MAX_LENGTH = 2000;
 
     /** Packs {@code "<name>[ — <weight>[ — <description>]]"}; the frontend trusts segment 2 to be the weight. */
@@ -93,7 +93,7 @@ public class PositionAssessmentProposer {
             }
             return finish(reconcile(answered, redaction.pseudonyms(), documentText));
         } catch (RuntimeException e) {
-            log.warn("Assessment extraction found nothing to propose: {}", e.toString());
+            log.warn("Assessment extraction found nothing to propose", e);
             return finish(empty());
         }
     }

@@ -12,6 +12,7 @@ const compensation = (overrides: Partial<Compensation> = {}): Compensation => ({
   incentiveType: null,
   incentiveAmount: null,
   incentiveVesting: null,
+  fieldSources: {},
   benefits: [],
   ...overrides,
 });

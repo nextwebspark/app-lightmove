@@ -269,18 +269,17 @@ class PositionContextProposerTest extends FlowTestSupport {
         assertThat(valueOf(proposed, "businessDriver").length()).isLessThanOrEqualTo(1000);
         List<ExtractedField> priorities = proposed.fields().stream()
                 .filter(field -> field.fieldKey().equals("strategicPriority")).toList();
-        assertThat(priorities).hasSizeLessThanOrEqualTo(5);
+        assertThat(priorities).hasSizeLessThanOrEqualTo(20);
         priorities.forEach(field -> assertThat(field.value().length()).isLessThanOrEqualTo(120));
     }
 
     @Test
-    @DisplayName("the prompt states the five-priority cap and that the five are the document's most "
-            + "important, not its first")
-    void promptStatesThePriorityCap() throws Exception {
+    @DisplayName("the prompt asks for every stated priority up to the brief's ceiling")
+    void promptAsksForEveryStatedPriority() throws Exception {
         String text = StreamUtils.copyToString(
                 new ClassPathResource("prompts/position-extract-context-system.st").getInputStream(),
                 StandardCharsets.UTF_8);
-        assertThat(text).contains("at most 5").contains("never simply the first");
+        assertThat(text).contains("every strategic priority").contains("at most 20").doesNotContain("at most 5");
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────

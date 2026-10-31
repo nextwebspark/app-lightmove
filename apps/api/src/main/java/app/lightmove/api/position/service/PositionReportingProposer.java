@@ -76,7 +76,7 @@ public class PositionReportingProposer {
             }
             return finish(reconcile(answered, redaction.pseudonyms(), documentText));
         } catch (RuntimeException e) {
-            log.warn("Reporting extraction found nothing to propose: {}", e.toString());
+            log.warn("Reporting extraction found nothing to propose", e);
             return finish(empty());
         }
     }

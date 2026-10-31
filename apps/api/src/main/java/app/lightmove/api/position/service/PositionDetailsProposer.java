@@ -43,7 +43,7 @@ public class PositionDetailsProposer {
     private static final int LOCATION_MAX_LENGTH = 120;
     private static final int NARRATIVE_MAX_LENGTH = 4000;
     private static final int RESPONSIBILITY_MAX_LENGTH = 200;
-    private static final int RESPONSIBILITY_MAX_COUNT = 5;
+    private static final int RESPONSIBILITY_MAX_COUNT = 20;
 
     private final HeuristicBriefReader heuristics;
     private final PositionDocumentRedactor redactor;
@@ -82,7 +82,7 @@ public class PositionDetailsProposer {
             return finish(reconcile(answered, redaction.pseudonyms(), documentText, heuristic));
         } catch (RuntimeException e) {
             // Deliberately broad: every failure has the same right answer, the heuristic's reading.
-            log.warn("Position extraction fell back to the heuristic reader: {}", e.toString());
+            log.warn("Position extraction fell back to the heuristic reader", e);
             return finish(heuristic);
         }
     }

@@ -128,11 +128,12 @@ const extract = (projectId: string, section: string): Promise<PositionExtraction
   request<PositionExtraction>(`${base(projectId)}/document/extract/${section}`, { method: "POST" });
 
 /**
- * The four sections a document reading is read for — no compensation route, #395's retirement of that
- * read. Each spends a billed model call, so nothing calls these but an explicit "Read from document" —
- * never upload, never the ordinary GET of the brief.
+ * The five sections a document reading is read for. Each spends a billed model call, so nothing calls
+ * these but an explicit "Read from document" — never upload, never the ordinary GET of the brief.
  */
 export const extractDetails = (projectId: string): Promise<PositionExtraction> => extract(projectId, "details");
 export const extractContext = (projectId: string): Promise<PositionExtraction> => extract(projectId, "context");
 export const extractReporting = (projectId: string): Promise<PositionExtraction> => extract(projectId, "reporting");
 export const extractAssessment = (projectId: string): Promise<PositionExtraction> => extract(projectId, "assessment");
+export const extractCompensation = (projectId: string): Promise<PositionExtraction> =>
+  extract(projectId, "compensation");

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type {
+  Compensation,
   Competency,
   Criterion,
   MandateContext,
@@ -87,10 +88,26 @@ const reporting = (overrides: Partial<ReportingStructure> = {}): ReportingStruct
   ...overrides,
 });
 
+const compensation = (overrides: Partial<Compensation> = {}): Compensation => ({
+  currency: "AED",
+  salaryMin: null,
+  salaryMax: null,
+  baseSalaryMode: "ANNUAL",
+  bonusValue: 40,
+  bonusBasis: "PERCENT_OF_BASE",
+  incentiveType: null,
+  incentiveAmount: null,
+  incentiveVesting: null,
+  benefits: [{ name: "Housing allowance", amount: null, frequency: "MONTHLY", source: "TEMPLATE" }],
+  fieldSources: { currency: "TEMPLATE", bonusValue: "TEMPLATE", bonusBasis: "TEMPLATE", baseSalaryMode: "TEMPLATE" },
+  ...overrides,
+});
+
 const snapshotOf = (overrides: Partial<PositionSnapshot> = {}): PositionSnapshot => ({
   details: details(),
   context: context(),
   reporting: reporting(),
+  compensation: compensation(),
   criteria: [],
   technical: [],
   behavioural: [],
@@ -573,6 +590,110 @@ describe("reporting: team size, notice period and the org chart", () => {
       FILE_NAME,
     );
     expect(outcome.changed).toEqual(new Set(["brief", "reporting"]));
+  });
+});
+
+describe("compensation: the package a document states is the package (#1049)", () => {
+  // The CHRO specification #1049 was raised against, as PositionCompensationProposer packs it.
+  const chroPackage = extraction([
+    field("currency", "AED", { snippet: "AED90,000" }),
+    field("salaryMin", "90000", { snippet: "AED90,000" }),
+    field("salaryMax", "120000", { snippet: "AED120,000" }),
+    field("bonusValue", "25", { snippet: "Bonus: 25% of total fixed" }),
+    field("bonusBasis", "PERCENT_OF_TOTAL_FIXED", { snippet: "25% of total fixed" }),
+    field("benefit", "Housing allowance — yearly — 100000", { snippet: "Housing: 100,000 per year" }),
+    field("benefit", "Transport allowance — monthly — 400", { snippet: "Transport: 400 per month" }),
+  ]);
+
+  it("fills the band, the bonus and the allowances over what the template seeded", () => {
+    const { next, changed, receipts } = fillBrief(snapshotOf(), { compensation: chroPackage }, FILE_NAME);
+
+    expect(changed.has("compensation")).toBe(true);
+    expect(next.compensation).toMatchObject({
+      currency: "AED",
+      salaryMin: 90_000,
+      salaryMax: 120_000,
+      baseSalaryMode: "ANNUAL",
+      bonusValue: 25,
+      bonusBasis: "PERCENT_OF_TOTAL_FIXED",
+    });
+    expect(next.compensation.benefits).toEqual([
+      { name: "Housing allowance", amount: 100_000, frequency: "YEARLY", source: "DOCUMENT" },
+      { name: "Transport allowance", amount: 400, frequency: "MONTHLY", source: "DOCUMENT" },
+    ]);
+    expect(next.compensation.fieldSources).toMatchObject({
+      salaryMin: "DOCUMENT",
+      bonusValue: "DOCUMENT",
+      bonusBasis: "DOCUMENT",
+      baseSalaryMode: "TEMPLATE",
+    });
+    expect(receipts.compensation?.scalars.salaryMin?.snippet).toBe("AED90,000");
+    expect(Object.keys(receipts.compensation?.lists.benefits?.appended ?? {})).toEqual([
+      "Housing allowance",
+      "Transport allowance",
+    ]);
+  });
+
+  it("never overwrites a figure a person typed", () => {
+    const typed = snapshotOf({
+      compensation: compensation({ salaryMin: 80_000, fieldSources: { salaryMin: "MANUAL" } }),
+    });
+
+    const { next, skipped } = fillBrief(typed, { compensation: chroPackage }, FILE_NAME);
+
+    expect(next.compensation.salaryMin).toBe(80_000);
+    expect(next.compensation.salaryMax).toBe(120_000);
+    expect(skipped).toContainEqual({ step: "compensation", fieldKey: "salaryMin", reason: "manual" });
+  });
+
+  it("leaves a bonus unread when a kept basis could not hold it", () => {
+    const kept = snapshotOf({
+      compensation: compensation({ bonusBasis: "MONTHS_OF_BASE", fieldSources: { bonusBasis: "MANUAL" } }),
+    });
+
+    const { next, skipped } = fillBrief(
+      kept,
+      { compensation: extraction([field("bonusValue", "25"), field("bonusBasis", "PERCENT_OF_BASE")]) },
+      FILE_NAME,
+    );
+
+    expect(next.compensation.bonusBasis).toBe("MONTHS_OF_BASE");
+    expect(next.compensation.bonusValue).toBe(40);
+    expect(skipped).toContainEqual({ step: "compensation", fieldKey: "bonusValue", reason: "invalid" });
+  });
+
+  it("reads an allowance with no stated period or amount by its name alone", () => {
+    const { next } = fillBrief(
+      snapshotOf(),
+      { compensation: extraction([field("benefit", "Medical insurance")]) },
+      FILE_NAME,
+    );
+
+    expect(next.compensation.benefits).toEqual([
+      { name: "Medical insurance", amount: null, frequency: "MONTHLY", source: "DOCUMENT" },
+    ]);
+  });
+
+  it("drops a currency the brief cannot offer rather than writing it", () => {
+    const { next, skipped } = fillBrief(
+      snapshotOf(),
+      { compensation: extraction([field("currency", "JPY")]) },
+      FILE_NAME,
+    );
+
+    expect(next.compensation.currency).toBe("AED");
+    expect(skipped).toContainEqual({ step: "compensation", fieldKey: "currency", reason: "invalid" });
+  });
+
+  it("undoes a filled figure back to the template's", () => {
+    const { next, receipts } = fillBrief(snapshotOf(), { compensation: chroPackage }, FILE_NAME);
+    const receipt = receipts.compensation;
+    if (!receipt) throw new Error("expected a compensation receipt");
+
+    const restored = undoScalar(next.compensation, "bonusValue", receipt);
+
+    expect(restored.bonusValue).toBe(40);
+    expect(restored.fieldSources.bonusValue).toBe("TEMPLATE");
   });
 });
 
