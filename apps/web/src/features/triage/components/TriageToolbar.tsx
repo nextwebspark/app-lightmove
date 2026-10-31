@@ -22,8 +22,8 @@ export interface UnavailableAction {
 /**
  * The Companies stage toolbar (`Position.dc.html`): one search box whatever the view, the Table | Map |
  * Pipeline control where more than one view is offered, then Add to sequence and Send email, and — on Table
- * and Map — Find executives, Advanced ▾ and Create ▾. The board needs nothing but the outreach pair: its own
- * Inactive header folds Inactive, and companies are added and searched for executives from the grid.
+ * and Map — Find executives, Advanced ▾ and Create ▾. The board needs nothing but the outreach pair: its cards
+ * carry their own actions, and companies are added and searched for executives from the grid.
  *
  * <p>"Add executive" maps someone with no company selected, so the row lands unmapped: the executive a
  * researcher met at a company this mandate never triaged. Adding someone <i>at</i> a company is that

@@ -19,7 +19,7 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Candidate** | the same person on the workspace's Candidates page | — |
 | **Universe** | the companies a position has taken from the market (In universe / Shortlisted / Declined) | triage |
 | **Out of process** | a status that takes whoever holds it out of the search — not interested, screened out, declined offer — whatever stage it sits under | terminal, dead |
-| **Inactive** | the Pipeline board's column of everyone at a status out of process | archived, declined (for people) |
+| **Out of process** (the board's band) | the band under the Pipeline board's columns: everyone at a status out of process, under the stage their way out sits in | Inactive, archived, declined (for people) |
 | **Conversation** | everything with one executive on one position on the Outreach page: emails both ways, run events, notes, meetings | thread, inbox |
 | **To do** | the Outreach page's filter of the people waiting on someone; its groups are Needs reply, Follow-ups, Before first email and Delivery problems | Action queue, Needs action, inbox |
 | **Working hours** | the days and hours a consultant works, which a booking link offers times inside (Outlook's own, theirs, or the workspace's) | availability window, office hours |

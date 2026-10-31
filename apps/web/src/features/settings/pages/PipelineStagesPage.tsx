@@ -164,8 +164,8 @@ export function PipelineStagesPage() {
           <p className="mt-3 max-w-[620px] font-mono text-meta text-u-text3">
             A new stage goes in last. A rename or a new colour reaches every position at once.
             Dropping a candidate on a stage&apos;s column gives them its default status, which is always in process.
-            A status marked Out of process sends whoever holds it to the board&apos;s Inactive column, whatever its
-            stage, and nobody there is approached again.
+            A status marked Out of process sends whoever holds it to the board&apos;s Out of process band, under
+            its own stage, and nobody there is approached again.
           </p>
         </>
       )}

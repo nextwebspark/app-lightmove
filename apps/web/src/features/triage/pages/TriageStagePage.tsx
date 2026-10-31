@@ -189,7 +189,6 @@ function TriageStage() {
   const [enrolment, setEnrolment] = useState<Enrolment | null>(null);
   const [emailing, setEmailing] = useState<EmailRecipient | null>(null);
   const [pipelineSelection, setPipelineSelection] = useState<ReadonlySet<string>>(() => new Set());
-  const [inactiveOpen, setInactiveOpen] = useState(true);
   const [managingColumns, setManagingColumns] = useState(false);
   /** Set when "Edit field" is opened from a header menu, so the dialog lands already renaming it. */
   const [editColumnId, setEditColumnId] = useState<string | null>(null);
@@ -923,8 +922,6 @@ function TriageStage() {
             search={debouncedSearch}
             selectedIds={pipelineSelection}
             onToggleSelected={togglePipelineSelected}
-            inactiveOpen={inactiveOpen}
-            onInactiveOpenChange={setInactiveOpen}
           />
           {addToSequenceOffered && pipelineSelection.size > 0 && (
             <SelectionActionBar
