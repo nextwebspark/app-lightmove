@@ -67,7 +67,7 @@ export interface PipelineStatus {
   isDefault: boolean;
   /** One of the seven seeded statuses: a wire key the extension and the public API still speak, nothing more. */
   system: boolean;
-  /** Whoever holds it is Inactive on the board and approached no more, whatever stage it sits under. */
+  /** Whoever holds it is out of process on the board and approached no more, whatever stage it sits under. */
   outOfProcess: boolean;
   retired: boolean;
 }
