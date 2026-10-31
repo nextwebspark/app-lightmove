@@ -11,6 +11,9 @@ export const NOTE_KINDS: { value: NoteKind; label: string; placeholder: string }
   { value: "linkedin", label: "LinkedIn", placeholder: "What was said on LinkedIn: the message, the request, the reply…" },
 ];
 
+/** The panel sits on LinkedIn, so what a consultant writes there is most often a LinkedIn exchange. The extension's own. */
+export const DEFAULT_NOTE_KIND: NoteKind = "linkedin";
+
 /** The stroke glyph of each kind but LinkedIn, whose mark is the network's own. */
 export const NOTE_GLYPHS: Record<Exclude<NoteKind, "linkedin">, string> = {
   general: ICONS.fileText,

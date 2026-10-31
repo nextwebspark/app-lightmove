@@ -27,6 +27,7 @@ import { NotesSection } from "../notes/components/NotesSection";
 import { teammatesOf } from "../notes/lib/teammates";
 import { CheckingPosition, RefusalNote } from "./panelStates";
 import type { SubjectPanelProps } from "./subjectPanelProps";
+import { DEFAULT_NOTE_KIND } from "../notes/lib/noteKinds";
 
 const RESEARCH_WAIT_MS = 60_000;
 
@@ -128,13 +129,13 @@ function PersonForm({
   // A status, tags and a note are judgements about the person on screen, so they go when the person does.
   const [statusKey, setStatusKey] = useState<string | null>(null);
   const [tagIds, setTagIds] = useState<string[]>([]);
-  const [kind, setKind] = useState<NoteKind>("general");
+  const [kind, setKind] = useState<NoteKind>(DEFAULT_NOTE_KIND);
   const [scope, setScope] = useState<NoteScope>("position");
   const [draft, setDraft] = useState("");
   useEffect(() => {
     setStatusKey(null);
     setTagIds([]);
-    setKind("general");
+    setKind(DEFAULT_NOTE_KIND);
     setScope("position");
     setDraft("");
     capture.reset();

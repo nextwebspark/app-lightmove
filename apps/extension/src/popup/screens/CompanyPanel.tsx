@@ -21,6 +21,7 @@ import { NoteComposer } from "../notes/components/NoteComposer";
 import { NotesSection } from "../notes/components/NotesSection";
 import { CheckingPosition, RefusalNote } from "./panelStates";
 import type { SubjectPanelProps } from "./subjectPanelProps";
+import { DEFAULT_NOTE_KIND } from "../notes/lib/noteKinds";
 
 /**
  * A LinkedIn company page against the chosen position. A company the position holds — by its page or its name — opens
@@ -90,10 +91,10 @@ function CompanyForm({
     page.pageKey,
   );
   const isNameLocked = Boolean(page.company?.companyName) && !hasBeenEdited;
-  const [kind, setKind] = useState<NoteKind>("general");
+  const [kind, setKind] = useState<NoteKind>(DEFAULT_NOTE_KIND);
   const [draft, setDraft] = useState("");
   useEffect(() => {
-    setKind("general");
+    setKind(DEFAULT_NOTE_KIND);
     setDraft("");
     capture.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps

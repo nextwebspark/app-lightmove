@@ -167,7 +167,8 @@ record's composer. The editor is **a copy of `apps/web/src/features/notes`** und
 pinned versions), each file headed with its original — change one, change both. The panel's differences: Expand opens
 `PanelSheet` (the whole panel) rather than a modal, the editor is always framed under its toolbar band, and the toolbar
 is 2px narrower a button so it holds one line at 400px. A note's kind is drawn by `NoteKindMark` — LinkedIn by the
-network's own white bug (`public/brand`), never a stroke glyph, as apps/web's `NetworkMark` rules.
+network's own white bug (`public/brand`), never a stroke glyph, as apps/web's `NetworkMark` rules. A new note opens as
+a LinkedIn note (`DEFAULT_NOTE_KIND`, the panel's own, not the web's) — the panel sits on LinkedIn.
 
 How the two fields are read (`background/activePage.ts:readActivePage`, no scrolling):
 

@@ -6,6 +6,7 @@ import { useNotes } from "../../hooks/useNotes";
 import type { TeammateOption } from "../lib/teammates";
 import { NoteComposer } from "./NoteComposer";
 import { NoteCard, type NoteScope } from "./NoteParts";
+import { DEFAULT_NOTE_KIND } from "../lib/noteKinds";
 
 /**
  * A record's notes on this position: a composer for the next one — open, since a new note is why someone comes back
@@ -28,7 +29,7 @@ export function NotesSection({
   const notes = useNotes(target);
   const toast = usePanelToast();
   const isPerson = target.subject === "person";
-  const [kind, setKind] = useState<NoteKind>(unsent?.kind ?? "general");
+  const [kind, setKind] = useState<NoteKind>(unsent?.kind ?? DEFAULT_NOTE_KIND);
   const [scope, setScope] = useState<NoteScope>(unsent?.scope ?? "position");
   const [draft, setDraft] = useState(unsent?.body ?? "");
   const [unsentReason, setUnsentReason] = useState(unsent?.reason ?? null);

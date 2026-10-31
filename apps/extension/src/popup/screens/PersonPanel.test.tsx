@@ -57,6 +57,18 @@ describe("a LinkedIn profile against the chosen position", () => {
     });
   });
 
+  it("opens a new note as a LinkedIn note, on the form and on the record alike", async () => {
+    const { unmount } = renderPanel(<PersonPanel page={pageRead()} projects={PROJECTS} user={USER} />);
+    await screen.findByRole("button", { name: /Add to position/ });
+    expect(screen.getByRole("radio", { name: /LinkedIn/ }).getAttribute("aria-checked")).toBe("true");
+    unmount();
+
+    heldAnswer = { candidate: candidate(), addedBy: null, companyLogoUrl: null };
+    renderPanel(<PersonPanel page={pageRead()} projects={PROJECTS} user={USER} />);
+    await screen.findByText("Already on this position");
+    expect(screen.getByRole("radio", { name: /LinkedIn/ }).getAttribute("aria-checked")).toBe("true");
+  });
+
   it("offers the form for someone new, and files them at the workspace's own starting status", async () => {
     renderPanel(<PersonPanel page={pageRead()} projects={PROJECTS} user={USER} />);
 
