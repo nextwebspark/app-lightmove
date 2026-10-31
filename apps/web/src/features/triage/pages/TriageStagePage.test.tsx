@@ -962,7 +962,7 @@ describe("TriageStagePage", () => {
 
     await userEvent.click(within(dialog).getByRole("button", { name: /Remove from mandate/i }));
     await waitFor(() =>
-      expect(triageApi.deleteTriageCompany).toHaveBeenCalledWith("p1", "u1", { withExecutives: false }),
+      expect(triageApi.deleteTriageCompany).toHaveBeenCalledWith("p1", "u1", { expectedExecutives: 0 }),
     );
   });
 
@@ -983,7 +983,7 @@ describe("TriageStagePage", () => {
       .toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("button", { name: /Remove from mandate/i }));
     await waitFor(() =>
-      expect(triageApi.deleteTriageCompany).toHaveBeenCalledWith("p1", "u1", { withExecutives: true }),
+      expect(triageApi.deleteTriageCompany).toHaveBeenCalledWith("p1", "u1", { expectedExecutives: 2 }),
     );
   });
 

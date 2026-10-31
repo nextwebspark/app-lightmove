@@ -502,7 +502,7 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
         String companyId = captureCompany(projectId, "Spinneys Group");
         mapTo(projectId, companyId, "Wei Ling Tan");
 
-        mvc.perform(delete("/api/v1/projects/" + projectId + "/triage/" + companyId + "?withExecutives=true")
+        mvc.perform(delete("/api/v1/projects/" + projectId + "/triage/" + companyId + "?expectedExecutives=1")
                         .header("Authorization", "Bearer " + admin()))
                 .andExpect(status().isNoContent());
 

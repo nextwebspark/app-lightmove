@@ -332,10 +332,11 @@ a mandate-scoped check (`refuseHeldProfile`, `mappedProfileSlugsOf`) still reads
 because V95 leaves the slug null on a person sharing a profile with an older one. `PersonRepository`'s
 finders all take the workspace id, as `CandidateRepository`'s all take the project id.
 The employer name is snapshotted beside the link, for the executive at no company of the mandate's. Removing a
-company takes the people mapped at it: `TriageCompanyService.removeFromProject` counts them through
-`MappedExecutiveLookup.executivesAt`, refuses without `withExecutives`, and publishes `TriageCompanyRemoved`, on
-which `CompanyRemovalFollower` removes each one in the same transaction — V36's `ON DELETE SET NULL` is no longer
-how anyone leaves. A candidate write resolves its company in `CandidateRequestReader.companyOf`: a save naming no
+company takes the people mapped at it: `TriageCompanyService.removeFromProject` locks the company row (a candidate
+naming it takes a key-share lock, so nobody is mapped there mid-removal), counts them through
+`MappedExecutiveLookup.executivesAt`, refuses more than the caller's `expectedExecutives`, and publishes
+`TriageCompanyRemoved`, on which `CompanyRemovalFollower` removes each one in the same transaction — V36's
+`ON DELETE SET NULL` is no longer how anyone leaves. A candidate write resolves its company in `CandidateRequestReader.companyOf`: a save naming no
 company keeps the one the person is at, and a typed employer the mandate holds by exactly that name lands there.
 
 Strategy answers "which companies match?"; triagecompany answers "what did this mandate do about that

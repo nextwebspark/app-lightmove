@@ -41,10 +41,10 @@ a client seat's (`addedBy*`, null outside a staff read, as `noteCount` is); the 
 where someone else filed them, read from the candidates list's staff-only `addedBy` map beside the rows, never on
 `CandidateResponse`.
 Deleting one drops the project↔company row, its notes and everyone mapped at it on any stage (the persons stay in the
-pool) — after a warning that counts them, which the server holds as `withExecutives`, refusing a removal that would
-take anyone unannounced (`TRIAGE_COMPANY_HAS_EXECUTIVES`); removing a company's last executive offers to take the
-company too (`?withCompany=true`), and nobody is left behind with a name and no company. The Apollo universe is
-read-only to the app. On top of
+pool) — after a warning that counts them, which the caller sends back as `expectedExecutives`; the server locks the
+company row (`FOR UPDATE`) and refuses when more are mapped than that (`TRIAGE_COMPANY_HAS_EXECUTIVES`), so nobody
+goes unannounced; removing a company's last executive offers to take the company too (`?withCompany=true`), and
+nobody is left behind with a name and no company. The Apollo universe is read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
 with three of them is three lines and one with none keeps its "Add executive" slot. The grid reads those lines whole —
@@ -1006,8 +1006,8 @@ nullable and `source` records which door the row came through (V34).
 left in place rather than dropped. A mandate's whole filter is one `jsonb` column on `app_lm_strategy`
 (V30 explains why). `app_lm_project_candidate` (V36) is the people half: `project_id` is the mapping and
 `triage_company_id` is nullable with **ON DELETE SET NULL** beside a snapshotted `company_name`; removing a
-company now takes its executives with it (`CompanyRemovalFollower`), and V166 put back under their company the
-people an earlier removal, or a name-only Add to position, had stranded. Since V91 it maps a
+company now takes its executives with it (`CompanyRemovalFollower`), and V166 put back under their company, at
+their own stage, the people an earlier removal, or a name-only Add to position, had stranded. Since V91 it maps a
 `person_id` — `app_lm_person`, tenant data scoped by `workspace_id`, holding the profile (career history
 and languages one `profile` jsonb column for V30's reasons), background, package and research — once
 per mandate (`app_lm_project_candidate_person_uk`). V91's backfill folded existing rows into one person

@@ -519,19 +519,18 @@ public class TriageCompanyService {
     }
 
     /**
-     * Drops the mandate's decision and everyone mapped at the company, on every stage; the universe row is ETL-owned
-     * and untouched, and the people stay in the workspace's pool. Refused while anyone is mapped there unless
-     * {@code withExecutives} says the caller warned about them. Unlike Declining it is not remembered — a later "Add
-     * all" may take the company back in, fresh.
+     * Drops the mandate's decision and everyone mapped at the company, on every stage; the people stay in the pool.
+     * Refused while more are mapped there than the caller warned about ({@code expectedExecutives}).
      */
     @Transactional
     public void removeFromProject(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
-                                  boolean withExecutives, HttpServletRequest httpRequest) {
+                                  long expectedExecutives, HttpServletRequest httpRequest) {
         projects.requireInWorkspace(projectId, workspaceId);
-        TriageCompany company = triaged.requireInProject(triageCompanyId, projectId);
+        TriageCompany company = triaged.findForUpdate(triageCompanyId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
         long executivesRemoved = executives.executivesAt(projectId, triageCompanyId);
-        if (executivesRemoved > 0 && !withExecutives) {
+        if (executivesRemoved > expectedExecutives) {
             throw ApiException.withProperty(ErrorCode.TRIAGE_COMPANY_HAS_EXECUTIVES, "count", executivesRemoved);
         }
         if (executivesRemoved > 0) {

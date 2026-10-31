@@ -403,7 +403,7 @@ check_code N17.8.2 "a company with executives is not removed unannounced" 409 TR
 get "$PEOPLE/$FARIS" -H "$LEAD_AUTH"
 check N17.8.3 "…and the executive is still mapped there" "$GAMMA_ID" "$(json '.triageCompanyId')"
 
-http DELETE "$TRIAGE/$GAMMA_ID?withExecutives=true" -H "$LEAD_AUTH"
+http DELETE "$TRIAGE/$GAMMA_ID?expectedExecutives=1" -H "$LEAD_AUTH"
 check_status N17.8.4 "the lead removes the company, having been told its executives go too" 204
 get "$PEOPLE/$FARIS" -H "$LEAD_AUTH"
 check_code N17.8.5 "…and the executive left the position with it" 404 NOT_FOUND
@@ -412,7 +412,7 @@ check N17.8.6 "…while the workspace's person keeps their contact rows" "1" \
 get "$PEOPLE?unmapped=true" -H "$LEAD_AUTH"
 check N17.8.7 "…and nobody is left behind with a name and no company" "0" \
   "$(json "[.candidates[] | select(.companyName == \"$GAMMA\")] | length")"
-http DELETE "$TRIAGE/$GAMMA_ID?withExecutives=true" -H "$LEAD_AUTH"
+http DELETE "$TRIAGE/$GAMMA_ID?expectedExecutives=1" -H "$LEAD_AUTH"
 check_code N17.8.8 "removing it twice" 404 NOT_FOUND
 capture "$LEAD_AUTH" "$GAMMA"
 check_status N17.8.9 "a removed company is not remembered — it can be typed in again" 201

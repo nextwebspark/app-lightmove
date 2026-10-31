@@ -15,8 +15,7 @@ import { SHORTLIST_AND_DECLINE_OFFERED } from "../lib/triageStages";
  * a later bulk add from Strategy may take the company back in. Declining is how a company is ruled
  * out durably, and someone reaching for delete may have meant that instead.
  *
- * <p>Everyone mapped at the company, on any stage, leaves the position with it, so the dialog counts them before
- * it lets the removal go: confirming only after the count is read is what the server's `withExecutives` stands for.
+ * <p>Everyone mapped at the company, on any stage, leaves with it, so Remove waits for that count and sends it.
  */
 export function RemoveCompanyDialog({
   company,

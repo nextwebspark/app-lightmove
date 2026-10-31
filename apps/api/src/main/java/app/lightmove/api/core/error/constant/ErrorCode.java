@@ -113,10 +113,7 @@ public enum ErrorCode {
     TRIAGE_COMPANY_NOT_EDITABLE(HttpStatus.CONFLICT,
             "A company taken from the market cannot be edited"),
 
-    /**
-     * Removing a company takes everyone mapped at it, so a caller must say it showed that: a removal that has not
-     * (an older screen, the plugin's Undo racing a filing) is refused rather than taking people unannounced.
-     */
+    /** Removing a company takes everyone mapped at it; more are mapped than the caller warned about. */
     TRIAGE_COMPANY_HAS_EXECUTIVES(HttpStatus.CONFLICT,
             "Executives are mapped at this company; removing it would remove them too"),
 

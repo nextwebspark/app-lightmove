@@ -141,7 +141,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
 
         assertThat(poolRow().get("companyLogoUrl").asText()).isEqualTo("https://logos.example/filed.png");
 
-        mvc.perform(delete(triageUrl(projectId) + "/" + companyId + "?withExecutives=true")
+        mvc.perform(delete(triageUrl(projectId) + "/" + companyId + "?expectedExecutives=1")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNoContent());
 

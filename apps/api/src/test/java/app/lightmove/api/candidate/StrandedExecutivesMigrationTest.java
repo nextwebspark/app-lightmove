@@ -20,7 +20,7 @@ import org.testcontainers.utility.DockerImageName;
 
 /**
  * V166: an executive left with a company name and no company is put back under the one company the position holds by
- * that name, at its stage, and nobody else is touched. Its own container, stopped at V165 to seed, for
+ * that name, at the stage they were on. Its own container, stopped at V165 to seed, for
  * {@code CandidatePersonBackfillMigrationTest}'s reason.
  */
 class StrandedExecutivesMigrationTest {
@@ -31,25 +31,29 @@ class StrandedExecutivesMigrationTest {
     private static final UUID PROJECT = UUID.fromString("00000000-0000-0000-0000-0000000165d1");
 
     @Test
-    @DisplayName("V166 re-attaches the stranded to the one same-named company, and leaves every doubtful case alone")
+    @DisplayName("V166 re-attaches the stranded to the one same-named company at their own stage, and leaves every doubtful case alone")
     void reattachesOnlyWhereOneCompanyHoldsTheName() throws Exception {
         try (PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"))) {
             postgres.start();
             migrateTo(postgres, "165");
             UUID futtaim;
             UUID spinneys;
+            UUID lulu;
             try (Connection connection = connect(postgres)) {
                 seedPosition(connection);
                 futtaim = company(connection, "Al-Futtaim", "DECLINED", null, true);
                 company(connection, "Twin Co", "IN_UNIVERSE", null, false);
                 company(connection, "Twin Co", "IN_UNIVERSE", "apollo-twin", false);
                 spinneys = company(connection, "Spinneys", "IN_UNIVERSE", null, false);
+                lulu = company(connection, "Lulu", "IN_UNIVERSE", null, false);
                 executive(connection, "Farooq Naveed", null, "Al-Futtaim");
                 executive(connection, "Ummer Farook", null, " al-futtaim ");
                 executive(connection, "Twin Person", null, "Twin Co");
                 executive(connection, "Outside Person", null, "Outside Holdings");
                 executive(connection, "Wei Ling Tan", spinneys, "Spinneys");
                 executive(connection, "Wei Ling Tan", null, "Spinneys");
+                executive(connection, "John Smith", null, "Lulu");
+                executive(connection, "John Smith", null, "Lulu");
             }
 
             migrateTo(postgres, "166");
@@ -61,17 +65,17 @@ class StrandedExecutivesMigrationTest {
                         FROM app_lm_project_candidate c JOIN app_lm_person p ON p.id = c.person_id
                         WHERE c.project_id = ? ORDER BY p.full_name, c.triage_company_id NULLS LAST""", PROJECT))
                         .containsExactly(
-                                "Farooq Naveed|" + futtaim + "|DECLINED|Al-Futtaim",
+                                "Farooq Naveed|" + futtaim + "|IN_UNIVERSE|Al-Futtaim",
+                                "John Smith|" + lulu + "|IN_UNIVERSE|Lulu",
+                                "John Smith|-|IN_UNIVERSE|Lulu",
                                 "Outside Person|-|IN_UNIVERSE|Outside Holdings",
                                 "Twin Person|-|IN_UNIVERSE|Twin Co",
-                                "Ummer Farook|" + futtaim + "|DECLINED|Al-Futtaim",
+                                "Ummer Farook|" + futtaim + "|IN_UNIVERSE|Al-Futtaim",
                                 "Wei Ling Tan|" + spinneys + "|IN_UNIVERSE|Spinneys",
                                 "Wei Ling Tan|-|IN_UNIVERSE|Spinneys");
                 assertThat(strings(connection, """
-                        SELECT kind || '|' || (details ->> 'from') || '|' || (details ->> 'to')
-                        FROM app_lm_person_activity WHERE project_id = ?""", PROJECT))
-                        .containsExactly("TRIAGE_STATUS_CHANGED|inUniverse|declined",
-                                "TRIAGE_STATUS_CHANGED|inUniverse|declined");
+                        SELECT count(*)::text FROM app_lm_person_activity WHERE project_id = ?""", PROJECT))
+                        .containsExactly("0");
                 assertThat(strings(connection, """
                         SELECT no_executive_found::text FROM app_lm_project_triage_company WHERE id = ?""", futtaim))
                         .containsExactly("false");

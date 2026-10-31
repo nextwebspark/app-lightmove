@@ -650,7 +650,7 @@ function TriageStage() {
 
   const remove = useMutation({
     mutationFn: ({ company, executives }: { company: TriageCompany; executives: number }) =>
-      triageApi.deleteTriageCompany(project.id, company.id, { withExecutives: executives > 0 }),
+      triageApi.deleteTriageCompany(project.id, company.id, { expectedExecutives: executives }),
     onSuccess: (_result, { company, executives }) => {
       refreshEverything();
       setPendingRemoval(null);

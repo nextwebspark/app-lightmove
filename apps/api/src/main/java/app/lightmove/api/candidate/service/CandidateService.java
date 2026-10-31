@@ -927,7 +927,7 @@ public class CandidateService {
         unmap(candidate, userId);
         if (withCompany && companyId != null) {
             candidates.flush();
-            triage.removeFromProject(userId, workspaceId, projectId, companyId, false, httpRequest);
+            triage.removeFromProject(userId, workspaceId, projectId, companyId, 0, httpRequest);
         }
         recordRemoved(audit.projectEvent(ProjectEventType.CANDIDATE_REMOVED, userId, workspaceId, projectId,
                 httpRequest), candidate);

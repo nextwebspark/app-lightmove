@@ -1,52 +1,41 @@
--- An executive left with a company name and no company — their company removed while they were mapped at it, the
--- company added back as a new row that nothing re-attached them to, or a person added from the Candidates page under
--- a name alone — is put back under the company the position holds under exactly that name, at that company's stage,
--- as a filing would put them. Only where the position holds one such company: a name two rows share is left alone
--- rather than guessed.
---
--- From here removing a company takes its executives (after a warning), so nobody is stranded this way again.
+-- An executive left with a company name and no company (their company removed while they were mapped at it, or a
+-- Candidates page Add to position that recorded a name alone) is put back under the one company the position holds
+-- under exactly that name. They keep the stage they are listed at, so nobody moves out of sight; a name two companies
+-- share, or a namesake already at the company (or a second stranded one), is left alone. From here a removal takes its
+-- executives, so nobody is stranded this way again.
 
 CREATE TEMPORARY TABLE stranded_executive ON COMMIT DROP AS
-SELECT c.id AS candidate_id, c.person_id, c.project_id, c.triage_status AS from_stage,
-       t.id AS triage_company_id, t.company_name, t.status AS to_stage
-  FROM app_lm_project_candidate c
-  JOIN app_lm_person me ON me.id = c.person_id
-  JOIN app_lm_project_triage_company t
-    ON t.project_id = c.project_id
-   AND lower(t.company_name) = lower(btrim(c.company_name))
- WHERE c.triage_company_id IS NULL
-   AND c.company_name IS NOT NULL
-   AND (SELECT count(*)
-          FROM app_lm_project_triage_company same_name
-         WHERE same_name.project_id = c.project_id
-           AND lower(same_name.company_name) = lower(btrim(c.company_name))) = 1
-   -- One name per company, the rule the app's filing holds: a namesake already there keeps this one apart.
+WITH named_companies AS (
+    SELECT id, project_id, company_name, lower(company_name) AS name_key,
+           count(*) OVER (PARTITION BY project_id, lower(company_name)) AS holders
+      FROM app_lm_project_triage_company
+), candidates AS (
+    SELECT c.id AS candidate_id, c.project_id, c.created_at, lower(btrim(c.company_name)) AS name_key,
+           lower(p.full_name) AS person_key
+      FROM app_lm_project_candidate c
+      JOIN app_lm_person p ON p.id = c.person_id
+     WHERE c.triage_company_id IS NULL
+       AND c.company_name IS NOT NULL
+), matched AS (
+    SELECT s.candidate_id, t.id AS triage_company_id, t.company_name,
+           row_number() OVER (PARTITION BY t.id, s.person_key ORDER BY s.created_at, s.candidate_id) AS name_rank,
+           s.person_key, s.project_id
+      FROM candidates s
+      JOIN named_companies t ON t.project_id = s.project_id AND t.name_key = s.name_key AND t.holders = 1
+)
+SELECT m.candidate_id, m.triage_company_id, m.company_name
+  FROM matched m
+ WHERE m.name_rank = 1
    AND NOT EXISTS (SELECT 1
                      FROM app_lm_project_candidate held
                      JOIN app_lm_person namesake ON namesake.id = held.person_id
-                    WHERE held.project_id = c.project_id
-                      AND held.triage_company_id = t.id
-                      AND lower(namesake.full_name) = lower(me.full_name));
-
--- The stage line a company's move writes, where the stage changes; nobody did it, so the actor is null.
-INSERT INTO app_lm_person_activity (workspace_id, person_id, project_id, project_title, actor_user_id, kind, details)
-SELECT p.workspace_id, s.person_id, s.project_id, pr.position_title, NULL, 'TRIAGE_STATUS_CHANGED',
-       jsonb_build_object('from', CASE s.from_stage WHEN 'IN_UNIVERSE' THEN 'inUniverse'
-                                                    WHEN 'SHORTLISTED' THEN 'shortlisted'
-                                                    ELSE 'declined' END,
-                          'to', CASE s.to_stage WHEN 'IN_UNIVERSE' THEN 'inUniverse'
-                                                WHEN 'SHORTLISTED' THEN 'shortlisted'
-                                                ELSE 'declined' END,
-                          'withCompany', true)
-  FROM stranded_executive s
-  JOIN app_lm_person p ON p.id = s.person_id
-  JOIN app_lm_project pr ON pr.id = s.project_id
- WHERE s.from_stage <> s.to_stage;
+                    WHERE held.project_id = m.project_id
+                      AND held.triage_company_id = m.triage_company_id
+                      AND lower(namesake.full_name) = m.person_key);
 
 UPDATE app_lm_project_candidate c
    SET triage_company_id = s.triage_company_id,
-       company_name = s.company_name,
-       triage_status = s.to_stage
+       company_name = s.company_name
   FROM stranded_executive s
  WHERE c.id = s.candidate_id;
 
