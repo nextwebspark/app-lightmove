@@ -33,7 +33,11 @@ export function RefusalNote({ refusal, projectId }: { refusal: CaptureRefusal; p
           ? "You are not on that position's team, so you cannot add to it."
           : refusal.code === "PIPELINE_STATUS_RETIRED"
             ? "Your workspace retired that status. Choose another one."
-            : refusal.message;
+            : refusal.code === "TRIAGE_COMPANY_HAS_EXECUTIVES"
+              ? "Someone has been added at this company since, so it stays in the universe. Remove it in Uncava if it should go."
+              : refusal.code === "CONFLICT"
+                ? "This record changed while you were undoing, probably as its research landed. Try Undo again."
+                : refusal.message;
 
   return (
     <div role="alert" className="rounded-[8px] border border-u-offlimits/30 bg-u-offlimits-tint px-2.5 py-2 text-[12px] leading-[1.5] text-u-offlimits">

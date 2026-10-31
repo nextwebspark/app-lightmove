@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { installChromeStub } from "../../test/chromeStub";
-import { useCapturePerson } from "./useCaptureSequence";
+import { useCapturePerson, useUndoCapture } from "./useCaptureSequence";
 
 describe("filing a person with a note and tags", () => {
   afterAll(() => vi.unstubAllGlobals());
@@ -43,5 +43,43 @@ describe("filing a person with a note and tags", () => {
     });
     expect(result.current.data?.unsentNote).toMatchObject({ reason: "Too long." });
     expect(result.current.data?.untaggedTagIds).toEqual(["t2"]);
+  });
+});
+
+describe("undoing a capture", () => {
+  afterAll(() => vi.unstubAllGlobals());
+
+  function undoWith(removeCandidateReply: unknown) {
+    const kinds: { kind: string; [field: string]: unknown }[] = [];
+    installChromeStub().answer((raw) => {
+      const request = raw as { kind: string; [field: string]: unknown };
+      kinds.push(request);
+      if (request.kind === "removeNote") return { ok: true, value: null };
+      if (request.kind === "restoreNote") return { ok: true, value: { id: "n1" } };
+      if (request.kind === "removeCandidate") return removeCandidateReply;
+      return { ok: false, code: "UNSTUBBED", message: request.kind };
+    });
+    const client = new QueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    const { result } = renderHook(() => useUndoCapture(), { wrapper });
+    act(() => result.current.mutate({ projectId: "p1", candidateId: "c1", noteId: "n1" }));
+    return { result, kinds };
+  }
+
+  it("puts the note back when the person stays, and says why", async () => {
+    const { result, kinds } = undoWith({ ok: false, code: "CONFLICT", message: "Changed." });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(kinds.map((each) => each.kind)).toEqual(["removeNote", "removeCandidate", "restoreNote"]);
+    expect(result.current.error?.code).toBe("CONFLICT");
+  });
+
+  it("counts a person already gone as undone", async () => {
+    const { result, kinds } = undoWith({ ok: false, code: "NOT_FOUND", message: "Gone." });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(kinds.map((each) => each.kind)).toEqual(["removeNote", "removeCandidate"]);
   });
 });

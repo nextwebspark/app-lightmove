@@ -208,6 +208,11 @@ function CompanyRecord({
         onUndo={() => undo.mutate({ projectId, triageCompanyId: company.id }, { onSuccess: onUndone })}
       />
       <div className="min-h-0 flex-1 overflow-y-auto p-3.5 pb-16">
+        {undo.error && (
+          <div className="mb-3">
+            <RefusalNote refusal={undo.error} projectId={projectId} />
+          </div>
+        )}
         <SubjectCard
           shape="company"
           name={company.companyName}

@@ -51,5 +51,8 @@ export function useHeldCache() {
       queryClient.invalidateQueries({ queryKey: heldPersonKey(projectId, linkedinUrl) }),
     refreshCompany: (projectId: string, linkedinUrl: string | null, name: string | null) =>
       queryClient.invalidateQueries({ queryKey: heldCompanyKey(projectId, linkedinUrl, name) }),
+    /** Every company read on the position, dropped rather than shown stale: an undone person may have taken theirs. */
+    forgetCompanies: (projectId: string) =>
+      queryClient.removeQueries({ queryKey: ["extension", "held", "company", projectId] }),
   };
 }
