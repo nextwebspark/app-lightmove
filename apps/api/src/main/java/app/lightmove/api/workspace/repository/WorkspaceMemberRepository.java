@@ -60,6 +60,9 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
     @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
+    /** Every membership the workspace ever held, removed ones included — the audit log names them all. */
+    List<WorkspaceMember> findByWorkspaceId(UUID workspaceId);
+
     /** A projection, not a lazy walk: authorisation runs in {@code @PreAuthorize}, outside a transaction. */
     @Query("select r.name from WorkspaceMember m join m.roles r where m.id = :memberId")
     Set<String> findRoleNames(@Param("memberId") UUID memberId);

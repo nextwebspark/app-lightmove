@@ -108,6 +108,10 @@ lightmove:
     # setting, so the timing equalisation holds at whatever strength runs.
     bcrypt-strength: 4
 
+  export:
+    # Small so the audit log's refusal is reachable: a test seeds a few rows past it rather than thousands.
+    max-audit-events: 15
+
   company:
     list:
       # Small so the refusal path is reachable. At the production 200 a test would have to seed 201

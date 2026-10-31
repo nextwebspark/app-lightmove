@@ -50,7 +50,10 @@ public enum WorkspaceEventType implements AuditEventType {
     SUBSCRIPTION_CHANGED,
     CREDITS_PURCHASED,
     SEAT_ADDED,
-    SEAT_REMOVED;
+    SEAT_REMOVED,
+
+    /** An admin took the workspace's audit log as a file: the read that is itself an export. */
+    AUDIT_LOG_EXPORTED;
 
     @Override
     public String code() {
