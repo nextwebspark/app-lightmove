@@ -113,6 +113,10 @@ public enum ErrorCode {
     TRIAGE_COMPANY_NOT_EDITABLE(HttpStatus.CONFLICT,
             "A company taken from the market cannot be edited"),
 
+    /** Removing a company takes everyone mapped at it; more are mapped than the caller warned about. */
+    TRIAGE_COMPANY_HAS_EXECUTIVES(HttpStatus.CONFLICT,
+            "Executives are mapped at this company; removing it would remove them too"),
+
     /**
      * Same name at the same company (or anywhere, for an employer outside the universe), or a LinkedIn
      * profile already mapped. Distinct from CONFLICT so the drawer can mark the name field.

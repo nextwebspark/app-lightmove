@@ -14,6 +14,8 @@ import { SHORTLIST_AND_DECLINE_OFFERED } from "../lib/triageStages";
  * <p>It also names the one thing that is genuinely lost, because the decision is not remembered:
  * a later bulk add from Strategy may take the company back in. Declining is how a company is ruled
  * out durably, and someone reaching for delete may have meant that instead.
+ *
+ * <p>Everyone mapped at the company, on any stage, leaves with it, so Remove waits for that count and sends it.
  */
 export function RemoveCompanyDialog({
   company,
@@ -24,7 +26,7 @@ export function RemoveCompanyDialog({
 }: {
   /** The company awaiting confirmation, or null when the dialog is closed. */
   company: TriageCompany | null;
-  /** Everyone mapped at it, on any stage; undefined until read. */
+  /** Everyone mapped at it, on any stage; undefined until read, and Remove waits for it. */
   executiveCount?: number;
   removing: boolean;
   onCancel: () => void;
@@ -40,9 +42,11 @@ export function RemoveCompanyDialog({
       </p>
       {!!executiveCount && (
         <p className="mt-2.5 text-[13px]/[1.6] text-u-text2">
-          {executiveCount === 1
-            ? "Its 1 executive stays on this position, with no company."
-            : `Its ${executiveCount} executives stay on this position, with no company.`}
+          <span className="font-medium text-u-text">
+            {company.companyName} has {executiveCount === 1 ? "1 executive" : `${executiveCount} executives`}.
+            Removing the company removes {executiveCount === 1 ? "them" : "all of them"} from this position too.
+          </span>{" "}
+          They stay on the Candidates page with their notes and history.
         </p>
       )}
       <p className="mt-2.5 text-[13px]/[1.6] text-u-text2">
@@ -61,6 +65,7 @@ export function RemoveCompanyDialog({
         <Button
           variant="primary"
           loading={removing}
+          disabled={executiveCount === undefined}
           onClick={() => onConfirm(company)}
         >
           Remove from mandate

@@ -184,8 +184,14 @@ export function moveCandidateToStage(
   });
 }
 
-export function deleteCandidate(projectId: string, candidateId: string): Promise<void> {
-  return request<void>(`/projects/${projectId}/candidates/${candidateId}`, { method: "DELETE" });
+/** `withCompany` also removes the company they were the last one at; the server refuses if anyone else is there. */
+export function deleteCandidate(
+  projectId: string,
+  candidateId: string,
+  options?: { withCompany: boolean },
+): Promise<void> {
+  const query = options?.withCompany ? "?withCompany=true" : "";
+  return request<void>(`/projects/${projectId}/candidates/${candidateId}${query}`, { method: "DELETE" });
 }
 
 /** Under the list's prefix, so the stream's refresh after an enrichment re-reads it too. */

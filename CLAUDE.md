@@ -40,7 +40,11 @@ Who filed a company (`added_by`) is the staff grid's **Added by** column, the dr
 a client seat's (`addedBy*`, null outside a staff read, as `noteCount` is); the cell adds the executive's adder's face
 where someone else filed them, read from the candidates list's staff-only `addedBy` map beside the rows, never on
 `CandidateResponse`.
-Deleting one drops the project↔company row only — and its notes: the Apollo universe is read-only to the app. On top of
+Deleting one drops the project↔company row, its notes and everyone mapped at it on any stage (the persons stay in the
+pool) — after a warning that counts them, which the caller sends back as `expectedExecutives`; the server locks the
+company row (`FOR UPDATE`) and refuses when more are mapped than that (`TRIAGE_COMPANY_HAS_EXECUTIVES`), so nobody
+goes unannounced; removing a company's last executive offers to take the company too (`?withCompany=true`), and
+nobody is left behind with a name and no company. The Apollo universe is read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
 with three of them is three lines and one with none keeps its "Add executive" slot. The grid reads those lines whole —
@@ -139,7 +143,8 @@ than guessing from this mandate's door.
 those routes: a People list the server searches (name, title, employer, an email; a plain scan per
 workspace, V33's reasoning), pages, sorts and narrows — quick views (owned by me, in an active position,
 in none) in the toolbar, then tags any/all/none, position, status, owner and country in a Strategy-style filter rail hidden until asked for — with a selection bar that adds people to
-a position as Identified (that position's `WORK_EXECUTE` too, since filing someone is work on it), tags
+a position as Identified (that position's `WORK_EXECUTE` too, since filing someone is work on it) under the employer their
+latest position recorded, filed into its universe as a plugin capture of someone known is, tags
 them, sets an owner or exports them (audited, `dataexport`); an Activity feed; and a drawer keyed by
 person id. V98 gives the person the team's own facts — an **owner** (a colleague; it changes nobody's
 access), **do not contact** (warns on every position and refuses a contact lookup,
@@ -1000,8 +1005,9 @@ nullable and `source` records which door the row came through (V34).
 `app_lm_companies` is the retired brightdata copy — nothing reads it, nothing refills it, and it is
 left in place rather than dropped. A mandate's whole filter is one `jsonb` column on `app_lm_strategy`
 (V30 explains why). `app_lm_project_candidate` (V36) is the people half: `project_id` is the mapping and
-`triage_company_id` is nullable with **ON DELETE SET NULL** beside a snapshotted `company_name`, so
-removing a company from a mandate unmaps its executives rather than deleting them. Since V91 it maps a
+`triage_company_id` is nullable with **ON DELETE SET NULL** beside a snapshotted `company_name`; removing a
+company now takes its executives with it (`CompanyRemovalFollower`), and V166 put back under their company, at
+their own stage, the people an earlier removal, or a name-only Add to position, had stranded. Since V91 it maps a
 `person_id` — `app_lm_person`, tenant data scoped by `workspace_id`, holding the profile (career history
 and languages one `profile` jsonb column for V30's reasons), background, package and research — once
 per mandate (`app_lm_project_candidate_person_uk`). V91's backfill folded existing rows into one person

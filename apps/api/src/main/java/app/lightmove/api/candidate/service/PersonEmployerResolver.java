@@ -67,8 +67,8 @@ public class PersonEmployerResolver {
 
     /**
      * The company row of the newest position at {@code name}, which need not be the position that named it:
-     * one added from the Candidates page records the name alone, while an older position at that employer
-     * still holds its row. With no row anywhere, the name alone.
+     * one the Candidates page added before it filed employers records the name alone, while an older position at
+     * that employer still holds its row. With no row anywhere, the name alone.
      */
     private CapturedCompanyDetails recordedEmployer(UUID workspaceId, String name, List<Candidate> newestFirst,
                                                     ResearchedEmployerMark researched) {

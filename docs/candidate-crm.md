@@ -631,7 +631,8 @@ maps the person. Phone is still not a key.
 >   the contacts and the custom columns.
 > - **Removed since: the position's Candidates page.** In universe already lists every executive the
 >   mandate maps (those at no company included), Outreach works them, and the workspace Candidates page's
->   Add to position files people onto a position. So the page, Add from your candidates and both reads
+>   Add to position files people onto a position, each under the employer their latest position recorded (filed
+>   into that position's universe, once per employer). So the page, Add from your candidates and both reads
 >   below were deleted; `/projects/:id/candidates` redirects to In universe. What it was:
 > - **The position's Candidates page** (`/projects/:id/candidates`, `ProjectCandidatesPage`) made two
 >   reads in `CandidatePipelineController`. The grid's own list is left alone.
