@@ -59,7 +59,7 @@ export function PipelineBoard({
   onMove: (placement: BoardPlacement) => void;
   onToggleVisible: (row: PipelineRow) => void;
   onOpenNextAction: (row: PipelineRow) => void;
-  /** Whether the Inactive column is unfolded; the toolbar's Advanced menu switches it too. */
+  /** Whether the Inactive column is unfolded; its own header folds it. */
   inactiveOpen: boolean;
   onInactiveOpenChange: (open: boolean) => void;
 }) {

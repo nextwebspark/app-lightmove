@@ -136,8 +136,11 @@
     <main style="flex:1;min-width:0;overflow-y:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel)">
       <sc-if value="{{ isStage }}" hint-placeholder-val="{{ true }}">
         <div data-screen-label="{{ stageScreenLabel }}" style="display:flex;flex-direction:column;height:100%;min-height:0;width:100%">
-          <div style="min-height:52px;flex:none;display:flex;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel2);padding:8px 20px">
-            <div style="display:flex;align-items:center;gap:8px;flex:1 1 260px;min-width:220px;max-width:380px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:7px 10px 7px 12px">
+          <!-- The toolbar row Strategy.dc.html and Outreach.dc.html share: search first, the outreach pair, Find executives
+               filled, then Advanced ▾ and Create ▾ quiet. Every action keeps its place in every view, greyed where the view
+               cannot take it. -->
+          <div style="flex:none;display:flex;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel);padding:10px 16px">
+            <div style="display:flex;align-items:center;gap:8px;flex:1 1 280px;min-width:220px;max-width:360px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 10px 8px 12px">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none;color:var(--text3)"><path d="{{ ic.search }}"></path></svg>
               <input value="{{ searchQuery }}" onChange="{{ setSearchQuery }}" placeholder="{{ searchPlaceholder }}" aria-label="{{ searchPlaceholder }}" style="width:100%;min-width:0;background:transparent;border:none;outline:none;font:400 13px var(--sans);color:var(--text)">
               <sc-if value="{{ hasSearch }}" hint-placeholder-val="{{ false }}">
@@ -145,20 +148,24 @@
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="{{ ic.close }}"></path></svg></button>
               </sc-if>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-left:auto">
+              <sc-if value="{{ canWrite }}" hint-placeholder-val="{{ true }}">
+                <sc-if value="{{ canOutreach }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ enrolTicked }}" title="{{ seqTitle }}" aria-disabled="{{ seqDisabled }}" style="{{ seqBtnStyle }}" style-hover="{{ seqBtnHover }}">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.outreach }}"></path></svg>Add to sequence</button>
+                  <button onClick="{{ sendEmail }}" title="Write to anyone on this position" style="{{ emailBtnStyle }}" style-hover="background:var(--panel2)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.mail }}"></path></svg>Send email</button>
+                  <sc-if value="{{ notBoard }}" hint-placeholder-val="{{ true }}"><span style="width:1px;height:20px;background:var(--line-soft);margin:0 4px"></span></sc-if>
+                </sc-if>
+              </sc-if>
               <sc-if value="{{ canFind }}" hint-placeholder-val="{{ true }}">
                 <button onClick="{{ findExecutives }}" title="{{ findTitle }}" aria-disabled="{{ findDisabled }}" style="{{ findBtnStyle }}" style-hover="{{ findBtnHover }}">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.sparkle }}"></path></svg>Find executives</button>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.search }}"></path></svg>Find executives</button>
               </sc-if>
-              <sc-if value="{{ canWrite }}" hint-placeholder-val="{{ true }}">
-                <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.userPlus }}"></path></svg>Add executive</button>
-                <button onClick="{{ addCompany }}" title="{{ addCoTitle }}" aria-disabled="{{ addCoDisabled }}" style="{{ addCoBtnStyle }}" style-hover="{{ addCoBtnHover }}">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.plus }}"></path></svg>Add company</button>
-              </sc-if>
+              <sc-if value="{{ notBoard }}" hint-placeholder-val="{{ true }}">
               <div style="position:relative">
-                <button onClick="{{ toggleAdv }}" aria-haspopup="menu" aria-expanded="{{ advOpen }}" style="{{ advBtnStyle }}" style-hover="border-color:var(--text3);color:var(--text)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.sliders }}"></path></svg>Advanced
+                <button onClick="{{ toggleAdv }}" aria-haspopup="menu" aria-expanded="{{ advOpen }}" style="{{ advBtnStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.sliders }}"></path></svg>Advanced
                   <sc-if value="{{ advDot }}" hint-placeholder-val="{{ false }}"><span title="{{ advDotTitle }}" style="width:6px;height:6px;flex:none;border-radius:50%;background:var(--sky)"></span></sc-if>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style="{{ advChevStyle }}"><path d="{{ ic.chevronDown }}"></path></svg></button>
                 <sc-if value="{{ advOpen }}" hint-placeholder-val="{{ false }}">
@@ -198,6 +205,29 @@
                   </div>
                 </sc-if>
               </div>
+              </sc-if>
+              <sc-if value="{{ canCreate }}" hint-placeholder-val="{{ true }}">
+                <span style="width:1px;height:20px;background:var(--line-soft);margin:0 4px"></span>
+                <div style="position:relative">
+                  <button onClick="{{ toggleCreate }}" aria-haspopup="menu" aria-expanded="{{ createOpen }}" style="{{ createBtnStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.plus }}"></path></svg>Create
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style="{{ createChevStyle }}"><path d="{{ ic.chevronDown }}"></path></svg></button>
+                  <sc-if value="{{ createOpen }}" hint-placeholder-val="{{ false }}">
+                    <div onClick="{{ closeCreate }}" style="position:fixed;inset:0;z-index:39"></div>
+                    <div role="menu" aria-label="Create" style="position:absolute;right:0;top:calc(100% + 6px);z-index:40;width:240px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
+                      <button role="menuitem" onClick="{{ addExecutive }}" style="display:flex;width:100%;align-items:flex-start;gap:10px;padding:7px 8px;border-radius:6px;border:none;background:none;text-align:left;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none;margin-top:1px;color:var(--text3)"><path d="{{ ic.userPlus }}"></path></svg>
+                        <span style="flex:1;min-width:0">Add executive</span></button>
+                      <button role="menuitem" onClick="{{ addCompany }}" aria-disabled="{{ addCoDisabled }}" style="{{ addCoItemStyle }}" style-hover="{{ addCoItemHover }}">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none;margin-top:1px;color:var(--text3)"><path d="{{ ic.plus }}"></path></svg>
+                        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                          <span>Add company</span>
+                          <sc-if value="{{ addCoDisabled }}" hint-placeholder-val="{{ false }}"><span style="font:400 11px var(--sans);color:var(--text3)">{{ addCoTitle }}</span></sc-if>
+                        </span></button>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
             </div>
           </div>
 
@@ -3474,14 +3504,10 @@ class Component extends DCLogic {
       head("Map");
       item("mapExecs", "Executives on the map", I.candidates, { toggle: s.mapExecs });
       item("mapPanel", "Mapping panel", I.table, { toggle: s.mapPanel });
-    } else {
-      head("Board");
-      item("inactive", "Inactive column", I.eyeOff, { toggle: s.boardInactiveOpen, sub: "Executives at an out-of-process status" });
-      if (!s.clientRep) item("stages", "Edit pipeline stages…", I.settings, { sub: "Workspace settings · admins" });
     }
-    if (cw && stageKey === "u" && view !== "map") {
+    if (cw && stageKey === "u" && view === "table") {
       divider(); head("Outreach");
-      item("sequence", "Add to sequence…", I.outreach, { disabled: true, sub: view === "pipeline" ? "Tick executives on the board first" : "Tick companies first" });
+      item("sequence", "Add to sequence…", I.outreach, { disabled: true, sub: "Tick companies first" });
     }
     divider(); head("Data");
     if (cw && stageKey === "u") item("import", "Import spreadsheet…", I.importInto, { sub: "CSV or Excel · companies and people" });
@@ -3494,8 +3520,12 @@ class Component extends DCLogic {
     const cw = this.canWrite();
     const view = this.currentView();
     const offered = this.viewsOffered();
-    const BTN_HOVER = "border-color:var(--text3);color:var(--text)";
-    const btnStyle = (off) => `display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:${off ? "var(--text3)" : "var(--text2)"};cursor:${off ? "not-allowed" : "pointer"};opacity:${off ? 0.5 : 1}`;
+    const OUTLINE = (off) => `display:inline-flex;align-items:center;gap:7px;white-space:nowrap;height:34px;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:0 12px;font:500 13px var(--sans);color:var(--text);cursor:${off ? "not-allowed" : "pointer"};opacity:${off ? 0.5 : 1}`;
+    const FILLED = (off) => `display:inline-flex;align-items:center;gap:7px;white-space:nowrap;height:34px;box-sizing:border-box;border-radius:6px;border:none;background:var(--amber-btn);padding:0 14px;font:600 13px var(--sans);color:var(--on-amber);cursor:${off ? "not-allowed" : "pointer"};opacity:${off ? 0.5 : 1}`;
+    const GHOST = (open) => `display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-radius:6px;border:none;background:${open ? "var(--panel2)" : "none"};padding:8px 10px;font:500 13px var(--sans);color:${open ? "var(--text)" : "var(--text2)"};cursor:pointer`;
+    const CHEV = (open) => `flex:none;color:var(--text3);transition:transform .15s;transform:rotate(${open ? 180 : 0}deg)`;
+    const ticked = Object.values(s.pipelineChecked).filter(Boolean).length;
+    const seqOff = view !== "pipeline" || ticked === 0;
     const hidden = COLS.filter((c) => !c.fixed && !this.visible(c.id)).length;
     const items = this.advancedItems().map((a) => {
       const isItem = a.kind === "item";
@@ -3510,15 +3540,22 @@ class Component extends DCLogic {
     });
     return {
       searchQuery: s.searchQuery, hasSearch: !!s.searchQuery,
-      searchPlaceholder: !cw ? "Search companies and executives…" : view === "pipeline" ? "Search executives, companies, notes, tags…" : "Search companies, executives, notes, tags…",
-      canFind: cw && stageKey === "u",
-      findDisabled: view === "pipeline", findBtnStyle: btnStyle(view === "pipeline"), findBtnHover: view === "pipeline" ? "" : BTN_HOVER,
+      searchPlaceholder: !cw ? "Search companies and executives…" : "Search companies, executives, notes, tags…",
+      notBoard: view !== "pipeline", canCreate: cw && view !== "pipeline",
+      canFind: cw && stageKey === "u" && view !== "pipeline",
+      seqDisabled: seqOff, seqBtnStyle: OUTLINE(seqOff), seqBtnHover: seqOff ? "" : "background:var(--panel2)",
+      seqTitle: view === "map" ? "Add to sequence from Table or Pipeline" : seqOff ? (view === "pipeline" ? "Tick executives on the board first" : "Tick companies first") : `Add the ${ticked} ticked to a sequence`,
+      emailBtnStyle: OUTLINE(false),
+      findDisabled: view === "pipeline", findBtnStyle: FILLED(view === "pipeline"), findBtnHover: view === "pipeline" ? "" : "background:var(--u-accent-solid-hover)",
       findTitle: view === "pipeline" ? "Find executives from Table, where companies are ticked" : "Find executives at the ticked companies, or at the first 5 with nobody mapped",
-      addCoDisabled: view === "pipeline", addCoBtnStyle: btnStyle(view === "pipeline"), addCoBtnHover: view === "pipeline" ? "" : BTN_HOVER,
+      addCoDisabled: view === "pipeline",
+      addCoItemStyle: `display:flex;width:100%;align-items:flex-start;gap:10px;padding:7px 8px;border-radius:6px;border:none;background:none;text-align:left;font:500 13px var(--sans);color:${view === "pipeline" ? "var(--text3)" : "var(--text2)"};cursor:${view === "pipeline" ? "default" : "pointer"};opacity:${view === "pipeline" ? 0.6 : 1}`,
+      addCoItemHover: view === "pipeline" ? "" : "background:var(--panel2);color:var(--text)",
+      createOpen: !!s.createOpen, createBtnStyle: GHOST(!!s.createOpen), createChevStyle: CHEV(!!s.createOpen),
       addCoTitle: view === "pipeline" ? "Add companies from Table or Map" : "Add a company to this position",
       advOpen: s.advOpen, advMenu: s.advPanel !== "columns", advColumns: s.advPanel === "columns", advItems: items,
-      advBtnStyle: `display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid ${s.advOpen ? "var(--text3)" : "var(--line)"};background:var(--panel);padding:8px 10px 8px 12px;font:500 13px var(--sans);color:${s.advOpen ? "var(--text)" : "var(--text2)"};cursor:pointer`,
-      advChevStyle: `flex:none;color:var(--text3);transition:transform .15s;transform:rotate(${s.advOpen ? 180 : 0}deg)`,
+      advBtnStyle: GHOST(s.advOpen),
+      advChevStyle: CHEV(s.advOpen),
       advDot: view === "table" && hidden > 0, advDotTitle: `${hidden} column${hidden === 1 ? "" : "s"} hidden`
     };
   }
@@ -4434,10 +4471,15 @@ class Component extends DCLogic {
       setView: (e) => set({ view: id(e), advOpen: false, advPanel: "menu" }),
       setSearchQuery: (e) => set({ searchQuery: e.target.value }),
       clearSearch: () => set({ searchQuery: "" }),
-      toggleAdv: () => set({ advOpen: !this.state.advOpen, advPanel: "menu" }),
+      toggleAdv: () => set({ advOpen: !this.state.advOpen, advPanel: "menu", createOpen: false }),
+      toggleCreate: () => set({ createOpen: !this.state.createOpen, advOpen: false, advPanel: "menu" }),
+      closeCreate: () => set({ createOpen: false }),
+      addExecutive: () => { set({ createOpen: false }); this.showToast("Opens a blank executive drawer — someone met at a company this position has not triaged"); },
+      enrolTicked: () => { if (this.currentView() === "pipeline" && Object.values(this.state.pipelineChecked).some(Boolean)) this.showToast("Opens Add to sequence for the ticked executives"); },
+      sendEmail: () => this.showToast("Send email — pick anyone on the position, then write in the composer"),
       closeAdv: () => set({ advOpen: false, advPanel: "menu" }),
       advBack: () => set({ advPanel: "menu" }),
-      addCompany: () => { if (this.currentView() !== "pipeline") this.showToast("Opens the company drawer to add one"); },
+      addCompany: () => { if (this.currentView() === "pipeline") return; set({ createOpen: false }); this.showToast("Opens the company drawer to add one"); },
       findExecutives: () => this.currentView() === "pipeline" ? null : this.showToast("Find executives — opens the run dialog for the ticked companies, or the first 5 with nobody mapped"),
       advAction: (e) => {
         const key = id(e);

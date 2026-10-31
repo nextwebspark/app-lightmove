@@ -100,6 +100,7 @@ is held back rather than sent (the step does not save until it is named) and the
 |---|---|---|---|
 | ☐ Range min / max | none | `@AssertTrue` min ≤ max | toast + autosave |
 | Saved search name | trimmed, ≤ 120 | `@NotBlank @Size(120)`, unique | sentence |
+| People name (the toolbar's search box, not the rail) | ≤ 120 | `@Size(120)` | toast + autosave |
 | ☐ People chips | ≤ 50 items, no item length | ≤ 50 × 160/500 | toast |
 | ☐ People: file selected | everyone loaded | 1–25 | toast |
 
