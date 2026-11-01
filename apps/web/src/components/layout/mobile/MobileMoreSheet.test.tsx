@@ -51,45 +51,6 @@ describe("MobileMoreSheet", () => {
     expect(within(panel).getByRole("link", { name: "My positions" })).toHaveAttribute("href", "/");
   });
 
-  it("lists a section's views under it, the one on show marked in place of the section", () => {
-    render(
-      <MemoryRouter initialEntries={["/projects/p1/strategy?mode=people"]}>
-        <MobileMoreSheet
-          open
-          onClose={vi.fn()}
-          title="Group CFO"
-          groups={[
-            {
-              label: "Position",
-              items: [
-                {
-                  to: "/projects/p1/strategy",
-                  label: "Strategy",
-                  icon: ICONS.strategy,
-                  children: [
-                    { key: "companies", to: "/projects/p1/strategy", label: "Companies", icon: ICONS.building, active: false },
-                    {
-                      key: "people",
-                      to: "/projects/p1/strategy?mode=people",
-                      label: "People",
-                      icon: ICONS.candidates,
-                      active: true,
-                    },
-                  ],
-                },
-              ],
-            },
-          ]}
-        />
-      </MemoryRouter>,
-    );
-
-    const position = screen.getByRole("region", { name: "Position" });
-    expect(within(position).getByRole("link", { name: "People" })).toHaveAttribute("aria-current", "page");
-    expect(within(position).getByRole("link", { name: "Companies" })).not.toHaveAttribute("aria-current");
-    expect(within(position).getByRole("link", { name: "Strategy" })).not.toHaveAttribute("aria-current", "page");
-  });
-
   it("closes once a screen is chosen", async () => {
     const onClose = renderSheet();
 

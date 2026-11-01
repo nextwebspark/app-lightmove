@@ -1,25 +1,14 @@
-import type { ReactNode } from "react";
-import { SegmentedControl } from "../../../components/ui/SegmentedControl";
+import { ICONS } from "../../../components/layout/Icon";
+import { ToolbarViewSwitch, type ToolbarView } from "../../../components/ui/Toolbar";
 
 export type StrategyMode = "companies" | "people";
 
-/** The mode switch, drawn by whichever editor shows it, which knows whether it is in full screen. */
-export type ModeToggle = (isFullscreen: boolean) => ReactNode;
-
-const MODES = [
-  { value: "companies", label: "Companies" },
-  { value: "people", label: "People" },
-] as const satisfies readonly { value: StrategyMode; label: string }[];
+const MODES: readonly ToolbarView<StrategyMode>[] = [
+  { value: "companies", label: "Companies", icon: ICONS.globe },
+  { value: "people", label: "People", icon: ICONS.candidates },
+];
 
 /** Strategy's two questions: companies in the universe we hold, or people in ContactOut's index. */
-export function StrategyModeToggle({
-  mode,
-  onChange,
-  className,
-}: {
-  mode: StrategyMode;
-  onChange: (mode: StrategyMode) => void;
-  className?: string;
-}) {
-  return <SegmentedControl label="Search for" options={MODES} value={mode} onChange={onChange} className={className} />;
+export function StrategyModeToggle({ mode, onChange }: { mode: StrategyMode; onChange: (mode: StrategyMode) => void }) {
+  return <ToolbarViewSwitch label="Search for" views={MODES} value={mode} onChange={onChange} />;
 }

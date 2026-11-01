@@ -28,9 +28,12 @@ import app.lightmove.api.triagecompany.dto.TriageBulkAddResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.dto.UpdateTriageCompanyRequest;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
+import app.lightmove.api.triagecompany.model.FiledCompany;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyCapturedEvent;
 import app.lightmove.api.triagecompany.model.TriageCompanyMoved;
+import app.lightmove.api.triagecompany.model.TriageCompanyRemoved;
+import app.lightmove.api.triagecompany.model.TriageCompanyWorked;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,7 +47,6 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,6 +79,7 @@ public class TriageCompanyService {
     private final ApplicationEventPublisher events;
     private final CompanyNoteService companyNotes;
     private final ProjectStreamPublisher stream;
+    private final MappedExecutiveLookup executives;
     private final LightMoveProperties properties;
 
     /**
@@ -116,6 +119,7 @@ public class TriageCompanyService {
         // sent with it is still filed, rather than lost.
         Optional<TriageCompany> held = triaged.findByProjectIdAndApolloAccountId(projectId, accountId);
         if (held.isPresent()) {
+            events.publishEvent(new TriageCompanyWorked(projectId, held.get().getId()));
             companyNotes.fileFromDoor(workspaceId, held.get(), userId, request.note(), httpRequest);
             return TriageCompanyResponseMapper.toDto(held.get());
         }
@@ -164,6 +168,7 @@ public class TriageCompanyService {
                 request.website(), request.companyLinkedinUrl(), request.foundedYear(),
                 request.shortDescription(), null, request.sourceUrl(), request.note());
 
+        writer.holdCaptureOf(projectId, details.companyName());
         if (triaged.existsByProjectIdAndCompanyNameIgnoreCase(projectId, details.companyName())) {
             throw ApiException.of(ErrorCode.TRIAGE_COMPANY_ALREADY_HELD);
         }
@@ -211,12 +216,24 @@ public class TriageCompanyService {
     @Transactional
     public TriageCompanyResponse captureFromResearch(UUID projectId, UUID addedBy, CapturedCompanyDetails details,
                                                      TriageCompanySource source, TriageCompanyStatus status) {
+        return fileFromResearch(projectId, addedBy, details, source, status).company();
+    }
+
+    /** {@link #captureFromResearch}, answering too whether this filing put the row there. */
+    @Transactional
+    public FiledCompany fileFromResearch(UUID projectId, UUID addedBy, CapturedCompanyDetails details,
+                                         TriageCompanySource source) {
+        return fileFromResearch(projectId, addedBy, details, source, TriageCompanyStatus.IN_UNIVERSE);
+    }
+
+    private FiledCompany fileFromResearch(UUID projectId, UUID addedBy, CapturedCompanyDetails details,
+                                          TriageCompanySource source, TriageCompanyStatus status) {
         ResolvedCapture resolved = resolveCapture(projectId, addedBy, details, source, status);
         resolved.company().unflagNoExecutiveFound();
         if (resolved.created()) {
             announceForResearch(resolved.company(), projectId);
         }
-        return TriageCompanyResponseMapper.toDto(resolved.company());
+        return new FiledCompany(TriageCompanyResponseMapper.toDto(resolved.company()), resolved.created());
     }
 
     /** Files the assistant's researched company card. False when the mandate already held it. */
@@ -289,6 +306,7 @@ public class TriageCompanyService {
                             .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND)), inserted > 0);
         }
 
+        writer.holdCaptureOf(projectId, details.companyName());
         List<TriageCompany> heldByName =
                 triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, details.companyName());
         if (!heldByName.isEmpty()) {
@@ -321,23 +339,11 @@ public class TriageCompanyService {
                 .orElseThrow();
     }
 
-    /**
-     * Answers with the winner's row when a concurrent capture got there first: two enrichment workers
-     * both pass the held-check, and V34's index refusing the loser would fail its whole enrichment.
-     */
+    /** The caller holds {@link TriageCompanyWriter#holdCaptureOf}: a collision here cannot be caught and recovered. */
     private ResolvedCapture saveCaptured(UUID projectId, UUID addedBy, TriageCompanySource source,
                                          TriageCompanyStatus status, CapturedCompanyDetails details) {
-        try {
-            return new ResolvedCapture(triaged.saveAndFlush(
-                    TriageCompany.captured(projectId, addedBy, source, status, details)), true);
-        } catch (DataIntegrityViolationException lostTheRace) {
-            List<TriageCompany> held =
-                    triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, details.companyName());
-            if (held.isEmpty()) {
-                throw lostTheRace;
-            }
-            return new ResolvedCapture(preferred(held), false);
-        }
+        return new ResolvedCapture(triaged.saveAndFlush(
+                TriageCompany.captured(projectId, addedBy, source, status, details)), true);
     }
 
     private void announceForResearch(TriageCompany company, UUID projectId) {
@@ -424,6 +430,7 @@ public class TriageCompanyService {
                                         HttpServletRequest httpRequest) {
         projects.requireInWorkspace(projectId, workspaceId);
         TriageCompany company = triaged.requireInProject(triageCompanyId, projectId);
+        events.publishEvent(new TriageCompanyWorked(projectId, triageCompanyId));
 
         if (request.status() != null) {
             TriageCompanyStatus status = TriageCompanyStatus.fromValue(request.status());
@@ -524,21 +531,66 @@ public class TriageCompanyService {
     }
 
     /**
-     * Drops the mandate's decision only; the universe row is ETL-owned and untouched. Unlike Declining
-     * it is not remembered — a later "Add all" may take the company back in.
+     * Drops the mandate's decision and everyone mapped at the company, on every stage; the people stay in the pool.
+     * Refused while more are mapped there than the caller warned about ({@code expectedExecutives}).
      */
     @Transactional
     public void removeFromProject(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
-                                  HttpServletRequest httpRequest) {
+                                  long expectedExecutives, HttpServletRequest httpRequest) {
         projects.requireInWorkspace(projectId, workspaceId);
-        TriageCompany company = triaged.requireInProject(triageCompanyId, projectId);
+        TriageCompany company = triaged.findForUpdate(triageCompanyId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
+        long executivesRemoved = executives.executivesAt(projectId, triageCompanyId);
+        if (executivesRemoved > expectedExecutives) {
+            throw ApiException.withProperty(ErrorCode.TRIAGE_COMPANY_HAS_EXECUTIVES, "count", executivesRemoved);
+        }
+        if (executivesRemoved > 0) {
+            events.publishEvent(new TriageCompanyRemoved(projectId, workspaceId, triageCompanyId, userId));
+            stream.publish(projectId, ProjectStreamKind.CANDIDATE_MOVED);
+        }
+        delete(company, executivesRemoved, userId, workspaceId, httpRequest);
+    }
+
+    /**
+     * Locks the company row before its executive's row goes: the order {@link #removeFromProject} takes them in, so a
+     * person's removal and their company's racing it wait for each other rather than deadlocking.
+     */
+    @Transactional
+    public void holdForRemoval(UUID projectId, UUID triageCompanyId) {
+        triaged.findForUpdate(triageCompanyId, projectId);
+    }
+
+    /**
+     * Removes a company filed for someone who has just been taken back off the mandate, unless anyone has worked it
+     * since: still In universe, nobody mapped there and no note on it. Never refuses; false leaves it as it is.
+     */
+    @Transactional
+    public boolean removeIfUntouched(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
+                                     HttpServletRequest httpRequest) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        Optional<TriageCompany> found = triaged.findForUpdate(triageCompanyId, projectId);
+        if (found.isEmpty()
+                || found.get().getStatus() != TriageCompanyStatus.IN_UNIVERSE
+                || executives.executivesAt(projectId, triageCompanyId) > 0
+                || companyNotes.countsOf(projectId, List.of(triageCompanyId)).containsKey(triageCompanyId)) {
+            return false;
+        }
+        delete(found.get(), 0, userId, workspaceId, httpRequest);
+        return true;
+    }
+
+    private void delete(TriageCompany company, long executivesRemoved, UUID userId, UUID workspaceId,
+                        HttpServletRequest httpRequest) {
+        UUID projectId = company.getProjectId();
         triaged.delete(company);
+        stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
 
         // The name, because the row carrying it is gone and a bare id answers nothing later.
         audit.projectEvent(ProjectEventType.TRIAGE_COMPANY_REMOVED, userId, workspaceId, projectId, httpRequest)
-                .detail("triageCompanyId", triageCompanyId.toString())
+                .detail("triageCompanyId", company.getId().toString())
                 .detail("companyName", company.getCompanyName())
+                .detail("executivesRemoved", String.valueOf(executivesRemoved))
                 .record();
     }
 

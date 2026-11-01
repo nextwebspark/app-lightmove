@@ -40,7 +40,11 @@ Who filed a company (`added_by`) is the staff grid's **Added by** column, the dr
 a client seat's (`addedBy*`, null outside a staff read, as `noteCount` is); the cell adds the executive's adder's face
 where someone else filed them, read from the candidates list's staff-only `addedBy` map beside the rows, never on
 `CandidateResponse`.
-Deleting one drops the project↔company row only — and its notes: the Apollo universe is read-only to the app. On top of
+Deleting one drops the project↔company row, its notes and everyone mapped at it on any stage (the persons stay in the
+pool) — after a warning that counts them, which the caller sends back as `expectedExecutives`; the server locks the
+company row (`FOR UPDATE`) and refuses when more are mapped than that (`TRIAGE_COMPANY_HAS_EXECUTIVES`), so nobody
+goes unannounced; removing a company's last executive offers to take the company too (`?withCompany=true`), and
+nobody is left behind with a name and no company. The Apollo universe is read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
 with three of them is three lines and one with none keeps its "Add executive" slot. The grid reads those lines whole —
@@ -56,7 +60,9 @@ captured by the plugin, through the same endpoint the drawer posts to (`source: 
 the position chosen at its top, asks first whether that position already holds the page (`GET …/candidates/held` by
 profile slug, `GET …/triage/held` by company page then name; staff-only, 204 when not) and then opens that record —
 status, tags and the position's notes, ready for the next — rather than a form; it writes its notes through the notes
-routes in the app's own editor (never the door's plain `note`), and files a company into the universe only.
+routes in the app's own editor (never the door's plain `note`), and files a company into the universe only. Its Undo
+says why when it leaves something: a person's takes the company filed for them (`?withFiledCompany=true`, V167) only
+while it is still In universe with nobody else at it and no note on it, and a company's is refused once anyone is mapped there.
 **Every executive is a workspace person first (V91, `docs/candidate-crm.md`)**: `app_lm_person` is the
 human — profile, background, package, contact ledger, research — owned by the workspace, and a mandate's
 `Candidate` row maps that person and keeps only the mandate's own status, custom-column values and
@@ -139,7 +145,8 @@ than guessing from this mandate's door.
 those routes: a People list the server searches (name, title, employer, an email; a plain scan per
 workspace, V33's reasoning), pages, sorts and narrows — quick views (owned by me, in an active position,
 in none) in the toolbar, then tags any/all/none, position, status, owner and country in a Strategy-style filter rail hidden until asked for — with a selection bar that adds people to
-a position as Identified (that position's `WORK_EXECUTE` too, since filing someone is work on it), tags
+a position as Identified (that position's `WORK_EXECUTE` too, since filing someone is work on it) under the employer their
+latest position recorded, filed into its universe as a plugin capture of someone known is, tags
 them, sets an owner or exports them (audited, `dataexport`); an Activity feed; and a drawer keyed by
 person id. V98 gives the person the team's own facts — an **owner** (a colleague; it changes nobody's
 access), **do not contact** (warns on every position and refuses a contact lookup,
@@ -192,30 +199,30 @@ out as Website and Company LinkedIn. It is `WORK_VIEW`, the gate that reads the 
 representative may take the mandate they can already read; unlike every other read it records an
 audit event, because a mandate leaving as a file is not the same act as reading a page of it. Past
 `lightmove.export.*` it refuses rather than truncating.
-**The Companies toolbar** (`Position.dc.html`) is one search box in every view, the view control (below `lg` and in full screen — the rail
-holds it otherwise), then Add to sequence and Send email (the drawer's composer, for anyone on the position) where
+**The Companies toolbar** (`Position.dc.html`) is the view switch, one search box in every view, then Add to sequence and Send email (the drawer's composer, for anyone on the position) where
 outreach is offered — greyed (`aria-disabled`, saying where it works) on the map and until something is ticked — and,
 on Table and Map only, Find executives filled, **Advanced ▾** (`AdvancedMenu`) and **Create ▾** (Add executive, Add
-company). The Pipeline's row is the search and the outreach pair alone.
+company). The Pipeline's row is the switch, the search and the outreach pair alone.
 Advanced ▾ holds the rest, by view: show/hide and manage columns on the table, the map's layers, Add to sequence again
 on the table, Import and Export. Strategy's toolbar and Outreach's header are the same row (`components/ui/Toolbar`:
-search first, the page's actions pushed right), Outreach's search in it. The search is matched by the server, the same
+the page's views, then the search, the page's actions pushed right), Outreach's search in it. The search is matched by the server, the same
 rule in every read (`search` on the triage list, its
 people reads, the export and the talent map, the pipeline's `q`): a company by name, place or industry, an executive
 by name, title, place or employer, and — only for a `WORK_EXECUTE` holder, decided server-side — the company's and
 the person's live notes readable from this position and the person's tags; a matching company keeps all its people.
-In universe reads as **Table | Map | Pipeline** (`?view=`; the rail's views under In universe, as Strategy's Companies |
-People and Outreach's Conversations | Sequences are under theirs — `Sidebar`'s `children`, from `lg`, with the page's
-own switch below it and in full screen, `useCompaniesViews` deciding what both offer). A view someone *chose* — a rail
-link or the switch, carrying `CHOSEN_VIEW_STATE` — is remembered per mandate; a link that only names one, a
+In universe reads as **Table | Map | Pipeline** (`?view=`), Strategy as Companies | People and Outreach as
+Conversations | Sequences — each the page's own `ToolbarViewSwitch`, first in its toolbar at every width and in full
+screen, one fixed width whether it holds two views or three so the search starts at the same place on all three; the
+rail is one row per page and nests nothing. `useCompaniesViews` decides what In universe offers. A view someone
+*chose* in the switch is remembered per mandate; a link that only names one, a
 notification's `?view=pipeline`, is a visit. **Pipeline** is the position's
 board by pipeline stage — the retired CRM Pipeline page, board only, every executive on the position whatever their
 Companies stage, staff only (`WORK_EXECUTE`); `/projects/{id}/pipeline` and its `?candidate=` links land there
 (`positionPipelinePath`). Its columns are the stages holding a status in process, the five seeded ones each with its
 mark (`stageMarkOf`); under them the **Out of process** band, resized from its grip, holds a cell per stage of whoever
 left at one of its ways out — a drop in a cell offers that stage's ways out alone — and a stage of ways out alone gets
-a cell of its own. A card's foot is its client-visibility eye and four actions: Log call (the numbers on the person's
-record first), Email, Add note and Schedule (Book a call, said why not where do not contact or no email stops it).
+a cell of its own. A card's foot is its client-visibility eye and four actions: Log call (straight into the call note composer),
+Email, Add note and Schedule (Book a call, said why not where do not contact or no email stops it).
 The In-universe page also reads as a **map**: the Map view (offered only
 where a Mapbox public token is configured) swaps the grid for a mapping panel (country → company →
 executives) beside a Mapbox globe, with a pin per company and
@@ -258,7 +265,7 @@ behind ContactOut (`PeopleSearchChain`, walked by `ChainedPeopleSearch`, the cac
 out of credits included — is searched on the dataset, and filed `enriched_by = BRIGHTDATA`; the run's
 outcome records the `source` that answered. Offered where the chosen index is configured
 (`provider: brightdata`, or a ContactOut key); a client seat sees none of it. **Strategy → People**
-(`enrichment/peoplesearch`, V93) is the sixth door: Companies | People under Strategy in the rail
+(`enrichment/peoplesearch`, V93) is the sixth door: Companies | People first in Strategy's toolbar
 (`?mode=people`, staff only) swaps the company filter for ContactOut's People Search filter —
 only parameters its API reference lists, the values its accepted-values sheet lists
 (`data/contactout-people-vocabulary.json`; the dashboard's Revenue, Gender and exclude lists have no
@@ -285,7 +292,8 @@ results read as a Table or as Cards (a per-viewer localStorage choice). The Loca
 two letters: countries, then LinkedIn's own spellings of where people on file live (`raw ->> 'city'`),
 then Mapbox, sent as `City, Country`. Saved searches carry a `kind`.
 The **Reports**
-tab is the mandate's talent mapping report (`GET /projects/{id}/report`): four chapters — mapping
+tab — **Dashboard** in the rail and the phone's bar, while the route and code keep `reports` — is the mandate's talent
+mapping report (`GET /projects/{id}/report`): four chapters — mapping
 progress, shape of the market, remuneration, diversity — aggregated live by `report` from the same
 rows, so nothing is stored and nothing goes stale. It reads one chapter at a time behind a numbered
 step rail, the chapter kept in the URL (`?chapter=`), and its mockup is the `reports` page of
@@ -504,8 +512,28 @@ Microsoft, Zoom) is connected through an OAuth app chosen per workspace in **Set
 (`WORKSPACE_MANAGE`, audited as an `integrations` section): Uncava's **shared** app
 (`lightmove.outreach.providers.*`; blank leaves it unoffered) or the workspace's **own**, its keys pasted by
 its admin. `ProviderCredentialsResolver` is the one read: no row is shared. An own app's client secret is
-**write-only** — stored only as `core/crypto` ciphertext, never returned by any read, and discarded when the
-workspace returns to the shared app. This is the epic's deliberate reversal of "never the provider's tokens":
+**write-only** — stored only as `core/crypto` ciphertext, never returned by any read but for its last four characters
+(V169 `secret_hint`, the identifier Google's console shows; none under 16 characters), and discarded when the
+workspace returns to the shared app. Its keys are held to the shape each provider issues (a Google client ID's
+suffix, Entra's GUIDs and directory, no whitespace in a secret — refused, never trimmed — an expiry for Microsoft
+alone, within 24 months) and **saved only once the provider accepts them**: Save and verify asks its token endpoint
+first, outside any transaction (`ProviderTokenClient.checkKeys` — Entra's app-only grant, or a code nobody issued at
+Google and Zoom), a refusal `INTEGRATION_KEYS_REFUSED` with the provider's code — at Entra only a refused client or an
+unknown directory; any other refusal there is no answer — and no answer `INTEGRATION_PROVIDER_UNREACHABLE`, both
+writing nothing; **Verify again** (`POST …/integrations/{provider}/verify`, audited) keeps the answer either way, ten
+checks a minute per workspace on each instance (`OwnAppKeyCheck`); and a refresh refusing the app records the same
+(`OwnAppKeyHealth`), so the card reads Keys refused unasked, cleared by the next refresh answered while one is on
+record. The screen is `Settings.dc.html`'s
+(`docs/integrations/settings-page-ux.md`): a closed card per provider with a status pill, the console's own order and
+field names for a first set-up, and a saved app as read-only rows — the secret masked to its hint, Replace, never
+revealed. A change of app is a change of who holds the tokens: a refresh token belongs to the
+client it was issued to, so every mailbox or Zoom account connected through the app being left (V168
+`app_client_id`, null read as the app until now) is withdrawn in the change's own transaction
+(`ReplacedAppConnections`, one bulk update so no versioned row fails the save, its Recall calendar let go,
+`connectionsWithdrawn` on the audit line), the screen naming how many first (`connectionsThroughApp`) — and, whatever
+the switch missed (a connect committing during it, the shared app's id rotated), `MailboxTokens` and `ZoomTokens`
+refuse at refresh a token issued to another app than the one resolved; new keys for the same app hand every existing
+Recall calendar the new ones once they commit (`ProviderAppKeysReplaced`). This is the epic's deliberate reversal of "never the provider's tokens":
 what the app now holds is held **encrypted** — Tink envelope encryption (a data key per value, wrapped by a
 key-encryption keyset from Secret Manager, `lightmove.crypto.keyset`, not Cloud KMS: a KMS round trip would sit
 in front of every send), bound to its workspace and purpose as associated data so a value copied elsewhere does
@@ -684,8 +712,8 @@ takes a thread from the run in it.
 `Outreach.dc.html`'s three panes — `ConversationListPane`, `ConversationPane` (history and `ReplyComposer`) and
 `CandidateDetailsPane` — with `?view=&who=&q=&candidate=` in the URL; it lands on everyone (All, Team) and opens
 the top conversation where the list leaves room (the list alone on a phone), the tabs being chips in the list (All · To do · Scheduled · Sent). `OutreachHeader` is
-the same frame for Conversations and Sequences (`…/outreach/sequences` and the sequence editor under it, the rail's views
-under Outreach), the mailbox chip (`MailboxChip`;
+the same frame for Conversations and Sequences (`…/outreach/sequences` and the sequence editor under it, its switch first),
+the mailbox chip (`MailboxChip`;
 `lib/mailboxState.ts` is the one reading the banner, chip, setup card and composer share) and the view's action —
 New email (anyone on the position) or New sequence. The executive drawer offers Write email (the same composer in
 `EmailComposerDialog`) beside Add to sequence. The conversation read gained `contact` and `composer`
@@ -1000,8 +1028,9 @@ nullable and `source` records which door the row came through (V34).
 `app_lm_companies` is the retired brightdata copy — nothing reads it, nothing refills it, and it is
 left in place rather than dropped. A mandate's whole filter is one `jsonb` column on `app_lm_strategy`
 (V30 explains why). `app_lm_project_candidate` (V36) is the people half: `project_id` is the mapping and
-`triage_company_id` is nullable with **ON DELETE SET NULL** beside a snapshotted `company_name`, so
-removing a company from a mandate unmaps its executives rather than deleting them. Since V91 it maps a
+`triage_company_id` is nullable with **ON DELETE SET NULL** beside a snapshotted `company_name`; removing a
+company now takes its executives with it (`CompanyRemovalFollower`), and V166 put back under their company, at
+their own stage, the people an earlier removal, or a name-only Add to position, had stranded. Since V91 it maps a
 `person_id` — `app_lm_person`, tenant data scoped by `workspace_id`, holding the profile (career history
 and languages one `profile` jsonb column for V30's reasons), background, package and research — once
 per mandate (`app_lm_project_candidate_person_uk`). V91's backfill folded existing rows into one person
@@ -1384,6 +1413,16 @@ over `app.workspace_id`, set on every connection checkout by `TenantAwareDataSou
 through their person, and `app_lm_project_candidate` / `app_lm_project_triage_company` gain their project's
 `workspace_id` (filled by trigger, held by a composite key). Flyway's own session sets `app.rls_maintenance` until
 #256; the runtime role must be no superuser and no `BYPASSRLS`, or `RowLevelSecurityPosture` refuses the boot.
+V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
+mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
+could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a
+Google or Zoom row, since only Entra's expire.
+V169 gives `app_lm_workspace_mail_integration` the saved app's read-only facts: `secret_hint` (the last four),
+`secret_saved_at`/`secret_saved_by`, and `keys_checked_at`/`keys_refused_with` (the provider's last answer, its code
+when it refused) — all null on a shared row (CHECK). No backfill: no SQL can read the ciphertext, so an older
+secret's hint is read from it at runtime and never written back.
+V167 adds `app_lm_project_candidate.company_filed_for_them`: their company was filed for them (research, or the
+employer the workspace knew them at) rather than already held, cleared by any move; only the plugin's Undo reads it.
 V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage
 alike: whoever holds a flagged status sits in the board's Out of process band, skipped and stopped by outreach (`LEFT_THE_RUNNING`),
 moved by no automation and left out of the projects list's Candidates and Engaged — whatever stage it sits under, so

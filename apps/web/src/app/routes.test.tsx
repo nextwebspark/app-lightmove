@@ -9,7 +9,6 @@ import * as authApi from "../features/auth/api/authApi";
 import * as clientsApi from "../features/clients/api/clientsApi";
 import * as consentApi from "../features/oauth/api/oauthConsentApi";
 import * as projectsApi from "../features/projects/api/projectsApi";
-import * as talentMapApi from "../features/talentmap/api/talentMapApi";
 import * as templateAdminApi from "../features/templates/api/templateAdminApi";
 import * as triageApi from "../features/triage/api/triageApi";
 import * as workspaceApi from "../features/workspace/api/workspaceApi";
@@ -28,10 +27,6 @@ vi.mock("../features/clients/api/clientsApi", async (importOriginal) => ({
 vi.mock("../features/triage/api/triageApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../features/triage/api/triageApi")>()),
   getTriageCounts: vi.fn(),
-}));
-vi.mock("../features/talentmap/api/talentMapApi", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../features/talentmap/api/talentMapApi")>()),
-  getTalentMapConfig: vi.fn(),
 }));
 vi.mock("../features/templates/api/templateAdminApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../features/templates/api/templateAdminApi")>()),
@@ -549,7 +544,7 @@ describe("routes — back from a position", () => {
   });
 });
 
-describe("routes — a position's views in the rail", () => {
+describe("routes — a position's rail", () => {
   const position = {
     id: "p1",
     clientId: "c1",
@@ -583,7 +578,6 @@ describe("routes — a position's views in the rail", () => {
     vi.mocked(clientsApi.clients).mockResolvedValue([]);
     vi.mocked(workspaceApi.members).mockResolvedValue([]);
     vi.mocked(projectsApi.projects).mockResolvedValue([position]);
-    vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue({ enabled: true, publicToken: "pk.test" });
   });
 
   const rail = async () => within(await screen.findByRole("navigation", { name: "Main" }));
@@ -597,56 +591,28 @@ describe("routes — a position's views in the rail", () => {
     expect(nav.queryByRole("link", { name: /Declined/ })).not.toBeInTheDocument();
   });
 
-  it("nests Strategy's, In universe's and Outreach's views for staff, each a link to its own reading", async () => {
+  it("lists each page once, Outreach under Engage and the report as Dashboard", async () => {
     renderAt("/projects/p1/team");
     const nav = await rail();
 
-    await userEvent.click(nav.getByRole("button", { name: "Strategy views" }));
-    const strategy = nav.getByRole("group", { name: "Strategy" });
-    expect(within(strategy).getByRole("link", { name: "People" })).toHaveAttribute("href", "/projects/p1/strategy?mode=people");
-
-    await userEvent.click(nav.getByRole("button", { name: "In universe views" }));
-    const universe = nav.getByRole("group", { name: "In universe" });
-    expect(await within(universe).findByRole("link", { name: "Map" })).toHaveAttribute(
-      "href",
-      "/projects/p1/companies/universe?view=map",
-    );
-    expect(within(universe).getByRole("link", { name: "Pipeline" })).toBeInTheDocument();
-
-    await userEvent.click(nav.getByRole("button", { name: "Outreach views" }));
-    expect(within(nav.getByRole("group", { name: "Outreach" })).getByRole("link", { name: "Sequences" })).toHaveAttribute(
-      "href",
-      "/projects/p1/outreach/sequences",
-    );
+    const [, ...pages] = nav.getAllByRole("link").map((link) => link.getAttribute("title"));
+    expect(pages).toEqual(["Brief", "Strategy", "In universe", "Outreach", "Dashboard", "Team & access"]);
+    expect(nav.getByText("Engage")).toBeInTheDocument();
   });
 
-  it("gives a client seat neither People nor the pipeline", async () => {
+  it("leaves Engage out for a client seat, which has nothing to do there", async () => {
     vi.mocked(authApi.me).mockResolvedValue(userWith(["CLIENT"]));
     renderAt("/projects/p1/team");
     const nav = await rail();
 
-    expect(nav.queryByRole("button", { name: "Strategy views" })).not.toBeInTheDocument();
-    await userEvent.click(await nav.findByRole("button", { name: "In universe views" }));
-    const universe = nav.getByRole("group", { name: "In universe" });
-    expect(await within(universe).findByRole("link", { name: "Map" })).toBeInTheDocument();
-    expect(within(universe).queryByRole("link", { name: "Pipeline" })).not.toBeInTheDocument();
+    expect(await nav.findByRole("link", { name: "Dashboard" })).toBeInTheDocument();
+    expect(nav.queryByText("Engage")).not.toBeInTheDocument();
   });
 
-  it("marks the view In universe opened on, the remembered one included", async () => {
-    localStorage.setItem("lm.companies.map.p1", JSON.stringify({ view: "map" }));
-    renderAt("/projects/p1/companies/universe");
-    const nav = await rail();
-
-    const universe = await nav.findByRole("group", { name: "In universe" });
-    expect(await within(universe).findByRole("link", { name: "Map" })).toHaveAttribute("aria-current", "page");
-  });
-
-  it("keeps Sequences marked inside the sequence editor", async () => {
+  it("marks Outreach inside the sequence editor", async () => {
     renderAt("/projects/p1/outreach/sequences/s1");
     const nav = await rail();
 
-    const outreach = await nav.findByRole("group", { name: "Outreach" });
-    expect(within(outreach).getByRole("link", { name: "Sequences" })).toHaveAttribute("aria-current", "page");
-    expect(within(outreach).getByRole("link", { name: "Conversations" })).not.toHaveAttribute("aria-current");
+    expect(await nav.findByRole("link", { name: "Outreach" })).toHaveAttribute("aria-current", "page");
   });
 });

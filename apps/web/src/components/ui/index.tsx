@@ -401,6 +401,7 @@ export type { SegmentedOption } from "./SegmentedControl";
 export {
   ToolbarDivider,
   ToolbarSearch,
+  ToolbarViewSwitch,
   TOOLBAR_COUNT,
   TOOLBAR_COUNT_ACCENT,
   TOOLBAR_GHOST,
@@ -409,3 +410,4 @@ export {
   TOOLBAR_PRIMARY,
   TOOLBAR_ROW,
 } from "./Toolbar";
+export type { ToolbarView, ToolbarViewDivider } from "./Toolbar";

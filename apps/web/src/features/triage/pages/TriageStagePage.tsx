@@ -9,7 +9,7 @@ import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { SelectionAction, SelectionActionBar } from "../../../components/ui/SelectionActionBar";
 import { useToast } from "../../../components/ui/Toast";
 import { cn } from "../../../lib/cn";
-import { messageFor } from "../../../lib/errorCodes";
+import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { useProjectRowsChanged } from "../../../lib/projectRows";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
@@ -18,6 +18,7 @@ import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import { sortableFieldsOf, useGridSort, type GridSort } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
+import { useExecutivesAtCompany } from "../../candidates/lib/useExecutivesAtCompany";
 import type { Candidate } from "../../candidates/api/types";
 import {
   CandidateDrawer,
@@ -67,7 +68,7 @@ import {
 import { awaitingResearch, type TriageCompanyRow } from "../lib/triageRows";
 import { OFFERED_TRIAGE_STAGES, offeredStageBySlug } from "../lib/triageStages";
 import { companiesOf } from "../lib/sourcingSummary";
-import { CHOSEN_VIEW_STATE, isChosenView, resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
+import { resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
 import { useCompanySelection } from "../lib/useCompanySelection";
 import { useExecutiveSourcing } from "../lib/useExecutiveSourcing";
 import { useProjectStream, type ProjectStreamKind } from "../../../lib/useProjectStream";
@@ -220,13 +221,6 @@ function TriageStage() {
   const requestedView = searchParams.get("view");
   const view = resolveCompaniesView(views, requestedView, mapPreferences.view);
   const isBoard = view === "pipeline";
-  // A chosen view is remembered once the page shows it, never while it is only the fallback of a map config still
-  // loading — and only on In universe, the one stage with views to remember.
-  const { state: locationState } = useLocation();
-  const viewChosen = isChosenView(locationState) && views.length > 1;
-  useEffect(() => {
-    if (viewChosen && requestedView === view && mapPreferences.view !== view) setMapPreferences({ view });
-  }, [viewChosen, requestedView, view, mapPreferences.view, setMapPreferences]);
   // A tick made on one reading of the stage must not ride silently into another.
   const [tickedInView, setTickedInView] = useState(view);
   if (tickedInView !== view) {
@@ -234,7 +228,9 @@ function TriageStage() {
     companySelection.clear();
     setPipelineSelection(new Set());
   }
+  // Only the switch remembers a view: a link that names one, a notification's opening the pipeline, is a visit.
   const handleViewChange = (next: CompaniesView) => {
+    setMapPreferences({ view: next });
     setSearchParams(
       (current) => {
         const params = new URLSearchParams(current);
@@ -245,7 +241,7 @@ function TriageStage() {
         params.delete("tab");
         return params;
       },
-      { replace: true, state: CHOSEN_VIEW_STATE },
+      { replace: true },
     );
   };
 
@@ -367,9 +363,9 @@ function TriageStage() {
     });
 
   /**
-   * Removing a company unmaps its people rather than deleting them, and adding one changes which
-   * people the grid should be asking about — so the two caches move together on every write, which
-   * is what {@link useProjectRowsChanged} is. The columns are not part of that and stay here: only
+   * Removing a company takes its people with it, and adding one changes which people the grid should
+   * be asking about — so the two caches move together on every write, which is what
+   * {@link useProjectRowsChanged} is. The columns are not part of that and stay here: only
    * an import defines one, and refreshing rows without their headers leaves the imported values in
    * columns the grid does not yet know how to render.
    */
@@ -609,13 +605,20 @@ function TriageStage() {
       : standing.candidates.map((candidate) => candidate.id);
   };
 
-  /** Who a removal leaves on the position with no company, read only while its dialog is open. */
-  const removalScope = { triageCompanyIds: pendingRemoval ? [pendingRemoval.id] : [] };
-  const peopleAtRemoval = useQuery({
-    queryKey: candidatesApi.CANDIDATES_KEY(project.id, removalScope),
-    queryFn: ({ signal }) => candidatesApi.getCandidates(project.id, removalScope, signal),
-    enabled: pendingRemoval !== null,
-  });
+  /** Who a company's removal takes with it, and whether a person's removal could take their company too. */
+  const executivesAtRemoval = useExecutivesAtCompany(project.id, pendingRemoval?.id ?? null);
+  const executivesAtCandidateCompany = useExecutivesAtCompany(
+    project.id,
+    pendingCandidateRemoval?.triageCompanyId ?? null,
+  );
+
+  /** Someone was mapped at the company after its count was read: read it again, so the dialog says who goes. */
+  const recountWhenRefused = (error: unknown) => {
+    if (codeOf(error) === "TRIAGE_COMPANY_HAS_EXECUTIVES") {
+      void queryClient.invalidateQueries({ queryKey: candidatesApi.CANDIDATES_KEY_PREFIX(project.id) });
+    }
+    toast.error(messageFor(error));
+  };
 
   /** One executive alone (#903): their company, and everyone else at it, stay where they stand. */
   const moveCandidate = useMutation({
@@ -641,14 +644,19 @@ function TriageStage() {
   });
 
   const remove = useMutation({
-    mutationFn: (company: TriageCompany) => triageApi.deleteTriageCompany(project.id, company.id),
-    onSuccess: (_result, company) => {
+    mutationFn: ({ company, executives }: { company: TriageCompany; executives: number }) =>
+      triageApi.deleteTriageCompany(project.id, company.id, { expectedExecutives: executives }),
+    onSuccess: (_result, { company, executives }) => {
       refreshEverything();
       setPendingRemoval(null);
-      toast(`${company.companyName} removed from this mandate`);
+      toast(
+        executives > 0
+          ? `${company.companyName} and ${executivesOf(executives)} removed from this mandate`
+          : `${company.companyName} removed from this mandate`,
+      );
     },
-    onError: (error) => toast.error(messageFor(error)),
-    onSettled: (_data, _error, company) => clearBusy(company.id),
+    onError: recountWhenRefused,
+    onSettled: (_data, _error, { company }) => clearBusy(company.id),
   });
 
   const exportCsv = useMutation({
@@ -661,15 +669,21 @@ function TriageStage() {
   });
 
   const removeCandidate = useMutation({
-    mutationFn: (candidate: Candidate) =>
-      candidatesApi.deleteCandidate(project.id, candidate.id),
-    onSuccess: (_result, candidate) => {
+    mutationFn: ({ candidate, withCompany }: { candidate: Candidate; withCompany: boolean }) =>
+      withCompany
+        ? candidatesApi.deleteCandidate(project.id, candidate.id, { withCompany })
+        : candidatesApi.deleteCandidate(project.id, candidate.id),
+    onSuccess: (_result, { candidate, withCompany }) => {
       refreshEverything();
       setPendingCandidateRemoval(null);
       setProfile(null);
-      toast(`${candidate.fullName} removed from this mandate`);
+      toast(
+        withCompany
+          ? `${candidate.fullName} and ${candidate.companyName} removed from this mandate`
+          : `${candidate.fullName} removed from this mandate`,
+      );
     },
-    onError: (error) => toast.error(messageFor(error)),
+    onError: recountWhenRefused,
   });
 
   // Loosened past `TriageCompany`: the add-executive panel holds only its company context, which is
@@ -838,7 +852,6 @@ function TriageStage() {
         views={views}
         view={view}
         onViewChange={handleViewChange}
-        isFullscreen={isFullscreen}
         addToSequence={addToSequenceOffered ? { onPress: enrolTicked, unavailable: toolbarEnrolUnavailable() } : undefined}
         sendEmail={
           emailOffered &&
@@ -1180,20 +1193,21 @@ function TriageStage() {
 
       <RemoveCompanyDialog
         company={pendingRemoval}
-        executiveCount={pendingRemoval ? peopleAtRemoval.data?.totalCount : undefined}
+        executiveCount={executivesAtRemoval}
         removing={remove.isPending}
         onCancel={() => setPendingRemoval(null)}
         onConfirm={(company) => {
           markBusy(company.id);
-          remove.mutate(company);
+          remove.mutate({ company, executives: executivesAtRemoval ?? 0 });
         }}
       />
 
       <RemoveCandidateDialog
         candidate={pendingCandidateRemoval}
+        soleAtCompany={executivesAtCandidateCompany === 1}
         removing={removeCandidate.isPending}
         onCancel={() => setPendingCandidateRemoval(null)}
-        onConfirm={(candidate) => removeCandidate.mutate(candidate)}
+        onConfirm={(candidate, { withCompany }) => removeCandidate.mutate({ candidate, withCompany })}
       />
     </div>
   );

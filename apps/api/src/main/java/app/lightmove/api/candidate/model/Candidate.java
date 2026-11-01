@@ -30,9 +30,9 @@ import org.hibernate.type.SqlTypes;
  * custom-column values and the AI assessment against its brief live here, so two mandates can disagree
  * about one executive while sharing everything true of them (V91).
  *
- * <p>{@code companyName} is a write-time snapshot that outlives the mapping. V36's
- * {@code ON DELETE SET NULL} is the other half of that pair: removing a company from a mandate must
- * not silently delete the people mapped at it.
+ * <p>{@code companyName} is a write-time snapshot: the employer of someone at no company of the mandate's, and the
+ * company's name for someone at one. Removing a company takes the people mapped at it after a warning
+ * ({@code CompanyRemovalFollower}), so V36's {@code ON DELETE SET NULL} no longer strands anyone.
  */
 @Entity
 @Table(name = "app_lm_project_candidate")
@@ -53,6 +53,10 @@ public class Candidate extends BaseEntity {
 
     @Column(name = "company_name")
     private String companyName;
+
+    /** Their company was filed into the universe for them rather than already held (V167); Undo of a capture takes it. */
+    @Column(name = "company_filed_for_them", nullable = false)
+    private boolean companyFiledForThem;
 
     /**
      * The Companies stage this person is listed under (V150): their company's when filed or remapped, then their
@@ -121,10 +125,9 @@ public class Candidate extends BaseEntity {
 
     /**
      * Someone the workspace already holds, added to a mandate from the Candidates page: at the catalog's
-     * starting status, by hand, at the employer they were last recorded at, and on none of the mandate's
-     * companies.
+     * starting status, by hand, and at no company until their employer is filed.
      */
-    public static Candidate mappedFromPool(UUID projectId, UUID addedBy, Person person, String employerName,
+    public static Candidate mappedFromPool(UUID projectId, UUID addedBy, Person person,
                                            CandidateStatusDefinition startingStatus) {
         Candidate candidate = new Candidate();
         candidate.projectId = projectId;
@@ -133,7 +136,6 @@ public class Candidate extends BaseEntity {
         candidate.source = CandidateSource.MANUAL;
         candidate.status = startingStatus;
         candidate.statusChangedAt = Instant.now();
-        candidate.companyName = employerName;
         return candidate;
     }
 
@@ -178,15 +180,25 @@ public class Candidate extends BaseEntity {
     public void remapTo(UUID newTriageCompanyId, TriageCompanyStatus newCompanyStatus) {
         if (!Objects.equals(triageCompanyId, newTriageCompanyId)) {
             this.triageStatus = newCompanyStatus;
+            this.companyFiledForThem = false;
         }
         this.triageCompanyId = newTriageCompanyId;
     }
 
-    /** Research resolved the employer into one of the mandate's companies — map, snapshot and stage it. */
+    /**
+     * Research resolved the employer into one of the mandate's companies — map, snapshot and stage it.
+     * {@code filedForThem} when that company was filed for this person rather than already held.
+     */
     public void employBy(UUID resolvedTriageCompanyId, String resolvedEmployerName,
-                         TriageCompanyStatus resolvedCompanyStatus) {
+                         TriageCompanyStatus resolvedCompanyStatus, boolean filedForThem) {
         remapTo(resolvedTriageCompanyId, resolvedCompanyStatus);
         this.companyName = resolvedEmployerName;
+        this.companyFiledForThem = filedForThem;
+    }
+
+    /** Someone chose their company on its own account, so taking them back off the mandate leaves it. */
+    public void keepCompany() {
+        this.companyFiledForThem = false;
     }
 
     /** Answers whether anything changed. Only this person moves; their company and its other people stay. */

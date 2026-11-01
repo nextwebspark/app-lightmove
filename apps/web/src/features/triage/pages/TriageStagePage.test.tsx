@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Link, MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import { AuthProvider } from "../../auth/AuthProvider";
@@ -14,7 +14,6 @@ import type { Compensation } from "../../position/api/types";
 import type { Project } from "../../projects/api/types";
 import * as companiesApi from "../../strategy/api/companiesApi";
 import * as talentMapApi from "../../talentmap/api/talentMapApi";
-import { CHOSEN_VIEW_STATE } from "../lib/useCompaniesViews";
 import type { TalentMapPage } from "../../talentmap/api/types";
 import type { CompanyResult, Facets } from "../../strategy/api/types";
 import * as exportApi from "../api/exportApi";
@@ -961,22 +960,30 @@ describe("TriageStagePage", () => {
     expect(triageApi.deleteTriageCompany).not.toHaveBeenCalled();
 
     await userEvent.click(within(dialog).getByRole("button", { name: /Remove from mandate/i }));
-    await waitFor(() => expect(triageApi.deleteTriageCompany).toHaveBeenCalledWith("p1", "u1"));
+    await waitFor(() =>
+      expect(triageApi.deleteTriageCompany).toHaveBeenCalledWith("p1", "u1", { expectedExecutives: 0 }),
+    );
   });
 
-  it("says how many executives a removal leaves on the position with no company", async () => {
+  it("warns that a company's executives, on any stage, go with it, and says so to the server", async () => {
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
       peopleOf(scope.query === undefined && !scope.unmapped && !scope.triageStatus
         ? [yasmin, { ...yasmin, id: "c2", fullName: "Omar Haddad", triageStatus: "declined" }]
         : []),
     );
+    vi.mocked(triageApi.deleteTriageCompany).mockResolvedValue(undefined);
     renderStage();
 
     await screen.findByText("ACWA Power");
     await userEvent.click(screen.getByRole("button", { name: /Remove ACWA Power from this mandate/i }));
 
     const dialog = await screen.findByRole("dialog");
-    expect(await within(dialog).findByText("Its 2 executives stay on this position, with no company.")).toBeInTheDocument();
+    expect(await within(dialog).findByText(/ACWA Power has 2 executives\. Removing the company removes all of them/))
+      .toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: /Remove from mandate/i }));
+    await waitFor(() =>
+      expect(triageApi.deleteTriageCompany).toHaveBeenCalledWith("p1", "u1", { expectedExecutives: 2 }),
+    );
   });
 
   it("takes a company the market already carries by its universe id", async () => {
@@ -1383,6 +1390,27 @@ describe("TriageStagePage", () => {
 
     await waitFor(() => expect(candidatesApi.deleteCandidate).toHaveBeenCalledWith("p1", yasmin.id));
     expect(triageApi.deleteTriageCompany).not.toHaveBeenCalled();
+  });
+
+  it("offers to take the company with its only executive, and sends that only when ticked", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin]),
+    );
+    vi.mocked(candidatesApi.deleteCandidate).mockResolvedValue(undefined);
+    renderStage();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Remove Yasmin El-Sayed from this mandate/i }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: /Remove Yasmin El-Sayed/i });
+    const alsoCompany = await within(dialog).findByRole("checkbox", { name: /Also remove ACWA Power/i });
+    expect(alsoCompany).not.toBeChecked();
+    await userEvent.click(alsoCompany);
+    await userEvent.click(within(dialog).getByRole("button", { name: /Remove from mandate/i }));
+
+    await waitFor(() =>
+      expect(candidatesApi.deleteCandidate).toHaveBeenCalledWith("p1", yasmin.id, { withCompany: true }),
+    );
   });
 
   it("asks only for the people at the companies on this page", async () => {
@@ -1876,6 +1904,14 @@ describe("TriageStagePage", () => {
       expect(screen.queryByRole("radiogroup", { name: "View" })).not.toBeInTheDocument();
     });
 
+    it("draws the view switch first in the toolbar, before the search", async () => {
+      renderStage();
+
+      const views = await screen.findByRole("radiogroup", { name: "View" });
+      const search = screen.getByRole("searchbox", { name: /^Search companies/ });
+      expect(views.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
     it("keeps the grid when the deployment has no map", async () => {
       renderStage();
       await screen.findByText("ACWA Power");
@@ -1905,71 +1941,20 @@ describe("TriageStagePage", () => {
       expect(screen.getByRole("radio", { name: "Map" })).toHaveAttribute("aria-checked", "true");
     });
 
-    it("follows a view the address names from outside the page, as the rail's links do, and remembers it", async () => {
+    it("clears the ticks when the switch moves to another reading", async () => {
       vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
       // Ticking is offered beside Find executives.
       vi.mocked(sourcingApi.getSourcingConfig).mockResolvedValue({ ...SOURCING_OFF, enabled: true });
-      const railTree = (
-        <MemoryRouter initialEntries={["/projects/p1/companies/universe"]}>
-          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-            <AuthProvider>
-              <ToastProvider>
-                <Link to="/projects/p1/companies/universe?view=map" state={CHOSEN_VIEW_STATE}>
-                  Rail map
-                </Link>
-                <Link to="/projects/p1/companies/universe?view=table" state={CHOSEN_VIEW_STATE}>
-                  Rail table
-                </Link>
-                <Routes>
-                  <Route element={<Outlet context={{ project }} />}>
-                    <Route path="/projects/:projectId/companies/:stage" element={<TriageStagePage />} />
-                  </Route>
-                </Routes>
-              </ToastProvider>
-            </AuthProvider>
-          </QueryClientProvider>
-        </MemoryRouter>
-      );
-      const { unmount } = render(railTree);
+      renderStage();
       await userEvent.click(await screen.findByRole("checkbox", { name: "Select ACWA Power" }));
+      const views = () => within(screen.getByRole("radiogroup", { name: "View" }));
 
-      await userEvent.click(screen.getByRole("link", { name: "Rail map" }));
+      await userEvent.click(await views().findByRole("radio", { name: "Map" }));
       expect(await screen.findByRole("tree", { name: "Mapping" })).toBeInTheDocument();
-      await userEvent.click(screen.getByRole("link", { name: "Rail table" }));
+      await userEvent.click(views().getByRole("radio", { name: "Table" }));
+
       // A tick made on one reading of the stage does not ride into another.
       expect(await screen.findByRole("checkbox", { name: "Select ACWA Power" })).not.toBeChecked();
-      await userEvent.click(screen.getByRole("link", { name: "Rail map" }));
-      await screen.findByRole("tree", { name: "Mapping" });
-      unmount();
-
-      renderStage();
-      expect(await screen.findByRole("tree", { name: "Mapping" })).toBeInTheDocument();
-    });
-
-    it("remembers a chosen view the history entry still carries, as after a reload or Back", async () => {
-      vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
-      const { unmount } = render(
-        <MemoryRouter
-          initialEntries={[{ pathname: "/projects/p1/companies/universe", search: "?view=map", state: CHOSEN_VIEW_STATE }]}
-        >
-          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-            <AuthProvider>
-              <ToastProvider>
-                <Routes>
-                  <Route element={<Outlet context={{ project }} />}>
-                    <Route path="/projects/:projectId/companies/:stage" element={<TriageStagePage />} />
-                  </Route>
-                </Routes>
-              </ToastProvider>
-            </AuthProvider>
-          </QueryClientProvider>
-        </MemoryRouter>,
-      );
-      await screen.findByRole("tree", { name: "Mapping" });
-      unmount();
-
-      renderStage();
-      expect(await screen.findByRole("tree", { name: "Mapping" })).toBeInTheDocument();
     });
 
     it("opens a view a link only names, a notification's, without remembering it", async () => {
@@ -2232,16 +2217,6 @@ describe("TriageStagePage — full screen", () => {
     expect(screen.getByRole("textbox", { name: "Filter by company name" })).toBeInTheDocument();
     expect(within(grid).getByText("ACWA Power")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Full screen" })).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("keeps the toolbar's view switch beside the rail only in full screen, which covers the rail", async () => {
-    renderStage();
-    const views = await screen.findByRole("radiogroup", { name: "View" });
-    expect(views).toHaveClass("lg:hidden");
-
-    await userEvent.click(await screen.findByRole("button", { name: "Full screen" }));
-
-    expect(screen.getByRole("radiogroup", { name: "View" })).not.toHaveClass("lg:hidden");
   });
 
   it("collapses when the browser leaves full screen on its own", async () => {

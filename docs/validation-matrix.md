@@ -37,7 +37,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Signup password | 8+, a digit, ≤ 72 bytes | same; bytes in `PasswordPolicy` | field |
 | Signup terms | — | `@AssertTrue` | banner (was swallowed) |
 | ☐ Invite accept full name | 1–160, not trimmed | `@NotBlank @Size(160)` | banner |
-| ☐ Invite team rows | email per row, no cap | `List<@Valid InviteRequest>`, no cap | banner, row unnamed |
+| ☐ Invite team rows | email per row, an address listed once, no cap | `List<@Valid InviteRequest>`, no cap; no role is MEMBER; a repeat is one invitation; every row checked before any is sent | row (client), banner, row unnamed (server) |
 | ☐ Organisation name | trimmed 1–160, no `maxLength` | `@NotBlank @Size(160)` | banner |
 | Sign-in code (two-factor step) | six digits, spaces dropped; a recovery code instead is 16 Base32 characters, hyphens, spaces and case forgiven | `@NotBlank @Size(32)`; six digits within one 30-second step of now and after the last one used, or an unused recovery code; every refusal `MFA_CODE_INVALID`, counted towards the lock | banner |
 
@@ -60,13 +60,19 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Retiring a stage or status | asks first when anyone holds it or an automation points at it | a stage with live statuses needs `retireStatuses` (`PIPELINE_STAGE_NOT_EMPTY`); never the last live stage (`PIPELINE_STAGE_REQUIRED`), nor the last live status in process (`PIPELINE_STATUS_REQUIRED`) | toast |
 | Working hours (Meetings & email, Availability) | each day on or off, start and end from the half-hour picker (end may be 23:59), end after start, at least one day | each day once, on the half hour or ending 23:59, end after start, ≥ 1 day (`VALIDATION_FAILED` on `weeklyHours`) | inline + toast |
 | Daily email limit | whole number, 1 to the deployment's ceiling (workspace) or the workspace's (a consultant's) | 1..`max-daily-cap` for the workspace, 1..the workspace's for a consultant (`VALIDATION_FAILED` on `dailyEmailCap`) | inline + toast |
-| ☐ Own app secret / expiry | ≤ 2048, any date | `@Size(2048)`, any date | field |
+| Own app client ID (Settings → Integrations) | 1–255, `[A-Za-z0-9._-]`; Google ends in `.apps.googleusercontent.com`, Microsoft a GUID | the same (`@Size(255) @Pattern`, then `WorkspaceIntegrationService`) | field |
+| Own app tenant (Microsoft) | required; a GUID or a domain with a dot — never `common`, `organizations` or `consumers` | the same | field |
+| Own app secret | required in the set-up form and in Replace (the screen never sends a blank one); ≤ 2048; never trimmed, but any space, tab, line break, control or invisible format character (a zero-width space, a BOM) refused; for Microsoft a GUID (the Secret ID) refused | blank keeps the one held for the same client ID (an API caller's path; the screen no longer takes it); the rest the same, after `@Size(2048)` | field |
+| Own app secret expiry | Microsoft only, and required with every new secret; from the browser's today to 24 months out | a date sent for Google or Zoom refused; Microsoft's optional, held to UTC today..+24 months with a day's slack either side (the browser's day may differ), unless the same app keeps its secret and its date | field |
+| Own app keys, Save and verify / Verify again | — (the provider decides) | the provider's token endpoint is asked first, outside any transaction: a refusal is `INTEGRATION_KEYS_REFUSED` with the provider's code as `providerError`, no answer (or an Entra refusal not about the keys) `INTEGRATION_PROVIDER_UNREACHABLE`, past ten checks a minute per workspace on an instance `RATE_LIMITED`; none of them writes anything. Verify again keeps the answer either way | banner ("{Provider} refused these keys ({code}). Nothing was saved." / "… The saved secret is unchanged.") / toast |
 | ☐ Invitation role | always sent | not required (500 when absent) | — |
 
 ### Projects and clients
 | Field | Client | Server | Shown as |
 |---|---|---|---|
 | Position title | trimmed, ≤ 160 | `@NotBlank @Size(160)` | field |
+| New position: business unit / client | required; a new one ≤ 160; a database company already on the books is offered as that record, by company even when renamed | `clientId` or `newClient`, exactly one (`VALIDATION_FAILED` on `clientId`); a new one is made in the position's own write, so a refused position keeps none; a name or universe company already held is `CLIENT_ALREADY_EXISTS` with `clientId`, which the modal files under, an archived holder `CLIENT_NAME_ARCHIVED` / `CLIENT_COMPANY_ARCHIVED`; `newClient.customName` `@Size(160)` | field (length, none chosen), banner (archived) |
+| New client: company from the database | a company already on the books — by company even when renamed, or by name — wears the CLIENT badge and is refused | the same holders as above: `CLIENT_ALREADY_EXISTS` (`clientId`), `CLIENT_NAME_ARCHIVED`, `CLIENT_COMPANY_ARCHIVED` | toast |
 | Archive business unit / client: name typed back | as the position's; off while any of its positions is live, which it lists | `@NotBlank @Size(200)`; `ConfirmationName`; `CLIENT_HAS_LIVE_POSITIONS` (409, `positionIds`) | banner |
 | Archive position: title typed back | Archive stays off until it matches — case, spacing and dashes forgiven (`confirmationNameMatches`) | `@NotBlank @Size(200)`; `ConfirmationName`, same rule → `ARCHIVE_NAME_MISMATCH` (400) | banner |
 | Delivery / mapping target date | ordered | `ProjectTimeline` | field |

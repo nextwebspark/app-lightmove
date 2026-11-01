@@ -31,3 +31,8 @@ export function recordMicrosoftAdminConsent(tenantId: string, state: string): Pr
     body: { tenantId, state },
   });
 }
+
+/** Asks the provider whether the held keys still work. Answers the page either way: a refusal is `keysRefusedWith`. */
+export function verifyIntegration(provider: IntegrationProvider): Promise<WorkspaceIntegrations> {
+  return request<WorkspaceIntegrations>(`/workspace/integrations/${provider}/verify`, { method: "POST" });
+}

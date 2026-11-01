@@ -13,6 +13,7 @@ import {
   type ChoiceCardOption,
 } from "../../../components/ui";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { ApiRequestError } from "../../../lib/apiClient";
 import { cn } from "../../../lib/cn";
 import { codeOf } from "../../../lib/errorCodes";
 import { fieldErrorsFrom } from "../../../lib/formErrors";
@@ -26,7 +27,7 @@ import { RoleTitleCombobox } from "../../position/components/RoleTitleCombobox";
 import type { CompanySuggestion } from "../../strategy/api/types";
 import { useWorkspaceMode, useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as projectsApi from "../api/projectsApi";
-import type { ProjectType } from "../api/types";
+import type { NewClientPayload, ProjectType } from "../api/types";
 import {
   addDays,
   autoMappingTarget,
@@ -43,7 +44,7 @@ const MAX_POSITION_TITLE_LENGTH = 160;
 const MAX_BUSINESS_UNIT_NAME_LENGTH = 160;
 
 /** The inputs a rejected create can be attributed to. */
-type ProjectField = "businessUnit" | "positionTitle" | "deliveryDate" | "mappingTargetDate";
+type ProjectField = "businessUnit" | "positionTitle" | "startDate" | "deliveryDate" | "mappingTargetDate";
 
 const PROJECT_TYPE_OPTIONS: readonly ChoiceCardOption<ProjectType>[] = [
   {
@@ -126,31 +127,31 @@ export function NewProjectModal({
 
   const create = useMutation({
     mutationFn: async () => {
-      let resolvedClientId = lockedClientId || knownUnit?.id;
-      if (!resolvedClientId) {
-        try {
-          const payload = companyToFile
-            ? clientsApi.createClientPayloadFor({ source: "universe", company: companyToFile })
-            : { customName: unitName };
-          resolvedClientId = (await clientsApi.createClient(payload)).id;
-        } catch (clientError) {
-          if (codeOf(clientError) !== "CLIENT_ALREADY_EXISTS") throw clientError;
-          // The user meant that unit. Re-fetch rather than trust the prop — a colleague may have
-          // created it after this modal's list was cached.
-          const fresh = await clientsApi.clients();
-          const existing = fresh.find((c) => !c.archivedAt && c.name.toLowerCase() === unitName.toLowerCase());
-          if (!existing) throw clientError;
-          resolvedClientId = existing.id;
-        }
-      }
-      return projectsApi.createProject({
-        clientId: resolvedClientId,
+      const position = {
         positionTitle: positionTitle.trim(),
         projectType,
         startDate: startDate || undefined,
         deliveryDate: deliveryDate || undefined,
         mappingTargetDate: !isMapping && mappingTargetOverride ? mappingTargetOverride : undefined,
-      });
+      };
+      const heldClientId = lockedClientId || knownUnit?.id;
+      if (heldClientId) return projectsApi.createProject({ clientId: heldClientId, ...position });
+
+      const newClient: NewClientPayload = companyToFile
+        ? { company: { apolloAccountId: companyToFile.apolloAccountId }, sector: companyToFile.industry ?? undefined }
+        : { customName: unitName };
+      try {
+        // One write, so a position the server refuses takes the new unit with it. Two requests once left the unit
+        // behind whenever the position was refused after it.
+        return await projectsApi.createProject({ newClient, ...position });
+      } catch (refusal) {
+        if (codeOf(refusal) !== "CLIENT_ALREADY_EXISTS") throw refusal;
+        // The user meant that unit: one renamed since it was picked from the database, or one a colleague made
+        // after this modal's list was read.
+        const holderId = await holderIdOf(refusal, unitName);
+        if (!holderId) throw refusal;
+        return projectsApi.createProject({ clientId: holderId, ...position });
+      }
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
@@ -159,13 +160,13 @@ export function NewProjectModal({
       onClose();
     },
     onError: (mutationError) => {
-      // The unit may already exist even though the position was refused.
+      // A refusal can mean a colleague holds the name now; a fresh list files the next try under them.
       if (creatingClient) void queryClient.invalidateQueries({ queryKey: clientsApi.CLIENTS_KEY });
-      // Two requests can fail here — the inline business unit create and the position create — so both
-      // DTOs' field names are mapped onto the field that carries them.
       const { fields, formMessage } = fieldErrorsFrom(mutationError, {
-        customName: "businessUnit",
+        clientId: "businessUnit",
+        "newClient.customName": "businessUnit",
         positionTitle: "positionTitle",
+        startDate: "startDate",
         deliveryDate: "deliveryDate",
         mappingTargetDate: "mappingTargetDate",
       });
@@ -197,6 +198,7 @@ export function NewProjectModal({
   const handleStartDateChange = (isoDate: string) => {
     setStartDate(isoDate);
     setMappingTargetOverride("");
+    clearFieldError("startDate");
     clearFieldError("deliveryDate");
   };
   const handleDeliveryDateChange = (isoDate: string) => {
@@ -340,6 +342,7 @@ export function NewProjectModal({
       <Field
         label="Project start date"
         hint="Defaults to today. Edit if the position starts later or was kicked off earlier."
+        error={fieldErrors.startDate}
       >
         <DateInput value={startDate} onChange={handleStartDateChange} />
       </Field>
@@ -398,6 +401,16 @@ export function NewProjectModal({
 
     </Modal>
   );
+}
+
+/**
+ * The record a `CLIENT_ALREADY_EXISTS` names; failing that — two creates racing on the name answer without one — the
+ * live record of that name, re-read rather than taken from the prop the refusal just proved stale.
+ */
+async function holderIdOf(refusal: unknown, unitName: string): Promise<string | undefined> {
+  if (refusal instanceof ApiRequestError && refusal.problem.clientId) return refusal.problem.clientId;
+  const fresh = await clientsApi.clients();
+  return fresh.find((client) => !client.archivedAt && client.name.toLowerCase() === unitName.toLowerCase())?.id;
 }
 
 function MilestoneRow({

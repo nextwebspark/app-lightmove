@@ -22,18 +22,20 @@ export function CheckingPosition() {
   );
 }
 
+const REFUSAL_COPY: Record<string, string> = {
+  CANDIDATE_ALREADY_MAPPED:
+    "This position already has someone matching this profile — by their email, or their name at the same employer.",
+  TRIAGE_COMPANY_ALREADY_HELD: "This position already holds a company by that name.",
+  FORBIDDEN: "You are not on that position's team, so you cannot add to it.",
+  PIPELINE_STATUS_RETIRED: "Your workspace retired that status. Choose another one.",
+  TRIAGE_COMPANY_HAS_EXECUTIVES:
+    "Someone has been added at this company since, so it stays in the universe. Remove it in Uncava if it should go.",
+  CONFLICT: "This record changed while you were undoing, probably as its research landed. Try Undo again.",
+};
+
 /** A refusal the consultant can act on, rather than a generic apology. */
 export function RefusalNote({ refusal, projectId }: { refusal: CaptureRefusal; projectId?: string }) {
-  const explanation =
-    refusal.code === "CANDIDATE_ALREADY_MAPPED"
-      ? "This position already has someone matching this profile — by their email, or their name at the same employer."
-      : refusal.code === "TRIAGE_COMPANY_ALREADY_HELD"
-        ? "This position already holds a company by that name."
-        : refusal.code === "FORBIDDEN"
-          ? "You are not on that position's team, so you cannot add to it."
-          : refusal.code === "PIPELINE_STATUS_RETIRED"
-            ? "Your workspace retired that status. Choose another one."
-            : refusal.message;
+  const explanation = REFUSAL_COPY[refusal.code] ?? refusal.message;
 
   return (
     <div role="alert" className="rounded-[8px] border border-u-offlimits/30 bg-u-offlimits-tint px-2.5 py-2 text-[12px] leading-[1.5] text-u-offlimits">

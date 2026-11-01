@@ -179,6 +179,10 @@ public class User extends BaseEntity {
         this.passwordHash = newPasswordHash;
     }
 
+    public void discardPassword() {
+        this.passwordHash = null;
+    }
+
     public void attachLocalPassword(String passwordHash) {
         if (hasPassword()) {
             throw new IllegalStateException("User already has a password");

@@ -28,7 +28,7 @@ the pair of "already held?" lookups — staff-only, answering 204 when the posit
 | Notes | `…/candidates/{id}/notes[…]`, `…/triage/{id}/notes[…]` | the drawers' Notes tabs |
 | Tags | `GET|POST /candidate-tags`, `PUT|DELETE /candidates/{personId}/tags/{tagId}` | the Candidates page's tags |
 | The photo | `GET /projects/{id}/candidates/{candidateId}/photo` (as a data URL, through the worker) | the drawer's header |
-| Undo | `DELETE` on either row (and the note the capture filed) | the Companies grid's own remove |
+| Undo | `DELETE` on either row (and the note the capture filed, put back if the row stays); a person's with `?withFiledCompany=true`, taking the company filed for them while nobody has worked it; a refusal is shown on the record | the Companies grid's own remove |
 
 **A field the popup captures must already be a field the manual form captures.** Adding one is a change
 to both surfaces and a story of its own — never something the extension grows alone, or the two ways

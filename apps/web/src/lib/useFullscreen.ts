@@ -10,11 +10,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
  */
 export const FULLSCREEN_PANEL = "fixed inset-0 z-[96] bg-u-surface";
 
-/** A page's own switch the rail repeats from `lg`: hidden there, except in full screen, which covers the rail. */
-export function hiddenBesideRail(isFullscreen: boolean) {
-  return isFullscreen ? undefined : "lg:hidden";
-}
-
 /**
  * A screen that fills the window, and asks the browser to drop its own chrome as well.
  *

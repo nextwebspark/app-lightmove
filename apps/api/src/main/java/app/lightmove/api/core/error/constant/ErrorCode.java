@@ -89,6 +89,7 @@ public enum ErrorCode {
     MEMBER_LEADS_PROJECTS(HttpStatus.CONFLICT,
             "This member is the only lead on active projects. Hand those over first"),
 
+    /** Carries {@code clientId}: the live record holding the name, or the universe company, for the caller to reuse. */
     CLIENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "A client with this name already exists"),
 
     /** Carries {@code positionIds}: the live positions to archive first, never archived out from under. */
@@ -98,6 +99,9 @@ public enum ErrorCode {
 
     /** Kept apart from {@link #CLIENT_ALREADY_EXISTS}, whose caller reuses the record it names from the live list. */
     CLIENT_NAME_ARCHIVED(HttpStatus.CONFLICT, "An archived client has this name. Restore it instead"),
+
+    /** The universe company an archived record was picked as, whatever that record is called now. */
+    CLIENT_COMPANY_ARCHIVED(HttpStatus.CONFLICT, "An archived client is this company. Restore it instead"),
 
     PROJECT_LAST_LEAD(HttpStatus.CONFLICT, "A project must keep at least one lead"),
 
@@ -112,6 +116,10 @@ public enum ErrorCode {
     /** A market company's fields are the export's snapshot; editing them would make the Source badge lie. */
     TRIAGE_COMPANY_NOT_EDITABLE(HttpStatus.CONFLICT,
             "A company taken from the market cannot be edited"),
+
+    /** Removing a company takes everyone mapped at it; more are mapped than the caller warned about. */
+    TRIAGE_COMPANY_HAS_EXECUTIVES(HttpStatus.CONFLICT,
+            "Executives are mapped at this company; removing it would remove them too"),
 
     /**
      * Same name at the same company (or anywhere, for an employer outside the universe), or a LinkedIn
@@ -551,6 +559,13 @@ public enum ErrorCode {
 
     /** An approval for Uncava's shared app on a deployment that offers none at that provider. */
     INTEGRATION_SHARED_APP_UNAVAILABLE(HttpStatus.CONFLICT, "Uncava's shared app is not offered on this deployment"),
+
+    /** The provider refused an own app's keys when asked before saving them; {@code providerError} is its code. */
+    INTEGRATION_KEYS_REFUSED(HttpStatus.UNPROCESSABLE_CONTENT, "The provider refused these keys. Nothing was saved"),
+
+    /** The provider gave no answer about an own app's keys, or none about the keys, so nothing was saved or recorded. */
+    INTEGRATION_PROVIDER_UNREACHABLE(HttpStatus.BAD_GATEWAY,
+            "We couldn't get an answer from the provider about these keys. Try again in a moment"),
 
     /** A webhook delivery whose signature did not verify, or one this deployment is not set up to read. */
     MAILBOX_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),

@@ -7,9 +7,15 @@ package app.lightmove.api.outreach.model;
  *                         Stored encrypted and never logged; {@link #toString()} leaves it out.
  * @param replyTextGranted whether the person granted reading what is written into our threads; false for a Nylas
  *                         grant, whose reach a setting states instead.
+ * @param appClientId      the OAuth client our own gateway redeemed the sign-in through; null for a Nylas grant
  */
 public record GrantedMailbox(String grantId, String address, String provider, String refreshToken,
-                             boolean replyTextGranted) {
+                             boolean replyTextGranted, String appClientId) {
+
+    public GrantedMailbox(String grantId, String address, String provider, String refreshToken,
+                          boolean replyTextGranted) {
+        this(grantId, address, provider, refreshToken, replyTextGranted, null);
+    }
 
     public GrantedMailbox(String grantId, String address, String provider) {
         this(grantId, address, provider, null, false);
@@ -23,6 +29,6 @@ public record GrantedMailbox(String grantId, String address, String provider, St
     public String toString() {
         return "GrantedMailbox[grantId=" + grantId + ", address=" + address + ", provider=" + provider
                 + ", refreshToken=" + (refreshToken == null ? "null" : "<redacted>")
-                + ", replyTextGranted=" + replyTextGranted + "]";
+                + ", replyTextGranted=" + replyTextGranted + ", appClientId=" + appClientId + "]";
     }
 }

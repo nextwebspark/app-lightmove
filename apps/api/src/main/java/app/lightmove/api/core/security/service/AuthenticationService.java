@@ -168,7 +168,7 @@ public class AuthenticationService {
         String email = EmailAddressValidator.normalise(rawEmail);
         rateLimit.checkLogin(email, request);
 
-        Optional<User> found = users.findByEmail(email);
+        Optional<User> found = users.findByEmailForSignIn(email);
         if (found.isEmpty()) {
             throw refuseLogin(password, audit.event(AuthEventType.LOGIN_FAILED).failed().from(request)
                     .reason("no_such_user").detail("email", email));

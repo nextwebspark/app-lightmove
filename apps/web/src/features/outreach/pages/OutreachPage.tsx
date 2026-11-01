@@ -155,6 +155,7 @@ export function OutreachPage() {
       <OutreachHeader
         projectId={project.id}
         section="conversations"
+        searchFromLg={Boolean(candidateId)}
         search={
           <ToolbarSearch
             value={searchText}
@@ -162,7 +163,6 @@ export function OutreachPage() {
             label="Search people or emails"
             placeholder="Search people or emails…"
             maxLength={100}
-            className={candidateId ? "hidden lg:flex" : undefined}
           />
         }
         chip={

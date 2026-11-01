@@ -11,7 +11,6 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.text.service.ConfirmationName;
-import app.lightmove.api.core.text.service.WebsiteDomain;
 import app.lightmove.api.core.security.rbac.ProjectRole;
 import app.lightmove.api.project.constant.ClientListScope;
 import app.lightmove.api.project.constant.ClientRepStatus;
@@ -46,10 +45,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * The client registry. A DB-picked client's name and domain are resolved from the universe, never
- * trusted from the request; the case-insensitive unique index backs the create-time 409.
- */
+/** The client registry. A record is made by {@link ClientRegistrar}, which a new position also makes one through. */
 @Service
 @RequiredArgsConstructor
 public class ClientService {
@@ -59,6 +55,7 @@ public class ClientService {
     private final ClientRepresentativeRepository representatives;
     private final ApolloCompanyQueryService companies;
     private final ClientRepresentativeService representativeService;
+    private final ClientRegistrar registrar;
     private final ProjectService projectService;
     private final UserRepository users;
     private final AuditService audit;
@@ -118,18 +115,8 @@ public class ClientService {
     @Transactional
     public ClientListResponse create(UUID userId, UUID workspaceId, CreateClientRequest request,
                                      HttpServletRequest httpRequest) {
-        Client client = request.company() != null
-                ? fromUniverse(userId, workspaceId, request)
-                : fromCustom(userId, workspaceId, request);
-
-        refuseNameHeld(workspaceId, client.getName());
-        Client saved = clients.save(client);
-
-        audit.event(ProjectEventType.CLIENT_CREATED)
-                .actor(userId).workspace(workspaceId).target("client", saved.getId()).from(httpRequest)
-                .detail("name", saved.getName())
-                .detail("source", saved.getCompanySource() == null ? "custom" : "universe")
-                .record();
+        Client saved = registrar.register(userId, workspaceId, request.details());
+        registrar.recordCreated(userId, workspaceId, saved, httpRequest);
 
         RepresentativeResponse primaryContact = request.primaryContact() == null ? null
                 : representativeService.invite(userId, workspaceId, saved.getId(),
@@ -153,7 +140,7 @@ public class ClientService {
 
         String name = request.name().trim();
         if (!name.equalsIgnoreCase(client.getName())) {
-            refuseNameHeld(workspaceId, name);
+            registrar.refuseNameHeld(workspaceId, name);
         }
 
         client.applyDetails(name, request.sector(), request.hqCountry(), request.domain(),
@@ -248,34 +235,6 @@ public class ClientService {
         return projectService.listForClient(workspaceId, clientId).stream()
                 .map(ClientService::toMandate)
                 .toList();
-    }
-
-    private Client fromUniverse(UUID userId, UUID workspaceId, CreateClientRequest request) {
-        String accountId = request.company().apolloAccountId();
-        CompanyRow row = companies.byAccountIds(List.of(accountId)).stream().findFirst()
-                .orElseThrow(() -> ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                        "That company is no longer in the database"));
-        // Name, domain, city and logo are the universe's, not the request's; the domain is derived from
-        // the website the universe publishes.
-        String hqCountry = request.hqCountry() != null ? request.hqCountry() : row.companyCountry();
-        return Client.fromUniverse(workspaceId, accountId, row.companyName(), request.sector(),
-                hqCountry, row.companyCity(), WebsiteDomain.of(row.website()), row.logoUrl(), userId);
-    }
-
-    private Client fromCustom(UUID userId, UUID workspaceId, CreateClientRequest request) {
-        if (request.customName() == null || request.customName().isBlank()) {
-            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "Enter the company name");
-        }
-        return Client.custom(workspaceId, request.customName(), request.sector(), request.hqCountry(),
-                request.customDomain(), userId);
-    }
-
-    /** An archived holder is named apart: the caller offers to restore it rather than reuse it. */
-    private void refuseNameHeld(UUID workspaceId, String name) {
-        clients.findByWorkspaceIdAndNameIgnoreCase(workspaceId, name).ifPresent(holder -> {
-            throw ApiException.of(
-                    holder.isArchived() ? ErrorCode.CLIENT_NAME_ARCHIVED : ErrorCode.CLIENT_ALREADY_EXISTS);
-        });
     }
 
     /** Null-safe both ways: an immutable map answers a null key with an exception, not null. */

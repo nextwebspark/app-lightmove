@@ -170,8 +170,9 @@ public class TriageCompanyController {
     public void remove(@AuthenticationPrincipal AuthPrincipal principal,
                        @PathVariable UUID projectId,
                        @PathVariable UUID triageCompanyId,
+                       @RequestParam(defaultValue = "0") long expectedExecutives,
                        HttpServletRequest httpRequest) {
         triage.removeFromProject(principal.userId(), principal.requireWorkspaceId(), projectId,
-                triageCompanyId, httpRequest);
+                triageCompanyId, expectedExecutives, httpRequest);
     }
 }

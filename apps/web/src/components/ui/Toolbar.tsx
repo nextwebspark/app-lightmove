@@ -1,9 +1,11 @@
 import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
+import { SegmentedControl } from "./SegmentedControl";
 
 /**
  * The toolbar row Strategy, In universe and Outreach share (`Strategy.dc.html`, `Position.dc.html`,
- * `Outreach.dc.html`): search first, the page's own controls beside it, its actions pushed right.
+ * `Outreach.dc.html`): the page's view switch, the search, the page's own controls beside it, its actions pushed
+ * right.
  */
 export const TOOLBAR_ROW =
   "flex flex-none flex-wrap items-center gap-x-3 gap-y-2 border-b border-u-border bg-u-surface px-4 py-2.5";
@@ -39,8 +41,64 @@ export const TOOLBAR_COUNT =
 export const TOOLBAR_COUNT_ACCENT =
   "rounded-[4px] bg-u-accent-tint px-[5px] py-[2px] font-sans text-[10px] font-bold text-u-accent";
 
-export function ToolbarDivider() {
-  return <span aria-hidden="true" className="h-5 w-px flex-none bg-u-border" />;
+export function ToolbarDivider({ className }: { className?: string }) {
+  return <span aria-hidden="true" className={cn("h-5 w-px flex-none bg-u-border", className)} />;
+}
+
+/** Two "Conversations"-length views or three short ones; below `sm` the switch takes a line of its own. */
+const VIEW_SWITCH_WIDTH = "w-full sm:w-[272px]";
+
+/**
+ * Where the rule between a page's views and its search is drawn: from `sm`, from `lg` beside a search shown only
+ * there, or nowhere when no search follows. Never below `sm`, where the switch has its own line.
+ */
+export type ToolbarViewDivider = "sm" | "lg" | "none";
+
+const VIEW_DIVIDER_CLASS: Record<Exclude<ToolbarViewDivider, "none">, string> = {
+  sm: "hidden sm:block",
+  lg: "hidden lg:block",
+};
+
+export interface ToolbarView<TValue extends string> {
+  value: TValue;
+  label: string;
+  icon: string;
+}
+
+/**
+ * A page's views, first in its toolbar. One width on every page, whether it holds two views or three, so the search
+ * after it starts at the same place on Strategy, In universe and Outreach.
+ */
+export function ToolbarViewSwitch<TValue extends string>({
+  label,
+  views,
+  value,
+  onChange,
+  divider = "sm",
+}: {
+  label: string;
+  views: readonly ToolbarView<TValue>[];
+  value: TValue;
+  onChange: (value: TValue) => void;
+  divider?: ToolbarViewDivider;
+}) {
+  return (
+    <>
+      <SegmentedControl
+        label={label}
+        options={views.map((view) => ({
+          value: view.value,
+          label: view.label,
+          icon: <Icon d={view.icon} size={13} className="flex-none" />,
+        }))}
+        value={value}
+        onChange={onChange}
+        fill
+        className={VIEW_SWITCH_WIDTH}
+      />
+      {divider !== "none" && <ToolbarDivider className={VIEW_DIVIDER_CLASS[divider]} />}
+    </>
+  );
 }
 
 export function ToolbarSearch({

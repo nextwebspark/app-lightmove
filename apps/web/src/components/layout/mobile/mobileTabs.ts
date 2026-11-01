@@ -32,6 +32,6 @@ export function positionTabs(projectId: string, isStaff: boolean): MobileTab[] {
     : [
         { to: base, label: "Brief", icon: ICONS.position, end: true },
         companies,
-        { to: `${base}/reports`, label: "Reports", icon: ICONS.reports },
+        { to: `${base}/reports`, label: "Dashboard", icon: ICONS.dashboard },
       ];
 }

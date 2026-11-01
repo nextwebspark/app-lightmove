@@ -43,6 +43,7 @@ export type ApiErrorCode =
   | "BULK_ADD_SCOPE_TOO_LARGE"
   | "TRIAGE_COMPANY_ALREADY_HELD"
   | "TRIAGE_COMPANY_NOT_EDITABLE"
+  | "TRIAGE_COMPANY_HAS_EXECUTIVES"
   | "CANDIDATE_ALREADY_MAPPED"
   | "CANDIDATE_POSSIBLE_DUPLICATE"
   | "CANDIDATE_KEYS_NAME_ANOTHER"
@@ -113,6 +114,8 @@ export type ApiErrorCode =
   | "ZOOM_CONNECT_FAILED"
   | "INTEGRATION_ENCRYPTION_UNAVAILABLE"
   | "INTEGRATION_SHARED_APP_UNAVAILABLE"
+  | "INTEGRATION_KEYS_REFUSED"
+  | "INTEGRATION_PROVIDER_UNREACHABLE"
   | "MAILBOX_PROVIDER_UNSUPPORTED"
   | "MAILBOX_NOT_CONNECTED"
   | "MAILBOX_RECONNECT_NEEDED"
@@ -173,6 +176,7 @@ export type ApiErrorCode =
   | "CLIENT_HAS_LIVE_POSITIONS"
   | "CLIENT_ARCHIVED"
   | "CLIENT_NAME_ARCHIVED"
+  | "CLIENT_COMPANY_ARCHIVED"
   | "PROJECT_ARCHIVED"
   | "TEMPLATE_STALE"
   | "TEMPLATE_FALLBACK_REQUIRED"
@@ -212,6 +216,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CLIENT_HAS_LIVE_POSITIONS: "Some of its positions are still open. Their leads archive them first.",
   CLIENT_ARCHIVED: "That one is archived. Restore it before opening a position under it.",
   CLIENT_NAME_ARCHIVED: "An archived record already has that name. Restore it instead.",
+  CLIENT_COMPANY_ARCHIVED: "An archived record is already that company. Restore it instead.",
   FORBIDDEN: "You don't have permission to do this.",
   API_KEY_NOT_FOUND: "That key no longer exists. Reload to see the current list.",
   API_KEY_LIMIT_REACHED: "You have the most API keys allowed. Revoke one you no longer use.",
@@ -303,6 +308,9 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   ZOOM_CONNECT_FAILED: "Zoom could not be connected. Try again.",
   INTEGRATION_ENCRYPTION_UNAVAILABLE: "Your own app's keys can't be stored for your workspace yet. Use the shared app for now, or contact Uncava support.",
   INTEGRATION_SHARED_APP_UNAVAILABLE: "Uncava's shared app isn't available for this provider yet. Use your own app instead.",
+  INTEGRATION_KEYS_REFUSED: "The provider refused these keys. Nothing was saved.",
+  INTEGRATION_PROVIDER_UNREACHABLE:
+    "We couldn't get an answer from the provider about these keys. Nothing was saved — try again in a moment.",
   MAILBOX_PROVIDER_UNSUPPORTED: "That kind of mailbox can't be connected.",
   MAILBOX_NOT_CONNECTED: "Connect your mailbox first.",
   MAILBOX_RECONNECT_NEEDED: "Your mailbox needs reconnecting before it can send.",
@@ -353,6 +361,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   NOT_A_MEMBER: "That workspace isn't available to you any more.",
   NOT_FOUND: "That item no longer exists. Reload to see the latest.",
   TRIAGE_COMPANY_ALREADY_HELD: "This position already has a company with that name.",
+  TRIAGE_COMPANY_HAS_EXECUTIVES:
+    "Executives are mapped at this company, so nothing was removed. Check who is there, then try again.",
   IMPORT_FILE_UNREADABLE: "That file couldn't be read as a table. Check it has a header row, then try again.",
   MAILBOX_CONNECT_CANCELLED: "Your mailbox was not connected.",
   OUTREACH_BOOKING_LINK_UNAVAILABLE:

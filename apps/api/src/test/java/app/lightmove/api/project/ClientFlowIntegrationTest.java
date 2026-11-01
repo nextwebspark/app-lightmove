@@ -54,6 +54,87 @@ class ClientFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.hqCountry").value("Saudi Arabia"));
     }
 
+    // Refused on the name alone, a record renamed since it was picked left its company free to be picked again.
+    @Test
+    @DisplayName("a universe company already on the books is refused naming its record, whatever that record is called now")
+    void universeCompanyIsFiledOnce() throws Exception {
+        String admin = adminOf("Client Company Once Firm");
+        universe.company("a1", "Aramco").country("KSA").city("Dhahran").employees(10).insert();
+        String clientId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"company":{"apolloAccountId":"a1"}}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.apolloAccountId").value("a1"))
+                .andReturn()).get("id").asText();
+        mvc.perform(patch("/api/v1/clients/" + clientId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Saudi Aramco Group"}"""))
+                .andExpect(status().isOk());
+
+        MvcResult fromTheRegistry = mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"company":{"apolloAccountId":"a1"}}"""))
+                .andExpect(status().isConflict())
+                .andReturn();
+        assertThat(codeOf(fromTheRegistry)).isEqualTo("CLIENT_ALREADY_EXISTS");
+        assertThat(body(fromTheRegistry).get("clientId").asText()).isEqualTo(clientId);
+
+        MvcResult withAPosition = mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"newClient":{"company":{"apolloAccountId":"a1"}},"positionTitle":"CFO"}"""))
+                .andExpect(status().isConflict())
+                .andReturn();
+        assertThat(body(withAPosition).get("clientId").asText()).isEqualTo(clientId);
+
+        mvc.perform(get("/api/v1/clients").header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].name").value("Saudi Aramco Group"))
+                .andExpect(jsonPath("$[0].apolloAccountId").value("a1"));
+    }
+
+    @Test
+    @DisplayName("a universe company an archived record was picked as is refused, to be restored rather than filed again")
+    void archivedUniverseCompanyIsRestoredNotRefiled() throws Exception {
+        String admin = adminOf("Client Company Archived Firm");
+        universe.company("a2", "Agthia").country("UAE").city("Abu Dhabi").employees(10).insert();
+        String clientId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"company":{"apolloAccountId":"a2"}}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        mvc.perform(patch("/api/v1/clients/" + clientId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Agthia Holdings"}"""))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/clients/" + clientId + "/archive")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"confirmName":"Agthia Holdings"}"""))
+                .andExpect(status().isOk());
+
+        MvcResult refused = mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"company":{"apolloAccountId":"a2"}}"""))
+                .andExpect(status().isConflict())
+                .andReturn();
+        assertThat(codeOf(refused)).isEqualTo("CLIENT_COMPANY_ARCHIVED");
+    }
+
     @Test
     @DisplayName("a custom client is created with an empty mandate count and no contacts")
     void createHappyPath() throws Exception {

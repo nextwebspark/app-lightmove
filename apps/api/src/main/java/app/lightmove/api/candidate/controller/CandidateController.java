@@ -176,16 +176,22 @@ public class CandidateController {
                 principal.requireWorkspaceId(), projectId, candidateId, request, httpRequest);
     }
 
-    /** Removes this mandate's research on a person. Another mandate's row about them is untouched. */
+    /**
+     * Removes this mandate's research on a person, with {@code withCompany} the company they were the last one at,
+     * and with {@code withFiledCompany} (the plugin's Undo) the company filed for them while nobody has worked it.
+     * Another mandate's row about them is untouched.
+     */
     @DeleteMapping("/{candidateId}")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void remove(@AuthenticationPrincipal AuthPrincipal principal,
                        @PathVariable UUID projectId,
                        @PathVariable UUID candidateId,
+                       @RequestParam(defaultValue = "false") boolean withCompany,
+                       @RequestParam(defaultValue = "false") boolean withFiledCompany,
                        HttpServletRequest httpRequest) {
-        candidates.remove(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId,
-                httpRequest);
+        candidates.remove(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId, withCompany,
+                withFiledCompany, httpRequest);
     }
 
     private ProjectAudience audienceOf(AuthPrincipal principal, UUID projectId) {

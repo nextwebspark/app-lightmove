@@ -67,12 +67,14 @@
   </header>
 
   <div style="flex:1;min-height:0;display:flex;padding:0 14px 14px">
-    <nav aria-label="Main" style="width:210px;flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto">
+    <nav aria-label="Main" style="width:210px;flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow:hidden">
       <a href="Workspace.dc.html" style="display:flex;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;margin-bottom:6px;font:500 13.5px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
         <span style="white-space:nowrap">Back to workspace</span>
       </a>
       <div style="margin:0 4px 6px;height:1px;background:var(--line-soft)"></div>
+      <!-- Only the groups scroll: the way back stays pinned above them, the footer below. -->
+      <div style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;margin:0 -10px;padding:0 10px">
       <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="2">
         <div>
           <div style="padding:14px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">{{ g.label }}</div>
@@ -84,7 +86,8 @@
           </sc-for>
         </div>
       </sc-for>
-      <div style="margin-top:auto;border-top:1px solid var(--line-soft);padding-top:12px">
+      </div>
+      <div style="flex:none;border-top:1px solid var(--line-soft);padding-top:12px">
         <button onClick="{{ toggleTheme }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ themeIcon }}"></path></svg>
           <span>{{ themeLabel }}</span>

@@ -41,6 +41,9 @@ public interface MappedExecutiveLookup {
     Set<UUID> triageCompanyIdsWithExecutivesMovedTo(UUID projectId, TriageCompanyStatus stage,
                                                     ProjectAudience audience);
 
+    /** Everyone mapped at the company, on every stage and whoever reads it. */
+    long executivesAt(UUID projectId, UUID triageCompanyId);
+
     /** How many such companies each stage lists, in one read; a stage with none is absent. */
     Map<TriageCompanyStatus, Long> companyCountsWithExecutivesMoved(UUID projectId, ProjectAudience audience);
 

@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
-import { Fragment, useRef } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { useRef } from "react";
+import { NavLink } from "react-router-dom";
 import { useAuth } from "../../../features/auth/AuthProvider";
 import { useHelp } from "../../../features/help/HelpProvider";
 import { cn } from "../../../lib/cn";
@@ -11,7 +11,6 @@ import { Toggle } from "../../ui";
 import { Icon, ICONS } from "../Icon";
 import { useAccountActions, type AccountAction } from "../useAccountActions";
 import type { SidebarGroup, SidebarItem } from "../Sidebar";
-import { hasActiveView } from "../sidebarViews";
 
 export const MOBILE_MORE_ID = "mobile-more";
 
@@ -82,38 +81,21 @@ export function MobileMoreSheet({
               <h3 className="px-3 pb-1.5 pt-5 type-summary-label text-u-text3">{group.label}</h3>
               <ul className="overflow-hidden rounded-u-card border border-u-border">
                 {group.items.map((item) => (
-                  <Fragment key={item.to}>
-                    <li className="border-b border-u-border last:border-b-0">
-                      <NavLink
-                        to={item.to}
-                        end={item.end}
-                        onClick={onClose}
-                        aria-current={hasActiveView(item) ? "false" : "page"}
-                        className={({ isActive }) => rowClass(isActive && !hasActiveView(item), "rounded-none")}
-                      >
-                        <Icon d={item.icon} size={18} className="flex-none text-u-text3" />
-                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                        {item.count !== undefined && (
-                          <span className="flex-none font-mono text-meta text-u-text3">{item.count}</span>
-                        )}
-                        <Icon d={ICONS.chevronRight} size={16} className="flex-none text-u-text3" />
-                      </NavLink>
-                    </li>
-                    {item.children?.map((view) => (
-                      <li key={view.key} className="border-b border-u-border last:border-b-0">
-                        <Link
-                          to={view.to}
-                          state={view.state}
-                          onClick={onClose}
-                          aria-current={view.active ? "page" : undefined}
-                          className={rowClass(view.active, "min-h-11 rounded-none ps-10")}
-                        >
-                          <Icon d={view.icon} size={16} className="flex-none text-u-text3" />
-                          <span className="min-w-0 flex-1 truncate">{view.label}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </Fragment>
+                  <li key={item.to} className="border-b border-u-border last:border-b-0">
+                    <NavLink
+                      to={item.to}
+                      end={item.end}
+                      onClick={onClose}
+                      className={({ isActive }) => rowClass(isActive, "rounded-none")}
+                    >
+                      <Icon d={item.icon} size={18} className="flex-none text-u-text3" />
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      {item.count !== undefined && (
+                        <span className="flex-none font-mono text-meta text-u-text3">{item.count}</span>
+                      )}
+                      <Icon d={ICONS.chevronRight} size={16} className="flex-none text-u-text3" />
+                    </NavLink>
+                  </li>
                 ))}
               </ul>
             </section>

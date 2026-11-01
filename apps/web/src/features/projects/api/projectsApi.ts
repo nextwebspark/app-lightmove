@@ -1,5 +1,12 @@
 import { request } from "../../../lib/apiClient";
-import type { Project, ProjectActivityPage, ProjectArchivePreview, ProjectType, StaffRole } from "./types";
+import type {
+  NewClientPayload,
+  Project,
+  ProjectActivityPage,
+  ProjectArchivePreview,
+  ProjectType,
+  StaffRole,
+} from "./types";
 
 /**
  * Every call the projects feature makes, plus the query keys its screens share. Clients are their own
@@ -39,8 +46,10 @@ export function projectActivity(projectId: string, before: number | null): Promi
   return request<ProjectActivityPage>(`/projects/${projectId}/activity?limit=${ACTIVITY_PAGE_SIZE}${cursor}`);
 }
 
+/** A position names a record already held, `clientId`, or one made with it in the same write, `newClient`. */
 export function createProject(payload: {
-  clientId: string;
+  clientId?: string;
+  newClient?: NewClientPayload;
   positionTitle: string;
   projectType: ProjectType;
   startDate?: string;

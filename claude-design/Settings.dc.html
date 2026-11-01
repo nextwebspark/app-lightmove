@@ -119,12 +119,14 @@
   <div style="flex:1;min-height:0;display:flex;padding:0 14px 14px">
 
     <!-- Sidebar -->
-    <nav aria-label="Main" style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s">
+    <nav aria-label="Main" style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow:hidden;transition:width .18s">
       <a href="Workspace.dc.html" title="Back to workspace" style="display:flex;width:100%;align-items:center;justify-content:{{ rowJustify }};gap:10px;border-radius:6px;padding:8px 10px;margin-bottom:6px;font:500 13.5px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
         <span style="white-space:nowrap;display:{{ labelDisplay }}">Back to workspace</span>
       </a>
       <div style="margin:0 4px 6px;height:1px;background:var(--line-soft)"></div>
+      <!-- Only the groups scroll: the way back stays pinned above them, the footer below. -->
+      <div style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;margin:0 -10px;padding:0 10px">
       <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="3">
         <div>
           <div style="display:{{ labelDisplay }};padding:14px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">{{ g.label }}</div>
@@ -136,7 +138,8 @@
           </sc-for>
         </div>
       </sc-for>
-      <div style="margin-top:auto;border-top:1px solid var(--line-soft);padding-top:12px">
+      </div>
+      <div style="flex:none;border-top:1px solid var(--line-soft);padding-top:12px">
         <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;width:100%;align-items:center;justify-content:{{ rowJustify }};gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ themeIcon }}"></path></svg>
           <span style="white-space:nowrap;display:{{ labelDisplay }}">{{ themeLabel }}</span>
@@ -809,7 +812,7 @@
           </div>
         </sc-if>
 
-        <!-- INTEGRATIONS — how mail, calendar and video providers are connected (epic #642). One card per provider: Uncava's shared app by default, or the firm's own app for an IT department that will not admit a third party's. The secret is write-only: once saved the field reads "Saved — leave blank to keep". Above them, how calendar events are read: through Recall.ai (the default) or directly. -->
+        <!-- INTEGRATIONS — how mail, calendar and video providers are connected (epic #642; docs/integrations/settings-page-ux.md). One card per provider, closed until Manage, its status in a pill: Uncava's shared app by default, or the firm's own app for an IT department that will not admit a third party's. Setting up an own app is the provider console's order — register, redirect URI, scopes, keys — under the console's own field names. The secret is write-only: once saved it is a masked row ending in its last four characters (Google Cloud's own identifier), replaced and never revealed; Save and verify asks the provider before anything is kept. Above them, how calendar events are read: through Recall.ai (the default) or directly. -->
         <sc-if value="{{ isIntegrations }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="Integrations">
             <div style="margin-bottom:18px">
@@ -825,44 +828,221 @@
               <div style="border-radius:8px;border:1px solid var(--line-soft);background:var(--panel);padding:12px 14px;font:400 12px/1.55 var(--sans);color:var(--text2)">Calendar changes arrive as they happen, through Recall.ai. To do that, <b style="color:var(--text)">the app's client ID and secret and each person's calendar refresh token are shared with Recall.ai</b>. Choose Direct to keep them here: calendars are then read only when a candidate's drawer opens.</div>
             </div>
 
-            <div data-screen-label="Google — shared" style="margin-top:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:20px">
-              <div style="margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px">
-                <div style="display:flex;min-width:12rem;flex:1;align-items:flex-start;gap:12px"><span style="display:flex;width:36px;height:36px;flex:none;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--line);background:var(--panel)"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8Z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3a7.2 7.2 0 0 1-10.7-3.8h-4v3.1A12 12 0 0 0 12 24Z"/><path fill="#FBBC05" d="M5.3 14.3a7.1 7.1 0 0 1 0-4.6V6.6h-4a12 12 0 0 0 0 10.8l4-3.1Z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.4.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1A7.2 7.2 0 0 1 12 4.8Z"/></svg></span><div style="min-width:0"><div style="font:600 14px var(--sans)">Google Workspace</div><div style="margin-top:2px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">Gmail and Google Calendar.</div></div></div>
-                <div role="radiogroup" aria-label="Google Workspace app" style="display:inline-flex;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px"><button role="radio" aria-checked="true" style="border-radius:4px;padding:6px 10px;font:500 12.5px var(--sans);background:var(--amber-dim);color:var(--text);border:none">Shared app</button><button role="radio" aria-checked="false" style="border-radius:4px;padding:6px 10px;font:500 12.5px var(--sans);background:none;color:var(--text3);border:none">Your own app</button></div>
-              </div>
-              <div style="font:400 11.5px/1.5 var(--mono);color:var(--text3)">Your Google Workspace admin marks Uncava as <b style="color:var(--text2)">Trusted</b> once (Admin console → Security → API controls), so nobody is stopped by Google's unverified-app screen. <a href="#" style="color:var(--amber)">How to trust Uncava ↗</a></div>
-            </div>
+            <sc-for list="{{ igCards }}" as="p" hint-placeholder-count="3">
+              <section data-screen-label="{{ p.screenLabel }}" aria-label="{{ p.title }}" style="margin-top:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel2)">
+                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:16px 20px">
+                  <span style="display:flex;width:36px;height:36px;flex:none;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--line);background:var(--panel)">
+                    <sc-if value="{{ p.isGoogle }}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8Z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3a7.2 7.2 0 0 1-10.7-3.8h-4v3.1A12 12 0 0 0 12 24Z"/><path fill="#FBBC05" d="M5.3 14.3a7.1 7.1 0 0 1 0-4.6V6.6h-4a12 12 0 0 0 0 10.8l4-3.1Z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.4.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1A7.2 7.2 0 0 1 12 4.8Z"/></svg></sc-if>
+                    <sc-if value="{{ p.isMicrosoft }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#F25022" d="M1 1h10.5v10.5H1z"/><path fill="#7FBA00" d="M12.5 1H23v10.5H12.5z"/><path fill="#00A4EF" d="M1 12.5h10.5V23H1z"/><path fill="#FFB900" d="M12.5 12.5H23V23H12.5z"/></svg></sc-if>
+                    <sc-if value="{{ p.isZoom }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5.5" fill="#0B5CFF"/><path fill="#FFFFFF" d="M4.8 9A1.6 1.6 0 0 1 6.4 7.4h6.4a2 2 0 0 1 2 2v5.6a1.6 1.6 0 0 1-1.6 1.6H6.8a2 2 0 0 1-2-2V9Zm11 1.6 2.7-2a.6.6 0 0 1 .9.5v5.8a.6.6 0 0 1-.9.5l-2.7-2v-2.8Z"/></svg></sc-if>
+                  </span>
+                  <div style="min-width:12rem;flex:1">
+                    <div style="font:600 14px var(--sans)">{{ p.title }}</div>
+                    <div style="margin-top:2px;font:400 11.5px/1.5 var(--mono);color:var(--text3);overflow-wrap:anywhere">{{ p.summary }}</div>
+                  </div>
+                  <span style="{{ p.pillStyle }}">{{ p.pillText }}</span>
+                  <button data-provider="{{ p.id }}" onClick="{{ igToggle }}" aria-expanded="{{ p.open }}" aria-label="{{ p.toggleAria }}" style="display:flex;align-items:center;gap:6px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:7px 10px;font:500 12.5px var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">{{ p.toggleLabel }}<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="{{ p.chevronStyle }}"><path d="m6 9 6 6 6-6"></path></svg></button>
+                </div>
 
-            <div data-screen-label="Microsoft — shared" style="margin-top:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:20px">
-              <div style="margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px">
-                <div style="display:flex;min-width:12rem;flex:1;align-items:flex-start;gap:12px"><span style="display:flex;width:36px;height:36px;flex:none;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--line);background:var(--panel)"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#F25022" d="M1 1h10.5v10.5H1z"/><path fill="#7FBA00" d="M12.5 1H23v10.5H12.5z"/><path fill="#00A4EF" d="M1 12.5h10.5V23H1z"/><path fill="#FFB900" d="M12.5 12.5H23V23H12.5z"/></svg></span><div style="min-width:0"><div style="font:600 14px var(--sans)">Microsoft 365</div><div style="margin-top:2px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">Outlook mail and calendar, Teams meetings.</div></div></div>
-                <div role="radiogroup" aria-label="Microsoft 365 app" style="display:inline-flex;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px"><button role="radio" aria-checked="true" style="border-radius:4px;padding:6px 10px;font:500 12.5px var(--sans);background:var(--amber-dim);color:var(--text);border:none">Shared app</button><button role="radio" aria-checked="false" style="border-radius:4px;padding:6px 10px;font:500 12.5px var(--sans);background:none;color:var(--text3);border:none">Your own app</button></div>
-              </div>
-              <span style="display:block;margin-bottom:6px;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Admin consent link</span>
-              <div style="display:flex;gap:8px"><div style="min-width:0;flex:1;overflow-wrap:anywhere;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel);padding:8px 10px;font:400 12px var(--mono);color:var(--text2)">https://login.microsoftonline.com/organizations/adminconsent?client_id=…</div><button style="flex:none;border-radius:6px;padding:8px 10px;font:500 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer">Copy</button></div>
-              <div style="margin-top:8px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">Send this to your IT department. Approving it once lets every colleague connect in one click. <a href="#" style="color:var(--amber)">What IT sees ↗</a></div>
-            </div>
+                <sc-if value="{{ p.open }}" hint-placeholder-val="{{ false }}">
+                  <div style="border-top:1px solid var(--line-soft);padding:18px 20px 20px">
+                    <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
+                      <div style="font:400 11.5px/1.5 var(--mono);color:var(--text3)">{{ p.covers }}</div>
+                      <div role="radiogroup" aria-label="{{ p.modeAria }}" style="display:inline-flex;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
+                        <sc-for list="{{ p.modes }}" as="m" hint-placeholder-count="2">
+                          <button role="radio" aria-checked="{{ m.on }}" data-provider="{{ p.id }}" data-mode="{{ m.key }}" onClick="{{ igChooseMode }}" style="{{ m.style }}">{{ m.label }}</button>
+                        </sc-for>
+                      </div>
+                    </div>
 
-            <div data-screen-label="Zoom — own app" style="margin-top:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:20px">
-              <div style="margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px">
-                <div style="display:flex;min-width:12rem;flex:1;align-items:flex-start;gap:12px"><span style="display:flex;width:36px;height:36px;flex:none;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--line);background:var(--panel)"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5.5" fill="#0B5CFF"/><path fill="#FFFFFF" d="M4.8 9A1.6 1.6 0 0 1 6.4 7.4h6.4a2 2 0 0 1 2 2v5.6a1.6 1.6 0 0 1-1.6 1.6H6.8a2 2 0 0 1-2-2V9Zm11 1.6 2.7-2a.6.6 0 0 1 .9.5v5.8a.6.6 0 0 1-.9.5l-2.7-2v-2.8Z"/></svg></span><div style="min-width:0"><div style="font:600 14px var(--sans)">Zoom</div><div style="margin-top:2px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">Zoom links in Book a call.</div></div></div>
-                <div role="radiogroup" aria-label="Zoom app" style="display:inline-flex;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px"><button role="radio" aria-checked="false" style="border-radius:4px;padding:6px 10px;font:500 12.5px var(--sans);background:none;color:var(--text3);border:none">Shared app</button><button role="radio" aria-checked="true" style="border-radius:4px;padding:6px 10px;font:500 12.5px var(--sans);background:var(--amber-dim);color:var(--text);border:none">Your own app</button></div>
-              </div>
-              <span style="display:block;margin-bottom:6px;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Redirect URI</span>
-              <div style="display:flex;gap:8px"><div style="min-width:0;flex:1;overflow-wrap:anywhere;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel);padding:8px 10px;font:400 12px var(--mono);color:var(--text2)">https://beta.uncava.com/api/v1/outreach/zoom/callback</div><button style="flex:none;border-radius:6px;padding:8px 10px;font:500 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer">Copy</button></div>
-              <span style="margin-top:14px;display:block;margin-bottom:6px;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Scopes to grant</span>
-              <div style="display:flex;flex-wrap:wrap;gap:6px"><code style="border-radius:4px;background:var(--panel);padding:3px 6px;font:400 11.5px var(--mono);color:var(--text2)">meeting:write:meeting</code><code style="border-radius:4px;background:var(--panel);padding:3px 6px;font:400 11.5px var(--mono);color:var(--text2)">meeting:update:meeting</code><code style="border-radius:4px;background:var(--panel);padding:3px 6px;font:400 11.5px var(--mono);color:var(--text2)">meeting:delete:meeting</code><code style="border-radius:4px;background:var(--panel);padding:3px 6px;font:400 11.5px var(--mono);color:var(--text2)">user:read:user</code></div>
-              <div style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
-                <label><span style="display:block;margin-bottom:6px;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Client ID</span><input value="Xr2k9QpLT4m" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none"></label>
-                <label><span style="display:block;margin-bottom:6px;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Client secret</span><input type="password" placeholder="Saved — leave blank to keep" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none"></label>
-                <label><span style="display:block;margin-bottom:6px;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Secret expires</span><input value="1 Oct 2027" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none"></label>
-              </div>
-              <div style="margin-top:10px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">While calendar sync is on Recall, these keys are shared with Recall.ai when a mailbox connects. <a href="#" style="color:var(--amber)">Set up your own Zoom app ↗</a></div>
-              <div style="margin-top:16px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px">
-                <button style="display:flex;align-items:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer">Return to the shared app</button>
-                <button style="display:flex;align-items:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Save</button>
-              </div>
-            </div>
+                    <!-- Shared app -->
+                    <sc-if value="{{ p.showShared }}" hint-placeholder-val="{{ false }}">
+                      <sc-if value="{{ p.sharedOffered }}" hint-placeholder-val="{{ true }}">
+                        <sc-if value="{{ p.consentUrl }}" hint-placeholder-val="{{ false }}">
+                          <span style="display:block;margin-bottom:6px;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Admin consent link</span>
+                          <div style="margin-bottom:8px;display:flex;gap:8px"><div style="min-width:0;flex:1;overflow-wrap:anywhere;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel);padding:8px 10px;font:400 12px var(--mono);color:var(--text2)">{{ p.consentUrl }}</div><button data-copy="{{ p.consentUrl }}" data-what="Admin consent link" onClick="{{ igCopy }}" style="flex:none;border-radius:6px;padding:8px 10px;font:500 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Copy</button></div>
+                        </sc-if>
+                        <div style="font:400 11.5px/1.5 var(--mono);color:var(--text3)">{{ p.sharedSetup }} <a href="#" style="color:var(--amber)">{{ p.sharedGuideLabel }} ↗</a></div>
+                      </sc-if>
+                      <sc-if value="{{ p.sharedMissing }}" hint-placeholder-val="{{ false }}">
+                        <div style="font:400 11.5px/1.5 var(--mono);color:var(--text3)">Uncava's shared {{ p.short }} app isn't available yet. Use your own app to connect now.</div>
+                      </sc-if>
+                    </sc-if>
+
+                    <!-- Own app, first set-up: the provider console's order -->
+                    <sc-if value="{{ p.showForm }}" hint-placeholder-val="{{ false }}">
+                      <sc-if value="{{ p.changingApp }}" hint-placeholder-val="{{ false }}">
+                        <p role="status" style="margin:0 0 14px;border-radius:8px;background:var(--u-signal-tint);padding:10px 14px;font:400 12.5px/1.5 var(--sans);color:var(--text)"><b style="color:var(--u-signal)">{{ p.mailboxLine }}</b> Saving a different app asks each of them to connect again, once.</p>
+                      </sc-if>
+                      <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:18px">
+                        <li style="display:flex;gap:12px">
+                          <span style="display:grid;place-items:center;width:22px;height:22px;flex:none;border-radius:999px;border:1px solid var(--line);background:var(--panel);font:600 11px var(--mono);color:var(--text2)">1</span>
+                          <div style="min-width:0;flex:1">
+                            <div style="font:600 13px var(--sans)">Register an app in {{ p.console }}</div>
+                            <div style="margin-top:3px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">{{ p.registerHint }} <a href="#" style="color:var(--amber)">How to register your own app ↗</a></div>
+                          </div>
+                        </li>
+                        <li style="display:flex;gap:12px">
+                          <span style="display:grid;place-items:center;width:22px;height:22px;flex:none;border-radius:999px;border:1px solid var(--line);background:var(--panel);font:600 11px var(--mono);color:var(--text2)">2</span>
+                          <div style="min-width:0;flex:1">
+                            <div style="margin-bottom:6px;font:600 13px var(--sans)">Add this redirect URI</div>
+                            <div style="display:flex;gap:8px"><div style="min-width:0;flex:1;overflow-wrap:anywhere;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel);padding:8px 10px;font:400 12px var(--mono);color:var(--text2)">{{ p.redirectUri }}</div><button data-copy="{{ p.redirectUri }}" data-what="Redirect URI" onClick="{{ igCopy }}" style="flex:none;border-radius:6px;padding:8px 10px;font:500 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Copy</button></div>
+                          </div>
+                        </li>
+                        <li style="display:flex;gap:12px">
+                          <span style="display:grid;place-items:center;width:22px;height:22px;flex:none;border-radius:999px;border:1px solid var(--line);background:var(--panel);font:600 11px var(--mono);color:var(--text2)">3</span>
+                          <div style="min-width:0;flex:1">
+                            <div style="margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font:600 13px var(--sans)">Grant these {{ p.scopesNoun }}</span><button data-copy="{{ p.scopesText }}" data-what="{{ p.scopesCopied }}" onClick="{{ igCopy }}" style="border-radius:6px;padding:4px 8px;font:500 12px var(--sans);background:none;border:none;color:var(--amber);cursor:pointer" style-hover="background:var(--amber-dim)">Copy all</button></div>
+                            <ul aria-label="{{ p.scopesNoun }}" style="margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:6px">
+                              <sc-for list="{{ p.scopes }}" as="s" hint-placeholder-count="4"><li><code style="display:inline-block;border-radius:4px;background:var(--panel);padding:3px 6px;font:400 11.5px var(--mono);color:var(--text2);overflow-wrap:anywhere">{{ s.code }}</code></li></sc-for>
+                            </ul>
+                          </div>
+                        </li>
+                        <li style="display:flex;gap:12px">
+                          <span style="display:grid;place-items:center;width:22px;height:22px;flex:none;border-radius:999px;border:1px solid var(--line);background:var(--panel);font:600 11px var(--mono);color:var(--text2)">4</span>
+                          <div style="min-width:0;flex:1">
+                            <div style="margin-bottom:10px;font:600 13px var(--sans)">Paste its keys</div>
+                            <sc-if value="{{ p.formError }}" hint-placeholder-val="{{ false }}"><p role="alert" style="margin:0 0 12px;border-radius:8px;background:var(--red-dim);padding:10px 14px;font:400 12.5px/1.5 var(--sans);color:var(--text)"><b style="color:var(--red)">{{ p.formError }}</b> Nothing was saved.</p></sc-if>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px">
+                              <label style="display:block">
+                                <span style="display:block;margin-bottom:6px;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">{{ p.idLabel }}</span>
+                                <input value="{{ p.draftClientId }}" data-provider="{{ p.id }}" data-field="clientId" onChange="{{ igField }}" autocomplete="off" spellcheck="false" aria-invalid="{{ p.idInvalid }}" style="{{ p.idStyle }}" style-focus="border-color:var(--sky)">
+                                <sc-if value="{{ p.idError }}" hint-placeholder-val="{{ false }}"><span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--red)">{{ p.idError }}</span></sc-if>
+                                <sc-if value="{{ p.idHint }}" hint-placeholder-val="{{ false }}"><span style="margin-top:6px;display:block;font:400 11px/1.45 var(--mono);color:var(--text3)">{{ p.idHint }}</span></sc-if>
+                              </label>
+                              <sc-if value="{{ p.needsTenant }}" hint-placeholder-val="{{ false }}">
+                                <label style="display:block">
+                                  <span style="display:block;margin-bottom:6px;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Directory (tenant) ID</span>
+                                  <input value="{{ p.draftTenant }}" data-provider="{{ p.id }}" data-field="tenantId" onChange="{{ igField }}" autocomplete="off" spellcheck="false" aria-invalid="{{ p.tenantInvalid }}" style="{{ p.tenantStyle }}" style-focus="border-color:var(--sky)">
+                                  <sc-if value="{{ p.tenantError }}" hint-placeholder-val="{{ false }}"><span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--red)">{{ p.tenantError }}</span></sc-if>
+                                  <span style="margin-top:6px;display:block;font:400 11px/1.45 var(--mono);color:var(--text3)">Your directory's ID or primary domain, from the app's Overview.</span>
+                                </label>
+                              </sc-if>
+                              <label style="display:block">
+                                <span style="display:block;margin-bottom:6px;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">{{ p.secretLabel }}</span>
+                                <span style="display:flex;gap:6px">
+                                  <input type="{{ p.secretType }}" value="{{ p.draftSecret }}" data-provider="{{ p.id }}" data-field="secret" onChange="{{ igField }}" autocomplete="off" spellcheck="false" data-1p-ignore="true" data-lpignore="true" aria-invalid="{{ p.secretInvalid }}" style="{{ p.secretStyle }}" style-focus="border-color:var(--sky)">
+                                  <button type="button" data-provider="{{ p.id }}" onClick="{{ igShowSecret }}" aria-pressed="{{ p.showSecret }}" aria-label="{{ p.showAria }}" style="flex:none;display:flex;align-items:center;gap:5px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:0 10px;font:500 12px var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ p.showIcon }}"></path></svg>{{ p.showLabel }}</button>
+                                </span>
+                                <sc-if value="{{ p.secretError }}" hint-placeholder-val="{{ false }}"><span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--red)">{{ p.secretError }}</span></sc-if>
+                                <span style="margin-top:6px;display:block;font:400 11px/1.45 var(--mono);color:var(--text3)">{{ p.onceNote }}</span>
+                              </label>
+                              <sc-if value="{{ p.needsExpiry }}" hint-placeholder-val="{{ false }}">
+                                <label style="display:block">
+                                  <span style="display:block;margin-bottom:6px;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Secret expires</span>
+                                  <input type="date" value="{{ p.draftExpires }}" data-provider="{{ p.id }}" data-field="expires" onChange="{{ igField }}" aria-invalid="{{ p.expiresInvalid }}" style="{{ p.expiresStyle }}" style-focus="border-color:var(--sky)">
+                                  <sc-if value="{{ p.expiresError }}" hint-placeholder-val="{{ false }}"><span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--red)">{{ p.expiresError }}</span></sc-if>
+                                  <span style="margin-top:6px;display:block;font:400 11px/1.45 var(--mono);color:var(--text3)">The Expires column in Certificates &amp; secrets. Entra allows 24 months at most; we email you 30 and 7 days before.</span>
+                                </label>
+                              </sc-if>
+                            </div>
+                            <sc-if value="{{ p.recallNote }}" hint-placeholder-val="{{ false }}"><div style="margin-top:12px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">{{ p.recallNote }}</div></sc-if>
+                          </div>
+                        </li>
+                      </ol>
+                      <div style="margin-top:18px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px">
+                        <button data-provider="{{ p.id }}" onClick="{{ igCancelForm }}" style="display:flex;align-items:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+                        <button data-provider="{{ p.id }}" onClick="{{ igSaveForm }}" disabled="{{ p.saving }}" style="{{ p.saveStyle }}"><sc-if value="{{ p.saving }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="width:13px;height:13px;border-radius:999px;border:2px solid currentColor;border-right-color:transparent;animation:spin .7s linear infinite"></span></sc-if>{{ p.saveLabel }}</button>
+                      </div>
+                    </sc-if>
+
+                    <!-- Own app, saved: read-only rows; the secret is replaced, never shown -->
+                    <sc-if value="{{ p.showSaved }}" hint-placeholder-val="{{ false }}">
+                      <sc-if value="{{ p.expiryNotice }}" hint-placeholder-val="{{ false }}">
+                        <p role="status" style="{{ p.expiryNoticeStyle }}"><b style="{{ p.expiryNoticeLead }}">{{ p.expiryNotice }}</b> {{ p.expiryNoticeBody }}</p>
+                      </sc-if>
+                      <dl style="margin:0;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel)">
+                        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:12px 14px">
+                          <dt style="width:172px;flex:none;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">{{ p.idLabel }}</dt>
+                          <dd style="margin:0;min-width:0;flex:1;font:500 12.5px var(--mono);color:var(--text);overflow-wrap:anywhere">{{ p.clientId }}</dd>
+                          <button data-copy="{{ p.clientId }}" data-what="{{ p.idCopied }}" onClick="{{ igCopy }}" style="border-radius:6px;padding:5px 10px;font:500 12px var(--sans);background:none;border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Copy</button>
+                        </div>
+                        <sc-if value="{{ p.needsTenant }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;border-top:1px solid var(--line-soft);padding:12px 14px">
+                            <dt style="width:172px;flex:none;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Directory (tenant) ID</dt>
+                            <dd style="margin:0;min-width:0;flex:1;font:500 12.5px var(--mono);color:var(--text);overflow-wrap:anywhere">{{ p.tenantId }}</dd>
+                          </div>
+                        </sc-if>
+                        <div style="border-top:1px solid var(--line-soft);padding:12px 14px">
+                          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px">
+                            <dt style="width:172px;flex:none;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">{{ p.secretLabel }}</dt>
+                            <sc-if value="{{ p.notReplacing }}" hint-placeholder-val="{{ true }}">
+                              <dd style="margin:0;min-width:0;flex:1">
+                                <span aria-label="{{ p.secretAria }}" style="font:500 12.5px var(--mono);letter-spacing:.04em;color:var(--text)">{{ p.secretMasked }}</span>
+                                <span style="display:block;margin-top:2px;font:400 11px/1.45 var(--mono);color:var(--text3)">{{ p.secretMeta }}</span>
+                              </dd>
+                              <button data-provider="{{ p.id }}" onClick="{{ igReplace }}" style="border-radius:6px;padding:5px 10px;font:500 12px var(--sans);background:none;border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Replace</button>
+                            </sc-if>
+                            <sc-if value="{{ p.replacing }}" hint-placeholder-val="{{ false }}">
+                              <dd style="margin:0;min-width:0;flex:1;font:400 11px/1.45 var(--mono);color:var(--text3)">Replacing {{ p.secretMasked }}. It keeps working until you save.</dd>
+                            </sc-if>
+                          </div>
+                          <sc-if value="{{ p.replacing }}" hint-placeholder-val="{{ false }}">
+                            <div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px">
+                              <label style="display:block">
+                                <span style="display:block;margin-bottom:6px;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">New {{ p.secretLabelLower }}</span>
+                                <span style="display:flex;gap:6px">
+                                  <input type="{{ p.secretType }}" value="{{ p.draftSecret }}" data-provider="{{ p.id }}" data-field="secret" onChange="{{ igField }}" autofocus autocomplete="off" spellcheck="false" data-1p-ignore="true" data-lpignore="true" aria-invalid="{{ p.secretInvalid }}" style="{{ p.secretStyle }}" style-focus="border-color:var(--sky)">
+                                  <button type="button" data-provider="{{ p.id }}" onClick="{{ igShowSecret }}" aria-pressed="{{ p.showSecret }}" aria-label="{{ p.showAria }}" style="flex:none;display:flex;align-items:center;gap:5px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:0 10px;font:500 12px var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ p.showIcon }}"></path></svg>{{ p.showLabel }}</button>
+                                </span>
+                                <sc-if value="{{ p.secretError }}" hint-placeholder-val="{{ false }}"><span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--red)">{{ p.secretError }}</span></sc-if>
+                                <span style="margin-top:6px;display:block;font:400 11px/1.45 var(--mono);color:var(--text3)">{{ p.onceNote }}</span>
+                              </label>
+                              <sc-if value="{{ p.needsExpiry }}" hint-placeholder-val="{{ false }}">
+                                <label style="display:block">
+                                  <span style="display:block;margin-bottom:6px;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">New secret expires</span>
+                                  <input type="date" value="{{ p.draftExpires }}" data-provider="{{ p.id }}" data-field="expires" onChange="{{ igField }}" aria-invalid="{{ p.expiresInvalid }}" style="{{ p.expiresStyle }}" style-focus="border-color:var(--sky)">
+                                  <sc-if value="{{ p.expiresError }}" hint-placeholder-val="{{ false }}"><span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--red)">{{ p.expiresError }}</span></sc-if>
+                                  <span style="margin-top:6px;display:block;font:400 11px/1.45 var(--mono);color:var(--text3)">A new secret has its own expiry. Entra allows 24 months at most.</span>
+                                </label>
+                              </sc-if>
+                            </div>
+                            <sc-if value="{{ p.formError }}" hint-placeholder-val="{{ false }}"><p role="alert" style="margin:12px 0 0;border-radius:8px;background:var(--red-dim);padding:10px 14px;font:400 12.5px/1.5 var(--sans);color:var(--text)"><b style="color:var(--red)">{{ p.formError }}</b> The saved secret is unchanged.</p></sc-if>
+                            <div style="margin-top:12px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px">
+                              <button data-provider="{{ p.id }}" onClick="{{ igCancelReplace }}" style="display:flex;align-items:center;border-radius:6px;padding:8px 12px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+                              <button data-provider="{{ p.id }}" onClick="{{ igSaveReplace }}" disabled="{{ p.saving }}" style="{{ p.saveStyle }}"><sc-if value="{{ p.saving }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="width:13px;height:13px;border-radius:999px;border:2px solid currentColor;border-right-color:transparent;animation:spin .7s linear infinite"></span></sc-if>{{ p.saveLabel }}</button>
+                            </div>
+                          </sc-if>
+                        </div>
+                        <sc-if value="{{ p.showExpiresRow }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;border-top:1px solid var(--line-soft);padding:12px 14px">
+                            <dt style="width:172px;flex:none;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Secret expires</dt>
+                            <dd style="margin:0;min-width:0;flex:1;font:500 12.5px var(--mono);color:var(--text)">{{ p.expiresLabel }}</dd>
+                          </div>
+                        </sc-if>
+                      </dl>
+
+                      <div role="status" style="margin-top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+                        <span style="{{ p.verifyStyle }}">{{ p.verifyMark }}</span>
+                        <span style="min-width:0;flex:1;font:400 12px/1.5 var(--sans);color:var(--text2)">{{ p.verifyText }}</span>
+                        <button data-provider="{{ p.id }}" onClick="{{ igVerify }}" disabled="{{ p.verifying }}" style="display:flex;align-items:center;gap:6px;border-radius:6px;padding:5px 10px;font:500 12px var(--sans);background:none;border:none;color:var(--amber);cursor:pointer" style-hover="background:var(--amber-dim)"><sc-if value="{{ p.verifying }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="width:11px;height:11px;border-radius:999px;border:2px solid currentColor;border-right-color:transparent;animation:spin .7s linear infinite"></span></sc-if>{{ p.verifyLabel }}</button>
+                      </div>
+
+                      <div style="margin-top:12px">
+                        <button data-provider="{{ p.id }}" onClick="{{ igToggleSetup }}" aria-expanded="{{ p.setupOpen }}" style="display:flex;align-items:center;gap:6px;border-radius:6px;padding:4px 0;font:500 12px var(--sans);background:none;border:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="{{ p.setupChevronStyle }}"><path d="m9 6 6 6-6 6"></path></svg>{{ p.setupLabel }}</button>
+                        <sc-if value="{{ p.setupOpen }}" hint-placeholder-val="{{ false }}">
+                          <div style="margin-top:8px;display:flex;flex-direction:column;gap:10px">
+                            <div style="display:flex;gap:8px"><div style="min-width:0;flex:1;overflow-wrap:anywhere;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel);padding:8px 10px;font:400 12px var(--mono);color:var(--text2)">{{ p.redirectUri }}</div><button data-copy="{{ p.redirectUri }}" data-what="Redirect URI" onClick="{{ igCopy }}" style="flex:none;border-radius:6px;padding:8px 10px;font:500 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Copy</button></div>
+                            <ul aria-label="{{ p.scopesNoun }}" style="margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:6px">
+                              <sc-for list="{{ p.scopes }}" as="s" hint-placeholder-count="4"><li><code style="display:inline-block;border-radius:4px;background:var(--panel);padding:3px 6px;font:400 11.5px var(--mono);color:var(--text2);overflow-wrap:anywhere">{{ s.code }}</code></li></sc-for>
+                            </ul>
+                          </div>
+                        </sc-if>
+                      </div>
+
+                      <sc-if value="{{ p.recallNote }}" hint-placeholder-val="{{ false }}"><div style="margin-top:12px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">{{ p.recallNote }}</div></sc-if>
+                      <div style="margin-top:16px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line-soft);padding-top:14px">
+                        <button data-provider="{{ p.id }}" onClick="{{ igAskReturn }}" style="border-radius:6px;padding:8px 10px;font:500 13px var(--sans);background:none;border:none;color:var(--red);cursor:pointer" style-hover="background:var(--red-dim)">Return to the shared app</button>
+                        <div style="display:flex;align-items:center;gap:10px">
+                          <span style="font:400 11.5px var(--mono);color:var(--text3)">{{ p.mailboxLine }}</span>
+                          <button data-provider="{{ p.id }}" onClick="{{ igChangeApp }}" style="display:flex;align-items:center;border-radius:6px;padding:8px 12px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Use a different app</button>
+                        </div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </section>
+            </sc-for>
           </div>
         </sc-if>
 
@@ -1637,6 +1817,21 @@
     </div>
   </sc-if>
 
+  <!-- Return to the shared app — discards the workspace's own keys, here and in Recall.ai's copies, and says who must reconnect -->
+  <sc-if value="{{ igReturnOpen }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Return to the shared app" onClick="{{ igCloseReturn }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="{{ igReturnTitle }}" onClick="{{ stop }}" style="width:460px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="margin-bottom:12px;font:600 16px var(--sans)">{{ igReturnTitle }}</div>
+        <p style="margin:0 0 10px;font:400 13px/1.55 var(--sans);color:var(--text2)">Your app's client ID and secret are deleted from Uncava, and from the copies Recall.ai holds for your team's calendars. To use your own app again, you'll enter them again.</p>
+        <p style="margin:0;font:400 13px/1.55 var(--sans);color:var(--text2)"><b style="font-weight:600;color:var(--text)">{{ igReturnMailboxes }}</b> Each connects again, once, through Uncava's app; until then their sequences wait.</p>
+        <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ igCloseReturn }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ igConfirmReturn }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--red);color:var(--red);cursor:pointer" style-hover="background:var(--red);color:#fff">Use the shared app</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- Retire stage blocked -->
   <sc-if value="{{ psBlockedOpen }}" hint-placeholder-val="{{ false }}">
     <div data-screen-label="Retire stage" onClick="{{ closePsBlocked }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
@@ -1836,7 +2031,7 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">SE</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;availability&quot;,&quot;general&quot;,&quot;meetings&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;availability&quot;,&quot;general&quot;,&quot;meetings&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;integrationsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;own-new&quot;,&quot;own-saved&quot;,&quot;replacing&quot;,&quot;verify-failed&quot;,&quot;expiring&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -1940,12 +2135,15 @@ class Component extends DCLogic {
     const aiDialog = urlProp('aiAppsDialog') || props.aiAppsDialog || 'none';
     const aiEmpty = (urlProp('aiAppsEmpty') || String(!!props.aiAppsEmpty)) === 'true';
     if (aiDialog !== 'none' || urlProp('aiAppsView') || urlProp('aiAppsEmpty')) section = 'ai-apps';
+    const igView = urlProp('integrationsState') || props.integrationsState || 'overview';
+    if (igView !== 'overview' || urlProp('integrationsState')) section = 'integrations';
 
     let collapsed = false;
     try { collapsed = localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) {}
 
     this.state = {
       section, dark: true, collapsed, toast: '', wsMenuOpen: false,
+      igProviders: this.seedIntegrations(igView), igReturn: null,
       ctags: [['openWork', 'Open to work', 'green', 4], ['relocate', 'Open to relocate', 'accent', 4], ['passive', 'Passive', 'neutral', 2], ['referral', 'Referral', 'violet', 2], ['prior', 'Prior placement', 'adjacent', 1], ['interviewed', 'Interviewed before', 'inferred', 1], ['boardReady', 'Board-ready', 'neutral', 0, true]]
         .map(([id, label, colour, count, retired]) => ({ id, label, colour, count, retired: !!retired })),
       ctNew: '', ctEditing: null, ctDraft: '',
@@ -2034,6 +2232,258 @@ class Component extends DCLogic {
   }
 
   componentDidMount() { this.setState({ dark: document.documentElement.getAttribute('data-theme') !== 'light' }); }
+
+  /* Settings → Integrations (docs/integrations/settings-page-ux.md). The mockup's today is 5 Oct 2026. */
+  seedIntegrations(view) {
+    const card = (id, extra) => Object.assign({ id, mode: 'SHARED', open: false, sharedOffered: true, phase: null, saved: null,
+      draft: { clientId: '', secret: '', tenantId: '', expires: '' }, errors: {}, formError: '', showSecret: false,
+      saving: false, verifying: false, setupOpen: false, changingApp: false, mailboxes: 0 }, extra || {});
+    const cards = {
+      GOOGLE: card('GOOGLE', { mailboxes: 4 }),
+      MICROSOFT: card('MICROSOFT', { mode: 'OWN', phase: 'saved', mailboxes: 6, saved: {
+        clientId: '3f2a9c71-5b0e-4d8a-9e61-2c7d4b1a8f05', tenantId: 'meridiansearch.onmicrosoft.com', hint: 'Jx4q',
+        savedOn: '12 Sep 2026', savedBy: 'Yara Haddad', expires: '2027-09-01', verify: 'ok', checked: '2 minutes ago', failCode: null } }),
+      ZOOM: card('ZOOM', { sharedOffered: false }),
+    };
+    if (view === 'own-new') Object.assign(cards.ZOOM, { open: true, mode: 'OWN', phase: 'new', showSecret: true,
+      draft: { clientId: 'Xr2k9QpLT4mVb7', secret: 'zN4qT8vLm2Rk5wYc9Hj3Pd6sT9wd', tenantId: '', expires: '' } });
+    if (view === 'own-saved') cards.MICROSOFT.open = true;
+    if (view === 'replacing') Object.assign(cards.MICROSOFT, { open: true, phase: 'replacing' });
+    if (view === 'verify-failed') Object.assign(cards.MICROSOFT, { open: true,
+      saved: Object.assign({}, cards.MICROSOFT.saved, { verify: 'failed', checked: '4 minutes ago', failCode: 'AADSTS7000215' }) });
+    if (view === 'expiring') Object.assign(cards.MICROSOFT, { open: true,
+      saved: Object.assign({}, cards.MICROSOFT.saved, { expires: '2026-10-17' }) });
+    return ['GOOGLE', 'MICROSOFT', 'ZOOM'].map((id) => cards[id]);
+  }
+
+  igProvider(id) {
+    const base = 'https://beta.uncava.com';
+    return {
+      GOOGLE: { title: 'Google Workspace', short: 'Google', covers: 'Gmail and Google Calendar.', console: 'the Google Cloud console',
+        registerHint: 'Google Auth Platform → Clients → Create client, type Web application. An Internal app needs no verification from Google.',
+        idLabel: 'Client ID', secretLabel: 'Client secret', scopesNoun: 'scopes', calendars: true,
+        scopes: ['openid', 'email', 'https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/calendar.events', 'https://www.googleapis.com/auth/calendar.freebusy'],
+        redirectUri: base + '/api/v1/outreach/mailbox/callback',
+        onceNote: 'Google shows the secret once, when the client is made. Copy it before you close that dialog.',
+        sharedSetup: "Your Google Workspace admin marks Uncava as Trusted once (Admin console → Security → API controls), so nobody is stopped by Google's unverified-app screen.",
+        sharedGuide: 'How to trust Uncava', accounts: 'mailboxes' },
+      MICROSOFT: { title: 'Microsoft 365', short: 'Microsoft', covers: 'Outlook mail and calendar, Teams meetings.', console: 'the Microsoft Entra admin center',
+        registerHint: 'App registrations → New registration, accounts in this organisational directory only. Then add a secret under Certificates & secrets.',
+        idLabel: 'Application (client) ID', secretLabel: 'Client secret value', scopesNoun: 'API permissions', calendars: true,
+        scopes: ['offline_access', 'User.Read', 'Mail.ReadWrite', 'Mail.Send', 'Calendars.ReadWrite'],
+        redirectUri: base + '/api/v1/outreach/mailbox/callback',
+        onceNote: 'Paste the Value column, not the Secret ID. Entra shows the value only once, right after you add it.',
+        sharedSetup: 'Send this link to your IT department. Approving it once lets every colleague connect in one click.',
+        sharedGuide: 'What IT sees', consentUrl: 'https://login.microsoftonline.com/organizations/adminconsent?client_id=…', accounts: 'mailboxes' },
+      ZOOM: { title: 'Zoom', short: 'Zoom', covers: 'Zoom links in Book a call.', console: 'the Zoom App Marketplace',
+        registerHint: 'Develop → Build App → General app, user-managed. The keys are under Basic Information → App Credentials.',
+        idLabel: 'Client ID', secretLabel: 'Client secret', scopesNoun: 'scopes', calendars: false,
+        scopes: ['meeting:write:meeting', 'meeting:update:meeting', 'meeting:delete:meeting', 'user:read:user', 'user:read:token'],
+        redirectUri: base + '/api/v1/outreach/zoom/callback',
+        onceNote: 'Regenerating it in Zoom stops this one at once, so save the new one here straight after.',
+        sharedSetup: 'Each consultant connects their own Zoom account in one click.', sharedGuide: 'Setup guide', accounts: 'Zoom accounts' },
+    }[id];
+  }
+
+  igPatch(id, patch) {
+    this.setState({ igProviders: this.state.igProviders.map((p) => (p.id === id ? Object.assign({}, p, patch) : p)) });
+  }
+
+  igFind(id) { return this.state.igProviders.find((p) => p.id === id); }
+
+  /** The client's half of the own-app rules; the server keeps the same ones. `scope` is 'app' (every field) or 'secret'. */
+  igValidate(p, scope) {
+    const info = this.igProvider(p.id), d = p.draft, errors = {};
+    const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (scope === 'app') {
+      const id = d.clientId.trim();
+      if (!id) errors.clientId = "Enter your app's " + (p.id === 'MICROSOFT' ? 'application (client) ID' : 'client ID');
+      else if (!/^[A-Za-z0-9._-]+$/.test(id)) errors.clientId = "That doesn't look like a client ID";
+      else if (p.id === 'GOOGLE' && !/\.apps\.googleusercontent\.com$/.test(id)) errors.clientId = 'A Google client ID ends in .apps.googleusercontent.com';
+      else if (p.id === 'MICROSOFT' && !GUID.test(id)) errors.clientId = 'An application (client) ID is a GUID, as Overview shows it';
+      if (p.id === 'MICROSOFT') {
+        const t = d.tenantId.trim();
+        if (!t) errors.tenantId = "Enter your directory's tenant ID";
+        else if (['common', 'organizations', 'consumers'].includes(t.toLowerCase())) errors.tenantId = 'Use your own directory, not ' + t.toLowerCase();
+        else if (!GUID.test(t) && !/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(t)) errors.tenantId = "That doesn't look like a tenant ID or domain";
+      }
+    }
+    const s = d.secret.trim();
+    if (!s) errors.secret = "Enter your app's client secret";
+    else if (/\s/.test(s)) errors.secret = 'A secret has no spaces. Check you copied the value alone';
+    else if (p.id === 'MICROSOFT' && GUID.test(s)) errors.secret = "That's the Secret ID. Paste the Value column instead";
+    if (p.id === 'MICROSOFT') {
+      if (!d.expires) errors.expires = 'Enter when the secret expires';
+      else if (d.expires < '2026-10-05') errors.expires = 'That date has passed';
+      else if (d.expires > '2028-10-05') errors.expires = 'Entra secrets last 24 months at most. Check the date';
+    }
+    return errors;
+  }
+
+  /** Save and verify: the provider is asked before anything is kept. A short secret plays the provider's refusal. */
+  igSave(id, scope) {
+    const p = this.igFind(id), info = this.igProvider(id);
+    const errors = this.igValidate(p, scope);
+    if (Object.keys(errors).length) { this.igPatch(id, { errors, formError: '' }); return; }
+    this.igPatch(id, { errors: {}, formError: '', saving: true });
+    setTimeout(() => {
+      const now = this.igFind(id), secret = now.draft.secret.trim();
+      if (secret.length < 12) {
+        this.igPatch(id, { saving: false, formError: info.short + ' refused these keys (invalid_client).' });
+        return;
+      }
+      const prior = now.saved || {};
+      const saved = { clientId: scope === 'app' ? now.draft.clientId.trim() : prior.clientId,
+        tenantId: scope === 'app' ? now.draft.tenantId.trim() : prior.tenantId, hint: secret.slice(-4),
+        savedOn: '5 Oct 2026', savedBy: 'Yara Haddad', expires: id === 'MICROSOFT' ? now.draft.expires : null,
+        verify: 'ok', checked: 'just now', failCode: null };
+      this.igPatch(id, { saving: false, saved, mode: 'OWN', phase: 'saved', changingApp: false, showSecret: false,
+        draft: { clientId: '', secret: '', tenantId: '', expires: '' } });
+      this.showToast(scope === 'app' ? info.title + ' uses your own app. ' + info.short + ' accepted the keys' : 'Secret replaced. ' + info.short + ' accepted it');
+    }, 900);
+  }
+
+  integrationVals(inputStyle, primary) {
+    const st = this.state;
+    const TODAY = Date.UTC(2026, 9, 5);
+    const daysTo = (iso) => Math.round((Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) - TODAY) / 86400000);
+    const fmt = (iso) => +iso.slice(8, 10) + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+iso.slice(5, 7) - 1] + ' ' + iso.slice(0, 4);
+    const pill = (tone) => 'flex:none;border-radius:999px;padding:3px 10px;font:600 10.5px var(--mono);letter-spacing:.03em;white-space:nowrap;' + ({
+      green: 'color:var(--green);background:var(--green-dim)', red: 'color:var(--red);background:var(--red-dim)',
+      signal: 'color:var(--u-signal);background:var(--u-signal-tint)', neutral: 'color:var(--text2);border:1px solid var(--line)',
+      muted: 'color:var(--text3);border:1px dashed var(--line)' })[tone];
+    const shortId = (v) => (v.length > 16 ? v.slice(0, 8) + '…' + v.slice(-4) : v);
+    const EYE = 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z';
+    const EYE_OFF = 'M3 3l18 18M10.6 5.1A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a17.5 17.5 0 0 1-3.2 4.2M6.6 6.6A17.4 17.4 0 0 0 2 12s3.5 7 10 7a10.6 10.6 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2';
+    const igCards = st.igProviders.map((p) => {
+      const info = this.igProvider(p.id), s = p.saved, own = p.mode === 'OWN';
+      const days = s && s.expires ? daysTo(s.expires) : null;
+      let pillText, tone, summary;
+      if (!own) {
+        pillText = p.sharedOffered ? 'Shared app' : 'Not set up'; tone = p.sharedOffered ? 'neutral' : 'muted';
+        summary = p.sharedOffered ? "Uncava's shared app" : "Not connected yet. Uncava's shared app isn't available here, so use your own.";
+      } else if (!s) {
+        pillText = 'Not saved yet'; tone = 'neutral'; summary = 'Your own app, not saved yet';
+      } else {
+        summary = 'Your own app · ' + shortId(s.clientId) + ' · secret ••••' + s.hint;
+        if (s.verify === 'failed') { pillText = 'Keys refused'; tone = 'red'; }
+        else if (days !== null && days < 0) { pillText = 'Secret expired'; tone = 'red'; }
+        else if (days !== null && days <= 30) { pillText = days === 0 ? 'Expires today' : 'Expires in ' + days + ' day' + (days === 1 ? '' : 's'); tone = 'signal'; }
+        else { pillText = 'Own app · Verified'; tone = 'green'; }
+      }
+      const e = p.errors, field = (err) => inputStyle(!!err);
+      const showForm = own && (p.phase === 'new');
+      const showSaved = own && !!s && p.phase !== 'new';
+      const replacing = showSaved && p.phase === 'replacing';
+      const expiring = days !== null && days <= 30;
+      const recallOn = info.calendars;
+      return {
+        id: p.id, title: info.title, short: info.short, covers: info.covers, screenLabel: info.title + (own ? ' — own app' : ' — shared'),
+        isGoogle: p.id === 'GOOGLE', isMicrosoft: p.id === 'MICROSOFT', isZoom: p.id === 'ZOOM',
+        summary, pillText, pillStyle: pill(tone),
+        open: p.open, toggleLabel: p.open ? 'Close' : 'Manage', toggleAria: (p.open ? 'Close ' : 'Manage ') + info.title,
+        chevronStyle: 'transition:transform .15s;' + (p.open ? 'transform:rotate(180deg)' : ''),
+        modeAria: info.title + ' app',
+        modes: [['SHARED', 'Shared app'], ['OWN', 'Your own app']].map(([key, label]) => ({ key, label, on: p.mode === key,
+          style: 'border-radius:4px;padding:6px 10px;font:500 12.5px var(--sans);border:none;cursor:pointer;' + (p.mode === key ? 'background:var(--amber-dim);color:var(--text)' : 'background:none;color:var(--text3)') })),
+        showShared: !own, sharedOffered: p.sharedOffered, sharedMissing: !p.sharedOffered, sharedSetup: info.sharedSetup, sharedGuideLabel: info.sharedGuide,
+        consentUrl: info.consentUrl || '',
+        showForm, showSaved, replacing, notReplacing: showSaved && !replacing, changingApp: showForm && p.changingApp,
+        console: info.console, registerHint: info.registerHint, redirectUri: info.redirectUri,
+        scopesNoun: info.scopesNoun, scopes: info.scopes.map((code) => ({ code })), scopesText: info.scopes.join(' '),
+        scopesCopied: info.scopesNoun === 'scopes' ? 'Scopes' : 'API permissions',
+        idLabel: info.idLabel, idCopied: info.idLabel, secretLabel: info.secretLabel, secretLabelLower: info.secretLabel.toLowerCase(),
+        needsTenant: p.id === 'MICROSOFT', needsExpiry: p.id === 'MICROSOFT',
+        draftClientId: p.draft.clientId, draftSecret: p.draft.secret, draftTenant: p.draft.tenantId, draftExpires: p.draft.expires,
+        idError: e.clientId || '', idInvalid: !!e.clientId, idStyle: field(e.clientId),
+        idHint: p.id === 'GOOGLE' && !e.clientId ? 'Ends in .apps.googleusercontent.com' : '',
+        tenantError: e.tenantId || '', tenantInvalid: !!e.tenantId, tenantStyle: field(e.tenantId),
+        secretError: e.secret || '', secretInvalid: !!e.secret, secretStyle: field(e.secret) + ';min-width:0;flex:1',
+        expiresError: e.expires || '', expiresInvalid: !!e.expires, expiresStyle: field(e.expires) + ';color-scheme:light dark',
+        secretType: p.showSecret ? 'text' : 'password', showSecret: p.showSecret, showLabel: p.showSecret ? 'Hide' : 'Show',
+        showAria: p.showSecret ? 'Hide the secret' : 'Show the secret', showIcon: p.showSecret ? EYE_OFF : EYE,
+        onceNote: info.onceNote, formError: p.formError,
+        recallNote: own && recallOn ? 'Calendar sync is on Recall, so Recall.ai holds a copy of these keys for each connected calendar. A secret saved here replaces every copy.' : '',
+        saving: p.saving, saveStyle: primary(p.saving), saveLabel: p.saving ? 'Checking with ' + info.short + '…' : 'Save and verify',
+        clientId: s ? s.clientId : '', tenantId: s ? s.tenantId : '',
+        secretMasked: s ? '••••••••••••' + s.hint : '', secretAria: s ? 'Saved secret ending ' + s.hint : '',
+        secretMeta: s ? 'Ends ' + s.hint + ' · saved ' + s.savedOn + ' by ' + s.savedBy : '',
+        showExpiresRow: showSaved && !!(s && s.expires) && !replacing,
+        expiresLabel: s && s.expires ? fmt(s.expires) + (days >= 0 && days <= 30 ? ' · ' + days + ' days left' : '') : '',
+        expiryNotice: showSaved && expiring ? (days < 0 ? 'The client secret expired on ' + fmt(s.expires) + '.' : days === 0 ? 'The client secret expires today.' : 'The client secret expires on ' + fmt(s.expires) + ', in ' + days + ' days.') : '',
+        expiryNoticeBody: days !== null && days < 0 ? 'Mail, calendars and links through this app stop until a new secret is saved. Replace it below.' : 'Add a new secret in Certificates & secrets, then Replace it below. The old one works until you do.',
+        expiryNoticeStyle: 'margin:0 0 14px;border-radius:8px;padding:10px 14px;font:400 12.5px/1.5 var(--sans);color:var(--text);background:' + (days !== null && days < 0 ? 'var(--red-dim)' : 'var(--u-signal-tint)'),
+        expiryNoticeLead: days !== null && days < 0 ? 'color:var(--red)' : 'color:var(--u-signal)',
+        verifying: p.verifying, verifyLabel: p.verifying ? 'Checking…' : 'Verify again',
+        verifyMark: s && s.verify === 'failed' ? '✕' : '✓',
+        verifyStyle: 'display:grid;place-items:center;width:20px;height:20px;flex:none;border-radius:999px;font:700 11px var(--sans);' + (s && s.verify === 'failed' ? 'color:var(--red);background:var(--red-dim)' : 'color:var(--green);background:var(--green-dim)'),
+        verifyText: !s ? '' : p.verifying ? 'Checking these keys with ' + info.short + '…'
+          : s.verify === 'failed' ? info.short + ' refused these keys (' + s.failCode + ': the secret is wrong, or was deleted in ' + (p.id === 'MICROSOFT' ? 'Entra' : info.short) + '). Replace it with a current one; until then mail and calendars through this app wait.'
+          : info.short + ' accepted these keys · checked ' + s.checked,
+        setupLabel: 'Setup details: redirect URI and ' + info.scopesNoun, setupOpen: p.setupOpen, setupChevronStyle: 'transition:transform .15s;' + (p.setupOpen ? 'transform:rotate(90deg)' : ''),
+        mailboxLine: p.mailboxes === 1 ? '1 ' + info.accounts.replace(/s$/, '') + ' connected through this app.' : p.mailboxes + ' ' + info.accounts + ' connected through this app.',
+      };
+    });
+    const returning = st.igReturn ? st.igProviders.find((p) => p.id === st.igReturn) : null;
+    const rInfo = returning ? this.igProvider(returning.id) : null;
+    return {
+      igCards, igReturnOpen: !!returning,
+      igReturnTitle: rInfo ? 'Return ' + rInfo.title + ' to the shared app?' : '',
+      igReturnMailboxes: returning ? (returning.mailboxes === 1 ? '1 ' + rInfo.accounts.replace(/s$/, '') + ' is' : returning.mailboxes + ' ' + rInfo.accounts + ' are') + ' connected through your app.' : '',
+    };
+  }
+
+  integrationHandlers() {
+    const id = (e) => e.currentTarget.dataset.provider;
+    const blank = { clientId: '', secret: '', tenantId: '', expires: '' };
+    return {
+      igToggle: (e) => { const p = this.igFind(id(e)); this.igPatch(p.id, { open: !p.open }); },
+      igChooseMode: (e) => {
+        const p = this.igFind(id(e)), mode = e.currentTarget.dataset.mode;
+        if (mode === p.mode) return;
+        if (mode === 'SHARED' && p.saved) { this.setState({ igReturn: p.id }); return; }
+        this.igPatch(p.id, mode === 'OWN'
+          ? { mode, phase: 'new', changingApp: false, errors: {}, formError: '' }
+          : { mode, phase: null, draft: blank, errors: {}, formError: '', showSecret: false });
+      },
+      igField: (e) => {
+        const p = this.igFind(id(e)), f = e.currentTarget.dataset.field;
+        const key = f === 'clientId' ? 'clientId' : f === 'tenantId' ? 'tenantId' : f === 'expires' ? 'expires' : 'secret';
+        this.igPatch(p.id, { draft: Object.assign({}, p.draft, { [key]: e.target.value }), errors: Object.assign({}, p.errors, { [key]: '' }), formError: '' });
+      },
+      igShowSecret: (e) => { const p = this.igFind(id(e)); this.igPatch(p.id, { showSecret: !p.showSecret }); },
+      igCopy: (e) => { const v = e.currentTarget.dataset.copy; try { navigator.clipboard.writeText(v); } catch (x) {} this.showToast(e.currentTarget.dataset.what + ' copied'); },
+      igSaveForm: (e) => this.igSave(id(e), 'app'),
+      igSaveReplace: (e) => this.igSave(id(e), 'secret'),
+      igCancelForm: (e) => {
+        const p = this.igFind(id(e));
+        this.igPatch(p.id, Object.assign({ draft: blank, errors: {}, formError: '', showSecret: false, changingApp: false },
+          p.saved ? { phase: 'saved' } : { mode: 'SHARED', phase: null }));
+      },
+      igReplace: (e) => this.igPatch(id(e), { phase: 'replacing', draft: blank, errors: {}, formError: '', showSecret: false }),
+      igCancelReplace: (e) => this.igPatch(id(e), { phase: 'saved', draft: blank, errors: {}, formError: '', showSecret: false }),
+      igChangeApp: (e) => this.igPatch(id(e), { phase: 'new', changingApp: true, draft: blank, errors: {}, formError: '', showSecret: false }),
+      igToggleSetup: (e) => { const p = this.igFind(id(e)); this.igPatch(p.id, { setupOpen: !p.setupOpen }); },
+      igVerify: (e) => {
+        const p = this.igFind(id(e)), info = this.igProvider(p.id);
+        this.igPatch(p.id, { verifying: true });
+        setTimeout(() => {
+          const now = this.igFind(p.id), failed = now.saved.verify === 'failed';
+          this.igPatch(p.id, { verifying: false, saved: Object.assign({}, now.saved, { checked: 'just now' }) });
+          this.showToast(failed ? info.short + ' still refuses these keys' : info.short + ' accepted these keys');
+        }, 800);
+      },
+      igAskReturn: (e) => this.setState({ igReturn: id(e) }),
+      igCloseReturn: () => this.setState({ igReturn: null }),
+      igConfirmReturn: () => {
+        const p = this.igFind(this.state.igReturn), info = this.igProvider(p.id), n = p.mailboxes;
+        this.setState({ igReturn: null, igProviders: this.state.igProviders.map((x) => (x.id === p.id
+          ? Object.assign({}, x, { mode: 'SHARED', phase: null, saved: null, draft: blank, errors: {}, formError: '', setupOpen: false, changingApp: false })
+          : x)) });
+        this.showToast(info.title + ' uses the shared app. ' + n + ' ' + info.accounts + (n === 1 ? ' was' : ' were') + ' asked to connect again');
+      },
+    };
+  }
 
   showToast(msg) {
     this.setState({ toast: msg });
@@ -2442,7 +2892,7 @@ class Component extends DCLogic {
       I, isAdmin, providerOnly: !!props.providerOnly, hasPassword: !props.providerOnly,
       sectionLabel: this.LABELS[sec] || 'Settings',
       isProfile: sec === 'profile', isSecurity: sec === 'security', isGeneral: sec === 'general', isMeetings: sec === 'meetings', isAvailability: sec === 'availability', isMembers: sec === 'members', isTplList, isEditor,
-      isWorkspaces: sec === 'workspaces', isIntegrations: sec === 'integrations',
+      isWorkspaces: sec === 'workspaces', isIntegrations: sec === 'integrations', ...this.integrationVals(inputStyle, primary),
       isCandidateTags: sec === 'candidate-tags', ctNew: st.ctNew, ctDraft: st.ctDraft, ctAddOpacity: st.ctNew.trim() ? 1 : 0.5,
       ctRows: st.ctags.map((t) => {
         const COLOURS = { green: ['var(--u-direct)', 'var(--u-direct-tint)'], accent: ['var(--u-accent)', 'var(--u-accent-tint)'], neutral: ['var(--text2)', 'var(--panel)'], violet: ['var(--u-chart-5)', 'color-mix(in srgb, var(--u-chart-5) 16%, transparent)'], adjacent: ['var(--u-adjacent)', 'var(--u-adjacent-tint)'], inferred: ['var(--u-inferred)', 'var(--u-inferred-tint)'] };
@@ -2701,6 +3151,7 @@ class Component extends DCLogic {
         this.setState({ akDialog: 'none', akRevokeId: null, apiKeys: st.apiKeys.map((k) => (k.id === st.akRevokeId ? Object.assign({}, k, { revokedOn: '5 Oct 2026', revokedBy: 'yh' }) : k)) });
         this.showToast('Key revoked');
       },
+      ...this.integrationHandlers(),
       copyMcpUrl: () => { try { navigator.clipboard.writeText('https://beta.uncava.com/api/v1/mcp'); } catch (e) {} this.showToast('MCP server URL copied'); },
       setAiView: (e) => this.setState({ aiView: e.currentTarget.dataset.view }),
       askAiRevoke: (e) => this.setState({ aiDialog: 'revoke', aiRevokeId: e.currentTarget.dataset.id }),

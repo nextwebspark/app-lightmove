@@ -47,17 +47,19 @@ public class MailboxTokens {
     private final ProviderTokenClient tokenClient;
     private final TransactionTemplate transactions;
     private final ApplicationEventPublisher events;
+    private final OwnAppKeyHealth keyHealth;
     private final Cache<String, HeldAccessToken> held;
 
     public MailboxTokens(MailboxConnectionRepository connections, ProviderCredentialsResolver credentials,
                          SecretCipher cipher, ProviderTokenClient tokenClient, TransactionTemplate transactions,
-                         ApplicationEventPublisher events, Clock clock) {
+                         ApplicationEventPublisher events, OwnAppKeyHealth keyHealth, Clock clock) {
         this.connections = connections;
         this.credentials = credentials;
         this.cipher = cipher;
         this.tokenClient = tokenClient;
         this.transactions = transactions;
         this.events = events;
+        this.keyHealth = keyHealth;
         this.held = Caffeine.newBuilder()
                 .ticker(() -> TimeUnit.MILLISECONDS.toNanos(clock.millis()))
                 .executor(Runnable::run)
@@ -93,6 +95,15 @@ public class MailboxTokens {
         }
         ProviderCredentials app = credentials.resolve(connection.getWorkspaceId(), connection.integrationProvider())
                 .orElseThrow(() -> new ProviderAppUnavailable("no app resolves"));
+        // The workspace moved to another app (or a connect raced the move): this app cannot refresh the token, and a
+        // provider may answer that as a refused app, which would leave the mailbox waiting forever. The stored client
+        // decides here, whatever order the switch and the connect committed in.
+        if (connection.isFromAnotherApp(app.clientId())) {
+            withdrawAccess(connection.getId(), grantId);
+            log.info("Mailbox {} was connected through another app than the workspace's; it needs reconnecting",
+                    connection.getId());
+            throw withdrawn("connected through another app");
+        }
         String refreshToken = cipher.decrypt(connection.getRefreshTokenEncrypted(), connection.refreshTokenContext());
 
         ProviderTokenGrant refreshed;
@@ -106,10 +117,15 @@ public class MailboxTokens {
         } catch (ProviderAppUnavailable appRefused) {
             log.warn("The {} app of workspace {} was refused ({}); its mailboxes wait for an admin to fix it",
                     app.provider(), connection.getWorkspaceId(), appRefused.getMessage());
+            keyHealth.refusedAtRefresh(connection.getWorkspaceId(), app, appRefused);
             throw appRefused;
         }
+        keyHealth.answeredAtRefresh(connection.getWorkspaceId(), app);
         if (refreshed.refreshToken() != null && !refreshed.refreshToken().equals(refreshToken)) {
             keepRotated(connection.getId(), grantId, refreshed.refreshToken());
+        }
+        if (connection.getAppClientId() == null) {
+            recordAppClient(connection.getId(), grantId, app.clientId());
         }
         return new HeldAccessToken(refreshed.accessToken(), refreshed.expiresIn().minus(EXPIRY_MARGIN));
     }
@@ -118,6 +134,12 @@ public class MailboxTokens {
         transactions.executeWithoutResult(status -> connections.findById(connectionId)
                 .filter(fresh -> grantId.equals(fresh.getGrantId()))
                 .ifPresent(fresh -> fresh.rotateRefreshToken(cipher.encrypt(rotated, fresh.refreshTokenContext()))));
+    }
+
+    private void recordAppClient(UUID connectionId, String grantId, String clientId) {
+        transactions.executeWithoutResult(status -> connections.findById(connectionId)
+                .filter(fresh -> grantId.equals(fresh.getGrantId()))
+                .ifPresent(fresh -> fresh.recordAppClient(clientId)));
     }
 
     private void withdrawAccess(UUID connectionId, String grantId) {

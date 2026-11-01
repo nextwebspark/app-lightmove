@@ -88,6 +88,15 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
         return findByIdAndProjectId(id, projectId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
+    /**
+     * {@code FOR UPDATE}, which a candidate row's foreign-key check (a key-share lock) waits for, so nobody is mapped
+     * there between a removal's count and its delete. Not {@code @Lock(PESSIMISTIC_WRITE)}: Hibernate takes
+     * {@code FOR NO KEY UPDATE} for it on Postgres, which that check does not wait for, and a removal stranded someone.
+     */
+    @Query(value = "SELECT * FROM app_lm_project_triage_company WHERE id = :id AND project_id = :projectId FOR UPDATE",
+            nativeQuery = true)
+    Optional<TriageCompany> findForUpdate(@Param("id") UUID id, @Param("projectId") UUID projectId);
+
     long countByProjectIdAndStatus(UUID projectId, TriageCompanyStatus status);
 
     @Query("select t.id from TriageCompany t where t.projectId = :projectId and t.status = :status")

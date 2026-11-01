@@ -1,10 +1,12 @@
 package app.lightmove.api.outreach;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FixtureJdbc;
@@ -17,6 +19,8 @@ import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.model.RecallCalendarEvent;
 import app.lightmove.api.outreach.model.RecallCalendarSpec;
+import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.outreach.service.MailboxTokens;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
@@ -32,6 +36,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -46,12 +51,14 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
 
     private static final String MAILBOX = "/api/v1/outreach/mailbox";
     private static final String ADDRESS = "consultant@firm.example";
+    private static final String OWN_GOOGLE_CLIENT = "meridian-own.apps.googleusercontent.com";
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     @Autowired private RecordingMailboxGateway gateway;
     @Autowired private RecordingRecallCalendarApi recall;
     @Autowired private RecordingProviderTokenClient tokenEndpoint;
     @Autowired private OutreachDispatcher dispatcher;
+    @Autowired private MailboxTokens mailboxTokens;
     @Autowired @FixtureJdbc private JdbcTemplate jdbc;
 
     private String consultant;
@@ -63,7 +70,7 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
         recall.clear();
         tokenEndpoint.clear();
         String email = "yara@" + domain;
-        createWorkspace(verifiedUser("Yara Haddad", email), "Meridian Search");
+        createWorkspace(verifiedUser("Yara Haddad", email), "Meridian Recall Desk");
         consultant = login(email);
         workspaceId = jdbc.queryForObject("select w.id::text from app_lm_workspace w join app_lm_workspace_member m "
                 + "on m.workspace_id = w.id join app_lm_user u on u.id = m.user_id where u.email = ?", String.class,
@@ -340,6 +347,106 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
                         .content("{\"clientId\":\"%s\",\"positionTitle\":\"Group CFO\"}".formatted(clientId)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
+    }
+
+    @Test
+    @DisplayName("moving to the workspace's own app withdraws the mailbox made through the shared one, and its calendar")
+    void changingTheAppWithdrawsTheMailbox() throws Exception {
+        connectDirect("refresh-token-1");
+        String calendarId = recallCalendarId();
+
+        saveOwnGoogleApp("own-google-secret-1")
+                .andExpect(jsonPath("$.providers[0].connectionsThroughApp").value(0));
+
+        assertThat(connectionRow().get("status")).isEqualTo("ERROR");
+        assertThat(recallCalendarId()).isNull();
+        assertThat(recall.deleted()).containsExactly(calendarId);
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_audit_event where workspace_id = ?::uuid "
+                + "and metadata ->> 'connectionsWithdrawn' = '1'", Integer.class, workspaceId)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a new secret for the same app reaches the Recall calendar, and the mailbox stays connected")
+    void newSecretReachesTheCalendar() throws Exception {
+        saveOwnGoogleApp("own-google-secret-1");
+        connectDirect("refresh-token-1");
+        String calendarId = recallCalendarId();
+        assertThat(recall.createdSpecs().getFirst().clientSecret()).isEqualTo("own-google-secret-1");
+
+        saveOwnGoogleApp("own-google-secret-2")
+                .andExpect(jsonPath("$.providers[0].connectionsThroughApp").value(1));
+
+        assertThat(connectionRow().get("status")).isEqualTo("ACTIVE");
+        assertThat(recall.updates()).singleElement().satisfies(update -> {
+            assertThat(update.calendarId()).isEqualTo(calendarId);
+            assertThat(update.spec().clientId()).isEqualTo(OWN_GOOGLE_CLIENT);
+            assertThat(update.spec().clientSecret()).isEqualTo("own-google-secret-2");
+            assertThat(update.spec().refreshToken()).isEqualTo("refresh-token-1");
+        });
+    }
+
+    @Test
+    @DisplayName("a new secret hands existing calendars the keys, and makes none for a mailbox that has none")
+    void newSecretMakesNoCalendar() throws Exception {
+        saveOwnGoogleApp("own-google-secret-1");
+        connectDirect("refresh-token-1");
+        jdbc.update("update app_lm_mailbox_connection set recall_calendar_id = null, recall_calendar_attempts = 5 "
+                + "where workspace_id = ?::uuid", workspaceId);
+        int created = recall.createdSpecs().size();
+
+        saveOwnGoogleApp("own-google-secret-2");
+
+        assertThat(recall.createdSpecs()).as("a calendar that gave up waits for a reconnect").hasSize(created);
+        assertThat(recall.updates()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a mailbox connected through another app than the workspace's is withdrawn at its next refresh")
+    void aMailboxFromAnotherAppIsWithdrawnAtRefresh() throws Exception {
+        connectDirect("refresh-token-1");
+        String calendarId = recallCalendarId();
+        // As a connect that committed while the workspace was moving to another app would have left it.
+        jdbc.update("update app_lm_mailbox_connection set app_client_id = 'the-app-the-workspace-left' "
+                + "where workspace_id = ?::uuid", workspaceId);
+        String grantId = jdbc.queryForObject("select grant_id from app_lm_mailbox_connection where workspace_id = ?::uuid",
+                String.class, workspaceId);
+        mailboxTokens.forget(grantId);
+        tokenEndpoint.clear();
+
+        assertThatThrownBy(() -> mailboxTokens.accessToken(grantId)).isInstanceOf(VendorException.class);
+
+        assertThat(connectionRow().get("status")).isEqualTo("ERROR");
+        assertThat(recallCalendarId()).isNull();
+        assertThat(recall.deleted()).containsExactly(calendarId);
+        assertThat(tokenEndpoint.refreshedTokens()).as("never offered to an app it was not issued to").isEmpty();
+    }
+
+    @Test
+    @DisplayName("a mailbox from before its app was recorded learns it from its first refresh")
+    void anUnknownAppIsRecordedAtRefresh() throws Exception {
+        connectDirect("refresh-token-1");
+        String grantId = jdbc.queryForObject("select grant_id from app_lm_mailbox_connection where workspace_id = ?::uuid",
+                String.class, workspaceId);
+        jdbc.update("update app_lm_mailbox_connection set app_client_id = null where workspace_id = ?::uuid",
+                workspaceId);
+        mailboxTokens.forget(grantId);
+
+        mailboxTokens.accessToken(grantId);
+
+        assertThat(appClientIdOnRow()).isEqualTo("uncava-google-client");
+    }
+
+    private String appClientIdOnRow() {
+        return jdbc.queryForObject("select app_client_id from app_lm_mailbox_connection where workspace_id = ?::uuid",
+                String.class, workspaceId);
+    }
+
+    private ResultActions saveOwnGoogleApp(String secret) throws Exception {
+        return mvc.perform(put("/api/v1/workspace/integrations/GOOGLE").header("Authorization", "Bearer " + consultant)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"mode\":\"OWN\",\"clientId\":\"%s\",\"clientSecret\":\"%s\"}"
+                                .formatted(OWN_GOOGLE_CLIENT, secret)))
+                .andExpect(status().isOk());
     }
 
     private void connectDirect(String refreshToken) throws Exception {

@@ -331,9 +331,13 @@ per-workspace-unique column (`Person.profileSlug`, V95) that `Person` rewrites w
 a mandate-scoped check (`refuseHeldProfile`, `mappedProfileSlugsOf`) still reads the URLs themselves,
 because V95 leaves the slug null on a person sharing a profile with an older one. `PersonRepository`'s
 finders all take the workspace id, as `CandidateRepository`'s all take the project id.
-The employer name is snapshotted beside the link so V36's `ON DELETE SET NULL` can unmap without
-deleting: removing a company from a mandate drops the mandate's decision about the company, never the
-people mapped at it.
+The employer name is snapshotted beside the link, for the executive at no company of the mandate's. Removing a
+company takes the people mapped at it: `TriageCompanyService.removeFromProject` locks the company row (a candidate
+naming it takes a key-share lock, so nobody is mapped there mid-removal), counts them through
+`MappedExecutiveLookup.executivesAt`, refuses more than the caller's `expectedExecutives`, and publishes
+`TriageCompanyRemoved`, on which `CompanyRemovalFollower` removes each one in the same transaction — V36's
+`ON DELETE SET NULL` is no longer how anyone leaves. A candidate write resolves its company in `CandidateRequestReader.companyOf`: a save naming no
+company keeps the one the person is at, and a typed employer the mandate holds by exactly that name lands there.
 
 Strategy answers "which companies match?"; triagecompany answers "what did this mandate do about that
 one?"; candidate answers "who sits there, and where has this mandate got to with them?" If a new type is
@@ -495,7 +499,8 @@ and a direct mailbox's provider refresh token (V107). Three rules hold for every
 - **Encrypt under an `EncryptionContext` naming the owner and the column** (`WorkspaceMailIntegration
   .clientSecretContext`, `MailboxConnection.refreshTokenContext`). It is the ciphertext's associated data, so a value copied onto another workspace's
   row, or into another column, fails to decrypt rather than handing one tenant's key to another.
-- **Write-only over the API.** A response says a secret is held (`secretSet`), never what it is; a request
+- **Write-only over the API.** A response says a secret is held (`secretSet`) and, for an own app's client secret,
+  its last four characters (`secretHint`, none under 16), never the rest; a request
   record carrying one overrides `toString` to redact it, and so does any model record holding it decrypted
   (`ProviderCredentials`, `OwnAppKeys`). Never trim one — whitespace inside a secret is the secret.
 - **Decrypt for the one call that spends it.** `MailboxTokens` and `RecallCalendars` decrypt a refresh token

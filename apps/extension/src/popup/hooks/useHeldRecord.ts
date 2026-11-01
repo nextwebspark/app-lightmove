@@ -5,8 +5,11 @@ import { askOrThrow } from "../lib/askOrThrow";
 export const heldPersonKey = (projectId: string | null, linkedinUrl: string | null) =>
   ["extension", "held", "person", projectId, linkedinUrl] as const;
 
+/** Every company read on a position: the prefix each one's key extends. */
+export const heldCompaniesKey = (projectId: string | null) => ["extension", "held", "company", projectId] as const;
+
 export const heldCompanyKey = (projectId: string | null, linkedinUrl: string | null, name: string | null) =>
-  ["extension", "held", "company", projectId, linkedinUrl, name] as const;
+  [...heldCompaniesKey(projectId), linkedinUrl, name] as const;
 
 /** How often a fresh record is read again while its research lands, and for how long. */
 const RESEARCH_POLL_MS = 5_000;
@@ -51,5 +54,8 @@ export function useHeldCache() {
       queryClient.invalidateQueries({ queryKey: heldPersonKey(projectId, linkedinUrl) }),
     refreshCompany: (projectId: string, linkedinUrl: string | null, name: string | null) =>
       queryClient.invalidateQueries({ queryKey: heldCompanyKey(projectId, linkedinUrl, name) }),
+    /** Every company read on the position, dropped rather than shown stale: an undone person may have taken theirs. */
+    forgetCompanies: (projectId: string) =>
+      queryClient.removeQueries({ queryKey: heldCompaniesKey(projectId) }),
   };
 }

@@ -7,6 +7,7 @@ import { filterClients } from "./filtering";
 const client = (overrides: Partial<Client>): Client => ({
   id: "c1",
   name: "Meridian Energy",
+  apolloAccountId: null,
   type: "RETAINED",
   sector: "Energy",
   hqCountry: "UAE",
