@@ -540,8 +540,8 @@ person merge is built, message and attachment rows move with the enrollments.
      tabs became chips in the list pane (`ConversationListPane`: All · **To do** · Scheduled · Sent, Team | Mine beside
      the heading); To do keeps the groups, relabelled Needs reply · Follow-ups · Before first email · Delivery
      problems. A chip or scope change moves to the top of that list; Mark handled moves on only in To do. The header
-     (`OutreachHeader`) is the mailbox chip and the view's one action (Conversations | Sequences moved to the rail's
-     views under Outreach, the header keeping the switch below `lg` only) — **New email** on Conversations (a To
+     (`OutreachHeader`) is Conversations | Sequences first (`ToolbarViewSwitch`, the width every page's switch has),
+     then the mailbox chip and the view's one action — **New email** on Conversations (a To
      field over the pipeline read: the five newest before anything is typed, eight matches after, so a position of
      hundreds is narrowed by typing; the pick opens with the caret in the composer) and **New sequence** on
      Sequences — the New outreach menu, the Priority label, the "{n} open" count and the scheduled footer are gone,

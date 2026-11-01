@@ -81,46 +81,30 @@
   </header>
 
   <div style="flex:1;min-height:0;display:flex;padding:0 14px 14px">
-    <nav data-screen-label="Sidebar" style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s">
+    <nav data-screen-label="Sidebar" style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow:hidden;transition:width .18s">
       <a href="Workspace.dc.html" title="All positions" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13.5px;font-weight:500;color:var(--text2);margin-bottom:6px;justify-content:{{ rowJustify }}" style-hover="background:var(--panel2);color:var(--text)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.back }}"></path></svg>
         <span style="white-space:nowrap;display:{{ labelDisp }}">All positions</span>
       </a>
       <div style="height:1px;background:var(--line-soft);margin:0 4px 6px"></div>
+      <!-- Only the groups scroll: the way back stays pinned above them, the footer below. -->
+      <div style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;margin:0 -10px;padding:0 10px">
       <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="4">
         <div>
           <div style="padding:14px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);display:{{ labelDisp }}">{{ g.label }}</div>
           <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
-            <!-- A section with views of its own (Strategy, In universe, Outreach) nests them under its row, behind a guide
-                 line: open while you are in it, the chevron opening or closing any of them by hand. Collapsed, the
-                 views stay reachable as their icons alone. -->
-            <div>
-              <div style="display:flex;align-items:center;gap:2px">
-                <a href="{{ it.href }}" title="{{ it.label }}" style="{{ it.rowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="{{ it.iconStyle }}"><path d="{{ it.icon }}"></path></svg>
-                  <span style="white-space: nowrap; display: {{ labelDisp }}">{{ it.label }}</span>
-                  <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto;font:500 11px var(--mono);color:var(--text3);display:{{ labelDisp }}">{{ it.count }}</span></sc-if>
-                </a>
-                <sc-if value="{{ it.hasKids }}" hint-placeholder-val="{{ false }}">
-                  <button onClick="{{ toggleNav }}" data-id="{{ it.key }}" aria-expanded="{{ it.openStr }}" aria-controls="{{ it.kidsId }}" aria-label="{{ it.viewsLabel }}" title="{{ it.toggleLabel }}" style="{{ it.chevStyle }}" style-hover="background:var(--panel2);color:var(--text)">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style="{{ it.chevIconStyle }}"><path d="{{ ic.chevronDown }}"></path></svg></button>
-                </sc-if>
-              </div>
-              <sc-if value="{{ it.open }}" hint-placeholder-val="{{ false }}">
-                <div id="{{ it.kidsId }}" role="group" aria-label="{{ it.label }}" style="{{ it.kidsStyle }}">
-                  <sc-for list="{{ it.kids }}" as="k" hint-placeholder-count="2">
-                    <a href="{{ k.href }}" title="{{ k.label }}" aria-current="{{ k.current }}" style="{{ k.rowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="{{ k.iconStyle }}"><path d="{{ k.icon }}"></path></svg>
-                      <span style="white-space:nowrap;display:{{ labelDisp }}">{{ k.label }}</span>
-                    </a>
-                  </sc-for>
-                </div>
-              </sc-if>
-            </div>
+            <!-- One row per page: a page's views (Strategy's Companies | People, In universe's Table | Map | Pipeline,
+                 Outreach's Conversations | Sequences) are the switch first in its own toolbar, never nested here. -->
+            <a href="{{ it.href }}" title="{{ it.label }}" style="{{ it.rowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="{{ it.iconStyle }}"><path d="{{ it.icon }}"></path></svg>
+              <span style="white-space: nowrap; display: {{ labelDisp }}">{{ it.label }}</span>
+              <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto;font:500 11px var(--mono);color:var(--text3);display:{{ labelDisp }}">{{ it.count }}</span></sc-if>
+            </a>
           </sc-for>
         </div>
       </sc-for>
-      <div style="margin-top:auto;border-top:1px solid var(--line-soft);padding-top:12px">
+      </div>
+      <div style="flex:none;border-top:1px solid var(--line-soft);padding-top:12px">
         <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;width:100%;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13.5px;color:var(--text2);background:none;border:none;cursor:pointer;text-align:left;justify-content:{{ rowJustify }}" style-hover="background:var(--panel2);color:var(--text)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ themeIcon }}"></path></svg>
           <span style="white-space:nowrap;display:{{ labelDisp }}">{{ themeLabel }}</span>
@@ -136,10 +120,22 @@
     <main style="flex:1;min-width:0;overflow-y:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel)">
       <sc-if value="{{ isStage }}" hint-placeholder-val="{{ true }}">
         <div data-screen-label="{{ stageScreenLabel }}" style="display:flex;flex-direction:column;height:100%;min-height:0;width:100%">
-          <!-- The toolbar row Strategy.dc.html and Outreach.dc.html share: search first, the outreach pair, Find executives
-               filled, then Advanced ▾ and Create ▾ quiet. Every action keeps its place in every view, greyed where the view
-               cannot take it. -->
+          <!-- The toolbar row Strategy.dc.html and Outreach.dc.html share: the page's views first — one 272px switch on
+               every page, its options sharing it equally, so the search after the rule starts at the same place on all
+               three — then search, the outreach pair, Find executives filled, then Advanced ▾ and Create ▾ quiet. Every
+               action keeps its place in every view, greyed where the view cannot take it. -->
           <div style="flex:none;display:flex;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel);padding:10px 16px">
+            <sc-if value="{{ hasViewSwitch }}" hint-placeholder-val="{{ true }}">
+              <div role="radiogroup" aria-label="View" style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;flex:none;width:272px;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
+                <sc-for list="{{ viewSwitch }}" as="v" hint-placeholder-count="3">
+                  <button role="radio" aria-checked="{{ v.checked }}" onClick="{{ setView }}" data-id="{{ v.key }}" style="{{ v.style }}" style-hover="color:var(--text)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ v.icon }}"></path></svg>
+                    <span style="overflow:hidden;text-overflow:ellipsis">{{ v.label }}</span>
+                  </button>
+                </sc-for>
+              </div>
+              <span aria-hidden="true" style="flex:none;width:1px;height:20px;background:var(--line-soft)"></span>
+            </sc-if>
             <div style="display:flex;align-items:center;gap:8px;flex:1 1 280px;min-width:220px;max-width:360px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 10px 8px 12px">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none;color:var(--text3)"><path d="{{ ic.search }}"></path></svg>
               <input value="{{ searchQuery }}" onChange="{{ setSearchQuery }}" placeholder="{{ searchPlaceholder }}" aria-label="{{ searchPlaceholder }}" style="width:100%;min-width:0;background:transparent;border:none;outline:none;font:400 13px var(--sans);color:var(--text)">
@@ -2834,6 +2830,7 @@ const I = {
   userPlus: "M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM20 8v6M23 11h-6",
   outreach: "M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z",
   reports: "M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z",
+  dashboard: "M4 3h5a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm11 0h5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm0 9h5a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1ZM4 16h5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1Z",
   pencil: "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z",
   minus: "M5 12h14",
   warnTri: "M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0ZM12 9v4M12 17h.01",
@@ -3169,6 +3166,8 @@ const TXT = "display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;wh
 const PILL = "display:inline-flex;align-items:center;border-radius:4px;padding:2px 6px;font:700 10px var(--mono);text-transform:uppercase;letter-spacing:.04em;";
 const DPILL = "display:inline-flex;align-items:center;border-radius:5px;padding:2px 7px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;";
 const tile = (value) => { const empty = value === null || value === undefined || value === ""; return { value: empty ? "—" : value, style: `min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:7px 10px;font:400 13px var(--mono);color:${empty ? "var(--text3)" : "var(--text)"}` }; };
+/** One option of a page's view switch: the options share the switch's fixed width equally. */
+const viewSeg = (sel) => `display:inline-flex;min-width:0;justify-content:center;cursor:pointer;align-items:center;gap:6px;white-space:nowrap;border-radius:4px;padding:6px 10px;font:500 12.5px var(--sans);border:none;${sel ? "background:var(--u-accent-tint);color:var(--text)" : "background:none;color:var(--text3)"}`;
 const segD = (sel) => `display:inline-flex;cursor:pointer;align-items:center;gap:6px;white-space:nowrap;border-radius:4px;padding:6px 10px;font:500 12.5px var(--sans);border:none;${sel ? "background:var(--amber-dim);color:var(--text)" : "background:none;color:var(--text3)"}`;
 const segU = (sel) => `display:inline-flex;cursor:pointer;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:6px 12px;font:600 11.5px var(--sans);border:none;${sel ? "background:var(--u-accent-solid);color:#fff" : "background:none;color:var(--u-text2)"}`;
 const sw = (shape, color) => {
@@ -3266,7 +3265,7 @@ class Component extends DCLogic {
       view: pick("page", "") === "pipeline" ? "pipeline" : pick("view", "table"), drawer: pick("drawer", "none"), dialog: pick("dialog", "none"),
       importStep: pick("importStep", "map"), empty: flag("empty", false), clientRep: flag("clientRep", false),
       chapter, teamModal: pick("teamModal", "none"), canManage: flag("canManage", true),
-      dark: true, collapsed, navOpen: {}, wsMenu: false, colMenu: false,
+      dark: true, collapsed, wsMenu: false, colMenu: false,
       sort: { field: "added", dir: "desc" },
       vis: { founded: false, description: false, source: false },
       toast: null, coId: "c01", candId: "e01", removeId: "c01", contactEditing: false, compEditing: false, compForm: null,
@@ -3538,7 +3537,10 @@ class Component extends DCLogic {
         switchStyle: `position:relative;flex:none;margin-top:1px;width:28px;height:16px;border-radius:999px;background:${a.toggle ? "var(--amber-btn)" : "var(--line)"}`,
         knobStyle: `position:absolute;top:2px;left:${a.toggle ? 14 : 2}px;width:12px;height:12px;border-radius:50%;background:#fff;transition:left .15s` };
     });
+    const VIEW_LABELS = { table: ["Table", I.table], map: ["Map", I.mapPin], pipeline: ["Pipeline", I.pipeline] };
     return {
+      hasViewSwitch: offered.length > 1,
+      viewSwitch: offered.map((v) => ({ key: v, label: VIEW_LABELS[v][0], icon: VIEW_LABELS[v][1], checked: String(v === view), style: viewSeg(v === view) })),
       searchQuery: s.searchQuery, hasSearch: !!s.searchQuery,
       searchPlaceholder: !cw ? "Search companies and executives…" : "Search companies, executives, notes, tags…",
       notBoard: view !== "pipeline", canCreate: cw && view !== "pipeline",
@@ -4464,7 +4466,6 @@ class Component extends DCLogic {
       closeCopilot: () => set({ copilot: false }),
       applyCallChange: () => { set({ callChanges: false }); this.showToast("3 changes saved to Fatima's record"); },
       toggleTheme: () => { const d = !this.state.dark; document.documentElement.setAttribute("data-theme", d ? "dark" : "light"); try { localStorage.setItem("lm-theme", d ? "dark" : "light"); } catch (e) { /* storage unavailable */ } set({ dark: d }); },
-      toggleNav: (e) => set({ navOpen: { ...this.state.navOpen, [id(e)]: e.currentTarget.getAttribute("aria-expanded") !== "true" } }),
       toggleCollapse: () => { const c = !this.state.collapsed; try { localStorage.setItem("lm-side-collapsed", c ? "1" : "0"); } catch (e) { /* storage unavailable */ } set({ collapsed: c }); },
       setViewTable: () => set({ view: "table" }),
       setViewMap: () => set({ view: "map" }),
@@ -4722,42 +4723,20 @@ class Component extends DCLogic {
     const collapsed = s.collapsed;
     const counts = { u: this.liveCompanies("u").length, s: this.liveCompanies("s").length, d: this.liveCompanies("d").length };
     if (s.empty && stageKey) counts[stageKey] = 0;
-    const navSub = (label, icon, href, active) => ({ label, icon, href, active, current: active ? "page" : "false",
-      rowStyle: `display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:6px;font-size:13px;text-decoration:none;justify-content:${collapsed ? "center" : "flex-start"};background:${active ? "var(--panel2)" : "transparent"};color:${active ? "var(--text)" : "var(--text2)"}`,
+    const navItem = (label, icon, href, active, count, key) => ({ key, label, icon, href, hasCount: count !== undefined, count,
+      rowStyle: `display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13.5px;text-decoration:none;justify-content:${collapsed ? "center" : "flex-start"};background:${active ? "var(--panel2)" : "transparent"};color:${active ? "var(--text)" : "var(--text2)"}`,
       iconStyle: `flex:none;color:${active ? "var(--amber)" : "currentColor"}` });
-    const navItem = (label, icon, href, active, count, key, kids = []) => {
-      const childActive = kids.some((k) => k.active);
-      const toggled = s.navOpen[key];
-      const open = kids.length > 0 && (toggled !== undefined ? toggled : active || childActive);
-      const filled = active && !childActive;
-      return { key, label, icon, href, hasCount: count !== undefined, count, kids, hasKids: kids.length > 0, open, openStr: String(open),
-        kidsId: `nav-${key}`, viewsLabel: `${label} views`, toggleLabel: `${open ? "Hide" : "Show"} ${label} views`,
-        rowStyle: `display:flex;flex:1;min-width:0;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13.5px;text-decoration:none;justify-content:${collapsed ? "center" : "flex-start"};background:${filled ? "var(--panel2)" : "transparent"};color:${active || childActive ? "var(--text)" : "var(--text2)"}`,
-        iconStyle: `flex:none;color:${filled ? "var(--amber)" : "currentColor"}`,
-        chevStyle: `display:${collapsed ? "none" : "grid"};place-items:center;flex:none;width:24px;height:24px;border-radius:5px;border:none;background:none;padding:0;color:var(--text3);cursor:pointer`,
-        chevIconStyle: `display:block;transition:transform .15s;transform:rotate(${open ? 0 : -90}deg)`,
-        kidsStyle: collapsed ? "display:flex;flex-direction:column;gap:1px;margin:2px 0 6px;padding:2px;border:1px solid var(--line-soft);border-radius:8px"
-          : "display:flex;flex-direction:column;gap:1px;margin:1px 0 4px 18px;padding-left:8px;border-left:1px solid var(--line-soft)" };
-    };
-    const universeView = stageKey === "u" ? this.currentView() : null;
-    const NAV_VIEWS = { table: ["Table", I.table], map: ["Map", I.mapPin], pipeline: ["Pipeline", I.pipeline] };
-    const universeKids = ["table", "map"].concat(cw ? ["pipeline"] : [])
-      .map((v) => navSub(NAV_VIEWS[v][0], NAV_VIEWS[v][1], `Position.dc.html?page=${STAGES.u.slug}&view=${v}`, universeView === v));
     const navGroups = [
       { label: "Position", items: [
         navItem("Brief", I.position, "Position.dc.html", false, undefined, "brief"),
-        navItem("Strategy", I.strategy, "Strategy.dc.html", false, undefined, "strategy", cw ? [
-          navSub("Companies", I.building, "Strategy.dc.html", false),
-          navSub("People", I.candidates, "Strategy.dc.html?mode=people", false)] : [])] },
-      { label: "Market mapping", items: [navItem(STAGES.u.label, STAGES.u.icon, `Position.dc.html?page=${STAGES.u.slug}`, stageKey === "u", counts.u, "universe", universeKids)] },
-      { label: "CRM", items: [
-        navItem("Outreach", I.outreach, "Outreach.dc.html", false, undefined, "outreach", [
-          navSub("Conversations", I.mail, "Outreach.dc.html", false),
-          navSub("Sequences", I.listOrdered, "Position.dc.html?page=sequences", s.page === "sequences")]),
+        navItem("Strategy", I.strategy, "Strategy.dc.html", false, undefined, "strategy")] },
+      { label: "Market mapping", items: [navItem(STAGES.u.label, STAGES.u.icon, `Position.dc.html?page=${STAGES.u.slug}`, stageKey === "u", counts.u, "universe")] },
+      { label: "Engage", items: [
+        navItem("Outreach", I.outreach, "Outreach.dc.html", s.page === "sequences", undefined, "outreach"),
         navItem("Benchmark", I.target, "Position.dc.html?page=benchmark", s.page === "benchmark", undefined, "benchmark"),
         navItem("Activity", I.activity, "Position.dc.html?page=activity", s.page === "activity", undefined, "activity")
       ] },
-      { label: "Project", items: [navItem("Reports", I.reports, "Position.dc.html?page=reports", isReports, undefined, "reports"), navItem("Team & access", I.team, "Position.dc.html?page=team", s.page === "team", undefined, "team")] }
+      { label: "Project", items: [navItem("Dashboard", I.dashboard, "Position.dc.html?page=reports", isReports, undefined, "reports"), navItem("Team & access", I.team, "Position.dc.html?page=team", s.page === "team", undefined, "team")] }
     ];
     const view = this.currentView();
     const stage = isStage ? Object.assign(this.stageVals(stageKey), this.toolbarVals(stageKey)) : {};
