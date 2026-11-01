@@ -18,6 +18,8 @@ import app.lightmove.api.core.security.service.OAuth2LoginSuccessHandler;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import jakarta.servlet.http.Cookie;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -233,14 +235,14 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
                                 """))
                 .andExpect(status().isForbidden());
 
-        signIn("linkedin", "linkedin-subject-held", email, Map.of());
+        String signedIn = accessTokenOf(signIn("linkedin", "linkedin-subject-held", email, Map.of()));
 
         User user = users.findByEmail(email).orElseThrow();
         assertThat(user.isEmailVerified()).isTrue();
 
-        // And the gate is genuinely open now, on a session minted after the provider sign-in.
+        // And the gate is genuinely open now, on the session the provider sign-in minted.
         mvc.perform(post("/api/v1/onboarding/workspace")
-                        .header("Authorization", "Bearer " + login(email))
+                        .header("Authorization", "Bearer " + signedIn)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"mode":"COMPANY","name":"Held Firm"}
@@ -249,6 +251,56 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
 
         assertThat(members.findAllByUserIdAndStatusOrderByJoinedAtAsc(user.getId(), MemberStatus.ACTIVE))
                 .hasSize(1);
+    }
+
+    @Test
+    @DisplayName("a provider proving an address nobody verified shuts out whoever opened the account on it")
+    void aProviderProvingTheAddressShutsOutAnUnverifiedClaimant() throws Exception {
+        // Someone signs up on the owner's address with a password of their own, and never verifies it.
+        String email = "owner@" + domain;
+        MvcResult claimant = mvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("fullName", "Claimant", "email", email,
+                                "password", PASSWORD, "termsAccepted", true))))
+                .andExpect(status().isCreated())
+                .andReturn();
+        Cookie claimantSession = claimant.getResponse().getCookie("lm_refresh");
+
+        signIn("linkedin", "linkedin-subject-owner", email, Map.of());
+
+        MvcResult refusedPassword = mvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("email", email, "password", PASSWORD))))
+                .andExpect(status().isUnauthorized())
+                .andReturn();
+        assertThat(codeOf(refusedPassword)).isEqualTo("INVALID_CREDENTIALS");
+        mvc.perform(post("/api/v1/auth/refresh").cookie(claimantSession).with(csrf()))
+                .andExpect(status().isUnauthorized());
+        assertThat(users.findByEmail(email).orElseThrow().hasPassword()).isFalse();
+    }
+
+    @Test
+    @DisplayName("an unverified claimant's second factor goes too, so the owner is not asked for a code they never had")
+    void aProviderProvingTheAddressDropsAnUnverifiedClaimantsFactor() throws Exception {
+        String email = "owner2@" + domain;
+        signup("Claimant", email);
+        enrol(email);
+
+        MockHttpServletResponse owner = signIn("linkedin", "linkedin-subject-owner2", email, Map.of());
+
+        assertThat(owner.getRedirectedUrl()).contains("#token=");
+        assertThat(owner.getCookie("lm_mfa_challenge")).isNull();
+    }
+
+    @Test
+    @DisplayName("linking a provider to a verified account keeps its password")
+    void linkingAVerifiedAccountKeepsItsPassword() throws Exception {
+        String email = "kept@" + domain;
+        verifiedUser("Kept Password", email);
+
+        signIn("linkedin", "linkedin-subject-kept", email, Map.of());
+
+        assertThat(login(email)).isNotBlank();
     }
 
     @Test
@@ -379,6 +431,13 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
                 .andReturn();
         assertThat(enabled.getResponse().getStatus()).as(enabled.getResponse().getContentAsString()).isEqualTo(200);
         return secret;
+    }
+
+    private static String accessTokenOf(MockHttpServletResponse response) {
+        String redirect = response.getRedirectedUrl();
+        assertThat(redirect).contains("#token=");
+        return URLDecoder.decode(redirect.substring(redirect.indexOf("#token=") + "#token=".length()),
+                StandardCharsets.UTF_8);
     }
 
     private String emailForThisTest() {
