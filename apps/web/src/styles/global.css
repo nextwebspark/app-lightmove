@@ -61,6 +61,23 @@ body {
   }
 }
 
+/* Dark theme: the browser's own scrollbars are light unless told otherwise. The viewport's is styled from the root
+   element, not body, hence `html:has`; `scrollbar-width` does not inherit, hence `.dark *`. In `@layer base` so a
+   call site's `[scrollbar-width:none]` still hides its bar. */
+html:has(> body.dark),
+.dark {
+  color-scheme: dark;
+}
+
+@layer base {
+  html:has(> body.dark),
+  .dark,
+  .dark * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-u-border-strong) transparent;
+  }
+}
+
 /* The entrance the mockups give every card and heading. */
 @keyframes fade-up {
   from {
