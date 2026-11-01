@@ -376,6 +376,21 @@ describe("StrategyPage — People mode", () => {
     expect(await screen.findByRole("radio", { name: "Cards" })).toBeChecked();
   });
 
+  it("asks companies or people first in the toolbar, before the search, and goes back to companies from it", async () => {
+    renderPeopleMode();
+
+    const modes = await screen.findByRole("radiogroup", { name: "Search for" });
+    expect(within(modes).getByRole("radio", { name: "People" })).toBeChecked();
+    const search = screen.getByRole("searchbox", { name: "Search people by name" });
+    expect(modes.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await userEvent.click(within(modes).getByRole("radio", { name: "Companies" }));
+
+    expect(await screen.findByRole("searchbox", { name: "Search companies" })).toBeInTheDocument();
+    const after = screen.getByRole("radiogroup", { name: "Search for" });
+    expect(within(after).getByRole("radio", { name: "Companies" })).toBeChecked();
+  });
+
   it("is not offered to a client seat, which stays on the company search", async () => {
     auth.roles = ["CLIENT"];
     renderPeopleMode();

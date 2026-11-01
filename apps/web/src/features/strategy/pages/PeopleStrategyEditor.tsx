@@ -20,7 +20,6 @@ import { messageFor } from "../../../lib/errorCodes";
 import { LeaveGuard } from "../../../components/layout/LeaveGuard";
 import { useAutosave } from "../../../lib/useAutosave";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
-import type { ModeToggle } from "../components/StrategyModeToggle";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { useAuth } from "../../auth/AuthProvider";
 import { isBillingRefusal } from "../../billing/lib/billingView";
@@ -95,7 +94,7 @@ export function PeopleStrategyEditor({
 }: {
   projectId: string;
   /** The Companies | People control, drawn by whichever mode is on screen. */
-  toggle: ModeToggle | null;
+  toggle: ReactNode;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -316,7 +315,7 @@ export function PeopleStrategyEditor({
     <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
       <LeaveGuard hasUnsavedChanges={autosave.hasUnsavedChanges} flush={autosave.flush} />
       <div className={TOOLBAR_ROW}>
-        {toggle?.(isFullscreen)}
+        {toggle}
         <ToolbarSearch
           value={filter.name ?? ""}
           onChange={(name) => applyFilter({ ...filter, name: name || null })}

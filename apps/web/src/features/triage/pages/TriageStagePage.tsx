@@ -68,7 +68,7 @@ import {
 import { awaitingResearch, type TriageCompanyRow } from "../lib/triageRows";
 import { OFFERED_TRIAGE_STAGES, offeredStageBySlug } from "../lib/triageStages";
 import { companiesOf } from "../lib/sourcingSummary";
-import { CHOSEN_VIEW_STATE, isChosenView, resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
+import { resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
 import { useCompanySelection } from "../lib/useCompanySelection";
 import { useExecutiveSourcing } from "../lib/useExecutiveSourcing";
 import { useProjectStream, type ProjectStreamKind } from "../../../lib/useProjectStream";
@@ -221,13 +221,6 @@ function TriageStage() {
   const requestedView = searchParams.get("view");
   const view = resolveCompaniesView(views, requestedView, mapPreferences.view);
   const isBoard = view === "pipeline";
-  // A chosen view is remembered once the page shows it, never while it is only the fallback of a map config still
-  // loading — and only on In universe, the one stage with views to remember.
-  const { state: locationState } = useLocation();
-  const viewChosen = isChosenView(locationState) && views.length > 1;
-  useEffect(() => {
-    if (viewChosen && requestedView === view && mapPreferences.view !== view) setMapPreferences({ view });
-  }, [viewChosen, requestedView, view, mapPreferences.view, setMapPreferences]);
   // A tick made on one reading of the stage must not ride silently into another.
   const [tickedInView, setTickedInView] = useState(view);
   if (tickedInView !== view) {
@@ -235,7 +228,9 @@ function TriageStage() {
     companySelection.clear();
     setPipelineSelection(new Set());
   }
+  // Only the switch remembers a view: a link that names one, a notification's opening the pipeline, is a visit.
   const handleViewChange = (next: CompaniesView) => {
+    setMapPreferences({ view: next });
     setSearchParams(
       (current) => {
         const params = new URLSearchParams(current);
@@ -246,7 +241,7 @@ function TriageStage() {
         params.delete("tab");
         return params;
       },
-      { replace: true, state: CHOSEN_VIEW_STATE },
+      { replace: true },
     );
   };
 
@@ -857,7 +852,6 @@ function TriageStage() {
         views={views}
         view={view}
         onViewChange={handleViewChange}
-        isFullscreen={isFullscreen}
         addToSequence={addToSequenceOffered ? { onPress: enrolTicked, unavailable: toolbarEnrolUnavailable() } : undefined}
         sendEmail={
           emailOffered &&
