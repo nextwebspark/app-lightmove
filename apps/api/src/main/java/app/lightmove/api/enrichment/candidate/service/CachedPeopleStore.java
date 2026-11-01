@@ -190,6 +190,18 @@ public class CachedPeopleStore {
         });
     }
 
+    /**
+     * Forgets one profile: the vendor's record of it, and every cached search that returned it, so an erased person
+     * is neither read back from the cache nor answered by a search remembered with them in it. Rides the caller's
+     * transaction. Compared case-blind: the providers spell one slug two ways.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void forget(String linkedinSlug) {
+        jdbc.update("DELETE FROM app_lm_vendor_people_search"
+                + " WHERE EXISTS (SELECT 1 FROM unnest(slugs) AS returned WHERE lower(returned) = lower(?))", linkedinSlug);
+        jdbc.update("DELETE FROM app_lm_vendor_person WHERE lower(linkedin_slug) = lower(?)", linkedinSlug);
+    }
+
     /** Deletes what has aged past the TTL, so a record is held no longer than it may be read. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void purgeFetchedBefore(Instant cutoff) {

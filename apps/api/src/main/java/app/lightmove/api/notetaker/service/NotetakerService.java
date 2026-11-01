@@ -608,7 +608,7 @@ public class NotetakerService {
         }
     }
 
-    private void removeQuietly(String botId) {
+    void removeQuietly(String botId) {
         try {
             recall.remove(botId);
         } catch (VendorException failed) {
@@ -620,7 +620,7 @@ public class NotetakerService {
         }
     }
 
-    private void deleteMediaQuietly(String botId) {
+    void deleteMediaQuietly(String botId) {
         try {
             recall.deleteMedia(botId);
         } catch (VendorException failed) {

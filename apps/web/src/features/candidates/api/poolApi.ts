@@ -4,6 +4,7 @@ import type {
   CandidateTag,
   CandidateTagColour,
   MapToPositionResult,
+  PersonErasurePreview,
   PersonNote,
   PersonRecord,
   PersonTimelinePage,
@@ -100,6 +101,20 @@ export function getPerson(personId: string, signal?: AbortSignal): Promise<Perso
 
 export function setOwner(personId: string, ownerUserId: string | null): Promise<PersonRecord> {
   return request<PersonRecord>(`/candidates/${personId}/owner`, { method: "PUT", body: { ownerUserId } });
+}
+
+export const ERASE_PREVIEW_KEY = (personId: string) => [...POOL_KEY, "erase-preview", personId] as const;
+
+export function getErasePreview(personId: string, signal?: AbortSignal): Promise<PersonErasurePreview> {
+  return request<PersonErasurePreview>(`/candidates/${personId}/erase-preview`, { signal });
+}
+
+/** Deletes the person for good; `suppress` keeps every door from filing them again. */
+export function erasePerson(personId: string, confirmName: string, suppress: boolean): Promise<void> {
+  return request<void>(`/candidates/${personId}/erase`, {
+    method: "POST",
+    body: { confirmName, suppress },
+  });
 }
 
 export function setDoNotContact(
