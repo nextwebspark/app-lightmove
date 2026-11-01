@@ -59,7 +59,7 @@ What already meets the standard:
 - **Rules**: a new client ID needs its own secret; the shared mode refuses keys; Microsoft's admin-consent
   return is checked against an HMAC `state`.
 
-Findings, most severe first:
+Findings, most severe first. Findings 1, 2 and 4–7 are fixed; 3 and 8 are open.
 
 1. **Recall.ai keeps the old keys.** `RecallCalendars.reconcile` sends the app's client ID and secret to Recall
    only when a mailbox connects or when calendar sync changes, and `WorkspaceIntegrationService` publishes
@@ -69,8 +69,10 @@ Findings, most severe first:
    - **"Return to the shared app"** deletes the keys from Uncava, as its dialog promises, but every Recall
      calendar still holds the firm's own client secret and keeps reading through that app.
 
-   *Fix*: publish an app-changed event after commit. On a new secret, `recall.update` each of the workspace's
-   direct calendars for that provider. On a change of app, release them.
+   *Fixed*: new keys for the same app publish `ProviderAppKeysReplaced`, on which `RecallCalendars` hands each of
+   the workspace's calendars at that provider the new ones once the save commits. A change of app (including
+   "Return to the shared app") withdraws the mailboxes connected through the old one, which releases their
+   calendars (finding 2). A failed update at Recall is logged and not retried, as a reconnect's is.
 2. **Mailboxes connected through the old app are never told.** A refresh token belongs to the client it was
    issued to, and nothing records which app a mailbox connected through. After a change of app, the next
    refresh presents the old token with the new app's keys. If the provider answers `invalid_grant`, the mailbox
@@ -79,8 +81,10 @@ Findings, most severe first:
    an hour, again and again, with nobody told. Which answer each provider gives was not checked against live
    accounts.
 
-   *Fix*: record the client ID on `app_lm_mailbox_connection` at connect, and mark mismatched connections for
-   reconnect when the app changes. Count them in the confirmation dialog.
+   *Fixed*: V168 records the connecting client (`app_client_id`) on direct mailboxes and Zoom accounts. A change of
+   app withdraws, in the same transaction, every live connection made through the app being left
+   (`ReplacedAppConnections`; a row from before V168 counts as the app until now). The read carries
+   `connectionsThroughApp`, which the form and the return dialog state before anyone saves.
 3. **Keys are saved without being checked.** A typo surfaces only when a consultant's send or connect fails.
 
    *Fix*: `POST /workspace/integrations/{provider}/verify` (`WORKSPACE_MANAGE`, audited, rate-limited) that
@@ -91,21 +95,25 @@ Findings, most severe first:
    from a paste is stored as part of the secret, and only the provider notices. No Google, Entra or Zoom secret
    contains whitespace.
 
-   *Fix*: strip the ends; refuse whitespace and control characters inside.
+   *Fixed*, without trimming (the codebase's rule: whitespace inside a secret is the secret): a secret carrying any
+   space, tab, line break or control character is refused, client and server, before anything is stored.
 5. **`autocomplete="new-password"` on the secret field** (`OwnAppForm`). Chrome offers to *suggest a strong
    password* there, which would replace the real secret, and password managers offer to save the firm's client
    secret into a personal vault.
 
-   *Fix*: `autocomplete="off"` with `data-1p-ignore` / `data-lpignore`.
+   *Fixed*: `autocomplete="off"` with `data-1p-ignore`, `data-lpignore` and `data-bwignore`.
 6. **The tenant ID accepts `common`, `organizations`, `consumers` and `..`.** The pattern `[A-Za-z0-9.-]*`
    lets an own app's sign-in go to Microsoft's multi-tenant endpoints rather than the firm's own directory.
    It stays on Microsoft's host, so this is hardening only.
 
-   *Fix*: accept a GUID or a domain with at least one dot.
+   *Fixed*: a GUID or a domain with at least one dot, client and server. A Google client ID must also end in
+   `.apps.googleusercontent.com`, a Microsoft one must be a GUID, and a GUID pasted as a Microsoft secret (the Secret
+   ID) is refused.
 7. **Secret expiry is free-form and asked of every provider.** A past date is accepted, so is one more than
    24 months out, and Google and Zoom secrets do not expire at all.
 
-   *Fix*: ask for it on Microsoft only, and hold it to today through +24 months.
+   *Fixed*: asked for Microsoft only (a date sent for Google or Zoom is refused), and held to today through
+   +24 months unless it is the date already on record, so an app whose secret lapsed can still be corrected.
 8. **Admin-consent `state` is static and replayable** (`ProviderAppSetup.adminConsentState`): one HMAC per
    workspace, with no nonce or expiry and not bound to the tenant. Anyone who has seen the link can make an
    admin's browser record "Approved" for any tenant. The record is informational and gates nothing.
@@ -119,4 +127,4 @@ Findings, most severe first:
   secret is what Google's console shows and leaves the rest unguessable.
 - The verify endpoint (finding 3), and a `verifiedAt` / `verifyError` pair on the response.
 - The count of mailboxes (or Zoom accounts) connected through the app, for the footer and the dialogs.
-- Findings 1, 2, 4, 6 and 7 fixed, with the validation rows in `docs/validation-matrix.md` updated alongside.
+- ~~Findings 1, 2, 4, 6 and 7~~ (done; `docs/validation-matrix.md` updated).

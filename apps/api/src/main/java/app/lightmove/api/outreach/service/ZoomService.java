@@ -127,7 +127,7 @@ public class ZoomService {
             throw ApiException.of(ErrorCode.INTEGRATION_ENCRYPTION_UNAVAILABLE);
         }
         String sealed = cipher.encrypt(granted.refreshToken(), ZoomConnection.refreshTokenContext(workspaceId, userId));
-        String replaced = transactions.execute(status -> store(workspaceId, userId, zoomUserId, sealed));
+        String replaced = transactions.execute(status -> store(workspaceId, userId, zoomUserId, sealed, app.clientId()));
         audit.event(WorkspaceEventType.ZOOM_CONNECTED)
                 .actor(userId)
                 .workspace(workspaceId)
@@ -207,18 +207,19 @@ public class ZoomService {
      *
      * @return the replaced account's refresh token, to revoke once this commits; null otherwise
      */
-    private String store(UUID workspaceId, UUID userId, String zoomUserId, String sealed) {
+    private String store(UUID workspaceId, UUID userId, String zoomUserId, String sealed, String appClientId) {
         Instant now = clock.instant();
         return connections.findByWorkspaceIdAndUserId(workspaceId, userId)
                 .map(existing -> {
                     tokens.forget(existing.getId());
                     String previous = zoomUserId.equals(existing.getZoomUserId()) ? null
                             : readableRefreshToken(existing);
-                    existing.reconnect(zoomUserId, sealed, now);
+                    existing.reconnect(zoomUserId, sealed, appClientId, now);
                     return previous;
                 })
                 .orElseGet(() -> {
-                    connections.save(ZoomConnection.connected(workspaceId, userId, zoomUserId, sealed, now));
+                    connections.save(ZoomConnection.connected(workspaceId, userId, zoomUserId, sealed, appClientId,
+                            now));
                     return null;
                 });
     }

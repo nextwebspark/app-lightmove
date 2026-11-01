@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
@@ -31,6 +32,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -45,6 +47,7 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
 
     private static final String MAILBOX = "/api/v1/outreach/mailbox";
     private static final String ADDRESS = "consultant@firm.example";
+    private static final String OWN_GOOGLE_CLIENT = "meridian-own.apps.googleusercontent.com";
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     @Autowired private RecordingMailboxGateway gateway;
@@ -339,6 +342,50 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
                         .content("{\"clientId\":\"%s\",\"positionTitle\":\"Group CFO\"}".formatted(clientId)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
+    }
+
+    @Test
+    @DisplayName("moving to the workspace's own app withdraws the mailbox made through the shared one, and its calendar")
+    void changingTheAppWithdrawsTheMailbox() throws Exception {
+        connectDirect("refresh-token-1");
+        String calendarId = recallCalendarId();
+
+        saveOwnGoogleApp("own-google-secret-1")
+                .andExpect(jsonPath("$.providers[0].connectionsThroughApp").value(0));
+
+        assertThat(connectionRow().get("status")).isEqualTo("ERROR");
+        assertThat(recallCalendarId()).isNull();
+        assertThat(recall.deleted()).containsExactly(calendarId);
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_audit_event where workspace_id = ?::uuid "
+                + "and metadata ->> 'connectionsWithdrawn' = '1'", Integer.class, workspaceId)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a new secret for the same app reaches the Recall calendar, and the mailbox stays connected")
+    void newSecretReachesTheCalendar() throws Exception {
+        saveOwnGoogleApp("own-google-secret-1");
+        connectDirect("refresh-token-1");
+        String calendarId = recallCalendarId();
+        assertThat(recall.createdSpecs().getFirst().clientSecret()).isEqualTo("own-google-secret-1");
+
+        saveOwnGoogleApp("own-google-secret-2")
+                .andExpect(jsonPath("$.providers[0].connectionsThroughApp").value(1));
+
+        assertThat(connectionRow().get("status")).isEqualTo("ACTIVE");
+        assertThat(recall.updates()).singleElement().satisfies(update -> {
+            assertThat(update.calendarId()).isEqualTo(calendarId);
+            assertThat(update.spec().clientId()).isEqualTo(OWN_GOOGLE_CLIENT);
+            assertThat(update.spec().clientSecret()).isEqualTo("own-google-secret-2");
+            assertThat(update.spec().refreshToken()).isEqualTo("refresh-token-1");
+        });
+    }
+
+    private ResultActions saveOwnGoogleApp(String secret) throws Exception {
+        return mvc.perform(put("/api/v1/workspace/integrations/GOOGLE").header("Authorization", "Bearer " + consultant)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"mode\":\"OWN\",\"clientId\":\"%s\",\"clientSecret\":\"%s\"}"
+                                .formatted(OWN_GOOGLE_CLIENT, secret)))
+                .andExpect(status().isOk());
     }
 
     private void connectDirect(String refreshToken) throws Exception {

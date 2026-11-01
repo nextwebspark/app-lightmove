@@ -44,18 +44,23 @@ public class ZoomConnection extends BaseEntity {
     @Column(name = "connected_at", nullable = false)
     private Instant connectedAt;
 
+    /** The OAuth client this account was connected through (V168); null when connected before V168. */
+    @Column(name = "app_client_id")
+    private String appClientId;
+
     public static ZoomConnection connected(UUID workspaceId, UUID userId, String zoomUserId,
-                                           String refreshTokenEncrypted, Instant now) {
+                                           String refreshTokenEncrypted, String appClientId, Instant now) {
         ZoomConnection connection = new ZoomConnection();
         connection.workspaceId = workspaceId;
         connection.userId = userId;
-        connection.reconnect(zoomUserId, refreshTokenEncrypted, now);
+        connection.reconnect(zoomUserId, refreshTokenEncrypted, appClientId, now);
         return connection;
     }
 
-    public void reconnect(String zoomUserId, String refreshTokenEncrypted, Instant now) {
+    public void reconnect(String zoomUserId, String refreshTokenEncrypted, String appClientId, Instant now) {
         this.zoomUserId = Objects.requireNonNull(zoomUserId, "zoomUserId");
         this.refreshTokenEncrypted = Objects.requireNonNull(refreshTokenEncrypted, "refreshTokenEncrypted");
+        this.appClientId = Objects.requireNonNull(appClientId, "appClientId");
         this.status = ZoomConnectionStatus.ACTIVE;
         this.connectedAt = now;
     }
@@ -79,5 +84,10 @@ public class ZoomConnection extends BaseEntity {
 
     public boolean canUse() {
         return status == ZoomConnectionStatus.ACTIVE;
+    }
+
+    /** As {@link MailboxConnection#isLiveThrough}: a connection from before V168 is taken to be the app until now's. */
+    public boolean isLiveThrough(String clientId) {
+        return canUse() && (appClientId == null || appClientId.equals(clientId));
     }
 }

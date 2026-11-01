@@ -3,6 +3,7 @@ package app.lightmove.api.outreach.service;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.config.ProviderAppSettings;
 import app.lightmove.api.core.config.RecallSettings;
 import app.lightmove.api.core.crypto.service.SecretCipher;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -12,27 +13,44 @@ import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.dto.WorkspaceIntegrationResponse;
 import app.lightmove.api.outreach.dto.WorkspaceIntegrationsResponse;
 import app.lightmove.api.outreach.model.OwnAppKeys;
+import app.lightmove.api.outreach.model.ProviderAppKeysReplaced;
 import app.lightmove.api.outreach.model.WorkspaceMailIntegration;
 import app.lightmove.api.outreach.repository.WorkspaceMailIntegrationRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.time.Clock;
+import java.time.LocalDate;
+import java.time.Period;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Settings → Integrations: which OAuth app each provider is connected through. Every change is an audit event
- * of the {@code integrations} section, which names the provider and the mode and never the secret.
+ * of the {@code integrations} section, which names the provider and the mode and never the secret. A change of app
+ * withdraws every connection made through the old one, since its refresh tokens cannot be refreshed through the new
+ * one; new keys for the same app are handed to Recall once they commit.
  */
 @Service
 @RequiredArgsConstructor
 public class WorkspaceIntegrationService {
+
+    private static final Pattern GUID =
+            Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+    /** A verified domain of the directory; `common`, `organizations` and `consumers` have no dot and fail it. */
+    private static final Pattern DIRECTORY_DOMAIN = Pattern.compile("[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+");
+    private static final String GOOGLE_CLIENT_ID_SUFFIX = ".apps.googleusercontent.com";
+    /** Entra's ceiling on a client secret's lifetime. */
+    private static final Period LONGEST_MICROSOFT_SECRET = Period.ofMonths(24);
 
     private final WorkspaceMailIntegrationRepository integrations;
     private final ProviderAppSetup setup;
@@ -40,6 +58,8 @@ public class WorkspaceIntegrationService {
     private final AuditService audit;
     private final LightMoveProperties properties;
     private final Clock clock;
+    private final ReplacedAppConnections connections;
+    private final ApplicationEventPublisher events;
 
     @Transactional(readOnly = true)
     public WorkspaceIntegrationsResponse list(UUID workspaceId) {
@@ -74,8 +94,12 @@ public class WorkspaceIntegrationService {
         integrations.findByWorkspaceIdAndProvider(workspaceId, provider)
                 .filter(WorkspaceMailIntegration::isOwnApp)
                 .ifPresent(integration -> {
+                    String replacedClientId = integration.getClientId();
                     integration.useSharedApp(actorId);
-                    recordIntegrationChange(actorId, workspaceId, provider, CredentialMode.SHARED, null, request);
+                    int withdrawn = withdrawUnlessSameApp(workspaceId, provider, replacedClientId,
+                            sharedClientId(provider));
+                    recordIntegrationChange(actorId, workspaceId, provider, CredentialMode.SHARED, null, withdrawn,
+                            request);
                 });
         return list(workspaceId);
     }
@@ -88,17 +112,25 @@ public class WorkspaceIntegrationService {
         }
         WorkspaceMailIntegration integration = integrations.findByWorkspaceIdAndProvider(workspaceId, provider)
                 .orElseGet(() -> WorkspaceMailIntegration.sharedApp(workspaceId, provider));
-        String clientId = requireClientId(keys);
+        String clientId = requireClientId(provider, keys);
         String tenantId = tenantIdFor(provider, keys);
-        String newSecret = keys.clientSecret() == null || keys.clientSecret().isBlank() ? null : keys.clientSecret();
+        String newSecret = secretOf(provider, keys);
         if (newSecret == null && !integration.holdsSecretFor(clientId)) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "clientSecret", "Enter your app's client secret");
         }
+        LocalDate secretExpiresOn = expiryOf(provider, keys, integration);
+        String previousClientId = integration.isOwnApp() ? integration.getClientId() : sharedClientId(provider);
+        boolean keysReplaced = newSecret != null || !Objects.equals(integration.getTenantId(), tenantId);
 
         String encryptedSecret = newSecret == null ? null : cipher.encrypt(newSecret, integration.clientSecretContext());
-        if (integration.useOwnApp(clientId, encryptedSecret, tenantId, keys.secretExpiresOn(), actorId)) {
+        if (integration.useOwnApp(clientId, encryptedSecret, tenantId, secretExpiresOn, actorId)) {
             integrations.save(integration);
-            recordIntegrationChange(actorId, workspaceId, provider, CredentialMode.OWN, newSecret != null, request);
+            int withdrawn = withdrawUnlessSameApp(workspaceId, provider, previousClientId, clientId);
+            if (clientId.equals(previousClientId) && keysReplaced) {
+                events.publishEvent(new ProviderAppKeysReplaced(workspaceId, provider));
+            }
+            recordIntegrationChange(actorId, workspaceId, provider, CredentialMode.OWN, newSecret != null, withdrawn,
+                    request);
         }
         return list(workspaceId);
     }
@@ -133,19 +165,33 @@ public class WorkspaceIntegrationService {
 
     /** The {@code integrations} section's one shape: the provider and the mode, never a key. */
     private void recordIntegrationChange(UUID actorId, UUID workspaceId, IntegrationProvider provider,
-                                         CredentialMode mode, Boolean secretChanged, HttpServletRequest request) {
+                                         CredentialMode mode, Boolean secretChanged, int connectionsWithdrawn,
+                                         HttpServletRequest request) {
         audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
                 .actor(actorId).workspace(workspaceId).from(request)
                 .detail("section", "integrations")
                 .detail("provider", provider.name())
                 .detail("mode", mode.name())
                 .detailIfPresent("secretChanged", secretChanged)
+                .detailIfPresent("connectionsWithdrawn", connectionsWithdrawn == 0 ? null : connectionsWithdrawn)
                 .record();
+    }
+
+    /** Connections made through the app being left cannot be refreshed through the next one. */
+    private int withdrawUnlessSameApp(UUID workspaceId, IntegrationProvider provider, String previousClientId,
+                                      String nextClientId) {
+        return Objects.equals(previousClientId, nextClientId) ? 0
+                : connections.withdrawThrough(workspaceId, provider, previousClientId);
+    }
+
+    private String sharedClientId(IntegrationProvider provider) {
+        return setup.sharedApp(provider).map(ProviderAppSettings::clientId).orElse(null);
     }
 
     private WorkspaceIntegrationResponse toDto(UUID workspaceId, IntegrationProvider provider,
                                                WorkspaceMailIntegration integration) {
         boolean own = integration != null && integration.isOwnApp();
+        String appClientId = own ? integration.getClientId() : sharedClientId(provider);
         String adminConsentUrl = provider == IntegrationProvider.MICROSOFT
                 ? setup.microsoftAdminConsentUri(workspaceId).map(URI::toString).orElse(null)
                 : null;
@@ -164,18 +210,31 @@ public class WorkspaceIntegrationService {
                 setup.sharedAppGuideUrl(provider).orElse(null),
                 integration == null ? null : integration.getUpdatedAt(),
                 integration == null ? null : integration.getAdminConsentedAt(),
-                integration == null ? null : integration.getAdminConsentTenantId());
+                integration == null ? null : integration.getAdminConsentTenantId(),
+                connections.countThrough(workspaceId, provider, appClientId));
     }
 
-    private static String requireClientId(OwnAppKeys keys) {
+    /** Each provider issues its client ids in one shape; another is a paste of the wrong value. */
+    private static String requireClientId(IntegrationProvider provider, OwnAppKeys keys) {
         String clientId = blankToNull(keys.clientId());
         if (clientId == null) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "clientId", "Enter your app's client ID");
         }
+        if (provider == IntegrationProvider.GOOGLE && !clientId.endsWith(GOOGLE_CLIENT_ID_SUFFIX)) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "clientId",
+                    "A Google client ID ends in .apps.googleusercontent.com");
+        }
+        if (provider == IntegrationProvider.MICROSOFT && !GUID.matcher(clientId).matches()) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "clientId",
+                    "Paste the application (client) ID from the app's Overview");
+        }
         return clientId;
     }
 
-    /** A single-tenant Entra app signs in at its own directory, so Microsoft needs one; nobody else has any. */
+    /**
+     * A single-tenant Entra app signs in at its own directory, so Microsoft needs one — its id or a verified domain,
+     * never a multi-tenant alias like {@code common}; nobody else has any.
+     */
     private static String tenantIdFor(IntegrationProvider provider, OwnAppKeys keys) {
         String tenantId = blankToNull(keys.tenantId());
         if (provider == IntegrationProvider.MICROSOFT && tenantId == null) {
@@ -184,7 +243,56 @@ public class WorkspaceIntegrationService {
         if (provider != IntegrationProvider.MICROSOFT && tenantId != null) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "tenantId", "Only a Microsoft app has a tenant ID");
         }
+        if (tenantId != null && !GUID.matcher(tenantId).matches() && !DIRECTORY_DOMAIN.matcher(tenantId).matches()) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "tenantId",
+                    "Enter your directory's ID or primary domain");
+        }
         return tenantId;
+    }
+
+    /**
+     * Null keeps the secret already held. Never trimmed — whitespace inside a secret is the secret — but no provider
+     * issues one with a space or a line break, so a secret carrying one is a paste that took more than the value.
+     */
+    private static String secretOf(IntegrationProvider provider, OwnAppKeys keys) {
+        String secret = keys.clientSecret();
+        if (secret == null || secret.isBlank()) {
+            return null;
+        }
+        if (secret.codePoints().anyMatch(point -> Character.isWhitespace(point) || Character.isSpaceChar(point)
+                || Character.isISOControl(point))) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "clientSecret",
+                    "A client secret has no spaces or line breaks. Copy its value alone");
+        }
+        if (provider == IntegrationProvider.MICROSOFT && GUID.matcher(secret).matches()) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "clientSecret",
+                    "That is the secret's ID. Paste its value instead");
+        }
+        return secret;
+    }
+
+    /** Only an Entra secret expires, within 24 months; a date already on the row stands, so a lapsed one re-saves. */
+    private LocalDate expiryOf(IntegrationProvider provider, OwnAppKeys keys, WorkspaceMailIntegration integration) {
+        LocalDate expiresOn = keys.secretExpiresOn();
+        if (provider != IntegrationProvider.MICROSOFT) {
+            if (expiresOn != null) {
+                throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "secretExpiresOn",
+                        "Only a Microsoft secret expires");
+            }
+            return null;
+        }
+        if (expiresOn == null || expiresOn.equals(integration.getSecretExpiresOn())) {
+            return expiresOn;
+        }
+        LocalDate today = LocalDate.ofInstant(clock.instant(), ZoneOffset.UTC);
+        if (expiresOn.isBefore(today)) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "secretExpiresOn", "That date has passed");
+        }
+        if (expiresOn.isAfter(today.plus(LONGEST_MICROSOFT_SECRET))) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "secretExpiresOn",
+                    "A Microsoft secret lasts 24 months at most");
+        }
+        return expiresOn;
     }
 
     private boolean isRecallOffered() {

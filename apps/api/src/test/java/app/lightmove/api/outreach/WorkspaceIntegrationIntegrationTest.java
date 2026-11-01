@@ -21,7 +21,10 @@ import app.lightmove.api.outreach.repository.WorkspaceMailIntegrationRepository;
 import app.lightmove.api.outreach.service.IntegrationSecretExpiryWarnings;
 import app.lightmove.api.outreach.service.ProviderCredentialsResolver;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,6 +40,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
 
     private static final String SECRET = "contoso~very-secret-value";
+    private static final String MICROSOFT_APP = "6a1c3e5f-7b9d-4f2a-8c4e-0d2b4f6a8c0e";
+    private static final String GOOGLE_APP = "acme-app.apps.googleusercontent.com";
+    private static final DateTimeFormatter EMAIL_DATE = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH);
 
     @Autowired JdbcTemplate jdbc;
     @Autowired SecretCipher cipher;
@@ -76,19 +82,20 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
         String admin = adminOfNewWorkspace("Own Keys Firm");
         String workspaceId = workspaceOf(admin);
 
+        String expiresOn = today().plusMonths(11).toString();
         MvcResult saved = mvc.perform(put("/api/v1/workspace/integrations/MICROSOFT")
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"mode":"OWN","clientId":"contoso-app","clientSecret":"%s",
-                                 "tenantId":"contoso.onmicrosoft.com","secretExpiresOn":"2027-10-01"}
-                                """.formatted(SECRET)))
+                                {"mode":"OWN","clientId":"%s","clientSecret":"%s",
+                                 "tenantId":"contoso.onmicrosoft.com","secretExpiresOn":"%s"}
+                                """.formatted(MICROSOFT_APP, SECRET, expiresOn)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.providers[1].mode").value("OWN"))
-                .andExpect(jsonPath("$.providers[1].clientId").value("contoso-app"))
+                .andExpect(jsonPath("$.providers[1].clientId").value(MICROSOFT_APP))
                 .andExpect(jsonPath("$.providers[1].tenantId").value("contoso.onmicrosoft.com"))
                 .andExpect(jsonPath("$.providers[1].secretSet").value(true))
-                .andExpect(jsonPath("$.providers[1].secretExpiresOn").value("2027-10-01"))
+                .andExpect(jsonPath("$.providers[1].secretExpiresOn").value(expiresOn))
                 .andReturn();
         MvcResult read = mvc.perform(get("/api/v1/workspace/integrations").header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
@@ -117,14 +124,14 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
     @DisplayName("a blank secret keeps the one held for the same app, and a new client id needs a new one")
     void blankSecretKeepsTheStoredOne() throws Exception {
         String admin = adminOfNewWorkspace("Keep Secret Firm");
-        saveOwnGoogleApp(admin, "acme-app", SECRET).andExpect(status().isOk());
+        saveOwnGoogleApp(admin, GOOGLE_APP, SECRET).andExpect(status().isOk());
 
-        saveOwnGoogleApp(admin, "acme-app", "").andExpect(status().isOk())
+        saveOwnGoogleApp(admin, GOOGLE_APP, "").andExpect(status().isOk())
                 .andExpect(jsonPath("$.providers[0].secretSet").value(true));
         assertThat(resolver.resolve(UUID.fromString(workspaceOf(admin)), IntegrationProvider.GOOGLE).orElseThrow()
                 .clientSecret()).isEqualTo(SECRET);
 
-        MvcResult refused = saveOwnGoogleApp(admin, "another-app", "").andReturn();
+        MvcResult refused = saveOwnGoogleApp(admin, "another-app.apps.googleusercontent.com", "").andReturn();
         assertThat(refused.getResponse().getStatus()).isEqualTo(400);
         assertThat(body(refused).at("/fieldErrors/clientSecret").asText()).isNotBlank();
     }
@@ -133,9 +140,9 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
     @DisplayName("saving the same app again with nothing changed records nothing")
     void unchangedSaveRecordsNothing() throws Exception {
         String admin = adminOfNewWorkspace("Unchanged Firm");
-        saveOwnGoogleApp(admin, "acme-app", SECRET).andExpect(status().isOk());
+        saveOwnGoogleApp(admin, GOOGLE_APP, SECRET).andExpect(status().isOk());
 
-        saveOwnGoogleApp(admin, "acme-app", "").andExpect(status().isOk());
+        saveOwnGoogleApp(admin, GOOGLE_APP, "").andExpect(status().isOk());
 
         assertThat(auditDetailsFor(workspaceOf(admin))).hasSize(1);
     }
@@ -165,7 +172,7 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"mode":"OWN","clientId":"contoso-app","clientSecret":"%s"}""".formatted(SECRET)))
+                                {"mode":"OWN","clientId":"%s","clientSecret":"%s"}""".formatted(MICROSOFT_APP, SECRET)))
                 .andReturn();
         assertThat(noTenant.getResponse().getStatus()).isEqualTo(400);
         assertThat(body(noTenant).at("/fieldErrors/tenantId").asText()).isNotBlank();
@@ -185,7 +192,7 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
     void returningToSharedDiscardsKeys() throws Exception {
         String admin = adminOfNewWorkspace("Return Firm");
         String workspaceId = workspaceOf(admin);
-        saveOwnGoogleApp(admin, "acme-app", SECRET).andExpect(status().isOk());
+        saveOwnGoogleApp(admin, GOOGLE_APP, SECRET).andExpect(status().isOk());
 
         mvc.perform(delete("/api/v1/workspace/integrations/GOOGLE").header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
@@ -241,7 +248,7 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
         for (String refusedCaller : new String[] {member, client}) {
             mvc.perform(get("/api/v1/workspace/integrations").header("Authorization", "Bearer " + refusedCaller))
                     .andExpect(status().isForbidden());
-            saveOwnGoogleApp(refusedCaller, "acme-app", SECRET).andExpect(status().isForbidden());
+            saveOwnGoogleApp(refusedCaller, GOOGLE_APP, SECRET).andExpect(status().isForbidden());
             mvc.perform(delete("/api/v1/workspace/integrations/GOOGLE")
                             .header("Authorization", "Bearer " + refusedCaller))
                     .andExpect(status().isForbidden());
@@ -280,28 +287,30 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
         String adminEmail = "alok@" + domain;
         String memberEmail = "sara@" + domain;
         inviteAndAccept(admin, "Sara Member", memberEmail, "MEMBER");
-        saveOwnMicrosoftApp(admin, "2031-03-15");
+        LocalDate expiresOn = today().plusMonths(20);
+        saveOwnMicrosoftApp(admin, expiresOn.toString());
 
-        expiryWarnings.warnAt(LocalDate.parse("2031-02-01"));
+        expiryWarnings.warnAt(expiresOn.minusDays(42));
         assertThat(expiryWarningsTo(adminEmail)).isEmpty();
 
-        expiryWarnings.warnAt(LocalDate.parse("2031-02-20"));
-        expiryWarnings.warnAt(LocalDate.parse("2031-02-21"));
+        expiryWarnings.warnAt(expiresOn.minusDays(23));
+        expiryWarnings.warnAt(expiresOn.minusDays(22));
         assertThat(expiryWarningsTo(adminEmail))
-                .containsExactly("Your Microsoft 365 app's client secret expires on 15 March 2031");
+                .containsExactly("Your Microsoft 365 app's client secret expires on " + EMAIL_DATE.format(expiresOn));
         UUID integrationId = UUID.fromString(jdbc.queryForObject("SELECT id::text FROM app_lm_workspace_mail_integration "
                 + "WHERE workspace_id = ?::uuid AND provider = 'MICROSOFT'", String.class, workspaceOf(admin)));
-        assertThat(integrations.claimExpiryWarning(integrationId, LocalDate.parse("2031-03-15"), 30))
+        assertThat(integrations.claimExpiryWarning(integrationId, expiresOn, 30))
                 .as("a second instance finds the warning already claimed").isZero();
 
-        expiryWarnings.warnAt(LocalDate.parse("2031-03-10"));
-        expiryWarnings.warnAt(LocalDate.parse("2031-03-16"));
+        expiryWarnings.warnAt(expiresOn.minusDays(5));
+        expiryWarnings.warnAt(expiresOn.plusDays(1));
         assertThat(expiryWarningsTo(adminEmail)).hasSize(3)
                 .last().isEqualTo("Your Microsoft 365 app's client secret has expired");
         assertThat(expiryWarningsTo(memberEmail)).as("only who manages the workspace").isEmpty();
 
-        saveOwnMicrosoftApp(admin, "2032-03-15");
-        expiryWarnings.warnAt(LocalDate.parse("2032-02-20"));
+        LocalDate renewedOn = today().plusMonths(22);
+        saveOwnMicrosoftApp(admin, renewedOn.toString());
+        expiryWarnings.warnAt(renewedOn.minusDays(23));
         assertThat(expiryWarningsTo(adminEmail)).as("a new expiry date warns afresh").hasSize(4);
     }
 
@@ -310,10 +319,78 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"mode":"OWN","clientId":"expiring-app","clientSecret":"%s",
+                                {"mode":"OWN","clientId":"%s","clientSecret":"%s",
                                  "tenantId":"contoso.onmicrosoft.com","secretExpiresOn":"%s"}
-                                """.formatted(SECRET, secretExpiresOn)))
+                                """.formatted(MICROSOFT_APP, SECRET, secretExpiresOn)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("keys that are a paste of the wrong value are refused field by field, and nothing is saved")
+    void wrongPastesAreRefused() throws Exception {
+        String admin = adminOfNewWorkspace("Paste Check Firm");
+
+        assertRefusedOn(saveOwnGoogleApp(admin, GOOGLE_APP, "GOCSPX-abc123\\n"), "clientSecret");
+        assertRefusedOn(saveOwnGoogleApp(admin, GOOGLE_APP, " GOCSPX-abc123"), "clientSecret");
+        assertRefusedOn(saveOwnGoogleApp(admin, "123456-abc", SECRET), "clientId");
+        assertRefusedOn(saveOwn(admin, "GOOGLE", """
+                {"mode":"OWN","clientId":"%s","clientSecret":"%s","secretExpiresOn":"%s"}
+                """.formatted(GOOGLE_APP, SECRET, today().plusMonths(6))), "secretExpiresOn");
+
+        assertRefusedOn(saveOwnMicrosoft(admin, "contoso-app", SECRET, "contoso.onmicrosoft.com", null), "clientId");
+        assertRefusedOn(saveOwnMicrosoft(admin, MICROSOFT_APP, "8c1d2e3f-0a1b-4c2d-9e8f-7a6b5c4d3e2f",
+                "contoso.onmicrosoft.com", null), "clientSecret");
+        for (String tenant : new String[] {"common", "organizations", "consumers", ".."}) {
+            assertRefusedOn(saveOwnMicrosoft(admin, MICROSOFT_APP, SECRET, tenant, null), "tenantId");
+        }
+        assertRefusedOn(saveOwnMicrosoft(admin, MICROSOFT_APP, SECRET, "contoso.onmicrosoft.com",
+                today().minusDays(1).toString()), "secretExpiresOn");
+        assertRefusedOn(saveOwnMicrosoft(admin, MICROSOFT_APP, SECRET, "contoso.onmicrosoft.com",
+                today().plusMonths(24).plusDays(2).toString()), "secretExpiresOn");
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app_lm_workspace_mail_integration "
+                + "WHERE workspace_id = ?::uuid AND mode = 'OWN'", Integer.class, workspaceOf(admin))).isZero();
+
+        saveOwnMicrosoft(admin, MICROSOFT_APP, SECRET, "8f3a6c1e-2b4d-4e5f-9a0b-1c2d3e4f5a6b",
+                today().plusMonths(24).toString()).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("a lapsed expiry already on the record saves unchanged with a new tenant")
+    void lapsedExpiryOnRecordStillSaves() throws Exception {
+        String admin = adminOfNewWorkspace("Lapsed Expiry Firm");
+        saveOwnMicrosoftApp(admin, today().plusMonths(3).toString());
+        jdbc.update("UPDATE app_lm_workspace_mail_integration SET secret_expires_on = ? "
+                + "WHERE workspace_id = ?::uuid AND provider = 'MICROSOFT'", today().minusDays(3),
+                UUID.fromString(workspaceOf(admin)));
+
+        saveOwnMicrosoft(admin, MICROSOFT_APP, "", "contoso.example.com", today().minusDays(3).toString())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.providers[1].tenantId").value("contoso.example.com"));
+    }
+
+    private ResultActions saveOwnMicrosoft(String admin, String clientId, String secret, String tenantId,
+                                           String secretExpiresOn) throws Exception {
+        return saveOwn(admin, "MICROSOFT", """
+                {"mode":"OWN","clientId":"%s","clientSecret":"%s","tenantId":"%s","secretExpiresOn":%s}
+                """.formatted(clientId, secret, tenantId, secretExpiresOn == null ? "null" : "\"" + secretExpiresOn + "\""));
+    }
+
+    private ResultActions saveOwn(String admin, String provider, String json) throws Exception {
+        return mvc.perform(put("/api/v1/workspace/integrations/" + provider)
+                .header("Authorization", "Bearer " + admin)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json));
+    }
+
+    private void assertRefusedOn(ResultActions refusal, String field) throws Exception {
+        MvcResult refused = refusal.andReturn();
+        assertThat(refused.getResponse().getStatus()).as(field).isEqualTo(400);
+        assertThat(body(refused).at("/fieldErrors/" + field).asText()).as(field).isNotBlank();
+    }
+
+    private static LocalDate today() {
+        return LocalDate.now(ZoneOffset.UTC);
     }
 
     private List<String> expiryWarningsTo(String recipient) {

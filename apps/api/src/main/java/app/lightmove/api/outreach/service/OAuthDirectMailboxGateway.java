@@ -173,7 +173,7 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
             throw new VendorException(vendorCall("mailbox-address"), VendorFailureKind.MALFORMED_RESPONSE, null);
         }
         return new GrantedMailbox(MailboxGrants.mintDirect(providerName), address, providerName, token.refreshToken(),
-                grantsReplyText(token.scopes()));
+                grantsReplyText(token.scopes()), app.clientId());
     }
 
     @Override

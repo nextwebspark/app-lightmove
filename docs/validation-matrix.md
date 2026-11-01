@@ -60,7 +60,10 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Retiring a stage or status | asks first when anyone holds it or an automation points at it | a stage with live statuses needs `retireStatuses` (`PIPELINE_STAGE_NOT_EMPTY`); never the last live stage (`PIPELINE_STAGE_REQUIRED`), nor the last live status in process (`PIPELINE_STATUS_REQUIRED`) | toast |
 | Working hours (Meetings & email, Availability) | each day on or off, start and end from the half-hour picker (end may be 23:59), end after start, at least one day | each day once, on the half hour or ending 23:59, end after start, ≥ 1 day (`VALIDATION_FAILED` on `weeklyHours`) | inline + toast |
 | Daily email limit | whole number, 1 to the deployment's ceiling (workspace) or the workspace's (a consultant's) | 1..`max-daily-cap` for the workspace, 1..the workspace's for a consultant (`VALIDATION_FAILED` on `dailyEmailCap`) | inline + toast |
-| ☐ Own app secret / expiry | ≤ 2048, any date | `@Size(2048)`, any date | field |
+| Own app client ID (Settings → Integrations) | 1–255, `[A-Za-z0-9._-]`; Google ends in `.apps.googleusercontent.com`, Microsoft a GUID | the same (`@Size(255) @Pattern`, then `WorkspaceIntegrationService`) | field |
+| Own app tenant (Microsoft) | required; a GUID or a domain with a dot — never `common`, `organizations` or `consumers` | the same | field |
+| Own app secret | ≤ 2048; blank keeps the one held for the same client ID; never trimmed, but any space, tab, line break or control character refused; for Microsoft a GUID (the Secret ID) refused | the same, after `@Size(2048)` | field |
+| Own app secret expiry | Microsoft only; a new date from today to 24 months out — the date already on record stands, even once past | a date sent for Google or Zoom refused; Microsoft's held to today..+24 months (UTC) unless unchanged | field |
 | ☐ Invitation role | always sent | not required (500 when absent) | — |
 
 ### Projects and clients

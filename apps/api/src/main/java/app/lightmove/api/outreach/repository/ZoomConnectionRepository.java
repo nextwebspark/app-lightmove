@@ -1,6 +1,7 @@
 package app.lightmove.api.outreach.repository;
 
 import app.lightmove.api.outreach.model.ZoomConnection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,4 +10,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ZoomConnectionRepository extends JpaRepository<ZoomConnection, UUID> {
 
     Optional<ZoomConnection> findByWorkspaceIdAndUserId(UUID workspaceId, UUID userId);
+
+    List<ZoomConnection> findByWorkspaceId(UUID workspaceId);
 }
