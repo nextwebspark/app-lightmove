@@ -3,6 +3,7 @@ package app.lightmove.api.outreach.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_SELF;
@@ -12,6 +13,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import app.lightmove.api.RecordingProviderTokenClient;
 import app.lightmove.api.TestSecretCiphers;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -21,15 +23,20 @@ import app.lightmove.api.core.config.ProviderAppSettings;
 import app.lightmove.api.core.config.ProviderAppsSettings;
 import app.lightmove.api.core.config.WebSettings;
 import app.lightmove.api.core.crypto.service.SecretCipher;
+import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.ratelimit.service.RateLimiter;
+import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.outreach.constant.CredentialMode;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
+import app.lightmove.api.outreach.dto.WorkspaceIntegrationResponse;
 import app.lightmove.api.outreach.model.OwnAppKeys;
 import app.lightmove.api.outreach.model.ProviderAppKeysReplaced;
 import app.lightmove.api.outreach.model.WorkspaceMailIntegration;
 import app.lightmove.api.outreach.repository.WorkspaceMailIntegrationRepository;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
@@ -41,7 +48,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.unit.DataSize;
 
 /**
@@ -64,14 +74,130 @@ class WorkspaceIntegrationServiceTest {
     private final ReplacedAppConnections connections = mock(ReplacedAppConnections.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     private final LightMoveProperties properties = properties();
+    private final RecordingProviderTokenClient provider = new RecordingProviderTokenClient();
+    private final RateLimiter rateLimiter = mock(RateLimiter.class);
+    private final UserRepository users = mock(UserRepository.class);
+    private final Instant now = TODAY.atStartOfDay().toInstant(ZoneOffset.UTC).plusSeconds(3600);
     private final WorkspaceIntegrationService service = new WorkspaceIntegrationService(integrations,
-            new ProviderAppSetup(properties), cipher, audit, properties,
-            Clock.fixed(TODAY.atStartOfDay().toInstant(ZoneOffset.UTC).plusSeconds(3600), ZoneOffset.UTC),
-            connections, events);
+            new ProviderAppSetup(properties), cipher, audit, properties, Clock.fixed(now, ZoneOffset.UTC),
+            connections, events, new OwnAppKeyCheck(provider, new ProviderAppSetup(properties), rateLimiter),
+            new TransactionTemplate(mock(PlatformTransactionManager.class)), users);
 
     @BeforeEach
-    void auditLinesRecord() {
+    void auditLinesRecordAndChecksAreWithinBudget() {
         when(audit.event(any())).thenReturn(auditLine);
+        when(rateLimiter.tryAcquire(anyString(), anyInt(), any())).thenReturn(true);
+    }
+
+    @Test
+    @DisplayName("keys the provider refuses are not saved, and the refusal names the provider's code")
+    void refusedKeysSaveNothing() {
+        provider.refuseApp(MICROSOFT_APP, "invalid_client AADSTS7000215");
+
+        assertThatThrownBy(() -> save(IntegrationProvider.MICROSOFT, new OwnAppKeys(MICROSOFT_APP, SECRET,
+                "contoso.onmicrosoft.com", TODAY.plusMonths(6))))
+                .isInstanceOfSatisfying(ApiException.class, refusal -> {
+                    assertThat(refusal.getCode()).isEqualTo(ErrorCode.INTEGRATION_KEYS_REFUSED);
+                    assertThat(refusal.getProperties()).containsEntry("providerError", "AADSTS7000215");
+                });
+        verify(integrations, never()).save(any());
+        verify(connections, never()).withdrawThrough(any(), any(), anyString());
+        verify(audit, never()).event(any());
+    }
+
+    @Test
+    @DisplayName("a provider that gives no answer leaves everything as it was")
+    void anUnansweredCheckSavesNothing() {
+        provider.answerNothingFor(GOOGLE_APP);
+
+        assertThatThrownBy(() -> save(IntegrationProvider.GOOGLE, new OwnAppKeys(GOOGLE_APP, SECRET, null, null)))
+                .isInstanceOfSatisfying(ApiException.class, refusal ->
+                        assertThat(refusal.getCode()).isEqualTo(ErrorCode.INTEGRATION_PROVIDER_UNREACHABLE));
+        verify(integrations, never()).save(any());
+        verify(rateLimiter).tryAcquire("integration-key-check:workspace:" + workspaceId,
+                OwnAppKeyCheck.CHECKS_PER_MINUTE, Duration.ofMinutes(1));
+    }
+
+    @Test
+    @DisplayName("a workspace past its key-check budget asks the provider nothing")
+    void keyChecksAreBudgeted() {
+        when(rateLimiter.tryAcquire(anyString(), anyInt(), any())).thenReturn(false);
+
+        assertThatThrownBy(() -> save(IntegrationProvider.GOOGLE, new OwnAppKeys(GOOGLE_APP, SECRET, null, null)))
+                .isInstanceOfSatisfying(ApiException.class, refusal ->
+                        assertThat(refusal.getCode()).isEqualTo(ErrorCode.RATE_LIMITED));
+        assertThat(provider.checkedKeys()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("accepted keys are saved with the secret's last four characters, who saved it, and the check")
+    void acceptedKeysKeepTheirHintAndCheck() {
+        save(IntegrationProvider.GOOGLE, new OwnAppKeys(GOOGLE_APP, SECRET, null, null));
+
+        ArgumentCaptor<WorkspaceMailIntegration> saved = ArgumentCaptor.forClass(WorkspaceMailIntegration.class);
+        verify(integrations).save(saved.capture());
+        assertThat(saved.getValue().getSecretHint()).isEqualTo("alue");
+        assertThat(saved.getValue().getSecretSavedBy()).isEqualTo(adminId);
+        assertThat(saved.getValue().getSecretSavedAt()).isEqualTo(now);
+        assertThat(saved.getValue().getKeysCheckedAt()).isEqualTo(now);
+        assertThat(saved.getValue().getKeysRefusedWith()).isNull();
+        assertThat(provider.checkedKeys()).singleElement()
+                .satisfies(checked -> assertThat(checked.clientSecret()).isEqualTo(SECRET));
+    }
+
+    @Test
+    @DisplayName("a save that keeps the secret checks the one held, and leaves its hint and saver as they were")
+    void aKeptSecretIsTheOneChecked() {
+        held(ownApp(IntegrationProvider.MICROSOFT, MICROSOFT_APP, "contoso.onmicrosoft.com", TODAY.plusMonths(6)));
+
+        save(IntegrationProvider.MICROSOFT, new OwnAppKeys(MICROSOFT_APP, "", "contoso.example.com",
+                TODAY.plusMonths(6)));
+
+        assertThat(provider.checkedKeys()).singleElement().satisfies(checked -> {
+            assertThat(checked.clientSecret()).isEqualTo(SECRET);
+            assertThat(checked.tenantId()).isEqualTo("contoso.example.com");
+        });
+        ArgumentCaptor<WorkspaceMailIntegration> saved = ArgumentCaptor.forClass(WorkspaceMailIntegration.class);
+        verify(integrations).save(saved.capture());
+        assertThat(saved.getValue().getSecretSavedAt()).isNull();
+        assertThat(saved.getValue().getKeysCheckedAt()).isEqualTo(now);
+    }
+
+    @Test
+    @DisplayName("Verify again keeps the provider's refusal against the secret it was shown, and audits the answer")
+    void verifyAgainRecordsTheAnswer() {
+        WorkspaceMailIntegration held = ownApp(IntegrationProvider.GOOGLE, GOOGLE_APP, null, null);
+        held(held);
+        provider.refuseApp(GOOGLE_APP, "invalid_client");
+
+        service.verify(adminId, workspaceId, IntegrationProvider.GOOGLE, null);
+
+        verify(integrations).recordKeysCheck(held.getId(), held.getClientSecretEncrypted(), now, "invalid_client");
+        verify(auditLine).detail("keysChecked", "REFUSED");
+        verify(auditLine).detailIfPresent("providerError", "invalid_client");
+    }
+
+    @Test
+    @DisplayName("only an own app with a secret is checked")
+    void verifyNeedsAnOwnApp() {
+        assertThatThrownBy(() -> service.verify(adminId, workspaceId, IntegrationProvider.GOOGLE, null))
+                .isInstanceOfSatisfying(ApiException.class, refusal ->
+                        assertThat(refusal.getCode()).isEqualTo(ErrorCode.VALIDATION_FAILED));
+        assertThat(provider.checkedKeys()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a secret saved before hints were kept shows its last four, read from the ciphertext and kept")
+    void aLegacySecretShowsItsHint() {
+        WorkspaceMailIntegration legacy = ownApp(IntegrationProvider.GOOGLE, GOOGLE_APP, null, null);
+        when(integrations.findByWorkspaceId(workspaceId)).thenReturn(List.of(legacy));
+
+        WorkspaceIntegrationResponse google = service.list(workspaceId).providers().stream()
+                .filter(row -> row.provider() == IntegrationProvider.GOOGLE).findFirst().orElseThrow();
+
+        assertThat(google.secretHint()).isEqualTo("alue");
+        assertThat(google.secretSavedBy()).isNull();
+        verify(integrations).recordSecretHint(legacy.getId(), legacy.getClientSecretEncrypted(), "alue");
     }
 
     @Test

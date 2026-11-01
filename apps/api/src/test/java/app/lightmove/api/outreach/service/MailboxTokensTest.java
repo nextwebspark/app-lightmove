@@ -3,6 +3,7 @@ package app.lightmove.api.outreach.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -15,6 +16,7 @@ import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.outreach.constant.CredentialMode;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.constant.MailboxStatus;
+import app.lightmove.api.outreach.model.AppKeysVerdict;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.MailboxGrants;
@@ -52,6 +54,7 @@ class MailboxTokensTest {
     private final ScriptedTokenClient tokenClient = new ScriptedTokenClient();
     private final MutableClock clock = new MutableClock(NOW);
     private final ReversingCipher cipher = new ReversingCipher();
+    private final OwnAppKeyHealth keyHealth = mock(OwnAppKeyHealth.class);
 
     private MailboxConnection connection;
     private String grantId;
@@ -74,7 +77,7 @@ class MailboxTokensTest {
                 .thenAnswer(invocation -> connection.getStatus() == MailboxStatus.ACTIVE);
         when(resolver.resolve(workspaceId, IntegrationProvider.GOOGLE)).thenReturn(Optional.of(SHARED_GOOGLE));
         tokens = new MailboxTokens(connections, resolver, cipher, tokenClient,
-                new TransactionTemplate(mock(PlatformTransactionManager.class)), events, clock);
+                new TransactionTemplate(mock(PlatformTransactionManager.class)), events, keyHealth, clock);
     }
 
     @Test
@@ -129,6 +132,20 @@ class MailboxTokensTest {
         assertThat(connection.getStatus()).isEqualTo(MailboxStatus.ACTIVE);
         assertThat(connection.getRecallCalendarId()).isEqualTo("recall-calendar-1");
         verify(events, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("a refused app is reported for Settings to show, and the next answered refresh reports it put right")
+    void theAppsAnswerIsReported() {
+        tokenClient.refuseTheApp();
+        assertThatThrownBy(() -> tokens.accessToken(grantId)).isInstanceOf(ProviderAppUnavailable.class);
+        verify(keyHealth).refusedAtRefresh(eq(connection.getWorkspaceId()), eq(SHARED_GOOGLE),
+                any(ProviderAppUnavailable.class));
+        verify(keyHealth, never()).answeredAtRefresh(any(), any());
+
+        tokenClient.answer(new ProviderTokenGrant("access-1", Duration.ofHours(1), null));
+        tokens.accessToken(grantId);
+        verify(keyHealth).answeredAtRefresh(connection.getWorkspaceId(), SHARED_GOOGLE);
     }
 
     @Test
@@ -239,6 +256,11 @@ class MailboxTokensTest {
         @Override
         public ProviderTokenGrant redeemCode(ProviderCredentials credentials, String code, URI redirectUri,
                                                List<String> scopes) {
+            throw new UnsupportedOperationException("MailboxTokens only refreshes");
+        }
+
+        @Override
+        public AppKeysVerdict checkKeys(ProviderCredentials credentials, URI redirectUri) {
             throw new UnsupportedOperationException("MailboxTokens only refreshes");
         }
 

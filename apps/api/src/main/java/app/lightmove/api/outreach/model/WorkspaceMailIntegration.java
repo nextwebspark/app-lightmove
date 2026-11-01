@@ -71,6 +71,23 @@ public class WorkspaceMailIntegration extends BaseEntity {
     @Column(name = "admin_consented_by")
     private UUID adminConsentedBy;
 
+    /** The secret's last four characters, the one part of it ever shown (V169); null for one saved before. */
+    @Column(name = "secret_hint", length = 4)
+    private String secretHint;
+
+    @Column(name = "secret_saved_at")
+    private Instant secretSavedAt;
+
+    @Column(name = "secret_saved_by")
+    private UUID secretSavedBy;
+
+    @Column(name = "keys_checked_at")
+    private Instant keysCheckedAt;
+
+    /** The provider's code when that last answer refused the keys; null when it accepted them. */
+    @Column(name = "keys_refused_with", length = 100)
+    private String keysRefusedWith;
+
     public static WorkspaceMailIntegration sharedApp(UUID workspaceId, IntegrationProvider provider) {
         WorkspaceMailIntegration integration = new WorkspaceMailIntegration();
         integration.workspaceId = Objects.requireNonNull(workspaceId, "workspaceId");
@@ -117,6 +134,17 @@ public class WorkspaceMailIntegration extends BaseEntity {
         return true;
     }
 
+    public void recordNewSecret(String hint, UUID savedBy, Instant savedAt) {
+        this.secretHint = hint;
+        this.secretSavedBy = savedBy;
+        this.secretSavedAt = savedAt;
+    }
+
+    public void recordKeysCheck(Instant checkedAt, String refusedWith) {
+        this.keysCheckedAt = Objects.requireNonNull(checkedAt, "checkedAt");
+        this.keysRefusedWith = refusedWith;
+    }
+
     public void useSharedApp(UUID actorId) {
         this.mode = CredentialMode.SHARED;
         this.clientId = null;
@@ -124,6 +152,11 @@ public class WorkspaceMailIntegration extends BaseEntity {
         this.tenantId = null;
         this.secretExpiresOn = null;
         this.secretExpiryWarnedDays = null;
+        this.secretHint = null;
+        this.secretSavedAt = null;
+        this.secretSavedBy = null;
+        this.keysCheckedAt = null;
+        this.keysRefusedWith = null;
         this.updatedBy = actorId;
     }
 

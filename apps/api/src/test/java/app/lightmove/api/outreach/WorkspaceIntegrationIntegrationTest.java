@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
+import app.lightmove.api.RecordingProviderTokenClient;
 import app.lightmove.api.core.crypto.service.SecretCipher;
 import app.lightmove.api.outreach.constant.CredentialMode;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
@@ -19,6 +20,8 @@ import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.WorkspaceMailIntegration;
 import app.lightmove.api.outreach.repository.WorkspaceMailIntegrationRepository;
 import app.lightmove.api.outreach.service.IntegrationSecretExpiryWarnings;
+import app.lightmove.api.outreach.service.OwnAppKeyHealth;
+import app.lightmove.api.outreach.service.ProviderAppUnavailable;
 import app.lightmove.api.outreach.service.ProviderCredentialsResolver;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -50,6 +53,8 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
     @Autowired IntegrationSecretExpiryWarnings expiryWarnings;
     @Autowired RecordingEmailSender emails;
     @Autowired WorkspaceMailIntegrationRepository integrations;
+    @Autowired RecordingProviderTokenClient tokenEndpoints;
+    @Autowired OwnAppKeyHealth keyHealth;
 
     @Test
     @DisplayName("every provider starts on the shared app, offered where this deployment has one")
@@ -254,7 +259,87 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
                     .andExpect(status().isForbidden());
             recordAdminConsent(refusedCaller, "8f3a6c1e-2b4d-4e5f-9a0b-1c2d3e4f5a6b", "any-state")
                     .andExpect(status().isForbidden());
+            verifyKeys(refusedCaller, "GOOGLE").andExpect(status().isForbidden());
         }
+    }
+
+    @Test
+    @DisplayName("Save and verify keeps nothing the provider refuses or leaves unanswered, and names its refusal")
+    void keysAreSavedOnlyOnceTheProviderAccepts() throws Exception {
+        String admin = adminOfNewWorkspace("Refused Keys Firm");
+        String refusedApp = "refused-keys.apps.googleusercontent.com";
+        String unansweredApp = "unanswered-keys.apps.googleusercontent.com";
+        tokenEndpoints.refuseApp(refusedApp, "invalid_client");
+        tokenEndpoints.answerNothingFor(unansweredApp);
+
+        MvcResult refused = saveOwnGoogleApp(admin, refusedApp, SECRET).andReturn();
+        assertThat(refused.getResponse().getStatus()).isEqualTo(422);
+        assertThat(codeOf(refused)).isEqualTo("INTEGRATION_KEYS_REFUSED");
+        assertThat(body(refused).get("providerError").asText()).isEqualTo("invalid_client");
+
+        MvcResult unanswered = saveOwnGoogleApp(admin, unansweredApp, SECRET).andReturn();
+        assertThat(unanswered.getResponse().getStatus()).isEqualTo(502);
+        assertThat(codeOf(unanswered)).isEqualTo("INTEGRATION_PROVIDER_UNREACHABLE");
+
+        mvc.perform(get("/api/v1/workspace/integrations").header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.providers[0].mode").value("SHARED"))
+                .andExpect(jsonPath("$.providers[0].keysCheckedAt").doesNotExist());
+        assertThat(auditDetailsFor(workspaceOf(admin))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a saved app reads back its secret's last four, who saved it and the provider's answer, never the rest")
+    void aSavedAppReadsBackItsHint() throws Exception {
+        String admin = adminOfNewWorkspace("Hinted Keys Firm");
+
+        MvcResult saved = saveOwnGoogleApp(admin, GOOGLE_APP, SECRET)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.providers[0].secretHint").value(SECRET.substring(SECRET.length() - 4)))
+                .andExpect(jsonPath("$.providers[0].secretSavedBy").value("Alok Kumar"))
+                .andExpect(jsonPath("$.providers[0].secretSavedAt").isNotEmpty())
+                .andExpect(jsonPath("$.providers[0].keysCheckedAt").isNotEmpty())
+                .andExpect(jsonPath("$.providers[0].keysRefusedWith").doesNotExist())
+                .andReturn();
+        assertThat(saved.getResponse().getContentAsString()).doesNotContain(SECRET);
+    }
+
+    @Test
+    @DisplayName("Verify again keeps the provider's answer either way, and so does a refresh it refuses or answers")
+    void theProvidersAnswerIsKept() throws Exception {
+        String admin = adminOfNewWorkspace("Verified Keys Firm");
+        UUID workspaceId = UUID.fromString(workspaceOf(admin));
+        String app = "verified-keys.apps.googleusercontent.com";
+        saveOwnGoogleApp(admin, app, SECRET).andExpect(status().isOk());
+        tokenEndpoints.refuseApp(app, "invalid_client");
+
+        verifyKeys(admin, "GOOGLE")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.providers[0].keysRefusedWith").value("invalid_client"))
+                .andExpect(jsonPath("$.providers[0].mode").value("OWN"));
+        assertThat(auditDetailsFor(workspaceId.toString())).anySatisfy(details ->
+                assertThat(details).contains("keysChecked").contains("REFUSED").doesNotContain(SECRET));
+
+        ProviderCredentials resolved = resolver.resolve(workspaceId, IntegrationProvider.GOOGLE).orElseThrow();
+        keyHealth.answeredAtRefresh(workspaceId, resolved);
+        mvc.perform(get("/api/v1/workspace/integrations").header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.providers[0].keysRefusedWith").doesNotExist());
+
+        keyHealth.refusedAtRefresh(workspaceId, resolved, new ProviderAppUnavailable("invalid_client AADSTS7000222"));
+        mvc.perform(get("/api/v1/workspace/integrations").header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.providers[0].keysRefusedWith").value("AADSTS7000222"));
+    }
+
+    @Test
+    @DisplayName("only an own app's keys can be verified")
+    void theSharedAppIsNotVerified() throws Exception {
+        String admin = adminOfNewWorkspace("Shared Verify Firm");
+
+        verifyKeys(admin, "GOOGLE").andExpect(status().isBadRequest());
+    }
+
+    private ResultActions verifyKeys(String bearerToken, String provider) throws Exception {
+        return mvc.perform(post("/api/v1/workspace/integrations/{provider}/verify", provider)
+                .header("Authorization", "Bearer " + bearerToken));
     }
 
     private ResultActions recordAdminConsent(String bearerToken, String tenantId, String state) throws Exception {

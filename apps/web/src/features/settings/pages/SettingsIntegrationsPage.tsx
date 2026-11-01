@@ -19,7 +19,7 @@ export function SettingsIntegrationsPage() {
     queryFn: ({ signal }) => integrationsApi.integrations(signal),
   });
   const workspace = useQuery({ queryKey: workspaceApi.WORKSPACE_KEY, queryFn: workspaceApi.workspace });
-  const consentNotice = useAdminConsentReturn();
+  const { notice: consentNotice, returned: returnedFromConsent } = useAdminConsentReturn();
 
   return (
     <>
@@ -49,6 +49,7 @@ export function SettingsIntegrationsPage() {
               key={integration.provider}
               integration={integration}
               canStoreKeys={integrations.data.ownAppsOffered}
+              defaultOpen={returnedFromConsent && integration.provider === "MICROSOFT"}
               calendarSyncsThroughRecall={
                 integrations.data.recallOffered && workspace.data.calendarSync === "RECALL"
               }
@@ -63,10 +64,11 @@ export function SettingsIntegrationsPage() {
 /**
  * Microsoft sends the approving admin back here from the admin-consent link, with `admin_consent=True&tenant=…` and
  * the `state` the link carried, or an `error`. A success is recorded once, so the Microsoft card can say so; either way the query is cleared, so a
- * reload does not record it again.
+ * reload does not record it again. `returned` holds for the visit, so the Microsoft card opens on what came of it.
  */
-function useAdminConsentReturn(): string | null {
+function useAdminConsentReturn(): { notice: string | null; returned: boolean } {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [returned] = useState(() => searchParams.has("admin_consent") || searchParams.has("error"));
   const queryClient = useQueryClient();
   const toast = useToast();
   const handled = useRef(false);
@@ -97,5 +99,5 @@ function useAdminConsentReturn(): string | null {
     setSearchParams({}, { replace: true });
   }, [consented, tenant, state, error, record, setSearchParams]);
 
-  return notice;
+  return { notice, returned };
 }

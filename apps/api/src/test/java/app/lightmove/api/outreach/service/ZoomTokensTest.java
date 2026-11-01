@@ -57,7 +57,8 @@ class ZoomTokensTest {
         when(connections.findById(connection.getId())).thenReturn(Optional.of(connection));
         when(resolver.resolve(workspaceId, IntegrationProvider.ZOOM)).thenReturn(Optional.of(OWN_ZOOM));
         tokens = new ZoomTokens(connections, resolver, cipher, tokenClient,
-                new TransactionTemplate(mock(PlatformTransactionManager.class)), Clock.fixed(NOW, ZoneOffset.UTC));
+                new TransactionTemplate(mock(PlatformTransactionManager.class)), mock(OwnAppKeyHealth.class),
+                Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @Test
