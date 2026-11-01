@@ -1,6 +1,7 @@
 package app.lightmove.api.position;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -56,7 +57,10 @@ class PositionContextProposerTest extends FlowTestSupport {
     @Autowired
     void scopeTheRedactor(PositionDocumentRedactor bean) {
         redactor = TestWorkspaceScopes.scopedByArguments(bean);
+        unscopedRedactor = bean;
     }
+
+    private PositionDocumentRedactor unscopedRedactor;
 
     @Autowired ExtractedFieldReader fieldReader;
 
@@ -99,6 +103,16 @@ class PositionContextProposerTest extends FlowTestSupport {
                 .doesNotContain("jane@acme-search.example")
                 .doesNotContain("+971 50 123 4567")
                 .doesNotContain("Jane Doe");
+    }
+
+    @Test
+    @DisplayName("a client the read cannot see stops the document, rather than reading as nobody to redact")
+    void anUnreadableClientStopsTheDocument() throws Exception {
+        Fixture f = fixture("Context Unscoped Firm", "Acme Holdings Group", "acme.example");
+
+        // No workspace named: under row-level security the client is not found, and nothing may be sent naming it.
+        assertThatThrownBy(() -> unscopedRedactor.redact(DOCUMENT_TEXT, f.clientId(), f.workspaceId()))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test

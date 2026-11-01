@@ -534,10 +534,16 @@ Row-level security (V170, `core/tenant`) gives each borrowed connection the work
 `WorkspaceScope`, else the signed-in principal's. A `@Scheduled` job, a public webhook, or a listener woken by one
 has neither, and reads none of the protected tables. Open `WorkspaceScope.run(row.getWorkspaceId(), …)` from the row
 the work is about — **before** the transaction, since a joined one keeps its connection — and turn a statement over
-every workspace into `EveryWorkspace`'s walk. `@Async` tasks inherit the submitter's workspace through
-`MdcTaskDecorator`; a pool built by hand wraps its tasks with `MdcPropagation`, or they read nothing. Beware a check
-that treats "not found" as "allowed" (`existsByIdAndArchivedAtIsNotNull`, `NOT IN (…)`): run outside its scope it
-fails open, not closed.
+every workspace into `EveryWorkspace`'s walk, its claim run inside each workspace. `@Async` tasks inherit the
+submitter's workspace through `MdcTaskDecorator`; a pool built by hand wraps its tasks with `MdcPropagation`, or they
+read nothing. A door that knows only a key — a webhook's grant, calendar, bot or customer, a public slug, a token's
+hash — has no row to read the workspace from yet: **resolve, then scope**. Ask `TenantResolvers` (V171: ids and the
+workspace, never the row), open `WorkspaceScope` on the answer, and read the row there; never an unscoped finder
+followed by a scope, which finds nothing once its table is protected. Beware a check that treats "not found" as
+"allowed" (`existsByIdAndArchivedAtIsNotNull`, `NOT IN (…)`, a purge's `NOT EXISTS`, "is this call still on a
+calendar?"): run outside its scope it fails open, not closed. And never let a `RETURNING` insert write a row of
+another workspace than the caller's — the read policy checks the returned row (`AuditEvent` takes its id from the
+sequence for exactly that).
 
 ## Traps this codebase has already fallen into
 
