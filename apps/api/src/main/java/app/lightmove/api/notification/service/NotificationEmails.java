@@ -176,12 +176,18 @@ public class NotificationEmails {
         digestAt(clock.instant());
     }
 
-    /** One pass over everyone with something due or unread; each is sent at most one digest per local day. */
+    /**
+     * One pass over everyone with something due or unread; each is sent at most one digest per local day. Who that is
+     * is read a workspace at a time: the tasks and the bell are under row-level security.
+     */
     public int digestAt(Instant now) {
-        Set<TaskHolder> recipients = new LinkedHashSet<>(tasks.holdersDueBy(now.plus(DIGEST_HORIZON)));
-        for (NotificationRecipientRow mention : rows.findUnreadMentionRecipients()) {
-            recipients.add(new TaskHolder(mention.getWorkspaceId(), mention.getUserId()));
-        }
+        Set<TaskHolder> recipients = new LinkedHashSet<>();
+        workspaces.forEach(workspaceId -> {
+            recipients.addAll(tasks.holdersDueBy(now.plus(DIGEST_HORIZON)));
+            for (NotificationRecipientRow mention : rows.findUnreadMentionRecipients()) {
+                recipients.add(new TaskHolder(mention.getWorkspaceId(), mention.getUserId()));
+            }
+        });
         Map<UUID, User> people = users.findAllById(recipients.stream().map(TaskHolder::userId).distinct().toList())
                 .stream().collect(Collectors.toMap(User::getId, Function.identity()));
         int sent = 0;

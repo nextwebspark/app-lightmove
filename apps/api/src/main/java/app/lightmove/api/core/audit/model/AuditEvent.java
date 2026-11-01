@@ -9,6 +9,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.Map;
@@ -32,8 +33,14 @@ import org.hibernate.annotations.Immutable;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class AuditEvent {
 
+    /**
+     * Drawn from the sequence before the insert, never returned by it: an event is often of another workspace than the
+     * writer's (a sign-in, a switch), and row-level security checks a row an INSERT … RETURNING hands back against the
+     * read policy, which shows only the reader's own (V172).
+     */
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "audit_event_id")
+    @SequenceGenerator(name = "audit_event_id", sequenceName = "app_lm_audit_event_id_seq", allocationSize = 1)
     private Long id;
 
     @Column(name = "occurred_at", nullable = false, updatable = false)

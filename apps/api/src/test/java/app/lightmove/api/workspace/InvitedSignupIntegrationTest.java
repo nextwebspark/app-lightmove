@@ -13,6 +13,7 @@ import app.lightmove.api.core.security.rbac.RbacService;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.token.Tokens;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.workspace.model.Invitation;
 import app.lightmove.api.workspace.repository.InvitationRepository;
 import java.time.Duration;
@@ -147,9 +148,9 @@ class InvitedSignupIntegrationTest extends FlowTestSupport {
         // Persisted straight and already an hour past expiry — the API only ever issues live invitations,
         // so there is no endpoint that would mint an expired one to test against.
         String plaintext = Tokens.generate();
-        invitationRepo.save(Invitation.create(UUID.fromString(workspaceId), omar,
-                rbac.role(WorkspaceRole.MEMBER), Tokens.hash(plaintext), inviterId,
-                Instant.now().minus(Duration.ofHours(1))));
+        WorkspaceScope.call(UUID.fromString(workspaceId), () -> invitationRepo.save(Invitation.create(
+                UUID.fromString(workspaceId), omar, rbac.role(WorkspaceRole.MEMBER), Tokens.hash(plaintext), inviterId,
+                Instant.now().minus(Duration.ofHours(1)))));
 
         MvcResult expired = acceptSignup(plaintext, "Omar Khalil", PASSWORD).andReturn();
         assertThat(codeOf(expired)).isEqualTo("INVITATION_EXPIRED");

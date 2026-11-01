@@ -8,7 +8,7 @@ import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.core.config.RecallSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.tenant.WorkspaceScope;
+import app.lightmove.api.core.tenant.EveryWorkspace;
 import app.lightmove.api.notetaker.constant.CoachState;
 import app.lightmove.api.notetaker.constant.RecordGap;
 import app.lightmove.api.notetaker.model.InterviewPlan;
@@ -78,6 +78,7 @@ public class InterviewCoachWorker {
     private final UsageRecorder usage;
     private final RecallSettings settings;
     private final JdbcTemplate jdbc;
+    private final EveryWorkspace workspaces;
     private final TransactionTemplate transactions;
     private final Clock clock;
 
@@ -85,7 +86,8 @@ public class InterviewCoachWorker {
                          InterviewPlanService plans, PositionService positions, CandidateCallUpdates updates,
                          CandidateOutreachService outreachPeople, TeamVoices teamVoices,
                          CopilotStreamPublisher publisher, UsageRecorder usage, LightMoveProperties properties,
-                         JdbcTemplate jdbc, PlatformTransactionManager transactionManager, Clock clock) {
+                         JdbcTemplate jdbc, EveryWorkspace workspaces, PlatformTransactionManager transactionManager,
+                         Clock clock) {
         this.recordings = recordings;
         this.lines = lines;
         this.coach = coach;
@@ -98,6 +100,7 @@ public class InterviewCoachWorker {
         this.usage = usage;
         this.settings = properties.recall();
         this.jdbc = jdbc;
+        this.workspaces = workspaces;
         // Woken after another transaction's commit, often on its thread: every write here is a transaction of its own.
         this.transactions = new TransactionTemplate(transactionManager);
         this.transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -118,27 +121,24 @@ public class InterviewCoachWorker {
         }
     }
 
+    /** A workspace at a time: the recordings and their lines are under row-level security. */
     public void sweepAt(Instant now) {
-        for (UUID recordingId : jdbc.queryForList(PENDING, UUID.class)) {
-            try {
-                coachIfDue(recordingId, now);
-            } catch (RuntimeException failed) {
-                log.warn("Live copilot sweep could not coach recording {}: {}", recordingId, failed.toString());
+        workspaces.forEach(workspaceId -> {
+            for (UUID recordingId : jdbc.queryForList(PENDING, UUID.class)) {
+                try {
+                    coachIfDue(recordingId, now);
+                } catch (RuntimeException failed) {
+                    log.warn("Live copilot sweep could not coach recording {}: {}", recordingId, failed.toString());
+                }
             }
-        }
+        });
     }
 
     /**
-     * Answers whether a run happened, whatever it found. In the recording's workspace: neither the live feed's
-     * webhook nor the sweep carries one, and the call's people and position are read there.
+     * Answers whether a run happened, whatever it found. In the recording's workspace, which the live feed's webhook
+     * or the sweep's walk opened: the call's people and position are read there.
      */
     public boolean coachIfDue(UUID recordingId, Instant now) {
-        return recordings.findById(recordingId)
-                .map(recording -> WorkspaceScope.call(recording.getWorkspaceId(), () -> coachInScope(recordingId, now)))
-                .orElse(false);
-    }
-
-    private boolean coachInScope(UUID recordingId, Instant now) {
         CoachTurn turn = transactions.execute(status -> turnOf(recordingId, now));
         if (turn == null) {
             return false;

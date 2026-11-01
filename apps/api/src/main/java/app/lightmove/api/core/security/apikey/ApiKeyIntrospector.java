@@ -4,9 +4,13 @@ import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.service.ClientIpResolver;
 import app.lightmove.api.core.security.token.Tokens;
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 import org.springframework.security.oauth2.server.resource.introspection.BadOpaqueTokenException;
@@ -30,6 +34,7 @@ public class ApiKeyIntrospector implements OpaqueTokenIntrospector {
     private final WorkspaceAccess access;
     private final PublicApiBudget budget;
     private final ClientIpResolver clientIps;
+    private final TenantResolvers resolvers;
     private final Clock clock;
 
     @Override
@@ -44,6 +49,13 @@ public class ApiKeyIntrospector implements OpaqueTokenIntrospector {
         String tokenHash = Tokens.hash(token);
         budget.spendForKey(tokenHash);
 
+        // No principal yet: the hash names the key's workspace, where the key is then read.
+        UUID workspaceId = resolvers.apiKey(tokenHash).map(ResolvedRow::workspaceId)
+                .orElseThrow(ApiKeyIntrospector::refused);
+        return WorkspaceScope.call(workspaceId, () -> introspectInScope(tokenHash, ip));
+    }
+
+    private ApiKeyPrincipal introspectInScope(String tokenHash, String ip) {
         Instant now = clock.instant();
         ApiKey key = keys.findByTokenHash(tokenHash)
                 .filter(found -> found.statusAt(now) == ApiKeyStatus.ACTIVE)

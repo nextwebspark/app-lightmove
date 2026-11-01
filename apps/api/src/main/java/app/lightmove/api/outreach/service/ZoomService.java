@@ -8,6 +8,9 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.token.Tokens;
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.dto.ZoomResponse;
 import app.lightmove.api.outreach.model.MailboxAuthorization;
@@ -60,6 +63,7 @@ public class ZoomService {
     private final TransactionTemplate transactions;
     private final AuditService audit;
     private final LightMoveProperties properties;
+    private final TenantResolvers resolvers;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -94,13 +98,21 @@ public class ZoomService {
 
     /**
      * Redeems Zoom's answer. As with a mailbox, the stored state says whose account this is, and it counts only from
-     * the browser that started it, which holds the same value in a cookie.
+     * the browser that started it, which holds the same value in a cookie — and, nobody being signed in, it names the
+     * workspace the account is connected in.
      */
     public void complete(String state, String browserState, String code, HttpServletRequest request) {
         if (state == null || code == null || !sameValue(state, browserState)) {
             throw ApiException.of(ErrorCode.MAILBOX_CONNECT_EXPIRED);
         }
-        MailboxAuthorization started = authorizations.findByStateHash(Tokens.hash(state))
+        String stateHash = Tokens.hash(state);
+        ResolvedRow named = resolvers.mailboxAuthorization(stateHash)
+                .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_CONNECT_EXPIRED));
+        WorkspaceScope.run(named.workspaceId(), () -> completeInScope(stateHash, code, request));
+    }
+
+    private void completeInScope(String stateHash, String code, HttpServletRequest request) {
+        MailboxAuthorization started = authorizations.findByStateHash(stateHash)
                 .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_CONNECT_EXPIRED));
         // Redeemed before anything else, so a state that is refused below can never be tried again.
         if (authorizations.redeem(started.getId()) == 0 || started.hasExpired(clock.instant())

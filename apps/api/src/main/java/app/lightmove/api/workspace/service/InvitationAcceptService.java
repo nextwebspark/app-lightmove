@@ -15,6 +15,9 @@ import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.core.security.token.Tokens;
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.workspace.model.ClientRepresentativeAcceptedEvent;
 import app.lightmove.api.workspace.model.Invitation;
 import app.lightmove.api.workspace.model.Workspace;
@@ -29,12 +32,13 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Redeems invitations — previewing one by its token and every way of accepting it. Reached from the
@@ -56,14 +60,19 @@ public class InvitationAcceptService {
     private final ApplicationEventPublisher events;
     private final WorkspaceSelection selection;
     private final SeatAllowance seats;
+    private final TenantResolvers resolvers;
+    private final TransactionTemplate transactions;
     private final Clock clock;
 
     /**
      * Unauthenticated, since the invitee usually has no account yet. Discloses only what the email
      * already said, and only to a holder of the 256-bit token mailed to that address.
      */
-    @Transactional(readOnly = true)
     public InvitationPreview preview(String plaintextToken) {
+        return inWorkspaceOfToken(plaintextToken, () -> previewInScope(plaintextToken));
+    }
+
+    private InvitationPreview previewInScope(String plaintextToken) {
         Invitation invitation = resolveRedeemable(plaintextToken, clock.instant());
 
         Workspace workspace = workspaces.findById(invitation.getWorkspaceId())
@@ -84,28 +93,36 @@ public class InvitationAcceptService {
                                     String inviterName) {}
 
     /** The invitee lands ACTIVE at once: an admin naming them was the approval. */
-    @Transactional
     public WorkspaceMember accept(String plaintextToken, UUID userId, HttpServletRequest request) {
-        Instant now = clock.instant();
-        Invitation invitation = resolveRedeemable(plaintextToken, now);
-        return redeem(invitation, requireUser(userId), now, request);
+        return inWorkspaceOfToken(plaintextToken, () -> {
+            Instant now = clock.instant();
+            Invitation invitation = resolveRedeemable(plaintextToken, now);
+            return redeem(invitation, requireUser(userId), now, request);
+        });
     }
 
     /**
      * Token-less: the token only proves the mailbox, which an <b>email-verified</b> user with the
      * matching address already has. An id not addressed to the caller reads as one that does not exist.
      */
-    @Transactional
     public WorkspaceMember acceptById(UUID invitationId, UUID userId, HttpServletRequest request) {
-        Instant now = clock.instant();
-        User user = requireUser(userId);
-
-        Invitation invitation = invitations.findById(invitationId)
-                .filter(found -> found.getEmail().equalsIgnoreCase(user.getEmail()))
-                .filter(found -> found.isRedeemable(now))
+        // Found among the invitations waiting for the caller's own address, so an id addressed to anybody else
+        // names no workspace and reads as one that does not exist.
+        UUID workspaceId = resolvers.pendingInvitationsFor(requireUser(userId).getEmail()).stream()
+                .filter(named -> named.id().equals(invitationId))
+                .map(ResolvedRow::workspaceId)
+                .findFirst()
                 .orElseThrow(() -> ApiException.of(ErrorCode.INVITATION_INVALID));
-
-        return redeem(invitation, user, now, request);
+        return WorkspaceScope.call(workspaceId, () -> transactions.execute(status -> {
+            Instant now = clock.instant();
+            // Read again inside the transaction: redeeming remembers this workspace on the account.
+            User user = requireUser(userId);
+            Invitation invitation = invitations.findById(invitationId)
+                    .filter(found -> found.getEmail().equalsIgnoreCase(user.getEmail()))
+                    .filter(found -> found.isRedeemable(now))
+                    .orElseThrow(() -> ApiException.of(ErrorCode.INVITATION_INVALID));
+            return redeem(invitation, user, now, request);
+        }));
     }
 
     /**
@@ -113,19 +130,31 @@ public class InvitationAcceptService {
      * which is the proof verification gives. The address is the invitation's, never the request's —
      * that binding plus {@code createVerifiedLocalUser}'s existing-account guard is this path's security.
      */
-    @Transactional
     public AuthenticatedSession acceptWithNewLocalUser(String plaintextToken, String fullName,
                                                        String password, HttpServletRequest request) {
-        Instant now = clock.instant();
-        Invitation invitation = resolveRedeemable(plaintextToken, now);
-        rateLimit.checkSignup(invitation.getEmail(), request);
+        return inWorkspaceOfToken(plaintextToken, () -> {
+            Instant now = clock.instant();
+            Invitation invitation = resolveRedeemable(plaintextToken, now);
+            rateLimit.checkSignup(invitation.getEmail(), request);
 
-        // Bound to the invited address; an existing account is sent to log in, not given a second identity.
-        User user = authentication.createVerifiedLocalUser(
-                invitation.getEmail(), fullName, password, request);
-        WorkspaceMember member = redeem(invitation, user, now, request);
+            // Bound to the invited address; an existing account is sent to log in, not given a second identity.
+            User user = authentication.createVerifiedLocalUser(
+                    invitation.getEmail(), fullName, password, request);
+            WorkspaceMember member = redeem(invitation, user, now, request);
 
-        return tokens.issue(user, member, request);
+            return tokens.issue(user, member, request);
+        });
+    }
+
+    /**
+     * Whoever holds the token is in no workspace yet, or in another: the invitation is the inviting workspace's row,
+     * read and redeemed — the membership, the seat and the representative's mandates with it — in that workspace's
+     * scope, opened before the transaction. A token nobody holds is refused as {@link #resolveRedeemable} would.
+     */
+    private <T> T inWorkspaceOfToken(String plaintextToken, Supplier<T> work) {
+        UUID workspaceId = resolvers.invitation(Tokens.hash(plaintextToken)).map(ResolvedRow::workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.INVITATION_INVALID));
+        return WorkspaceScope.call(workspaceId, () -> transactions.execute(status -> work.get()));
     }
 
     /** The email must match the invited address: a forwarded link must not let somebody else in. */

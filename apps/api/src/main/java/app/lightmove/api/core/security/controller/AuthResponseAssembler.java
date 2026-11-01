@@ -12,7 +12,9 @@ import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.core.security.token.TokenPair;
-import app.lightmove.api.workspace.constant.InvitationStatus;
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.workspace.dto.WorkspaceCompanyResponse;
 import app.lightmove.api.workspace.dto.WorkspaceSummary;
 import app.lightmove.api.workspace.model.Invitation;
@@ -46,6 +48,7 @@ public class AuthResponseAssembler {
     private final UserRepository users;
     private final WorkspaceSelection selection;
     private final PlatformAccess platform;
+    private final TenantResolvers resolvers;
 
     public AuthResponse assemble(TokenPair tokens, User user, WorkspaceMember membership) {
         return new AuthResponse(
@@ -103,11 +106,17 @@ public class AuthResponseAssembler {
     private List<PendingInvitationSummary> pendingInvitations(User user, List<WorkspaceMember> memberships) {
         Instant now = Instant.now();
         Set<UUID> alreadyIn = memberships.stream().map(WorkspaceMember::getWorkspaceId).collect(Collectors.toSet());
-        List<Invitation> outstanding = invitations
-                .findByEmailAndStatusOrderByCreatedAtDesc(user.getEmail(), InvitationStatus.PENDING)
-                .stream()
+        // Each from its own workspace: the invitations to a workspace the person is not in yet are that workspace's
+        // rows, which the session's own workspace cannot read.
+        Map<UUID, List<UUID>> waitingIn = resolvers.pendingInvitationsFor(user.getEmail()).stream()
+                .filter(named -> !alreadyIn.contains(named.workspaceId()))
+                .collect(Collectors.groupingBy(ResolvedRow::workspaceId,
+                        Collectors.mapping(ResolvedRow::id, Collectors.toList())));
+        List<Invitation> outstanding = waitingIn.entrySet().stream()
+                .flatMap(waiting -> WorkspaceScope.call(waiting.getKey(),
+                        () -> invitations.findAllById(waiting.getValue())).stream())
                 .filter(invitation -> invitation.isRedeemable(now))
-                .filter(invitation -> !alreadyIn.contains(invitation.getWorkspaceId()))
+                .sorted(Comparator.comparing(Invitation::getCreatedAt).reversed())
                 .toList();
         if (outstanding.isEmpty()) {
             return List.of();

@@ -8,6 +8,7 @@ import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.TestLlmCallPolicy;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.LlmRateLimitSettings;
 import app.lightmove.api.core.config.LlmSettings;
@@ -49,7 +50,14 @@ import org.springframework.util.StreamUtils;
 @Import(RecordingEmailSender.Config.class)
 class PositionContextProposerTest extends FlowTestSupport {
 
-    @Autowired PositionDocumentRedactor redactor;
+    /** Scoped to the workspace each redaction names, as the request reading the document is. */
+    PositionDocumentRedactor redactor;
+
+    @Autowired
+    void scopeTheRedactor(PositionDocumentRedactor bean) {
+        redactor = TestWorkspaceScopes.scopedByArguments(bean);
+    }
+
     @Autowired ExtractedFieldReader fieldReader;
 
     private static final String DOCUMENT_TEXT = """

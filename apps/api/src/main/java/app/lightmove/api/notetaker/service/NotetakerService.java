@@ -17,6 +17,7 @@ import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.service.UserTimezones;
 import app.lightmove.api.core.security.token.Tokens;
+import app.lightmove.api.core.tenant.EveryWorkspace;
 import app.lightmove.api.notetaker.constant.CallSuggestionStatus;
 import app.lightmove.api.notetaker.constant.NotetakerJoin;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
@@ -95,6 +96,7 @@ public class NotetakerService {
     private final UserRepository users;
     private final UserTimezones timezones;
     private final AuditService audit;
+    private final EveryWorkspace workspaces;
     private final TransactionTemplate transactions;
     private final ApplicationEventPublisher events;
     private final Clock clock;
@@ -232,9 +234,14 @@ public class NotetakerService {
     /**
      * A bot waits for its call by the time it was sent for. Once that call has moved, or gone from every calendar, the
      * bot would walk into the room at the old time — on a reused link, into somebody else's call — so it is called back,
-     * and the consultant switches Join at start on again for the new time.
+     * and the consultant switches Join at start on again for the new time. A workspace at a time: read with no
+     * workspace, every calendar would look empty and every waiting bot would be called back.
      */
     public int callBackMovedCalls(Instant now) {
+        return workspaces.sum(workspaceId -> callBackMovedCallsInScope(now));
+    }
+
+    private int callBackMovedCallsInScope(Instant now) {
         List<MeetingRecording> waiting = transactions.execute(status ->
                 recordings.findByStatusAndJoinAtAfter(NotetakerStatus.SCHEDULED, now));
         int calledBack = 0;

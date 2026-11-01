@@ -31,7 +31,4 @@ public interface InvitationRepository extends JpaRepository<Invitation, UUID> {
     /** Scoped by client too, so it never collides with a staff invite to the same email. */
     Optional<Invitation> findByWorkspaceIdAndClientIdAndEmailAndStatus(
             UUID workspaceId, UUID clientId, String email, InvitationStatus status);
-
-    /** For {@code /me}; a person may be invited to several workspaces at once. Newest first. */
-    List<Invitation> findByEmailAndStatusOrderByCreatedAtDesc(String email, InvitationStatus status);
 }

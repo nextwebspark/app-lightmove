@@ -1,6 +1,6 @@
 package app.lightmove.api.outreach.service;
 
-import app.lightmove.api.core.tenant.WorkspaceScope;
+import app.lightmove.api.core.tenant.EveryWorkspace;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MailboxStatus;
 import app.lightmove.api.outreach.model.CalendarEvent;
@@ -55,6 +55,7 @@ public class MeetingBackfill {
     private final MailboxGateway gateway;
     private final MailboxConnectionRepository mailboxes;
     private final MeetingSync meetings;
+    private final EveryWorkspace workspaces;
     private final TransactionTemplate transactions;
     private final Clock clock;
 
@@ -63,10 +64,11 @@ public class MeetingBackfill {
      * bound to the thread, and joining it writes nothing.
      */
     MeetingBackfill(MailboxGateway gateway, MailboxConnectionRepository mailboxes, MeetingSync meetings,
-                    PlatformTransactionManager transactionManager, Clock clock) {
+                    EveryWorkspace workspaces, PlatformTransactionManager transactionManager, Clock clock) {
         this.gateway = gateway;
         this.mailboxes = mailboxes;
         this.meetings = meetings;
+        this.workspaces = workspaces;
         this.transactions = new TransactionTemplate(transactionManager);
         this.transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.clock = clock;
@@ -78,10 +80,11 @@ public class MeetingBackfill {
         syncCalendar(connected.mailboxConnectionId());
     }
 
+    /** A workspace at a time: the mailboxes, and the people an event is matched to, are under row-level security. */
     public void syncOwed() {
-        mailboxes.findCalendarsOwed(MailboxStatus.ACTIVE, MAX_ATTEMPTS, clock.instant(),
-                        PageRequest.of(0, MAX_OWED_PER_POLL))
-                .forEach(mailbox -> syncCalendar(mailbox.getId()));
+        workspaces.forEach(workspaceId -> mailboxes.findCalendarsOwed(MailboxStatus.ACTIVE, MAX_ATTEMPTS,
+                        clock.instant(), PageRequest.of(0, MAX_OWED_PER_POLL))
+                .forEach(mailbox -> syncCalendar(mailbox.getId())));
     }
 
     /**
@@ -119,15 +122,14 @@ public class MeetingBackfill {
                 }));
     }
 
-    /** In the mailbox's workspace: the people a calendar event is matched to are read there. */
+    /** In the mailbox's workspace, which the connect callback or the poll's walk opened. */
     void syncCalendar(UUID mailboxConnectionId) {
-        mailboxes.findById(mailboxConnectionId)
+        MailboxConnection mailbox = mailboxes.findById(mailboxConnectionId)
                 .filter(MailboxConnection::canSend)
-                .ifPresent(mailbox -> WorkspaceScope.run(mailbox.getWorkspaceId(), () -> syncCalendar(mailbox)));
-    }
-
-    private void syncCalendar(MailboxConnection mailbox) {
-        UUID mailboxConnectionId = mailbox.getId();
+                .orElse(null);
+        if (mailbox == null) {
+            return;
+        }
         String grantId = mailbox.getGrantId();
         Instant now = clock.instant();
         List<CalendarEvent> events;

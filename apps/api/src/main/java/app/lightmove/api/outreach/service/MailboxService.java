@@ -12,6 +12,9 @@ import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.model.TimezoneChanged;
 import app.lightmove.api.core.security.service.UserTimezones;
 import app.lightmove.api.core.security.token.Tokens;
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MessageKind;
 import app.lightmove.api.outreach.constant.MessageStatus;
@@ -40,10 +43,11 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -79,6 +83,7 @@ public class MailboxService {
     private final SecretCipher cipher;
     private final LightMoveProperties properties;
     private final UserTimezones timezones;
+    private final TenantResolvers resolvers;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -106,12 +111,18 @@ public class MailboxService {
 
     /**
      * A person's clock is their profile's (V148): every mailbox they hold, one per workspace, sends and caps by it. Sends
-     * already due keep their time; the window and the cap read the new zone from the next one.
+     * already due keep their time; the window and the cap read the new zone from the next one. Once the profile has
+     * committed, each workspace's mailbox in that workspace's scope and its own transaction: the profile's transaction
+     * is the caller's workspace, and under row-level security sees no other's.
      */
-    @EventListener
-    @Transactional(propagation = Propagation.MANDATORY)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onTimezoneChanged(TimezoneChanged changed) {
-        connections.findByUserId(changed.userId()).forEach(connection -> connection.changeTimeZone(changed.zone()));
+        TransactionTemplate own = new TransactionTemplate(transactions.getTransactionManager());
+        own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        resolvers.mailboxesOfUser(changed.userId()).stream().map(ResolvedRow::workspaceId).distinct()
+                .forEach(workspaceId -> WorkspaceScope.run(workspaceId, () -> own.executeWithoutResult(status ->
+                        connections.findByUserId(changed.userId())
+                                .forEach(connection -> connection.changeTimeZone(changed.zone())))));
     }
 
     /** Any attempt the caller left unfinished is dropped, so only the newest consent screen can connect. */
@@ -139,13 +150,21 @@ public class MailboxService {
      * Redeems the consent screen's answer. The callback carries no bearer token, so the stored state is
      * what says whose mailbox this is — and it counts only from the browser that started it, which holds
      * the same value in a cookie: a consent link handed to someone else would otherwise connect their
-     * mailbox to the account that minted it.
+     * mailbox to the account that minted it. Nobody is signed in, so the state also names the workspace the
+     * connection is made in.
      */
     public void complete(String state, String browserState, String code, HttpServletRequest request) {
         if (state == null || code == null || !sameValue(state, browserState)) {
             throw ApiException.of(ErrorCode.MAILBOX_CONNECT_EXPIRED);
         }
-        MailboxAuthorization started = authorizations.findByStateHash(Tokens.hash(state))
+        String stateHash = Tokens.hash(state);
+        ResolvedRow named = resolvers.mailboxAuthorization(stateHash)
+                .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_CONNECT_EXPIRED));
+        WorkspaceScope.run(named.workspaceId(), () -> completeInScope(stateHash, code, request));
+    }
+
+    private void completeInScope(String stateHash, String code, HttpServletRequest request) {
+        MailboxAuthorization started = authorizations.findByStateHash(stateHash)
                 .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_CONNECT_EXPIRED));
         // Redeemed before anything else, so a state that is refused below can never be tried again.
         if (authorizations.redeem(started.getId()) == 0 || started.hasExpired(clock.instant())

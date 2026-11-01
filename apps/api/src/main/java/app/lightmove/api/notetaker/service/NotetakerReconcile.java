@@ -1,6 +1,7 @@
 package app.lightmove.api.notetaker.service;
 
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.core.tenant.EveryWorkspace;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import app.lightmove.api.notetaker.model.FinalTranscriptWanted;
 import app.lightmove.api.notetaker.model.MeetingRecording;
@@ -47,7 +48,8 @@ public class NotetakerReconcile {
             UPDATE app_lm_meeting_recording SET reconciled_at = :now
             WHERE id IN (
                 SELECT id FROM app_lm_meeting_recording
-                WHERE status IN ('SCHEDULED', 'JOINING', 'RECORDING', 'PROCESSING') AND recall_bot_id IS NOT NULL
+                WHERE workspace_id = :workspaceId
+                  AND status IN ('SCHEDULED', 'JOINING', 'RECORDING', 'PROCESSING') AND recall_bot_id IS NOT NULL
                   AND (ends_at < :endedBefore OR end_requested_at < :endRequestedBefore)
                   AND (reconciled_at IS NULL OR reconciled_at < :readBefore)
                 ORDER BY coalesce(end_requested_at, ends_at)
@@ -61,6 +63,7 @@ public class NotetakerReconcile {
     private final MeetingRecordingRepository recordings;
     private final NotetakerWebhook webhook;
     private final NamedParameterJdbcTemplate jdbc;
+    private final EveryWorkspace workspaces;
     private final TransactionTemplate transactions;
     private final ApplicationEventPublisher events;
     private final Clock clock;
@@ -75,8 +78,14 @@ public class NotetakerReconcile {
         }
     }
 
+    /** A workspace at a time: the recordings, and the people and calls a fold reads, are under row-level security. */
     public int reconcileAt(Instant now) {
+        return workspaces.sum(workspaceId -> reconcileIn(workspaceId, now));
+    }
+
+    private int reconcileIn(UUID workspaceId, Instant now) {
         List<UUID> claimed = transactions.execute(status -> jdbc.queryForList(CLAIM, new MapSqlParameterSource()
+                .addValue("workspaceId", workspaceId)
                 .addValue("now", Timestamp.from(now))
                 .addValue("endedBefore", Timestamp.from(now.minus(QUIET_AFTER_END)))
                 .addValue("endRequestedBefore", Timestamp.from(now.minus(QUIET_AFTER_END_REQUESTED)))

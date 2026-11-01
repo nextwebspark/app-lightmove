@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingPaymentGateway;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.billing.credit.service.MonthlyCreditReset;
 import app.lightmove.api.billing.notice.service.BillingNotices;
 import app.lightmove.api.billing.payment.model.PaymentEvent;
@@ -41,9 +42,14 @@ class TrialIntegrationTest extends BillingFlowSupport {
 
     private static final AtomicInteger SEQUENCE = new AtomicInteger();
 
-    @Autowired private FairUseGuard fairUse;
+    private FairUseGuard fairUse;
     @Autowired private MonthlyCreditReset reset;
     @Autowired private BillingNotices notices;
+
+    @Autowired
+    void scopeTheGuard(FairUseGuard guard) {
+        fairUse = TestWorkspaceScopes.scopedByArguments(guard);
+    }
     @Autowired private RecordingPaymentGateway stripe;
 
     @Test

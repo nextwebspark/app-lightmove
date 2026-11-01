@@ -5,6 +5,7 @@ import app.lightmove.api.core.security.apikey.ApiKeyScope;
 import app.lightmove.api.core.security.oauth.OAuthGrantService;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.mcp.constant.McpCredentialKind;
 import app.lightmove.api.mcp.model.McpCaller;
 import app.lightmove.api.mcp.model.McpCallerAuthentication;
@@ -38,11 +39,18 @@ public class McpCredentials {
         if (userId.isEmpty() || workspaceId.isEmpty() || grantId.isEmpty()) {
             throw refused("The token names no grant");
         }
-        if (!grants.isLive(grantId.get(), userId.get(), workspaceId.get())
-                || !access.holdsAction(userId.get(), workspaceId.get(), WorkspaceAction.API_KEY_MANAGE)) {
+        // The signed token names its workspace; the grant is that workspace's row, read there before any caller is.
+        boolean live = WorkspaceScope.call(workspaceId.get(), () -> {
+            if (!grants.isLive(grantId.get(), userId.get(), workspaceId.get())
+                    || !access.holdsAction(userId.get(), workspaceId.get(), WorkspaceAction.API_KEY_MANAGE)) {
+                return false;
+            }
+            grants.stampUse(grantId.get());
+            return true;
+        });
+        if (!live) {
             throw refused("The connection has ended");
         }
-        grants.stampUse(grantId.get());
         return new McpCallerAuthentication(new McpCaller(McpCredentialKind.OAUTH, userId.get(), workspaceId.get(),
                 scopesOf(token.getClaim("scope")), token.getClaimAsString("client_id"), grantId.get()));
     }

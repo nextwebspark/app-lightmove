@@ -3,9 +3,11 @@ package app.lightmove.api.billing.credit.service;
 import app.lightmove.api.billing.credit.model.CreditBalanceDrift;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.tenant.EveryWorkspace;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ public class CreditBalanceReconcile {
     private final BillingJobRuns runs;
     private final JdbcTemplate jdbc;
     private final AuditService audit;
+    private final EveryWorkspace workspaces;
     private final Clock clock;
 
     @Scheduled(cron = "${lightmove.billing.jobs.reconcile}", zone = "UTC")
@@ -64,7 +67,17 @@ public class CreditBalanceReconcile {
                 .record();
     }
 
+    /**
+     * A workspace at a time. One statement over every workspace's ledger is exactly what row-level security refuses,
+     * and refused it answers nothing — which would read as no drift anywhere.
+     */
     public List<CreditBalanceDrift> drifts() {
+        List<CreditBalanceDrift> drifts = new ArrayList<>();
+        workspaces.forEach(workspaceId -> drifts.addAll(driftsInScope()));
+        return drifts;
+    }
+
+    private List<CreditBalanceDrift> driftsInScope() {
         return jdbc.query("""
                 SELECT b.workspace_id, b.available, b.held,
                        coalesce(e.available, 0) AS ledger_available, coalesce(e.held, 0) AS ledger_held,

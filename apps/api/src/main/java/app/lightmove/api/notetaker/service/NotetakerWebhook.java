@@ -1,5 +1,8 @@
 package app.lightmove.api.notetaker.service;
 
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import app.lightmove.api.notetaker.model.FinalTranscriptWanted;
 import app.lightmove.api.notetaker.model.MeetingRecording;
@@ -28,6 +31,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class NotetakerWebhook {
 
     private final RecallBotApi recall;
+    private final TenantResolvers resolvers;
     private final MeetingRecordingRepository recordings;
     private final MeetingLiveLineRepository liveLines;
     private final CopilotStreamPublisher copilotStream;
@@ -37,16 +41,18 @@ public class NotetakerWebhook {
 
     public void receive(byte[] body, String id, String timestamp, String signature) {
         for (RecallBotNotice notice : recall.notices(body, id, timestamp, signature)) {
-            transactions.executeWithoutResult(status -> recordingOf(notice)
-                    .filter(recording -> recording.getStatus().isLive()
-                            || (notice instanceof RecallBotNotice.StatusChanged && recording.awaitsItsReason()))
-                    .ifPresent(recording -> apply(recording, notice)));
+            // Recall names the bot and nothing else: the recording is read in the workspace that sent it.
+            recordingNamedBy(notice).ifPresent(named -> WorkspaceScope.run(named.workspaceId(), () ->
+                    transactions.executeWithoutResult(status -> recordings.findById(named.id())
+                            .filter(recording -> recording.getStatus().isLive()
+                                    || (notice instanceof RecallBotNotice.StatusChanged && recording.awaitsItsReason()))
+                            .ifPresent(recording -> apply(recording, notice)))));
         }
     }
 
-    private Optional<MeetingRecording> recordingOf(RecallBotNotice notice) {
-        Optional<MeetingRecording> byBot = notice.botId() == null ? Optional.empty()
-                : recordings.findByRecallBotId(notice.botId());
+    private Optional<ResolvedRow> recordingNamedBy(RecallBotNotice notice) {
+        Optional<ResolvedRow> byBot = notice.botId() == null ? Optional.empty()
+                : resolvers.recordingByBot(notice.botId());
         if (byBot.isPresent()) {
             return byBot;
         }
@@ -55,7 +61,7 @@ public class NotetakerWebhook {
             case RecallBotNotice.TranscriptFailed failed -> failed.transcriptId();
             case RecallBotNotice.StatusChanged changed -> null;
         };
-        return transcriptId == null ? Optional.empty() : recordings.findByFinalTranscriptId(transcriptId);
+        return transcriptId == null ? Optional.empty() : resolvers.recordingByFinalTranscript(transcriptId);
     }
 
     /** Must run inside a transaction: a transcript that is ready is handed to the worker only once this commits. */

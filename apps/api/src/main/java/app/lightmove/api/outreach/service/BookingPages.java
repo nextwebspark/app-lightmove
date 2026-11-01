@@ -7,6 +7,9 @@ import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.constant.BookingPageKind;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.dto.BookingPageResponse;
@@ -49,6 +52,7 @@ public class BookingPages {
     private final RateLimitGuard rateLimit;
     private final LightMoveProperties properties;
     private final AvailabilityService availability;
+    private final TenantResolvers resolvers;
 
     /**
      * Its own transaction, never the caller's: after a reconnect commits, the finished one is still bound to
@@ -56,7 +60,7 @@ public class BookingPages {
      */
     BookingPages(MailboxGateway gateway, MailboxConnectionRepository mailboxes, UserRepository users,
                  PlatformTransactionManager transactionManager, RateLimitGuard rateLimit,
-                 LightMoveProperties properties, AvailabilityService availability) {
+                 LightMoveProperties properties, AvailabilityService availability, TenantResolvers resolvers) {
         this.gateway = gateway;
         this.mailboxes = mailboxes;
         this.users = users;
@@ -65,6 +69,7 @@ public class BookingPages {
         this.rateLimit = rateLimit;
         this.properties = properties;
         this.availability = availability;
+        this.resolvers = resolvers;
     }
 
     /** A direct mailbox's page is always Uncava's own; a Nylas one needs the plan to carry Scheduler. */
@@ -174,13 +179,25 @@ public class BookingPages {
      * The public page's read: no write and no call to the mail service. Any link that leads nowhere answers
      * alike, so a slug says nothing it should not.
      */
-    @Transactional(readOnly = true)
     public BookingPageResponse open(String slug, HttpServletRequest request) {
         rateLimit.checkBookingPageOpen(slug, request);
+        ResolvedRow page = pageNamed(slug);
+        return WorkspaceScope.call(page.workspaceId(), () -> transactions.execute(status -> openInScope(page)));
+    }
+
+    /**
+     * Nobody is signed in: the slug is the link's whole identity, and names the workspace its page is read in. A slug
+     * of no shape, or one nobody holds, answers as every link that leads nowhere does.
+     */
+    ResolvedRow pageNamed(String slug) {
         if (!gateway.isOffered() || slug == null || !BookingSlug.SHAPE.matcher(slug).matches()) {
             throw ApiException.of(ErrorCode.NOT_FOUND);
         }
-        MailboxConnection mailbox = mailboxes.findByBookingSlug(slug)
+        return resolvers.mailboxByBookingSlug(slug).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
+
+    private BookingPageResponse openInScope(ResolvedRow page) {
+        MailboxConnection mailbox = mailboxes.findById(page.id())
                 .filter(MailboxConnection::canSend)
                 .filter(found -> found.isDirect()
                         || (gateway.isBookingPageOffered() && found.getBookingConfigurationId() != null))
@@ -205,7 +222,9 @@ public class BookingPages {
 
     private String claimLinkOf(MailboxConnection mailbox, String consultantName) {
         if (mailbox.getBookingSlug() == null) {
-            mailbox.claimBookingSlug(BookingSlug.from(consultantName, mailboxes::existsByBookingSlug));
+            // Unique across every workspace, since the link names nothing else: asked of all of them, not this one.
+            mailbox.claimBookingSlug(BookingSlug.from(consultantName,
+                    taken -> resolvers.mailboxByBookingSlug(taken).isPresent()));
         }
         return linkOf(mailbox);
     }
