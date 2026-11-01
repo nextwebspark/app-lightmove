@@ -375,6 +375,11 @@ Five things this cost an afternoon each to learn:
   registrations listed in `email-verified-optional-registrations`, never by default: this handler
   links a provider identity into an *existing* account on a matching address, so "the provider did
   not say" must never read as "the provider said yes" for an IdP nobody vetted.
+- **Linking into an account nobody verified wipes what its claimant set.** Anyone can sign up on someone
+  else's address and never verify it. When the owner later signs in with a provider, linking that account
+  as it stood left the claimant's password working — and the account verified — so they walked into
+  whatever the owner built there (pre-account takeover). `UnverifiedAccountWipe` discards the password,
+  every session, any second factor and every AI-app grant first; a verified account is linked untouched.
 - **A provider's `picture` is a URL the whole workspace fetches**, and on many IdPs it is a
   user-editable field. It is stored only when it is `https` and under 2 KB — otherwise a member could
   point it at a host they control and harvest a request from every colleague who opens the roster.
@@ -501,6 +506,10 @@ Sameness is about the clock too. Every refusal that skips the password check pay
 comparison anyway — `PasswordPolicy.equaliseFailureCost`, against a decoy hash derived at startup.
 Without it an unknown address answered in 26 ms and a real one in 276 ms, which told anyone who asked
 whether an address is a customer.
+
+Sameness holds under load too. Password login reads the account under a row lock
+(`UserRepository.findByEmailForSignIn`): concurrent wrong guesses each bumped the failed-attempt count
+under `@Version`, the losers answered 409 — which no unknown address can — and their count was lost.
 
 A locked-out user therefore learns it **by email**, sent once when the lock arms (not on each later
 attempt, or an attacker's dictionary run would flood the owner's inbox). The mailbox already proves
