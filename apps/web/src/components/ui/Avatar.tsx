@@ -41,10 +41,9 @@ export function Avatar({
   title?: string;
   className?: string;
 }) {
-  // A user's photo is our own copy now (V169), but a link can still fail — a picture removed while a
-  // screen held its link, a provider link not yet copied, a candidate's research URL. So a broken
-  // picture is expected rather than exceptional: fall back to the initials the rest of the product
-  // uses instead of leaving a torn-image icon on the roster.
+  // A user's photo is our own copy now (V170), but a link can still fail — a picture removed while a
+  // screen held its link, a candidate's research URL. So a broken picture is expected rather than
+  // exceptional: fall back to the initials the rest of the product uses instead of a torn-image icon.
   //
   // The failure is remembered per URL, not as a boolean: a re-stamped picture arriving on the next
   // sign-in must get its chance, and Topbar's avatar outlives every one of them.

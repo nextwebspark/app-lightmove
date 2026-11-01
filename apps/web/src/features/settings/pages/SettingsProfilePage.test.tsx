@@ -204,8 +204,25 @@ describe("SettingsProfilePage — your own profile", () => {
       await waitFor(() => expect(authApi.uploadAvatar).toHaveBeenCalledWith(expect.any(Blob)));
       expect(croppedPhoto).toHaveBeenCalledWith("blob:picked", { x: 0, y: 0, width: 400, height: 400 });
       expect(await screen.findByText("Profile photo saved")).toBeInTheDocument();
-      expect(authApi.me).toHaveBeenCalledTimes(2);
+      await waitFor(() => expect(authApi.me).toHaveBeenCalledTimes(2));
       expect(screen.queryByRole("dialog", { name: "Profile photo" })).not.toBeInTheDocument();
+      expect(authApi.uploadAvatar).toHaveBeenCalledTimes(1);
+    });
+
+    it("says a picture it could not draw is the browser's, and a failed send is the connection's", async () => {
+      vi.mocked(croppedPhoto).mockRejectedValueOnce(new Error("decode"));
+      vi.mocked(authApi.uploadAvatar).mockRejectedValueOnce(new TypeError("Failed to fetch"));
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.upload(await screen.findByLabelText("Choose a profile photo"), picked);
+      await user.click(await screen.findByRole("button", { name: "Save photo" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent("This browser can't open that image");
+      expect(authApi.uploadAvatar).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole("button", { name: "Save photo" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent("Could not reach Uncava");
+      expect(screen.getByRole("dialog", { name: "Profile photo" })).toBeInTheDocument();
     });
 
     it("keeps the dialog open with the server's reason when it refuses the picture", async () => {

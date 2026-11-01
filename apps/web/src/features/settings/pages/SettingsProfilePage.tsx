@@ -32,17 +32,19 @@ export function SettingsProfilePage() {
     toast("Profile saved");
   };
 
-  // The photo is drawn on most screens — rosters, teams, tasks, notes — so every cached read is marked stale and
-  // refetched where it is next shown, rather than naming each one here and missing the next.
-  const afterPhotoChange = async (message: string) => {
-    await reload();
-    void queryClient.invalidateQueries();
+  // The change is saved by now: what follows only redraws it. The photo is drawn on most screens — rosters, teams,
+  // tasks, notes — so every cached read is marked stale (`refetchType: "none"`) and refetched where it is next shown,
+  // rather than naming each one here and missing the next; the session reload redraws the topbar and this page.
+  const afterPhotoChange = (message: string) => {
     toast(message);
+    void queryClient.invalidateQueries({ refetchType: "none" });
+    void reload();
   };
 
+  /** Resolves once the upload has: the dialog closes on a saved photo, whatever the redraw meets. */
   const handleSavePhoto = async (photo: Blob) => {
     await authApi.uploadAvatar(photo);
-    await afterPhotoChange("Profile photo saved");
+    afterPhotoChange("Profile photo saved");
   };
 
   const handleRemovePhoto = async () => {
@@ -52,7 +54,7 @@ export function SettingsProfilePage() {
       toast.error("Could not remove your photo. Try again.", { retry: () => void handleRemovePhoto() });
       return;
     }
-    await afterPhotoChange("Profile photo removed");
+    afterPhotoChange("Profile photo removed");
   };
 
   return (

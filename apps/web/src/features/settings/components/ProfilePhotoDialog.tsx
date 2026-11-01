@@ -6,6 +6,7 @@ import { messageFor } from "../../../lib/errorCodes";
 import { croppedPhoto } from "../lib/croppedPhoto";
 
 const UNOPENABLE = "This browser can't open that image. Use a JPG or PNG.";
+const UNREACHABLE = "Could not reach Uncava. Check your connection and try again.";
 
 /**
  * Frames the picked picture as the square everyone sees — drag to move, the slider zooms — and saves it.
@@ -27,16 +28,23 @@ export default function ProfilePhotoDialog({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Two failures, said apart: drawing the square is the browser's, sending it is the network's or the server's.
   const handleSave = async () => {
     if (!imageUrl || !area) return;
     setError(null);
     setSaving(true);
+    let photo: Blob;
     try {
-      await onSave(await croppedPhoto(imageUrl, area));
+      photo = await croppedPhoto(imageUrl, area);
+    } catch {
+      setError(UNOPENABLE);
+      setSaving(false);
+      return;
+    }
+    try {
+      await onSave(photo);
     } catch (failure) {
-      setError(failure instanceof ApiRequestError
-        ? failure.fieldErrors.file ?? messageFor(failure)
-        : UNOPENABLE);
+      setError(failure instanceof ApiRequestError ? (failure.fieldErrors.file ?? messageFor(failure)) : UNREACHABLE);
       setSaving(false);
     }
   };
