@@ -164,10 +164,15 @@
             </div>
             <div style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
               <div style="margin-bottom:20px;display:flex;align-items:center;gap:14px">
-                <span title="{{ pName }}" style="width:52px;height:52px;border-radius:12px;display:grid;place-items:center;flex:none;background:var(--sky-dim);color:var(--sky);font:600 17px var(--mono)">YH</span>
-                <div>
+                <image-slot id="profile-photo" title="{{ pName }}" shape="rounded" radius="12" style="width:52px;height:52px;flex:none" placeholder="YH"></image-slot>
+                <div style="flex:1;min-width:0">
                   <div style="font:600 14px var(--sans)">{{ pName }}</div>
                   <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">{{ membershipMeta }}</div>
+                </div>
+                <!-- A photo the person uploads is theirs: a Google or LinkedIn sign-in never replaces it (V25's USER source). -->
+                <div style="display:flex;flex-wrap:wrap;gap:8px">
+                  <button onClick="{{ changePhoto }}" style="border-radius:6px;padding:7px 12px;font:500 12.5px var(--sans);cursor:pointer;background:var(--panel);border:1px solid var(--line);color:var(--text2)" style-hover="color:var(--text)">Change photo</button>
+                  <sc-if value="{{ pHasPhoto }}" hint-placeholder-val="{{ true }}"><button onClick="{{ removePhoto }}" style="border:none;background:none;padding:7px 4px;font:500 12.5px var(--sans);cursor:pointer;color:var(--text3)" style-hover="color:var(--text)">Remove</button></sc-if>
                 </div>
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:16px;row-gap:14px">
@@ -184,6 +189,16 @@
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Title</span>
                   <input value="{{ pTitle }}" onChange="{{ onProfileTitle }}" placeholder="Head of Talent Acquisition" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                </label>
+                <label style="display:block;margin-bottom:16px">
+                  <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Phone</span>
+                  <input value="{{ pPhone }}" onChange="{{ onProfilePhone }}" type="tel" autocomplete="tel" placeholder="+971 50 000 0000" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--text3)">Shown in your email signature</span>
+                </label>
+                <label style="display:block;margin-bottom:16px">
+                  <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">LinkedIn</span>
+                  <input value="{{ pLinkedin }}" onChange="{{ onProfileLinkedin }}" type="url" placeholder="linkedin.com/in/…" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--text3)">Your own profile page</span>
                 </label>
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Role</span>
@@ -375,6 +390,235 @@
               </div>
             </div>
             <div style="margin-top:16px;display:flex;justify-content:flex-end"><button style="{{ wsSaveStyle }}">Save changes</button></div>
+          </div>
+        </sc-if>
+
+        <!-- EMAIL SIGNATURE — the consultant's own signatures (docs/email-signatures.md). Uncava adds the chosen one to
+             every email it sends for them; a mailbox adds none to mail an app sends. A field left empty follows the
+             profile or the workspace, so a profile edit reaches every signature. Every staff member's; a pure client sends no email. -->
+        <sc-if value="{{ isSignatures }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Email signature">
+            <div style="margin-bottom:18px;display:flex;align-items:flex-start;gap:12px">
+              <div style="flex:1;min-width:0">
+                <sc-if value="{{ sgShowBack }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ sgBack }}" style="margin-bottom:8px;display:inline-flex;align-items:center;gap:6px;border:none;background:none;padding:0;font:500 12px var(--sans);color:var(--text3);cursor:pointer" style-hover="color:var(--text)">← Email signature</button>
+                </sc-if>
+                <div style="font:600 19px/1.25 var(--sans)">{{ sgTitle }}</div>
+                <div style="margin-top:4px;max-width:620px;font:400 12px/1.5 var(--mono);color:var(--text3)">{{ sgSubtitle }}</div>
+              </div>
+              <sc-if value="{{ sgIsList }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ sgNew }}" style="{{ sgPrimary }}">New signature</button>
+              </sc-if>
+            </div>
+
+            <!-- The list: each signature drawn small, the default first. -->
+            <sc-if value="{{ sgIsList }}" hint-placeholder-val="{{ true }}">
+              <div style="margin-bottom:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:12px 14px;font:400 12px/1.5 var(--mono);color:var(--text2)">Uncava adds your signature to the emails it sends for you. Your Gmail or Outlook signature isn't added — mailboxes don't add one to email sent through an app.</div>
+              <div style="display:grid;gap:12px">
+                <sc-for list="{{ sgRows }}" as="s" hint-placeholder-count="2">
+                  <div data-screen-label="Signature card" style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:16px">
+                    <div aria-hidden="true" style="flex:1 1 300px;min-width:0;border-radius:8px;border:1px solid var(--line-soft);background:#ffffff;color:#1f2328;padding:14px 16px;overflow:hidden">
+                      <sc-if value="{{ s.isMinimal }}" hint-placeholder-val="{{ false }}">
+                        <div style="font:400 12px/1.5 Arial,Helvetica,sans-serif"><b>{{ s.v.name }}</b> · {{ s.v.title }}, {{ s.v.company }} · {{ s.v.phone }}</div>
+                      </sc-if>
+                      <sc-if value="{{ s.isFull }}" hint-placeholder-val="{{ true }}">
+                        <div style="display:flex;align-items:center;gap:12px">
+                          <sc-if value="{{ s.showPhoto }}" hint-placeholder-val="{{ true }}"><span style="width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;background:#e7eefc;color:#1a56db;font:600 14px Arial,Helvetica,sans-serif">YH</span></sc-if>
+                          <div style="min-width:0;font:400 12px/1.45 Arial,Helvetica,sans-serif">
+                            <div style="font-weight:700;font-size:13px">{{ s.v.name }}</div>
+                            <div style="color:#57606a">{{ s.v.title }}, {{ s.v.company }}</div>
+                            <div style="color:#57606a">{{ s.v.phone }} · <span style="color:#1a56db">{{ s.v.email }}</span></div>
+                          </div>
+                          <sc-if value="{{ s.showLogo }}" hint-placeholder-val="{{ true }}"><img src="assets/al-futtaim-logo.png" alt="" style="margin-left:auto;height:32px;width:auto;flex:none"></sc-if>
+                        </div>
+                      </sc-if>
+                    </div>
+                    <div style="flex:0 1 220px;display:flex;flex-direction:column;gap:6px">
+                      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                        <span style="font:600 14px var(--sans)">{{ s.name }}</span>
+                        <sc-if value="{{ s.isDefault }}" hint-placeholder-val="{{ true }}"><span style="border-radius:999px;background:var(--amber-dim);padding:2px 8px;font:500 11px var(--mono);color:var(--amber)">Default</span></sc-if>
+                      </div>
+                      <div style="font:400 11.5px var(--mono);color:var(--text3)">{{ s.layoutLabel }} · updated {{ s.updated }}</div>
+                      <div style="margin-top:auto;display:flex;flex-wrap:wrap;gap:6px;padding-top:8px">
+                        <button onClick="{{ sgEdit }}" data-id="{{ s.id }}" style="{{ sgGhost }}">Edit</button>
+                        <sc-if value="{{ s.canMakeDefault }}" hint-placeholder-val="{{ false }}"><button onClick="{{ sgMakeDefault }}" data-id="{{ s.id }}" style="{{ sgGhost }}">Make default</button></sc-if>
+                        <button onClick="{{ sgDuplicate }}" data-id="{{ s.id }}" style="{{ sgGhost }}">Duplicate</button>
+                        <button onClick="{{ sgDelete }}" data-id="{{ s.id }}" aria-label="Delete {{ s.name }}" style="{{ sgGhostDanger }}">Delete</button>
+                      </div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <!-- Nobody has a signature until they make one: their emails go without. -->
+            <sc-if value="{{ sgIsEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="border-radius:10px;border:1px dashed var(--line);background:var(--panel2);padding:36px 20px;text-align:center">
+                <div style="font:600 14px var(--sans)">No signature yet</div>
+                <div style="margin:6px auto 16px;max-width:420px;font:400 12px/1.5 var(--mono);color:var(--text3)">Your emails go without one. Pick a layout and Uncava fills it in from your profile.</div>
+                <button onClick="{{ sgNew }}" style="{{ sgPrimaryInline }}">New signature</button>
+              </div>
+            </sc-if>
+
+            <!-- New signature: the layouts, each drawn with the person's own details. -->
+            <sc-if value="{{ sgIsGallery }}" hint-placeholder-val="{{ false }}">
+              <div role="list" aria-label="Layouts" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px">
+                <sc-for list="{{ sgLayouts }}" as="l" hint-placeholder-count="6">
+                  <button role="listitem" onClick="{{ sgPick }}" data-layout="{{ l.key }}" style="display:flex;flex-direction:column;gap:10px;text-align:left;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:12px;cursor:pointer" style-hover="border-color:var(--amber)">
+                    <div aria-hidden="true" style="height:96px;border-radius:7px;border:1px solid var(--line-soft);background:#ffffff;color:#1f2328;padding:12px;overflow:hidden;font:400 10.5px/1.45 Arial,Helvetica,sans-serif">
+                      <sc-if value="{{ l.isClassic }}" hint-placeholder-val="{{ false }}"><div style="font-weight:700;font-size:11.5px">Yara Haddad</div><div style="color:#57606a">Head of Talent Acquisition</div><div style="color:#57606a">Al-Futtaim</div><div style="color:#57606a">+971 50 123 4567 · <span style="color:#1a56db">LinkedIn</span></div></sc-if>
+                      <sc-if value="{{ l.isPhoto }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:10px;align-items:center"><span style="width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;background:#e7eefc;color:#1a56db;font-weight:600">YH</span><div><div style="font-weight:700;font-size:11.5px">Yara Haddad</div><div style="color:#57606a">Head of Talent Acquisition, Al-Futtaim</div><div style="color:#57606a">+971 50 123 4567</div></div></div></sc-if>
+                      <sc-if value="{{ l.isPhotoLogo }}" hint-placeholder-val="{{ true }}"><div style="display:flex;gap:10px;align-items:center"><span style="width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;background:#e7eefc;color:#1a56db;font-weight:600">YH</span><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:11.5px">Yara Haddad</div><div style="color:#57606a">Head of Talent Acquisition</div><div style="color:#57606a">+971 50 123 4567</div></div><img src="assets/al-futtaim-logo.png" alt="" style="height:28px;width:auto;flex:none;padding-left:10px;border-left:1px solid #d0d7de"></div></sc-if>
+                      <sc-if value="{{ l.isBanner }}" hint-placeholder-val="{{ false }}"><div style="font-weight:700;font-size:11.5px">Yara Haddad</div><div style="color:#57606a">Head of Talent Acquisition · +971 50 123 4567</div><div style="margin-top:8px;padding-top:8px;border-top:2px solid #1f2328"><img src="assets/al-futtaim-logo.png" alt="" style="height:24px;width:auto"></div></sc-if>
+                      <sc-if value="{{ l.isMinimal }}" hint-placeholder-val="{{ false }}"><div style="padding-top:30px"><b>Yara Haddad</b> · Head of Talent Acquisition, Al-Futtaim · +971 50 123 4567</div></sc-if>
+                      <sc-if value="{{ l.isCustom }}" hint-placeholder-val="{{ false }}"><div style="color:#57606a">Kind regards,</div><div style="font-weight:700;font-size:11.5px;margin-top:4px">Yara</div><div style="color:#57606a;font-style:italic;margin-top:4px">Write it your own way, with bold, links and lists</div></sc-if>
+                    </div>
+                    <div>
+                      <div style="font:600 13px var(--sans);color:var(--text)">{{ l.label }}</div>
+                      <div style="margin-top:2px;font:400 11px/1.45 var(--mono);color:var(--text3)">{{ l.hint }}</div>
+                    </div>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <!-- The editor: the fields beside the preview the server renders, so what is shown is what is sent. -->
+            <sc-if value="{{ sgIsEditor }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+                <div data-screen-label="Signature form" style="flex:1 1 340px;min-width:0;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
+                  <label style="display:block;margin-bottom:16px">
+                    <span style="{{ sgLabel }}">Signature name</span>
+                    <input value="{{ sgD.name }}" onChange="{{ sgField }}" data-field="name" placeholder="Formal" style="{{ sgInput }}" style-focus="border-color:var(--sky)">
+                  </label>
+                  <div style="margin-bottom:18px">
+                    <span style="{{ sgLabel }}">Layout</span>
+                    <div role="radiogroup" aria-label="Layout" style="display:flex;flex-wrap:wrap;gap:6px">
+                      <sc-for list="{{ sgLayoutChips }}" as="c" hint-placeholder-count="6">
+                        <button role="radio" aria-checked="{{ c.checked }}" onClick="{{ sgLayout }}" data-layout="{{ c.key }}" style="{{ c.style }}">{{ c.label }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+
+                  <sc-if value="{{ sgIsCustom }}" hint-placeholder-val="{{ false }}">
+                    <label style="display:block;margin-bottom:18px">
+                      <span style="{{ sgLabel }}">Signature</span>
+                      <div style="border-radius:6px;border:1px solid var(--line);background:var(--panel)">
+                        <div style="display:flex;gap:2px;padding:5px 6px;border-bottom:1px solid var(--line-soft);font:600 12px var(--sans);color:var(--text3)"><span style="padding:3px 7px">B</span><span style="padding:3px 7px;font-style:italic">I</span><span style="padding:3px 7px;text-decoration:underline">U</span><span style="padding:3px 7px">🔗</span><span style="padding:3px 7px">•</span></div>
+                        <textarea value="{{ sgD.custom }}" onChange="{{ sgField }}" data-field="custom" rows="5" aria-label="Signature" style="display:block;width:100%;border:none;background:transparent;padding:10px 12px;font:400 13px/1.5 var(--sans);color:var(--text);outline:none;resize:vertical"></textarea>
+                      </div>
+                      <span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--text3)">Your logo comes from the switch below. A pasted picture is never sent.</span>
+                    </label>
+                  </sc-if>
+
+                  <sc-if value="{{ sgIsFields }}" hint-placeholder-val="{{ true }}">
+                    <div style="margin-bottom:10px;font:600 13px var(--sans)">Your details</div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));column-gap:14px">
+                      <sc-for list="{{ sgPersonFields }}" as="f" hint-placeholder-count="4">
+                        <label style="display:block;margin-bottom:14px">
+                          <span style="{{ sgLabel }}">{{ f.label }}</span>
+                          <input value="{{ f.value }}" onChange="{{ sgField }}" data-field="{{ f.key }}" placeholder="{{ f.placeholder }}" style="{{ sgInput }}" style-focus="border-color:var(--sky)">
+                          <span style="margin-top:5px;display:flex;gap:8px;font:400 11px var(--mono);color:var(--text3)">{{ f.source }}<sc-if value="{{ f.overridden }}" hint-placeholder-val="{{ false }}"><button onClick="{{ sgReset }}" data-field="{{ f.key }}" style="border:none;background:none;padding:0;font:500 11px var(--sans);color:var(--sky);cursor:pointer">Use profile's</button></sc-if></span>
+                        </label>
+                      </sc-for>
+                      <div style="margin-bottom:14px">
+                        <span style="{{ sgLabel }}">Email</span>
+                        <div style="border-radius:6px;border:1px solid var(--line-soft);background:var(--panel);padding:9px 12px;font:500 13px var(--mono);color:var(--text2)">yara@alfuttaim.com</div>
+                        <span style="margin-top:5px;display:block;font:400 11px var(--mono);color:var(--text3)">The mailbox the email goes from</span>
+                      </div>
+                    </div>
+                    <div style="margin:4px 0 10px;font:600 13px var(--sans)">{{ sgCompanyHeading }}</div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));column-gap:14px">
+                      <sc-for list="{{ sgCompanyFields }}" as="f" hint-placeholder-count="3">
+                        <label style="display:block;margin-bottom:14px">
+                          <span style="{{ sgLabel }}">{{ f.label }}</span>
+                          <input value="{{ f.value }}" onChange="{{ sgField }}" data-field="{{ f.key }}" placeholder="{{ f.placeholder }}" style="{{ sgInput }}" style-focus="border-color:var(--sky)">
+                          <span style="margin-top:5px;display:block;font:400 11px var(--mono);color:var(--text3)">{{ f.source }}</span>
+                        </label>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+
+                  <div style="margin-top:4px;border-top:1px solid var(--line-soft);padding-top:6px">
+                    <sc-for list="{{ sgSwitches }}" as="w" hint-placeholder-count="4">
+                      <div style="display:flex;align-items:center;gap:12px;padding:10px 0">
+                        <div style="flex:1;min-width:0"><div style="font:500 13px var(--sans)">{{ w.label }}</div><div style="margin-top:2px;font:400 11px/1.45 var(--mono);color:var(--text3)">{{ w.hint }}</div></div>
+                        <button role="switch" aria-checked="{{ w.checked }}" aria-label="{{ w.label }}" onClick="{{ sgToggle }}" data-field="{{ w.key }}" style="{{ w.style }}"><span style="{{ w.knob }}"></span></button>
+                      </div>
+                    </sc-for>
+                  </div>
+
+                  <label style="display:block;margin-top:8px">
+                    <span style="{{ sgLabel }}">Disclaimer <span style="text-transform:none;letter-spacing:0;font-weight:400">· optional</span></span>
+                    <textarea value="{{ sgD.disclaimer }}" onChange="{{ sgField }}" data-field="disclaimer" rows="2" placeholder="This email and any attachments are confidential…" style="{{ sgInput }};resize:vertical;font-size:12px"></textarea>
+                  </label>
+
+                  <div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end">
+                    <button onClick="{{ sgBack }}" style="{{ sgGhostLg }}">Cancel</button>
+                    <button onClick="{{ sgSave }}" style="{{ sgPrimaryInline }}">Save signature</button>
+                  </div>
+                </div>
+
+                <div data-screen-label="Signature preview" style="flex:1 1 340px;min-width:0;position:sticky;top:0;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:16px">
+                  <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
+                    <div style="flex:1;font:600 13px var(--sans)">Preview</div>
+                    <div role="radiogroup" aria-label="Preview as" style="display:inline-flex;border-radius:6px;border:1px solid var(--line);overflow:hidden">
+                      <button role="radio" aria-checked="{{ sgLightChecked }}" onClick="{{ sgPreviewLight }}" style="{{ sgLightStyle }}">Light</button>
+                      <button role="radio" aria-checked="{{ sgDarkChecked }}" onClick="{{ sgPreviewDark }}" style="{{ sgDarkStyle }}">Dark</button>
+                    </div>
+                  </div>
+                  <div style="{{ sgSurface }}">
+                    <div style="opacity:.55;font:400 13px/1.55 Arial,Helvetica,sans-serif">
+                      <p style="margin:0 0 10px">Hi Omar,</p>
+                      <p style="margin:0 0 14px">Thanks for your time on Tuesday — I've attached the role overview we discussed.</p>
+                    </div>
+                    <sc-if value="{{ sgPv.isClassic }}" hint-placeholder-val="{{ false }}">
+                      <div style="font:400 13px/1.5 Arial,Helvetica,sans-serif">
+                        <div style="font-weight:700">{{ sgPv.name }}</div>
+                        <div style="{{ sgMuted }}">{{ sgPv.title }}</div>
+                        <div style="{{ sgMuted }}">{{ sgPv.company }}</div>
+                        <div style="{{ sgMuted }}">{{ sgPv.phone }} · <span style="{{ sgLink }}">{{ sgPv.email }}</span></div>
+                        <div><span style="{{ sgLink }}">{{ sgPv.website }}</span> · <span style="{{ sgLink }}">LinkedIn</span></div>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ sgPv.isPhotoFamily }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:flex;align-items:center;gap:14px;font:400 13px/1.5 Arial,Helvetica,sans-serif">
+                        <sc-if value="{{ sgPv.showPhoto }}" hint-placeholder-val="{{ true }}"><image-slot id="signature-photo" title="Yara Haddad" shape="circle" style="width:64px;height:64px;flex:none" placeholder="YH"></image-slot></sc-if>
+                        <div style="min-width:0">
+                          <div style="font-weight:700;font-size:14px">{{ sgPv.name }}</div>
+                          <div style="{{ sgMuted }}">{{ sgPv.title }}, {{ sgPv.company }}</div>
+                          <div style="{{ sgMuted }}">{{ sgPv.phone }} · <span style="{{ sgLink }}">{{ sgPv.email }}</span></div>
+                          <div><span style="{{ sgLink }}">{{ sgPv.website }}</span> · <span style="{{ sgLink }}">LinkedIn</span></div>
+                          <sc-if value="{{ sgPv.address }}" hint-placeholder-val="{{ false }}"><div style="{{ sgMuted }}">{{ sgPv.address }}</div></sc-if>
+                        </div>
+                        <sc-if value="{{ sgPv.showSideLogo }}" hint-placeholder-val="{{ true }}"><img src="assets/al-futtaim-logo.png" alt="Al-Futtaim" style="{{ sgSideLogo }}"></sc-if>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ sgPv.isBanner }}" hint-placeholder-val="{{ false }}">
+                      <div style="font:400 13px/1.5 Arial,Helvetica,sans-serif">
+                        <div style="font-weight:700;font-size:14px">{{ sgPv.name }}</div>
+                        <div style="{{ sgMuted }}">{{ sgPv.title }} · {{ sgPv.phone }}</div>
+                        <div><span style="{{ sgLink }}">{{ sgPv.email }}</span> · <span style="{{ sgLink }}">{{ sgPv.website }}</span></div>
+                        <sc-if value="{{ sgPv.showLogo }}" hint-placeholder-val="{{ true }}"><div style="{{ sgBannerRule }}"><img src="assets/al-futtaim-logo.png" alt="Al-Futtaim" style="height:36px;width:auto"></div></sc-if>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ sgPv.isMinimal }}" hint-placeholder-val="{{ false }}">
+                      <div style="font:400 13px/1.5 Arial,Helvetica,sans-serif"><b>{{ sgPv.name }}</b> · {{ sgPv.title }}, {{ sgPv.company }} · {{ sgPv.phone }}</div>
+                    </sc-if>
+                    <sc-if value="{{ sgPv.isCustom }}" hint-placeholder-val="{{ false }}">
+                      <div style="font:400 13px/1.5 Arial,Helvetica,sans-serif;white-space:pre-line">{{ sgPv.custom }}</div>
+                      <sc-if value="{{ sgPv.customLogo }}" hint-placeholder-val="{{ false }}"><img src="assets/al-futtaim-logo.png" alt="Al-Futtaim" style="margin-top:10px;height:36px;width:auto"></sc-if>
+                    </sc-if>
+                    <sc-if value="{{ sgPv.showBooking }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin-top:8px;font:600 13px Arial,Helvetica,sans-serif"><span style="{{ sgLink }}">Book a call with me →</span></div>
+                    </sc-if>
+                    <sc-if value="{{ sgPv.disclaimer }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin-top:12px;font:400 10.5px/1.45 Arial,Helvetica,sans-serif;opacity:.7">{{ sgPv.disclaimer }}</div>
+                    </sc-if>
+                  </div>
+                  <div style="margin-top:10px;font:400 11px/1.5 var(--mono);color:var(--text3)">Drawn as Gmail and Outlook show it. Your photo and logo are hosted by Uncava, so they show in replies and forwards too.</div>
+                </div>
+              </div>
+            </sc-if>
           </div>
         </sc-if>
 
@@ -2031,7 +2275,7 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">SE</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;availability&quot;,&quot;general&quot;,&quot;meetings&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;integrationsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;own-new&quot;,&quot;own-saved&quot;,&quot;replacing&quot;,&quot;verify-failed&quot;,&quot;expiring&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;signatures&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;availability&quot;,&quot;general&quot;,&quot;meetings&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;signatureState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;list&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;empty&quot;,&quot;gallery&quot;,&quot;editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;integrationsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;own-new&quot;,&quot;own-saved&quot;,&quot;replacing&quot;,&quot;verify-failed&quot;,&quot;expiring&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -2058,7 +2302,7 @@ class Component extends DCLogic {
     this.DISC_ORDER = Object.keys(this.DISC);
     this.SEN = { BOARD: 'Board', C_SUITE: 'C-Suite', N_MINUS_1: 'N-1', N_MINUS_2: 'N-2', N_MINUS_3: 'N-3' };
     this.SEN_ORDER = Object.keys(this.SEN);
-    this.LABELS = { 'api-keys': 'API keys', 'ai-apps': 'Connected AI apps', 'candidate-tags': 'Candidate tags', 'task-presets': 'Task presets', notifications: 'Notifications', 'pipeline-stages': 'Pipeline stages', integrations: 'Integrations', profile: 'Profile', availability: 'Availability', meetings: 'Meetings & email', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library' };
+    this.LABELS = { 'api-keys': 'API keys', 'ai-apps': 'Connected AI apps', 'candidate-tags': 'Candidate tags', 'task-presets': 'Task presets', notifications: 'Notifications', 'pipeline-stages': 'Pipeline stages', integrations: 'Integrations', profile: 'Profile', signatures: 'Email signature', availability: 'Availability', meetings: 'Meetings & email', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library' };
 
     const t = (code, title, discipline, seniority, summary, keywords, extra) => Object.assign({ code, title, discipline, seniority, summary, keywords, fallback: false, copies: 0, revisedAt: '02 Sep 2026', revisedBy: null }, extra || {});
     this.library = [
@@ -2128,6 +2372,8 @@ class Component extends DCLogic {
     } catch (e) {}
     if (props.importOpen && !['templates', 'library'].includes(section)) section = section.startsWith('library') ? 'library' : 'templates';
     if (props.deleteOpen) section = 'general';
+    const sgState = (() => { try { return new URLSearchParams(location.search).get('signatureState'); } catch (e) { return null; } })() || props.signatureState || null;
+    if (sgState && sgState !== 'list') section = 'signatures';
     const urlProp = (k) => { try { return new URLSearchParams(location.search).get(k); } catch (e) { return null; } };
     const akDialog = urlProp('apiKeyDialog') || props.apiKeyDialog || 'none';
     const akEmpty = (urlProp('apiKeysEmpty') || String(!!props.apiKeysEmpty)) === 'true';
@@ -2189,6 +2435,13 @@ class Component extends DCLogic {
       akRevealName: 'Power BI dashboard', akSecret: 'uncava_pat_7Kq2vXyR9bN4mTc8LwZp1sHe6uJfA3dGkQ5rVo0iYtBn_f9a1c03e',
       newWorkspaceOpen: !!props.newWorkspaceOpen, newWorkspaceStage: props.newWorkspaceStage || 'organisation',
       pName: 'Yara Haddad', pTitle: 'Head of Talent Acquisition', pTz: 'Asia/Dubai', pLocale: 'en', pNameError: '',
+      pPhone: '+971 50 123 4567', pLinkedin: 'linkedin.com/in/yarahaddad', pHasPhoto: true,
+      sgView: sgState === 'gallery' || sgState === 'editor' ? sgState : 'list', sgEditId: sgState === 'editor' ? 'formal' : null, sgDark: false,
+      sigs: sgState === 'empty' ? [] : [
+        { id: 'formal', name: 'Formal', layout: 'PHOTO_LOGO', isDefault: true, updated: '28 Oct 2026', fName: '', fTitle: '', fPhone: '', fLinkedin: '', fCompany: '', fWebsite: '', fAddress: 'Festival Tower, Dubai Festival City', showPhoto: true, showLogo: true, showBooking: true, disclaimer: '', custom: '' },
+        { id: 'short', name: 'Short reply', layout: 'MINIMAL', isDefault: false, updated: '12 Oct 2026', fName: '', fTitle: '', fPhone: '', fLinkedin: '', fCompany: '', fWebsite: '', fAddress: '', showPhoto: false, showLogo: false, showBooking: false, disclaimer: '', custom: '' },
+      ],
+      sgD: null,
       pwCurrent: '', pwNew: '', pwConfirm: '', pwErr: {},
       sessions: [
         { id: 's1', device: 'macOS — Chrome', kind: 'DESKTOP', meta: '94.204.12.8 · active now', current: true },
@@ -2618,6 +2871,103 @@ class Component extends DCLogic {
     return out;
   }
 
+  signatureDraft(sig) {
+    return Object.assign({ name: '', layout: 'PHOTO_LOGO', fName: '', fTitle: '', fPhone: '', fLinkedin: '', fCompany: '', fWebsite: '', fAddress: '',
+      showPhoto: true, showLogo: true, showBooking: false, isDefault: false, disclaimer: '', custom: 'Kind regards,\nYara\n\n**Head of Talent Acquisition** · Al-Futtaim' }, sig || {});
+  }
+
+  signatureVals(inputStyle) {
+    const st = this.state, set = (c) => this.setState(c);
+    const LAYOUTS = [['PHOTO_LOGO', 'Photo + logo', 'Your photo, your details and the company logo'], ['PHOTO', 'With photo', 'Your photo beside your details'],
+      ['CLASSIC', 'Classic', 'Your details as text, no pictures'], ['LOGO_BANNER', 'Logo banner', 'Your details over the company logo'],
+      ['MINIMAL', 'Minimal', 'One line, good for replies'], ['CUSTOM', 'Custom', 'Write it yourself, with bold, links and lists']];
+    const labelOf = (k) => (LAYOUTS.find((l) => l[0] === k) || [k, k])[1];
+    const profile = { fName: st.pName, fTitle: st.pTitle, fPhone: st.pPhone, fLinkedin: st.pLinkedin, fCompany: st.wsName, fWebsite: 'alfuttaim.com', fAddress: '' };
+    const valueOf = (d, k) => (d[k] !== '' ? d[k] : profile[k]);
+    const view = st.sgView, sigs = st.sigs.slice().sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
+    const d = st.sgD || this.signatureDraft(st.sigs.find((s) => s.id === st.sgEditId)), dark = st.sgDark;
+    const sw = (on) => ({ style: 'position:relative;height:18px;width:32px;flex:none;border-radius:999px;border:none;padding:0;cursor:pointer;transition:background .15s;background:' + (on ? 'var(--u-accent)' : 'var(--line)'),
+      knob: 'position:absolute;top:2px;left:' + (on ? 16 : 2) + 'px;width:14px;height:14px;border-radius:50%;transition:left .15s;background:' + (on ? '#fff' : 'var(--text3)') });
+    const usesPhoto = d.layout === 'PHOTO' || d.layout === 'PHOTO_LOGO';
+    const usesLogo = ['PHOTO_LOGO', 'LOGO_BANNER', 'CUSTOM'].includes(d.layout);
+    const switches = [
+      usesPhoto && ['showPhoto', 'Show my photo', 'Your profile photo. Change it in Profile.'],
+      usesLogo && ['showLogo', 'Show the company logo', st.wsName + "'s logo, from your workspace"],
+      ['showBooking', 'Add "Book a call with me"', 'Your booking link, so an executive can pick a time'],
+      ['isDefault', 'Use as my default', 'Ticked on every new email and reply. You can switch it per email.'],
+    ].filter(Boolean).map(([key, label, hint]) => { const s = sw(!!d[key]); return { key, label, hint, checked: String(!!d[key]), style: s.style, knob: s.knob }; });
+    const field = (key, label, placeholder, source) => {
+      const overridden = d[key] !== '' && d[key] !== profile[key];
+      return { key, label, placeholder, value: valueOf(d, key), overridden, source: source && !overridden ? source : 'Only on this signature' };
+    };
+    const ghost = (danger) => 'border-radius:6px;padding:5px 10px;font:500 12px var(--sans);cursor:pointer;background:var(--panel);border:1px solid var(--line);color:' + (danger ? 'var(--red)' : 'var(--text2)');
+    const primaryInline = 'display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer';
+    const seg = (on) => 'border:none;padding:5px 12px;font:500 12px var(--sans);cursor:pointer;background:' + (on ? 'var(--amber-dim)' : 'var(--panel)') + ';color:' + (on ? 'var(--text)' : 'var(--text3)');
+    const muted = 'color:' + (dark ? '#a8b0b8' : '#57606a');
+    const link = 'color:' + (dark ? '#8ab4f8' : '#1a56db') + ';text-decoration:underline';
+    const sigs2 = (list) => list.map((x) => Object.assign({}, x, { isDefault: false }));
+    const updated = '01 Nov 2026';
+    return {
+      sgIsList: view === 'list' && sigs.length > 0, sgIsEmpty: view === 'list' && sigs.length === 0,
+      sgIsGallery: view === 'gallery', sgIsEditor: view === 'editor', sgShowBack: view !== 'list',
+      sgTitle: view === 'gallery' ? 'New signature' : view === 'editor' ? (st.sgEditId ? 'Edit signature' : 'New signature') : 'Email signature',
+      sgSubtitle: view === 'gallery' ? 'Pick a layout. Uncava fills it in from your profile and your workspace, and you can change anything after.'
+        : view === 'editor' ? "A field left as your profile's follows it when your profile changes." : 'What closes every email you send from Uncava',
+      sgPrimary: primaryInline, sgPrimaryInline: primaryInline, sgGhost: ghost(false), sgGhostDanger: ghost(true),
+      sgGhostLg: 'border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);cursor:pointer;background:var(--panel);border:1px solid var(--line);color:var(--text2)',
+      sgLabel: 'display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)',
+      sgInput: inputStyle(false),
+      sgRows: sigs.map((s) => ({ id: s.id, name: s.name, isDefault: s.isDefault, canMakeDefault: !s.isDefault, updated: s.updated, layoutLabel: labelOf(s.layout),
+        isMinimal: s.layout === 'MINIMAL' || s.layout === 'CUSTOM', isFull: s.layout !== 'MINIMAL' && s.layout !== 'CUSTOM',
+        showPhoto: (s.layout === 'PHOTO' || s.layout === 'PHOTO_LOGO') && s.showPhoto, showLogo: (s.layout === 'PHOTO_LOGO' || s.layout === 'LOGO_BANNER') && s.showLogo,
+        v: { name: valueOf(s, 'fName'), title: valueOf(s, 'fTitle'), company: valueOf(s, 'fCompany'), phone: valueOf(s, 'fPhone'), email: 'yara@alfuttaim.com' } })),
+      sgLayouts: LAYOUTS.map(([key, label, hint]) => ({ key, label, hint, isClassic: key === 'CLASSIC', isPhoto: key === 'PHOTO', isPhotoLogo: key === 'PHOTO_LOGO',
+        isBanner: key === 'LOGO_BANNER', isMinimal: key === 'MINIMAL', isCustom: key === 'CUSTOM' })),
+      sgLayoutChips: LAYOUTS.map(([key, label]) => ({ key, label, checked: String(d.layout === key),
+        style: 'border-radius:999px;padding:5px 12px;font:500 12px var(--sans);cursor:pointer;border:1px solid ' + (d.layout === key ? 'var(--amber)' : 'var(--line)') + ';background:' + (d.layout === key ? 'var(--amber-dim)' : 'var(--panel)') + ';color:' + (d.layout === key ? 'var(--text)' : 'var(--text2)') })),
+      sgD: d, sgIsCustom: d.layout === 'CUSTOM', sgIsFields: d.layout !== 'CUSTOM',
+      sgPersonFields: [field('fName', 'Name', '', 'From your profile'), field('fTitle', 'Title', 'Your job title', 'From your profile'),
+        field('fPhone', 'Phone', '+971 50 000 0000', 'From your profile'), field('fLinkedin', 'LinkedIn', 'linkedin.com/in/…', 'From your profile')],
+      sgCompanyHeading: 'Company',
+      sgCompanyFields: [field('fCompany', 'Company', '', 'From your workspace'), field('fWebsite', 'Website', 'yourcompany.com', 'From your workspace'),
+        field('fAddress', 'Address', 'Office address (optional)', null)],
+      sgSwitches: switches,
+      sgLightChecked: String(!dark), sgDarkChecked: String(dark), sgLightStyle: seg(!dark), sgDarkStyle: seg(dark),
+      sgSurface: 'border-radius:8px;padding:18px 20px;border:1px solid ' + (dark ? '#3c3c3c' : 'var(--line-soft)') + ';background:' + (dark ? '#1f1f1f' : '#ffffff') + ';color:' + (dark ? '#e3e3e3' : '#1f2328'),
+      sgMuted: muted, sgLink: link,
+      sgSideLogo: 'height:44px;width:auto;flex:none;margin-left:auto;padding-left:14px;border-left:1px solid ' + (dark ? '#3c3c3c' : '#d0d7de'),
+      sgBannerRule: 'margin-top:10px;padding-top:10px;border-top:2px solid ' + (dark ? '#e3e3e3' : '#1f2328'),
+      sgPv: { isClassic: d.layout === 'CLASSIC', isPhotoFamily: usesPhoto, isBanner: d.layout === 'LOGO_BANNER', isMinimal: d.layout === 'MINIMAL', isCustom: d.layout === 'CUSTOM',
+        showPhoto: usesPhoto && d.showPhoto, showSideLogo: d.layout === 'PHOTO_LOGO' && d.showLogo, showLogo: d.showLogo, customLogo: d.layout === 'CUSTOM' && d.showLogo,
+        showBooking: d.showBooking, disclaimer: d.disclaimer, address: d.fAddress, custom: d.custom.replace(/\*\*/g, ''),
+        name: valueOf(d, 'fName'), title: valueOf(d, 'fTitle'), company: valueOf(d, 'fCompany'), phone: valueOf(d, 'fPhone'), website: valueOf(d, 'fWebsite'), email: 'yara@alfuttaim.com' },
+
+      sgNew: () => set({ sgView: 'gallery', sgEditId: null }),
+      sgBack: () => set({ sgView: 'list', sgEditId: null }),
+      sgPick: (e) => { const layout = e.currentTarget.dataset.layout; set({ sgView: 'editor', sgEditId: null, sgD: this.signatureDraft({ layout, name: labelOf(layout), isDefault: st.sigs.length === 0 }) }); },
+      sgEdit: (e) => { const sig = st.sigs.find((s) => s.id === e.currentTarget.dataset.id); set({ sgView: 'editor', sgEditId: sig.id, sgD: this.signatureDraft(sig) }); },
+      sgLayout: (e) => set({ sgD: Object.assign({}, d, { layout: e.currentTarget.dataset.layout }) }),
+      sgField: (e) => { const k = e.currentTarget.dataset.field, v = e.target.value; set({ sgD: Object.assign({}, d, { [k]: k in profile && v === profile[k] ? '' : v }) }); },
+      sgReset: (e) => { e.preventDefault(); set({ sgD: Object.assign({}, d, { [e.currentTarget.dataset.field]: '' }) }); },
+      sgToggle: (e) => { const k = e.currentTarget.dataset.field; set({ sgD: Object.assign({}, d, { [k]: !d[k] }) }); },
+      sgPreviewLight: () => set({ sgDark: false }), sgPreviewDark: () => set({ sgDark: true }),
+      sgSave: () => {
+        const saved = Object.assign({}, d, { name: d.name.trim() || labelOf(d.layout), updated, id: st.sgEditId || 's' + Date.now() });
+        let list = st.sgEditId ? st.sigs.map((s) => (s.id === saved.id ? saved : s)) : st.sigs.concat([saved]);
+        if (saved.isDefault) list = list.map((s) => Object.assign({}, s, { isDefault: s.id === saved.id }));
+        set({ sigs: list, sgView: 'list', sgEditId: null }); this.showToast('Signature saved');
+      },
+      sgMakeDefault: (e) => { const id = e.currentTarget.dataset.id; set({ sigs: st.sigs.map((s) => Object.assign({}, s, { isDefault: s.id === id })) }); this.showToast('Default signature changed'); },
+      sgDuplicate: (e) => { const sig = st.sigs.find((s) => s.id === e.currentTarget.dataset.id); set({ sigs: st.sigs.concat(sigs2([Object.assign({}, sig, { id: 's' + Date.now(), name: sig.name + ' (copy)', updated })])) }); this.showToast('Signature duplicated'); },
+      sgDelete: (e) => {
+        const id = e.currentTarget.dataset.id, gone = st.sigs.find((s) => s.id === id);
+        let list = st.sigs.filter((s) => s.id !== id);
+        if (gone.isDefault && list.length) list = list.map((s, i) => Object.assign({}, s, { isDefault: i === 0 }));
+        set({ sigs: list }); this.showToast(gone.name + ' deleted');
+      },
+    };
+  }
+
   renderVals() {
     const st = this.state, I = this.I, props = this.props;
     const isAdmin = props.isAdmin !== false, superAdmin = props.superAdmin !== false;
@@ -2635,7 +2985,7 @@ class Component extends DCLogic {
       return { key, label, icon, iconColor: on ? 'var(--amber)' : 'currentColor',
         style: 'display:flex;width:100%;align-items:center;justify-content:' + (c ? 'center' : 'flex-start') + ';gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);border:none;cursor:pointer;background:' + (on ? 'var(--panel2)' : 'transparent') + ';color:' + (on ? 'var(--text)' : 'var(--text2)') };
     };
-    const navGroups = [{ label: 'Account', items: [item('profile', 'Profile', I.profile), item('notifications', 'Notifications', 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0'), item('availability', 'Availability', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z'), item('security', 'Security', I.lock), item('workspaces', 'Workspaces', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'), item('api-keys', 'API keys', I.key), item('ai-apps', 'Connected AI apps', I.sparkle)] }];
+    const navGroups = [{ label: 'Account', items: [item('profile', 'Profile', I.profile), item('signatures', 'Email signature', 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z'), item('notifications', 'Notifications', 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0'), item('availability', 'Availability', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z'), item('security', 'Security', I.lock), item('workspaces', 'Workspaces', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'), item('api-keys', 'API keys', I.key), item('ai-apps', 'Connected AI apps', I.sparkle)] }];
     if (isAdmin) navGroups.push({ label: 'Workspace', items: [item('general', 'General', I.settings), item('meetings', 'Meetings & email', 'M12 6v6l4 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z'), item('members', 'Members', I.members), item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('candidate-tags', 'Candidate tags', 'M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4ZM7.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z'), item('task-presets', 'Task presets', 'M3 5l2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8'), item('pipeline-stages', 'Pipeline stages', I.columns), item('integrations', 'Integrations', 'M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8ZM12 18v4'), item('templates', 'Templates', I.file)] });
     else navGroups.push({ label: 'Workspace', items: [item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('pipeline-stages', 'Pipeline stages', I.columns)] });
     if (superAdmin) navGroups.push({ label: 'Platform', items: [item('library', 'Template library', I.position)] });
@@ -2893,6 +3243,7 @@ class Component extends DCLogic {
       sectionLabel: this.LABELS[sec] || 'Settings',
       isProfile: sec === 'profile', isSecurity: sec === 'security', isGeneral: sec === 'general', isMeetings: sec === 'meetings', isAvailability: sec === 'availability', isMembers: sec === 'members', isTplList, isEditor,
       isWorkspaces: sec === 'workspaces', isIntegrations: sec === 'integrations', ...this.integrationVals(inputStyle, primary),
+      isSignatures: sec === 'signatures', ...this.signatureVals(inputStyle),
       isCandidateTags: sec === 'candidate-tags', ctNew: st.ctNew, ctDraft: st.ctDraft, ctAddOpacity: st.ctNew.trim() ? 1 : 0.5,
       ctRows: st.ctags.map((t) => {
         const COLOURS = { green: ['var(--u-direct)', 'var(--u-direct-tint)'], accent: ['var(--u-accent)', 'var(--u-accent-tint)'], neutral: ['var(--text2)', 'var(--panel)'], violet: ['var(--u-chart-5)', 'color-mix(in srgb, var(--u-chart-5) 16%, transparent)'], adjacent: ['var(--u-adjacent)', 'var(--u-adjacent-tint)'], inferred: ['var(--u-inferred)', 'var(--u-inferred-tint)'] };
@@ -3031,12 +3382,13 @@ class Component extends DCLogic {
       closeNewWorkspace: () => this.setState({ newWorkspaceOpen: false }),
       newWorkspaceContinue: () => this.setState({ newWorkspaceStage: 'invite', toast: 'Workspace created — you are now in it' }),
       newWorkspaceFinish: () => this.setState({ newWorkspaceOpen: false, newWorkspaceStage: 'organisation' }),
-      contentStyle: isTplList ? 'display:flex;height:100%;width:100%;flex-direction:column' : 'max-width:760px;margin:0 auto;padding:28px 28px 60px',
+      contentStyle: isTplList ? 'display:flex;height:100%;width:100%;flex-direction:column' : (sec === 'signatures' && st.sgView === 'editor' ? 'max-width:1080px' : 'max-width:760px') + ';margin:0 auto;padding:28px 28px 60px',
       wsMenuOpen: st.wsMenuOpen, navGroups,
       sideWidth: c ? '56px' : '210px', labelDisplay: c ? 'none' : 'inline', rowJustify: c ? 'center' : 'flex-start',
       themeLabel: st.dark ? 'Light mode' : 'Dark mode', themeIcon: st.dark ? I.sun : I.moon,
       collapseIcon: c ? I.expand : I.collapse, collapseTitle: c ? 'Expand sidebar' : 'Collapse sidebar',
 
+      pPhone: st.pPhone, pLinkedin: st.pLinkedin, pHasPhoto: st.pHasPhoto,
       pName: st.pName, pTitle: st.pTitle, pTz: st.pTz, pLocale: st.pLocale, pNameError: st.pNameError, pNameInputStyle: inputStyle(!!st.pNameError),
       membershipMeta: roleWord + ' · joined Mar 2026', roleReadOnly: roleWord + ' — set by workspace owner',
 
@@ -3173,6 +3525,10 @@ class Component extends DCLogic {
       toggleCollapse: () => { const v = !st.collapsed; try { localStorage.setItem('lm-side-collapsed', v ? '1' : '0'); } catch (e) {} this.setState({ collapsed: v }); },
 
       onProfileName: (e) => this.setState({ pName: e.target.value, pNameError: '' }),
+      onProfilePhone: (e) => this.setState({ pPhone: e.target.value }),
+      onProfileLinkedin: (e) => this.setState({ pLinkedin: e.target.value }),
+      changePhoto: () => { this.setState({ pHasPhoto: true }); this.showToast('Photo updated'); },
+      removePhoto: () => { this.setState({ pHasPhoto: false }); this.showToast('Photo removed'); },
       onProfileTitle: (e) => this.setState({ pTitle: e.target.value }),
       onProfileTz: (e) => this.setState({ pTz: e.target.value }),
       onProfileLocale: (e) => this.setState({ pLocale: e.target.value }),
