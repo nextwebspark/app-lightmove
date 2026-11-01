@@ -18,10 +18,10 @@ forever, which is precisely what `harden.sql` revokes. In the pipeline it runs a
 instead, so a bad migration fails a deploy and the old revision keeps serving — rather than
 crash-looping production, where you can roll back an image but not a schema.
 
-## Row-level security is the backstop to the workspace filters (V166, #1084)
+## Row-level security is the backstop to the workspace filters (V170, #1084)
 
 Every workspace-scoped query still filters by `AuthPrincipal.requireWorkspaceId()`; Postgres row-level security is
-what stops one missed filter from leaking across firms. V166 forces it on the people and position core —
+what stops one missed filter from leaking across firms. V170 forces it on the people and position core —
 `app_lm_project`, `_project_candidate`, `_project_triage_company`, `_person` and its contacts, notes, documents and
 versions, tags and photo, and `_company_note`; #1085 covers the rest. `RowLevelSecurityPosture.PROTECTED_TABLES` is
 the list, and the boot fails if any of them is not forced.
@@ -54,7 +54,7 @@ the list, and the boot fails if any of them is not forced.
   role must be neither — `RowLevelSecurityPosture` refuses to boot otherwise (`lightmove.row-level-security.
   require-enforced`). Tests, `npm run dev` and e2e therefore run the API as a non-superuser `lm_app` that owns the
   database; their own fixture SQL (`@FixtureJdbc`, `dev:db:psql`, the seeds, `e2e/api/lib.sh`) runs as the
-  container's superuser, above the policies. A dev volume older than V166 has `lm_app` as its bootstrap superuser,
+  container's superuser, above the policies. A dev volume older than V170 has `lm_app` as its bootstrap superuser,
   which Postgres will not demote: `npm run dev:db:reset`.
 - **Migrations.** Flyway runs as the same forced owner until #256, so its own session sets
   `app.rls_maintenance = 'on'` (`spring.flyway.init-sqls`, the deploy step's `-initSql`), which the direct
@@ -79,7 +79,7 @@ runtime role that can set `app.workspace_id` can choose its workspace: closing t
 per-tenant roles, which neither issue builds.
 
 **Rollback.** `ALTER TABLE <t> NO FORCE ROW LEVEL SECURITY; ALTER TABLE <t> DISABLE ROW LEVEL SECURITY;` on the
-listed tables, as their owner, restores the pre-V166 behaviour; the column, trigger and functions can stay.
+listed tables, as their owner, restores the pre-V170 behaviour; the column, trigger and functions can stay.
 
 ## Humans and roles
 

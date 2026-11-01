@@ -530,7 +530,7 @@ a call booked with `MeetingVideo.ZOOM`.
 
 ## Work with no principal names its workspace
 
-Row-level security (V166, `core/tenant`) gives each borrowed connection the workspace `TenantContext` names: an open
+Row-level security (V170, `core/tenant`) gives each borrowed connection the workspace `TenantContext` names: an open
 `WorkspaceScope`, else the signed-in principal's. A `@Scheduled` job, a public webhook, or a listener woken by one
 has neither, and reads none of the protected tables. Open `WorkspaceScope.run(row.getWorkspaceId(), …)` from the row
 the work is about — **before** the transaction, since a joined one keeps its connection — and turn a statement over

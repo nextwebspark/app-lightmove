@@ -117,7 +117,7 @@ which email carried it.
 Every workspace-scoped query filters by the `workspace_id` **from the authenticated principal**, never
 from a request parameter. `AuthPrincipal.requireWorkspaceId()` is the only supported way to get it.
 
-The database enforces it too, as a backstop rather than a replacement (V166, `db-ops`): forced row-level security
+The database enforces it too, as a backstop rather than a replacement (V170, `db-ops`): forced row-level security
 on the people and position core reads `app.workspace_id`, which every connection is given at checkout from the same
 principal. A path that is no signed-in request — a scheduled job, a public webhook, a worker woken by one — names
 the workspace of the row it works on with `WorkspaceScope`; with none, those tables answer nothing. Never "fix" an

@@ -29,7 +29,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
- * The database's own tenant fence (V166): with workspace A's setting a transaction reads and writes A's rows of
+ * The database's own tenant fence (V170): with workspace A's setting a transaction reads and writes A's rows of
  * every protected table and nothing of B's, and with no setting it reads nothing at all — whatever the query, a
  * repository's or raw SQL's.
  */

@@ -19,7 +19,7 @@
 # e2e/api/lib.sh's connection string shape transfer unchanged.
 #
 # lm_app is the database's owner and NOT a superuser — production's shape until #256. A superuser skips every
-# row-level security policy (V166), so an API connected as one would serve every workspace's rows to everyone and
+# row-level security policy (V170), so an API connected as one would serve every workspace's rows to everyone and
 # RowLevelSecurityPosture refuses to boot over it. The container's superuser is `postgres`, for this script's own
 # work: psql, the seeds and the Apollo dump read every workspace.
 set -euo pipefail
@@ -56,7 +56,7 @@ running() {
 q() { docker exec "$PG_CONTAINER" psql -U lm_app -d lightmove -v ON_ERROR_STOP=1 -tAc "$1"; }
 q_super() { docker exec "$PG_CONTAINER" psql -U postgres -d lightmove -v ON_ERROR_STOP=1 -tAc "$1"; }
 
-# A volume made before V166 has lm_app as the container's bootstrap superuser, and Postgres refuses to take
+# A volume made before V170 has lm_app as the container's bootstrap superuser, and Postgres refuses to take
 # SUPERUSER from that one role, so it cannot be converted in place.
 ensure_app_role() {
   if ! docker exec "$PG_CONTAINER" psql -U postgres -d lightmove -tAc "SELECT 1" >/dev/null 2>&1; then

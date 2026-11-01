@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class RowLevelSecurityPosture implements ApplicationRunner {
 
-    /** Every table V166 protects; #1085 extends the list. */
+    /** Every table V170 protects; #1085 extends the list. */
     public static final List<String> PROTECTED_TABLES = List.of(
             "app_lm_project", "app_lm_project_candidate", "app_lm_project_triage_company",
             "app_lm_person", "app_lm_person_contact", "app_lm_person_note", "app_lm_person_document",

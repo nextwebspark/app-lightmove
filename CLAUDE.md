@@ -1002,7 +1002,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **Membership is invitation-only**; the one second door is a staff member naming a client representative.
 - A user may hold **several** active memberships (V81 dropped V1's partial unique index), but a session is in exactly **one** workspace — the `wsId` claim, chosen at sign-in from `last_workspace_id`, remembered per refresh-token family, and changed by `POST /auth/switch-workspace` (a 404 unless the caller is an active member of the target) or by a web refresh whose membership has ended (audited `MEMBERSHIP_ENDED`; `/me` and the extension never fall through). The signup wizard's `POST /onboarding/workspace` founds a *first* workspace only (`ALREADY_IN_WORKSPACE`); a further one is `POST /workspaces`, staff-gated.
 - Verification gates the *proof of mailbox*, not the channel — an invite token or a password reset proves it too.
-- **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter. Forced Postgres row-level security (V166, `core/tenant`) is the backstop: every borrowed connection carries the caller's workspace, and a job, webhook or worker with no principal names its own with `WorkspaceScope` — with none, the protected tables answer nothing (`db-ops`).
+- **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter. Forced Postgres row-level security (V170, `core/tenant`) is the backstop: every borrowed connection carries the caller's workspace, and a job, webhook or worker with no principal names its own with `WorkspaceScope` — with none, the protected tables answer nothing (`db-ops`).
 - **Authorise by action, never by role** (`@PreAuthorize` + `@workspaceAuthorizer`/`@projectAuthorizer`); guard beans re-read the DB every check; the JWT `roles` claim is never trusted for a decision.
 - Client access is **two tiers, two decisions**: registry (`CLIENT_RECORD_MANAGE`, ADMIN+MEMBER) vs mandate (`CLIENT_ACCESS_MANAGE`, LEAD only). Project content is seat-gated `WORK_VIEW`/`WORK_EXECUTE`, not `PROJECT_BROWSE`.
 - **A platform role sits above every tenant and inside none**: `SUPER_ADMIN` gates `/api/v1/platform/**` (`@platformAuthorizer`) and nothing else, is granted by ops script only, and never rides in the JWT.
@@ -1408,7 +1408,7 @@ An account with no password (a Google or LinkedIn sign-in) turns two-factor on w
 with the code alone.
 V165 indexes `app_lm_audit_event (workspace_id, id DESC)` for the customer audit log, guarded on ownership as V74 is:
 once `harden.sql` has run the index is its to build (`CONCURRENTLY`). An index only; no row is written.
-V166 forces row-level security on the people and position core (#1084; the rest is #1085): `app_lm_tenant_visible`
+V170 forces row-level security on the people and position core (#1084; the rest is #1085): `app_lm_tenant_visible`
 over `app.workspace_id`, set on every connection checkout by `TenantAwareDataSource`; a person's children are visible
 through their person, and `app_lm_project_candidate` / `app_lm_project_triage_company` gain their project's
 `workspace_id` (filled by trigger, held by a composite key). Flyway's own session sets `app.rls_maintenance` until

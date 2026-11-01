@@ -18,7 +18,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * V166: the grid tables' rows already filed take their project's workspace, a row filed after takes it from the
+ * V170: the grid tables' rows already filed take their project's workspace, a row filed after takes it from the
  * project whatever the insert names, and none can claim a workspace its project is not in. Its own container,
  * stopped at V165 to seed, for {@code PersonNotesBackfillMigrationTest}'s reason; as the container's superuser,
  * above the policies, so the rows themselves are what is checked.
@@ -34,16 +34,16 @@ class RowLevelSecurityMigrationTest {
     private static final UUID FILED_COMPANY = UUID.fromString("00000000-0000-0000-0000-0000000001f1");
 
     @Test
-    @DisplayName("V166 gives the grid rows their project's workspace, then fills and holds it on every insert")
+    @DisplayName("V170 gives the grid rows their project's workspace, then fills and holds it on every insert")
     void theGridRowsCarryTheirProjectsWorkspace() throws Exception {
         try (PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"))) {
             postgres.start();
-            migrateTo(postgres, "165");
+            migrateTo(postgres, "169");
             try (Connection connection = connect(postgres)) {
                 seed(connection);
             }
 
-            migrateTo(postgres, "166");
+            migrateTo(postgres, "170");
 
             try (Connection connection = connect(postgres)) {
                 assertThat(workspaceOf(connection, "app_lm_project_triage_company", FILED_COMPANY))

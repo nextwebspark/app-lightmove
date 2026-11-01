@@ -69,7 +69,7 @@ spring:
     # A baseline of 0 records "nothing has been applied yet" and runs the whole chain from V1.
     baseline-version: 0
     # A backfill must reach every workspace's rows, and until #256 Flyway runs as the very owner row-level
-    # security is forced on (V166), so its own session turns the policies' maintenance arm on. Naming the user
+    # security is forced on (V170), so its own session turns the policies' maintenance arm on. Naming the user
     # gives Flyway a DataSource of its own: on a borrowed pooled connection the flag would outlive the migration
     # and serve the application, which RowLevelSecurityPosture refuses to boot over.
     user: ${spring.datasource.username}
@@ -781,7 +781,7 @@ lightmove:
     purge-after: ${NOTES_PURGE_AFTER:30d}
     purge-interval: ${NOTES_PURGE_INTERVAL:PT1H}
 
-  # Forced row-level security on the tenant tables (V166). On, a database that would not enforce it — a superuser or
+  # Forced row-level security on the tenant tables (V170). On, a database that would not enforce it — a superuser or
   # BYPASSRLS runtime role, an unforced table — fails the boot; off, it is only a warning.
   row-level-security:
     require-enforced: ${RLS_REQUIRE_ENFORCED:true}
