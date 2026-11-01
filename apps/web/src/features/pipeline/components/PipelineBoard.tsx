@@ -45,7 +45,6 @@ export function PipelineBoard({
   onToggleVisible,
   onOpenNextAction,
   onAction,
-  onOpenContact,
 }: {
   projectId: string;
   rows: readonly PipelineRow[];
@@ -59,7 +58,6 @@ export function PipelineBoard({
   onToggleVisible: (row: PipelineRow) => void;
   onOpenNextAction: (row: PipelineRow) => void;
   onAction: (kind: CardActionKind, row: PipelineRow) => void;
-  onOpenContact: (row: PipelineRow) => void;
 }) {
   const gridRef = useRef<HTMLDivElement>(null);
   const band = useBandHeight(gridRef);
@@ -174,7 +172,7 @@ export function PipelineBoard({
   });
 
   const actionsOf = (row: PipelineRow) => (
-    <PipelineCardActions row={row} unavailable={actionsUnavailable} onAction={onAction} onOpenContact={onOpenContact} />
+    <PipelineCardActions row={row} unavailable={actionsUnavailable} onAction={onAction} />
   );
 
   return (

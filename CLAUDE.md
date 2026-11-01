@@ -221,8 +221,8 @@ Companies stage, staff only (`WORK_EXECUTE`); `/projects/{id}/pipeline` and its 
 (`positionPipelinePath`). Its columns are the stages holding a status in process, the five seeded ones each with its
 mark (`stageMarkOf`); under them the **Out of process** band, resized from its grip, holds a cell per stage of whoever
 left at one of its ways out — a drop in a cell offers that stage's ways out alone — and a stage of ways out alone gets
-a cell of its own. A card's foot is its client-visibility eye and four actions: Log call (the numbers on the person's
-record first), Email, Add note and Schedule (Book a call, said why not where do not contact or no email stops it).
+a cell of its own. A card's foot is its client-visibility eye and four actions: Log call (straight into the call note composer),
+Email, Add note and Schedule (Book a call, said why not where do not contact or no email stops it).
 The In-universe page also reads as a **map**: the Map view (offered only
 where a Mapbox public token is configured) swaps the grid for a mapping panel (country → company →
 executives) beside a Mapbox globe, with a pin per company and
