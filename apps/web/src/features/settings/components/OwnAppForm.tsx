@@ -5,7 +5,8 @@ import { Button, DateInput, Field, FormError, Input } from "../../../components/
 import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
 import type { WorkspaceIntegration } from "../api/types";
-import { ownAppSchema, type OwnAppValues } from "../lib/ownAppSchema";
+import { isoToday, ownAppSchema, type OwnAppValues } from "../lib/ownAppSchema";
+import { connectionsLine } from "../lib/integrationConnections";
 import { CopyableValue } from "./CopyableValue";
 
 /**
@@ -26,17 +27,26 @@ export function OwnAppForm({
   onSave: (values: OwnAppValues) => Promise<void>;
 }) {
   const [formError, setFormError] = useState<string | null>(null);
-  const needsTenant = integration.provider === "MICROSOFT";
+  const isMicrosoft = integration.provider === "MICROSOFT";
   const storedSecretClientId = integration.mode === "OWN" && integration.secretSet ? integration.clientId : null;
+  const appInUseClientId = integration.mode === "OWN" ? integration.clientId : null;
 
   const {
     register,
     control,
     handleSubmit,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<OwnAppValues>({
-    resolver: zodResolver(ownAppSchema({ needsTenant, storedSecretClientId })),
+    resolver: zodResolver(
+      ownAppSchema({
+        provider: integration.provider,
+        storedSecretClientId,
+        storedExpiresOn: integration.mode === "OWN" ? integration.secretExpiresOn : null,
+        today: isoToday(),
+      }),
+    ),
     defaultValues: {
       clientId: integration.clientId ?? "",
       clientSecret: "",
@@ -44,6 +54,10 @@ export function OwnAppForm({
       secretExpiresOn: integration.secretExpiresOn ?? "",
     },
   });
+
+  const typedClientId = watch("clientId").trim();
+  const leavesTheAppInUse =
+    integration.connectionsThroughApp > 0 && typedClientId !== "" && typedClientId !== appInUseClientId;
 
   const submit = async (values: OwnAppValues) => {
     setFormError(null);
@@ -67,7 +81,7 @@ export function OwnAppForm({
       {integration.scopes.length > 0 && (
         <div>
           <div className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
-            {needsTenant ? "Permissions to grant" : "Scopes to grant"}
+            {isMicrosoft ? "Permissions to grant" : "Scopes to grant"}
           </div>
           <ul className="flex flex-wrap gap-1.5" aria-label="Scopes to grant">
             {integration.scopes.map((scope) => (
@@ -83,38 +97,60 @@ export function OwnAppForm({
 
       <FormError message={formError} />
 
+      {leavesTheAppInUse && (
+        <p className="rounded-u-chip bg-u-signal-tint px-3.5 py-2.5 text-note text-u-text">
+          {connectionsLine(integration.provider, integration.connectionsThroughApp)} Saving a different app asks each
+          of them to connect again, once.
+        </p>
+      )}
+
       <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
-        <Field label="Client ID" error={errors.clientId?.message}>
+        <Field label={isMicrosoft ? "Application (client) ID" : "Client ID"} error={errors.clientId?.message}>
           <Input autoComplete="off" spellCheck={false} invalid={!!errors.clientId} {...register("clientId")} />
         </Field>
-        {needsTenant && (
-          <Field label="Tenant ID" error={errors.tenantId?.message} hint="Your directory's ID or primary domain">
+        {isMicrosoft && (
+          <Field
+            label="Directory (tenant) ID"
+            error={errors.tenantId?.message}
+            hint="Your directory's ID or primary domain, from the app's Overview"
+          >
             <Input autoComplete="off" spellCheck={false} invalid={!!errors.tenantId} {...register("tenantId")} />
           </Field>
         )}
         <Field
-          label="Client secret"
+          label={isMicrosoft ? "Client secret value" : "Client secret"}
           error={errors.clientSecret?.message}
-          hint={sharesWithRecall ? "Shared with Recall.ai while calendar sync is on Recall" : undefined}
+          hint={secretHint(isMicrosoft, sharesWithRecall)}
         >
+          {/* Autofill off: on a password field browsers offer a generated password, which would replace the real
+              secret, and password managers offer to keep the firm's secret in someone's own vault. */}
           <Input
             type="password"
-            autoComplete="new-password"
+            autoComplete="off"
+            data-1p-ignore="true"
+            data-lpignore="true"
+            data-bwignore="true"
             spellCheck={false}
             placeholder={storedSecretClientId ? "Saved — leave blank to keep" : undefined}
             invalid={!!errors.clientSecret}
             {...register("clientSecret")}
           />
         </Field>
-        <Field label="Secret expires" hint="From the provider's console, so you hear before it lapses">
-          <Controller
-            control={control}
-            name="secretExpiresOn"
-            render={({ field }) => (
-              <DateInput value={field.value} onChange={field.onChange} ariaLabel="Secret expires" />
-            )}
-          />
-        </Field>
+        {isMicrosoft && (
+          <Field
+            label="Secret expires"
+            error={errors.secretExpiresOn?.message}
+            hint="The Expires column in Certificates & secrets, so you hear before it lapses"
+          >
+            <Controller
+              control={control}
+              name="secretExpiresOn"
+              render={({ field }) => (
+                <DateInput value={field.value} onChange={field.onChange} ariaLabel="Secret expires" />
+              )}
+            />
+          </Field>
+        )}
       </div>
 
       {!canStoreKeys && (
@@ -142,4 +178,12 @@ export function OwnAppForm({
       </div>
     </form>
   );
+}
+
+function secretHint(isMicrosoft: boolean, sharesWithRecall: boolean): string | undefined {
+  const parts = [
+    isMicrosoft ? "Paste the Value column, not the Secret ID" : null,
+    sharesWithRecall ? "Shared with Recall.ai while calendar sync is on Recall" : null,
+  ].filter((part): part is string => part !== null);
+  return parts.length > 0 ? parts.join(". ") : undefined;
 }

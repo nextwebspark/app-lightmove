@@ -8,6 +8,7 @@ import { daysUntil, formatDate, formatInstantDate } from "../../../lib/format";
 import * as integrationsApi from "../api/integrationsApi";
 import type { CredentialMode, IntegrationProvider, WorkspaceIntegration } from "../api/types";
 import type { OwnAppValues } from "../lib/ownAppSchema";
+import { connectionsLine } from "../lib/integrationConnections";
 import { CopyableValue } from "./CopyableValue";
 import { OwnAppForm } from "./OwnAppForm";
 
@@ -95,7 +96,7 @@ export function IntegrationCard({
       clientId: values.clientId,
       clientSecret: values.clientSecret.trim() ? values.clientSecret : undefined,
       tenantId: values.tenantId || undefined,
-      secretExpiresOn: values.secretExpiresOn || null,
+      secretExpiresOn: integration.provider === "MICROSOFT" ? values.secretExpiresOn || null : null,
     });
     showSaved(saved);
     setOpenedOwn(false);
@@ -153,6 +154,12 @@ export function IntegrationCard({
             Your app's client ID and secret are deleted from Uncava. To use your own app again, you'll enter them
             again.
           </p>
+          {integration.connectionsThroughApp > 0 && (
+            <p className="mt-2 text-body text-u-text2">
+              {connectionsLine(integration.provider, integration.connectionsThroughApp)} Each connects again, once,
+              through Uncava's app.
+            </p>
+          )}
         </Modal>
       )}
     </section>

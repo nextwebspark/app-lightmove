@@ -13,6 +13,8 @@ import java.util.List;
  * @param adminConsentUrl Microsoft's one-time approval link for Uncava's app; null at the other providers, or
  *                        where this deployment has no shared Microsoft app
  * @param adminConsentedAt when an admin came back from that link having approved it; informational, it gates nothing
+ * @param connectionsThroughApp live mailboxes (Zoom accounts, for Zoom) connected through the app in use, each of which
+ *                              connects again if the workspace changes app
  */
 public record WorkspaceIntegrationResponse(
         IntegrationProvider provider,
@@ -29,5 +31,6 @@ public record WorkspaceIntegrationResponse(
         String sharedAppGuideUrl,
         Instant updatedAt,
         Instant adminConsentedAt,
-        String adminConsentTenantId
+        String adminConsentTenantId,
+        int connectionsThroughApp
 ) {}

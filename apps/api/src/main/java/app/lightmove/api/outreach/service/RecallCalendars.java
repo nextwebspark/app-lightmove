@@ -9,6 +9,7 @@ import app.lightmove.api.outreach.constant.RecallCalendarStatus;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.MailboxConnected;
 import app.lightmove.api.outreach.model.MailboxConnection;
+import app.lightmove.api.outreach.model.ProviderAppKeysReplaced;
 import app.lightmove.api.outreach.model.RecallCalendarEvent;
 import app.lightmove.api.outreach.model.RecallCalendarReleased;
 import app.lightmove.api.outreach.model.RecallCalendarSpec;
@@ -92,6 +93,19 @@ public class RecallCalendars {
     void onCalendarSyncChanged(CalendarSyncChanged changed) {
         mailboxes.findByWorkspaceIdAndGateway(changed.workspaceId(), MailboxGatewayKind.DIRECT)
                 .forEach(mailbox -> reconcile(mailbox, false, changed.calendarSync()));
+    }
+
+    /**
+     * The workspace saved new keys for the app it already used: each of its Recall calendars at that provider still holds
+     * the old ones, and stops syncing once the old secret is deleted at the provider, so each is handed the new keys.
+     */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    void onAppKeysReplaced(ProviderAppKeysReplaced replaced) {
+        mailboxes.findByWorkspaceIdAndGateway(replaced.workspaceId(), MailboxGatewayKind.DIRECT).stream()
+                .filter(mailbox -> mailbox.integrationProvider() == replaced.provider())
+                .filter(mailbox -> mailbox.getRecallCalendarId() != null)
+                .forEach(mailbox -> reconcile(mailbox, true, null));
     }
 
     /** The reply poll's: calendars a failed call left unmade, each tried again once its backoff has passed. */

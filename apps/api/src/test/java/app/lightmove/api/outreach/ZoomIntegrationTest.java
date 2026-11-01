@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
@@ -61,7 +62,7 @@ class ZoomIntegrationTest extends FlowTestSupport {
         tokenEndpoint.clear();
         gateway.grant(new GrantedMailbox("grant-" + domain, MAILBOX, "google"));
         String email = "yara@" + domain;
-        createWorkspace(verifiedUser("Yara Haddad", email), "Meridian Search");
+        createWorkspace(verifiedUser("Yara Haddad", email), "Meridian Zoom Desk");
         consultant = login(email);
         projectId = mandate();
         workspaceId = jdbc.queryForObject("select workspace_id::text from app_lm_project where id = ?::uuid",
@@ -228,6 +229,35 @@ class ZoomIntegrationTest extends FlowTestSupport {
                 .isEqualTo(2);
     }
 
+    @Test
+    @DisplayName("moving to another Zoom app asks the account connected through the old one to reconnect")
+    void changingTheAppWithdrawsTheAccount() throws Exception {
+        ownZoomApp();
+        connectZoom("zoom-code-1");
+        assertThat(zoomRow().get("app_client_id")).isEqualTo("meridian-zoom");
+
+        as(consultant, put("/api/v1/workspace/integrations/ZOOM").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"mode\":\"OWN\",\"clientId\":\"meridian-zoom-2\",\"clientSecret\":\"zoom-secret-2\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.providers[2].connectionsThroughApp").value(0));
+
+        assertThat(zoomRow().get("status")).isEqualTo("ERROR");
+    }
+
+    @Test
+    @DisplayName("a new secret for the same Zoom app keeps the account connected")
+    void newSecretForTheSameAppKeepsTheAccount() throws Exception {
+        ownZoomApp();
+        connectZoom("zoom-code-1");
+
+        as(consultant, put("/api/v1/workspace/integrations/ZOOM").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"mode\":\"OWN\",\"clientId\":\"meridian-zoom\",\"clientSecret\":\"zoom-secret-2\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.providers[2].connectionsThroughApp").value(1));
+
+        assertThat(zoomRow().get("status")).isEqualTo("ACTIVE");
+    }
+
     private void ownZoomApp() throws Exception {
         as(consultant, put("/api/v1/workspace/integrations/ZOOM").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"mode\":\"OWN\",\"clientId\":\"meridian-zoom\",\"clientSecret\":\"zoom-secret-1\"}"))
@@ -294,7 +324,7 @@ class ZoomIntegrationTest extends FlowTestSupport {
     }
 
     private Map<String, Object> zoomRow() {
-        return jdbc.queryForMap("select zoom_user_id, refresh_token_encrypted, status from app_lm_zoom_connection "
+        return jdbc.queryForMap("select zoom_user_id, refresh_token_encrypted, status, app_client_id from app_lm_zoom_connection "
                 + "where workspace_id = ?::uuid", workspaceId);
     }
 

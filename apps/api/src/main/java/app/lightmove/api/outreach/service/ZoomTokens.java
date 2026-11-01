@@ -72,6 +72,14 @@ public class ZoomTokens {
         }
         ProviderCredentials app = credentials.resolve(connection.getWorkspaceId(), IntegrationProvider.ZOOM)
                 .orElseThrow(() -> ApiException.of(ErrorCode.ZOOM_UNAVAILABLE));
+        // As MailboxTokens: a token issued to the app the workspace left cannot be refreshed through the new one.
+        if (connection.isFromAnotherApp(app.clientId())) {
+            transactions.executeWithoutResult(status -> connections.findById(connectionId)
+                    .ifPresent(ZoomConnection::markAccessWithdrawn));
+            log.info("Zoom connection {} was made through another app than the workspace's; it needs reconnecting",
+                    connectionId);
+            throw ApiException.of(ErrorCode.ZOOM_RECONNECT_NEEDED);
+        }
         String refreshToken = cipher.decrypt(connection.getRefreshTokenEncrypted(), connection.refreshTokenContext());
         ProviderTokenGrant refreshed;
         try {
@@ -91,6 +99,10 @@ public class ZoomTokens {
             transactions.executeWithoutResult(status -> connections.findById(connectionId)
                     .ifPresent(fresh -> fresh.rotateRefreshToken(
                             cipher.encrypt(refreshed.refreshToken(), fresh.refreshTokenContext()))));
+        }
+        if (connection.getAppClientId() == null) {
+            transactions.executeWithoutResult(status -> connections.findById(connectionId)
+                    .ifPresent(fresh -> fresh.recordAppClient(app.clientId())));
         }
         return new HeldZoomToken(refreshed.accessToken(), refreshed.expiresIn().minus(MailboxTokens.EXPIRY_MARGIN));
     }

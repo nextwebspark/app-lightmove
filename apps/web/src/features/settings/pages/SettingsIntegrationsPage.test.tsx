@@ -46,7 +46,11 @@ const sharedIntegration = (provider: WorkspaceIntegration["provider"]): Workspac
   updatedAt: null,
   adminConsentedAt: null,
   adminConsentTenantId: null,
+  connectionsThroughApp: 0,
 });
+
+const GOOGLE_APP = "acme-app.apps.googleusercontent.com";
+const MICROSOFT_APP = "6a1c3e5f-7b9d-4f2a-8c4e-0d2b4f6a8c0e";
 
 const allShared: WorkspaceIntegrations = {
   providers: [sharedIntegration("GOOGLE"), sharedIntegration("MICROSOFT"), sharedIntegration("ZOOM")],
@@ -60,10 +64,11 @@ const googleOwn: WorkspaceIntegrations = {
     {
       ...sharedIntegration("GOOGLE"),
       mode: "OWN",
-      clientId: "acme-app",
+      clientId: GOOGLE_APP,
       secretSet: true,
-      secretExpiresOn: "2027-10-01",
+      secretExpiresOn: null,
       updatedAt: "2026-10-02T10:00:00Z",
+      connectionsThroughApp: 4,
     },
     sharedIntegration("MICROSOFT"),
     sharedIntegration("ZOOM"),
@@ -137,21 +142,70 @@ describe("SettingsIntegrationsPage", () => {
     expect(within(google).getByText("https://beta.uncava.com/api/v1/outreach/mailbox/callback")).toBeInTheDocument();
     expect(within(google).getByText("https://www.googleapis.com/auth/gmail.send")).toBeInTheDocument();
     expect(within(google).getByText("Shared with Recall.ai while calendar sync is on Recall")).toBeInTheDocument();
-    expect(within(google).queryByLabelText("Tenant ID")).not.toBeInTheDocument();
+    expect(within(google).queryByLabelText(/^Directory \(tenant\) ID/)).not.toBeInTheDocument();
+    expect(within(google).queryByLabelText(/^Secret expires/)).not.toBeInTheDocument();
+    expect(within(google).getByLabelText(/^Client secret/)).toHaveAttribute("autocomplete", "off");
 
-    await userEvent.type(within(google).getByLabelText("Client ID"), "acme-app");
-    await userEvent.type(within(google).getByLabelText(/^Client secret/), " pasted secret ");
+    await userEvent.type(within(google).getByLabelText("Client ID"), GOOGLE_APP);
+    await userEvent.type(within(google).getByLabelText(/^Client secret/), "GOCSPX-pasted~secret.value");
     await userEvent.click(within(google).getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
       expect(integrationsApi.updateIntegration).toHaveBeenCalledWith("GOOGLE", {
         mode: "OWN",
-        clientId: "acme-app",
-        clientSecret: " pasted secret ",
+        clientId: GOOGLE_APP,
+        clientSecret: "GOCSPX-pasted~secret.value",
         tenantId: undefined,
         secretExpiresOn: null,
       }),
     );
+  });
+
+  it("refuses a secret pasted with a space or a line break, and a Google client ID of another shape, before sending", async () => {
+    renderPage();
+    const google = await card("Google Workspace");
+
+    await userEvent.click(within(google).getByRole("radio", { name: "Your own app" }));
+    await userEvent.type(within(google).getByLabelText("Client ID"), "1234-abc");
+    await userEvent.type(within(google).getByLabelText(/^Client secret/), " GOCSPX-secret ");
+    await userEvent.click(within(google).getByRole("button", { name: "Save" }));
+
+    expect(
+      await within(google).findByText("A client secret has no spaces or line breaks. Copy its value alone"),
+    ).toBeInTheDocument();
+    expect(within(google).getByText("A Google client ID ends in .apps.googleusercontent.com")).toBeInTheDocument();
+    expect(integrationsApi.updateIntegration).not.toHaveBeenCalled();
+  });
+
+  it("names a Microsoft app's keys as Entra does, and refuses its Secret ID and a multi-tenant directory", async () => {
+    renderPage();
+    const microsoft = await card("Microsoft 365");
+
+    await userEvent.click(within(microsoft).getByRole("radio", { name: "Your own app" }));
+    await userEvent.type(within(microsoft).getByLabelText("Application (client) ID"), MICROSOFT_APP);
+    await userEvent.type(within(microsoft).getByLabelText(/^Directory \(tenant\) ID/), "common");
+    await userEvent.type(
+      within(microsoft).getByLabelText(/^Client secret value/),
+      "8c1d2e3f-0a1b-4c2d-9e8f-7a6b5c4d3e2f",
+    );
+    await userEvent.click(within(microsoft).getByRole("button", { name: "Save" }));
+
+    expect(await within(microsoft).findByText("That is the secret's ID. Paste its value instead")).toBeInTheDocument();
+    expect(within(microsoft).getByText("Enter your directory's ID or primary domain")).toBeInTheDocument();
+    expect(integrationsApi.updateIntegration).not.toHaveBeenCalled();
+  });
+
+  it("says how many mailboxes will connect again before a save moves them to a different app", async () => {
+    vi.mocked(integrationsApi.integrations).mockResolvedValue(googleOwn);
+    renderPage();
+    const google = await card("Google Workspace");
+
+    expect(within(google).queryByText(/connected through this app/)).not.toBeInTheDocument();
+    const clientId = within(google).getByLabelText("Client ID");
+    await userEvent.clear(clientId);
+    await userEvent.type(clientId, "another.apps.googleusercontent.com");
+
+    expect(within(google).getByText(/4 mailboxes are connected through this app\. Saving a different app/)).toBeInTheDocument();
   });
 
   it("keeps a saved secret when the field is left blank, and never shows it", async () => {
@@ -169,7 +223,7 @@ describe("SettingsIntegrationsPage", () => {
     await waitFor(() =>
       expect(integrationsApi.updateIntegration).toHaveBeenCalledWith(
         "GOOGLE",
-        expect.objectContaining({ clientId: "acme-app", clientSecret: undefined, secretExpiresOn: "2027-10-01" }),
+        expect.objectContaining({ clientId: GOOGLE_APP, clientSecret: undefined, secretExpiresOn: null }),
       ),
     );
   });
@@ -179,8 +233,8 @@ describe("SettingsIntegrationsPage", () => {
     const microsoft = await card("Microsoft 365");
 
     await userEvent.click(within(microsoft).getByRole("radio", { name: "Your own app" }));
-    await userEvent.type(within(microsoft).getByLabelText("Client ID"), "contoso-app");
-    await userEvent.type(within(microsoft).getByLabelText(/^Client secret/), "s3cret");
+    await userEvent.type(within(microsoft).getByLabelText("Application (client) ID"), MICROSOFT_APP);
+    await userEvent.type(within(microsoft).getByLabelText(/^Client secret value/), "s3cret~value");
     await userEvent.click(within(microsoft).getByRole("button", { name: "Save" }));
 
     expect(await within(microsoft).findByText("Enter your directory's tenant ID")).toBeInTheDocument();
@@ -246,6 +300,7 @@ describe("SettingsIntegrationsPage", () => {
     await userEvent.click(within(google).getByRole("radio", { name: "Shared app" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(/client ID and secret are deleted from Uncava/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/4 mailboxes are connected through this app\. Each connects again/)).toBeInTheDocument();
     expect(integrationsApi.returnToSharedApp).not.toHaveBeenCalled();
 
     await userEvent.click(within(dialog).getByRole("button", { name: "Use the shared app" }));

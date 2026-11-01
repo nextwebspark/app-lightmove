@@ -27,6 +27,8 @@ export interface WorkspaceIntegration {
   /** When an admin came back from Microsoft's admin-consent link having approved Uncava's app; Microsoft only. */
   adminConsentedAt: string | null;
   adminConsentTenantId: string | null;
+  /** Live mailboxes (Zoom accounts, for Zoom) connected through the app in use; each connects again on a change of app. */
+  connectionsThroughApp: number;
 }
 
 export interface WorkspaceIntegrations {

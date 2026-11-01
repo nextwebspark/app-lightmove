@@ -170,6 +170,45 @@ class MailboxTokensTest {
         assertThat(tokenClient.spentTokens).hasSize(2);
     }
 
+    @Test
+    @DisplayName("a mailbox connected through another app than the workspace's is withdrawn before any refresh")
+    void aTokenFromAnotherAppIsWithdrawn() {
+        ReflectionTestUtils.setField(connection, "appClientId", "the-app-the-workspace-left");
+        tokenClient.answer(new ProviderTokenGrant("access-1", Duration.ofHours(1), null));
+
+        assertThatThrownBy(() -> tokens.accessToken(grantId))
+                .isInstanceOfSatisfying(VendorException.class,
+                        failed -> assertThat(failed.getKind()).isEqualTo(VendorFailureKind.CREDENTIALS));
+        assertThat(tokenClient.spentTokens).as("the token is never offered to an app it was not issued to").isEmpty();
+        assertThat(connection.getStatus()).isEqualTo(MailboxStatus.ERROR);
+        assertThat(connection.getRecallCalendarId()).isNull();
+        verify(events).publishEvent(new RecallCalendarReleased("recall-calendar-1"));
+    }
+
+    @Test
+    @DisplayName("a mailbox connected through the workspace's app refreshes as ever")
+    void aTokenFromTheSameAppRefreshes() {
+        ReflectionTestUtils.setField(connection, "appClientId", SHARED_GOOGLE.clientId());
+        tokenClient.answer(new ProviderTokenGrant("access-1", Duration.ofHours(1), null));
+
+        assertThat(tokens.accessToken(grantId)).isEqualTo("access-1");
+        assertThat(connection.getStatus()).isEqualTo(MailboxStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("a mailbox from before its app was recorded learns it from the first refresh that app answers")
+    void anUnknownAppIsRecordedOnSuccess() {
+        assertThat(connection.getAppClientId()).isNull();
+        tokenClient.refuseTheApp();
+        assertThatThrownBy(() -> tokens.accessToken(grantId)).isInstanceOf(ProviderAppUnavailable.class);
+        assertThat(connection.getAppClientId()).as("a refusal proves nothing about whose token it is").isNull();
+
+        tokenClient.answer(new ProviderTokenGrant("access-1", Duration.ofHours(1), null));
+        tokens.accessToken(grantId);
+
+        assertThat(connection.getAppClientId()).isEqualTo(SHARED_GOOGLE.clientId());
+    }
+
     private static final class ScriptedTokenClient implements ProviderTokenClient {
 
         private final List<String> spentTokens = new ArrayList<>();
