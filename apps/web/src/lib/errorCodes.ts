@@ -309,7 +309,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   INTEGRATION_ENCRYPTION_UNAVAILABLE: "Your own app's keys can't be stored for your workspace yet. Use the shared app for now, or contact Uncava support.",
   INTEGRATION_SHARED_APP_UNAVAILABLE: "Uncava's shared app isn't available for this provider yet. Use your own app instead.",
   INTEGRATION_KEYS_REFUSED: "The provider refused these keys. Nothing was saved.",
-  INTEGRATION_PROVIDER_UNREACHABLE: "We couldn't reach the provider to check these keys. Nothing was saved — try again in a moment.",
+  INTEGRATION_PROVIDER_UNREACHABLE:
+    "We couldn't get an answer from the provider about these keys. Nothing was saved — try again in a moment.",
   MAILBOX_PROVIDER_UNSUPPORTED: "That kind of mailbox can't be connected.",
   MAILBOX_NOT_CONNECTED: "Connect your mailbox first.",
   MAILBOX_RECONNECT_NEEDED: "Your mailbox needs reconnecting before it can send.",

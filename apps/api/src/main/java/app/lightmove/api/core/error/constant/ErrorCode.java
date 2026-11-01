@@ -563,9 +563,9 @@ public enum ErrorCode {
     /** The provider refused an own app's keys when asked before saving them; {@code providerError} is its code. */
     INTEGRATION_KEYS_REFUSED(HttpStatus.UNPROCESSABLE_CONTENT, "The provider refused these keys. Nothing was saved"),
 
-    /** The provider gave no answer about an own app's keys, so nothing was saved or recorded. */
+    /** The provider gave no answer about an own app's keys, or none about the keys, so nothing was saved or recorded. */
     INTEGRATION_PROVIDER_UNREACHABLE(HttpStatus.BAD_GATEWAY,
-            "We couldn't reach the provider to check these keys. Try again in a moment"),
+            "We couldn't get an answer from the provider about these keys. Try again in a moment"),
 
     /** A webhook delivery whose signature did not verify, or one this deployment is not set up to read. */
     MAILBOX_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),

@@ -54,6 +54,8 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
     /** A code no provider issued. Google and Zoom authenticate the client before they read the code. */
     static final String NO_SUCH_CODE = "uncava-key-check";
 
+    /** Entra's rules for a directory that does not exist, or a tenant that is not one: the admin's tenant is wrong. */
+    static final Set<String> ENTRA_DIRECTORY_REFUSALS = Set.of("AADSTS90002", "AADSTS900023");
 
     public static final Map<IntegrationProvider, String> PROVIDER_TOKEN_HOSTS = Map.of(
             IntegrationProvider.GOOGLE, "https://oauth2.googleapis.com",
@@ -199,9 +201,9 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
     }
 
     /**
-     * Entra's app-only grant answers only keys it accepts, so any refusal is the keys'. Google and Zoom were sent a
-     * code nobody issued: refusing the client is refusing the keys, and refusing anything else means the client
-     * authenticated first.
+     * A refused client is refused keys everywhere, and at Entra so is an unknown directory; any other Entra refusal is
+     * no answer about the keys. Google and Zoom were sent a code nobody issued, and a token endpoint authenticates the
+     * client before it reads the code (RFC 6749 §4.1.3), so any other refusal there means the keys were accepted.
      */
     static AppKeysVerdict verdictOf(IntegrationProvider provider, VendorCall call, ClientHttpResponse response)
             throws IOException {
@@ -218,9 +220,13 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
                 response.getBody().readNBytes(VendorErrorCodes.MAX_ERROR_BODY_BYTES));
         String error = body == null ? null : textOrNull(body.get("error"));
         String named = VendorErrorCodes.codeOrNull(body);
+        AppKeysVerdict refused = AppKeysVerdict.refused(named == null ? String.valueOf(status) : named);
         boolean clientRefused = status == 401 || (error != null && APP_REFUSALS.contains(error));
-        if (provider == IntegrationProvider.MICROSOFT || clientRefused) {
-            return AppKeysVerdict.refused(named == null ? String.valueOf(status) : named);
+        if (clientRefused || ENTRA_DIRECTORY_REFUSALS.contains(refused.refusedWith())) {
+            return refused;
+        }
+        if (provider == IntegrationProvider.MICROSOFT) {
+            throw new VendorException(call, VendorFailureKind.BAD_REQUEST, named, null);
         }
         return AppKeysVerdict.ACCEPTED;
     }

@@ -54,6 +54,15 @@ public interface WorkspaceMailIntegrationRepository extends JpaRepository<Worksp
     int recordKeysCheck(@Param("id") UUID id, @Param("checkedSecret") String checkedSecretEncrypted,
                         @Param("checkedAt") Instant checkedAt, @Param("refusedWith") String refusedWith);
 
+    /** The hint of a secret saved before V169, kept only while the row still holds that secret and has none. */
+    @Modifying
+    @Transactional
+    @Query("""
+            update WorkspaceMailIntegration i set i.secretHint = :hint
+            where i.id = :id and i.clientSecretEncrypted = :secret and i.secretHint is null
+            """)
+    int recordSecretHint(@Param("id") UUID id, @Param("secret") String secretEncrypted, @Param("hint") String hint);
+
     /** A refresh the provider refused for the workspace's own app, while that app is still the one in use. */
     @Modifying
     @Transactional

@@ -89,14 +89,17 @@ Findings, most severe first. Findings 1–7 are fixed; 8 is open.
 
    *Fixed*: Save and verify asks the token endpoint before anything is kept (`ProviderTokenClient.checkKeys`, outside
    any transaction). Microsoft: `client_credentials` with Graph's `/.default`, which checks ID, secret and tenant
-   together, so any refusal is the keys'. Google and Zoom: a code nobody issued, where refusing the client
-   (`invalid_client`, `unauthorized_client`, any 401) means the keys are wrong and refusing anything else means the
-   client authenticated first. A refusal is `422 INTEGRATION_KEYS_REFUSED` with the provider's code as
-   `providerError` (Entra's `AADSTS…` rule where it names one); no answer is `502 INTEGRATION_PROVIDER_UNREACHABLE`;
-   neither writes anything. **Verify again** is `POST /workspace/integrations/{provider}/verify` (`WORKSPACE_MANAGE`,
-   audited `keysChecked`), which keeps the answer either way. Both spend a budget of ten checks a minute per
-   workspace. A mailbox or Zoom refresh the provider refuses as an app records the same refusal (`OwnAppKeyHealth`),
-   so the card reads "Keys refused" without anyone pressing anything, and the next refresh it answers clears it.
+   together; a refused client (`invalid_client`, `unauthorized_client`, any 401: `AADSTS7000215`, `7000222`, `700016`)
+   or an unknown directory (`AADSTS90002`, `900023`) refuses the keys, and any other refusal is no answer about them.
+   Google and Zoom: a code nobody issued, where refusing the client means the keys are wrong and refusing anything else
+   means the client authenticated first, as a token endpoint does before it reads the code (RFC 6749 §4.1.3). A
+   refusal is `422 INTEGRATION_KEYS_REFUSED` with the provider's code as `providerError` (Entra's `AADSTS…` rule where
+   it names one); no answer is `502 INTEGRATION_PROVIDER_UNREACHABLE`; neither writes anything. **Verify again** is
+   `POST /workspace/integrations/{provider}/verify` (`WORKSPACE_MANAGE`, audited `keysChecked`), which keeps the answer
+   either way. Both spend a budget of ten checks a minute per workspace on each instance (`OwnAppKeyCheck`, spent
+   before the call whatever it answers). A mailbox or Zoom refresh the provider refuses as an app records the same
+   refusal (`OwnAppKeyHealth`), so the card reads "Keys refused" without anyone pressing anything, and the next refresh
+   it answers clears it — a write only while a refusal is on record, read off the credentials the refresh resolved.
 4. **The secret is not trimmed** (`ownAppSchema` and `WorkspaceIntegrationService`). A trailing newline or space
    from a paste is stored as part of the secret, and only the provider notices. No Google, Entra or Zoom secret
    contains whitespace.

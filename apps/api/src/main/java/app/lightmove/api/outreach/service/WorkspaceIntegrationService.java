@@ -8,8 +8,6 @@ import app.lightmove.api.core.config.RecallSettings;
 import app.lightmove.api.core.crypto.service.SecretCipher;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.ratelimit.service.RateLimiter;
-import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.outreach.constant.CredentialMode;
@@ -25,7 +23,6 @@ import app.lightmove.api.outreach.repository.WorkspaceMailIntegrationRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.ZoneOffset;
@@ -48,8 +45,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Settings → Integrations: which OAuth app each provider is connected through. Every change is an audit event
  * of the {@code integrations} section, which names the provider and the mode and never the secret. An own app's keys
  * are saved only once the provider accepts them, asked outside any transaction. A change of app withdraws every
- * connection made through the old one, since its refresh tokens cannot be refreshed through the new one; new keys for
- * the same app are handed to Recall once they commit.
+ * connection made through the old one, since its refresh tokens cannot be refreshed through the new one.
  */
 @Service
 @Slf4j
@@ -63,8 +59,6 @@ public class WorkspaceIntegrationService {
     private static final String GOOGLE_CLIENT_ID_SUFFIX = ".apps.googleusercontent.com";
     /** Entra's ceiling on a client secret's lifetime. */
     private static final Period LONGEST_MICROSOFT_SECRET = Period.ofMonths(24);
-    /** Each check is a call to the provider's token endpoint, so a workspace asks at most this many a minute. */
-    private static final int KEY_CHECKS_PER_MINUTE = 10;
     /** A secret shorter than this would show too much of itself in its last four characters, so it gets no hint. */
     private static final int SHORTEST_HINTED_SECRET = 16;
     private static final int HINT_LENGTH = 4;
@@ -77,12 +71,12 @@ public class WorkspaceIntegrationService {
     private final Clock clock;
     private final ReplacedAppConnections connections;
     private final ApplicationEventPublisher events;
-    private final ProviderTokenClient tokenClient;
-    private final RateLimiter rateLimiter;
+    private final OwnAppKeyCheck keyCheck;
     private final TransactionTemplate transactions;
     private final UserRepository users;
 
-    @Transactional(readOnly = true)
+    /** Read-write only so a secret saved before V169 gets its hint written back, once. */
+    @Transactional
     public WorkspaceIntegrationsResponse list(UUID workspaceId) {
         List<WorkspaceMailIntegration> rows = integrations.findByWorkspaceId(workspaceId);
         Map<IntegrationProvider, WorkspaceMailIntegration> chosen = rows.stream()
@@ -216,7 +210,7 @@ public class WorkspaceIntegrationService {
         }
     }
 
-    /** Keys the provider accepted, carried into the write; the held secret's ciphertext is what was checked. */
+    /** {@code checkedHeldSecret} is the ciphertext of the held secret the provider was shown, when none was new. */
     private record AcceptedKeys(String clientId, String tenantId, String newSecret, String checkedHeldSecret,
                                 LocalDate secretExpiresOn) {
 
@@ -255,20 +249,10 @@ public class WorkspaceIntegrationService {
         return list(workspaceId);
     }
 
-    /** Each check spends the workspace's budget; a provider that gives no answer saves and records nothing. */
     private AppKeysVerdict askProvider(UUID workspaceId, IntegrationProvider provider, String clientId, String secret,
                                        String tenantId) {
-        if (!rateLimiter.tryAcquire("integration-key-check:workspace:%s".formatted(workspaceId),
-                KEY_CHECKS_PER_MINUTE, Duration.ofMinutes(1))) {
-            throw ApiException.of(ErrorCode.RATE_LIMITED);
-        }
-        ProviderCredentials app = new ProviderCredentials(provider, CredentialMode.OWN, clientId, secret, tenantId);
-        try {
-            return tokenClient.checkKeys(app, setup.redirectUri(provider));
-        } catch (VendorException unanswered) {
-            log.warn("{} gave no answer about workspace {}'s keys ({})", provider, workspaceId, unanswered.getKind());
-            throw ApiException.of(ErrorCode.INTEGRATION_PROVIDER_UNREACHABLE);
-        }
+        return keyCheck.ask(workspaceId,
+                new ProviderCredentials(provider, CredentialMode.OWN, clientId, secret, tenantId));
     }
 
     /** The {@code integrations} section's one shape: the provider and the mode, never a key. */
@@ -327,13 +311,18 @@ public class WorkspaceIntegrationService {
                 own ? integration.getKeysRefusedWith() : null);
     }
 
-    /** A secret saved before its hint was kept is read for it each time, until a new one is saved. */
+    /** A secret saved before V169 is read for its hint once, and the hint kept unless the secret changed meanwhile. */
     private String secretHintOf(WorkspaceMailIntegration integration) {
         if (integration.getSecretHint() != null || !integration.hasSecret() || !cipher.isAvailable()) {
             return integration.getSecretHint();
         }
         try {
-            return hintOf(cipher.decrypt(integration.getClientSecretEncrypted(), integration.clientSecretContext()));
+            String hint = hintOf(cipher.decrypt(integration.getClientSecretEncrypted(),
+                    integration.clientSecretContext()));
+            if (hint != null) {
+                integrations.recordSecretHint(integration.getId(), integration.getClientSecretEncrypted(), hint);
+            }
+            return hint;
         } catch (IllegalStateException unreadable) {
             log.warn("The {} secret of workspace {} could not be read for its hint", integration.getProvider(),
                     integration.getWorkspaceId());

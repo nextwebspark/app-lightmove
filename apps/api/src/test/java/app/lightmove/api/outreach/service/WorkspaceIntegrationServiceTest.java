@@ -80,7 +80,7 @@ class WorkspaceIntegrationServiceTest {
     private final Instant now = TODAY.atStartOfDay().toInstant(ZoneOffset.UTC).plusSeconds(3600);
     private final WorkspaceIntegrationService service = new WorkspaceIntegrationService(integrations,
             new ProviderAppSetup(properties), cipher, audit, properties, Clock.fixed(now, ZoneOffset.UTC),
-            connections, events, provider, rateLimiter,
+            connections, events, new OwnAppKeyCheck(provider, new ProviderAppSetup(properties), rateLimiter),
             new TransactionTemplate(mock(PlatformTransactionManager.class)), users);
 
     @BeforeEach
@@ -114,6 +114,8 @@ class WorkspaceIntegrationServiceTest {
                 .isInstanceOfSatisfying(ApiException.class, refusal ->
                         assertThat(refusal.getCode()).isEqualTo(ErrorCode.INTEGRATION_PROVIDER_UNREACHABLE));
         verify(integrations, never()).save(any());
+        verify(rateLimiter).tryAcquire("integration-key-check:workspace:" + workspaceId,
+                OwnAppKeyCheck.CHECKS_PER_MINUTE, Duration.ofMinutes(1));
     }
 
     @Test
@@ -185,16 +187,17 @@ class WorkspaceIntegrationServiceTest {
     }
 
     @Test
-    @DisplayName("a secret saved before hints were kept still shows its last four, read from the ciphertext")
+    @DisplayName("a secret saved before hints were kept shows its last four, read from the ciphertext and kept")
     void aLegacySecretShowsItsHint() {
-        when(integrations.findByWorkspaceId(workspaceId))
-                .thenReturn(List.of(ownApp(IntegrationProvider.GOOGLE, GOOGLE_APP, null, null)));
+        WorkspaceMailIntegration legacy = ownApp(IntegrationProvider.GOOGLE, GOOGLE_APP, null, null);
+        when(integrations.findByWorkspaceId(workspaceId)).thenReturn(List.of(legacy));
 
         WorkspaceIntegrationResponse google = service.list(workspaceId).providers().stream()
                 .filter(row -> row.provider() == IntegrationProvider.GOOGLE).findFirst().orElseThrow();
 
         assertThat(google.secretHint()).isEqualTo("alue");
         assertThat(google.secretSavedBy()).isNull();
+        verify(integrations).recordSecretHint(legacy.getId(), legacy.getClientSecretEncrypted(), "alue");
     }
 
     @Test

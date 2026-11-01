@@ -12,9 +12,8 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
 /**
- * What a refresh learns about a workspace's own app, kept where Settings → Integrations reads it: a refused app turns
- * the card to "Keys refused" without anyone pressing Verify again, and the next refresh it answers turns it back.
- * Failing to keep it never changes what the refresh itself answers.
+ * What a refresh learns about a workspace's own app, for Settings → Integrations. Failing to keep it never changes what
+ * the refresh answers.
  */
 @Service
 @Slf4j
@@ -37,8 +36,12 @@ public class OwnAppKeyHealth {
         }
     }
 
+    /**
+     * Written only while the row says the app was refused, so an ordinary refresh costs nothing. A refresh the
+     * provider answers proves the keys, whichever check refused them before.
+     */
     public void answeredAtRefresh(UUID workspaceId, ProviderCredentials app) {
-        if (app.mode() != CredentialMode.OWN) {
+        if (app.mode() != CredentialMode.OWN || !app.keysRefused()) {
             return;
         }
         try {

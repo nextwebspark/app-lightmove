@@ -518,10 +518,12 @@ workspace returns to the shared app. Its keys are held to the shape each provide
 suffix, Entra's GUIDs and directory, no whitespace in a secret — refused, never trimmed — an expiry for Microsoft
 alone, within 24 months) and **saved only once the provider accepts them**: Save and verify asks its token endpoint
 first, outside any transaction (`ProviderTokenClient.checkKeys` — Entra's app-only grant, or a code nobody issued at
-Google and Zoom), a refusal `INTEGRATION_KEYS_REFUSED` with the provider's code and no answer
-`INTEGRATION_PROVIDER_UNREACHABLE`, both writing nothing; **Verify again** (`POST …/integrations/{provider}/verify`,
-audited) keeps the answer either way, ten checks a minute per workspace; and a refresh refusing the app records the
-same (`OwnAppKeyHealth`), so the card reads Keys refused unasked. The screen is `Settings.dc.html`'s
+Google and Zoom), a refusal `INTEGRATION_KEYS_REFUSED` with the provider's code — at Entra only a refused client or an
+unknown directory; any other refusal there is no answer — and no answer `INTEGRATION_PROVIDER_UNREACHABLE`, both
+writing nothing; **Verify again** (`POST …/integrations/{provider}/verify`, audited) keeps the answer either way, ten
+checks a minute per workspace on each instance (`OwnAppKeyCheck`); and a refresh refusing the app records the same
+(`OwnAppKeyHealth`), so the card reads Keys refused unasked, cleared by the next refresh answered while one is on
+record. The screen is `Settings.dc.html`'s
 (`docs/integrations/settings-page-ux.md`): a closed card per provider with a status pill, the console's own order and
 field names for a first set-up, and a saved app as read-only rows — the secret masked to its hint, Replace, never
 revealed. A change of app is a change of who holds the tokens: a refresh token belongs to the

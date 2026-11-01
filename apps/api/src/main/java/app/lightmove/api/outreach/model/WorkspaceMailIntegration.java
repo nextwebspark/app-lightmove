@@ -81,7 +81,6 @@ public class WorkspaceMailIntegration extends BaseEntity {
     @Column(name = "secret_saved_by")
     private UUID secretSavedBy;
 
-    /** When the provider was last asked about these keys; null until it is. */
     @Column(name = "keys_checked_at")
     private Instant keysCheckedAt;
 

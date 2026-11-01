@@ -51,6 +51,19 @@ class OwnAppKeyHealthTest {
     }
 
     @Test
+    @DisplayName("an answered refresh writes only to put right a refusal on record")
+    void anAnsweredRefreshClearsOnlyARefusal() {
+        health.answeredAtRefresh(workspaceId, OWN_MICROSOFT);
+        verifyNoInteractions(integrations);
+
+        ProviderCredentials refusedBefore = new ProviderCredentials(IntegrationProvider.MICROSOFT, CredentialMode.OWN,
+                OWN_MICROSOFT.clientId(), "secret", "contoso.onmicrosoft.com", true);
+        health.answeredAtRefresh(workspaceId, refusedBefore);
+        verify(integrations).clearAppRefused(workspaceId, IntegrationProvider.MICROSOFT, CredentialMode.OWN,
+                OWN_MICROSOFT.clientId(), NOW);
+    }
+
+    @Test
     @DisplayName("failing to record never changes what the refresh answers")
     void aFailedRecordIsSwallowed() {
         when(integrations.recordAppRefused(any(), any(), any(), any(), any(), any()))
