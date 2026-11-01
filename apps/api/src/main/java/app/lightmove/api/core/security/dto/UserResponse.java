@@ -12,6 +12,13 @@ public record UserResponse(
         String fullName,
         String title,
         String avatarUrl,
+
+        /** Whether {@code avatarUrl} is a photo the person uploaded, which Profile offers to remove. */
+        boolean photoUploaded,
+
+        /** Shown in the person's email signature; null when they gave none. */
+        String phone,
+        String linkedinUrl,
         boolean emailVerified,
 
         /**

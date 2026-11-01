@@ -211,7 +211,8 @@ public class AuthController {
                 principal.userId(),
                 principal.workspaceId(),
                 new ProfileUpdateCommand(
-                        request.fullName(), request.title(), request.timezone(), request.locale()),
+                        request.fullName(), request.title(), request.timezone(), request.locale(),
+                        request.phone(), request.linkedinUrl()),
                 httpRequest);
         return assembler.userIn(principal.userId(), principal.workspaceId());
     }

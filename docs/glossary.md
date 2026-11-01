@@ -23,6 +23,7 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Conversation** | everything with one executive on one position on the Outreach page: emails both ways, run events, notes, meetings | thread, inbox |
 | **To do** | the Outreach page's filter of the people waiting on someone; its groups are Needs reply, Follow-ups, Before first email and Delivery problems | Action queue, Needs action, inbox |
 | **Working hours** | the days and hours a consultant works, which a booking link offers times inside (Outlook's own, theirs, or the workspace's) | availability window, office hours |
+| **Email signature** | what closes an email a consultant sends from Uncava, one of their own kept in Settings → Email signature, the default ticked in the composer | footer, sign-off |
 | **Daily email limit** | the most one mailbox sends through Uncava in a day | quota |
 | **Synced email** | a reply read back from the consultant's own mailbox, as the history tags it | imported, fetched |
 | **Archive** / **Restore** | putting a position or a business unit away, hidden from every list and picker, and bringing it back; nothing is deleted | delete, close |

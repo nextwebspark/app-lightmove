@@ -50,6 +50,12 @@ export interface User {
   fullName: string;
   title: string | null;
   avatarUrl: string | null;
+  /** Whether `avatarUrl` is a photo the person uploaded, which Profile offers to remove. */
+  photoUploaded: boolean;
+  /** Shown in the person's email signature; null when they gave none. */
+  phone: string | null;
+  /** Their own LinkedIn profile, canonical `https://www.linkedin.com/in/<slug>`. */
+  linkedinUrl: string | null;
   emailVerified: boolean;
 
   /**
@@ -166,6 +172,9 @@ export interface UpdateProfileRequest {
   title: string | null;
   timezone: string;
   locale: string;
+  /** Left out: unchanged. Blank: cleared. */
+  phone?: string;
+  linkedinUrl?: string;
 }
 
 /** Settings → Security. The confirm field never leaves the client — two matching copies prove nothing. */

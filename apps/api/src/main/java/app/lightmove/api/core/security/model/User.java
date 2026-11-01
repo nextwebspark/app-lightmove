@@ -23,6 +23,9 @@ import lombok.Setter;
 @NoArgsConstructor(access = AccessLevel.PROTECTED) // for JPA only
 public class User extends BaseEntity {
 
+    /** V25's {@code avatar_source} for a photo the person uploaded themselves. */
+    public static final String UPLOADED_PHOTO_SOURCE = "USER";
+
     @Column(nullable = false, unique = true)
     private String email;
 
@@ -38,6 +41,16 @@ public class User extends BaseEntity {
     @Setter
     @Column(length = 120)
     private String title;
+
+    /** Shown in the person's email signature. */
+    @Setter
+    @Column(name = "phone", length = 40)
+    private String phone;
+
+    /** Their own LinkedIn profile, canonical {@code https://www.linkedin.com/in/<slug>}. */
+    @Setter
+    @Column(name = "linkedin_url", length = 255)
+    private String linkedinUrl;
 
     @Column(name = "avatar_url")
     private String avatarUrl;
@@ -100,6 +113,24 @@ public class User extends BaseEntity {
         this.avatarUrl = url;
         this.avatarSource = source;
         return true;
+    }
+
+    /** A photo the person uploaded: no provider's sign-in replaces it, since only its own source may. */
+    public void useUploadedPhoto(String url) {
+        this.avatarUrl = url;
+        this.avatarSource = UPLOADED_PHOTO_SOURCE;
+    }
+
+    /** Clears it for a provider's picture to fill on the next sign-in, as an account that never had one would. */
+    public void removeUploadedPhoto() {
+        if (hasUploadedPhoto()) {
+            this.avatarUrl = null;
+            this.avatarSource = null;
+        }
+    }
+
+    public boolean hasUploadedPhoto() {
+        return UPLOADED_PHOTO_SOURCE.equals(avatarSource) && avatarUrl != null;
     }
 
     /** The caller hashes; the domain never sees a plaintext credential. */

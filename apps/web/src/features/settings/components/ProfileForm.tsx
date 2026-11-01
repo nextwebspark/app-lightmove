@@ -94,6 +94,27 @@ export function ProfileForm({
           />
         </Field>
 
+        <Field label="Phone" error={errors.phone?.message} hint="Shown in your email signature">
+          <Input
+            type="tel"
+            autoComplete="tel"
+            placeholder="+971 50 000 0000"
+            invalid={!!errors.phone}
+            className="bg-u-surface"
+            {...register("phone")}
+          />
+        </Field>
+
+        <Field label="LinkedIn" error={errors.linkedinUrl?.message} hint="Your own profile page">
+          <Input
+            type="url"
+            placeholder="linkedin.com/in/…"
+            invalid={!!errors.linkedinUrl}
+            className="bg-u-surface"
+            {...register("linkedinUrl")}
+          />
+        </Field>
+
         <Field label="Role">
           <ReadOnlyValue>{`${roles.map(titleCase).join(", ")} — set by workspace owner`}</ReadOnlyValue>
         </Field>

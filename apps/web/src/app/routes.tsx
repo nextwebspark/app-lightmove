@@ -52,6 +52,7 @@ import { SettingsIntegrationsPage } from "../features/settings/pages/SettingsInt
 import { SettingsMeetingsPage } from "../features/settings/pages/SettingsMeetingsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
 import { SettingsProfilePage } from "../features/settings/pages/SettingsProfilePage";
+import { SettingsSignaturesPage } from "../features/signatures/pages/SettingsSignaturesPage";
 import { SettingsSecurityPage } from "../features/settings/pages/SettingsSecurityPage";
 import { SettingsWorkspacesPage } from "../features/settings/pages/SettingsWorkspacesPage";
 import { TriageStagePage } from "../features/triage/pages/TriageStagePage";
@@ -184,6 +185,7 @@ export function AppRoutes() {
       <Route element={<RequireWorkspace><SettingsLayout /></RequireWorkspace>}>
         <Route path="/settings" element={<SettingsLanding />} />
         <Route path="/settings/profile" element={<SettingsProfilePage />} />
+        <Route path="/settings/signature" element={<RequireStaff><SettingsSignaturesPage /></RequireStaff>} />
         <Route path="/settings/notifications" element={<RequireStaff><SettingsNotificationsPage /></RequireStaff>} />
         <Route path="/settings/availability" element={<RequireStaff><SettingsAvailabilityPage /></RequireStaff>} />
         <Route path="/settings/security" element={<SettingsSecurityPage />} />

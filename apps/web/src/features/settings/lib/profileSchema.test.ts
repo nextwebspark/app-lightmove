@@ -6,6 +6,8 @@ const valid = {
   title: "Managing Partner",
   timezone: "Asia/Dubai",
   locale: "en",
+  phone: "",
+  linkedinUrl: "",
 };
 
 describe("profileSchema", () => {
@@ -18,6 +20,21 @@ describe("profileSchema", () => {
 
     expect(parsed.fullName).toBe("Alok Kumar");
     expect(parsed.title).toBe("Partner");
+  });
+
+  it("takes a phone as people write one and a LinkedIn profile however it was pasted", () => {
+    expect(profileSchema.safeParse({ ...valid, phone: "+971 50 123 4567" }).success).toBe(true);
+    expect(profileSchema.safeParse({ ...valid, phone: "(04) 123-4567" }).success).toBe(true);
+    expect(profileSchema.safeParse({ ...valid, linkedinUrl: "linkedin.com/in/yara-haddad" }).success).toBe(true);
+    expect(profileSchema.safeParse({ ...valid, linkedinUrl: "https://ae.linkedin.com/in/yara?trk=x" }).success).toBe(true);
+  });
+
+  it("refuses a phone that is not a number and an address that is not a LinkedIn profile", () => {
+    expect(issueFor(profileSchema.safeParse({ ...valid, phone: "call me" }), "phone")).toBe("Enter a phone number");
+    expect(issueFor(profileSchema.safeParse({ ...valid, phone: "12+34567" }), "phone")).toBe("Enter a phone number");
+    expect(issueFor(profileSchema.safeParse({ ...valid, linkedinUrl: "linkedin.com/company/x" }), "linkedinUrl")).toMatch(
+      /LinkedIn profile/,
+    );
   });
 
   it("refuses a nameless profile — a colleague identifies them by it", () => {

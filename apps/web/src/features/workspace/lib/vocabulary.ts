@@ -24,6 +24,8 @@ export interface WorkspaceVocabulary {
   firmPersonaHint: string;
   /** Who shares a position with a client contact; null at an agency, which is named instead. */
   positionSharer: string | null;
+  /** The workspace's own firm, as a consultant's email signature names it. */
+  ownFirm: string;
 }
 
 const COMPANY_VOCABULARY: WorkspaceVocabulary = Object.freeze({
@@ -44,6 +46,7 @@ const COMPANY_VOCABULARY: WorkspaceVocabulary = Object.freeze({
   firmPersonaHint:
     "What your firm does — Uncava's assistant reads it as the parent company, and for whatever a business unit's persona leaves empty.",
   positionSharer: "your talent team",
+  ownFirm: "Company",
 });
 
 const AGENCY_VOCABULARY: WorkspaceVocabulary = Object.freeze({
@@ -62,6 +65,7 @@ const AGENCY_VOCABULARY: WorkspaceVocabulary = Object.freeze({
   hiringProfileHint: "add sectors to this client's persona under Clients",
   firmPersonaHint: "What your firm does — Uncava's assistant uses it to tailor research to you.",
   positionSharer: null,
+  ownFirm: "Agency",
 });
 
 export function vocabularyFor(mode: WorkspaceMode): WorkspaceVocabulary {

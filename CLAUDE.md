@@ -757,6 +757,20 @@ webhook names the page; `LinkBookings` counts it **only for an address that cons
 keeps the meeting `booked_via_link`, ends their listening runs as `BOOKED` before the next step, and moves
 the person forward to Engaged once per position — a booking after a reply included.
 
+**Email signatures (V169, epic #1157, `docs/email-signatures.md`)** are a consultant's own, per workspace, in
+Settings → Email signature (`/me/signatures`, staff only, every row keyed on the caller — another's reads as missing):
+at most ten, one the default, each a layout (Classic, With photo, Photo + logo, Logo banner, Minimal, Custom in the
+notes' editor) whose empty fields follow the profile (name, title, phone, LinkedIn, photo), the workspace (name,
+website, logo) and the mailbox's address. `EmailSignatureRenderer` draws them email-safe — tables and inline styles,
+every value escaped, links http/https/mailto/tel only, no picture but Uncava's own — and the editor's preview is its
+drawing (`…/preview`), shown in a sandboxed frame. No mail provider adds a signature to email sent through its API, so
+Uncava adds its own. Pictures are `core/storage`'s `EmailImageService`: a profile photo uploaded in Settings → Profile
+(`POST /me/photo`, V25's `USER` source, which no sign-in replaces) or the workspace's logo copied in once through
+`HttpRemoteImageFetcher` (public addresses only, no redirect, 2 MB, one deadline) — re-encoded, kept in the bucket and
+served publicly at `/api/v1/email-images/{token}`, a 256-bit token its only credential, cached for good and never
+logged, counted or rate-limited per address (mail clients' image proxies fetch for everyone from a few). An image row
+outlives the photo it was, since a sent email names it.
+
 **The Notetaker (V151, `docs/notetaker.md`, `notetaker`)** is a Recall.ai bot a consultant sends into a kept call from
 the executive drawer's Meetings section (`WORK_EXECUTE`, only on a call on the caller's own calendar or booked by them,
 never for do not contact; a recording is read only from the position that sent it). It is kept out of the way: a call's
@@ -1397,6 +1411,9 @@ An account with no password (a Google or LinkedIn sign-in) turns two-factor on w
 with the code alone.
 V165 indexes `app_lm_audit_event (workspace_id, id DESC)` for the customer audit log, guarded on ownership as V74 is:
 once `harden.sql` has run the index is its to build (`CONCURRENTLY`). An index only; no row is written.
+V169 adds `app_lm_user.phone` / `linkedin_url`, `app_lm_email_image` (a photo's owner or a logo's workspace and
+source hash, by CHECK; one copy per logo per workspace) and `app_lm_email_signature` (`fields` jsonb holds only the
+overrides; one default per person per workspace by partial unique index).
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a
