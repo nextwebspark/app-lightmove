@@ -4,13 +4,7 @@ import { Icon } from "../../../components/layout/Icon";
 import type { NumericRange, SavedSearch, SearchVisibility, StrategyFilter } from "../api/types";
 import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { FilterRailToggle } from "../../../components/ui/FilterRail";
-import {
-  TOOLBAR_COUNT,
-  TOOLBAR_GHOST,
-  TOOLBAR_ROW,
-  ToolbarDivider,
-  ToolbarSearch,
-} from "../../../components/ui/Toolbar";
+import { TOOLBAR_COUNT, TOOLBAR_ROW, ToolbarSearch } from "../../../components/ui/Toolbar";
 import { SaveSearchMenu } from "./SaveSearchMenu";
 import { sameFilter } from "../lib/filterIdentity";
 import { companyColumns, DEFAULT_COLUMN_VISIBILITY } from "../lib/companyColumns";
@@ -59,13 +53,11 @@ export function StrategyToolbar({
   onSetSearchVisibility,
   onOverwriteSearch,
   onDeleteSearch,
-  onAddAll,
   onAiResearch,
   columnVisibility,
   onColumnVisibilityChange,
   onResetLayout,
   savingSearch,
-  addingAll,
 }: {
   /** The Companies | People toggle, when the viewer may search people. */
   leading?: ReactNode;
@@ -84,13 +76,11 @@ export function StrategyToolbar({
   onSetSearchVisibility: (searchId: string, visibility: SearchVisibility) => void;
   onOverwriteSearch: (searchId: string) => void;
   onDeleteSearch: (searchId: string) => void;
-  onAddAll: () => void;
   onAiResearch: () => void;
   columnVisibility: ColumnVisibilityState;
   onColumnVisibilityChange: (visibility: ColumnVisibilityState) => void;
   onResetLayout: () => void;
   savingSearch: boolean;
-  addingAll: boolean;
 }) {
   return (
     <div className={TOOLBAR_ROW}>
@@ -147,11 +137,6 @@ export function StrategyToolbar({
           onResetLayout={onResetLayout}
           variant="toolbar"
         />
-
-        <ToolbarDivider />
-        <button type="button" onClick={onAddAll} disabled={addingAll} className={TOOLBAR_GHOST}>
-          Add all to Universe →
-        </button>
       </div>
     </div>
   );
