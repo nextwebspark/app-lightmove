@@ -6,23 +6,18 @@ import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
-import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
 import app.lightmove.api.strategy.dto.CompanySuggestionsResponse;
 import app.lightmove.api.strategy.service.CompanySuggestionSearch;
 import app.lightmove.api.workspace.dto.AcceptInvitationRequest;
 import app.lightmove.api.workspace.dto.AcceptInvitationSignupRequest;
 import app.lightmove.api.workspace.dto.CreateWorkspaceRequest;
-import app.lightmove.api.workspace.dto.InviteRequest;
-import app.lightmove.api.workspace.model.InviteCommand;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.service.InvitationAcceptService;
-import app.lightmove.api.workspace.service.InvitationService;
 import app.lightmove.api.workspace.service.OnboardingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -40,8 +35,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Signup's organisation and invite steps and invitation redemption — the only authenticated area
- * reachable without a tenant claim.
+ * Signup's organisation step and invitation redemption — the only authenticated area reachable without a
+ * tenant claim. The invite step, holding one by then, posts to {@code /invitations} as Settings does.
  */
 @RestController
 @RequestMapping("/api/v1/onboarding")
@@ -51,7 +46,6 @@ public class OnboardingController {
     private static final int MIN_COMPANY_QUERY_LENGTH = 2;
 
     private final OnboardingService onboarding;
-    private final InvitationService invitations;
     private final InvitationAcceptService invitationAccept;
     private final AuthResponseAssembler assembler;
     private final RefreshCookieFactory refreshCookie;
@@ -91,20 +85,6 @@ public class OnboardingController {
                 suggestions.suggest(query, null, MIN_COMPANY_QUERY_LENGTH));
     }
 
-    /** @return invitations sent; fewer than asked means some were already members, not an error */
-    @PostMapping("/invitations")
-    public InviteResult invite(@AuthenticationPrincipal AuthPrincipal principal,
-                               @RequestBody List<@Valid InviteRequest> requests,
-                               HttpServletRequest httpRequest) {
-        List<InviteCommand> commands = requests.stream()
-
-                .map(r -> new InviteCommand(r.email(), r.role() == null ? WorkspaceRole.MEMBER : r.role()))
-                .toList();
-
-        int sent = invitations.invite(principal, commands, httpRequest).size();
-        return new InviteResult(sent);
-    }
-
     /** Anonymous on purpose: the signup form pins the invited address, or acceptance would refuse a mismatch. */
     @GetMapping("/invitations/preview")
     public InvitationAcceptService.InvitationPreview previewInvitation(
@@ -142,8 +122,5 @@ public class OnboardingController {
 
     private UserResponse currentUser(AuthPrincipal principal) {
         return assembler.userIn(principal.userId(), principal.workspaceId());
-    }
-
-    public record InviteResult(int sent) {
     }
 }

@@ -7,7 +7,6 @@ import type {
   ChangePasswordRequest,
   CreateWorkspaceRequest,
   InvitationPreview,
-  InviteRequest,
   LoginRequest,
   MfaChangeRequest,
   MfaSetup,
@@ -222,13 +221,6 @@ export function searchOnboardingCompanies(
   return request<{ companies: CompanySuggestion[] }>(`/onboarding/companies?${params}`, { signal }).then(
     (page) => page.companies,
   );
-}
-
-export function invite(invites: InviteRequest[]): Promise<{ sent: number }> {
-  return request<{ sent: number }>("/onboarding/invitations", {
-    method: "POST",
-    body: invites,
-  });
 }
 
 /** Anonymous: the invitee has no session yet, and needs to see what they were invited to. */
