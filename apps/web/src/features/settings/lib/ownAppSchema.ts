@@ -2,78 +2,98 @@ import { z } from "zod";
 import type { IntegrationProvider } from "../api/types";
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CLIENT_ID_CHARACTERS = /^[A-Za-z0-9._-]+$/;
 /** A verified domain of the directory; `common`, `organizations` and `consumers` have no dot and fail it. */
 const DIRECTORY_DOMAIN = /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
+const MULTI_TENANT_ALIASES = new Set(["common", "organizations", "consumers"]);
 const GOOGLE_CLIENT_ID_SUFFIX = ".apps.googleusercontent.com";
 /** Any whitespace (a non-breaking space included), control or invisible format character (a zero-width space, a BOM). */
 const NOT_IN_A_SECRET = /[\s\p{Cc}\p{Cf}]/u;
 const LONGEST_MICROSOFT_SECRET_MONTHS = 24;
 
+type Refuse = (path: string, message: string) => void;
+
 /**
- * The own-app form's validation, mirroring `WorkspaceIntegrationService` — the client answers instantly, the server
- * holds the line.
+ * The set-up form's validation, mirroring `WorkspaceIntegrationService` — the client answers instantly, the server
+ * holds the line. Every field reports one problem at a time, in the order an admin would fix them.
  *
  * The secret is never trimmed: whitespace inside a secret is the secret. No provider issues one with a space or a line
  * break, though, so one carrying either is a paste that took more than the value, and is refused rather than sent.
- * Blank keeps the one already held, which only an app already saved under the same client ID has — a new client ID
- * needs its own secret.
  */
-export function ownAppSchema({ provider, storedSecretClientId, storedExpiresOn, today }: OwnAppRules) {
-  const isMicrosoft = provider === "MICROSOFT";
+export function ownAppSchema({ provider, today }: OwnAppRules) {
   return z
     .object({
-      clientId: z
-        .string()
-        .trim()
-        .min(1, "Enter your app's client ID")
-        .max(255, "That client ID is too long")
-        .regex(/^[A-Za-z0-9._-]*$/, "That doesn't look like a client ID"),
-      clientSecret: z.string().max(2048, "That secret is too long"),
-      tenantId: z
-        .string()
-        .trim()
-        .max(64, "That tenant ID is too long")
-        .regex(/^[A-Za-z0-9.-]*$/, "That doesn't look like a tenant ID"),
+      clientId: z.string().trim(),
+      clientSecret: z.string(),
+      tenantId: z.string().trim(),
       secretExpiresOn: z.string(),
     })
     .superRefine((values, context) => {
-      const refuse = (path: keyof OwnAppValues, message: string) =>
-        context.addIssue({ code: "custom", path: [path], message });
-
-      if (provider === "GOOGLE" && values.clientId && !values.clientId.endsWith(GOOGLE_CLIENT_ID_SUFFIX)) {
-        refuse("clientId", "A Google client ID ends in .apps.googleusercontent.com");
-      }
-      if (isMicrosoft && values.clientId && !GUID.test(values.clientId)) {
-        refuse("clientId", "Paste the application (client) ID from the app's Overview");
-      }
-
-      if (isMicrosoft && !values.tenantId) {
-        refuse("tenantId", "Enter your directory's tenant ID");
-      } else if (isMicrosoft && !GUID.test(values.tenantId) && !DIRECTORY_DOMAIN.test(values.tenantId)) {
-        refuse("tenantId", "Enter your directory's ID or primary domain");
-      }
-
-      const secret = values.clientSecret;
-      if (!secret.trim()) {
-        if (values.clientId !== storedSecretClientId) {
-          refuse("clientSecret", "Enter your app's client secret");
-        }
-      } else if (NOT_IN_A_SECRET.test(secret)) {
-        refuse("clientSecret", "A client secret has no spaces or line breaks. Copy its value alone");
-      } else if (isMicrosoft && GUID.test(secret)) {
-        refuse("clientSecret", "That is the secret's ID. Paste its value instead");
-      }
-
-      const expiresOn = values.secretExpiresOn;
-      const sameSecretKept = !secret.trim() && values.clientId === storedSecretClientId;
-      if (isMicrosoft && expiresOn && !(sameSecretKept && expiresOn === storedExpiresOn)) {
-        if (expiresOn < today) {
-          refuse("secretExpiresOn", "That date has passed");
-        } else if (expiresOn > isoMonthsAfter(today, LONGEST_MICROSOFT_SECRET_MONTHS)) {
-          refuse("secretExpiresOn", "A Microsoft secret lasts 24 months at most");
-        }
-      }
+      const refuse: Refuse = (path, message) => context.addIssue({ code: "custom", path: [path], message });
+      checkClientId(provider, values.clientId, refuse);
+      if (provider === "MICROSOFT") checkTenant(values.tenantId, refuse);
+      checkSecret(provider, values.clientSecret, refuse);
+      if (provider === "MICROSOFT") checkExpiry(values.secretExpiresOn, today, refuse);
     });
+}
+
+/** Replace: a new secret for the app already saved, and for Microsoft its own expiry. */
+export function replaceSecretSchema({ provider, today }: OwnAppRules) {
+  return z
+    .object({ clientSecret: z.string(), secretExpiresOn: z.string() })
+    .superRefine((values, context) => {
+      const refuse: Refuse = (path, message) => context.addIssue({ code: "custom", path: [path], message });
+      checkSecret(provider, values.clientSecret, refuse);
+      if (provider === "MICROSOFT") checkExpiry(values.secretExpiresOn, today, refuse);
+    });
+}
+
+function checkClientId(provider: IntegrationProvider, clientId: string, refuse: Refuse) {
+  if (!clientId) {
+    refuse("clientId", `Enter your app's ${provider === "MICROSOFT" ? "application (client) ID" : "client ID"}`);
+  } else if (clientId.length > 255) {
+    refuse("clientId", "That client ID is too long");
+  } else if (!CLIENT_ID_CHARACTERS.test(clientId)) {
+    refuse("clientId", "That doesn't look like a client ID");
+  } else if (provider === "GOOGLE" && !clientId.endsWith(GOOGLE_CLIENT_ID_SUFFIX)) {
+    refuse("clientId", "A Google client ID ends in .apps.googleusercontent.com");
+  } else if (provider === "MICROSOFT" && !GUID.test(clientId)) {
+    refuse("clientId", "An application (client) ID is a GUID, as Overview shows it");
+  }
+}
+
+function checkTenant(tenantId: string, refuse: Refuse) {
+  if (!tenantId) {
+    refuse("tenantId", "Enter your directory's tenant ID");
+  } else if (MULTI_TENANT_ALIASES.has(tenantId.toLowerCase())) {
+    refuse("tenantId", `Use your own directory, not ${tenantId.toLowerCase()}`);
+  } else if (tenantId.length > 64) {
+    refuse("tenantId", "That tenant ID is too long");
+  } else if (!GUID.test(tenantId) && !DIRECTORY_DOMAIN.test(tenantId)) {
+    refuse("tenantId", "That doesn't look like a tenant ID or domain");
+  }
+}
+
+function checkSecret(provider: IntegrationProvider, secret: string, refuse: Refuse) {
+  if (!secret.trim()) {
+    refuse("clientSecret", "Enter your app's client secret");
+  } else if (secret.length > 2048) {
+    refuse("clientSecret", "That secret is too long");
+  } else if (NOT_IN_A_SECRET.test(secret)) {
+    refuse("clientSecret", "A secret has no spaces. Check you copied the value alone");
+  } else if (provider === "MICROSOFT" && GUID.test(secret)) {
+    refuse("clientSecret", "That's the Secret ID. Paste the Value column instead");
+  }
+}
+
+function checkExpiry(expiresOn: string, today: string, refuse: Refuse) {
+  if (!expiresOn) {
+    refuse("secretExpiresOn", "Enter when the secret expires");
+  } else if (expiresOn < today) {
+    refuse("secretExpiresOn", "That date has passed");
+  } else if (expiresOn > isoMonthsAfter(today, LONGEST_MICROSOFT_SECRET_MONTHS)) {
+    refuse("secretExpiresOn", "Entra secrets last 24 months at most. Check the date");
+  }
 }
 
 /** Today in the browser, as `yyyy-MM-dd`. */
@@ -96,12 +116,9 @@ function pad(value: number): string {
 
 export interface OwnAppRules {
   provider: IntegrationProvider;
-  /** The client ID the stored secret was saved under, or null when none is held. */
-  storedSecretClientId: string | null;
-  /** The expiry on the record, which stands even once it has passed while the same app keeps its secret. */
-  storedExpiresOn: string | null;
   /** `yyyy-MM-dd`. */
   today: string;
 }
 
 export type OwnAppValues = z.infer<ReturnType<typeof ownAppSchema>>;
+export type ReplaceSecretValues = z.infer<ReturnType<typeof replaceSecretSchema>>;
