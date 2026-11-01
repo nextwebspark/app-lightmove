@@ -22,4 +22,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.email = :email")
     Optional<User> findByEmailForSignIn(String email);
+
+    /** Signup's organisation step: submits for one account wait their turn, so the membership check sees the first. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.id = :id")
+    Optional<User> lockToFoundFirstWorkspace(UUID id);
 }

@@ -19,8 +19,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
 /**
- * Signup's organisation step submitted at once founds one workspace. What holds it is the account row's
- * {@code @Version}, which remembering the new workspace bumps, so the slower submit rolls back whole.
+ * Signup's organisation step submitted at once founds one workspace. What holds it is the account row, locked before
+ * the membership is read, so each later submit waits for the first and is refused by the check it then passes through.
  */
 @IntegrationTest
 class FirstWorkspaceRaceIntegrationTest extends FlowTestSupport {

@@ -52,6 +52,10 @@ public class OnboardingService {
     @Transactional
     public Workspace createFirstWorkspace(UUID userId, CreateWorkspaceCommand command,
                                           HttpServletRequest request) {
+        // Locked before the membership is read. Read first, a submit committing between that read and the account's
+        // load left the check seeing no workspace and the row already at its new version, so @Version passed too and
+        // a double-clicked step founded two workspaces.
+        users.lockToFoundFirstWorkspace(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
         requireNoExistingMembership(userId);
         return createWorkspace(userId, command, request);
     }
