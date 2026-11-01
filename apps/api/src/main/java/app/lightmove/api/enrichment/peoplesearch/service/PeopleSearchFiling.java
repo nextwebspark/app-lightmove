@@ -7,6 +7,7 @@ import app.lightmove.api.candidate.model.ResearchedCandidate;
 import app.lightmove.api.candidate.model.ResearchedEmployer;
 import app.lightmove.api.candidate.model.ResearchedFiling;
 import app.lightmove.api.candidate.service.CandidateService;
+import app.lightmove.api.candidate.service.PersonSuppressionService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.logging.service.MdcPropagation;
@@ -50,6 +51,7 @@ public class PeopleSearchFiling {
 
     private final CachedContactOutPeopleQuery contactOut;
     private final CandidateService candidates;
+    private final PersonSuppressionService suppression;
     private final ProfilePhotoDownloader photos;
     private final ObjectMapper json;
 
@@ -60,12 +62,13 @@ public class PeopleSearchFiling {
     public AddPeopleResponse add(UUID userId, UUID workspaceId, UUID projectId, AddPeopleRequest request) {
         TriageCompanyStatus stage = TriageCompanyStatus.parseOrInUniverse(request.status());
         Set<String> held = candidates.mappedProfileSlugsOf(workspaceId, projectId);
+        Set<String> suppressed = suppression.suppressedProfileSlugsOf(workspaceId, request.linkedinSlugs());
         int skipped = 0;
         int unavailable = 0;
         Map<String, BrightDataPerson> toFile = new LinkedHashMap<>();
         for (String slug : new LinkedHashSet<>(request.linkedinSlugs())) {
             String key = slug.toLowerCase(Locale.ROOT);
-            if (held.contains(key) || toFile.containsKey(key)) {
+            if (held.contains(key) || toFile.containsKey(key) || suppressed.contains(slug)) {
                 skipped++;
                 continue;
             }
@@ -114,7 +117,8 @@ public class PeopleSearchFiling {
     /**
      * The employer is filed at {@code stage}, in the person's own write, unless the mandate already holds
      * it, where it stays put and the person joins it there — the Companies screen's rule for a company
-     * already triaged. Empty when the mandate already maps the person, found only now by the guards.
+     * already triaged. Empty when the mandate already maps the person, or the suppression list holds them, found
+     * only now by the guards.
      */
     private Optional<ResearchedCandidate> file(UUID userId, UUID workspaceId, UUID projectId, BrightDataPerson person,
                                                EnrichedProfile research, CompanyFacts company,
@@ -127,7 +131,8 @@ public class PeopleSearchFiling {
             return Optional.of(candidates.addResearched(userId, workspaceId, projectId, filing, research,
                     ResearchedFiling.ofPeopleSearch(employer)));
         } catch (ApiException refused) {
-            if (refused.getCode() != ErrorCode.CANDIDATE_ALREADY_MAPPED) {
+            if (refused.getCode() != ErrorCode.CANDIDATE_ALREADY_MAPPED
+                    && refused.getCode() != ErrorCode.PERSON_SUPPRESSED) {
                 throw refused;
             }
             return Optional.empty();

@@ -1,6 +1,7 @@
 package app.lightmove.api.enrichment.peoplesearch.service;
 
 import app.lightmove.api.candidate.service.CandidateService;
+import app.lightmove.api.candidate.service.PersonSuppressionService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.ContactOutSettings;
@@ -59,6 +60,7 @@ public class StrategyPeopleService {
     private final StrategyService strategy;
     private final TriageCompanyReadService triage;
     private final CandidateService candidates;
+    private final PersonSuppressionService suppression;
     private final RateLimiter limiter;
     private final PeoplePageMeter meter;
     private final AuditService audit;
@@ -66,13 +68,15 @@ public class StrategyPeopleService {
     private final ObjectMapper json;
 
     public StrategyPeopleService(CachedContactOutPeopleQuery contactOut, StrategyService strategy,
-                                 TriageCompanyReadService triage, CandidateService candidates, RateLimiter limiter,
+                                 TriageCompanyReadService triage, CandidateService candidates,
+                                 PersonSuppressionService suppression, RateLimiter limiter,
                                  PeoplePageMeter meter, AuditService audit, LightMoveProperties properties,
                                  ObjectMapper json) {
         this.contactOut = contactOut;
         this.strategy = strategy;
         this.triage = triage;
         this.candidates = candidates;
+        this.suppression = suppression;
         this.limiter = limiter;
         this.meter = meter;
         this.audit = audit;
@@ -155,22 +159,27 @@ public class StrategyPeopleService {
 
     /**
      * Pages numbered from {@code firstPage}, read with one lookup each of the mandate's people, its declined
-     * companies and the pages' provider records, however many pages there are.
+     * companies, the workspace's suppression list and the pages' provider records, however many pages there are.
+     * A suppressed person is left off the page as it is read, as someone at a declined company is: the page was
+     * bought and cached for every workspace, so the question it answers is never narrowed.
      */
     private List<PeopleSearchPageResponse> pagesOf(List<PeoplePage> pages, int firstPage, UUID workspaceId,
                                                    UUID projectId) {
         Map<String, UUID> held = candidates.mappedProfileCandidatesOf(workspaceId, projectId);
         DeclinedEmployers declined = declinedOf(workspaceId, projectId);
-        Map<String, String> sources = contactOut.sourceRecordsOf(pages.stream()
+        List<String> slugsOnPages = pages.stream()
                 .flatMap(page -> page.people().stream())
                 .map(BrightDataPerson::linkedinId)
                 .filter(Objects::nonNull)
-                .toList());
+                .toList();
+        Map<String, String> sources = contactOut.sourceRecordsOf(slugsOnPages);
+        Set<String> suppressed = suppression.suppressedProfileSlugsOf(workspaceId, slugsOnPages);
         List<PeopleSearchPageResponse> read = new ArrayList<>(pages.size());
         for (int index = 0; index < pages.size(); index++) {
             PeoplePage page = pages.get(index);
             read.add(new PeopleSearchPageResponse(
                     page.people().stream()
+                            .filter(person -> person.linkedinId() == null || !suppressed.contains(person.linkedinId()))
                             .map(person -> resultOf(person, held, sources))
                             .filter(person -> person.held()
                                     || !declined.includes(person.companyName(), person.companyLinkedinUrl()))

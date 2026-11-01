@@ -135,6 +135,7 @@ public class CandidateService {
     private final UserRepository users;
     private final CandidateSearchService searches;
     private final CandidateRemoval removal;
+    private final PersonSuppressionService suppression;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -145,7 +146,8 @@ public class CandidateService {
                             CandidateRequestReader requests, CandidateResponseMapper responses,
                             CandidatePipelineCatalog pipeline, PersonEmployerResolver employerResolver,
                             UserRepository users, CandidateSearchService searches,
-                            CandidateRemoval removal, LightMoveProperties properties) {
+                            CandidateRemoval removal, PersonSuppressionService suppression,
+                            LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
         this.matcher = matcher;
@@ -166,6 +168,7 @@ public class CandidateService {
         this.users = users;
         this.searches = searches;
         this.removal = removal;
+        this.suppression = suppression;
     }
 
     /**
@@ -394,6 +397,7 @@ public class CandidateService {
 
         refuseDuplicate(projectId, triageCompanyId, details.fullName(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
+        suppression.refuseSuppressed(workspaceId, details.linkedinUrl(), emailsOf(details.emails()));
 
         CandidateStatusDefinition status = pipeline.requireOfferable(workspaceId, request.status());
         Optional<Person> known = personToFile(workspaceId, source, request, details);
@@ -460,6 +464,7 @@ public class CandidateService {
             throw ApiException.of(ErrorCode.PERSON_PROFILE_HELD);
         }
         refuseRetypedCapturedProfile(person, details.linkedinUrl());
+        refuseSuppressedAdditions(workspaceId, person, details.linkedinUrl(), details.emails());
 
         boolean confirmBackground = Boolean.TRUE.equals(request.confirmBackground());
         candidate.remapTo(triageCompanyId, triageStatusOfCompany(projectId, triageCompanyId));
@@ -599,6 +604,7 @@ public class CandidateService {
                                              ResearchedFiling filing) {
         projects.requireInWorkspace(projectId, workspaceId);
         CandidateDetails details = requests.detailsOf(projectId, request, null);
+        suppression.refuseSuppressed(workspaceId, details.linkedinUrl(), emailsOf(details.emails()));
         UUID triageCompanyId = request.triageCompanyId();
         TriageCompanyResponse employer = null;
         if (filing.employer() != null && triageCompanyId == null) {
@@ -756,6 +762,7 @@ public class CandidateService {
         List<ContactEntry> emails = requests.entriesOf(ContactChannel.EMAIL, request.emails(), null);
         List<ContactEntry> phones = requests.entriesOf(ContactChannel.PHONE, request.phones(), null);
         Person person = candidate.getPerson();
+        refuseSuppressedAdditions(workspaceId, person, null, emails);
         person.replaceContacts(ContactChannel.EMAIL, emails, ContactSource.MANUAL);
         person.replaceContacts(ContactChannel.PHONE, phones, ContactSource.MANUAL);
         activity.record(candidate, userId, PersonActivityKind.CONTACTS_EDITED,
@@ -767,6 +774,28 @@ public class CandidateService {
                 .detail("section", "contacts")
                 .record();
         return responses.toDto(candidate);
+    }
+
+    /**
+     * An edit may not hand someone a profile or address the suppression list holds. Only what the edit adds is
+     * asked: a key the person already holds is theirs, and keeping it on an edit files nobody new.
+     */
+    private void refuseSuppressedAdditions(UUID workspaceId, Person person, String linkedinUrl,
+                                           List<ContactEntry> emails) {
+        String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
+        String newProfile = slug != null && !slug.equals(LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl()))
+                ? linkedinUrl : null;
+        Set<String> heldEmailKeys = person.emailContacts().stream()
+                .map(CandidateContact::getValueKey)
+                .collect(Collectors.toSet());
+        List<String> newEmails = emailsOf(emails).stream()
+                .filter(email -> !heldEmailKeys.contains(CandidateContact.keyOf(ContactChannel.EMAIL, email)))
+                .toList();
+        suppression.refuseSuppressed(workspaceId, newProfile, newEmails);
+    }
+
+    private static List<String> emailsOf(List<ContactEntry> emails) {
+        return emails.stream().map(ContactEntry::value).filter(Objects::nonNull).toList();
     }
 
     /**
