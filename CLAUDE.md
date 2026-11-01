@@ -512,10 +512,19 @@ Microsoft, Zoom) is connected through an OAuth app chosen per workspace in **Set
 (`WORKSPACE_MANAGE`, audited as an `integrations` section): Uncava's **shared** app
 (`lightmove.outreach.providers.*`; blank leaves it unoffered) or the workspace's **own**, its keys pasted by
 its admin. `ProviderCredentialsResolver` is the one read: no row is shared. An own app's client secret is
-**write-only** — stored only as `core/crypto` ciphertext, never returned by any read, and discarded when the
+**write-only** — stored only as `core/crypto` ciphertext, never returned by any read but for its last four characters
+(V169 `secret_hint`, the identifier Google's console shows; none under 16 characters), and discarded when the
 workspace returns to the shared app. Its keys are held to the shape each provider issues (a Google client ID's
 suffix, Entra's GUIDs and directory, no whitespace in a secret — refused, never trimmed — an expiry for Microsoft
-alone, within 24 months), and a change of app is a change of who holds the tokens: a refresh token belongs to the
+alone, within 24 months) and **saved only once the provider accepts them**: Save and verify asks its token endpoint
+first, outside any transaction (`ProviderTokenClient.checkKeys` — Entra's app-only grant, or a code nobody issued at
+Google and Zoom), a refusal `INTEGRATION_KEYS_REFUSED` with the provider's code and no answer
+`INTEGRATION_PROVIDER_UNREACHABLE`, both writing nothing; **Verify again** (`POST …/integrations/{provider}/verify`,
+audited) keeps the answer either way, ten checks a minute per workspace; and a refresh refusing the app records the
+same (`OwnAppKeyHealth`), so the card reads Keys refused unasked. The screen is `Settings.dc.html`'s
+(`docs/integrations/settings-page-ux.md`): a closed card per provider with a status pill, the console's own order and
+field names for a first set-up, and a saved app as read-only rows — the secret masked to its hint, Replace, never
+revealed. A change of app is a change of who holds the tokens: a refresh token belongs to the
 client it was issued to, so every mailbox or Zoom account connected through the app being left (V168
 `app_client_id`, null read as the app until now) is withdrawn in the change's own transaction
 (`ReplacedAppConnections`, one bulk update so no versioned row fails the save, its Recall calendar let go,
@@ -1401,6 +1410,10 @@ V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connec
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a
 Google or Zoom row, since only Entra's expire.
+V169 gives `app_lm_workspace_mail_integration` the saved app's read-only facts: `secret_hint` (the last four),
+`secret_saved_at`/`secret_saved_by`, and `keys_checked_at`/`keys_refused_with` (the provider's last answer, its code
+when it refused) — all null on a shared row (CHECK). No backfill: no SQL can read the ciphertext, so an older
+secret's hint is read from it at runtime and never written back.
 V167 adds `app_lm_project_candidate.company_filed_for_them`: their company was filed for them (research, or the
 employer the workspace knew them at) rather than already held, cleared by any move; only the plugin's Undo reads it.
 V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage

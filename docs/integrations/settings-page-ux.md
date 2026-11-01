@@ -1,8 +1,8 @@
 # Settings → Integrations: how an own app's keys should look, and what the current build gets wrong
 
 Research for the redesign drawn in `claude-design/Settings.dc.html` (`?section=integrations&integrationsState=…`:
-`overview`, `own-new`, `own-saved`, `replacing`, `verify-failed`, `expiring`). The mockup is the design only; the
-app (`SettingsIntegrationsPage`, `IntegrationCard`, `OwnAppForm`) and the API are unchanged by it.
+`overview`, `own-new`, `own-saved`, `replacing`, `verify-failed`, `expiring`). The app now draws it
+(`IntegrationCard`, `OwnAppSetupForm`, `SavedOwnApp`), over the API described at the end of this page.
 
 ## How established products do it
 
@@ -59,7 +59,7 @@ What already meets the standard:
 - **Rules**: a new client ID needs its own secret; the shared mode refuses keys; Microsoft's admin-consent
   return is checked against an HMAC `state`.
 
-Findings, most severe first. Findings 1, 2 and 4–7 are fixed; 3 and 8 are open.
+Findings, most severe first. Findings 1–7 are fixed; 8 is open.
 
 1. **Recall.ai keeps the old keys.** `RecallCalendars.reconcile` sends the app's client ID and secret to Recall
    only when a mailbox connects or when calendar sync changes, and `WorkspaceIntegrationService` publishes
@@ -87,10 +87,16 @@ Findings, most severe first. Findings 1, 2 and 4–7 are fixed; 3 and 8 are open
    `connectionsThroughApp`, which the form and the return dialog state before anyone saves.
 3. **Keys are saved without being checked.** A typo surfaces only when a consultant's send or connect fails.
 
-   *Fix*: `POST /workspace/integrations/{provider}/verify` (`WORKSPACE_MANAGE`, audited, rate-limited) that
-   calls the token endpoint. Microsoft: `client_credentials` with `/.default`, which checks ID, secret and
-   tenant together. Google and Zoom: a deliberately invalid `authorization_code`, where `invalid_client` means
-   the keys are wrong and `invalid_grant` means they were accepted. Save only on acceptance.
+   *Fixed*: Save and verify asks the token endpoint before anything is kept (`ProviderTokenClient.checkKeys`, outside
+   any transaction). Microsoft: `client_credentials` with Graph's `/.default`, which checks ID, secret and tenant
+   together, so any refusal is the keys'. Google and Zoom: a code nobody issued, where refusing the client
+   (`invalid_client`, `unauthorized_client`, any 401) means the keys are wrong and refusing anything else means the
+   client authenticated first. A refusal is `422 INTEGRATION_KEYS_REFUSED` with the provider's code as
+   `providerError` (Entra's `AADSTS…` rule where it names one); no answer is `502 INTEGRATION_PROVIDER_UNREACHABLE`;
+   neither writes anything. **Verify again** is `POST /workspace/integrations/{provider}/verify` (`WORKSPACE_MANAGE`,
+   audited `keysChecked`), which keeps the answer either way. Both spend a budget of ten checks a minute per
+   workspace. A mailbox or Zoom refresh the provider refuses as an app records the same refusal (`OwnAppKeyHealth`),
+   so the card reads "Keys refused" without anyone pressing anything, and the next refresh it answers clears it.
 4. **The secret is not trimmed** (`ownAppSchema` and `WorkspaceIntegrationService`). A trailing newline or space
    from a paste is stored as part of the secret, and only the provider notices. No Google, Entra or Zoom secret
    contains whitespace.
@@ -120,11 +126,13 @@ Findings, most severe first. Findings 1, 2 and 4–7 are fixed; 3 and 8 are open
 
    *Fix*: add a nonce and an expiry to the state if it ever gates something.
 
-## What building the mockup needs from the API
+## What the screen reads from the API
 
-- `secretHint`: the secret's last four characters, written with the ciphertext on save (and computed once by
-  decrypting for rows saved before), plus `secretSavedAt` and `secretSavedBy`. The last four of a 40-character
-  secret is what Google's console shows and leaves the rest unguessable.
-- The verify endpoint (finding 3), and a `verifiedAt` / `verifyError` pair on the response.
-- The count of mailboxes (or Zoom accounts) connected through the app, for the footer and the dialogs.
-- ~~Findings 1, 2, 4, 6 and 7~~ (done; `docs/validation-matrix.md` updated).
+All built (V169):
+- `secretHint`: the secret's last four characters, written with the ciphertext on save — none for a secret under 16
+  characters, which four would give away — and read from the ciphertext for a secret saved before V169, never
+  written back. Beside it `secretSavedAt` and `secretSavedBy` (a name), null for a secret saved before.
+- `keysCheckedAt` and `keysRefusedWith`: when the provider last answered, and its code when it refused (finding 3).
+  An own app never checked reads as **Own app**, the one pill the mockup does not draw.
+- `connectionsThroughApp`, for the footer and the dialogs (findings 1 and 2).
+- ~~Findings 1–7~~ (done; `docs/validation-matrix.md` updated).

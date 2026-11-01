@@ -499,7 +499,8 @@ and a direct mailbox's provider refresh token (V107). Three rules hold for every
 - **Encrypt under an `EncryptionContext` naming the owner and the column** (`WorkspaceMailIntegration
   .clientSecretContext`, `MailboxConnection.refreshTokenContext`). It is the ciphertext's associated data, so a value copied onto another workspace's
   row, or into another column, fails to decrypt rather than handing one tenant's key to another.
-- **Write-only over the API.** A response says a secret is held (`secretSet`), never what it is; a request
+- **Write-only over the API.** A response says a secret is held (`secretSet`) and, for an own app's client secret,
+  its last four characters (`secretHint`, none under 16), never the rest; a request
   record carrying one overrides `toString` to redact it, and so does any model record holding it decrypted
   (`ProviderCredentials`, `OwnAppKeys`). Never trim one — whitespace inside a secret is the secret.
 - **Decrypt for the one call that spends it.** `MailboxTokens` and `RecallCalendars` decrypt a refresh token
