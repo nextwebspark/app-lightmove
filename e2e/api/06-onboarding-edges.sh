@@ -110,7 +110,7 @@ check_status N28.4 "PATCH edits a live workspace" 200
 section "N29  the invite step is shut too — an unproven word must not mail strangers"
 
 STRAY_INVITEE="lm-e2e-dropped-$(date +%s)$RANDOM@$MAIL_DOMAIN"
-post_json /onboarding/invitations "$(jq -nc --arg a "$STRAY_INVITEE" '[{email:$a, role:"MEMBER"}]')" \
+post_json /invitations "$(jq -nc --arg a "$STRAY_INVITEE" '[{email:$a, role:"MEMBER"}]')" \
   -H "$(auth_header "$UNVERIFIED_TOKEN")"
 check_code N29.1 "an unverified user sending invitations" 403 EMAIL_NOT_VERIFIED
 check N29.2 "nothing was stored and nothing was sent" "0" \
@@ -120,7 +120,7 @@ check N29.2 "nothing was stored and nothing was sent" "0" \
 NOWS=$(new_email nows)
 NOWS_TOKEN=$(signup_verified "$NOWS" "Nora Nows")
 NOWS_INVITEE="lm-e2e-nows-$(date +%s)$RANDOM@$MAIL_DOMAIN"
-post_json /onboarding/invitations "$(jq -nc --arg a "$NOWS_INVITEE" '[{email:$a, role:"MEMBER"}]')" \
+post_json /invitations "$(jq -nc --arg a "$NOWS_INVITEE" '[{email:$a, role:"MEMBER"}]')" \
   -H "$(auth_header "$NOWS_TOKEN")"
 note N29.3 "verified, no workspace, inviting -> $LAST_STATUS $(ecode)"
 check N29.4 "and still mails nobody" "0" \

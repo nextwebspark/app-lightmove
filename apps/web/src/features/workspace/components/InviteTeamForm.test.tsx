@@ -1,10 +1,18 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "../../../components/ui";
+import type { InviteRequest } from "../../auth/api/types";
 import { addressesIn, InviteTeamForm } from "./InviteTeamForm";
 
-const renderForm = (submit = vi.fn().mockResolvedValue(undefined), onDone = vi.fn()) => {
-  render(<InviteTeamForm subtitle="Step 4 of 4" submit={submit} onDone={onDone} onSkip={vi.fn()} />);
+const sendsAll = () => vi.fn(async (invites: InviteRequest[]) => ({ sent: invites.length }));
+
+const renderForm = (submit = sendsAll(), onDone = vi.fn()) => {
+  render(
+    <ToastProvider>
+      <InviteTeamForm subtitle="Step 4 of 4" submit={submit} onDone={onDone} onSkip={vi.fn()} />
+    </ToastProvider>,
+  );
   return { submit, onDone };
 };
 
@@ -64,6 +72,32 @@ describe("InviteTeamForm", () => {
     const rows = screen.getAllByRole("textbox", { name: "Colleague's email" });
     expect(rows.map((row) => (row as HTMLInputElement).value)).toEqual(["a@x.com", "b@x.com", "c@x.com", "keep@x.com"]);
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("2 addresses added, 2 already listed"));
+  });
+
+  it("refuses an address typed twice rather than sending it twice", async () => {
+    const user = userEvent.setup();
+    const { submit } = renderForm();
+    const [first, second] = screen.getAllByRole("textbox", { name: "Colleague's email" });
+    await user.type(first, "a@x.com");
+    await user.type(second, " A@x.com");
+
+    await user.click(screen.getByRole("button", { name: "Send 2 invites & finish" }));
+
+    expect(screen.getByText("Already listed above")).toBeInTheDocument();
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it("says when someone was skipped as already a member", async () => {
+    const user = userEvent.setup();
+    const { onDone } = renderForm(vi.fn().mockResolvedValue({ sent: 1 }));
+    const [first, second] = screen.getAllByRole("textbox", { name: "Colleague's email" });
+    await user.type(first, "a@x.com");
+    await user.type(second, "b@x.com");
+
+    await user.click(screen.getByRole("button", { name: "Send 2 invites & finish" }));
+
+    expect(await screen.findByText("1 person was already a member, so not invited again")).toBeInTheDocument();
+    expect(onDone).toHaveBeenCalled();
   });
 
   it("leaves an ordinary single-address paste to the browser", () => {

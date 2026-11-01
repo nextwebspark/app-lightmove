@@ -8,6 +8,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.service.AuthenticationService;
@@ -22,10 +23,13 @@ import app.lightmove.api.workspace.repository.InvitationRepository;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -52,6 +56,7 @@ public class InvitationAcceptService {
     private final ApplicationEventPublisher events;
     private final WorkspaceSelection selection;
     private final SeatAllowance seats;
+    private final Clock clock;
 
     /**
      * Unauthenticated, since the invitee usually has no account yet. Discloses only what the email
@@ -59,7 +64,7 @@ public class InvitationAcceptService {
      */
     @Transactional(readOnly = true)
     public InvitationPreview preview(String plaintextToken) {
-        Invitation invitation = resolveRedeemable(plaintextToken, Instant.now());
+        Invitation invitation = resolveRedeemable(plaintextToken, clock.instant());
 
         Workspace workspace = workspaces.findById(invitation.getWorkspaceId())
                 .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
@@ -81,7 +86,7 @@ public class InvitationAcceptService {
     /** The invitee lands ACTIVE at once: an admin naming them was the approval. */
     @Transactional
     public WorkspaceMember accept(String plaintextToken, UUID userId, HttpServletRequest request) {
-        Instant now = Instant.now();
+        Instant now = clock.instant();
         Invitation invitation = resolveRedeemable(plaintextToken, now);
         return redeem(invitation, requireUser(userId), now, request);
     }
@@ -92,7 +97,7 @@ public class InvitationAcceptService {
      */
     @Transactional
     public WorkspaceMember acceptById(UUID invitationId, UUID userId, HttpServletRequest request) {
-        Instant now = Instant.now();
+        Instant now = clock.instant();
         User user = requireUser(userId);
 
         Invitation invitation = invitations.findById(invitationId)
@@ -111,7 +116,7 @@ public class InvitationAcceptService {
     @Transactional
     public AuthenticatedSession acceptWithNewLocalUser(String plaintextToken, String fullName,
                                                        String password, HttpServletRequest request) {
-        Instant now = Instant.now();
+        Instant now = clock.instant();
         Invitation invitation = resolveRedeemable(plaintextToken, now);
         rateLimit.checkSignup(invitation.getEmail(), request);
 
@@ -142,19 +147,22 @@ public class InvitationAcceptService {
         Optional<WorkspaceMember> existing =
                 members.findByWorkspaceIdAndUserId(invitation.getWorkspaceId(), user.getId());
         boolean takesStaffSeat = !invitation.getRole().is(WorkspaceRole.CLIENT)
-                && existing.filter(WorkspaceMember::isActive).isEmpty();
+                && existing.filter(WorkspaceMember::isActive).filter(WorkspaceMember::holdsStaffRole).isEmpty();
         if (takesStaffSeat) {
             seats.requireRoomFor(invitation.getWorkspaceId(), 1);
         }
 
         invitation.accept(user.getId(), now);
-        // One row per person per workspace: a removed member rejoins theirs; an active one is moot.
+        // One row per person per workspace: a removed member rejoins theirs; an active one gains what it lacks.
         WorkspaceMember member = existing
                 .map(found -> found.isActive() ? found
                         : found.rejoin(Set.of(invitation.getRole()), invitation.getInvitedBy()))
                 .orElseGet(() -> members.save(WorkspaceMember.invite(
                         invitation.getWorkspaceId(), user.getId(), Set.of(invitation.getRole()),
                         invitation.getInvitedBy())));
+        if (existing.filter(WorkspaceMember::isActive).isPresent()) {
+            widen(member, invitation.getRole(), user.getId(), request);
+        }
         selection.remember(user, member);
         if (takesStaffSeat) {
             seats.onStaffSeatsChanged(invitation.getWorkspaceId());
@@ -176,6 +184,28 @@ public class InvitationAcceptService {
         }
 
         return member;
+    }
+
+    /** A second staff role (MEMBER beside ADMIN) is not added: the roster is where staff roles change. */
+    private void widen(WorkspaceMember member, Role invited, UUID actorId, HttpServletRequest request) {
+        boolean covered = member.getRoles().stream().anyMatch(held -> held.getId().equals(invited.getId()))
+                || (!invited.is(WorkspaceRole.CLIENT) && member.holdsStaffRole());
+        if (covered) {
+            return;
+        }
+        String previous = roleNames(member.getRoles());
+        Set<Role> roles = new HashSet<>(member.getRoles());
+        roles.add(invited);
+        member.changeRoles(roles);
+
+        audit.event(WorkspaceEventType.MEMBER_ROLE_CHANGED)
+                .actor(actorId).workspace(member.getWorkspaceId()).target("member", member.getId()).from(request)
+                .detail("from", previous).detail("to", roleNames(roles))
+                .record();
+    }
+
+    private static String roleNames(Set<Role> roles) {
+        return roles.stream().map(Role::getName).sorted().collect(Collectors.joining(","));
     }
 
     /** Unknown or consumed is {@code INVITATION_INVALID}; lapsed is {@code INVITATION_EXPIRED}. */
