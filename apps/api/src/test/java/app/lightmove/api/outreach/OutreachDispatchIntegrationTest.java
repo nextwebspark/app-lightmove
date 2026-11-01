@@ -93,6 +93,47 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the signature chosen at Start closes every step as it was drawn then, follow-ups included")
+    void theStartsSignatureClosesEveryStep() throws Exception {
+        String signatureId = body(as(consultant, post("/api/v1/me/signatures").contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"Formal","layout":"MINIMAL","fields":{"title":"Partner"}}"""))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+        String sequenceId = createSequence("Signed approach");
+        String priya = executive("Priya Raman", "priya@" + domain);
+        startTimed(sequenceId, List.of(person(priya, "priya@" + domain, null)),
+                ",\"signatureId\":\"" + signatureId + "\"").andExpect(status().isCreated());
+        as(consultant, put("/api/v1/me/signatures/" + signatureId).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"Formal","layout":"MINIMAL","fields":{"title":"Changed since"}}"""))
+                .andExpect(status().isOk());
+
+        dispatcher.dispatchAt(monday);
+        dispatcher.dispatchAt(monday.plus(Duration.ofDays(3)));
+
+        List<SentRecord> sent = sentTo("priya@" + domain);
+        assertThat(sent).hasSize(2);
+        assertThat(sent).allSatisfy(record -> assertThat(record.email().htmlBody())
+                .contains("<strong>Yara Haddad</strong> · Partner").doesNotContain("Changed since"));
+        assertThat(sent.get(1).email().htmlBody()).startsWith("<p>Following up, Priya.</p>");
+    }
+
+    @Test
+    @DisplayName("a run started with no signature sends none, and one naming a signature that is not theirs is refused")
+    void onlyTheSendersOwnSignatureStartsARun() throws Exception {
+        String sequenceId = createSequence("Unsigned approach");
+        String priya = executive("Priya Raman", "priya@" + domain);
+        startTimed(sequenceId, List.of(person(priya, "priya@" + domain, null)),
+                ",\"signatureId\":\"" + java.util.UUID.randomUUID() + "\"").andExpect(status().isNotFound());
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_outreach_enrollment where candidate_id = ?::uuid",
+                Integer.class, priya)).isZero();
+
+        start(sequenceId, priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+        assertThat(sentTo("priya@" + domain).getFirst().email().htmlBody()).doesNotContain("font-family:Arial");
+    }
+
+    @Test
     @DisplayName("step 1 goes in the window, step 2 waits its working days and replies in the same thread")
     void followUpsThreadUnderTheFirstEmail() throws Exception {
         String sequenceId = createSequence("First approach");

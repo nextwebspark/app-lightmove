@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * The reviewed people and when their first emails go. A null mode waits for the next sending window;
@@ -17,7 +18,9 @@ public record StartSequenceRequest(
         @Size(max = 50, message = "Add at most fifty people at a time")
         List<@Valid @NotNull EnrollPersonRequest> people,
         SequenceStartMode startMode,
-        Instant startAt) {
+        Instant startAt,
+        /** One of the sender's own signatures, on every email of the run; null sends none. */
+        UUID signatureId) {
 
     public SequenceStartMode startModeOrDefault() {
         return startMode == null ? SequenceStartMode.NEXT_WINDOW : startMode;
