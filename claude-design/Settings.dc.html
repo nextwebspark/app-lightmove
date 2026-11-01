@@ -211,6 +211,25 @@
                 <button onClick="{{ saveProfile }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Save changes</button>
               </div>
             </div>
+            <!-- The account's own copy and its deletion (#926). What a person added inside a workspace is that workspace's: its admin exports it from Data & retention. -->
+            <div data-screen-label="Download my data" style="margin-top:16px;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="flex:1;min-width:0">
+                  <div style="font:600 13px var(--sans)">Download my data</div>
+                  <div style="margin-top:4px;max-width:520px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">Your account as a JSON file: your profile, the workspaces you belong to, sign-ins, API keys and connected AI apps. What you added inside a workspace belongs to that workspace; its admin can export it.</div>
+                </div>
+                <button onClick="{{ downloadMyData }}" style="display:flex;flex:none;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.download }}"></path></svg>Download</button>
+              </div>
+            </div>
+            <div data-screen-label="Delete my account" style="margin-top:16px;border-radius:10px;border:1px solid var(--red);background:var(--red-dim);padding:20px">
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="flex:1">
+                  <div style="font:600 13px var(--sans);color:var(--red)">Delete my account</div>
+                  <div style="margin-top:4px;font:400 11.5px var(--mono);color:var(--text3)">You leave every workspace and your sign-in is deleted. This cannot be undone.</div>
+                </div>
+                <button onClick="{{ openAccountDelete }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--red);color:var(--red);cursor:pointer" style-hover="background:var(--red);color:#fff">Delete…</button>
+              </div>
+            </div>
           </div>
         </sc-if>
 
@@ -457,14 +476,162 @@
                 <div role="radio" aria-checked="true" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-radius:10px;border:1px solid var(--amber);background:var(--amber-dim);padding:14px 16px;cursor:pointer"><span><span style="display:block;font:600 13px var(--sans);color:var(--text)">In-house talent team</span><span style="display:block;margin-top:4px;font:400 11.5px var(--mono);color:var(--text3)">You hire for your own company's business units.</span></span><span aria-hidden="true" style="margin-top:4px;width:12px;height:12px;flex:none;border-radius:50%;border:1px solid var(--amber);background:var(--amber)"></span></div>
               </div>
             </div>
-            <div style="margin-top:16px;border-radius:10px;border:1px solid var(--red);background:var(--red-dim);padding:20px">
+            <!-- Offboarding (#926): access ends at once, the purge runs after 30 days and ends in a deletion certificate. -->
+            <div data-screen-label="Delete workspace" style="margin-top:16px;border-radius:10px;border:1px solid var(--red);background:var(--red-dim);padding:20px">
               <div style="display:flex;align-items:center;gap:12px">
                 <div style="flex:1">
                   <div style="font:600 13px var(--sans);color:var(--red)">Delete workspace</div>
-                  <div style="margin-top:4px;font:400 11.5px var(--mono);color:var(--text3)">Permanently removes all projects, candidates and client records. This cannot be undone.</div>
+                  <div style="margin-top:4px;max-width:520px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">Members lose access now. Everything is permanently deleted after 30 days, and a deletion certificate is sent to you. <button onClick="{{ goExport }}" style="padding:0;font:500 11.5px var(--mono);color:var(--amber);background:none;border:none;cursor:pointer" style-hover="text-decoration:underline">Export your data first</button></div>
                 </div>
                 <button onClick="{{ openDelete }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--red);color:var(--red);cursor:pointer" style-hover="background:var(--red);color:#fff">Delete…</button>
               </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- DATA & RETENTION (GDPR epic #917: #921 retention, #920 suppression, #926 export) — an admin's. Retention never
+             deletes on its own: whoever passes the period waits under Due for deletion for an admin. The suppression list
+             holds one-way hashes only, so nothing on it reads back as a name or an address. -->
+        <sc-if value="{{ isData }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Data &amp; retention">
+            <div style="margin-bottom:18px">
+              <div style="font:600 19px/1.25 var(--sans)">Data &amp; retention</div>
+              <div style="margin-top:4px;max-width:620px;font:400 12px/1.5 var(--mono);color:var(--text3)">How long candidates are kept, who must never be added again, and a full copy of your workspace.</div>
+            </div>
+
+            <div data-screen-label="Candidate retention" style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
+              <div style="font:600 14px var(--sans)">Candidate retention</div>
+              <div style="margin-top:2px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">How long a candidate stays once nobody is working with them.</div>
+              <div style="margin-top:14px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;font:400 13px var(--sans);color:var(--text2)">
+                <span>Keep candidates untouched for</span>
+                <select value="{{ retention }}" onChange="{{ onRetention }}" aria-label="Retention period" style="width:auto;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:7px 10px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <option value="12">12 months</option><option value="24">24 months</option><option value="36">36 months</option><option value="60">60 months</option><option value="never">Never delete</option>
+                </select>
+                <span>after their last activity, once they're in no live position.</span>
+              </div>
+              <div style="margin-top:14px;display:flex;gap:10px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel);padding:10px 12px;font:400 12px/1.55 var(--mono);color:var(--text2)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--text3)"><path d="{{ I.info }}"></path></svg>
+                <span>{{ retentionNote }}</span>
+              </div>
+              <div style="margin-top:16px;display:flex;justify-content:flex-end">
+                <button onClick="{{ saveRetention }}" disabled="{{ retentionUnchanged }}" style="{{ retentionSaveStyle }}">Save changes</button>
+              </div>
+            </div>
+
+            <div data-screen-label="Due for deletion" style="margin-top:16px;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
+              <div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px">
+                <div style="min-width:0;flex:1">
+                  <div style="display:flex;align-items:center;gap:8px"><span style="font:600 14px var(--sans)">Due for deletion</span><sc-if value="{{ dueHasRows }}" hint-placeholder-val="{{ true }}"><span style="border-radius:4px;padding:1px 6px;font:500 10.5px var(--mono);color:var(--u-signal);background:var(--u-signal-tint)">{{ dueCountLabel }}</span></sc-if></div>
+                  <div style="margin-top:2px;max-width:560px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">{{ dueSubtitle }}</div>
+                </div>
+                <sc-if value="{{ dueHasRows }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex:none;align-items:center;gap:8px">
+                    <span style="font:400 11.5px var(--mono);color:var(--text3)">{{ dueSelLabel }}</span>
+                    <button onClick="{{ keepDue }}" disabled="{{ dueNoSel }}" title="{{ dueKeepTitle }}" style="{{ dueKeepStyle }}">Keep</button>
+                    <button onClick="{{ askDeleteDue }}" disabled="{{ dueNoSel }}" style="{{ dueDeleteStyle }}">Delete selected</button>
+                  </div>
+                </sc-if>
+              </div>
+              <sc-if value="{{ dueHasRows }}" hint-placeholder-val="{{ true }}">
+                <div role="table" aria-label="Due for deletion" style="margin-top:14px">
+                  <div role="row" style="display:grid;grid-template-columns:24px minmax(0,1fr) 130px 120px 130px;align-items:center;gap:12px;padding:0 0 8px;border-bottom:1px solid var(--line-soft);font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">
+                    <button role="checkbox" aria-checked="{{ dueAllChecked }}" aria-label="Select everyone due" onClick="{{ toggleDueAll }}" style="display:grid;place-items:center;padding:0;background:none;border:none;cursor:pointer"><span style="{{ dueAllBox }}"><sc-if value="{{ dueAllOn }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"></path></svg></sc-if></span></button>
+                    <span>Candidate</span><span>Last activity</span><span>Positions</span><span>Owner</span>
+                  </div>
+                  <sc-for list="{{ dueRows }}" as="d" hint-placeholder-count="4">
+                    <div role="row" style="{{ d.rowStyle }}">
+                      <button role="checkbox" aria-checked="{{ d.checked }}" aria-label="Select {{ d.name }}" data-id="{{ d.id }}" onClick="{{ toggleDue }}" style="display:grid;place-items:center;padding:0;background:none;border:none;cursor:pointer"><span style="{{ d.boxStyle }}"><sc-if value="{{ d.on }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"></path></svg></sc-if></span></button>
+                      <div style="min-width:0">
+                        <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans);color:var(--text)">{{ d.name }}</div>
+                        <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)">{{ d.meta }}</div>
+                      </div>
+                      <div style="min-width:0">
+                        <div style="font:400 12.5px var(--mono);color:var(--text2)">{{ d.last }}</div>
+                        <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)">{{ d.lastWhat }}</div>
+                      </div>
+                      <span style="font:400 12.5px var(--mono);color:var(--text2)">{{ d.positions }}</span>
+                      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 12.5px var(--mono);color:var(--text2)">{{ d.owner }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ dueEmptyShown }}" hint-placeholder-val="{{ false }}">
+                <div data-screen-label="Due for deletion — empty" style="margin-top:14px;border-radius:10px;border:1px dashed var(--line);background:var(--panel);padding:26px 20px;text-align:center">
+                  <span style="margin:0 auto 10px;display:grid;width:36px;height:36px;place-items:center;border-radius:10px;background:var(--green-dim);color:var(--green)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"></path></svg></span>
+                  <div style="font:600 13.5px var(--sans)">Nobody is due for deletion</div>
+                  <div style="margin:5px auto 0;max-width:420px;font:400 12px/1.55 var(--mono);color:var(--text3)">{{ dueEmptyBody }}</div>
+                </div>
+              </sc-if>
+            </div>
+
+            <div data-screen-label="Suppression list" style="margin-top:16px;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
+              <div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px">
+                <div style="min-width:0;flex:1">
+                  <div style="font:600 14px var(--sans)">Suppression list</div>
+                  <div style="margin-top:2px;max-width:560px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">People who must never be added again. The browser plugin, imports, Find executives, People search and adding by hand all check it first, and stop.</div>
+                </div>
+                <button onClick="{{ openSupAdd }}" style="display:flex;flex:none;align-items:center;justify-content:center;gap:6px;border-radius:6px;padding:7px 12px;font:500 12.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>Add to suppression list</button>
+              </div>
+              <div style="margin-top:12px;display:flex;gap:10px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel);padding:10px 12px;font:400 12px/1.55 var(--mono);color:var(--text2)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--text3)"><path d="{{ I.lock }}"></path></svg>
+                <span>Each entry is kept as a one-way hash of a LinkedIn profile or an email address, so the list can't be read back into names. Only the note you leave says who an entry is for.</span>
+              </div>
+              <sc-if value="{{ supHasRows }}" hint-placeholder-val="{{ true }}">
+                <div role="table" aria-label="Suppression list" style="margin-top:14px">
+                  <div role="row" style="display:grid;grid-template-columns:86px 120px minmax(0,1fr) 120px 92px 62px;align-items:center;gap:12px;padding:0 0 8px;border-bottom:1px solid var(--line-soft);font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">
+                    <span>Kind</span><span>Reason</span><span>Note</span><span>Added by</span><span>Date</span><span></span>
+                  </div>
+                  <sc-for list="{{ supRows }}" as="sp" hint-placeholder-count="4">
+                    <div role="row" style="{{ sp.rowStyle }}">
+                      <span style="{{ sp.kindStyle }}">{{ sp.kindLabel }}</span>
+                      <span style="{{ sp.reasonStyle }}">{{ sp.reasonLabel }}</span>
+                      <span title="{{ sp.note }}" style="{{ sp.noteStyle }}">{{ sp.noteShown }}</span>
+                      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 12px var(--mono);color:var(--text2)">{{ sp.by }}</span>
+                      <span style="font:400 12px var(--mono);color:var(--text3)">{{ sp.at }}</span>
+                      <button data-id="{{ sp.id }}" onClick="{{ askSupRemove }}" style="justify-self:end;border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--red);background:none;border:none;cursor:pointer" style-hover="background:var(--red-dim)">Remove</button>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ supEmpty }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:14px;padding:16px 0 4px;text-align:center;font:400 12px var(--mono);color:var(--text3)">Nobody is on the list. A permanent deletion can add someone, or you can add them here.</div>
+              </sc-if>
+            </div>
+
+            <div data-screen-label="Export workspace data" style="margin-top:16px;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
+              <div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px">
+                <div style="min-width:0;flex:1">
+                  <div style="font:600 14px var(--sans)">Export workspace data</div>
+                  <div style="margin-top:2px;max-width:560px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">A zip of everything in {{ wsName }}: positions, candidates, notes, documents and the audit log. It is built in the background, and we email you when it's ready.</div>
+                </div>
+                <sc-if value="{{ exportIdle }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ startExport }}" style="display:flex;flex:none;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:9px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Start export</button>
+                </sc-if>
+                <sc-if value="{{ exportRunning }}" hint-placeholder-val="{{ false }}">
+                  <button disabled="{{ true }}" style="display:flex;flex:none;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:9px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:not-allowed;opacity:.6"><span aria-hidden="true" style="width:13px;height:13px;border-radius:999px;border:2px solid currentColor;border-right-color:transparent;animation:spin .7s linear infinite"></span>Exporting…</button>
+                </sc-if>
+              </div>
+              <sc-if value="{{ exportRunning }}" hint-placeholder-val="{{ false }}">
+                <div role="status" data-screen-label="Export — building" style="margin-top:14px;display:flex;align-items:center;gap:12px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel);padding:12px 14px">
+                  <span aria-hidden="true" style="width:16px;height:16px;flex:none;border-radius:999px;border:2px solid var(--amber);border-right-color:transparent;animation:spin .7s linear infinite"></span>
+                  <div style="min-width:0;flex:1">
+                    <div style="font:500 13px var(--sans);color:var(--text)">Building your export…</div>
+                    <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">Started by Yara Haddad at 14:02 · 2,140 candidates, 318 documents. You can leave this page.</div>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ exportReady }}" hint-placeholder-val="{{ false }}">
+                <div data-screen-label="Export — ready" style="margin-top:14px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel);padding:12px 14px">
+                  <span style="display:grid;width:32px;height:32px;flex:none;place-items:center;border-radius:8px;background:var(--green-dim);color:var(--green)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.file }}"></path></svg></span>
+                  <div style="min-width:0;flex:1">
+                    <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--mono);color:var(--text)">al-futtaim-export-2026-10-05.zip</div>
+                    <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">1.4 GB · built 5 Oct 2026, 14:09 by Yara Haddad · <span style="color:var(--u-signal)">expires in 7 days</span></div>
+                  </div>
+                  <button onClick="{{ startExport }}" style="flex:none;border-radius:6px;padding:8px 10px;font:500 12.5px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">Start a new export</button>
+                  <button onClick="{{ downloadExport }}" style="display:flex;flex:none;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:9px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.download }}"></path></svg>Download</button>
+                </div>
+              </sc-if>
+              <p style="margin:12px 2px 0;font:400 11px var(--mono);color:var(--text3)">Starting an export and every download are recorded in the audit log. Only admins can start one.</p>
             </div>
           </div>
         </sc-if>
@@ -1802,9 +1969,18 @@
   <!-- Delete workspace modal -->
   <sc-if value="{{ deleteOpen }}" hint-placeholder-val="{{ false }}">
     <div data-screen-label="Delete workspace" onClick="{{ closeDelete }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
-      <div role="dialog" aria-modal="true" aria-label="Delete workspace" onClick="{{ stop }}" style="width:440px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
-        <div style="margin-bottom:16px;font:600 16px var(--sans)">Delete workspace</div>
-        <p style="margin:0 0 16px;font:400 13px var(--sans);color:var(--text2)">This removes every member and cancels outstanding invitations. Type <b style="font-weight:600;color:var(--text)">{{ wsName }}</b> to confirm.</p>
+      <div role="dialog" aria-modal="true" aria-label="Delete workspace" onClick="{{ stop }}" style="width:480px;max-width:94vw;max-height:90vh;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="margin-bottom:12px;font:600 16px var(--sans)">Delete {{ wsName }}?</div>
+        <div style="margin:0 0 14px;display:flex;flex-direction:column;gap:8px;font:400 13px/1.5 var(--sans);color:var(--text2)">
+          <div style="display:flex;gap:10px"><span style="width:32px;flex:none;font:600 11px/19.5px var(--mono);color:var(--red)">Now</span><span>Every member loses access, pending invitations are cancelled, sequences stop and API keys and AI apps stop working.</span></div>
+          <div style="display:flex;gap:10px"><span style="width:32px;flex:none;font:600 11px/19.5px var(--mono);color:var(--red)">30d</span><span>Everything is permanently deleted: positions, candidates, notes, documents, recordings and the audit log. A deletion certificate is then emailed to you.</span></div>
+        </div>
+        <div style="margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;border-radius:8px;border:1px solid var(--amber);background:var(--amber-dim);padding:10px 12px;font:400 12.5px/1.55 var(--sans);color:var(--text2)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--amber)"><path d="{{ I.download }}"></path></svg>
+          <span style="flex:1"><b style="font-weight:600;color:var(--text)">Export first.</b> Once members lose access nobody can download anything. Take a full copy from Data &amp; retention before you delete.</span>
+          <button onClick="{{ goExport }}" style="flex:none;padding:0;font:500 12.5px var(--sans);color:var(--amber);background:none;border:none;cursor:pointer;white-space:nowrap" style-hover="text-decoration:underline">Export data</button>
+        </div>
+        <p style="margin:0 0 12px;font:400 13px var(--sans);color:var(--text2)">Type <b style="font-weight:600;color:var(--text)">{{ wsName }}</b> to confirm.</p>
         <label style="display:block;margin-bottom:16px">
           <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Workspace name</span>
           <input value="{{ confirmName }}" onChange="{{ onConfirmName }}" placeholder="{{ wsName }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
@@ -1813,6 +1989,136 @@
           <button onClick="{{ closeDelete }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
           <button onClick="{{ confirmDelete }}" disabled="{{ deleteBlocked }}" style="{{ deleteButtonStyle }}">Delete workspace</button>
         </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Data & retention: delete the people ticked under Due for deletion (#921). Retention is not an objection, so nobody is suppressed. -->
+  <sc-if value="{{ dueDeleteOpen }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Delete due candidates" onClick="{{ closeDataDialog }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="{{ dueDeleteTitle }}" onClick="{{ stop }}" style="width:460px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="margin-bottom:12px;font:600 16px var(--sans)">{{ dueDeleteTitle }}</div>
+        <p style="margin:0 0 10px;font:400 13px/1.55 var(--sans);color:var(--text2)"><b style="font-weight:600;color:var(--text)">{{ dueDeleteNames }}</b> and everything Uncava holds about them go now: profile, contacts, notes, documents, emails, meetings and recordings, on every position. This cannot be undone.</p>
+        <p style="margin:0;font:400 12px/1.5 var(--mono);color:var(--text3)">The audit log records that they were deleted under your retention period, never their names. Copies in Uncava's backups age out within 30 days.</p>
+        <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closeDataDialog }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ confirmDeleteDue }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--red);border:1px solid var(--red);color:#fff;cursor:pointer" style-hover="filter:brightness(1.05)">Delete permanently</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Add to suppression list (#920): the profile and the address are hashed on save; the note is the only readable part. -->
+  <sc-if value="{{ supAddOpen }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Add to suppression list" onClick="{{ closeDataDialog }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="Add to suppression list" onClick="{{ stop }}" style="width:500px;max-width:94vw;max-height:90vh;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="margin-bottom:6px;font:600 16px var(--sans)">Add to suppression list</div>
+        <p style="margin:0 0 16px;font:400 13px/1.5 var(--sans);color:var(--text2)">Nobody in {{ wsName }} can add this person again. Someone already on file stays until you delete them from Candidates.</p>
+        <label style="display:block;margin-bottom:14px">
+          <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">LinkedIn profile</span>
+          <input value="{{ supLinkedin }}" onChange="{{ onSupLinkedin }}" placeholder="linkedin.com/in/…" style="{{ supLinkedinStyle }}" style-focus="border-color:var(--sky)">
+          <sc-if value="{{ supLinkedinError }}" hint-placeholder-val="{{ false }}"><span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--red)">{{ supLinkedinError }}</span></sc-if>
+        </label>
+        <label style="display:block;margin-bottom:6px">
+          <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Email</span>
+          <input type="email" value="{{ supEmail }}" onChange="{{ onSupEmail }}" placeholder="name@company.com" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+        </label>
+        <span style="margin-bottom:16px;display:block;font:400 11px/1.5 var(--mono);color:var(--text3)">Give one or both. They are hashed when you save, and Uncava keeps nothing it could read back.</span>
+        <div style="margin-bottom:16px">
+          <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Reason</span>
+          <div role="radiogroup" aria-label="Reason" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+            <sc-for list="{{ supReasons }}" as="rs" hint-placeholder-count="2">
+              <button role="radio" aria-checked="{{ rs.on }}" data-reason="{{ rs.key }}" onClick="{{ setSupReason }}" style="{{ rs.style }}">
+                <span style="display:block;font:600 13px var(--sans);color:var(--text)">{{ rs.label }}</span>
+                <span style="margin-top:3px;display:block;font:400 11px/1.5 var(--mono);color:var(--text3)">{{ rs.note }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+        <label style="display:block">
+          <span style="display:flex;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)"><span style="flex:1">Note</span><span style="letter-spacing:0;text-transform:none;font-weight:400">{{ supNoteCount }}</span></span>
+          <textarea value="{{ supNote }}" onChange="{{ onSupNote }}" maxLength="500" rows="3" placeholder="Who this is and why, for whoever reads the list later" style="width:100%;resize:vertical;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px/1.5 var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
+        </label>
+        <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closeDataDialog }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ confirmSupAdd }}" disabled="{{ supAddBlocked }}" style="{{ supAddStyle }}">Add to list</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Remove a suppression entry (#920) -->
+  <sc-if value="{{ supRemoveOpen }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Remove suppression entry" onClick="{{ closeDataDialog }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="Remove from the suppression list" onClick="{{ stop }}" style="width:440px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="margin-bottom:12px;font:600 16px var(--sans)">Remove from the suppression list?</div>
+        <p style="margin:0 0 10px;font:400 13px/1.55 var(--sans);color:var(--text2)">{{ supRemoveBody }}</p>
+        <p style="margin:0;font:400 12px/1.5 var(--mono);color:var(--text3)">The audit log records that you removed it.</p>
+        <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closeDataDialog }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ confirmSupRemove }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--red);border:1px solid var(--red);color:#fff;cursor:pointer" style-hover="filter:brightness(1.05)">Remove</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Delete my account (#926). The only admin of a workspace is stopped first: a workspace with no admin can't be managed. -->
+  <sc-if value="{{ accountDeleteOpen }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Delete my account" onClick="{{ closeAccountDelete }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="Delete your account" onClick="{{ stop }}" style="width:480px;max-width:94vw;max-height:90vh;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="margin-bottom:12px;font:600 16px var(--sans)">{{ accountDeleteTitle }}</div>
+
+        <sc-if value="{{ accountBlocked }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Delete my account — only admin">
+            <p style="margin:0 0 12px;font:400 13px/1.55 var(--sans);color:var(--text2)">You're the only admin of the workspace below. Make someone else an admin there, or delete the workspace, then come back.</p>
+            <div style="border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:2px 12px">
+              <sc-for list="{{ soleAdminWorkspaces }}" as="sw" hint-placeholder-count="1">
+                <div style="{{ sw.rowStyle }}">
+                  <span style="width:28px;height:28px;flex:none;border-radius:6px;background:var(--amber-btn);color:var(--on-amber);font:700 11px var(--mono);display:grid;place-items:center">{{ sw.mark }}</span>
+                  <div style="min-width:0;flex:1">
+                    <div style="font:500 13px var(--sans);color:var(--text)">{{ sw.name }}</div>
+                    <div style="font:400 11px var(--mono);color:var(--text3)">{{ sw.meta }}</div>
+                  </div>
+                  <button data-section="members" onClick="{{ goSectionFromAccount }}" style="flex:none;border-radius:5px;padding:4px 8px;font:500 12px var(--sans);color:var(--amber);background:none;border:none;cursor:pointer" style-hover="background:var(--amber-dim)">Make an admin</button>
+                  <button data-section="general" onClick="{{ goSectionFromAccount }}" style="flex:none;border-radius:5px;padding:4px 8px;font:500 12px var(--sans);color:var(--red);background:none;border:none;cursor:pointer" style-hover="background:var(--red-dim)">Delete workspace</button>
+                </div>
+              </sc-for>
+            </div>
+            <div style="margin-top:20px;display:flex;justify-content:flex-end">
+              <button onClick="{{ closeAccountDelete }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 18px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">OK</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ accountCanDelete }}" hint-placeholder-val="{{ true }}">
+          <ul style="margin:0 0 16px;padding-left:18px;font:400 13px/1.6 var(--sans);color:var(--text2)">
+            <li>You leave {{ accountWorkspacesLine }} now, and are signed out everywhere.</li>
+            <li>Your sign-in, profile, sessions, API keys and connected AI apps are deleted.</li>
+            <li>The notes, candidates and positions you worked on stay with each workspace, shown as a former member's.</li>
+          </ul>
+          <sc-if value="{{ hasPassword }}" hint-placeholder-val="{{ true }}">
+            <label style="display:block">
+              <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Password</span>
+              <input type="password" autocomplete="current-password" value="{{ acctPassword }}" onChange="{{ onAcctPassword }}" placeholder="Enter your password to confirm" style="{{ acctPasswordStyle }}" style-focus="border-color:var(--sky)">
+              <sc-if value="{{ acctPasswordError }}" hint-placeholder-val="{{ false }}"><span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--red)">{{ acctPasswordError }}</span></sc-if>
+            </label>
+          </sc-if>
+          <sc-if value="{{ providerOnly }}" hint-placeholder-val="{{ false }}">
+            <div data-screen-label="Delete my account — sign in again" style="border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:12px 14px">
+              <sc-if value="{{ acctNeedsReauth }}" hint-placeholder-val="{{ true }}">
+                <div style="font:400 12.5px/1.5 var(--sans);color:var(--text2)">You sign in with Google, so there is no password to type. Sign in again to show it's you.</div>
+                <button onClick="{{ reauthAccount }}" style="margin-top:10px;display:flex;align-items:center;gap:8px;border-radius:6px;padding:8px 12px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text);cursor:pointer" style-hover="border-color:var(--text3)"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8Z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3a7.2 7.2 0 0 1-10.7-3.8h-4v3.1A12 12 0 0 0 12 24Z"/><path fill="#FBBC05" d="M5.3 14.3a7.1 7.1 0 0 1 0-4.6V6.6h-4a12 12 0 0 0 0 10.8l4-3.1Z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.4.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1A7.2 7.2 0 0 1 12 4.8Z"/></svg>Sign in with Google again</button>
+              </sc-if>
+              <sc-if value="{{ acctReauthed }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;gap:8px;font:400 12.5px var(--sans);color:var(--text2)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--green)"><path d="M20 6 9 17l-5-5"></path></svg>Signed in again as yara@alfuttaim.com just now.</div>
+              </sc-if>
+            </div>
+          </sc-if>
+          <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+            <button onClick="{{ closeAccountDelete }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+            <button onClick="{{ confirmAccountDelete }}" disabled="{{ acctDeleteBlocked }}" style="{{ acctDeleteStyle }}">Delete my account</button>
+          </div>
+        </sc-if>
       </div>
     </div>
   </sc-if>
@@ -2031,7 +2337,7 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">SE</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;availability&quot;,&quot;general&quot;,&quot;meetings&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;integrationsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;own-new&quot;,&quot;own-saved&quot;,&quot;replacing&quot;,&quot;verify-failed&quot;,&quot;expiring&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;availability&quot;,&quot;general&quot;,&quot;meetings&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;,&quot;data&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;integrationsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;own-new&quot;,&quot;own-saved&quot;,&quot;replacing&quot;,&quot;verify-failed&quot;,&quot;expiring&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;exportState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;idle&quot;,&quot;options&quot;:[&quot;idle&quot;,&quot;running&quot;,&quot;ready&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dueEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dataDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;delete-due&quot;,&quot;suppress-add&quot;,&quot;suppress-remove&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;accountDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;delete&quot;,&quot;blocked&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -2053,12 +2359,15 @@ class Component extends DCLogic {
       sparkle: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9ZM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z',
       columns: 'M3 3h5v18H3zM10 3h5v12h-5zM17 3h4v8h-4z',
       puzzle: 'M10 3a2 2 0 0 1 4 0v1h4a1 1 0 0 1 1 1v4h1a2 2 0 0 1 0 4h-1v4a1 1 0 0 1-1 1h-4v-1a2 2 0 0 0-4 0v1H6a1 1 0 0 1-1-1v-4H4a2 2 0 0 1 0-4h1V5a1 1 0 0 1 1-1h4Z',
+      download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+      info: 'M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z',
+      database: 'M12 8c4.97 0 9-1.34 9-3s-4.03-3-9-3-9 1.34-9 3 4.03 3 9 3ZM3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3',
     };
     this.DISC = { EXECUTIVE: 'Executive', FINANCE: 'Finance', OPERATIONS: 'Operations', TECHNOLOGY: 'Technology', PEOPLE: 'People', COMMERCIAL: 'Commercial', GOVERNANCE: 'Governance', INVESTMENT: 'Investment' };
     this.DISC_ORDER = Object.keys(this.DISC);
     this.SEN = { BOARD: 'Board', C_SUITE: 'C-Suite', N_MINUS_1: 'N-1', N_MINUS_2: 'N-2', N_MINUS_3: 'N-3' };
     this.SEN_ORDER = Object.keys(this.SEN);
-    this.LABELS = { 'api-keys': 'API keys', 'ai-apps': 'Connected AI apps', 'candidate-tags': 'Candidate tags', 'task-presets': 'Task presets', notifications: 'Notifications', 'pipeline-stages': 'Pipeline stages', integrations: 'Integrations', profile: 'Profile', availability: 'Availability', meetings: 'Meetings & email', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library' };
+    this.LABELS = { 'api-keys': 'API keys', 'ai-apps': 'Connected AI apps', 'candidate-tags': 'Candidate tags', 'task-presets': 'Task presets', notifications: 'Notifications', 'pipeline-stages': 'Pipeline stages', integrations: 'Integrations', profile: 'Profile', availability: 'Availability', meetings: 'Meetings & email', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library', data: 'Data & retention' };
 
     const t = (code, title, discipline, seniority, summary, keywords, extra) => Object.assign({ code, title, discipline, seniority, summary, keywords, fallback: false, copies: 0, revisedAt: '02 Sep 2026', revisedBy: null }, extra || {});
     this.library = [
@@ -2137,6 +2446,12 @@ class Component extends DCLogic {
     if (aiDialog !== 'none' || urlProp('aiAppsView') || urlProp('aiAppsEmpty')) section = 'ai-apps';
     const igView = urlProp('integrationsState') || props.integrationsState || 'overview';
     if (igView !== 'overview' || urlProp('integrationsState')) section = 'integrations';
+    const exportState = urlProp('exportState') || props.exportState || 'idle';
+    const dueEmpty = (urlProp('dueEmpty') || String(!!props.dueEmpty)) === 'true';
+    const dataDialog = urlProp('dataDialog') || props.dataDialog || 'none';
+    if (exportState !== 'idle' || dueEmpty || dataDialog !== 'none') section = 'data';
+    const accountDialog = urlProp('accountDialog') || props.accountDialog || 'none';
+    if (accountDialog !== 'none') section = 'profile';
 
     let collapsed = false;
     try { collapsed = localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) {}
@@ -2197,6 +2512,23 @@ class Component extends DCLogic {
       ],
       wsName: 'Al-Futtaim', wsRegion: 'GCC', wsCurrency: 'AED',
       deleteOpen: !!props.deleteOpen, confirmName: '',
+      retention: '24', retentionSaved: '24', exportState, dataDialog,
+      due: dueEmpty ? [] : [
+        { id: 'd1', name: 'Tariq Mahmoud', meta: 'Finance Director · Emaar Industries', last: '14 Aug 2024', lastWhat: 'Status changed', positions: 1, owner: 'Omar Khalil' },
+        { id: 'd2', name: 'Leila Nasser', meta: 'Head of Treasury · Majid Al Futtaim', last: '2 Jun 2024', lastWhat: 'Note added', positions: 2, owner: 'Sara Al-Mansour' },
+        { id: 'd3', name: 'Vikram Iyer', meta: 'Group Financial Controller · Aldar Properties', last: '30 Mar 2024', lastWhat: 'Added from an import', positions: 1, owner: null },
+        { id: 'd4', name: 'Claire Dubois', meta: 'Chief Financial Officer · Nakheel', last: '11 Jan 2024', lastWhat: 'Email sent', positions: 1, owner: 'Yousef Iman' },
+      ],
+      dueSel: dataDialog === 'delete-due' ? { d1: true, d3: true } : {},
+      suppressed: [
+        { id: 's1', kind: 'LINKEDIN', reason: 'ERASED', note: '', by: 'Yara Haddad', at: '2 Oct 2026' },
+        { id: 's2', kind: 'EMAIL', reason: 'ERASED', note: '', by: 'Yara Haddad', at: '2 Oct 2026' },
+        { id: 's3', kind: 'EMAIL', reason: 'OBJECTED', note: 'Asked by email on 28 Sep not to be contacted or kept on file.', by: 'Omar Khalil', at: '29 Sep 2026' },
+        { id: 's4', kind: 'LINKEDIN', reason: 'ADMIN', note: "Board member at a client's parent company. Never approach.", by: 'Yara Haddad', at: '14 Sep 2026' },
+      ],
+      supRemoveId: dataDialog === 'suppress-remove' ? 's3' : null,
+      supLinkedin: '', supEmail: '', supReason: 'ADMIN', supNote: '', supLinkedinError: '',
+      accountDialog, acctPassword: '', acctPasswordError: '', acctReauthed: false,
       members: [
         { id: 'yh', name: 'Yara Haddad', initials: 'YH', email: 'yara@alfuttaim.com', role: 'ADMIN', tint: 'sky' },
         { id: 'yi', name: 'Yousef Iman', initials: 'YI', email: 'yousef@alfuttaim.com', role: 'MEMBER', tint: 'amber' },
@@ -2621,8 +2953,9 @@ class Component extends DCLogic {
   renderVals() {
     const st = this.state, I = this.I, props = this.props;
     const isAdmin = props.isAdmin !== false, superAdmin = props.superAdmin !== false;
+    const providerOnly = !!props.providerOnly || (() => { try { return new URLSearchParams(location.search).get('providerOnly') === 'true'; } catch (e) { return false; } })();
     let sec = st.section;
-    if (!isAdmin && ['general', 'members', 'candidate-tags', 'task-presets', 'templates', 'template-editor'].includes(sec)) sec = 'profile';
+    if (!isAdmin && ['general', 'members', 'candidate-tags', 'task-presets', 'templates', 'template-editor', 'data'].includes(sec)) sec = 'profile';
     if (!superAdmin && ['library', 'library-editor'].includes(sec)) sec = 'profile';
     const scope = this.scopeOf(sec);
     const isTplList = sec === 'templates' || sec === 'library';
@@ -2636,7 +2969,7 @@ class Component extends DCLogic {
         style: 'display:flex;width:100%;align-items:center;justify-content:' + (c ? 'center' : 'flex-start') + ';gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);border:none;cursor:pointer;background:' + (on ? 'var(--panel2)' : 'transparent') + ';color:' + (on ? 'var(--text)' : 'var(--text2)') };
     };
     const navGroups = [{ label: 'Account', items: [item('profile', 'Profile', I.profile), item('notifications', 'Notifications', 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0'), item('availability', 'Availability', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z'), item('security', 'Security', I.lock), item('workspaces', 'Workspaces', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'), item('api-keys', 'API keys', I.key), item('ai-apps', 'Connected AI apps', I.sparkle)] }];
-    if (isAdmin) navGroups.push({ label: 'Workspace', items: [item('general', 'General', I.settings), item('meetings', 'Meetings & email', 'M12 6v6l4 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z'), item('members', 'Members', I.members), item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('candidate-tags', 'Candidate tags', 'M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4ZM7.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z'), item('task-presets', 'Task presets', 'M3 5l2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8'), item('pipeline-stages', 'Pipeline stages', I.columns), item('integrations', 'Integrations', 'M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8ZM12 18v4'), item('templates', 'Templates', I.file)] });
+    if (isAdmin) navGroups.push({ label: 'Workspace', items: [item('general', 'General', I.settings), item('meetings', 'Meetings & email', 'M12 6v6l4 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z'), item('members', 'Members', I.members), item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('candidate-tags', 'Candidate tags', 'M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4ZM7.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z'), item('task-presets', 'Task presets', 'M3 5l2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8'), item('pipeline-stages', 'Pipeline stages', I.columns), item('integrations', 'Integrations', 'M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8ZM12 18v4'), item('templates', 'Templates', I.file), item('data', 'Data & retention', I.database)] });
     else navGroups.push({ label: 'Workspace', items: [item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('pipeline-stages', 'Pipeline stages', I.columns)] });
     if (superAdmin) navGroups.push({ label: 'Platform', items: [item('library', 'Template library', I.position)] });
 
@@ -2889,7 +3222,7 @@ class Component extends DCLogic {
     const expiryDate = (() => { const d = new Date(2026, 9, 5 + Number(st.akExpiry)); return d.getDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()] + ' ' + d.getFullYear(); })();
 
     return Object.assign({
-      I, isAdmin, providerOnly: !!props.providerOnly, hasPassword: !props.providerOnly,
+      I, isAdmin, providerOnly, hasPassword: !providerOnly,
       sectionLabel: this.LABELS[sec] || 'Settings',
       isProfile: sec === 'profile', isSecurity: sec === 'security', isGeneral: sec === 'general', isMeetings: sec === 'meetings', isAvailability: sec === 'availability', isMembers: sec === 'members', isTplList, isEditor,
       isWorkspaces: sec === 'workspaces', isIntegrations: sec === 'integrations', ...this.integrationVals(inputStyle, primary),
@@ -3049,6 +3382,77 @@ class Component extends DCLogic {
       wsName: st.wsName, wsRegion: st.wsRegion, wsCurrency: st.wsCurrency, wsNameBlank: !st.wsName.trim(), wsSaveStyle: primary(!st.wsName.trim()),
       deleteOpen: st.deleteOpen, confirmName: st.confirmName, deleteBlocked,
       deleteButtonStyle: 'display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--red);border:1px solid var(--red);color:#fff;cursor:' + (deleteBlocked ? 'not-allowed;opacity:.5' : 'pointer'),
+
+      isData: sec === 'data',
+      ...(() => {
+        const never = st.retention === 'never';
+        const period = never ? '' : st.retention + ' months';
+        const savedPeriod = st.retentionSaved === 'never' ? '' : st.retentionSaved + ' months';
+        const check = (on) => 'display:grid;width:16px;height:16px;flex:none;place-items:center;border-radius:4px;color:var(--on-amber);' + (on ? 'background:var(--amber-btn);border:1px solid var(--amber-btn)' : 'background:var(--panel);border:1px solid var(--line)');
+        const due = st.due;
+        const selIds = due.filter((d) => st.dueSel[d.id]).map((d) => d.id);
+        const allOn = due.length > 0 && selIds.length === due.length;
+        const noSel = selIds.length === 0;
+        const ghost = (tone) => 'display:flex;align-items:center;justify-content:center;border-radius:6px;padding:7px 12px;font:500 12.5px var(--sans);background:var(--panel);border:1px solid ' + (tone === 'red' ? 'var(--red)' : 'var(--line)') + ';color:' + (tone === 'red' ? 'var(--red)' : 'var(--text2)') + ';cursor:' + (noSel ? 'not-allowed;opacity:.5' : 'pointer');
+        const selNames = due.filter((d) => st.dueSel[d.id]).map((d) => d.name);
+        const names = selNames.length <= 2 ? selNames.join(' and ') : selNames.slice(0, -1).join(', ') + ' and ' + selNames[selNames.length - 1];
+        const KIND = { LINKEDIN: ['LinkedIn', 'background:var(--panel);border:1px solid var(--line-soft);color:var(--text2)'], EMAIL: ['Email', 'background:var(--sky-dim);color:var(--sky)'] };
+        const REASON = { ERASED: ['Erased', 'var(--red)'], OBJECTED: ['Objected', 'var(--u-signal)'], ADMIN: ['Added by an admin', 'var(--text2)'] };
+        const pillBase = 'display:inline-flex;width:fit-content;border-radius:999px;padding:2px 8px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.05em;';
+        const removing = st.suppressed.find((x) => x.id === st.supRemoveId) || null;
+        const supCanAdd = !!(st.supLinkedin.trim() || st.supEmail.trim());
+        return {
+          retention: st.retention, retentionUnchanged: st.retention === st.retentionSaved, retentionSaveStyle: primary(st.retention === st.retentionSaved),
+          retentionNote: never
+            ? 'Retention is off: candidates are kept until someone deletes them. You can still delete anyone from Candidates.'
+            : 'Nobody is deleted without review. Whoever passes ' + period + ' waits under Due for deletion until an admin deletes them or keeps them for another ' + period + '.',
+          dueHasRows: due.length > 0 && st.retentionSaved !== 'never', dueEmptyShown: due.length === 0 || st.retentionSaved === 'never',
+          dueCountLabel: due.length === 1 ? '1 person' : due.length + ' people',
+          dueSubtitle: st.retentionSaved === 'never' ? 'Retention is off, so nobody becomes due.' : 'Untouched for ' + savedPeriod + ' and in no live position. Delete them, or keep them for another ' + savedPeriod + '.',
+          dueEmptyBody: st.retentionSaved === 'never' ? 'Retention is off, so nobody becomes due. Choose a period above to start reviewing.' : 'Candidates untouched for ' + savedPeriod + ' and in no live position appear here for you to review. Nothing is deleted until you say so.',
+          dueRows: due.map((d, i) => ({ id: d.id, name: d.name, meta: d.meta, last: d.last, lastWhat: d.lastWhat, owner: d.owner || 'Nobody',
+            positions: d.positions + ' · none live', on: !!st.dueSel[d.id], checked: String(!!st.dueSel[d.id]), boxStyle: check(!!st.dueSel[d.id]),
+            rowStyle: 'display:grid;grid-template-columns:24px minmax(0,1fr) 130px 120px 130px;align-items:center;gap:12px;padding:10px 0' + (i ? ';border-top:1px solid var(--line-soft)' : '') + (st.dueSel[d.id] ? ';background:color-mix(in srgb,var(--amber) 5%,transparent)' : '') })),
+          dueAllOn: allOn, dueAllChecked: allOn ? 'true' : selIds.length ? 'mixed' : 'false', dueAllBox: check(allOn),
+          dueNoSel: noSel, dueSelLabel: noSel ? 'Select people to act on' : selIds.length + ' selected',
+          dueKeepTitle: 'Keep for another ' + savedPeriod + ' from today', dueKeepStyle: ghost(), dueDeleteStyle: ghost('red'),
+          dueDeleteOpen: st.dataDialog === 'delete-due' && !noSel,
+          dueDeleteTitle: selIds.length === 1 ? 'Delete 1 candidate permanently?' : 'Delete ' + selIds.length + ' candidates permanently?', dueDeleteNames: names,
+
+          supHasRows: st.suppressed.length > 0, supEmpty: st.suppressed.length === 0,
+          supRows: st.suppressed.map((x, i) => ({ id: x.id, kindLabel: KIND[x.kind][0], kindStyle: pillBase + KIND[x.kind][1],
+            reasonLabel: REASON[x.reason][0], reasonStyle: 'font:500 12px var(--sans);color:' + REASON[x.reason][1],
+            note: x.note, noteShown: x.note || '—', noteStyle: 'min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font:400 12px/1.45 var(--sans);color:' + (x.note ? 'var(--text)' : 'var(--text3)'),
+            by: x.by, at: x.at, rowStyle: 'display:grid;grid-template-columns:86px 120px minmax(0,1fr) 120px 92px 62px;align-items:center;gap:12px;padding:9px 0' + (i ? ';border-top:1px solid var(--line-soft)' : '') })),
+          supAddOpen: st.dataDialog === 'suppress-add', supRemoveOpen: st.dataDialog === 'suppress-remove' && !!removing,
+          supRemoveBody: !removing ? '' : (removing.reason === 'ERASED'
+            ? 'This entry came from a permanent deletion. Once it goes, anyone can add that person again — from the browser plugin, an import or by hand.'
+            : 'Anyone can then add this person again — from the browser plugin, an import or by hand.'),
+          supLinkedin: st.supLinkedin, supEmail: st.supEmail, supNote: st.supNote, supNoteCount: st.supNote.length + ' / 500',
+          supLinkedinError: st.supLinkedinError, supLinkedinStyle: inputStyle(!!st.supLinkedinError, 'var(--panel2)'),
+          supReasons: [['ADMIN', 'Added by an admin', "Your firm's own decision, such as a client's board member."], ['OBJECTED', 'Objected', 'They asked not to be processed or contacted.']].map(([key, label, note]) => ({ key, label, note, on: st.supReason === key ? 'true' : 'false',
+            style: 'display:block;text-align:left;border-radius:8px;padding:10px 12px;cursor:pointer;' + (st.supReason === key ? 'border:1px solid var(--amber);background:var(--amber-dim)' : 'border:1px solid var(--line);background:var(--panel)') })),
+          supAddBlocked: !supCanAdd, supAddStyle: primary(!supCanAdd),
+
+          exportIdle: st.exportState === 'idle', exportRunning: st.exportState === 'running', exportReady: st.exportState === 'ready',
+        };
+      })(),
+      ...(() => {
+        const names = [st.wsName].concat(otherWorkspaces.map((w) => w.name));
+        const needsReauth = providerOnly && !st.acctReauthed;
+        const blocked = providerOnly ? needsReauth : !st.acctPassword;
+        return {
+          accountDeleteOpen: st.accountDialog !== 'none', accountBlocked: st.accountDialog === 'blocked', accountCanDelete: st.accountDialog === 'delete',
+          accountDeleteTitle: st.accountDialog === 'blocked' ? 'Hand over admin first' : 'Delete your account?',
+          accountWorkspacesLine: names.length === 1 ? names[0] : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1],
+          soleAdminWorkspaces: [{ id: 'alfuttaim', name: st.wsName, mark: st.wsName.charAt(0).toUpperCase(), meta: "You're its only admin · " + st.members.length + ' members',
+            rowStyle: 'display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 0' }],
+          acctPassword: st.acctPassword, acctPasswordError: st.acctPasswordError, acctPasswordStyle: inputStyle(!!st.acctPasswordError, 'var(--panel2)'),
+          acctNeedsReauth: needsReauth, acctReauthed: providerOnly && st.acctReauthed,
+          acctDeleteBlocked: blocked,
+          acctDeleteStyle: 'display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--red);border:1px solid var(--red);color:#fff;cursor:' + (blocked ? 'not-allowed;opacity:.5' : 'pointer'),
+        };
+      })(),
 
       members, membersSubtitle: st.members.length + ' ' + (st.members.length === 1 ? 'member' : 'members') + ' · each position has its own lead',
       invitations, hasInvitations: invitations.length > 0,
@@ -3211,6 +3615,60 @@ class Component extends DCLogic {
       closeDelete: () => this.setState({ deleteOpen: false, confirmName: '' }),
       onConfirmName: (e) => this.setState({ confirmName: e.target.value }),
       confirmDelete: () => { if (!deleteBlocked) { try { location.href = 'Signup.dc.html'; } catch (e) {} } },
+      goExport: () => this.goto('data', { deleteOpen: false, confirmName: '' }),
+
+      onRetention: (e) => this.setState({ retention: e.target.value }),
+      saveRetention: () => {
+        if (st.retention === st.retentionSaved) return;
+        this.setState({ retentionSaved: st.retention, dueSel: {} });
+        this.showToast(st.retention === 'never' ? 'Retention turned off' : 'Candidates are now kept for ' + st.retention + ' months untouched');
+      },
+      toggleDue: (e) => { const id = e.currentTarget.dataset.id; this.setState({ dueSel: Object.assign({}, st.dueSel, { [id]: !st.dueSel[id] }) }); },
+      toggleDueAll: () => { const all = st.due.length > 0 && st.due.every((d) => st.dueSel[d.id]); this.setState({ dueSel: all ? {} : Object.fromEntries(st.due.map((d) => [d.id, true])) }); },
+      keepDue: () => {
+        const n = st.due.filter((d) => st.dueSel[d.id]).length; if (!n) return;
+        this.setState({ due: st.due.filter((d) => !st.dueSel[d.id]), dueSel: {} });
+        this.showToast((n === 1 ? '1 person' : n + ' people') + ' kept for another ' + st.retentionSaved + ' months');
+      },
+      askDeleteDue: () => { if (st.due.some((d) => st.dueSel[d.id])) this.setState({ dataDialog: 'delete-due' }); },
+      confirmDeleteDue: () => {
+        const n = st.due.filter((d) => st.dueSel[d.id]).length;
+        this.setState({ dataDialog: 'none', due: st.due.filter((d) => !st.dueSel[d.id]), dueSel: {} });
+        this.showToast(n === 1 ? '1 candidate deleted permanently' : n + ' candidates deleted permanently');
+      },
+      closeDataDialog: () => this.setState({ dataDialog: 'none', supRemoveId: null }),
+      openSupAdd: () => this.setState({ dataDialog: 'suppress-add', supLinkedin: '', supEmail: '', supReason: 'ADMIN', supNote: '', supLinkedinError: '' }),
+      onSupLinkedin: (e) => this.setState({ supLinkedin: e.target.value, supLinkedinError: '' }),
+      onSupEmail: (e) => this.setState({ supEmail: e.target.value }),
+      onSupNote: (e) => this.setState({ supNote: e.target.value.slice(0, 500) }),
+      setSupReason: (e) => this.setState({ supReason: e.currentTarget.dataset.reason }),
+      confirmSupAdd: () => {
+        const li = st.supLinkedin.trim(), em = st.supEmail.trim();
+        if (!li && !em) return;
+        if (li && !/linkedin\.com\/in\/[^/?#\s]+/i.test(li)) { this.setState({ supLinkedinError: 'Paste a LinkedIn profile link, such as linkedin.com/in/name' }); return; }
+        const base = { reason: st.supReason, note: st.supNote.trim(), by: 'Yara Haddad', at: '5 Oct 2026' };
+        const added = [li ? Object.assign({ id: 's' + Date.now() + 'l', kind: 'LINKEDIN' }, base) : null, em ? Object.assign({ id: 's' + Date.now() + 'e', kind: 'EMAIL' }, base) : null].filter(Boolean);
+        this.setState({ dataDialog: 'none', suppressed: added.concat(st.suppressed) });
+        this.showToast(added.length === 2 ? 'Added the profile and the email to the suppression list' : 'Added to the suppression list');
+      },
+      askSupRemove: (e) => this.setState({ dataDialog: 'suppress-remove', supRemoveId: e.currentTarget.dataset.id }),
+      confirmSupRemove: () => {
+        this.setState({ dataDialog: 'none', suppressed: st.suppressed.filter((x) => x.id !== st.supRemoveId), supRemoveId: null });
+        this.showToast('Removed from the suppression list');
+      },
+      startExport: () => { this.setState({ exportState: 'running' }); this.showToast("Export started — we'll email you when it's ready"); },
+      downloadExport: () => this.showToast('Downloading — recorded in the audit log'),
+
+      downloadMyData: () => this.showToast('Downloading your account as JSON'),
+      openAccountDelete: () => this.setState({ accountDialog: isAdmin && st.members.filter((m) => m.role === 'ADMIN').length === 1 ? 'blocked' : 'delete', acctPassword: '', acctPasswordError: '', acctReauthed: false }),
+      closeAccountDelete: () => this.setState({ accountDialog: 'none', acctPassword: '', acctPasswordError: '', acctReauthed: false }),
+      onAcctPassword: (e) => this.setState({ acctPassword: e.target.value, acctPasswordError: '' }),
+      reauthAccount: () => this.setState({ acctReauthed: true }),
+      goSectionFromAccount: (e) => this.goto(e.currentTarget.dataset.section, { accountDialog: 'none', deleteOpen: e.currentTarget.dataset.section === 'general' }),
+      confirmAccountDelete: () => {
+        if (providerOnly ? !st.acctReauthed : !st.acctPassword) return;
+        try { location.href = 'Login.dc.html'; } catch (e) {}
+      },
 
       changeRole: (e) => {
         const id = e.currentTarget.dataset.id, role = e.target.value;
