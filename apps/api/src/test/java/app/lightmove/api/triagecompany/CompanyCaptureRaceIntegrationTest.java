@@ -3,8 +3,10 @@ package app.lightmove.api.triagecompany;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
@@ -28,7 +30,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @IntegrationTest
 class CompanyCaptureRaceIntegrationTest extends FlowTestSupport {
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
     @Autowired TriageCompanyService triage;
     @Autowired TransactionTemplate transactions;
 
@@ -46,15 +48,16 @@ class CompanyCaptureRaceIntegrationTest extends FlowTestSupport {
         CountDownLatch firstMayCommit = new CountDownLatch(1);
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
-            Future<UUID> first = pool.submit(() -> transactions.execute(status -> {
-                UUID id = triage.captureFromResearch(projectId, userId, employer).id();
-                firstFiled.countDown();
-                awaitQuietly(firstMayCommit);
-                return id;
-            }));
+            Future<UUID> first = pool.submit(() -> TestWorkspaceScopes.inProjectsWorkspace(db, projectId,
+                    () -> transactions.execute(status -> {
+                        UUID id = triage.captureFromResearch(projectId, userId, employer).id();
+                        firstFiled.countDown();
+                        awaitQuietly(firstMayCommit);
+                        return id;
+                    })));
             assertThat(firstFiled.await(10, TimeUnit.SECONDS)).isTrue();
-            Future<TriageCompanyResponse> second = pool.submit(() ->
-                    triage.captureFromResearch(projectId, userId, employer));
+            Future<TriageCompanyResponse> second = pool.submit(() -> TestWorkspaceScopes.inProjectsWorkspace(db,
+                    projectId, () -> triage.captureFromResearch(projectId, userId, employer)));
             Thread.sleep(300);
             assertThat(second.isDone()).isFalse();
             firstMayCommit.countDown();

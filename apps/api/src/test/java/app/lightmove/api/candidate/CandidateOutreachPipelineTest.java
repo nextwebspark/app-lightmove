@@ -54,8 +54,8 @@ class CandidateOutreachPipelineTest extends PipelineFlowSupport {
 
         Map<UUID, OutreachSkipReason> reasons = new HashMap<>();
         RecipientEligibility eligibility = new RecipientEligibility(Map.of());
-        for (OutreachRecipient recipient : outreach.recipientsOf(UUID.fromString(workspaceId),
-                UUID.fromString(projectId), List.of(flagged, placed, withdrew, source), List.of())) {
+        for (OutreachRecipient recipient : inWorkspace(() -> outreach.recipientsOf(UUID.fromString(workspaceId),
+                UUID.fromString(projectId), List.of(flagged, placed, withdrew, source), List.of()))) {
             reasons.put(recipient.candidateId(), eligibility.skipReasonOf(recipient));
         }
 
@@ -74,8 +74,8 @@ class CandidateOutreachPipelineTest extends PipelineFlowSupport {
         UUID outOfScope = candidate("outOfScope");
 
         for (UUID candidateId : List.of(source, arranging, screening, outOfScope)) {
-            transactions.executeWithoutResult(status -> outreach.recordEmailSent(null, UUID.fromString(projectId),
-                    candidateId, UUID.randomUUID(), "Opening", 1, UUID.randomUUID()));
+            inWorkspace(() -> transactions.executeWithoutResult(status -> outreach.recordEmailSent(null,
+                    UUID.fromString(projectId), candidateId, UUID.randomUUID(), "Opening", 1, UUID.randomUUID())));
         }
 
         assertThat(statusOf(source)).isEqualTo("contacted");
@@ -93,8 +93,8 @@ class CandidateOutreachPipelineTest extends PipelineFlowSupport {
         UUID offLimits = candidate("offLimits");
 
         for (UUID candidateId : List.of(identified, awaiting, callArranged, offLimits)) {
-            transactions.executeWithoutResult(status -> outreach.recordMeetingBooked(null,
-                    UUID.fromString(projectId), candidateId, Instant.now(), false));
+            inWorkspace(() -> transactions.executeWithoutResult(status -> outreach.recordMeetingBooked(null,
+                    UUID.fromString(projectId), candidateId, Instant.now(), false)));
         }
 
         assertThat(statusOf(identified)).isEqualTo("engaged");
@@ -115,10 +115,12 @@ class CandidateOutreachPipelineTest extends PipelineFlowSupport {
         UUID emailed = candidate("source");
         UUID booked = candidate("identified");
 
-        transactions.executeWithoutResult(status -> outreach.recordEmailSent(null, UUID.fromString(projectId),
-                emailed, UUID.randomUUID(), "Opening", 1, UUID.randomUUID()));
-        transactions.executeWithoutResult(status -> outreach.recordMeetingBooked(null,
-                UUID.fromString(projectId), booked, Instant.now(), false));
+        inWorkspace(() -> {
+            transactions.executeWithoutResult(status -> outreach.recordEmailSent(null, UUID.fromString(projectId),
+                    emailed, UUID.randomUUID(), "Opening", 1, UUID.randomUUID()));
+            transactions.executeWithoutResult(status -> outreach.recordMeetingBooked(null,
+                    UUID.fromString(projectId), booked, Instant.now(), false));
+        });
 
         assertThat(statusOf(emailed)).isEqualTo("contacted");
         assertThat(statusOf(booked)).isEqualTo("engaged");

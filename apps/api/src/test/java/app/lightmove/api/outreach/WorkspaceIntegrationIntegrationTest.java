@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
@@ -47,7 +48,7 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
     private static final String GOOGLE_APP = "acme-app.apps.googleusercontent.com";
     private static final DateTimeFormatter EMAIL_DATE = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH);
 
-    @Autowired JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc JdbcTemplate jdbc;
     @Autowired SecretCipher cipher;
     @Autowired ProviderCredentialsResolver resolver;
     @Autowired IntegrationSecretExpiryWarnings expiryWarnings;

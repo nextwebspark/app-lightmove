@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.core.security.token.Tokens;
@@ -23,7 +24,7 @@ class ApiKeyIntegrationTest extends FlowTestSupport {
 
     private static final String KEYS = "/api/v1/workspace/api-keys";
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     @Test
     @DisplayName("a member's personal key is shown once, stored only as its hash, and listed without its secret")

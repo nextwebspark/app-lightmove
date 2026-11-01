@@ -1,6 +1,7 @@
 package app.lightmove.api.task.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.tenant.EveryWorkspace;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.task.model.Task;
 import app.lightmove.api.task.model.TaskFallingDue;
@@ -22,7 +23,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Tells an assignee when an open task falls due within the hour and again once it is overdue — each once per due
  * date, claimed in one statement ({@code SKIP LOCKED}) so two instances never both announce a task. A task long
  * past its date is not news: only one that went overdue within the lookback is announced. An archived position's
- * tasks are not claimed, so one restored within the lookback is still announced.
+ * tasks are not claimed, so one restored within the lookback is still announced. Claimed a workspace at a time: the
+ * archived positions are read under row-level security, and read for no workspace they would be none, so every
+ * archived position's tasks would fall due.
  */
 @Component
 @RequiredArgsConstructor
@@ -37,7 +40,8 @@ public class TaskDueScanner {
     private static final String CLAIM_DUE_SOON = """
             UPDATE app_lm_task SET due_soon_notified_at = ?, version = version + 1
              WHERE id IN (SELECT id FROM app_lm_task
-                           WHERE status = 'OPEN' AND due_soon_notified_at IS NULL AND due_at > ? AND due_at <= ?
+                           WHERE workspace_id = ? AND status = 'OPEN' AND due_soon_notified_at IS NULL
+                             AND due_at > ? AND due_at <= ?
             """ + ON_LIVE_POSITION + """
                            ORDER BY due_at LIMIT ? FOR UPDATE SKIP LOCKED)
             RETURNING id
@@ -47,13 +51,15 @@ public class TaskDueScanner {
             UPDATE app_lm_task SET overdue_notified_at = ?, due_soon_notified_at = coalesce(due_soon_notified_at, ?),
                    version = version + 1
              WHERE id IN (SELECT id FROM app_lm_task
-                           WHERE status = 'OPEN' AND overdue_notified_at IS NULL AND due_at <= ? AND due_at > ?
+                           WHERE workspace_id = ? AND status = 'OPEN' AND overdue_notified_at IS NULL
+                             AND due_at <= ? AND due_at > ?
             """ + ON_LIVE_POSITION + """
                            ORDER BY due_at LIMIT ? FOR UPDATE SKIP LOCKED)
             RETURNING id
             """;
 
     private final JdbcTemplate jdbc;
+    private final EveryWorkspace workspaces;
     private final TransactionTemplate transactions;
     private final TaskRepository tasks;
     private final ApplicationEventPublisher events;
@@ -70,15 +76,17 @@ public class TaskDueScanner {
      * the scheduled call is a self-invocation, and without one the after-commit listeners never hear a claim.
      */
     public int scanAt(Instant now) {
-        Integer announced = transactions.execute(status -> claimAndAnnounce(now));
-        return announced == null ? 0 : announced;
+        return workspaces.sum(workspaceId -> {
+            Integer announced = transactions.execute(status -> claimAndAnnounce(workspaceId, now));
+            return announced == null ? 0 : announced;
+        });
     }
 
-    private int claimAndAnnounce(Instant now) {
+    private int claimAndAnnounce(UUID workspaceId, Instant now) {
         Timestamp at = Timestamp.from(now);
-        List<UUID> dueSoon = jdbc.queryForList(CLAIM_DUE_SOON, UUID.class, at, at,
+        List<UUID> dueSoon = jdbc.queryForList(CLAIM_DUE_SOON, UUID.class, at, workspaceId, at,
                 Timestamp.from(now.plus(properties.notifications().dueSoonWindow())), BATCH);
-        List<UUID> overdue = jdbc.queryForList(CLAIM_OVERDUE, UUID.class, at, at, at,
+        List<UUID> overdue = jdbc.queryForList(CLAIM_OVERDUE, UUID.class, at, at, workspaceId, at,
                 Timestamp.from(now.minus(OVERDUE_LOOKBACK)), BATCH);
         tasks.findAllById(dueSoon).forEach(task -> announce(task, false));
         tasks.findAllById(overdue).forEach(task -> announce(task, true));

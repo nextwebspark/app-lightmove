@@ -39,7 +39,7 @@ import java.lang.annotation.Target;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @ImportTestcontainers(TestcontainersConfig.class)
-@Import({SynchronousAuditWrites.class, StubChatModel.Config.class, StubEmbeddingModel.Config.class,
+@Import({SynchronousAuditWrites.class, FixtureJdbc.Config.class, StubChatModel.Config.class, StubEmbeddingModel.Config.class,
         RecordingEmailSender.Config.class, RecordingProfileEnricher.Config.class,
         RecordingCompanyEnricher.Config.class, StubGeocoder.Config.class,
         RecordingContactFinder.Config.class, RecordingPeopleSearch.Config.class,

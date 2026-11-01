@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import java.util.List;
@@ -30,7 +31,7 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
 
     private static final String PROJECTS = "/api/v1/public/projects";
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     @Test
     @DisplayName("a personal key reads the positions its owner is seated on; a workspace key reads every one, and no other workspace's")

@@ -17,6 +17,11 @@
 #
 # The user, password and database name DO match e2e (lm_app / lm / lightmove), so psql habits and
 # e2e/api/lib.sh's connection string shape transfer unchanged.
+#
+# lm_app is the database's owner and NOT a superuser — production's shape until #256. A superuser skips every
+# row-level security policy (V170), so an API connected as one would serve every workspace's rows to everyone and
+# RowLevelSecurityPosture refuses to boot over it. The container's superuser is `postgres`, for this script's own
+# work: psql, the seeds and the Apollo dump read every workspace.
 set -euo pipefail
 
 PG_CONTAINER="${PG_CONTAINER:-lm-dev-pg}"
@@ -49,6 +54,23 @@ running() {
 
 # psql inside the container, quiet and fatal on the first error, for the one-value queries below.
 q() { docker exec "$PG_CONTAINER" psql -U lm_app -d lightmove -v ON_ERROR_STOP=1 -tAc "$1"; }
+q_super() { docker exec "$PG_CONTAINER" psql -U postgres -d lightmove -v ON_ERROR_STOP=1 -tAc "$1"; }
+
+# A volume made before V170 has lm_app as the container's bootstrap superuser, and Postgres refuses to take
+# SUPERUSER from that one role, so it cannot be converted in place.
+ensure_app_role() {
+  if ! docker exec "$PG_CONTAINER" psql -U postgres -d lightmove -tAc "SELECT 1" >/dev/null 2>&1; then
+    say "this volume predates row-level security: its lm_app is the bootstrap superuser, which Postgres will not demote."
+    say "run \`npm run dev:db:reset\` (the Apollo universe is kept) and start again."
+    exit 1
+  fi
+  q_super "DO \$\$ BEGIN
+             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'lm_app') THEN
+               CREATE ROLE lm_app LOGIN PASSWORD 'lm' NOSUPERUSER NOBYPASSRLS;
+             END IF;
+           END \$\$;
+           ALTER DATABASE lightmove OWNER TO lm_app;" >/dev/null
+}
 
 apollo_exists() { [ -n "$(q "SELECT to_regclass('public.$APOLLO_TABLE')" 2>/dev/null || true)" ]; }
 apollo_rows()   { q "SELECT count(*) FROM $APOLLO_TABLE" 2>/dev/null || echo 0; }
@@ -182,20 +204,22 @@ up() {
     docker rm -f "$PG_CONTAINER" >/dev/null 2>&1 || true
     say "starting $PG_IMAGE as $PG_CONTAINER on :$PG_PORT (volume $PG_VOLUME)"
     docker run -d --name "$PG_CONTAINER" \
-      -e POSTGRES_USER=lm_app -e POSTGRES_PASSWORD=lm -e POSTGRES_DB=lightmove \
+      -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=lm -e POSTGRES_DB=lightmove \
       -v "$PG_VOLUME:/var/lib/postgresql/data" \
       -p "$PG_PORT:5432" "$PG_IMAGE" >/dev/null
   fi
 
   say "waiting for postgres to accept connections"
   for _ in $(seq 1 60); do
-    if docker exec "$PG_CONTAINER" pg_isready -U lm_app -d lightmove >/dev/null 2>&1; then break; fi
+    if docker exec "$PG_CONTAINER" pg_isready -d lightmove >/dev/null 2>&1; then break; fi
     sleep 1
   done
   # Not `|| true`: if it never came up, fail here rather than let Flyway produce a Hikari stack trace
   # that says nothing about the actual cause.
-  docker exec "$PG_CONTAINER" pg_isready -U lm_app -d lightmove >/dev/null || {
+  docker exec "$PG_CONTAINER" pg_isready -d lightmove >/dev/null || {
     say "postgres never became ready — logs:"; docker logs --tail 40 "$PG_CONTAINER"; exit 1; }
+  # Not while reset snapshots a volume it is about to drop: that volume may be the very one the check refuses.
+  [ -n "${SNAPSHOT_ONLY:-}" ] || ensure_app_role
 
   # Before the API boots, so Flyway meets the table already present and V23's guard skips its body.
   [ -f "$APOLLO_CACHE" ] && apollo_restore || true
@@ -216,7 +240,7 @@ reset() {
   # `reset` from a cold container is the common case, so start it back up for as long as the dump takes.
   if ! running && docker volume inspect "$PG_VOLUME" >/dev/null 2>&1; then
     say "starting $PG_CONTAINER briefly to snapshot $APOLLO_TABLE before the wipe"
-    up >/dev/null
+    SNAPSHOT_ONLY=1 up >/dev/null
   fi
   apollo_save
 
@@ -237,7 +261,7 @@ case "${1:-up}" in
     require_docker
     running || { say "$PG_CONTAINER is not running — run \`npm run dev:db\` first"; exit 1; }
     shift
-    exec docker exec -it "$PG_CONTAINER" psql -U lm_app -d lightmove "$@"
+    exec docker exec -it "$PG_CONTAINER" psql -U postgres -d lightmove "$@"
     ;;
   seed-report)
     # Demo data for the Reports tab. Reaches this container and nothing else: there is no code path
@@ -245,7 +269,7 @@ case "${1:-up}" in
     require_docker
     running || { say "$PG_CONTAINER is not running — run \`npm run dev:db\` first"; exit 1; }
     say "seeding the report's demo data into ${2:-the mandate seeded before, else the newest}"
-    docker exec -i "$PG_CONTAINER" psql -U lm_app -d lightmove -q -v ON_ERROR_STOP=1 -v project="${2:-}" \
+    docker exec -i "$PG_CONTAINER" psql -U postgres -d lightmove -q -v ON_ERROR_STOP=1 -v project="${2:-}" \
       < "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/seed-report.sql"
     ;;
   seed-firm)
@@ -254,7 +278,7 @@ case "${1:-up}" in
     require_docker
     running || { say "$PG_CONTAINER is not running — run \`npm run dev:db\` first"; exit 1; }
     say "seeding the firm persona into ${2:-the newest workspace}"
-    docker exec -i "$PG_CONTAINER" psql -U lm_app -d lightmove -q -v ON_ERROR_STOP=1 -v workspace="${2:-}" \
+    docker exec -i "$PG_CONTAINER" psql -U postgres -d lightmove -q -v ON_ERROR_STOP=1 -v workspace="${2:-}" \
       < "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/seed-firm.sql"
     ;;
   *)

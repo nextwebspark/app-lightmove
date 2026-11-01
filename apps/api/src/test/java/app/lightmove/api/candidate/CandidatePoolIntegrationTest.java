@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingProfileEnricher;
@@ -45,7 +46,7 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
             List.of(), List.of("Financial Planning"), List.of("English", "Arabic"), null,
             EnrichmentVendor.BRIGHTDATA);
 
-    @Autowired private JdbcTemplate db;
+    @Autowired @FixtureJdbc private JdbcTemplate db;
     @Autowired private RecordingProfileEnricher enricher;
     @Autowired private StubChatModel model;
 

@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.core.security.mfa.TestTotp;
@@ -29,7 +30,7 @@ import tools.jackson.databind.JsonNode;
 @IntegrationTest
 class MfaFlowIntegrationTest extends FlowTestSupport {
 
-    @Autowired JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc JdbcTemplate jdbc;
 
     @Test
     @DisplayName("a right password earns a challenge, not a session, and the code completes the sign-in")

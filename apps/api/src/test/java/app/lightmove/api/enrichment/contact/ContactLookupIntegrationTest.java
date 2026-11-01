@@ -6,9 +6,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingContactFinder;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.model.CandidateEmail;
 import app.lightmove.api.candidate.model.FoundEmails;
@@ -24,6 +26,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -45,6 +48,7 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
     private static final FoundPhones PHONES =
             new FoundPhones("contactout", List.of("+12065550100", "651-555-0142"));
 
+    @Autowired @FixtureJdbc JdbcTemplate fixture;
     @Autowired private RecordingContactFinder finder;
     @Autowired private CandidateService candidates;
 
@@ -209,11 +213,13 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
         String candidateId = executive(projectId, "Sample Person", "sample-profile");
 
         // Both presses pass the guard before either writes, so both reach here with their own answer.
-        candidates.applyFoundEmails(null, UUID.fromString(projectId), UUID.fromString(candidateId), EMAILS);
-        CandidateResponse loser = candidates.applyFoundEmails(null, UUID.fromString(projectId),
-                UUID.fromString(candidateId),
-                new FoundEmails("contactout",
-                        List.of(new CandidateEmail("later@retailco.example", CandidateEmail.WORK, null))));
+        UUID project = UUID.fromString(projectId);
+        TestWorkspaceScopes.inProjectsWorkspace(fixture, project, () -> candidates.applyFoundEmails(null, project,
+                UUID.fromString(candidateId), EMAILS));
+        CandidateResponse loser = TestWorkspaceScopes.inProjectsWorkspace(fixture, project,
+                () -> candidates.applyFoundEmails(null, project, UUID.fromString(candidateId),
+                        new FoundEmails("contactout",
+                                List.of(new CandidateEmail("later@retailco.example", CandidateEmail.WORK, null)))));
 
         // The second write is dropped, and the row it answers with is the first's — which is what the
         // endpoint now reads its outcome from, so the two halves of one response cannot disagree.

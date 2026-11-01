@@ -1,10 +1,12 @@
 package app.lightmove.api.triagecompany.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.tenant.EveryWorkspace;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -22,11 +24,14 @@ public class CompanyNotePurge {
     private static final int BATCH = 1000;
 
     private final NamedParameterJdbcTemplate jdbc;
+    private final EveryWorkspace workspaces;
     private final Clock clock;
     private final Duration purgeAfter;
 
-    public CompanyNotePurge(NamedParameterJdbcTemplate jdbc, Clock clock, LightMoveProperties properties) {
+    public CompanyNotePurge(NamedParameterJdbcTemplate jdbc, EveryWorkspace workspaces, Clock clock,
+                             LightMoveProperties properties) {
         this.jdbc = jdbc;
+        this.workspaces = workspaces;
         this.clock = clock;
         this.purgeAfter = properties.notes().purgeAfter();
     }
@@ -38,7 +43,16 @@ public class CompanyNotePurge {
     }
 
     public int purgeAt(Instant now) {
+        int purged = workspaces.sum(workspaceId -> purgeIn(workspaceId, now));
+        if (purged > 0) {
+            log.info("Purged {} company notes deleted before {}", purged, now.minus(purgeAfter));
+        }
+        return purged;
+    }
+
+    private int purgeIn(UUID workspaceId, Instant now) {
         MapSqlParameterSource cutoff = new MapSqlParameterSource("cutoff", Timestamp.from(now.minus(purgeAfter)))
+                .addValue("workspaceId", workspaceId)
                 .addValue("batch", BATCH);
         int purged = 0;
         int deleted;
@@ -46,13 +60,11 @@ public class CompanyNotePurge {
             deleted = jdbc.update("""
                     DELETE FROM app_lm_company_note
                     WHERE id IN (SELECT id FROM app_lm_company_note
-                                 WHERE deleted_at < :cutoff ORDER BY deleted_at LIMIT :batch)
+                                 WHERE workspace_id = :workspaceId AND deleted_at < :cutoff
+                                 ORDER BY deleted_at LIMIT :batch)
                     """, cutoff);
             purged += deleted;
         } while (deleted == BATCH);
-        if (purged > 0) {
-            log.info("Purged {} company notes deleted before {}", purged, now.minus(purgeAfter));
-        }
         return purged;
     }
 }

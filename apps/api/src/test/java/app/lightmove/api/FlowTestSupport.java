@@ -41,7 +41,7 @@ public abstract class FlowTestSupport {
     @Autowired private RecordingProfileEnricher profileEnricher;
     @Autowired private RecordingCompanyEnricher companyEnricher;
     @Autowired private StubGeocoder geocoder;
-    @Autowired private JdbcTemplate vendorCache;
+    @Autowired @FixtureJdbc private JdbcTemplate vendorCache;
 
     protected String domain;
 

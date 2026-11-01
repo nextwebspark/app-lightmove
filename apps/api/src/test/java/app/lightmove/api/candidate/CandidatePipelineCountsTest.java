@@ -133,8 +133,8 @@ class CandidatePipelineCountsTest extends PipelineFlowSupport {
         add(projectId, """
                 {"fullName":"Interested Person","status":"interested"}""");
 
-        Map<UUID, Long> reached = counter.countReachedOutByProject(new CandidateCountScope(
-                UUID.fromString(workspaceId), List.of(UUID.fromString(projectId)), Set.of()));
+        Map<UUID, Long> reached = inWorkspace(() -> counter.countReachedOutByProject(new CandidateCountScope(
+                UUID.fromString(workspaceId), List.of(UUID.fromString(projectId)), Set.of())));
 
         assertThat(reached.get(UUID.fromString(projectId))).isEqualTo(1L);
     }

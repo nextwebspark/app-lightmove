@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import java.nio.charset.StandardCharsets;
@@ -33,7 +34,7 @@ class AuditLogIntegrationTest extends FlowTestSupport {
 
     private static final String LOG = "/api/v1/workspace/audit-events";
 
-    @Autowired private JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc private JdbcTemplate jdbc;
 
     private String adminEmail;
     private String admin;

@@ -4,6 +4,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.dto.BookOnPageRequest;
 import app.lightmove.api.outreach.dto.BookingSlotsResponse;
 import app.lightmove.api.outreach.dto.SlotDayResponse;
@@ -101,8 +102,9 @@ public class DirectBookingPage {
         BookingMade made = new BookingMade(mailbox.getGrantId(), null, created.id(), created.title(), startsAt,
                 endsAt, List.of(mailbox.getAddress(), bookerAddress));
         try {
-            transactions.executeWithoutResult(status -> mailboxes.findById(mailbox.getId())
-                    .ifPresent(fresh -> linkBookings.apply(fresh, made, now)));
+            // Nobody is signed in: the booking is recorded in the page's own workspace, where its people are.
+            WorkspaceScope.run(mailbox.getWorkspaceId(), () -> transactions.executeWithoutResult(status ->
+                    mailboxes.findById(mailbox.getId()).ifPresent(fresh -> linkBookings.apply(fresh, made, now))));
         } catch (RuntimeException failed) {
             // The invite has gone; without this line nothing would say that an event exists with no booking behind it.
             log.error("Invite {} went out from mailbox {} through its booking page, but recording the booking failed",

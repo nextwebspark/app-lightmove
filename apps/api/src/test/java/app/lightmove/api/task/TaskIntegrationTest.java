@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.candidate.PipelineFlowSupport;
 import app.lightmove.api.outreach.model.OutreachReplied;
@@ -35,7 +36,7 @@ class TaskIntegrationTest extends PipelineFlowSupport {
 
     @Autowired private ApplicationEventPublisher events;
     @Autowired private TransactionTemplate transactions;
-    @Autowired private JdbcTemplate db;
+    @Autowired @FixtureJdbc private JdbcTemplate db;
     @Autowired private TaskDueScanner dueScanner;
 
     private String projectId;
@@ -351,9 +352,9 @@ class TaskIntegrationTest extends PipelineFlowSupport {
     private void replied(UUID messageId) {
         UUID personId = db.queryForObject("select person_id from app_lm_project_candidate where id = ?::uuid",
                 UUID.class, layla);
-        transactions.executeWithoutResult(status -> events.publishEvent(new OutreachReplied(
+        inWorkspace(() -> transactions.executeWithoutResult(status -> events.publishEvent(new OutreachReplied(
                 UUID.fromString(workspaceId), UUID.fromString(projectId), UUID.fromString(layla), personId,
-                UUID.randomUUID(), UUID.fromString(researcherId), messageId)));
+                UUID.randomUUID(), UUID.fromString(researcherId), messageId))));
     }
 
     private MvcResult created(String token, String candidateId, String title, String assigneeId, String dueAt)

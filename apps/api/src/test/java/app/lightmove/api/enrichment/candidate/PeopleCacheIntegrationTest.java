@@ -3,6 +3,7 @@ package app.lightmove.api.enrichment.candidate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.core.config.BrightDataSettings;
 import app.lightmove.api.core.resilience.service.VendorCallGuard;
@@ -40,7 +41,7 @@ class PeopleCacheIntegrationTest {
     @Autowired private VendorRateLimiter rateLimiter;
     @Autowired private VendorCallGuard guard;
     @Autowired private ProfilePhotoDownloader photos;
-    @Autowired private JdbcTemplate db;
+    @Autowired @FixtureJdbc private JdbcTemplate db;
     @Autowired private ObjectMapper json;
 
     @BeforeEach

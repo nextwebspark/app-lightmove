@@ -3,6 +3,7 @@ package app.lightmove.api.core.security.model;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
+import app.lightmove.api.core.tenant.TenantPrincipal;
 import java.util.Set;
 import java.util.UUID;
 
@@ -20,7 +21,7 @@ public record AuthPrincipal(
         UUID workspaceId,
         Set<WorkspaceRole> roles,
         boolean emailVerified
-) {
+) implements TenantPrincipal {
 
     public AuthPrincipal {
         roles = roles == null ? Set.of() : Set.copyOf(roles);

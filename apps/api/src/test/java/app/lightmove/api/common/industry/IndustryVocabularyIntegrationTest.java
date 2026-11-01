@@ -2,6 +2,7 @@ package app.lightmove.api.common.industry;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.common.industry.model.ResolvedIndustry;
 import app.lightmove.api.common.industry.service.Industries;
@@ -30,7 +31,7 @@ import tools.jackson.databind.ObjectMapper;
 @IntegrationTest
 class IndustryVocabularyIntegrationTest {
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
     @Autowired SectorTaxonomy taxonomy;
 
     @Test
