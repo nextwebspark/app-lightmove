@@ -1007,7 +1007,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - Client access is **two tiers, two decisions**: registry (`CLIENT_RECORD_MANAGE`, ADMIN+MEMBER) vs mandate (`CLIENT_ACCESS_MANAGE`, LEAD only). Project content is seat-gated `WORK_VIEW`/`WORK_EXECUTE`, not `PROJECT_BROWSE`.
 - **A platform role sits above every tenant and inside none**: `SUPER_ADMIN` gates `/api/v1/platform/**` (`@platformAuthorizer`) and nothing else, is granted by ops script only, and never rides in the JWT.
 - **An identity provider is a yml block** — never branch on a provider name anywhere.
-- **Tokens are never stored raw** (SHA-256); the refresh cookie rotates on every use; the access token lives in JS memory only.
+- **Tokens are never stored raw** (SHA-256) — the one exception a profile photo's link, which every colleague's screen draws and which opens that one image; the refresh cookie rotates on every use; the access token lives in JS memory only.
 - **The SPA and API are one origin**; every endpoint lives under `/api/v1`. Don't split hosts.
 - **An MCP token's `aud` is the MCP endpoint and it is signed by its own key**; the session decoder checks our issuer and refuses any token carrying an `aud`, so neither token opens the other's routes.
 - **No token passthrough:** an MCP tool calls our services in-process as its `McpCaller`; a caller's token is never forwarded to another service, ours or a provider's.
@@ -1416,6 +1416,15 @@ V169 gives `app_lm_workspace_mail_integration` the saved app's read-only facts: 
 `secret_saved_at`/`secret_saved_by`, and `keys_checked_at`/`keys_refused_with` (the provider's last answer, its code
 when it refused) — all null on a shared row (CHECK). No backfill: no SQL can read the ciphertext, so an older
 secret's hint is read from it at runtime and never written back.
+V170 adds `app_lm_user_avatar` — a person's profile photo held by us (account data, one per user): their own upload
+from Settings → Profile (cropped in the browser, re-encoded by `core/security/avatar`'s `AvatarImages` to a ≤ 512px JPEG,
+JPEG or PNG only) or a copy of the picture their sign-in provider named, downloaded once a sign-in has completed through
+`HttpPictureFetcher` (on `core/http`'s `GuardedHttpClient`, the client id metadata fetch's guard: every resolved address
+public, no redirect, a size cap, one deadline) — and `app_lm_user.avatar_url` names it as the public
+`/api/v1/avatars/{token}`, a new token per picture, cached privately for a year. V25's `USER` source is written: an upload
+or a removal no provider replaces (`User.mayTakeAvatarFrom`), and once a workspace can enforce its identity provider's
+sign-in, `isAvatarEditable` is where its directory photo becomes final. It clears every provider link stored before it,
+which expired and, once dead, kept every other provider out: the next sign-in copies the picture.
 V167 adds `app_lm_project_candidate.company_filed_for_them`: their company was filed for them (research, or the
 employer the workspace knew them at) rather than already held, cleared by any move; only the plugin's Undo reads it.
 V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage

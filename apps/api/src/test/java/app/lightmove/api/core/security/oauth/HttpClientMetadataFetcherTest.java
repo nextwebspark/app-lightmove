@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.lightmove.api.core.config.McpSettings;
+import app.lightmove.api.core.http.service.PublicAddressResolver;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsServer;
@@ -196,14 +197,6 @@ class HttpClientMetadataFetcherTest {
                             refused -> assertThat(refused.refusal()).isEqualTo(ClientMetadataRefusal.PRIVATE_ADDRESS));
         } finally {
             guarded.destroy();
-        }
-    }
-
-    @Test
-    @DisplayName("public addresses pass the guard")
-    void publicAddressesPass() throws Exception {
-        for (String address : new String[] {"8.8.8.8", "1.1.1.1", "2606:4700:4700::1111", "64:ff9b::808:808"}) {
-            assertThat(PublicAddressResolver.isPublic(InetAddress.getByName(address))).as(address).isTrue();
         }
     }
 

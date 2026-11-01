@@ -3,6 +3,7 @@ package app.lightmove.api.core.security.controller;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
+import app.lightmove.api.core.security.avatar.UserAvatarService;
 import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.ChangePasswordRequest;
 import app.lightmove.api.core.security.dto.ForgotPasswordRequest;
@@ -39,6 +40,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -46,13 +48,17 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /** The auth endpoints. The refresh token belongs in an httpOnly cookie, never a response body. */
 @RestController
@@ -65,6 +71,7 @@ public class AuthController {
     private final PasswordResetService passwordReset;
     private final PasswordChangeService passwordChange;
     private final UserProfileService userProfile;
+    private final UserAvatarService avatars;
     private final RefreshCookieFactory refreshCookie;
     private final RateLimitGuard rateLimit;
     private final AuthResponseAssembler assembler;
@@ -213,6 +220,22 @@ public class AuthController {
                 new ProfileUpdateCommand(
                         request.fullName(), request.title(), request.timezone(), request.locale()),
                 httpRequest);
+        return assembler.userIn(principal.userId(), principal.workspaceId());
+    }
+
+    /** The caller's own photo, from the principal; the cookie chain's CSRF check applies, as to {@code PATCH /me}. */
+    @PutMapping(path = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public UserResponse uploadAvatar(@AuthenticationPrincipal AuthPrincipal principal,
+                                     @RequestParam(name = "file", required = false) MultipartFile file,
+                                     HttpServletRequest httpRequest) {
+        avatars.upload(principal.userId(), principal.workspaceId(), file, httpRequest);
+        return assembler.userIn(principal.userId(), principal.workspaceId());
+    }
+
+    @DeleteMapping("/me/avatar")
+    public UserResponse removeAvatar(@AuthenticationPrincipal AuthPrincipal principal,
+                                     HttpServletRequest httpRequest) {
+        avatars.remove(principal.userId(), principal.workspaceId(), httpRequest);
         return assembler.userIn(principal.userId(), principal.workspaceId());
     }
 

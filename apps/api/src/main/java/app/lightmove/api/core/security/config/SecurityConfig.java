@@ -332,6 +332,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, API + "/notetaker/webhooks/recall/live").permitAll()
                         // Stripe's likewise: its signature, checked by the payment gateway, is the credential.
                         .requestMatchers(HttpMethod.POST, API + "/billing/webhooks/stripe").permitAll()
+                        // A stored profile photo: drawn by a plain <img>, which carries no token; the link's token is the guard.
+                        .requestMatchers(HttpMethod.GET, API + "/avatars/*").permitAll()
 
                         // Tenant data: an unverified user may not read a single candidate record.
                         .requestMatchers(API + "/**").access(verified)

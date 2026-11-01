@@ -35,5 +35,15 @@ public record RateLimitSettings(
         @DefaultValue("30") int bookingPageOpensPerMinute,
 
         /** Booking through a link: each one is an invite on a consultant's calendar, so a tight brake. */
-        @DefaultValue("5") int bookingPageBookingsPerHour
+        @DefaultValue("5") int bookingPageBookingsPerHour,
+
+        /** A profile photo upload or removal: a few per person, but a whole firm sets theirs from one office IP. */
+        @DefaultValue("20") int avatarChangesPerHour,
+        @DefaultValue("300") int avatarChangesPerHourPerIp,
+
+        /**
+         * Opening a stored profile photo: public, and a roster draws dozens at once from one office IP. Each answer is
+         * cached for a year, so a browser asks once per picture; this is a brake on scanning tokens, nothing more.
+         */
+        @DefaultValue("1200") int avatarReadsPerMinute
 ) {}

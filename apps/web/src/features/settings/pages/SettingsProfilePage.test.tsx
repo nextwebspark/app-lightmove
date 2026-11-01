@@ -21,6 +21,20 @@ vi.mock("../../../lib/apiClient", async (importOriginal) => ({
 
 const { restoreSession } = await import("../../../lib/apiClient");
 
+// jsdom has no canvas or layout: the cropper reports a framed square at once, and drawing it is a stub.
+vi.mock("react-easy-crop", async () => {
+  const { useEffect } = await import("react");
+  function MockCropper({ onCropComplete }: { onCropComplete: (area: unknown, pixels: unknown) => void }) {
+    // Once, as the real one reports on load: the page's handler is a new function every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => onCropComplete({}, { x: 0, y: 0, width: 400, height: 400 }), []);
+    return <div data-testid="cropper" />;
+  }
+  return { default: MockCropper };
+});
+vi.mock("../lib/croppedPhoto", () => ({ croppedPhoto: vi.fn() }));
+const { croppedPhoto } = await import("../lib/croppedPhoto");
+
 /** Settings → Profile: the caller's own display fields, and the two they may not touch. */
 describe("SettingsProfilePage — your own profile", () => {
   const admin = {
@@ -29,6 +43,7 @@ describe("SettingsProfilePage — your own profile", () => {
     fullName: "Alok Kumar",
     title: "Managing Partner",
     avatarUrl: null,
+    avatarEditable: true,
     emailVerified: true,
     hasPassword: true,
     timezone: "Asia/Dubai",
@@ -68,6 +83,9 @@ describe("SettingsProfilePage — your own profile", () => {
     vi.mocked(restoreSession).mockResolvedValue("token");
     vi.mocked(authApi.me).mockResolvedValue(admin);
     vi.mocked(authApi.updateProfile).mockResolvedValue(admin);
+    vi.mocked(croppedPhoto).mockResolvedValue(new Blob(["jpeg"], { type: "image/jpeg" }));
+    URL.createObjectURL = vi.fn(() => "blob:picked");
+    URL.revokeObjectURL = vi.fn();
   });
 
   it("fills the form from the session and states the standing it cannot change", async () => {
@@ -169,4 +187,96 @@ describe("SettingsProfilePage — your own profile", () => {
 
     expect(await screen.findByText("Pick a timezone from the list")).toBeInTheDocument();
   });
+
+  describe("the photo", () => {
+    const picked = new File(["png"], "me.png", { type: "image/png" });
+
+    it("frames a picked picture and uploads the square, then refreshes the session", async () => {
+      vi.mocked(authApi.uploadAvatar).mockResolvedValue({ ...admin, avatarUrl: "/api/v1/avatars/abc" });
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.upload(await screen.findByLabelText("Choose a profile photo"), picked);
+      expect(await screen.findByRole("dialog", { name: "Profile photo" })).toBeInTheDocument();
+      await user.click(await savePhotoButton());
+
+      await waitFor(() => expect(authApi.uploadAvatar).toHaveBeenCalledWith(expect.any(Blob)));
+      expect(croppedPhoto).toHaveBeenCalledWith("blob:picked", { x: 0, y: 0, width: 400, height: 400 });
+      expect(await screen.findByText("Profile photo saved")).toBeInTheDocument();
+      await waitFor(() => expect(authApi.me).toHaveBeenCalledTimes(2));
+      expect(screen.queryByRole("dialog", { name: "Profile photo" })).not.toBeInTheDocument();
+      expect(authApi.uploadAvatar).toHaveBeenCalledTimes(1);
+    });
+
+    it("says a picture it could not draw is the browser's, and a failed send is the connection's", async () => {
+      vi.mocked(croppedPhoto).mockRejectedValueOnce(new Error("decode"));
+      vi.mocked(authApi.uploadAvatar).mockRejectedValueOnce(new TypeError("Failed to fetch"));
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.upload(await screen.findByLabelText("Choose a profile photo"), picked);
+      await user.click(await savePhotoButton());
+      expect(await screen.findByRole("alert")).toHaveTextContent("This browser can't open that image");
+      expect(authApi.uploadAvatar).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole("button", { name: "Save photo" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent("Could not reach Uncava");
+      expect(screen.getByRole("dialog", { name: "Profile photo" })).toBeInTheDocument();
+    });
+
+    it("keeps the dialog open with the server's reason when it refuses the picture", async () => {
+      vi.mocked(authApi.uploadAvatar).mockRejectedValue(
+        new ApiRequestError({
+          code: "VALIDATION_FAILED",
+          detail: "One or more fields are invalid",
+          status: 400,
+          correlationId: "c1",
+          fieldErrors: { file: "Use a JPG or PNG image" },
+        }),
+      );
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.upload(await screen.findByLabelText("Choose a profile photo"), picked);
+      await user.click(await savePhotoButton());
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Use a JPG or PNG image");
+      expect(screen.getByRole("dialog", { name: "Profile photo" })).toBeInTheDocument();
+    });
+
+    it("offers Remove photo only while there is one, and removes it", async () => {
+      vi.mocked(authApi.me).mockResolvedValue({ ...admin, avatarUrl: "/api/v1/avatars/abc" });
+      vi.mocked(authApi.removeAvatar).mockResolvedValue(admin);
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(await screen.findByRole("button", { name: "Remove photo" }));
+
+      await waitFor(() => expect(authApi.removeAvatar).toHaveBeenCalled());
+      expect(await screen.findByText("Profile photo removed")).toBeInTheDocument();
+    });
+
+    it("draws no Remove photo for initials", async () => {
+      renderPage();
+
+      expect(await screen.findByRole("button", { name: "Change photo" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Remove photo" })).not.toBeInTheDocument();
+    });
+
+    it("offers no change where the organisation's sign-in supplies the photo", async () => {
+      vi.mocked(authApi.me).mockResolvedValue({ ...admin, avatarEditable: false, avatarUrl: "/api/v1/avatars/abc" });
+      renderPage();
+
+      expect(await screen.findByText("Your photo comes from your organisation's sign-in")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Change photo" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Remove photo" })).not.toBeInTheDocument();
+    });
+  });
 });
+
+/** Enabled once the cropper has reported its square; a click before that does nothing. */
+async function savePhotoButton(): Promise<HTMLElement> {
+  const button = await screen.findByRole("button", { name: "Save photo" });
+  await waitFor(() => expect(button).toBeEnabled());
+  return button;
+}

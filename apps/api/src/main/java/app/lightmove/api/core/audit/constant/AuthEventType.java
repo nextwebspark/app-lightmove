@@ -25,6 +25,10 @@ public enum AuthEventType implements AuditEventType {
 
     /** The user edited their own display fields. */
     PROFILE_UPDATED,
+    /** The user uploaded their own profile photo. */
+    AVATAR_UPLOADED,
+    /** The user removed their profile photo; no provider sign-in brings one back. */
+    AVATAR_REMOVED,
 
     PASSWORD_CHANGED,
     PASSWORD_RESET_REQUESTED,
