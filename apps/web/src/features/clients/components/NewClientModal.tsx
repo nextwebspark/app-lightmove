@@ -39,7 +39,6 @@ export function NewClientModal({
     () => new Map(clients.map((client) => [client.name.toLowerCase(), client])),
     [clients],
   );
-  const existingNames = useMemo(() => new Set(holdersByName.keys()), [holdersByName]);
 
   const [pick, setPick] = useState<CompanyPick | null>(null);
   const [unitName, setUnitName] = useState("");
@@ -139,7 +138,7 @@ export function NewClientModal({
         <CompanyPicker
           pick={pick}
           onPick={handlePick}
-          existingNames={existingNames}
+          existingClients={clients}
           onRejectExisting={(name) => toast(`${name} is already a ${vocabulary.unitLower}`)}
           autoFocus
         />

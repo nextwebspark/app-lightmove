@@ -28,6 +28,8 @@ export interface ViewerSummary {
 export interface Client {
   id: string;
   name: string;
+  /** The universe company the record was picked as, whatever it is called now; null for one typed in by hand. */
+  apolloAccountId: string | null;
   type: ClientType;
   sector: string | null;
   hqCountry: string | null;

@@ -1,5 +1,6 @@
 package app.lightmove.api.project.dto;
 
+import app.lightmove.api.project.model.NewClientDetails;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 
@@ -23,4 +24,10 @@ public record CreateClientRequest(
         String hqCountry,
 
         @Valid PrimaryContactRequest primaryContact
-) {}
+) {
+
+    public NewClientDetails details() {
+        return new NewClientDetails(company == null ? null : company.apolloAccountId(), customName, customDomain,
+                sector, hqCountry);
+    }
+}

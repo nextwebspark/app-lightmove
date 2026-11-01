@@ -1,5 +1,6 @@
 import type { WorkspaceCompany } from "../../auth/api/types";
 import type { CompanySuggestion } from "../../strategy/api/types";
+import type { Client } from "../api/types";
 
 /**
  * A company chosen for a new client: a row of the universe, or a record typed in because the market
@@ -21,6 +22,21 @@ export function pickedCompanyName(pick: CompanyPick): string {
 /** A custom record has no mark; `CompanyLogo` renders its initial instead. */
 export function pickedCompanyLogo(pick: CompanyPick): string | null {
   return pick.source === "universe" ? pick.company.logoUrl : null;
+}
+
+/**
+ * The record already filed as this company: picked as it — renamed since or not, which a name alone misses — or
+ * holding its name. The same two holders the server refuses a second record for.
+ */
+export function clientHolding(
+  clients: readonly Client[],
+  company: Pick<CompanySuggestion, "apolloAccountId" | "companyName">,
+): Client | undefined {
+  const name = company.companyName.trim().toLowerCase();
+  return (
+    clients.find((client) => client.apolloAccountId === company.apolloAccountId) ??
+    clients.find((client) => client.name.toLowerCase() === name)
+  );
 }
 
 /** Where a company is, city first — the subtext under its name wherever a suggestion is rendered. */

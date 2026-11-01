@@ -67,6 +67,8 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Field | Client | Server | Shown as |
 |---|---|---|---|
 | Position title | trimmed, ≤ 160 | `@NotBlank @Size(160)` | field |
+| New position: business unit / client | required; a new one ≤ 160; a database company already on the books is offered as that record, by company even when renamed | `clientId` or `newClient`, exactly one (`VALIDATION_FAILED` on `clientId`); a new one is made in the position's own write, so a refused position keeps none; a name or universe company already held is `CLIENT_ALREADY_EXISTS` with `clientId`, which the modal files under, an archived holder `CLIENT_NAME_ARCHIVED` / `CLIENT_COMPANY_ARCHIVED`; `newClient.customName` `@Size(160)` | field (length, none chosen), banner (archived) |
+| New client: company from the database | a company already on the books — by company even when renamed, or by name — wears the CLIENT badge and is refused | the same holders as above: `CLIENT_ALREADY_EXISTS` (`clientId`), `CLIENT_NAME_ARCHIVED`, `CLIENT_COMPANY_ARCHIVED` | toast |
 | Archive business unit / client: name typed back | as the position's; off while any of its positions is live, which it lists | `@NotBlank @Size(200)`; `ConfirmationName`; `CLIENT_HAS_LIVE_POSITIONS` (409, `positionIds`) | banner |
 | Archive position: title typed back | Archive stays off until it matches — case, spacing and dashes forgiven (`confirmationNameMatches`) | `@NotBlank @Size(200)`; `ConfirmationName`, same rule → `ARCHIVE_NAME_MISMATCH` (400) | banner |
 | Delivery / mapping target date | ordered | `ProjectTimeline` | field |
