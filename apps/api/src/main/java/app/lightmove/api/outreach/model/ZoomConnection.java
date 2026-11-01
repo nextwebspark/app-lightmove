@@ -86,6 +86,18 @@ public class ZoomConnection extends BaseEntity {
         return status == ZoomConnectionStatus.ACTIVE;
     }
 
+    /** Its refresh token was issued to another client than {@code clientId}, so that app cannot refresh it. */
+    public boolean isFromAnotherApp(String clientId) {
+        return appClientId != null && !appClientId.equals(clientId);
+    }
+
+    /** A connection from before V168 learns its app from the first refresh that app answers. */
+    public void recordAppClient(String clientId) {
+        if (appClientId == null) {
+            this.appClientId = Objects.requireNonNull(clientId, "clientId");
+        }
+    }
+
     /** As {@link MailboxConnection#isLiveThrough}: a connection from before V168 is taken to be the app until now's. */
     public boolean isLiveThrough(String clientId) {
         return canUse() && (appClientId == null || appClientId.equals(clientId));

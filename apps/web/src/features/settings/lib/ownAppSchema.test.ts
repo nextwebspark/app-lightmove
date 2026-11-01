@@ -36,8 +36,8 @@ describe("ownAppSchema", () => {
     );
   });
 
-  it.each(["GOCSPX-abc\n", " GOCSPX-abc", "GOCSPX-abc ", "GOCSPX abc", "GOCSPX\tabc", "GOCSPX abc"])(
-    "refuses a secret carrying whitespace, never trimming it: %j",
+  it.each(["GOCSPX-abc\n", " GOCSPX-abc", "GOCSPX-abc ", "GOCSPX abc", "GOCSPX\tabc", "GOCSPX\u00a0abc", "GOCSPX\u200babc", "\ufeffGOCSPX-abc", "GOCSPX-abc\u2060"])(
+    "refuses a secret carrying whitespace or an invisible format character, never trimming it: %j",
     (secret) => {
       expect(errorsOf(google, { ...VALID, clientSecret: secret })).toHaveProperty("clientSecret");
     },
@@ -68,8 +68,16 @@ describe("ownAppSchema", () => {
     expect(errorsOf(microsoft, { ...MICROSOFT_VALID, secretExpiresOn: "2028-11-02" })).toHaveProperty("secretExpiresOn");
     expect(errorsOf(microsoft, { ...MICROSOFT_VALID, secretExpiresOn: "2028-11-01" })).toEqual({});
     expect(errorsOf(microsoft, { ...MICROSOFT_VALID, secretExpiresOn: TODAY })).toEqual({});
+    const sameAppKept = { ...microsoft, storedSecretClientId: MICROSOFT_APP, storedExpiresOn: "2026-10-20" };
+    expect(errorsOf(sameAppKept, { ...MICROSOFT_VALID, clientSecret: "", secretExpiresOn: "2026-10-20" })).toEqual({});
+  });
+
+  it("checks a lapsed date on record again for another app or a new secret", () => {
+    const sameAppKept = { ...microsoft, storedSecretClientId: MICROSOFT_APP, storedExpiresOn: "2026-10-20" };
+
     expect(
-      errorsOf({ ...microsoft, storedExpiresOn: "2026-10-20" }, { ...MICROSOFT_VALID, secretExpiresOn: "2026-10-20" }),
-    ).toEqual({});
+      errorsOf(sameAppKept, { ...MICROSOFT_VALID, clientId: "0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e", secretExpiresOn: "2026-10-20" }),
+    ).toHaveProperty("secretExpiresOn");
+    expect(errorsOf(sameAppKept, { ...MICROSOFT_VALID, secretExpiresOn: "2026-10-20" })).toHaveProperty("secretExpiresOn");
   });
 });

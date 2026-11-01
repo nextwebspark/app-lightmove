@@ -62,8 +62,8 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Daily email limit | whole number, 1 to the deployment's ceiling (workspace) or the workspace's (a consultant's) | 1..`max-daily-cap` for the workspace, 1..the workspace's for a consultant (`VALIDATION_FAILED` on `dailyEmailCap`) | inline + toast |
 | Own app client ID (Settings → Integrations) | 1–255, `[A-Za-z0-9._-]`; Google ends in `.apps.googleusercontent.com`, Microsoft a GUID | the same (`@Size(255) @Pattern`, then `WorkspaceIntegrationService`) | field |
 | Own app tenant (Microsoft) | required; a GUID or a domain with a dot — never `common`, `organizations` or `consumers` | the same | field |
-| Own app secret | ≤ 2048; blank keeps the one held for the same client ID; never trimmed, but any space, tab, line break or control character refused; for Microsoft a GUID (the Secret ID) refused | the same, after `@Size(2048)` | field |
-| Own app secret expiry | Microsoft only; a new date from today to 24 months out — the date already on record stands, even once past | a date sent for Google or Zoom refused; Microsoft's held to today..+24 months (UTC) unless unchanged | field |
+| Own app secret | ≤ 2048; blank keeps the one held for the same client ID; never trimmed, but any space, tab, line break, control or invisible format character (a zero-width space, a BOM) refused; for Microsoft a GUID (the Secret ID) refused | the same, after `@Size(2048)` | field |
+| Own app secret expiry | Microsoft only; from the browser's today to 24 months out — the date on record stands, even once past, while the same app keeps its secret | a date sent for Google or Zoom refused; Microsoft's held to UTC today..+24 months with a day's slack either side (the browser's day may differ), unless the same app keeps its secret and its date | field |
 | ☐ Invitation role | always sent | not required (500 when absent) | — |
 
 ### Projects and clients

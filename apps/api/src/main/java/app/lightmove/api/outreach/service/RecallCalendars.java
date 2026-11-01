@@ -104,6 +104,7 @@ public class RecallCalendars {
     void onAppKeysReplaced(ProviderAppKeysReplaced replaced) {
         mailboxes.findByWorkspaceIdAndGateway(replaced.workspaceId(), MailboxGatewayKind.DIRECT).stream()
                 .filter(mailbox -> mailbox.integrationProvider() == replaced.provider())
+                .filter(mailbox -> mailbox.getRecallCalendarId() != null)
                 .forEach(mailbox -> reconcile(mailbox, true, null));
     }
 

@@ -1,6 +1,7 @@
 package app.lightmove.api.outreach;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -17,6 +18,8 @@ import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.model.RecallCalendarEvent;
 import app.lightmove.api.outreach.model.RecallCalendarSpec;
+import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.outreach.service.MailboxTokens;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
@@ -55,6 +58,7 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
     @Autowired private RecordingProviderTokenClient tokenEndpoint;
     @Autowired private OutreachDispatcher dispatcher;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private MailboxTokens mailboxTokens;
 
     private String consultant;
     private String workspaceId;
@@ -65,7 +69,7 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
         recall.clear();
         tokenEndpoint.clear();
         String email = "yara@" + domain;
-        createWorkspace(verifiedUser("Yara Haddad", email), "Meridian Search");
+        createWorkspace(verifiedUser("Yara Haddad", email), "Meridian Recall Desk");
         consultant = login(email);
         workspaceId = jdbc.queryForObject("select w.id::text from app_lm_workspace w join app_lm_workspace_member m "
                 + "on m.workspace_id = w.id join app_lm_user u on u.id = m.user_id where u.email = ?", String.class,
@@ -378,6 +382,62 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
             assertThat(update.spec().clientSecret()).isEqualTo("own-google-secret-2");
             assertThat(update.spec().refreshToken()).isEqualTo("refresh-token-1");
         });
+    }
+
+    @Test
+    @DisplayName("a new secret hands existing calendars the keys, and makes none for a mailbox that has none")
+    void newSecretMakesNoCalendar() throws Exception {
+        saveOwnGoogleApp("own-google-secret-1");
+        connectDirect("refresh-token-1");
+        jdbc.update("update app_lm_mailbox_connection set recall_calendar_id = null, recall_calendar_attempts = 5 "
+                + "where workspace_id = ?::uuid", workspaceId);
+        int created = recall.createdSpecs().size();
+
+        saveOwnGoogleApp("own-google-secret-2");
+
+        assertThat(recall.createdSpecs()).as("a calendar that gave up waits for a reconnect").hasSize(created);
+        assertThat(recall.updates()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a mailbox connected through another app than the workspace's is withdrawn at its next refresh")
+    void aMailboxFromAnotherAppIsWithdrawnAtRefresh() throws Exception {
+        connectDirect("refresh-token-1");
+        String calendarId = recallCalendarId();
+        // As a connect that committed while the workspace was moving to another app would have left it.
+        jdbc.update("update app_lm_mailbox_connection set app_client_id = 'the-app-the-workspace-left' "
+                + "where workspace_id = ?::uuid", workspaceId);
+        String grantId = jdbc.queryForObject("select grant_id from app_lm_mailbox_connection where workspace_id = ?::uuid",
+                String.class, workspaceId);
+        mailboxTokens.forget(grantId);
+        tokenEndpoint.clear();
+
+        assertThatThrownBy(() -> mailboxTokens.accessToken(grantId)).isInstanceOf(VendorException.class);
+
+        assertThat(connectionRow().get("status")).isEqualTo("ERROR");
+        assertThat(recallCalendarId()).isNull();
+        assertThat(recall.deleted()).containsExactly(calendarId);
+        assertThat(tokenEndpoint.refreshedTokens()).as("never offered to an app it was not issued to").isEmpty();
+    }
+
+    @Test
+    @DisplayName("a mailbox from before its app was recorded learns it from its first refresh")
+    void anUnknownAppIsRecordedAtRefresh() throws Exception {
+        connectDirect("refresh-token-1");
+        String grantId = jdbc.queryForObject("select grant_id from app_lm_mailbox_connection where workspace_id = ?::uuid",
+                String.class, workspaceId);
+        jdbc.update("update app_lm_mailbox_connection set app_client_id = null where workspace_id = ?::uuid",
+                workspaceId);
+        mailboxTokens.forget(grantId);
+
+        mailboxTokens.accessToken(grantId);
+
+        assertThat(appClientIdOnRow()).isEqualTo("uncava-google-client");
+    }
+
+    private String appClientIdOnRow() {
+        return jdbc.queryForObject("select app_client_id from app_lm_mailbox_connection where workspace_id = ?::uuid",
+                String.class, workspaceId);
     }
 
     private ResultActions saveOwnGoogleApp(String secret) throws Exception {

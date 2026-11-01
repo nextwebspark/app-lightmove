@@ -232,6 +232,18 @@ public class MailboxConnection extends BaseEntity {
         return status == MailboxStatus.ACTIVE;
     }
 
+    /** Its refresh token was issued to another client than {@code clientId}, so that app cannot refresh it. */
+    public boolean isFromAnotherApp(String clientId) {
+        return appClientId != null && !appClientId.equals(clientId);
+    }
+
+    /** A connection from before V168 learns its app from the first refresh that app answers. */
+    public void recordAppClient(String clientId) {
+        if (appClientId == null) {
+            this.appClientId = Objects.requireNonNull(clientId, "clientId");
+        }
+    }
+
     /**
      * Whether this live direct connection's refresh token was issued to {@code clientId} at {@code provider}. A
      * connection that predates V168 recorded no client and is taken to be the workspace's app until now.

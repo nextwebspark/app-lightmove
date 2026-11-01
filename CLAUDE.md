@@ -517,9 +517,11 @@ suffix, Entra's GUIDs and directory, no whitespace in a secret — refused, neve
 alone, within 24 months), and a change of app is a change of who holds the tokens: a refresh token belongs to the
 client it was issued to, so every mailbox or Zoom account connected through the app being left (V168
 `app_client_id`, null read as the app until now) is withdrawn in the change's own transaction
-(`ReplacedAppConnections`, its Recall calendar let go, `connectionsWithdrawn` on the audit line), the screen naming
-how many first (`connectionsThroughApp`); new keys for the same app hand every Recall calendar the new ones once
-they commit (`ProviderAppKeysReplaced`). This is the epic's deliberate reversal of "never the provider's tokens":
+(`ReplacedAppConnections`, one bulk update so no versioned row fails the save, its Recall calendar let go,
+`connectionsWithdrawn` on the audit line), the screen naming how many first (`connectionsThroughApp`) — and, whatever
+the switch missed (a connect committing during it, the shared app's id rotated), `MailboxTokens` and `ZoomTokens`
+refuse at refresh a token issued to another app than the one resolved; new keys for the same app hand every existing
+Recall calendar the new ones once they commit (`ProviderAppKeysReplaced`). This is the epic's deliberate reversal of "never the provider's tokens":
 what the app now holds is held **encrypted** — Tink envelope encryption (a data key per value, wrapped by a
 key-encryption keyset from Secret Manager, `lightmove.crypto.keyset`, not Cloud KMS: a KMS round trip would sit
 in front of every send), bound to its workspace and purpose as associated data so a value copied elsewhere does
@@ -1395,8 +1397,9 @@ with the code alone.
 V165 indexes `app_lm_audit_event (workspace_id, id DESC)` for the customer audit log, guarded on ownership as V74 is:
 once `harden.sql` has run the index is its to build (`CONCURRENTLY`). An index only; no row is written.
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
-mailbox or a Zoom account was connected through, backfilled from the workspace's own app where it had one, null
-otherwise (a connection through the shared app before V168, or a Nylas mailbox).
+mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
+could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a
+Google or Zoom row, since only Entra's expire.
 V167 adds `app_lm_project_candidate.company_filed_for_them`: their company was filed for them (research, or the
 employer the workspace knew them at) rather than already held, cleared by any move; only the plugin's Undo reads it.
 V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage

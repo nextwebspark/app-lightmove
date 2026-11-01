@@ -5,8 +5,8 @@ const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** A verified domain of the directory; `common`, `organizations` and `consumers` have no dot and fail it. */
 const DIRECTORY_DOMAIN = /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
 const GOOGLE_CLIENT_ID_SUFFIX = ".apps.googleusercontent.com";
-/** Any whitespace (a non-breaking space included) or control character. */
-const NOT_IN_A_SECRET = /[\s\p{Cc}]/u;
+/** Any whitespace (a non-breaking space included), control or invisible format character (a zero-width space, a BOM). */
+const NOT_IN_A_SECRET = /[\s\p{Cc}\p{Cf}]/u;
 const LONGEST_MICROSOFT_SECRET_MONTHS = 24;
 
 /**
@@ -65,7 +65,8 @@ export function ownAppSchema({ provider, storedSecretClientId, storedExpiresOn, 
       }
 
       const expiresOn = values.secretExpiresOn;
-      if (isMicrosoft && expiresOn && expiresOn !== storedExpiresOn) {
+      const sameSecretKept = !secret.trim() && values.clientId === storedSecretClientId;
+      if (isMicrosoft && expiresOn && !(sameSecretKept && expiresOn === storedExpiresOn)) {
         if (expiresOn < today) {
           refuse("secretExpiresOn", "That date has passed");
         } else if (expiresOn > isoMonthsAfter(today, LONGEST_MICROSOFT_SECRET_MONTHS)) {
@@ -97,7 +98,7 @@ export interface OwnAppRules {
   provider: IntegrationProvider;
   /** The client ID the stored secret was saved under, or null when none is held. */
   storedSecretClientId: string | null;
-  /** The expiry already on the record, which stands even once it has passed, so the app can still be corrected. */
+  /** The expiry on the record, which stands even once it has passed while the same app keeps its secret. */
   storedExpiresOn: string | null;
   /** `yyyy-MM-dd`. */
   today: string;

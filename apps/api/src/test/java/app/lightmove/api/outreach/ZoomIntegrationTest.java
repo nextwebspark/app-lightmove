@@ -62,7 +62,7 @@ class ZoomIntegrationTest extends FlowTestSupport {
         tokenEndpoint.clear();
         gateway.grant(new GrantedMailbox("grant-" + domain, MAILBOX, "google"));
         String email = "yara@" + domain;
-        createWorkspace(verifiedUser("Yara Haddad", email), "Meridian Search");
+        createWorkspace(verifiedUser("Yara Haddad", email), "Meridian Zoom Desk");
         consultant = login(email);
         projectId = mandate();
         workspaceId = jdbc.queryForObject("select workspace_id::text from app_lm_project where id = ?::uuid",

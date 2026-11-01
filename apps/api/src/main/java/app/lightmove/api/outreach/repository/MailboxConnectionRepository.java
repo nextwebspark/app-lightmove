@@ -4,11 +4,13 @@ import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MailboxStatus;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 /** Connected mailboxes. Every finder carries the workspace and the user: a mailbox is one person's. */
@@ -61,4 +63,21 @@ public interface MailboxConnectionRepository extends JpaRepository<MailboxConnec
             + "and (m.recall_calendar_retry_at is null or m.recall_calendar_retry_at <= :now) "
             + "and w.calendar_sync = 'RECALL' order by m.connected_at limit :limit", nativeQuery = true)
     List<MailboxConnection> findOwedRecallCalendars(int maxAttempts, Instant now, int limit);
+
+    /** Live direct mailboxes made through {@code clientId} at a provider; a row from before V168 counts as made through it. */
+    @Query("select count(m) from MailboxConnection m where m.workspaceId = :workspaceId and m.gateway = :gateway "
+            + "and m.status = :status and lower(m.provider) = :provider "
+            + "and (m.appClientId is null or m.appClientId = :clientId)")
+    long countLiveThrough(UUID workspaceId, MailboxGatewayKind gateway, MailboxStatus status, String provider,
+                          String clientId);
+
+    /**
+     * Withdraws the still-live rows among {@code ids} and lets go of their Recall calendars, in one statement: dirtying
+     * each versioned row would fail the admin's whole save on any concurrent write to one of them (a rotated refresh
+     * token, a Recall calendar kept).
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update MailboxConnection m set m.status = :withdrawn, m.recallCalendarId = null "
+            + "where m.id in :ids and m.status = :live")
+    int withdrawLive(Collection<UUID> ids, MailboxStatus live, MailboxStatus withdrawn);
 }

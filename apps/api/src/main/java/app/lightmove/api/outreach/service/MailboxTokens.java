@@ -93,6 +93,15 @@ public class MailboxTokens {
         }
         ProviderCredentials app = credentials.resolve(connection.getWorkspaceId(), connection.integrationProvider())
                 .orElseThrow(() -> new ProviderAppUnavailable("no app resolves"));
+        // The workspace moved to another app (or a connect raced the move): this app cannot refresh the token, and a
+        // provider may answer that as a refused app, which would leave the mailbox waiting forever. The stored client
+        // decides here, whatever order the switch and the connect committed in.
+        if (connection.isFromAnotherApp(app.clientId())) {
+            withdrawAccess(connection.getId(), grantId);
+            log.info("Mailbox {} was connected through another app than the workspace's; it needs reconnecting",
+                    connection.getId());
+            throw withdrawn("connected through another app");
+        }
         String refreshToken = cipher.decrypt(connection.getRefreshTokenEncrypted(), connection.refreshTokenContext());
 
         ProviderTokenGrant refreshed;
@@ -111,6 +120,9 @@ public class MailboxTokens {
         if (refreshed.refreshToken() != null && !refreshed.refreshToken().equals(refreshToken)) {
             keepRotated(connection.getId(), grantId, refreshed.refreshToken());
         }
+        if (connection.getAppClientId() == null) {
+            recordAppClient(connection.getId(), grantId, app.clientId());
+        }
         return new HeldAccessToken(refreshed.accessToken(), refreshed.expiresIn().minus(EXPIRY_MARGIN));
     }
 
@@ -118,6 +130,12 @@ public class MailboxTokens {
         transactions.executeWithoutResult(status -> connections.findById(connectionId)
                 .filter(fresh -> grantId.equals(fresh.getGrantId()))
                 .ifPresent(fresh -> fresh.rotateRefreshToken(cipher.encrypt(rotated, fresh.refreshTokenContext()))));
+    }
+
+    private void recordAppClient(UUID connectionId, String grantId, String clientId) {
+        transactions.executeWithoutResult(status -> connections.findById(connectionId)
+                .filter(fresh -> grantId.equals(fresh.getGrantId()))
+                .ifPresent(fresh -> fresh.recordAppClient(clientId)));
     }
 
     private void withdrawAccess(UUID connectionId, String grantId) {

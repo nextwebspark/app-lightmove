@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_SELF;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -138,8 +139,9 @@ class WorkspaceIntegrationServiceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"GOCSPX-abc\n", " GOCSPX-abc", "GOCSPX-abc ", "GOCSPX abc", "GOCSPX-abc\t", "GOCSPX abc"})
-    @DisplayName("a secret carrying a space, a tab or a line break is a paste of more than the value, and is refused")
+    @ValueSource(strings = {"GOCSPX-abc\n", " GOCSPX-abc", "GOCSPX-abc ", "GOCSPX abc", "GOCSPX-abc\t", "GOCSPX\u00a0abc",
+            "GOCSPX\u200babc", "\ufeffGOCSPX-abc", "GOCSPX-abc\u2060"})
+    @DisplayName("a secret carrying a space, a line break or an invisible format character is a paste of more, refused")
     void whitespaceInASecretIsRefused(String pasted) {
         assertRefusedOn("clientSecret", IntegrationProvider.GOOGLE, new OwnAppKeys(GOOGLE_APP, pasted, null, null));
     }
@@ -172,13 +174,35 @@ class WorkspaceIntegrationServiceTest {
         assertRefusedOn("secretExpiresOn", IntegrationProvider.GOOGLE,
                 new OwnAppKeys(GOOGLE_APP, SECRET, null, TODAY.plusMonths(6)));
         assertRefusedOn("secretExpiresOn", IntegrationProvider.MICROSOFT,
-                new OwnAppKeys(MICROSOFT_APP, SECRET, "contoso.onmicrosoft.com", TODAY.minusDays(1)));
+                new OwnAppKeys(MICROSOFT_APP, SECRET, "contoso.onmicrosoft.com", TODAY.minusDays(2)));
         assertRefusedOn("secretExpiresOn", IntegrationProvider.MICROSOFT,
-                new OwnAppKeys(MICROSOFT_APP, SECRET, "contoso.onmicrosoft.com", TODAY.plusMonths(24).plusDays(1)));
+                new OwnAppKeys(MICROSOFT_APP, SECRET, "contoso.onmicrosoft.com", TODAY.plusMonths(24).plusDays(2)));
 
         save(IntegrationProvider.MICROSOFT, new OwnAppKeys(MICROSOFT_APP, SECRET,
                 "8f3a6c1e-2b4d-4e5f-9a0b-1c2d3e4f5a6b", TODAY.plusMonths(24)));
         verify(integrations).save(any());
+    }
+
+    @Test
+    @DisplayName("a day of slack either side, for a browser whose day is not UTC's")
+    void aDayOfSlackEitherSide() {
+        save(IntegrationProvider.MICROSOFT, new OwnAppKeys(MICROSOFT_APP, SECRET, "contoso.onmicrosoft.com",
+                TODAY.minusDays(1)));
+        save(IntegrationProvider.MICROSOFT, new OwnAppKeys(MICROSOFT_APP, SECRET, "contoso.example.com",
+                TODAY.plusMonths(24).plusDays(1)));
+
+        verify(integrations, times(2)).save(any());
+    }
+
+    @Test
+    @DisplayName("a lapsed date on record is not kept unchecked by a different app, nor by a new secret")
+    void aLapsedDateDoesNotPassToAnotherAppOrSecret() {
+        held(ownApp(IntegrationProvider.MICROSOFT, MICROSOFT_APP, "contoso.onmicrosoft.com", TODAY.minusDays(30)));
+
+        assertRefusedOn("secretExpiresOn", IntegrationProvider.MICROSOFT, new OwnAppKeys(
+                "0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e", SECRET, "contoso.onmicrosoft.com", TODAY.minusDays(30)));
+        assertRefusedOn("secretExpiresOn", IntegrationProvider.MICROSOFT, new OwnAppKeys(
+                MICROSOFT_APP, "Q8~a.new.secret", "contoso.onmicrosoft.com", TODAY.minusDays(30)));
     }
 
     @Test

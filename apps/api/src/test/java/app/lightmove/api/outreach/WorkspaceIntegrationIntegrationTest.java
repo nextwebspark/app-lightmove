@@ -344,9 +344,10 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
             assertRefusedOn(saveOwnMicrosoft(admin, MICROSOFT_APP, SECRET, tenant, null), "tenantId");
         }
         assertRefusedOn(saveOwnMicrosoft(admin, MICROSOFT_APP, SECRET, "contoso.onmicrosoft.com",
-                today().minusDays(1).toString()), "secretExpiresOn");
+                today().minusDays(2).toString()), "secretExpiresOn");
         assertRefusedOn(saveOwnMicrosoft(admin, MICROSOFT_APP, SECRET, "contoso.onmicrosoft.com",
                 today().plusMonths(24).plusDays(2).toString()), "secretExpiresOn");
+        assertRefusedOn(saveOwnGoogleApp(admin, GOOGLE_APP, "GOCSPX-abc\\u200bdef"), "clientSecret");
 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM app_lm_workspace_mail_integration "
                 + "WHERE workspace_id = ?::uuid AND mode = 'OWN'", Integer.class, workspaceOf(admin))).isZero();

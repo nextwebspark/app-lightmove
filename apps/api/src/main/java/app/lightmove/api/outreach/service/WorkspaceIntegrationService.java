@@ -118,7 +118,7 @@ public class WorkspaceIntegrationService {
         if (newSecret == null && !integration.holdsSecretFor(clientId)) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "clientSecret", "Enter your app's client secret");
         }
-        LocalDate secretExpiresOn = expiryOf(provider, keys, integration);
+        LocalDate secretExpiresOn = expiryOf(provider, keys, integration, clientId, newSecret);
         String previousClientId = integration.isOwnApp() ? integration.getClientId() : sharedClientId(provider);
         boolean keysReplaced = newSecret != null || !Objects.equals(integration.getTenantId(), tenantId);
 
@@ -259,8 +259,10 @@ public class WorkspaceIntegrationService {
         if (secret == null || secret.isBlank()) {
             return null;
         }
+        // A format character (a zero-width space, a byte-order mark) is invisible and rides along from Teams, Outlook
+        // or Confluence as readily as a space does.
         if (secret.codePoints().anyMatch(point -> Character.isWhitespace(point) || Character.isSpaceChar(point)
-                || Character.isISOControl(point))) {
+                || Character.isISOControl(point) || Character.getType(point) == Character.FORMAT)) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "clientSecret",
                     "A client secret has no spaces or line breaks. Copy its value alone");
         }
@@ -271,8 +273,13 @@ public class WorkspaceIntegrationService {
         return secret;
     }
 
-    /** Only an Entra secret expires, within 24 months; a date already on the row stands, so a lapsed one re-saves. */
-    private LocalDate expiryOf(IntegrationProvider provider, OwnAppKeys keys, WorkspaceMailIntegration integration) {
+    /**
+     * Only an Entra secret expires, within 24 months. The date already on the row stands while the same app keeps its
+     * secret, so a lapsed one still re-saves; a new app or a new secret is held to the bounds. Today is UTC with a
+     * day's slack either side, since the browser that chose the date reads its own local day.
+     */
+    private LocalDate expiryOf(IntegrationProvider provider, OwnAppKeys keys, WorkspaceMailIntegration integration,
+                               String clientId, String newSecret) {
         LocalDate expiresOn = keys.secretExpiresOn();
         if (provider != IntegrationProvider.MICROSOFT) {
             if (expiresOn != null) {
@@ -281,14 +288,15 @@ public class WorkspaceIntegrationService {
             }
             return null;
         }
-        if (expiresOn == null || expiresOn.equals(integration.getSecretExpiresOn())) {
+        boolean sameSecretKept = newSecret == null && integration.holdsSecretFor(clientId);
+        if (expiresOn == null || (sameSecretKept && expiresOn.equals(integration.getSecretExpiresOn()))) {
             return expiresOn;
         }
         LocalDate today = LocalDate.ofInstant(clock.instant(), ZoneOffset.UTC);
-        if (expiresOn.isBefore(today)) {
+        if (expiresOn.isBefore(today.minusDays(1))) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "secretExpiresOn", "That date has passed");
         }
-        if (expiresOn.isAfter(today.plus(LONGEST_MICROSOFT_SECRET))) {
+        if (expiresOn.isAfter(today.plus(LONGEST_MICROSOFT_SECRET).plusDays(1))) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "secretExpiresOn",
                     "A Microsoft secret lasts 24 months at most");
         }
