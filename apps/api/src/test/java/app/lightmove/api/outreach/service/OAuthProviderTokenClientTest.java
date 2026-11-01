@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.outreach.constant.IntegrationProvider;
+import app.lightmove.api.outreach.model.AppKeysVerdict;
 import app.lightmove.api.outreach.model.ProviderTokenGrant;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -79,8 +81,48 @@ class OAuthProviderTokenClientTest {
         assertThat(unsaid.scopes()).isEmpty();
     }
 
+    @Test
+    @DisplayName("Google and Zoom refusing a code nobody issued have accepted the keys; refusing the client has not")
+    void aCheckAtGoogleOrZoomReadsTheClientRefusal() throws Exception {
+        assertThat(verdictOf(IntegrationProvider.GOOGLE, HttpStatus.BAD_REQUEST, "{\"error\":\"invalid_grant\"}"))
+                .isEqualTo(AppKeysVerdict.ACCEPTED);
+        assertThat(verdictOf(IntegrationProvider.ZOOM, HttpStatus.BAD_REQUEST,
+                "{\"reason\":\"Invalid authorization code\",\"error\":\"invalid_request\"}"))
+                .isEqualTo(AppKeysVerdict.ACCEPTED);
+        assertThat(verdictOf(IntegrationProvider.GOOGLE, HttpStatus.UNAUTHORIZED, "{\"error\":\"invalid_client\"}"))
+                .isEqualTo(new AppKeysVerdict("invalid_client"));
+        assertThat(verdictOf(IntegrationProvider.ZOOM, HttpStatus.UNAUTHORIZED, "")).isEqualTo(new AppKeysVerdict("401"));
+    }
+
+    @Test
+    @DisplayName("Entra's app-only grant refuses only keys it will not take, named by its rule")
+    void aCheckAtMicrosoftNamesTheRule() throws Exception {
+        assertThat(verdictOf(IntegrationProvider.MICROSOFT, HttpStatus.OK, "{\"access_token\":\"eyJ0\"}"))
+                .isEqualTo(AppKeysVerdict.ACCEPTED);
+        assertThat(verdictOf(IntegrationProvider.MICROSOFT, HttpStatus.UNAUTHORIZED,
+                "{\"error\":\"invalid_client\",\"error_codes\":[7000215]}"))
+                .isEqualTo(new AppKeysVerdict("AADSTS7000215"));
+        assertThat(verdictOf(IntegrationProvider.MICROSOFT, HttpStatus.BAD_REQUEST,
+                "{\"error\":\"invalid_request\",\"error_codes\":[90002]}"))
+                .isEqualTo(new AppKeysVerdict("AADSTS90002"));
+    }
+
+    @Test
+    @DisplayName("a check the provider could not answer is a failure, never a verdict")
+    void anUnansweredCheckIsAFailure() {
+        assertThatThrownBy(() -> verdictOf(IntegrationProvider.GOOGLE, HttpStatus.SERVICE_UNAVAILABLE, ""))
+                .isInstanceOfSatisfying(VendorException.class,
+                        failed -> assertThat(failed.getKind()).isEqualTo(VendorFailureKind.UNAVAILABLE));
+    }
+
     private static RuntimeException refusalOf(HttpStatus status, String body) throws Exception {
         return OAuthProviderTokenClient.refusalOrFailure(CALL,
+                new MockClientHttpResponse(body.getBytes(StandardCharsets.UTF_8), status));
+    }
+
+    private static AppKeysVerdict verdictOf(IntegrationProvider provider, HttpStatus status, String body)
+            throws Exception {
+        return OAuthProviderTokenClient.verdictOf(provider, VendorCall.of("oauth", "check-keys"),
                 new MockClientHttpResponse(body.getBytes(StandardCharsets.UTF_8), status));
     }
 }

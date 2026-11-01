@@ -560,6 +560,13 @@ public enum ErrorCode {
     /** An approval for Uncava's shared app on a deployment that offers none at that provider. */
     INTEGRATION_SHARED_APP_UNAVAILABLE(HttpStatus.CONFLICT, "Uncava's shared app is not offered on this deployment"),
 
+    /** The provider refused an own app's keys when asked before saving them; {@code providerError} is its code. */
+    INTEGRATION_KEYS_REFUSED(HttpStatus.UNPROCESSABLE_CONTENT, "The provider refused these keys. Nothing was saved"),
+
+    /** The provider gave no answer about an own app's keys, so nothing was saved or recorded. */
+    INTEGRATION_PROVIDER_UNREACHABLE(HttpStatus.BAD_GATEWAY,
+            "We couldn't reach the provider to check these keys. Try again in a moment"),
+
     /** A webhook delivery whose signature did not verify, or one this deployment is not set up to read. */
     MAILBOX_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
 

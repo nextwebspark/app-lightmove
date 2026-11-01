@@ -9,6 +9,7 @@ import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorErrorCodes;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
+import app.lightmove.api.outreach.model.AppKeysVerdict;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ProviderTokenGrant;
 import java.io.IOException;
@@ -46,6 +47,12 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
 
     /** The answers that mean our app was refused, whoever's token it carried. */
     static final Set<String> APP_REFUSALS = Set.of("invalid_client", "unauthorized_client");
+
+    /** Entra's app-only grant: it checks the client id, the secret and the directory together, and needs no user. */
+    static final String MICROSOFT_APP_ONLY_SCOPE = "https://graph.microsoft.com/.default";
+
+    /** A code no provider issued. Google and Zoom authenticate the client before they read the code. */
+    static final String NO_SUCH_CODE = "uncava-key-check";
 
 
     public static final Map<IntegrationProvider, String> PROVIDER_TOKEN_HOSTS = Map.of(
@@ -105,16 +112,45 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
                 .toBodilessEntity());
     }
 
+    @Override
+    public AppKeysVerdict checkKeys(ProviderCredentials credentials, URI redirectUri) {
+        IntegrationProvider provider = credentials.provider();
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        if (provider == IntegrationProvider.MICROSOFT) {
+            form.add("grant_type", "client_credentials");
+            form.add("scope", MICROSOFT_APP_ONLY_SCOPE);
+        } else {
+            form.add("grant_type", "authorization_code");
+            form.add("code", NO_SUCH_CODE);
+            form.add("redirect_uri", redirectUri.toString());
+        }
+        VendorCall call = VendorCall.of(vendorOf(provider), "check-keys");
+        return guard.call(call, () -> tokenRequest(credentials, form)
+                .exchange((request, response) -> verdictOf(provider, call, response)));
+    }
+
     private ProviderTokenGrant exchange(ProviderCredentials credentials, MultiValueMap<String, String> form,
                                           String operation) {
+        VendorCall call = VendorCall.of(vendorOf(credentials.provider()), operation);
+        JsonNode answer = guard.call(call, () -> tokenRequest(credentials, form)
+                .retrieve()
+                .onStatus(status -> status.value() == 400 || status.value() == 401,
+                        (request, response) -> {
+                            throw refusalOrFailure(call, response);
+                        })
+                .body(JsonNode.class));
+        return read(call, answer);
+    }
+
+    private RestClient.RequestHeadersSpec<?> tokenRequest(ProviderCredentials credentials,
+                                                         MultiValueMap<String, String> form) {
         IntegrationProvider provider = credentials.provider();
-        VendorCall call = VendorCall.of(vendorOf(provider), operation);
         boolean basic = provider == IntegrationProvider.ZOOM;
         if (!basic) {
             form.add("client_id", credentials.clientId());
             form.add("client_secret", credentials.clientSecret());
         }
-        JsonNode answer = guard.call(call, () -> clients.get(provider).post()
+        return clients.get(provider).post()
                 .uri(tokenPathOf(provider), tenantOf(credentials))
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .accept(MediaType.APPLICATION_JSON)
@@ -124,14 +160,7 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
                                 StandardCharsets.UTF_8);
                     }
                 })
-                .body(form)
-                .retrieve()
-                .onStatus(status -> status.value() == 400 || status.value() == 401,
-                        (request, response) -> {
-                            throw refusalOrFailure(call, response);
-                        })
-                .body(JsonNode.class));
-        return read(call, answer);
+                .body(form);
     }
 
     static ProviderTokenGrant read(VendorCall call, JsonNode answer) {
@@ -167,6 +196,33 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
         HttpStatus status = HttpStatus.resolve(response.getStatusCode().value());
         return new VendorException(call, status == null ? VendorFailureKind.BAD_REQUEST
                 : VendorFailureKind.of(status), code, null);
+    }
+
+    /**
+     * Entra's app-only grant answers only keys it accepts, so any refusal is the keys'. Google and Zoom were sent a
+     * code nobody issued: refusing the client is refusing the keys, and refusing anything else means the client
+     * authenticated first.
+     */
+    static AppKeysVerdict verdictOf(IntegrationProvider provider, VendorCall call, ClientHttpResponse response)
+            throws IOException {
+        int status = response.getStatusCode().value();
+        if (response.getStatusCode().is2xxSuccessful()) {
+            return AppKeysVerdict.ACCEPTED;
+        }
+        if (status != 400 && status != 401) {
+            HttpStatus known = HttpStatus.resolve(status);
+            throw new VendorException(call, known == null ? VendorFailureKind.UNAVAILABLE : VendorFailureKind.of(known),
+                    null);
+        }
+        JsonNode body = VendorErrorCodes.jsonOrNull(
+                response.getBody().readNBytes(VendorErrorCodes.MAX_ERROR_BODY_BYTES));
+        String error = body == null ? null : textOrNull(body.get("error"));
+        String named = VendorErrorCodes.codeOrNull(body);
+        boolean clientRefused = status == 401 || (error != null && APP_REFUSALS.contains(error));
+        if (provider == IntegrationProvider.MICROSOFT || clientRefused) {
+            return AppKeysVerdict.refused(named == null ? String.valueOf(status) : named);
+        }
+        return AppKeysVerdict.ACCEPTED;
     }
 
     /** A template, so the admin-typed tenant is encoded as one path segment and can never steer the request. */

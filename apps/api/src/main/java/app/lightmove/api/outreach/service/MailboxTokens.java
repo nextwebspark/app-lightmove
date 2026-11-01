@@ -47,17 +47,19 @@ public class MailboxTokens {
     private final ProviderTokenClient tokenClient;
     private final TransactionTemplate transactions;
     private final ApplicationEventPublisher events;
+    private final OwnAppKeyHealth keyHealth;
     private final Cache<String, HeldAccessToken> held;
 
     public MailboxTokens(MailboxConnectionRepository connections, ProviderCredentialsResolver credentials,
                          SecretCipher cipher, ProviderTokenClient tokenClient, TransactionTemplate transactions,
-                         ApplicationEventPublisher events, Clock clock) {
+                         ApplicationEventPublisher events, OwnAppKeyHealth keyHealth, Clock clock) {
         this.connections = connections;
         this.credentials = credentials;
         this.cipher = cipher;
         this.tokenClient = tokenClient;
         this.transactions = transactions;
         this.events = events;
+        this.keyHealth = keyHealth;
         this.held = Caffeine.newBuilder()
                 .ticker(() -> TimeUnit.MILLISECONDS.toNanos(clock.millis()))
                 .executor(Runnable::run)
@@ -115,8 +117,10 @@ public class MailboxTokens {
         } catch (ProviderAppUnavailable appRefused) {
             log.warn("The {} app of workspace {} was refused ({}); its mailboxes wait for an admin to fix it",
                     app.provider(), connection.getWorkspaceId(), appRefused.getMessage());
+            keyHealth.refusedAtRefresh(connection.getWorkspaceId(), app, appRefused);
             throw appRefused;
         }
+        keyHealth.answeredAtRefresh(connection.getWorkspaceId(), app);
         if (refreshed.refreshToken() != null && !refreshed.refreshToken().equals(refreshToken)) {
             keepRotated(connection.getId(), grantId, refreshed.refreshToken());
         }

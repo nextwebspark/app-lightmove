@@ -66,4 +66,13 @@ public class WorkspaceIntegrationController {
                                                            HttpServletRequest httpRequest) {
         return integrations.useSharedApp(principal.userId(), principal.requireWorkspaceId(), provider, httpRequest);
     }
+
+    /** Verify again: asks the provider about the own app's saved keys and records its answer, either way. */
+    @PostMapping("/{provider}/verify")
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public WorkspaceIntegrationsResponse verify(@AuthenticationPrincipal AuthPrincipal principal,
+                                                @PathVariable IntegrationProvider provider,
+                                                HttpServletRequest httpRequest) {
+        return integrations.verify(principal.userId(), principal.requireWorkspaceId(), provider, httpRequest);
+    }
 }
