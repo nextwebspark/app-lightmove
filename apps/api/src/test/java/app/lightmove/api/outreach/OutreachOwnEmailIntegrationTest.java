@@ -124,6 +124,64 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a chosen signature goes under the words as it was drawn when written, and never into the text")
+    void theSignatureGoesAsWritten() throws Exception {
+        String signatureId = signature(consultant, """
+                {"name":"Short reply","layout":"MINIMAL","fields":{"title":"Partner"}}""");
+        JsonNode scheduled = send("""
+                {"toAddress":"%s","subject":"A conversation","replyInThread":false,"body":"Hello","signatureId":"%s"}"""
+                .formatted(priyaAddress, signatureId));
+        as(consultant, put("/api/v1/me/signatures/" + signatureId).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"Short reply","layout":"MINIMAL","fields":{"title":"Changed since"}}"""))
+                .andExpect(status().isOk());
+
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
+
+        String html = gateway.sent().getLast().email().htmlBody();
+        assertThat(html).contains("<p>Hello</p>", "<strong>Yara Haddad</strong> · Partner").doesNotContain("Changed since");
+        assertThat(html.indexOf("Hello")).isLessThan(html.indexOf("Yara Haddad"));
+        assertThat(line(scheduled.get("id").asText())).containsEntry("body_text", "Hello");
+    }
+
+    @Test
+    @DisplayName("no signature sends none, and another person's is refused before anything is written")
+    void onlyTheSendersOwnSignature() throws Exception {
+        inviteAndAccept(consultant, "Omar Saleh", "omar@" + domain, "MEMBER");
+        String omars = signature(login("omar@" + domain), """
+                {"name":"Omar's","layout":"CLASSIC"}""");
+
+        MvcResult refused = sendExpecting(status().isNotFound(), """
+                {"toAddress":"%s","subject":"A conversation","replyInThread":false,"body":"Hello","signatureId":"%s"}"""
+                .formatted(priyaAddress, omars)).andReturn();
+        assertThat(codeOf(refused)).isEqualTo("EMAIL_SIGNATURE_NOT_FOUND");
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_outreach_message where candidate_id = ?::uuid",
+                Integer.class, priya)).isZero();
+
+        send("""
+                {"toAddress":"%s","subject":"A conversation","replyInThread":false,"body":"Hello"}"""
+                .formatted(priyaAddress));
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
+        assertThat(gateway.sent().getLast().email().htmlBody()).isEqualTo("<p>Hello</p>");
+    }
+
+    @Test
+    @DisplayName("the mailbox's test email carries the default signature, so it is seen as an executive will see it")
+    void theTestEmailCarriesTheDefault() throws Exception {
+        signature(consultant, """
+                {"name":"Formal","layout":"CLASSIC","fields":{"title":"Partner"},"isDefault":true}""");
+
+        as(consultant, post("/api/v1/outreach/mailbox/test")).andExpect(status().is2xxSuccessful());
+
+        assertThat(gateway.sent().getLast().email().htmlBody()).contains("This is a test from Uncava", "Partner");
+    }
+
+    private String signature(String token, String json) throws Exception {
+        return body(as(token, post("/api/v1/me/signatures").contentType(MediaType.APPLICATION_JSON).content(json))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+    }
+
+    @Test
     @DisplayName("writing an email tells the position's open screens, from the line's own write")
     void writingAnEmailAnnouncesIt() throws Exception {
         MvcResult stream = openStream("/api/v1/projects/" + projectId + "/stream", consultant);

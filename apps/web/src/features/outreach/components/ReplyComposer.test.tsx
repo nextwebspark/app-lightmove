@@ -2,10 +2,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { typeInto } from "../../../test/noteEditor";
 import * as documentsApi from "../../candidates/api/documentsApi";
+import * as signaturesApi from "../../signatures/api/signaturesApi";
+import type { EmailSignature } from "../../signatures/api/signaturesApi";
 import * as conversationApi from "../api/conversationApi";
 import type { Conversation } from "../api/conversationApi";
 import type { MailboxState } from "../lib/mailboxState";
@@ -15,6 +18,11 @@ import { ReplyComposer } from "./ReplyComposer";
 vi.mock("../api/conversationApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/conversationApi")>()),
   sendMessage: vi.fn(),
+}));
+
+vi.mock("../../signatures/api/signaturesApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../signatures/api/signaturesApi")>()),
+  listSignatures: vi.fn(),
 }));
 
 vi.mock("../../candidates/api/documentsApi", async (importOriginal) => ({
@@ -79,11 +87,44 @@ function conversation(overrides: Partial<Conversation> = {}): Conversation {
   };
 }
 
+const SOURCES = {
+  name: "Yara Haddad",
+  title: null,
+  phone: null,
+  linkedinUrl: null,
+  email: "yara@firm.example",
+  company: "Firm",
+  website: null,
+  photoUrl: null,
+  logoAvailable: false,
+  bookingLinkOffered: false,
+};
+
+function aSignature(id: string, name: string, isDefault: boolean): EmailSignature {
+  return {
+    id,
+    name,
+    layout: "MINIMAL",
+    fields: { name: null, title: null, phone: null, linkedinUrl: null, company: null, website: null, address: null },
+    showPhoto: false,
+    showLogo: false,
+    showBookingLink: false,
+    customBody: null,
+    disclaimer: null,
+    isDefault,
+    updatedAt: "2026-11-01T10:00:00Z",
+    html: `<div>${name}</div>`,
+    text: `-- \n${name}`,
+  };
+}
+
 function wrapper({ children }: { children: ReactNode }) {
   return (
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <ToastProvider>{children}</ToastProvider>
-    </QueryClientProvider>
+    <MemoryRouter>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ToastProvider>{children}</ToastProvider>
+      </QueryClientProvider>
+    </MemoryRouter>
   );
 }
 
@@ -94,6 +135,7 @@ function composerFor(held: Conversation) {
 describe("ReplyComposer", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({ signatures: [], sources: SOURCES, limit: 10 });
     vi.mocked(conversationApi.sendMessage).mockResolvedValue({
       id: "m1",
       status: "SCHEDULED",
@@ -140,6 +182,45 @@ describe("ReplyComposer", () => {
     await userEvent.type(screen.getByRole("textbox", { name: "Subject" }), "A conversation");
     await typeInto(await screen.findByRole("textbox", { name: "Message" }), "Hello");
   }
+
+  it("carries the default signature, ticked, and another or none as the sender chooses", async () => {
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
+      signatures: [aSignature("s2", "Short reply", false), aSignature("s1", "Formal", true)],
+      sources: SOURCES,
+      limit: 10,
+    });
+    render(composerFor(conversation()), { wrapper });
+    await writeFirstEmail();
+
+    const include = await screen.findByRole("checkbox", { name: "Include signature" });
+    expect(include).toBeChecked();
+    expect(screen.getByRole("combobox", { name: "Signature" })).toHaveValue("s1");
+    expect(screen.getByTitle("Signature")).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Signature" }), "s2");
+    await userEvent.click(screen.getByRole("button", { name: "Send now" }));
+    await waitFor(() =>
+      expect(conversationApi.sendMessage).toHaveBeenLastCalledWith("p1", "c1", expect.objectContaining({ signatureId: "s2" }), []),
+    );
+
+    await writeFirstEmail();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Include signature" }));
+    expect(screen.queryByTitle("Signature")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Send now" }));
+    await waitFor(() =>
+      expect(conversationApi.sendMessage).toHaveBeenLastCalledWith("p1", "c1", expect.objectContaining({ signatureId: null }), []),
+    );
+  });
+
+  it("sends none, and points to Settings, for a sender who keeps no signature", async () => {
+    render(composerFor(conversation()), { wrapper });
+    await writeFirstEmail();
+
+    expect(await screen.findByRole("link", { name: "Add one in Settings" })).toHaveAttribute("href", "/settings/signature");
+    await userEvent.click(screen.getByRole("button", { name: "Send now" }));
+    await waitFor(() =>
+      expect(conversationApi.sendMessage).toHaveBeenCalledWith("p1", "c1", expect.objectContaining({ signatureId: null }), []),
+    );
+  });
 
   it("schedules at a day and half hour on the mailbox's own clock, held to 60 days and never a cleared day", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
