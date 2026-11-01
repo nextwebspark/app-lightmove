@@ -385,7 +385,7 @@ Five things this cost an afternoon each to learn:
 - **A provider's `picture` is a URL our server fetches**, and on many IdPs it is a user-editable field.
   It is asked for only when it is `https` and under 2 KB, and only through `HttpPictureFetcher`, which
   refuses a host resolving to any non-public address — otherwise a member could point it at our own
-  network. Before V169 the link itself was stored and every colleague's browser fetched it.
+  network. Before V170 the link itself was stored and every colleague's browser fetched it.
 
 **A failed OAuth login needs `OAuth2LoginFailureHandler`.** Spring's default redirects to
 `/login?error` on the *API's* host, which in development is the API and answers 404 JSON — so the
@@ -415,8 +415,9 @@ set. The popup reports over `postMessage` *and* a `BroadcastChannel`, because a
 same reason the SPA must never be served `Cross-Origin-Opener-Policy: same-origin`
 (`SpaSecurityTest` pins that).
 
-The profile picture is **ours** (V169): the person's own upload, or a copy of the provider's picture
-downloaded after the sign-in commits — never the provider's link, which expired (LinkedIn's within weeks)
+The profile picture is **ours** (V170): the person's own upload, or a copy of the provider's picture
+downloaded after a *completed* sign-in commits (one stopped at the two-factor code changes nothing of the account)
+— never the provider's link, which expired (LinkedIn's within weeks)
 and was fetched from the provider by every colleague's browser. `app_lm_user.avatar_url` holds
 `/api/v1/avatars/{token}`, public because an `<img>` carries no bearer; the token is the guard. The picture is
 **owned by whoever supplied it** (`avatar_source`, V25): that source may refresh it on every sign-in, and anyone
@@ -424,8 +425,10 @@ else may only fill an empty one. Without the ownership rule the last provider us
 an account that has no photo replaced a real picture with a generated monogram; providers send a monogram, not
 nothing. A null source is a row older than the column and is claimed once. `USER` is the person's own choice — an
 upload, or a removal — and no provider ever replaces it; a registration id `user` is refused for that reason, as
-`local` is. The `picture` claim is fetched by our server, so it goes through `HttpPictureFetcher`'s guard (https,
-every resolved address public, no redirect, a size cap). The name follows the same shape and is only backfilled
+`local` is. The `picture` claim is fetched by our server, so it goes through `core/http`'s `GuardedHttpClient` —
+the one guard every fetch of a stranger's URL shares (https, every resolved address public and dialled exactly, no
+redirect, a size cap, one deadline). The photo is cached **privately**: a shared cache would keep serving a photo its
+owner removed. The name follows the same shape and is only backfilled
 when blank — it is editable here, and a provider must not overwrite what someone typed. `Avatar` still falls back
 to initials when an image fails to load.
 
@@ -433,6 +436,10 @@ to initials when an image fails to load.
 
 Refresh, verification and invitation tokens are 256-bit random values; only their SHA-256 hash is
 persisted. Passwords are BCrypt(12).
+
+**One deliberate exception: a profile photo's token** (`app_lm_user_avatar.token`) is kept as served. It is not a
+credential — it opens one image and nothing else, as a booking link's slug opens one page — and the same raw link is
+`app_lm_user.avatar_url`, drawn by every colleague's screen, so a hash beside it would protect nothing.
 
 The **refresh token** is httpOnly + Secure + SameSite, scoped to `/api/v1/auth`, and **rotates on every
 use**. Presenting an already-rotated token is treated as theft and revokes the whole family. The access
