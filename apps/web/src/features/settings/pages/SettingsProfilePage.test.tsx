@@ -29,6 +29,9 @@ describe("SettingsProfilePage — your own profile", () => {
     fullName: "Alok Kumar",
     title: "Managing Partner",
     avatarUrl: null,
+    photoUploaded: false,
+    phone: null,
+    linkedinUrl: null,
     emailVerified: true,
     hasPassword: true,
     timezone: "Asia/Dubai",
@@ -100,6 +103,8 @@ describe("SettingsProfilePage — your own profile", () => {
         title: "Managing Partner",
         timezone: "Asia/Riyadh",
         locale: "en",
+        phone: "",
+        linkedinUrl: "",
       }),
     );
     // The topbar reads the name off the session, so a save that does not reload leaves it stale.

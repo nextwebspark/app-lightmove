@@ -632,6 +632,16 @@ public enum ErrorCode {
     /** A Stripe webhook whose signature does not verify, or any delivery while no webhook secret is configured. */
     BILLING_WEBHOOK_REJECTED(HttpStatus.BAD_REQUEST, "Bad Request"),
 
+    /** A photo that is not a JPEG or PNG this server can read, or claims a raster too large to decode. */
+    EMAIL_IMAGE_UNREADABLE(HttpStatus.BAD_REQUEST, "That picture could not be read. Use a JPEG or PNG"),
+
+    EMAIL_IMAGE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "That picture is too large. Use one under 5 MB"),
+
+    /** Another person's signature reads the same as one that never existed. */
+    EMAIL_SIGNATURE_NOT_FOUND(HttpStatus.NOT_FOUND, "That signature does not exist"),
+
+    EMAIL_SIGNATURE_LIMIT_REACHED(HttpStatus.CONFLICT, "You can keep up to 10 signatures"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

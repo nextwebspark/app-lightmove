@@ -47,6 +47,13 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | ☐ Default region / currency | select | unchecked | toast |
 | ☐ Persona chips | ≤ 20 items, no item length | ≤ 20 × 96/160/64 | toast |
 | Profile timezone | a region's zone or UTC, from the grouped list; the saved value passes unchanged (kept in the list if the browser lists none) | `@NotBlank @Size(64)`; a new choice must be a region's own zone or `UTC` the JDK knows, never a legacy alias like `EST` (`VALIDATION_FAILED` on `timezone`) — a zone saved before V148 saves unchanged | field |
+| Profile phone | optional; trimmed, ≤ 40; digits, spaces and `+ ( ) - .` only, a plus only first, six digits at least | `@Size(40)`; left out is unchanged, blank clears it; the same character rule (`VALIDATION_FAILED` on `phone`) | field |
+| Profile LinkedIn | optional; trimmed, ≤ 255; a `linkedin.com/in/…` address, scheme optional | `@Size(255)`; left out is unchanged, blank clears it; a member profile on a LinkedIn host (`VALIDATION_FAILED` on `linkedinUrl`), stored as `https://www.linkedin.com/in/<slug>` | field |
+| Profile photo | a JPEG or PNG from the file picker | ≤ 5 MB (`EMAIL_IMAGE_TOO_LARGE`); its bytes read as a JPEG or PNG at most 8,000 px a side (`EMAIL_IMAGE_UNREADABLE`) | toast |
+| Email signature name | ≤ 60; blank is named for its layout | `@NotBlank @Size(60)` | field |
+| Email signature fields | ≤ 160 name and company, 120 title, 40 phone, 255 LinkedIn and website, 200 address; blank follows the profile or workspace | the same `@Size`s; a website must be an http(s) address with a dotted host (`VALIDATION_FAILED` on `fields.website`), a LinkedIn a profile or company page (`fields.linkedinUrl`) | field |
+| Email signature body and disclaimer | ≤ 2,000 (Custom only) / ≤ 1,000 | `@Size(2000)` / `@Size(1000)`; a body is kept only for Custom | field |
+| Email signatures kept | New signature and Duplicate off at 10 | at most 10 per person per workspace (`EMAIL_SIGNATURE_LIMIT_REACHED`) | toast |
 | Candidate tag label | trimmed, ≤ 40 | `@NotBlank @Size(40)` | toast |
 | API key name | trimmed, ≤ 80 | `@NotBlank @Size(80)` | banner |
 | Two-factor: current password | required where the account has a password; not drawn for one that has none | required where the account has one (`VALIDATION_FAILED` on `currentPassword` when blank); must match (`CURRENT_PASSWORD_INVALID` on `currentPassword`); an account with none turns it on only within `lightmove.auth.mfa.recent-sign-in` (10 min) of signing in (`MFA_SIGN_IN_AGAIN`), and off or new codes with the code alone | field (banner for `MFA_SIGN_IN_AGAIN`) |

@@ -12,6 +12,13 @@ import { LANGUAGE_OPTIONS, REGION_ZONE } from "./profileOptions";
 
 const languageValues = LANGUAGE_OPTIONS.map((option) => option.value);
 
+/** The server's rule (`ContactDetails`): digits, spaces and + ( ) - . only, a plus only first, six digits at least. */
+function isPhoneNumber(value: string): boolean {
+  return /^[0-9+().\- ]+$/.test(value) && !value.slice(1).includes("+") && value.replace(/\D/g, "").length >= 6;
+}
+
+const LINKEDIN_PROFILE = /^(https?:\/\/)?([a-z0-9-]+\.)*linkedin\.com\/in\/[^/?#\s]+/i;
+
 /**
  * The rules for a profile whose time zone is saved as `savedTimezone`: that zone passes as it is — one saved before the
  * region rule, like `US/Pacific`, still saves unchanged, as the server lets it — and a new choice must be a region's.
@@ -34,6 +41,21 @@ export function profileSchemaFor(savedTimezone: string | null) {
     locale: z.string().refine((value) => languageValues.includes(value), {
       message: "Pick a language from the list",
     }),
+
+    // Both optional, shown in the email signature; an empty box clears them.
+    phone: z
+      .string()
+      .trim()
+      .max(40, "That phone number is too long")
+      .refine((value) => value === "" || isPhoneNumber(value), { message: "Enter a phone number" }),
+
+    linkedinUrl: z
+      .string()
+      .trim()
+      .max(255, "That address is too long")
+      .refine((value) => value === "" || LINKEDIN_PROFILE.test(value), {
+        message: "Enter your LinkedIn profile address, like linkedin.com/in/your-name",
+      }),
   });
 }
 

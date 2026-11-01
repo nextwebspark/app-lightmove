@@ -85,6 +85,17 @@ export function updateProfile(payload: UpdateProfileRequest): Promise<User> {
   return request<User>("/auth/me", { method: "PATCH", body: payload, withCsrf: true });
 }
 
+/** The person's own photo — re-encoded and served from Uncava, so their avatar and email signature show it. */
+export function uploadPhoto(file: File): Promise<User> {
+  const body = new FormData();
+  body.append("file", file);
+  return request<User>("/me/photo", { method: "POST", body });
+}
+
+export function removePhoto(): Promise<User> {
+  return request<User>("/me/photo", { method: "DELETE" });
+}
+
 export function providers(): Promise<AuthProviders> {
   return request<AuthProviders>("/auth/providers", { anonymous: true });
 }
