@@ -549,3 +549,20 @@ export interface UpdatePersonDocumentPayload {
   category?: PersonDocumentCategory;
   primaryCv?: boolean;
 }
+
+/** What erasing a person deletes, counted by the server for the confirmation (`GET /candidates/{id}/erase-preview`). */
+export interface PersonErasurePreview {
+  personId: string;
+  fullName: string;
+  positions: number;
+  notes: number;
+  documents: number;
+  files: number;
+  emails: number;
+  outreachRuns: number;
+  meetings: number;
+  recordings: number;
+  tasks: number;
+  /** The error code the erasure would answer right now (`PERSON_ERASE_SEND_IN_FLIGHT`), or null. */
+  blockedBy: string | null;
+}

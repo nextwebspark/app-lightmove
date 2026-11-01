@@ -759,6 +759,7 @@ lightmove:
     provider: ${STORAGE_PROVIDER:filesystem}
     bucket: ${STORAGE_BUCKET:}
     directory: ${STORAGE_DIRECTORY:.data/documents}
+    deletion-sweep-interval: ${STORAGE_DELETION_SWEEP_INTERVAL:PT1M}
 
   # A person's CV, cover letter and references, each a stack of versions.
   person-documents:

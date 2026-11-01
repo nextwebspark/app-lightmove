@@ -16,6 +16,8 @@ public interface ExecutiveSourcingRunRepository extends JpaRepository<ExecutiveS
     Optional<ExecutiveSourcingRun> findFirstByWorkspaceIdAndProjectIdOrderByCreatedAtDesc(UUID workspaceId,
                                                                                          UUID projectId);
 
+    List<ExecutiveSourcingRun> findByWorkspaceIdAndProjectIdIn(UUID workspaceId, Collection<UUID> projectIds);
+
     List<ExecutiveSourcingRun> findByWorkspaceIdAndProjectIdAndStatusIn(UUID workspaceId, UUID projectId,
                                                                         Collection<SourcingRunStatus> statuses);
 }

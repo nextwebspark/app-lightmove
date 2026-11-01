@@ -3,6 +3,7 @@ package app.lightmove.api.enrichment.sourcing.model;
 import app.lightmove.api.enrichment.sourcing.constant.SourcingOutcome;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -15,6 +16,19 @@ import java.util.UUID;
 public record CompanyOutcome(UUID triageCompanyId, String companyName, SourcingOutcome outcome,
                              int vendorHits, int cachedHits, Long matched, int modelCalls, int filed,
                              int skipped, List<ExecutivePick> picks, String source) {
+
+    /** The same outcome with an erased person's picks kept as counts alone: no name, no reason, no row to point at. */
+    public CompanyOutcome withoutPicksOf(Set<UUID> candidateIds) {
+        if (picks == null || picks.stream().noneMatch(pick -> candidateIds.contains(pick.candidateId()))) {
+            return this;
+        }
+        List<ExecutivePick> kept = picks.stream()
+                .map(pick -> candidateIds.contains(pick.candidateId()) ? new ExecutivePick(null, pick.score(), null, null)
+                        : pick)
+                .toList();
+        return new CompanyOutcome(triageCompanyId, companyName, outcome, vendorHits, cachedHits, matched, modelCalls,
+                filed, skipped, kept, source);
+    }
 
     public static CompanyOutcome of(SourcingCompany company, SourcingOutcome outcome) {
         return new CompanyOutcome(company.triageCompanyId(), company.companyName(), outcome, 0, 0, null, 0, 0, 0,

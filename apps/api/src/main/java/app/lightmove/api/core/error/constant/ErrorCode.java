@@ -307,6 +307,9 @@ public enum ErrorCode {
     PERSON_SUPPRESSED(HttpStatus.CONFLICT,
             "This person is on your workspace's suppression list, so they can't be added"),
 
+    /** An email to the person is on its way to the mail service; erasing them now would race it. Nothing changed. */
+    PERSON_ERASE_SEND_IN_FLIGHT(HttpStatus.CONFLICT, "An email to this person is sending right now. Try again in a minute"),
+
     /** Nothing was saved. Never sent for a stream that ran out of time: see {@link #ASSISTANT_STILL_ANSWERING}. */
     ASSISTANT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
             "The assistant could not answer just now. Try again in a moment"),
