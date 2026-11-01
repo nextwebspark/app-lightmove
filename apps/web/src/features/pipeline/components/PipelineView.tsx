@@ -126,7 +126,6 @@ export function PipelineView({
             onToggleVisible={(row) => visibility.mutate({ candidateId: row.candidateId, clientVisible: !row.clientVisible })}
             onOpenNextAction={openNextAction}
             onAction={(kind, row) => setCardAction({ kind, row })}
-            onOpenContact={openContact}
           />
         </>
       )}
