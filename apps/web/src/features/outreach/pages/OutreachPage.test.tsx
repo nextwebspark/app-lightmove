@@ -547,6 +547,7 @@ describe("OutreachPage", () => {
         sendAt: null,
         replyInThread: true,
         documentVersionIds: [],
+        signatureId: null,
       }, []),
     );
     expect(await screen.findByText("Goes to Fatima within a minute.")).toBeInTheDocument();

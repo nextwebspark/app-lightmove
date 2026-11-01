@@ -25,6 +25,7 @@ import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.RecallCalendarReleased;
 import app.lightmove.api.outreach.model.ReleasedGrant;
+import app.lightmove.api.outreach.model.RenderedSignature;
 import app.lightmove.api.outreach.repository.MailboxAuthorizationRepository;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
@@ -80,6 +81,7 @@ public class MailboxService {
     private final LightMoveProperties properties;
     private final UserTimezones timezones;
     private final Clock clock;
+    private final EmailSignatureService signatures;
 
     @Transactional(readOnly = true)
     public MailboxResponse view(UUID userId, UUID workspaceId) {
@@ -206,7 +208,10 @@ public class MailboxService {
             throw ApiException.of(ErrorCode.MAILBOX_RECONNECT_NEEDED);
         }
         try {
-            gateway.send(connection.getGrantId(), new OutgoingEmail(connection.getAddress(), TEST_SUBJECT, TEST_BODY));
+            // The default signature rides along, so the consultant sees it in their own inbox as an executive will.
+            String signature = signatures.renderDefaultFor(userId, workspaceId).map(RenderedSignature::html).orElse("");
+            gateway.send(connection.getGrantId(),
+                    new OutgoingEmail(connection.getAddress(), TEST_SUBJECT, TEST_BODY + signature));
         } catch (VendorException failed) {
             if (isAccessWithdrawn(failed)) {
                 transactions.executeWithoutResult(status -> requireConnection(userId, workspaceId).markAccessWithdrawn());

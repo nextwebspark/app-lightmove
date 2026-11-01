@@ -116,6 +116,13 @@ public class EmailSignatureService {
                         senderFor(userId, workspaceId, signature.content())));
     }
 
+    /** The caller's default signature as an email would carry it now; empty where they keep none. */
+    public Optional<RenderedSignature> renderDefaultFor(UUID userId, UUID workspaceId) {
+        return signatures.findByWorkspaceIdAndUserIdAndIsDefaultTrue(workspaceId, userId)
+                .map(signature -> EmailSignatureRenderer.render(signature.content(),
+                        senderFor(userId, workspaceId, signature.content())));
+    }
+
     private EmailSignature owned(UUID userId, UUID workspaceId, UUID signatureId) {
         return signatures.findByIdAndWorkspaceIdAndUserId(signatureId, workspaceId, userId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.EMAIL_SIGNATURE_NOT_FOUND));

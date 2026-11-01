@@ -65,6 +65,7 @@ public class OutreachMessageService {
     private final AuditService audit;
     private final AvailabilityService availability;
     private final Clock clock;
+    private final EmailSignatureService signatures;
 
     public ScheduledMessageResponse schedule(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                                              SendMessageRequest request, List<MultipartFile> files,
@@ -76,11 +77,18 @@ public class OutreachMessageService {
             // Before anything is written: a page the mail service will not make is the consultant's to see now.
             bookingPages.prepare(userId, workspaceId);
         }
+        // Drawn now, outside any transaction (a logo's first copy is a call to another host), and kept with the email:
+        // what is scheduled goes as it was previewed, whatever becomes of the signature later.
+        String signatureHtml = request.signatureId() == null ? "" : signatures
+                .renderFor(userId, workspaceId, request.signatureId())
+                .orElseThrow(() -> ApiException.of(ErrorCode.EMAIL_SIGNATURE_NOT_FOUND))
+                .html();
         List<StagedAttachment> staged = attachments.stage(workspaceId, projectId, candidateId, files,
                 request.documentVersionIds());
         OutreachMessage scheduled;
         try {
-            scheduled = saveScheduled(userId, workspaceId, projectId, candidateId, request, now, sendAt, staged);
+            scheduled = saveScheduled(userId, workspaceId, projectId, candidateId, request, now, sendAt, staged,
+                    signatureHtml);
         } catch (RuntimeException refused) {
             attachments.discard(staged);
             throw refused;
@@ -97,7 +105,7 @@ public class OutreachMessageService {
 
     private OutreachMessage saveScheduled(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                                           SendMessageRequest request, Instant now, Instant sendAt,
-                                          List<StagedAttachment> staged) {
+                                          List<StagedAttachment> staged, String signatureHtml) {
         return transactions.execute(status -> {
             MailboxConnection mailbox = requireSendingMailbox(userId, workspaceId);
             OutreachRecipient recipient = people.currentRecipient(workspaceId, projectId, candidateId)
@@ -120,7 +128,7 @@ public class OutreachMessageService {
                     OutreachPersonalisation.tokensOf(recipient, sender, null).renderMarkdown(request.body()));
             OutreachMessage saved = messages.save(OutreachMessage.scheduled(workspaceId, projectId,
                     recipient.personId(), candidateId, userId, mailbox.getAddress(), toAddress, subject,
-                    OutreachMarkdownEmail.htmlOf(markdown), markdown, reply, sendAt));
+                    OutreachMarkdownEmail.htmlOf(markdown) + signatureHtml, markdown, reply, sendAt));
             attachments.record(saved, staged);
             return saved;
         });

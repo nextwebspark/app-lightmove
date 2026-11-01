@@ -176,6 +176,8 @@ export interface SendMessageRequest {
   replyInThread: boolean;
   /** Versions of the person's own documents the email carries. */
   documentVersionIds: string[];
+  /** One of the sender's own signatures, added under the words; null sends none. */
+  signatureId: string | null;
 }
 
 export interface ScheduledMessage {
