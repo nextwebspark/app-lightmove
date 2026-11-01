@@ -60,6 +60,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final LightMoveProperties properties;
     private final TransactionTemplate transactions;
     private final LoginErrorRedirector loginErrors;
+    private final UnverifiedAccountWipe unverifiedAccounts;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -163,14 +164,17 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                                 HttpServletRequest request) {
         return users.findByEmail(email)
                 .map(existing -> {
-                    // The provider verified the address, so only the mailbox's owner could be here.
+                    // The provider verified the address, so only the mailbox's owner could be here — but an
+                    // unverified account may have been opened by someone else on that address, and linking it
+                    // with their password still working handed them the owner's account (pre-account takeover).
+                    boolean wiped = !existing.isEmailVerified() && unverifiedAccounts.wipe(existing, request);
                     identities.save(UserIdentity.link(existing.getId(), provider, subject, email));
 
                     existing.markEmailVerified(Instant.now());
 
                     log.info("Linked {} account to existing user {}", provider, existing.getId());
                     audit.event(AuthEventType.OAUTH_ACCOUNT_LINKED).actor(existing.getId()).from(request)
-                            .detail("provider", provider).record();
+                            .detail("provider", provider).detail("unverifiedCredentialsWiped", wiped).record();
                     return existing;
                 })
                 .orElseGet(() -> register(provider, email, subject, oidcUser, request));

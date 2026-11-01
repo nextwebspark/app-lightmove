@@ -94,6 +94,9 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     @BeforeEach
     void resetTheProvider() {
         enricher.clear();
+        // Before as well as after: the model is the shared context's, and a class that ran earlier without
+        // resetting it (the spreadsheet import's column mapping) left a prompt this suite asserts is absent.
+        model.reset();
         // The employer resolution reads the Apollo universe, so this suite owns its contents.
         universe = new ApolloUniverse(db);
         universe.reset();
