@@ -11,9 +11,9 @@ import { OAuthButtons } from "../components/OAuthButtons";
 import { LegalConsent } from "../components/LegalConsent";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import { signupSchema, type SignupValues } from "../schemas";
+import { clearSignupRestart, signupRestartName } from "../signupRestart";
 
 const SIGNUP_INPUTS: readonly (keyof SignupValues)[] = ["fullName", "email", "password", "confirmPassword"];
-import { clearSignupRestart, signupRestartName } from "../signupRestart";
 
 /**
  * Signup step 1 — "Create your account". A port of Signup.dc.html's first step.

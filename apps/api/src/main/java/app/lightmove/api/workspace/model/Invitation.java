@@ -108,10 +108,13 @@ public class Invitation extends BaseEntity {
         this.status = InvitationStatus.REVOKED;
     }
 
-    /** Rotates the token, so no resend leaves another live credential in an inbox. */
-    public void refresh(String newTokenHash, Instant newExpiry) {
+    /**
+     * Rotates the token, so no resend leaves another live credential in an inbox. The role is the latest
+     * ask's: a re-invite as ADMIN kept MEMBER here while the email it sent said ADMIN.
+     */
+    public void reissue(Role newRole, String newTokenHash, Instant newExpiry) {
+        this.role = newRole;
         this.tokenHash = newTokenHash;
         this.expiresAt = newExpiry;
-        this.status = InvitationStatus.PENDING;
     }
 }

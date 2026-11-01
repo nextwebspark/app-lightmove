@@ -9,7 +9,6 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.workspace.dto.InvitationResponse;
 import app.lightmove.api.workspace.dto.InviteRequest;
 import app.lightmove.api.workspace.model.Invitation;
-import app.lightmove.api.workspace.model.InviteCommand;
 import app.lightmove.api.workspace.service.InvitationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -69,13 +68,14 @@ public class InvitationsController {
         return Map.of("count", invitations.countPendingStaff(principal.requireWorkspaceId()));
     }
 
+    /** Fewer {@code sent} than asked means some were already staff. */
     @PostMapping
     @RequireWorkspacePermission(WorkspaceAction.MEMBER_INVITE)
     public Map<String, Integer> invite(@AuthenticationPrincipal AuthPrincipal principal,
                                        @RequestBody List<@Valid InviteRequest> requests,
                                        HttpServletRequest httpRequest) {
         List<Invitation> sent = invitations.invite(principal,
-                requests.stream().map(r -> new InviteCommand(r.email(), r.role())).toList(),
+                requests.stream().map(InviteRequest::toCommand).toList(),
                 httpRequest);
         return Map.of("sent", sent.size());
     }
