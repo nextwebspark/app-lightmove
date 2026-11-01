@@ -199,7 +199,7 @@ describe("SettingsProfilePage — your own profile", () => {
 
       await user.upload(await screen.findByLabelText("Choose a profile photo"), picked);
       expect(await screen.findByRole("dialog", { name: "Profile photo" })).toBeInTheDocument();
-      await user.click(screen.getByRole("button", { name: "Save photo" }));
+      await user.click(await savePhotoButton());
 
       await waitFor(() => expect(authApi.uploadAvatar).toHaveBeenCalledWith(expect.any(Blob)));
       expect(croppedPhoto).toHaveBeenCalledWith("blob:picked", { x: 0, y: 0, width: 400, height: 400 });
@@ -216,7 +216,7 @@ describe("SettingsProfilePage — your own profile", () => {
       renderPage();
 
       await user.upload(await screen.findByLabelText("Choose a profile photo"), picked);
-      await user.click(await screen.findByRole("button", { name: "Save photo" }));
+      await user.click(await savePhotoButton());
       expect(await screen.findByRole("alert")).toHaveTextContent("This browser can't open that image");
       expect(authApi.uploadAvatar).not.toHaveBeenCalled();
 
@@ -239,7 +239,7 @@ describe("SettingsProfilePage — your own profile", () => {
       renderPage();
 
       await user.upload(await screen.findByLabelText("Choose a profile photo"), picked);
-      await user.click(await screen.findByRole("button", { name: "Save photo" }));
+      await user.click(await savePhotoButton());
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Use a JPG or PNG image");
       expect(screen.getByRole("dialog", { name: "Profile photo" })).toBeInTheDocument();
@@ -274,3 +274,10 @@ describe("SettingsProfilePage — your own profile", () => {
     });
   });
 });
+
+/** Enabled once the cropper has reported its square; a click before that does nothing. */
+async function savePhotoButton(): Promise<HTMLElement> {
+  const button = await screen.findByRole("button", { name: "Save photo" });
+  await waitFor(() => expect(button).toBeEnabled());
+  return button;
+}
