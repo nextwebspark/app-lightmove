@@ -121,8 +121,8 @@ public class InvitationService {
     }
 
     /**
-     * Every row is checked before any is issued, so a bad tenth row refuses the batch with nothing half-sent,
-     * and an address listed twice is one invitee — a second would have rotated the first's token.
+     * Every address and role is checked before any is issued. An address listed twice is one invitee — a second
+     * would have rotated the first's token — and twice with two roles is refused rather than one silently kept.
      */
     private Collection<InviteCommand> checkedInvitees(List<InviteCommand> commands) {
         Map<String, InviteCommand> invitees = new LinkedHashMap<>();
@@ -135,7 +135,11 @@ public class InvitationService {
                 throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                         "Representatives are invited to a position, not to the workspace");
             }
-            invitees.putIfAbsent(email, new InviteCommand(email, command.role()));
+            InviteCommand listed = invitees.putIfAbsent(email, new InviteCommand(email, command.role()));
+            if (listed != null && listed.role() != command.role()) {
+                throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                        "An address is listed twice with different roles");
+            }
         }
         return invitees.values();
     }

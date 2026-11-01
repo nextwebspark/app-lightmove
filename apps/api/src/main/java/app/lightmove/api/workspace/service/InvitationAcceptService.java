@@ -29,6 +29,7 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -154,11 +155,14 @@ public class InvitationAcceptService {
         invitation.accept(user.getId(), now);
         // One row per person per workspace: a removed member rejoins theirs; an active one gains what it lacks.
         WorkspaceMember member = existing
-                .map(found -> found.isActive() ? widenedBy(found, invitation.getRole())
+                .map(found -> found.isActive() ? found
                         : found.rejoin(Set.of(invitation.getRole()), invitation.getInvitedBy()))
                 .orElseGet(() -> members.save(WorkspaceMember.invite(
                         invitation.getWorkspaceId(), user.getId(), Set.of(invitation.getRole()),
                         invitation.getInvitedBy())));
+        if (existing.filter(WorkspaceMember::isActive).isPresent()) {
+            widen(member, invitation.getRole(), user.getId(), request);
+        }
         selection.remember(user, member);
         if (takesStaffSeat) {
             seats.onStaffSeatsChanged(invitation.getWorkspaceId());
@@ -182,20 +186,26 @@ public class InvitationAcceptService {
         return member;
     }
 
-    /**
-     * A pure client accepting a staff invitation becomes staff, as a staff member named a representative becomes
-     * one too; an accept once left them client-only with the invitation spent. Staff already hold a staff role,
-     * and a second one (MEMBER beside ADMIN) would only confuse the roster, which is where roles change.
-     */
-    private static WorkspaceMember widenedBy(WorkspaceMember member, Role invited) {
-        boolean alreadyCovered = member.getRoles().stream().anyMatch(held -> held.getId().equals(invited.getId()))
+    /** A second staff role (MEMBER beside ADMIN) is not added: the roster is where staff roles change. */
+    private void widen(WorkspaceMember member, Role invited, UUID actorId, HttpServletRequest request) {
+        boolean covered = member.getRoles().stream().anyMatch(held -> held.getId().equals(invited.getId()))
                 || (!invited.is(WorkspaceRole.CLIENT) && member.holdsStaffRole());
-        if (!alreadyCovered) {
-            Set<Role> roles = new HashSet<>(member.getRoles());
-            roles.add(invited);
-            member.changeRoles(roles);
+        if (covered) {
+            return;
         }
-        return member;
+        String previous = roleNames(member.getRoles());
+        Set<Role> roles = new HashSet<>(member.getRoles());
+        roles.add(invited);
+        member.changeRoles(roles);
+
+        audit.event(WorkspaceEventType.MEMBER_ROLE_CHANGED)
+                .actor(actorId).workspace(member.getWorkspaceId()).target("member", member.getId()).from(request)
+                .detail("from", previous).detail("to", roleNames(roles))
+                .record();
+    }
+
+    private static String roleNames(Set<Role> roles) {
+        return roles.stream().map(Role::getName).sorted().collect(Collectors.joining(","));
     }
 
     /** Unknown or consumed is {@code INVITATION_INVALID}; lapsed is {@code INVITATION_EXPIRED}. */

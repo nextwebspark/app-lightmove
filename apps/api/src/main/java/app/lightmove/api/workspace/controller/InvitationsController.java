@@ -68,7 +68,7 @@ public class InvitationsController {
         return Map.of("count", invitations.countPendingStaff(principal.requireWorkspaceId()));
     }
 
-    /** Signup's invite step and Settings alike; fewer {@code sent} than asked means some were already staff. */
+    /** Fewer {@code sent} than asked means some were already staff. */
     @PostMapping
     @RequireWorkspacePermission(WorkspaceAction.MEMBER_INVITE)
     public Map<String, Integer> invite(@AuthenticationPrincipal AuthPrincipal principal,

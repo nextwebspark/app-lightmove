@@ -60,7 +60,7 @@ public class MemberService {
         if (isAdmin && !newRoles.contains(WorkspaceRole.ADMIN)) {
             requireAnotherAdmin(workspaceId);
         }
-        boolean wasStaff = holdsStaffRole(member);
+        boolean wasStaff = member.holdsStaffRole();
         boolean staffAfter = !newRoles.isEmpty();
         if (staffAfter && !wasStaff) {
             seats.requireRoomFor(workspaceId, 1);
@@ -95,7 +95,7 @@ public class MemberService {
         member.remove();
         detachment.detach(memberId);
         events.publishEvent(new MemberAccessNarrowed(workspaceId, member.getUserId(), actorId));
-        if (holdsStaffRole(member)) {
+        if (member.holdsStaffRole()) {
             seats.onStaffSeatsChanged(workspaceId);
         }
         apiKeys.revokeOnMembershipEnd(actorId, workspaceId, member.getUserId(), request);
@@ -110,10 +110,6 @@ public class MemberService {
 
     private boolean holds(WorkspaceMember member, WorkspaceRole role) {
         return member.getRoles().stream().anyMatch(r -> r.is(role));
-    }
-
-    private boolean holdsStaffRole(WorkspaceMember member) {
-        return member.getRoles().stream().anyMatch(r -> !r.is(WorkspaceRole.CLIENT));
     }
 
     private String roleNames(WorkspaceMember member) {

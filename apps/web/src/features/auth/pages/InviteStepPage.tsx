@@ -6,12 +6,7 @@ import { homeFor } from "../homeFor";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 
-/**
- * Signup step 4 — "Invite your team". A port of Signup.dc.html's final step.
- *
- * Optional, and the mockup's "Skip for now" is honoured exactly: it goes to the workspace without
- * calling the API at all. Inviting posts to `/invitations`, as Settings does: the session holds the workspace by now.
- */
+/** Signup step 4 — "Invite your team", Signup.dc.html's final step. Optional: Skip sends nothing. */
 export function InviteStepPage() {
   const navigate = useNavigate();
   const { user } = useAuth();

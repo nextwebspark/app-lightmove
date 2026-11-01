@@ -278,6 +278,27 @@ class InvitationAdminIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an address listed twice with two roles is refused, not quietly given the first")
+    void aRepeatedAddressWithTwoRolesIsRefused() throws Exception {
+        String alok = "alok@" + domain;
+        String omar = "omar@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Two Roles Firm");
+        String admin = login(alok);
+
+        MvcResult refused = mvc.perform(post("/api/v1/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"%s","role":"MEMBER"},{"email":"%s","role":"ADMIN"}]
+                                """.formatted(omar, omar)))
+                .andExpect(status().isBadRequest())
+                .andReturn();
+
+        assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
+        assertThat(email.subjectsFor(omar)).isEmpty();
+    }
+
+    @Test
     @DisplayName("a pure client invited as staff becomes staff, keeping their client role")
     void aPureClientInvitedAsStaffBecomesStaff() throws Exception {
         String alok = "alok@" + domain;

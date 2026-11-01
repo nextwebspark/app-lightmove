@@ -36,7 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Signup's organisation step and invitation redemption — the only authenticated area reachable without a
- * tenant claim. The invite step, holding one by then, posts to {@code /invitations} as Settings does.
+ * tenant claim.
  */
 @RestController
 @RequestMapping("/api/v1/onboarding")

@@ -76,7 +76,7 @@ public class WorkspaceMember extends BaseEntity {
         return status.grantsAccess();
     }
 
-    /** Holds a role besides CLIENT — staff, as {@link WorkspaceRole#isStaff} reads a role set. */
+    /** Staff: holds a role besides CLIENT. {@link WorkspaceRole#isStaff} is the same rule over role names. */
     public boolean holdsStaffRole() {
         return roles.stream().anyMatch(role -> !role.is(WorkspaceRole.CLIENT));
     }
