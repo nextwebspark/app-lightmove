@@ -217,7 +217,8 @@ public class OutreachSendService {
         int step = enrollment.getNextStep();
         if (step == 0) {
             return new RenderedEmail(new OutgoingEmail(enrollment.getToAddress(), enrollment.getFirstSubject(),
-                    OutreachEmailBody.htmlOf(enrollment.getFirstBody(), bookingPages.linkOf(mailbox))),
+                    OutreachEmailBody.htmlOf(enrollment.getFirstBody(), bookingPages.linkOf(mailbox))
+                            + enrollment.signatureHtmlOrEmpty()),
                     enrollment.getFirstBody());
         }
         SequenceStep followUp = sequence.getSteps().get(step);
@@ -231,7 +232,8 @@ public class OutreachSendService {
         String body = OutreachPersonalisation.tokensOf(recipient, sender, enrollment.getOpener())
                 .render(followUp.getBody());
         return new RenderedEmail(new OutgoingEmail(enrollment.getToAddress(),
-                replySubjectOf(enrollment.getFirstSubject()), OutreachEmailBody.htmlOf(body, sender.bookingLink()),
+                replySubjectOf(enrollment.getFirstSubject()),
+                OutreachEmailBody.htmlOf(body, sender.bookingLink()) + enrollment.signatureHtmlOrEmpty(),
                 enrollment.getLastMessageId()), body);
     }
 

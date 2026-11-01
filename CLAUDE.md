@@ -769,7 +769,11 @@ Uncava adds its own. Pictures are `core/storage`'s `EmailImageService`: a profil
 `HttpRemoteImageFetcher` (public addresses only, no redirect, 2 MB, one deadline) — re-encoded, kept in the bucket and
 served publicly at `/api/v1/email-images/{token}`, a 256-bit token its only credential, cached for good and never
 logged, counted or rate-limited per address (mail clients' image proxies fetch for everyone from a few). An image row
-outlives the photo it was, since a sent email names it.
+outlives the photo it was, since a sent email names it. The composer's **Include signature** ticks the sender's default
+(a picker where they keep more than one; replies alike) and `SendMessageRequest.signatureId` draws it when the email is
+written, into the stored `body` only — `body_text` stays the consultant's words; Add to sequence's review picks one for
+the run (`StartSequenceRequest.signatureId`), drawn once and frozen on each enrollment (V170 `signature_html`), so every
+step, follow-ups included, closes alike. The mailbox's test email carries the default.
 
 **The Notetaker (V151, `docs/notetaker.md`, `notetaker`)** is a Recall.ai bot a consultant sends into a kept call from
 the executive drawer's Meetings section (`WORK_EXECUTE`, only on a call on the caller's own calendar or booked by them,
@@ -1414,6 +1418,7 @@ once `harden.sql` has run the index is its to build (`CONCURRENTLY`). An index o
 V169 adds `app_lm_user.phone` / `linkedin_url`, `app_lm_email_image` (a photo's owner or a logo's workspace and
 source hash, by CHECK; one copy per logo per workspace) and `app_lm_email_signature` (`fields` jsonb holds only the
 overrides; one default per person per workspace by partial unique index).
+V170 adds `app_lm_outreach_enrollment.signature_html` — the signature Start drew for the run; null sends none.
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a

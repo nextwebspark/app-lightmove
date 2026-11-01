@@ -74,6 +74,10 @@ public class OutreachEnrollment extends BaseEntity {
     @Column(name = "first_body", nullable = false)
     private String firstBody;
 
+    /** The signature every step carries, drawn at Start; null sends none. */
+    @Column(name = "signature_html", updatable = false)
+    private String signatureHtml;
+
     @Column(name = "enrolled_by", updatable = false)
     private UUID enrolledBy;
 
@@ -152,6 +156,17 @@ public class OutreachEnrollment extends BaseEntity {
         enrollment.enrolledBy = sender;
         enrollment.enrolledAt = now;
         return enrollment;
+    }
+
+    /** Before it is first saved: the signature Start drew for this run. */
+    public OutreachEnrollment signedWith(String signatureHtml) {
+        this.signatureHtml = signatureHtml;
+        return this;
+    }
+
+    /** What closes every email of the run, or nothing. */
+    public String signatureHtmlOrEmpty() {
+        return signatureHtml == null ? "" : signatureHtml;
     }
 
     /** Whether the email due next is a pinned first one, which the sending window lets through. */
