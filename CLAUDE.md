@@ -60,7 +60,9 @@ captured by the plugin, through the same endpoint the drawer posts to (`source: 
 the position chosen at its top, asks first whether that position already holds the page (`GET …/candidates/held` by
 profile slug, `GET …/triage/held` by company page then name; staff-only, 204 when not) and then opens that record —
 status, tags and the position's notes, ready for the next — rather than a form; it writes its notes through the notes
-routes in the app's own editor (never the door's plain `note`), and files a company into the universe only.
+routes in the app's own editor (never the door's plain `note`), and files a company into the universe only. Its Undo
+says why when it leaves something: a person's takes the company filed for them (`?withFiledCompany=true`, V167) only
+while it is still In universe with nobody else at it and no note on it, and a company's is refused once anyone is mapped there.
 **Every executive is a workspace person first (V91, `docs/candidate-crm.md`)**: `app_lm_person` is the
 human — profile, background, package, contact ledger, research — owned by the workspace, and a mandate's
 `Candidate` row maps that person and keeps only the mandate's own status, custom-column values and
@@ -1385,6 +1387,8 @@ An account with no password (a Google or LinkedIn sign-in) turns two-factor on w
 with the code alone.
 V165 indexes `app_lm_audit_event (workspace_id, id DESC)` for the customer audit log, guarded on ownership as V74 is:
 once `harden.sql` has run the index is its to build (`CONCURRENTLY`). An index only; no row is written.
+V167 adds `app_lm_project_candidate.company_filed_for_them`: their company was filed for them (research, or the
+employer the workspace knew them at) rather than already held, cleared by any move; only the plugin's Undo reads it.
 V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage
 alike: whoever holds a flagged status sits in the board's Out of process band, skipped and stopped by outreach (`LEFT_THE_RUNNING`),
 moved by no automation and left out of the projects list's Candidates and Engaged — whatever stage it sits under, so
