@@ -24,14 +24,13 @@ const { restoreSession } = await import("../../../lib/apiClient");
 // jsdom has no canvas or layout: the cropper reports a framed square at once, and drawing it is a stub.
 vi.mock("react-easy-crop", async () => {
   const { useEffect } = await import("react");
-  return {
-    default: ({ onCropComplete }: { onCropComplete: (area: unknown, pixels: unknown) => void }) => {
-      // Once, as the real one reports on load: the page's handler is a new function every render.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      useEffect(() => onCropComplete({}, { x: 0, y: 0, width: 400, height: 400 }), []);
-      return <div data-testid="cropper" />;
-    },
-  };
+  function MockCropper({ onCropComplete }: { onCropComplete: (area: unknown, pixels: unknown) => void }) {
+    // Once, as the real one reports on load: the page's handler is a new function every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => onCropComplete({}, { x: 0, y: 0, width: 400, height: 400 }), []);
+    return <div data-testid="cropper" />;
+  }
+  return { default: MockCropper };
 });
 vi.mock("../lib/croppedPhoto", () => ({ croppedPhoto: vi.fn() }));
 const { croppedPhoto } = await import("../lib/croppedPhoto");
