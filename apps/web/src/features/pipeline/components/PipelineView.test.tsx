@@ -567,32 +567,15 @@ describe("PipelineView", () => {
     expect(screen.queryByRole("dialog", { name: /^Executive/ })).not.toBeInTheDocument();
   });
 
-  it("shows the numbers on file to call before logging the call", async () => {
-    vi.mocked(poolApi.getPerson).mockResolvedValue(aPersonRecord({ phones: ["+971 50 123 4567"] }));
+  it("opens the call note composer straight from the card's Log call", async () => {
     renderView();
 
     const amal = within(await screen.findByRole("article", { name: "Amal Haddad" }));
     await userEvent.click(amal.getByRole("button", { name: "Log call" }));
-    const panel = within(await screen.findByRole("group", { name: "Call Amal Haddad" }));
-
-    expect(await panel.findByRole("link", { name: "+971 50 123 4567" })).toHaveAttribute("href", "tel:+971501234567");
-    expect(poolApi.getPerson).toHaveBeenCalledWith("person-a", expect.anything());
-    await userEvent.click(panel.getByRole("button", { name: "Log call" }));
 
     expect(screen.getByRole("dialog", { name: "Log a call with Amal Haddad" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Call Amal Haddad" })).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: /^Executive/ })).not.toBeInTheDocument();
-  });
-
-  it("says when there is no number on file and opens the drawer's Contact section", async () => {
-    renderView();
-
-    const amal = within(await screen.findByRole("article", { name: "Amal Haddad" }));
-    await userEvent.click(amal.getByRole("button", { name: "Log call" }));
-    const panel = within(await screen.findByRole("group", { name: "Call Amal Haddad" }));
-    await userEvent.click(await panel.findByRole("button", { name: "Open Contact" }));
-
-    expect(await screen.findByRole("dialog", { name: "Executive a" })).toBeInTheDocument();
-    expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent("candidate=a&section=contact");
   });
 
   it("writes an email from the card", async () => {
