@@ -29,7 +29,9 @@ staff member founds a further one from Settings → Workspaces (`POST /workspace
 `staff` of the current workspace so a client representative cannot found a firm from a portal seat). Signup's
 own door, `POST /onboarding/workspace`, is gated on verification alone, so it founds a *first* workspace
 only and refuses anyone already in one (`ALREADY_IN_WORKSPACE`) — left open, it was a way around that
-staff gate. Both doors share one creation budget per account (`workspace-creations-per-hour`); the
+staff gate. The account row is locked before that membership is read
+(`UserRepository.lockToFoundFirstWorkspace`): read first, a double-clicked step whose first submit committed
+between the check and the account's load passed both the check and `@Version`, and founded two. Both doors share one creation budget per account (`workspace-creations-per-hour`); the
 only way into an existing one is an admin's invitation, and accepting lands `ACTIVE` immediately — an
 admin naming someone *is* the decision. **One second door, deliberately:** any staff member may name a
 client representative (`CLIENT_RECORD_MANAGE` is granted to `MEMBER` as well as `ADMIN`), and that

@@ -246,4 +246,6 @@ export interface ApiError {
   kind?: string;
   /** Present on TRIAL_ENDED: when the workspace's trial ended. */
   trialEndedAt?: string;
+  /** Present on CLIENT_ALREADY_EXISTS: the live record holding that name or company, to file under instead. */
+  clientId?: string;
 }

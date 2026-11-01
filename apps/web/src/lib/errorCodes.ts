@@ -174,6 +174,7 @@ export type ApiErrorCode =
   | "CLIENT_HAS_LIVE_POSITIONS"
   | "CLIENT_ARCHIVED"
   | "CLIENT_NAME_ARCHIVED"
+  | "CLIENT_COMPANY_ARCHIVED"
   | "PROJECT_ARCHIVED"
   | "TEMPLATE_STALE"
   | "TEMPLATE_FALLBACK_REQUIRED"
@@ -213,6 +214,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CLIENT_HAS_LIVE_POSITIONS: "Some of its positions are still open. Their leads archive them first.",
   CLIENT_ARCHIVED: "That one is archived. Restore it before opening a position under it.",
   CLIENT_NAME_ARCHIVED: "An archived record already has that name. Restore it instead.",
+  CLIENT_COMPANY_ARCHIVED: "An archived record is already that company. Restore it instead.",
   FORBIDDEN: "You don't have permission to do this.",
   API_KEY_NOT_FOUND: "That key no longer exists. Reload to see the current list.",
   API_KEY_LIMIT_REACHED: "You have the most API keys allowed. Revoke one you no longer use.",

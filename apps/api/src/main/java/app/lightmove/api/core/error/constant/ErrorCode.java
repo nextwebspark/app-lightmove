@@ -89,6 +89,7 @@ public enum ErrorCode {
     MEMBER_LEADS_PROJECTS(HttpStatus.CONFLICT,
             "This member is the only lead on active projects. Hand those over first"),
 
+    /** Carries {@code clientId}: the live record holding the name, or the universe company, for the caller to reuse. */
     CLIENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "A client with this name already exists"),
 
     /** Carries {@code positionIds}: the live positions to archive first, never archived out from under. */
@@ -98,6 +99,9 @@ public enum ErrorCode {
 
     /** Kept apart from {@link #CLIENT_ALREADY_EXISTS}, whose caller reuses the record it names from the live list. */
     CLIENT_NAME_ARCHIVED(HttpStatus.CONFLICT, "An archived client has this name. Restore it instead"),
+
+    /** The universe company an archived record was picked as, whatever that record is called now. */
+    CLIENT_COMPANY_ARCHIVED(HttpStatus.CONFLICT, "An archived client is this company. Restore it instead"),
 
     PROJECT_LAST_LEAD(HttpStatus.CONFLICT, "A project must keep at least one lead"),
 

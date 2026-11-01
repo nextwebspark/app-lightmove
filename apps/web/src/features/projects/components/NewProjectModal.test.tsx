@@ -50,9 +50,10 @@ beforeEach(() => {
   vi.mocked(companiesApi.searchCompanies).mockReset();
 });
 
-const client = (id: string, name: string): Client => ({
+const client = (id: string, name: string, apolloAccountId: string | null = null): Client => ({
   id,
   name,
+  apolloAccountId,
   type: "RETAINED",
   sector: null,
   hqCountry: null,
@@ -401,8 +402,8 @@ describe("NewProjectModal — where a refusal is reported", () => {
     expect(screen.queryByText("Choose a business unit or name a new one")).not.toBeInTheDocument();
   });
 
-  it("creates the inline business unit by name, then the position against it", async () => {
-    vi.mocked(clientsApi.createClient).mockResolvedValue(client("new-1", "Data & Analytics"));
+  it("sends the inline business unit with the position, in the one request", async () => {
+    vi.mocked(clientsApi.createClient).mockReset();
     vi.mocked(projectsApi.createProject).mockResolvedValue(created("new-1"));
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
@@ -412,13 +413,34 @@ describe("NewProjectModal — where a refusal is reported", () => {
     await user.click(screen.getByRole("button", { name: "Create position" }));
 
     await waitFor(() =>
-      expect(clientsApi.createClient).toHaveBeenCalledWith({ customName: "Data & Analytics" }),
-    );
-    await waitFor(() =>
       expect(projectsApi.createProject).toHaveBeenCalledWith(
-        expect.objectContaining({ clientId: "new-1" }),
+        expect.objectContaining({ newClient: { customName: "Data & Analytics" } }),
       ),
     );
+    expect(projectsApi.createProject).not.toHaveBeenCalledWith(expect.objectContaining({ clientId: expect.anything() }));
+    expect(clientsApi.createClient).not.toHaveBeenCalled();
+  });
+
+  // Two requests — the unit, then the position — left the unit behind whenever the position was refused.
+  it("creates no business unit of its own when the position is refused, and shows the start date's refusal there", async () => {
+    vi.mocked(clientsApi.createClient).mockReset();
+    vi.mocked(projectsApi.createProject).mockReset();
+    vi.mocked(projectsApi.createProject).mockRejectedValue(
+      refusal("VALIDATION_FAILED", "One or more fields are invalid", {
+        startDate: "Enter a date between 2000 and 2100",
+      }),
+    );
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Data & Analytics");
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
+    await user.click(screen.getByRole("button", { name: "Create position" }));
+
+    const startField = (await screen.findByText("Enter a date between 2000 and 2100")).closest("label");
+    expect(startField).toHaveTextContent("Project start date");
+    expect(projectsApi.createProject).toHaveBeenCalledTimes(1);
+    expect(clientsApi.createClient).not.toHaveBeenCalled();
   });
 
   // Typing a name the registry already holds is the user meaning that unit, not a duplicate.
@@ -659,8 +681,7 @@ describe("NewProjectModal — an agency's client field", () => {
     });
   });
 
-  it("files a company picked from the database as the client, then the position against it", async () => {
-    vi.mocked(clientsApi.createClient).mockResolvedValue(client("new-1", "Meridian Energy Group"));
+  it("files a company picked from the database as the client, with the position", async () => {
     vi.mocked(projectsApi.createProject).mockResolvedValue(created("new-1"));
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
@@ -675,14 +696,61 @@ describe("NewProjectModal — an agency's client field", () => {
     await user.click(screen.getByRole("button", { name: "Create position" }));
 
     await waitFor(() =>
-      expect(clientsApi.createClient).toHaveBeenCalledWith({
-        company: { apolloAccountId: "apollo-1" },
-        sector: "oil & energy",
-      }),
+      expect(projectsApi.createProject).toHaveBeenCalledWith(
+        expect.objectContaining({
+          newClient: { company: { apolloAccountId: "apollo-1" }, sector: "oil & energy" },
+        }),
+      ),
     );
+    expect(clientsApi.createClient).not.toHaveBeenCalled();
+  });
+
+  // Matched on the name alone, a client renamed since it was picked left its company offered, and picking it filed
+  // that company a second time.
+  it("offers a database company a renamed client was picked as as that client, and files under it", async () => {
+    vi.mocked(projectsApi.createProject).mockResolvedValue(created("meridian"));
+    const renamed = [...CLIENTS, client("meridian", "Meridian", "apollo-1")];
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={renamed} />));
+
+    await user.type(screen.getByRole("combobox", { name: /Client/ }), "meridian energy");
+
+    await user.click(await screen.findByRole("option", { name: "Meridian" }));
+    expect(screen.queryByRole("option", { name: /Meridian Energy Group/ })).not.toBeInTheDocument();
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
+    await user.click(screen.getByRole("button", { name: "Create position" }));
+
     await waitFor(() =>
-      expect(projectsApi.createProject).toHaveBeenCalledWith(expect.objectContaining({ clientId: "new-1" })),
+      expect(projectsApi.createProject).toHaveBeenCalledWith(expect.objectContaining({ clientId: "meridian" })),
     );
+    expect(projectsApi.createProject).toHaveBeenCalledTimes(1);
+  });
+
+  it("files under the client the server names when its list was stale", async () => {
+    vi.mocked(projectsApi.createProject)
+      .mockRejectedValueOnce(
+        new ApiRequestError({
+          code: "CLIENT_ALREADY_EXISTS",
+          detail: "exists",
+          status: 409,
+          correlationId: "c1",
+          clientId: "meridian",
+        }),
+      )
+      .mockResolvedValue(created("meridian"));
+    vi.mocked(clientsApi.clients).mockReset();
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    await user.type(screen.getByRole("combobox", { name: /Client/ }), "meri");
+    await user.click(await screen.findByRole("option", { name: /Meridian Energy Group/ }));
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
+    await user.click(screen.getByRole("button", { name: "Create position" }));
+
+    await waitFor(() =>
+      expect(projectsApi.createProject).toHaveBeenLastCalledWith(expect.objectContaining({ clientId: "meridian" })),
+    );
+    expect(clientsApi.clients).not.toHaveBeenCalled();
   });
 
   it("lists a database company already on the books once, as the client", async () => {
@@ -695,12 +763,14 @@ describe("NewProjectModal — an agency's client field", () => {
     expect(screen.getAllByRole("option", { name: "Globex" })).toHaveLength(1);
   });
 
+  // Two creates racing on one name are refused by the database's index, which names no record.
   it("files a database pick a colleague has just made a client under that client", async () => {
-    vi.mocked(clientsApi.createClient).mockRejectedValue(
-      new ApiRequestError({ code: "CLIENT_ALREADY_EXISTS", detail: "exists", status: 409, correlationId: "c1" }),
-    );
+    vi.mocked(projectsApi.createProject)
+      .mockRejectedValueOnce(
+        new ApiRequestError({ code: "CLIENT_ALREADY_EXISTS", detail: "exists", status: 409, correlationId: "c1" }),
+      )
+      .mockResolvedValue(created("meridian"));
     vi.mocked(clientsApi.clients).mockResolvedValue([...CLIENTS, client("meridian", "Meridian Energy Group")]);
-    vi.mocked(projectsApi.createProject).mockResolvedValue(created("meridian"));
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
 
@@ -710,7 +780,7 @@ describe("NewProjectModal — an agency's client field", () => {
     await user.click(screen.getByRole("button", { name: "Create position" }));
 
     await waitFor(() =>
-      expect(projectsApi.createProject).toHaveBeenCalledWith(expect.objectContaining({ clientId: "meridian" })),
+      expect(projectsApi.createProject).toHaveBeenLastCalledWith(expect.objectContaining({ clientId: "meridian" })),
     );
   });
 
@@ -726,7 +796,6 @@ describe("NewProjectModal — an agency's client field", () => {
   });
 
   it("files a name typed over a database pick by that name alone", async () => {
-    vi.mocked(clientsApi.createClient).mockResolvedValue(client("new-2", "Meridian Energy Group Ltd"));
     vi.mocked(projectsApi.createProject).mockResolvedValue(created("new-2"));
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
@@ -739,7 +808,9 @@ describe("NewProjectModal — an agency's client field", () => {
     await user.click(screen.getByRole("button", { name: "Create position" }));
 
     await waitFor(() =>
-      expect(clientsApi.createClient).toHaveBeenCalledWith({ customName: "Meridian Energy Group Ltd" }),
+      expect(projectsApi.createProject).toHaveBeenCalledWith(
+        expect.objectContaining({ newClient: { customName: "Meridian Energy Group Ltd" } }),
+      ),
     );
   });
 });
