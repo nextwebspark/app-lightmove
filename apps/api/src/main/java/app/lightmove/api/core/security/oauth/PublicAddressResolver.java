@@ -73,8 +73,8 @@ public class PublicAddressResolver implements DnsResolver {
         return true;
     }
 
-    /** Thrown for a host that resolves somewhere it must not, so the fetcher can say why. */
-    static final class NonPublicAddressException extends UnknownHostException {
+    /** Thrown for a host that resolves somewhere it must not, so a fetcher can say why. */
+    public static final class NonPublicAddressException extends UnknownHostException {
 
         NonPublicAddressException(String host) {
             super(host + " resolves to an address that is not public");

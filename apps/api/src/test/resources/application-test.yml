@@ -65,6 +65,10 @@ lightmove:
 
   # Production refuses a find the credits cannot cover. Tests of other features press Find without granting any,
   # so they run as before enforcement; the classes testing enforcement switch it back on.
+  # Off: a test drives the provider-link copy itself, and a boot must not race it.
+  avatars:
+    backfill-enabled: false
+
   billing:
     enforce: false
     # Off, so a workspace a test founds has no subscription until the test writes one; TrialIntegrationTest turns it on.

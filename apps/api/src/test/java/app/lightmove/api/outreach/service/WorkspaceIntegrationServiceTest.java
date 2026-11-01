@@ -251,6 +251,6 @@ class WorkspaceIntegrationServiceTest {
                 OutreachGateway.NYLAS, null);
         WebSettings web = new WebSettings("https://app.example", List.of(), "/auth/callback", 0, true, DataSize.ofMegabytes(2));
         return new LightMoveProperties(null, null, web, null, null, null, null, null, null, null, null, null, null,
-                null, null, outreach, null, null, null, null, null, null, null, null, null);
+                null, null, outreach, null, null, null, null, null, null, null, null, null, null);
     }
 }

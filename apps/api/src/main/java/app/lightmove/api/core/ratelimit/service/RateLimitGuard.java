@@ -11,6 +11,7 @@ import app.lightmove.api.core.security.token.Tokens;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 /**
@@ -93,6 +94,30 @@ public class RateLimitGuard {
     /** Booking through the public page, keyed like opening it: on the caller's IP and the link. */
     public void checkBookingPageBook(String slug, HttpServletRequest request) {
         checkRateLimit("booking-page-book", slug, request, config.bookingPageBookingsPerHour(), Duration.ofHours(1));
+    }
+
+    /** Keyed on the person, as an email keys the others: the request is signed in and carries none. */
+    public void checkAvatarChange(UUID userId, HttpServletRequest request) {
+        checkRateLimit("avatar-change", userId.toString(), request, config.avatarChangesPerHour(),
+                config.avatarChangesPerHourPerIp(), Duration.ofHours(1));
+    }
+
+    /** The address alone: the token is what a scan varies, so a budget on it would brake nobody. */
+    public void checkAvatarRead(HttpServletRequest request) {
+        if (!config.enabled()) {
+            return;
+        }
+        if (limiter.tryAcquire("avatar-read:ip:%s".formatted(clientIp(request)), config.avatarReadsPerMinute(),
+                Duration.ofMinutes(1))) {
+            return;
+        }
+        audit.event(SecurityEventType.RATE_LIMIT_EXCEEDED)
+                .failed()
+                .from(request)
+                .detail("action", "avatar-read")
+                .detail("exhausted", "ip")
+                .record();
+        throw ApiException.of(ErrorCode.RATE_LIMITED);
     }
 
     private void checkRateLimit(String action, String email, HttpServletRequest request, int limit, Duration window) {

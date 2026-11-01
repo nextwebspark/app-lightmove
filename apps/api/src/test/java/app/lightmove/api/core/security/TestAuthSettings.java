@@ -30,7 +30,7 @@ final class TestAuthSettings {
                 null,
                 new CookieSettings("lm_refresh", "/api/v1/auth", true, true, "Strict", null),
                 new LockoutSettings(5, Duration.ofMinutes(15)),
-                new RateLimitSettings(true, 10, 5, 3, 3, 10, 10, 10, 5, 60, 60, 5, 60, 30, 5),
+                new RateLimitSettings(true, 10, 5, 3, 3, 10, 10, 10, 5, 60, 60, 5, 60, 30, 5, 20, 300, 1200),
                 // Null extension, mfa and oauth: nothing built here pairs a device, asks for a code or
                 // signs in through a provider, and AuthSettings defaults all three.
                 null,
@@ -38,6 +38,6 @@ final class TestAuthSettings {
                 Duration.ofMinutes(15), Duration.ofDays(30), Duration.ofHours(24),
                 Duration.ofMinutes(30), Duration.ofDays(7), Duration.ofMinutes(10),
                 true, false, bcryptStrength, null);
-        return new LightMoveProperties(auth, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        return new LightMoveProperties(auth, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 }
