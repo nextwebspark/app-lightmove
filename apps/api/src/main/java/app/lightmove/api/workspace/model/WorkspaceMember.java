@@ -4,6 +4,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.core.security.rbac.Role;
+import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -73,6 +74,11 @@ public class WorkspaceMember extends BaseEntity {
 
     public boolean isActive() {
         return status.grantsAccess();
+    }
+
+    /** Holds a role besides CLIENT — staff, as {@link WorkspaceRole#isStaff} reads a role set. */
+    public boolean holdsStaffRole() {
+        return roles.stream().anyMatch(role -> !role.is(WorkspaceRole.CLIENT));
     }
 
     /** Replace-set semantics: the caller states the full set the member should hold afterwards. */
