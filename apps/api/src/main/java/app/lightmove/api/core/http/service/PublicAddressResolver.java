@@ -1,4 +1,4 @@
-package app.lightmove.api.core.security.oauth;
+package app.lightmove.api.core.http.service;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;

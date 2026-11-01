@@ -2,7 +2,7 @@ package app.lightmove.api.core.security.avatar;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.lightmove.api.core.security.oauth.PublicAddressResolver;
+import app.lightmove.api.core.http.service.PublicAddressResolver;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsServer;
