@@ -79,6 +79,7 @@ export function PersonPanel({ page, projects, user }: SubjectPanelProps) {
         isAwaitingResearch={filedAt !== null && !held.data.candidate.enrichedAt}
         onUndone={() => {
           if (linkedinUrl) cache.setPerson(project.id, linkedinUrl, null);
+          cache.forgetCompanies(project.id);
           setFiled(null);
           setFiledAt(null);
         }}
@@ -300,6 +301,11 @@ function PersonRecord({
         }
       />
       <div className="min-h-0 flex-1 overflow-y-auto p-3.5 pb-16">
+        {undo.error && (
+          <div className="mb-3">
+            <RefusalNote refusal={undo.error} projectId={projectId} />
+          </div>
+        )}
         <SubjectCard
           shape="person"
           name={candidate.fullName}

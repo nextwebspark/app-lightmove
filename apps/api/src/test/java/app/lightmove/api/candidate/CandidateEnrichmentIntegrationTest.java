@@ -284,6 +284,152 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("undoing a capture takes the company its research filed")
+    void undoingACaptureTakesTheCompanyItFiled() throws Exception {
+        String projectId = mandate("Undo Filed Firm");
+        enricher.answerWith(RESEARCH);
+        String candidateId = capture(projectId, "Sample Person", "sample-profile");
+        String companyId = firstCandidateOf(projectId).get("triageCompanyId").asText();
+
+        undoCapture(projectId, candidateId);
+
+        assertThat(companiesInUniverse(projectId)).isEmpty();
+        assertThat(db.queryForObject("""
+                select metadata ->> 'triageCompanyId' from app_lm_audit_event
+                where event_type = 'TRIAGE_COMPANY_REMOVED' and target_id = ?""", String.class, projectId))
+                .isEqualTo(companyId);
+        assertThat(db.queryForObject("""
+                select metadata ->> 'companyRemoved' from app_lm_audit_event
+                where event_type = 'CANDIDATE_REMOVED' and target_id = ?""", String.class, projectId))
+                .isEqualTo("true");
+    }
+
+    @Test
+    @DisplayName("undoing a capture keeps a company the position already held")
+    void undoingACaptureKeepsACompanyThePositionAlreadyHeld() throws Exception {
+        String projectId = mandate("Undo Held Firm");
+        universe.company("a42", "Al Rawabi Dairy").linkedin("http://www.linkedin.com/company/alrawabi").insert();
+        mvc.perform(post(triageUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountId":"a42"}"""))
+                .andExpect(status().isCreated());
+        enricher.answerWith(RESEARCH);
+        String candidateId = capture(projectId, "Sample Person", "sample-profile");
+
+        undoCapture(projectId, candidateId);
+
+        assertThat(companiesInUniverse(projectId)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("undoing a capture keeps its company while someone else is at it, and still removes the person")
+    void undoingACaptureKeepsTheCompanyWhileSomeoneElseIsThere() throws Exception {
+        String projectId = mandate("Undo Shared Firm");
+        enricher.answerWith(RESEARCH);
+        String firstId = capture(projectId, "Sample Person", "sample-profile");
+        capture(projectId, "Second Person", "second-profile");
+
+        undoCapture(projectId, firstId);
+
+        assertThat(companiesInUniverse(projectId)).hasSize(1);
+        JsonNode remaining = firstCandidateOf(projectId);
+        assertThat(remaining.get("fullName").asText()).isEqualTo("Second Person");
+        assertThat(remaining.get("triageCompanyId").asText()).isEqualTo(companiesInUniverse(projectId).get(0)
+                .get("id").asText());
+    }
+
+    @Test
+    @DisplayName("undoing a capture keeps its company once someone has written a note on it")
+    void undoingACaptureKeepsACompanyWithANote() throws Exception {
+        String projectId = mandate("Undo Noted Firm");
+        enricher.answerWith(RESEARCH);
+        String candidateId = capture(projectId, "Sample Person", "sample-profile");
+        String companyId = firstCandidateOf(projectId).get("triageCompanyId").asText();
+        mvc.perform(post(triageUrl(projectId) + "/" + companyId + "/notes")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"general","body":"Worth a second look"}"""))
+                .andExpect(status().isCreated());
+
+        undoCapture(projectId, candidateId);
+
+        assertThat(companiesInUniverse(projectId)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("undoing a capture of someone already known takes the company filed on this position alone")
+    void undoingACaptureOfSomeoneKnownTakesTheCompanyFiledHere() throws Exception {
+        String first = mandate("Undo Known Firm");
+        String second = mandateInSameWorkspace("Head of Credit Risk");
+        universe.company("a42", "Al Rawabi Dairy").linkedin("http://www.linkedin.com/company/alrawabi").insert();
+        enricher.answerWith(RESEARCH);
+        capture(first, "Sample Person", "sample-profile");
+        String onSecond = capture(second, "Sample Person", "sample-profile");
+
+        undoCapture(second, onSecond);
+
+        assertThat(companiesInUniverse(second)).isEmpty();
+        assertThat(companiesInUniverse(first)).hasSize(1);
+        assertThat(firstCandidateOf(first).get("triageCompanyId").isNull()).isFalse();
+    }
+
+    @Test
+    @DisplayName("undoing a capture keeps a company the consultant added themselves after research filed it")
+    void undoingACaptureKeepsACompanyAddedSinceOnPurpose() throws Exception {
+        String projectId = mandate("Undo Chosen Firm");
+        universe.company("a42", "Al Rawabi Dairy").linkedin("http://www.linkedin.com/company/alrawabi").insert();
+        enricher.answerWith(RESEARCH);
+        String candidateId = capture(projectId, "Sample Person", "sample-profile");
+        mvc.perform(post(triageUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountId":"a42"}"""))
+                .andExpect(status().isCreated());
+
+        undoCapture(projectId, candidateId);
+
+        assertThat(companiesInUniverse(projectId)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("undoing a capture keeps a company moved since, even back to In universe")
+    void undoingACaptureKeepsACompanyMovedSince() throws Exception {
+        String projectId = mandate("Undo Moved Firm");
+        enricher.answerWith(RESEARCH);
+        String candidateId = capture(projectId, "Sample Person", "sample-profile");
+        String companyId = firstCandidateOf(projectId).get("triageCompanyId").asText();
+        for (String stage : List.of("shortlisted", "inUniverse")) {
+            mvc.perform(patch(triageUrl(projectId) + "/" + companyId)
+                            .header("Authorization", "Bearer " + adminToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"status\":\"" + stage + "\"}"))
+                    .andExpect(status().isOk());
+        }
+
+        undoCapture(projectId, candidateId);
+
+        assertThat(companiesInUniverse(projectId)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("removing a captured person without the flag keeps the company filed for them")
+    void removingACapturedPersonPlainlyKeepsTheirCompany() throws Exception {
+        String projectId = mandate("Plain Removal Firm");
+        enricher.answerWith(RESEARCH);
+        String candidateId = capture(projectId, "Sample Person", "sample-profile");
+
+        mvc.perform(delete(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNoContent());
+
+        assertThat(companiesInUniverse(projectId)).hasSize(1);
+    }
+
+    @Test
     @DisplayName("a capture of someone whose research named no employer stays unmapped on every position")
     void aCaptureOfSomeoneResearchedWithoutAnEmployerStaysUnmapped() throws Exception {
         String first = mandate("Employerless Known Firm");
@@ -740,6 +886,19 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
                                 """.formatted(fullName, slug)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
+    }
+
+    private void undoCapture(String projectId, String candidateId) throws Exception {
+        mvc.perform(delete(candidatesUrl(projectId) + "/" + candidateId + "?withFiledCompany=true")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNoContent());
+    }
+
+    private JsonNode companiesInUniverse(String projectId) throws Exception {
+        return body(mvc.perform(get(triageUrl(projectId) + "?status=inUniverse")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn()).get("companies");
     }
 
     private void captureWith(String projectId, String background) throws Exception {

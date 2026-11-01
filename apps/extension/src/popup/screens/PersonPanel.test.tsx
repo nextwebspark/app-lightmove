@@ -10,10 +10,12 @@ describe("a LinkedIn profile against the chosen position", () => {
   let requests: Request[] = [];
   let heldAnswer: unknown = null;
   let captureAnswer: { ok: boolean; value?: unknown; code?: string; message?: string } = { ok: true };
+  let undoAnswer: unknown = { ok: true, value: null };
 
   beforeEach(() => {
     requests = [];
     heldAnswer = null;
+    undoAnswer = { ok: true, value: null };
     captureAnswer = { ok: true, value: candidate({ status: "identified", enrichedAt: null }) };
     installChromeStub().answer((raw) => {
       const request = raw as Request;
@@ -35,6 +37,8 @@ describe("a LinkedIn profile against the chosen position", () => {
           return { ok: true, value: null };
         case "captureCandidate":
           return captureAnswer;
+        case "removeCandidate":
+          return undoAnswer;
         default:
           return { ok: false, code: "UNSTUBBED", message: request.kind };
       }
@@ -94,5 +98,34 @@ describe("a LinkedIn profile against the chosen position", () => {
     fireEvent.click(add);
 
     await waitFor(() => expect(screen.getByText("Already on this position")).toBeDefined());
+  });
+
+  async function fileSomeoneNew() {
+    renderPanel(<PersonPanel page={pageRead()} projects={PROJECTS} user={USER} />);
+    const add = await screen.findByRole("button", { name: /Add to position/ });
+    await screen.findByText("Identified");
+    heldAnswer = { candidate: candidate({ status: "identified", enrichedAt: null }), addedBy: null, companyLogoUrl: null };
+    fireEvent.click(add);
+    await screen.findByText("Added to the position");
+  }
+
+  it("goes back to the form once an Undo takes the person off the position", async () => {
+    await fileSomeoneNew();
+    heldAnswer = null;
+
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+
+    expect(await screen.findByRole("button", { name: /Add to position/ })).toBeDefined();
+    expect(requests.find((each) => each.kind === "removeCandidate")).toMatchObject({ projectId: "p1", candidateId: "c1" });
+  });
+
+  it("says why an Undo left the person on the position", async () => {
+    undoAnswer = { ok: false, code: "CONFLICT", message: "Changed." };
+    await fileSomeoneNew();
+
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Try Undo again");
+    expect(screen.getByText("Added to the position")).toBeDefined();
   });
 });

@@ -83,19 +83,39 @@ async function fileNote(
 }
 
 /**
- * Takes a capture back: the note it filed first — a person's notes outlive the row, being the person's — then the row.
- * A company's notes go with its row.
+ * Takes a capture back: the note it filed first — a person's notes outlive the row, being the person's — then the row,
+ * which takes the company filed for them where nobody has worked it. A company's notes go with its row. A row already
+ * gone is undone; a row that stays puts the note back.
  */
 export function useUndoCapture() {
   return useMutation<null, CaptureRefusal, { projectId: string; candidateId?: string; triageCompanyId?: string; noteId?: string | null }>({
     mutationFn: async ({ projectId, candidateId, triageCompanyId, noteId }) => {
-      if (candidateId) {
-        if (noteId) {
-          await askServiceWorker({ kind: "removeNote", target: { subject: "person", projectId, candidateId }, noteId });
-        }
-        return askOrThrow({ kind: "removeCandidate", projectId, candidateId });
+      if (!candidateId) {
+        return removedUnlessGone(() => askOrThrow({ kind: "removeTriageCompany", projectId, triageCompanyId: triageCompanyId! }));
       }
-      return askOrThrow({ kind: "removeTriageCompany", projectId, triageCompanyId: triageCompanyId! });
+      const target = { subject: "person" as const, projectId, candidateId };
+      // A note that will not go still lets the person go: the Undo the consultant asked for is the row, and a note
+      // left behind is the person's, readable and removable in Uncava.
+      const removedNoteId = noteId && (await askServiceWorker({ kind: "removeNote", target, noteId })).ok ? noteId : null;
+      try {
+        return await removedUnlessGone(() => askOrThrow({ kind: "removeCandidate", projectId, candidateId }));
+      } catch (refusal) {
+        if (removedNoteId) {
+          await askServiceWorker({ kind: "restoreNote", target, noteId: removedNoteId });
+        }
+        throw refusal;
+      }
     },
   });
+}
+
+async function removedUnlessGone(remove: () => Promise<null>): Promise<null> {
+  try {
+    return await remove();
+  } catch (refusal) {
+    if (refusal instanceof CaptureRefusal && refusal.code === "NOT_FOUND") {
+      return null;
+    }
+    throw refusal;
+  }
 }
