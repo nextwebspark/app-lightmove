@@ -21,14 +21,7 @@ import { positionTabs } from "./mobile/mobileTabs";
 import { PositionQuickActions } from "./mobile/PositionQuickActions";
 import { type SidebarGroup } from "./Sidebar";
 import * as triageApi from "../../features/triage/api/triageApi";
-import { OFFERED_TRIAGE_STAGES, stageByStatus } from "../../features/triage/lib/triageStages";
-import {
-  CHOSEN_VIEW_STATE,
-  COMPANIES_VIEW_LABELS,
-  resolveCompaniesView,
-  useCompaniesViews,
-} from "../../features/triage/lib/useCompaniesViews";
-import { readTalentMapPreferences } from "../../features/talentmap/lib/useTalentMapPreferences";
+import { OFFERED_TRIAGE_STAGES } from "../../features/triage/lib/triageStages";
 import { ProjectBreadcrumb } from "./Topbar";
 import { usePositionsOrigin } from "../../features/projects/lib/positionsOrigin";
 
@@ -56,15 +49,15 @@ const FULL_BLEED_TABS = ["/companies/", "/strategy", "/reports"];
 
 /**
  * The project workspace shell (Project.dc.html): breadcrumb topbar, the mandate sidebar — Position
- * and Strategy under "Position", the three triage stages under "Market mapping", Outreach under "CRM" for staff,
- * with Strategy's, In universe's and Outreach's views nested under them (Position.dc.html) — and the routed page.
+ * and Strategy under "Position", the three triage stages under "Market mapping", Outreach under "Engage" for staff
+ * (Position.dc.html) — and the routed page. Each page's views are its toolbar's switch, never the rail's.
  * The project itself is resolved from the cached list query; a deep link waits for the load and only
  * shows the not-found screen once the id is confirmed unreadable.
  */
 export function ProjectLayout() {
   const { projectId } = useParams();
   const origin = usePositionsOrigin(projectId);
-  const { pathname, search } = useLocation();
+  const { pathname } = useLocation();
   const navigate = useNavigate();
   const toast = useToast();
   const [confirmingArchive, setConfirmingArchive] = useState(false);
@@ -100,7 +93,6 @@ export function ProjectLayout() {
 
   const { user } = useAuth();
   const isStaff = project ? canExecuteProjectWork(project, user?.id, user?.workspace?.roles) : false;
-  const { views: universeViews } = useCompaniesViews("inUniverse", isStaff);
 
   if (!project) {
     if (isPending) {
@@ -121,42 +113,12 @@ export function ProjectLayout() {
   }
 
   const base = `/projects/${project.id}`;
-  const query = new URLSearchParams(search);
-  const universePath = `${base}/companies/${stageByStatus("inUniverse").slug}`;
-  const universeView =
-    currentPath === universePath
-      ? resolveCompaniesView(universeViews, query.get("view"), readTalentMapPreferences(project.id).view)
-      : null;
-  const peopleMode = currentPath === `${base}/strategy` && query.get("mode") === "people";
   const groups: SidebarGroup[] = [
     {
       label: "Position",
       items: [
         { to: base, label: "Brief", icon: ICONS.position, end: true },
-        {
-          to: `${base}/strategy`,
-          label: "Strategy",
-          icon: ICONS.strategy,
-          // People mode is the position's WORK_EXECUTE, as StrategyPage decides it.
-          children: isStaff
-            ? [
-                {
-                  key: "companies",
-                  to: `${base}/strategy`,
-                  label: "Companies",
-                  icon: ICONS.building,
-                  active: currentPath === `${base}/strategy` && !peopleMode,
-                },
-                {
-                  key: "people",
-                  to: `${base}/strategy?mode=people`,
-                  label: "People",
-                  icon: ICONS.candidates,
-                  active: peopleMode,
-                },
-              ]
-            : undefined,
-        },
+        { to: `${base}/strategy`, label: "Strategy", icon: ICONS.strategy },
       ],
     },
     {
@@ -168,53 +130,15 @@ export function ProjectLayout() {
         label: stage.label,
         icon: stage.icon,
         count: triageCounts?.[stage.status],
-        children:
-          stage.status === "inUniverse" && universeViews.length > 1
-            ? universeViews.map((view) => ({
-                key: view,
-                to: `${universePath}?view=${view}`,
-                state: CHOSEN_VIEW_STATE,
-                label: COMPANIES_VIEW_LABELS[view].label,
-                icon: COMPANIES_VIEW_LABELS[view].icon,
-                active: universeView === view,
-              }))
-            : undefined,
       })),
     },
-    {
-      label: "CRM",
-      items: [
-        ...(isStaff
-          ? [
-              {
-                to: `${base}/outreach`,
-                label: "Outreach",
-                icon: ICONS.outreach,
-                children: [
-                  {
-                    key: "conversations",
-                    to: `${base}/outreach`,
-                    label: "Conversations",
-                    icon: ICONS.mail,
-                    active: currentPath === `${base}/outreach`,
-                  },
-                  {
-                    key: "sequences",
-                    to: sequencesPath,
-                    label: "Sequences",
-                    icon: ICONS.listOrdered,
-                    active: currentPath === sequencesPath || currentPath.startsWith(`${sequencesPath}/`),
-                  },
-                ],
-              },
-            ]
-          : []),
-      ],
-    },
+    ...(isStaff
+      ? [{ label: "Engage", items: [{ to: `${base}/outreach`, label: "Outreach", icon: ICONS.outreach }] }]
+      : []),
     {
       label: "Project",
       items: [
-        { to: `${base}/reports`, label: "Reports", icon: ICONS.reports },
+        { to: `${base}/reports`, label: "Dashboard", icon: ICONS.dashboard },
         { to: `${base}/team`, label: "Team & access", icon: ICONS.team },
       ],
     },

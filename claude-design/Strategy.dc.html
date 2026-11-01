@@ -106,42 +106,29 @@
   </header>
 
   <div style="flex:1;min-height:0;display:flex;padding:0 14px 14px">
-    <nav data-screen-label="Project sidebar" style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s">
+    <nav data-screen-label="Project sidebar" style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow:hidden;transition:width .18s">
       <a href="Workspace.dc.html" title="All positions" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;padding:8px 10px;border-radius:6px;font:500 13.5px var(--sans);color:var(--text2);margin-bottom:6px" style-hover="background:var(--panel2);color:var(--text)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.back }}"></path></svg>
         <span style="display:{{ labelDisp }};white-space:nowrap">All positions</span>
       </a>
       <div style="margin:0 4px 6px;height:1px;background:var(--line-soft)"></div>
+      <!-- Only the groups scroll: the way back stays pinned above them, the footer below. -->
+      <div style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;margin:0 -10px;padding:0 10px">
       <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="4">
         <div style="display:{{ labelDisp }};padding:14px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">{{ g.label }}</div>
         <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
-          <!-- Position.dc.html's rail: a section's views nest under its row behind a guide line. -->
-          <div style="display:flex;align-items:center;gap:2px">
-            <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;flex:1;min-width:0;align-items:center;justify-content:{{ navJustify }};gap:10px;padding:8px 10px;border-radius:6px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }}" style-hover="background:var(--panel2);color:var(--text)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
-              <span style="display:{{ labelDisp }};white-space:nowrap">{{ it.label }}</span>
-              <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}">
-                <span style="display:{{ labelDisp }};margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span>
-              </sc-if>
-            </a>
-            <sc-if value="{{ it.hasKids }}" hint-placeholder-val="{{ false }}">
-              <button onClick="{{ toggleNav }}" data-id="{{ it.key }}" aria-expanded="{{ it.openStr }}" aria-controls="{{ it.kidsId }}" aria-label="{{ it.viewsLabel }}" title="{{ it.toggleLabel }}" style="{{ it.chevStyle }}" style-hover="background:var(--panel2);color:var(--text)">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="{{ it.chevIconStyle }}"><path d="{{ I.chevronDown }}"></path></svg></button>
+          <!-- Position.dc.html's rail: one row per page, a page's views being the switch first in its own toolbar. -->
+          <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;padding:8px 10px;border-radius:6px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }}" style-hover="background:var(--panel2);color:var(--text)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
+            <span style="display:{{ labelDisp }};white-space:nowrap">{{ it.label }}</span>
+            <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}">
+              <span style="display:{{ labelDisp }};margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span>
             </sc-if>
-          </div>
-          <sc-if value="{{ it.open }}" hint-placeholder-val="{{ false }}">
-            <div id="{{ it.kidsId }}" role="group" aria-label="{{ it.label }}" style="{{ it.kidsStyle }}">
-              <sc-for list="{{ it.kids }}" as="k" hint-placeholder-count="2">
-                <a href="{{ k.href }}" title="{{ k.label }}" aria-current="{{ k.current }}" style="{{ k.rowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="{{ k.iconStyle }}"><path d="{{ k.icon }}"></path></svg>
-                  <span style="display:{{ labelDisp }};white-space:nowrap">{{ k.label }}</span>
-                </a>
-              </sc-for>
-            </div>
-          </sc-if>
+          </a>
         </sc-for>
       </sc-for>
-      <div style="margin-top:auto;border-top:1px solid var(--line-soft);padding-top:12px">
+      </div>
+      <div style="flex:none;border-top:1px solid var(--line-soft);padding-top:12px">
         <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:6px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ themeIcon }}"></path></svg>
           <span style="display:{{ labelDisp }};white-space:nowrap">{{ themeLabel }}</span>
@@ -158,9 +145,18 @@
       <div style="display:flex;flex-direction:column;width:100%;height:100%;min-height:100%">
         <div data-screen-label="Strategy tab" style="{{ pageStyle }}">
 
-          <!-- The toolbar row Position.dc.html's In universe and Outreach.dc.html share: search first, the page's own
-               controls beside it, its actions pushed right. -->
+          <!-- The toolbar row Position.dc.html's In universe and Outreach.dc.html share: the page's views, the search,
+               the page's own controls beside it, its actions pushed right. -->
           <div data-screen-label="Strategy toolbar" style="display:flex;flex:none;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel);padding:10px 16px">
+            <!-- Companies | People: the page's views, one 272px switch on every page, its options sharing it equally,
+                 so the search after the rule starts where Position.dc.html's and Outreach.dc.html's do. -->
+            <div role="radiogroup" aria-label="Search for" style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;flex:none;width:272px;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
+              <button role="radio" aria-checked="{{ modeCompaniesChecked }}" onClick="{{ showCompanies }}" style="{{ modeCompaniesStyle }}" style-hover="color:var(--text)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.globe }}"></path></svg>Companies</button>
+              <button role="radio" aria-checked="{{ modePeopleChecked }}" onClick="{{ showPeople }}" style="{{ modePeopleStyle }}" style-hover="color:var(--text)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.candidates }}"></path></svg>People</button>
+            </div>
+            <span aria-hidden="true" style="flex:none;width:1px;height:20px;background:var(--line-soft)"></span>
             <div style="display:flex;flex:1 1 280px;max-width:360px;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);padding:8px 12px">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ I.search }}"></path></svg>
               <input value="{{ q }}" onInput="{{ onQuery }}" placeholder="Search companies..." aria-label="Search companies" style="width:100%;min-width:0;background:transparent;border:none;font:400 13px var(--sans);color:var(--text);outline:none">
@@ -658,6 +654,15 @@
           <!-- The Companies toolbar's row: the name ContactOut searches on is this page's search box, the rail holds the
                rest. Typing moves the free count; Enter is the Search press, as the rail's button is. -->
           <div data-screen-label="People toolbar" style="display:flex;flex:none;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel);padding:10px 16px">
+            <!-- Companies | People: the page's views, one 272px switch on every page, its options sharing it equally,
+                 so the search after the rule starts where Position.dc.html's and Outreach.dc.html's do. -->
+            <div role="radiogroup" aria-label="Search for" style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;flex:none;width:272px;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
+              <button role="radio" aria-checked="{{ modeCompaniesChecked }}" onClick="{{ showCompanies }}" style="{{ modeCompaniesStyle }}" style-hover="color:var(--text)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.globe }}"></path></svg>Companies</button>
+              <button role="radio" aria-checked="{{ modePeopleChecked }}" onClick="{{ showPeople }}" style="{{ modePeopleStyle }}" style-hover="color:var(--text)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.candidates }}"></path></svg>People</button>
+            </div>
+            <span aria-hidden="true" style="flex:none;width:1px;height:20px;background:var(--line-soft)"></span>
             <div style="display:flex;flex:1 1 280px;max-width:360px;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);padding:8px 12px">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ I.search }}"></path></svg>
               <input placeholder="Search people by name..." aria-label="Search people by name" style="width:100%;min-width:0;background:transparent;border:none;font:400 13px var(--sans);color:var(--text);outline:none">
@@ -934,6 +939,7 @@ class Component extends DCLogic {
       candidates: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z',
       outreach: 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z',
       reports: 'M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z',
+      dashboard: 'M4 3h5a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm11 0h5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm0 9h5a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1ZM4 16h5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1Z',
       team: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
       pencil: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z',
       recapture: 'M12 3v10m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2',
@@ -1072,7 +1078,6 @@ class Component extends DCLogic {
 
     this.state = {
       dark: true, toast: '', wsMenuOpen: false, department, roleTitle,
-      navOpen: {},
       collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
       counts: { universe: 24, shortlisted: 9, declined: 6 },
       showFilters: flag('filtersOpen', props.filtersOpen ?? true),
@@ -1224,49 +1229,22 @@ class Component extends DCLogic {
     const f = st.filter;
     const collapsed = st.collapsed;
 
-    const navSub = (label, icon, href, active) => ({
-      label, icon, href, active, current: active ? 'page' : 'false',
-      rowStyle: `display:flex;align-items:center;justify-content:${collapsed ? 'center' : 'flex-start'};gap:9px;padding:6px 10px;border-radius:6px;font:400 13px var(--sans);text-decoration:none;background:${active ? 'var(--panel2)' : 'transparent'};color:${active ? 'var(--text)' : 'var(--text2)'}`,
-      iconStyle: `flex:none;color:${active ? 'var(--amber)' : 'currentColor'}`,
+    const navItem = (label, icon, href, active, count, key) => ({
+      key, label, icon, href, hasCount: count !== undefined, count,
+      color: active ? 'var(--text)' : 'var(--text2)', bg: active ? 'var(--panel2)' : 'transparent', iconColor: active ? 'var(--amber)' : 'currentColor',
     });
-    const navItem = (label, icon, href, active, count, key, kids = []) => {
-      const childActive = kids.some((k) => k.active);
-      const toggled = st.navOpen[key];
-      const open = kids.length > 0 && (toggled !== undefined ? toggled : active || childActive);
-      const filled = active && !childActive;
-      return {
-        key, label, icon, href, hasCount: count !== undefined, count, kids, hasKids: kids.length > 0, open, openStr: String(open),
-        kidsId: `nav-${key}`, viewsLabel: `${label} views`, toggleLabel: `${open ? 'Hide' : 'Show'} ${label} views`,
-        color: active || childActive ? 'var(--text)' : 'var(--text2)', bg: filled ? 'var(--panel2)' : 'transparent', iconColor: filled ? 'var(--amber)' : 'currentColor',
-        chevStyle: `display:${collapsed ? 'none' : 'grid'};place-items:center;flex:none;width:24px;height:24px;border-radius:5px;border:none;background:none;padding:0;color:var(--text3);cursor:pointer`,
-        chevIconStyle: `display:block;transition:transform .15s;transform:rotate(${open ? 0 : -90}deg)`,
-        kidsStyle: collapsed ? 'display:flex;flex-direction:column;gap:1px;margin:2px 0 6px;padding:2px;border:1px solid var(--line-soft);border-radius:8px'
-          : 'display:flex;flex-direction:column;gap:1px;margin:1px 0 4px 18px;padding-left:8px;border-left:1px solid var(--line-soft)',
-      };
-    };
-    const people = st.mode === 'people';
     const navGroups = [
       { label: 'Position', items: [
         navItem('Brief', I.position, 'Position.dc.html', false, undefined, 'brief'),
-        navItem('Strategy', I.strategy, 'Strategy.dc.html', true, undefined, 'strategy', [
-          navSub('Companies', I.building, 'Strategy.dc.html', !people),
-          navSub('People', I.candidates, 'Strategy.dc.html?mode=people', people),
-        ]),
+        navItem('Strategy', I.strategy, 'Strategy.dc.html', true, undefined, 'strategy'),
       ] },
       { label: 'Companies', items: [
-        navItem('In universe', I.globe, 'Position.dc.html?page=universe', false, st.counts.universe, 'universe', [
-          navSub('Table', I.table, 'Position.dc.html?page=universe&view=table', false),
-          navSub('Map', I.mapPin, 'Position.dc.html?page=universe&view=map', false),
-          navSub('Pipeline', I.pipeline, 'Position.dc.html?page=universe&view=pipeline', false),
-        ]),
+        navItem('In universe', I.globe, 'Position.dc.html?page=universe', false, st.counts.universe, 'universe'),
         navItem('Shortlisted', I.star, 'Position.dc.html?page=shortlisted', false, st.counts.shortlisted, 'shortlisted'),
         navItem('Declined', I.close, 'Position.dc.html?page=declined', false, st.counts.declined, 'declined'),
       ] },
-      { label: 'People', items: [navItem('Outreach', I.outreach, 'Outreach.dc.html', false, undefined, 'outreach', [
-        navSub('Conversations', I.mail, 'Outreach.dc.html', false),
-        navSub('Sequences', I.listOrdered, 'Outreach.dc.html?page=sequence', false),
-      ])] },
-      { label: 'Project', items: [navItem('Reports', I.reports, 'Position.dc.html?page=reports', false, undefined, 'reports'), navItem('Team & access', I.team, 'Position.dc.html?page=team', false, undefined, 'team')] },
+      { label: 'Engage', items: [navItem('Outreach', I.outreach, 'Outreach.dc.html', false, undefined, 'outreach')] },
+      { label: 'Project', items: [navItem('Dashboard', I.dashboard, 'Position.dc.html?page=reports', false, undefined, 'reports'), navItem('Team & access', I.team, 'Position.dc.html?page=team', false, undefined, 'team')] },
     ];
 
     const constrains = (r) => r !== null && (r.min !== null || r.max !== null);
@@ -1467,6 +1445,7 @@ class Component extends DCLogic {
         ? 'position:fixed;inset:0;z-index:96;background:var(--panel);display:flex;flex-direction:column;min-height:0'
         : 'display:flex;min-height:0;flex:1;flex-direction:column';
     const peoplePageStyle = st.mode === 'people' ? 'display:flex;min-height:0;flex:1;flex-direction:column' : 'display:none';
+    const viewSeg = (on) => `display:inline-flex;min-width:0;justify-content:center;align-items:center;gap:6px;white-space:nowrap;border-radius:4px;border:none;padding:6px 10px;font:500 12.5px var(--sans);cursor:pointer;background:${on ? 'var(--sky-dim)' : 'none'};color:${on ? 'var(--text)' : 'var(--text3)'}`;
     const modeChip = (on) => `border-radius:4px;border:none;padding:6px 10px;font:500 12.5px var(--sans);cursor:pointer;background:${on ? 'var(--sky-dim)' : 'none'};color:${on ? 'var(--text)' : 'var(--text3)'}`;
 
     const selectedIds = () => Object.keys(this.state.selected);
@@ -1491,8 +1470,8 @@ class Component extends DCLogic {
       wsMenuOpen: st.wsMenuOpen,
       pageStyle,
       peoplePageStyle,
-      modeCompaniesStyle: modeChip(st.mode !== 'people'),
-      modePeopleStyle: modeChip(st.mode === 'people'),
+      modeCompaniesStyle: viewSeg(st.mode !== 'people'), modeCompaniesChecked: String(st.mode !== 'people'),
+      modePeopleStyle: viewSeg(st.mode === 'people'), modePeopleChecked: String(st.mode === 'people'),
       showCompanies: () => this.setState({ mode: 'companies' }),
       showPeople: () => this.setState({ mode: 'people' }),
       peopleTableOn: String(st.peopleView !== 'cards'),
@@ -1566,9 +1545,6 @@ class Component extends DCLogic {
         try { localStorage.setItem('lm-theme', dark ? 'dark' : 'light'); } catch (e) {}
         this.setState({ dark });
       },
-      toggleNav: (e) => this.setState({
-        navOpen: { ...this.state.navOpen, [e.currentTarget.dataset.id]: e.currentTarget.getAttribute('aria-expanded') !== 'true' },
-      }),
       toggleCollapse: () => {
         const next = !this.state.collapsed;
         try { localStorage.setItem('lm-side-collapsed', next ? '1' : '0'); } catch (e) {}

@@ -5,4 +5,4 @@ A position's companies live on three pages: **In universe**, **Shortlisted** and
 - Add a company the market doesn't carry by typing it in.
 - The search box finds companies by name, place or industry, and executives by name, title, place or employer — and, for your team, by their notes and tags. It works in every view.
 - **Export**, **Import**, columns and the rest are under **Advanced**. Export downloads the whole page — every row, narrowed by your search and filters — as a spreadsheet.
-- **Table**, **Map** and **Pipeline** under In universe in the side menu show the same companies and executives as a table, on a map, where your workspace has maps turned on, or as the position's pipeline board, where you drag executives between stages. On a smaller screen, or in full screen, they are a switch at the top of the page.
+- **Table | Map | Pipeline**, the switch at the start of the toolbar on In universe, shows the same companies and executives as a table, on a map, where your workspace has maps turned on, or as the position's pipeline board, where you drag executives between stages.

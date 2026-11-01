@@ -199,22 +199,22 @@ out as Website and Company LinkedIn. It is `WORK_VIEW`, the gate that reads the 
 representative may take the mandate they can already read; unlike every other read it records an
 audit event, because a mandate leaving as a file is not the same act as reading a page of it. Past
 `lightmove.export.*` it refuses rather than truncating.
-**The Companies toolbar** (`Position.dc.html`) is one search box in every view, the view control (below `lg` and in full screen — the rail
-holds it otherwise), then Add to sequence and Send email (the drawer's composer, for anyone on the position) where
+**The Companies toolbar** (`Position.dc.html`) is the view switch, one search box in every view, then Add to sequence and Send email (the drawer's composer, for anyone on the position) where
 outreach is offered — greyed (`aria-disabled`, saying where it works) on the map and until something is ticked — and,
 on Table and Map only, Find executives filled, **Advanced ▾** (`AdvancedMenu`) and **Create ▾** (Add executive, Add
-company). The Pipeline's row is the search and the outreach pair alone.
+company). The Pipeline's row is the switch, the search and the outreach pair alone.
 Advanced ▾ holds the rest, by view: show/hide and manage columns on the table, the map's layers, Add to sequence again
 on the table, Import and Export. Strategy's toolbar and Outreach's header are the same row (`components/ui/Toolbar`:
-search first, the page's actions pushed right), Outreach's search in it. The search is matched by the server, the same
+the page's views, then the search, the page's actions pushed right), Outreach's search in it. The search is matched by the server, the same
 rule in every read (`search` on the triage list, its
 people reads, the export and the talent map, the pipeline's `q`): a company by name, place or industry, an executive
 by name, title, place or employer, and — only for a `WORK_EXECUTE` holder, decided server-side — the company's and
 the person's live notes readable from this position and the person's tags; a matching company keeps all its people.
-In universe reads as **Table | Map | Pipeline** (`?view=`; the rail's views under In universe, as Strategy's Companies |
-People and Outreach's Conversations | Sequences are under theirs — `Sidebar`'s `children`, from `lg`, with the page's
-own switch below it and in full screen, `useCompaniesViews` deciding what both offer). A view someone *chose* — a rail
-link or the switch, carrying `CHOSEN_VIEW_STATE` — is remembered per mandate; a link that only names one, a
+In universe reads as **Table | Map | Pipeline** (`?view=`), Strategy as Companies | People and Outreach as
+Conversations | Sequences — each the page's own `ToolbarViewSwitch`, first in its toolbar at every width and in full
+screen, one fixed width whether it holds two views or three so the search starts at the same place on all three; the
+rail is one row per page and nests nothing. `useCompaniesViews` decides what In universe offers. A view someone
+*chose* in the switch is remembered per mandate; a link that only names one, a
 notification's `?view=pipeline`, is a visit. **Pipeline** is the position's
 board by pipeline stage — the retired CRM Pipeline page, board only, every executive on the position whatever their
 Companies stage, staff only (`WORK_EXECUTE`); `/projects/{id}/pipeline` and its `?candidate=` links land there
@@ -265,7 +265,7 @@ behind ContactOut (`PeopleSearchChain`, walked by `ChainedPeopleSearch`, the cac
 out of credits included — is searched on the dataset, and filed `enriched_by = BRIGHTDATA`; the run's
 outcome records the `source` that answered. Offered where the chosen index is configured
 (`provider: brightdata`, or a ContactOut key); a client seat sees none of it. **Strategy → People**
-(`enrichment/peoplesearch`, V93) is the sixth door: Companies | People under Strategy in the rail
+(`enrichment/peoplesearch`, V93) is the sixth door: Companies | People first in Strategy's toolbar
 (`?mode=people`, staff only) swaps the company filter for ContactOut's People Search filter —
 only parameters its API reference lists, the values its accepted-values sheet lists
 (`data/contactout-people-vocabulary.json`; the dashboard's Revenue, Gender and exclude lists have no
@@ -292,7 +292,8 @@ results read as a Table or as Cards (a per-viewer localStorage choice). The Loca
 two letters: countries, then LinkedIn's own spellings of where people on file live (`raw ->> 'city'`),
 then Mapbox, sent as `City, Country`. Saved searches carry a `kind`.
 The **Reports**
-tab is the mandate's talent mapping report (`GET /projects/{id}/report`): four chapters — mapping
+tab — **Dashboard** in the rail and the phone's bar, while the route and code keep `reports` — is the mandate's talent
+mapping report (`GET /projects/{id}/report`): four chapters — mapping
 progress, shape of the market, remuneration, diversity — aggregated live by `report` from the same
 rows, so nothing is stored and nothing goes stale. It reads one chapter at a time behind a numbered
 step rail, the chapter kept in the URL (`?chapter=`), and its mockup is the `reports` page of
@@ -700,8 +701,8 @@ takes a thread from the run in it.
 `Outreach.dc.html`'s three panes — `ConversationListPane`, `ConversationPane` (history and `ReplyComposer`) and
 `CandidateDetailsPane` — with `?view=&who=&q=&candidate=` in the URL; it lands on everyone (All, Team) and opens
 the top conversation where the list leaves room (the list alone on a phone), the tabs being chips in the list (All · To do · Scheduled · Sent). `OutreachHeader` is
-the same frame for Conversations and Sequences (`…/outreach/sequences` and the sequence editor under it, the rail's views
-under Outreach), the mailbox chip (`MailboxChip`;
+the same frame for Conversations and Sequences (`…/outreach/sequences` and the sequence editor under it, its switch first),
+the mailbox chip (`MailboxChip`;
 `lib/mailboxState.ts` is the one reading the banner, chip, setup card and composer share) and the view's action —
 New email (anyone on the position) or New sequence. The executive drawer offers Write email (the same composer in
 `EmailComposerDialog`) beside Add to sequence. The conversation read gained `contact` and `composer`

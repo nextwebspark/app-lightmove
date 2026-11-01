@@ -1,15 +1,14 @@
 import { Fragment, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import {
   TOOLBAR_OUTLINE,
   TOOLBAR_PRIMARY,
   TOOLBAR_ROW,
   ToolbarDivider,
   ToolbarSearch,
+  ToolbarViewSwitch,
 } from "../../../components/ui/Toolbar";
 import { cn } from "../../../lib/cn";
-import { hiddenBesideRail } from "../../../lib/useFullscreen";
 import type { CompaniesView } from "../../talentmap/lib/useTalentMapPreferences";
 import { COMPANIES_VIEW_LABELS } from "../lib/useCompaniesViews";
 import { AdvancedMenu, ToolbarMenu, type AdvancedMenuSection } from "./AdvancedMenu";
@@ -20,10 +19,10 @@ export interface UnavailableAction {
 }
 
 /**
- * The Companies stage toolbar (`Position.dc.html`): one search box whatever the view, the Table | Map |
- * Pipeline control where more than one view is offered, then Add to sequence and Send email, and — on Table
- * and Map — Find executives, Advanced ▾ and Create ▾. The board needs nothing but the outreach pair: its cards
- * carry their own actions, and companies are added and searched for executives from the grid.
+ * The Companies stage toolbar (`Position.dc.html`): the Table | Map | Pipeline switch where more than one view is
+ * offered, one search box whatever the view, then Add to sequence and Send email, and — on Table and Map — Find
+ * executives, Advanced ▾ and Create ▾. The board needs nothing but the outreach pair: its cards carry their own
+ * actions, and companies are added and searched for executives from the grid.
  *
  * <p>"Add executive" maps someone with no company selected, so the row lands unmapped: the executive a
  * researcher met at a company this mandate never triaged. Adding someone <i>at</i> a company is that
@@ -36,7 +35,6 @@ export function TriageToolbar({
   views,
   view,
   onViewChange,
-  isFullscreen,
   addToSequence,
   sendEmail,
   findExecutives,
@@ -51,8 +49,6 @@ export function TriageToolbar({
   views: readonly CompaniesView[];
   view: CompaniesView;
   onViewChange: (view: CompaniesView) => void;
-  /** Full screen covers the rail, so the toolbar's own view switch stands in for it. */
-  isFullscreen: boolean;
   /** The ticked companies' or executives' people, enrolled; absent where outreach is not offered. */
   addToSequence?: { onPress: () => void; unavailable?: UnavailableAction };
   /** Write to anyone on the position; absent where outreach is not offered. */
@@ -138,21 +134,15 @@ export function TriageToolbar({
   ].filter((group) => group.node);
   return (
     <div className={TOOLBAR_ROW}>
-      <ToolbarSearch value={search} onChange={onSearch} label={searchPlaceholder} placeholder={searchPlaceholder} />
-
       {views.length > 1 && (
-        <SegmentedControl
+        <ToolbarViewSwitch
           label="View"
-          options={views.map((option) => ({
-            value: option,
-            label: COMPANIES_VIEW_LABELS[option].label,
-            icon: <Icon d={COMPANIES_VIEW_LABELS[option].icon} size={13} />,
-          }))}
+          views={views.map((option) => ({ value: option, ...COMPANIES_VIEW_LABELS[option] }))}
           value={view}
           onChange={onViewChange}
-          className={hiddenBesideRail(isFullscreen)}
         />
       )}
+      <ToolbarSearch value={search} onChange={onSearch} label={searchPlaceholder} placeholder={searchPlaceholder} />
 
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
         {groups.map((group, index) => (

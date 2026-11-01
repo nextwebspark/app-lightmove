@@ -43,6 +43,7 @@ export function SegmentedControl<TValue extends string>({
   value,
   onChange,
   variant = "default",
+  fill = false,
   className,
 }: {
   /** Names the group for a screen reader; the buttons carry their own labels. */
@@ -51,6 +52,8 @@ export function SegmentedControl<TValue extends string>({
   value: TValue;
   onChange: (value: TValue) => void;
   variant?: SegmentedVariant;
+  /** Options share the group's width equally, so a set width holds two options or three alike. */
+  fill?: boolean;
   className?: string;
 }) {
   const keys = useRadioGroupKeys(
@@ -65,7 +68,12 @@ export function SegmentedControl<TValue extends string>({
       role="radiogroup"
       aria-label={label}
       onKeyDown={keys.onKeyDown}
-      className={cn("inline-flex flex-none items-center border", GROUP_CLASS[variant], className)}
+      className={cn(
+        fill ? "grid flex-none auto-cols-fr grid-flow-col" : "inline-flex flex-none items-center",
+        "border",
+        GROUP_CLASS[variant],
+        className,
+      )}
     >
       {options.map((option) => {
         const selected = option.value === value;
@@ -79,12 +87,13 @@ export function SegmentedControl<TValue extends string>({
             onClick={() => onChange(option.value)}
             className={cn(
               "inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap font-sans transition",
+              fill && "min-w-0 justify-center",
               OPTION_CLASS[variant].base,
               selected ? OPTION_CLASS[variant].selected : OPTION_CLASS[variant].idle,
             )}
           >
             {option.icon}
-            {option.label}
+            {fill ? <span className="truncate">{option.label}</span> : option.label}
           </button>
         );
       })}
