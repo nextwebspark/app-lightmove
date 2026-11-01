@@ -6,7 +6,9 @@ import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { searchCompanies } from "../../strategy/api/companiesApi";
 import type { CompanySuggestion } from "../../strategy/api/types";
 import { useDebouncedValue } from "../../../lib/useComboboxList";
+import type { Client } from "../api/types";
 import {
+  clientHolding,
   companyLocation,
   pickedCompanyLogo,
   pickedCompanyName,
@@ -44,7 +46,7 @@ const WORKSPACE_COMPANY_SEARCH: CompanySearchSource = {
 export function CompanyPicker({
   pick,
   onPick,
-  existingNames,
+  existingClients,
   onRejectExisting,
   error,
   autoFocus,
@@ -54,9 +56,9 @@ export function CompanyPicker({
 }: {
   pick: CompanyPick | null;
   onPick: (pick: CompanyPick | null) => void;
-  /** Lower-cased names already on the books — those rows show a CLIENT badge and refuse the pick. */
-  existingNames?: Set<string>;
-  /** How the caller reports a refused pick; without one the row is simply inert. */
+  /** The records already on the books — a row one of them holds, by company or name, shows a CLIENT badge and refuses the pick. */
+  existingClients?: readonly Client[];
+  /** How the caller reports a refused pick, given the holding record's name; without one the row is simply inert. */
   onRejectExisting?: (name: string) => void;
   /** A refusal the caller owns — "nothing picked yet". Rendered by `Field`, like every other error. */
   error?: string;
@@ -89,11 +91,12 @@ export function CompanyPicker({
   const isSettled = debounced === trimmed;
   const isAnswered = isSettled && !isFetching && !isError;
 
-  const isOnTheBooks = (name: string) => existingNames?.has(name.toLowerCase()) ?? false;
+  const holderOf = (hit: CompanySuggestion) => (existingClients ? clientHolding(existingClients, hit) : undefined);
 
   const handlePickHit = (hit: CompanySuggestion) => {
-    if (isOnTheBooks(hit.companyName)) {
-      onRejectExisting?.(hit.companyName);
+    const holder = holderOf(hit);
+    if (holder) {
+      onRejectExisting?.(holder.name);
       return;
     }
     onPick({ source: "universe", company: hit });
@@ -168,7 +171,7 @@ export function CompanyPicker({
               <SuggestionRow
                 key={hit.apolloAccountId}
                 company={hit}
-                alreadyClient={isOnTheBooks(hit.companyName)}
+                alreadyClient={!!holderOf(hit)}
                 onSelect={() => handlePickHit(hit)}
               />
             ))}

@@ -145,6 +145,10 @@ public class PositionTemplate extends BaseEntity {
         return customisedFrom != null && library.revisedAt.isAfter(customisedFrom);
     }
 
+    public boolean isTitled(String roleTitle) {
+        return roleTitle != null && title.trim().equalsIgnoreCase(roleTitle.trim());
+    }
+
     /**
      * A case-insensitive substring match on any keyword. Both sides are lower-cased: a keyword written
      * before the editor normalised them, or straight into the table, would otherwise silently stop matching.

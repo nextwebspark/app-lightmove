@@ -6,7 +6,7 @@ import { COMPANY_SEARCH_KEY, searchCompanies } from "../../strategy/api/companie
 import type { CompanySuggestion } from "../../strategy/api/types";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import type { Client } from "../api/types";
-import { companyLocation } from "../lib/companyPick";
+import { clientHolding, companyLocation } from "../lib/companyPick";
 import { ComboboxGroupLabel, ComboboxNote, ComboboxOption, NewNameOption } from "./ComboboxRows";
 
 const LIST_ID = "client-options";
@@ -41,13 +41,16 @@ export function ClientCombobox({
   });
 
   const clientNames = new Set(clients.map((client) => client.name.toLowerCase()));
-  const matches = (
-    query ? clients.filter((client) => client.name.toLowerCase().includes(query)) : clients
-  ).slice(0, MAX_CLIENT_MATCHES);
-  const hits =
-    trimmed.length >= MIN_QUERY_LENGTH
-      ? (data?.companies ?? []).filter((company) => !clientNames.has(company.companyName.toLowerCase()))
-      : [];
+  const companies = trimmed.length >= MIN_QUERY_LENGTH ? (data?.companies ?? []) : [];
+  // A company already on the books is offered as its record, under the name that record carries now: matched on
+  // the name alone, a record renamed since it was picked left the company listed, and picking it filed it twice.
+  const holders = companies.flatMap((company) => clientHolding(clients, company) ?? []);
+  const named = query ? clients.filter((client) => client.name.toLowerCase().includes(query)) : clients;
+  const matches = [...new Map([...named, ...holders].map((client) => [client.id, client])).values()].slice(
+    0,
+    MAX_CLIENT_MATCHES,
+  );
+  const hits = companies.filter((company) => !clientHolding(clients, company));
   const offerNew = query !== "" && !clientNames.has(query);
   const optionCount = matches.length + hits.length + (offerNew ? 1 : 0);
 
