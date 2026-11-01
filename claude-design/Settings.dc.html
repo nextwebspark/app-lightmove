@@ -163,12 +163,29 @@
               <div style="margin-top:4px;font:400 12px var(--mono);color:var(--text3)">How you appear across the workspace</div>
             </div>
             <div style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
-              <div style="margin-bottom:20px;display:flex;align-items:center;gap:14px">
-                <span title="{{ pName }}" style="width:52px;height:52px;border-radius:12px;display:grid;place-items:center;flex:none;background:var(--sky-dim);color:var(--sky);font:600 17px var(--mono)">YH</span>
-                <div>
+              <div style="margin-bottom:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+                <sc-if value="{{ hasPhoto }}" hint-placeholder-val="{{ false }}">
+                  <span role="img" aria-label="{{ pName }}" title="{{ pName }}" style="width:52px;height:52px;border-radius:12px;flex:none;background:radial-gradient(circle at 50% 38%, #d9b48f 0 22%, transparent 23%), radial-gradient(ellipse at 50% 100%, #3d5a80 0 46%, transparent 47%), linear-gradient(160deg, #9fb7cc, #5d7a96)"></span>
+                </sc-if>
+                <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">
+                  <span title="{{ pName }}" style="width:52px;height:52px;border-radius:12px;display:grid;place-items:center;flex:none;background:var(--sky-dim);color:var(--sky);font:600 17px var(--mono)">YH</span>
+                </sc-if>
+                <div style="flex:1;min-width:160px">
                   <div style="font:600 14px var(--sans)">{{ pName }}</div>
                   <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">{{ membershipMeta }}</div>
                 </div>
+                <!-- Change photo opens the crop dialog after a file is picked; hidden where the workspace's identity provider supplies the photo -->
+                <sc-if value="{{ photoEditable }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <button onClick="{{ openPhoto }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:7px 12px;font:500 12.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Change photo</button>
+                    <sc-if value="{{ hasPhoto }}" hint-placeholder-val="{{ false }}">
+                      <button onClick="{{ removePhoto }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:7px 12px;font:500 12.5px var(--sans);background:none;border:1px solid transparent;color:var(--text3);cursor:pointer" style-hover="color:var(--red)">Remove photo</button>
+                    </sc-if>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ photoManaged }}" hint-placeholder-val="{{ false }}">
+                  <div style="font:400 11.5px var(--mono);color:var(--text3)">Your photo comes from your organisation's sign-in</div>
+                </sc-if>
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:16px;row-gap:14px">
                 <label style="display:block;margin-bottom:16px">
@@ -1799,6 +1816,28 @@
     </div>
   </sc-if>
 
+  <!-- Profile photo: frame the picked picture — drag to move, the slider zooms; saved as a square, drawn round or rounded wherever a face is shown -->
+  <sc-if value="{{ photoCropOpen }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Profile photo" onClick="{{ closePhoto }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="Profile photo" onClick="{{ stop }}" style="width:420px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="margin-bottom:4px;font:600 16px var(--sans)">Profile photo</div>
+        <div style="margin-bottom:16px;font:400 12px var(--mono);color:var(--text3)">Drag to position, zoom to fit your face</div>
+        <div style="position:relative;height:300px;border-radius:8px;overflow:hidden;background:#11161f">
+          <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 40%, #d9b48f 0 16%, transparent 17%), radial-gradient(ellipse at 50% 96%, #3d5a80 0 34%, transparent 35%), linear-gradient(160deg, #9fb7cc, #5d7a96)"></div>
+          <div style="position:absolute;left:50%;top:50%;width:240px;height:240px;transform:translate(-50%,-50%);border-radius:50%;box-shadow:0 0 0 999px rgba(10,14,20,.55);border:1px solid rgba(255,255,255,.7)"></div>
+        </div>
+        <label style="margin-top:16px;display:flex;align-items:center;gap:12px">
+          <span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Zoom</span>
+          <input type="range" min="1" max="3" step="0.01" value="1.2" aria-label="Zoom" style="flex:1;accent-color:var(--sky)">
+        </label>
+        <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closePhoto }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ savePhoto }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Save photo</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- Delete workspace modal -->
   <sc-if value="{{ deleteOpen }}" hint-placeholder-val="{{ false }}">
     <div data-screen-label="Delete workspace" onClick="{{ closeDelete }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
@@ -2031,7 +2070,7 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">SE</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;availability&quot;,&quot;general&quot;,&quot;meetings&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;integrationsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;own-new&quot;,&quot;own-saved&quot;,&quot;replacing&quot;,&quot;verify-failed&quot;,&quot;expiring&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;availability&quot;,&quot;general&quot;,&quot;meetings&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;photo&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;set&quot;,&quot;crop&quot;,&quot;managed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;integrationsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;own-new&quot;,&quot;own-saved&quot;,&quot;replacing&quot;,&quot;verify-failed&quot;,&quot;expiring&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -2189,6 +2228,7 @@ class Component extends DCLogic {
       akRevealName: 'Power BI dashboard', akSecret: 'uncava_pat_7Kq2vXyR9bN4mTc8LwZp1sHe6uJfA3dGkQ5rVo0iYtBn_f9a1c03e',
       newWorkspaceOpen: !!props.newWorkspaceOpen, newWorkspaceStage: props.newWorkspaceStage || 'organisation',
       pName: 'Yara Haddad', pTitle: 'Head of Talent Acquisition', pTz: 'Asia/Dubai', pLocale: 'en', pNameError: '',
+      photo: urlProp('photo') || props.photo || 'none', photoBefore: 'none',
       pwCurrent: '', pwNew: '', pwConfirm: '', pwErr: {},
       sessions: [
         { id: 's1', device: 'macOS — Chrome', kind: 'DESKTOP', meta: '94.204.12.8 · active now', current: true },
@@ -3039,6 +3079,8 @@ class Component extends DCLogic {
 
       pName: st.pName, pTitle: st.pTitle, pTz: st.pTz, pLocale: st.pLocale, pNameError: st.pNameError, pNameInputStyle: inputStyle(!!st.pNameError),
       membershipMeta: roleWord + ' · joined Mar 2026', roleReadOnly: roleWord + ' — set by workspace owner',
+      hasPhoto: st.photo === 'set' || st.photo === 'managed' || (st.photo === 'crop' && st.photoBefore === 'set'), noPhoto: st.photo === 'none' || (st.photo === 'crop' && st.photoBefore !== 'set'),
+      photoEditable: st.photo !== 'managed', photoManaged: st.photo === 'managed', photoCropOpen: st.photo === 'crop',
 
       pwCurrent: st.pwCurrent, pwNew: st.pwNew, pwConfirm: st.pwConfirm,
       pwErrCurrent: pwErr.current || '', pwErrNew: pwErr.new || '', pwErrConfirm: pwErr.confirm || '',
@@ -3172,6 +3214,10 @@ class Component extends DCLogic {
       toggleTheme: () => { const d = !st.dark; document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light'); try { localStorage.setItem('lm-theme', d ? 'dark' : 'light'); } catch (e) {} this.setState({ dark: d }); },
       toggleCollapse: () => { const v = !st.collapsed; try { localStorage.setItem('lm-side-collapsed', v ? '1' : '0'); } catch (e) {} this.setState({ collapsed: v }); },
 
+      openPhoto: () => this.setState({ photo: 'crop', photoBefore: st.photo }),
+      closePhoto: () => this.setState({ photo: st.photoBefore === 'set' ? 'set' : 'none' }),
+      savePhoto: () => { this.setState({ photo: 'set' }); this.showToast('Profile photo saved'); },
+      removePhoto: () => { this.setState({ photo: 'none' }); this.showToast('Profile photo removed'); },
       onProfileName: (e) => this.setState({ pName: e.target.value, pNameError: '' }),
       onProfileTitle: (e) => this.setState({ pTitle: e.target.value }),
       onProfileTz: (e) => this.setState({ pTz: e.target.value }),
