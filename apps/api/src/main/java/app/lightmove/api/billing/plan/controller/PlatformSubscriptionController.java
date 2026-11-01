@@ -6,6 +6,7 @@ import app.lightmove.api.billing.plan.service.InvoicedSubscriptionService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.PlatformAction;
 import app.lightmove.api.core.security.rbac.RequirePlatformPermission;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -29,6 +30,8 @@ public class PlatformSubscriptionController {
                                     @PathVariable UUID workspaceId,
                                     @Valid @RequestBody InvoicedSubscriptionRequest request,
                                     HttpServletRequest httpRequest) {
-        return subscriptions.set(principal.userId(), workspaceId, request, httpRequest);
+        // A platform admin is signed in to their own workspace; the subscription is the one the path names.
+        return WorkspaceScope.call(workspaceId, () -> subscriptions.set(principal.userId(), workspaceId, request,
+                httpRequest));
     }
 }

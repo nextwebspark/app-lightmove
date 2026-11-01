@@ -15,9 +15,11 @@ import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.RecordingMailboxGateway.SentRecord;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.service.ProviderAppUnavailable;
 import app.lightmove.api.outreach.model.DeliveryFailure;
 import app.lightmove.api.outreach.model.GrantedMailbox;
@@ -557,14 +559,16 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         start(createSequence("First approach"), priya, "priya@" + domain, null);
         dispatcher.dispatchAt(monday);
         Instant thursday = monday.plus(Duration.ofDays(3));
-        List<java.util.UUID> claimed = sends.claimDue(thursday);
+        // The dispatcher's two halves, called as its walk calls them: in the position's workspace.
+        java.util.UUID firm = TestWorkspaceScopes.workspaceOfProject(jdbc, java.util.UUID.fromString(projectId));
+        List<java.util.UUID> claimed = WorkspaceScope.call(firm, () -> sends.claimDue(thursday));
         java.util.UUID run = java.util.UUID.fromString(enrollmentOf(priya).get("id").toString());
         assertThat(claimed).contains(run);
 
         gateway.deliverNext(List.of(new InboundMessage("grant-1", (String) enrollmentOf(priya).get("thread_id"),
                 "priya@" + domain)));
         webhook();
-        sends.sendClaimed(run, thursday);
+        WorkspaceScope.run(firm, () -> sends.sendClaimed(run, thursday));
         dispatcher.dispatchAt(thursday.plus(Duration.ofMinutes(11)));
 
         assertThat(sentTo("priya@" + domain)).hasSize(1);

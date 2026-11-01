@@ -4,12 +4,12 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.core.tenant.ResolvedRow;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.dto.BookOnPageRequest;
 import app.lightmove.api.outreach.dto.BookingSlotsResponse;
 import app.lightmove.api.outreach.dto.SlotDayResponse;
 import app.lightmove.api.outreach.model.BookingMade;
-import app.lightmove.api.outreach.model.BookingSlug;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarSchedule;
 import app.lightmove.api.outreach.model.FreeSlots;
@@ -55,7 +55,12 @@ public class DirectBookingPage {
 
     public BookingSlotsResponse slots(String slug, LocalDate from, HttpServletRequest request) {
         rateLimit.checkBookingPageOpen(slug, request);
-        MailboxConnection mailbox = requireDirectPage(slug);
+        ResolvedRow bookingPage = bookingPages.pageNamed(slug);
+        return WorkspaceScope.call(bookingPage.workspaceId(), () -> slotsInScope(bookingPage, from));
+    }
+
+    private BookingSlotsResponse slotsInScope(ResolvedRow bookingPage, LocalDate from) {
+        MailboxConnection mailbox = requireDirectPage(bookingPage);
         Instant now = clock.instant();
         ZoneId zone = mailbox.zone();
         LocalDate firstDay = FreeSlots.firstDayOf(now, from, zone);
@@ -72,7 +77,13 @@ public class DirectBookingPage {
     /** The calendar is asked once more for the slot before the invite goes: an invite cannot be taken back. */
     public void book(String slug, BookOnPageRequest booking, HttpServletRequest request) {
         rateLimit.checkBookingPageOpen(slug, request);
-        MailboxConnection mailbox = requireDirectPage(slug);
+        ResolvedRow page = bookingPages.pageNamed(slug);
+        WorkspaceScope.run(page.workspaceId(), () -> bookInScope(slug, page, booking, request));
+    }
+
+    /** Nobody is signed in: the page is read, and the booking recorded, in the page's own workspace. */
+    private void bookInScope(String slug, ResolvedRow page, BookOnPageRequest booking, HttpServletRequest request) {
+        MailboxConnection mailbox = requireDirectPage(page);
         Instant now = clock.instant();
         Instant startsAt = booking.startsAt();
         Instant endsAt = startsAt.plus(LENGTH);
@@ -102,9 +113,8 @@ public class DirectBookingPage {
         BookingMade made = new BookingMade(mailbox.getGrantId(), null, created.id(), created.title(), startsAt,
                 endsAt, List.of(mailbox.getAddress(), bookerAddress));
         try {
-            // Nobody is signed in: the booking is recorded in the page's own workspace, where its people are.
-            WorkspaceScope.run(mailbox.getWorkspaceId(), () -> transactions.executeWithoutResult(status ->
-                    mailboxes.findById(mailbox.getId()).ifPresent(fresh -> linkBookings.apply(fresh, made, now))));
+            transactions.executeWithoutResult(status ->
+                    mailboxes.findById(mailbox.getId()).ifPresent(fresh -> linkBookings.apply(fresh, made, now)));
         } catch (RuntimeException failed) {
             // The invite has gone; without this line nothing would say that an event exists with no booking behind it.
             log.error("Invite {} went out from mailbox {} through its booking page, but recording the booking failed",
@@ -114,11 +124,8 @@ public class DirectBookingPage {
     }
 
     /** Any link that leads nowhere, or to a Nylas page, answers alike. */
-    private MailboxConnection requireDirectPage(String slug) {
-        if (!gateway.isOffered() || slug == null || !BookingSlug.SHAPE.matcher(slug).matches()) {
-            throw ApiException.of(ErrorCode.NOT_FOUND);
-        }
-        return mailboxes.findByBookingSlug(slug)
+    private MailboxConnection requireDirectPage(ResolvedRow page) {
+        return mailboxes.findById(page.id())
                 .filter(MailboxConnection::canSend)
                 .filter(MailboxConnection::isDirect)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));

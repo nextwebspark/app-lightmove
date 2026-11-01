@@ -5,6 +5,7 @@ import app.lightmove.api.billing.credit.model.CreditGrantCommand;
 import app.lightmove.api.billing.plan.service.BillingWorkspaces;
 import app.lightmove.api.core.config.GrandfatherSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -82,8 +83,8 @@ public class GrandfatherCredits implements ApplicationRunner {
     }
 
     private boolean grant(UUID workspaceId, GrandfatherSettings settings, Instant now) {
-        return !ledger.grant(new CreditGrantCommand(workspaceId, CreditGrantSource.PROMO, settings.credits(), now,
+        return WorkspaceScope.call(workspaceId, () -> !ledger.grant(new CreditGrantCommand(workspaceId, CreditGrantSource.PROMO, settings.credits(), now,
                 now.plus(settings.validFor()), BigDecimal.ZERO, grantKey(workspaceId), null,
-                "Given to every workspace when contact credits began to be enforced")).alreadyGranted();
+                "Given to every workspace when contact credits began to be enforced")).alreadyGranted());
     }
 }

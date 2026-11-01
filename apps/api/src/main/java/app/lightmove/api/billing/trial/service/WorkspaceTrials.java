@@ -8,6 +8,7 @@ import app.lightmove.api.billing.plan.model.WorkspaceSubscription;
 import app.lightmove.api.billing.plan.repository.WorkspaceSubscriptionRepository;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.TrialSettings;
+import app.lightmove.api.core.tenant.TenantResolvers;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -32,6 +33,7 @@ public class WorkspaceTrials {
     private final WorkspaceSubscriptionRepository subscriptions;
     private final CreditLedger ledger;
     private final JdbcTemplate jdbc;
+    private final TenantResolvers resolvers;
     private final LightMoveProperties properties;
     private final Clock clock;
 
@@ -47,7 +49,9 @@ public class WorkspaceTrials {
         }
         Instant now = clock.instant();
         jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", "trial:" + founderId);
-        if (subscriptions.existsByTrialStartedBy(founderId)) {
+        // Asked of every workspace, not this one: the founder's earlier trial is in another, and read in this
+        // workspace's scope it would never be found, so every workspace they founded would start a fresh one.
+        if (resolvers.hasStartedATrial(founderId)) {
             subscriptions.save(WorkspaceSubscription.trialAlreadySpent(workspaceId, founderId, now));
             return;
         }

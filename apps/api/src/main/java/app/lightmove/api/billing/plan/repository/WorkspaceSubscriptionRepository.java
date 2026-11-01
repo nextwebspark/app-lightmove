@@ -17,8 +17,6 @@ public interface WorkspaceSubscriptionRepository extends JpaRepository<Workspace
 
     Optional<WorkspaceSubscription> findByWorkspaceId(UUID workspaceId);
 
-    boolean existsByTrialStartedBy(UUID userId);
-
     /**
      * Trials the app started, still unpaid, ending in {@code [from, to)}. One that started already ended — a founder's
      * second, {@code WorkspaceSubscription.trialAlreadySpent} — carries no {@code trial_started_at} and is never listed.

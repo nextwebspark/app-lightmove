@@ -6,6 +6,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.positiontemplate.constant.TemplateImportAction;
 import app.lightmove.api.positiontemplate.dto.PositionTemplateDetail;
 import app.lightmove.api.positiontemplate.dto.PositionTemplateOverview;
@@ -15,7 +16,6 @@ import app.lightmove.api.positiontemplate.model.ImportedTemplate;
 import app.lightmove.api.positiontemplate.model.PlannedTemplateImport;
 import app.lightmove.api.positiontemplate.model.PositionTemplate;
 import app.lightmove.api.positiontemplate.model.PositionTemplateDraft;
-import app.lightmove.api.positiontemplate.model.TemplateCodeCount;
 import app.lightmove.api.positiontemplate.repository.PositionTemplateRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -47,12 +47,13 @@ public class PositionTemplateLibraryService {
     private final UserRepository users;
     private final AuditService audit;
     private final TransactionTemplate transactions;
+    /** The firms' copies are each firm's rows; the library screen counts them across every firm. */
+    private final TenantResolvers resolvers;
 
     @Transactional(readOnly = true)
     public List<PositionTemplateOverview> list() {
         List<PositionTemplate> library = templates.findLibrary();
-        Map<String, Long> copies = templates.countWorkspaceTemplatesByCode().stream()
-                .collect(Collectors.toMap(TemplateCodeCount::code, TemplateCodeCount::count));
+        Map<String, Long> copies = resolvers.firmTemplateCopiesByCode();
         Map<UUID, String> reviserNames = users.findAllById(library.stream()
                         .map(PositionTemplate::getRevisedBy).filter(Objects::nonNull).distinct().toList())
                 .stream().collect(Collectors.toMap(User::getId, User::getFullName));
@@ -175,7 +176,7 @@ public class PositionTemplateLibraryService {
         return new PositionTemplateDetail(template.getCode(), template.getTitle(), template.getDiscipline(),
                 template.getSeniority(), template.getSummary(), List.copyOf(template.getKeywords()),
                 template.getBody(), null, template.isActive(), PositionTemplateService.isFallback(template), false,
-                templates.countWorkspaceTemplatesCoded(template.getCode()), template.getVersion(),
+                resolvers.firmTemplateCopiesByCode().getOrDefault(template.getCode(), 0L), template.getVersion(),
                 template.getRevisedAt(), nameOf(template.getRevisedBy()));
     }
 

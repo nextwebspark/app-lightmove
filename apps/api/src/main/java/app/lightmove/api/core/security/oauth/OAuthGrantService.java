@@ -7,6 +7,9 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.dto.OAuthGrantResponse;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import jakarta.servlet.http.HttpServletRequest;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -50,6 +53,7 @@ public class OAuthGrantService {
     private final JsonMapper json;
     private final Clock clock;
     private final ClientVerification verification;
+    private final TenantResolvers resolvers;
 
     /**
      * Whether an access token's grant still stands, for the MCP server to ask on every call: a revoked or ended grant
@@ -135,9 +139,16 @@ public class OAuthGrantService {
      */
     @Transactional
     public void revokeAllOfUser(UUID actorId, UUID userId, HttpServletRequest httpRequest) {
-        delete(actorId, jdbc.query("SELECT id, user_id, workspace_id FROM app_lm_oauth_authorization WHERE user_id = :userId",
-                new MapSqlParameterSource("userId", userId), (rs, rowNum) -> GrantRef.of(rs)),
-                OAuthGrantRevokeReason.PASSWORD_CHANGED, httpRequest);
+        // Each in its own workspace, still inside the password's transaction: the caller is in one workspace at most.
+        for (ResolvedRow grant : resolvers.oauthAuthorizationsOfUser(userId)) {
+            Runnable end = () -> delete(actorId, List.of(new GrantRef(grant.id(), userId, grant.workspaceId())),
+                    OAuthGrantRevokeReason.PASSWORD_CHANGED, httpRequest);
+            if (grant.workspaceId() == null) {
+                end.run();
+            } else {
+                WorkspaceScope.runInJoinedTransaction(grant.workspaceId(), end);
+            }
+        }
     }
 
     /** Every grant, consented or still waiting for it: a request mid-consent must not survive its membership either. */

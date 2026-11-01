@@ -14,6 +14,8 @@ import app.lightmove.api.billing.seat.model.StaffSeatsChanged;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
+import app.lightmove.api.core.tenant.EveryWorkspace;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -51,12 +53,13 @@ public class StripeSeatSync {
     private final PaymentGateway gateway;
     private final CreditLedger ledger;
     private final AuditService audit;
+    private final EveryWorkspace workspaces;
     private final TransactionTemplate transactions;
     private final Clock clock;
 
     /** Its own transactions, never the caller's: the membership's has committed, and Stripe is called outside any. */
     StripeSeatSync(WorkspaceSubscriptionRepository subscriptions, BillingPlanRepository plans, WorkspaceAccess access,
-                   PaymentGateway gateway, CreditLedger ledger, AuditService audit,
+                   PaymentGateway gateway, CreditLedger ledger, AuditService audit, EveryWorkspace workspaces,
                    PlatformTransactionManager transactionManager, Clock clock) {
         this.subscriptions = subscriptions;
         this.plans = plans;
@@ -64,6 +67,7 @@ public class StripeSeatSync {
         this.gateway = gateway;
         this.ledger = ledger;
         this.audit = audit;
+        this.workspaces = workspaces;
         this.transactions = new TransactionTemplate(transactionManager);
         this.transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.clock = clock;
@@ -85,17 +89,21 @@ public class StripeSeatSync {
     }
 
     /** @return how many workspaces Stripe now holds the right quantity for */
+    /** A workspace at a time: the subscriptions and the ledger are under row-level security. */
     public int syncDueAt(Instant now) {
-        int synced = 0;
-        for (UUID workspaceId : subscriptions.findWorkspacesOwingSeatSync(now.minus(RETRY_AFTER), WORKSPACES_PER_RUN)) {
-            synced += syncQuietly(workspaceId) ? 1 : 0;
-        }
-        return synced;
+        return workspaces.sum(scoped -> {
+            int synced = 0;
+            for (UUID workspaceId : subscriptions.findWorkspacesOwingSeatSync(now.minus(RETRY_AFTER),
+                    WORKSPACES_PER_RUN)) {
+                synced += syncQuietly(workspaceId) ? 1 : 0;
+            }
+            return synced;
+        });
     }
 
     private boolean syncQuietly(UUID workspaceId) {
         try {
-            return sync(workspaceId);
+            return WorkspaceScope.call(workspaceId, () -> sync(workspaceId));
         } catch (RuntimeException failure) {
             log.warn("Could not sync the Stripe seats of workspace {}; the job tries again", workspaceId, failure);
             return false;

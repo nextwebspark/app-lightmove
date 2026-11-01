@@ -9,12 +9,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.project.model.ClientRepresentative;
+import app.lightmove.api.project.model.PendingRepresentativeAttachment;
 import app.lightmove.api.project.repository.ClientRepresentativeRepository;
 import app.lightmove.api.project.repository.PendingRepresentativeAttachmentRepository;
 import app.lightmove.api.workspace.constant.InvitationStatus;
@@ -22,11 +26,13 @@ import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.Invitation;
 import app.lightmove.api.workspace.repository.InvitationRepository;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
@@ -44,6 +50,7 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
     @Autowired PendingRepresentativeAttachmentRepository pendingAttachments;
     @Autowired WorkspaceMemberRepository members;
     @Autowired UserRepository users;
+    @Autowired @FixtureJdbc JdbcTemplate fixture;
 
     @Test
     @DisplayName("an existing member named a representative gains the CLIENT role with a notice, not a new invite")
@@ -228,13 +235,15 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$[0].role").value("MEMBER"));
 
         // Two distinct pending rows coexist: one staff (client_id null), one client.
-        assertThat(invitations.findByWorkspaceIdAndStatus(workspaceId, InvitationStatus.PENDING)).hasSize(2);
-        assertThat(invitations.findByWorkspaceIdAndClientIdIsNullAndStatus(workspaceId, InvitationStatus.PENDING))
-                .hasSize(1);
+        assertThat(WorkspaceScope.call(workspaceId,
+                () -> invitations.findByWorkspaceIdAndStatus(workspaceId, InvitationStatus.PENDING))).hasSize(2);
+        assertThat(WorkspaceScope.call(workspaceId, () -> invitations
+                .findByWorkspaceIdAndClientIdIsNullAndStatus(workspaceId, InvitationStatus.PENDING))).hasSize(1);
 
         // The client invitation's id is invisible to the staff revoke/resend endpoints.
-        Invitation clientInvite = invitations.findByWorkspaceIdAndClientIdAndEmailAndStatus(
-                        workspaceId, UUID.fromString(clientId), shared, InvitationStatus.PENDING)
+        Invitation clientInvite = WorkspaceScope.call(workspaceId, () -> invitations
+                        .findByWorkspaceIdAndClientIdAndEmailAndStatus(
+                                workspaceId, UUID.fromString(clientId), shared, InvitationStatus.PENDING))
                 .orElseThrow();
         mvc.perform(delete("/api/v1/invitations/" + clientInvite.getId())
                         .header("Authorization", "Bearer " + admin))
@@ -256,8 +265,10 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
         inviteRepresentative(admin, clientId, "Rep Person", "Advisor", repEmail);
         acceptAsNewUser(email.latestTokenFor(repEmail), "Rep Person");
 
-        ClientRepresentative rep = representatives
-                .findByClientIdAndEmailIgnoreCase(UUID.fromString(clientId), repEmail).orElseThrow();
+        ClientRepresentative rep = TestWorkspaceScopes.inWorkspaceOfRow(fixture, "app_lm_client",
+                UUID.fromString(clientId),
+                () -> representatives.findByClientIdAndEmailIgnoreCase(UUID.fromString(clientId), repEmail))
+                .orElseThrow();
         UUID repMemberId = members.findAllByUserIdAndStatusOrderByJoinedAtAsc(rep.getUserId(), MemberStatus.ACTIVE)
                 .getFirst().getId();
 
@@ -360,7 +371,7 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
 
         // Re-attaching is a no-op, not a queue.
         attachRepresentative(admin, projectId, representativeId.toString());
-        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).hasSize(1);
+        assertThat(pendingOf(representativeId)).hasSize(1);
 
         // Accepting turns the parked intent into a real seat, atomically with the activation.
         String rep = acceptAsNewUser(email.latestTokenFor(repEmail), "Pending Rep");
@@ -374,7 +385,7 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk()).andReturn()).get(0);
         assertThat(afterAccept.get("representatives").get(0).get("status").asText()).isEqualTo("ACTIVE");
         assertThat(afterAccept.get("team").toString()).contains("CLIENT");
-        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).isEmpty();
+        assertThat(pendingOf(representativeId)).isEmpty();
     }
 
     @Test
@@ -398,7 +409,7 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk())
                 .andReturn());
         assertThat(detached.get("representatives").size()).isEqualTo(0);
-        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).isEmpty();
+        assertThat(pendingOf(representativeId)).isEmpty();
 
         // Accepting after the cancel lands them nowhere.
         String rep = acceptAsNewUser(email.latestTokenFor(repEmail), "Cancel Rep");
@@ -425,14 +436,14 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
         // Re-inviting reuses the row (same id), so the parked attachment survives.
         JsonNode reinvited = inviteRepresentative(admin, clientId, "Again Rep", "Advisor", repEmail);
         assertThat(reinvited.get("id").asText()).isEqualTo(representativeId.toString());
-        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).hasSize(1);
+        assertThat(pendingOf(representativeId)).hasSize(1);
 
         String rep = acceptAsNewUser(email.latestTokenFor(repEmail), "Again Rep");
         mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + rep))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].id").value(projectId));
-        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).isEmpty();
+        assertThat(pendingOf(representativeId)).isEmpty();
     }
 
     @Test
@@ -450,7 +461,7 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
         JsonNode representative = inviteRepresentative(admin, clientId, "Dual Rep", "Advisor", repEmail);
         UUID representativeId = UUID.fromString(representative.get("id").asText());
         attachRepresentative(admin, projectId, representativeId.toString());
-        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).hasSize(1);
+        assertThat(pendingOf(representativeId)).hasSize(1);
 
         // Meanwhile the same person joins the workspace as staff — an ordinary MEMBER invitation.
         inviteAndAccept(admin, "Dual Rep", repEmail, "MEMBER");
@@ -460,7 +471,7 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
         JsonNode reinvited = inviteRepresentative(admin, clientId, "Dual Rep", "Advisor", repEmail);
         assertThat(reinvited.get("id").asText()).isEqualTo(representativeId.toString());
         assertThat(reinvited.get("status").asText()).isEqualTo("ACTIVE");
-        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).isEmpty();
+        assertThat(pendingOf(representativeId)).isEmpty();
 
         JsonNode mandate = body(mvc.perform(get("/api/v1/projects")
                         .header("Authorization", "Bearer " + admin))
@@ -494,8 +505,8 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
         assertThat(mandate.get("representatives").size()).isEqualTo(1);
         assertThat(mandate.get("representatives").get(0).get("email").asText()).isEqualTo(repEmail);
         assertThat(mandate.get("representatives").get(0).get("status").asText()).isEqualTo("INVITED");
-        assertThat(representatives.findByClientIdOrderByCreatedAtAsc(UUID.fromString(clientId)))
-                .hasSize(1);
+        assertThat(TestWorkspaceScopes.inWorkspaceOfRow(fixture, "app_lm_client", UUID.fromString(clientId),
+                () -> representatives.findByClientIdOrderByCreatedAtAsc(UUID.fromString(clientId)))).hasSize(1);
 
         // A stranger gets their portal invitation and nothing else — parking an attachment is silent.
         // (The announce=false suppression is exercised by the already-a-member test below, where an
@@ -627,6 +638,12 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
                                 """.formatted(clientId, positionTitle)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
+    }
+
+    /** The attachments parked for a representative, read in the representative's own workspace. */
+    private List<PendingRepresentativeAttachment> pendingOf(UUID representativeId) {
+        return TestWorkspaceScopes.inWorkspaceOfRow(fixture, "app_lm_client_representative", representativeId,
+                () -> pendingAttachments.findByRepresentativeId(representativeId));
     }
 
     private void attachRepresentative(String adminToken, String projectId, String representativeId)

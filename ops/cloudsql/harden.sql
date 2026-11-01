@@ -59,6 +59,31 @@ BEGIN
     END IF;
 END $$;
 
+-- 2c. Row-level security on the two tables this file owns (V172, #1085). Where they were already postgres's when V172
+--     ran, it skipped them with a warning; where they were still lm_app's it applied the same policies, which the
+--     ownership change keeps. Either way this leaves both forced with their policies, and the API's posture check
+--     refuses to boot until it has. The audit trail is never refused a line, and is read in its own workspace, or the
+--     account's; the ledger is a plain tenant table.
+DO $$
+BEGIN
+    ALTER TABLE app_lm_audit_event ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE app_lm_audit_event FORCE ROW LEVEL SECURITY;
+    IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'app_lm_audit_event'::regclass) THEN
+        CREATE POLICY app_lm_tenant_read ON app_lm_audit_event FOR SELECT
+            USING (workspace_id IS NULL OR app_lm_tenant_visible(workspace_id));
+        CREATE POLICY app_lm_tenant_write ON app_lm_audit_event FOR INSERT WITH CHECK (true);
+    END IF;
+    IF to_regclass('public.app_lm_credit_entry') IS NOT NULL THEN
+        ALTER TABLE app_lm_credit_entry ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE app_lm_credit_entry FORCE ROW LEVEL SECURITY;
+        IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'app_lm_credit_entry'::regclass) THEN
+            CREATE POLICY app_lm_tenant ON app_lm_credit_entry
+                USING (app_lm_tenant_visible(workspace_id))
+                WITH CHECK (app_lm_tenant_visible(workspace_id));
+        END IF;
+    END IF;
+END $$;
+
 -- 3. The company universe is reference data: the brightdata pipeline writes it (through
 --    the pipeline), the application only reads it. Giving lm_app write access would buy nothing and
 --    would let a SQL-injection foothold in the app rewrite every company a consultant sees.

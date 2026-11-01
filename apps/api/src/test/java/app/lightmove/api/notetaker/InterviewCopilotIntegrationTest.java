@@ -14,6 +14,7 @@ import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.RecordingRecallBotApi;
 import app.lightmove.api.StubChatModel;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.service.InterviewCoachWorker;
 import app.lightmove.api.notetaker.service.NotetakerReconcile;
@@ -69,6 +70,12 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
     @Autowired private InterviewCoachWorker coachWorker;
     @Autowired private NotetakerReconcile reconcile;
     @Autowired @FixtureJdbc private JdbcTemplate jdbc;
+
+    /** Called as the live feed or the sweep calls it: in the recording's own workspace. */
+    private boolean coachIfDue(java.util.UUID recordingId, Instant at) {
+        return TestWorkspaceScopes.inWorkspaceOfRow(jdbc, "app_lm_meeting_recording", recordingId,
+                () -> coachWorker.coachIfDue(recordingId, at));
+    }
 
     private String grantId;
     private String consultant;
@@ -301,7 +308,7 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
                 .formatted(noticeSaidAt));
         liveDeliver(bot, finished("p2", "Priya Raman", "Happy to share more.", 40.0));
         rewindCoach(recordingId);
-        assertThat(coachWorker.coachIfDue(java.util.UUID.fromString(recordingId), Instant.now().plusSeconds(60)))
+        assertThat(coachIfDue(java.util.UUID.fromString(recordingId), Instant.now().plusSeconds(60)))
                 .isTrue();
 
         JsonNode again = copilot(recordingId, 0);
@@ -374,7 +381,7 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         java.util.UUID id = java.util.UUID.fromString(recordingId);
         for (int run = 0; run < 3; run++) {
             rewindCoach(recordingId);
-            coachWorker.coachIfDue(id, Instant.now().plusSeconds(120));
+            coachIfDue(id, Instant.now().plusSeconds(120));
         }
         assertThat(copilot(recordingId, 0).get("coach").asText()).isEqualTo("PAUSED");
         assertThat(jdbc.queryForObject("select coached_through from app_lm_meeting_recording where id = ?::uuid",
@@ -385,7 +392,7 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         chat.answerWhenSystemContains(COACH_MARKER, "{\"guard\":\"" + app.lightmove.api.core.llm.model.BlockedAnswer
                 .MARKER + "\"}");
         rewindCoach(recordingId);
-        coachWorker.coachIfDue(id, Instant.now().plusSeconds(120));
+        coachIfDue(id, Instant.now().plusSeconds(120));
         assertThat(copilot(recordingId, 0).get("coach").asText()).isEqualTo("GUARDED");
         assertThat(jdbc.queryForObject("select coached_through from app_lm_meeting_recording where id = ?::uuid",
                 Long.class, recordingId)).isPositive();
@@ -393,7 +400,7 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         jdbc.update("update app_lm_meeting_recording set coach_runs = 240 where id = ?::uuid", recordingId);
         liveDeliver(bot, finished("p2", "Priya Raman", "Two.", 5.0));
         rewindCoach(recordingId);
-        assertThat(coachWorker.coachIfDue(id, Instant.now().plusSeconds(120))).isFalse();
+        assertThat(coachIfDue(id, Instant.now().plusSeconds(120))).isFalse();
         assertThat(copilot(recordingId, 0).get("coach").asText()).isEqualTo("CAPPED");
         // No run ever answered, so the call cost nothing.
         assertThat(usageOf(recordingId)).isZero();
