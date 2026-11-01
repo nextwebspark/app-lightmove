@@ -32,6 +32,29 @@ export function SettingsProfilePage() {
     toast("Profile saved");
   };
 
+  // The photo is drawn on most screens — rosters, teams, tasks, notes — so every cached read is marked stale and
+  // refetched where it is next shown, rather than naming each one here and missing the next.
+  const afterPhotoChange = async (message: string) => {
+    await reload();
+    void queryClient.invalidateQueries();
+    toast(message);
+  };
+
+  const handleSavePhoto = async (photo: Blob) => {
+    await authApi.uploadAvatar(photo);
+    await afterPhotoChange("Profile photo saved");
+  };
+
+  const handleRemovePhoto = async () => {
+    try {
+      await authApi.removeAvatar();
+    } catch {
+      toast.error("Could not remove your photo. Try again.", { retry: () => void handleRemovePhoto() });
+      return;
+    }
+    await afterPhotoChange("Profile photo removed");
+  };
+
   return (
     <>
       <PageHeader title="Profile" subtitle="How you appear across the workspace" />
@@ -41,8 +64,11 @@ export function SettingsProfilePage() {
           userId={user.id}
           fullName={user.fullName}
           avatarUrl={user.avatarUrl}
+          avatarEditable={user.avatarEditable}
           roles={user.workspace?.roles ?? []}
           joinedAt={user.workspace?.joinedAt ?? null}
+          onSavePhoto={handleSavePhoto}
+          onRemovePhoto={handleRemovePhoto}
         />
 
         <ProfileForm

@@ -49,7 +49,10 @@ export interface User {
   email: string;
   fullName: string;
   title: string | null;
+  /** Ours (`/api/v1/avatars/…`) or, until the server has copied it, a provider's link. */
   avatarUrl: string | null;
+  /** False where the workspace's identity provider supplies the photo: Settings → Profile offers no change. */
+  avatarEditable: boolean;
   emailVerified: boolean;
 
   /**

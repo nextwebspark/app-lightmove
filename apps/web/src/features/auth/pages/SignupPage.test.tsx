@@ -80,6 +80,7 @@ describe("SignupPage", () => {
         fullName: "Alok Kumar",
         title: null,
         avatarUrl: null,
+        avatarEditable: true,
         emailVerified: false,
         hasPassword: true,
         timezone: "Asia/Dubai",

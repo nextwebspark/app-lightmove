@@ -42,6 +42,7 @@ describe("SettingsSecurityPage", () => {
     fullName: "Alok Kumar",
     title: "Managing Partner",
     avatarUrl: null,
+    avatarEditable: true,
     emailVerified: true,
     hasPassword: true,
     timezone: "Asia/Dubai",

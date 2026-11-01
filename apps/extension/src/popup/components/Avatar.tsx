@@ -1,5 +1,6 @@
 // Ported from apps/web/src/components/ui/Avatar.tsx; keep the two in step.
 import { useState } from "react";
+import { avatarSrc } from "../lib/avatarSrc";
 import { cn } from "../lib/cn";
 import { initials } from "../lib/initials";
 
@@ -28,27 +29,28 @@ const SIZES = {
 export function Avatar({
   id,
   name,
-  src,
+  src: link,
   size = "md",
   title,
   className,
 }: {
   id: string;
   name: string;
-  /** A picture from the user's identity provider, if they signed in with one. */
+  /** A teammate's stored photo, relative to the workspace (`/api/v1/avatars/…`), or an absolute link. */
   src?: string | null;
   size?: keyof typeof SIZES;
   /** The tooltip, when it should say more than the name. */
   title?: string;
   className?: string;
 }) {
-  // What we hold is the provider's CDN URL, not a copy of the image, and LinkedIn's expire within
-  // weeks. So a broken picture is expected rather than exceptional: fall back to the initials the
-  // rest of the product uses instead of leaving a torn-image icon on the roster.
+  // A user's photo is our own copy now (V169), but a link can still fail — a picture removed while a
+  // screen held its link, a provider link not yet copied. So a broken picture is expected rather than
+  // exceptional: fall back to the initials the rest of the product uses instead of a torn-image icon.
   //
   // The failure is remembered per URL, not as a boolean: a re-stamped picture arriving on the next
   // sign-in must get its chance, and Topbar's avatar outlives every one of them.
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const src = avatarSrc(link);
 
   if (src && failedSrc !== src) {
     return (
