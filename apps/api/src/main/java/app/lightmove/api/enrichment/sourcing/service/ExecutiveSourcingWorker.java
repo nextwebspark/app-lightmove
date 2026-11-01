@@ -8,6 +8,7 @@ import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.model.ResearchedFiling;
 import app.lightmove.api.candidate.service.CandidateService;
+import app.lightmove.api.candidate.service.PersonSuppressionService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.ExecutiveSourcingSettings;
@@ -64,6 +65,7 @@ class ExecutiveSourcingWorker {
     private final SourcingSpecProposer specs;
     private final SourcingSpecRefiner refiner;
     private final CandidateService candidates;
+    private final PersonSuppressionService suppression;
     private final PositionService positions;
     private final ProfilePhotoDownloader photos;
     private final AuditService audit;
@@ -71,7 +73,8 @@ class ExecutiveSourcingWorker {
     private final ExecutiveSourcingSettings settings;
 
     ExecutiveSourcingWorker(SourcingRunStore store, ChainedPeopleSearch peopleSearch, SourcingSpecProposer specs,
-                            SourcingSpecRefiner refiner, CandidateService candidates, PositionService positions,
+                            SourcingSpecRefiner refiner, CandidateService candidates,
+                            PersonSuppressionService suppression, PositionService positions,
                             ProfilePhotoDownloader photos, AuditService audit, UsageRecorder usage,
                             LightMoveProperties properties) {
         this.store = store;
@@ -79,6 +82,7 @@ class ExecutiveSourcingWorker {
         this.specs = specs;
         this.refiner = refiner;
         this.candidates = candidates;
+        this.suppression = suppression;
         this.positions = positions;
         this.photos = photos;
         this.audit = audit;
@@ -259,7 +263,10 @@ class ExecutiveSourcingWorker {
                     picks);
         }
 
-        /** A hit refused as already mapped, or losing a race to the same name, is counted as skipped. */
+        /**
+         * A hit refused as already mapped, suppressed since the run began, or losing a race to the same name, is
+         * counted as skipped.
+         */
         private ExecutivePick file(SourcingCompany company, BrightDataPerson person, EnrichmentVendor researchedBy) {
             EnrichedProfile research = BrightDataPersonProfiles.toEnrichedProfile(person, researchedBy)
                     .withPhoto(photos.fetchOrNull(person.usableAvatarUrl()));
@@ -273,7 +280,8 @@ class ExecutiveSourcingWorker {
                 heldSlugs.add(person.linkedinId());
                 return ExecutivePick.of(name, candidateId);
             } catch (ApiException refused) {
-                if (refused.getCode() != ErrorCode.CANDIDATE_ALREADY_MAPPED) {
+                if (refused.getCode() != ErrorCode.CANDIDATE_ALREADY_MAPPED
+                        && refused.getCode() != ErrorCode.PERSON_SUPPRESSED) {
                     throw refused;
                 }
                 return ExecutivePick.of(name, null);
@@ -285,11 +293,19 @@ class ExecutiveSourcingWorker {
             }
         }
 
-        /** Hits with a slug to key on, not already mapped in the mandate — including by this run. */
+        /**
+         * Hits with a slug to key on, not already mapped in the mandate — including by this run — and not on the
+         * workspace's suppression list, which is asked before a photo is fetched or anything filed.
+         */
         private List<BrightDataPerson> usable(List<BrightDataPerson> hits) {
-            return hits.stream()
+            List<BrightDataPerson> unmapped = hits.stream()
                     .filter(person -> person.linkedinId() != null && !person.linkedinId().isBlank())
                     .filter(person -> !heldSlugs.contains(person.linkedinId()))
+                    .toList();
+            Set<String> suppressed = suppression.suppressedProfileSlugsOf(request.workspaceId(),
+                    unmapped.stream().map(BrightDataPerson::linkedinId).toList());
+            return unmapped.stream()
+                    .filter(person -> !suppressed.contains(person.linkedinId()))
                     .toList();
         }
 

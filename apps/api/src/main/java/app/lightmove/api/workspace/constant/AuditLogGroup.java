@@ -46,6 +46,7 @@ public enum AuditLogGroup implements ApiValueEnum {
             WorkspaceEventType.POSITION_TEMPLATE_DELETED, WorkspaceEventType.POSITION_TEMPLATE_HIDDEN,
             WorkspaceEventType.POSITION_TEMPLATE_SHOWN, WorkspaceEventType.POSITION_TEMPLATES_IMPORTED,
             ProjectEventType.CANDIDATE_TAG_CREATED, ProjectEventType.CANDIDATE_TAG_UPDATED,
+            ProjectEventType.PERSON_SUPPRESSION_ADDED, ProjectEventType.PERSON_SUPPRESSION_REMOVED,
             ProjectEventType.CANDIDATE_PIPELINE_REORDERED, ProjectEventType.TASK_PRESET_CREATED,
             ProjectEventType.TASK_PRESET_UPDATED, ProjectEventType.TASK_PRESETS_REORDERED,
             ProjectEventType.TASK_RULES_CHANGED, WorkspaceEventType.SUBSCRIPTION_CHANGED,

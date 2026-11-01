@@ -49,6 +49,8 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Profile timezone | a region's zone or UTC, from the grouped list; the saved value passes unchanged (kept in the list if the browser lists none) | `@NotBlank @Size(64)`; a new choice must be a region's own zone or `UTC` the JDK knows, never a legacy alias like `EST` (`VALIDATION_FAILED` on `timezone`) — a zone saved before V148 saves unchanged | field |
 | Candidate tag label | trimmed, ≤ 40 | `@NotBlank @Size(40)` | toast |
 | API key name | trimmed, ≤ 80 | `@NotBlank @Size(80)` | banner |
+| Suppression list entry: LinkedIn profile, email | — (no screen yet; API only) | at least one (`VALIDATION_FAILED` on `linkedinUrl`); the link must name a member profile, a missing `https://` forgiven (`VALIDATION_FAILED` on `linkedinUrl`); email normalised, `@Email @Size(320)`; `@Size(500)` on the link | field |
+| Suppression list entry: reason, note | — | reason `manual` (default) or `objected`, never `erased` (`VALIDATION_FAILED` on `reason`); note trimmed, `@Size(500)` | field |
 | Two-factor: current password | required where the account has a password; not drawn for one that has none | required where the account has one (`VALIDATION_FAILED` on `currentPassword` when blank); must match (`CURRENT_PASSWORD_INVALID` on `currentPassword`); an account with none turns it on only within `lightmove.auth.mfa.recent-sign-in` (10 min) of signing in (`MFA_SIGN_IN_AGAIN`), and off or new codes with the code alone | field (banner for `MFA_SIGN_IN_AGAIN`) |
 | Two-factor: code to turn on | six digits, spaces dropped | `@NotBlank @Size(32)`; the app's code for the new secret (`MFA_CODE_INVALID` on `code`) | field |
 | Two-factor: code to turn off or get new recovery codes | six digits or a recovery code | `@NotBlank @Size(32)`; the app's code or an unused recovery code (`MFA_CODE_INVALID` on `code`) | field |
@@ -119,6 +121,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | ☐ Custom field values | no length | TEXT unbounded, DATE unchecked, NUMBER accepts NaN | toast |
 | ☐ Custom column label | no `maxLength` | ≤ 60 | toast |
 | Executive name | trimmed, ≤ 200 | `@NotBlank @Size(200)` | banner |
+| Executive LinkedIn profile and emails, on every door | — | not on the workspace's suppression list (`PERSON_SUPPRESSED`): the add form, the plugin and a spreadsheet row are refused; an edit only for a profile or address it adds; Find executives and People Search leave the person out unfiled | banner (row error on import) |
 | ☐ Executive currency | picker | `@Size(3)` | banner |
 | ☐ Languages | one string ≤ 1200 | ≤ 20 × 60 | banner |
 | ☐ Phone | none | a digit | banner |

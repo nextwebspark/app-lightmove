@@ -26,6 +26,7 @@ const REFUSAL_COPY: Record<string, string> = {
   CANDIDATE_ALREADY_MAPPED:
     "This position already has someone matching this profile — by their email, or their name at the same employer.",
   TRIAGE_COMPANY_ALREADY_HELD: "This position already holds a company by that name.",
+  PERSON_SUPPRESSED: "This person is on your workspace's suppression list, so they can't be added.",
   FORBIDDEN: "You are not on that position's team, so you cannot add to it.",
   PIPELINE_STATUS_RETIRED: "Your workspace retired that status. Choose another one.",
   TRIAGE_COMPANY_HAS_EXECUTIVES:
