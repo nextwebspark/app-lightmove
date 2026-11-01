@@ -2,10 +2,7 @@ package app.lightmove.api.core.security.avatar;
 
 import java.util.regex.Pattern;
 
-/**
- * The link {@code app_lm_user.avatar_url} holds for a stored photo. Relative, so it is the same in every deployment and
- * every copy of the database; the SPA shares the API's origin, and the extension prefixes its own.
- */
+/** A stored photo's link: relative, so the same in every deployment; the extension prefixes its own origin. */
 public final class AvatarLinks {
 
     static final String PREFIX = "/api/v1/avatars/";
@@ -17,11 +14,6 @@ public final class AvatarLinks {
 
     static String linkOf(String token) {
         return PREFIX + token;
-    }
-
-    /** Whether the link is one of ours, as opposed to a provider's CDN link stored before V169. */
-    public static boolean isStored(String avatarUrl) {
-        return avatarUrl != null && avatarUrl.startsWith(PREFIX);
     }
 
     static boolean isWellFormedToken(String token) {

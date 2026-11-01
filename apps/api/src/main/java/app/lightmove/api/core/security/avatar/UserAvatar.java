@@ -10,10 +10,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * A person's stored profile photo (V169). The token is a link, not a credential: it opens this one image and nothing
- * else, as a booking link's slug opens one page, so it is kept as it is served. A new picture is a new token.
- */
+/** A person's stored profile photo (V170); a new picture is a new token, so a link never shows another picture. */
 @Entity
 @Table(name = "app_lm_user_avatar")
 @Getter
@@ -23,6 +20,7 @@ public class UserAvatar extends BaseEntity {
     @Column(name = "user_id", nullable = false, updatable = false)
     private UUID userId;
 
+    /** Kept as served, the documented exception to hashing tokens: it is the link every colleague's screen draws. */
     @Column(nullable = false, length = 43)
     private String token;
 
@@ -35,13 +33,10 @@ public class UserAvatar extends BaseEntity {
     @Column(nullable = false, length = 64)
     private String sha256;
 
-    @Column(nullable = false, length = 32)
-    private String source;
-
-    static UserAvatar of(UUID userId, AvatarPicture picture, String source) {
+    static UserAvatar of(UUID userId, AvatarPicture picture) {
         UserAvatar avatar = new UserAvatar();
         avatar.userId = userId;
-        avatar.replaceWith(picture, source);
+        avatar.replaceWith(picture);
         return avatar;
     }
 
@@ -49,17 +44,11 @@ public class UserAvatar extends BaseEntity {
         return sha256.equals(picture.sha256());
     }
 
-    void replaceWith(AvatarPicture picture, String source) {
+    void replaceWith(AvatarPicture picture) {
         this.token = Tokens.generate();
         this.content = picture.jpeg();
         this.contentType = AvatarPicture.CONTENT_TYPE;
         this.sha256 = picture.sha256();
-        this.source = source;
-    }
-
-    /** The same picture again from the same source: the link stays, so nobody's cached copy is thrown away. */
-    void reclaimFor(String source) {
-        this.source = source;
     }
 
     String link() {

@@ -14,7 +14,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Optional;
 import java.util.UUID;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -23,15 +22,13 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * A person's profile photo: their own upload or removal, and the copy of what their identity provider sent. The
- * caller's own row, taken from the principal — no RBAC action applies, as for {@code PATCH /auth/me}.
- *
- * <p>Every write locks the user row first, so an upload, a removal and a provider's copy landing together decide one
- * after another; and every download happens before that lock, never inside a transaction.
+ * A person's profile photo — their own upload or removal, and the copy of their provider's. Every write locks the user
+ * row, so writes landing together decide one after another; every download happens before that lock.
  */
-@Slf4j
 @Service
 public class UserAvatarService {
+
+    private static final long BYTES_PER_MEGABYTE = 1024 * 1024;
 
     private final UserRepository users;
     private final UserAvatarRepository avatars;
@@ -62,10 +59,7 @@ public class UserAvatarService {
         if (picture == null) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "file", "Use a JPG or PNG image");
         }
-        transactions.executeWithoutResult(status -> {
-            User user = lockEditable(actorId);
-            hold(user, picture, User.UPLOADED_AVATAR_SOURCE);
-        });
+        transactions.executeWithoutResult(status -> hold(lockEditable(actorId), picture, User.UPLOADED_AVATAR_SOURCE));
         audit.event(AuthEventType.AVATAR_UPLOADED).actor(actorId).workspace(workspaceId).from(request).record();
     }
 
@@ -79,38 +73,12 @@ public class UserAvatarService {
         audit.event(AuthEventType.AVATAR_REMOVED).actor(actorId).workspace(workspaceId).from(request).record();
     }
 
-    /**
-     * After a sign-in: the provider's picture becomes ours, if that provider may still supply it once downloaded. A
-     * link that answers nothing changes nothing — the person keeps whatever they had.
-     */
+    /** After a completed sign-in: the provider's picture becomes ours if that provider may still supply it. */
     public void copyFromProvider(UUID userId, String source, String pictureUrl) {
-        if (!(download(pictureUrl) instanceof Downloaded(AvatarPicture picture))) {
-            return;
-        }
-        transactions.executeWithoutResult(status -> users.lockForAvatarChange(userId)
-                .filter(user -> user.mayTakeAvatarFrom(source))
-                .ifPresent(user -> hold(user, picture, source)));
-    }
-
-    /**
-     * A provider's link stored before V169, copied while it still answers; one that never will is cleared, since a dead
-     * link held by one provider kept every other from filling the picture. Nothing happens unless the person still
-     * holds exactly that link when the answer is in.
-     */
-    public void copyLegacyLink(UUID userId, String pictureUrl) {
-        Download answer = download(pictureUrl);
-        if (answer instanceof NotYet) {
-            return;
-        }
-        transactions.executeWithoutResult(status -> users.lockForAvatarChange(userId)
-                .filter(user -> pictureUrl.equals(user.getAvatarUrl()))
-                .ifPresent(user -> {
-                    if (answer instanceof Downloaded(AvatarPicture picture)) {
-                        hold(user, picture, user.getAvatarSource());
-                    } else {
-                        user.forgetDeadAvatarLink();
-                    }
-                }));
+        download(pictureUrl).ifPresent(picture -> transactions.executeWithoutResult(status ->
+                users.lockForAvatarChange(userId)
+                        .filter(user -> user.mayTakeAvatarFrom(source))
+                        .ifPresent(user -> hold(user, picture, source))));
     }
 
     @Transactional(readOnly = true)
@@ -121,19 +89,15 @@ public class UserAvatarService {
         return avatars.findByToken(token).map(avatar -> new StoredAvatar(avatar.getContent(), avatar.getContentType()));
     }
 
-    /** A source the person never chose (a pre-V25 row's null) is filed as one we cannot name. */
     private void hold(User user, AvatarPicture picture, String source) {
-        String filedAs = source == null ? "UNKNOWN" : source;
         UserAvatar avatar = avatars.findByUserId(user.getId())
                 .map(held -> {
-                    if (held.holds(picture)) {
-                        held.reclaimFor(filedAs);
-                    } else {
-                        held.replaceWith(picture, filedAs);
+                    if (!held.holds(picture)) {
+                        held.replaceWith(picture);
                     }
                     return held;
                 })
-                .orElseGet(() -> avatars.save(UserAvatar.of(user.getId(), picture, filedAs)));
+                .orElseGet(() -> avatars.save(UserAvatar.of(user.getId(), picture)));
         user.showAvatar(source, avatar.link());
     }
 
@@ -150,7 +114,7 @@ public class UserAvatarService {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "file", "Choose a photo");
         }
         if (file.getSize() > settings.maxUploadBytes()) {
-            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "file", "Use an image under 5 MB");
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "file", tooLargeMessage());
         }
         try {
             return file.getBytes();
@@ -159,32 +123,22 @@ public class UserAvatarService {
         }
     }
 
-    private Download download(String pictureUrl) {
+    /** From the configured cap, never the request: a fixed sentence once the deployment is configured. */
+    private String tooLargeMessage() {
+        long megabytes = Math.max(1, Math.floorDiv(settings.maxUploadBytes(), BYTES_PER_MEGABYTE));
+        return "Use an image under %d MB".formatted(megabytes);
+    }
+
+    /** Empty where the link answers no picture we can read, now or ever: the person keeps what they had. */
+    private Optional<AvatarPicture> download(String pictureUrl) {
         URI url;
         try {
             url = URI.create(pictureUrl);
         } catch (IllegalArgumentException malformed) {
-            return new NeverAnswers();
+            return Optional.empty();
         }
-        return switch (fetcher.fetch(url)) {
-            case PictureFetch.Fetched(byte[] content) -> {
-                AvatarPicture picture = AvatarImages.normalise(content);
-                yield picture == null ? new NeverAnswers() : new Downloaded(picture);
-            }
-            case PictureFetch.Gone gone -> new NeverAnswers();
-            case PictureFetch.Unavailable unavailable -> new NotYet();
-        };
-    }
-
-    private sealed interface Download {
-    }
-
-    private record Downloaded(AvatarPicture picture) implements Download {
-    }
-
-    private record NeverAnswers() implements Download {
-    }
-
-    private record NotYet() implements Download {
+        return fetcher.fetch(url) instanceof PictureFetch.Fetched(byte[] content)
+                ? Optional.ofNullable(AvatarImages.normalise(content))
+                : Optional.empty();
     }
 }

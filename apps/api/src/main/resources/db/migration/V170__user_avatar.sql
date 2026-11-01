@@ -3,10 +3,9 @@
 -- the provider; a stored copy does neither.
 --
 -- Account data, not tenant data: one photo per person whatever workspaces they belong to (V81), like V162's factor.
--- app_lm_user.avatar_url now names this row as /api/v1/avatars/<token>, a public link whose token is the secret (the
--- booking link's idiom); a new photo is a new token, so a cached old one is never served under the new link.
--- app_lm_user.avatar_source keeps naming who supplied it, and V25's reserved 'USER' is now written: an upload, or a
--- removal (avatar_url null), that no provider sign-in replaces.
+-- app_lm_user.avatar_url names this row as /api/v1/avatars/<token>, a public link whose token is the guard (the
+-- booking link's idiom); a new picture is a new token. Who supplied it stays app_lm_user.avatar_source alone, and
+-- V25's reserved 'USER' is now written: an upload, or a removal (avatar_url null), that no provider sign-in replaces.
 
 CREATE TABLE app_lm_user_avatar (
     id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -19,7 +18,6 @@ CREATE TABLE app_lm_user_avatar (
         CONSTRAINT app_lm_user_avatar_content_type_chk CHECK (content_type = 'image/jpeg'),
     -- Of the re-encoded bytes: a provider re-signing the same picture's link keeps its token.
     sha256       varchar(64) NOT NULL,
-    source       varchar(32) NOT NULL,
     created_at   timestamptz NOT NULL DEFAULT now(),
     updated_at   timestamptz NOT NULL DEFAULT now(),
     version      bigint      NOT NULL DEFAULT 0,
@@ -33,3 +31,8 @@ COMMENT ON TABLE app_lm_user_avatar IS
 CREATE TRIGGER app_lm_user_avatar_touch
     BEFORE UPDATE ON app_lm_user_avatar
     FOR EACH ROW EXECUTE FUNCTION app_lm_touch_updated_at();
+
+-- Every link stored before this is a provider's: LinkedIn's expire within weeks, and a dead one held by its provider
+-- kept every other from filling the picture. Cleared with its owner, so whichever provider signs in next copies one in;
+-- until then, initials, or the person's own upload.
+UPDATE app_lm_user SET avatar_url = NULL, avatar_source = NULL WHERE avatar_url IS NOT NULL;

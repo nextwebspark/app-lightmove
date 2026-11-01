@@ -156,11 +156,12 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             throw ApiException.of(ErrorCode.ACCOUNT_SUSPENDED);
         }
 
-        refreshProfile(provider, user, oidcUser, email);
+        backfillName(user, oidcUser, email);
 
         // A challenge leaves the failed-attempt count as it is: only the right code clears it, as after a password.
         SignInOutcome outcome = signIn.complete(user, request);
         if (outcome instanceof AuthenticatedSession session) {
+            offerPicture(provider, user, oidcUser);
             user.recordSuccessfulLogin(Instant.now());
             audit.event(AuthEventType.OAUTH_LOGIN_SUCCEEDED).actor(user.getId()).workspace(session.workspaceId())
                     .from(request).detail("provider", provider).record();
@@ -209,17 +210,21 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         return user;
     }
 
+    /** Only backfilled, never overwritten: the name is editable here. */
+    private void backfillName(User user, OidcUser oidcUser, String email) {
+        if (user.getFullName() == null || user.getFullName().isBlank()) {
+            user.setFullName(displayName(oidcUser, email));
+        }
+    }
+
     /**
-     * Offers the picture for copying into our own storage once the sign-in commits — downloading it here would hold the
-     * sign-in's transaction open on the provider's CDN. The name is only backfilled, never overwritten.
+     * A completed sign-in only: one stopped at the code step changes nothing of the account. Copied once the sign-in
+     * commits — downloading here would hold its transaction open on the provider's CDN.
      */
-    private void refreshProfile(String provider, User user, OidcUser oidcUser, String email) {
+    private void offerPicture(String provider, User user, OidcUser oidcUser) {
         String picture = usablePictureUrl(oidcUser);
         if (picture != null && user.mayTakeAvatarFrom(provider)) {
             events.publishEvent(new ProviderAvatarOffered(user.getId(), provider, picture));
-        }
-        if (user.getFullName() == null || user.getFullName().isBlank()) {
-            user.setFullName(displayName(oidcUser, email));
         }
     }
 

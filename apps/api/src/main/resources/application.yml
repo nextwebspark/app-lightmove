@@ -777,12 +777,9 @@ lightmove:
     purge-after: ${NOTES_PURGE_AFTER:30d}
     purge-interval: ${NOTES_PURGE_INTERVAL:PT1H}
 
-  # Profile photos (V169). The cap is on the file as sent; what is stored is re-encoded to at most 512px. The backfill
-  # copies the provider links stored before V169 into our own storage, off the boot thread, on every boot until none is
-  # left; a link that no longer answers is cleared so the next sign-in's provider may fill it.
+  # Profile photos (V170). The cap is on the file as sent; what is stored is re-encoded to at most 512px.
   avatars:
     max-upload-bytes: ${AVATAR_MAX_UPLOAD_BYTES:5242880}
-    backfill-enabled: ${AVATAR_BACKFILL_ENABLED:true}
 
   # Contact credits (epic #734). On, a find the credits cannot cover is refused (402); off, it is recorded as an overdraft.
   billing:

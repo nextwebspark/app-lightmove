@@ -10,7 +10,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubPictureFetcher;
-import app.lightmove.api.core.security.avatar.LegacyAvatarBackfill;
 import app.lightmove.api.core.security.mfa.TestTotp;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.model.UserIdentity;
@@ -69,7 +68,6 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
     @Autowired UserIdentityRepository identities;
     @Autowired WorkspaceMemberRepository members;
     @Autowired StubPictureFetcher pictures;
-    @Autowired LegacyAvatarBackfill backfill;
 
     @Test
     @DisplayName("a provider named only in configuration registers a user and stores a copy of its picture")
@@ -280,35 +278,6 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the backfill copies a live pre-V169 link, and clears a dead one so another provider may fill it")
-    void backfillCopiesLiveLinksAndClearsDeadOnes() throws Exception {
-        String live = emailForThisTest();
-        User alive = User.registerFederated(live, "Alok Kumar", Instant.now(), "2026-07-01");
-        alive.showAvatar("LINKEDIN", "https://media.licdn.com/still-signed.jpg");
-        users.save(alive);
-
-        String dead = emailForThisTest();
-        User expired = User.registerFederated(dead, "Sara G", Instant.now(), "2026-07-01");
-        expired.showAvatar("LINKEDIN", "https://media.licdn.com/expired.jpg");
-        users.save(expired);
-        pictures.takeDown("https://media.licdn.com/expired.jpg");
-
-        backfill.runOnce();
-
-        User copied = users.findByEmail(live).orElseThrow();
-        assertThat(copied.getAvatarUrl()).startsWith("/api/v1/avatars/");
-        assertThat(copied.getAvatarSource()).isEqualTo("LINKEDIN");
-        User cleared = users.findByEmail(dead).orElseThrow();
-        assertThat(cleared.getAvatarUrl()).isNull();
-        assertThat(cleared.getAvatarSource()).isNull();
-
-        // Before V169 the dead link held its picture for LinkedIn alone, and Google was never let in.
-        signIn("google", "google-subject-after-dead", dead,
-                Map.of("picture", "https://lh3.googleusercontent.com/a/sara.jpg"));
-        assertThat(avatarOf(dead)).startsWith("/api/v1/avatars/");
-    }
-
-    @Test
     @DisplayName("an explicit email_verified=false is still refused, and creates nothing")
     void refusesAnExplicitDenial() throws Exception {
         String email = emailForThisTest();
@@ -514,6 +483,20 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
                 .andReturn();
         assertThat(signedIn.getResponse().getStatus()).as(signedIn.getResponse().getContentAsString()).isEqualTo(200);
         assertThat(body(signedIn).get("accessToken").asText()).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("a provider sign-in stopped at the code step changes nothing of the account, the picture included")
+    void aSignInAtTheCodeStepCopiesNoPicture() throws Exception {
+        String email = "sara@" + domain;
+        verifiedUser("Sara G", email);
+        enrol(email);
+
+        signIn("linkedin", "linkedin-subject-mfa-photo", email,
+                Map.of("picture", "https://media.licdn.com/sara-at-the-code-step.jpg"));
+
+        assertThat(pictures.fetched()).doesNotContain("https://media.licdn.com/sara-at-the-code-step.jpg");
+        assertThat(avatarOf(email)).isNull();
     }
 
     /** Turns two-factor on through the password session, answering the factor's secret. */

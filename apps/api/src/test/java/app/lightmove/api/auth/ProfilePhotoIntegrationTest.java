@@ -55,7 +55,7 @@ class ProfilePhotoIntegrationTest extends FlowTestSupport {
                 .andExpect(header().string("Content-Type", "image/jpeg"))
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andExpect(header().string("Content-Security-Policy", "default-src 'none'; sandbox"))
-                .andExpect(header().string("Cache-Control", "max-age=31536000, public, immutable"))
+                .andExpect(header().string("Cache-Control", "max-age=31536000, private, immutable"))
                 .andReturn();
         var picture = ImageIO.read(new ByteArrayInputStream(served.getResponse().getContentAsByteArray()));
         assertThat(picture.getWidth()).isEqualTo(512);
@@ -113,6 +113,16 @@ class ProfilePhotoIntegrationTest extends FlowTestSupport {
         assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM app_lm_user_avatar a JOIN app_lm_user u ON u.id = a.user_id WHERE u.email = ?",
                 Integer.class, address)).isZero();
+    }
+
+    @Test
+    @DisplayName("a file past the configured cap is refused with that cap, before it is decoded")
+    void refusesAFileTooLarge() throws Exception {
+        String token = verifiedUser("Alok Kumar", "alok@" + domain);
+
+        mvc.perform(upload(token, new byte[5 * 1024 * 1024 + 1]))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.file").value("Use an image under 5 MB"));
     }
 
     @Test

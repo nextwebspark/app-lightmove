@@ -107,12 +107,6 @@ public class User extends BaseEntity {
         this.avatarSource = UPLOADED_AVATAR_SOURCE;
     }
 
-    /** A provider's link that no longer answers: nobody holds the picture, so the next provider may fill it. */
-    public void forgetDeadAvatarLink() {
-        this.avatarUrl = null;
-        this.avatarSource = null;
-    }
-
     /**
      * Whether the person may upload or remove their own photo. Always, for now: once a workspace can enforce its
      * identity provider's sign-in, a member of one holds the directory's photo here, in every workspace.

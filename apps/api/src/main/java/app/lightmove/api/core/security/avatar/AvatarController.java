@@ -14,9 +14,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * A stored profile photo, public: every screen draws it with a plain {@code <img>}, which carries no bearer token, and
- * the token in the link is what keeps it from being guessed. The same 404 for a malformed token and an unknown one.
- * A token names one picture for good, so the answer is cached as long as a browser will keep it.
+ * A stored profile photo, public: a plain {@code <img>} carries no bearer token, so the link's token is the guard. The
+ * same 404 for a malformed token and an unknown one.
  */
 @RestController
 @RequiredArgsConstructor
@@ -31,7 +30,8 @@ class AvatarController {
         StoredAvatar avatar = avatars.read(token).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(avatar.contentType()))
-                .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable())
+                // Private: each browser asks once per token, but no shared cache keeps a photo its owner removed.
+                .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePrivate().immutable())
                 .header("X-Content-Type-Options", "nosniff")
                 // Opened on its own, it is a document of this origin: it may run nothing and reach nothing.
                 .header("Content-Security-Policy", "default-src 'none'; sandbox")

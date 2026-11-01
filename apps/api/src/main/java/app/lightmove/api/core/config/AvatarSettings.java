@@ -7,8 +7,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * above {@code maxUploadBytes}, or the container refuses the body before this rule can say why.
  */
 public record AvatarSettings(
-        @DefaultValue("5242880") long maxUploadBytes,
-        @DefaultValue("true") boolean backfillEnabled
+        @DefaultValue("5242880") long maxUploadBytes
 ) {
 
     public AvatarSettings {

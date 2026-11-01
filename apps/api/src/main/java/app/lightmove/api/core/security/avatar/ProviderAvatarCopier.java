@@ -7,10 +7,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-/**
- * Off the sign-in's thread and after its commit: the popup never waits on a provider's CDN, and a sign-in that rolled
- * back copies nothing. A failure is the person's initials or their previous photo, never a failed sign-in.
- */
+/** Off the sign-in's thread and after its commit: a failure leaves the photo as it was, never fails a sign-in. */
 @Slf4j
 @Component
 @RequiredArgsConstructor

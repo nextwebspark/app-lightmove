@@ -24,9 +24,8 @@ import javax.imageio.stream.ImageOutputStream;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Turns whatever was sent into the one thing we store: a square JPEG of at most {@link #EDGE_PX}, decoded from a JPEG or
- * PNG and drawn again. Nothing of the original bytes survives — no metadata (a phone's GPS position included), no
- * markup, no second format hiding in the file — and anything else is refused rather than kept as it arrived.
+ * A JPEG or PNG drawn again as a square JPEG of at most {@link #EDGE_PX}: nothing of the original bytes survives (no
+ * metadata, no markup), and anything else is refused rather than kept as it arrived.
  */
 @Slf4j
 final class AvatarImages {
@@ -58,7 +57,7 @@ final class AvatarImages {
             }
             byte[] jpeg = encodeJpeg(squared(source));
             return jpeg == null ? null : new AvatarPicture(jpeg, sha256(jpeg));
-        } catch (IOException | RuntimeException | OutOfMemoryError unreadable) {
+        } catch (IOException | RuntimeException unreadable) {
             log.info("Refusing a profile photo that does not decode: {}", unreadable.getMessage());
             return null;
         }

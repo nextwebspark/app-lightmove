@@ -46,13 +46,10 @@ class UserAvatarRulesTest {
     }
 
     @Test
-    @DisplayName("a dead provider link, once forgotten, may be filled by anyone; no source may call itself the person")
-    void deadLinksAndTheReservedSource() {
+    @DisplayName("no source may call itself the person, and a missing one supplies nothing")
+    void theReservedSource() {
         User user = user();
-        user.showAvatar("LINKEDIN", "https://media.licdn.com/expired.jpg");
-        user.forgetDeadAvatarLink();
 
-        assertThat(user.mayTakeAvatarFrom("GOOGLE")).isTrue();
         assertThat(user.mayTakeAvatarFrom(User.UPLOADED_AVATAR_SOURCE)).isFalse();
         assertThat(user.mayTakeAvatarFrom(null)).isFalse();
     }
