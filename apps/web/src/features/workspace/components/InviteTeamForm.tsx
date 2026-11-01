@@ -1,5 +1,5 @@
 import { useId, useRef, useState, type ClipboardEvent, type ReactNode } from "react";
-import { Button, FormError, Input, Select } from "../../../components/ui";
+import { Button, FormError, Input, Select, useToast } from "../../../components/ui";
 import { titleCase } from "../../../lib/format";
 import type { InviteRequest, WorkspaceRole } from "../../auth/api/types";
 import { INVITE_ROLES, inviteSchema } from "../../auth/schemas";
@@ -26,7 +26,7 @@ export function InviteTeamForm({
   before,
 }: {
   subtitle: string;
-  submit: (invites: InviteRequest[]) => Promise<unknown>;
+  submit: (invites: InviteRequest[]) => Promise<{ sent: number }>;
   /** After the invitations went out, or when there were none to send. */
   onDone: () => Promise<void> | void;
   onSkip: () => void;
@@ -43,6 +43,7 @@ export function InviteTeamForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Map<number, string>>(new Map());
+  const toast = useToast();
 
   const update = (id: number, patch: Partial<InviteRow>) => {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -135,7 +136,12 @@ export function InviteTeamForm({
     setSubmitting(true);
     setError(null);
     try {
-      await submit(filled);
+      const { sent } = await submit(filled);
+      // The server skips anyone already on the team; said here, or the button's count is the last word.
+      const skipped = filled.length - sent;
+      if (skipped > 0) {
+        toast(`${skipped === 1 ? "1 person was" : `${skipped} people were`} already a member, so not invited again`);
+      }
       await onDone();
     } catch (err) {
       setError(messageFor(err));
