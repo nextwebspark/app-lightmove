@@ -45,8 +45,8 @@ export function ToolbarDivider({ className }: { className?: string }) {
   return <span aria-hidden="true" className={cn("h-5 w-px flex-none bg-u-border", className)} />;
 }
 
-/** Two "Conversations"-length views or three short ones; below `sm` the switch takes a line of its own. */
-const VIEW_SWITCH_WIDTH = "w-full sm:w-[272px]";
+/** Conversations | Sequences, the longest pair, with room to spare; below `sm` the switch takes a line of its own. */
+const VIEW_SWITCH_WIDTH = "w-full sm:w-[240px]";
 
 /**
  * Where the rule between a page's views and its search is drawn: from `sm`, from `lg` beside a search shown only
@@ -122,7 +122,7 @@ export function ToolbarSearch({
   return (
     <label
       className={cn(
-        "flex min-w-[200px] flex-[1_1_280px] items-center gap-2 rounded-u-control border border-u-border-strong bg-u-surface py-2 pl-3 pr-2.5 sm:max-w-[360px]",
+        "flex min-w-[180px] flex-[1_1_240px] items-center gap-2 rounded-u-control border border-u-border-strong bg-u-surface py-2 pl-3 pr-2.5 sm:max-w-[280px]",
         className,
       )}
     >

@@ -4,13 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useOutletContext, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { FullscreenButton } from "../../../components/ui";
-import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { useToast } from "../../../components/ui/Toast";
 import { useAssistant } from "../../assistant/AssistantProvider";
 import { useAuth } from "../../auth/AuthProvider";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
-import { formatNumber } from "../../../lib/format";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { LeaveGuard } from "../../../components/layout/LeaveGuard";
@@ -219,9 +217,9 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
   });
 
   const saveSearch = useMutation({
-    // Flush first, for the same reason "Add all" does: the request carries only a name and the server
-    // snapshots the *stored* filter, so a save inside the debounce window records the scope as it was
-    // before the last chip click — silently, and for every later load of that search.
+    // Flush first: the request carries only a name and the server snapshots the *stored* filter, so a
+    // save inside the debounce window records the scope as it was before the last chip click —
+    // silently, and for every later load of that search.
     mutationFn: async ({ name, visibility }: { name: string; visibility: SearchVisibility }) => {
       await autosave.flush();
       return strategyApi.saveSearch(project.id, name, visibility);
@@ -344,34 +342,11 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
     onError: (error) => toast.error(messageFor(error)),
   });
 
-  const [confirmingAddAll, setConfirmingAddAll] = useState(false);
-  const matchingCount = companies.data?.totalCount;
-  const addAll = useMutation({
-    mutationFn: async () => {
-      // Flush first: "Add all" acts on the *stored* filter, and a debounced edit still in the
-      // timer would mean the server adds companies from the filter as it was two chips ago.
-      await autosave.flush();
-      return triageApi.addAllInScope(project.id);
-    },
-    onSuccess: (result) => {
-      setConfirmingAddAll(false);
-      // Every company just taken in stops matching the search that found it.
-      void refreshScopedReads();
-      toast(
-        `Added ${result.added} companies to universe${result.skipped > 0 ? `, ${result.skipped} already there` : ""}`,
-      );
-    },
-    onError: (error) => {
-      setConfirmingAddAll(false);
-      toast.error(messageFor(error));
-    },
-  });
-
   /**
    * The selection bar's three buttons. One request rather than a POST per company: the toast states a
    * number, and a loop would leave it guessing after the fourth of forty failed.
    *
-   * <p>No autosave flush, unlike "Add all": this carries the ids it is adding, so a filter edit still
+   * <p>No autosave flush, unlike saving a search: this carries the ids it is adding, so a filter edit still
    * sitting in the timer cannot change what it means.
    */
   const addSelected = useMutation({
@@ -423,29 +398,12 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
         onSetSearchVisibility={(searchId, visibility) => editSearch.mutate({ searchId, visibility })}
         onOverwriteSearch={(searchId) => overwriteSearch.mutate(searchId)}
         onDeleteSearch={(searchId) => deleteSearch.mutate(searchId)}
-        onAddAll={() => setConfirmingAddAll(true)}
         onAiResearch={() => openAssistant(project.id)}
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
         onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
         savingSearch={saveSearch.isPending}
-        addingAll={addAll.isPending}
       />
-      <ConfirmDialog
-        open={confirmingAddAll}
-        title={
-          matchingCount === undefined
-            ? "Add every matching company to universe?"
-            : `Add all ${formatNumber(matchingCount)} companies to universe?`
-        }
-        confirmLabel="Add all"
-        tone="primary"
-        pending={addAll.isPending}
-        onConfirm={() => addAll.mutate()}
-        onClose={() => setConfirmingAddAll(false)}
-      >
-        Every company this filter finds joins the position&apos;s universe. Companies already in it are skipped.
-      </ConfirmDialog>
 
       <div className="flex min-h-0 flex-1">
         {showFilters &&

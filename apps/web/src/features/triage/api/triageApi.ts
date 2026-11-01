@@ -251,8 +251,3 @@ export function addSelectedCompanies(
     body: { apolloAccountIds, status },
   });
 }
-
-export function addAllInScope(projectId: string): Promise<BulkAddResult> {
-  // No body: the scope is the stored filter, so this cannot ask for a wider one than is on screen.
-  return request<BulkAddResult>(`/projects/${projectId}/triage/from-filter`, { method: "POST" });
-}

@@ -52,7 +52,7 @@ export function SegmentedControl<TValue extends string>({
   value: TValue;
   onChange: (value: TValue) => void;
   variant?: SegmentedVariant;
-  /** Options share the group's width equally, so a set width holds two options or three alike. */
+  /** Options fill the group's set width: each its own label's width plus an even share of what is left. */
   fill?: boolean;
   className?: string;
 }) {
@@ -69,7 +69,7 @@ export function SegmentedControl<TValue extends string>({
       aria-label={label}
       onKeyDown={keys.onKeyDown}
       className={cn(
-        fill ? "grid flex-none auto-cols-fr grid-flow-col" : "inline-flex flex-none items-center",
+        fill ? "flex flex-none" : "inline-flex flex-none items-center",
         "border",
         GROUP_CLASS[variant],
         className,
@@ -87,7 +87,7 @@ export function SegmentedControl<TValue extends string>({
             onClick={() => onChange(option.value)}
             className={cn(
               "inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap font-sans transition",
-              fill && "min-w-0 justify-center",
+              fill && "min-w-0 flex-auto justify-center",
               OPTION_CLASS[variant].base,
               selected ? OPTION_CLASS[variant].selected : OPTION_CLASS[variant].idle,
             )}
