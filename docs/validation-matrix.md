@@ -37,7 +37,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Signup password | 8+, a digit, ≤ 72 bytes | same; bytes in `PasswordPolicy` | field |
 | Signup terms | — | `@AssertTrue` | banner (was swallowed) |
 | ☐ Invite accept full name | 1–160, not trimmed | `@NotBlank @Size(160)` | banner |
-| ☐ Invite team rows | email per row, no cap | `List<@Valid InviteRequest>`, no cap | banner, row unnamed |
+| ☐ Invite team rows | email per row, an address listed once, no cap | `List<@Valid InviteRequest>`, no cap; no role is MEMBER; a repeat is one invitation; every row checked before any is sent | row (client), banner, row unnamed (server) |
 | ☐ Organisation name | trimmed 1–160, no `maxLength` | `@NotBlank @Size(160)` | banner |
 | Sign-in code (two-factor step) | six digits, spaces dropped; a recovery code instead is 16 Base32 characters, hyphens, spaces and case forgiven | `@NotBlank @Size(32)`; six digits within one 30-second step of now and after the last one used, or an unused recovery code; every refusal `MFA_CODE_INVALID`, counted towards the lock | banner |
 

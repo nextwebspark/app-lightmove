@@ -78,6 +78,24 @@ class SeatBillingIntegrationTest extends BillingFlowSupport {
     }
 
     @Test
+    @DisplayName("a pure client who accepts a staff invitation takes a seat Stripe bills, and the role gained is audited")
+    void aClientBecomingStaffRaisesTheQuantity() throws Exception {
+        Firm firm = newFirm();
+        String subscriptionId = subscribe(firm, Instant.now().minus(Duration.ofDays(15)));
+        String rana = email("rana");
+        String client = clientRepresentative(firm.adminToken(), "Rana Client", rana);
+        assertThat(stripe.seatsOf(subscriptionId)).isEqualTo(1);
+
+        invite(firm.adminToken(), rana, "MEMBER").andExpect(status().isOk());
+        accept(client, email.latestTokenFor(rana)).andExpect(status().isOk());
+
+        awaitSeats(subscriptionId, 2);
+        awaitSynced(firm.workspaceId());
+        assertThat(auditsOf(firm.workspaceId(), "SEAT_ADDED")).isEqualTo(1);
+        assertThat(auditsOf(firm.workspaceId(), "MEMBER_ROLE_CHANGED")).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("a sync Stripe refuses keeps the membership and the seat's credits, and the job bills it once, granting nothing twice")
     void aRefusedSyncIsRetried() throws Exception {
         Firm firm = newFirm();

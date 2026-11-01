@@ -89,16 +89,29 @@ export const workspaceSchema = z.object({
 });
 
 export const inviteSchema = z.object({
-  invites: z.array(
-    z.object({
-      // Blank rows are allowed and skipped on submit — the mockup starts with two empty rows, and
-      // refusing to continue because the user did not fill them in would be absurd.
-      email: z.string().refine((value) => value === "" || z.string().email().safeParse(value).success, {
-        message: "That doesn't look like a valid email",
+  invites: z
+    .array(
+      z.object({
+        // Blank rows are allowed and skipped on submit — the mockup starts with two empty rows, and
+        // refusing to continue because the user did not fill them in would be absurd.
+        email: z.string().refine((value) => value === "" || z.string().email().safeParse(value).success, {
+          message: "That doesn't look like a valid email",
+        }),
+        role: z.enum(["ADMIN", "MEMBER"]),
       }),
-      role: z.enum(["ADMIN", "MEMBER"]),
+    )
+    // A typed repeat once went as two emails, the second killing the first's link.
+    .superRefine((invites, context) => {
+      const listed = new Set<string>();
+      invites.forEach((invite, index) => {
+        const key = invite.email.trim().toLowerCase();
+        if (key === "") return;
+        if (listed.has(key)) {
+          context.addIssue({ code: "custom", path: [index, "email"], message: "Already listed above" });
+        }
+        listed.add(key);
+      });
     }),
-  ),
 });
 
 /**

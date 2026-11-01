@@ -44,10 +44,10 @@ post_json /onboarding/workspace \
 check_status P2.1 "POST /onboarding/workspace while unverified" 403
 check P2.2 "and says why, so the SPA can send them back a step" "EMAIL_NOT_VERIFIED" "$(json '.code')"
 
-post_json /onboarding/invitations \
+post_json /invitations \
   "$(jq -nc --arg a "$COLLEAGUE_EMAIL" '[{email:$a, role:"MEMBER"}]')" \
   -H "$(auth_header "$ADMIN_TOKEN")"
-check_status P2.3 "POST /onboarding/invitations while unverified" 403
+check_status P2.3 "POST /invitations while unverified" 403
 
 check P2.4 "nothing came into existence on the firm's domain" "0" \
   "$(sql "SELECT count(*) FROM app_lm_workspace WHERE name = '$WORKSPACE_NAME'")"
@@ -100,11 +100,11 @@ ADMIN_TOKEN=$(json '.accessToken')
 check P4.5 "the re-issued token carries the new tenant claim" "false" \
   "$(jwt_claims "$ADMIN_TOKEN" | jq -r '(.wsId // "null") == "null"')"
 
-post_json /onboarding/invitations \
+post_json /invitations \
   "$(jq -nc --arg a "$COLLEAGUE_EMAIL" --arg b "$EXISTING_EMAIL" \
      '[{email:$a, role:"MEMBER"}, {email:$b, role:"ADMIN"}]')" \
   -H "$(auth_header "$ADMIN_TOKEN")"
-check_status P4.6 "POST /onboarding/invitations" 200
+check_status P4.6 "POST /invitations" 200
 check P4.7 "both invitations went out" "2" \
   "$(sql "SELECT count(*) FROM app_lm_invitation WHERE email IN ('$COLLEAGUE_EMAIL','$EXISTING_EMAIL')")"
 
