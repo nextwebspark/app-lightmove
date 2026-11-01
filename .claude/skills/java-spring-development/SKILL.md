@@ -353,7 +353,7 @@ method plus the records it returns — never another feature's internals:
 
 - `triagecompany`'s `TriageCompanyService` calls `strategy`'s `ApolloCompanyQueryService` to resolve
   a company snapshot at write time, and `StrategyService.scopeOf` to resolve the saved filter behind
-  "Add all to Universe". Reads that must run the reverse way are the exception below: the Strategy
+  `POST …/triage/from-filter`. Reads that must run the reverse way are the exception below: the Strategy
   search excludes a project's already-triaged companies, so they stop reappearing once filed. That's
   bridged through
   `TriagedCompanyLookup` — an interface `strategy` declares and `triagecompany` implements
