@@ -2,9 +2,9 @@
 -- held no longer — expired sign-in tokens and challenges, closed invitations, read notifications, sent digests, old
 -- assistant chats, aged metered uses and the vendor caches.
 --
--- Most of those tables are tenant data under forced row-level security (V170, V172), so a sweep reads and deletes
+-- Most of those tables are tenant data under forced row-level security (V171, V173), so a sweep reads and deletes
 -- them a workspace at a time. Rather than walk every workspace, the sweep asks this resolver which workspaces hold a
--- row past its cutoff, in V171's shape: SECURITY DEFINER, the maintenance flag raised for its one query, and only the
+-- row past its cutoff, in V172's shape: SECURITY DEFINER, the maintenance flag raised for its one query, and only the
 -- workspace's id out (as both columns, the billing customer's idiom), never a row.
 
 CREATE FUNCTION app_lm_resolve_workspaces_with_retention_due(p_invitations_before timestamptz,

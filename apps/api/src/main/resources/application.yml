@@ -798,7 +798,7 @@ lightmove:
     assistant-threads-after: ${RETENTION_ASSISTANT_THREADS_AFTER:180d}
     usage-events-after: ${RETENTION_USAGE_EVENTS_AFTER:400d}
 
-  # Forced row-level security on the tenant tables (V170). On, a database that would not enforce it — a superuser or
+  # Forced row-level security on the tenant tables (V171). On, a database that would not enforce it — a superuser or
   # BYPASSRLS runtime role, an unforced table — fails the boot; off, it is only a warning.
   row-level-security:
     require-enforced: ${RLS_REQUIRE_ENFORCED:true}
