@@ -5,6 +5,7 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.avatar.ProviderAvatarOffered;
 import app.lightmove.api.core.security.constant.PrivacyPolicy;
 import app.lightmove.api.core.security.mfa.MfaChallengeCookieFactory;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
@@ -25,6 +26,7 @@ import java.time.Instant;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -61,6 +63,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final TransactionTemplate transactions;
     private final LoginErrorRedirector loginErrors;
     private final UnverifiedAccountWipe unverifiedAccounts;
+    private final ApplicationEventPublisher events;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -127,6 +130,11 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS,
                     "Registration id 'local' is reserved for password identities");
         }
+        // And one named 'user' would own every picture as the person's own upload, which no sign-in may replace.
+        if (User.UPLOADED_AVATAR_SOURCE.equals(provider)) {
+            throw new ApiException(ErrorCode.INVALID_CREDENTIALS,
+                    "Registration id 'user' is reserved for a person's own profile photo");
+        }
 
         String subject = oidcUser.getSubject();
         String email = normalise(oidcUser.getEmail());
@@ -148,11 +156,12 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             throw ApiException.of(ErrorCode.ACCOUNT_SUSPENDED);
         }
 
-        refreshProfile(provider, user, oidcUser, email);
+        backfillName(user, oidcUser, email);
 
         // A challenge leaves the failed-attempt count as it is: only the right code clears it, as after a password.
         SignInOutcome outcome = signIn.complete(user, request);
         if (outcome instanceof AuthenticatedSession session) {
+            offerPicture(provider, user, oidcUser);
             user.recordSuccessfulLogin(Instant.now());
             audit.event(AuthEventType.OAUTH_LOGIN_SUCCEEDED).actor(user.getId()).workspace(session.workspaceId())
                     .from(request).detail("provider", provider).record();
@@ -189,8 +198,6 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         User user = users.save(User.registerFederated(
                 email,
                 displayName(oidcUser, email),
-                usablePictureUrl(oidcUser),
-                provider,
                 now,
                 PrivacyPolicy.CURRENT_VERSION));
 
@@ -203,17 +210,27 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         return user;
     }
 
-    /** Re-stamps the picture (provider CDN URLs expire); the name is only backfilled, never overwritten. */
-    private void refreshProfile(String provider, User user, OidcUser oidcUser, String email) {
-        user.adoptAvatarFrom(provider, usablePictureUrl(oidcUser));
+    /** Only backfilled, never overwritten: the name is editable here. */
+    private void backfillName(User user, OidcUser oidcUser, String email) {
         if (user.getFullName() == null || user.getFullName().isBlank()) {
             user.setFullName(displayName(oidcUser, email));
         }
     }
 
     /**
-     * Whether the {@code picture} claim is safe to store: it is often user-editable and every colleague's
-     * browser fetches it, so it must be https and length-capped. A rejected one falls back to initials.
+     * A completed sign-in only: one stopped at the code step changes nothing of the account. Copied once the sign-in
+     * commits — downloading here would hold its transaction open on the provider's CDN.
+     */
+    private void offerPicture(String provider, User user, OidcUser oidcUser) {
+        String picture = usablePictureUrl(oidcUser);
+        if (picture != null && user.mayTakeAvatarFrom(provider)) {
+            events.publishEvent(new ProviderAvatarOffered(user.getId(), provider, picture));
+        }
+    }
+
+    /**
+     * Whether the {@code picture} claim is worth fetching: it is often user-editable, so it must be https and
+     * length-capped before our server asks for it. A rejected one falls back to initials.
      */
     private static String usablePictureUrl(OidcUser oidcUser) {
         String picture = oidcUser.getPicture();

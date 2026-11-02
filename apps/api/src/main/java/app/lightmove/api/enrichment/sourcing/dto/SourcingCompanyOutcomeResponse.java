@@ -7,16 +7,16 @@ import java.util.UUID;
 /**
  * One company's line of the strip. {@code seen} is how many people the search answered with, and
  * {@code matched} how many fitted in all (null when unknown) — more matched than seen means the
- * per-company cap cut it short.
+ * per-company cap cut it short. {@code notFit} is how many of those found did not hold the seat.
  */
 public record SourcingCompanyOutcomeResponse(UUID triageCompanyId, String companyName, String outcome,
                                              int seen, Long matched, int filed, int skipped,
-                                             List<SourcingPickResponse> picks) {
+                                             List<SourcingPickResponse> picks, int notFit) {
 
     static SourcingCompanyOutcomeResponse of(CompanyOutcome outcome) {
         return new SourcingCompanyOutcomeResponse(outcome.triageCompanyId(), outcome.companyName(),
                 outcome.outcome().name(), outcome.vendorHits() + outcome.cachedHits(), outcome.matched(),
                 outcome.filed(), outcome.skipped(),
-                outcome.picks().stream().map(SourcingPickResponse::of).toList());
+                outcome.picks().stream().map(SourcingPickResponse::of).toList(), outcome.notFit());
     }
 }
