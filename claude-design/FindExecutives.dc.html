@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link rel="stylesheet" href="uncava-tokens.css">
+  <style>
+    :root,[data-theme]{
+      --amber:var(--u-accent);--amber-btn:var(--u-accent-solid);--amber-dim:var(--u-accent-tint);--on-amber:#ffffff;
+      --sky:var(--u-accent);--sky-dim:var(--u-accent-tint);--ring:var(--u-accent-ring);
+      --red:var(--u-offlimits);--red-dim:var(--u-offlimits-tint);
+      --green:var(--u-direct);--green-dim:var(--u-direct-tint);
+      --warn:var(--u-signal);--warn-dim:var(--u-signal-tint);
+      --ai:var(--u-inferred);--ai-dim:var(--u-inferred-tint);
+      --bg:var(--u-bg);--panel:var(--u-surface);--panel2:var(--u-raised);--line:var(--u-border-strong);--line-soft:var(--u-border);
+      --text:var(--u-text);--text2:var(--u-text2);--text3:var(--u-text3);
+      --shadow:var(--u-e3);--radius-panel:var(--u-r-modal);
+      --mono:var(--u-font-ui);--sans:var(--u-font-ui);
+      --u-text2:var(--u-text-2);--u-text3:var(--u-text-3);--u-num:var(--u-font-num);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+    a{color:var(--sky);text-decoration:none}
+    input::placeholder{color:var(--text3)}
+    button{font-family:inherit}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
+  </style>
+  <script>try{var t=localStorage.getItem('lm-theme');document.documentElement.setAttribute('data-theme', t==='light'?'light':'dark');}catch(e){}</script>
+</helmet>
+
+<div data-screen-label="Find executives" data-theme="{{ themeAttr }}" style="min-height:100vh;background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased">
+<section style="{{ sectionStyle }}">
+
+  <sc-if value="{{ isCanvas }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:28px">
+      <div>
+        <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">In universe · Find executives</div>
+        <h1 style="font:700 26px/1.15 var(--sans);letter-spacing:-.02em;margin:9px 0 0">Find executives — one panel you can steer</h1>
+        <p style="font:400 13px/1.6 var(--sans);color:var(--text2);max-width:860px;margin:8px 0 0">The search is drafted from the brief, shown in full and changed in place: levels and title words come with free counts before anything is spent. Two sources are searched side by side, merged, de-duplicated and ranked against the role, each person with the reasons behind their place. Nothing is filed until the consultant ticks people and presses Add. The strip under the toolbar is gone — the toolbar button carries the run.</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span style="display:inline-flex;align-items:center;padding:5px 11px;border-radius:6px;background:var(--panel2);border:1px solid var(--line-soft);font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">{{ stateCount }}</span>
+        <button onClick="{{ toggleTheme }}" style="display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--text2);font:500 12px var(--sans);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">{{ themeLabel }}</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="{{ rowStyle }}">
+    <sc-for list="{{ frames }}" as="f" hint-placeholder-count="6">
+      <div style="{{ f.wrapStyle }}">
+        <sc-if value="{{ f.showCaption }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
+            <span style="font:600 13px var(--sans);color:var(--text)">{{ f.label }}</span>
+            <span style="font:400 11.5px var(--mono);color:var(--text3)">{{ f.caption }}</span>
+          </div>
+        </sc-if>
+        <div data-screen-label="{{ f.screenLabel }}" style="{{ f.frameStyle }}">
+
+          <!-- ═══════════════ A scene: In universe behind the panel ═══════════════ -->
+          <sc-if value="{{ f.isScene }}" hint-placeholder-val="{{ true }}">
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg)">
+              <div style="height:46px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px">
+                <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:28px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+                <span style="padding:4px 6px;font:500 13px var(--mono);color:var(--text3)">Positions</span>
+                <span style="font-size:12px;color:var(--text3);opacity:.4">/</span>
+                <span style="display:flex;align-items:center;gap:6px;font:500 13px var(--mono);color:var(--text2)"><span style="width:6px;height:6px;border-radius:50%;background:var(--sky)"></span>Group Finance</span>
+                <span style="font-size:12px;color:var(--text3);opacity:.4">/</span>
+                <span style="font:600 14px var(--sans);color:var(--text)">Chief Financial Officer</span>
+                <span style="flex:1"></span>
+                <span style="width:26px;height:26px;border-radius:50%;background:var(--sky-dim);color:var(--sky);font:600 10px var(--mono);display:grid;place-items:center">YH</span>
+              </div>
+              <div style="flex:1;min-height:0;display:flex;gap:10px;padding:0 10px 10px">
+                <nav style="width:192px;flex:none;padding:8px 0;display:flex;flex-direction:column;gap:2px">
+                  <sc-for list="{{ f.nav }}" as="n" hint-placeholder-count="8">
+                    <sc-if value="{{ n.isHeading }}"><div style="padding:12px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">{{ n.label }}</div></sc-if>
+                    <sc-if value="{{ n.isItem }}"><div style="{{ n.style }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ n.icon }}"></path></svg>{{ n.label }}</div></sc-if>
+                  </sc-for>
+                </nav>
+                <main style="flex:1;min-width:0;display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--line);background:var(--panel);overflow:hidden">
+                  <div style="flex:none;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line-soft);padding:10px 16px">
+                    <div style="display:flex;flex:none;width:240px;border-radius:6px;border:1px solid var(--line);padding:2px">
+                      <span style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:28px;border-radius:4px;background:var(--panel2);font:500 12.5px var(--sans);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.table }}"></path></svg>Table</span>
+                      <span style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:28px;font:500 12.5px var(--sans);color:var(--text3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.mapPin }}"></path></svg>Map</span>
+                      <span style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:28px;font:500 12.5px var(--sans);color:var(--text3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.pipeline }}"></path></svg>Pipeline</span>
+                    </div>
+                    <span style="width:1px;height:20px;background:var(--line-soft)"></span>
+                    <div style="display:flex;align-items:center;gap:8px;width:280px;border-radius:6px;border:1px solid var(--line);padding:8px 10px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.search }}"></path></svg><span style="font:400 13px var(--sans);color:var(--text3)">Search companies, executives, notes…</span></div>
+                    <span style="flex:1"></span>
+                    <span style="{{ btnOutline }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.outreach }}"></path></svg>Add to sequence</span>
+                    <span style="{{ btnOutline }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.mail }}"></path></svg>Send email</span>
+                    <span style="width:1px;height:20px;background:var(--line-soft)"></span>
+                    <span style="{{ f.find.style }}">
+                      <sc-if value="{{ f.find.spinning }}"><span style="width:13px;height:13px;flex:none;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:spin .8s linear infinite"></span></sc-if>
+                      <sc-if value="{{ f.find.idleIcon }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.search }}"></path></svg></sc-if>
+                      {{ f.find.label }}
+                      <sc-if value="{{ f.find.hasBadge }}"><span style="border-radius:999px;background:var(--on-amber);color:var(--amber-btn);font:700 10.5px var(--u-num);padding:1px 7px">{{ f.find.badge }}</span></sc-if>
+                      <sc-if value="{{ f.find.hasDot }}"><span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;background:var(--warn);border:2px solid var(--panel)"></span></sc-if>
+                    </span>
+                    <span style="{{ btnGhost }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.sliders }}"></path></svg>Advanced<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.chevronDown }}"></path></svg></span>
+                    <span style="{{ btnGhost }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.plus }}"></path></svg>Create<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.chevronDown }}"></path></svg></span>
+                  </div>
+                  <div style="flex:none;display:flex;align-items:center;gap:0;height:36px;padding:0 16px;border-bottom:1px solid var(--line-soft);font:600 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">
+                    <span style="width:34px"></span><span style="width:260px">Company</span><span style="width:220px">Executive</span><span style="width:240px">Title</span><span style="width:140px">Status</span><span>Location</span>
+                  </div>
+                  <sc-for list="{{ f.gridRows }}" as="g" hint-placeholder-count="10">
+                    <div style="flex:none;display:flex;align-items:center;height:44px;padding:0 16px;border-bottom:1px solid var(--line-soft);font:400 13px var(--sans);color:var(--text2)">
+                      <span style="width:34px"><span style="{{ g.boxStyle }}"><sc-if value="{{ g.ticked }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4"><path d="{{ ic.check }}"></path></svg></sc-if></span></span>
+                      <span style="width:260px;display:flex;align-items:center;gap:8px;color:var(--text);font-weight:500"><span style="width:22px;height:22px;border-radius:5px;background:var(--panel2);border:1px solid var(--line-soft);display:grid;place-items:center;font:700 9px var(--mono);color:var(--text3)">{{ g.mark }}</span>{{ g.name }}</span>
+                      <span style="width:220px;color:var(--text3)">{{ g.exec }}</span>
+                      <span style="width:240px;color:var(--text3)">{{ g.title }}</span>
+                      <span style="width:140px;color:var(--text3)">{{ g.status }}</span>
+                      <span style="color:var(--text3)">{{ g.city }}</span>
+                    </div>
+                  </sc-for>
+                </main>
+              </div>
+            </div>
+
+            <sc-if value="{{ f.hasDrawer }}">
+              <aside style="position:absolute;right:10px;top:10px;bottom:10px;width:560px;display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow)">
+                <div style="flex:none;border-bottom:1px solid var(--line-soft);padding:16px 20px">
+                  <div style="display:flex;align-items:flex-start;gap:12px">
+                    <span style="width:44px;height:44px;flex:none;display:grid;place-items:center;border-radius:6px;background:var(--panel2);color:var(--text3);box-shadow:0 0 0 1px var(--line-soft);font:700 13px var(--mono)">AR</span>
+                    <div style="min-width:0;flex:1">
+                      <div style="font:600 16px var(--sans)">Al Rostamani Group</div>
+                      <p style="margin:4px 0 0;font:400 11.5px var(--mono);color:var(--text3)">Automotive · Dubai, United Arab Emirates · 5,000 employees</p>
+                    </div>
+                  </div>
+                  <div style="margin-top:12px;display:flex;gap:8px">
+                    <span style="display:inline-flex;align-items:center;gap:7px;border-radius:6px;border:none;background:var(--amber-btn);padding:9px 13px;font:600 13px var(--sans);color:var(--on-amber);box-shadow:0 0 0 3px var(--ring)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.search }}"></path></svg>Find executives</span>
+                    <span style="display:inline-flex;align-items:center;gap:7px;border-radius:6px;border:1px solid var(--line);padding:9px 13px;font:500 13px var(--sans);color:var(--text2)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.userPlus }}"></path></svg>Add executive</span>
+                    <span style="display:inline-flex;align-items:center;gap:7px;border-radius:6px;border:1px solid var(--line);padding:9px 13px;font:500 13px var(--sans);color:var(--text2)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.pencil }}"></path></svg>Edit</span>
+                  </div>
+                </div>
+                <sc-if value="{{ f.drawerCallout }}">
+                  <div style="margin:12px 20px 0;display:flex;align-items:center;gap:8px;border-radius:8px;border:1px dashed color-mix(in srgb,var(--amber) 55%,transparent);background:var(--amber-dim);padding:9px 12px;font:500 12.5px var(--sans);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--amber)"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>Opens the Find executives panel for this company alone, with the position's search.</div>
+                </sc-if>
+                <div style="padding:16px 20px;font:400 13px/1.6 var(--sans);color:var(--text2)">Family conglomerate whose businesses include Nissan UAE distribution and financial services.</div>
+              </aside>
+            </sc-if>
+
+            <sc-if value="{{ f.hasPanel }}" hint-placeholder-val="{{ true }}">
+              <div style="position:absolute;inset:0;background:var(--u-scrim)"></div>
+              <div role="dialog" aria-label="Find executives" style="{{ f.panelStyle }}">
+
+                <!-- header -->
+                <div style="flex:none;display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line-soft)">
+                  <span style="width:32px;height:32px;flex:none;border-radius:8px;background:var(--amber-dim);color:var(--amber);display:grid;place-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.search }}"></path></svg></span>
+                  <div style="min-width:0;flex:1">
+                    <div style="font:600 15px var(--sans);color:var(--text)">Find executives</div>
+                    <div style="margin-top:1px;font:400 12px var(--mono);color:var(--text3)">{{ f.subtitle }}</div>
+                  </div>
+                  <span title="Full screen" style="width:30px;height:30px;display:grid;place-items:center;border-radius:6px;color:var(--text3)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.fullscreen }}"></path></svg></span>
+                  <span title="Close" style="width:30px;height:30px;display:grid;place-items:center;border-radius:6px;color:var(--text3)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.close }}"></path></svg></span>
+                </div>
+
+                <!-- the search bar, on top -->
+                <sc-if value="{{ f.hasSearchBar }}" hint-placeholder-val="{{ true }}">
+                  <div style="flex:none;position:relative;padding:12px 18px 14px;border-bottom:1px solid var(--line-soft);background:var(--panel2)">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;font:500 12px var(--sans);color:var(--text3)">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="{{ f.aiIconStyle }}"><path d="{{ ic.sparkle }}"></path></svg>
+                      <span>{{ f.aiNote }}</span>
+                      <sc-if value="{{ f.canReset }}"><span style="color:var(--text3)">·</span><span style="color:var(--sky);font-weight:500">Reset</span></sc-if>
+                    </div>
+                    <div style="display:flex;align-items:stretch;gap:8px">
+                      <span style="{{ f.levelBtnStyle }}"><span style="color:var(--text3)">Level</span><span style="{{ f.valueTextStyle }}">{{ f.levelValue }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
+                      <div style="{{ f.titlesFieldStyle }}">
+                        <span style="font:500 12.5px var(--sans);color:var(--text3);padding-right:2px">Titles</span>
+                        <sc-if value="{{ f.drafting }}"><span style="width:62px;height:20px;border-radius:5px;background:var(--line-soft);animation:pulse 1.4s ease infinite"></span><span style="width:78px;height:20px;border-radius:5px;background:var(--line-soft);animation:pulse 1.4s ease infinite"></span><span style="width:48px;height:20px;border-radius:5px;background:var(--line-soft);animation:pulse 1.4s ease infinite"></span></sc-if>
+                        <sc-for list="{{ f.titleChips }}" as="c" hint-placeholder-count="4">
+                          <span style="display:inline-flex;align-items:center;gap:5px;border-radius:5px;background:var(--amber-dim);padding:2px 4px 2px 8px;font:500 12.5px var(--sans);color:var(--text)">{{ c }}<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="{{ ic.close }}"></path></svg></span>
+                        </sc-for>
+                        <span style="{{ f.titleInputStyle }}">{{ f.titleInputText }}</span>
+                      </div>
+                    </div>
+                    <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                      <span style="{{ f.fieldStyle }}"><span style="color:var(--text3)">Leave out</span><span style="{{ f.valueTextStyle }}">{{ f.leaveOutValue }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
+                      <span style="{{ f.fieldStyle }}"><span style="color:var(--text3)">Where</span><span style="{{ f.valueTextStyle }}">{{ f.whereValue }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
+                      <span style="{{ f.companiesBtnStyle }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.building }}"></path></svg><span style="{{ f.valueTextStyle }}">{{ f.companiesValue }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
+                      <span style="{{ f.fieldStyle }}"><span style="{{ f.valueTextStyle }}">10</span><span style="color:var(--text3)">per company</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
+                      <span style="flex:1"></span>
+                      <span style="font:400 12px var(--mono);color:var(--text2)">{{ f.countLine }}</span>
+                      <span style="{{ f.searchBtnStyle }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.search }}"></path></svg>{{ f.searchLabel }}</span>
+                    </div>
+
+                    <sc-if value="{{ f.levelOpen }}">
+                      <div role="listbox" aria-label="Levels" style="position:absolute;left:18px;top:74px;z-index:5;width:360px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
+                        <div style="padding:6px 8px 4px;font:600 10.5px var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Levels to search</div>
+                        <sc-for list="{{ f.levelOptions }}" as="o" hint-placeholder-count="4">
+                          <div style="display:flex;align-items:flex-start;gap:10px;padding:8px;border-radius:6px">
+                            <span style="{{ o.boxStyle }}"><sc-if value="{{ o.on }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4"><path d="{{ ic.check }}"></path></svg></sc-if></span>
+                            <span style="flex:1;min-width:0"><span style="display:block;font:500 13px var(--sans);color:var(--text)">{{ o.label }}</span><span style="display:block;margin-top:1px;font:400 11.5px var(--sans);color:var(--text3)">{{ o.hint }}</span></span>
+                            <span style="font:600 12px var(--u-num);color:var(--text2)">{{ o.count }}</span>
+                          </div>
+                        </sc-for>
+                        <div style="margin:4px 8px 4px;padding-top:8px;border-top:1px solid var(--line-soft);font:400 11.5px/1.5 var(--sans);color:var(--text3)">Counts are people at these 6 companies with your title words. Counting is free.</div>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{ f.titlesOpen }}">
+                      <div role="listbox" aria-label="Title words" style="position:absolute;left:250px;top:74px;z-index:5;width:440px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:10px 12px 12px;box-shadow:var(--shadow)">
+                        <sc-for list="{{ f.titleGroups }}" as="tg" hint-placeholder-count="2">
+                          <div style="margin-bottom:10px">
+                            <div style="margin-bottom:7px;font:600 10.5px var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">{{ tg.label }}</div>
+                            <div style="display:flex;flex-wrap:wrap;gap:6px">
+                              <sc-for list="{{ tg.words }}" as="w" hint-placeholder-count="4">
+                                <span style="{{ w.style }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="{{ ic.plus }}"></path></svg>{{ w.word }}<span style="font:600 11px var(--u-num);color:var(--text3)">{{ w.count }}</span></span>
+                              </sc-for>
+                            </div>
+                          </div>
+                        </sc-for>
+                        <div style="padding-top:8px;border-top:1px solid var(--line-soft);font:400 11.5px/1.5 var(--sans);color:var(--text3)">Type any other word and press Enter to add it. Each count is how many people at these companies have that word and one of your levels in their current title.</div>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{ f.companiesOpen }}">
+                      <div role="listbox" aria-label="Companies" style="position:absolute;left:228px;top:116px;z-index:5;width:420px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
+                        <div style="display:flex;align-items:center;padding:6px 8px 4px;font:600 10.5px var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)"><span style="flex:1">The companies you ticked</span><span style="text-transform:none;letter-spacing:0;font-weight:500;color:var(--sky)">All · None</span></div>
+                        <sc-for list="{{ f.companyOptions }}" as="co" hint-placeholder-count="7">
+                          <div style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:6px">
+                            <span style="{{ co.boxStyle }}"><sc-if value="{{ co.on }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4"><path d="{{ ic.check }}"></path></svg></sc-if></span>
+                            <span style="flex:1;min-width:0;font:500 13px var(--sans);color:{{ co.nameColor }}">{{ co.name }}</span>
+                            <span style="font:400 11.5px var(--mono);color:{{ co.noteColor }}">{{ co.note }}</span>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+
+                <!-- body -->
+                <div style="flex:1;min-height:0;display:flex">
+
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+                    <sc-if value="{{ f.running }}">
+                      <div style="flex:none;display:flex;align-items:center;gap:12px;padding:10px 18px;border-bottom:1px solid var(--line-soft)">
+                        <span style="width:14px;height:14px;flex:none;border-radius:50%;border:2px solid var(--line);border-top-color:var(--amber);animation:spin .8s linear infinite"></span>
+                        <span style="font:500 13px var(--sans);color:var(--text)">Searching 6 companies</span>
+                        <span style="font:400 12px var(--mono);color:var(--text3)">3 done · 18 found so far</span>
+                        <span style="flex:1;height:4px;border-radius:999px;background:var(--line-soft);overflow:hidden"><span style="display:block;width:50%;height:100%;background:var(--amber)"></span></span>
+                        <span style="{{ btnOutlineSm }}">Stop</span>
+                      </div>
+                      <div style="flex:none;display:flex;flex-wrap:wrap;gap:6px;padding:9px 18px;border-bottom:1px solid var(--line-soft)">
+                        <sc-for list="{{ f.progressItems }}" as="pi" hint-placeholder-count="6">
+                          <span style="{{ pi.style }}">
+                            <sc-if value="{{ pi.done }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="color:var(--green)"><path d="{{ ic.check }}"></path></svg></sc-if>
+                            <sc-if value="{{ pi.active }}"><span style="width:10px;height:10px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--amber);animation:spin .8s linear infinite"></span></sc-if>
+                            {{ pi.label }}<span style="font:400 11px var(--mono);color:var(--text3)">{{ pi.note }}</span>
+                          </span>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ f.sourceOut }}">
+                      <div style="flex:none;margin:12px 18px 0;display:flex;align-items:flex-start;gap:10px;border-radius:8px;border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:var(--warn-dim);padding:10px 12px;font:400 12.5px/1.55 var(--sans);color:var(--text)">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:2px;color:var(--warn)"><path d="{{ ic.warnTri }}"></path></svg>
+                        <span><b style="font-weight:600">Live profiles were out of searches this month,</b> so these results come from the profile index alone. Some titles may be missing or a few months old. Searching again in December reads live profiles too.</span>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ f.hasTabs }}">
+                      <div style="flex:none;display:flex;align-items:flex-end;gap:2px;padding:6px 18px 0;border-bottom:1px solid var(--line-soft)">
+                        <sc-for list="{{ f.tabs }}" as="t" hint-placeholder-count="5">
+                          <span style="{{ t.style }}">{{ t.label }}<span style="{{ t.countStyle }}">{{ t.count }}</span></span>
+                        </sc-for>
+                        <span style="flex:1"></span>
+                        <span style="padding:0 0 9px;font:400 12px var(--mono);color:var(--text3)">{{ f.resultsSummary }}</span>
+                      </div>
+                    </sc-if>
+
+                    <div style="flex:1;min-height:0;overflow-y:auto;padding-bottom:16px">
+
+                      <sc-if value="{{ f.drafting }}">
+                        <div style="padding:22px 18px 0">
+                          <div style="font:500 13px var(--sans);color:var(--text2)">Reading the brief for the role's title, level and location…</div>
+                          <sc-for list="{{ f.skeletonRows }}" as="sk" hint-placeholder-count="5">
+                            <div style="margin-top:12px;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line-soft);border-radius:8px">
+                              <span style="width:26px;height:26px;border-radius:6px;background:var(--line-soft);animation:pulse 1.4s ease infinite"></span>
+                              <span style="{{ sk.style }}"></span>
+                              <span style="flex:1"></span>
+                              <span style="width:120px;height:10px;border-radius:4px;background:var(--line-soft);animation:pulse 1.4s ease infinite"></span>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ f.preview }}">
+                        <div style="padding:16px 18px 0">
+                          <div style="display:flex;align-items:baseline;gap:10px">
+                            <span style="font:600 13.5px var(--sans);color:var(--text)">Ready to search 6 of the 7 companies you ticked</span>
+                            <span style="font:400 12px var(--mono);color:var(--text3)">Counting is free · Search reads up to 10 new profiles a company</span>
+                          </div>
+                          <div style="margin-top:12px;border:1px solid var(--line-soft);border-radius:10px;overflow:hidden">
+                            <sc-for list="{{ f.previewRows }}" as="pr" hint-placeholder-count="7">
+                              <div style="{{ pr.rowStyle }}">
+                                <span style="width:26px;height:26px;flex:none;border-radius:6px;background:var(--panel2);border:1px solid var(--line-soft);display:grid;place-items:center;font:700 9.5px var(--mono);color:var(--text3)">{{ pr.mark }}</span>
+                                <span style="width:260px;font:500 13px var(--sans);color:var(--text)">{{ pr.name }}</span>
+                                <sc-if value="{{ pr.searchable }}">
+                                  <span style="width:110px;font:600 13px var(--u-num);color:var(--text)">{{ pr.match }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> match</span></span>
+                                  <span style="width:110px;font:600 13px var(--u-num);color:var(--text)">{{ pr.newP }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> new</span></span>
+                                  <span style="width:140px;font:600 13px var(--u-num);color:var(--text2)">{{ pr.onFile }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> already on file</span></span>
+                                </sc-if>
+                                <span style="flex:1;font:400 12px var(--sans);color:{{ pr.noteColor }}">{{ pr.note }}</span>
+                              </div>
+                            </sc-for>
+                          </div>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ f.expired }}">
+                        <div style="margin:60px auto 0;max-width:460px;text-align:center">
+                          <span style="width:44px;height:44px;margin:0 auto;border-radius:12px;background:var(--panel2);border:1px solid var(--line-soft);display:grid;place-items:center;color:var(--text3)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v5l3 2"></path></svg></span>
+                          <div style="margin-top:14px;font:600 15px var(--sans)">These results have expired</div>
+                          <p style="margin:6px 0 0;font:400 13px/1.6 var(--sans);color:var(--text2)">They're from 2 October. Profiles found by a search are kept for 30 days, then let go. Search again to see who's there now — people already on file come back free.</p>
+                          <span style="{{ btnFilledCentered }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.search }}"></path></svg>Search 6 companies again</span>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ f.noBrief }}">
+                        <div style="margin:60px auto 0;max-width:460px;text-align:center">
+                          <span style="width:44px;height:44px;margin:0 auto;border-radius:12px;background:var(--panel2);border:1px solid var(--line-soft);display:grid;place-items:center;color:var(--text3)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.fileText }}"></path></svg></span>
+                          <div style="margin-top:14px;font:600 15px var(--sans)">Give the position a role title first</div>
+                          <p style="margin:6px 0 0;font:400 13px/1.6 var(--sans);color:var(--text2)">Find executives drafts its search from the brief's role title, level and location. Add them on the Brief, then come back — or type your own title words above.</p>
+                          <span style="{{ btnOutlineCentered }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.position }}"></path></svg>Open the brief</span>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ f.hasRetry }}">
+                        <div style="margin:14px 18px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-radius:8px;border:1px dashed var(--line);padding:10px 12px">
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--ai)"><path d="{{ ic.sparkle }}"></path></svg>
+                          <span style="font:500 13px var(--sans);color:var(--text)">2 companies found nobody who fits.</span>
+                          <span style="font:400 12.5px var(--sans);color:var(--text2)">Try</span>
+                          <sc-for list="{{ f.retryWords }}" as="w" hint-placeholder-count="2">
+                            <span style="{{ w.style }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="{{ ic.check }}"></path></svg>{{ w.word }}<span style="font:600 11px var(--u-num);color:var(--text3)">{{ w.count }}</span></span>
+                          </sc-for>
+                          <span style="flex:1"></span>
+                          <span style="{{ btnFilledSm }}">Retry 2 companies</span>
+                        </div>
+                      </sc-if>
+
+                      <sc-for list="{{ f.groups }}" as="g" hint-placeholder-count="3">
+                        <div style="margin:14px 18px 0;border:1px solid var(--line-soft);border-radius:10px;overflow:hidden">
+                          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--panel2)">
+                            <span style="width:26px;height:26px;flex:none;border-radius:6px;background:var(--panel);border:1px solid var(--line-soft);display:grid;place-items:center;font:700 9.5px var(--mono);color:var(--text3)">{{ g.mark }}</span>
+                            <span style="font:600 13.5px var(--sans);color:var(--text)">{{ g.name }}</span>
+                            <span style="font:400 12px var(--mono);color:var(--text3)">{{ g.meta }}</span>
+                            <sc-if value="{{ g.searching }}"><span style="display:inline-flex;align-items:center;gap:6px;font:500 12px var(--sans);color:var(--text2)"><span style="width:11px;height:11px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--amber);animation:spin .8s linear infinite"></span>Searching…</span></sc-if>
+                            <sc-if value="{{ g.waiting }}"><span style="font:500 12px var(--sans);color:var(--text3)">Waiting</span></sc-if>
+                            <sc-if value="{{ g.nobody }}"><span style="border-radius:999px;padding:2px 9px;font:600 11px var(--sans);background:var(--warn-dim);color:var(--warn)">Nobody found</span></sc-if>
+                            <span style="flex:1"></span>
+                            <sc-if value="{{ g.hasHow }}"><span style="display:inline-flex;align-items:center;gap:4px;font:500 12px var(--sans);color:var(--text3)">How we searched<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ g.howIcon }}"></path></svg></span></sc-if>
+                          </div>
+                          <sc-if value="{{ g.howOpen }}">
+                            <div style="padding:10px 12px 10px 48px;border-top:1px solid var(--line-soft);display:flex;flex-direction:column;gap:4px;font:400 12px/1.55 var(--mono);color:var(--text2)">
+                              <sc-for list="{{ g.howLines }}" as="hl" hint-placeholder-count="3"><span>{{ hl }}</span></sc-for>
+                            </div>
+                          </sc-if>
+                          <sc-for list="{{ g.skeleton }}" as="sk" hint-placeholder-count="2">
+                            <div style="display:flex;align-items:center;gap:10px;padding:12px;border-top:1px solid var(--line-soft)">
+                              <span style="width:16px;height:16px;border-radius:4px;background:var(--line-soft)"></span>
+                              <span style="width:28px;height:28px;border-radius:50%;background:var(--line-soft);animation:pulse 1.4s ease infinite"></span>
+                              <span style="{{ sk.style }}"></span>
+                            </div>
+                          </sc-for>
+                          <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
+                            <div style="{{ r.rowStyle }}">
+                              <span style="{{ r.boxStyle }}"><sc-if value="{{ r.ticked }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4"><path d="{{ ic.check }}"></path></svg></sc-if></span>
+                              <span style="{{ r.avatarStyle }}">{{ r.initials }}</span>
+                              <div style="flex:1;min-width:0">
+                                <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+                                  <span style="font:600 13px var(--sans);color:var(--text)">{{ r.name }}</span>
+                                  <span style="width:14px;height:13px;border-radius:2px;background:var(--text3);color:var(--panel);font:700 9px/13px var(--sans);text-align:center">in</span>
+                                  <sc-if value="{{ r.onPosition }}"><span style="border-radius:999px;padding:1px 8px;font:600 10.5px var(--sans);background:var(--green-dim);color:var(--green)">On this position</span></sc-if>
+                                  <sc-if value="{{ r.added }}"><span style="display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:1px 8px;font:600 10.5px var(--sans);background:var(--green-dim);color:var(--green)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="{{ ic.check }}"></path></svg>Added</span><span style="font:500 12px var(--sans);color:var(--sky)">Open</span></sc-if>
+                                </div>
+                                <div style="margin-top:2px;font:400 13px var(--sans);color:{{ r.titleColor }}">{{ r.title }}</div>
+                                <div style="margin-top:2px;font:400 12px var(--mono);color:var(--text3)">{{ r.meta }}</div>
+                                <sc-if value="{{ r.hasReasons }}">
+                                  <div style="margin-top:7px;display:flex;flex-wrap:wrap;gap:5px">
+                                    <sc-for list="{{ r.reasons }}" as="rs" hint-placeholder-count="3"><span style="{{ rs.style }}">{{ rs.text }}</span></sc-for>
+                                  </div>
+                                </sc-if>
+                              </div>
+                              <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:7px">
+                                <sc-if value="{{ r.hasBand }}"><span style="{{ r.bandStyle }}">{{ r.band }}</span></sc-if>
+                                <sc-if value="{{ r.hasWhy }}"><span style="max-width:220px;text-align:right;font:500 12px var(--sans);color:var(--warn)">{{ r.why }}</span></sc-if>
+                                <sc-if value="{{ r.hasContact }}">
+                                  <span style="display:flex;gap:6px;color:var(--text3)" title="An email and a phone can be found once added">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.mail }}"></path></svg>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.phone }}"></path></svg>
+                                  </span>
+                                </sc-if>
+                              </div>
+                            </div>
+                          </sc-for>
+                          <sc-if value="{{ g.hasNobodyBody }}">
+                            <div style="padding:12px 12px 14px 48px;border-top:1px solid var(--line-soft)">
+                              <div style="font:400 12.5px/1.55 var(--sans);color:var(--text2)">{{ g.nobodyText }}</div>
+                              <div style="margin-top:9px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                                <span style="font:500 12px var(--sans);color:var(--text3)">Try</span>
+                                <sc-for list="{{ g.tryWords }}" as="w" hint-placeholder-count="2">
+                                  <span style="{{ w.style }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="{{ ic.plus }}"></path></svg>{{ w.word }}<span style="font:600 11px var(--u-num);color:var(--text3)">{{ w.count }}</span></span>
+                                </sc-for>
+                                <span style="flex:1"></span>
+                                <span style="{{ btnOutlineSm }}">Search this company again</span>
+                              </div>
+                            </div>
+                          </sc-if>
+                          <sc-if value="{{ g.hasFolds }}">
+                            <div style="display:flex;gap:18px;padding:9px 12px 9px 48px;border-top:1px solid var(--line-soft)">
+                              <sc-for list="{{ g.folds }}" as="fd" hint-placeholder-count="2">
+                                <span style="display:inline-flex;align-items:center;gap:5px;font:500 12px var(--sans);color:var(--text2)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--text3)"><path d="{{ fd.icon }}"></path></svg>{{ fd.label }}</span>
+                              </sc-for>
+                            </div>
+                          </sc-if>
+                          <sc-for list="{{ g.openFoldRows }}" as="r" hint-placeholder-count="3">
+                            <div style="{{ r.rowStyle }}">
+                              <span style="{{ r.boxStyle }}"></span>
+                              <span style="{{ r.avatarStyle }}">{{ r.initials }}</span>
+                              <div style="flex:1;min-width:0">
+                                <span style="font:600 13px var(--sans);color:var(--text)">{{ r.name }}</span>
+                                <div style="margin-top:2px;font:400 13px var(--sans);color:{{ r.titleColor }}">{{ r.title }}</div>
+                              </div>
+                              <span style="max-width:260px;text-align:right;font:500 12px var(--sans);color:{{ r.whyColor }}">{{ r.why }}</span>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+
+                  <sc-if value="{{ f.profileOpen }}">
+                    <aside style="width:384px;flex:none;display:flex;flex-direction:column;border-left:1px solid var(--line-soft);background:var(--panel)">
+                      <div style="flex:1;min-height:0;overflow-y:auto;padding:16px 18px">
+                        <div style="display:flex;align-items:flex-start;gap:12px">
+                          <span style="width:46px;height:46px;flex:none;border-radius:50%;background:var(--sky-dim);color:var(--sky);display:grid;place-items:center;font:600 15px var(--mono)">FM</span>
+                          <div style="min-width:0;flex:1">
+                            <div style="font:600 15px var(--sans)">Fatima Al Mazrouei</div>
+                            <div style="margin-top:2px;font:400 13px var(--sans);color:var(--text2)">Group Chief Financial Officer · Al Naboodah Group</div>
+                            <div style="margin-top:2px;font:400 12px var(--mono);color:var(--text3)">Dubai, United Arab Emirates · 5 yrs in role</div>
+                          </div>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.close }}"></path></svg>
+                        </div>
+                        <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:5px">
+                          <span style="border-radius:999px;padding:2px 9px;font:600 11px var(--sans);background:var(--green-dim);color:var(--green)">Strong</span>
+                          <sc-for list="{{ f.profileReasons }}" as="rs" hint-placeholder-count="4"><span style="{{ rs.style }}">{{ rs.text }}</span></sc-for>
+                        </div>
+                        <div style="margin-top:18px;font:600 10.5px var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Career</div>
+                        <sc-for list="{{ f.career }}" as="cr" hint-placeholder-count="3">
+                          <div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line-soft)">
+                            <span style="{{ cr.dotStyle }}"></span>
+                            <div style="min-width:0">
+                              <div style="font:600 12.5px var(--sans);color:var(--text)">{{ cr.title }}</div>
+                              <div style="font:400 12px var(--sans);color:var(--text2)">{{ cr.company }}</div>
+                              <div style="font:400 11.5px var(--mono);color:var(--text3)">{{ cr.period }}</div>
+                            </div>
+                          </div>
+                        </sc-for>
+                        <div style="margin-top:16px;font:600 10.5px var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">About</div>
+                        <p style="margin:6px 0 0;font:400 12.5px/1.6 var(--sans);color:var(--text2)">Group CFO for a diversified family group across construction, automotive and engineering. Led the 2023 refinancing and the move to one treasury for the group. Chartered accountant.</p>
+                        <div style="margin-top:16px;font:600 10.5px var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Education</div>
+                        <p style="margin:6px 0 0;font:400 12.5px/1.6 var(--sans);color:var(--text2)">ACCA · BSc Accounting, University of Sharjah</p>
+                        <div style="margin-top:16px;font:600 10.5px var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Contact</div>
+                        <p style="margin:6px 0 0;font:400 12.5px/1.6 var(--sans);color:var(--text2)">A work email and a phone can be found once she's added.</p>
+                      </div>
+                      <div style="flex:none;display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--line-soft)">
+                        <span style="{{ btnOutlineFlex }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="{{ ic.check }}"></path></svg>Ticked for adding · untick</span>
+                      </div>
+                    </aside>
+                  </sc-if>
+                </div>
+
+                <!-- footer -->
+                <div style="flex:none;display:flex;align-items:center;gap:12px;padding:12px 18px;border-top:1px solid var(--line-soft)">
+                  <sc-if value="{{ f.hasAdd }}"><span style="font:600 13px var(--sans);color:var(--text)">{{ f.selectedText }}</span></sc-if>
+                  <span style="font:400 12px var(--mono);color:var(--text3)">{{ f.footNote }}</span>
+                  <span style="flex:1"></span>
+                  <sc-if value="{{ f.canClear }}"><span style="padding:0 10px;font:500 13px var(--sans);color:var(--text2)">Clear</span></sc-if>
+                  <sc-if value="{{ f.hasAdd }}"><span style="{{ f.addBtnStyle }}">{{ f.addLabel }}</span></sc-if>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ f.hasSheet }}">
+              <div style="position:absolute;inset:0;z-index:20;display:grid;place-items:center;background:var(--u-scrim)">
+                <div role="alertdialog" aria-label="You've reached this month's fair use" style="width:420px;border-radius:16px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow)">
+                  <div style="font:600 16px var(--sans)">You've reached this month's fair use</div>
+                  <p style="margin:8px 0 0;font:400 13px/1.55 var(--sans);color:var(--text2)">Find executives is part of your plan, up to a generous monthly amount per seat. Your team has gone past it this month, so new searches pause until 1 Dec. Results you already have stay open, and adding people from them still works. Talk to us if your team needs more.</p>
+                  <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+                    <span style="{{ btnOutline }}">Not now</span>
+                    <span style="{{ btnFilled }}">Talk to us</span>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ f.hasToast }}">
+              <div role="status" style="position:absolute;bottom:92px;left:50%;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow)">{{ f.toastText }}<span style="color:var(--sky);font-weight:600">{{ f.toastAction }}</span></div>
+            </sc-if>
+          </sc-if>
+
+          <!-- ═══════════════ Phone ═══════════════ -->
+          <sc-if value="{{ f.isPhone }}">
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;background:var(--panel)">
+              <div style="flex:none;display:flex;align-items:center;gap:10px;padding:14px 14px 10px">
+                <div style="min-width:0;flex:1">
+                  <div style="font:600 16px var(--sans)">Find executives</div>
+                  <div style="font:400 11.5px var(--mono);color:var(--text3)">Chief Financial Officer · 6 companies</div>
+                </div>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.close }}"></path></svg>
+              </div>
+              <div style="flex:none;margin:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px">
+                <div style="display:flex;align-items:center;gap:6px;font:500 11.5px var(--sans);color:var(--text3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--ai)"><path d="{{ ic.sparkle }}"></path></svg>Suggested from the brief</div>
+                <div style="margin-top:5px;font:500 13px var(--sans);color:var(--text)">Finance · Financial · CFO · Treasury</div>
+                <div style="margin-top:2px;font:400 12px var(--sans);color:var(--text2)">C-level, SVP, VP/Head/Director · UAE + Gulf</div>
+                <div style="margin-top:9px;display:flex;align-items:center;gap:8px"><span style="{{ btnOutlineSm }}">Edit search</span><span style="font:400 11.5px var(--mono);color:var(--text3)">≈ 30 match · 26 new</span></div>
+              </div>
+              <div style="flex:none;display:flex;gap:2px;padding:10px 14px 0;border-bottom:1px solid var(--line-soft);overflow-x:auto">
+                <sc-for list="{{ f.tabs }}" as="t" hint-placeholder-count="4">
+                  <span style="{{ t.style }}">{{ t.label }}<span style="{{ t.countStyle }}">{{ t.count }}</span></span>
+                </sc-for>
+              </div>
+              <div style="flex:1;min-height:0;overflow-y:auto">
+                <sc-for list="{{ f.phoneGroups }}" as="g" hint-placeholder-count="2">
+                  <div style="padding:12px 14px 4px;display:flex;align-items:baseline;gap:8px"><span style="font:600 13px var(--sans)">{{ g.name }}</span><span style="font:400 11.5px var(--mono);color:var(--text3)">{{ g.meta }}</span></div>
+                  <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="2">
+                    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-top:1px solid var(--line-soft)">
+                      <span style="{{ r.boxStyle }}"><sc-if value="{{ r.ticked }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4"><path d="{{ ic.check }}"></path></svg></sc-if></span>
+                      <div style="flex:1;min-width:0">
+                        <div style="font:600 13px var(--sans)">{{ r.name }}</div>
+                        <div style="font:400 12.5px var(--sans);color:var(--text2)">{{ r.title }}</div>
+                        <div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px"><sc-for list="{{ r.reasons }}" as="rs" hint-placeholder-count="2"><span style="{{ rs.style }}">{{ rs.text }}</span></sc-for></div>
+                      </div>
+                      <sc-if value="{{ r.hasBand }}"><span style="{{ r.bandStyle }}">{{ r.band }}</span></sc-if>
+                      <sc-if value="{{ r.onPosition }}"><span style="border-radius:999px;padding:1px 8px;font:600 10.5px var(--sans);background:var(--green-dim);color:var(--green)">On position</span></sc-if>
+                    </div>
+                  </sc-for>
+                </sc-for>
+              </div>
+              <div style="flex:none;display:flex;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid var(--line-soft)">
+                <span style="font:600 13px var(--sans)">7 selected</span>
+                <span style="flex:1"></span>
+                <span style="{{ btnFilled }}">Add 7 to In universe</span>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- ═══════════════ The toolbar button carries the run ═══════════════ -->
+          <sc-if value="{{ f.isToolbarBoard }}">
+            <div style="position:absolute;inset:0;padding:28px 32px;background:var(--bg);display:flex;flex-direction:column;gap:18px">
+              <sc-for list="{{ f.toolbarRows }}" as="tr" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:24px">
+                  <div style="width:220px;flex:none">
+                    <div style="font:600 13px var(--sans);color:var(--text)">{{ tr.title }}</div>
+                    <div style="margin-top:2px;font:400 12px/1.5 var(--sans);color:var(--text3)">{{ tr.note }}</div>
+                  </div>
+                  <div style="flex:1;display:flex;align-items:center;gap:10px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:10px 16px">
+                    <div style="display:flex;align-items:center;gap:8px;width:240px;border-radius:6px;border:1px solid var(--line);padding:8px 10px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.search }}"></path></svg><span style="font:400 13px var(--sans);color:var(--text3)">Search companies, executives…</span></div>
+                    <span style="flex:1"></span>
+                    <span style="{{ btnOutline }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.outreach }}"></path></svg>Add to sequence</span>
+                    <span style="width:1px;height:20px;background:var(--line-soft)"></span>
+                    <span style="{{ tr.find.style }}">
+                      <sc-if value="{{ tr.find.spinning }}"><span style="width:13px;height:13px;flex:none;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:spin .8s linear infinite"></span></sc-if>
+                      <sc-if value="{{ tr.find.idleIcon }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.search }}"></path></svg></sc-if>
+                      {{ tr.find.label }}
+                      <sc-if value="{{ tr.find.hasBadge }}"><span style="border-radius:999px;background:var(--on-amber);color:var(--amber-btn);font:700 10.5px var(--u-num);padding:1px 7px">{{ tr.find.badge }}</span></sc-if>
+                      <sc-if value="{{ tr.find.hasDot }}"><span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;background:var(--warn);border:2px solid var(--panel)"></span></sc-if>
+                    </span>
+                    <span style="{{ btnGhost }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.sliders }}"></path></svg>Advanced</span>
+                  </div>
+                  <div style="width:330px;flex:none;font:400 12px/1.5 var(--mono);color:var(--text2)">{{ tr.toast }}</div>
+                </div>
+              </sc-for>
+              <div style="margin-top:6px;font:400 12.5px/1.6 var(--sans);color:var(--text2);max-width:900px">The strip under the toolbar is gone. With nothing filed on its own, a run only has two things to say — it is busy, and then it found people — and the button and one toast say both in less room. Pressing the button while it runs opens the panel on the live progress, with Stop; once it has finished, the badge counts the people who fit and have not been added, and clears when the panel is opened.</div>
+            </div>
+          </sc-if>
+
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+</section>
+</div>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#a1a1aa">Find executives</text></svg></template>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;canvas&quot;,&quot;options&quot;:[&quot;canvas&quot;,&quot;opening&quot;,&quot;search&quot;,&quot;titles&quot;,&quot;companies&quot;,&quot;running&quot;,&quot;results&quot;,&quot;level-tab&quot;,&quot;nobody&quot;,&quot;profile&quot;,&quot;added&quot;,&quot;drawer&quot;,&quot;drawer-panel&quot;,&quot;expired&quot;,&quot;fair-use&quot;,&quot;source-out&quot;,&quot;no-brief&quot;,&quot;phone&quot;,&quot;toolbar&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.boards = [
+      { id: 'opening', label: '1 · First open', caption: 'the AI drafts the search from the brief, about 2 s', kind: 'scene', drafting: true },
+      { id: 'search', label: '2 · Before spending', caption: 'levels counted free; every ticked company counted', kind: 'scene', preview: true, levelOpen: true },
+      { id: 'titles', label: '3 · Help with titles', caption: 'suggested words, each with a free count; Enter adds any word', kind: 'scene', preview: true, titlesOpen: true },
+      { id: 'companies', label: '4 · Which companies', caption: 'the ticked ones, counted; no LinkedIn page noted', kind: 'scene', preview: true, companiesOpen: true },
+      { id: 'running', label: '5 · Searching', caption: 'results arrive company by company; Stop', kind: 'scene', running: true, find: 'running' },
+      { id: 'results', label: '6 · Results', caption: 'ranked and explained; top 3 who fit at each company pre-ticked', kind: 'scene', results: true, howOpen: 'c01' },
+      { id: 'level-tab', label: '7 · Filter what was found', caption: 'level tabs filter the results, free', kind: 'scene', results: true, tab: 'c' },
+      { id: 'nobody', label: '8 · Nobody fits', caption: 'suggested words and levels with counts — you retry', kind: 'scene', results: true, focusNobody: true },
+      { id: 'profile', label: '9 · A profile', caption: 'opens inside the panel', kind: 'scene', results: true, profile: true },
+      { id: 'added', label: '10 · Added', caption: 'filed from the people already read; no second search', kind: 'scene', results: true, added: true },
+      { id: 'drawer', label: '11 · From a company drawer', caption: 'a Find executives button in the drawer', kind: 'scene', scope: 'c03', drawerOnly: true },
+      { id: 'drawer-panel', label: '11b · …opens the same panel', caption: 'one company, the same search', kind: 'scene', results: true, scope: 'c03' },
+      { id: 'expired', label: '12a · Results expired', caption: 'after 30 days', kind: 'scene', expired: true },
+      { id: 'fair-use', label: '12b · Fair use reached', caption: 'the billing sheet every screen opens', kind: 'scene', results: true, sheet: true },
+      { id: 'source-out', label: '12c · One source unavailable', caption: 'the other still answers', kind: 'scene', results: true, sourceOut: true },
+      { id: 'no-brief', label: '12d · No role title yet', caption: 'the brief comes first', kind: 'scene', noBrief: true },
+      { id: 'phone', label: '13 · Phone', caption: 'full screen; the search folds into a card', kind: 'phone', results: true },
+      { id: 'toolbar', label: '14 · The button carries the run', caption: 'no strip under the toolbar', kind: 'toolbar' },
+    ];
+    const ids = this.boards.map((b) => b.id);
+    let screen = ids.indexOf(props.screen) >= 0 ? props.screen : 'canvas';
+    if (typeof location !== 'undefined') {
+      const q = new URLSearchParams(location.search).get('screen');
+      if (q && (q === 'canvas' || ids.indexOf(q) >= 0)) screen = q;
+    }
+    this.state = { dark: true, screen };
+  }
+
+  componentDidMount() {
+    this.setState({ dark: document.documentElement.getAttribute('data-theme') !== 'light' });
+  }
+
+  data() {
+    const companies = [
+      { id: 'c01', name: 'Al Naboodah Group', mark: 'AN', city: 'Dubai', match: 12, newP: 10, onFile: 2 },
+      { id: 'c02', name: 'Al Habtoor Group', mark: 'AH', city: 'Dubai', match: 9, newP: 8, onFile: 1 },
+      { id: 'c03', name: 'Al Rostamani Group', mark: 'AR', city: 'Dubai', match: 6, newP: 5, onFile: 1 },
+      { id: 'c05', name: 'Trading Enterprises', mark: 'TE', city: 'Dubai', match: 3, newP: 3, onFile: 0 },
+      { id: 'c04', name: 'Gargash Enterprises', mark: 'GE', city: 'Dubai', match: 0, newP: 0, onFile: 0 },
+      { id: 'c14', name: 'LuLu Group International', mark: 'LU', city: 'Abu Dhabi', match: 0, newP: 0, onFile: 0 },
+      { id: 'c10', name: 'Landmark Group', mark: 'LG', city: 'Dubai', noLinkedIn: true },
+    ];
+    const P = (o) => Object.assign({ place: 'Dubai, United Arab Emirates', reasons: [] }, o);
+    const people = {
+      c01: [
+        P({ id: 'p01', n: 'Fatima Al Mazrouei', t: 'Group Chief Financial Officer', tenure: '5 yrs in role', v: 'fit', band: 'Strong', lvl: 'c', pick: true, contact: true, reasons: ['CFO in title', 'C-level', 'Lives in UAE', 'Found by two sources'] }),
+        P({ id: 'p02', n: 'Karim Aziz', t: 'Group Finance Director', tenure: '4 yrs in role', v: 'fit', band: 'Strong', lvl: 'v', pick: true, contact: true, reasons: ['Finance in title', 'Director level', 'Lives in UAE'] }),
+        P({ id: 'p03', n: 'Rashid Al Hammadi', t: 'Head of Corporate Finance', tenure: 'New in role · 5 mos', v: 'fit', band: 'Good', lvl: 'v', pick: true, reasons: ['Finance in title', 'Head level', 'New in role'] }),
+        P({ id: 'p04', n: 'Amira Haddad', t: 'VP Finance', tenure: '3 yrs in role', v: 'on', lvl: 'v' }),
+        P({ id: 'p05', n: 'Sanjay Menon', t: null, hint: 'Past title: Finance Manager · About mentions group reporting', v: 'none', lvl: 'x' }),
+        P({ id: 'p06', n: 'Noura Saleh', t: null, place: 'Sharjah, United Arab Emirates', hint: 'About mentions treasury and funding', v: 'none', lvl: 'x' }),
+        P({ id: 'p07', n: 'Daniel Okoro', t: 'Finance Manager', why: "Below the role's level", v: 'not', lvl: 'm' }),
+        P({ id: 'p08', n: 'Hiba Kanaan', t: 'Executive Assistant to the CFO', why: 'Leave-out word: Assistant', v: 'not', lvl: 'x' }),
+        P({ id: 'p09', n: 'Tariq Bakr', t: 'Chief Operating Officer', why: 'No finance word in the title', v: 'not', lvl: 'c' }),
+      ],
+      c02: [
+        P({ id: 'p10', n: 'Hassan Farouk', t: 'Chief Financial Officer, Hospitality', tenure: '3 yrs in role', v: 'fit', band: 'Strong', lvl: 'c', pick: true, contact: true, reasons: ['CFO in title', 'C-level', 'Lives in UAE'] }),
+        P({ id: 'p11', n: 'Leila Mansour', t: 'Director of Finance & Treasury', tenure: '6 yrs in role', v: 'fit', band: 'Good', lvl: 'v', pick: true, reasons: ['Finance in title', 'Director level', 'Found by two sources'] }),
+        P({ id: 'p12', n: 'Rami Khoury', t: 'Chief Financial Officer', tenure: '2 yrs in role', v: 'on', lvl: 'c' }),
+        P({ id: 'p13', n: 'Ali Rahimi', t: 'Financial Analyst', why: "Below the role's level", v: 'not', lvl: 'x' }),
+        P({ id: 'p14', n: 'Mark Ellison', t: 'Chief Engineer', why: 'No finance word in the title', v: 'not', lvl: 'c' }),
+      ],
+      c03: [
+        P({ id: 'p15', n: 'Priya Raman', t: 'Head of Group Treasury', tenure: '2 yrs in role', v: 'fit', band: 'Good', lvl: 'v', pick: true, contact: true, reasons: ['Treasury in title', 'Head level', 'Lives in UAE'] }),
+        P({ id: 'p16', n: 'Khalid Mansour', t: 'Head of Treasury', tenure: '4 yrs in role', v: 'on', lvl: 'v' }),
+        P({ id: 'p17', n: 'Ahmed Fakhoury', t: null, hint: 'Past title: Group Financial Controller', v: 'none', lvl: 'x' }),
+        P({ id: 'p18', n: 'Omar Siddiqui', t: 'Financial Controller', why: "Below the role's level", v: 'not', lvl: 'x' }),
+      ],
+      c05: [
+        P({ id: 'p19', n: 'Youssef Haddad', t: 'Chief Financial Officer', tenure: 'New in role · 4 mos', v: 'fit', band: 'Good', lvl: 'c', pick: true, reasons: ['CFO in title', 'C-level', 'New in role'] }),
+        P({ id: 'p20', n: 'Meera Pillai', t: 'Senior Accountant', why: 'Leave-out word: Accountant', v: 'not', lvl: 'x' }),
+      ],
+      c04: [], c14: [],
+    };
+    const how = {
+      c01: ['Titles Finance, Financial, CFO, Treasury · levels C-level, SVP/EVP, VP/Head/Director · not Assistant, Accountant, Secretary, Intern · UAE + Gulf',
+        'Live profiles — 12 match; 10 read, 2 already on file',
+        'Profile index — 6 found; 4 also in live profiles, 2 with no title on record'],
+      c04: ['Live profiles — 0 match for these titles and levels', 'Profile index — 0 found',
+        'Nearest words here: Controller (2 match), Accounts (1 match)'],
+    };
+    return { companies, people, how };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const isCanvas = s.screen === 'canvas';
+    const boards = isCanvas ? this.boards : this.boards.filter((b) => b.id === s.screen);
+    const ic = ICONS;
+    const outline = 'display:inline-flex;align-items:center;gap:7px;white-space:nowrap;height:34px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:0 12px;font:500 13px var(--sans);color:var(--text)';
+    const filled = 'display:inline-flex;align-items:center;gap:7px;white-space:nowrap;height:34px;border-radius:6px;border:none;background:var(--amber-btn);padding:0 14px;font:600 13px var(--sans);color:var(--on-amber)';
+    return {
+      ic,
+      isCanvas,
+      sectionStyle: isCanvas ? 'padding:40px 44px 64px' : 'padding:0',
+      rowStyle: isCanvas ? 'display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start' : 'display:block',
+      stateCount: this.boards.length + ' boards',
+      themeLabel: s.dark ? 'Light mode' : 'Dark mode',
+      themeAttr: this.props.theme === 'light' || this.props.theme === 'dark' ? this.props.theme : (s.dark ? 'dark' : 'light'),
+      btnOutline: outline,
+      btnFilled: filled,
+      btnGhost: 'display:inline-flex;align-items:center;gap:7px;white-space:nowrap;height:34px;border-radius:6px;border:none;background:none;padding:0 10px;font:500 13px var(--sans);color:var(--text2)',
+      btnOutlineSm: 'display:inline-flex;align-items:center;gap:6px;white-space:nowrap;height:28px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:0 10px;font:500 12px var(--sans);color:var(--text)',
+      btnFilledSm: 'display:inline-flex;align-items:center;gap:6px;white-space:nowrap;height:30px;border-radius:6px;background:var(--amber-btn);padding:0 12px;font:600 12.5px var(--sans);color:var(--on-amber)',
+      btnFilledCentered: filled + ';margin-top:16px',
+      btnOutlineCentered: outline + ';margin-top:16px',
+      btnOutlineFlex: outline + ';justify-content:center;flex:1',
+      btnFilledFlex: filled + ';justify-content:center;flex:1.4',
+      frames: boards.map((b) => this.frame(b, isCanvas)),
+      toggleTheme: () => {
+        const d = !this.state.dark;
+        document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+        try { localStorage.setItem('lm-theme', d ? 'dark' : 'light'); } catch (e) {}
+        this.setState({ dark: d });
+      },
+    };
+  }
+
+  findButton(state) {
+    const base = 'position:relative;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;height:34px;border-radius:6px;border:none;background:var(--amber-btn);padding:0 14px;font:600 13px var(--sans);color:var(--on-amber)';
+    if (state === 'running') return { style: base, spinning: true, idleIcon: false, label: 'Finding… 3/6', hasBadge: false, hasDot: false };
+    if (state === 'ready') return { style: base, spinning: false, idleIcon: true, label: 'Find executives', hasBadge: true, badge: '7', hasDot: false };
+    if (state === 'failed') return { style: base, spinning: false, idleIcon: true, label: 'Find executives', hasBadge: false, hasDot: true };
+    return { style: base, spinning: false, idleIcon: true, label: 'Find executives', hasBadge: false, hasDot: false };
+  }
+
+  frame(b, isCanvas) {
+    const D = this.data();
+    const ic = ICONS;
+    const size = b.kind === 'phone' ? [390, 844] : b.kind === 'toolbar' ? [1440, 560] : [1440, 900];
+    const zoom = b.kind === 'phone' ? 0.62 : 0.55;
+    const box = (on) => 'margin-top:2px;width:16px;height:16px;flex:none;display:grid;place-items:center;border-radius:4px;color:var(--on-amber);' + (on ? 'background:var(--amber-btn);border:1px solid var(--amber-btn)' : 'background:var(--panel);border:1px solid var(--line)');
+    const reasonStyle = (strong) => 'display:inline-flex;align-items:center;border-radius:5px;padding:1px 7px;font:500 11px var(--sans);' + (strong ? 'background:var(--amber-dim);color:var(--text)' : 'background:var(--line-soft);color:var(--text2)');
+    const bandStyle = (band) => 'border-radius:999px;padding:2px 10px;font:600 11px var(--sans);' + (band === 'Strong' ? 'background:var(--green-dim);color:var(--green)' : band === 'Good' ? 'background:var(--amber-dim);color:var(--amber)' : 'background:var(--line-soft);color:var(--text2)');
+    const suggestStyle = (picked) => 'display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 10px;font:500 12px var(--sans);color:var(--text);' + (picked ? 'background:var(--amber-dim);border:1px solid color-mix(in srgb,var(--amber) 45%,transparent)' : 'background:var(--panel);border:1px dashed var(--line)');
+    const initials = (n) => n.split(' ').filter((w) => w[0] && w[0] === w[0].toUpperCase()).map((w) => w[0]).slice(0, 2).join('');
+    const scopeIds = b.scope ? [b.scope] : ['c01', 'c02', 'c03', 'c05', 'c04', 'c14'];
+    const searchable = D.companies.filter((c) => scopeIds.indexOf(c.id) >= 0);
+    const totals = searchable.reduce((t, c) => ({ match: t.match + c.match, newP: t.newP + c.newP, onFile: t.onFile + c.onFile }), { match: 0, newP: 0, onFile: 0 });
+    const countLine = b.drafting ? 'Counting…' : b.noBrief ? 'No title words yet' : '≈ ' + totals.match + ' match · ' + totals.newP + ' new · ' + totals.onFile + ' already on file';
+    const companiesValue = b.scope ? '1 company' : '6 of 7 companies';
+
+    const levelOptions = [
+      { label: 'C-level', hint: 'Chief, CFO, President, Managing Director', count: '7', on: true },
+      { label: 'SVP / EVP', hint: 'Senior and Executive Vice President', count: '1', on: true },
+      { label: 'VP · Head · Director', hint: 'Vice President, Head, Director', count: '23', on: true },
+      { label: 'Manager', hint: 'Manager, Lead', count: '38', on: false },
+    ].map((o) => Object.assign(o, { boxStyle: box(o.on) }));
+
+    const titleGroups = [
+      { label: 'Suggested for this role', words: [['Treasury', '14'], ['Controller', '11'], ['FP&A', '4'], ['Funding', '3']] },
+      { label: 'Seen in titles at these companies', words: [['Corporate', '7'], ['Planning', '4'], ['Tax', '3']] },
+    ].map((g) => ({ label: g.label, words: g.words.map(([word, count]) => ({ word, count, style: suggestStyle(false) })) }));
+
+    const companyOptions = D.companies.map((c) => ({
+      name: c.name, on: !c.noLinkedIn && scopeIds.indexOf(c.id) >= 0, boxStyle: box(!c.noLinkedIn && scopeIds.indexOf(c.id) >= 0),
+      note: c.noLinkedIn ? 'No LinkedIn page — Edit company' : c.match + ' match · ' + c.newP + ' new',
+      short: c.noLinkedIn ? 'no page' : c.match + ' match',
+      nameColor: c.noLinkedIn ? 'var(--text3)' : 'var(--text)', noteColor: c.noLinkedIn ? 'var(--warn)' : 'var(--text3)',
+    }));
+
+    const previewRows = D.companies.map((c, i) => ({
+      mark: c.mark, name: c.name, searchable: !c.noLinkedIn && c.match > 0, match: c.match, newP: c.newP, onFile: c.onFile,
+      note: c.noLinkedIn ? 'No LinkedIn page — add it with Edit company to search here' : c.match === 0 ? 'Nobody matches yet — try the suggested words above' : '',
+      noteColor: c.noLinkedIn ? 'var(--warn)' : 'var(--text3)',
+      rowStyle: 'display:flex;align-items:center;gap:10px;padding:10px 12px;' + (i ? 'border-top:1px solid var(--line-soft)' : '') + (c.noLinkedIn ? ';opacity:.7' : ''),
+    }));
+
+    const rowView = (p, opts) => {
+      const ticked = !!p.pick && !opts.added && p.v === 'fit';
+      const added = !!opts.added && !!p.pick;
+      const meta = p.place + (p.tenure ? ' · ' + p.tenure : '');
+      return {
+        name: p.n, initials: initials(p.n),
+        title: p.t || 'Title not on record', titleColor: p.t ? 'var(--text)' : 'var(--text3)',
+        meta: p.v === 'none' ? p.hint : meta,
+        ticked, added, onPosition: p.v === 'on',
+        hasBand: p.v === 'fit', band: p.band, bandStyle: bandStyle(p.band),
+        hasWhy: p.v === 'not', why: p.why,
+        hasContact: !!p.contact && p.v === 'fit',
+        hasReasons: p.v === 'fit' && p.reasons.length > 0,
+        reasons: p.reasons.slice(0, 4).map((r, i) => ({ text: r, style: reasonStyle(i === 0) })),
+        boxStyle: p.v === 'on' || added ? 'margin-top:2px;width:16px;height:16px;flex:none;border-radius:4px;border:1px dashed var(--line);opacity:.5' : box(ticked),
+        avatarStyle: 'width:28px;height:28px;flex:none;border-radius:50%;display:grid;place-items:center;font:600 10.5px var(--mono);' + (p.v === 'fit' ? 'background:var(--sky-dim);color:var(--sky)' : 'background:var(--line-soft);color:var(--text3)'),
+        rowStyle: 'display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border-top:1px solid var(--line-soft);' + (opts.highlight === p.id ? 'background:var(--amber-dim)' : '') + (p.v === 'on' ? 'opacity:.72' : ''),
+        whyColor: p.v === 'not' ? 'var(--warn)' : 'var(--text3)',
+      };
+    };
+
+    const tabKeys = [['all', 'All'], ['c', 'C-level'], ['s', 'SVP / EVP'], ['v', 'VP · Head · Director'], ['m', 'Manager']];
+    const allPeople = scopeIds.reduce((a, id) => a.concat(D.people[id] || []), []);
+    const tabCount = (k) => k === 'all' ? allPeople.length : allPeople.filter((p) => p.lvl === k).length;
+    const activeTab = b.tab || 'all';
+    const tabs = tabKeys.filter(([k]) => tabCount(k) > 0).map(([k, label]) => ({
+      label, count: String(tabCount(k)),
+      style: 'display:inline-flex;flex:none;white-space:nowrap;align-items:center;gap:6px;padding:8px 10px 9px;font:500 12.5px var(--sans);border-bottom:2px solid ' + (k === activeTab ? 'var(--amber)' : 'transparent') + ';color:' + (k === activeTab ? 'var(--text)' : 'var(--text2)'),
+      countStyle: 'border-radius:999px;padding:0 6px;font:600 10.5px var(--u-num);' + (k === activeTab ? 'background:var(--amber-dim);color:var(--amber)' : 'background:var(--line-soft);color:var(--text3)'),
+    }));
+
+    const inTab = (p) => activeTab === 'all' || p.lvl === activeTab;
+    const groupView = (c) => {
+      const ps = (D.people[c.id] || []).filter(inTab);
+      const fits = ps.filter((p) => p.v === 'fit' || p.v === 'on');
+      const none = ps.filter((p) => p.v === 'none');
+      const not = ps.filter((p) => p.v === 'not');
+      const all = D.people[c.id] || [];
+      const fitN = all.filter((p) => p.v === 'fit').length;
+      const onN = all.filter((p) => p.v === 'on').length;
+      const nobody = all.length === 0 || fitN === 0;
+      const isRunningPending = b.running && (c.id === 'c05' || c.id === 'c04' || c.id === 'c14');
+      const openNot = b.focusNobody && c.id === 'c14';
+      const meta = isRunningPending || all.length === 0 ? '' : all.length + ' found · ' + fitN + ' fit' + (onN ? ' · ' + onN + ' on this position' : '');
+      const folds = [];
+      if (none.length) folds.push({ label: 'Title not on record (' + none.length + ')', icon: ic.chevronRight });
+      if (not.length) folds.push({ label: "Doesn't fit the role (" + not.length + ')', icon: ic.chevronRight });
+      const lulu = c.id === 'c14';
+      return {
+        name: c.name, mark: c.mark, meta,
+        searching: b.running && c.id === 'c05', waiting: b.running && (c.id === 'c04' || c.id === 'c14'),
+        nobody: !isRunningPending && nobody && all.length === 0,
+        hasHow: !isRunningPending && all.length > 0 || (b.focusNobody && c.id === 'c04'),
+        howOpen: (b.howOpen === c.id) || (b.focusNobody && c.id === 'c04'),
+        howIcon: ((b.howOpen === c.id) || (b.focusNobody && c.id === 'c04')) ? ic.chevronDown : ic.chevronRight,
+        howLines: D.how[c.id] || [],
+        skeleton: b.running && c.id === 'c05' ? [{ style: 'width:260px;height:10px;border-radius:4px;background:var(--line-soft);animation:pulse 1.4s ease infinite' }, { style: 'width:200px;height:10px;border-radius:4px;background:var(--line-soft);animation:pulse 1.4s ease infinite' }] : [],
+        rows: isRunningPending ? [] : fits.map((p) => rowView(p, { added: b.added, highlight: b.profile ? 'p01' : null })),
+        hasNobodyBody: !isRunningPending && all.length === 0,
+        nobodyText: lulu ? "Nobody at C-level to Director here has a finance word in their title. 4 Finance Managers match if you add the Manager level." : 'Nobody here has these title words at these levels in the region.',
+        tryWords: (lulu ? [['Manager level', '4'], ['Controller', '1']] : [['Controller', '2'], ['Accounts', '1']]).map(([word, count]) => ({ word, count, style: suggestStyle(false) })),
+        hasFolds: !isRunningPending && folds.length > 0 && !openNot,
+        folds,
+        openFoldRows: [],
+        hidden: activeTab !== 'all' && ps.length === 0,
+      };
+    };
+
+    const groupOrder = b.focusNobody ? ['c04', 'c14', 'c01', 'c02', 'c03', 'c05'] : ['c01', 'c02', 'c03', 'c05', 'c04', 'c14'];
+    const pending = b.running ? ['c05', 'c04', 'c14'] : [];
+    let groups = (b.results || b.running) ? groupOrder.filter((id) => scopeIds.indexOf(id) >= 0 && pending.indexOf(id) < 0).map((id) => groupView(D.companies.find((c) => c.id === id))).filter((g) => !g.hidden) : [];
+    const chip = 'display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font:500 12px var(--sans);border:1px solid var(--line-soft);';
+    const progressItems = b.running ? [
+      { label: 'Al Naboodah Group', note: '9 found', done: true }, { label: 'Al Habtoor Group', note: '5 found', done: true },
+      { label: 'Al Rostamani Group', note: '4 found', done: true }, { label: 'Trading Enterprises', note: 'searching', active: true },
+      { label: 'Gargash Enterprises', note: 'waiting' }, { label: 'LuLu Group International', note: 'waiting' },
+    ].map((x) => Object.assign({ done: false, active: false }, x, { style: chip + (x.done ? 'color:var(--text);background:var(--panel)' : x.active ? 'color:var(--text);background:var(--amber-dim)' : 'color:var(--text3);background:var(--panel)') })) : [];
+    if (b.profile) groups = groups.slice(0, 2);
+
+    const pickedCount = allPeople.filter((p) => p.pick && p.v === 'fit').length;
+    const selected = b.added ? 0 : (b.results || b.running) ? (b.running ? 6 : pickedCount) : 0;
+    const resultsSummary = b.running ? '' : (b.results ? allPeople.length + ' found · ' + allPeople.filter((p) => p.v === 'fit').length + ' fit the role' : '');
+
+    const gridRows = [
+      ['AN', 'Al Naboodah Group', 'Amira Haddad', 'VP Finance', 'Identified', 'Dubai', true],
+      ['AH', 'Al Habtoor Group', 'Rami Khoury', 'Chief Financial Officer', 'Contacted', 'Dubai', true],
+      ['AR', 'Al Rostamani Group', 'Khalid Mansour', 'Head of Treasury', 'Identified', 'Dubai', true],
+      ['GE', 'Gargash Enterprises', '+ Add executive', '', '', 'Dubai', true],
+      ['TE', 'Trading Enterprises', '+ Add executive', '', '', 'Dubai', true],
+      ['AG', 'AGMC', '+ Add executive', '', '', 'Abu Dhabi', false],
+      ['LA', 'Liberty Automobiles', '+ Add executive', '', '', 'Dubai', false],
+      ['CG', 'Chalhoub Group', 'Lina Nasr', 'Group CFO', 'Interested', 'Dubai', false],
+      ['LG', 'Landmark Group', '+ Add executive', '', '', 'Dubai', true],
+      ['LU', 'LuLu Group International', '+ Add executive', '', '', 'Abu Dhabi', true],
+      ['GM', 'GMG', '+ Add executive', '', '', 'Dubai', false],
+      ['AT', 'Al Tayer Group', '+ Add executive', '', '', 'Dubai', false],
+      ['SP', 'Spinneys', '+ Add executive', '', '', 'Dubai', false],
+      ['EM', 'Emaar Properties', '+ Add executive', '', '', 'Dubai', false],
+    ].map(([mark, name, exec, title, status, city, ticked]) => ({ mark, name, exec, title, status, city, ticked: ticked && !b.scope, boxStyle: box(ticked && !b.scope) }));
+
+    const navItem = (label, icon, active) => ({ isItem: true, isHeading: false, label, icon,
+      style: 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font:500 13.5px var(--sans);' + (active ? 'background:var(--panel);color:var(--text);box-shadow:0 0 0 1px var(--line-soft)' : 'color:var(--text2)') });
+    const nav = [
+      navItem('All positions', ic.back, false),
+      { isHeading: true, isItem: false, label: 'Position' }, navItem('Brief', ic.position, false), navItem('Strategy', ic.strategy, false),
+      { isHeading: true, isItem: false, label: 'Market mapping' }, navItem('In universe', ic.globe, true),
+      { isHeading: true, isItem: false, label: 'Engage' }, navItem('Outreach', ic.outreach, false), navItem('Activity', ic.activity, false),
+      { isHeading: true, isItem: false, label: 'Project' }, navItem('Dashboard', ic.dashboard, false), navItem('Team & access', ic.team, false),
+    ];
+
+    const field = 'display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:var(--panel);font:500 12.5px var(--sans);white-space:nowrap';
+    const focusField = field.replace('border:1px solid var(--line)', 'border:1px solid var(--amber);box-shadow:0 0 0 3px var(--ring)');
+    const searchOff = b.drafting || b.noBrief || b.running;
+    const searchLabel = b.running ? 'Searching…' : b.scope ? 'Search 1 company' : b.results || b.sourceOut || b.expired ? 'Search again' : 'Search 6 companies';
+    const filledBtn = 'display:inline-flex;align-items:center;gap:7px;white-space:nowrap;height:34px;border-radius:6px;border:none;background:var(--amber-btn);padding:0 14px;font:600 13px var(--sans);color:var(--on-amber)';
+    const panelStyle = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10;width:min(1080px,calc(100% - 48px));height:calc(100% - 56px);display:flex;flex-direction:column;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);overflow:hidden';
+    const scopeName = b.scope ? D.companies.find((c) => c.id === b.scope).name : null;
+
+    const profileReasons = ['CFO in title', 'C-level', 'Lives in UAE', 'Found by two sources'].map((t, i) => ({ text: t, style: reasonStyle(i === 0) }));
+    const career = [
+      ['Group Chief Financial Officer', 'Al Naboodah Group', 'Mar 2021 – Present · 5 yrs 8 mos', true],
+      ['Chief Financial Officer', 'Gargash Enterprises', 'Jun 2016 – Feb 2021 · 4 yrs 9 mos', false],
+      ['Finance Director', 'Emirates Auto Holdings', 'Jan 2011 – May 2016 · 5 yrs 5 mos', false],
+    ].map(([title, company, period, current]) => ({ title, company, period, dotStyle: 'margin-top:5px;width:8px;height:8px;flex:none;border-radius:50%;' + (current ? 'background:var(--amber)' : 'background:var(--line)') }));
+
+    const phoneGroups = ['c01', 'c02'].map((id) => {
+      const c = D.companies.find((x) => x.id === id);
+      const ps = (D.people[id] || []).filter((p) => p.v === 'fit' || p.v === 'on');
+      const fitN = ps.filter((p) => p.v === 'fit').length;
+      return { name: c.name, meta: fitN + ' fit', rows: ps.map((p) => rowView(p, {})) };
+    });
+
+    const toolbarRows = [
+      { title: 'Ready', note: 'No search running, nothing waiting.', find: this.findButton('idle'), toast: 'Opens the panel on the saved search.' },
+      { title: 'Searching, panel closed', note: 'Still a button: it opens the panel on the live progress.', find: this.findButton('running'), toast: 'The panel shows Stop while it runs.' },
+      { title: 'Results waiting', note: 'Counts the people who fit and are not added yet.', find: this.findButton('ready'), toast: 'Toast once: “7 executives found at 6 companies · Review”' },
+      { title: 'Stopped or failed', note: 'Finished companies keep their results.', find: this.findButton('failed'), toast: 'Toast once: “Search stopped — 9 found before it did · Open”' },
+    ];
+
+    const findState = b.find || 'idle';
+    const subtitle = 'Chief Financial Officer · C-suite · Dubai, United Arab Emirates' + (scopeName ? ' · ' + scopeName : '');
+    const footNote = b.added ? '' : selected ? 'pre-ticked: the top 3 who fit at each company' : b.preview || b.drafting ? 'Nothing is spent until you press Search, and nothing is added until you press Add' : '';
+    const addOff = selected === 0;
+
+    return {
+      label: b.label, caption: b.caption, showCaption: isCanvas,
+      screenLabel: 'Find executives — ' + b.label,
+      wrapStyle: isCanvas ? 'flex:none;width:' + Math.round(size[0] * zoom) + 'px' : 'width:100%',
+      frameStyle: isCanvas
+        ? 'position:relative;width:' + size[0] + 'px;height:' + size[1] + 'px;overflow:hidden;border:1px solid var(--line);border-radius:14px;zoom:' + zoom
+        : 'position:relative;width:' + size[0] + 'px;height:' + size[1] + 'px;overflow:hidden',
+      isScene: b.kind === 'scene', isPhone: b.kind === 'phone', isToolbarBoard: b.kind === 'toolbar',
+      nav, gridRows,
+      find: this.findButton(findState),
+      hasDrawer: !!b.scope,
+      drawerCallout: !!b.drawerOnly,
+      hasPanel: !b.drawerOnly,
+      panelStyle,
+      subtitle,
+      hasSearchBar: true,
+      aiNote: b.drafting ? 'Reading the brief…' : b.noBrief ? 'Nothing to draft from yet' : 'Suggested from the brief',
+      aiIconStyle: b.drafting ? 'color:var(--ai);animation:pulse 1.2s ease infinite' : 'color:var(--ai)',
+      canReset: !b.drafting && !b.noBrief,
+      levelBtnStyle: (b.levelOpen ? focusField : field),
+      valueTextStyle: 'color:var(--text)',
+      levelValue: b.drafting ? '…' : 'C-level, SVP, VP/Head/Director',
+      titlesFieldStyle: 'flex:1;min-height:32px;display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:3px 8px;border-radius:6px;background:var(--panel);' + (b.titlesOpen ? 'border:1px solid var(--amber);box-shadow:0 0 0 3px var(--ring)' : 'border:1px solid var(--line)'),
+      titleChips: b.drafting || b.noBrief ? [] : b.preview ? ['Finance', 'Financial', 'CFO'] : ['Finance', 'Financial', 'CFO', 'Treasury'],
+      titleInputText: b.titlesOpen ? '|' : b.noBrief ? 'Type a title word, like Finance…' : 'Add a title word…',
+      titleInputStyle: 'font:400 12.5px var(--sans);color:' + (b.titlesOpen ? 'var(--text)' : 'var(--text3)') + ';padding:2px 4px',
+      fieldStyle: field, companiesBtnStyle: b.companiesOpen ? focusField : field,
+      leaveOutValue: b.drafting ? '…' : '4 words', whereValue: 'UAE + Gulf', companiesValue,
+      countLine,
+      searchLabel, searchBtnStyle: filledBtn + (searchOff ? ';opacity:.45' : ''),
+      levelOpen: !!b.levelOpen, levelOptions,
+      titlesOpen: !!b.titlesOpen, titleGroups,
+      companiesOpen: !!b.companiesOpen, companyOptions,
+      running: !!b.running, sourceOut: !!b.sourceOut, progressItems,
+      hasTabs: !!b.results,
+      tabs, resultsSummary,
+      drafting: !!b.drafting,
+      skeletonRows: [260, 200, 230, 180, 240].map((w) => ({ style: 'width:' + w + 'px;height:10px;border-radius:4px;background:var(--line-soft);animation:pulse 1.4s ease infinite' })),
+      preview: !!b.preview, previewRows,
+      expired: !!b.expired, noBrief: !!b.noBrief,
+      hasRetry: !!b.focusNobody,
+      retryWords: [['Controller', '+3'], ['Manager level', '+4']].map(([word, count]) => ({ word, count, style: suggestStyle(true) })),
+      groups,
+      profileOpen: !!b.profile, profileReasons, career,
+      selectedText: b.added ? '7 added to In universe' : selected ? selected + ' selected' : b.running ? '' : '0 selected',
+      footNote,
+      canClear: !b.added && selected > 0,
+      hasAdd: !!(b.results || b.running),
+      addLabel: b.added ? 'Done' : 'Add ' + (selected || '') + (selected ? ' ' : '') + 'to In universe',
+      addBtnStyle: b.added ? 'display:inline-flex;align-items:center;height:34px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:0 14px;font:500 13px var(--sans);color:var(--text)' : filledBtn + (addOff ? ';opacity:.45' : ''),
+      hasSheet: !!b.sheet,
+      hasToast: !!b.added,
+      toastText: '7 executives added to In universe',
+      toastAction: '',
+      phoneGroups,
+      toolbarRows,
+    };
+  }
+}
+
+const ICONS = {
+  search: "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3",
+  close: "M18 6 6 18M6 6l12 12",
+  chevronDown: "m6 9 6 6 6-6",
+  chevronRight: "m9 18 6-6-6-6",
+  check: "m5 13 4 4L19 7",
+  plus: "M12 5v14M5 12h14",
+  sparkle: "M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z",
+  table: "M3 5h18v14H3zM3 10h18M3 15h18M9 5v14",
+  mapPin: "M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0ZM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+  pipeline: "M4 4h5v16H4zM10.5 4h5v10h-5zM17 4h3v7h-3z",
+  sliders: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
+  outreach: "M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z",
+  mail: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm18 2-10 7L2 6",
+  phone: "M7 2h10v20H7zM11 19h2",
+  building: "M6 22V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v18M2 22h20M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M10 22v-4h4v4",
+  fullscreen: "M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7",
+  warnTri: "M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0ZM12 9v4M12 17h.01",
+  fileText: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M8 13h8M8 17h5",
+  position: "M12 2 3 7l9 5 9-5-9-5ZM3 12l9 5 9-5M3 17l9 5 9-5",
+  strategy: "M12 20V10M18 20V4M6 20v-4",
+  globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.5 9h17M3.5 15h17M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z",
+  back: "M19 12H5M12 19l-7-7 7-7",
+  activity: "M22 12h-4l-3 9L9 3l-3 9H2",
+  dashboard: "M4 3h5a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm11 0h5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm0 9h5a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1ZM4 15h5a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1Z",
+  team: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+  userPlus: "M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM20 8v6M23 11h-6",
+  pencil: "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z",
+};
+</script>
+</body>
+</html>
