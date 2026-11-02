@@ -404,6 +404,58 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("people found who do not hold the seat are never filed: the round is reworded, and its seat holder filed")
+    void peopleNotHoldingTheSeatAreReworded() throws Exception {
+        String projectId = mandate("Seat Firm");
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        peopleSearch.answerWith("dp-world", List.of(
+                person("a-pharmacist", "A Pharmacist", "Doctor of Pharmacy"),
+                person("a-medical-director", "A Medical Director", "Medical Director"),
+                person("a-finance-manager", "A Finance Manager", "Finance Manager")));
+        peopleSearch.answerWhen("dp-world", asked -> asked.functionWords().contains("Treasury"),
+                List.of(person("group-treasurer", "Group Treasurer", "Group Treasury Director")));
+        model.answerWhenSystemContains(REFINE_PROMPT, """
+                {"seniorityWords":["Group","Director"],"functionWords":["Treasury"],"excludedWords":[],
+                 "why":"Finance reached other functions; Treasury is the seat's own word."}""");
+
+        String runId = start(projectId, "[]");
+
+        JsonNode outcome = outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld);
+        assertThat(outcome.get("outcome").asText()).isEqualTo("FILED");
+        assertThat(outcome.get("picks")).extracting(pick -> pick.get("name").asText())
+                .containsExactly("Group Treasurer");
+        assertThat(outcome.get("notFit").asInt()).isEqualTo(3);
+        assertThat(candidatesOf(projectId)).extracting(person -> person.get("fullName").asText())
+                .containsExactly("Group Treasurer");
+        assertThat(refinePrompts()).singleElement().asString()
+                .contains("ROUND 1 SEARCHED — found people, but none holds the seat");
+        assertThat(db.queryForList("select outcomes -> 0 -> 'notFitTitles' ->> 0 from app_lm_executive_sourcing_run "
+                + "where id = ?::uuid", String.class, runId)).containsExactly("Doctor of Pharmacy");
+    }
+
+    @Test
+    @DisplayName("a company whose every round finds only people outside the seat reads Nothing fit and files nobody")
+    void onlyPeopleOutsideTheSeatIsNothingFit() throws Exception {
+        String projectId = mandate("Nothing Fit Firm");
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        peopleSearch.answerWith("dp-world", List.of(
+                person("a-pharmacist", "A Pharmacist", "Doctor of Pharmacy"),
+                person("a-medical-director", "A Medical Director", "DHA pharmacist / Medical director")));
+
+        String runId = start(projectId, "[]");
+
+        JsonNode run = runOf(projectId, runId);
+        JsonNode outcome = outcomeFor(run.get("outcomes"), dpWorld);
+        assertThat(outcome.get("outcome").asText()).isEqualTo("NOTHING_FIT");
+        assertThat(outcome.get("notFit").asInt()).isEqualTo(2);
+        assertThat(outcome.get("picks")).isEmpty();
+        assertThat(run.get("executivesFiled").asInt()).isZero();
+        assertThat(candidatesOf(projectId)).isEmpty();
+        assertThat(db.queryForObject("select count(*) from app_lm_usage_event where project_id = ?::uuid",
+                Integer.class, projectId)).as("a run that filed nobody used nothing").isZero();
+    }
+
+    @Test
     @DisplayName("a rewording repeating words a round already searched is re-asked once, naming the round, then the company stops")
     void aRepeatedRewordingStops() throws Exception {
         String projectId = mandate("Repeating Firm");

@@ -35,7 +35,7 @@ final class SourcedHitRanking {
     private static final Set<String> TOP_WORDS = Set.of("chief", "ceo", "cfo", "coo", "cto", "cio", "chro", "cmo",
             "cso", "cco", "cdo", "cpo", "cro", "cao", "ciso", "chairman", "chairwoman", "chairperson");
     private static final Set<String> SENIOR_VICE_PRESIDENT_WORDS = Set.of("evp", "svp");
-    private static final Set<String> HEAD_WORDS = Set.of("vp", "avp", "head", "director");
+    private static final Set<String> HEAD_WORDS = Set.of("vp", "avp", "head", "director", "treasurer");
     private static final Set<String> MANAGER_WORDS = Set.of("manager", "lead", "principal");
     private static final Set<String> STEP_DOWN_WORDS = Set.of("deputy", "assistant", "associate");
 
@@ -58,10 +58,15 @@ final class SourcedHitRanking {
 
     private static RankedHit rankedHit(BrightDataPerson person, int vendorOrder, SourcingSpec spec,
                                        TitleLevel wanted) {
-        String title = roleOnly(currentRoleTitle(person), employerNameOf(person));
+        String title = currentRole(person);
         TitleLevel level = levelOf(title);
         boolean functionFits = TitleWords.containsFunction(title, spec.functionWords());
         return new RankedHit(person, functionFits, level.distanceTo(wanted), level, vendorOrder);
+    }
+
+    /** The job held now, less the employer's name: what a hit is ranked and judged by. */
+    static String currentRole(BrightDataPerson person) {
+        return roleOnly(currentRoleTitle(person), employerNameOf(person));
     }
 
     /**
@@ -119,7 +124,7 @@ final class SourcedHitRanking {
         List<String> words = List.of(NOT_A_LETTER.split(title.toLowerCase(Locale.ROOT)));
         String spaced = " " + String.join(" ", words) + " ";
         TitleLevel level;
-        if (spaced.contains(" chief of staff ")) {
+        if (spaced.contains(" chief of staff ") || spaced.contains(" general counsel ")) {
             level = TitleLevel.HEAD;
         } else if (words.stream().anyMatch(TOP_WORDS::contains) || spaced.contains(" managing director ")
                 || spaced.contains(" general manager ")

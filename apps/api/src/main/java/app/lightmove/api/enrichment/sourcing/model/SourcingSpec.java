@@ -64,6 +64,9 @@ public record SourcingSpec(List<String> seniorityWords, List<String> functionWor
             "IT", List.of("Technology", "CIO", "CTO"),
             "PR", List.of("Communications"));
 
+    /** The general-management seat's abbreviations, which a role title may be alone. */
+    private static final Set<String> TOP_SEAT_ABBREVIATIONS = Set.of("ceo", "md", "gm");
+
     private static final List<String> BOARD_WORDS = List.of("Chairman", "Board", "President", "Chief");
     private static final List<String> EXECUTIVE_WORDS = List.of("Chief", "Head", "Director", "VP");
     /** Not "Lead": the vendor finds it inside "Leadership" and "Thought leader", a headline's favourite words. */
@@ -134,6 +137,24 @@ public record SourcingSpec(List<String> seniorityWords, List<String> functionWor
     private static List<String> outsideLongerWords(List<String> words) {
         return words.stream()
                 .filter(word -> !HIDDEN_IN_LONGER_WORDS.contains(word.toLowerCase(Locale.ROOT)))
+                .toList();
+    }
+
+    /**
+     * Whether a role title is the general-management seat — CEO, Managing Director, General Manager — whose
+     * every word is a level, so it names no function a person's title could be checked against.
+     */
+    public static boolean namesTheTopSeat(String roleTitle) {
+        List<String> words = tokensOf(roleTitle == null ? List.of() : List.of(roleTitle));
+        return !words.isEmpty() && words.stream()
+                .map(word -> word.toLowerCase(Locale.ROOT))
+                .allMatch(word -> LEVEL_WORDS.contains(word) || TOP_SEAT_ABBREVIATIONS.contains(word));
+    }
+
+    /** The function words that name a function rather than a level: "Director" in the list proves nothing. */
+    public List<String> functionNamingWords() {
+        return functionWords.stream()
+                .filter(word -> !LEVEL_WORDS.contains(word.toLowerCase(Locale.ROOT)))
                 .toList();
     }
 

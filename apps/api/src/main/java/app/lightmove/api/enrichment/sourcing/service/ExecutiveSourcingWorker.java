@@ -29,7 +29,9 @@ import app.lightmove.api.enrichment.sourcing.model.SourcingCompany;
 import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
 import app.lightmove.api.position.service.PositionService;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,10 +52,10 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
  * Runs a Find executives request after it commits, off its thread: one model call for the search
- * words, then the companies a few at a time — a vendor search, reworded while it finds nobody, and a
- * filing per hit — recording each company as it finishes so the strip moves. Not {@code @Transactional}: every vendor
- * and model call is made with no connection held, and the writes go through {@link SourcingRunStore}
- * and {@code CandidateService.addResearched}, each its own transaction.
+ * words, then the companies a few at a time — a vendor search, reworded while it finds nobody in the
+ * seat, and a filing per hit that holds it — recording each company as it finishes so the strip moves.
+ * Not {@code @Transactional}: every vendor and model call is made with no connection held, and the writes
+ * go through {@link SourcingRunStore} and {@code CandidateService.addResearched}, each its own transaction.
  */
 @Component
 @Slf4j
@@ -114,7 +116,7 @@ class ExecutiveSourcingWorker {
         store.recordSpec(request.runId(), spec);
         Set<String> heldSlugs = ConcurrentHashMap.newKeySet();
         heldSlugs.addAll(candidates.mappedProfileSlugsOf(request.workspaceId(), request.projectId()));
-        Run run = new Run(request, brief, spec, searchedCountries(brief), heldSlugs,
+        Run run = new Run(request, brief, spec, SeatFit.of(brief, spec), searchedCountries(brief), heldSlugs,
                 Instant.now().plus(settings.runDeadline()));
 
         try (ExecutorService pool = Executors.newFixedThreadPool(settings.parallelism(),
@@ -163,6 +165,7 @@ class ExecutiveSourcingWorker {
         private final ExecutiveSourcingRequested request;
         private final SourcingBrief brief;
         private final SourcingSpec spec;
+        private final SeatFit seat;
         private final List<String> searchedCountries;
         private final Set<String> heldSlugs;
         private final Instant deadline;
@@ -198,15 +201,17 @@ class ExecutiveSourcingWorker {
         }
 
         /**
-         * A search finding nobody is reworded by the model and run again, up to {@code max-search-rounds};
-         * the first that finds anybody is the last, and its hits not already mapped are filed best fit
-         * first ({@link SourcedHitRanking}).
+         * A search finding nobody in the seat — nobody at all, or only people {@link SeatFit} turns away — is
+         * reworded by the model and run again, up to {@code max-search-rounds}; the first that finds someone
+         * holding it is the last, and those not already mapped are filed best fit first
+         * ({@link SourcedHitRanking}). Whoever was turned away is counted on the outcome with their title.
          */
         private CompanyOutcome search(SourcingCompany company) {
             if (company.linkedinSlug() == null) {
                 return CompanyOutcome.of(company, SourcingOutcome.NO_LINKEDIN_PAGE);
             }
             Map<String, Integer> triedWords = new HashMap<>();
+            Map<String, String> turnedAway = new LinkedHashMap<>();
             RefineConversation conversation = null;
             SourcingSpec searching = spec;
             int billed = 0;
@@ -219,16 +224,36 @@ class ExecutiveSourcingWorker {
                 billed += found.billed();
                 cached += found.cached();
                 PeopleFound total = found.spending(billed, cached);
-                if (!found.people().isEmpty()) {
-                    return file(company, total, modelCalls, searching);
+                boolean foundPeople = !found.people().isEmpty();
+                if (foundPeople) {
+                    List<BrightDataPerson> unmapped = unmapped(found.people());
+                    if (unmapped.isEmpty()) {
+                        return outcome(company, SourcingOutcome.ALL_ALREADY_MAPPED, total, modelCalls, List.of(),
+                                turnedAway);
+                    }
+                    List<BrightDataPerson> holdingTheSeat = new ArrayList<>();
+                    for (BrightDataPerson person : unmapped) {
+                        if (seat.holds(person, searching)) {
+                            holdingTheSeat.add(person);
+                        } else {
+                            turnedAway.putIfAbsent(person.linkedinId(), SourcedHitRanking.currentRole(person));
+                        }
+                    }
+                    if (!holdingTheSeat.isEmpty()) {
+                        return file(company, total, modelCalls, searching, holdingTheSeat, turnedAway);
+                    }
                 }
                 if (round >= settings.maxSearchRounds() || Instant.now().isAfter(deadline)) {
-                    return outcome(company, SourcingOutcome.NO_HITS, total, modelCalls, List.of());
+                    return outcome(company, nobodyFiled(turnedAway), total, modelCalls, List.of(), turnedAway);
                 }
                 if (conversation == null) {
                     conversation = refiner.open(brief, company.companyName(), company.employeeCount());
                 }
-                refiner.reportNobodyFound(conversation, round, searching);
+                if (foundPeople) {
+                    refiner.reportNoneHoldsTheSeat(conversation, round, searching);
+                } else {
+                    refiner.reportNobodyFound(conversation, round, searching);
+                }
                 Optional<SourcingSpec> next = refiner.refine(conversation, round + 1, spec.roleSummary());
                 modelCalls += 1;
                 Integer repeated = next.map(words -> triedWords.get(words.wordKey())).orElse(null);
@@ -238,25 +263,25 @@ class ExecutiveSourcingWorker {
                     modelCalls += 1;
                 }
                 if (next.isEmpty() || triedWords.containsKey(next.get().wordKey())) {
-                    return outcome(company, SourcingOutcome.NO_HITS, total, modelCalls, List.of());
+                    return outcome(company, nobodyFiled(turnedAway), total, modelCalls, List.of(), turnedAway);
                 }
                 searching = next.get();
             }
         }
 
-        private CompanyOutcome file(SourcingCompany company, PeopleFound found, int modelCalls, SourcingSpec searched) {
-            List<BrightDataPerson> usable = SourcedHitRanking.ranked(usable(found.people()), searched,
-                    brief.seniority());
-            if (usable.isEmpty()) {
-                return outcome(company, SourcingOutcome.ALL_ALREADY_MAPPED, found, modelCalls, List.of());
-            }
-            List<ExecutivePick> picks = usable.stream()
+        private static SourcingOutcome nobodyFiled(Map<String, String> turnedAway) {
+            return turnedAway.isEmpty() ? SourcingOutcome.NO_HITS : SourcingOutcome.NOTHING_FIT;
+        }
+
+        private CompanyOutcome file(SourcingCompany company, PeopleFound found, int modelCalls, SourcingSpec searched,
+                                    List<BrightDataPerson> holdingTheSeat, Map<String, String> turnedAway) {
+            List<ExecutivePick> picks = SourcedHitRanking.ranked(holdingTheSeat, searched, brief.seniority()).stream()
                     .limit(settings.picksPerCompany())
                     .map(person -> file(company, person, found.researchedBy()))
                     .toList();
             boolean anyFiled = picks.stream().anyMatch(pick -> pick.candidateId() != null);
             return outcome(company, anyFiled ? SourcingOutcome.FILED : SourcingOutcome.NOTHING_FIT, found, modelCalls,
-                    picks);
+                    picks, turnedAway);
         }
 
         /** A hit refused as already mapped, or losing a race to the same name, is counted as skipped. */
@@ -286,7 +311,7 @@ class ExecutiveSourcingWorker {
         }
 
         /** Hits with a slug to key on, not already mapped in the mandate — including by this run. */
-        private List<BrightDataPerson> usable(List<BrightDataPerson> hits) {
+        private List<BrightDataPerson> unmapped(List<BrightDataPerson> hits) {
             return hits.stream()
                     .filter(person -> person.linkedinId() != null && !person.linkedinId().isBlank())
                     .filter(person -> !heldSlugs.contains(person.linkedinId()))
@@ -294,10 +319,11 @@ class ExecutiveSourcingWorker {
         }
 
         private static CompanyOutcome outcome(SourcingCompany company, SourcingOutcome outcome, PeopleFound found,
-                                              int modelCalls, List<ExecutivePick> picks) {
+                                              int modelCalls, List<ExecutivePick> picks, Map<String, String> turnedAway) {
             int filed = (int) picks.stream().filter(pick -> pick.candidateId() != null).count();
             return new CompanyOutcome(company.triageCompanyId(), company.companyName(), outcome, found.billed(),
-                    found.cached(), found.matched(), modelCalls, filed, picks.size() - filed, picks, found.source());
+                    found.cached(), found.matched(), modelCalls, filed, picks.size() - filed, picks, found.source(),
+                    turnedAway.size(), turnedAway.values().stream().limit(CompanyOutcome.MAX_NOT_FIT_TITLES).toList());
         }
     }
 }
