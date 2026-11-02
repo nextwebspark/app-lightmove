@@ -6,6 +6,7 @@ import app.lightmove.api.core.security.rbac.ProjectRole;
 import app.lightmove.api.project.constant.ProjectStage;
 import app.lightmove.api.project.model.ProjectSeatVacated;
 import app.lightmove.api.project.repository.ProjectMemberRepository;
+import app.lightmove.api.workspace.model.LedAlonePosition;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.service.MemberDetachment;
 import java.util.List;
@@ -36,6 +37,11 @@ public class ProjectMemberDetachment implements MemberDetachment {
         if (seats.countSoleLeadSeatsExcludingStages(memberId, DONE_STAGES) > 0) {
             throw ApiException.of(ErrorCode.MEMBER_LEADS_PROJECTS);
         }
+    }
+
+    @Override
+    public List<LedAlonePosition> positionsLedAloneBy(UUID memberId) {
+        return seats.findSoleLeadPositionsExcludingStages(memberId, DONE_STAGES);
     }
 
     @Override

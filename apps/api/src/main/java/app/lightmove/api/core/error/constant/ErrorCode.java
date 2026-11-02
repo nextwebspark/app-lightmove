@@ -70,6 +70,16 @@ public enum ErrorCode {
     /** A person with no password proves it is them by having signed in moments ago. */
     MFA_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign out and back in, then turn on two-factor authentication within 10 minutes"),
 
+    /** Account deletion, by a person with no password: the proof is a sign-in moments ago, as for two-factor. */
+    ACCOUNT_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign in again, then delete your account within 10 minutes"),
+
+    /**
+     * Carries {@code soleAdminOf} (workspaces, id and name) and {@code soleLeadOf} (live positions, with their
+     * workspace): what the person must hand over before their account can go, since nobody else could.
+     */
+    ACCOUNT_HANDOVER_REQUIRED(HttpStatus.CONFLICT,
+            "Hand over the workspaces you are the only admin of, and the positions you are the only lead of, first"),
+
     /** Also served for a session belonging to somebody else — a 403 would confirm the id names a real one. */
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "That session is no longer active"),
 

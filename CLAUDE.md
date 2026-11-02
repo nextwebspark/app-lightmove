@@ -488,7 +488,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `task` and `notification` (epic #862, `docs/tasks-notifications.md`), `notetaker` (Recall.ai bots, `docs/notetaker.md`) |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `task` and `notification` (epic #862, `docs/tasks-notifications.md`), `notetaker` (Recall.ai bots, `docs/notetaker.md`), `account` (a person's own account: its export and deletion, #926) |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -909,6 +909,23 @@ starts (`POST /platform/workspaces/{id}/restore`; mailboxes, keys and invitation
 exports them, the Candidates CSV, each person's notes and the latest file of each document, and the whole audit log;
 the admin is emailed, and `WorkspaceExportExpiry` (V179's resolver) deletes it `workspace-exports-after` (7 days ⚖️)
 later, or fails one whose worker died.
+
+**A person deletes their own account (#926, V180)** from Settings → Profile (`account`): `GET
+/auth/me/deletion-preview` names the workspaces they leave and refuses — `ACCOUNT_HANDOVER_REQUIRED`, naming them —
+while they are the only admin of one or the only lead of a live position (read in that workspace's scope); `DELETE
+/auth/me` asks the password, and a code where two-factor is on, or for an account with none a sign-in within
+`lightmove.auth.mfa.recent-sign-in` (`ACCOUNT_SIGN_IN_AGAIN`; the dialog offers the provider's popup). In one
+transaction every membership ends through `MemberService`'s removal (audited `MEMBER_REMOVED`, reason
+`ACCOUNT_DELETED`; keys, AI apps and seats with it), each workspace in `WorkspaceScope.runInJoinedTransaction` and
+flushed there; each `AccountDeletionContributor` — declared in `account`, implemented where the rows live — deletes the
+person's own rows in every workspace they ever joined (the bell, its settings and digests, working hours, a mailbox
+connect in flight, assistant chats); `AccountCredentialErasure` deletes sessions, sign-ins, links, the second factor and the stored photo;
+and the `app_lm_user` row is anonymised in place ("Former member", `deleted-<id>@deleted.invalid`, `deleted_at`), so
+what they did stays the workspace's and still resolves. Once it commits, mailboxes and Zoom accounts are let go at the
+provider in transactions of their own. **Download my data** (`GET /auth/me/export`, audited `ACCOUNT_DATA_EXPORTED`) is
+the account as JSON — profile, consents, sign-in methods, two-factor, every membership with its personal keys and AI
+apps, sessions and a year of sign-ins, each workspace read in its own scope; what they added inside a workspace is its
+admin's to export.
 
 **The customer audit log (#1083)** is Settings → Security's Audit log tab, an admin's alone: `GET
 /workspace/audit-events` (cursor-paged; actor, Category, outcome and a date range), `…/people` (everyone the workspace
@@ -1492,6 +1509,8 @@ was given 30 days from the deploy), `app_lm_workspace_member.ended_with_workspac
 enrollment's stop reasons, `app_lm_workspace_export` and `app_lm_workspace_purge_certificate` (both under policy; the
 certificate is never purged), the resolver `app_lm_resolve_workspace_exports_to_close`, and the platform action
 `WORKSPACE_LIFECYCLE_MANAGE`.
+V180 gives `app_lm_user` `deleted_at` (set only on a `DELETED` account, by CHECK): account deletion anonymises the row
+rather than deleting it.
 V174 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a `value_hash` unique per workspace and kind,
 `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security in the same migration.
 V169 gives `app_lm_workspace_mail_integration` the saved app's read-only facts: `secret_hint` (the last four),

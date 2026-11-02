@@ -4,6 +4,7 @@ import { useToast } from "../../../components/ui";
 import { useAuth } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
 import * as mailboxApi from "../../outreach/api/mailboxApi";
+import { AccountDataCards } from "../components/AccountDataCards";
 import { ProfileForm } from "../components/ProfileForm";
 import { ProfileIdentityRow } from "../components/ProfileIdentityRow";
 import type { ProfileValues } from "../lib/profileSchema";
@@ -85,6 +86,8 @@ export function SettingsProfilePage() {
           onSave={handleSave}
         />
       </div>
+
+      <AccountDataCards />
     </>
   );
 }

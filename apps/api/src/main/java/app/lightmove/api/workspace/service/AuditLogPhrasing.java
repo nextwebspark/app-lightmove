@@ -98,7 +98,9 @@ public class AuditLogPhrasing {
                 ? "Made " + nameOr(line, "a member") + " " + article(contactWord(line)) + " as well"
                 : "Changed " + possessive(nameOr(line, "a member")) + " roles from " + rolesWord(line, line.text("from"))
                         + " to " + rolesWord(line, line.text("to")));
-        on(WorkspaceEventType.MEMBER_REMOVED, line -> "Removed " + nameOr(line, "a member") + " from the workspace");
+        on(WorkspaceEventType.MEMBER_REMOVED, line -> line.is("reason", "ACCOUNT_DELETED")
+                ? "Deleted their account and left the workspace"
+                : "Removed " + nameOr(line, "a member") + " from the workspace");
         on(ProjectEventType.PROJECT_TEAM_CHANGED, line -> switch (String.valueOf(line.text("action"))) {
             case "add" -> "Added " + nameOr(line, "a member") + " to the position";
             case "roles" -> "Changed " + possessive(nameOr(line, "a member")) + " role on the position";
@@ -203,6 +205,7 @@ public class AuditLogPhrasing {
             case "REFRESH_REUSE" -> "An AI app was disconnected after its access was used twice";
             case "MEMBER_REMOVED" -> "An AI app was disconnected when its owner left the workspace";
             case "PASSWORD_CHANGED" -> "An AI app was disconnected by a password change";
+            case "ACCOUNT_DELETED" -> "An AI app was disconnected when its owner deleted their account";
             case "WORKSPACE_DELETED" -> "An AI app was disconnected with the workspace";
             default -> "Disconnected an AI app";
         });

@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -33,6 +34,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Slf4j
 public class MemberService {
+
+    /** The removal's audit reason when the member deleted their account. */
+    public static final String ACCOUNT_DELETED = "ACCOUNT_DELETED";
 
     private final WorkspaceMemberRepository members;
     private final WorkspaceAccess access;
@@ -91,7 +95,28 @@ public class MemberService {
             requireAnotherAdmin(workspaceId);
         }
         detachment.assertRemovable(memberId);
+        end(actorId, member, null, request);
+    }
 
+    /**
+     * Account deletion's way out of one workspace: the same removal, by the member themselves, after the deletion has
+     * already refused a sole admin or a sole lead in every workspace at once. Runs in the deletion's transaction, inside
+     * this workspace's scope.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void leaveOnAccountDeletion(WorkspaceMember member, HttpServletRequest request) {
+        end(member.getUserId(), member, ACCOUNT_DELETED, request);
+    }
+
+    /** Whether removing this admin would leave the workspace with none. */
+    public boolean isSoleAdmin(WorkspaceMember member) {
+        return holds(member, WorkspaceRole.ADMIN)
+                && members.countByRoleName(member.getWorkspaceId(), WorkspaceRole.ADMIN.name(), MemberStatus.ACTIVE) <= 1;
+    }
+
+    private void end(UUID actorId, WorkspaceMember member, String reason, HttpServletRequest request) {
+        UUID workspaceId = member.getWorkspaceId();
+        UUID memberId = member.getId();
         member.remove();
         detachment.detach(memberId);
         events.publishEvent(new MemberAccessNarrowed(workspaceId, member.getUserId(), actorId));
@@ -105,6 +130,7 @@ public class MemberService {
         audit.event(WorkspaceEventType.MEMBER_REMOVED)
                 .actor(actorId).workspace(workspaceId).target("member", memberId).from(request)
                 .detail("removedUserId", member.getUserId().toString())
+                .detailIfPresent("reason", reason)
                 .record();
     }
 
