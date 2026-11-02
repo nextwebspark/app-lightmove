@@ -202,12 +202,15 @@ public class CachedPeopleStore {
         jdbc.update("DELETE FROM app_lm_vendor_person WHERE lower(linkedin_slug) = lower(?)", linkedinSlug);
     }
 
-    /** Deletes what has aged past the TTL, so a record is held no longer than it may be read. */
+    /**
+     * Deletes what has aged past the TTL, so a record is held no longer than it may be read. Answers how many people
+     * went. Run by the retention sweep on its schedule, and by every billed call as a backstop.
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void purgeFetchedBefore(Instant cutoff) {
+    public int purgeFetchedBefore(Instant cutoff) {
         Timestamp before = Timestamp.from(cutoff);
         jdbc.update("DELETE FROM app_lm_vendor_people_search WHERE fetched_at < ?", before);
-        jdbc.update("DELETE FROM app_lm_vendor_person WHERE fetched_at < ?", before);
+        return jdbc.update("DELETE FROM app_lm_vendor_person WHERE fetched_at < ?", before);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
