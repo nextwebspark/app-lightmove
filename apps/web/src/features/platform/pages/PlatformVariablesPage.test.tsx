@@ -84,6 +84,19 @@ describe("PlatformVariablesPage", () => {
     expect(screen.getByText("Version 14")).toBeInTheDocument();
   });
 
+  it("opens the editor without sending anything, and keeps it open", async () => {
+    vi.mocked(platformConfigApi.changeSetting).mockResolvedValue(picks);
+    renderPage();
+    await screen.findByText("Default 3");
+    const row = rowOf("People filed per company");
+
+    await userEvent.click(within(row).getByRole("button", { name: "Edit" }));
+    await new Promise((settled) => setTimeout(settled, 50));
+
+    expect(platformConfigApi.changeSetting).not.toHaveBeenCalled();
+    expect(within(row).getByLabelText("People filed per company")).toHaveValue("4");
+  });
+
   it("saves an edit, and shows the server's refusal under the field rather than as a toast", async () => {
     vi.mocked(platformConfigApi.changeSetting).mockRejectedValueOnce(
       new ApiRequestError({

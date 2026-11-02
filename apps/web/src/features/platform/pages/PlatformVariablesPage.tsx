@@ -148,13 +148,16 @@ function VariableRow({ setting }: { setting: PlatformSetting }) {
         )}
       </div>
 
+      {/* Each button keyed: unkeyed, React reused Edit's node as Save, and the click that opened the editor went
+          on to submit the form it now named — the old value, sent before anything was typed. */}
       <span className="ms-auto flex gap-1 sm:w-[150px] sm:justify-end">
         {editing ? (
           <>
-            <Button variant="ghost" size="xs" onClick={() => setEditing(false)}>
+            <Button key="cancel" type="button" variant="ghost" size="xs" onClick={() => setEditing(false)}>
               Cancel
             </Button>
             <Button
+              key="save"
               type="submit"
               form={`variable-${setting.key}`}
               variant="secondary"
@@ -169,6 +172,8 @@ function VariableRow({ setting }: { setting: PlatformSetting }) {
           <>
             {setting.overridden && (
               <Button
+                key="reset"
+                type="button"
                 variant="ghost"
                 size="xs"
                 title="Use the default again"
@@ -178,7 +183,7 @@ function VariableRow({ setting }: { setting: PlatformSetting }) {
                 Reset
               </Button>
             )}
-            <Button variant="ghost" size="xs" onClick={startEditing}>
+            <Button key="edit" type="button" variant="ghost" size="xs" onClick={startEditing}>
               Edit
             </Button>
           </>

@@ -32,7 +32,7 @@ export function ConfigRefreshButton({ page, config }: { page: PlatformConfigPage
     <div className="flex items-center gap-3">
       {config && (
         <span
-          className="font-mono text-meta text-u-text3"
+          className="whitespace-nowrap font-mono text-meta text-u-text3"
           title={`Every save raises the version. This server loaded version ${config.loadedVersion}.`}
         >
           Version {config.currentVersion}
