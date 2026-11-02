@@ -37,10 +37,10 @@ class CachedPeopleSearchTest {
         SourcingSpec technologyRound = spec(List.of("Chief", "Director", "Head", "VP"),
                 List.of("Applications", "CTO", "Engineering", "Security"), List.of("Analyst", "Assistant"));
 
-        assertThat(CachedPeopleSearch.fits(person("zoya", "Zoya",
+        assertThat(CachedPeopleSearch.fits(person("pharmacist-one", "Pharmacist One",
                 "DHA Pharmacist cum Medical director (Master in Pharmaceutics, Pharm D)", "AE"), technologyRound,
                 List.of("AE"))).isFalse();
-        assertThat(CachedPeopleSearch.fits(person("adhil", "Adhil",
+        assertThat(CachedPeopleSearch.fits(person("pharmacist-two", "Pharmacist Two",
                 "Pharmacist - DHA Holder, Drug Safety Associate, Medical Director", "AE"), technologyRound,
                 List.of("AE"))).isFalse();
         assertThat(CachedPeopleSearch.fits(person("vp", "A VP", "VP Engineering", "AE"), technologyRound,

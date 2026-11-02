@@ -17,12 +17,12 @@ class BrightDataPeopleSearchTest {
         SourcingSpec technology = SourcingSpec.of(List.of("CTO", "Chief", "Director", "VP"),
                 List.of("CTO", "Technology", "Engineering", "Information"), List.of("Assistant"), null);
 
-        Map<String, Object> body = BrightDataPeopleSearch.searchBody("lifepharmacy", technology, List.of("AE"),
+        Map<String, Object> body = BrightDataPeopleSearch.searchBody("a-pharmacy-chain", technology, List.of("AE"),
                 List.of(), 10).orElseThrow();
 
         String sent = body.toString();
         assertThat(sent).doesNotContain("CTO").contains("Chief", "Director", "VP", "Technology", "Engineering",
-                "Information", "Assistant", "lifepharmacy");
+                "Information", "Assistant", "a-pharmacy-chain");
     }
 
     @Test
