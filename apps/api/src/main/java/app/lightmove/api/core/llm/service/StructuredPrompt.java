@@ -1,12 +1,12 @@
 package app.lightmove.api.core.llm.service;
 
+import app.lightmove.api.core.platformconfig.service.PromptTexts;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.core.io.Resource;
 
 /**
  * One prompt whose answer binds to a record: its system text, its guard and schema advisors, and the
@@ -34,14 +34,14 @@ public final class StructuredPrompt {
 
     private final ChatClient chatClient;
     private final String promptId;
-    private final Resource systemPrompt;
+    private final PromptTexts promptTexts;
     private final Consumer<ChatClient.AdvisorSpec> guarded;
 
-    StructuredPrompt(ChatClient chatClient, String promptId, Resource systemPrompt,
+    StructuredPrompt(ChatClient chatClient, String promptId, PromptTexts promptTexts,
                      Consumer<ChatClient.AdvisorSpec> guarded) {
         this.chatClient = chatClient;
         this.promptId = promptId;
-        this.systemPrompt = systemPrompt;
+        this.promptTexts = promptTexts;
         this.guarded = guarded;
     }
 
@@ -58,7 +58,7 @@ public final class StructuredPrompt {
         return chatClient.prompt()
                 .advisors(guarded)
                 .options(options())
-                .system(systemPrompt)
+                .system(promptTexts.systemText(promptId))
                 .messages(history)
                 .user(user)
                 .call()

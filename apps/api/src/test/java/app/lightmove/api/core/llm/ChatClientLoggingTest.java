@@ -25,7 +25,6 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.core.io.ByteArrayResource;
 
 /**
  * What the shared {@link ChatClient} writes to the log for every call.
@@ -142,7 +141,7 @@ class ChatClientLoggingTest {
 
     private CandidateShortlistService shortlistService() {
         return new CandidateShortlistService(chatClientOver(new FixedChatModel()),
-                new ByteArrayResource("system".getBytes()), TestLlmCallPolicy.asShipped());
+                promptId -> "system", TestLlmCallPolicy.asShipped());
     }
 
     private ChatClient chatClientOver(ChatModel model) {
