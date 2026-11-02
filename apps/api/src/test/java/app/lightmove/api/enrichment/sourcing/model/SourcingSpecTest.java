@@ -131,4 +131,16 @@ class SourcingSpecTest {
 
         assertThat(spec.functionNamingWords()).containsExactly("Treasury", "CFO");
     }
+
+    @Test
+    @DisplayName("words many functions share, singular or plural, are never distinctive; a title's own words leave levels out")
+    void distinctiveWordsLeaveSharedOnesOut() {
+        SourcingSpec round = SourcingSpec.of(List.of("Head"),
+                List.of("Infrastructure", "Systems", "Processes", "Treasury"), List.of(), null);
+
+        assertThat(round.distinctiveFunctionWords()).containsExactly("Treasury");
+        assertThat(SourcingSpec.functionWordsOfTitle("Group Head of Treasury")).containsExactly("Treasury");
+        assertThat(SourcingSpec.functionWordsOfTitle("Managing Director")).isEmpty();
+        assertThat(SourcingSpec.functionWordsOfTitle(null)).isEmpty();
+    }
 }

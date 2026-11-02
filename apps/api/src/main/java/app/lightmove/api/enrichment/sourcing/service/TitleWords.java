@@ -31,7 +31,7 @@ final class TitleWords {
         return containsAny(title, functionWords) || containsAny(title, SourcingSpec.abbreviationsOf(functionWords));
     }
 
-    private static List<String> wordsOf(String text) {
+    static List<String> wordsOf(String text) {
         if (text == null || text.isBlank()) {
             return List.of();
         }

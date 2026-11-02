@@ -429,8 +429,33 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
                 .containsExactly("Group Treasurer");
         assertThat(refinePrompts()).singleElement().asString()
                 .contains("ROUND 1 SEARCHED — found people, but none holds the seat");
-        assertThat(db.queryForList("select outcomes -> 0 -> 'notFitTitles' ->> 0 from app_lm_executive_sourcing_run "
-                + "where id = ?::uuid", String.class, runId)).containsExactly("Doctor of Pharmacy");
+    }
+
+    @Test
+    @DisplayName("a reworded round reaching only people the mandate already maps reads all already mapped, whoever was turned away before")
+    void aRoundOfMappedPeopleAfterOutsidersIsAllAlreadyMapped() throws Exception {
+        String projectId = mandate("Mapped After Firm");
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Already Held","triageCompanyId":"%s",
+                                 "linkedinUrl":"https://www.linkedin.com/in/already-held/"}""".formatted(dpWorld)))
+                .andExpect(status().isCreated());
+        peopleSearch.answerWith("dp-world", List.of(person("a-pharmacist", "A Pharmacist", "Doctor of Pharmacy")));
+        peopleSearch.answerWhen("dp-world", asked -> asked.functionWords().contains("Treasury"),
+                List.of(person("already-held", "Already Held", "Group Treasury Director")));
+        model.answerWhenSystemContains(REFINE_PROMPT, """
+                {"seniorityWords":["Group","Director"],"functionWords":["Treasury"],"excludedWords":[],
+                 "why":"Treasury is the seat's own word."}""");
+
+        String runId = start(projectId, "[\"" + dpWorld + "\"]");
+
+        JsonNode outcome = outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld);
+        assertThat(outcome.get("outcome").asText()).isEqualTo("ALL_ALREADY_MAPPED");
+        assertThat(outcome.get("notFit").asInt()).isEqualTo(1);
+        assertThat(candidatesOf(projectId)).hasSize(1);
     }
 
     @Test

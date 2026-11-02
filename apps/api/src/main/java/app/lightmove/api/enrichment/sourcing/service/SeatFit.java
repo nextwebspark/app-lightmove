@@ -5,45 +5,32 @@ import app.lightmove.api.enrichment.sourcing.constant.TitleLevel;
 import app.lightmove.api.enrichment.sourcing.model.SourcingBrief;
 import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 import java.util.stream.Stream;
 
 /**
- * Whether a person a search found holds the brief's seat closely enough to be filed, read from the job
- * they hold now by fixed rules no model takes part in: the title names the function as a whole word, sits
- * at or above the lowest level the seat allows, and carries no excluded word. The general-management
- * seat names no function, so there the title must be that seat itself. Every search, provider and
- * reworded round answers through this one check, so none of them can file a pharmacist as a Head of IT.
+ * Whether a person a search found holds the brief's seat closely enough to be filed: fixed rules over the
+ * job held now, no model, the one check every provider and reworded round answers through.
  */
 record SeatFit(List<String> briefFunctionWords, List<String> excludedWords, TitleLevel lowest, boolean topSeat) {
 
     /**
-     * Words the titles of many functions carry — "Business Development", "Surgical Infrastructure",
-     * "Medical Systems" — so one a reworded round searched never proves the function by itself; the
-     * brief's own words still do.
+     * The run's first function words, else the role title's own. A brief naming no function at all is judged
+     * by level and exclusions alone, never read as the general-management seat.
      */
-    private static final Set<String> SHARED_WORDS = Set.of("development", "system", "solution", "infrastructure",
-            "network", "service", "project", "program", "programme", "operation", "operational", "business",
-            "strategy", "strategic", "transformation", "planning", "management", "support", "application",
-            "engineering", "technical", "innovation", "excellence", "performance", "quality", "commercial",
-            "corporate", "administration", "process", "product", "enterprise", "security", "growth");
-
-    /** The seat as the run's first words read it; a list naming no function falls back to the title's own words. */
     static SeatFit of(SourcingBrief brief, SourcingSpec spec) {
-        boolean topSeat = SourcingSpec.namesTheTopSeat(brief.roleTitle());
         List<String> functionWords = spec.functionNamingWords();
-        if (functionWords.isEmpty() && !topSeat) {
-            functionWords = SourcingSpec.defaultFor(brief.roleTitle(), brief.seniority()).functionNamingWords();
+        if (functionWords.isEmpty()) {
+            functionWords = SourcingSpec.functionWordsOfTitle(brief.roleTitle());
         }
         return new SeatFit(functionWords, spec.excludedWords(), TitleLevel.lowestFor(brief.seniority()),
-                topSeat || functionWords.isEmpty());
+                SourcingSpec.namesTheTopSeat(brief.roleTitle()));
     }
 
     boolean holds(BrightDataPerson person, SourcingSpec round) {
         return holds(SourcedHitRanking.currentRole(person), round);
     }
 
+    /** A reworded round's own words count only where no other function shares them. */
     boolean holds(String title, SourcingSpec round) {
         if (title == null || title.isBlank()
                 || TitleWords.containsAny(title, excludedWords)
@@ -54,26 +41,17 @@ record SeatFit(List<String> briefFunctionWords, List<String> excludedWords, Titl
         if (topSeat) {
             return level == TitleLevel.TOP && namesGeneralManagement(title);
         }
-        return level.isAtLeast(lowest) && TitleWords.containsFunction(title, functionWordsWith(round));
+        if (!level.isAtLeast(lowest)) {
+            return false;
+        }
+        return briefFunctionWords.isEmpty() || TitleWords.containsFunction(title,
+                Stream.concat(briefFunctionWords.stream(), round.distinctiveFunctionWords().stream()).distinct()
+                        .toList());
     }
 
-    private List<String> functionWordsWith(SourcingSpec round) {
-        return Stream.concat(briefFunctionWords.stream(),
-                        round.functionNamingWords().stream().filter(word -> !isShared(word)))
-                .distinct()
-                .toList();
-    }
-
-    private static boolean isShared(String word) {
-        String folded = word.toLowerCase(Locale.ROOT);
-        return SHARED_WORDS.contains(folded) || folded.endsWith("s")
-                && SHARED_WORDS.contains(folded.substring(0, folded.length() - 1));
-    }
-
-    /** The top seat itself, not a functional chief: "Chief Financial Officer" reads as the top level too. */
+    /** The executive top seat, not a functional chief or a chair, though "CFO" and "Chairman" read as the top level. */
     private static boolean namesGeneralManagement(String title) {
-        return TitleWords.containsAny(title, List.of("CEO", "Chairman", "Chairwoman", "Chairperson",
-                "Chief Executive", "Managing Director", "General Manager"))
-                || TitleWords.containsAny(title, List.of("President")) && !TitleWords.containsAny(title, List.of("Vice"));
+        return TitleWords.containsAny(title, List.of("CEO", "Chief Executive", "Managing Director", "General Manager"))
+                || (SourcingSpec.namesTheTopSeat(title) && !TitleWords.containsAny(title, List.of("Vice")));
     }
 }

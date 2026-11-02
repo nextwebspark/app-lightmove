@@ -21,8 +21,6 @@ import java.util.stream.IntStream;
  */
 final class SourcedHitRanking {
 
-    private static final Pattern NOT_A_LETTER = Pattern.compile("[^\\p{L}\\p{N}]+");
-
     /** Where a title stops naming the job and starts naming the employer: "CFO @ X", "CFO at X", "CFO | X". */
     private static final Pattern AT_EMPLOYER = Pattern.compile("\\s+(?:@|at|\\|)\\s+", Pattern.CASE_INSENSITIVE);
 
@@ -121,7 +119,7 @@ final class SourcedHitRanking {
         if (!title.toLowerCase(Locale.ROOT).contains("chief of staff")) {
             title = SERVING.split(title, 2)[0];
         }
-        List<String> words = List.of(NOT_A_LETTER.split(title.toLowerCase(Locale.ROOT)));
+        List<String> words = TitleWords.wordsOf(title);
         String spaced = " " + String.join(" ", words) + " ";
         TitleLevel level;
         if (spaced.contains(" chief of staff ") || spaced.contains(" general counsel ")) {

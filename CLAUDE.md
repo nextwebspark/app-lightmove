@@ -244,11 +244,9 @@ one **synchronous** Bright Data people search per company keys on the company's 
 neighbours only — nobody living elsewhere is searched for, and a brief with no country searches everywhere.
 **No model judges the people**: the hits not already mapped are ranked in code (`SourcedHitRanking` —
 the vendor matched the headline and sends no relevance order, so it reads the *current role's* title:
-a function word first, then its level against the brief's seat — every word matched whole, `TitleWords`), **filed only
-when it holds the seat** (`SeatFit`: the current role names the brief's function — a reworded round's word only where no
-other function's titles share it, "Development" or "Infrastructure" never — at Head or above for a C-suite or N-1 seat,
-Manager below, and with no excluded word; the general-management seat must be that seat itself) — a round finding only
-people outside it is reworded like one finding nobody, and a company where every round did reads Nothing fit — and the first `picks-per-company` are each filed through `CandidateService.addSourced` — the search hit *is* the research, so no
+a function word first, then its level against the brief's seat — every word matched whole, `TitleWords`), filed only
+when the current role holds the seat (`SeatFit`: the brief's function, Head or above for a C-suite or N-1 seat; a round
+finding only others is reworded), and the first `picks-per-company` are each filed through `CandidateService.addSourced` — the search hit *is* the research, so no
 second vendor call — as `AI_SOURCED` (no badge on the grid; the drawer's source reads "Sourced"), and
 the same automatic background run a capture gets proposes the missing background, fired with the `SOURCING`
 trigger that skips the per-user LLM meter. A company whose search finds **nobody** is searched again with other title

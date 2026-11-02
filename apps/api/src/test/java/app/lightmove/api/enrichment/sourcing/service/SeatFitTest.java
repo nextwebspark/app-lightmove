@@ -100,8 +100,40 @@ class SeatFitTest {
                 "Group CEO"))
                 .allSatisfy(title -> assertThat(ceo.holds(title, topSeat)).as(title).isTrue());
         assertThat(List.of("Chief Financial Officer", "Finance Director", "Vice President Sales",
-                "Executive Director", "Assistant to the CEO"))
+                "Executive Director", "Assistant to the CEO", "Chairman", "Executive Chairman",
+                "President, Sales Division"))
                 .allSatisfy(title -> assertThat(ceo.holds(title, topSeat)).as(title).isFalse());
+        assertThat(ceo.holds("Group President", topSeat)).isTrue();
+    }
+
+    @Test
+    @DisplayName("a brief naming no function at all is judged by level and exclusions alone, never read as the CEO seat")
+    void aBriefNamingNoFunction() {
+        SourcingSpec levelsOnly = SourcingSpec.of(List.of("Head", "Director"), List.of("Director", "Head"),
+                List.of("Assistant"), null);
+        SeatFit seat = SeatFit.of(brief("Head of AI", Seniority.N_MINUS_1), levelsOnly);
+
+        assertThat(seat.holds("Head of Data Science", levelsOnly)).isTrue();
+        assertThat(seat.holds("VP Engineering", levelsOnly)).isTrue();
+        assertThat(seat.holds("Data Scientist", levelsOnly)).isFalse();
+        assertThat(seat.holds("Assistant Director", levelsOnly)).isFalse();
+        assertThat(SeatFit.of(brief(null, Seniority.C_SUITE), levelsOnly).holds("Head of Finance", levelsOnly))
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("a word other functions share still proves the function when it is the brief's own, never a reworded round's")
+    void aSharedWordOfTheBriefsOwn() {
+        SourcingSpec security = SourcingSpec.of(List.of("Chief", "Head", "Director", "CISO"),
+                List.of("Security", "Cybersecurity", "CISO"), List.of("Analyst"), null);
+        SeatFit ciso = SeatFit.of(brief("Chief Information Security Officer", Seniority.C_SUITE), security);
+        SeatFit technology = SeatFit.of(brief("Head of Information Technology", Seniority.C_SUITE), TECHNOLOGY);
+        SourcingSpec securityRound = SourcingSpec.of(List.of("Head"), List.of("Security", "Services"), List.of(),
+                null);
+
+        assertThat(ciso.holds("Head of Cyber Security", security)).isTrue();
+        assertThat(technology.holds("Head of Security", securityRound)).isFalse();
+        assertThat(technology.holds("Head of IT Services", securityRound)).isTrue();
     }
 
     @Test

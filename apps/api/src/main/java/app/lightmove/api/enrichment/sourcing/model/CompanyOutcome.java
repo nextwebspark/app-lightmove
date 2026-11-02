@@ -10,23 +10,19 @@ import java.util.UUID;
  * free, how many matched in all (null when unknown, and on runs recorded before it was kept), the model
  * calls it cost, the picks with whether each was filed, the provider whose answer they came from
  * (null when no provider answered, and on runs recorded before it was kept), and how many people found
- * did not hold the seat, with the first few of their current titles (none on runs recorded before).
+ * did not hold the seat.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record CompanyOutcome(UUID triageCompanyId, String companyName, SourcingOutcome outcome,
                              int vendorHits, int cachedHits, Long matched, int modelCalls, int filed,
-                             int skipped, List<ExecutivePick> picks, String source, int notFit,
-                             List<String> notFitTitles) {
-
-    public static final int MAX_NOT_FIT_TITLES = 10;
+                             int skipped, List<ExecutivePick> picks, String source, int notFit) {
 
     public static CompanyOutcome of(SourcingCompany company, SourcingOutcome outcome) {
         return new CompanyOutcome(company.triageCompanyId(), company.companyName(), outcome, 0, 0, null, 0, 0, 0,
-                List.of(), null, 0, List.of());
+                List.of(), null, 0);
     }
 
     public CompanyOutcome {
         picks = picks == null ? List.of() : List.copyOf(picks);
-        notFitTitles = notFitTitles == null ? List.of() : List.copyOf(notFitTitles);
     }
 }
