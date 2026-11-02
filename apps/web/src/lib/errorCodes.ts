@@ -69,6 +69,7 @@ export type ApiErrorCode =
   | "PERSON_OWNER_NOT_STAFF"
   | "PERSON_DO_NOT_CONTACT"
   | "PERSON_SUPPRESSED"
+  | "PERSON_ERASE_SEND_IN_FLIGHT"
   | "TASK_ASSIGNEE_NOT_ON_TEAM"
   | "TASK_NOT_YOURS"
   | "STRATEGY_SEARCH_NAME_TAKEN"
@@ -268,6 +269,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PERSON_OWNER_NOT_STAFF: "The owner must be someone on your team.",
   PERSON_DO_NOT_CONTACT: "This person is marked do not contact, so contact lookups are off.",
   PERSON_SUPPRESSED: "This person is on your workspace's suppression list, so they can't be added.",
+  PERSON_ERASE_SEND_IN_FLIGHT: "An email to this person is sending right now. Try again in a minute.",
   // Two uploads raise this — the spreadsheet import and the position description — so the wording
   // stays neutral. Naming one screen's file types here misdescribes the other's refusal, and each
   // dropzone already states what it takes.

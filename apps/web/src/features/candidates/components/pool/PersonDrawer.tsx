@@ -30,6 +30,9 @@ import { ActivityTimeline } from "../activity/ActivityTimeline";
 import { PersonContactTab } from "./PersonContactTab";
 import { AddToPositionDialog } from "./AddToPositionDialog";
 import { focusNoteComposer } from "../../../notes/lib/focusNoteComposer";
+import { ActionMenu, MenuItem } from "../../../../components/ui/ActionMenu";
+import { useIsWorkspaceAdmin } from "../../../billing/lib/useBilling";
+import { ErasePersonDialog } from "./ErasePersonDialog";
 
 const TAB_ID_PREFIX = "person-drawer";
 
@@ -105,6 +108,8 @@ function PersonDrawerBody({
   const closePreview = useCallback(() => setPreview(null), []);
   const changed = usePersonRecordUpdate();
   const [adding, setAdding] = useState(false);
+  const [erasing, setErasing] = useState(false);
+  const isAdmin = useIsWorkspaceAdmin();
   const [nextAction, setNextAction] = useState<NextActionTarget | null>(null);
   const setNextActionOn: SetNextActionOn = (position, taskId) =>
     setNextAction({
@@ -138,12 +143,31 @@ function PersonDrawerBody({
     <>
       <header className="relative flex-none border-b border-u-border px-5 pt-4">
         <PanelCloseButton onClose={onClose} />
+        {isAdmin && (
+          <div className="absolute end-12 top-3.5">
+            <ActionMenu label={`More for ${person.fullName}`} width={256}>
+              {(close) => (
+                <MenuItem
+                  icon={ICONS.trash}
+                  tone="danger"
+                  onSelect={() => {
+                    close();
+                    setErasing(true);
+                  }}
+                >
+                  Delete person permanently…
+                </MenuItem>
+              )}
+            </ActionMenu>
+          </div>
+        )}
         <PersonHeaderLayout
           avatar={<PersonAvatar person={person} size="xl" className="size-11 rounded-u-card border border-u-border-strong text-sm" />}
           fullName={person.fullName}
           linkedinUrl={person.linkedinUrl}
           title={person.title}
           context={context}
+          hasCornerMenu={isAdmin}
         >
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {person.seniority && <DetailPill label={person.seniority} />}
@@ -300,6 +324,15 @@ function PersonDrawerBody({
         onTargetChange={setPreview}
         onClose={closePreview}
       />
+
+      {erasing && (
+        <ErasePersonDialog
+          personId={person.personId}
+          fullName={person.fullName}
+          onClose={() => setErasing(false)}
+          onErased={onClose}
+        />
+      )}
 
       {adding && (
         <AddToPositionDialog

@@ -10,6 +10,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -95,6 +96,16 @@ public class ExecutiveSourcingRun extends BaseEntity {
 
     public void recordSpec(SourcingSpec searched) {
         spec = searched;
+    }
+
+    /** Takes erased people off the picks that filed them, name and all; answers whether any pick was theirs. */
+    public boolean forgetPicksOf(Set<UUID> candidateIds) {
+        List<CompanyOutcome> scrubbed = outcomes.stream().map(outcome -> outcome.withoutPicksOf(candidateIds)).toList();
+        if (scrubbed.equals(outcomes)) {
+            return false;
+        }
+        outcomes = new ArrayList<>(scrubbed);
+        return true;
     }
 
     public void recordOutcome(CompanyOutcome outcome) {
