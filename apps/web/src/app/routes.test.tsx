@@ -8,6 +8,7 @@ import { AuthProvider } from "../features/auth/AuthProvider";
 import * as authApi from "../features/auth/api/authApi";
 import * as clientsApi from "../features/clients/api/clientsApi";
 import * as consentApi from "../features/oauth/api/oauthConsentApi";
+import * as platformConfigApi from "../features/platform/api/platformConfigApi";
 import * as projectsApi from "../features/projects/api/projectsApi";
 import * as templateAdminApi from "../features/templates/api/templateAdminApi";
 import * as triageApi from "../features/triage/api/triageApi";
@@ -16,6 +17,11 @@ import { AppRoutes } from "./routes";
 
 vi.mock("../features/auth/api/authApi");
 vi.mock("../features/oauth/api/oauthConsentApi");
+vi.mock("../features/platform/api/platformConfigApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../features/platform/api/platformConfigApi")>()),
+  listSettings: vi.fn(),
+  listPrompts: vi.fn(),
+}));
 vi.mock("../features/projects/api/projectsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../features/projects/api/projectsApi")>()),
   projects: vi.fn(),
@@ -351,6 +357,46 @@ describe("routes — the platform gate", () => {
 
     expect(await screen.findByRole("table", { name: "Templates" })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Template library" }).length).toBeGreaterThan(0);
+  });
+
+  it.each(["/settings/platform-variables", "/settings/platform-prompts", "/settings/platform-prompts/call-changes"])(
+    "bounces a workspace admin who is not Uncava staff from %s",
+    async (path) => {
+      vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
+
+      renderAt(path);
+
+      await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/"));
+    },
+  );
+
+  it("opens each Platform page on its own action, and the rail lists only the pages the caller holds", async () => {
+    vi.mocked(platformConfigApi.listPrompts).mockResolvedValue({
+      prompts: [],
+      config: { currentVersion: 3, loadedVersion: 3, loadedAt: null },
+    });
+    vi.mocked(authApi.me).mockResolvedValue({
+      ...userWith(["MEMBER"]),
+      platformActions: ["PROMPT_MANAGE" as const],
+    });
+
+    renderAt("/settings/platform-prompts");
+
+    expect(await screen.findByText("Version 3")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Prompts" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("link", { name: "Variables" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Template library" })).not.toBeInTheDocument();
+  });
+
+  it("bounces a super admin from a Platform page whose action they do not hold", async () => {
+    vi.mocked(authApi.me).mockResolvedValue({
+      ...userWith(["MEMBER"]),
+      platformActions: ["PROMPT_MANAGE" as const],
+    });
+
+    renderAt("/settings/platform-variables");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/"));
   });
 });
 

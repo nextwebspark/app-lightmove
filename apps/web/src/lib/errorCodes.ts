@@ -182,6 +182,8 @@ export type ApiErrorCode =
   | "TEMPLATE_FALLBACK_REQUIRED"
   | "TEMPLATE_FILE_UNREADABLE"
   | "TEMPLATE_IMPORT_INVALID"
+  | "PLATFORM_PROMPT_VARIABLES_CHANGED"
+  | "PLATFORM_PROMPT_STALE"
   | "CONFLICT"
   | "RATE_LIMITED"
   | "CSRF_TOKEN_INVALID"
@@ -206,6 +208,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   TEMPLATE_FALLBACK_REQUIRED:
     "The fallback template can't be archived or hidden — a title nothing else matches is drafted from it.",
   TEMPLATE_IMPORT_INVALID: "Some templates in the file are invalid, so none were imported.",
+  PLATFORM_PROMPT_VARIABLES_CHANGED: "A prompt must keep exactly the placeholders it shipped with.",
+  PLATFORM_PROMPT_STALE: "Someone changed this prompt after you opened it. Reload to see their version.",
   LAST_ADMIN: "A workspace must keep at least one admin.",
   MEMBER_LEADS_PROJECTS: "They are the only lead on active positions — hand those over first.",
   CLIENT_ALREADY_EXISTS: "That name is already taken.",

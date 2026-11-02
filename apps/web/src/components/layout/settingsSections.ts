@@ -1,4 +1,4 @@
-import type { User } from "../../features/auth/api/types";
+import type { PlatformAction, User } from "../../features/auth/api/types";
 import { isPureClient } from "../../features/auth/roles";
 import { ICONS } from "./Icon";
 
@@ -22,6 +22,8 @@ export interface SettingsSection {
   everyStaff?: boolean;
   /** Leads out of Settings; said beside the item. */
   leavesShell?: string;
+  /** In Platform: the platform action that opens it, each section its own. */
+  platformAction?: PlatformAction;
 }
 
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
@@ -54,7 +56,27 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { to: "/settings/integrations", label: "Integrations", icon: ICONS.plug, group: "Workspace" },
   { to: "/settings/billing", label: "Billing", icon: ICONS.card, group: "Workspace", everyStaff: true },
   { to: "/settings/templates", label: "Templates", icon: ICONS.file, group: "Workspace" },
-  { to: "/settings/template-library", label: "Template library", icon: ICONS.position, group: "Platform" },
+  {
+    to: "/settings/template-library",
+    label: "Template library",
+    icon: ICONS.position,
+    group: "Platform",
+    platformAction: "TEMPLATE_LIBRARY_MANAGE",
+  },
+  {
+    to: "/settings/platform-variables",
+    label: "Variables",
+    icon: ICONS.sliders,
+    group: "Platform",
+    platformAction: "PLATFORM_SETTINGS_MANAGE",
+  },
+  {
+    to: "/settings/platform-prompts",
+    label: "Prompts",
+    icon: ICONS.terminal,
+    group: "Platform",
+    platformAction: "PROMPT_MANAGE",
+  },
 ];
 
 /**
@@ -67,9 +89,11 @@ export function visibleSettingsSections(user: User | null): SettingsSection[] {
   const roles = user?.workspace?.roles ?? [];
   const isAdmin = roles.includes("ADMIN");
   const isClient = isPureClient(roles);
-  const isLibraryEditor = user?.platformActions.includes("TEMPLATE_LIBRARY_MANAGE") ?? false;
+  const platformActions = user?.platformActions ?? [];
   return SETTINGS_SECTIONS.filter((section) => {
-    if (section.group === "Platform") return isLibraryEditor;
+    if (section.group === "Platform") {
+      return !!section.platformAction && platformActions.includes(section.platformAction);
+    }
     if (section.group === "Workspace") return !isClient && (isAdmin || !!section.everyStaff);
     return !(isClient && section.staffOnly);
   });

@@ -258,4 +258,7 @@ export interface ApiError {
   clientId?: string;
   /** Present on INTEGRATION_KEYS_REFUSED: the provider's own code, such as `AADSTS7000215` or `invalid_client`. */
   providerError?: string;
+  /** Present on PLATFORM_PROMPT_VARIABLES_CHANGED: the placeholders the prompt dropped and the ones it added. */
+  missing?: string[];
+  added?: string[];
 }
