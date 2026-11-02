@@ -202,6 +202,17 @@ public enum ErrorCode {
     TEMPLATE_IMPORT_INVALID(HttpStatus.BAD_REQUEST,
             "Some templates in that file are invalid, so none were imported"),
 
+    /**
+     * A prompt override that dropped a placeholder the code fills, or added one nothing fills; the body carries
+     * {@code missing} and {@code added}, the variable names alone.
+     */
+    PLATFORM_PROMPT_VARIABLES_CHANGED(HttpStatus.BAD_REQUEST,
+            "A prompt must keep exactly the placeholders it shipped with"),
+
+    /** A prompt save started from a version that is no longer the one in use: someone else saved first. */
+    PLATFORM_PROMPT_STALE(HttpStatus.CONFLICT,
+            "Someone changed this prompt after you opened it. Reload to see their version"),
+
     /** Encrypted, no text layer, a legacy {@code .doc}, or an unknown format. */
     POSITION_DOCUMENT_UNREADABLE(HttpStatus.BAD_REQUEST,
             "That document could not be read. Save it as .docx or PDF, with a text layer, and try again."),
