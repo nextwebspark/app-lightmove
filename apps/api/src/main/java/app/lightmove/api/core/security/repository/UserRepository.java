@@ -27,4 +27,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.id = :id")
     Optional<User> lockToFoundFirstWorkspace(UUID id);
+
+    /** Account deletion: a sign-in or a second deletion racing it waits, and finds the account already gone. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.id = :id")
+    Optional<User> lockToDelete(UUID id);
 }

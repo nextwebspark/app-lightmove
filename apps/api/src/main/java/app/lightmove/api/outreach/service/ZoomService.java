@@ -156,6 +156,20 @@ public class ZoomService {
         release(userId, workspaceId, userId, request, transactions);
     }
 
+    /**
+     * A deleted account's Zoom account here, if it had one, let go as its own Disconnect would. In transactions of its
+     * own: this may run on the deleting thread once it has committed, where a joined transaction writes nothing.
+     */
+    public void disconnectIfConnected(UUID userId, UUID workspaceId) {
+        TransactionTemplate own = new TransactionTemplate(transactions.getTransactionManager());
+        own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        boolean connected = Boolean.TRUE.equals(own.execute(status ->
+                connections.findByWorkspaceIdAndUserId(workspaceId, userId).isPresent()));
+        if (connected) {
+            release(userId, workspaceId, userId, null, own);
+        }
+    }
+
     /** A deleted workspace's Zoom accounts, as {@code MailboxService.disconnectAllOf} lets its mailboxes go. */
     public void disconnectAllOf(UUID workspaceId, UUID actorId) {
         TransactionTemplate own = new TransactionTemplate(transactions.getTransactionManager());

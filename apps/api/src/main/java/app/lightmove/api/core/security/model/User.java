@@ -23,6 +23,9 @@ import lombok.Setter;
 @NoArgsConstructor(access = AccessLevel.PROTECTED) // for JPA only
 public class User extends BaseEntity {
 
+    /** What a deleted account is called wherever its old rows are drawn. */
+    public static final String FORMER_MEMBER_NAME = "Former member";
+
     @Column(nullable = false, unique = true)
     private String email;
 
@@ -79,6 +82,9 @@ public class User extends BaseEntity {
     /** Where the next sign-in opens; set on explicit choices only, never by a background refresh. */
     @Column(name = "last_workspace_id")
     private UUID lastWorkspaceId;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 
     /**
      * Only the current picture's source may replace it; anyone else may only fill an empty one —
@@ -181,6 +187,30 @@ public class User extends BaseEntity {
 
     public void discardPassword() {
         this.passwordHash = null;
+    }
+
+    /**
+     * Account deletion: the row stays, so whatever names its id still resolves, but nothing on it identifies the
+     * person any more. The address becomes one no mailbox answers, unique by the id, so the real one can sign up
+     * afresh.
+     */
+    public void anonymise(Instant now) {
+        this.email = "deleted-" + getId() + "@deleted.invalid";
+        this.passwordHash = null;
+        this.fullName = FORMER_MEMBER_NAME;
+        this.title = null;
+        this.avatarUrl = null;
+        this.avatarSource = null;
+        this.status = UserStatus.DELETED;
+        this.failedLoginAttempts = 0;
+        this.lockedUntil = null;
+        this.lastLoginAt = null;
+        this.lastWorkspaceId = null;
+        this.deletedAt = now;
+    }
+
+    public boolean isDeleted() {
+        return status == UserStatus.DELETED;
     }
 
     public void attachLocalPassword(String passwordHash) {

@@ -121,6 +121,40 @@ export function isMfaChallenge(answer: SignInAnswer | User): answer is MfaChalle
   return "mfaRequired" in answer && answer.mfaRequired === true;
 }
 
+/** A workspace the person is in, by name. */
+export interface AccountWorkspace {
+  id: string;
+  name: string;
+}
+
+/** A live position the person is the only lead of, so it is handed over before their account can go. */
+export interface HandoverPosition {
+  workspaceId: string;
+  workspaceName: string;
+  projectId: string;
+  title: string;
+}
+
+/** What deleting the caller's account would do, and what it asks of them first. */
+export interface AccountDeletionPreview {
+  /** Every workspace they would leave. */
+  workspaces: AccountWorkspace[];
+  soleAdminOf: AccountWorkspace[];
+  soleLeadOf: HandoverPosition[];
+  /** A password account gives its password; one with none must have signed in moments ago. */
+  proof: "PASSWORD" | "RECENT_SIGN_IN";
+  /** A password account with two-factor on gives a code as well. */
+  codeRequired: boolean;
+  signedInRecently: boolean;
+  /** Lower-cased provider ids the account signs in with, to sign in again with. */
+  signInProviders: string[];
+}
+
+export interface DeleteAccountRequest {
+  currentPassword?: string;
+  code?: string;
+}
+
 /** Settings → Security's two-factor card. Never the secret or a code: those are shown once. */
 export interface MfaStatus {
   /** Whether it may be turned on here; someone who has it may always turn it off. */
@@ -250,4 +284,8 @@ export interface ApiError {
   clientId?: string;
   /** Present on INTEGRATION_KEYS_REFUSED: the provider's own code, such as `AADSTS7000215` or `invalid_client`. */
   providerError?: string;
+  /** Present on ACCOUNT_HANDOVER_REQUIRED: the workspaces the person is the only admin of. */
+  soleAdminOf?: AccountWorkspace[];
+  /** Present on ACCOUNT_HANDOVER_REQUIRED: the live positions the person is the only lead of. */
+  soleLeadOf?: HandoverPosition[];
 }
