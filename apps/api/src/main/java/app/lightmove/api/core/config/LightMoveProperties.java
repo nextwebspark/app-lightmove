@@ -34,5 +34,6 @@ public record LightMoveProperties(
         NotificationSettings notifications,
         NoteSettings notes,
         RowLevelSecuritySettings rowLevelSecurity,
+        AvatarSettings avatars,
         RetentionSettings retention
 ) {}

@@ -32,6 +32,24 @@ class CachedPeopleSearchTest {
     }
 
     @Test
+    @DisplayName("words are matched whole: the round that filed three medical directors as technology heads fits none of them")
+    void wordsAreMatchedWhole() {
+        SourcingSpec technologyRound = spec(List.of("Chief", "Director", "Head", "VP"),
+                List.of("Applications", "CTO", "Engineering", "Security"), List.of("Analyst", "Assistant"));
+
+        assertThat(CachedPeopleSearch.fits(person("pharmacist-one", "Pharmacist One",
+                "DHA Pharmacist cum Medical director (Master in Pharmaceutics, Pharm D)", "AE"), technologyRound,
+                List.of("AE"))).isFalse();
+        assertThat(CachedPeopleSearch.fits(person("pharmacist-two", "Pharmacist Two",
+                "Pharmacist - DHA Holder, Drug Safety Associate, Medical Director", "AE"), technologyRound,
+                List.of("AE"))).isFalse();
+        assertThat(CachedPeopleSearch.fits(person("vp", "A VP", "VP Engineering", "AE"), technologyRound,
+                List.of("AE"))).isTrue();
+        assertThat(CachedPeopleSearch.fits(person("it", "An IT Head", "Head of IT", "AE"),
+                spec(List.of("Head"), List.of("Technology"), List.of()), List.of("AE"))).isTrue();
+    }
+
+    @Test
     @DisplayName("the same question in another order or case is one key; another size, country, exclusion, provider or seat is not")
     void queryKeysAreCanonical() {
         String key = CachedPeopleSearch.queryKeyOf("brightdata", "DP-World",
