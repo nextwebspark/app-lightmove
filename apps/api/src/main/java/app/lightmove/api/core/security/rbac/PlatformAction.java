@@ -10,5 +10,8 @@ public enum PlatformAction {
     CREDIT_GRANT,
 
     /** Set the plan and seats of a workspace billed outside Stripe. */
-    SUBSCRIPTION_MANAGE
+    SUBSCRIPTION_MANAGE,
+
+    /** Restore a deleted workspace within its grace period, and read a purged one's deletion certificate. */
+    WORKSPACE_LIFECYCLE_MANAGE
 }

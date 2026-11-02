@@ -128,3 +128,29 @@ export function linkedinProfileProblem(value: string): string | null {
     ? null
     : "Paste a LinkedIn profile link, such as linkedin.com/in/name";
 }
+
+/** "1.4 GB", "318 MB", "54 KB": an export runs from a few kilobytes to gigabytes. */
+export function exportSizeLabel(bytes: number): string {
+  const units = ["KB", "MB", "GB"];
+  let size = bytes / 1024;
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit += 1;
+  }
+  return `${size >= 10 || unit === 0 ? Math.max(1, Math.round(size)) : Number(size.toFixed(1))} ${units[unit]}`;
+}
+
+/** "5 Oct 2026, 14:09" in the viewer's zone. */
+export function momentOf(isoInstant: string): string {
+  const at = new Date(isoInstant);
+  return `${dayOf(isoInstant)}, ${at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+/** "expires in 7 days", or "expires within a day" for the last of them. */
+export function expiresInPhrase(isoInstant: string, now: Date = new Date()): string {
+  const left = new Date(isoInstant).getTime() - now.getTime();
+  if (left < 86_400_000) return "expires within a day";
+  const days = Math.ceil(left / 86_400_000);
+  return `expires in ${days} ${days === 1 ? "day" : "days"}`;
+}

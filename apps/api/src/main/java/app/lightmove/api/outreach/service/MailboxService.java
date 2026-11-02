@@ -38,6 +38,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -196,7 +197,31 @@ public class MailboxService {
     }
 
     public void disconnect(UUID userId, UUID workspaceId, HttpServletRequest request) {
-        ReleasedGrant released = transactions.execute(status -> {
+        release(userId, workspaceId, userId, request, transactions);
+    }
+
+    /**
+     * A deleted workspace's mailboxes, each let go as its consultant's own Disconnect would — the grant revoked at the
+     * provider, the Recall calendar released — in a transaction of its own, since the deletion's has already committed.
+     * One that fails is logged and the rest still go: the purge deletes every row anyway.
+     */
+    public void disconnectAllOf(UUID workspaceId, UUID actorId) {
+        TransactionTemplate own = new TransactionTemplate(transactions.getTransactionManager());
+        own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        List<UUID> holders = own.execute(status -> connections.findByWorkspaceId(workspaceId).stream()
+                .map(MailboxConnection::getUserId).toList());
+        for (UUID holder : holders) {
+            try {
+                release(holder, workspaceId, actorId, null, own);
+            } catch (RuntimeException failed) {
+                log.warn("Could not disconnect a mailbox of deleted workspace {}", workspaceId, failed);
+            }
+        }
+    }
+
+    private void release(UUID userId, UUID workspaceId, UUID actorId, HttpServletRequest request,
+                         TransactionTemplate transaction) {
+        ReleasedGrant released = transaction.execute(status -> {
             MailboxConnection connection = requireConnection(userId, workspaceId);
             String recallCalendar = connection.releaseRecallCalendar();
             if (recallCalendar != null) {
@@ -208,7 +233,7 @@ public class MailboxService {
         });
         tokens.forget(released.grantId());
         audit.event(WorkspaceEventType.MAILBOX_DISCONNECTED)
-                .actor(userId)
+                .actor(actorId)
                 .workspace(workspaceId)
                 .target(TARGET, userId)
                 .from(request)

@@ -18,6 +18,8 @@ import app.lightmove.api.workspace.model.AuditLogFilters;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.io.Writer;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +37,7 @@ public class AuditLogService {
 
     public static final int DEFAULT_PAGE_SIZE = 50;
     public static final int MAX_PAGE_SIZE = 100;
+    private static final int WHOLE_LOG_PAGE = 1000;
 
     private final AuditEventRepository events;
     private final AuditEntryDescriber describer;
@@ -77,6 +80,28 @@ public class AuditLogService {
                 .detailIfPresent("to", filters.to() == null ? null : filters.to().toString())
                 .record();
         return csv;
+    }
+
+    /**
+     * The whole log as one CSV, a page at a time, for the export of the whole workspace (#926): no ceiling, since the
+     * file is the workspace's last copy of it, and no audit line of its own — the export records itself.
+     */
+    @Transactional(readOnly = true)
+    public long writeWholeLog(UUID workspaceId, Writer out) throws IOException {
+        AuditLogFilters everything = new AuditLogFilters(null, null, null, null, null);
+        out.write(csvWriter.header());
+        long written = 0;
+        Long before = null;
+        List<AuditEvent> page;
+        do {
+            page = events.findWorkspaceLog(queryOf(workspaceId, everything, before), WHOLE_LOG_PAGE);
+            for (AuditLogEntryResponse entry : describer.describe(workspaceId, page)) {
+                out.write(csvWriter.line(entry));
+            }
+            written += page.size();
+            before = page.isEmpty() ? null : page.getLast().getId();
+        } while (page.size() == WHOLE_LOG_PAGE);
+        return written;
     }
 
     /** Everyone the workspace ever held, for the Person filter: removed members still answer for what they did. */

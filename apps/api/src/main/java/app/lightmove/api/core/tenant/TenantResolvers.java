@@ -105,6 +105,12 @@ public class TenantResolvers {
                 Timestamp.from(digestsBefore), Timestamp.from(threadsBefore), Timestamp.from(usageBefore));
     }
 
+    /** Whole-workspace exports past their expiry, or still building past the deadline a live worker would have met. */
+    public List<ResolvedRow> workspaceExportsToClose(Instant now, Instant runningBefore) {
+        return jdbc.query("SELECT id, workspace_id FROM app_lm_resolve_workspace_exports_to_close(?, ?)", ROW,
+                Timestamp.from(now), Timestamp.from(runningBefore));
+    }
+
     /** How many firms hold their own template under each code — the platform library's count, never which firms. */
     public Map<String, Long> firmTemplateCopiesByCode() {
         Map<String, Long> copies = new HashMap<>();

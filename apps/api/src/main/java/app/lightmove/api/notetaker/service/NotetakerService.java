@@ -300,21 +300,37 @@ public class NotetakerService {
      * refuses for a restricted person. Run in the person's workspace, off the request that restricted them.
      */
     public void callBackForRestriction(UUID workspaceId, UUID personId, UUID restrictedBy) {
-        // Its own transactions: a listener the pool runs on the publishing thread would otherwise join the finished one.
+        TransactionTemplate own = ownTransactions();
+        callBack(own.execute(status -> recordings.findByWorkspaceIdAndPersonIdAndStatusIn(workspaceId,
+                personId, CANCELLABLE).stream().map(MeetingRecording::getId).toList()),
+                workspaceId, restrictedBy, "PROCESSING_RESTRICTED", own);
+    }
+
+    /** The workspace was deleted: every bot still to join a call, or in one now, is called back and its media deleted. */
+    public void callBackForWorkspaceDeletion(UUID workspaceId, UUID deletedBy) {
+        TransactionTemplate own = ownTransactions();
+        callBack(own.execute(status -> recordings.findByWorkspaceIdAndStatusIn(workspaceId, CANCELLABLE).stream()
+                .map(MeetingRecording::getId).toList()), workspaceId, deletedBy, "WORKSPACE_DELETED", own);
+    }
+
+    /** Its own transactions: a listener the pool runs on the publishing thread would otherwise join the finished one. */
+    private TransactionTemplate ownTransactions() {
         TransactionTemplate own = new TransactionTemplate(Objects.requireNonNull(transactions.getTransactionManager()));
         own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        List<UUID> live = own.execute(status -> recordings.findByWorkspaceIdAndPersonIdAndStatusIn(workspaceId,
-                personId, CANCELLABLE).stream().map(MeetingRecording::getId).toList());
+        return own;
+    }
+
+    private void callBack(List<UUID> live, UUID workspaceId, UUID actorId, String reason, TransactionTemplate own) {
         for (UUID recordingId : live == null ? List.<UUID>of() : live) {
             String botId = own.execute(status -> recordings.lockById(recordingId)
                     .filter(held -> !held.isEnding() && CANCELLABLE.contains(held.getStatus()))
                     .map(held -> {
                         callOff(held);
-                        audit.event(ProjectEventType.NOTETAKER_CANCELLED).actor(restrictedBy).workspace(workspaceId)
+                        audit.event(ProjectEventType.NOTETAKER_CANCELLED).actor(actorId).workspace(workspaceId)
                                 .target(AuditService.PROJECT_TARGET, held.getProjectId())
                                 .detail("candidateId", String.valueOf(held.getCandidateId()))
                                 .detail("recordingId", recordingId.toString())
-                                .detail("reason", "PROCESSING_RESTRICTED")
+                                .detail("reason", reason)
                                 .record();
                         return held.getRecallBotId() == null ? "" : held.getRecallBotId();
                     })

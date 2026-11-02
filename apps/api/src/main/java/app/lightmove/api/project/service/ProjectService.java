@@ -137,6 +137,17 @@ public class ProjectService {
         return all.stream().map(project -> toResponse(project, assembly)).toList();
     }
 
+    /** Every mandate the workspace ever ran, archived ones included: the export of the whole workspace. */
+    @Transactional(readOnly = true)
+    public List<ProjectResponse> listEveryInWorkspace(UUID workspaceId) {
+        List<Project> all = projects.findByWorkspaceIdOrderByCreatedAtDesc(workspaceId);
+        if (all.isEmpty()) {
+            return List.of();
+        }
+        Assembly assembly = assemblyFor(workspaceId, all, Set.of());
+        return all.stream().map(project -> toResponse(project, assembly)).toList();
+    }
+
     @Transactional(readOnly = true)
     public ProjectResponse get(UUID workspaceId, UUID projectId, ProjectAudience audience) {
         return responseFor(workspaceId, projects.requireInWorkspace(projectId, workspaceId), audience);

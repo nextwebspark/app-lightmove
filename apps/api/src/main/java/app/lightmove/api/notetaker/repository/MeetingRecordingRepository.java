@@ -30,6 +30,8 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
     List<MeetingRecording> findByWorkspaceIdAndPersonIdAndStatusIn(UUID workspaceId, UUID personId,
                                                                    Collection<NotetakerStatus> statuses);
 
+    List<MeetingRecording> findByWorkspaceIdAndStatusIn(UUID workspaceId, Collection<NotetakerStatus> statuses);
+
     List<MeetingRecording> findByStatusAndJoinAtAfter(NotetakerStatus status, Instant after);
 
     Optional<MeetingRecording> findByFinalTranscriptId(String finalTranscriptId);
