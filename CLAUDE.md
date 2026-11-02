@@ -910,7 +910,7 @@ exports them, the Candidates CSV, each person's notes and the latest file of eac
 the admin is emailed, and `WorkspaceExportExpiry` (V179's resolver) deletes it `workspace-exports-after` (7 days ⚖️)
 later, or fails one whose worker died.
 
-**A person deletes their own account (#926, V179)** from Settings → Profile (`account`): `GET
+**A person deletes their own account (#926, V180)** from Settings → Profile (`account`): `GET
 /auth/me/deletion-preview` names the workspaces they leave and refuses — `ACCOUNT_HANDOVER_REQUIRED`, naming them —
 while they are the only admin of one or the only lead of a live position (read in that workspace's scope); `DELETE
 /auth/me` asks the password, and a code where two-factor is on, or for an account with none a sign-in within
@@ -1509,9 +1509,9 @@ was given 30 days from the deploy), `app_lm_workspace_member.ended_with_workspac
 enrollment's stop reasons, `app_lm_workspace_export` and `app_lm_workspace_purge_certificate` (both under policy; the
 certificate is never purged), the resolver `app_lm_resolve_workspace_exports_to_close`, and the platform action
 `WORKSPACE_LIFECYCLE_MANAGE`.
-V179 gives `app_lm_user` `deleted_at` (set only on a `DELETED` account, by CHECK): account deletion anonymises the row
+V180 gives `app_lm_user` `deleted_at` (set only on a `DELETED` account, by CHECK): account deletion anonymises the row
 rather than deleting it.
-V173 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a `value_hash` unique per workspace and kind,
+V174 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a `value_hash` unique per workspace and kind,
 `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security in the same migration.
 V169 gives `app_lm_workspace_mail_integration` the saved app's read-only facts: `secret_hint` (the last four),
 `secret_saved_at`/`secret_saved_by`, and `keys_checked_at`/`keys_refused_with` (the provider's last answer, its code
