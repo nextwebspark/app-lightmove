@@ -27,4 +27,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.id = :id")
     Optional<User> lockToFoundFirstWorkspace(UUID id);
+
+    /** A photo's write: an upload, a removal and a provider's copy landing together decide one after another. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.id = :id")
+    Optional<User> lockForAvatarChange(UUID id);
 }

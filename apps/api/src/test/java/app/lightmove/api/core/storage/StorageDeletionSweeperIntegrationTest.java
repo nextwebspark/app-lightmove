@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-/** V174's queue: a queued file is deleted, and one the store refuses is kept and tried again later, never dropped. */
+/** V175's queue: a queued file is deleted, and one the store refuses is kept and tried again later, never dropped. */
 @IntegrationTest
 class StorageDeletionSweeperIntegrationTest {
 

@@ -21,6 +21,7 @@ delete-capable maintenance role (#256).
 | Table | Personal data | Purpose | Retention | Trigger | Job |
 |---|---|---|---|---|---|
 | `app_lm_user` | name, work email, sign-in facts | the account | while the account lives | account deletion (#926) | — |
+| `app_lm_user_avatar` | profile photo | the person's picture beside their name | while the account lives | a new picture, removal, account deletion (#926) | — |
 | `app_lm_user_identity` | provider email and subject | Google / LinkedIn sign-in | while the account lives | account deletion, unlink | — |
 | `app_lm_user_mfa_factor` | sealed authenticator secret | two-factor | while two-factor is on | turned off, account deletion | — |
 | `app_lm_user_mfa_recovery_code` | hashed codes | two-factor recovery | while two-factor is on | regenerated, turned off | — |

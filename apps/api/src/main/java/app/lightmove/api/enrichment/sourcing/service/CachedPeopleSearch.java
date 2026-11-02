@@ -91,16 +91,17 @@ public class CachedPeopleSearch {
     }
 
     /**
-     * The vendor's rule, read locally over a record on file: the title holds one seniority word, one
-     * function word when there are any, and no excluded word — case-insensitive substrings, which is
-     * what {@code includes} matches on a single word — and the residence is one of {@code countryCodes}
-     * when any are given.
+     * The search's rule, read locally over a record on file: the title holds one seniority word, one
+     * function word (or the abbreviation it spells out) when there are any, and no excluded word — as
+     * whole words, never Bright Data's substrings, which read "CTO" inside "Medical Director" — and the
+     * residence is one of {@code countryCodes} when any are given.
      */
     static boolean fits(BrightDataPerson person, SourcingSpec spec, List<String> countryCodes) {
-        String title = person.position() == null ? "" : person.position().toLowerCase(Locale.ROOT);
-        boolean senior = spec.seniorityWords().isEmpty() || containsAny(title, spec.seniorityWords());
-        boolean function = spec.functionWords().isEmpty() || containsAny(title, spec.functionWords());
-        boolean excluded = containsAny(title, spec.excludedWords());
+        String title = person.position() == null ? "" : person.position();
+        boolean senior = spec.seniorityWords().isEmpty() || TitleWords.containsAny(title, spec.seniorityWords());
+        boolean function = spec.functionWords().isEmpty()
+                || TitleWords.containsFunction(title, spec.functionWords());
+        boolean excluded = TitleWords.containsAny(title, spec.excludedWords());
         boolean placed = countryCodes.isEmpty() || (person.countryCode() != null
                 && countryCodes.stream().anyMatch(code -> code.equalsIgnoreCase(person.countryCode())));
         return !title.isEmpty() && senior && function && !excluded && placed;
@@ -117,10 +118,6 @@ public class CachedPeopleSearch {
                 sortedLower(spec.seniorityWords()), sortedLower(spec.functionWords()),
                 "-" + sortedLower(spec.excludedWords()), sortedLower(countryCodes), Integer.toString(size));
         return PeopleQueryKeys.of(canonical);
-    }
-
-    private static boolean containsAny(String title, List<String> words) {
-        return words.stream().anyMatch(word -> title.contains(word.toLowerCase(Locale.ROOT)));
     }
 
     private static String sortedLower(List<String> values) {
