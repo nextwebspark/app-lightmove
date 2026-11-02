@@ -77,6 +77,9 @@ class SourcedHitRankingTest {
         assertThat(SourcedHitRanking.levelOf("Business Advisor to the Chief Digital Officer")).isEqualTo(TitleLevel.NONE);
         assertThat(SourcedHitRanking.levelOf("Head of Sales to Government")).isEqualTo(TitleLevel.HEAD);
         assertThat(SourcedHitRanking.levelOf("Assistant Manager")).isEqualTo(TitleLevel.NONE);
+        assertThat(SourcedHitRanking.levelOf("General Counsel")).isEqualTo(TitleLevel.HEAD);
+        assertThat(SourcedHitRanking.levelOf("Deputy General Counsel")).isEqualTo(TitleLevel.MANAGER);
+        assertThat(SourcedHitRanking.levelOf("Group Treasurer")).isEqualTo(TitleLevel.HEAD);
     }
 
     @Test

@@ -112,4 +112,35 @@ class SourcingSpecTest {
         });
         assertThat(operations.forSubstringMatching()).isEmpty();
     }
+
+    @Test
+    @DisplayName("a role title of level words alone, or CEO, is the general-management seat; one naming a function is not")
+    void namesTheTopSeat() {
+        assertThat(List.of("Chief Executive Officer", "Group CEO", "Managing Director", "General Manager"))
+                .allSatisfy(title -> assertThat(SourcingSpec.namesTheTopSeat(title)).as(title).isTrue());
+        assertThat(List.of("Head of Information Technology", "Country Manager", "Group CFO", ""))
+                .allSatisfy(title -> assertThat(SourcingSpec.namesTheTopSeat(title)).as(title).isFalse());
+        assertThat(SourcingSpec.namesTheTopSeat(null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("a level word in the function list names no function")
+    void functionNamingWordsLeaveLevelsOut() {
+        SourcingSpec spec = SourcingSpec.of(List.of("Head"), List.of("Director", "Treasury", "Executive", "CFO"),
+                List.of(), null);
+
+        assertThat(spec.functionNamingWords()).containsExactly("Treasury", "CFO");
+    }
+
+    @Test
+    @DisplayName("words many functions share, singular or plural, are never distinctive; a title's own words leave levels out")
+    void distinctiveWordsLeaveSharedOnesOut() {
+        SourcingSpec round = SourcingSpec.of(List.of("Head"),
+                List.of("Infrastructure", "Systems", "Processes", "Treasury"), List.of(), null);
+
+        assertThat(round.distinctiveFunctionWords()).containsExactly("Treasury");
+        assertThat(SourcingSpec.functionWordsOfTitle("Group Head of Treasury")).containsExactly("Treasury");
+        assertThat(SourcingSpec.functionWordsOfTitle("Managing Director")).isEmpty();
+        assertThat(SourcingSpec.functionWordsOfTitle(null)).isEmpty();
+    }
 }

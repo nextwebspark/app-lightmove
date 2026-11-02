@@ -64,6 +64,19 @@ public record SourcingSpec(List<String> seniorityWords, List<String> functionWor
             "IT", List.of("Technology", "CIO", "CTO"),
             "PR", List.of("Communications"));
 
+    /**
+     * Words many functions' titles carry — "Business Development", "Surgical Infrastructure", "Medical
+     * Systems" — so they never prove which function a title is.
+     */
+    private static final Set<String> SHARED_FUNCTION_WORDS = Set.of("development", "system", "solution",
+            "infrastructure", "network", "service", "project", "program", "programme", "operation", "operational",
+            "business", "strategy", "strategic", "transformation", "planning", "management", "support",
+            "application", "engineering", "technical", "innovation", "excellence", "performance", "quality",
+            "commercial", "corporate", "administration", "process", "product", "enterprise", "security", "growth");
+
+    /** The general-management seat's abbreviations, which a role title may be alone. */
+    private static final Set<String> TOP_SEAT_ABBREVIATIONS = Set.of("ceo", "md", "gm");
+
     private static final List<String> BOARD_WORDS = List.of("Chairman", "Board", "President", "Chief");
     private static final List<String> EXECUTIVE_WORDS = List.of("Chief", "Head", "Director", "VP");
     /** Not "Lead": the vendor finds it inside "Leadership" and "Thought leader", a headline's favourite words. */
@@ -103,10 +116,7 @@ public record SourcingSpec(List<String> seniorityWords, List<String> functionWor
      */
     public static SourcingSpec defaultFor(String roleTitle, Seniority seniority) {
         String summary = roleTitle == null ? null : roleTitle.strip();
-        List<String> functionWords = spelledOut(tokensOf(roleTitle == null ? List.of() : List.of(roleTitle))).stream()
-                .filter(word -> !LEVEL_WORDS.contains(word.toLowerCase(Locale.ROOT)))
-                .limit(MAX_WORDS)
-                .toList();
+        List<String> functionWords = functionWordsOfTitle(roleTitle);
         if (functionWords.isEmpty()) {
             return new SourcingSpec(TOP_SEAT_WORDS, TOP_SEAT_FUNCTION_WORDS, TOP_SEAT_EXCLUDED_WORDS, summary);
         }
@@ -135,6 +145,51 @@ public record SourcingSpec(List<String> seniorityWords, List<String> functionWor
         return words.stream()
                 .filter(word -> !HIDDEN_IN_LONGER_WORDS.contains(word.toLowerCase(Locale.ROOT)))
                 .toList();
+    }
+
+    /** A role title's own distinctive words, levels and glue left out: none for "Managing Director". */
+    public static List<String> functionWordsOfTitle(String roleTitle) {
+        return spelledOut(tokensOf(roleTitle == null ? List.of() : List.of(roleTitle))).stream()
+                .filter(word -> !LEVEL_WORDS.contains(word.toLowerCase(Locale.ROOT)))
+                .limit(MAX_WORDS)
+                .toList();
+    }
+
+    /** Whether a title is the general-management seat (CEO, Managing Director), every word a level. */
+    public static boolean namesTheTopSeat(String roleTitle) {
+        List<String> words = tokensOf(roleTitle == null ? List.of() : List.of(roleTitle));
+        return !words.isEmpty() && words.stream()
+                .map(word -> word.toLowerCase(Locale.ROOT))
+                .allMatch(word -> LEVEL_WORDS.contains(word) || TOP_SEAT_ABBREVIATIONS.contains(word));
+    }
+
+    /** The function words that name a function rather than a level: "Director" in the list proves nothing. */
+    public List<String> functionNamingWords() {
+        return functionWords.stream()
+                .filter(word -> !LEVEL_WORDS.contains(word.toLowerCase(Locale.ROOT)))
+                .toList();
+    }
+
+    /** The function-naming words no other function's titles also carry. */
+    public List<String> distinctiveFunctionWords() {
+        return functionNamingWords().stream()
+                .filter(word -> !isSharedAcrossFunctions(word))
+                .toList();
+    }
+
+    private static boolean isSharedAcrossFunctions(String word) {
+        String folded = word.toLowerCase(Locale.ROOT);
+        return SHARED_FUNCTION_WORDS.contains(folded) || SHARED_FUNCTION_WORDS.contains(singularOf(folded));
+    }
+
+    private static String singularOf(String word) {
+        if (word.endsWith("ses") || word.endsWith("xes")) {
+            return word.substring(0, word.length() - 2);
+        }
+        if (word.endsWith("s") && !word.endsWith("ss")) {
+            return word.substring(0, word.length() - 1);
+        }
+        return word;
     }
 
     /** The words as a search sees them — order and case ignored — so two specs asking the same question share it. */
