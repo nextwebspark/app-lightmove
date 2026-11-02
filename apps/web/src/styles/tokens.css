@@ -75,17 +75,20 @@
    * Uncava also ships `uncava-tailwind.config.js`, which is a Tailwind v3 config. This app is v4 and
    * has no config file: that file is a reference for the intended names, not something to wire in.
    */
+  /* The ground the topbar and the rail sit on; the work area beside them is white. Apart from `bg` because
+     `bg` is also every card, popover and input drawn white on top of the work area. */
+  --color-u-canvas: #f4f5f7;
   --color-u-bg: #ffffff;
-  --color-u-surface: #f7f8fa;
+  --color-u-surface: #ffffff;
   --color-u-raised: #eceff3;
   --color-u-sunken: #e4e8ee;
-  --color-u-border: rgba(3, 7, 18, 0.09);
-  --color-u-border-strong: rgba(3, 7, 18, 0.16);
+  --color-u-border: rgba(3, 7, 18, 0.12);
+  --color-u-border-strong: rgba(3, 7, 18, 0.22);
   --color-u-scrim: rgba(3, 7, 18, 0.4);
 
   --color-u-text: #0b0d12;
-  --color-u-text2: #4c5462;
-  --color-u-text3: #6b7382;
+  --color-u-text2: #343a46;
+  --color-u-text3: #525967;
 
   --color-u-accent: #4a56d6;
   --color-u-accent-hover: #3a46c4;
@@ -143,6 +146,7 @@
  */
 .dark {
   /* UNCAVA's own `:root` — its dark-first default. See the note above for why it lands here. */
+  --color-u-canvas: #08090b;
   --color-u-bg: #08090b;
   --color-u-surface: #0e1013;
   --color-u-raised: #15181d;

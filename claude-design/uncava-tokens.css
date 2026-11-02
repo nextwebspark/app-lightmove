@@ -94,13 +94,13 @@
   --u-surface: #F7F8FA;
   --u-raised: #ECEFF3;
   --u-sunken: #E4E8EE;
-  --u-border: rgba(3, 7, 18, .09);
-  --u-border-strong: rgba(3, 7, 18, .16);
+  --u-border: rgba(3, 7, 18, .12);
+  --u-border-strong: rgba(3, 7, 18, .22);
   --u-scrim: rgba(3, 7, 18, .4);
 
   --u-text: #0B0D12;
-  --u-text-2: #4C5462;
-  --u-text-3: #6B7382;
+  --u-text-2: #343A46;
+  --u-text-3: #525967;
 
   --u-accent: #4A56D6;
   --u-accent-hover: #3A46C4;
