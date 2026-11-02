@@ -102,6 +102,17 @@ class SourcedHitRankingTest {
                 .containsExactly("finance", "legal");
     }
 
+    @Test
+    @DisplayName("a medical director never reads as a technology seat because CTO hides inside Director")
+    void aMedicalDirectorIsNoTechnologySeat() {
+        SourcingSpec technology = SourcingSpec.of(List.of("Chief", "Director", "Head", "VP"),
+                List.of("Applications", "CTO", "Engineering", "Security"), List.of(), null);
+
+        assertThat(slugs(SourcedHitRanking.ranked(List.of(person("medical", "Medical Director"),
+                person("it", "Head of Information Security")), technology, Seniority.C_SUITE)))
+                .containsExactly("it", "medical");
+    }
+
     private static BrightDataPerson atDpWorld(String slug, String title) {
         return new BrightDataPerson(slug, slug, slug, null, null, title, null, null, "AE", "DP World",
                 null, null, true, List.of(new BrightDataExperience("DP World", title, null, null, null, "2020",

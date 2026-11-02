@@ -7,6 +7,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -49,6 +50,13 @@ public record SourcingSpec(List<String> seniorityWords, List<String> functionWor
      * "HR" in "Threat" and "Chrome". A function abbreviation is searched by its spellings instead.
      */
     private static final Set<String> NOISE_WORDS = Set.of("it", "md", "gm", "pr", "ai", "ea", "hr");
+
+    /**
+     * Seat abbreviations a substring match finds inside ordinary title words, though a whole-word one
+     * never does: "CTO" in Director, Doctor and Sector, "COO" in Coordinator, "CCO" in Account, "CRO" in
+     * Micro. Only an index matching substrings is spared them.
+     */
+    private static final Set<String> HIDDEN_IN_LONGER_WORDS = Set.of("cto", "coo", "cco", "cro");
 
     /** The function abbreviations among the noise words, and the words that stand in for each. */
     private static final Map<String, List<String>> ABBREVIATION_SPELLINGS = Map.of(
@@ -108,6 +116,25 @@ public record SourcingSpec(List<String> seniorityWords, List<String> functionWor
             case N_MINUS_2, N_MINUS_3 -> MANAGER_WORDS;
         };
         return new SourcingSpec(seniorityWords, functionWords, SUPPORT_WORDS, summary);
+    }
+
+    /**
+     * The words for an index that matches substrings, those hiding inside longer words left out; empty when
+     * that would leave a list with nothing, since a search by seniority or function alone finds anyone.
+     */
+    public Optional<SourcingSpec> forSubstringMatching() {
+        List<String> seniority = outsideLongerWords(seniorityWords);
+        List<String> function = outsideLongerWords(functionWords);
+        if (seniority.isEmpty() != seniorityWords.isEmpty() || function.isEmpty() != functionWords.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new SourcingSpec(seniority, function, excludedWords, roleSummary));
+    }
+
+    private static List<String> outsideLongerWords(List<String> words) {
+        return words.stream()
+                .filter(word -> !HIDDEN_IN_LONGER_WORDS.contains(word.toLowerCase(Locale.ROOT)))
+                .toList();
     }
 
     /** The words as a search sees them — order and case ignored — so two specs asking the same question share it. */

@@ -237,13 +237,14 @@ the strip under the toolbar polls (and the project stream announces). Off the re
 Gemini call turns the brief into single-word title tokens (`SourcingSpec`: a seniority group, a
 function group — never empty, since "Chief" alone bought every Chief Accountant — and an excluded group
 sent as `not_includes`, four words each — the vendor refuses a fifth rule, runs a phrase at ten seconds
-and matches a word inside longer ones, so an exclusion hiding in a senior title word is dropped),
+and matches a word inside longer ones, so an exclusion hiding in a senior title word is dropped, and a seat
+abbreviation hiding in one — "CTO" in Director and Doctor — is never sent to it, `forSubstringMatching`),
 one **synchronous** Bright Data people search per company keys on the company's LinkedIn slug
 (`current_company_company_id`; the numeric id matches nothing) with the brief's country and the Gulf
 neighbours only — nobody living elsewhere is searched for, and a brief with no country searches everywhere.
 **No model judges the people**: the hits not already mapped are ranked in code (`SourcedHitRanking` —
 the vendor matched the headline and sends no relevance order, so it reads the *current role's* title:
-a function word first, then its level against the brief's seat) and the first `picks-per-company` are each filed through `CandidateService.addSourced` — the search hit *is* the research, so no
+a function word first, then its level against the brief's seat — every word matched whole, `TitleWords`) and the first `picks-per-company` are each filed through `CandidateService.addSourced` — the search hit *is* the research, so no
 second vendor call — as `AI_SOURCED` (no badge on the grid; the drawer's source reads "Sourced"), and
 the same automatic background run a capture gets proposes the missing background, fired with the `SOURCING`
 trigger that skips the per-user LLM meter. A company whose search finds **nobody** is searched again with other title
