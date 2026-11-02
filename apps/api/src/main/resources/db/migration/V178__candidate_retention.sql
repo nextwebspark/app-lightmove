@@ -3,7 +3,7 @@
 -- until an admin deletes them (through PersonErasureService, as any erasure) or keeps them for another period.
 --
 -- A person is due once their last touch — their latest timeline line, an admin's keep, or their founding — is older
--- than the period and no live position maps them. A restricted person (V175) is never due: a request is pending.
+-- than the period and no live position maps them. A restricted person (V176) is never due: a request is pending.
 --
 -- No row is the deployment's default (lightmove.retention.candidate-months); a row is an admin's choice, and a null
 -- period on it is "never delete". The floor is a year: a shorter period would offer people still being worked.
