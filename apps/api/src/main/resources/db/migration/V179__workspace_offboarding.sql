@@ -129,7 +129,7 @@ CREATE POLICY app_lm_tenant ON app_lm_workspace_purge_certificate
     WITH CHECK (app_lm_tenant_visible(workspace_id));
 
 -- The exports past their expiry, and the ones still building past the deadline a live worker would have met, for
--- WorkspaceExportExpiry: V171's shape, ids and the workspace out, never the row.
+-- WorkspaceExportExpiry: V172's shape, ids and the workspace out, never the row.
 CREATE FUNCTION app_lm_resolve_workspace_exports_to_close(p_now timestamptz, p_running_before timestamptz)
     RETURNS TABLE (id uuid, workspace_id uuid)
     LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$

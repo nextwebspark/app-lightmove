@@ -11,9 +11,9 @@ environment override under `lightmove.retention.*` (`RetentionSettings`), so a d
 release. Backups and point-in-time recovery keep a deleted row until they age out; nothing rewrites them.
 
 **Jobs.** `RetentionSweeper` (hourly, `lightmove.retention.sweep-interval`) deletes the system rows below. A tenant
-table is swept only in the workspaces `app_lm_resolve_workspaces_with_retention_due` (V176) names, each inside its own
+table is swept only in the workspaces `app_lm_resolve_workspaces_with_retention_due` (V177) names, each inside its own
 `WorkspaceScope`. `PersonErasureService` (#918) is how a person goes: by an admin from Candidates, or by an admin
-reviewing candidate retention (#921 part 2) — a workspace's period (Settings → Data & retention, V177
+reviewing candidate retention (#921 part 2) — a workspace's period (Settings → Data & retention, V178
 `app_lm_workspace_retention`, `lightmove.retention.candidate-months` where it has not chosen, 24 ⚖️) lists whoever is
 untouched that long and on no live position; nothing deletes a person without that review. `WorkspacePurge` (#926,
 `lightmove.retention.workspace-purge-interval`) is how a workspace goes: a deleted workspace's members lose access at
@@ -30,6 +30,7 @@ a name it typed into someone's note, or an @mention, stays in that note. Audit-t
 | Table | Personal data | Purpose | Retention | Trigger | Job |
 |---|---|---|---|---|---|
 | `app_lm_user` | name, work email, sign-in facts | the account | while the account lives; once deleted, a row of no name or address ("Former member"), kept so what it did still resolves | account deletion (#926) | `AccountDeletionService` |
+| `app_lm_user_avatar` | profile photo | the person's picture beside their name | while the account lives | a new picture, removal, account deletion (#926) | — |
 | `app_lm_user_identity` | provider email and subject | Google / LinkedIn sign-in | while the account lives | account deletion, unlink | — |
 | `app_lm_user_mfa_factor` | sealed authenticator secret | two-factor | while two-factor is on | turned off, account deletion | — |
 | `app_lm_user_mfa_recovery_code` | hashed codes | two-factor recovery | while two-factor is on | regenerated, turned off, account deletion | — |

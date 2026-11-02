@@ -77,6 +77,9 @@ class SourcedHitRankingTest {
         assertThat(SourcedHitRanking.levelOf("Business Advisor to the Chief Digital Officer")).isEqualTo(TitleLevel.NONE);
         assertThat(SourcedHitRanking.levelOf("Head of Sales to Government")).isEqualTo(TitleLevel.HEAD);
         assertThat(SourcedHitRanking.levelOf("Assistant Manager")).isEqualTo(TitleLevel.NONE);
+        assertThat(SourcedHitRanking.levelOf("General Counsel")).isEqualTo(TitleLevel.HEAD);
+        assertThat(SourcedHitRanking.levelOf("Deputy General Counsel")).isEqualTo(TitleLevel.MANAGER);
+        assertThat(SourcedHitRanking.levelOf("Group Treasurer")).isEqualTo(TitleLevel.HEAD);
     }
 
     @Test
@@ -100,6 +103,17 @@ class SourcedHitRankingTest {
         BrightDataPerson finance = atDpWorld("finance", "Group Finance Director");
         assertThat(slugs(SourcedHitRanking.ranked(List.of(legal, finance), CFO_WORDS, Seniority.C_SUITE)))
                 .containsExactly("finance", "legal");
+    }
+
+    @Test
+    @DisplayName("a medical director never reads as a technology seat because CTO hides inside Director")
+    void aMedicalDirectorIsNoTechnologySeat() {
+        SourcingSpec technology = SourcingSpec.of(List.of("Chief", "Director", "Head", "VP"),
+                List.of("Applications", "CTO", "Engineering", "Security"), List.of(), null);
+
+        assertThat(slugs(SourcedHitRanking.ranked(List.of(person("medical", "Medical Director"),
+                person("it", "Head of Information Security")), technology, Seniority.C_SUITE)))
+                .containsExactly("it", "medical");
     }
 
     private static BrightDataPerson atDpWorld(String slug, String title) {

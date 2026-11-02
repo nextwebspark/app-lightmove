@@ -741,14 +741,14 @@ the mapping with FEEDBACK notes from the client seat, saved views, configurable 
 categories (today's seven `CandidateStatus` values stay).
 
 > **Built (#918): erasure.** `PersonErasureService` deletes a person for good behind `PERSON_ERASE` (ADMIN alone,
-> V174): the cascades from `app_lm_person` take every row, and each `PersonErasureContributor` reaches what they
+> V175): the cascades from `app_lm_person` take every row, and each `PersonErasureContributor` reaches what they
 > cannot — outreach refuses while an email is mid-send and queues its attachments, the notetaker calls the person's
 > bots back at Recall and deletes the media, the vendor cache forgets the profile (across workspaces, by design), the
 > bell and Find executives' runs lose the name. Their files go through `StorageDeletionQueue` in the same transaction,
 > and by default their profile and addresses go on the suppression list (#920). The audit trail and the credit ledger
 > keep the id, never the name; names already written into older audit details are #927's.
 
-> **Built (#920, part 2): restriction of processing.** `Person.restrictProcessing` (V175, do not contact's shape: a
+> **Built (#920, part 2): restriction of processing.** `Person.restrictProcessing` (V176, do not contact's shape: a
 > reason, who and when, kept only while set) is set and lifted by anyone holding `CANDIDATE_POOL_MANAGE`, optionally
 > suppressing the person as an objection, which lifting leaves in place. The gates: `CandidateService.dossierOf`
 > refuses `PERSON_PROCESSING_RESTRICTED`, so no model reads them; the filing step and `mapFromPool` map them onto no
