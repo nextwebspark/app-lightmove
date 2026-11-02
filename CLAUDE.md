@@ -83,7 +83,7 @@ each `PersonErasureContributor` — declared in `candidate`, implemented where t
 mid-send, calls their Recall bots back, forgets the vendor cache's copy of the profile and scrubs the name from the bell
 and Find executives' runs; their files are queued in `app_lm_storage_deletion` (global, keys only) for
 `StorageDeletionSweeper`, and their profile and addresses suppressed unless the admin unticks it. Audited by id and
-counts, never the name. **Anyone on the team restricts processing of a person (#920, V175, GDPR Art. 18)** from the
+counts, never the name. **Anyone on the team restricts processing of a person (#920, V176, GDPR Art. 18)** from the
 Candidates drawer's ⋯, with a reason and optionally the suppression list as an objection (`PUT
 /candidates/{personId}/processing-restriction`, `CANDIDATE_POOL_MANAGE`): the record stays readable and editable, and
 nothing uses it until it is lifted — `CandidateService.dossierOf`, every model run's one read, refuses

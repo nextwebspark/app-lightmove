@@ -748,7 +748,7 @@ categories (today's seven `CandidateStatus` values stay).
 > and by default their profile and addresses go on the suppression list (#920). The audit trail and the credit ledger
 > keep the id, never the name; names already written into older audit details are #927's.
 
-> **Built (#920, part 2): restriction of processing.** `Person.restrictProcessing` (V175, do not contact's shape: a
+> **Built (#920, part 2): restriction of processing.** `Person.restrictProcessing` (V176, do not contact's shape: a
 > reason, who and when, kept only while set) is set and lifted by anyone holding `CANDIDATE_POOL_MANAGE`, optionally
 > suppressing the person as an objection, which lifting leaves in place. The gates: `CandidateService.dossierOf`
 > refuses `PERSON_PROCESSING_RESTRICTED`, so no model reads them; the filing step and `mapFromPool` map them onto no
