@@ -456,7 +456,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `task` and `notification` (epic #862, `docs/tasks-notifications.md`), `notetaker` (Recall.ai bots, `docs/notetaker.md`) |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `task` and `notification` (epic #862, `docs/tasks-notifications.md`), `notetaker` (Recall.ai bots, `docs/notetaker.md`), `platform` (Settings → Platform's variables and prompts, #1187) |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -867,6 +867,28 @@ changes) show in every workspace the person is a member of, from their latest jo
 time away never shows) until the `MEMBER_REMOVED` line that ended it; a failed sign-in for an unknown address shows
 nowhere. Uncava staff's rows read as "Uncava", never a name
 or an address. Its index `(workspace_id, id DESC)` is `harden.sql`'s in production (V165 skips it there).
+
+**Settings → Platform → Variables and Prompts (#1187)** let Uncava's `SUPER_ADMIN` tune the running app without a
+release, under `/api/v1/platform/settings` (`PLATFORM_SETTINGS_MANAGE`) and `/api/v1/platform/prompts`
+(`PROMPT_MANAGE`), a 404 to anyone else and each Settings rail entry gated on its own action. A **variable** is a
+constant of `core/platformconfig`'s `PlatformSetting` — **the allowlist is the whole guarantee**: Find executives'
+four limits, the five fair-use ceilings, the trial's credits and length, the three export caps, MCP's page size and
+the assistant's model, temperature and thinking budget; never a secret, a key, `auth.*`, `crypto.*` or a sign-in limit.
+Each carries its bounds and its default, the value the deployment bound at boot, and a feature reads it through
+`PlatformSettings` at the point of use (never captured in a field), so Reset — deleting the override — returns to the
+yml and env; people filed per company never passes people asked, whichever is changed. A **prompt** is one of the 17
+shipped `prompts/*.st` (`PlatformPrompt`); `StructuredPrompt`, the assistant's core prompt and the shortlist ask
+`PromptTexts` for the system text on every call, so a saved version is the next call's. An override keeps exactly the
+shipped `{name}` placeholders (`PLATFORM_PROMPT_VARIABLES_CHANGED`, checked again on Restore), saves against the version
+it opened on (`PLATFORM_PROMPT_STALE`), and versions are append-only — Restore saves an old body as a new version,
+Revert to shipped clears the active one; the answer schemas, `ContactRedaction`, `AiRefusals` and the
+`CandidateDossier` allowlist are not editable. Every instance holds the overrides as one snapshot
+(`PlatformOverrides`): every write and Refresh raises `app_lm_platform_config_state.version` and NOTIFYs
+`lm_platform_config` in its own transaction, which marks every instance stale at commit, and an instance also asks the
+stored version once `lightmove.platform.config-check-interval` (30s) has passed, for a NOTIFY lost while its listener
+reconnected. Each change is a `PlatformEventType` audit line with no workspace — a prompt's id and version, never its
+body. Running an eval from the panel is not built: the evals live in `src/test` and their golden sets never reach an
+instance.
 
 `publicapi` is **the public API** (epic #690, `docs/public-api.md`): read-only JSON for an ATS, a BI tool or a
 script, under `/api/v1/public/**` and nowhere else, documented as OpenAPI 3.1 at `/api/v1/public/openapi.json`
@@ -1428,6 +1450,11 @@ public, no redirect, a size cap, one deadline) — and `app_lm_user.avatar_url` 
 or a removal no provider replaces (`User.mayTakeAvatarFrom`), and once a workspace can enforce its identity provider's
 sign-in, `isAvatarEditable` is where its directory photo becomes final. It clears every provider link stored before it,
 which expired and, once dead, kept every other provider out: the next sign-in copies the picture.
+V181 is Settings → Platform (#1187): `app_lm_platform_setting` (one override per allowlisted key — no CHECK on the key,
+since the allowlist is code and a key a later build drops is ignored on load), `app_lm_platform_prompt` (append-only
+versions of a prompt, one `active` per prompt by partial unique index, the body ≤ 100,000) and the one-row
+`app_lm_platform_config_state` whose `version` every platform write raises (its row lock serialises them), and grants
+`PLATFORM_SETTINGS_MANAGE` and `PROMPT_MANAGE` to `SUPER_ADMIN`. Platform data: no `workspace_id`.
 V167 adds `app_lm_project_candidate.company_filed_for_them`: their company was filed for them (research, or the
 employer the workspace knew them at) rather than already held, cleared by any move; only the plugin's Undo reads it.
 V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage
