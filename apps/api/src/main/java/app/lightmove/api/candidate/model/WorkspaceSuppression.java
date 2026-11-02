@@ -14,7 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * One key no door may file again in this workspace (V173). It holds a hash, never the slug or address itself:
+ * One key no door may file again in this workspace (V174). It holds a hash, never the slug or address itself:
  * the list exists to recognise someone, not to remember them.
  */
 @Entity

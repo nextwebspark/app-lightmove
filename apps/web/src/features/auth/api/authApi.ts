@@ -85,6 +85,18 @@ export function updateProfile(payload: UpdateProfileRequest): Promise<User> {
   return request<User>("/auth/me", { method: "PATCH", body: payload, withCsrf: true });
 }
 
+/** Settings → Profile's photo: the square the crop dialog drew. The server re-encodes whatever it is sent. */
+export function uploadAvatar(photo: Blob): Promise<User> {
+  const body = new FormData();
+  body.append("file", photo, "photo.jpg");
+  return request<User>("/auth/me/avatar", { method: "PUT", body, withCsrf: true });
+}
+
+/** Back to initials; no provider sign-in brings a picture back after this. */
+export function removeAvatar(): Promise<User> {
+  return request<User>("/auth/me/avatar", { method: "DELETE", withCsrf: true });
+}
+
 export function providers(): Promise<AuthProviders> {
   return request<AuthProviders>("/auth/providers", { anonymous: true });
 }

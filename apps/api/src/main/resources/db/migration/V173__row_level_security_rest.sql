@@ -1,8 +1,8 @@
--- Row-level security on every remaining tenant table (#1085), V170's policies extended: a row of another workspace,
+-- Row-level security on every remaining tenant table (#1085), V171's policies extended: a row of another workspace,
 -- or any row with no workspace set, is neither read nor written. What stays out, and why, is
 -- TenantTableGuard.EXCLUDED; the boot refuses a tenant table that is on neither list.
 --
--- FORCE, for V170's reason: lm_app still owns these tables until #256.
+-- FORCE, for V171's reason: lm_app still owns these tables until #256.
 
 DO $$
 DECLARE
