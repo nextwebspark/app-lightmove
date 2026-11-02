@@ -19,7 +19,7 @@ import { sortableFieldsOf, useGridSort, type GridSort } from "../../../lib/useGr
 import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import { useExecutivesAtCompany } from "../../candidates/lib/useExecutivesAtCompany";
-import type { Candidate } from "../../candidates/api/types";
+import type { Candidate, CandidatesPage } from "../../candidates/api/types";
 import {
   CandidateDrawer,
   type CandidateCompanyContext,
@@ -57,6 +57,7 @@ import { ExecutiveSourcingBanner } from "../components/ExecutiveSourcingBanner";
 import { FindExecutivesDialog } from "../components/FindExecutivesDialog";
 import { ImportSpreadsheetDialog } from "../components/ImportSpreadsheetDialog";
 import { ManageColumnsDialog } from "../components/ManageColumnsDialog";
+import { DeclineCompanyDialog } from "../components/DeclineCompanyDialog";
 import { RemoveCompanyDialog } from "../components/RemoveCompanyDialog";
 import { TriageCompanyTable } from "../components/TriageCompanyTable";
 import { TriageToolbar, type UnavailableAction } from "../components/TriageToolbar";
@@ -181,6 +182,7 @@ function TriageStage() {
     });
   const [openCompany, setOpenCompany] = useState<OpenCompany | null>(null);
   const [pendingRemoval, setPendingRemoval] = useState<TriageCompany | null>(null);
+  const [pendingDecline, setPendingDecline] = useState<PendingDecline | null>(null);
   const [profile, setProfile] = useState<OpenProfile | null>(null);
   const profileCompany = profile?.company ?? null;
   const [pendingCandidateRemoval, setPendingCandidateRemoval] = useState<Candidate | null>(null);
@@ -221,6 +223,8 @@ function TriageStage() {
   const requestedView = searchParams.get("view");
   const view = resolveCompaniesView(views, requestedView, mapPreferences.view);
   const isBoard = view === "pipeline";
+  /** Declined is a list of what was ruled out, whose one act is Back to universe. */
+  const declinedStage = stage.status === "declined";
   // A tick made on one reading of the stage must not ride silently into another.
   const [tickedInView, setTickedInView] = useState(view);
   if (tickedInView !== view) {
@@ -605,6 +609,34 @@ function TriageStage() {
       : standing.candidates.map((candidate) => candidate.id);
   };
 
+  /**
+   * Declining takes everyone mapped at the company, whatever stage they stand at, so it reads them first: nobody, and
+   * the company goes at once; anybody, and the dialog says how many go with it.
+   */
+  const requestMove = async (company: TriageCompany, status: TriageCompanyStatus) => {
+    markBusy(company.id);
+    if (status !== "declined") {
+      move.mutate({ company, status });
+      return;
+    }
+    let everyone: CandidatesPage;
+    try {
+      everyone = await candidatesApi.getCandidates(project.id, { triageCompanyIds: [company.id] });
+    } catch (error) {
+      clearBusy(company.id);
+      toast.error(messageFor(error));
+      return;
+    }
+    const executiveIds =
+      everyone.totalCount > everyone.candidates.length ? undefined : everyone.candidates.map((candidate) => candidate.id);
+    if (everyone.totalCount === 0) {
+      move.mutate({ company, status, executiveIds: [] });
+      return;
+    }
+    clearBusy(company.id);
+    setPendingDecline({ company, executiveIds, count: everyone.totalCount });
+  };
+
   /** Who a company's removal takes with it, and whether a person's removal could take their company too. */
   const executivesAtRemoval = useExecutivesAtCompany(project.id, pendingRemoval?.id ?? null);
   const executivesAtCandidateCompany = useExecutivesAtCompany(
@@ -757,7 +789,7 @@ function TriageStage() {
               />
             ),
           },
-          ...(canWrite
+          ...(canWrite && !declinedStage
             ? [
                 {
                   key: "manageColumns",
@@ -855,6 +887,7 @@ function TriageStage() {
         addToSequence={addToSequenceOffered ? { onPress: enrolTicked, unavailable: toolbarEnrolUnavailable() } : undefined}
         sendEmail={
           emailOffered &&
+          !declinedStage &&
           mailboxState.kind !== "unavailable" && (
             <NewEmailButton
               projectId={project.id}
@@ -868,7 +901,7 @@ function TriageStage() {
           )
         }
         create={
-          canWrite && !isBoard
+          canWrite && !isBoard && !declinedStage
             ? {
                 onAddExecutive: () => setProfile({ candidate: null, company: null }),
                 onAddCompany: () => setOpenCompany({ company: null }),
@@ -1013,22 +1046,23 @@ function TriageStage() {
                 }
               : {}),
           }}
-          onEditColumn={(customColumnId) => {
-            setEditColumnId(customColumnId);
-            setManagingColumns(true);
-          }}
+          onEditColumn={
+            declinedStage
+              ? undefined
+              : (customColumnId) => {
+                  setEditColumnId(customColumnId);
+                  setManagingColumns(true);
+                }
+          }
           onDeleteColumn={
-            canWrite
+            canWrite && !declinedStage
               ? (customColumnId) => {
                   const column = customColumns.find((entry) => entry.id === customColumnId);
                   if (column) deleteColumn.mutate(column);
                 }
               : undefined
           }
-          onMove={(company, status) => {
-            markBusy(company.id);
-            move.mutate({ company, status });
-          }}
+          onMove={(company, status) => void requestMove(company, status)}
           onDelete={setPendingRemoval}
           onAddExecutive={(company) =>
             setProfile({
@@ -1053,6 +1087,7 @@ function TriageStage() {
           onOpenCompany={(company) => setOpenCompany({ company })}
           busyIds={busyIds}
           canWrite={canWrite}
+          stageReadOnly={declinedStage}
           selection={
             selectionOffered
               ? {
@@ -1136,9 +1171,8 @@ function TriageStage() {
         onClose={() => setOpenCompany(null)}
         onSaved={refreshEverything}
         onMove={(company, status) => {
-          markBusy(company.id);
           setOpenCompany(null);
-          move.mutate({ company, status });
+          void requestMove(company, status);
         }}
         onDelete={(company) => {
           setOpenCompany(null);
@@ -1174,7 +1208,7 @@ function TriageStage() {
           setProfile({ candidate: saved, company: null });
           refreshEverything();
         }}
-        onDelete={canWrite ? setPendingCandidateRemoval : undefined}
+        onDelete={canWrite && !declinedStage ? setPendingCandidateRemoval : undefined}
         // The add form's other conclusion: the research happened and nobody fit, so the panel closes
         // on the flag rather than on a saved profile.
         onMarkNoExecutiveFound={
@@ -1189,6 +1223,20 @@ function TriageStage() {
               }
             : undefined
         }
+      />
+
+      <DeclineCompanyDialog
+        company={pendingDecline?.company ?? null}
+        executiveCount={pendingDecline?.count ?? 0}
+        declining={move.isPending}
+        onCancel={() => setPendingDecline(null)}
+        onConfirm={(company) => {
+          markBusy(company.id);
+          move.mutate(
+            { company, status: "declined", executiveIds: pendingDecline?.executiveIds },
+            { onSettled: () => setPendingDecline(null) },
+          );
+        }}
       />
 
       <RemoveCompanyDialog
@@ -1221,6 +1269,13 @@ function executivesOf(count: number): string {
 interface Enrolment {
   scope: ComponentProps<typeof EnrolDialog>["scope"];
   source: string;
+}
+
+/** A company waiting on the decline dialog, with everyone mapped at it — undefined ids when one read could not fit them. */
+interface PendingDecline {
+  company: TriageCompany;
+  executiveIds?: string[];
+  count: number;
 }
 
 interface CompanyMove {

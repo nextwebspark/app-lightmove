@@ -259,23 +259,25 @@ try {
     check("C1.4", "a company with nobody keeps one line and its Add executive slot", "1/1", `${lines}/${slot}`);
   });
 
-  // Shortlisted and Declined are switched off on screen (SHORTLIST_AND_DECLINE_OFFERED); the API still holds them.
-  await step("C1.5", "a link to Shortlisted or Declined lands on In universe", async () => {
-    const landed = [];
-    for (const slug of ["shortlisted", "declined"]) {
-      await page.goto(stageUrl(slug));
-      await page.waitForURL((url) => url.pathname.endsWith("/companies/universe"), { timeout: 15000 }).catch(() => {});
-      landed.push(new URL(page.url()).pathname.split("/").pop());
-    }
-    check("C1.5", "a link to Shortlisted or Declined lands on In universe", "universe/universe", landed.join("/"));
+  // Shortlisted is switched off on screen (SHORTLIST_OFFERED); the API still holds it.
+  await step("C1.5", "Declined lists exactly its own company, and a link to Shortlisted lands on In universe", async () => {
+    await openStage("declined");
+    const declined = await until(async () => sortedJoin(await companyNames()), DHOW);
+    await page.goto(stageUrl("shortlisted"));
+    await page.waitForURL((url) => url.pathname.endsWith("/companies/universe"), { timeout: 15000 }).catch(() => {});
+    const landed = new URL(page.url()).pathname.split("/").pop();
+    check("C1.5", "Declined lists exactly its own company, and a link to Shortlisted lands on In universe",
+      `${DHOW} / universe`, `${declined} / ${landed}`);
   });
 
-  await step("C1.6", "the sidebar offers In universe alone, with the API's count", async () => {
+  await step("C1.6", "the sidebar offers In universe and Declined, with the API's counts", async () => {
     await openStage("universe");
     const counts = (await triagePage("inUniverse")).counts;
-    check("C1.6", "the sidebar's In universe count is the API's", counts.inUniverse, await until(() => sidebarCount("In universe"), counts.inUniverse));
-    const hidden = await page.locator("nav a").filter({ hasText: /^(Shortlisted|Declined)/ }).count();
-    check("C1.6b", "…and offers no Shortlisted or Declined link", 0, hidden);
+    const want = `${counts.inUniverse}/${counts.declined}`;
+    check("C1.6", "the sidebar's In universe and Declined counts are the API's", want,
+      await until(async () => `${await sidebarCount("In universe")}/${await sidebarCount("Declined")}`, want));
+    const hidden = await page.locator("nav a").filter({ hasText: /^Shortlisted/ }).count();
+    check("C1.6b", "…and offers no Shortlisted link", 0, hidden);
     check("C1.6c", "…while the API still counts the seeded 2/1/1", "2/1/1", `${counts.inUniverse}/${counts.shortlisted}/${counts.declined}`);
   });
 
@@ -378,21 +380,37 @@ try {
   });
 
   // ---------------------------------------------------------------- C6 moves
-  section("C6  no stage moves are offered");
+  section("C6  declining a company, and bringing it back");
   await step("C6.1", "a row offers its removal and no Shortlist or Decline", async () => {
     await openStage("universe");
     const moves = await page.getByRole("button", { name: /^(Shortlist|Decline|Back to universe): / }).count();
     const removable = (await page.getByRole("button", { name: /^Remove .* from this mandate$/ }).count()) > 0;
     check("C6.1", "a row offers its removal and no Shortlist or Decline", "0/true", `${moves}/${removable}`);
   });
-  await step("C6.2", "the company drawer's footer offers Remove alone", async () => {
+  await step("C6.2", "the drawer's Decline moves a company with nobody at it onto Declined, asking nothing", async () => {
     await page.getByRole("button", { name: `Open ${BEACON}` }).first().click();
     const drawer = dialog(BEACON);
     await drawer.waitFor();
-    const moves = await drawer.getByRole("button", { name: /^(Shortlist|Decline|Back to universe)$/ }).count();
-    const remove = await drawer.getByRole("button", { name: "Remove", exact: true }).count();
-    check("C6.2", "the company drawer's footer offers Remove alone", "0/1", `${moves}/${remove}`);
-    await drawer.getByRole("button", { name: "Close" }).first().click().catch(() => page.keyboard.press("Escape"));
+    check("C6.2a", "the footer offers Decline and Remove, and no Shortlist", "1/1/0", [
+      await drawer.getByRole("button", { name: "Decline", exact: true }).count(),
+      await drawer.getByRole("button", { name: "Remove", exact: true }).count(),
+      await drawer.getByRole("button", { name: "Shortlist", exact: true }).count(),
+    ].join("/"));
+    await drawer.getByRole("button", { name: "Decline", exact: true }).click();
+    const gone = await until(async () => (await companyNames()).includes(BEACON), false);
+    check("C6.2", "the drawer's Decline moves a company with nobody at it onto Declined, asking nothing", false, gone);
+    check("C6.2b", "…and the database agrees", "DECLINED",
+      sql(`SELECT status FROM app_lm_project_triage_company WHERE id = '${BEACON_ID}'`));
+  });
+  await step("C6.3", "Declined offers Back to universe alone, which brings the company back", async () => {
+    await openStage("declined");
+    await until(async () => (await companyNames()).includes(BEACON), true);
+    const removable = await page.getByRole("button", { name: /^Remove .* from this mandate$/ }).count();
+    check("C6.3a", "the Declined grid offers no removal", 0, removable);
+    await page.getByRole("button", { name: `Back to universe: ${BEACON}` }).first().click();
+    const gone = await until(async () => (await companyNames()).includes(BEACON), false);
+    check("C6.3", "Declined offers Back to universe alone, which brings the company back", "false/IN_UNIVERSE",
+      `${gone}/${sql(`SELECT status FROM app_lm_project_triage_company WHERE id = '${BEACON_ID}'`)}`);
   });
 
   // ---------------------------------------------------------------- C7 custom columns

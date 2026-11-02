@@ -22,8 +22,8 @@ function UniverseStub() {
 }
 
 describe("a link to a stage that is switched off", () => {
-  it.each(["shortlisted", "declined"])("lands /companies/%s on In universe", async (slug) => {
-    renderAt(`/projects/p1/companies/${slug}`);
+  it("lands /companies/shortlisted on In universe", async () => {
+    renderAt("/projects/p1/companies/shortlisted");
 
     expect(await screen.findByText("In universe page")).toBeInTheDocument();
   });
