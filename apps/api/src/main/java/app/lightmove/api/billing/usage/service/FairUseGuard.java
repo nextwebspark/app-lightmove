@@ -6,9 +6,9 @@ import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.model.FairUseAllowance;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
-import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.platformconfig.service.PlatformSettings;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.Clock;
@@ -36,17 +36,17 @@ public class FairUseGuard {
     private final BillingSeats seats;
     private final TrialGate trialGate;
     private final AuditService audit;
-    private final LightMoveProperties properties;
+    private final PlatformSettings platformSettings;
     private final Clock clock;
     private final Cache<String, Boolean> reported;
 
     public FairUseGuard(UsageEventStore events, BillingSeats seats, TrialGate trialGate, AuditService audit,
-                        LightMoveProperties properties, Clock clock) {
+                        PlatformSettings platformSettings, Clock clock) {
         this.events = events;
         this.seats = seats;
         this.trialGate = trialGate;
         this.audit = audit;
-        this.properties = properties;
+        this.platformSettings = platformSettings;
         this.clock = clock;
         this.reported = Caffeine.newBuilder().expireAfterWrite(Duration.ofDays(1)).maximumSize(10_000).build();
     }
@@ -57,7 +57,7 @@ public class FairUseGuard {
      */
     public void check(UUID workspaceId, UUID userId, UsageKind kind, long units) {
         trialGate.requireOpen(workspaceId);
-        long perSeat = kind.perSeatIn(properties.billing().fairUse());
+        long perSeat = platformSettings.longValue(kind.perSeatCeiling());
         if (perSeat == 0) {
             return;
         }

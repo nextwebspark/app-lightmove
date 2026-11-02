@@ -1,5 +1,6 @@
 package app.lightmove.api.core.platformconfig.service;
 
+import app.lightmove.api.core.config.ExportSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.platformconfig.constant.PlatformSetting;
 import java.time.Duration;
@@ -35,6 +36,12 @@ public class PlatformSettings {
 
     public String text(PlatformSetting setting) {
         return (String) valueOf(setting);
+    }
+
+    /** The three export ceilings in force, in the shape every export already reads them. */
+    public ExportSettings exportCaps() {
+        return new ExportSettings(intValue(PlatformSetting.EXPORT_MAX_COMPANIES),
+                intValue(PlatformSetting.EXPORT_MAX_CANDIDATES), intValue(PlatformSetting.EXPORT_MAX_AUDIT_EVENTS));
     }
 
     /** The typed value in force, as {@link PlatformSetting#parse} answers one. */

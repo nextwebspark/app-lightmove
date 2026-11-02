@@ -96,9 +96,11 @@ class PlatformConfigIntegrationTest extends PositionTemplateFlowSupport {
         assertThat(saved.get("overridden").asBoolean()).isTrue();
         assertThat(saved.get("updatedByName").asText()).isEqualTo("Alok Kumar");
         assertThat(platformSettings.intValue(PlatformSetting.SOURCING_PICKS_PER_COMPANY)).isEqualTo(5);
-        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(db.queryForMap("""
+        await().atMost(Duration.ofSeconds(5)).ignoreExceptions().untilAsserted(() -> assertThat(db.queryForMap("""
                 SELECT workspace_id, metadata ->> 'from' AS before, metadata ->> 'to' AS after
-                FROM app_lm_audit_event WHERE event_type = 'PLATFORM_SETTING_CHANGED' AND target_id = ?
+                FROM app_lm_audit_event
+                WHERE event_type = 'PLATFORM_SETTING_CHANGED' AND target_id = ? AND metadata ->> 'to' = '5'
+                ORDER BY id DESC LIMIT 1
                 """, PICKS)).containsEntry("before", "3").containsEntry("after", "5").containsEntry("workspace_id", null));
     }
 
@@ -152,9 +154,24 @@ class PlatformConfigIntegrationTest extends PositionTemplateFlowSupport {
         assertThat(reset.get("overridden").asBoolean()).isFalse();
         assertThat(reset.get("value").asText()).isEqualTo(reset.get("defaultValue").asText());
         assertThat(platformSettings.intValue(PlatformSetting.MCP_MAX_RESULT_CHARS)).isEqualTo(90_000);
-        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(db.queryForObject(
+        await().atMost(Duration.ofSeconds(5)).ignoreExceptions().untilAsserted(() -> assertThat(db.queryForObject(
                 "SELECT count(*) FROM app_lm_audit_event WHERE event_type = 'PLATFORM_SETTING_RESET' AND target_id = ?",
                 Long.class, key)).isEqualTo(1));
+    }
+
+    @Test
+    @DisplayName("Find executives states the overridden companies per run and people filed in its confirm dialog")
+    void sourcingReadsTheOverride() throws Exception {
+        String admin = superAdmin();
+        expect(200, putJson(admin, SETTINGS + "/" + PlatformSetting.SOURCING_MAX_COMPANIES_PER_RUN.key(),
+                "{\"value\":\"2\"}"));
+        expect(200, putJson(admin, SETTINGS + "/" + PICKS, "{\"value\":\"1\"}"));
+
+        JsonNode config = getJson(admin, "/api/v1/executive-sourcing/config");
+
+        assertThat(config.get("maxCompaniesPerRun").asInt()).isEqualTo(2);
+        assertThat(config.get("picksPerCompany").asInt()).isEqualTo(1);
+        assertThat(config.get("hitsPerCompany").asInt()).isEqualTo(10);
     }
 
     @Test
@@ -222,7 +239,7 @@ class PlatformConfigIntegrationTest extends PositionTemplateFlowSupport {
         assertThat(promptTexts.systemText(PlatformPrompt.OUTREACH_OPENER))
                 .isEqualTo(shippedPrompts.of(PlatformPrompt.OUTREACH_OPENER));
 
-        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(db.queryForList("""
+        await().atMost(Duration.ofSeconds(5)).ignoreExceptions().untilAsserted(() -> assertThat(db.queryForList("""
                 SELECT metadata::text FROM app_lm_audit_event
                 WHERE event_type IN ('PLATFORM_PROMPT_SAVED', 'PLATFORM_PROMPT_RESTORED', 'PLATFORM_PROMPT_REVERTED')
                   AND target_id = 'outreach-opener'

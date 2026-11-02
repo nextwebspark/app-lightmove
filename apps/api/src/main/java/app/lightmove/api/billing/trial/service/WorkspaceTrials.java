@@ -7,7 +7,8 @@ import app.lightmove.api.billing.plan.model.AppTrialConverted;
 import app.lightmove.api.billing.plan.model.WorkspaceSubscription;
 import app.lightmove.api.billing.plan.repository.WorkspaceSubscriptionRepository;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.config.TrialSettings;
+import app.lightmove.api.core.platformconfig.constant.PlatformSetting;
+import app.lightmove.api.core.platformconfig.service.PlatformSettings;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -33,6 +34,7 @@ public class WorkspaceTrials {
     private final CreditLedger ledger;
     private final JdbcTemplate jdbc;
     private final LightMoveProperties properties;
+    private final PlatformSettings platformSettings;
     private final Clock clock;
 
     public static String grantKey(UUID workspaceId) {
@@ -41,8 +43,7 @@ public class WorkspaceTrials {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void start(UUID workspaceId, UUID founderId) {
-        TrialSettings settings = properties.billing().trial();
-        if (!settings.enabled()) {
+        if (!properties.billing().trial().enabled()) {
             return;
         }
         Instant now = clock.instant();
@@ -51,10 +52,11 @@ public class WorkspaceTrials {
             subscriptions.save(WorkspaceSubscription.trialAlreadySpent(workspaceId, founderId, now));
             return;
         }
-        Instant endsAt = now.plus(settings.length());
+        Instant endsAt = now.plus(platformSettings.duration(PlatformSetting.TRIAL_LENGTH));
+        long credits = platformSettings.longValue(PlatformSetting.TRIAL_CREDITS);
         subscriptions.save(WorkspaceSubscription.trial(workspaceId, founderId, now, endsAt));
-        if (settings.credits() > 0) {
-            ledger.grant(new CreditGrantCommand(workspaceId, CreditGrantSource.PLAN, settings.credits(), now, endsAt,
+        if (credits > 0) {
+            ledger.grant(new CreditGrantCommand(workspaceId, CreditGrantSource.PLAN, credits, now, endsAt,
                     BigDecimal.ZERO, grantKey(workspaceId), null, "Trial"));
         }
     }

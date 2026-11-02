@@ -5,6 +5,8 @@ import app.lightmove.api.assistant.tool.AssistantToolContext;
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.llm.service.ChatCallLog;
+import app.lightmove.api.core.platformconfig.constant.PlatformSetting;
+import app.lightmove.api.core.platformconfig.service.PlatformSettings;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,7 @@ public class AssistantModelCall {
 
     private final ChatClient chatClient;
     private final AssistantSettings settings;
+    private final PlatformSettings platformSettings;
     private final Resource corePrompt;
     private final ToolCallingAdvisor toolLoop;
 
@@ -44,8 +47,9 @@ public class AssistantModelCall {
     public AssistantModelCall(ChatClient chatClient, LightMoveProperties properties,
                               @Value("classpath:prompts/assistant-core.st") Resource corePrompt,
                               AssistantThreads threads, ObjectProvider<ToolCallingManager> toolCalling,
-                              ModelCallThreads modelCalls) {
+                              ModelCallThreads modelCalls, PlatformSettings platformSettings) {
         this.chatClient = chatClient;
+        this.platformSettings = platformSettings;
         this.modelCalls = modelCalls;
         this.settings = properties.assistant();
         this.corePrompt = corePrompt;
@@ -58,14 +62,15 @@ public class AssistantModelCall {
 
     public String ask(Map<String, Object> systemParams, List<ToolCallback> tools, List<AssistantTurn> history,
                       String question, AssistantToolContext context) {
+        String model = platformSettings.text(PlatformSetting.ASSISTANT_MODEL);
         ChatResponse response = chatClient.prompt()
                 .advisors(advisors -> advisors.param(ChatCallLog.PROMPT_ID_ATTRIBUTE, PROMPT_ID)
-                        .advisors(toolLoop, new AssistantRounds(context.recorder(), settings.model(),
+                        .advisors(toolLoop, new AssistantRounds(context.recorder(), model,
                                 settings.answerDeadline(), settings.roundPatience(), modelCalls::execute)))
                 .options(GoogleGenAiChatOptions.builder()
-                        .model(settings.model())
-                        .temperature(settings.temperature())
-                        .thinkingBudget(settings.thinkingBudget())
+                        .model(model)
+                        .temperature(platformSettings.doubleValue(PlatformSetting.ASSISTANT_TEMPERATURE))
+                        .thinkingBudget(platformSettings.intValue(PlatformSetting.ASSISTANT_THINKING_BUDGET))
                         .labels(Map.of("prompt", PROMPT_ID)))
                 .system(system -> system.text(corePrompt).params(systemParams))
                 .messages(conversation(history, question))
