@@ -49,6 +49,7 @@ import { SettingsNotificationsPage } from "../features/settings/pages/SettingsNo
 import { SettingsTaskPresetsPage } from "../features/settings/pages/SettingsTaskPresetsPage";
 import { PipelineStagesPage } from "../features/settings/pages/PipelineStagesPage";
 import { SettingsIntegrationsPage } from "../features/settings/pages/SettingsIntegrationsPage";
+import { SettingsDataRetentionPage } from "../features/settings/pages/SettingsDataRetentionPage";
 import { SettingsMeetingsPage } from "../features/settings/pages/SettingsMeetingsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
 import { SettingsProfilePage } from "../features/settings/pages/SettingsProfilePage";
@@ -199,6 +200,7 @@ export function AppRoutes() {
           <Route path="/settings/candidate-tags" element={<SettingsCandidateTagsPage />} />
           <Route path="/settings/task-presets" element={<SettingsTaskPresetsPage />} />
           <Route path="/settings/integrations" element={<SettingsIntegrationsPage />} />
+          <Route path="/settings/data" element={<SettingsDataRetentionPage />} />
           <Route path="/settings/templates" element={<TemplateListPage scope="workspace" />} />
           <Route path="/settings/templates/new" element={<TemplateEditorPage scope="workspace" />} />
           <Route path="/settings/templates/:code" element={<TemplateEditorPage scope="workspace" />} />

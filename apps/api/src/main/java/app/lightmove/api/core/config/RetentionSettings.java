@@ -1,6 +1,7 @@
 package app.lightmove.api.core.config;
 
 import java.time.Duration;
+import java.util.List;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
@@ -34,5 +35,22 @@ public record RetentionSettings(
         @DefaultValue("180d") Duration assistantThreadsAfter,
 
         /** A metered use (search, AI, finds), kept this long: a year of fair-use months to compare, and one more. */
-        @DefaultValue("400d") Duration usageEventsAfter
-) {}
+        @DefaultValue("400d") Duration usageEventsAfter,
+
+        /**
+         * How long a candidate nobody is working with is kept before they wait for an admin's review, in months, where
+         * a workspace has not chosen; null is never. One of {@link #CANDIDATE_MONTHS}.
+         */
+        @DefaultValue("24") Integer candidateMonths
+) {
+
+    public RetentionSettings {
+        if (candidateMonths != null && !CANDIDATE_MONTHS.contains(candidateMonths)) {
+            throw new IllegalArgumentException("lightmove.retention.candidate-months must be one of "
+                    + CANDIDATE_MONTHS + ", or blank for never");
+        }
+    }
+
+    /** The periods a workspace may choose, and so the only ones a deployment may default to. */
+    public static final List<Integer> CANDIDATE_MONTHS = List.of(12, 24, 36, 60);
+}

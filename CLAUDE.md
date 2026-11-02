@@ -98,7 +98,13 @@ table holding a person, an account or an address, which `RetentionScheduleCovera
 `RetentionSweeper` (hourly, `lightmove.retention.*`, defaults awaiting counsel) deletes expired refresh-token families,
 verification links and two-factor challenges, the vendor caches past their TTL, closed invitations, read
 notifications, sent digests, idle assistant chats and aged metered uses — the tenant tables only in the workspaces
-V176's `app_lm_resolve_workspaces_with_retention_due` names, each in its own `WorkspaceScope`. A plugin capture of someone already researched spends no second vendor call, and is filed under the employer their latest position recorded (`PersonEmployerResolver.knownEmployerOf`, that position's company row's LinkedIn page and all). Every change to a
+V176's `app_lm_resolve_workspaces_with_retention_due` names, each in its own `WorkspaceScope`. **Candidate retention (#921, V177) never deletes on its own**: a
+workspace's period (`app_lm_workspace_retention`, 12/24/36/60 months or never; no row is
+`lightmove.retention.candidate-months`) makes due whoever is untouched that long — no timeline line, admin's keep
+(`app_lm_person.retention_kept_at`) or founding since — on no live position and not restricted, and Settings → Data &
+retention (`CandidateRetentionService`, `WORKSPACE_MANAGE`; deleting `PERSON_ERASE`) lists them for an admin to keep for
+another period or delete through `PersonErasureService.eraseUnderRetention` — each in its own transaction, asked again
+once their row is held, never suppressed, audited `reason: retention`; the same page carries the suppression list. A plugin capture of someone already researched spends no second vendor call, and is filed under the employer their latest position recorded (`PersonEmployerResolver.knownEmployerOf`, that position's company row's LinkedIn page and all). Every change to a
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.

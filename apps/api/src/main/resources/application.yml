@@ -794,6 +794,8 @@ lightmove:
     digests-after: ${RETENTION_DIGESTS_AFTER:90d}
     assistant-threads-after: ${RETENTION_ASSISTANT_THREADS_AFTER:180d}
     usage-events-after: ${RETENTION_USAGE_EVENTS_AFTER:400d}
+    # A workspace that has not chosen in Settings → Data & retention: 12, 24, 36 or 60, blank for never.
+    candidate-months: ${RETENTION_CANDIDATE_MONTHS:24}
 
   # Forced row-level security on the tenant tables (V170). On, a database that would not enforce it — a superuser or
   # BYPASSRLS runtime role, an unforced table — fails the boot; off, it is only a warning.
