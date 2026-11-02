@@ -32,6 +32,31 @@ export function SettingsProfilePage() {
     toast("Profile saved");
   };
 
+  // The change is saved by now: what follows only redraws it. The photo is drawn on most screens — rosters, teams,
+  // tasks, notes — so every cached read is marked stale (`refetchType: "none"`) and refetched where it is next shown,
+  // rather than naming each one here and missing the next; the session reload redraws the topbar and this page.
+  const afterPhotoChange = (message: string) => {
+    toast(message);
+    void queryClient.invalidateQueries({ refetchType: "none" });
+    void reload();
+  };
+
+  /** Resolves once the upload has: the dialog closes on a saved photo, whatever the redraw meets. */
+  const handleSavePhoto = async (photo: Blob) => {
+    await authApi.uploadAvatar(photo);
+    afterPhotoChange("Profile photo saved");
+  };
+
+  const handleRemovePhoto = async () => {
+    try {
+      await authApi.removeAvatar();
+    } catch {
+      toast.error("Could not remove your photo. Try again.", { retry: () => void handleRemovePhoto() });
+      return;
+    }
+    afterPhotoChange("Profile photo removed");
+  };
+
   return (
     <>
       <PageHeader title="Profile" subtitle="How you appear across the workspace" />
@@ -41,8 +66,11 @@ export function SettingsProfilePage() {
           userId={user.id}
           fullName={user.fullName}
           avatarUrl={user.avatarUrl}
+          avatarEditable={user.avatarEditable}
           roles={user.workspace?.roles ?? []}
           joinedAt={user.workspace?.joinedAt ?? null}
+          onSavePhoto={handleSavePhoto}
+          onRemovePhoto={handleRemovePhoto}
         />
 
         <ProfileForm

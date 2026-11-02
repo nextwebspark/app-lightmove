@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { avatarSrc } from "../lib/avatarSrc";
 import { cn } from "../lib/cn";
 
 /** The Uncava app icon without its tile, drawn in the text token — the same mark as the SPA's top bar. */
@@ -18,10 +19,11 @@ export function BrandMark({ className }: { className?: string }) {
 }
 
 /** The paired user's picture, or their initials in a tinted circle when they have none or it no longer loads. */
-export function UserAvatar({ name, src }: { name: string; src?: string | null }) {
-  // A provider's CDN URL, not a copy, and LinkedIn's expire within weeks: a broken picture is expected, so it falls
-  // back to the initials — remembered per URL, so a fresh one arriving on the next refresh gets its chance.
+export function UserAvatar({ name, src: link }: { name: string; src?: string | null }) {
+  // A picture can still fail to load — removed while the panel held its link — so it falls back to the initials,
+  // remembered per URL, so a fresh one arriving on the next refresh gets its chance.
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const src = avatarSrc(link);
   if (src && failedSrc !== src) {
     return (
       <img

@@ -248,6 +248,8 @@ public class AuditLogPhrasing {
         on(ProjectEventType.SPREADSHEET_IMPORTED, line -> "Imported a spreadsheet");
         on(WorkspaceEventType.MAILBOX_TIME_ZONE_CHANGED, line -> "Changed their time zone");
         on(AuthEventType.PROFILE_UPDATED, line -> "Updated their profile");
+        on(AuthEventType.AVATAR_UPLOADED, line -> "Changed their profile photo");
+        on(AuthEventType.AVATAR_REMOVED, line -> "Removed their profile photo");
         on(PlatformEventType.PLATFORM_ROLE_GRANTED, line -> "Gave Uncava platform access");
         on(PlatformEventType.PLATFORM_ROLE_REVOKED, line -> "Removed Uncava platform access");
     }

@@ -59,6 +59,10 @@ public class SourcingSpecRefiner {
         conversation.tell("ROUND " + round + " SEARCHED — found nobody\n" + wordsOf(searched));
     }
 
+    void reportNoneHoldsTheSeat(RefineConversation conversation, int round, SourcingSpec searched) {
+        conversation.tell("ROUND " + round + " SEARCHED — found people, but none holds the seat\n" + wordsOf(searched));
+    }
+
     void reportRepeat(RefineConversation conversation, int repeatedRound) {
         conversation.tell("That answer repeats the words round " + repeatedRound + " already searched. Answer a "
                 + "combination no round has tried, or three empty lists if you have no better idea.");

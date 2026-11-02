@@ -84,7 +84,7 @@ carry no workspace and reference none, so the guard never reaches them.
   role must be neither — `RowLevelSecurityPosture` refuses to boot otherwise (`lightmove.row-level-security.
   require-enforced`). Tests, `npm run dev` and e2e therefore run the API as a non-superuser `lm_app` that owns the
   database; their own fixture SQL (`@FixtureJdbc`, `dev:db:psql`, the seeds, `e2e/api/lib.sh`) runs as the
-  container's superuser, above the policies. A dev volume older than V170 has `lm_app` as its bootstrap superuser,
+  container's superuser, above the policies. A dev volume older than V171 has `lm_app` as its bootstrap superuser,
   which Postgres will not demote: `npm run dev:db:reset`.
 - **Migrations.** Flyway runs as the same forced owner until #256, so its own session sets
   `app.rls_maintenance = 'on'` (`spring.flyway.init-sqls`, the deploy step's `-initSql`), which the direct
