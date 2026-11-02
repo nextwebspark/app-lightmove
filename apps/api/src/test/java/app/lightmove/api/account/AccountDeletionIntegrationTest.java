@@ -86,7 +86,10 @@ class AccountDeletionIntegrationTest extends FlowTestSupport {
                     daily_cap, connected_at, gateway)
                 values (?::uuid, ?, 'google', 'omar@mailbox.example', ?, 'ACTIVE', 50, now(), 'NYLAS')""",
                 alpha, omarId, grant);
+        db.update("insert into app_lm_user_avatar (user_id, token, content, content_type, sha256) "
+                + "values (?, ?, decode('ffd8', 'hex'), 'image/jpeg', ?)", omarId, "t".repeat(43), "0".repeat(64));
         assertThat(countOf("app_lm_notification_preference", omarId)).as("the seeded rows are there to go").isOne();
+        assertThat(countOf("app_lm_user_avatar", omarId)).isOne();
         assertThat(countOf("app_lm_member_availability", omarId)).isOne();
         assertThat(countOf("app_lm_refresh_token", omarId)).isPositive();
 
@@ -121,7 +124,7 @@ class AccountDeletionIntegrationTest extends FlowTestSupport {
         assertThat(db.queryForObject("select revoked_reason from app_lm_api_key where id = ?::uuid", String.class, keyId))
                 .isEqualTo("MEMBER_REMOVED");
         for (String table : List.of("app_lm_refresh_token", "app_lm_user_identity", "app_lm_verification_token",
-                "app_lm_notification_preference", "app_lm_member_availability")) {
+                "app_lm_user_avatar", "app_lm_notification_preference", "app_lm_member_availability")) {
             assertThat(countOf(table, omarId)).as(table).isZero();
         }
         // Let go at the provider once the deletion has committed, off the request.

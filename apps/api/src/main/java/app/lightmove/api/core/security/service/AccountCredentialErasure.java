@@ -11,9 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A deleted account's ways in, deleted rather than revoked: its sessions (with the address and browser each kept),
- * provider sign-ins, pending verification and reset links, and its second factor. Account tables all, keyed on the
- * user, so no workspace scope is needed. A session's rows go in one statement, since each points at the one that
- * replaced it.
+ * provider sign-ins, pending verification and reset links, its second factor, and its stored photo, whose public
+ * link would otherwise still serve it. Account tables all, keyed on the user, so no workspace scope is needed. A
+ * session's rows go in one statement, since each points at the one that replaced it.
  */
 @Component
 @RequiredArgsConstructor
@@ -25,6 +25,7 @@ public class AccountCredentialErasure {
             "app_lm_user_mfa_factor",
             "app_lm_verification_token",
             "app_lm_user_identity",
+            "app_lm_user_avatar",
             "app_lm_refresh_token");
 
     private final NamedParameterJdbcTemplate jdbc;

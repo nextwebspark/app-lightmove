@@ -919,7 +919,7 @@ transaction every membership ends through `MemberService`'s removal (audited `ME
 `ACCOUNT_DELETED`; keys, AI apps and seats with it), each workspace in `WorkspaceScope.runInJoinedTransaction` and
 flushed there; each `AccountDeletionContributor` — declared in `account`, implemented where the rows live — deletes the
 person's own rows in every workspace they ever joined (the bell, its settings and digests, working hours, a mailbox
-connect in flight, assistant chats); `AccountCredentialErasure` deletes sessions, sign-ins, links and the second factor;
+connect in flight, assistant chats); `AccountCredentialErasure` deletes sessions, sign-ins, links, the second factor and the stored photo;
 and the `app_lm_user` row is anonymised in place ("Former member", `deleted-<id>@deleted.invalid`, `deleted_at`), so
 what they did stays the workspace's and still resolves. Once it commits, mailboxes and Zoom accounts are let go at the
 provider in transactions of their own. **Download my data** (`GET /auth/me/export`, audited `ACCOUNT_DATA_EXPORTED`) is
