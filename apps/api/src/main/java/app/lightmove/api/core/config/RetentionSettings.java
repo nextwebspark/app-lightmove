@@ -41,7 +41,22 @@ public record RetentionSettings(
          * How long a candidate nobody is working with is kept before they wait for an admin's review, in months, where
          * a workspace has not chosen; null is never. One of {@link #CANDIDATE_MONTHS}.
          */
-        @DefaultValue("24") Integer candidateMonths
+        @DefaultValue("24") Integer candidateMonths,
+
+        /**
+         * A deleted workspace's grace period: members lose access at once, and everything is purged this long after.
+         * Uncava can restore it until then.
+         */
+        @DefaultValue("30d") Duration deletedWorkspacesAfter,
+
+        /** How often due workspaces are purged. Spelled out in yml: {@code @Scheduled} reads it. */
+        @DefaultValue("PT15M") String workspacePurgeInterval,
+
+        /** A whole-workspace export's zip, downloadable this long after it was built. */
+        @DefaultValue("7d") Duration workspaceExportsAfter,
+
+        /** An export still building this long after it started is failed: its worker died with its instance. */
+        @DefaultValue("2h") Duration workspaceExportDeadline
 ) {
 
     public RetentionSettings {

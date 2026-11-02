@@ -15,8 +15,12 @@ table is swept only in the workspaces `app_lm_resolve_workspaces_with_retention_
 `WorkspaceScope`. `PersonErasureService` (#918) is how a person goes: by an admin from Candidates, or by an admin
 reviewing candidate retention (#921 part 2) — a workspace's period (Settings → Data & retention, V177
 `app_lm_workspace_retention`, `lightmove.retention.candidate-months` where it has not chosen, 24 ⚖️) lists whoever is
-untouched that long and on no live position; nothing deletes a person without that review. The workspace purge (#926) is how a workspace goes. Audit-trail retention waits for a
-delete-capable maintenance role (#256).
+untouched that long and on no live position; nothing deletes a person without that review. `WorkspacePurge` (#926,
+`lightmove.retention.workspace-purge-interval`) is how a workspace goes: a deleted workspace's members lose access at
+once, and `lightmove.retention.deleted-workspaces-after` (30 days ⚖️) later every row of every table carrying its
+`workspace_id` is deleted — but the audit trail and the billing records, kept by id — with every file under its
+`ws/{id}/` prefix, leaving the workspace row as a tombstone and a deletion certificate. Uncava can restore a workspace
+until its purge starts. Audit-trail retention waits for a delete-capable maintenance role (#256).
 
 | Table | Personal data | Purpose | Retention | Trigger | Job |
 |---|---|---|---|---|---|
@@ -28,7 +32,9 @@ delete-capable maintenance role (#256).
 | `app_lm_mfa_challenge` | user, challenge hash | a sign-in waiting on its code | 1 day past expiry ⚖️ | expiry | `RetentionSweeper` |
 | `app_lm_verification_token` | user, token hash | email verification, password reset | 30 days past expiry ⚖️ | expiry | `RetentionSweeper` |
 | `app_lm_refresh_token` | user, IP address, browser line | sessions, stolen-token detection | 30 days past the family's last expiry ⚖️ | expiry | `RetentionSweeper` |
-| `app_lm_workspace` | the firm's email domain, company snapshot | the tenant | while the workspace lives | workspace purge (#926) | — |
+| `app_lm_workspace` | the firm's email domain, company snapshot, the deleting admin's email | the tenant | while the workspace lives; once deleted, 30 days ⚖️, then a tombstone of ids | deletion, then the purge | `WorkspacePurge` |
+| `app_lm_workspace_export` | who asked; the zip is a copy of everything | an admin's export of the whole workspace | 7 days after it is built ⚖️ | expiry, workspace purge | `WorkspaceExportExpiry`, `StorageDeletionSweeper` |
+| `app_lm_workspace_purge_certificate` | the deleting admin's id, counts only | proof a workspace's data was deleted | kept with the tombstone ⚖️ | — | — |
 | `app_lm_workspace_member` | user | membership | while a member; the removed row is kept for a rejoin | workspace purge, account deletion | — |
 | `app_lm_invitation` | invitee email | invitation | 90 days past acceptance or expiry ⚖️ | accepted, revoked, expired | `RetentionSweeper` |
 | `app_lm_client_representative` | name, email, user | a client's hiring manager | while the client record lives | removed by staff, workspace purge | — |

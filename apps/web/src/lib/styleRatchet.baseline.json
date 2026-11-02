@@ -6,8 +6,8 @@
     "arbitraryText": 1
   },
   "components/layout/Sidebar.tsx": {
-    "arbitraryRadius": 1,
-    "arbitraryText": 4
+    "arbitraryText": 4,
+    "arbitraryRadius": 1
   },
   "components/layout/Topbar.tsx": {
     "arbitraryText": 7,
@@ -550,7 +550,7 @@
   },
   "features/settings/pages/SettingsGeneralPage.tsx": {
     "arbitraryRadius": 3,
-    "arbitraryText": 8,
+    "arbitraryText": 7,
     "important": 6
   },
   "features/settings/pages/SettingsProfilePage.tsx": {

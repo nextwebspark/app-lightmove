@@ -131,6 +131,8 @@ public class AuditLogPhrasing {
         on(ProjectEventType.NOTETAKER_RECORDING_DOWNLOADED, line -> "Downloaded a call recording");
         on(WorkspaceEventType.AUDIT_LOG_EXPORTED, line -> "Exported the audit log ("
                 + count(line.text("rows"), "event", "events") + ")");
+        on(WorkspaceEventType.WORKSPACE_EXPORT_STARTED, line -> "Started an export of the whole workspace");
+        on(WorkspaceEventType.WORKSPACE_EXPORT_DOWNLOADED, line -> "Downloaded the export of the whole workspace");
     }
 
     private void settings() {
@@ -148,6 +150,8 @@ public class AuditLogPhrasing {
             default -> "Updated the workspace's details";
         });
         on(WorkspaceEventType.WORKSPACE_DELETED, line -> "Deleted the workspace");
+        on(WorkspaceEventType.WORKSPACE_RESTORED, line -> "Restored the workspace");
+        on(WorkspaceEventType.WORKSPACE_PURGED, line -> "Permanently deleted everything the workspace held");
         on(WorkspaceEventType.POSITION_TEMPLATE_CREATED, line -> "Added a role template");
         on(WorkspaceEventType.POSITION_TEMPLATE_CUSTOMISED, line -> "Customised a role template");
         on(WorkspaceEventType.POSITION_TEMPLATE_UPDATED, line -> "Edited a role template");

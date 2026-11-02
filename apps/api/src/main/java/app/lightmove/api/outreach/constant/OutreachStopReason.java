@@ -42,6 +42,9 @@ public enum OutreachStopReason {
     /** The position was archived; restoring it does not start the run again. */
     POSITION_ARCHIVED,
 
+    /** The workspace was deleted; nothing is sent from it again. */
+    WORKSPACE_DELETED,
+
     /** A consultant's own email waited past their access to the position: a seat or a membership that went. */
     SENDER_WITHOUT_ACCESS
 }

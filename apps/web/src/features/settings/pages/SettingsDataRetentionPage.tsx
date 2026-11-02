@@ -2,17 +2,20 @@ import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { CardsSkeleton } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
+import { useAuth } from "../../auth/AuthProvider";
 import * as dataRetentionApi from "../api/dataRetentionApi";
 import { CandidateRetentionCard } from "../components/CandidateRetentionCard";
 import { DueForDeletionCard } from "../components/DueForDeletionCard";
 import { SuppressionListCard } from "../components/SuppressionListCard";
+import { WorkspaceExportCard } from "../components/WorkspaceExportCard";
 
 /**
  * Settings → Data & retention (`Settings.dc.html`, `data`), an admin's: how long candidates are kept, the people past
- * it waiting for review, and the suppression list. Retention never deletes on its own. The workspace export the
- * mockup draws last comes with workspace offboarding (#926).
+ * it waiting for review, the suppression list, and an export of the whole workspace. Retention never deletes on its
+ * own.
  */
 export function SettingsDataRetentionPage() {
+  const { user } = useAuth();
   const retention = useQuery({
     queryKey: dataRetentionApi.CANDIDATE_RETENTION_KEY,
     queryFn: ({ signal }) => dataRetentionApi.getCandidateRetention(signal),
@@ -35,6 +38,7 @@ export function SettingsDataRetentionPage() {
         </>
       )}
       <SuppressionListCard />
+      <WorkspaceExportCard workspaceName={user?.workspace?.name ?? "this workspace"} />
     </>
   );
 }

@@ -34,6 +34,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -152,7 +153,27 @@ public class ZoomService {
     }
 
     public void disconnect(UUID userId, UUID workspaceId, HttpServletRequest request) {
-        String released = transactions.execute(status -> {
+        release(userId, workspaceId, userId, request, transactions);
+    }
+
+    /** A deleted workspace's Zoom accounts, as {@code MailboxService.disconnectAllOf} lets its mailboxes go. */
+    public void disconnectAllOf(UUID workspaceId, UUID actorId) {
+        TransactionTemplate own = new TransactionTemplate(transactions.getTransactionManager());
+        own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        List<UUID> holders = own.execute(status -> connections.findByWorkspaceId(workspaceId).stream()
+                .map(ZoomConnection::getUserId).toList());
+        for (UUID holder : holders) {
+            try {
+                release(holder, workspaceId, actorId, null, own);
+            } catch (RuntimeException failed) {
+                log.warn("Could not disconnect a Zoom account of deleted workspace {}", workspaceId, failed);
+            }
+        }
+    }
+
+    private void release(UUID userId, UUID workspaceId, UUID actorId, HttpServletRequest request,
+                         TransactionTemplate transaction) {
+        String released = transaction.execute(status -> {
             ZoomConnection connection = connections.findByWorkspaceIdAndUserId(workspaceId, userId)
                     .orElseThrow(() -> ApiException.of(ErrorCode.ZOOM_NOT_CONNECTED));
             tokens.forget(connection.getId());
@@ -161,7 +182,7 @@ public class ZoomService {
             return refreshToken;
         });
         audit.event(WorkspaceEventType.ZOOM_DISCONNECTED)
-                .actor(userId)
+                .actor(actorId)
                 .workspace(workspaceId)
                 .target(TARGET, userId)
                 .from(request)
