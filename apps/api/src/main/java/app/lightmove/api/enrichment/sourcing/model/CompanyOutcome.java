@@ -28,7 +28,7 @@ public record CompanyOutcome(UUID triageCompanyId, String companyName, SourcingO
                         : pick)
                 .toList();
         return new CompanyOutcome(triageCompanyId, companyName, outcome, vendorHits, cachedHits, matched, modelCalls,
-                filed, skipped, kept, source);
+                filed, skipped, kept, source, notFit);
     }
 
     public static CompanyOutcome of(SourcingCompany company, SourcingOutcome outcome) {
