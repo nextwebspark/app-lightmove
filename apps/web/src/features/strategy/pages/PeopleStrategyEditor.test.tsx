@@ -282,8 +282,9 @@ describe("StrategyPage — People mode", () => {
     expect(within(drawer).getByText("Treasury")).toBeInTheDocument();
     expect(peopleApi.searchPeople).toHaveBeenCalledTimes(1);
 
-    await user.click(within(drawer).getByRole("button", { name: "Declined" }));
-    await waitFor(() => expect(peopleApi.addPeople).toHaveBeenCalledWith("p1", ["first"], "declined"));
+    expect(within(drawer).queryByRole("button", { name: "Declined" })).not.toBeInTheDocument();
+    await user.click(within(drawer).getByRole("button", { name: "Shortlisted" }));
+    await waitFor(() => expect(peopleApi.addPeople).toHaveBeenCalledWith("p1", ["first"], "shortlisted"));
   });
 
   it("shows every part ContactOut sent, and no fold for what it did not", async () => {

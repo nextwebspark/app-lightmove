@@ -584,13 +584,13 @@ describe("routes — a position's rail", () => {
 
   const rail = async () => within(await screen.findByRole("navigation", { name: "Main" }));
 
-  it("lists In universe alone under Market mapping while Shortlisted and Declined are off", async () => {
+  it("lists In universe and Declined under Market mapping while Shortlisted is off", async () => {
     renderAt("/projects/p1/team");
     const nav = await rail();
 
     expect(nav.getByRole("link", { name: /In universe/ })).toBeInTheDocument();
+    expect(nav.getByRole("link", { name: /Declined/ })).toBeInTheDocument();
     expect(nav.queryByRole("link", { name: /Shortlisted/ })).not.toBeInTheDocument();
-    expect(nav.queryByRole("link", { name: /Declined/ })).not.toBeInTheDocument();
   });
 
   it("lists each page once, Outreach under Engage and the report as Dashboard", async () => {
@@ -598,7 +598,7 @@ describe("routes — a position's rail", () => {
     const nav = await rail();
 
     const [, ...pages] = nav.getAllByRole("link").map((link) => link.getAttribute("title"));
-    expect(pages).toEqual(["Brief", "Strategy", "In universe", "Outreach", "Dashboard", "Team & access"]);
+    expect(pages).toEqual(["Brief", "Strategy", "In universe", "Declined", "Outreach", "Dashboard", "Team & access"]);
     expect(nav.getByText("Engage")).toBeInTheDocument();
   });
 
