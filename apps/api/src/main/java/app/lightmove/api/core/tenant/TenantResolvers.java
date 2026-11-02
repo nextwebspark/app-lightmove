@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Which workspace holds a key a door arrives with — a webhook's grant, calendar or bot, a public page's slug, a
- * credential's hash — asked before any workspace is known (V171). Each answers ids and the workspace, never the row:
+ * credential's hash — asked before any workspace is known (V172). Each answers ids and the workspace, never the row:
  * the caller opens {@link WorkspaceScope} on what it is told and reads the row there, under the fence. Resolve, then
  * scope; never widen a scope to make an empty read work.
  */

@@ -7,6 +7,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -50,11 +51,31 @@ public record SourcingSpec(List<String> seniorityWords, List<String> functionWor
      */
     private static final Set<String> NOISE_WORDS = Set.of("it", "md", "gm", "pr", "ai", "ea", "hr");
 
+    /**
+     * Seat abbreviations a substring match finds inside ordinary title words, though a whole-word one
+     * never does: "CTO" in Director, Doctor and Sector, "COO" in Coordinator, "CCO" in Account, "CRO" in
+     * Micro. Only an index matching substrings is spared them.
+     */
+    private static final Set<String> HIDDEN_IN_LONGER_WORDS = Set.of("cto", "coo", "cco", "cro");
+
     /** The function abbreviations among the noise words, and the words that stand in for each. */
     private static final Map<String, List<String>> ABBREVIATION_SPELLINGS = Map.of(
             "HR", List.of("Human", "People", "CHRO"),
             "IT", List.of("Technology", "CIO", "CTO"),
             "PR", List.of("Communications"));
+
+    /**
+     * Words many functions' titles carry — "Business Development", "Surgical Infrastructure", "Medical
+     * Systems" — so they never prove which function a title is.
+     */
+    private static final Set<String> SHARED_FUNCTION_WORDS = Set.of("development", "system", "solution",
+            "infrastructure", "network", "service", "project", "program", "programme", "operation", "operational",
+            "business", "strategy", "strategic", "transformation", "planning", "management", "support",
+            "application", "engineering", "technical", "innovation", "excellence", "performance", "quality",
+            "commercial", "corporate", "administration", "process", "product", "enterprise", "security", "growth");
+
+    /** The general-management seat's abbreviations, which a role title may be alone. */
+    private static final Set<String> TOP_SEAT_ABBREVIATIONS = Set.of("ceo", "md", "gm");
 
     private static final List<String> BOARD_WORDS = List.of("Chairman", "Board", "President", "Chief");
     private static final List<String> EXECUTIVE_WORDS = List.of("Chief", "Head", "Director", "VP");
@@ -95,10 +116,7 @@ public record SourcingSpec(List<String> seniorityWords, List<String> functionWor
      */
     public static SourcingSpec defaultFor(String roleTitle, Seniority seniority) {
         String summary = roleTitle == null ? null : roleTitle.strip();
-        List<String> functionWords = spelledOut(tokensOf(roleTitle == null ? List.of() : List.of(roleTitle))).stream()
-                .filter(word -> !LEVEL_WORDS.contains(word.toLowerCase(Locale.ROOT)))
-                .limit(MAX_WORDS)
-                .toList();
+        List<String> functionWords = functionWordsOfTitle(roleTitle);
         if (functionWords.isEmpty()) {
             return new SourcingSpec(TOP_SEAT_WORDS, TOP_SEAT_FUNCTION_WORDS, TOP_SEAT_EXCLUDED_WORDS, summary);
         }
@@ -108,6 +126,70 @@ public record SourcingSpec(List<String> seniorityWords, List<String> functionWor
             case N_MINUS_2, N_MINUS_3 -> MANAGER_WORDS;
         };
         return new SourcingSpec(seniorityWords, functionWords, SUPPORT_WORDS, summary);
+    }
+
+    /**
+     * The words for an index that matches substrings, those hiding inside longer words left out; empty when
+     * that would leave a list with nothing, since a search by seniority or function alone finds anyone.
+     */
+    public Optional<SourcingSpec> forSubstringMatching() {
+        List<String> seniority = outsideLongerWords(seniorityWords);
+        List<String> function = outsideLongerWords(functionWords);
+        if (seniority.isEmpty() != seniorityWords.isEmpty() || function.isEmpty() != functionWords.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new SourcingSpec(seniority, function, excludedWords, roleSummary));
+    }
+
+    private static List<String> outsideLongerWords(List<String> words) {
+        return words.stream()
+                .filter(word -> !HIDDEN_IN_LONGER_WORDS.contains(word.toLowerCase(Locale.ROOT)))
+                .toList();
+    }
+
+    /** A role title's own distinctive words, levels and glue left out: none for "Managing Director". */
+    public static List<String> functionWordsOfTitle(String roleTitle) {
+        return spelledOut(tokensOf(roleTitle == null ? List.of() : List.of(roleTitle))).stream()
+                .filter(word -> !LEVEL_WORDS.contains(word.toLowerCase(Locale.ROOT)))
+                .limit(MAX_WORDS)
+                .toList();
+    }
+
+    /** Whether a title is the general-management seat (CEO, Managing Director), every word a level. */
+    public static boolean namesTheTopSeat(String roleTitle) {
+        List<String> words = tokensOf(roleTitle == null ? List.of() : List.of(roleTitle));
+        return !words.isEmpty() && words.stream()
+                .map(word -> word.toLowerCase(Locale.ROOT))
+                .allMatch(word -> LEVEL_WORDS.contains(word) || TOP_SEAT_ABBREVIATIONS.contains(word));
+    }
+
+    /** The function words that name a function rather than a level: "Director" in the list proves nothing. */
+    public List<String> functionNamingWords() {
+        return functionWords.stream()
+                .filter(word -> !LEVEL_WORDS.contains(word.toLowerCase(Locale.ROOT)))
+                .toList();
+    }
+
+    /** The function-naming words no other function's titles also carry. */
+    public List<String> distinctiveFunctionWords() {
+        return functionNamingWords().stream()
+                .filter(word -> !isSharedAcrossFunctions(word))
+                .toList();
+    }
+
+    private static boolean isSharedAcrossFunctions(String word) {
+        String folded = word.toLowerCase(Locale.ROOT);
+        return SHARED_FUNCTION_WORDS.contains(folded) || SHARED_FUNCTION_WORDS.contains(singularOf(folded));
+    }
+
+    private static String singularOf(String word) {
+        if (word.endsWith("ses") || word.endsWith("xes")) {
+            return word.substring(0, word.length() - 2);
+        }
+        if (word.endsWith("s") && !word.endsWith("ss")) {
+            return word.substring(0, word.length() - 1);
+        }
+        return word;
     }
 
     /** The words as a search sees them — order and case ignored — so two specs asking the same question share it. */

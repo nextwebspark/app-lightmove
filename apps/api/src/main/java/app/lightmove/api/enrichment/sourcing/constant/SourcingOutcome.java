@@ -10,7 +10,7 @@ public enum SourcingOutcome {
     NO_HITS,
     /** Every hit was already mapped in the mandate. */
     ALL_ALREADY_MAPPED,
-    /** Hits came back, but the model chose none — or every pick collided with a held name. */
+    /** Hits came back, but none held the brief's seat — or every pick collided with a held name. */
     NOTHING_FIT,
     /** The vendor or the model threw; the other companies were unaffected. */
     FAILED,

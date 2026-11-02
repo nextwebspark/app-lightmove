@@ -47,6 +47,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | ☐ Default region / currency | select | unchecked | toast |
 | ☐ Persona chips | ≤ 20 items, no item length | ≤ 20 × 96/160/64 | toast |
 | Profile timezone | a region's zone or UTC, from the grouped list; the saved value passes unchanged (kept in the list if the browser lists none) | `@NotBlank @Size(64)`; a new choice must be a region's own zone or `UTC` the JDK knows, never a legacy alias like `EST` (`VALIDATION_FAILED` on `timezone`) — a zone saved before V148 saves unchanged | field |
+| Profile photo | any picture the browser opens, framed square in the crop dialog and drawn as a ≤ 512px JPEG; one it cannot open is said in the dialog | ≤ the configured cap, 5 MB by default (`lightmove.avatars.max-upload-bytes`, named in the message), decoded as JPEG or PNG and re-encoded, anything else refused (`VALIDATION_FAILED` on `file`); 20 changes an hour per person, 300 per address | dialog banner |
 | Candidate tag label | trimmed, ≤ 40 | `@NotBlank @Size(40)` | toast |
 | API key name | trimmed, ≤ 80 | `@NotBlank @Size(80)` | banner |
 | Suppression list entry: LinkedIn profile, email | — (no screen yet; API only) | at least one (`VALIDATION_FAILED` on `linkedinUrl`); the link must name a member profile, a missing `https://` forgiven (`VALIDATION_FAILED` on `linkedinUrl`); email normalised, `@Email @Size(320)`; `@Size(500)` on the link | field |

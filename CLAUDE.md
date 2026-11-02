@@ -72,7 +72,7 @@ name different profiles; never by phone (a switchboard is on everyone) and never
 match is **mapped, not duplicated**: what the new mandate brings only fills what nobody recorded, an
 edit through one mandate is what every other reads, and removing someone from a mandate keeps the
 person. A profile is one person's: an edit that would give a second person of the workspace the same
-LinkedIn profile is refused (`PERSON_PROFILE_HELD`). **A workspace's suppression list (V173, #920)** names the people no door may file again — by a hash of
+LinkedIn profile is refused (`PERSON_PROFILE_HELD`). **A workspace's suppression list (V174, #920)** names the people no door may file again — by a hash of
 their profile slug or email, salted with the workspace (`SuppressionKey`), never the key itself: the add form, the plugin and
 a spreadsheet are refused `PERSON_SUPPRESSED` (an edit only for a key it adds), while Find executives and People Search
 leave them out before a photo is fetched or anything filed, and off a People Search page as it is read
@@ -83,7 +83,7 @@ each `PersonErasureContributor` — declared in `candidate`, implemented where t
 mid-send, calls their Recall bots back, forgets the vendor cache's copy of the profile and scrubs the name from the bell
 and Find executives' runs; their files are queued in `app_lm_storage_deletion` (global, keys only) for
 `StorageDeletionSweeper`, and their profile and addresses suppressed unless the admin unticks it. Audited by id and
-counts, never the name. **Anyone on the team restricts processing of a person (#920, V175, GDPR Art. 18)** from the
+counts, never the name. **Anyone on the team restricts processing of a person (#920, V176, GDPR Art. 18)** from the
 Candidates drawer's ⋯, with a reason and optionally the suppression list as an objection (`PUT
 /candidates/{personId}/processing-restriction`, `CANDIDATE_POOL_MANAGE`): the record stays readable and editable, and
 nothing uses it until it is lifted — `CandidateService.dossierOf`, every model run's one read, refuses
@@ -263,13 +263,16 @@ the strip under the toolbar polls (and the project stream announces). Off the re
 Gemini call turns the brief into single-word title tokens (`SourcingSpec`: a seniority group, a
 function group — never empty, since "Chief" alone bought every Chief Accountant — and an excluded group
 sent as `not_includes`, four words each — the vendor refuses a fifth rule, runs a phrase at ten seconds
-and matches a word inside longer ones, so an exclusion hiding in a senior title word is dropped),
+and matches a word inside longer ones, so an exclusion hiding in a senior title word is dropped, and a seat
+abbreviation hiding in one — "CTO" in Director and Doctor — is never sent to it, `forSubstringMatching`),
 one **synchronous** Bright Data people search per company keys on the company's LinkedIn slug
 (`current_company_company_id`; the numeric id matches nothing) with the brief's country and the Gulf
 neighbours only — nobody living elsewhere is searched for, and a brief with no country searches everywhere.
 **No model judges the people**: the hits not already mapped are ranked in code (`SourcedHitRanking` —
 the vendor matched the headline and sends no relevance order, so it reads the *current role's* title:
-a function word first, then its level against the brief's seat) and the first `picks-per-company` are each filed through `CandidateService.addSourced` — the search hit *is* the research, so no
+a function word first, then its level against the brief's seat — every word matched whole, `TitleWords`), filed only
+when the current role holds the seat (`SeatFit`: the brief's function, Head or above for a C-suite or N-1 seat; a round
+finding only others is reworded), and the first `picks-per-company` are each filed through `CandidateService.addSourced` — the search hit *is* the research, so no
 second vendor call — as `AI_SOURCED` (no badge on the grid; the drawer's source reads "Sourced"), and
 the same automatic background run a capture gets proposes the missing background, fired with the `SOURCING`
 trigger that skips the per-user LLM meter. A company whose search finds **nobody** is searched again with other title
@@ -1028,12 +1031,12 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **Membership is invitation-only**; the one second door is a staff member naming a client representative.
 - A user may hold **several** active memberships (V81 dropped V1's partial unique index), but a session is in exactly **one** workspace — the `wsId` claim, chosen at sign-in from `last_workspace_id`, remembered per refresh-token family, and changed by `POST /auth/switch-workspace` (a 404 unless the caller is an active member of the target) or by a web refresh whose membership has ended (audited `MEMBERSHIP_ENDED`; `/me` and the extension never fall through). The signup wizard's `POST /onboarding/workspace` founds a *first* workspace only (`ALREADY_IN_WORKSPACE`); a further one is `POST /workspaces`, staff-gated.
 - Verification gates the *proof of mailbox*, not the channel — an invite token or a password reset proves it too.
-- **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter. Forced Postgres row-level security (V170, V172, `core/tenant`) is the backstop on every tenant table, which `TenantTableGuard` reads off the schema and the boot refuses unprotected: every borrowed connection carries the caller's workspace, a job, webhook or worker with no principal names its own with `WorkspaceScope`, and a door that knows only a key (a grant, a bot, a slug, a token's hash) resolves its workspace through V171's `TenantResolvers` first — with none, tenant tables answer nothing (`db-ops`).
+- **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter. Forced Postgres row-level security (V171, V173, `core/tenant`) is the backstop on every tenant table, which `TenantTableGuard` reads off the schema and the boot refuses unprotected: every borrowed connection carries the caller's workspace, a job, webhook or worker with no principal names its own with `WorkspaceScope`, and a door that knows only a key (a grant, a bot, a slug, a token's hash) resolves its workspace through V172's `TenantResolvers` first — with none, tenant tables answer nothing (`db-ops`).
 - **Authorise by action, never by role** (`@PreAuthorize` + `@workspaceAuthorizer`/`@projectAuthorizer`); guard beans re-read the DB every check; the JWT `roles` claim is never trusted for a decision.
 - Client access is **two tiers, two decisions**: registry (`CLIENT_RECORD_MANAGE`, ADMIN+MEMBER) vs mandate (`CLIENT_ACCESS_MANAGE`, LEAD only). Project content is seat-gated `WORK_VIEW`/`WORK_EXECUTE`, not `PROJECT_BROWSE`.
 - **A platform role sits above every tenant and inside none**: `SUPER_ADMIN` gates `/api/v1/platform/**` (`@platformAuthorizer`) and nothing else, is granted by ops script only, and never rides in the JWT.
 - **An identity provider is a yml block** — never branch on a provider name anywhere.
-- **Tokens are never stored raw** (SHA-256); the refresh cookie rotates on every use; the access token lives in JS memory only.
+- **Tokens are never stored raw** (SHA-256) — the one exception a profile photo's link, which every colleague's screen draws and which opens that one image; the refresh cookie rotates on every use; the access token lives in JS memory only.
 - **The SPA and API are one origin**; every endpoint lives under `/api/v1`. Don't split hosts.
 - **An MCP token's `aud` is the MCP endpoint and it is signed by its own key**; the session decoder checks our issuer and refuses any token carrying an `aud`, so neither token opens the other's routes.
 - **No token passthrough:** an MCP tool calls our services in-process as its `McpCaller`; a caller's token is never forwarded to another service, ours or a provider's.
@@ -1434,30 +1437,39 @@ An account with no password (a Google or LinkedIn sign-in) turns two-factor on w
 with the code alone.
 V165 indexes `app_lm_audit_event (workspace_id, id DESC)` for the customer audit log, guarded on ownership as V74 is:
 once `harden.sql` has run the index is its to build (`CONCURRENTLY`). An index only; no row is written.
-V170 forces row-level security on the people and position core (#1084; the rest is #1085): `app_lm_tenant_visible`
+V171 forces row-level security on the people and position core (#1084; the rest is #1085): `app_lm_tenant_visible`
 over `app.workspace_id`, set on every connection checkout by `TenantAwareDataSource`; a person's children are visible
 through their person, and `app_lm_project_candidate` / `app_lm_project_triage_company` gain their project's
 `workspace_id` (filled by trigger, held by a composite key). Flyway's own session sets `app.rls_maintenance` until
 #256; the runtime role must be no superuser and no `BYPASSRLS`, or `RowLevelSecurityPosture` refuses the boot.
-V171 adds the `app_lm_resolve_*` functions — `SECURITY DEFINER`, one key each, ids and workspace out — that a door with
-no principal asks before opening its scope (`TenantResolvers`), and `app_lm_trial_started_by`. V172 forces row-level
+V172 adds the `app_lm_resolve_*` functions — `SECURITY DEFINER`, one key each, ids and workspace out — that a door with
+no principal asks before opening its scope (`TenantResolvers`), and `app_lm_trial_started_by`. V173 forces row-level
 security on every other tenant table (#1085): a direct policy where the table has a `workspace_id`, one through the
 parent where it has none; a library template and a grant awaiting consent (null workspace) are anyone's, and the audit
 trail takes every insert and is read only in its own workspace or the account's. `app_lm_audit_event` and
-`app_lm_credit_entry` are harden.sql's once it has run (step 2c), which must be re-run after V172 deploys.
+`app_lm_credit_entry` are harden.sql's once it has run (step 2c), which must be re-run after V173 deploys.
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a
 Google or Zoom row, since only Entra's expire.
-V174 seeds `PERSON_ERASE` to ADMIN alone and adds `app_lm_storage_deletion` (a bucket key per row, its attempts and
+V175 seeds `PERSON_ERASE` to ADMIN alone and adds `app_lm_storage_deletion` (a bucket key per row, its attempts and
 next attempt; global by design, so outside row-level security), drained by `StorageDeletionSweeper`
 (`lightmove.storage.deletion-sweep-interval`) with a back-off to a day, never giving up.
-V173 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a `value_hash` unique per workspace and kind,
+V174 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a `value_hash` unique per workspace and kind,
 `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security in the same migration.
 V169 gives `app_lm_workspace_mail_integration` the saved app's read-only facts: `secret_hint` (the last four),
 `secret_saved_at`/`secret_saved_by`, and `keys_checked_at`/`keys_refused_with` (the provider's last answer, its code
 when it refused) — all null on a shared row (CHECK). No backfill: no SQL can read the ciphertext, so an older
 secret's hint is read from it at runtime and never written back.
+V170 adds `app_lm_user_avatar` — a person's profile photo held by us (account data, one per user): their own upload
+from Settings → Profile (cropped in the browser, re-encoded by `core/security/avatar`'s `AvatarImages` to a ≤ 512px JPEG,
+JPEG or PNG only) or a copy of the picture their sign-in provider named, downloaded once a sign-in has completed through
+`HttpPictureFetcher` (on `core/http`'s `GuardedHttpClient`, the client id metadata fetch's guard: every resolved address
+public, no redirect, a size cap, one deadline) — and `app_lm_user.avatar_url` names it as the public
+`/api/v1/avatars/{token}`, a new token per picture, cached privately for a year. V25's `USER` source is written: an upload
+or a removal no provider replaces (`User.mayTakeAvatarFrom`), and once a workspace can enforce its identity provider's
+sign-in, `isAvatarEditable` is where its directory photo becomes final. It clears every provider link stored before it,
+which expired and, once dead, kept every other provider out: the next sign-in copies the picture.
 V167 adds `app_lm_project_candidate.company_filed_for_them`: their company was filed for them (research, or the
 employer the workspace knew them at) rather than already held, cleared by any move; only the plugin's Undo reads it.
 V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage
