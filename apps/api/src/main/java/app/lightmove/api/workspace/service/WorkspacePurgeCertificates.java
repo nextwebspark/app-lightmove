@@ -19,7 +19,7 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * The deletion certificate's row (V178). Begun with the counts of what the purge is about to delete, so a purge resumed
+ * The deletion certificate's row (V179). Begun with the counts of what the purge is about to delete, so a purge resumed
  * after a crash still certifies what was there, and completed with a body naming no one — ids, times and counts —
  * whose SHA-256 is kept beside it, so a copy someone was emailed can be checked against Uncava's.
  */

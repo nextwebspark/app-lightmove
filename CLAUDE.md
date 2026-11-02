@@ -885,7 +885,7 @@ and the New position picker; nothing is opened or restored under it (`CLIENT_ARC
 against a racing archive), and its name stays held (`CLIENT_NAME_ARCHIVED`, kept apart from
 `CLIENT_ALREADY_EXISTS`, whose caller reuses the record it names).
 
-**A workspace is deleted with a grace period, then purged (#926, V178).** `DELETE /workspace` (the name typed back)
+**A workspace is deleted with a grace period, then purged (#926, V179).** `DELETE /workspace` (the name typed back)
 ends access at once — every membership ended (`ended_with_workspace`), invitations revoked, API keys and AI apps
 revoked, live runs stopped `WORKSPACE_DELETED` and waiting emails cancelled in the same transaction
 (`WorkspaceDeleted` → `WorkspaceDeletionOutreach`), and once it commits every mailbox and Zoom account let go at its
@@ -907,7 +907,7 @@ starts (`POST /platform/workspaces/{id}/restore`; mailboxes, keys and invitation
 (`WorkspaceExportWorker` → `WorkspaceArchiveWriter`, streamed into the store through `core/export`'s
 `ZipArchiveWriter`, which #919 reuses): every position with its brief and its three Companies stages as the staff grid
 exports them, the Candidates CSV, each person's notes and the latest file of each document, and the whole audit log;
-the admin is emailed, and `WorkspaceExportExpiry` (V178's resolver) deletes it `workspace-exports-after` (7 days ⚖️)
+the admin is emailed, and `WorkspaceExportExpiry` (V179's resolver) deletes it `workspace-exports-after` (7 days ⚖️)
 later, or fails one whose worker died.
 
 **The customer audit log (#1083)** is Settings → Security's Audit log tab, an admin's alone: `GET
@@ -1486,13 +1486,13 @@ Google or Zoom row, since only Entra's expire.
 V175 seeds `PERSON_ERASE` to ADMIN alone and adds `app_lm_storage_deletion` (a bucket key per row, its attempts and
 next attempt; global by design, so outside row-level security), drained by `StorageDeletionSweeper`
 (`lightmove.storage.deletion-sweep-interval`) with a back-off to a day, never giving up.
-V178 gives `app_lm_workspace` its deletion and purge columns (`deleted_at`/`deleted_by`, `purge_after`,
+V179 gives `app_lm_workspace` its deletion and purge columns (`deleted_at`/`deleted_by`, `purge_after`,
 `purge_notice_email`, `purge_started_at`, the claim's `purge_claimed_until`, `purged_at`; a workspace deleted before it
 was given 30 days from the deploy), `app_lm_workspace_member.ended_with_workspace`, `WORKSPACE_DELETED` among the
 enrollment's stop reasons, `app_lm_workspace_export` and `app_lm_workspace_purge_certificate` (both under policy; the
 certificate is never purged), the resolver `app_lm_resolve_workspace_exports_to_close`, and the platform action
 `WORKSPACE_LIFECYCLE_MANAGE`.
-V173 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a `value_hash` unique per workspace and kind,
+V174 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a `value_hash` unique per workspace and kind,
 `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security in the same migration.
 V169 gives `app_lm_workspace_mail_integration` the saved app's read-only facts: `secret_hint` (the last four),
 `secret_saved_at`/`secret_saved_by`, and `keys_checked_at`/`keys_refused_with` (the provider's last answer, its code
