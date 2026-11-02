@@ -72,7 +72,7 @@ name different profiles; never by phone (a switchboard is on everyone) and never
 match is **mapped, not duplicated**: what the new mandate brings only fills what nobody recorded, an
 edit through one mandate is what every other reads, and removing someone from a mandate keeps the
 person. A profile is one person's: an edit that would give a second person of the workspace the same
-LinkedIn profile is refused (`PERSON_PROFILE_HELD`). **A workspace's suppression list (V173, #920)** names the people no door may file again — by a hash of
+LinkedIn profile is refused (`PERSON_PROFILE_HELD`). **A workspace's suppression list (V174, #920)** names the people no door may file again — by a hash of
 their profile slug or email, salted with the workspace (`SuppressionKey`), never the key itself: the add form, the plugin and
 a spreadsheet are refused `PERSON_SUPPRESSED` (an edit only for a key it adds), while Find executives and People Search
 leave them out before a photo is fetched or anything filed, and off a People Search page as it is read
@@ -1430,7 +1430,7 @@ V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connec
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a
 Google or Zoom row, since only Entra's expire.
-V173 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a `value_hash` unique per workspace and kind,
+V174 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a `value_hash` unique per workspace and kind,
 `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security in the same migration.
 V169 gives `app_lm_workspace_mail_integration` the saved app's read-only facts: `secret_hint` (the last four),
 `secret_saved_at`/`secret_saved_by`, and `keys_checked_at`/`keys_refused_with` (the provider's last answer, its code
