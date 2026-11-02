@@ -1,5 +1,7 @@
 package app.lightmove.api.core.tenant;
 
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -90,6 +92,17 @@ public class TenantResolvers {
 
     public boolean hasStartedATrial(UUID userId) {
         return Boolean.TRUE.equals(jdbc.queryForObject("SELECT app_lm_trial_started_by(?)", Boolean.class, userId));
+    }
+
+    /**
+     * The workspaces holding a row the retention sweep is due to delete — each cutoff the oldest a row of its table may
+     * be — so the sweep visits those alone rather than every workspace. Ids only.
+     */
+    public List<UUID> workspacesWithRetentionDue(Instant invitationsBefore, Instant notificationsBefore,
+                                                 Instant digestsBefore, Instant threadsBefore, Instant usageBefore) {
+        return jdbc.queryForList("SELECT workspace_id FROM app_lm_resolve_workspaces_with_retention_due(?, ?, ?, ?, ?)",
+                UUID.class, Timestamp.from(invitationsBefore), Timestamp.from(notificationsBefore),
+                Timestamp.from(digestsBefore), Timestamp.from(threadsBefore), Timestamp.from(usageBefore));
     }
 
     /** How many firms hold their own template under each code — the platform library's count, never which firms. */
