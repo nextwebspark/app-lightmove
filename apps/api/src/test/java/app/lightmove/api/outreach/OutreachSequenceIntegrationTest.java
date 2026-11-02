@@ -176,6 +176,25 @@ class OutreachSequenceIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("someone whose processing is restricted is skipped with that reason, and no opener is drafted for them")
+    void restrictedPeopleAreSkipped() throws Exception {
+        String sequenceId = createSequence("First approach");
+        String restricted = executive("Lina Haddad", "lina@target.example", null);
+        restrictProcessing(restricted);
+        connectMailbox();
+
+        assertThat(choose(List.of(restricted)).get(restricted).get("skipReason").asText())
+                .isEqualTo("PROCESSING_RESTRICTED");
+        assertThat(codeOf(as(consultant, post(outreach("/openers")).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"candidateIds\":[\"%s\"]}".formatted(restricted)))
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("OUTREACH_PERSON_SKIPPED");
+        assertThat(codeOf(start(sequenceId, List.of(person(restricted, "lina@target.example", "One.", false)))
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("OUTREACH_PERSON_SKIPPED");
+        assertThat(chat.prompts()).isEmpty();
+        assertThat(enrollmentCount()).isZero();
+    }
+
+    @Test
     @DisplayName("Start schedules each person with their own reviewed email, a timeline line, and sends nothing")
     void startFreezesEachPersonsOwnEmail() throws Exception {
         String sequenceId = createSequence("First approach");
@@ -384,6 +403,15 @@ class OutreachSequenceIntegrationTest extends FlowTestSupport {
                         """.formatted(fullName, slug, emailField, extraJson == null ? "" : extraJson)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
+    }
+
+    private void restrictProcessing(String candidateId) throws Exception {
+        String personId = body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + candidateId))
+                .andReturn()).get("personId").asText();
+        as(consultant, put("/api/v1/candidates/" + personId + "/processing-restriction")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"restricted\":true,\"reason\":\"Asked what we hold about them.\"}"))
+                .andExpect(status().isOk());
     }
 
     private void markDoNotContact(String candidateId) throws Exception {

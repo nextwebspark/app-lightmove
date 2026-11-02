@@ -33,6 +33,7 @@ import { focusNoteComposer } from "../../../notes/lib/focusNoteComposer";
 import { ActionMenu, MenuItem } from "../../../../components/ui/ActionMenu";
 import { useIsWorkspaceAdmin } from "../../../billing/lib/useBilling";
 import { ErasePersonDialog } from "./ErasePersonDialog";
+import { RestrictProcessingDialog } from "./RestrictProcessingDialog";
 
 const TAB_ID_PREFIX = "person-drawer";
 
@@ -109,6 +110,7 @@ function PersonDrawerBody({
   const changed = usePersonRecordUpdate();
   const [adding, setAdding] = useState(false);
   const [erasing, setErasing] = useState(false);
+  const [restricting, setRestricting] = useState(false);
   const isAdmin = useIsWorkspaceAdmin();
   const [nextAction, setNextAction] = useState<NextActionTarget | null>(null);
   const setNextActionOn: SetNextActionOn = (position, taskId) =>
@@ -136,38 +138,71 @@ function PersonDrawerBody({
     onError: (error) => toast.error(messageFor(error)),
   });
 
+  const lifting = useMutation({
+    mutationFn: () => poolApi.setProcessingRestriction(person.personId, false),
+    onSuccess: (record) => {
+      changed(record);
+      toast.success("Restriction lifted");
+    },
+    onError: (error) => toast.error(messageFor(error)),
+  });
+
   const context = [person.companyName, person.locationCity, person.locationCountry].filter(Boolean).join(" · ");
   const doNotContact = person.doNotContact;
+  const restriction = person.processingRestriction;
 
   return (
     <>
       <header className="relative flex-none border-b border-u-border px-5 pt-4">
         <PanelCloseButton onClose={onClose} />
-        {isAdmin && (
-          <div className="absolute end-12 top-3.5">
-            <ActionMenu label={`More for ${person.fullName}`} width={256}>
-              {(close) => (
-                <MenuItem
-                  icon={ICONS.trash}
-                  tone="danger"
-                  onSelect={() => {
-                    close();
-                    setErasing(true);
-                  }}
-                >
-                  Delete person permanently…
-                </MenuItem>
-              )}
-            </ActionMenu>
-          </div>
-        )}
+        <div className="absolute end-12 top-3.5">
+          <ActionMenu label={`More for ${person.fullName}`} width={256}>
+            {(close) => (
+              <>
+                {restriction ? (
+                  <MenuItem
+                    icon={ICONS.unlock}
+                    onSelect={() => {
+                      close();
+                      lifting.mutate();
+                    }}
+                  >
+                    Lift restriction
+                  </MenuItem>
+                ) : (
+                  <MenuItem
+                    icon={ICONS.lock}
+                    onSelect={() => {
+                      close();
+                      setRestricting(true);
+                    }}
+                  >
+                    Restrict processing…
+                  </MenuItem>
+                )}
+                {isAdmin && (
+                  <MenuItem
+                    icon={ICONS.trash}
+                    tone="danger"
+                    onSelect={() => {
+                      close();
+                      setErasing(true);
+                    }}
+                  >
+                    Delete person permanently…
+                  </MenuItem>
+                )}
+              </>
+            )}
+          </ActionMenu>
+        </div>
         <PersonHeaderLayout
           avatar={<PersonAvatar person={person} size="xl" className="size-11 rounded-u-card border border-u-border-strong text-sm" />}
           fullName={person.fullName}
           linkedinUrl={person.linkedinUrl}
           title={person.title}
           context={context}
-          hasCornerMenu={isAdmin}
+          hasCornerMenu
         >
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {person.seniority && <DetailPill label={person.seniority} />}
@@ -208,6 +243,15 @@ function PersonDrawerBody({
               <Icon d={ICONS.ban} size={12} />
               Do not contact
             </button>
+            {restriction && (
+              <span
+                title="No AI, research, outreach or new positions until the restriction is lifted"
+                className="flex h-7 items-center gap-1.5 rounded-full bg-u-signal-tint px-2.5 font-mono text-meta font-semibold text-u-signal"
+              >
+                <Icon d={ICONS.lock} size={12} />
+                Processing restricted
+              </span>
+            )}
             <PrimaryCvChip documents={documents} onPreview={openPreview} />
           </div>
           <PersonTagsSection person={person} className="mt-2.5" />
@@ -219,6 +263,32 @@ function PersonDrawerBody({
                 Set by {doNotContact.setByName ?? "someone"}
                 {doNotContact.setAt && ` · ${new Date(doNotContact.setAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`}
               </span>
+            </div>
+          )}
+          {restriction && (
+            <div
+              role="note"
+              aria-label="Processing restricted"
+              className="mt-3 flex items-start gap-2.5 rounded-u-card border border-u-signal/35 bg-u-signal-tint px-3 py-2"
+            >
+              <Icon d={ICONS.lock} size={14} className="mt-0.5 flex-none text-u-signal" />
+              <div className="min-w-0 flex-1">
+                <div className="text-body font-semibold text-u-signal">Processing restricted</div>
+                <div className="mt-0.5 text-note text-u-text2">{restriction.reason}</div>
+                <div className="mt-0.5 font-mono text-meta text-u-text3">
+                  Restricted by {restriction.restrictedByName ?? "someone"} ·{" "}
+                  {new Date(restriction.restrictedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                size="xs"
+                disabled={lifting.isPending}
+                onClick={() => lifting.mutate()}
+                className="flex-none"
+              >
+                Lift restriction
+              </Button>
             </div>
           )}
         </PersonHeaderLayout>
@@ -325,6 +395,16 @@ function PersonDrawerBody({
         onClose={closePreview}
       />
 
+      {restricting && (
+        <RestrictProcessingDialog
+          person={person}
+          onClose={() => setRestricting(false)}
+          onRestricted={(record) => {
+            changed(record);
+            setRestricting(false);
+          }}
+        />
+      )}
       {erasing && (
         <ErasePersonDialog
           personId={person.personId}

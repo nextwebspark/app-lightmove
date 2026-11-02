@@ -70,6 +70,7 @@ import { DocumentPreviewSheet, type PreviewTarget } from "./documents/DocumentPr
 import { PrimaryCvChip } from "./documents/PrimaryCvChip";
 import {
   DoNotContactStrip,
+  ProcessingRestrictedStrip,
   NotesSection,
   usePositions,
   type NoteFocus,
@@ -399,6 +400,7 @@ export function CandidateProfile({
           </div>
           {personRecord.data && <PersonTagsSection person={personRecord.data} className="mt-2.5" />}
           {canWrite && <DoNotContactStrip personId={candidate.personId} />}
+          {canWrite && <ProcessingRestrictedStrip personId={candidate.personId} />}
           {canWrite && (
             <NextActionBar
               projectId={projectId}

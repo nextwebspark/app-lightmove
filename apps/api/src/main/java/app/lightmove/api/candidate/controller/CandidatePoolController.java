@@ -7,6 +7,7 @@ import app.lightmove.api.candidate.dto.BulkTagPeopleRequest;
 import app.lightmove.api.candidate.dto.CandidatePoolResponse;
 import app.lightmove.api.candidate.dto.CandidatePoolSizeResponse;
 import app.lightmove.api.candidate.dto.DoNotContactRequest;
+import app.lightmove.api.candidate.dto.ProcessingRestrictionRequest;
 import app.lightmove.api.candidate.dto.MapPeopleToPositionRequest;
 import app.lightmove.api.candidate.dto.MapPeopleToPositionResponse;
 import app.lightmove.api.candidate.dto.PersonNoteResponse;
@@ -146,6 +147,16 @@ public class CandidatePoolController {
                                              HttpServletRequest httpRequest) {
         return pool.markDoNotContact(principal.userId(), principal.requireWorkspaceId(), personId,
                 request.doNotContact(), request.reason(), httpRequest);
+    }
+
+    @PutMapping("/{personId}/processing-restriction")
+    @RequireWorkspacePermission(WorkspaceAction.CANDIDATE_POOL_MANAGE)
+    public PersonRecordResponse processingRestriction(@AuthenticationPrincipal AuthPrincipal principal,
+                                                      @PathVariable UUID personId,
+                                                      @Valid @RequestBody ProcessingRestrictionRequest request,
+                                                      HttpServletRequest httpRequest) {
+        return pool.restrictProcessing(principal.userId(), principal.requireWorkspaceId(), personId, request,
+                httpRequest);
     }
 
     @PutMapping("/{personId}/tags/{tagId}")

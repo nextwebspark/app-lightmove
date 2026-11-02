@@ -72,6 +72,9 @@ public enum ProjectEventType implements AuditEventType {
     PERSON_UNTAGGED,
     PERSON_DO_NOT_CONTACT_SET,
     PERSON_DO_NOT_CONTACT_CLEARED,
+    /** Restriction of processing set or lifted. Recorded by id; the reason stays on the person. */
+    PERSON_PROCESSING_RESTRICTED,
+    PERSON_PROCESSING_RESTRICTION_LIFTED,
     PEOPLE_MAPPED_FROM_POOL,
     CANDIDATE_TAG_CREATED,
     CANDIDATE_TAG_UPDATED,

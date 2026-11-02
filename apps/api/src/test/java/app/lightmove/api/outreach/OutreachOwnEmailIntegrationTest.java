@@ -290,6 +290,23 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("restricted while it waited, the email fails unsent; a new one is refused")
+    void restrictionAtSendFailsIt() throws Exception {
+        String id = send("""
+                {"toAddress":"%s","subject":"Hi","replyInThread":false,"body":"Hello"}""".formatted(priyaAddress))
+                .get("id").asText();
+        restrictProcessing();
+
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
+
+        assertThat(gateway.sent()).isEmpty();
+        assertThat(line(id)).containsEntry("status", "FAILED").containsEntry("fail_reason", "PROCESSING_RESTRICTED");
+        sendExpecting(status().isConflict(), """
+                {"toAddress":"%s","subject":"Hi","replyInThread":false,"body":"Hello"}""".formatted(priyaAddress))
+                .andExpect(jsonPath("$.code").value("PERSON_PROCESSING_RESTRICTED"));
+    }
+
+    @Test
     @DisplayName("a send whose outcome is unknown fails and is never sent again")
     void anUncertainSendIsNeverRetried() throws Exception {
         String id = send("""
@@ -517,6 +534,15 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"doNotContact\":true,\"reason\":\"Asked not to be approached.\"}"))
                 .andExpect(status().is2xxSuccessful());
+    }
+
+    private void restrictProcessing() throws Exception {
+        String personId = jdbc.queryForObject("select person_id::text from app_lm_project_candidate where id = ?::uuid",
+                String.class, priya);
+        as(consultant, put("/api/v1/candidates/" + personId + "/processing-restriction")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"restricted\":true,\"reason\":\"Asked what we hold about them.\"}"))
+                .andExpect(status().isOk());
     }
 
     private Map<String, Object> line(String id) {

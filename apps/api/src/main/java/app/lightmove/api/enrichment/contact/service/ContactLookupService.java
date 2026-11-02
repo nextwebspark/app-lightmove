@@ -123,6 +123,9 @@ public class ContactLookupService {
         }
         CandidateContactState state =
                 candidates.contactStateOf(press.workspaceId(), press.projectId(), press.candidateId());
+        if (state.processingRestricted()) {
+            throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
+        }
         if (state.doNotContact()) {
             throw ApiException.of(ErrorCode.PERSON_DO_NOT_CONTACT);
         }

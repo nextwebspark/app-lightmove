@@ -291,8 +291,8 @@ class ExecutiveSourcingWorker {
         }
 
         /**
-         * A hit refused as already mapped, suppressed since the run began, or losing a race to the same name, is
-         * counted as skipped.
+         * A hit refused as already mapped, suppressed since the run began, restricted, or losing a race to the same
+         * name, is counted as skipped.
          */
         private ExecutivePick file(SourcingCompany company, BrightDataPerson person, EnrichmentVendor researchedBy) {
             EnrichedProfile research = BrightDataPersonProfiles.toEnrichedProfile(person, researchedBy)
@@ -308,7 +308,8 @@ class ExecutiveSourcingWorker {
                 return ExecutivePick.of(name, candidateId);
             } catch (ApiException refused) {
                 if (refused.getCode() != ErrorCode.CANDIDATE_ALREADY_MAPPED
-                        && refused.getCode() != ErrorCode.PERSON_SUPPRESSED) {
+                        && refused.getCode() != ErrorCode.PERSON_SUPPRESSED
+                        && refused.getCode() != ErrorCode.PERSON_PROCESSING_RESTRICTED) {
                     throw refused;
                 }
                 return ExecutivePick.of(name, null);

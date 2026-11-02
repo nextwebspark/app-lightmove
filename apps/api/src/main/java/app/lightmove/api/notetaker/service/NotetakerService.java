@@ -43,9 +43,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +55,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -84,6 +87,10 @@ public class NotetakerService {
     /** What Recall says of a bot that has left its call; a leave refused for one of these has already happened. */
     private static final Set<String> LEFT_THE_CALL = Set.of("call_ended", "done", "fatal");
 
+    /** A bot that may still be called back: waiting for its call, joining, or recording. */
+    private static final Set<NotetakerStatus> CANCELLABLE = EnumSet.of(NotetakerStatus.SCHEDULED,
+            NotetakerStatus.JOINING, NotetakerStatus.RECORDING);
+
     private final RecallBotApi recall;
     private final LightMoveProperties properties;
     private final LlmBudgetGuard llmBudget;
@@ -110,7 +117,7 @@ public class NotetakerService {
                         recipient.personId()).stream()
                 .map(recording -> responseOf(recording, userId, now))
                 .toList();
-        if (!recall.isOffered() || recipient.doNotContact()) {
+        if (!recall.isOffered() || recipient.doNotContact() || recipient.processingRestricted()) {
             return new CandidateNotetakerResponse(recall.isOffered(), rows, List.of(), List.of());
         }
         ZoneId zone = timezones.zoneOf(userId);
@@ -135,6 +142,9 @@ public class NotetakerService {
             throw ApiException.of(ErrorCode.NOTETAKER_NOT_OFFERED);
         }
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
+        if (recipient.processingRestricted()) {
+            throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
+        }
         if (recipient.doNotContact()) {
             throw ApiException.of(ErrorCode.MEETING_DO_NOT_CONTACT);
         }
@@ -284,6 +294,38 @@ public class NotetakerService {
                         && scheduled.getJoinUrl().equals(joinableOrNull(call.joinUrl())));
     }
 
+    /**
+     * Processing of the person was restricted: every bot of theirs still to join, or recording now, is called back and
+     * its media deleted, in every position. A bot already asked to leave is filing its notes, which the notes' worker
+     * refuses for a restricted person. Run in the person's workspace, off the request that restricted them.
+     */
+    public void callBackForRestriction(UUID workspaceId, UUID personId, UUID restrictedBy) {
+        // Its own transactions: a listener the pool runs on the publishing thread would otherwise join the finished one.
+        TransactionTemplate own = new TransactionTemplate(Objects.requireNonNull(transactions.getTransactionManager()));
+        own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        List<UUID> live = own.execute(status -> recordings.findByWorkspaceIdAndPersonIdAndStatusIn(workspaceId,
+                personId, CANCELLABLE).stream().map(MeetingRecording::getId).toList());
+        for (UUID recordingId : live == null ? List.<UUID>of() : live) {
+            String botId = own.execute(status -> recordings.lockById(recordingId)
+                    .filter(held -> !held.isEnding() && CANCELLABLE.contains(held.getStatus()))
+                    .map(held -> {
+                        callOff(held);
+                        audit.event(ProjectEventType.NOTETAKER_CANCELLED).actor(restrictedBy).workspace(workspaceId)
+                                .target(AuditService.PROJECT_TARGET, held.getProjectId())
+                                .detail("candidateId", String.valueOf(held.getCandidateId()))
+                                .detail("recordingId", recordingId.toString())
+                                .detail("reason", "PROCESSING_RESTRICTED")
+                                .record();
+                        return held.getRecallBotId() == null ? "" : held.getRecallBotId();
+                    })
+                    .orElse(null));
+            if (botId != null && !botId.isEmpty()) {
+                removeQuietly(botId);
+                deleteMediaQuietly(botId);
+            }
+        }
+    }
+
     private void callOff(MeetingRecording held) {
         held.cancelled();
         if (held.isLiveCopilot()) {
@@ -299,6 +341,9 @@ public class NotetakerService {
     public NotetakerRecordingResponse joinNow(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                                               UUID recordingId, HttpServletRequest httpRequest) {
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
+        if (recipient.processingRestricted()) {
+            throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
+        }
         if (recipient.doNotContact()) {
             throw ApiException.of(ErrorCode.MEETING_DO_NOT_CONTACT);
         }
@@ -601,9 +646,7 @@ public class NotetakerService {
 
     /** A recording whose bot was asked to leave is filing its notes: discarding it now would race that. */
     private static void requireCancellable(MeetingRecording recording) {
-        if (recording.isEnding() || (recording.getStatus() != NotetakerStatus.SCHEDULED
-                && recording.getStatus() != NotetakerStatus.JOINING
-                && recording.getStatus() != NotetakerStatus.RECORDING)) {
+        if (recording.isEnding() || !CANCELLABLE.contains(recording.getStatus())) {
             throw ApiException.of(ErrorCode.NOTETAKER_NOT_CHANGEABLE);
         }
     }

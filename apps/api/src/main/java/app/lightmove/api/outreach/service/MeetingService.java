@@ -156,6 +156,9 @@ public class MeetingService {
                                       BookMeetingRequest request, HttpServletRequest httpRequest) {
         Duration length = requireLength(request.minutes());
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
+        if (recipient.processingRestricted()) {
+            throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
+        }
         if (recipient.doNotContact()) {
             throw ApiException.of(ErrorCode.MEETING_DO_NOT_CONTACT);
         }
@@ -249,6 +252,9 @@ public class MeetingService {
         Duration length = requireLength(request.minutes());
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
         PersonMeeting meeting = requireChangeable(userId, workspaceId, recipient, meetingId);
+        if (recipient.processingRestricted()) {
+            throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
+        }
         if (recipient.doNotContact()) {
             throw ApiException.of(ErrorCode.MEETING_DO_NOT_CONTACT);
         }
