@@ -235,7 +235,7 @@ enrichment/                # the one feature split twice: by subject first, then
                        LogPeopleSearch, CachedPeopleSearch, PeopleSearchChain, ChainedPeopleSearch,
                        ExecutiveSourcingService,
                        ExecutiveSourcingWorker, SourcingRunStore, SourcingSpecProposer, SourcingSpecRefiner,
-                       SourcedHitRanking)
+                       SourcedHitRanking, TitleWords)
               config/(ExecutiveSourcingConfig)  controller/  dto/
   peoplesearch/ Strategy's People mode — model/(PeoplePage)
               service/(StrategyPeopleService, PeopleSearchFiling, CachedContactOutPeopleQuery, PeopleFilterBody, LocationSuggestions)

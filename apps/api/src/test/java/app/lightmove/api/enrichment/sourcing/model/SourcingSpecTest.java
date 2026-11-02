@@ -97,4 +97,19 @@ class SourcingSpecTest {
         assertThat(SourcingSpec.of(List.of("Chief", "Head"), List.of("Treasury"), List.of("Assistant"), null).wordKey())
                 .isNotEqualTo(spec.wordKey());
     }
+
+    @Test
+    @DisplayName("an index matching substrings is never asked a word hiding inside longer ones, nor a group left empty")
+    void aSubstringIndexIsSparedHiddenWords() {
+        SourcingSpec technology = SourcingSpec.of(List.of("CTO", "Chief", "Director"),
+                List.of("CTO", "Technology", "CIO"), List.of("Assistant"), null);
+        SourcingSpec operations = SourcingSpec.of(List.of("Chief", "Head"), List.of("COO"), List.of(), null);
+
+        assertThat(technology.forSubstringMatching()).hasValueSatisfying(searchable -> {
+            assertThat(searchable.seniorityWords()).containsExactly("Chief", "Director");
+            assertThat(searchable.functionWords()).containsExactly("Technology", "CIO");
+            assertThat(searchable.excludedWords()).containsExactly("Assistant");
+        });
+        assertThat(operations.forSubstringMatching()).isEmpty();
+    }
 }

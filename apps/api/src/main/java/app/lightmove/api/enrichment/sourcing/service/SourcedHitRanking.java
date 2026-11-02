@@ -60,8 +60,7 @@ final class SourcedHitRanking {
                                        TitleLevel wanted) {
         String title = roleOnly(currentRoleTitle(person), employerNameOf(person));
         TitleLevel level = levelOf(title);
-        boolean functionFits = containsAny(title, spec.functionWords())
-                || hasAbbreviationOf(title, spec.functionWords());
+        boolean functionFits = TitleWords.containsFunction(title, spec.functionWords());
         return new RankedHit(person, functionFits, level.distanceTo(wanted), level, vendorOrder);
     }
 
@@ -138,19 +137,6 @@ final class SourcedHitRanking {
         }
         boolean steppedDown = words.stream().anyMatch(STEP_DOWN_WORDS::contains);
         return steppedDown ? level.oneDown() : level;
-    }
-
-    /** "Head of IT" for technology words: the abbreviation as a whole word, never inside another. */
-    private static boolean hasAbbreviationOf(String title, List<String> functionWords) {
-        List<String> words = List.of(NOT_A_LETTER.split(title.toLowerCase(Locale.ROOT)));
-        return SourcingSpec.abbreviationsOf(functionWords).stream()
-                .anyMatch(abbreviation -> words.contains(abbreviation.toLowerCase(Locale.ROOT)));
-    }
-
-    /** The vendor's own rule — a case-insensitive substring — so a title the search matched still matches here. */
-    private static boolean containsAny(String title, List<String> words) {
-        String folded = title.toLowerCase(Locale.ROOT);
-        return words.stream().anyMatch(word -> folded.contains(word.toLowerCase(Locale.ROOT)));
     }
 
     private static boolean isOpen(String endDate) {
