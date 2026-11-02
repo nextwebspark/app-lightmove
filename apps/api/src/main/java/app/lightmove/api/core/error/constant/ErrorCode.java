@@ -303,6 +303,13 @@ public enum ErrorCode {
     /** Contact lookups are off for a person marked do not contact; nothing was spent. */
     PERSON_DO_NOT_CONTACT(HttpStatus.CONFLICT, "This person is marked do not contact, so contact lookups are off"),
 
+    /**
+     * Processing of this person is restricted (GDPR Art. 18): no AI run, contact lookup, email, invite, recording or
+     * new position until someone lifts it. Nothing was spent.
+     */
+    PERSON_PROCESSING_RESTRICTED(HttpStatus.CONFLICT,
+            "Processing is restricted for this person, so this can't be done until the restriction is lifted"),
+
     /** A LinkedIn profile or email the workspace's suppression list holds: nobody may file that person again. */
     PERSON_SUPPRESSED(HttpStatus.CONFLICT,
             "This person is on your workspace's suppression list, so they can't be added"),

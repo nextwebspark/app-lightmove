@@ -106,6 +106,12 @@ public class CandidateOutreachService {
         return candidates.findByIdAndProjectId(candidateId, projectId).map(CandidateOutreachService::recipientOf);
     }
 
+    /** Whether processing of the person is restricted; a person gone from the workspace reads as restricted. */
+    @Transactional(readOnly = true)
+    public boolean isProcessingRestricted(UUID workspaceId, UUID personId) {
+        return persons.findByIdAndWorkspaceId(personId, workspaceId).map(Person::isProcessingRestricted).orElse(true);
+    }
+
     /** A version of the executive's own document, for an email to them to carry. Empty if it is not theirs. */
     @Transactional(readOnly = true)
     public Optional<AttachableDocument> attachableDocumentOf(UUID workspaceId, UUID projectId, UUID candidateId,
@@ -283,7 +289,8 @@ public class CandidateOutreachService {
         return new OutreachRecipient(candidate.getId(), person.getId(), candidate.getTriageCompanyId(),
                 person.getFullName(), person.getTitle(), candidate.getCompanyName(), person.getLocationCity(),
                 person.getLocationCountry(), candidate.getStatus().getStatusKey(),
-                candidate.getStatus().hasLeftTheRunning(), person.isDoNotContact(), emails);
+                candidate.getStatus().hasLeftTheRunning(), person.isDoNotContact(), person.isProcessingRestricted(),
+                emails);
     }
 
     private static RecipientEmail emailOf(CandidateContact contact) {

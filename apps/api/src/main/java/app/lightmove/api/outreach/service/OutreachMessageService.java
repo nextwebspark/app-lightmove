@@ -102,6 +102,9 @@ public class OutreachMessageService {
             MailboxConnection mailbox = requireSendingMailbox(userId, workspaceId);
             OutreachRecipient recipient = people.currentRecipient(workspaceId, projectId, candidateId)
                     .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+            if (recipient.processingRestricted()) {
+                throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
+            }
             if (recipient.doNotContact()) {
                 throw ApiException.of(ErrorCode.OUTREACH_DO_NOT_CONTACT);
             }

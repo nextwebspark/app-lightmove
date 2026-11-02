@@ -67,6 +67,7 @@ interface StartChoice {
 const SKIP_NOTES: Record<OutreachSkipReason, string> = {
   NO_EMAIL: "No email · Find email in the drawer",
   DO_NOT_CONTACT: "Do not contact",
+  PROCESSING_RESTRICTED: "Processing restricted",
   LEFT_THE_RUNNING: "Out of the running on this position",
   ALREADY_IN_SEQUENCE: "Already in a sequence",
 };
@@ -74,6 +75,7 @@ const SKIP_NOTES: Record<OutreachSkipReason, string> = {
 const SKIP_SUMMARY: Record<OutreachSkipReason, string> = {
   NO_EMAIL: "no email",
   DO_NOT_CONTACT: "do not contact",
+  PROCESSING_RESTRICTED: "processing restricted",
   LEFT_THE_RUNNING: "out of the running",
   ALREADY_IN_SEQUENCE: "already in a sequence",
 };

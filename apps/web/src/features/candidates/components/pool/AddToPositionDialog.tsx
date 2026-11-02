@@ -49,11 +49,17 @@ export function AddToPositionDialog({
     mutationFn: (projectId: string) => poolApi.addToPosition(projectId, personIds),
     onSuccess: (result, projectId) => {
       const title = positions.find((position) => position.id === projectId)?.positionTitle ?? "the position";
-      toast(
+      const added =
         result.added === 0
-          ? `Everyone was already in ${title}`
-          : `Added ${result.added === 1 && targetName ? targetName : `${result.added} ${result.added === 1 ? "person" : "people"}`} to ${title}`,
-      );
+          ? result.restricted > 0
+            ? `Nobody was added to ${title}`
+            : `Everyone was already in ${title}`
+          : `Added ${result.added === 1 && targetName ? targetName : `${result.added} ${result.added === 1 ? "person" : "people"}`} to ${title}`;
+      const restricted =
+        result.restricted > 0
+          ? ` · ${result.restricted === 1 ? "1 person's" : `${result.restricted} people's`} processing is restricted, so they were left out`
+          : "";
+      toast(added + restricted);
       void queryClient.invalidateQueries({ queryKey: poolApi.POOL_KEY });
       void queryClient.invalidateQueries({ queryKey: CANDIDATES_KEY_PREFIX(projectId) });
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });

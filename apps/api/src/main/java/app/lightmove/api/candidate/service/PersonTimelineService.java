@@ -67,6 +67,7 @@ public class PersonTimelineService {
             PersonActivityKind.CONTACTS_EDITED, PersonActivityKind.CONTACT_FOUND, PersonActivityKind.RESEARCHED,
             PersonActivityKind.TAGGED, PersonActivityKind.UNTAGGED, PersonActivityKind.OWNER_CHANGED,
             PersonActivityKind.DO_NOT_CONTACT_SET, PersonActivityKind.DO_NOT_CONTACT_CLEARED,
+            PersonActivityKind.PROCESSING_RESTRICTED, PersonActivityKind.PROCESSING_RESTRICTION_LIFTED,
             PersonActivityKind.DOCUMENT_ADDED, PersonActivityKind.DOCUMENT_VERSION_ADDED,
             PersonActivityKind.DOCUMENT_REMOVED, PersonActivityKind.DOCUMENT_VERSION_REMOVED);
     /**

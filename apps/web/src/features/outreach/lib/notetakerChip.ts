@@ -10,6 +10,7 @@ const FAILURE_WORDS: Record<string, string> = {
   TRANSCRIPT_UNAVAILABLE: "the transcript couldn't be read",
   NOTHING_HEARD: "no speech was picked up on the call",
   SUMMARY_FAILED: "the notes couldn't be written",
+  PROCESSING_RESTRICTED: "processing of this person is restricted",
   TIMED_OUT: "the Notetaker lost contact with the call",
   FATAL: "the Notetaker stopped unexpectedly",
   RECORDING_PERMISSION_DENIED: "the host didn't allow recording",

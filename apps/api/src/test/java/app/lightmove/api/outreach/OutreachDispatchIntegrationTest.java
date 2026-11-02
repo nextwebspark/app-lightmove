@@ -374,6 +374,21 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("processing restricted mid-sequence: nothing more goes, and the run stops with that reason")
+    void restrictionStopsTheRun() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("First approach"), priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+        restrictProcessing(priya);
+
+        dispatcher.dispatchAt(monday.plus(Duration.ofDays(3)));
+
+        assertThat(sentTo("priya@" + domain)).hasSize(1);
+        assertThat(enrollmentOf(priya)).containsEntry("status", "STOPPED")
+                .containsEntry("stop_reason", "PROCESSING_RESTRICTED");
+    }
+
+    @Test
     @DisplayName("out of the running or the address removed: the send-time re-check stops the run")
     void theReCheckStopsWhatStartWouldRefuse() throws Exception {
         String sequenceId = createSequence("First approach");
@@ -864,6 +879,15 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
                         """.formatted(fullName, slug, emailAddress)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
+    }
+
+    private void restrictProcessing(String candidateId) throws Exception {
+        String personId = body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + candidateId))
+                .andReturn()).get("personId").asText();
+        as(consultant, put("/api/v1/candidates/" + personId + "/processing-restriction")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"restricted\":true,\"reason\":\"Asked what we hold about them.\"}"))
+                .andExpect(status().isOk());
     }
 
     private void markDoNotContact(String candidateId) throws Exception {

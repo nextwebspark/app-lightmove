@@ -121,6 +121,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | ☐ Custom field values | no length | TEXT unbounded, DATE unchecked, NUMBER accepts NaN | toast |
 | ☐ Custom column label | no `maxLength` | ≤ 60 | toast |
 | Executive name | trimmed, ≤ 200 | `@NotBlank @Size(200)` | banner |
+| Restrict processing: reason | Restrict wakes only with a non-blank reason; 500 characters, counted | `@Size(500)`; required when restricting (`VALIDATION_FAILED` on `reason`); a restricted person is refused at every use (`PERSON_PROCESSING_RESTRICTED`) | banner; the refusal as a toast where it is met |
 | Delete person permanently: full name typed back | the button wakes only on a match (case, spacing and dashes forgiven, `confirmationNameMatches`) | `@NotBlank @Size(200)`; `ConfirmationName.matches` the person's name (`VALIDATION_FAILED` on `confirmName`); refused while an email to them is sending (`PERSON_ERASE_SEND_IN_FLIGHT`) | banner (an alert for the email) |
 | Executive LinkedIn profile and emails, on every door | — | not on the workspace's suppression list (`PERSON_SUPPRESSED`): the add form, the plugin and a spreadsheet row are refused; an edit only for a profile or address it adds; Find executives and People Search leave the person out unfiled | banner (row error on import) |
 | ☐ Executive currency | picker | `@Size(3)` | banner |

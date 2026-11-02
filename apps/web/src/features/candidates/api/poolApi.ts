@@ -128,6 +128,19 @@ export function setDoNotContact(
   });
 }
 
+/** Restricts processing (a reason, and optionally the suppression list as an objection) or lifts it. */
+export function setProcessingRestriction(
+  personId: string,
+  restricted: boolean,
+  reason?: string,
+  suppress?: boolean,
+): Promise<PersonRecord> {
+  return request<PersonRecord>(`/candidates/${personId}/processing-restriction`, {
+    method: "PUT",
+    body: { restricted, reason, suppress },
+  });
+}
+
 export function tagPerson(personId: string, tagId: string): Promise<PersonRecord> {
   return request<PersonRecord>(`/candidates/${personId}/tags/${tagId}`, { method: "PUT" });
 }

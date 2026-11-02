@@ -197,6 +197,9 @@ public class OutreachSendService {
 
     /** Everything Add to sequence refused at Start, asked again: any of it may have changed since. */
     private static OutreachStopReason refusalOf(OutreachRecipient person, OutreachEnrollment enrollment) {
+        if (person.processingRestricted()) {
+            return OutreachStopReason.PROCESSING_RESTRICTED;
+        }
         if (person.doNotContact()) {
             return OutreachStopReason.DO_NOT_CONTACT;
         }

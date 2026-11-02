@@ -210,6 +210,18 @@ class MeetingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("nothing is booked for someone whose processing is restricted")
+    void bookingRefusesARestrictedPerson() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        restrictProcessing(priya);
+
+        assertThat(codeOf(book(priya, tomorrowAt(10, 0), 30, "priya@" + domain).andExpect(status().isConflict())
+                .andReturn())).isEqualTo("PERSON_PROCESSING_RESTRICTED");
+        assertThat(gateway.created()).isEmpty();
+    }
+
+    @Test
     @DisplayName("nothing is booked for someone marked do not contact, at an address not on file, or in a taken slot")
     void bookingRefusesWhatItShouldNot() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
@@ -629,6 +641,15 @@ class MeetingIntegrationTest extends FlowTestSupport {
         as(consultant, put("/api/v1/candidates/" + personId + "/do-not-contact")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"doNotContact\":true,\"reason\":\"Asked not to be approached.\"}"))
+                .andExpect(status().isOk());
+    }
+
+    private void restrictProcessing(String candidateId) throws Exception {
+        String personId = body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + candidateId))
+                .andReturn()).get("personId").asText();
+        as(consultant, put("/api/v1/candidates/" + personId + "/processing-restriction")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"restricted\":true,\"reason\":\"Asked what we hold about them.\"}"))
                 .andExpect(status().isOk());
     }
 

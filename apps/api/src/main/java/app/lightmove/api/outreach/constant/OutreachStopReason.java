@@ -9,6 +9,8 @@ public enum OutreachStopReason {
     /** A consultant pressed Stop. */
     MANUAL,
     DO_NOT_CONTACT,
+    /** Processing of the person was restricted since the run started (V175). */
+    PROCESSING_RESTRICTED,
 
     /** The person's status says they are out of the running. */
     LEFT_THE_RUNNING,

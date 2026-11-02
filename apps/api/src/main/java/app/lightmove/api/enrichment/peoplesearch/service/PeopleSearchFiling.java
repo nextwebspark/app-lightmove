@@ -117,8 +117,8 @@ public class PeopleSearchFiling {
     /**
      * The employer is filed at {@code stage}, in the person's own write, unless the mandate already holds
      * it, where it stays put and the person joins it there — the Companies screen's rule for a company
-     * already triaged. Empty when the mandate already maps the person, or the suppression list holds them, found
-     * only now by the guards.
+     * already triaged. Empty when the mandate already maps the person, the suppression list holds them or their
+     * processing is restricted, found only now by the guards.
      */
     private Optional<ResearchedCandidate> file(UUID userId, UUID workspaceId, UUID projectId, BrightDataPerson person,
                                                EnrichedProfile research, CompanyFacts company,
@@ -132,7 +132,8 @@ public class PeopleSearchFiling {
                     ResearchedFiling.ofPeopleSearch(employer)));
         } catch (ApiException refused) {
             if (refused.getCode() != ErrorCode.CANDIDATE_ALREADY_MAPPED
-                    && refused.getCode() != ErrorCode.PERSON_SUPPRESSED) {
+                    && refused.getCode() != ErrorCode.PERSON_SUPPRESSED
+                    && refused.getCode() != ErrorCode.PERSON_PROCESSING_RESTRICTED) {
                 throw refused;
             }
             return Optional.empty();
