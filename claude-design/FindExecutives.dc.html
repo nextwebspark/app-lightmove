@@ -188,7 +188,7 @@
                       <span style="{{ f.fieldStyle }}"><span style="color:var(--text3)">Leave out</span><span style="{{ f.valueTextStyle }}">{{ f.leaveOutValue }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
                       <span style="{{ f.fieldStyle }}"><span style="color:var(--text3)">Where</span><span style="{{ f.valueTextStyle }}">{{ f.whereValue }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
                       <span style="{{ f.companiesBtnStyle }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.building }}"></path></svg><span style="{{ f.valueTextStyle }}">{{ f.companiesValue }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
-                      <span style="{{ f.fieldStyle }}"><span style="{{ f.valueTextStyle }}">10</span><span style="color:var(--text3)">per company</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
+                      <span style="{{ f.fieldStyle }}"><span style="{{ f.valueTextStyle }}">3</span><span style="color:var(--text3)">bought per company</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
                       <span style="flex:1"></span>
                       <span style="font:400 12px var(--mono);color:var(--text2)">{{ f.countLine }}</span>
                       <span style="{{ f.searchBtnStyle }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.search }}"></path></svg>{{ f.searchLabel }}</span>
@@ -297,7 +297,7 @@
                         <div style="padding:16px 18px 0">
                           <div style="display:flex;align-items:baseline;gap:10px">
                             <span style="font:600 13.5px var(--sans);color:var(--text)">Ready to search 6 of the 7 companies you ticked</span>
-                            <span style="font:400 12px var(--mono);color:var(--text3)">Counting is free · Search reads up to 10 new profiles a company</span>
+                            <span style="font:400 12px var(--mono);color:var(--text3)">Counting and title checks are free · Search buys at most 3 profiles a company</span>
                           </div>
                           <div style="margin-top:12px;border:1px solid var(--line-soft);border-radius:10px;overflow:hidden">
                             <sc-for list="{{ f.previewRows }}" as="pr" hint-placeholder-count="7">
@@ -306,7 +306,7 @@
                                 <span style="width:260px;font:500 13px var(--sans);color:var(--text)">{{ pr.name }}</span>
                                 <sc-if value="{{ pr.searchable }}">
                                   <span style="width:110px;font:600 13px var(--u-num);color:var(--text)">{{ pr.match }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> match</span></span>
-                                  <span style="width:110px;font:600 13px var(--u-num);color:var(--text)">{{ pr.newP }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> new</span></span>
+                                  <span style="width:110px;font:600 13px var(--u-num);color:var(--text)">{{ pr.newP }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> to buy</span></span>
                                   <span style="width:140px;font:600 13px var(--u-num);color:var(--text2)">{{ pr.onFile }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> already on file</span></span>
                                 </sc-if>
                                 <span style="flex:1;font:400 12px var(--sans);color:{{ pr.noteColor }}">{{ pr.note }}</span>
@@ -632,9 +632,9 @@ class Component extends DCLogic {
 
   data() {
     const companies = [
-      { id: 'c01', name: 'Al Naboodah Group', mark: 'AN', city: 'Dubai', match: 12, newP: 10, onFile: 2 },
-      { id: 'c02', name: 'Al Habtoor Group', mark: 'AH', city: 'Dubai', match: 9, newP: 8, onFile: 1 },
-      { id: 'c03', name: 'Al Rostamani Group', mark: 'AR', city: 'Dubai', match: 6, newP: 5, onFile: 1 },
+      { id: 'c01', name: 'Al Naboodah Group', mark: 'AN', city: 'Dubai', match: 12, newP: 3, onFile: 2 },
+      { id: 'c02', name: 'Al Habtoor Group', mark: 'AH', city: 'Dubai', match: 9, newP: 3, onFile: 1 },
+      { id: 'c03', name: 'Al Rostamani Group', mark: 'AR', city: 'Dubai', match: 6, newP: 3, onFile: 1 },
       { id: 'c05', name: 'Trading Enterprises', mark: 'TE', city: 'Dubai', match: 3, newP: 3, onFile: 0 },
       { id: 'c04', name: 'Gargash Enterprises', mark: 'GE', city: 'Dubai', match: 0, newP: 0, onFile: 0 },
       { id: 'c14', name: 'LuLu Group International', mark: 'LU', city: 'Abu Dhabi', match: 0, newP: 0, onFile: 0 },
@@ -674,8 +674,8 @@ class Component extends DCLogic {
     };
     const how = {
       c01: ['Titles Finance, Financial, CFO, Treasury · levels C-level, SVP/EVP, VP/Head/Director · not Assistant, Accountant, Secretary, Intern · UAE + Gulf',
-        'Live profiles — 12 match; 10 read, 2 already on file',
-        'Profile index — 6 found; 4 also in live profiles, 2 with no title on record'],
+        'Live profiles — 12 match; 3 bought, the role\'s own level first; 2 already on file',
+        'Profile index — 23 here mention finance; 4 title confirmed by a free check, 2 with no title on record'],
       c04: ['Live profiles — 0 match for these titles and levels', 'Profile index — 0 found',
         'Nearest words here: Controller (2 match), Accounts (1 match)'],
     };
@@ -737,7 +737,7 @@ class Component extends DCLogic {
     const scopeIds = b.scope ? [b.scope] : ['c01', 'c02', 'c03', 'c05', 'c04', 'c14'];
     const searchable = D.companies.filter((c) => scopeIds.indexOf(c.id) >= 0);
     const totals = searchable.reduce((t, c) => ({ match: t.match + c.match, newP: t.newP + c.newP, onFile: t.onFile + c.onFile }), { match: 0, newP: 0, onFile: 0 });
-    const countLine = b.drafting ? 'Counting…' : b.noBrief ? 'No title words yet' : '≈ ' + totals.match + ' match · ' + totals.newP + ' new · ' + totals.onFile + ' already on file';
+    const countLine = b.drafting ? 'Counting…' : b.noBrief ? 'No title words yet' : '≈ ' + totals.match + ' match · ' + totals.newP + ' to buy · ' + totals.onFile + ' already on file';
     const companiesValue = b.scope ? '1 company' : '6 of 7 companies';
 
     const levelOptions = [
@@ -754,7 +754,7 @@ class Component extends DCLogic {
 
     const companyOptions = D.companies.map((c) => ({
       name: c.name, on: !c.noLinkedIn && scopeIds.indexOf(c.id) >= 0, boxStyle: box(!c.noLinkedIn && scopeIds.indexOf(c.id) >= 0),
-      note: c.noLinkedIn ? 'No LinkedIn page — Edit company' : c.match + ' match · ' + c.newP + ' new',
+      note: c.noLinkedIn ? 'No LinkedIn page — Edit company' : c.match + ' match · ' + c.newP + ' to buy',
       short: c.noLinkedIn ? 'no page' : c.match + ' match',
       nameColor: c.noLinkedIn ? 'var(--text3)' : 'var(--text)', noteColor: c.noLinkedIn ? 'var(--warn)' : 'var(--text3)',
     }));

@@ -43,8 +43,8 @@ drafts it again.
   abbreviation (IT and Technology), and words seen in found titles. Each suggestion carries a free count of the
   people it reaches at these companies. Enter adds any word.
 - **Leave out**, **Where** (the brief's country and the Gulf), **Companies** (each counted, no LinkedIn page noted),
-  and **Per company** (5, 10 or 25).
-- **The count line** — "≈ 30 match · 26 new · 4 already on file". It is free and refreshes 500 ms after an edit.
+  and **Per company** (3, 5 or 10 profiles bought; three by default).
+- **The count line** — "≈ 30 match · 12 to buy · 4 already on file". It is free and refreshes 500 ms after an edit.
   **Search** is the only thing that spends.
 
 **Results** arrive company by company. While a search runs, a progress line names each company as done, searching
@@ -76,6 +76,72 @@ run has two things to say — it is busy, then it found people — and the butto
 One toast on finish ("7 executives found at 6 companies · Review"), one on a stop or failure.
 
 
+## Proof of concept on live data (2026-11-02)
+
+The test was 629 executives that researchers filed by hand, on four live positions of one firm's workspace. All of
+them have a LinkedIn profile and a company. The positions were a CTO, a Merchandising Director, a GM Real Estate and
+an HR Manager, KSA; CMO was left out, since its nine are mostly CEOs and partners.
+
+The question asked was what share of those people a strategy finds. Cost of the test: about 440 Business Search
+searches (~$0.90), around 5,000 ContactOut *count* calls (free) and no ContactOut credits. The golden set stayed
+outside the repository.
+
+**What the words reach**, checked against the titles researchers recorded:
+
+| Words | Reach |
+|---|---|
+| Today's prompt: four seniority words and four function words | 36% |
+| The new prompt: the function family, a level range, standalone titles, suggestions | **77%**, 79% with its suggestions |
+| The new prompt told the companies' countries (it adds "Planlama", "Direktörü") | Merchandising Director 77% → 81% |
+
+**What the sources hold:**
+
+- **In either source, at the company.** 90% of the people.
+- **ContactOut.** It holds 77% at the company. Its current titles match the family words for 56%, against 24% for
+  today's words.
+- **Business Search.**
+  - It holds 66% at the company.
+  - Only 62 of those 424 still carry a current title: October's refresh dropped them, and each refresh drops more.
+    A title search there reaches 2–6%, so it is not used.
+  - The **role** group (the function words in title, past titles or About) reaches **31%**, for one search a company
+    (~$0.002, median 23 people back).
+- **A Gulf-only residence filter loses 24%**: Turkish retailers' teams, people in London.
+
+**Mixing them** (the share found, out of 629):
+
+| Strategy | Found | ContactOut credits a company |
+|---|---|---|
+| ContactOut, five profiles bought at random | 35% | 2.6 |
+| ContactOut, five bought tiered (the role's level and core words first) | 39% | 2.7 |
+| Business Search role group + ContactOut tiered, three bought | 51% | 1.9 |
+| …plus the company's people in Business Search, each checked against the words by a **free name-narrowed ContactOut count** | **62%** | 1.9 |
+| …the same with ten bought | 65% | 4.1 |
+| Ceiling: every person whose current title fits the words, in either source | 66% | — |
+
+The last third are mainly people a title search cannot find. Researchers also file CEOs, advisors and consultants
+around a role, and some people have moved and are not yet in either source.
+
+**The strategy that follows:**
+
+1. **The AI drafts the whole function family.** That means up to 12 terms, phrases allowed: the core word in every
+   spelling, the sub-functions that report into the role, and the words of the target companies' languages. It also
+   gives:
+   - a level range: the role's level and down — C-suite to Director; N-1 adds Manager; N-2 runs Director to Specialist;
+   - the standalone titles (CIO, CTO);
+   - up to 4 support words to leave out;
+   - 8 suggestions for the search bar.
+
+   It is told the countries of the companies being searched.
+2. **Business Search finds who is there, and ContactOut confirms the title for free.** The role-group search, plus the
+   company's people in the region where that list is small, gives the candidates. A free ContactOut count narrowed
+   to each candidate's name says whether their current title holds the words, so they can show as *title confirmed*
+   with nothing bought.
+3. **ContactOut is bought sparingly.** Three profiles a company by default (3, 5 or 10), tiered: the role's own level
+   and core words first, then the rest of the family. Each tier is counted free before any profile is bought.
+4. **Location.** The brief's country, the Gulf and each searched company's own country. Elsewhere ranks lower; it
+   is never dropped.
+
+
 ## Searching one company (P1)
 
 ```
@@ -94,11 +160,14 @@ saved search ─► ContactOut People Search ─┐  side by side; each through 
    stored as suggestions: profile slug, verdict, score, reasons — never a name or a title
 ```
 
-- **Business Search makes two searches a company, about $0.004.**
-  - The *titled* one: `current_company_id` is the slug, `country_code` is in the region, the title has a level word
-    and a title word, and has no leave-out word.
-  - The *role group* one: `role` has a title word, kept only where `current_title` is null. It is the only way a
-    person whose title the index no longer carries can surface, as **Title not on record**.
+- **Business Search makes one role-group search a company, about $0.002.** It asks for people whose
+  `current_company_id` is the slug and whose `role` (title, past titles, About) holds a function term.
+  - Its candidates are checked by a free ContactOut count narrowed to the person's name. Where the company is small,
+    everyone the index holds there in the region is checked the same way.
+  - A match shows as **title confirmed**. The rest show as **Title not on record**.
+  - A title search in the index is not used: it has dropped most current titles.
+- **ContactOut is bought in tiers.** The role's own level and core words come first, then the rest of the family,
+  three profiles a company by default. Each tier is counted free first.
 - **Scoring is fixed, in code; no model judges the people.** Every point is a reason chip:
 
   | Factor | Points |
@@ -119,7 +188,7 @@ saved search ─► ContactOut People Search ─┐  side by side; each through 
 |---|---|
 | Draft or Reset | one Gemini call |
 | Every count (levels, titles, companies, on file) | free: ContactOut's count, the cache |
-| Search | ContactOut: a credit per profile, at most "per company"; Business Search: about $0.004 a company |
+| Search | ContactOut: a credit per profile, three a company by default (1.9 on average in the test); Business Search: about $0.002 a company; the title checks: free counts |
 | Filter, open a profile, Add | free |
 
 - **Fair use counts profiles read**, which is the real spend, not people filed. It is checked at Search against the
@@ -184,7 +253,7 @@ saved search ─► ContactOut People Search ─┐  side by side; each through 
 | PR | Content | Users see |
 |---|---|---|
 | P0 | this design and `claude-design/FindExecutives.dc.html` | nothing |
-| P1 | the search engine: Business Search, the two sources merged (the dataset leaves Find executives), the fixes above, `SourcingEval` | better people under today's flow |
+| P1 | the search engine: the new word prompt; Business Search's role-group search with free name-narrowed title checks; ContactOut bought in tiers (the dataset leaves Find executives); the location rule; the fixes above; `SourcingEval` replaying the proof of concept | better people under today's flow |
 | P2 | the panel end to end: the migration, the criteria, counts, suggestions and add, scoring, fair use, audit and stream; `features/sourcing` (button, panel, drawer button); the strip, the old flow and their dead code removed; help article, glossary, CLAUDE.md | the new panel |
 
 **`SourcingEval`** (`@Tag("eval")`, as `NationalityEval`) replays executives researchers filed by hand:
