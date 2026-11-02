@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -44,6 +45,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PersonErasureService {
 
     private static final String PERSON_TARGET = "person";
+    private static final String RETENTION_REASON = "retention";
 
     private final NamedParameterJdbcTemplate jdbc;
     private final PersonSuppressionService suppression;
@@ -53,7 +55,7 @@ public class PersonErasureService {
 
     @Transactional(readOnly = true)
     public PersonErasurePreviewResponse preview(UUID workspaceId, UUID personId) {
-        ErasingRow row = requirePerson(workspaceId, personId, false);
+        ErasingRow row = requirePerson(workspaceId, personId);
         Map<ErasedHolding, Long> holdings = holdingsOf(workspaceId, personId);
         String blockedBy = contributors.stream()
                 .map(contributor -> contributor.blockerOf(workspaceId, personId))
@@ -72,11 +74,35 @@ public class PersonErasureService {
     @Transactional
     public void erase(UUID userId, UUID workspaceId, UUID personId, ErasePersonRequest request,
                       HttpServletRequest httpRequest) {
-        ErasingRow row = requirePerson(workspaceId, personId, true);
+        ErasingRow row = lockPerson(workspaceId, personId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         if (!ConfirmationName.matches(row.fullName(), request.confirmName())) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "confirmName",
                     "Type the candidate's full name exactly to confirm");
         }
+        eraseLocked(userId, workspaceId, personId, row, !Boolean.FALSE.equals(request.suppress()), null,
+                httpRequest);
+    }
+
+    /**
+     * Candidate retention's delete (#921): the same erasure, of someone an admin reviewed as due, never suppressed —
+     * passing the period is no objection. {@code stillDue} is asked once the person's row is held, since anything
+     * mapping them or writing a line about them waits on that lock, so a person touched since the review is kept.
+     *
+     * @return false, erasing nothing, where the person is gone or no longer due
+     */
+    @Transactional
+    public boolean eraseUnderRetention(UUID userId, UUID workspaceId, UUID personId, Predicate<UUID> stillDue,
+                                       HttpServletRequest httpRequest) {
+        Optional<ErasingRow> row = lockPerson(workspaceId, personId);
+        if (row.isEmpty() || !stillDue.test(personId)) {
+            return false;
+        }
+        eraseLocked(userId, workspaceId, personId, row.get(), false, RETENTION_REASON, httpRequest);
+        return true;
+    }
+
+    private void eraseLocked(UUID userId, UUID workspaceId, UUID personId, ErasingRow row, boolean suppress,
+                             String reason, HttpServletRequest httpRequest) {
         Map<ErasedHolding, Long> holdings = holdingsOf(workspaceId, personId);
         MapSqlParameterSource person = personParameters(workspaceId, personId);
         List<Map<String, Object>> mappings = jdbc.queryForList("""
@@ -93,7 +119,6 @@ public class PersonErasureService {
         storageDeletions.enqueue(jdbc.queryForList("""
                 SELECT storage_key FROM app_lm_person_document_version WHERE person_id = :personId
                 """, person, String.class));
-        boolean suppress = !Boolean.FALSE.equals(request.suppress());
         int suppressed = suppress ? suppression.suppress(workspaceId, userId,
                 suppressionKeysOf(workspaceId, profileSlug, person), SuppressionReason.ERASED, null) : 0;
 
@@ -101,6 +126,7 @@ public class PersonErasureService {
 
         AuditService.Builder event = audit.event(ProjectEventType.PERSON_ERASED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
+                .detailIfPresent("reason", reason)
                 .detail("suppressed", suppress)
                 .detail("suppressionEntries", suppressed);
         holdings.forEach((holding, count) -> event.detail(holding.name().toLowerCase(Locale.ROOT), count));
@@ -143,16 +169,21 @@ public class PersonErasureService {
         return keys;
     }
 
-    /** {@code forUpdate}: an erasure holds the row so nothing maps, edits or writes to them while it runs. */
-    private ErasingRow requirePerson(UUID workspaceId, UUID personId, boolean forUpdate) {
-        List<ErasingRow> found = jdbc.query("""
+    private ErasingRow requirePerson(UUID workspaceId, UUID personId) {
+        return findPerson(workspaceId, personId, "").orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
+
+    /** An erasure holds the row, so nothing maps, edits or writes to them while it runs. */
+    private Optional<ErasingRow> lockPerson(UUID workspaceId, UUID personId) {
+        return findPerson(workspaceId, personId, " FOR UPDATE");
+    }
+
+    private Optional<ErasingRow> findPerson(UUID workspaceId, UUID personId, String lock) {
+        return jdbc.query("""
                 SELECT full_name, linkedin_url FROM app_lm_person WHERE id = :personId AND workspace_id = :workspaceId
-                """ + (forUpdate ? " FOR UPDATE" : ""), personParameters(workspaceId, personId),
-                (result, index) -> new ErasingRow(result.getString("full_name"), result.getString("linkedin_url")));
-        if (found.isEmpty()) {
-            throw ApiException.of(ErrorCode.NOT_FOUND);
-        }
-        return found.getFirst();
+                """ + lock, personParameters(workspaceId, personId),
+                (result, index) -> new ErasingRow(result.getString("full_name"), result.getString("linkedin_url")))
+                .stream().findFirst();
     }
 
     private long count(String sql, MapSqlParameterSource parameters) {
