@@ -29,6 +29,7 @@ const userAt = (emailVerified: boolean): User => ({
   fullName: "Alok Kumar",
   title: null,
   avatarUrl: null,
+  avatarEditable: true,
   emailVerified,
   hasPassword: true,
   timezone: "Asia/Dubai",

@@ -21,8 +21,6 @@ import java.util.stream.IntStream;
  */
 final class SourcedHitRanking {
 
-    private static final Pattern NOT_A_LETTER = Pattern.compile("[^\\p{L}\\p{N}]+");
-
     /** Where a title stops naming the job and starts naming the employer: "CFO @ X", "CFO at X", "CFO | X". */
     private static final Pattern AT_EMPLOYER = Pattern.compile("\\s+(?:@|at|\\|)\\s+", Pattern.CASE_INSENSITIVE);
 
@@ -35,7 +33,7 @@ final class SourcedHitRanking {
     private static final Set<String> TOP_WORDS = Set.of("chief", "ceo", "cfo", "coo", "cto", "cio", "chro", "cmo",
             "cso", "cco", "cdo", "cpo", "cro", "cao", "ciso", "chairman", "chairwoman", "chairperson");
     private static final Set<String> SENIOR_VICE_PRESIDENT_WORDS = Set.of("evp", "svp");
-    private static final Set<String> HEAD_WORDS = Set.of("vp", "avp", "head", "director");
+    private static final Set<String> HEAD_WORDS = Set.of("vp", "avp", "head", "director", "treasurer");
     private static final Set<String> MANAGER_WORDS = Set.of("manager", "lead", "principal");
     private static final Set<String> STEP_DOWN_WORDS = Set.of("deputy", "assistant", "associate");
 
@@ -58,11 +56,15 @@ final class SourcedHitRanking {
 
     private static RankedHit rankedHit(BrightDataPerson person, int vendorOrder, SourcingSpec spec,
                                        TitleLevel wanted) {
-        String title = roleOnly(currentRoleTitle(person), employerNameOf(person));
+        String title = currentRole(person);
         TitleLevel level = levelOf(title);
-        boolean functionFits = containsAny(title, spec.functionWords())
-                || hasAbbreviationOf(title, spec.functionWords());
+        boolean functionFits = TitleWords.containsFunction(title, spec.functionWords());
         return new RankedHit(person, functionFits, level.distanceTo(wanted), level, vendorOrder);
+    }
+
+    /** The job held now, less the employer's name: what a hit is ranked and judged by. */
+    static String currentRole(BrightDataPerson person) {
+        return roleOnly(currentRoleTitle(person), employerNameOf(person));
     }
 
     /**
@@ -117,10 +119,10 @@ final class SourcedHitRanking {
         if (!title.toLowerCase(Locale.ROOT).contains("chief of staff")) {
             title = SERVING.split(title, 2)[0];
         }
-        List<String> words = List.of(NOT_A_LETTER.split(title.toLowerCase(Locale.ROOT)));
+        List<String> words = TitleWords.wordsOf(title);
         String spaced = " " + String.join(" ", words) + " ";
         TitleLevel level;
-        if (spaced.contains(" chief of staff ")) {
+        if (spaced.contains(" chief of staff ") || spaced.contains(" general counsel ")) {
             level = TitleLevel.HEAD;
         } else if (words.stream().anyMatch(TOP_WORDS::contains) || spaced.contains(" managing director ")
                 || spaced.contains(" general manager ")
@@ -138,19 +140,6 @@ final class SourcedHitRanking {
         }
         boolean steppedDown = words.stream().anyMatch(STEP_DOWN_WORDS::contains);
         return steppedDown ? level.oneDown() : level;
-    }
-
-    /** "Head of IT" for technology words: the abbreviation as a whole word, never inside another. */
-    private static boolean hasAbbreviationOf(String title, List<String> functionWords) {
-        List<String> words = List.of(NOT_A_LETTER.split(title.toLowerCase(Locale.ROOT)));
-        return SourcingSpec.abbreviationsOf(functionWords).stream()
-                .anyMatch(abbreviation -> words.contains(abbreviation.toLowerCase(Locale.ROOT)));
-    }
-
-    /** The vendor's own rule — a case-insensitive substring — so a title the search matched still matches here. */
-    private static boolean containsAny(String title, List<String> words) {
-        String folded = title.toLowerCase(Locale.ROOT);
-        return words.stream().anyMatch(word -> folded.contains(word.toLowerCase(Locale.ROOT)));
     }
 
     private static boolean isOpen(String endDate) {
