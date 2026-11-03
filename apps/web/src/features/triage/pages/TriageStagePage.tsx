@@ -494,6 +494,10 @@ function TriageStage() {
   visiblePeople.current = (lines.data?.lines ?? [])
     .map((line) => line.candidate)
     .filter((candidate): candidate is Candidate => candidate !== null);
+  const profileCompanyId = profile?.candidate?.triageCompanyId ?? null;
+  const profileCompanyRow = profileCompanyId
+    ? (lines.data?.lines.find((line) => line.company?.id === profileCompanyId)?.company ?? null)
+    : null;
 
   /**
    * Which Status values the Status column's header menu offers — only the ones actually borne by an
@@ -1209,6 +1213,14 @@ function TriageStage() {
           refreshEverything();
         }}
         onDelete={canWrite && !declinedStage ? setPendingCandidateRemoval : undefined}
+        onOpenCompany={
+          profileCompanyRow
+            ? () => {
+                setProfile(null);
+                setOpenCompany({ company: profileCompanyRow });
+              }
+            : undefined
+        }
         // The add form's other conclusion: the research happened and nobody fit, so the panel closes
         // on the flag rather than on a saved profile.
         onMarkNoExecutiveFound={

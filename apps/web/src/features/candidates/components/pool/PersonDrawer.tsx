@@ -130,7 +130,6 @@ function PersonDrawerBody({
     onError: (error) => toast.error(messageFor(error)),
   });
 
-  const context = [person.companyName, person.locationCity, person.locationCountry].filter(Boolean).join(" · ");
   const doNotContact = person.doNotContact;
 
   return (
@@ -142,7 +141,10 @@ function PersonDrawerBody({
           fullName={person.fullName}
           linkedinUrl={person.linkedinUrl}
           title={person.title}
-          context={context}
+          contacts={person.contacts}
+          onShowContacts={() => onTabChange("contact")}
+          employer={{ name: person.companyName, logoUrl: person.companyLogoUrl }}
+          location={[person.locationCity, person.locationCountry].filter(Boolean).join(" · ")}
         >
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-1.5">

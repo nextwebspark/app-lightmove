@@ -1,28 +1,28 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import { Button, FormError, useToast, type ToastFn } from "../../../components/ui";
+import { Button, FormError, useToast } from "../../../components/ui";
 import { DetailPill } from "../../../components/ui/DetailList";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import { copyText } from "../../../lib/clipboard";
-import { codeOf, messageFor } from "../../../lib/errorCodes";
-import { BILLING_KEY } from "../../billing/api/billingApi";
-import { creditsLabel, isBillingRefusal } from "../../billing/lib/billingView";
+import { messageFor } from "../../../lib/errorCodes";
+import { creditsLabel } from "../../billing/lib/billingView";
 import { useBillingRead } from "../../billing/lib/useBilling";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate, CandidateContacts, CandidateEmail, CandidatePhone } from "../../candidates/api/types";
-import { ContactEntriesFields } from "../../candidates/components/CandidateFieldGroups";
+import { ContactEntriesFields, PrimaryStar } from "../../candidates/components/CandidateFieldGroups";
 import { ProfileSectionForm } from "../../candidates/components/ProfileSectionForm";
 import {
   contactInputsOf,
   contactSectionOf,
   contactSectionSchema,
+  contactsWithPrimary,
   type ContactSectionForm,
   type ParsedContactSectionForm,
 } from "../../candidates/lib/candidateForm";
-import * as contactLookupApi from "../api/contactLookupApi";
+import { useContactLookup } from "../lib/useContactLookup";
 
 /**
  * The Contact section: one row per channel — email and phone — listing everything the mandate
@@ -100,10 +100,24 @@ function ContactReadView({
   const email = useContactLookup("email", projectId, candidate.id, onSaved, toast);
   const phone = useContactLookup("phone", projectId, candidate.id, onSaved, toast);
   const prices = useBillingRead(mayLookUp).data?.prices;
+  const makingPrimary = useMutation({
+    mutationFn: ({ channel, value }: { channel: "email" | "phone"; value: string }) =>
+      candidatesApi.replaceContacts(projectId, candidate.id, contactsWithPrimary(contacts, channel, value)),
+    onSuccess: (saved, { channel }) => {
+      toast(`Primary ${channel} set`);
+      onSaved(saved);
+    },
+    onError: (error) => toast.error(messageFor(error)),
+  });
 
   return (
     <ContactChannels
       contacts={contacts}
+      onMakePrimary={
+        canWrite && !makingPrimary.isPending
+          ? (channel, value) => makingPrimary.mutate({ channel, value })
+          : undefined
+      }
       emailAction={
         mayLookUp && !contacts.emailsLookedUpAt ? (
           <FindButton
@@ -137,8 +151,9 @@ function ContactReadView({
 }
 
 /**
- * Email and phone as read: every value on the ledger with its pills and a copy button. The position drawer
- * hangs its Find buttons on the rows; the workspace drawer reads them bare. The profile link is the header's.
+ * Email and phone as read: every value on the ledger with its pills and a copy button, the primary first and
+ * starred once a channel holds more than one. The position drawer hangs its Find buttons on the rows and offers
+ * Make primary on the others; the workspace drawer reads them bare. The profile link is the header's.
  */
 export function ContactChannels({
   contacts,
@@ -146,14 +161,24 @@ export function ContactChannels({
   emailError,
   phoneAction,
   phoneError,
+  onMakePrimary,
 }: {
   contacts: CandidateContacts;
   emailAction?: ReactNode;
   emailError?: string | null;
   phoneAction?: ReactNode;
   phoneError?: string | null;
+  onMakePrimary?: (channel: "email" | "phone", value: string) => void;
 }) {
   const toast = useToast();
+  const starOf = (channel: "email" | "phone", count: number, value: string, index: number) =>
+    count > 1 ? (
+      <PrimaryStar
+        noun={channel}
+        primary={index === 0}
+        onMakePrimary={onMakePrimary && (() => onMakePrimary(channel, value))}
+      />
+    ) : null;
 
   return (
     <div className="divide-y divide-u-border">
@@ -166,8 +191,13 @@ export function ContactChannels({
         {contacts.emails.length === 0 ? (
           <EmptyLine asked={Boolean(contacts.emailsLookedUpAt)} label="No email on record" />
         ) : (
-          contacts.emails.map((entry) => (
-            <EmailLine key={entry.address} entry={entry} onCopy={() => copy("Email", entry.address)} />
+          contacts.emails.map((entry, index) => (
+            <EmailLine
+              key={entry.address}
+              entry={entry}
+              star={starOf("email", contacts.emails.length, entry.address, index)}
+              onCopy={() => copy("Email", entry.address)}
+            />
           ))
         )}
       </ContactChannel>
@@ -181,8 +211,13 @@ export function ContactChannels({
         {contacts.phones.length === 0 ? (
           <EmptyLine asked={Boolean(contacts.phonesLookedUpAt)} label="No phone on record" />
         ) : (
-          contacts.phones.map((entry) => (
-            <PhoneLine key={entry.number} entry={entry} onCopy={() => copy("Phone", entry.number)} />
+          contacts.phones.map((entry, index) => (
+            <PhoneLine
+              key={entry.number}
+              entry={entry}
+              star={starOf("phone", contacts.phones.length, entry.number, index)}
+              onCopy={() => copy("Phone", entry.number)}
+            />
           ))
         )}
       </ContactChannel>
@@ -243,10 +278,10 @@ function ContactSectionEditor({
       >
         <div className="divide-y divide-u-border">
           <ContactChannel icon={<Icon d={ICONS.mail} size={14} />} label="Email">
-            <ContactEntriesFields channel="email" />
+            <ContactEntriesFields channel="email" offerPrimary />
           </ContactChannel>
           <ContactChannel icon={<Icon d={ICONS.phone} size={14} />} label="Phone">
-            <ContactEntriesFields channel="phone" />
+            <ContactEntriesFields channel="phone" offerPrimary />
           </ContactChannel>
         </div>
       </ProfileSectionForm>
@@ -292,9 +327,10 @@ function ContactChannel({
   );
 }
 
-function EmailLine({ entry, onCopy }: { entry: CandidateEmail; onCopy: () => void }) {
+function EmailLine({ entry, star, onCopy }: { entry: CandidateEmail; star: ReactNode; onCopy: () => void }) {
   return (
     <li className="flex min-w-0 items-center gap-1.5">
+      {star}
       <a
         href={`mailto:${entry.address}`}
         className="min-w-0 truncate font-mono text-[13px] text-u-text hover:underline"
@@ -307,9 +343,10 @@ function EmailLine({ entry, onCopy }: { entry: CandidateEmail; onCopy: () => voi
   );
 }
 
-function PhoneLine({ entry, onCopy }: { entry: CandidatePhone; onCopy: () => void }) {
+function PhoneLine({ entry, star, onCopy }: { entry: CandidatePhone; star: ReactNode; onCopy: () => void }) {
   return (
     <li className="flex min-w-0 items-center gap-1.5">
+      {star}
       <a
         href={`tel:${entry.number.replace(/\s+/g, "")}`}
         className="min-w-0 truncate font-mono text-[13px] text-u-text hover:underline"
@@ -401,53 +438,8 @@ function FindButton({
       {hasProfile ? (
         price !== undefined && <span className="text-end font-mono text-[10px] text-u-text3">{creditsLabel(price)}</span>
       ) : (
-        <span className="text-end font-mono text-[10px] text-u-text3">Add a LinkedIn profile URL to look contacts up</span>
+        <span className="text-end font-mono text-[10px] text-u-text3">Add their LinkedIn profile URL so Uncava can find contacts</span>
       )}
     </div>
   );
-}
-
-/**
- * One channel's lookup. A missing LinkedIn profile is the one refusal that belongs in the section —
- * the field it names is right there — so it stays inline; running out of credits opens the out-of-credits
- * sheet, and every other failure toasts.
- */
-function useContactLookup(
-  channel: "email" | "phone",
-  projectId: string,
-  candidateId: string,
-  onSaved: (saved: Candidate) => void,
-  toast: ToastFn,
-) {
-  const queryClient = useQueryClient();
-  const [inlineError, setInlineError] = useState<string | null>(null);
-  const lookup = useMutation({
-    mutationFn: () =>
-      channel === "email"
-        ? contactLookupApi.findEmail(projectId, candidateId)
-        : contactLookupApi.findPhone(projectId, candidateId),
-    onSuccess: (result) => {
-      onSaved(result.candidate);
-      if (result.creditsSpent > 0) void queryClient.invalidateQueries({ queryKey: BILLING_KEY });
-      if (result.outcome === "none") {
-        toast(`No ${channel} on record for ${result.candidate.fullName}`);
-      }
-    },
-    onError: (error) => {
-      if (codeOf(error) === "CONTACT_LOOKUP_NO_PROFILE") {
-        setInlineError(messageFor(error));
-        return;
-      }
-      if (isBillingRefusal(error)) return;
-      toast.error(messageFor(error));
-    },
-  });
-  return {
-    isPending: lookup.isPending,
-    inlineError,
-    find: () => {
-      setInlineError(null);
-      lookup.mutate();
-    },
-  };
 }

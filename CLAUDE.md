@@ -175,7 +175,12 @@ the same rows editable in place — add, remove, retag work/personal, mark verif
 "via ContactOut" caption is — who did what is the audit trail's) — saved as one list through
 `PUT …/candidates/{id}/contacts`; a profile PUT adds what it supplies, never removes a contact, and is
 held to the same ten per channel.
-No primary flag anywhere: the grid's Email and Phone columns list them all. A person the plugin
+**One email and one phone are primary** (V183 `is_primary`, at most one per channel by partial unique index): starred
+in the Contact section (Make primary, read or edited), drawn in both drawers' header beside the employer's logo, and
+listed first everywhere — the grid's Email and Phone columns, the export, every send's default (Write email, Add to
+sequence, Book a call), each still changeable at the send. None chosen, the first of the ledger's order stands in:
+personal before work before untagged (an approach to someone at their current employer goes to a personal inbox),
+verified first, what a person supplied before what a lookup found, oldest first (`Person.listed`). A person the plugin
 captured keeps their LinkedIn URL locked (`CANDIDATE_PROFILE_URL_LOCKED`): it is the page they were
 read off and everything keys on it. `lightmove.enrichment.contactout` sits **beside**
 `…enrichment.provider` and is never selected by it: contact lookup is its own account with its own bill,
