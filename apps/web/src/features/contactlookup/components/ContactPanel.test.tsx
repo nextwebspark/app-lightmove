@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
@@ -10,6 +10,7 @@ import { aBilling } from "../../billing/test/fixtures";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate, CandidateContacts, CandidateEmail } from "../../candidates/api/types";
 import * as contactLookupApi from "../api/contactLookupApi";
+import { ContactDetailsDialog } from "./ContactDetailsDialog";
 import { ContactPanel } from "./ContactPanel";
 
 vi.mock("../api/contactLookupApi", async (importOriginal) => ({
@@ -112,7 +113,7 @@ const renderPanel = (
  * (work, personal, verified), a spent channel is never re-sold, and a miss is shown to every reader.
  */
 describe("ContactPanel", () => {
-  it("lists work before personal, pilled as the provider said, with a green Verified where verified", () => {
+  it("lists the addresses in the server's order, pilled as the provider said, with a green Verified where verified", () => {
     renderPanel({
       ...hakan,
       contacts: {
@@ -245,7 +246,7 @@ describe("ContactPanel", () => {
 
     expect(screen.getByRole("button", { name: "Find email" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Find phone" })).toBeDisabled();
-    expect(screen.getAllByText(/Add a LinkedIn profile URL/)).toHaveLength(2);
+    expect(screen.getAllByText(/Add their LinkedIn profile URL so Uncava can find contacts/)).toHaveLength(2);
   });
 
   it("keeps the values on screen while a lookup runs", async () => {
@@ -342,6 +343,49 @@ describe("ContactPanel", () => {
    * or removed and all of it lands in one save; a duplicate is caught before anything is sent; and the
    * profile link is not here — it is edited with the details.
    */
+  describe("the primary", () => {
+    const two: Candidate = {
+      ...hakan,
+      contacts: {
+        ...NONE,
+        emails: [found("hakanalac@gmail.com", "personal"), found("hakan@alacpartners.com", "work", true)],
+        phones: [{ number: "+971 50 000 0001", kind: null, verified: false, status: null, source: "manual", foundAt: "2026-09-16T17:27:24Z" }],
+      },
+    };
+
+    beforeEach(() => vi.mocked(candidatesApi.replaceContacts).mockReset());
+
+    it("stars the first of a channel holding several, and makes another primary in one press", async () => {
+      const onSaved = vi.fn();
+      vi.mocked(candidatesApi.replaceContacts).mockResolvedValue(two);
+      renderPanel(two, { onSaved });
+
+      expect(screen.getByRole("img", { name: "Primary email" }).closest("li")).toHaveTextContent("hakanalac@gmail.com");
+      // One phone is primary by being the only one: nothing to mark.
+      expect(screen.queryByRole("img", { name: "Primary phone" })).not.toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: "Make primary email" }));
+
+      await waitFor(() =>
+        expect(candidatesApi.replaceContacts).toHaveBeenCalledWith("p1", "c1", {
+          emails: [
+            { value: "hakanalac@gmail.com", kind: "personal", verified: false, primary: false },
+            { value: "hakan@alacpartners.com", kind: "work", verified: true, primary: true },
+          ],
+          phones: [{ value: "+971 50 000 0001", kind: null, verified: false, primary: false }],
+        }),
+      );
+      expect(onSaved).toHaveBeenCalledWith(two);
+    });
+
+    it("marks the primary for a reader but offers them nothing to change", () => {
+      renderPanel(two, { canWrite: false });
+
+      expect(screen.getByRole("img", { name: "Primary email" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Make primary email" })).not.toBeInTheDocument();
+    });
+  });
+
   describe("editing", () => {
     beforeEach(() => {
       vi.mocked(candidatesApi.replaceContacts).mockReset();
@@ -375,16 +419,35 @@ describe("ContactPanel", () => {
       await waitFor(() =>
         expect(candidatesApi.replaceContacts).toHaveBeenCalledWith("p1", "c1", {
           emails: [
-            { value: "hakan@alacpartners.com", kind: "work", verified: true },
-            { value: "old@them.example", kind: "personal", verified: true },
+            { value: "hakan@alacpartners.com", kind: "work", verified: true, primary: false },
+            { value: "old@them.example", kind: "personal", verified: true, primary: false },
           ],
-          phones: [{ value: "+971 50 000 0000", kind: null, verified: false }],
+          phones: [{ value: "+971 50 000 0000", kind: null, verified: false, primary: false }],
         }),
       );
       // The contacts have their own write: the profile itself is not re-sent.
       expect(candidatesApi.updateCandidate).not.toHaveBeenCalled();
       expect(onDone).toHaveBeenCalledWith(held);
       expect(await screen.findByRole("status")).toHaveTextContent("Contact saved");
+    });
+
+    it("moves the primary star to another line and saves it with the rest", async () => {
+      vi.mocked(candidatesApi.replaceContacts).mockResolvedValue(held);
+      renderPanel(held, { editing: true, onDone: () => {}, onCancel: () => {} });
+
+      expect(screen.getByRole("img", { name: "Primary email" })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Make primary email" }));
+      await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+      await waitFor(() =>
+        expect(candidatesApi.replaceContacts).toHaveBeenCalledWith("p1", "c1", {
+          emails: [
+            { value: "hakan@alacpartners.com", kind: "work", verified: true, primary: false },
+            { value: "old@them.example", kind: null, verified: false, primary: true },
+          ],
+          phones: [{ value: "+61 421 904 554", kind: null, verified: false, primary: false }],
+        }),
+      );
     });
 
     it("refuses the same address twice before anything is sent", async () => {
@@ -417,6 +480,103 @@ describe("ContactPanel", () => {
 
       expect(onCancel).toHaveBeenCalled();
       expect(candidatesApi.replaceContacts).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("the contact details window", () => {
+    const held: Candidate = {
+      ...hakan,
+      contacts: { ...NONE, emails: [{ ...found("hakan@alacpartners.com", "work"), source: "manual" }] },
+    };
+    const renderWindow = (props: Partial<Parameters<typeof ContactDetailsDialog>[0]> = {}) =>
+      render(
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <ToastProvider>
+            <ContactDetailsDialog
+              projectId="p1"
+              candidate={held}
+              lookupOffered
+              onSaved={() => {}}
+              onClose={() => {}}
+              {...props}
+            />
+          </ToastProvider>
+        </QueryClientProvider>,
+      );
+
+    beforeEach(() => {
+      vi.mocked(candidatesApi.replaceContacts).mockReset();
+      vi.mocked(billingApi.getBilling).mockResolvedValue(aBilling());
+    });
+
+    it("saves every line in one write and closes", async () => {
+      const onSaved = vi.fn();
+      const onClose = vi.fn();
+      vi.mocked(candidatesApi.replaceContacts).mockResolvedValue(held);
+      renderWindow({ onSaved, onClose });
+
+      await userEvent.click(screen.getByRole("button", { name: "Add phone" }));
+      await userEvent.type(screen.getByRole("textbox", { name: "Phone 1" }), "+971 50 000 0000");
+      await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+      await waitFor(() =>
+        expect(candidatesApi.replaceContacts).toHaveBeenCalledWith("p1", "c1", {
+          emails: [{ value: "hakan@alacpartners.com", kind: "work", verified: false, primary: false }],
+          phones: [{ value: "+971 50 000 0000", kind: null, verified: false, primary: false }],
+        }),
+      );
+      expect(onSaved).toHaveBeenCalledWith(held);
+      expect(onClose).toHaveBeenCalled();
+    });
+
+    it("offers Find on each channel, and holds it while the lines have unsaved edits", async () => {
+      renderWindow();
+
+      expect(screen.getByRole("button", { name: /Find more/ })).toBeEnabled();
+      expect(screen.getByRole("button", { name: /Find phone/ })).toBeEnabled();
+
+      await userEvent.type(screen.getByRole("textbox", { name: "Email 1" }), "x");
+
+      expect(screen.getByRole("button", { name: /Find more/ })).toBeDisabled();
+      expect(screen.getByRole("button", { name: /Find phone/ })).toBeDisabled();
+    });
+
+    it("says an empty channel is empty, and holds Save until something changes", async () => {
+      renderWindow();
+
+      expect(await screen.findByText("No phone number yet")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add phone" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    });
+
+    it("tags a line, and stars the next one standing in when the first is removed", async () => {
+      vi.mocked(candidatesApi.replaceContacts).mockResolvedValue(held);
+      renderWindow({
+        candidate: {
+          ...held,
+          contacts: {
+            ...NONE,
+            emails: [
+              { ...found("hakan@alacpartners.com", "work"), source: "manual" },
+              { ...found("hakan@gmail.com", null), source: "manual" },
+            ],
+          },
+        },
+      });
+
+      await userEvent.click(screen.getByRole("button", { name: "Remove email 1" }));
+      await userEvent.click(
+        within(screen.getByRole("group", { name: "Email 1 kind" })).getByRole("button", { name: "Personal" }),
+      );
+
+      expect(screen.getByRole("img", { name: "Primary email" })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() =>
+        expect(candidatesApi.replaceContacts).toHaveBeenCalledWith("p1", "c1", {
+          emails: [{ value: "hakan@gmail.com", kind: "personal", verified: false, primary: false }],
+          phones: [],
+        }),
+      );
     });
   });
 });

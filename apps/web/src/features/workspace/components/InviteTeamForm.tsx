@@ -12,7 +12,7 @@ interface InviteRow {
 }
 
 /**
- * "Invite your team" — Signup.dc.html's final step, and the second stage of the New workspace modal.
+ * "Invite your team" — the second stage of the New workspace modal (the signup wizard no longer asks it).
  * Rows of address + role, validated before anything is sent, and skippable: blank rows are an empty
  * form, not an error, and "Skip for now" sends nothing at all.
  *

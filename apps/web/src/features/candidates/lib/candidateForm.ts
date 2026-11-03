@@ -13,6 +13,7 @@ import {
 } from "./compensation";
 import type {
   Candidate,
+  CandidateContacts,
   CandidateEmail,
   CandidatePhone,
   CandidateSeniority,
@@ -24,11 +25,15 @@ import type {
 
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** The server's `MAX_CONTACTS_PER_CHANNEL`. */
+export const CONTACTS_PER_CHANNEL = 10;
+
 /** What one email or phone line holds while it is being edited. `source` rides along, read-only. */
 export const contactEntrySchema = z.object({
   value: z.string().trim().max(320),
   kind: z.enum(["", "work", "personal"]),
   verified: z.boolean(),
+  primary: z.boolean(),
   source: z.string().nullable(),
 });
 
@@ -48,7 +53,7 @@ export function contactKeyOf(channel: "email" | "phone", value: string): string 
 export function contactEntries(channel: "email" | "phone") {
   return z
     .array(contactEntrySchema)
-    .max(10, `Ten ${channel === "email" ? "email addresses" : "phone numbers"} is the most a profile holds`)
+    .max(CONTACTS_PER_CHANNEL, `Ten ${channel === "email" ? "email addresses" : "phone numbers"} is the most a profile holds`)
     .superRefine((entries, context) => {
       const seen = new Set<string>();
       entries.forEach((entry, index) => {
@@ -74,7 +79,7 @@ export function contactEntries(channel: "email" | "phone") {
     });
 }
 
-/** A channel's lines as the request states them: blanks dropped, kind and verified as claimed. */
+/** A channel's lines as the request states them: blanks dropped, kind, verified and primary as claimed. */
 export function contactInputsOf(entries: ContactEntryForm[]): ContactEntryInput[] {
   return entries
     .filter((entry) => entry.value.trim() !== "")
@@ -82,19 +87,41 @@ export function contactInputsOf(entries: ContactEntryForm[]): ContactEntryInput[
       value: entry.value.trim(),
       kind: entry.kind === "" ? null : entry.kind,
       verified: entry.verified,
+      primary: entry.primary,
     }));
 }
 
+/** Only a chosen primary is carried as one, so a save never turns the first line standing in into a choice. */
 export function contactLineOf(entry: CandidateEmail | CandidatePhone): ContactEntryForm {
   return {
     value: "address" in entry ? entry.address : entry.number,
     kind: entry.kind ?? "",
     verified: entry.verified,
+    primary: entry.primary ?? false,
     source: entry.source,
   };
 }
 
-export const EMPTY_CONTACT_LINE: ContactEntryForm = { value: "", kind: "", verified: false, source: null };
+export const EMPTY_CONTACT_LINE: ContactEntryForm = {
+  value: "",
+  kind: "",
+  verified: false,
+  primary: false,
+  source: null,
+};
+
+/** The Contact section's save with `value` made its channel's primary — the read view's one-click Make primary. */
+export function contactsWithPrimary(contacts: CandidateContacts, channel: "email" | "phone", value: string) {
+  const lines = (entries: (CandidateEmail | CandidatePhone)[], wanted: boolean) =>
+    contactInputsOf(entries.map(contactLineOf)).map((line) => ({
+      ...line,
+      primary: wanted ? line.value === value : line.primary,
+    }));
+  return {
+    emails: lines(contacts.emails, channel === "email"),
+    phones: lines(contacts.phones, channel === "phone"),
+  };
+}
 
 /**
  * The executive profile as a form: one schema, cut into the sections the panel edits one at a time.

@@ -98,7 +98,8 @@ so from then it leaves no copy. Both person drawers — a position's executive d
 Candidates page's — share one header (`PersonHeaderLayout`: the photo beside one column of the name with its LinkedIn
 mark — the drawer's only view of the link, edited with the details' pencil, never in Contact — then on a position the
 status picker and that pencil, the tags held to one line with a +N chip, and do not contact) and one tab order,
-`Position.dc.html`'s: **Background · Compensation · Notes · Assessment · Contact · Documents · Activity · Positions**
+`Position.dc.html`'s: **Background · Compensation · Notes · Assessment · Contact · Documents · Activity**, and
+**Positions** on the Candidates page's drawer alone — a position's left it out as too crowded
 (`lib/drawerTabs.ts`, retired `?tab=career|records|timeline` links still land), a client seat reading Background and
 Contact alone — the Compensation tab is staff's on screen, though `CandidateResponse` still carries the package; the
 workspace drawer leaves out only what a position holds (Assessment among them). **Assessment** (V135) is the
@@ -114,8 +115,7 @@ back, per competency, evidence naming its source then a 0–10 score against an 
 or a CV can state a behaviour; read from the career alone a score is held to 3–7 and marked "Inferred from …", and
 null only with nothing on file — and the five sections; the weights and the total stay `ScorecardScoring`'s. It writes only what nobody holds — an empty value, or one still in
 `ai_drafted` (an untouched earlier draft, sparkled in the tab) — never a consultant's; an edit takes a value out of
-`ai_drafted`, and **Mark reviewed & submit** adopts every AI value. It runs only when pressed — never on a filing. The executive drawer draws **Positions** (every
-mandate mapping the person, this one first), **Notes** and **Activity** for staff, through the
+`ai_drafted`, and **Mark reviewed & submit** adopts every AI value. It runs only when pressed — never on a filing. The executive drawer draws **Notes** and **Activity** for staff, through the
 position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`).
 **A position's timeline is that position's alone** (`PersonTimelineService.positionTimelineOf`): its own lines and the
 person-level kinds (`PERSON_LEVEL_KINDS`: profile, contacts, tags, owner, do not contact, documents) wherever they were
@@ -175,7 +175,12 @@ the same rows editable in place — add, remove, retag work/personal, mark verif
 "via ContactOut" caption is — who did what is the audit trail's) — saved as one list through
 `PUT …/candidates/{id}/contacts`; a profile PUT adds what it supplies, never removes a contact, and is
 held to the same ten per channel.
-No primary flag anywhere: the grid's Email and Phone columns list them all. A person the plugin
+**One email and one phone are primary** (V183 `is_primary`, at most one per channel by partial unique index): starred
+in the Contact section (Make primary, read or edited), drawn in both drawers' header beside the employer's logo, and
+listed first everywhere — the grid's Email and Phone columns, the export, every send's default (Write email, Add to
+sequence, Book a call), each still changeable at the send. None chosen, the first of the ledger's order stands in:
+personal before work before untagged (an approach to someone at their current employer goes to a personal inbox),
+verified first, what a person supplied before what a lookup found, oldest first (`Person.listed`). A person the plugin
 captured keeps their LinkedIn URL locked (`CANDIDATE_PROFILE_URL_LOCKED`): it is the page they were
 read off and everything keys on it. `lightmove.enrichment.contactout` sits **beside**
 `…enrichment.provider` and is never selected by it: contact lookup is its own account with its own bill,
@@ -818,8 +823,10 @@ leaves calendars read directly (`RecallSettings.isCalendarOffered`). It depends 
 **Tasks and the bell (epic #862, V133, `docs/tasks-notifications.md`).** A **next action is a task**
 (`task`): one `app_lm_task` row per job on one executive of one position, and the Pipeline card's Next action is
 that executive's earliest open one — `task` answers `candidate`'s `NextActionLookup`, so the board, the drawer, My
-tasks and the bell read the same rows. In the executive drawer it is a fixed-height bar in the header, on every tab
-(`NextActionBar`: the earliest open task, ticked done in place, the rest in a popover grouped overdue/today/upcoming);
+tasks and the bell read the same rows. In the executive drawer it is a fixed-height bar docked in the footer, on every tab
+(`NextActionBar`: the earliest open task, ticked done in place, the rest in a popover grouped overdue/today/upcoming,
+folded to one square beside the Assessment tab's save buttons), the drawer's other actions — Add note, Set next action,
+Book a call, Remove from mandate — behind the footer's ⋯;
 off a position, the Candidates drawer shows it on each Positions card (V132's free-text `next_action` columns became open tasks and are no longer
 written). A task goes, and a note's `@[Name](user:<uuid>)` / `@[team](team)` mention reaches, only someone who may
 work the position — `WORK_EXECUTE`, read again on every save (`ProjectAccess.allows`) — never a client seat; a note

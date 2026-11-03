@@ -33,6 +33,7 @@ export function CandidateDrawer({
   onSaved,
   onDelete,
   onMarkNoExecutiveFound,
+  onOpenCompany,
   focusNoteId = null,
   focusSection = null,
   focusTab = null,
@@ -57,6 +58,8 @@ export function CandidateDrawer({
   /** Flags the company as researched-and-nobody-suitable and closes the panel — the add form's other
    *  outcome. Only meaningful with a `company`, so callers without one pass nothing. */
   onMarkNoExecutiveFound?: () => void;
+  /** Opens the drawer of the company the executive is mapped at; absent where the page has no company drawer. */
+  onOpenCompany?: () => void;
   /** A note to open the profile on — a bell row's — rather than on the Profile tab. */
   focusNoteId?: string | null;
   /** A part of the Contact tab to open the profile on — a bell row's reply, bounce or booked call. */
@@ -91,6 +94,7 @@ export function CandidateDrawer({
           onClose={onClose}
           onSaved={handleSaved}
           onRemove={canWrite ? onDelete : undefined}
+          onOpenCompany={onOpenCompany}
           focusNoteId={focusNoteId}
           focusSection={focusSection}
           focusTab={focusTab}

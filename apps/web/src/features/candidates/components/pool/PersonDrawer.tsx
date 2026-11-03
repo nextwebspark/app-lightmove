@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
-import { Drawer } from "../../../../components/ui/Drawer";
+import { Drawer, DrawerFooter } from "../../../../components/ui/Drawer";
 import { PanelCloseButton } from "../../../../components/ui/PanelCloseButton";
 import { Button, DrawerSkeleton, Select, useToast } from "../../../../components/ui";
 import { tabPanelProps } from "../../../../components/ui/tabPanelProps";
@@ -130,7 +130,6 @@ function PersonDrawerBody({
     onError: (error) => toast.error(messageFor(error)),
   });
 
-  const context = [person.companyName, person.locationCity, person.locationCountry].filter(Boolean).join(" · ");
   const doNotContact = person.doNotContact;
 
   return (
@@ -142,7 +141,10 @@ function PersonDrawerBody({
           fullName={person.fullName}
           linkedinUrl={person.linkedinUrl}
           title={person.title}
-          context={context}
+          contacts={person.contacts}
+          onShowContacts={() => onTabChange("contact")}
+          employer={{ name: person.companyName, logoUrl: person.companyLogoUrl }}
+          location={[person.locationCity, person.locationCountry].filter(Boolean).join(" · ")}
         >
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-1.5">
@@ -283,7 +285,7 @@ function PersonDrawerBody({
         )}
       </div>
 
-      <footer className="flex flex-none items-center gap-2 border-t border-u-border px-5 py-3">
+      <DrawerFooter>
         <Button variant="secondary" className="ms-auto" onClick={startNote}>
           <Icon d={ICONS.plus} size={14} />
           Add note
@@ -291,7 +293,7 @@ function PersonDrawerBody({
         <Button variant="secondary" onClick={onClose}>
           Close
         </Button>
-      </footer>
+      </DrawerFooter>
 
       <NextActionModal target={nextAction} onClose={() => setNextAction(null)} />
 
