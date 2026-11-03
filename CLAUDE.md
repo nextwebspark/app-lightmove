@@ -98,7 +98,8 @@ so from then it leaves no copy. Both person drawers — a position's executive d
 Candidates page's — share one header (`PersonHeaderLayout`: the photo beside one column of the name with its LinkedIn
 mark — the drawer's only view of the link, edited with the details' pencil, never in Contact — then on a position the
 status picker and that pencil, the tags held to one line with a +N chip, and do not contact) and one tab order,
-`Position.dc.html`'s: **Background · Compensation · Notes · Assessment · Contact · Documents · Activity · Positions**
+`Position.dc.html`'s: **Background · Compensation · Notes · Assessment · Contact · Documents · Activity**, and
+**Positions** on the Candidates page's drawer alone — a position's left it out as too crowded
 (`lib/drawerTabs.ts`, retired `?tab=career|records|timeline` links still land), a client seat reading Background and
 Contact alone — the Compensation tab is staff's on screen, though `CandidateResponse` still carries the package; the
 workspace drawer leaves out only what a position holds (Assessment among them). **Assessment** (V135) is the
@@ -114,8 +115,7 @@ back, per competency, evidence naming its source then a 0–10 score against an 
 or a CV can state a behaviour; read from the career alone a score is held to 3–7 and marked "Inferred from …", and
 null only with nothing on file — and the five sections; the weights and the total stay `ScorecardScoring`'s. It writes only what nobody holds — an empty value, or one still in
 `ai_drafted` (an untouched earlier draft, sparkled in the tab) — never a consultant's; an edit takes a value out of
-`ai_drafted`, and **Mark reviewed & submit** adopts every AI value. It runs only when pressed — never on a filing. The executive drawer draws **Positions** (every
-mandate mapping the person, this one first), **Notes** and **Activity** for staff, through the
+`ai_drafted`, and **Mark reviewed & submit** adopts every AI value. It runs only when pressed — never on a filing. The executive drawer draws **Notes** and **Activity** for staff, through the
 position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`).
 **A position's timeline is that position's alone** (`PersonTimelineService.positionTimelineOf`): its own lines and the
 person-level kinds (`PERSON_LEVEL_KINDS`: profile, contacts, tags, owner, do not contact, documents) wherever they were

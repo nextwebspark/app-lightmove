@@ -228,18 +228,6 @@ const yasminRecord = {
   doNotContact: null,
 } as unknown as PersonRecord;
 
-const otherPosition = {
-  candidateId: "c9",
-  projectId: "p9",
-  positionTitle: "Group Treasurer",
-  status: "contacted" as const,
-  addedByUserId: "u2",
-  addedByName: "Sara Haddad",
-  addedAt: "2026-07-01T09:00:00Z",
-  source: "manual" as const,
-  workable: false,
-};
-
 const liveCall = (overrides: Partial<NotetakerRecording> = {}): NotetakerRecording => ({
   id: "r1",
   meetingId: "m1",
@@ -1204,7 +1192,6 @@ describe("CandidateDrawer", () => {
     expect(screen.queryByText("Timeline")).not.toBeInTheDocument();
     expect(personCrmApi.getPersonNotes).not.toHaveBeenCalled();
     expect(personCrmApi.getPositionHistory).not.toHaveBeenCalled();
-    expect(personCrmApi.getPersonPositions).not.toHaveBeenCalled();
   });
 
   it("cancels a section on Escape and leaves the panel open", async () => {
@@ -1238,7 +1225,6 @@ describe("CandidateDrawer", () => {
       "Contact",
       "Documents",
       "Activity",
-      "Positions",
     ]);
     expect(screen.getByRole("tab", { name: "Background" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: /^Summary/ })).toHaveAttribute("aria-expanded", "true");
@@ -1339,8 +1325,8 @@ describe("CandidateDrawer", () => {
     await waitFor(() => expect(scrollIntoView.mock.contexts).toContain(contactFold));
   });
 
-  it("keeps tags in the header, notes and documents on their own tabs, and lists other positions", async () => {
-    const { unmount } = renderDrawer({ candidate: yasmin, company: null });
+  it("keeps tags in the header, notes and documents on their own tabs, and no Positions tab", async () => {
+    renderDrawer({ candidate: yasmin, company: null });
 
     // Tags are a fact about the person, on view whichever tab is open.
     expect(await screen.findByRole("button", { name: "Remove tag Board ready" })).toBeInTheDocument();
@@ -1348,32 +1334,9 @@ describe("CandidateDrawer", () => {
     expect(screen.getByRole("tabpanel", { name: /^Notes/ })).toContainElement(screen.getByRole("region", { name: "Notes" }));
     await openTab("Documents");
     expect(screen.getByRole("tabpanel", { name: /^Documents/ })).toBeVisible();
-    // This drawer is the current position: a person on no other says so rather than showing nothing.
-    await openTab("Positions");
-    await waitFor(() => expect(personCrmApi.getPersonPositions).toHaveBeenCalled());
-    expect(await screen.findByText(/Not mapped to any other positions right now/)).toBeInTheDocument();
-    unmount();
-
-    vi.mocked(personCrmApi.getPersonPositions).mockResolvedValue([
-      {
-        candidateId: "c1",
-        projectId: "p1",
-        positionTitle: "Chief Financial Officer",
-        status: "identified",
-        addedByUserId: "u1",
-        addedByName: "Alok Kumar",
-        addedAt: "2026-08-02T09:00:00Z",
-        source: "manual",
-        workable: true,
-      },
-      otherPosition,
-    ]);
-    renderDrawer({ candidate: yasmin, company: null });
-    await openTab("Positions");
-
-    const others = await screen.findByRole("region", { name: "Other positions" });
-    expect(within(others).getByText("Group Treasurer")).toBeInTheDocument();
-    expect(within(others).queryByText("Chief Financial Officer")).not.toBeInTheDocument();
+    // The person's other positions are the Candidates page's drawer's alone: this one's bar was too crowded.
+    expect(screen.queryByRole("tab", { name: /^Positions/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Other positions" })).not.toBeInTheDocument();
   });
 
   it("docks the next action in a footer every tab shares, and keeps the rest behind More actions", async () => {
