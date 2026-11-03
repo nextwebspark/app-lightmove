@@ -112,7 +112,7 @@ export function SignupVerifyStepPage() {
         </div>
 
         <h1 className="text-[19px] font-semibold leading-tight">Confirm your email</h1>
-        <p className="mb-6 mt-1 font-mono text-xs text-u-text3">Step 2 of 4 · check your inbox</p>
+        <p className="mb-6 mt-1 font-mono text-xs text-u-text3">Step 2 of 3 · check your inbox</p>
 
         <p className="mb-2 text-sm text-u-text2">
           We sent a link to <span className="font-medium text-u-text">{user?.email}</span>. Open it and

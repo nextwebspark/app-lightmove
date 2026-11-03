@@ -150,6 +150,16 @@ describe("routes — the verification gate", () => {
       expect(screen.getByTestId("pathname").textContent).toBe("/signup/workspace"),
     );
   });
+
+  it("sends a staff member who opens the retired invite step into the app", async () => {
+    vi.mocked(projectsApi.projects).mockResolvedValue([]);
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
+
+    renderAt("/signup/invite");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).not.toBe("/signup/invite"));
+    expect(screen.getByTestId("pathname").textContent).not.toMatch(/^\/signup/);
+  });
 });
 
 /**
