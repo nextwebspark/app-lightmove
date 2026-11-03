@@ -98,15 +98,15 @@
   --color-u-accent-ring: rgba(74, 86, 214, 0.4);
 
   /* Uncava's warning role. Named for what it does, not what it looks like. */
-  --color-u-signal: #a8602f;
+  --color-u-signal: #a05b2d;
   --color-u-signal-tint: rgba(168, 96, 47, 0.1);
-  --color-u-offlimits: #d93a45;
+  --color-u-offlimits: #c8353f;
   --color-u-offlimits-tint: rgba(217, 58, 69, 0.1);
 
   /* Uncava's names, kept so the palette stays a lift: here they read as good news and as in progress. */
-  --color-u-direct: #0f9d6b;
+  --color-u-direct: #0c7c55;
   --color-u-direct-tint: rgba(15, 157, 107, 0.1);
-  --color-u-adjacent: #1f72d4;
+  --color-u-adjacent: #1d6cc9;
   --color-u-adjacent-tint: rgba(31, 114, 212, 0.1);
 
   /* Machine-made: what a template drafted or a model read, never a person's own words. */
@@ -159,7 +159,7 @@
   --color-u-text2: #a6adbb;
   --color-u-text3: #7c8493;
 
-  --color-u-accent: #6e79f2;
+  --color-u-accent: #7782f4;
   --color-u-accent-hover: #8189f7;
   --color-u-accent-solid: #4a56d6;
   --color-u-accent-solid-hover: #5a66e6;
