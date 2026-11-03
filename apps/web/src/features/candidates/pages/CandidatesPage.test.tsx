@@ -453,7 +453,8 @@ describe("CandidatesPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Fatima Al Mazrouei" })).toBeInTheDocument();
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent?.replace(/\d+$/, ""))).toEqual([
-      "Career",
+      "Background",
+      "Compensation",
       "Notes",
       "Contact",
       "Documents",

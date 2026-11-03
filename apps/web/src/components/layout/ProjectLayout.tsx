@@ -75,6 +75,9 @@ export function ProjectLayout() {
     currentPath.startsWith(`${sequencesPath}/`);
   const fillsViewport = isOutreachWorkspace || VIEWPORT_FILLING_TABS.some((tab) => pathname.includes(tab));
   const isBriefTab = currentPath === `/projects/${projectId}`;
+  // The assistant researches the market, so it docks beside Strategy alone; on any other screen it stays shut,
+  // and coming back to Strategy finds it as it was left.
+  const isStrategyTab = currentPath === `/projects/${projectId}/strategy`;
   const fullBleed = isBriefTab || isOutreachWorkspace || FULL_BLEED_TABS.some((tab) => pathname.includes(tab));
 
   const { data: projects, isPending } = useQuery({
@@ -170,7 +173,7 @@ export function ProjectLayout() {
       navGroups={groups.filter((group) => group.items.length > 0)}
       navBackLink={{ to: origin.path, label: origin.label, title: `Back to ${origin.label}`, icon: ICONS.back }}
       assistantContext={`${project.clientName} · ${project.positionTitle}`}
-      assistantProjectId={project.id}
+      assistantProjectId={isStrategyTab ? project.id : null}
       /* Wider than the mockups' 1160px on purpose — see WorkspaceLayout for the reasoning. */
       contentClassName={cn(
         fullBleed ? "flex min-h-full w-full flex-col" : "mx-auto max-w-[1440px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7",

@@ -740,13 +740,17 @@ export function BackgroundFields({
 
 /**
  * The profile link. Locked for a person the plugin captured: the URL is the page it read them off,
- * and research and contact lookup both key on it, so retyping it can only break them. Reads the
- * enclosing form through context, like the contact lines, because two differently shaped forms
- * hold it.
+ * and research and contact lookup both key on it, so retyping it can only break them.
  */
-export function ContactFields({ lockedUrl = null }: { lockedUrl?: string | null }) {
-  const { register, formState } = useFormContext<{ linkedinUrl: string }>();
-  const errors = formState.errors;
+export function LinkedInUrlField({
+  register,
+  error,
+  lockedUrl,
+}: {
+  register: UseFormRegister<CandidateForm>;
+  error: string | undefined;
+  lockedUrl: string | null;
+}) {
   if (lockedUrl) {
     return (
       <Field label="LinkedIn" hint="Captured from this profile page — not editable">
@@ -758,12 +762,8 @@ export function ContactFields({ lockedUrl = null }: { lockedUrl?: string | null 
     );
   }
   return (
-    <Field label="LinkedIn" error={errors.linkedinUrl?.message}>
-      <Input
-        {...register("linkedinUrl")}
-        placeholder="linkedin.com/in/…"
-        invalid={Boolean(errors.linkedinUrl)}
-      />
+    <Field label="LinkedIn" error={error}>
+      <Input {...register("linkedinUrl")} placeholder="linkedin.com/in/…" invalid={Boolean(error)} />
     </Field>
   );
 }

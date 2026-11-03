@@ -238,6 +238,7 @@ export const SECTION_FIELDS = {
     "seniority",
     "locationCity",
     "locationCountry",
+    "linkedinUrl",
   ],
   summary: ["summary"],
   experience: ["career"],
@@ -253,7 +254,6 @@ export const SECTION_FIELDS = {
     "noticePeriod",
   ],
   background: ["nationality", "gender", "yearsExperience", "languages"],
-  contact: ["linkedinUrl"],
   note: ["note"],
 } as const satisfies Record<string, readonly (keyof CandidateForm)[]>;
 
@@ -401,6 +401,7 @@ const PATCHES: {
     employerName: mapped ? undefined : parsed.employerName || undefined,
     locationCity: parsed.locationCity || undefined,
     locationCountry: parsed.locationCountry || undefined,
+    linkedinUrl: parsed.linkedinUrl || undefined,
   }),
   summary: (parsed) => ({ summary: parsed.summary || undefined }),
   experience: (parsed) => ({
@@ -446,9 +447,6 @@ const PATCHES: {
       .map((language) => language.trim())
       .filter(Boolean),
   }),
-  contact: (parsed) => ({
-    linkedinUrl: parsed.linkedinUrl || undefined,
-  }),
   note: (parsed) => ({ note: parsed.note || undefined }),
 };
 
@@ -478,7 +476,6 @@ export function payloadOf(
     ...PATCHES.experience(parsed, mapped),
     ...PATCHES.compensation(parsed, mapped),
     ...PATCHES.background(parsed, mapped),
-    ...PATCHES.contact(parsed, mapped),
     ...PATCHES.note(parsed, mapped),
     emails: contactInputsOf(parsed.emails),
     phones: contactInputsOf(parsed.phones),
@@ -486,14 +483,10 @@ export function payloadOf(
   };
 }
 
-/**
- * The Contact section on its own: the two channels and the profile link. Edited in place over the
- * read view, saved through the contacts write (and the profile PUT only when the link changed).
- */
+/** The Contact section on its own: the two channels, edited in place and saved through the contacts write. */
 export const contactSectionSchema = z.object({
   emails: contactEntries("email"),
   phones: contactEntries("phone"),
-  linkedinUrl: optionalWebAddress("LinkedIn URL"),
 });
 
 export type ContactSectionForm = z.input<typeof contactSectionSchema>;
@@ -503,6 +496,5 @@ export function contactSectionOf(candidate: Candidate): ContactSectionForm {
   return {
     emails: candidate.contacts.emails.map(contactLineOf),
     phones: candidate.contacts.phones.map(contactLineOf),
-    linkedinUrl: candidate.linkedinUrl ?? "",
   };
 }

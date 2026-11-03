@@ -4,31 +4,28 @@ import { useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { Button, FormError, useToast, type ToastFn } from "../../../components/ui";
 import { DetailPill } from "../../../components/ui/DetailList";
-import { NetworkMark } from "../../../components/ui/NetworkMark";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import { copyText } from "../../../lib/clipboard";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
-import { toBrowsableUrl, toReadableUrl } from "../../../lib/url";
 import { BILLING_KEY } from "../../billing/api/billingApi";
 import { creditsLabel, isBillingRefusal } from "../../billing/lib/billingView";
 import { useBillingRead } from "../../billing/lib/useBilling";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate, CandidateContacts, CandidateEmail, CandidatePhone } from "../../candidates/api/types";
-import { ContactEntriesFields, ContactFields } from "../../candidates/components/CandidateFieldGroups";
+import { ContactEntriesFields } from "../../candidates/components/CandidateFieldGroups";
 import { ProfileSectionForm } from "../../candidates/components/ProfileSectionForm";
 import {
   contactInputsOf,
   contactSectionOf,
   contactSectionSchema,
-  replayOf,
   type ContactSectionForm,
   type ParsedContactSectionForm,
 } from "../../candidates/lib/candidateForm";
 import * as contactLookupApi from "../api/contactLookupApi";
 
 /**
- * The Contact section: one row per channel — email, phone, LinkedIn — listing everything the mandate
+ * The Contact section: one row per channel — email and phone — listing everything the mandate
  * knows, with the button that goes and finds more sitting on the row it acts on.
  *
  * <p>Read, or edited in the same place: the pencil turns every line into its inputs, Save writes
@@ -63,7 +60,6 @@ export function ContactPanel({
       <ContactSectionEditor
         projectId={projectId}
         candidate={candidate}
-        onSaved={onSaved}
         onDone={(saved) => {
           onSaved(saved);
           onDone?.(saved);
@@ -108,7 +104,6 @@ function ContactReadView({
   return (
     <ContactChannels
       contacts={contacts}
-      linkedinUrl={candidate.linkedinUrl}
       emailAction={
         mayLookUp && !contacts.emailsLookedUpAt ? (
           <FindButton
@@ -142,26 +137,23 @@ function ContactReadView({
 }
 
 /**
- * Email, phone and LinkedIn as read: every value on the ledger with its pills and a copy button. The position
- * drawer hangs its Find buttons on the rows; the workspace drawer reads them bare.
+ * Email and phone as read: every value on the ledger with its pills and a copy button. The position drawer
+ * hangs its Find buttons on the rows; the workspace drawer reads them bare. The profile link is the header's.
  */
 export function ContactChannels({
   contacts,
-  linkedinUrl,
   emailAction,
   emailError,
   phoneAction,
   phoneError,
 }: {
   contacts: CandidateContacts;
-  linkedinUrl: string | null;
   emailAction?: ReactNode;
   emailError?: string | null;
   phoneAction?: ReactNode;
   phoneError?: string | null;
 }) {
   const toast = useToast();
-  const profileUrl = toBrowsableUrl(linkedinUrl);
 
   return (
     <div className="divide-y divide-u-border">
@@ -195,30 +187,6 @@ export function ContactChannels({
         )}
       </ContactChannel>
 
-      <ContactChannel icon={<NetworkMark network="linkedin" size={22} />} label="LinkedIn" disc={false}>
-        {/* Through `toBrowsableUrl` rather than straight into the href. Every write is already gated
-            by SuppliedText, but trusting that from the render side makes this line the one place a
-            value stored before the gate — or posted by the browser plugin, whose CandidateSource is
-            already in the schema — could reach a browser as something it should not follow.
-            `lib/url.ts` states the rule; the grids and the company panel already keep it. */}
-        {profileUrl ? (
-          <li className="flex min-w-0 items-center gap-1.5">
-            <a
-              href={profileUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              title={profileUrl}
-              className="group flex min-w-0 items-center gap-1 font-mono text-[13px] text-u-accent"
-            >
-              <ReadableUrl url={profileUrl} />
-              <Icon d={ICONS.externalLink} size={12} className="flex-none text-u-text3 group-hover:text-u-accent" />
-            </a>
-            <CopyButton what="LinkedIn URL" onCopy={() => copy("LinkedIn URL", profileUrl)} />
-          </li>
-        ) : (
-          <EmptyLine asked={false} label="" />
-        )}
-      </ContactChannel>
     </div>
   );
 
@@ -228,68 +196,38 @@ export function ContactChannels({
 }
 
 /**
- * The same three rows, editable. Every line is an input, a kind, a verified toggle and a remove;
- * Save writes both channels in one request and the profile link in a second only if it changed.
- * A person the plugin captured keeps their link locked: it is the page they were read off.
+ * The same two rows, editable. Every line is an input, a kind, a verified toggle and a remove;
+ * Save writes both channels in one request.
  */
 function ContactSectionEditor({
   projectId,
   candidate,
-  onSaved,
   onDone,
   onCancel,
 }: {
   projectId: string;
   candidate: Candidate;
-  /** The contacts landed but the section stays open: the link write after them failed. */
-  onSaved: (saved: Candidate) => void;
   onDone: (saved: Candidate) => void;
   onCancel: () => void;
 }) {
   const toast = useToast();
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // The server's own answer: it locks only when the URL is the page the plugin read, which this
-  // mandate's door ("extension") cannot tell — the person may have been captured through another one.
-  const linkLocked = candidate.linkedinUrlLocked;
   const form = useForm<ContactSectionForm, unknown, ParsedContactSectionForm>({
     resolver: zodResolver(contactSectionSchema),
     defaultValues: contactSectionOf(candidate),
   });
 
   const saving = useMutation({
-    mutationFn: async (parsed: ParsedContactSectionForm) => {
-      const withContacts = await candidatesApi.replaceContacts(projectId, candidate.id, {
+    mutationFn: (parsed: ParsedContactSectionForm) =>
+      candidatesApi.replaceContacts(projectId, candidate.id, {
         emails: contactInputsOf(parsed.emails),
         phones: contactInputsOf(parsed.phones),
-      });
-      const link = parsed.linkedinUrl || undefined;
-      if (linkLocked || link === (candidate.linkedinUrl ?? undefined)) {
-        return withContacts;
-      }
-      try {
-        return await candidatesApi.updateCandidate(projectId, candidate.id, {
-          ...replayOf(withContacts),
-          linkedinUrl: link,
-        });
-      } catch (error) {
-        // The contacts are saved even though the link is not: hand them up so the drawer shows what
-        // the server now holds, and leave the link's error on its field.
-        onSaved(withContacts);
-        throw error;
-      }
-    },
+      }),
     onSuccess: (saved) => {
       toast("Contact saved");
       onDone(saved);
     },
-    onError: (error) => {
-      const code = codeOf(error);
-      if (code === "CANDIDATE_PROFILE_URL_LOCKED" || code === "PERSON_PROFILE_HELD") {
-        form.setError("linkedinUrl", { message: messageFor(error) });
-        return;
-      }
-      setSubmitError(messageFor(error));
-    },
+    onError: (error) => setSubmitError(messageFor(error)),
   });
 
   return (
@@ -310,9 +248,6 @@ function ContactSectionEditor({
           <ContactChannel icon={<Icon d={ICONS.phone} size={14} />} label="Phone">
             <ContactEntriesFields channel="phone" />
           </ContactChannel>
-          <ContactChannel icon={<NetworkMark network="linkedin" size={22} />} label="LinkedIn" disc={false}>
-            <ContactFields lockedUrl={linkLocked ? candidate.linkedinUrl : null} />
-          </ContactChannel>
         </div>
       </ProfileSectionForm>
     </FormProvider>
@@ -322,27 +257,19 @@ function ContactSectionEditor({
 function ContactChannel({
   icon,
   label,
-  disc = true,
   action,
   error,
   children,
 }: {
   icon: ReactNode;
   label: string;
-  /** Our own glyphs sit in a grey disc; LinkedIn's logo may not, so it gets the same slot, bare. */
-  disc?: boolean;
   action?: ReactNode;
   error?: string | null;
   children: ReactNode;
 }) {
   return (
     <div className="flex gap-3 py-3 first:pt-1 last:pb-1">
-      <span
-        className={cn(
-          "mt-0.5 flex size-7 flex-none items-center justify-center rounded-full text-u-text2",
-          disc && "bg-u-raised",
-        )}
-      >
+      <span className="mt-0.5 flex size-7 flex-none items-center justify-center rounded-full bg-u-raised text-u-text2">
         {icon}
       </span>
       <div className="min-w-0 flex-1">
@@ -425,19 +352,6 @@ function CopyButton({ what, onCopy }: { what: string; onCopy: () => void }) {
     >
       <Icon d={ICONS.copy} size={13} />
     </button>
-  );
-}
-
-/** `linkedin.com/in/` muted, the handle in the link colour — the part a person actually reads. */
-function ReadableUrl({ url }: { url: string }) {
-  const readable = toReadableUrl(url);
-  const lastSlash = readable.lastIndexOf("/");
-  if (lastSlash <= 0) return <span className="truncate hover:underline">{readable}</span>;
-  return (
-    <span className="min-w-0 truncate">
-      <span className="text-u-text3">{readable.slice(0, lastSlash + 1)}</span>
-      <span className="group-hover:underline">{readable.slice(lastSlash + 1)}</span>
-    </span>
   );
 }
 

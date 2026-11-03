@@ -5,7 +5,8 @@
  */
 export type DrawerTab =
   | "copilot"
-  | "career"
+  | "background"
+  | "compensation"
   | "notes"
   | "assessment"
   | "contact"
@@ -15,7 +16,8 @@ export type DrawerTab =
 
 export const DRAWER_TAB_LABELS: Readonly<Record<DrawerTab, string>> = {
   copilot: "Copilot",
-  career: "Career",
+  background: "Background",
+  compensation: "Compensation",
   notes: "Notes",
   assessment: "Assessment",
   contact: "Contact",
@@ -25,7 +27,8 @@ export const DRAWER_TAB_LABELS: Readonly<Record<DrawerTab, string>> = {
 };
 
 export const POSITION_STAFF_TABS: readonly DrawerTab[] = [
-  "career",
+  "background",
+  "compensation",
   "notes",
   "assessment",
   "contact",
@@ -34,14 +37,16 @@ export const POSITION_STAFF_TABS: readonly DrawerTab[] = [
   "positions",
 ];
 
-export const POSITION_CLIENT_TABS: readonly DrawerTab[] = ["career", "contact"];
+/** A client seat reads who the executive is and how to reach them; the package is the firm's. */
+export const POSITION_CLIENT_TABS: readonly DrawerTab[] = ["background", "contact"];
 
 /** The position drawer's own tabs, less what only a position holds — so a new tab reaches both drawers. */
 export const WORKSPACE_TABS: readonly DrawerTab[] = POSITION_STAFF_TABS.filter((tab) => tab !== "assessment");
 
-/** Links written before the split — `?tab=records`, a bell's `tab=timeline` — still land somewhere sensible. */
+/** Links written before a rename — `?tab=records`, a bell's `tab=timeline`, `?tab=career` — still land somewhere sensible. */
 const RETIRED_TABS: Readonly<Record<string, DrawerTab>> = {
-  profile: "career",
+  profile: "background",
+  career: "background",
   records: "notes",
   timeline: "activity",
 };
