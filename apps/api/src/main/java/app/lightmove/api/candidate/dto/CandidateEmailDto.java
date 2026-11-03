@@ -6,7 +6,8 @@ import java.time.Instant;
  * One address the mandate knows. {@code kind} is {@code "work"} or {@code "personal"} — null where
  * no provider said which, including everything a person typed — {@code status} the provider's own
  * word for it, and {@code source} the door it came through ({@code "manual"}, {@code "csv"},
- * {@code "extension"}, {@code "contactout"}).
+ * {@code "extension"}, {@code "contactout"}). {@code primary} is the one to reach them on: the first listed, chosen
+ * or standing in.
  */
 public record CandidateEmailDto(String address, String kind, boolean verified, String status,
-                                String source, Instant foundAt) {}
+                                String source, Instant foundAt, boolean primary) {}

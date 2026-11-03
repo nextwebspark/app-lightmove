@@ -4,6 +4,7 @@
     "aiInferredFields" : [ ],
     "career" : [ ],
     "clientVisible" : true,
+    "companyLogoUrl" : null,
     "companyName" : "Golden Contract Foods",
     "compensation" : {
       "allowanceLines" : [ ],
@@ -20,6 +21,7 @@
         "address" : "yasmin@golden.example",
         "foundAt" : "<instant>",
         "kind" : null,
+        "primary" : true,
         "source" : "manual",
         "status" : null,
         "verified" : false
@@ -29,6 +31,7 @@
         "foundAt" : "<instant>",
         "kind" : null,
         "number" : "+966 50 111 2222",
+        "primary" : true,
         "source" : "manual",
         "status" : null,
         "verified" : false
@@ -76,6 +79,7 @@
     "aiInferredFields" : [ ],
     "career" : [ ],
     "clientVisible" : true,
+    "companyLogoUrl" : null,
     "companyName" : "Somewhere Untriaged",
     "compensation" : {
       "allowanceLines" : [ ],

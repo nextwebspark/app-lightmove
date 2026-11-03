@@ -131,6 +131,19 @@ class CandidateRequestReader {
         return entries;
     }
 
+    /** The value the Contact section marked primary, or null for none; two marked in one channel is a slip. */
+    String primaryOf(ContactChannel channel, List<ContactEntryDto> listed) {
+        List<String> chosen = listed == null ? List.of() : listed.stream()
+                .filter(entry -> Boolean.TRUE.equals(entry.primary()))
+                .map(ContactEntryDto::value)
+                .toList();
+        if (chosen.size() > 1) {
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                    "Only one " + channel.value() + " can be primary");
+        }
+        return chosen.isEmpty() ? null : chosen.getFirst();
+    }
+
     /** A profile write adds to the ledger and removes nothing, so the cap is checked on what it holds after. */
     void refuseOverfullChannels(Person person) {
         if (person.emailContacts().size() > MAX_CONTACTS_PER_CHANNEL

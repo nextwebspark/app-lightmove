@@ -12,17 +12,39 @@ import app.lightmove.api.candidate.dto.CandidatePhoneDto;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateCompensation;
+import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidateStage;
 import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.model.Person;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.IntStream;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /** A mapped executive as the drawer and the grid read it — a client seat included. */
 @Component
+@RequiredArgsConstructor
 class CandidateResponseMapper {
 
+    private final PersonEmployerResolver employers;
+
     CandidateResponse toDto(Candidate candidate) {
+        return toDto(candidate, employers.logoOfMapping(candidate.getPerson().getWorkspaceId(), candidate));
+    }
+
+    /** A page of one position's rows, their logos read in one query rather than one a row. */
+    List<CandidateResponse> toDtos(List<Candidate> rows) {
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, String> logos =
+                employers.logosOfMappings(rows.getFirst().getPerson().getWorkspaceId(), rows);
+        return rows.stream().map(row -> toDto(row, logos.get(row.getId()))).toList();
+    }
+
+    private CandidateResponse toDto(Candidate candidate, String companyLogoUrl) {
         Person person = candidate.getPerson();
         return new CandidateResponse(
                 candidate.getId(),
@@ -62,7 +84,8 @@ class CandidateResponseMapper {
                 stageOf(candidate.getStatus()),
                 candidate.getStatusChangedAt(),
                 candidate.isClientVisible(),
-                candidate.getTriageStatus().value());
+                candidate.getTriageStatus().value(),
+                companyLogoUrl);
     }
 
     static CandidatePipelineStageDto stageOf(CandidateStatusDefinition status) {
@@ -92,20 +115,26 @@ class CandidateResponseMapper {
     }
 
     static CandidateContactsDto contactsOf(Person person) {
+        List<CandidateContact> emails = person.emailContacts();
+        List<CandidateContact> phones = person.phoneContacts();
         return new CandidateContactsDto(
-                person.emailContacts().stream()
-                        .map(contact -> new CandidateEmailDto(contact.getValue(),
-                                contact.getKind() == null ? null : contact.getKind().value(),
-                                contact.isVerified(), contact.getStatus(),
-                                contact.getSource().value(), contact.getFoundAt()))
-                        .toList(),
-                person.phoneContacts().stream()
-                        .map(contact -> new CandidatePhoneDto(contact.getValue(),
-                                contact.getKind() == null ? null : contact.getKind().value(),
-                                contact.isVerified(), contact.getStatus(),
-                                contact.getSource().value(), contact.getFoundAt()))
-                        .toList(),
+                IntStream.range(0, emails.size()).mapToObj(i -> emailOf(emails.get(i), i == 0)).toList(),
+                IntStream.range(0, phones.size()).mapToObj(i -> phoneOf(phones.get(i), i == 0)).toList(),
                 person.getEmailsLookedUpAt(), person.getPhonesLookedUpAt(),
                 person.getContactsLookedUpVia());
+    }
+
+    private static CandidateEmailDto emailOf(CandidateContact contact, boolean primary) {
+        return new CandidateEmailDto(contact.getValue(), kindOf(contact), contact.isVerified(), contact.getStatus(),
+                contact.getSource().value(), contact.getFoundAt(), primary);
+    }
+
+    private static CandidatePhoneDto phoneOf(CandidateContact contact, boolean primary) {
+        return new CandidatePhoneDto(contact.getValue(), kindOf(contact), contact.isVerified(), contact.getStatus(),
+                contact.getSource().value(), contact.getFoundAt(), primary);
+    }
+
+    private static String kindOf(CandidateContact contact) {
+        return contact.getKind() == null ? null : contact.getKind().value();
     }
 }

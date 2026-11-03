@@ -68,14 +68,16 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
         JsonNode candidate = answer.get("candidate");
         JsonNode emails = candidate.get("contacts").get("emails");
         assertThat(emails).hasSize(3);
-        // Work before personal, in the order the provider listed them — the order the drawer shows.
-        assertThat(emails.get(0).get("address").asText()).isEqualTo("s.person@retailco.example");
+        // Personal before work, verified first within a kind — the order the drawer shows, its first the primary.
+        assertThat(emails.get(0).get("kind").asText()).isEqualTo("personal");
+        assertThat(emails.get(0).get("primary").asBoolean()).isTrue();
         assertThat(emails.get(1).get("address").asText()).isEqualTo("sample.person@holdings.example");
         assertThat(emails.get(1).get("verified").asBoolean()).isTrue();
         assertThat(emails.get(1).get("status").asText()).isEqualTo("Verified");
         assertThat(emails.get(1).get("kind").asText()).isEqualTo("work");
         assertThat(emails.get(1).get("source").asText()).isEqualTo("contactout");
-        assertThat(emails.get(2).get("kind").asText()).isEqualTo("personal");
+        assertThat(emails.get(1).get("primary").asBoolean()).isFalse();
+        assertThat(emails.get(2).get("address").asText()).isEqualTo("s.person@retailco.example");
         assertThat(candidate.get("contacts").get("source").asText()).isEqualTo("contactout");
         assertThat(candidate.get("contacts").get("emailsLookedUpAt").isNull()).isFalse();
         assertThat(candidate.get("contacts").get("phonesLookedUpAt").isNull()).isTrue();
