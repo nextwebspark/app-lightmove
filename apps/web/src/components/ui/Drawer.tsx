@@ -44,12 +44,29 @@ export function Drawer({
           "fixed inset-0 z-[95] flex animate-fade-up flex-col outline-none",
           "pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] sm:pb-0 sm:pt-0",
           "bg-u-surface shadow-u-e3 sm:inset-x-auto sm:bottom-2.5 sm:right-2.5 sm:top-2.5 sm:max-w-[92vw]",
-          "overflow-hidden sm:rounded-[10px] sm:border sm:border-u-border-strong",
+          "sm:rounded-[10px] sm:border sm:border-u-border-strong",
           wide ? "sm:w-[560px]" : "sm:w-[420px]",
         )}
       >
         {children}
       </aside>
     </>
+  );
+}
+
+/**
+ * A drawer's tinted action foot. Its corners follow the panel's inside the 1px border, so the tint never
+ * squares off the floating panel's rounded foot.
+ */
+export function DrawerFooter({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <footer
+      className={cn(
+        "flex flex-none items-center gap-2 border-t border-u-border bg-u-canvas px-5 py-3 sm:rounded-b-[9px]",
+        className,
+      )}
+    >
+      {children}
+    </footer>
   );
 }

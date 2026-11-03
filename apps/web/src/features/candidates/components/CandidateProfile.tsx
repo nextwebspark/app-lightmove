@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
 import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/ActionMenu";
+import { DrawerFooter } from "../../../components/ui/Drawer";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
 import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
@@ -21,7 +22,7 @@ import { CopilotTab } from "../../outreach/components/copilot/CopilotTab";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
 import { liveCopilotOf, useNotetaker } from "../../outreach/lib/useNotetaker";
 import { NextActionModal, type NextActionTarget } from "../../tasks/components/NextActionModal";
-import { NextActionBar } from "../../tasks/components/NextActionBar";
+import { NextActionBar, NextActionSquare } from "../../tasks/components/NextActionBar";
 import type { TaskNote } from "../../tasks/api/types";
 import * as candidatesApi from "../api/candidatesApi";
 import * as personCrmApi from "../api/personCrmApi";
@@ -38,7 +39,7 @@ import { candidateGenderLabel } from "../lib/candidateVocabulary";
 import { statusStyle } from "../lib/pipelineStatus";
 import { careerSummary } from "../lib/careerTimeline";
 import { useBackgroundSuggestion } from "../lib/useBackgroundSuggestion";
-import { useScorecardEditor } from "../lib/useScorecardEditor";
+import { useScorecardEditor, type ScorecardEditor } from "../lib/useScorecardEditor";
 import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
 import { usePersonDocuments } from "../lib/usePersonDocuments";
 import { useProfileSections, type ProfileSection } from "../lib/useProfileSections";
@@ -343,10 +344,6 @@ export function CandidateProfile({
   const visibleColumns = customColumns.filter((column) => !column.hidden);
   const employerLabel = candidate.companyName ?? undefined;
   const firstName = candidate.fullName.trim().split(/\s+/)[0];
-  const andClose = (close: () => void, act: () => void) => () => {
-    close();
-    act();
-  };
   const panelProps = (value: DrawerTab) => ({ ...tabPanelProps(TAB_ID_PREFIX, value), hidden: tab !== value });
 
   return (
@@ -794,84 +791,44 @@ export function CandidateProfile({
         )}
       </div>
 
-      <footer className="flex flex-none items-center gap-2 border-t border-u-border bg-u-canvas px-5 py-3">
-        {canWrite && (
-          <NextActionBar
-            projectId={projectId}
-            candidateId={candidate.id}
-            firstName={firstName}
-            justCompleted={nextActionDone}
-            onCompleted={() => setNextActionDone(true)}
-            onPromptSettled={settleNextActionPrompt}
-            onOpen={openNextAction}
-            onShowNote={showNote}
-            compact={tab === "assessment"}
-            className={tab === "assessment" ? undefined : "min-w-0 flex-1"}
+      <DrawerFooter>
+        {canWrite &&
+          (tab === "assessment" ? (
+            <NextActionSquare
+              projectId={projectId}
+              candidateId={candidate.id}
+              firstName={firstName}
+              onCompleted={() => setNextActionDone(true)}
+              onOpen={openNextAction}
+              onShowNote={showNote}
+            />
+          ) : (
+            <NextActionBar
+              projectId={projectId}
+              candidateId={candidate.id}
+              firstName={firstName}
+              justCompleted={nextActionDone}
+              onCompleted={() => setNextActionDone(true)}
+              onPromptSettled={settleNextActionPrompt}
+              onOpen={openNextAction}
+              onShowNote={showNote}
+              className="min-w-0 flex-1"
+            />
+          ))}
+        {canWrite && tab === "assessment" && <ScorecardFooterActions scorecard={scorecard} />}
+        {canWrite ? (
+          <MoreActionsMenu
+            onAddNote={startNote}
+            onSetNextAction={() => openNextAction(null)}
+            onBookCall={startCall}
+            onRemove={onRemove && (() => onRemove(candidate))}
           />
-        )}
-        {canWrite && tab === "assessment" && (
-          <>
-            {scorecard.isDirty && (
-              <Button type="button" variant="ghost" className="ms-auto" onClick={scorecard.discard}>
-                Discard
-              </Button>
-            )}
-            <Button
-              type="button"
-              variant="secondary"
-              className={cn("whitespace-nowrap", !scorecard.isDirty && "ms-auto")}
-              disabled={!scorecard.isDirty || scorecard.isSaving || scorecard.isAssessing || !scorecard.saved.data}
-              loading={scorecard.isSaving && !scorecard.savingReviewed}
-              onClick={() => scorecard.save(false)}
-            >
-              Save draft
-            </Button>
-            <Button
-              type="button"
-              className="whitespace-nowrap"
-              disabled={scorecard.isSaving || scorecard.isAssessing || !scorecard.saved.data}
-              loading={scorecard.savingReviewed}
-              onClick={() => scorecard.save(true)}
-            >
-              Mark reviewed & submit
-            </Button>
-          </>
-        )}
-        {!canWrite && (
+        ) : (
           <Button type="button" variant="secondary" className="ms-auto" onClick={onClose}>
             Close
           </Button>
         )}
-        {(canWrite || onRemove) && (
-          <ActionMenu label="More actions" triggerClassName="size-10 rounded-u-card border-u-border bg-u-surface text-u-text2">
-            {(close) => (
-              <>
-                {canWrite && (
-                  <>
-                    <MenuItem icon={ICONS.noteBubble} onSelect={andClose(close, startNote)}>
-                      Add note
-                    </MenuItem>
-                    <MenuItem icon={ICONS.checklist} onSelect={andClose(close, () => openNextAction(null))}>
-                      Set next action
-                    </MenuItem>
-                    <MenuItem icon={ICONS.phoneCall} onSelect={andClose(close, startCall)}>
-                      Book a call
-                    </MenuItem>
-                  </>
-                )}
-                {onRemove && (
-                  <>
-                    {canWrite && <MenuSeparator />}
-                    <MenuItem icon={ICONS.trash} tone="danger" onSelect={andClose(close, () => onRemove(candidate))}>
-                      Remove from mandate
-                    </MenuItem>
-                  </>
-                )}
-              </>
-            )}
-          </ActionMenu>
-        )}
-      </footer>
+      </DrawerFooter>
 
       {canWrite && (
         <NextActionModal
@@ -891,6 +848,81 @@ export function CandidateProfile({
         />
       )}
     </>
+  );
+}
+
+/** The Assessment tab's own foot: the scorecard saved as a draft, or reviewed and submitted. */
+function ScorecardFooterActions({ scorecard }: { scorecard: ScorecardEditor }) {
+  return (
+    <>
+      {scorecard.isDirty && (
+        <Button type="button" variant="ghost" className="ms-auto" onClick={scorecard.discard}>
+          Discard
+        </Button>
+      )}
+      <Button
+        type="button"
+        variant="secondary"
+        className={cn("whitespace-nowrap", !scorecard.isDirty && "ms-auto")}
+        disabled={!scorecard.isDirty || scorecard.isSaving || scorecard.isAssessing || !scorecard.saved.data}
+        loading={scorecard.isSaving && !scorecard.savingReviewed}
+        onClick={() => scorecard.save(false)}
+      >
+        Save draft
+      </Button>
+      <Button
+        type="button"
+        className="whitespace-nowrap"
+        disabled={scorecard.isSaving || scorecard.isAssessing || !scorecard.saved.data}
+        loading={scorecard.savingReviewed}
+        onClick={() => scorecard.save(true)}
+      >
+        Mark reviewed & submit
+      </Button>
+    </>
+  );
+}
+
+/** The footer's ⋯: every drawer action but the next action itself, Remove last and apart. */
+function MoreActionsMenu({
+  onAddNote,
+  onSetNextAction,
+  onBookCall,
+  onRemove,
+}: {
+  onAddNote: () => void;
+  onSetNextAction: () => void;
+  onBookCall: () => void;
+  onRemove?: () => void;
+}) {
+  const closingThen = (close: () => void, act: () => void) => () => {
+    close();
+    act();
+  };
+  return (
+    <ActionMenu label="More actions" triggerClassName="size-10 rounded-u-card border-u-border bg-u-surface text-u-text2">
+      {(close) => (
+        <>
+          <MenuItem icon={ICONS.noteBubble} onSelect={closingThen(close, onAddNote)}>
+            Add note
+          </MenuItem>
+          <MenuItem icon={ICONS.checklist} onSelect={closingThen(close, onSetNextAction)}>
+            Set next action
+          </MenuItem>
+          <MenuItem icon={ICONS.phoneCall} onSelect={closingThen(close, onBookCall)}>
+            Book a call
+          </MenuItem>
+          {onRemove && (
+            <>
+              <MenuSeparator />
+              <MenuItem icon={ICONS.trash} tone="danger" onSelect={closingThen(close, onRemove)}>
+                Remove from mandate
+              </MenuItem>
+            </>
+          )}
+        </>
+      )}
+    </ActionMenu>
   );
 }
 
