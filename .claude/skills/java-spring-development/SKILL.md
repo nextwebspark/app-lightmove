@@ -228,13 +228,17 @@ enrichment/                # the one feature split twice: by subject first, then
               service/(BrightDataSearch, ContactOutPeopleIndex, ContactOutPeopleClient,
                        UnconfiguredContactOutPeopleIndex, ContactOutPeopleRecords, PeopleQueryKeys,
                        SearchHitFiling)  config/(ContactOutPeopleIndexConfig)
-  sourcing/   Find executives — constant/(SourcingRunStatus, SourcingOutcome, TitleLevel, SearchLevel, TitleCheck)
-              model/(ExecutiveSourcingRun, SourcingCompany, SearchedEmployer, SearchWords, TitleTier, SourcingBrief,
-                     FoundPerson, FoundPeople, CompanyOutcome, ExecutivePick, ExecutiveSourcingRequested)  repository/
+  sourcing/   Find executives — constant/(SourcingRunStatus, SourcingOutcome, TitleLevel, SearchLevel, TitleCheck,
+                        SuggestionVerdict, SuggestionReason, SuggestionBand, FoundBy, CriteriaSource)
+              model/(ExecutiveSourcingRun, SourcingCriteria, SearchCriteria, SearchWords, TitleTier, SourcingCompany,
+                     SearchedEmployer, SourcingBrief, FoundPerson, FoundPeople, Suggestion, CompanyOutcome,
+                     ExecutiveSourcingRequested)  repository/
               service/(LiveProfiles, ContactOutLiveProfiles, UnconfiguredLiveProfiles,
                        ProfileIndex, BusinessSearchProfileIndex, BusinessSearchRecords, UnconfiguredProfileIndex,
-                       PeopleCache, CompanySearch, SearchWordsDrafter, ExecutiveSourcingService,
-                       ExecutiveSourcingWorker, SourcingRunStore, SourcedHitRanking, TitleWords, SeatFit)
+                       PeopleCache, CompanySearch, SourcingCompanies, SourcingCriteriaService, SearchWordsDrafter,
+                       SourcingCounts, ExecutiveSourcingService, ExecutiveSourcingWorker, SourcingRunStore,
+                       SuggestionJudge, SeatFit, CurrentRole, TitleWords, SuggestionStore, SuggestionReader,
+                       SuggestionFiling)
               config/(ExecutiveSourcingConfig)  controller/  dto/
   peoplesearch/ Strategy's People mode — model/(PeoplePage)
               service/(StrategyPeopleService, PeopleSearchFiling, CachedContactOutPeopleQuery, PeopleFilterBody, LocationSuggestions)

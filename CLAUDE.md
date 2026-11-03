@@ -232,40 +232,50 @@ per executive and the same two drawers opened from a pin's popup or a panel row.
 coordinate, so `geocoding` resolves each distinct city + country once through Mapbox and keeps it in
 `app_lm_geocoded_place`; `talentmap` composes the stage's companies, people and points into one
 unpaged, capped read (`GET /projects/{id}/talent-map`), with `…/talent-map/locations` answering the
-same map as points alone for the poll that waits on places rather than on people. **Find executives** (`enrichment/sourcing`, V86) is the fifth door and the one that fills a
-universe by itself: a button on the In-universe toolbar takes the ticked companies — or, with none
-ticked, the first `max-companies-per-run` with nobody mapped — and answers 202 with a run row that
-the strip under the toolbar polls (and the project stream announces). Off the request thread, one
-Gemini call drafts the search's words from the brief (`SearchWordsDrafter` → `SearchWords`: the levels a firm
-maps for the seat, `SearchLevel`'s bands from the seat down; up to twelve function terms, core first, phrases
-allowed, in another language too only where the companies' titles are written in it — Turkish in Türkiye,
-none for the Gulf or Egypt, whose titles are English; the titles that stand alone, "CFO"; up to four excluded
-words; suggestions it does not search), falling back to the role title's own words (`SearchWords.defaultFor`)
-when the model gives nothing searchable. Each company is then searched in two indexes (`CompanySearch`, the
-strategy measured against researchers' own mapping in `docs/find-executives.md`): **ContactOut's People
-Search**, the live index (`ContactOutLiveProfiles`, on the contact-lookup key: today's titles, one Boolean
-title matched as whole words, the company by its website domain or name — a company LinkedIn URL matches
-nothing there), counted free and bought a credit a profile in tiers — the seat's levels from Head and
-Director up (from Manager for an N-2 or N-3 seat) with the four core terms first, then the rest less what the
-first found — `profiles-per-company` at most; and **Bright Data's Business Search**, the profile index
-(`BusinessSearchProfileIndex`, `POST /search/people` on the Bright Data key whatever `provider` says, about
-$0.002 a search, paced one call each 1.5 s), asked once who at the company's LinkedIn slug names the
-function's words in their title, past titles or About — most of its records have lost their current title —
-each untitled one checked by a free ContactOut count narrowed to their name, up to `title-checks-per-company`.
-Both go through the people cache (`PeopleCache`, V87), which reads back the fitting people on file before
-buying the rest and keeps one row a person, the richest fresh record standing (ContactOut over Business
-Search over the dataset; a capture never reads a Business Search row as a profile). Searched: the brief's
-country, the Gulf neighbours and each company's own; a brief with no country searches everywhere. **No model
-judges the people**: those not already mapped are filed only when the current role holds the seat
-(`SeatFit`: a function term or standalone title, at the lowest level searched or above, no excluded word,
-every word matched whole, `TitleWords`), best fit first (`SourcedHitRanking`: a function word, then the
-level against the seat), then those a free check confirmed — their live profile bought as they are filed
-while the company's budget lasts — the first `picks-per-company` each filed through
-`CandidateService.addResearched` as `AI_SOURCED` (no badge on the grid; the drawer's source reads "Sourced"),
-`enriched_by` the index that read them, and the same automatic background run a capture gets proposes the
-missing background, fired with the `SOURCING` trigger that skips the per-user LLM meter. Nothing is reworded:
-a company finding nobody reads so. `max-companies-per-run × profiles-per-company` is one press's ceiling of
-bought profiles (5 × 3). Offered where either index is configured; a client seat sees none of it. **Strategy → People**
+same map as points alone for the poll that waits on places rather than on people. **Find executives** (`enrichment/sourcing`, V86, V182, `docs/find-executives.md`) is the fifth door: a
+panel (`features/sourcing`, `FindExecutivesPanel`, `claude-design/FindExecutives.dc.html`) opened from the
+In-universe toolbar on the ticked companies — or the first `max-companies-per-run` (10) with nobody mapped — and from a
+company drawer's Find executives on that company alone. **The search is the position's own** (V182
+`app_lm_executive_sourcing_criteria`): drafted once by one Gemini call (`SearchWordsDrafter` → `SearchWords`: the levels
+a firm maps for the role, `SearchLevel`'s bands from the role down; up to twelve function terms, core first, phrases
+allowed, in another language too only where the companies' titles are written in it — Turkish in Türkiye, none for the
+Gulf or Egypt; the titles that stand alone, "CFO"; up to four leave-out words; suggestions it does not search), falling
+back to the role title's own words (`SearchWords.defaultFor`); then saved as the consultant edits it (`PUT …/criteria`,
+`EDITED`), Reset drafting it again, and `briefChanged` saying when the brief has moved on. Where people may live is the
+brief's country and the Gulf, each company's own added at search time, and profiles bought per company 3, 5 or 10.
+**Every count is free** (`SourcingCounts`, `POST …/counts`): per company, per level and per suggested word, from
+ContactOut's count (held ten minutes) and the people on file, each level and word counted across the companies at once.
+**Search** (`POST …`, 202, one run at a time) runs on the saved search and calls no model. Each company is searched in two
+indexes (`CompanySearch`, the strategy measured against researchers' own mapping): **ContactOut's People Search**, the
+live index (`ContactOutLiveProfiles`, on the contact-lookup key: today's titles, one Boolean title matched as whole words,
+the company by its website domain or name — a company LinkedIn URL matches nothing there), counted free and bought a
+credit a profile in tiers — the role's levels from Head and Director up (from Manager for an N-2 or N-3 role) with the
+four core terms first, then the rest less what the first found — up to the company's profiles; and **Bright Data's
+Business Search**, the profile index (`BusinessSearchProfileIndex`, `POST /search/people` on the Bright Data key whatever
+`provider` says, about $0.002 a search, paced one call each 1.5 s), asked once who at the company's LinkedIn slug names
+the function's words in their title, past titles or About — most of its records have lost their current title — each
+untitled one checked by a free ContactOut count narrowed to their name, up to `title-checks-per-company`, and a confirmed
+one's live profile bought while the company's budget lasts. Both go through the people cache (`PeopleCache`, V87), which
+reads back the fitting people on file before buying the rest and keeps one row a person, the richest fresh record standing
+(ContactOut over Business Search over the dataset; a capture never reads a Business Search row as a profile). **No model
+judges the people** (`SuggestionJudge`): a current title fits the role or does not, with why (`SeatFit.whyNot`: a
+leave-out word, below the levels searched, none of the title words, not the company's top role), and someone who fits is
+scored out of 100 by the design's fixed points — the role's own word in the title 40 or a searched word 30, the level
+against the role's, where they live, how their role was read, found by both indexes, time in role — Strong, Good or
+Possible, each point a reason code (`SuggestionReason`) the panel shows as a chip. **The run files nobody**: each company's
+people are stored ranked (V182 `app_lm_executive_sourcing_suggestion`, slugs and our judgement only; names and titles are
+read from the cache, so results last as long as it keeps them) and recorded as the company finishes, Stop
+(`POST …/{runId}/stop`) letting the companies in flight finish and the rest read STOPPED. The panel reads each company's
+latest results (`GET …/suggestions`) — who fits, best first, the top three pre-ticked; *Title not on record* and
+*Doesn't fit the role* folded; the position's own people marked; level tabs; a profile pane; a company where nobody fits
+offering the suggested words with their counts and a search of it again — and **Add** (`POST …/suggestions/add`, up to
+50) files the ticked people at their company from what was read, never a second vendor call, only someone a search of
+this position found, through `CandidateService.addResearched` as `AI_SOURCED` (no badge on the grid; the drawer's source
+reads "Sourced"), `enriched_by` the index whose record it is, with the automatic background run the `SOURCING` trigger
+gives, audited `EXECUTIVE_SOURCING_ADDED`. The strip under the toolbar is gone: the toolbar button carries the search —
+Finding… 3/6 while it runs (still a button), a count of who fits until the panel is opened, a dot after one that stopped
+short — with one toast when it ends. Fair use counts live profiles bought (companies × profiles per company checked at
+Search, what was bought recorded at the end). Offered where either index is configured; a client seat sees none of it. **Strategy → People**
 (`enrichment/peoplesearch`, V93) is the sixth door: Companies | People first in Strategy's toolbar
 (`?mode=people`, staff only) swaps the company filter for ContactOut's People Search filter —
 only parameters its API reference lists, the values its accepted-values sheet lists
@@ -1429,6 +1439,14 @@ public, no redirect, a size cap, one deadline) — and `app_lm_user.avatar_url` 
 or a removal no provider replaces (`User.mayTakeAvatarFrom`), and once a workspace can enforce its identity provider's
 sign-in, `isAvatarEditable` is where its directory photo becomes final. It clears every provider link stored before it,
 which expired and, once dead, kept every other provider out: the next sign-in copies the picture.
+V182 is the Find executives panel: `app_lm_executive_sourcing_criteria` (one per position — the search as `criteria`
+jsonb, `source` `DEFAULT | AI | EDITED`, the `brief_fingerprint` it was drafted from, unique on the project) and
+`app_lm_executive_sourcing_suggestion` (one row per person a run found at a company: the profile slug, `verdict`
+`FITS | NO_TITLE | NOT_FIT`, `score`, `rank`, `reasons text[]` — our codes and our search's words, never a name or a
+title, which are read from the people cache — and `found_by` `LIVE | INDEX | BOTH`; unique on run, company and slug;
+no status, since "added" is read from the position's mapped profiles; deleted by the next run once older than the
+people cache's life). The run gains its `criteria` snapshot, a `suggested` count, `stop_requested_at` and a `STOPPED`
+status; its `spec`, `executives_filed` and `model_calls` columns are frozen, read by nothing since.
 V167 adds `app_lm_project_candidate.company_filed_for_them`: their company was filed for them (research, or the
 employer the workspace knew them at) rather than already held, cleared by any move; only the plugin's Undo reads it.
 V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage
