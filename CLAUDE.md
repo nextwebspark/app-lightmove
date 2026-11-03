@@ -818,8 +818,10 @@ leaves calendars read directly (`RecallSettings.isCalendarOffered`). It depends 
 **Tasks and the bell (epic #862, V133, `docs/tasks-notifications.md`).** A **next action is a task**
 (`task`): one `app_lm_task` row per job on one executive of one position, and the Pipeline card's Next action is
 that executive's earliest open one — `task` answers `candidate`'s `NextActionLookup`, so the board, the drawer, My
-tasks and the bell read the same rows. In the executive drawer it is a fixed-height bar in the header, on every tab
-(`NextActionBar`: the earliest open task, ticked done in place, the rest in a popover grouped overdue/today/upcoming);
+tasks and the bell read the same rows. In the executive drawer it is a fixed-height bar docked in the footer, on every tab
+(`NextActionBar`: the earliest open task, ticked done in place, the rest in a popover grouped overdue/today/upcoming,
+folded to one square beside the Assessment tab's save buttons), the drawer's other actions — Add note, Set next action,
+Book a call, Remove from mandate — behind the footer's ⋯;
 off a position, the Candidates drawer shows it on each Positions card (V132's free-text `next_action` columns became open tasks and are no longer
 written). A task goes, and a note's `@[Name](user:<uuid>)` / `@[team](team)` mention reaches, only someone who may
 work the position — `WORK_EXECUTE`, read again on every save (`ProjectAccess.allows`) — never a client seat; a note

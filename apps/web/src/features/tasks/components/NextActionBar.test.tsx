@@ -59,7 +59,13 @@ function renderBar({
   onOpen = vi.fn(),
   onShowNote,
   justCompleted = false,
-}: { onOpen?: (taskId: string | null) => void; onShowNote?: (noteId: string) => void; justCompleted?: boolean } = {}) {
+  compact = false,
+}: {
+  onOpen?: (taskId: string | null) => void;
+  onShowNote?: (noteId: string) => void;
+  justCompleted?: boolean;
+  compact?: boolean;
+} = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
@@ -73,6 +79,7 @@ function renderBar({
           onPromptSettled={() => {}}
           onOpen={onOpen}
           onShowNote={onShowNote}
+          compact={compact}
         />
       </ToastProvider>
     </QueryClientProvider>,
@@ -129,6 +136,17 @@ describe("the Next action bar", () => {
     expect(await screen.findByText("No next action for Jawaher")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Set next action" }));
     expect(onOpen).toHaveBeenCalledWith(null);
+  });
+
+  it("folds to one square that opens the same list", async () => {
+    answer({ open: [aTask("t1", { title: "Call back" }), aTask("t2", { title: "Send the brief" })] });
+    renderBar({ compact: true });
+
+    await userEvent.click(await screen.findByRole("button", { name: /Next action: Call back/ }));
+
+    const panel = await screen.findByRole("dialog", { name: "Next actions" });
+    expect(within(panel).getByText("Send the brief")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Next action" })).not.toBeInTheDocument();
   });
 
   it("asks for the next one right after the last was done", async () => {

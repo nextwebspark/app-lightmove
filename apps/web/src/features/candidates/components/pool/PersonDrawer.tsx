@@ -283,7 +283,7 @@ function PersonDrawerBody({
         )}
       </div>
 
-      <footer className="flex flex-none items-center gap-2 border-t border-u-border px-5 py-3">
+      <footer className="flex flex-none items-center gap-2 border-t border-u-border bg-u-canvas px-5 py-3">
         <Button variant="secondary" className="ms-auto" onClick={startNote}>
           <Icon d={ICONS.plus} size={14} />
           Add note

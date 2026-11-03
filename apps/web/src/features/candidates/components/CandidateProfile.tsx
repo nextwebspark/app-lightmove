@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Icon, ICONS } from "../../../components/layout/Icon";
+import { ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
+import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/ActionMenu";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
 import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
@@ -342,6 +343,10 @@ export function CandidateProfile({
   const visibleColumns = customColumns.filter((column) => !column.hidden);
   const employerLabel = candidate.companyName ?? undefined;
   const firstName = candidate.fullName.trim().split(/\s+/)[0];
+  const andClose = (close: () => void, act: () => void) => () => {
+    close();
+    act();
+  };
   const panelProps = (value: DrawerTab) => ({ ...tabPanelProps(TAB_ID_PREFIX, value), hidden: tab !== value });
 
   return (
@@ -386,19 +391,6 @@ export function CandidateProfile({
         >
           {personRecord.data && <PersonTagsSection person={personRecord.data} className="mt-2.5" />}
           {canWrite && <DoNotContactStrip personId={candidate.personId} />}
-          {canWrite && (
-            <NextActionBar
-              projectId={projectId}
-              candidateId={candidate.id}
-              firstName={firstName}
-              justCompleted={nextActionDone}
-              onCompleted={() => setNextActionDone(true)}
-              onPromptSettled={settleNextActionPrompt}
-              onOpen={openNextAction}
-              onShowNote={showNote}
-              className="mt-3"
-            />
-          )}
         </PersonHeaderLayout>
         <DrawerTabBar
           idPrefix={TAB_ID_PREFIX}
@@ -802,21 +794,22 @@ export function CandidateProfile({
         )}
       </div>
 
-      <footer className="flex flex-none items-center gap-2 border-t border-u-border px-5 py-3">
-        {onRemove && (
-          <Button
-            type="button"
-            variant="secondary"
-            aria-label="Remove from mandate"
-            title="Remove from mandate"
-            className="text-u-offlimits"
-            onClick={() => onRemove(candidate)}
-          >
-            <Icon d={ICONS.trash} size={14} className="sm:hidden" />
-            <span className="hidden sm:inline">Remove from mandate</span>
-          </Button>
+      <footer className="flex flex-none items-center gap-2 border-t border-u-border bg-u-canvas px-5 py-3">
+        {canWrite && (
+          <NextActionBar
+            projectId={projectId}
+            candidateId={candidate.id}
+            firstName={firstName}
+            justCompleted={nextActionDone}
+            onCompleted={() => setNextActionDone(true)}
+            onPromptSettled={settleNextActionPrompt}
+            onOpen={openNextAction}
+            onShowNote={showNote}
+            compact={tab === "assessment"}
+            className={tab === "assessment" ? undefined : "min-w-0 flex-1"}
+          />
         )}
-        {canWrite && tab === "assessment" ? (
+        {canWrite && tab === "assessment" && (
           <>
             {scorecard.isDirty && (
               <Button type="button" variant="ghost" className="ms-auto" onClick={scorecard.discard}>
@@ -843,29 +836,40 @@ export function CandidateProfile({
               Mark reviewed & submit
             </Button>
           </>
-        ) : canWrite ? (
-          <>
-            <Button type="button" variant="secondary" className="ms-auto whitespace-nowrap" aria-label="Add note" onClick={startNote}>
-              <Icon d={ICONS.plus} size={14} />
-              <span className="sm:hidden">Note</span>
-              <span className="hidden sm:inline">Add note</span>
-            </Button>
-            <Button type="button" variant="secondary" className="whitespace-nowrap sm:hidden" onClick={startCall}>
-              <Icon d={ICONS.calendar} size={14} />
-              Call
-            </Button>
-          </>
-        ) : (
+        )}
+        {!canWrite && (
           <Button type="button" variant="secondary" className="ms-auto" onClick={onClose}>
             Close
           </Button>
         )}
-        {canWrite && tab !== "assessment" && (
-          <Button type="button" className="whitespace-nowrap" aria-label="Set next action" onClick={() => openNextAction(null)}>
-            <Icon d={ICONS.plus} size={14} />
-            <span className="sm:hidden">Next action</span>
-            <span className="hidden sm:inline">Set next action</span>
-          </Button>
+        {(canWrite || onRemove) && (
+          <ActionMenu label="More actions" triggerClassName="size-10 rounded-u-card border-u-border bg-u-surface text-u-text2">
+            {(close) => (
+              <>
+                {canWrite && (
+                  <>
+                    <MenuItem icon={ICONS.noteBubble} onSelect={andClose(close, startNote)}>
+                      Add note
+                    </MenuItem>
+                    <MenuItem icon={ICONS.checklist} onSelect={andClose(close, () => openNextAction(null))}>
+                      Set next action
+                    </MenuItem>
+                    <MenuItem icon={ICONS.phoneCall} onSelect={andClose(close, startCall)}>
+                      Book a call
+                    </MenuItem>
+                  </>
+                )}
+                {onRemove && (
+                  <>
+                    {canWrite && <MenuSeparator />}
+                    <MenuItem icon={ICONS.trash} tone="danger" onSelect={andClose(close, () => onRemove(candidate))}>
+                      Remove from mandate
+                    </MenuItem>
+                  </>
+                )}
+              </>
+            )}
+          </ActionMenu>
         )}
       </footer>
 

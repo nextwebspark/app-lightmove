@@ -44,7 +44,7 @@ export function Drawer({
           "fixed inset-0 z-[95] flex animate-fade-up flex-col outline-none",
           "pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] sm:pb-0 sm:pt-0",
           "bg-u-surface shadow-u-e3 sm:inset-x-auto sm:bottom-2.5 sm:right-2.5 sm:top-2.5 sm:max-w-[92vw]",
-          "sm:rounded-[10px] sm:border sm:border-u-border-strong",
+          "overflow-hidden sm:rounded-[10px] sm:border sm:border-u-border-strong",
           wide ? "sm:w-[560px]" : "sm:w-[420px]",
         )}
       >
