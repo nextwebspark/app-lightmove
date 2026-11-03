@@ -121,10 +121,6 @@
     "arbitraryRadius": 7,
     "arbitraryText": 18
   },
-  "features/candidates/components/documents/PrimaryCvChip.tsx": {
-    "arbitraryRadius": 1,
-    "arbitraryText": 2
-  },
   "features/candidates/components/NoteParts.tsx": {
     "arbitraryText": 8,
     "arbitraryRadius": 2

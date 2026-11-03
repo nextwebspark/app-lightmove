@@ -514,7 +514,7 @@ describe("ActivityTimeline", () => {
         entry: line(1, "AI_ASSESSED", { details: { scope: "BACKGROUND" } }),
         card: /had the AI suggest the background/, title: "Had the AI suggest the background",
         shows: [/marked AI until a researcher changes it/],
-        way: { button: /Open Career/, called: "onOpenTab", withArgs: ["career"] },
+        way: { button: /Open Background/, called: "onOpenTab", withArgs: ["background"] },
       },
       {
         entry: line(1, "AI_ASSESSED", { details: { scope: "ASSESSMENT" } }),
@@ -792,7 +792,7 @@ describe("ActivityTimeline", () => {
       return screen.findByRole("dialog");
     };
 
-    it("shows a profile save's fields old and new, and goes to Career", async () => {
+    it("shows a profile save's fields old and new, and goes to Background", async () => {
       history(
         line(1, "PROFILE_EDITED", {
           changes: [
@@ -814,8 +814,8 @@ describe("ActivityTimeline", () => {
       expect(rows[4]).toHaveTextContent("Career historyEdited");
       expect(within(dialog).getByText("Dana Aboud", { selector: "p" })).toBeInTheDocument();
 
-      await userEvent.click(within(dialog).getByRole("button", { name: /Open Career/ }));
-      expect(destinations.onOpenTab).toHaveBeenCalledWith("career");
+      await userEvent.click(within(dialog).getByRole("button", { name: /Open Background/ }));
+      expect(destinations.onOpenTab).toHaveBeenCalledWith("background");
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 

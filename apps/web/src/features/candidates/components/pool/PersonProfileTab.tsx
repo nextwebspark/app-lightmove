@@ -5,11 +5,10 @@ import type { PersonRecord } from "../../api/types";
 import { CANDIDATE_SOURCE_STYLES, candidateGenderLabel } from "../../lib/candidateVocabulary";
 import { useProfileSections, type ProfileSection } from "../../lib/useProfileSections";
 import { CareerTimeline } from "../CareerTimeline";
-import { CompensationSummary } from "../CompensationSummary";
 import { ClampedText } from "../ProfileParts";
 
 /**
- * The Profile tab: the profile every position shares, read here and edited from a position's own
+ * The Background tab: the profile every position shares, read here and edited from a position's own
  * drawer. Its folds are the executive drawer's, remembered per viewer in the same place.
  */
 export function PersonProfileTab({ person }: { person: PersonRecord }) {
@@ -40,18 +39,6 @@ export function PersonProfileTab({ person }: { person: PersonRecord }) {
       >
         <div className="pb-3">
           <CareerTimeline career={person.career} />
-        </div>
-      </CollapsibleSection>
-      <CollapsibleSection
-        {...fold("compensation")}
-        title="Compensation"
-        summary={person.compensation.baseSalary != null ? "On file" : "Nothing on file"}
-      >
-        <div className="pb-3">
-          <CompensationSummary compensation={person.compensation} />
-          <p className="mt-2 text-[12px] text-u-text3">
-            One package on file for this person, read by every position they are in.
-          </p>
         </div>
       </CollapsibleSection>
       <CollapsibleSection
