@@ -26,8 +26,8 @@ import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * The capture half of the people cache: a person on file is answered without the vendor. The
- * enricher points at a port nothing listens on, so any call it made would fail the test.
+ * The people cache: a person on file is answered without the vendor, and one row per person keeps the
+ * richest fresh record. The enricher points at a port nothing listens on, so any call it made would fail.
  */
 @IntegrationTest
 class PeopleCacheIntegrationTest {
@@ -86,9 +86,41 @@ class PeopleCacheIntegrationTest {
                 .isInstanceOf(RuntimeException.class);
     }
 
+    @Test
+    @DisplayName("a fresh record is never replaced by a thinner provider's: ContactOut over Business Search over the dataset")
+    void aRicherRecordStands() {
+        people.rememberAll("brightdata", BrightDataPeopleHits.of(List.of(titled("climbing", "Finance Manager")), null));
+        people.rememberAll("contactout", BrightDataPeopleHits.of(List.of(titled("climbing", "Head of Finance")), null));
+        people.rememberAll("contactout", BrightDataPeopleHits.of(List.of(titled("standing", "Group CFO")), null));
+        people.rememberAll("brightdata-business", BrightDataPeopleHits.of(List.of(titled("standing", null)), null));
+        people.rememberAll("brightdata", BrightDataPeopleHits.of(List.of(titled("standing", "Finance Director")), null));
+
+        assertThat(db.queryForMap("SELECT provider, position FROM app_lm_vendor_person WHERE linkedin_slug = 'climbing'"))
+                .containsEntry("provider", "contactout").containsEntry("position", "Head of Finance");
+        assertThat(db.queryForMap("SELECT provider, position FROM app_lm_vendor_person WHERE linkedin_slug = 'standing'"))
+                .containsEntry("provider", "contactout").containsEntry("position", "Group CFO");
+    }
+
+    @Test
+    @DisplayName("a provider's own record survives a later answer from the same provider that carries none")
+    void theProvidersOwnRecordIsKept() {
+        people.rememberAll("contactout", BrightDataPeopleHits.mappedFrom(List.of(titled("kept", "Group CFO")),
+                List.of("{\"full_name\":\"Sample Person\"}"), null));
+        people.rememberAll("contactout", BrightDataPeopleHits.of(List.of(titled("kept", "Group CFO")), null));
+
+        assertThat(db.queryForObject("SELECT source_record ->> 'full_name' FROM app_lm_vendor_person", String.class))
+                .isEqualTo("Sample Person");
+    }
+
     private BrightDataProfileEnricher enricher(Duration ttl) {
         return new BrightDataProfileEnricher(UNREACHABLE, clientFactory, rateLimiter, guard, photos, people, ttl,
                 RestClient.builder(), json);
+    }
+
+    private static BrightDataPerson titled(String slug, String title) {
+        return new BrightDataPerson(slug, slug, "Sample Person", null, null, title, "Dubai", "Dubai", "AE", "DP World",
+                new BrightDataPerson.BrightDataCurrentCompany("DP World", "dp-world", null), null, true, List.of(),
+                List.of(), List.of(), List.of());
     }
 
     private static BrightDataPerson person(String slug) {

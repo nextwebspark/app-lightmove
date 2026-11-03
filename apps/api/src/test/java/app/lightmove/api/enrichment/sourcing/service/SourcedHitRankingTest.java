@@ -7,7 +7,7 @@ import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataExperience;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataPosition;
 import app.lightmove.api.enrichment.sourcing.constant.TitleLevel;
-import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
+import app.lightmove.api.enrichment.sourcing.model.SearchWords;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,8 +15,7 @@ import org.junit.jupiter.api.Test;
 /** The vendor's order is no order at all, so the picks come from the current role's own title. */
 class SourcedHitRankingTest {
 
-    private static final SourcingSpec CFO_WORDS = SourcingSpec.of(List.of("Chief", "CFO", "Head", "Director"),
-            List.of("Finance", "Financial", "CFO"), List.of(), null);
+    private static final SearchWords CFO_WORDS = words(List.of("Finance", "Financial"), List.of("CFO"));
 
     @Test
     @DisplayName("the seat nearest the brief's level comes first, the higher of two equally near, then the vendor's order")
@@ -95,7 +94,7 @@ class SourcedHitRankingTest {
                 .isEqualTo("Chief Financial Officer, Logistics");
         assertThat(SourcedHitRanking.roleOnly("DP World", "DP World")).isEqualTo("DP World");
 
-        SourcingSpec technology = SourcingSpec.of(List.of("Head"), List.of("Technology", "Digital"), List.of(), null);
+        SearchWords technology = words(List.of("Technology", "Digital", "IT"), List.of());
         assertThat(slugs(SourcedHitRanking.ranked(List.of(atDpWorld("ops", "Head of Operations"),
                 atDpWorld("it", "Head of IT")), technology, Seniority.N_MINUS_1))).containsExactly("it", "ops");
 
@@ -108,12 +107,15 @@ class SourcedHitRankingTest {
     @Test
     @DisplayName("a medical director never reads as a technology seat because CTO hides inside Director")
     void aMedicalDirectorIsNoTechnologySeat() {
-        SourcingSpec technology = SourcingSpec.of(List.of("Chief", "Director", "Head", "VP"),
-                List.of("Applications", "CTO", "Engineering", "Security"), List.of(), null);
+        SearchWords technology = words(List.of("Applications", "Engineering", "Security"), List.of("CTO"));
 
         assertThat(slugs(SourcedHitRanking.ranked(List.of(person("medical", "Medical Director"),
                 person("it", "Head of Information Security")), technology, Seniority.C_SUITE)))
                 .containsExactly("it", "medical");
+    }
+
+    private static SearchWords words(List<String> terms, List<String> standalone) {
+        return new SearchWords(List.of(), terms, standalone, List.of(), List.of(), List.of(), null);
     }
 
     private static BrightDataPerson atDpWorld(String slug, String title) {

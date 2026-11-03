@@ -46,7 +46,7 @@ public class ExecutiveSourcingRun extends BaseEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "spec")
-    private SourcingSpec spec;
+    private SearchWords words;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "outcomes", nullable = false)
@@ -93,8 +93,8 @@ public class ExecutiveSourcingRun extends BaseEntity {
         startedAt = Instant.now();
     }
 
-    public void recordSpec(SourcingSpec searched) {
-        spec = searched;
+    public void recordWords(SearchWords searched) {
+        words = searched;
     }
 
     public void recordOutcome(CompanyOutcome outcome) {

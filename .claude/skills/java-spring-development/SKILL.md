@@ -228,14 +228,13 @@ enrichment/                # the one feature split twice: by subject first, then
               service/(BrightDataSearch, ContactOutPeopleIndex, ContactOutPeopleClient,
                        UnconfiguredContactOutPeopleIndex, ContactOutPeopleRecords, PeopleQueryKeys,
                        SearchHitFiling)  config/(ContactOutPeopleIndexConfig)
-  sourcing/   Find executives — constant/(SourcingRunStatus, SourcingOutcome, TitleLevel)
-              model/(ExecutiveSourcingRun, SourcingCompany, SearchedEmployer, SourcingSpec, SourcingBrief, CompanyOutcome,
-                     SourcingRound, ExecutivePick, ExecutiveSourcingRequested)  repository/
-              service/(PeopleSearch, BrightDataPeopleSearch, ContactOutPeopleSearch, ContactOutPeopleRecords,
-                       LogPeopleSearch, CachedPeopleSearch, PeopleSearchChain, ChainedPeopleSearch,
-                       ExecutiveSourcingService,
-                       ExecutiveSourcingWorker, SourcingRunStore, SourcingSpecProposer, SourcingSpecRefiner,
-                       SourcedHitRanking, TitleWords, SeatFit)
+  sourcing/   Find executives — constant/(SourcingRunStatus, SourcingOutcome, TitleLevel, SearchLevel, TitleCheck)
+              model/(ExecutiveSourcingRun, SourcingCompany, SearchedEmployer, SearchWords, TitleTier, SourcingBrief,
+                     FoundPerson, FoundPeople, CompanyOutcome, ExecutivePick, ExecutiveSourcingRequested)  repository/
+              service/(LiveProfiles, ContactOutLiveProfiles, UnconfiguredLiveProfiles,
+                       ProfileIndex, BusinessSearchProfileIndex, BusinessSearchRecords, UnconfiguredProfileIndex,
+                       PeopleCache, CompanySearch, SearchWordsDrafter, ExecutiveSourcingService,
+                       ExecutiveSourcingWorker, SourcingRunStore, SourcedHitRanking, TitleWords, SeatFit)
               config/(ExecutiveSourcingConfig)  controller/  dto/
   peoplesearch/ Strategy's People mode — model/(PeoplePage)
               service/(StrategyPeopleService, PeopleSearchFiling, CachedContactOutPeopleQuery, PeopleFilterBody, LocationSuggestions)

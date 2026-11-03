@@ -42,7 +42,7 @@ public class RecordingContactOutPeopleIndex implements ContactOutPeopleIndex {
 
     @Override
     public ContactOutSearchAnswer search(Map<String, Object> filter, int page, int pageSize) {
-        searched.add(new SearchAsked(Map.copyOf(filter), page));
+        searched.add(new SearchAsked(Map.copyOf(filter), page, pageSize));
         if (failure != null) {
             throw failure;
         }
@@ -83,7 +83,7 @@ public class RecordingContactOutPeopleIndex implements ContactOutPeopleIndex {
         offered = true;
     }
 
-    public record SearchAsked(Map<String, Object> body, int page) {}
+    public record SearchAsked(Map<String, Object> body, int page, int pageSize) {}
 
     @TestConfiguration(proxyBeanMethods = false)
     public static class Config {

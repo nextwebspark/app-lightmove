@@ -236,40 +236,36 @@ same map as points alone for the poll that waits on places rather than on people
 universe by itself: a button on the In-universe toolbar takes the ticked companies — or, with none
 ticked, the first `max-companies-per-run` with nobody mapped — and answers 202 with a run row that
 the strip under the toolbar polls (and the project stream announces). Off the request thread, one
-Gemini call turns the brief into single-word title tokens (`SourcingSpec`: a seniority group, a
-function group — never empty, since "Chief" alone bought every Chief Accountant — and an excluded group
-sent as `not_includes`, four words each — the vendor refuses a fifth rule, runs a phrase at ten seconds
-and matches a word inside longer ones, so an exclusion hiding in a senior title word is dropped, and a seat
-abbreviation hiding in one — "CTO" in Director and Doctor — is never sent to it, `forSubstringMatching`),
-one **synchronous** Bright Data people search per company keys on the company's LinkedIn slug
-(`current_company_company_id`; the numeric id matches nothing) with the brief's country and the Gulf
-neighbours only — nobody living elsewhere is searched for, and a brief with no country searches everywhere.
-**No model judges the people**: the hits not already mapped are ranked in code (`SourcedHitRanking` —
-the vendor matched the headline and sends no relevance order, so it reads the *current role's* title:
-a function word first, then its level against the brief's seat — every word matched whole, `TitleWords`), filed only
-when the current role holds the seat (`SeatFit`: the brief's function, Head or above for a C-suite or N-1 seat; a round
-finding only others is reworded), and the first `picks-per-company` are each filed through `CandidateService.addSourced` — the search hit *is* the research, so no
-second vendor call — as `AI_SOURCED` (no badge on the grid; the drawer's source reads "Sourced"), and
-the same automatic background run a capture gets proposes the missing background, fired with the `SOURCING`
-trigger that skips the per-user LLM meter. A company whose search finds **nobody** is searched again with other title
-words (`SourcingSpecRefiner`), up to `max-search-rounds`: the first search that finds anybody is the
-last. The refiner reads the brief, the company's headcount and every word each earlier round tried — its own earlier answers
-included, replayed as one conversation because the model keeps nothing between calls; words a round
-already searched are re-asked once, then given up. Every returned hit is billed and a search finding
-nobody costs nothing, so `max-companies-per-run × hits-per-company` is still one press's ceiling
-(5 × 10 for the trial).
-`sourcing.people-source: contactout` swaps the index for **ContactOut's People Search** on the
-contact-lookup key (`ContactOutPeopleSearch`): Bright Data's titles are a cache frozen when LinkedIn locked
-Position/Experience on 13 Nov 2025, ContactOut's are the current experience's. The same words go as one
-Boolean title (`(seniority OR …) AND (function OR …)`, whole words, not substrings), the company by its
-website domain or name (a company LinkedIn URL matches nothing there), one search credit per profile
-returned; each hit is read into Bright Data's record shape (`ContactOutPeopleRecords`) so the cache,
-the ranking and the filing are unchanged, and is filed `enriched_by = CONTACTOUT` (V90). The people
-cache answers a search only from the provider it asks. Where Bright Data is also configured it stands
-behind ContactOut (`PeopleSearchChain`, walked by `ChainedPeopleSearch`, the cache wrapping each provider): a company ContactOut finds nobody at, cannot key, or fails on —
-out of credits included — is searched on the dataset, and filed `enriched_by = BRIGHTDATA`; the run's
-outcome records the `source` that answered. Offered where the chosen index is configured
-(`provider: brightdata`, or a ContactOut key); a client seat sees none of it. **Strategy → People**
+Gemini call drafts the search's words from the brief (`SearchWordsDrafter` → `SearchWords`: the levels a firm
+maps for the seat, `SearchLevel`'s bands from the seat down; up to twelve function terms, core first, phrases
+allowed, in another language too only where the companies' titles are written in it — Turkish in Türkiye,
+none for the Gulf or Egypt, whose titles are English; the titles that stand alone, "CFO"; up to four excluded
+words; suggestions it does not search), falling back to the role title's own words (`SearchWords.defaultFor`)
+when the model gives nothing searchable. Each company is then searched in two indexes (`CompanySearch`, the
+strategy measured against researchers' own mapping in `docs/find-executives.md`): **ContactOut's People
+Search**, the live index (`ContactOutLiveProfiles`, on the contact-lookup key: today's titles, one Boolean
+title matched as whole words, the company by its website domain or name — a company LinkedIn URL matches
+nothing there), counted free and bought a credit a profile in tiers — the seat's levels from Head and
+Director up (from Manager for an N-2 or N-3 seat) with the four core terms first, then the rest less what the
+first found — `profiles-per-company` at most; and **Bright Data's Business Search**, the profile index
+(`BusinessSearchProfileIndex`, `POST /search/people` on the Bright Data key whatever `provider` says, about
+$0.002 a search, paced one call each 1.5 s), asked once who at the company's LinkedIn slug names the
+function's words in their title, past titles or About — most of its records have lost their current title —
+each untitled one checked by a free ContactOut count narrowed to their name, up to `title-checks-per-company`.
+Both go through the people cache (`PeopleCache`, V87), which reads back the fitting people on file before
+buying the rest and keeps one row a person, the richest fresh record standing (ContactOut over Business
+Search over the dataset; a capture never reads a Business Search row as a profile). Searched: the brief's
+country, the Gulf neighbours and each company's own; a brief with no country searches everywhere. **No model
+judges the people**: those not already mapped are filed only when the current role holds the seat
+(`SeatFit`: a function term or standalone title, at the lowest level searched or above, no excluded word,
+every word matched whole, `TitleWords`), best fit first (`SourcedHitRanking`: a function word, then the
+level against the seat), then those a free check confirmed — their live profile bought as they are filed
+while the company's budget lasts — the first `picks-per-company` each filed through
+`CandidateService.addResearched` as `AI_SOURCED` (no badge on the grid; the drawer's source reads "Sourced"),
+`enriched_by` the index that read them, and the same automatic background run a capture gets proposes the
+missing background, fired with the `SOURCING` trigger that skips the per-user LLM meter. Nothing is reworded:
+a company finding nobody reads so. `max-companies-per-run × profiles-per-company` is one press's ceiling of
+bought profiles (5 × 3). Offered where either index is configured; a client seat sees none of it. **Strategy → People**
 (`enrichment/peoplesearch`, V93) is the sixth door: Companies | People first in Strategy's toolbar
 (`?mode=people`, staff only) swaps the company filter for ContactOut's People Search filter —
 only parameters its API reference lists, the values its accepted-values sheet lists
@@ -1147,17 +1143,20 @@ V83 adds `app_lm_project_candidate.ai_nationality_reading` jsonb — the nationa
 reading (category or Unknown, confidence, evidence, rule), replaced whole per run and staff-only.
 `app_lm_vendor_person` and `app_lm_vendor_people_search` (V87) are the people cache, V64's shape and
 tenant rule for people: every record a billed search or lookup returned, keyed on the profile slug,
-and which slugs each normalised search returned. `CachedPeopleSearch` answers a repeated search from
-them with no vendor call, and otherwise reads back the fitting people on file at that employer and
-asks the vendor only for the rest with every person on file excluded (`linkedin_id not_in`, nested in
-an `and` to stay under four rules a group) — a returned record is billed whether or not it was new.
-`BrightDataProfileEnricher` reads the same table first, so a capture of someone a run bought is free.
+and which slugs each normalised search returned. `PeopleCache` answers a repeated search from them with
+no vendor call, and otherwise reads back the fitting people on file at that employer and asks the vendor
+only for how many more the free count says there are — ContactOut cannot leave anyone out, so a returned
+record is billed whether or not it was new. One row a person, whichever provider returned them: a fresh
+record is never replaced by a thinner provider's (`CachedPeopleStore`'s precedence, ContactOut over
+Business Search over the dataset), and a provider's own `source_record` survives its later answer
+without one. `BrightDataProfileEnricher` reads the same table first, so a capture of someone a run bought
+is free — never from a Business Search row, which says who works where and often holds no title.
 Both age out after `lightmove.enrichment.people-cache-ttl` (30d), and every billed call purges what
 has aged past it (V89 indexes `fetched_at` for that), so a third party's record is never held longer
-than it may be read. The exclusion is the employer's
-people on file, never a mandate's own roster: the answer is shared by every workspace.
+than it may be read. What is read back is the employer's people on file, never a mandate's own roster:
+the answer is shared by every workspace.
 `app_lm_executive_sourcing_run` (V86) is one Find executives run — the companies frozen at request
-time, the spec the model proposed, and an outcome per company as each finishes — kept as a row so the
+time, the words the model drafted (`spec`, read back from an older run's shape too), and an outcome per company as each finishes — kept as a row so the
 screen can poll it, read it back after a reload and be refused a second one while it runs. V86 also
 adds `AI_SOURCED` to both source CHECKs (the contact ledger's only because `ContactSource.ofDoor` is
 exhaustive; nothing writes it).

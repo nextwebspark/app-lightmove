@@ -17,7 +17,7 @@ public record ExecutiveSourcingRunResponse(UUID id, String status, List<String> 
         return new ExecutiveSourcingRunResponse(run.getId(), run.getStatus().name(),
                 run.getCompanies().stream().map(SourcingCompany::companyName).toList(),
                 run.getCompanies().size(), run.getCompaniesDone(), run.getExecutivesFiled(), run.getVendorHits(), run.getCachedHits(),
-                SourcingSearchResponse.of(run.getSpec()),
+                SourcingSearchResponse.of(run.getWords()),
                 run.getOutcomes().stream().map(SourcingCompanyOutcomeResponse::of).toList(),
                 run.getCreatedAt(), run.getStartedAt(), run.getFinishedAt(), run.getError());
     }

@@ -29,11 +29,21 @@ import tools.jackson.databind.ObjectMapper;
  * each search returned. {@code CachedCompanyStore}'s shape — its own short transactions so the vendor
  * call between a read and a write holds no connection, and upserts so two runs racing on one person
  * land on one row.
+ *
+ * <p>One row per person, whichever provider returned them, so a richer record is never replaced by a
+ * thinner one while both are fresh: ContactOut's current title and career stand over Business Search's
+ * index row, which stands over the frozen dataset's. Every writer purges the stale first.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class CachedPeopleStore {
+
+    /** A profile index's row says who works where, often without a title or a career: never a profile to file from. */
+    public static final String PROFILE_INDEX_PROVIDER = "brightdata-business";
+
+    /** Lowest first; a provider not listed ranks below them all. */
+    private static final String PRECEDENCE = "ARRAY['brightdata', '%s', 'contactout']".formatted(PROFILE_INDEX_PROVIDER);
 
     private static final String UPSERT_PERSON = """
             INSERT INTO app_lm_vendor_person (linkedin_slug, provider, fetched_at, current_company_slug,
@@ -46,8 +56,13 @@ public class CachedPeopleStore {
                 country_code         = EXCLUDED.country_code,
                 position             = EXCLUDED.position,
                 raw                  = EXCLUDED.raw,
-                source_record        = EXCLUDED.source_record
-            """;
+                source_record        = CASE
+                    WHEN EXCLUDED.source_record IS NULL AND EXCLUDED.provider = app_lm_vendor_person.provider
+                        THEN app_lm_vendor_person.source_record
+                    ELSE EXCLUDED.source_record END
+            WHERE coalesce(array_position(%1$s, EXCLUDED.provider), 0)
+                  >= coalesce(array_position(%1$s, app_lm_vendor_person.provider), 0)
+            """.formatted(PRECEDENCE);
 
     private static final String UPSERT_SEARCH = """
             INSERT INTO app_lm_vendor_people_search (query_key, company_slug, slugs, total_hits, fetched_at)
@@ -62,10 +77,25 @@ public class CachedPeopleStore {
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
 
+    /** A person's profile on file, while fresh, from any provider but the profile index. */
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
     public Optional<BrightDataPerson> find(String linkedinSlug, Instant freshAfter) {
-        return jdbc.query("SELECT raw FROM app_lm_vendor_person WHERE linkedin_slug = ? AND fetched_at > ?",
-                (rs, row) -> rs.getString("raw"), key(linkedinSlug), Timestamp.from(freshAfter))
+        return jdbc.query("""
+                        SELECT raw FROM app_lm_vendor_person
+                        WHERE linkedin_slug = ? AND fetched_at > ? AND provider <> ?
+                        """,
+                (rs, row) -> rs.getString("raw"), key(linkedinSlug), Timestamp.from(freshAfter), PROFILE_INDEX_PROVIDER)
+                .stream().findFirst().flatMap(this::personOf);
+    }
+
+    /** A person on file as {@code provider} returned them, while fresh. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public Optional<BrightDataPerson> find(String linkedinSlug, String provider, Instant freshAfter) {
+        return jdbc.query("""
+                        SELECT raw FROM app_lm_vendor_person
+                        WHERE linkedin_slug = ? AND provider = ? AND fetched_at > ?
+                        """,
+                (rs, row) -> rs.getString("raw"), key(linkedinSlug), provider, Timestamp.from(freshAfter))
                 .stream().findFirst().flatMap(this::personOf);
     }
 

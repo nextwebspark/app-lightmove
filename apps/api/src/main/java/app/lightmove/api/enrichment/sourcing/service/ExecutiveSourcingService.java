@@ -3,6 +3,7 @@ package app.lightmove.api.enrichment.sourcing.service;
 import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.service.FairUseGuard;
 import app.lightmove.api.candidate.service.CandidateService;
+import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.ExecutiveSourcingSettings;
@@ -52,7 +53,7 @@ public class ExecutiveSourcingService {
     private final ExecutiveSourcingRunRepository runs;
     private final TriageCompanyReadService companies;
     private final CandidateService candidates;
-    private final PeopleSearch peopleSearch;
+    private final CompanySearch companySearch;
     private final LlmBudgetGuard llmBudget;
     private final FairUseGuard fairUse;
     private final AuditService audit;
@@ -61,14 +62,14 @@ public class ExecutiveSourcingService {
     private final ExecutiveSourcingSettings settings;
 
     public ExecutiveSourcingService(ExecutiveSourcingRunRepository runs, TriageCompanyReadService companies,
-                                    CandidateService candidates, PeopleSearch peopleSearch,
+                                    CandidateService candidates, CompanySearch companySearch,
                                     LlmBudgetGuard llmBudget, FairUseGuard fairUse, AuditService audit,
                                     ProjectStreamPublisher stream,
                                     ApplicationEventPublisher events, LightMoveProperties properties) {
         this.runs = runs;
         this.companies = companies;
         this.candidates = candidates;
-        this.peopleSearch = peopleSearch;
+        this.companySearch = companySearch;
         this.llmBudget = llmBudget;
         this.fairUse = fairUse;
         this.audit = audit;
@@ -78,8 +79,8 @@ public class ExecutiveSourcingService {
     }
 
     public ExecutiveSourcingConfigResponse config() {
-        return new ExecutiveSourcingConfigResponse(peopleSearch.isOffered(), settings.maxCompaniesPerRun(),
-                settings.hitsPerCompany(), settings.picksPerCompany(), settings.lostAfter().toSeconds());
+        return new ExecutiveSourcingConfigResponse(companySearch.isOffered(), settings.maxCompaniesPerRun(),
+                settings.profilesPerCompany(), settings.picksPerCompany(), settings.lostAfter().toSeconds());
     }
 
     /**
@@ -90,7 +91,7 @@ public class ExecutiveSourcingService {
     public ExecutiveSourcingRunResponse request(UUID userId, UUID workspaceId, UUID projectId,
                                                 StartExecutiveSourcingRequest request,
                                                 HttpServletRequest httpRequest) {
-        if (!peopleSearch.isOffered()) {
+        if (!companySearch.isOffered()) {
             throw ApiException.of(ErrorCode.EXECUTIVE_SOURCING_UNAVAILABLE);
         }
         List<UUID> asked = request.triageCompanyIds() == null ? List.of()
@@ -180,6 +181,6 @@ public class ExecutiveSourcingService {
     private static SourcingCompany toSourcingCompany(TriageCompanyResponse company) {
         return new SourcingCompany(company.id(), company.companyName(),
                 LinkedInUrls.companySlugOrNull(company.companyLinkedinUrl()), WebsiteDomain.of(company.website()),
-                company.numEmployees());
+                company.numEmployees(), Countries.codeOf(company.companyCountry()));
     }
 }
