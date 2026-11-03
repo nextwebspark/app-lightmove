@@ -1,7 +1,7 @@
 # Find executives — design and build plan
 
 Status: **built** — P0 this design and its mockup (#1195), P1 the search engine (#1201), P2 the panel end to end
-(V182, `features/sourcing`). Where the build differs from the plan below, CLAUDE.md's Find executives paragraph is
+(V184, `features/sourcing`). Where the build differs from the plan below, CLAUDE.md's Find executives paragraph is
 current: a search's sources are not run side by side but in turn (the live index tiered, then the profile index's
 untitled people checked free against it), and the copy guard's vendor names are a follow-up. The screens are
 `claude-design/FindExecutives.dc.html` (`?screen=canvas` shows every board).

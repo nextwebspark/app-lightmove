@@ -238,10 +238,10 @@ per executive and the same two drawers opened from a pin's popup or a panel row.
 coordinate, so `geocoding` resolves each distinct city + country once through Mapbox and keeps it in
 `app_lm_geocoded_place`; `talentmap` composes the stage's companies, people and points into one
 unpaged, capped read (`GET /projects/{id}/talent-map`), with `…/talent-map/locations` answering the
-same map as points alone for the poll that waits on places rather than on people. **Find executives** (`enrichment/sourcing`, V86, V182, `docs/find-executives.md`) is the fifth door: a
+same map as points alone for the poll that waits on places rather than on people. **Find executives** (`enrichment/sourcing`, V86, V184, `docs/find-executives.md`) is the fifth door: a
 panel (`features/sourcing`, `FindExecutivesPanel`, `claude-design/FindExecutives.dc.html`) opened from the
 In-universe toolbar on the ticked companies — or the first `max-companies-per-run` (10) with nobody mapped — and from a
-company drawer's Find executives on that company alone. **The search is the position's own** (V182
+company drawer's Find executives on that company alone. **The search is the position's own** (V184
 `app_lm_executive_sourcing_criteria`): drafted once by one Gemini call (`SearchWordsDrafter` → `SearchWords`: the levels
 a firm maps for the role, `SearchLevel`'s bands from the role down; up to twelve function terms, core first, phrases
 allowed, in another language too only where the companies' titles are written in it — Turkish in Türkiye, none for the
@@ -269,7 +269,7 @@ leave-out word, below the levels searched, none of the title words, not the comp
 scored out of 100 by the design's fixed points — the role's own word in the title 40 or a searched word 30, the level
 against the role's, where they live, how their role was read, found by both indexes, time in role — Strong, Good or
 Possible, each point a reason code (`SuggestionReason`) the panel shows as a chip. **The run files nobody**: each company's
-people are stored ranked (V182 `app_lm_executive_sourcing_suggestion`, slugs and our judgement only; names and titles are
+people are stored ranked (V184 `app_lm_executive_sourcing_suggestion`, slugs and our judgement only; names and titles are
 read from the cache, so results last as long as it keeps them) and recorded as the company finishes, Stop
 (`POST …/{runId}/stop`) letting the companies in flight finish and the rest read STOPPED. The panel reads each company's
 latest results (`GET …/suggestions`) — who fits, best first, the top three pre-ticked; *Title not on record* and
@@ -1447,7 +1447,7 @@ public, no redirect, a size cap, one deadline) — and `app_lm_user.avatar_url` 
 or a removal no provider replaces (`User.mayTakeAvatarFrom`), and once a workspace can enforce its identity provider's
 sign-in, `isAvatarEditable` is where its directory photo becomes final. It clears every provider link stored before it,
 which expired and, once dead, kept every other provider out: the next sign-in copies the picture.
-V182 is the Find executives panel: `app_lm_executive_sourcing_criteria` (one per position — the search as `criteria`
+V184 is the Find executives panel: `app_lm_executive_sourcing_criteria` (one per position — the search as `criteria`
 jsonb, `source` `DEFAULT | AI | EDITED`, the `brief_fingerprint` it was drafted from, unique on the project) and
 `app_lm_executive_sourcing_suggestion` (one row per person a run found at a company: the profile slug, `verdict`
 `FITS | NO_TITLE | NOT_FIT`, `score`, `rank`, `reasons text[]` — our codes and our search's words, never a name or a

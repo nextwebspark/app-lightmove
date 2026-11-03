@@ -108,7 +108,7 @@ public class SourcingCriteriaService {
         return responseOf(criteria, brief);
     }
 
-    /** Two drafts racing for a position's first save: the later one is refused by V182's unique key, and loses. */
+    /** Two drafts racing for a position's first save: the later one is refused by V184's unique key, and loses. */
     private SourcingCriteria insertRacing(SourcingCriteria first) {
         try {
             return saved.saveAndFlush(first);
