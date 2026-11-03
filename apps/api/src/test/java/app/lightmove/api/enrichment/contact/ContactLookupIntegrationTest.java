@@ -68,9 +68,10 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
         JsonNode candidate = answer.get("candidate");
         JsonNode emails = candidate.get("contacts").get("emails");
         assertThat(emails).hasSize(3);
-        // Personal before work, verified first within a kind — the order the drawer shows, its first the primary.
+        // Personal before work, verified first within a kind — the order the drawer shows. Nobody chose a primary,
+        // so none is flagged and the first stands in.
         assertThat(emails.get(0).get("kind").asText()).isEqualTo("personal");
-        assertThat(emails.get(0).get("primary").asBoolean()).isTrue();
+        assertThat(emails.get(0).get("primary").asBoolean()).isFalse();
         assertThat(emails.get(1).get("address").asText()).isEqualTo("sample.person@holdings.example");
         assertThat(emails.get(1).get("verified").asBoolean()).isTrue();
         assertThat(emails.get(1).get("status").asText()).isEqualTo("Verified");

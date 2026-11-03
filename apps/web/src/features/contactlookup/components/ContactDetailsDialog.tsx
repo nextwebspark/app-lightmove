@@ -10,11 +10,16 @@ import { creditsLabel } from "../../billing/lib/billingView";
 import { useBillingRead } from "../../billing/lib/useBilling";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate } from "../../candidates/api/types";
-import { PrimaryStar, type ContactEntriesForm } from "../../candidates/components/CandidateFieldGroups";
+import {
+  PrimaryStar,
+  useStandingPrimary,
+  type ContactEntriesForm,
+} from "../../candidates/components/CandidateFieldGroups";
 import {
   contactInputsOf,
   contactSectionOf,
   contactSectionSchema,
+  CONTACTS_PER_CHANNEL,
   EMPTY_CONTACT_LINE,
   type ContactSectionForm,
   type ParsedContactSectionForm,
@@ -39,10 +44,8 @@ const CHANNEL_WORDS: Record<Channel, { heading: string; noun: string; none: stri
 };
 
 /**
- * Every email and phone of one person, edited in a centred window — the header's pencil, its "+N" and its Add
- * links open it. A held channel is a list with Find more on its heading; an empty one says so and offers typing
- * one in or finding it. Find waits while the lines hold unsaved edits, so a lookup's answer never lands over
- * what someone is typing.
+ * Every email and phone of one person, edited in a centred window. Find waits while the lines hold unsaved
+ * edits, so a lookup's answer never lands over what someone is typing.
  */
 export function ContactDetailsDialog({
   projectId,
@@ -152,9 +155,7 @@ export function ContactDetailsDialog({
             error={phone.inlineError}
           />
           <p className="flex items-center gap-1.5 text-meta text-u-text3">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="flex-none text-u-accent">
-              <path d={ICONS.star} />
-            </svg>
+            <Icon d={ICONS.star} size={11} filled className="flex-none text-u-accent" />
             marks the one used first. Shared on every position this person is in.
           </p>
         </div>
@@ -174,25 +175,14 @@ function ChannelSection({
   lookedUp: boolean;
   error: string | null;
 }) {
-  const { control, formState, getValues, setValue } = useFormContext<ContactEntriesForm>();
+  const { control, formState } = useFormContext<ContactEntriesForm>();
   const name = channel === "email" ? "emails" : "phones";
   const lines = useFieldArray({ control, name });
+  const primary = useStandingPrimary(name);
   const words = CHANNEL_WORDS[channel];
   const count = lines.fields.length;
   const listError = formState.errors[name]?.message;
-
-  const add = () => lines.append({ ...EMPTY_CONTACT_LINE, primary: count === 0 });
-  const remove = (index: number) => {
-    const wasPrimary = getValues(`${name}.${index}.primary`);
-    lines.remove(index);
-    if (wasPrimary && getValues(name).length > 0) {
-      setValue(`${name}.0.primary`, true, { shouldDirty: true });
-    }
-  };
-  const makePrimary = (index: number) =>
-    getValues(name).forEach((_, other) =>
-      setValue(`${name}.${other}.primary`, other === index, { shouldDirty: true }),
-    );
+  const add = () => lines.append({ ...EMPTY_CONTACT_LINE });
 
   return (
     <section aria-label={words.heading}>
@@ -216,11 +206,12 @@ function ChannelSection({
               key={line.id}
               channel={channel}
               index={index}
-              onMakePrimary={() => makePrimary(index)}
-              onRemove={() => remove(index)}
+              primary={primary.isPrimary(index)}
+              onMakePrimary={() => primary.makePrimary(index)}
+              onRemove={() => lines.remove(index)}
             />
           ))}
-          {count < 10 && (
+          {count < CONTACTS_PER_CHANNEL && (
             <li>
               <button
                 type="button"
@@ -249,14 +240,18 @@ function ChannelSection({
   );
 }
 
+const OPEN_CIRCLE = "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18";
+
 function ContactLine({
   channel,
   index,
+  primary,
   onMakePrimary,
   onRemove,
 }: {
   channel: Channel;
   index: number;
+  primary: boolean;
   onMakePrimary: () => void;
   onRemove: () => void;
 }) {
@@ -269,13 +264,7 @@ function ContactLine({
   return (
     <li className="px-2 py-1.5">
       <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-        <Controller
-          control={control}
-          name={`${name}.${index}.primary`}
-          render={({ field }) => (
-            <PrimaryStar noun={channel} primary={field.value} onMakePrimary={onMakePrimary} />
-          )}
-        />
+        <PrimaryStar noun={channel} primary={primary} onMakePrimary={onMakePrimary} />
         <input
           {...register(`${name}.${index}.value`)}
           inputMode={channel === "email" ? "email" : "tel"}
@@ -355,8 +344,6 @@ function ContactLine({
   );
 }
 
-const OPEN_CIRCLE = "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18";
-
 function EmptyChannel({
   channel,
   find,
@@ -393,7 +380,7 @@ function EmptyChannel({
   );
 }
 
-/** Find, its price beside its name; a disabled one says why on hover, which a disabled button cannot. */
+/** A disabled button shows no title, so the reason hangs on its wrapper. */
 function FindAction({ find }: { find: ChannelFind }) {
   return (
     <span title={find.reason}>

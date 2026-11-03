@@ -25,6 +25,9 @@ import type {
 
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** The server's `MAX_CONTACTS_PER_CHANNEL`. */
+export const CONTACTS_PER_CHANNEL = 10;
+
 /** What one email or phone line holds while it is being edited. `source` rides along, read-only. */
 export const contactEntrySchema = z.object({
   value: z.string().trim().max(320),
@@ -50,7 +53,7 @@ export function contactKeyOf(channel: "email" | "phone", value: string): string 
 export function contactEntries(channel: "email" | "phone") {
   return z
     .array(contactEntrySchema)
-    .max(10, `Ten ${channel === "email" ? "email addresses" : "phone numbers"} is the most a profile holds`)
+    .max(CONTACTS_PER_CHANNEL, `Ten ${channel === "email" ? "email addresses" : "phone numbers"} is the most a profile holds`)
     .superRefine((entries, context) => {
       const seen = new Set<string>();
       entries.forEach((entry, index) => {
@@ -88,13 +91,13 @@ export function contactInputsOf(entries: ContactEntryForm[]): ContactEntryInput[
     }));
 }
 
-/** The server lists the primary first, chosen or standing in, so the first line is the one marked. */
-export function contactLineOf(entry: CandidateEmail | CandidatePhone, index: number): ContactEntryForm {
+/** Only a chosen primary is carried as one, so a save never turns the first line standing in into a choice. */
+export function contactLineOf(entry: CandidateEmail | CandidatePhone): ContactEntryForm {
   return {
     value: "address" in entry ? entry.address : entry.number,
     kind: entry.kind ?? "",
     verified: entry.verified,
-    primary: index === 0,
+    primary: entry.primary ?? false,
     source: entry.source,
   };
 }

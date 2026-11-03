@@ -136,12 +136,13 @@ class CandidateRequestReader {
         List<String> chosen = listed == null ? List.of() : listed.stream()
                 .filter(entry -> Boolean.TRUE.equals(entry.primary()))
                 .map(ContactEntryDto::value)
+                .filter(value -> value != null && !value.isBlank())
                 .toList();
         if (chosen.size() > 1) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "Only one " + channel.value() + " can be primary");
         }
-        return chosen.isEmpty() ? null : chosen.getFirst();
+        return chosen.isEmpty() ? null : chosen.getFirst().trim();
     }
 
     /** A profile write adds to the ledger and removes nothing, so the cap is checked on what it holds after. */

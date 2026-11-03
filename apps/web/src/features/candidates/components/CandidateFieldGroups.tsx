@@ -3,6 +3,7 @@ import {
   Controller,
   useFieldArray,
   useFormContext,
+  useWatch,
   type Control,
   type FieldErrors,
   type FieldValues,
@@ -32,7 +33,12 @@ import {
   type BaseCadence,
   type BonusBasis,
 } from "../lib/compensation";
-import { EMPTY_CONTACT_LINE, type CandidateForm, type ContactEntryForm } from "../lib/candidateForm";
+import {
+  CONTACTS_PER_CHANNEL,
+  EMPTY_CONTACT_LINE,
+  type CandidateForm,
+  type ContactEntryForm,
+} from "../lib/candidateForm";
 import { CANDIDATE_GENDERS, CANDIDATE_NATIONALITIES, CANDIDATE_SENIORITIES } from "../lib/candidateVocabulary";
 import { AiInferredBadge } from "./AiInferredBadge";
 import { StatusPicker } from "./StatusPicker";
@@ -788,18 +794,12 @@ export function ContactEntriesFields({
   channel: "email" | "phone";
   offerPrimary?: boolean;
 }) {
-  const { control, register, formState, getValues, setValue } = useFormContext<ContactEntriesForm>();
+  const { control, register, formState } = useFormContext<ContactEntriesForm>();
   const name = channel === "email" ? "emails" : "phones";
   const lines = useFieldArray({ control, name });
+  const primary = useStandingPrimary(name);
   const errors = formState.errors[name];
   const noun = channel === "email" ? "email" : "phone";
-  const remove = (index: number) => {
-    const wasPrimary = getValues(`${name}.${index}.primary`);
-    lines.remove(index);
-    if (offerPrimary && wasPrimary && getValues(name).length > 0) {
-      setValue(`${name}.0.primary`, true, { shouldDirty: true });
-    }
-  };
   return (
     <div>
       <ul className="space-y-2">
@@ -807,20 +807,10 @@ export function ContactEntriesFields({
           <li key={line.id}>
             <div className="flex flex-wrap items-center gap-2">
               {offerPrimary && (
-                <Controller
-                  control={control}
-                  name={`${name}.${index}.primary`}
-                  render={({ field }) => (
-                    <PrimaryStar
-                      noun={noun}
-                      primary={field.value}
-                      onMakePrimary={() =>
-                        getValues(name).forEach((_, other) =>
-                          setValue(`${name}.${other}.primary`, other === index, { shouldDirty: true }),
-                        )
-                      }
-                    />
-                  )}
+                <PrimaryStar
+                  noun={noun}
+                  primary={primary.isPrimary(index)}
+                  onMakePrimary={() => primary.makePrimary(index)}
                 />
               )}
               <Input
@@ -863,7 +853,7 @@ export function ContactEntriesFields({
               />
               <button
                 type="button"
-                onClick={() => remove(index)}
+                onClick={() => lines.remove(index)}
                 aria-label={`Remove ${noun} ${index + 1}`}
                 className="flex-none rounded-md p-1.5 text-u-text3 transition hover:bg-u-raised hover:text-u-offlimits"
               >
@@ -880,8 +870,8 @@ export function ContactEntriesFields({
       </ul>
       <button
         type="button"
-        onClick={() => lines.append({ ...EMPTY_CONTACT_LINE, primary: offerPrimary && lines.fields.length === 0 })}
-        disabled={lines.fields.length >= 10}
+        onClick={() => lines.append({ ...EMPTY_CONTACT_LINE })}
+        disabled={lines.fields.length >= CONTACTS_PER_CHANNEL}
         className="mt-2 inline-flex items-center gap-1.5 rounded-[6px] border border-dashed border-u-border-strong px-3 py-1.5 font-sans text-[12.5px] text-u-text2 transition hover:border-u-text3 hover:text-u-text disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Icon d={ICONS.plus} size={13} />
@@ -899,6 +889,22 @@ export function ContactEntriesFields({
 const capitalised = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);
 
 /**
+ * Which line of a channel wears the star: the one chosen, else the first, standing in as the server's order
+ * has it. Only a press of Make primary stores a choice, so a save never turns the stand-in into one.
+ */
+export function useStandingPrimary(name: "emails" | "phones") {
+  const { control, getValues, setValue } = useFormContext<ContactEntriesForm>();
+  const chosen = (useWatch({ control, name }) ?? []).findIndex((line) => line.primary);
+  return {
+    isPrimary: (index: number) => (chosen === -1 ? index === 0 : index === chosen),
+    makePrimary: (index: number) =>
+      getValues(name).forEach((_, other) =>
+        setValue(`${name}.${other}.primary`, other === index, { shouldDirty: true }),
+      ),
+  };
+}
+
+/**
  * The primary mark, the primary CV's star: filled on the one to reach them on, an outline offering to move it
  * on the rest. Without `onMakePrimary` it only marks.
  */
@@ -913,12 +919,7 @@ export function PrimaryStar({
   onMakePrimary?: () => void;
   disabled?: boolean;
 }) {
-  const star = (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill={primary ? "currentColor" : "none"} stroke="currentColor"
-      strokeWidth={primary ? 0 : 2} strokeLinejoin="round" aria-hidden="true">
-      <path d={ICONS.star} />
-    </svg>
-  );
+  const star = <Icon d={ICONS.star} size={14} filled={primary} />;
   if (!onMakePrimary || primary) {
     return primary ? (
       <span role="img" aria-label={`Primary ${noun}`} title={`Primary ${noun}`} className="flex flex-none p-1 text-u-accent">

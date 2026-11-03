@@ -150,6 +150,8 @@ export interface CandidateEmail {
   status: string | null;
   source: ContactSource;
   foundAt: string;
+  /** Someone chose it as the one to reach them on; with none chosen the first listed stands in. */
+  primary?: boolean;
 }
 
 /** One number the mandate knows, spelled as it arrived. `kind` only where a person tagged it. */
@@ -160,6 +162,8 @@ export interface CandidatePhone {
   status: string | null;
   source: ContactSource;
   foundAt: string;
+  /** As on {@link CandidateEmail}. */
+  primary?: boolean;
 }
 
 /** One email or phone as the Contact section or the Add form states it. */

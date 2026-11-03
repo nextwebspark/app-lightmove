@@ -94,6 +94,33 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the primary moves to another address, and a save choosing none stores none")
+    void thePrimaryMovesAndIsNeverStoredUnchosen() throws Exception {
+        String projectId = mandate("Primary Switch Firm");
+        String candidateId = executive(projectId, """
+                {"fullName":"Sample Person"}""");
+        contacts(projectId, candidateId, """
+                {"emails":[{"value":"one@them.example","primary":true},{"value":"two@them.example"}],
+                 "phones":[{"value":"+971 50 000 0001"}]}""", status().isOk());
+
+        JsonNode moved = contacts(projectId, candidateId, """
+                {"emails":[{"value":"one@them.example"},{"value":"two@them.example","primary":true}],
+                 "phones":[{"value":"+971 50 000 0001"}]}""", status().isOk()).get("contacts");
+
+        assertThat(moved.get("emails").get(0).get("address").asText()).isEqualTo("two@them.example");
+        assertThat(moved.get("emails").get(0).get("primary").asBoolean()).isTrue();
+        assertThat(moved.get("emails").get(1).get("primary").asBoolean()).isFalse();
+        assertThat(moved.get("phones").get(0).get("primary").asBoolean()).isFalse();
+
+        JsonNode cleared = contacts(projectId, candidateId, """
+                {"emails":[{"value":"one@them.example"},{"value":"two@them.example"}],
+                 "phones":[{"value":"+971 50 000 0001"}]}""", status().isOk()).get("contacts");
+
+        assertThat(cleared.get("emails").get(0).get("primary").asBoolean()).isFalse();
+        assertThat(cleared.get("emails").get(1).get("primary").asBoolean()).isFalse();
+    }
+
+    @Test
     @DisplayName("the profile's own save is held to the same ten per channel")
     void theProfileSaveIsHeldToTheCap() throws Exception {
         String projectId = mandate("Profile Cap Firm");

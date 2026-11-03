@@ -372,7 +372,7 @@ describe("ContactPanel", () => {
             { value: "hakanalac@gmail.com", kind: "personal", verified: false, primary: false },
             { value: "hakan@alacpartners.com", kind: "work", verified: true, primary: true },
           ],
-          phones: [{ value: "+971 50 000 0001", kind: null, verified: false, primary: true }],
+          phones: [{ value: "+971 50 000 0001", kind: null, verified: false, primary: false }],
         }),
       );
       expect(onSaved).toHaveBeenCalledWith(two);
@@ -419,10 +419,10 @@ describe("ContactPanel", () => {
       await waitFor(() =>
         expect(candidatesApi.replaceContacts).toHaveBeenCalledWith("p1", "c1", {
           emails: [
-            { value: "hakan@alacpartners.com", kind: "work", verified: true, primary: true },
+            { value: "hakan@alacpartners.com", kind: "work", verified: true, primary: false },
             { value: "old@them.example", kind: "personal", verified: true, primary: false },
           ],
-          phones: [{ value: "+971 50 000 0000", kind: null, verified: false, primary: true }],
+          phones: [{ value: "+971 50 000 0000", kind: null, verified: false, primary: false }],
         }),
       );
       // The contacts have their own write: the profile itself is not re-sent.
@@ -445,7 +445,7 @@ describe("ContactPanel", () => {
             { value: "hakan@alacpartners.com", kind: "work", verified: true, primary: false },
             { value: "old@them.example", kind: null, verified: false, primary: true },
           ],
-          phones: [{ value: "+61 421 904 554", kind: null, verified: false, primary: true }],
+          phones: [{ value: "+61 421 904 554", kind: null, verified: false, primary: false }],
         }),
       );
     });
@@ -521,8 +521,8 @@ describe("ContactPanel", () => {
 
       await waitFor(() =>
         expect(candidatesApi.replaceContacts).toHaveBeenCalledWith("p1", "c1", {
-          emails: [{ value: "hakan@alacpartners.com", kind: "work", verified: false, primary: true }],
-          phones: [{ value: "+971 50 000 0000", kind: null, verified: false, primary: true }],
+          emails: [{ value: "hakan@alacpartners.com", kind: "work", verified: false, primary: false }],
+          phones: [{ value: "+971 50 000 0000", kind: null, verified: false, primary: false }],
         }),
       );
       expect(onSaved).toHaveBeenCalledWith(held);
@@ -549,7 +549,7 @@ describe("ContactPanel", () => {
       expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     });
 
-    it("tags a line and hands the star on when the primary is removed", async () => {
+    it("tags a line, and stars the next one standing in when the first is removed", async () => {
       vi.mocked(candidatesApi.replaceContacts).mockResolvedValue(held);
       renderWindow({
         candidate: {
@@ -573,7 +573,7 @@ describe("ContactPanel", () => {
       await userEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() =>
         expect(candidatesApi.replaceContacts).toHaveBeenCalledWith("p1", "c1", {
-          emails: [{ value: "hakan@gmail.com", kind: "personal", verified: false, primary: true }],
+          emails: [{ value: "hakan@gmail.com", kind: "personal", verified: false, primary: false }],
           phones: [],
         }),
       );

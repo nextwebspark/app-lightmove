@@ -19,7 +19,6 @@ import app.lightmove.api.candidate.model.Person;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -118,20 +117,20 @@ class CandidateResponseMapper {
         List<CandidateContact> emails = person.emailContacts();
         List<CandidateContact> phones = person.phoneContacts();
         return new CandidateContactsDto(
-                IntStream.range(0, emails.size()).mapToObj(i -> emailOf(emails.get(i), i == 0)).toList(),
-                IntStream.range(0, phones.size()).mapToObj(i -> phoneOf(phones.get(i), i == 0)).toList(),
+                emails.stream().map(CandidateResponseMapper::emailOf).toList(),
+                phones.stream().map(CandidateResponseMapper::phoneOf).toList(),
                 person.getEmailsLookedUpAt(), person.getPhonesLookedUpAt(),
                 person.getContactsLookedUpVia());
     }
 
-    private static CandidateEmailDto emailOf(CandidateContact contact, boolean primary) {
+    private static CandidateEmailDto emailOf(CandidateContact contact) {
         return new CandidateEmailDto(contact.getValue(), kindOf(contact), contact.isVerified(), contact.getStatus(),
-                contact.getSource().value(), contact.getFoundAt(), primary);
+                contact.getSource().value(), contact.getFoundAt(), contact.isPrimary());
     }
 
-    private static CandidatePhoneDto phoneOf(CandidateContact contact, boolean primary) {
+    private static CandidatePhoneDto phoneOf(CandidateContact contact) {
         return new CandidatePhoneDto(contact.getValue(), kindOf(contact), contact.isVerified(), contact.getStatus(),
-                contact.getSource().value(), contact.getFoundAt(), primary);
+                contact.getSource().value(), contact.getFoundAt(), contact.isPrimary());
     }
 
     private static String kindOf(CandidateContact contact) {

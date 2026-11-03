@@ -21,7 +21,7 @@
         "address" : "yasmin@golden.example",
         "foundAt" : "<instant>",
         "kind" : null,
-        "primary" : true,
+        "primary" : false,
         "source" : "manual",
         "status" : null,
         "verified" : false
@@ -31,7 +31,7 @@
         "foundAt" : "<instant>",
         "kind" : null,
         "number" : "+966 50 111 2222",
-        "primary" : true,
+        "primary" : false,
         "source" : "manual",
         "status" : null,
         "verified" : false
