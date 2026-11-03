@@ -5,7 +5,7 @@ import type { PersonRecord } from "../../api/types";
 export function PersonContactTab({ person }: { person: PersonRecord }) {
   return (
     <section aria-label="Contact">
-      <ContactChannels contacts={person.contacts} linkedinUrl={person.linkedinUrl} />
+      <ContactChannels contacts={person.contacts} />
       {person.doNotContact && (
         <p className="mt-2 text-note text-u-offlimits">Do not contact is set — lookups are off for this person.</p>
       )}

@@ -25,8 +25,8 @@ class CandidateContactLedgerTest {
             EnrichmentVendor.BRIGHTDATA);
 
     @Test
-    @DisplayName("a lookup's addresses are listed work first, with the provider's reading")
-    void foundAddressesAreListedWorkFirst() {
+    @DisplayName("a lookup's addresses are listed personal first, with the provider's reading")
+    void foundAddressesAreListedPersonalFirst() {
         Person person = captured();
 
         person.recordFoundEmails(found(
@@ -34,8 +34,8 @@ class CandidateContactLedgerTest {
                 new CandidateEmail("verified@retailco.example", CandidateEmail.WORK, "Verified")));
 
         assertThat(person.emailContacts()).extracting(CandidateContact::getValue)
-                .containsExactly("verified@retailco.example", "someone@gmail.example");
-        CandidateContact work = person.emailContacts().getFirst();
+                .containsExactly("someone@gmail.example", "verified@retailco.example");
+        CandidateContact work = person.emailContacts().get(1);
         assertThat(work.isVerified()).isTrue();
         assertThat(work.getStatus()).isEqualTo("Verified");
         assertThat(work.getSource()).isEqualTo(ContactSource.CONTACTOUT);
@@ -106,13 +106,54 @@ class CandidateContactLedgerTest {
 
         person.replaceContacts(ContactChannel.EMAIL, List.of(
                 new ContactEntry("found@retailco.example", ContactKind.WORK, false),
-                new ContactEntry("new@them.example", ContactKind.PERSONAL, false)), ContactSource.MANUAL);
+                new ContactEntry("new@them.example", ContactKind.PERSONAL, false)), ContactSource.MANUAL, null);
 
         assertThat(person.emailContacts()).extracting(CandidateContact::getValue)
-                .containsExactly("found@retailco.example", "new@them.example");
-        assertThat(person.emailContacts().getFirst().getSource()).isEqualTo(ContactSource.CONTACTOUT);
-        assertThat(person.emailContacts().get(1).getSource()).isEqualTo(ContactSource.MANUAL);
-        assertThat(person.emailContacts().get(1).getKind()).isEqualTo(ContactKind.PERSONAL);
+                .containsExactly("new@them.example", "found@retailco.example");
+        assertThat(person.emailContacts().getFirst().getSource()).isEqualTo(ContactSource.MANUAL);
+        assertThat(person.emailContacts().getFirst().getKind()).isEqualTo(ContactKind.PERSONAL);
+        assertThat(person.emailContacts().get(1).getSource()).isEqualTo(ContactSource.CONTACTOUT);
+    }
+
+    @Test
+    @DisplayName("the address chosen as primary is listed first, whatever its kind, and only it is primary")
+    void theChosenPrimaryIsListedFirst() {
+        Person person = typedBy(CandidateSource.MANUAL, "first@them.example");
+        List<ContactEntry> both = List.of(
+                new ContactEntry("home@them.example", ContactKind.PERSONAL, true),
+                new ContactEntry("desk@retailco.example", ContactKind.WORK, false));
+
+        person.replaceContacts(ContactChannel.EMAIL, both, ContactSource.MANUAL, "Desk@RetailCo.example");
+
+        assertThat(person.emailContacts()).extracting(CandidateContact::getValue)
+                .containsExactly("desk@retailco.example", "home@them.example");
+        assertThat(person.emailContacts()).extracting(CandidateContact::isPrimary).containsExactly(true, false);
+
+        person.replaceContacts(ContactChannel.EMAIL, both, ContactSource.MANUAL, null);
+
+        assertThat(person.emailContacts()).extracting(CandidateContact::getValue)
+                .containsExactly("home@them.example", "desk@retailco.example");
+        assertThat(person.emailContacts()).noneMatch(CandidateContact::isPrimary);
+    }
+
+    @Test
+    @DisplayName("a lookup answering again keeps the primary the team chose among its addresses")
+    void aLookupKeepsTheChosenPrimary() {
+        Person person = captured();
+        person.recordFoundEmails(found(
+                new CandidateEmail("home@gmail.example", CandidateEmail.PERSONAL, null),
+                new CandidateEmail("desk@retailco.example", CandidateEmail.WORK, "Verified")));
+        person.replaceContacts(ContactChannel.EMAIL, List.of(
+                new ContactEntry("home@gmail.example", ContactKind.PERSONAL, false),
+                new ContactEntry("desk@retailco.example", ContactKind.WORK, true)),
+                ContactSource.MANUAL, "desk@retailco.example");
+
+        person.recordFoundEmails(found(
+                new CandidateEmail("home@gmail.example", CandidateEmail.PERSONAL, null),
+                new CandidateEmail("desk@retailco.example", CandidateEmail.WORK, "Verified")));
+
+        assertThat(person.emailContacts().getFirst().getValue()).isEqualTo("desk@retailco.example");
+        assertThat(person.emailContacts().getFirst().isPrimary()).isTrue();
     }
 
     @Test
@@ -121,14 +162,14 @@ class CandidateContactLedgerTest {
         Person person = typedBy(CandidateSource.MANUAL, "typed@them.example");
 
         person.replaceContacts(ContactChannel.EMAIL,
-                List.of(new ContactEntry("typed@them.example", ContactKind.WORK, true)), ContactSource.MANUAL);
+                List.of(new ContactEntry("typed@them.example", ContactKind.WORK, true)), ContactSource.MANUAL, null);
         CandidateContact marked = person.emailContacts().getFirst();
         assertThat(marked.isVerified()).isTrue();
         assertThat(marked.getStatus()).isEqualTo(CandidateContact.VERIFIED_BY_RESEARCHER);
         assertThat(marked.getSource()).isEqualTo(ContactSource.MANUAL);
 
         person.replaceContacts(ContactChannel.EMAIL,
-                List.of(new ContactEntry("typed@them.example", ContactKind.WORK, false)), ContactSource.MANUAL);
+                List.of(new ContactEntry("typed@them.example", ContactKind.WORK, false)), ContactSource.MANUAL, null);
         assertThat(person.emailContacts().getFirst().isVerified()).isFalse();
         assertThat(person.emailContacts().getFirst().getStatus()).isNull();
     }
@@ -142,7 +183,7 @@ class CandidateContactLedgerTest {
 
         person.replaceContacts(ContactChannel.EMAIL,
                 List.of(new ContactEntry("verified@retailco.example", ContactKind.PERSONAL, true)),
-                ContactSource.MANUAL);
+                ContactSource.MANUAL, null);
 
         CandidateContact retagged = person.emailContacts().getFirst();
         assertThat(retagged.getKind()).isEqualTo(ContactKind.PERSONAL);
@@ -157,7 +198,7 @@ class CandidateContactLedgerTest {
         person.recordFoundPhones(new FoundPhones("contactout", List.of("+12065550100")));
 
         person.replaceContacts(ContactChannel.PHONE,
-                List.of(new ContactEntry("+1 (206) 555-0100", null, false)), ContactSource.MANUAL);
+                List.of(new ContactEntry("+1 (206) 555-0100", null, false)), ContactSource.MANUAL, null);
 
         assertThat(person.phoneContacts()).hasSize(1);
         assertThat(person.phoneContacts().getFirst().getValue()).isEqualTo("+1 (206) 555-0100");
@@ -171,9 +212,9 @@ class CandidateContactLedgerTest {
         Person captured = typedBy(CandidateSource.EXTENSION, "Person@Them.Example");
 
         imported.replaceContacts(ContactChannel.PHONE,
-                List.of(new ContactEntry("+971 50 000 0001", null, false)), ContactSource.MANUAL);
+                List.of(new ContactEntry("+971 50 000 0001", null, false)), ContactSource.MANUAL, null);
         captured.replaceContacts(ContactChannel.EMAIL,
-                List.of(new ContactEntry("person@them.example", null, false)), ContactSource.MANUAL);
+                List.of(new ContactEntry("person@them.example", null, false)), ContactSource.MANUAL, null);
 
         assertThat(imported.phoneContacts().getFirst().getValue()).isEqualTo("+971 50 000 0001");
         assertThat(imported.phoneContacts().getFirst().getSource()).isEqualTo(ContactSource.MANUAL);

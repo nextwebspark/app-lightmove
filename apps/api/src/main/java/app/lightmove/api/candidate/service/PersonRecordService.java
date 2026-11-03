@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.dto.PersonPositionResponse;
 import app.lightmove.api.candidate.dto.PersonRecordResponse;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.candidate.model.PersonEmployer;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonPhotoRepository;
@@ -45,6 +46,7 @@ public class PersonRecordService {
     private final ProjectRepository projects;
     private final UserRepository users;
     private final ProjectAccess projectAccess;
+    private final PersonEmployerResolver employers;
 
     /** The person a mandate's row maps, after checking the mandate is the caller's workspace's. */
     @Transactional(readOnly = true)
@@ -76,8 +78,10 @@ public class PersonRecordService {
         Map<UUID, User> named = usersOf(Stream.concat(Stream.of(person.getCreatedBy(), person.getDoNotContactSetBy()),
                 mapped.stream().map(Candidate::getAddedBy)).toList());
         User filer = named.get(person.getCreatedBy());
+        PersonEmployer employer = PersonEmployerResolver.employerOf(person, mapped);
         return new PersonRecordResponse(person.getId(), person.getFullName(), person.getTitle(),
-                PersonEmployerResolver.employerOf(person, mapped).name(),
+                employer.name(),
+                employers.logosOf(person.getWorkspaceId(), Map.of(person.getId(), employer)).get(person.getId()),
                 person.getSeniorityLevel() == null ? null : person.getSeniorityLevel().value(),
                 person.getLinkedinUrl(), person.getProfile().enrichedAt(), person.getLocationCity(),
                 person.getLocationCountry(),
