@@ -1376,17 +1376,22 @@ describe("CandidateDrawer", () => {
     expect(within(others).queryByText("Chief Financial Officer")).not.toBeInTheDocument();
   });
 
-  it("keeps Remove from mandate, Add note and Set next action in a footer every tab shares", async () => {
+  it("docks the next action in a footer every tab shares, and keeps the rest behind More actions", async () => {
     const onClose = vi.fn();
     const onRemove = vi.fn();
     renderDrawer({ candidate: yasmin, company: null, onClose, onDelete: onRemove });
 
     await openTab("Activity");
-    await userEvent.click(screen.getByRole("button", { name: "Remove from mandate" }));
-    expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
-    expect(within(screen.getByRole("contentinfo")).getByRole("button", { name: "Set next action" })).toBeInTheDocument();
+    const footer = screen.getByRole("contentinfo");
+    expect(await within(footer).findByText("No next action for Yasmin")).toBeInTheDocument();
+    expect(within(footer).queryByRole("button", { name: "Remove from mandate" })).toBeNull();
 
-    await userEvent.click(screen.getByRole("button", { name: "Add note" }));
+    await userEvent.click(within(footer).getByRole("button", { name: "More actions" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Remove from mandate" }));
+    expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
+
+    await userEvent.click(within(footer).getByRole("button", { name: "More actions" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Add note" }));
     expect(screen.getByRole("tab", { name: /^Notes/ })).toHaveAttribute("aria-selected", "true");
 
     await userEvent.click(screen.getByRole("button", { name: "Close" }));
@@ -1577,13 +1582,15 @@ describe("CandidateDrawer", () => {
       });
     });
 
-    it("keeps the rest of the footer off the Assessment tab and puts it back elsewhere", async () => {
+    it("folds the next action to one square beside the Assessment tab's own buttons", async () => {
       vi.mocked(scorecardApi.getScorecard).mockResolvedValue(blank);
       renderDrawer({ candidate: yasmin, company: null });
 
       await openTab("Assessment");
       expect(await screen.findByRole("button", { name: "Mark reviewed & submit" })).toBeInTheDocument();
-      expect(within(screen.getByRole("contentinfo")).queryByRole("button", { name: "Set next action" })).toBeNull();
+      const footer = screen.getByRole("contentinfo");
+      expect(await within(footer).findByRole("button", { name: "Set next action" })).toBeInTheDocument();
+      expect(within(footer).queryByText("No next action for Yasmin")).toBeNull();
 
       await openTab("Notes");
       expect(screen.queryByRole("button", { name: "Mark reviewed & submit" })).not.toBeInTheDocument();
