@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
@@ -74,11 +74,9 @@ import { DocumentPreviewSheet, type PreviewTarget } from "./documents/DocumentPr
 import {
   DoNotContactStrip,
   NotesSection,
-  usePositions,
   type NoteFocus,
 } from "./PersonSections";
 import { ActivityTimeline } from "./activity/ActivityTimeline";
-import { PositionsSection } from "./PersonPositions";
 import { PersonTagsSection } from "./PersonTagsSection";
 import { ProfileSectionForm, SectionEditButton, SectionEditor } from "./ProfileSectionForm";
 import { AiActionButton } from "./AiActionButton";
@@ -116,8 +114,8 @@ const TAB_ID_PREFIX = "executive-drawer";
  * <p><b>Status stays live beside the name</b>, with a write of its own — it is the field that changes
  * most often and the one a researcher came to flick while reading.
  *
- * <p>Tabs follow `Position.dc.html` — Background, Compensation, Notes, Assessment, Contact, Documents, Activity and
- * Positions; a client seat gets Background and Contact alone. Every panel stays mounted while hidden, so a half-typed note
+ * <p>Tabs follow `Position.dc.html` — Background, Compensation, Notes, Assessment, Contact, Documents and Activity
+ * (the person's other positions are the Candidates page's alone, to keep this bar short); a client seat gets Background and Contact alone. Every panel stays mounted while hidden, so a half-typed note
  * survives a look at another tab. The next action is not a tab's: it is the header's bar, on view
  * whichever tab is open, since the moment to set one is while writing the note or the email.
  *
@@ -246,9 +244,6 @@ export function CandidateProfile({
     chooseTab("notes");
     focusNoteComposer(`${TAB_ID_PREFIX}-panel-notes`);
   };
-  const queryClient = useQueryClient();
-  const positions = usePositions(projectId, candidate.id, canWrite);
-  const otherPositions = (positions.data ?? []).filter((position) => position.projectId !== projectId);
   const personRecord = useQuery({
     queryKey: poolApi.PERSON_RECORD_KEY(candidate.personId),
     queryFn: ({ signal }) => poolApi.getPerson(candidate.personId, signal),
@@ -429,7 +424,6 @@ export function CandidateProfile({
           counts={{
             notes: notes.data?.length,
             documents: documents.documents.data?.length,
-            positions: otherPositions.length,
           }}
         />
       </div>
@@ -801,22 +795,6 @@ export function CandidateProfile({
                   onOpenTask: (taskId) => openNextAction(taskId),
                   onPreviewDocument: openPreview,
                 }}
-              />
-            </div>
-            <div {...panelProps("positions")}>
-              <PositionsSection
-                title="Other positions"
-                positions={otherPositions}
-                empty={
-                  <p className="text-note text-u-text3">
-                    Not mapped to any other positions right now. Everything on file here follows {firstName} to the next one.
-                  </p>
-                }
-                onStatusChanged={() =>
-                  void queryClient.invalidateQueries({
-                    queryKey: personCrmApi.PERSON_POSITIONS_KEY(projectId, candidate.id),
-                  })
-                }
               />
             </div>
           </>
