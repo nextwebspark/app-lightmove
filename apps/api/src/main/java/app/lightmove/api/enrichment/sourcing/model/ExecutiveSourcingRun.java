@@ -18,8 +18,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * One Find executives run. The companies are frozen at request time and the outcomes grow one per
- * company as each finishes, so the strip can show progress and the summary reads back after a reload.
+ * One Find executives run. The companies and the search are frozen at request time and the outcomes grow one per
+ * company as each finishes, so the panel can show progress and read the results back after a reload.
  */
 @Entity
 @Table(name = "app_lm_executive_sourcing_run")
@@ -44,9 +44,10 @@ public class ExecutiveSourcingRun extends BaseEntity {
     @Column(name = "companies", nullable = false, updatable = false)
     private List<SourcingCompany> companies = new ArrayList<>();
 
+    /** The search as it was pressed; null on runs from before the panel. */
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "spec")
-    private SearchWords words;
+    @Column(name = "criteria", updatable = false)
+    private SearchCriteria criteria;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "outcomes", nullable = false)
@@ -55,9 +56,6 @@ public class ExecutiveSourcingRun extends BaseEntity {
     @Column(name = "companies_done", nullable = false)
     private int companiesDone;
 
-    @Column(name = "executives_filed", nullable = false)
-    private int executivesFiled;
-
     @Column(name = "vendor_hits", nullable = false)
     private int vendorHits;
 
@@ -65,8 +63,12 @@ public class ExecutiveSourcingRun extends BaseEntity {
     @Column(name = "cached_hits", nullable = false)
     private int cachedHits;
 
-    @Column(name = "model_calls", nullable = false)
-    private int modelCalls;
+    /** People found who fit the role, across the companies. */
+    @Column(name = "suggested", nullable = false)
+    private int suggested;
+
+    @Column(name = "stop_requested_at")
+    private Instant stopRequestedAt;
 
     @Column(name = "error")
     private String error;
@@ -78,13 +80,14 @@ public class ExecutiveSourcingRun extends BaseEntity {
     private Instant finishedAt;
 
     public static ExecutiveSourcingRun requested(UUID workspaceId, UUID projectId, UUID requestedBy,
-                                                 List<SourcingCompany> companies) {
+                                                 List<SourcingCompany> companies, SearchCriteria criteria) {
         ExecutiveSourcingRun run = new ExecutiveSourcingRun();
         run.workspaceId = workspaceId;
         run.projectId = projectId;
         run.requestedBy = requestedBy;
         run.status = SourcingRunStatus.QUEUED;
         run.companies = List.copyOf(companies);
+        run.criteria = criteria;
         return run;
     }
 
@@ -93,28 +96,35 @@ public class ExecutiveSourcingRun extends BaseEntity {
         startedAt = Instant.now();
     }
 
-    public void recordWords(SearchWords searched) {
-        words = searched;
-    }
-
     public void recordOutcome(CompanyOutcome outcome) {
         List<CompanyOutcome> grown = new ArrayList<>(outcomes);
         grown.add(outcome);
         outcomes = grown;
         companiesDone = grown.size();
-        executivesFiled += outcome.filed();
         vendorHits += outcome.vendorHits();
         cachedHits += outcome.cachedHits();
-        modelCalls += outcome.modelCalls();
+        suggested += outcome.fits();
     }
 
-    public void countModelCall() {
-        modelCalls += 1;
-    }
-
+    /** Ends the run: stopped when a stop was asked for while it ran, completed otherwise. */
     public void finish() {
-        status = SourcingRunStatus.COMPLETED;
+        status = stopRequestedAt == null ? SourcingRunStatus.COMPLETED : SourcingRunStatus.STOPPED;
         finishedAt = Instant.now();
+    }
+
+    /** False when the run had already ended, so there was nothing to stop. */
+    public boolean requestStop() {
+        if (!SourcingRunStatus.IN_PROGRESS.contains(status)) {
+            return false;
+        }
+        if (stopRequestedAt == null) {
+            stopRequestedAt = Instant.now();
+        }
+        return true;
+    }
+
+    public boolean isStopRequested() {
+        return stopRequestedAt != null;
     }
 
     public void fail(String reason) {

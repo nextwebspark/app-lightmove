@@ -12,7 +12,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record ExecutiveSourcingSettings(
 
         /** Companies one run may take; the screen offers that many when nothing is ticked. */
-        @DefaultValue("5") int maxCompaniesPerRun,
+        @DefaultValue("10") int maxCompaniesPerRun,
 
         /** Live profiles bought per company at most, the role's own level first. */
         @DefaultValue("3") int profilesPerCompany,

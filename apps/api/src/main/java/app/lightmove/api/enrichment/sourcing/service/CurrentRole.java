@@ -1,25 +1,21 @@
 package app.lightmove.api.enrichment.sourcing.service;
 
-import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataExperience;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataPosition;
 import app.lightmove.api.enrichment.sourcing.constant.TitleLevel;
-import app.lightmove.api.enrichment.sourcing.model.SearchWords;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
- * Orders a company's hits best fit first, since no vendor sends a relevance order: by the current role's
- * title, less the employer's name — a function word first, then its level against the brief's seat.
+ * The job a person holds now, read from their record as every index spells it — the open role, less the
+ * employer's name — and the level its title reads at.
  */
-final class SourcedHitRanking {
+final class CurrentRole {
 
     /** Where a title stops naming the job and starts naming the employer: "CFO @ X", "CFO at X", "CFO | X". */
     private static final Pattern AT_EMPLOYER = Pattern.compile("\\s+(?:@|at|\\|)\\s+", Pattern.CASE_INSENSITIVE);
@@ -37,34 +33,12 @@ final class SourcedHitRanking {
     private static final Set<String> MANAGER_WORDS = Set.of("manager", "lead", "principal");
     private static final Set<String> STEP_DOWN_WORDS = Set.of("deputy", "assistant", "associate");
 
-    private SourcedHitRanking() {
+    private CurrentRole() {
     }
 
-    static List<BrightDataPerson> ranked(List<BrightDataPerson> hits, SearchWords words, Seniority seat) {
-        TitleLevel wanted = TitleLevel.ofSeat(seat);
-        List<RankedHit> scored = IntStream.range(0, hits.size())
-                .mapToObj(index -> rankedHit(hits.get(index), index, words, wanted))
-                .toList();
-        return scored.stream()
-                .sorted(Comparator.comparing(RankedHit::functionFits).reversed()
-                        .thenComparingInt(RankedHit::distance)
-                        .thenComparing(RankedHit::level, Comparator.reverseOrder())
-                        .thenComparingInt(RankedHit::vendorOrder))
-                .map(RankedHit::person)
-                .toList();
-    }
-
-    private static RankedHit rankedHit(BrightDataPerson person, int vendorOrder, SearchWords words,
-                                       TitleLevel wanted) {
-        String title = currentRole(person);
-        TitleLevel level = levelOf(title);
-        boolean functionFits = TitleWords.namesFunction(title, words);
-        return new RankedHit(person, functionFits, level.distanceTo(wanted), level, vendorOrder);
-    }
-
-    /** The job held now, less the employer's name: what a hit is ranked and judged by. */
-    static String currentRole(BrightDataPerson person) {
-        return roleOnly(currentRoleTitle(person), employerNameOf(person));
+    /** The job held now, less the employer's name: what a person is judged and scored by. */
+    static String of(BrightDataPerson person) {
+        return roleOnly(titleOf(person), employerNameOf(person));
     }
 
     /**
@@ -72,7 +46,7 @@ final class SourcedHitRanking {
      * when the company groups several — falling back to the headline when the record has none, or has
      * it masked.
      */
-    static String currentRoleTitle(BrightDataPerson person) {
+    static String titleOf(BrightDataPerson person) {
         List<BrightDataExperience> experience = person.experience() == null ? List.of() : person.experience();
         for (BrightDataExperience entry : experience) {
             if (entry == null || !isOpen(entry.endDate())) {
@@ -150,6 +124,4 @@ final class SourcedHitRanking {
         return title != null && !title.isBlank() && !title.contains("*");
     }
 
-    private record RankedHit(BrightDataPerson person, boolean functionFits, int distance, TitleLevel level,
-                             int vendorOrder) {}
 }

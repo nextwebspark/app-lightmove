@@ -31,6 +31,11 @@ public class UnconfiguredLiveProfiles implements LiveProfiles {
     }
 
     @Override
+    public long countAcross(List<SearchedEmployer> employers, SearchWords words, List<String> countryCodes) {
+        return 0;
+    }
+
+    @Override
     public BrightDataPeopleHits search(SearchedEmployer employer, TitleTier tier, List<String> countryCodes,
                                        int size) {
         return BrightDataPeopleHits.of(List.of(), 0L);

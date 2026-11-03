@@ -1,12 +1,14 @@
 package app.lightmove.api.enrichment.sourcing.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataExperience;
+import app.lightmove.api.enrichment.sourcing.constant.FoundBy;
 import app.lightmove.api.enrichment.sourcing.constant.SearchLevel;
 import app.lightmove.api.enrichment.sourcing.constant.TitleCheck;
 import app.lightmove.api.enrichment.sourcing.model.FoundPeople;
@@ -15,7 +17,6 @@ import app.lightmove.api.enrichment.sourcing.model.SearchWords;
 import app.lightmove.api.enrichment.sourcing.model.SearchedEmployer;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +38,7 @@ class CompanySearchIntegrationTest {
             List.of("Finance", "Financial", "Treasury", "Tax", "Audit"), List.of("CFO"), List.of(),
             List.of("Assistant"), List.of(), "The group's finance chief.");
     private static final List<String> UAE = List.of("AE");
+    private static final int PROFILES = 3;
 
     @Autowired private CompanySearch search;
     @Autowired private RecordingLiveProfiles live;
@@ -62,7 +64,7 @@ class CompanySearchIntegrationTest {
                 harbour.titled("finance-manager", "Finance Manager"),
                 harbour.titled("audit-head", "Head of Audit")));
 
-        FoundPeople found = search.search(employer(harbour.company()), FINANCE, Seniority.C_SUITE, UAE, Set.of());
+        FoundPeople found = search.search(employer(harbour.company()), FINANCE, Seniority.C_SUITE, UAE, PROFILES);
 
         assertThat(live.searches()).extracting(RecordingLiveProfiles.Searched::size).containsExactly(2, 1);
         assertThat(live.searches().getFirst().tier().include().levels())
@@ -73,7 +75,7 @@ class CompanySearchIntegrationTest {
             assertThat(person.check()).isEqualTo(TitleCheck.LIVE_TITLE);
             assertThat(person.provider()).isEqualTo("contactout");
         });
-        assertThat(found.credits()).isEqualTo(properties.enrichment().sourcing().profilesPerCompany());
+        assertThat(found.credits()).isEqualTo(PROFILES);
         assertThat(found.matched()).isEqualTo(4);
     }
 
@@ -84,14 +86,14 @@ class CompanySearchIntegrationTest {
         live.answerWith(cedar.company(), List.of(
                 cedar.titled("the-cfo", "Chief Financial Officer"),
                 cedar.titled("finance-manager", "Finance Manager")));
-        FoundPeople first = search.search(employer(cedar.company()), FINANCE, Seniority.C_SUITE, UAE, Set.of());
+        FoundPeople first = search.search(employer(cedar.company()), FINANCE, Seniority.C_SUITE, UAE, PROFILES);
         assertThat(first.credits()).isEqualTo(2);
 
-        FoundPeople again = search.search(employer(cedar.company()), FINANCE, Seniority.C_SUITE, UAE, Set.of());
+        FoundPeople again = search.search(employer(cedar.company()), FINANCE, Seniority.C_SUITE, UAE, PROFILES);
         SearchWords reworded = new SearchWords(FINANCE.levels(), FINANCE.functionTerms(), FINANCE.standaloneTitles(),
                 List.of(), List.of("Assistant", "Intern"), List.of(), null);
         FoundPeople otherQuestion = search.search(employer(cedar.company()), reworded, Seniority.C_SUITE, UAE,
-                Set.of());
+                PROFILES);
 
         assertThat(live.searches()).hasSize(2);
         assertThat(index.searches()).as("the profile index's answer is kept too").hasSize(2);
@@ -116,7 +118,7 @@ class CompanySearchIntegrationTest {
                 dune.titled("tax-head", "Group Head of Tax"),
                 dune.untitled("the-cfo", "The CFO")));
 
-        FoundPeople found = search.search(employer(dune.company()), FINANCE, Seniority.C_SUITE, UAE, Set.of());
+        FoundPeople found = search.search(employer(dune.company()), FINANCE, Seniority.C_SUITE, UAE, PROFILES);
 
         assertThat(checksBySlug(found)).isEqualTo(Map.of(
                 "the-cfo", TitleCheck.LIVE_TITLE,
@@ -134,18 +136,19 @@ class CompanySearchIntegrationTest {
     }
 
     @Test
-    @DisplayName("someone the mandate holds is never returned, whichever index found them, and is counted once")
-    void heldPeopleAreLeftOut() {
+    @DisplayName("someone both indexes found is one person, found by both, with the live record standing")
+    void bothIndexesFindOnePerson() {
         Staff eastgate = new Staff("eastgate");
         live.answerWith(eastgate.company(), List.of(eastgate.titled("the-cfo", "Chief Financial Officer")));
         index.answerWith(eastgate.company(), List.of(eastgate.untitled("the-cfo", "The CFO"),
                 eastgate.titled("other", "Finance Director")));
 
-        FoundPeople found = search.search(employer(eastgate.company()), FINANCE, Seniority.C_SUITE, UAE,
-                Set.of("The-CFO"));
+        FoundPeople found = search.search(employer(eastgate.company()), FINANCE, Seniority.C_SUITE, UAE, PROFILES);
 
-        assertThat(slugs(found)).containsExactly("other");
-        assertThat(found.held()).isEqualTo(1);
+        assertThat(found.people()).extracting(FoundPerson::slug, FoundPerson::foundBy, FoundPerson::check)
+                .containsExactly(tuple("the-cfo", FoundBy.BOTH, TitleCheck.LIVE_TITLE),
+                        tuple("other", FoundBy.INDEX, TitleCheck.INDEX_TITLE));
+        assertThat(live.titleChecks()).isEmpty();
     }
 
     @Test
@@ -156,7 +159,7 @@ class CompanySearchIntegrationTest {
         index.answerWith(fernhill.company(), List.of(fernhill.titled("director", "Finance Director"),
                 fernhill.untitled("someone", "Someone")));
 
-        FoundPeople found = search.search(employer(fernhill.company()), FINANCE, Seniority.C_SUITE, UAE, Set.of());
+        FoundPeople found = search.search(employer(fernhill.company()), FINANCE, Seniority.C_SUITE, UAE, PROFILES);
 
         assertThat(checksBySlug(found)).isEqualTo(Map.of(
                 "director", TitleCheck.INDEX_TITLE, "someone", TitleCheck.UNCONFIRMED));
@@ -173,7 +176,7 @@ class CompanySearchIntegrationTest {
                 .mapToObj(number -> granite.untitled("person-" + number, "Person " + number))
                 .toList());
 
-        FoundPeople found = search.search(employer(granite.company()), FINANCE, Seniority.C_SUITE, UAE, Set.of());
+        FoundPeople found = search.search(employer(granite.company()), FINANCE, Seniority.C_SUITE, UAE, PROFILES);
 
         assertThat(live.titleChecks()).hasSize(allowance);
         assertThat(found.people()).hasSize(allowance + 5)

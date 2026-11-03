@@ -150,6 +150,33 @@ public class CachedPeopleStore {
         return Optional.of(BrightDataPeopleHits.of(ordered, totalHits));
     }
 
+    /** These people as the cache holds them while fresh, with the provider each came from, by lower-cased slug. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public Map<String, OnFile> peopleOf(Collection<String> linkedinSlugs, Instant freshAfter) {
+        if (linkedinSlugs.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, OnFile> bySlug = new HashMap<>();
+        jdbc.query(con -> {
+            PreparedStatement ps = con.prepareStatement("""
+                    SELECT linkedin_slug, provider, raw FROM app_lm_vendor_person
+                    WHERE linkedin_slug = ANY (?) AND fetched_at > ?
+                    """);
+            ps.setArray(1, con.createArrayOf("text", linkedinSlugs.stream().map(CachedPeopleStore::key)
+                    .toArray(String[]::new)));
+            ps.setTimestamp(2, Timestamp.from(freshAfter));
+            return ps;
+        }, rs -> {
+            String slug = rs.getString("linkedin_slug");
+            String provider = rs.getString("provider");
+            personOf(rs.getString("raw")).ifPresent(person -> bySlug.put(slug, new OnFile(person, provider)));
+        });
+        return bySlug;
+    }
+
+    /** A person on file and the provider whose record it is. */
+    public record OnFile(BrightDataPerson person, String provider) {}
+
     /** The providers' own records of these people, by slug, where one was kept and is still fresh. */
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
     public Map<String, String> sourceRecordsOf(Collection<String> linkedinSlugs, Instant freshAfter) {

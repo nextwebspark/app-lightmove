@@ -243,6 +243,7 @@ public class AuditLogPhrasing {
         on(ProjectEventType.CANDIDATE_CONTACT_LOOKED_UP, line -> "Looked up a candidate's contact details");
         on(ProjectEventType.EXECUTIVE_SOURCING_REQUESTED, line -> "Ran Find executives");
         on(ProjectEventType.EXECUTIVE_SOURCING_COMPLETED, line -> "Find executives finished");
+        on(ProjectEventType.EXECUTIVE_SOURCING_ADDED, line -> "Added executives Find executives found");
         on(ProjectEventType.PEOPLE_SEARCH_PAGE_FETCHED, line -> "Searched for people");
         on(ProjectEventType.ASSISTANT_ASKED, line -> "Asked the assistant");
         on(ProjectEventType.SPREADSHEET_IMPORTED, line -> "Imported a spreadsheet");

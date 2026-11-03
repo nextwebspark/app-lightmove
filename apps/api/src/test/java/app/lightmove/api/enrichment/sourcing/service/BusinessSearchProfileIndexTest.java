@@ -71,7 +71,7 @@ class BusinessSearchProfileIndexTest {
             assertThat(role.startDate()).isEqualTo("Mar 2025");
             assertThat(role.endDate()).isEqualTo("Present");
         });
-        assertThat(SourcedHitRanking.currentRole(person)).isEqualTo("Director of Development");
+        assertThat(CurrentRole.of(person)).isEqualTo("Director of Development");
         assertThat(hits.sourceRecordOf(0)).contains("\"current_tenure_months\":20");
     }
 
@@ -87,7 +87,7 @@ class BusinessSearchProfileIndexTest {
         assertThat(hits.hits()).singleElement().satisfies(person -> {
             assertThat(person.linkedinId()).isEqualTo("untitled");
             assertThat(person.experience()).isEmpty();
-            assertThat(SourcedHitRanking.currentRole(person)).isEmpty();
+            assertThat(CurrentRole.of(person)).isEmpty();
             assertThat(person.usableAvatarUrl()).isNull();
         });
         assertThat(hits.totalHits()).isNull();

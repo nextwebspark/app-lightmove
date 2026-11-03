@@ -433,7 +433,7 @@ lightmove:
     # mapping (docs/find-executives.md), that found nearly as many as buying every match. Searched: the
     # position's country, the Gulf neighbours and each company's own country.
     sourcing:
-      max-companies-per-run: ${SOURCING_MAX_COMPANIES_PER_RUN:5}
+      max-companies-per-run: ${SOURCING_MAX_COMPANIES_PER_RUN:10}
       profiles-per-company: ${SOURCING_PROFILES_PER_COMPANY:3}
       picks-per-company: ${SOURCING_PICKS_PER_COMPANY:3}
       index-people-per-company: ${SOURCING_INDEX_PEOPLE_PER_COMPANY:100}
