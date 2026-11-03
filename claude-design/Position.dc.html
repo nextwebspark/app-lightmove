@@ -1071,6 +1071,8 @@
           </div>
           <sc-if value="{{ canWrite }}" hint-placeholder-val="{{ true }}">
             <span style="display:flex;flex:none;align-items:center;gap:8px">
+              <!-- Find executives for this company alone: the toolbar's panel (FindExecutives.dc.html), scoped. -->
+              <sc-if value="{{ co.canFind }}"><a href="FindExecutives.dc.html?screen=drawer-panel" style="display:flex;align-items:center;gap:8px;border-radius:6px;border:none;background:var(--amber-btn);padding:10px 14px;font:600 13.5px var(--sans);color:var(--on-amber);white-space:nowrap" style-hover="background:var(--u-accent-solid-hover)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ ic.search }}"></path></svg>Find executives</a></sc-if>
               <button style="display:flex;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 14px;font:500 13.5px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ ic.userPlus }}"></path></svg>Add executive</button>
               <sc-if value="{{ co.noExec }}"><span title="Researched — nobody suitable found. Adding an executive here clears this." style="font:400 11px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">No executive found</span></sc-if>
               <sc-if value="{{ co.canMarkNoExec }}"><button onClick="{{ markNoExec }}" data-id="{{ co.id }}" style="display:flex;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 14px;font:500 13.5px var(--sans);color:var(--text2);cursor:pointer;white-space:nowrap" style-hover="border-color:var(--text3);color:var(--text)">No executive found</button></sc-if>
@@ -3549,7 +3551,7 @@ class Component extends DCLogic {
       seqTitle: view === "map" ? "Add to sequence from Table or Pipeline" : seqOff ? (view === "pipeline" ? "Tick executives on the board first" : "Tick companies first") : `Add the ${ticked} ticked to a sequence`,
       emailBtnStyle: OUTLINE(false),
       findDisabled: view === "pipeline", findBtnStyle: FILLED(view === "pipeline"), findBtnHover: view === "pipeline" ? "" : "background:var(--u-accent-solid-hover)",
-      findTitle: view === "pipeline" ? "Find executives from Table, where companies are ticked" : "Find executives at the ticked companies, or at the first 5 with nobody mapped",
+      findTitle: view === "pipeline" ? "Find executives from Table, where companies are ticked" : "Find executives at the ticked companies, or at the first 10 with nobody mapped",
       addCoDisabled: view === "pipeline",
       addCoItemStyle: `display:flex;width:100%;align-items:flex-start;gap:10px;padding:7px 8px;border-radius:6px;border:none;background:none;text-align:left;font:500 13px var(--sans);color:${view === "pipeline" ? "var(--text3)" : "var(--text2)"};cursor:${view === "pipeline" ? "default" : "pointer"};opacity:${view === "pipeline" ? 0.6 : 1}`,
       addCoItemHover: view === "pipeline" ? "" : "background:var(--panel2);color:var(--text)",
@@ -3692,7 +3694,7 @@ class Component extends DCLogic {
       id: c.id, name: c.name, logo: c.name[0], slotId: "company-drawer-" + c.id, web: c.web, li: c.li,
       sourceLabel: src.label, sourceStyle: `${DPILL}color:${src.fg};background:${src.bg}`,
       stageLabel: STAGES[st].label, context: [c.industry, c.city, c.country].filter(Boolean).join(" · ") || "Nothing recorded about where it sits",
-      noExec: cw && noExec, canMarkNoExec: cw && !noExec, canEdit: cw && !c.apollo,
+      noExec: cw && noExec, canMarkNoExec: cw && !noExec, canEdit: cw && !c.apollo, canFind: cw && st === "u",
       about: c.desc || "No description was captured for this company.",
       scale: [lbl("Revenue", c.revenue == null ? null : money(c.revenue)), lbl("Employees", c.employees == null ? null : c.employees.toLocaleString("en-US")), lbl("Founded", c.founded ? String(c.founded) : null), lbl("Sector", c.industry)],
       mandate: [lbl("Stage", STAGES[st].label), lbl("Source", src.label), lbl("Added", dateGB(c.added)), lbl("Country", c.country)],
@@ -4481,7 +4483,7 @@ class Component extends DCLogic {
       closeAdv: () => set({ advOpen: false, advPanel: "menu" }),
       advBack: () => set({ advPanel: "menu" }),
       addCompany: () => { if (this.currentView() === "pipeline") return; set({ createOpen: false }); this.showToast("Opens the company drawer to add one"); },
-      findExecutives: () => this.currentView() === "pipeline" ? null : this.showToast("Find executives — opens the run dialog for the ticked companies, or the first 5 with nobody mapped"),
+      findExecutives: () => { if (this.currentView() !== "pipeline") location.href = "FindExecutives.dc.html?screen=search"; },
       advAction: (e) => {
         const key = id(e);
         const item = this.advancedItems().find((x) => x.key === key);
