@@ -518,6 +518,132 @@
           </div>
         </sc-if>
 
+        <!-- PLATFORM · VARIABLES -->
+        <sc-if value="{{ isPlatformVariables }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Variables">
+            <div style="margin-bottom:18px;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px">
+              <div style="min-width:0;flex:1">
+                <div style="font:600 19px/1.25 var(--sans)">Variables</div>
+                <div style="margin-top:4px;max-width:620px;font:400 12px/1.5 var(--mono);color:var(--text3)">Limits and model settings every workspace runs on. A changed value applies everywhere within 30 seconds, or at once with Refresh. Only the values listed here can be changed from this page.</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <span title="{{ pcVersionTitle }}" style="font:400 11.5px var(--mono);color:var(--text3)">{{ pcVersionLabel }}</span>
+                <button onClick="{{ pcRefresh }}" style="display:flex;align-items:center;gap:8px;border-radius:6px;padding:8px 14px;font:500 13px var(--sans);background:var(--panel2);border:1px solid var(--line);color:var(--text);cursor:pointer" style-hover="border-color:var(--text3)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"></path></svg>Refresh</button>
+              </div>
+            </div>
+            <sc-for list="{{ pvGroups }}" as="g" hint-placeholder-count="6">
+              <div style="margin-bottom:16px">
+                <div style="margin:0 2px 8px;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">{{ g.label }}</div>
+                <div style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:0 16px">
+                  <sc-for list="{{ g.rows }}" as="v" hint-placeholder-count="3">
+                    <div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px;border-bottom:1px solid var(--line-soft);padding:12px 0">
+                      <div style="min-width:220px;flex:1">
+                        <div style="font:500 13.5px var(--sans);color:var(--text)">{{ v.label }}</div>
+                        <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ v.key }}</div>
+                        <div style="margin-top:4px;max-width:460px;font:400 12px/1.45 var(--sans);color:var(--text2)">{{ v.description }}</div>
+                      </div>
+                      <div style="width:220px;flex:none">
+                        <sc-if value="{{ v.editing }}">
+                          <input value="{{ pvDraft }}" onChange="{{ onPvDraft }}" aria-label="{{ v.label }}" style="{{ v.inputStyle }}">
+                          <sc-if value="{{ v.error }}"><span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--red)">{{ v.error }}</span></sc-if>
+                          <span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--text3)">{{ v.range }}</span>
+                        </sc-if>
+                        <sc-if value="{{ v.reading }}">
+                          <div style="font:500 13.5px var(--mono);color:var(--text)">{{ v.value }}</div>
+                          <div style="margin-top:3px;font:400 11px var(--mono);color:var(--text3)">Default {{ v.defaultValue }}</div>
+                          <sc-if value="{{ v.overridden }}"><div style="margin-top:3px;font:400 11px var(--mono);color:var(--u-accent)">{{ v.changedBy }}</div></sc-if>
+                        </sc-if>
+                      </div>
+                      <span style="width:150px;flex:none;display:flex;justify-content:flex-end;gap:4px">
+                        <sc-if value="{{ v.editing }}">
+                          <button onClick="{{ pvCancel }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Cancel</button>
+                          <button onClick="{{ pvSave }}" data-key="{{ v.key }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer">Save</button>
+                        </sc-if>
+                        <sc-if value="{{ v.reading }}">
+                          <sc-if value="{{ v.overridden }}"><button onClick="{{ pvReset }}" data-key="{{ v.key }}" title="Use the default again" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Reset</button></sc-if>
+                          <button onClick="{{ pvEdit }}" data-key="{{ v.key }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Edit</button>
+                        </sc-if>
+                      </span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+            <p style="margin:4px 2px 0;max-width:620px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">Keys, secrets and sign-in settings are never listed here. Reset goes back to the value Uncava started with.</p>
+          </div>
+        </sc-if>
+
+        <!-- PLATFORM · PROMPTS -->
+        <sc-if value="{{ isPlatformPrompts }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Prompts">
+            <div style="margin-bottom:18px;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px">
+              <div style="min-width:0;flex:1">
+                <div style="font:600 19px/1.25 var(--sans)">Prompts</div>
+                <div style="margin-top:4px;max-width:620px;font:400 12px/1.5 var(--mono);color:var(--text3)">The instructions each AI feature sends the model. A saved prompt is used from the next AI call, on every workspace. The shipped prompt is always one click away.</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <span title="{{ pcVersionTitle }}" style="font:400 11.5px var(--mono);color:var(--text3)">{{ pcVersionLabel }}</span>
+                <button onClick="{{ pcRefresh }}" style="display:flex;align-items:center;gap:8px;border-radius:6px;padding:8px 14px;font:500 13px var(--sans);background:var(--panel2);border:1px solid var(--line);color:var(--text);cursor:pointer" style-hover="border-color:var(--text3)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"></path></svg>Refresh</button>
+              </div>
+            </div>
+            <div style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:0 16px">
+              <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line-soft);font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">
+                <span style="flex:1;min-width:0">Prompt</span>
+                <span style="width:120px">Status</span>
+                <span style="width:190px;text-align:right">Last changed</span>
+              </div>
+              <sc-for list="{{ ppRows }}" as="p" hint-placeholder-count="10">
+                <button onClick="{{ ppOpen }}" data-id="{{ p.id }}" style="display:flex;width:100%;align-items:center;gap:12px;border:none;border-bottom:1px solid var(--line-soft);background:none;padding:11px 0;text-align:left;cursor:pointer" style-hover="background:var(--panel)">
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font:500 13.5px var(--sans);color:var(--text)">{{ p.label }}</span>
+                    <span style="display:block;margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ p.id }}</span>
+                  </span>
+                  <span style="width:120px;flex:none"><span style="{{ p.statusStyle }}">{{ p.status }}</span></span>
+                  <span style="width:190px;flex:none;text-align:right;font:400 12px var(--mono);color:var(--text3)">{{ p.changed }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <p style="margin:12px 2px 0;max-width:620px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">Contacts, pay and custom fields are taken out before anything reaches the model, whatever a prompt says. Answer formats are fixed in code and cannot be changed here.</p>
+          </div>
+        </sc-if>
+
+        <!-- PLATFORM · PROMPT EDITOR -->
+        <sc-if value="{{ isPromptEditor }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Prompt editor">
+            <button onClick="{{ ppBack }}" style="margin-bottom:12px;display:flex;align-items:center;gap:6px;padding:0;font:500 12.5px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"></path></svg>Prompts</button>
+            <div style="margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px">
+              <div style="min-width:0;flex:1">
+                <div style="display:flex;align-items:center;gap:10px"><span style="font:600 19px/1.25 var(--sans)">{{ peLabel }}</span><span style="{{ peStatusStyle }}">{{ peStatus }}</span></div>
+                <div style="margin-top:4px;font:400 11.5px var(--mono);color:var(--text3)">{{ peId }}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <sc-if value="{{ peOverridden }}"><button onClick="{{ peRevert }}" style="border-radius:6px;padding:8px 14px;font:500 13px var(--sans);background:var(--panel2);border:1px solid var(--line);color:var(--text);cursor:pointer" style-hover="border-color:var(--text3)">Revert to shipped</button></sc-if>
+                <button onClick="{{ peSave }}" style="{{ peSaveStyle }}">Save</button>
+              </div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+              <div style="min-width:320px;flex:1">
+                <textarea value="{{ peDraft }}" onChange="{{ onPeDraft }}" aria-label="Prompt text" spellcheck="false" style="{{ peTextareaStyle }}"></textarea>
+                <sc-if value="{{ peError }}"><span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--red)">{{ peError }}</span></sc-if>
+                <span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--text3)">{{ pePlaceholderHint }}</span>
+              </div>
+              <div style="width:260px;flex:none;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:4px 14px">
+                <div style="padding:10px 0 6px;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">Versions</div>
+                <sc-for list="{{ peVersions }}" as="ver" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:8px;border-top:1px solid var(--line-soft);padding:9px 0">
+                    <span style="min-width:0;flex:1">
+                      <span style="display:block;font:500 12.5px var(--sans);color:var(--text)">{{ ver.label }}</span>
+                      <span style="display:block;margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ ver.meta }}</span>
+                    </span>
+                    <sc-if value="{{ ver.active }}"><span style="font:500 11px var(--mono);color:var(--u-accent)">In use</span></sc-if>
+                    <sc-if value="{{ ver.restorable }}"><button onClick="{{ peRestore }}" data-version="{{ ver.version }}" style="border-radius:5px;padding:3px 8px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Restore</button></sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
         <sc-if value="{{ isTaskPresets }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="Task presets">
             <div style="margin-bottom:18px;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px">
@@ -2097,7 +2223,7 @@ class Component extends DCLogic {
     this.DISC_ORDER = Object.keys(this.DISC);
     this.SEN = { BOARD: 'Board', C_SUITE: 'C-Suite', N_MINUS_1: 'N-1', N_MINUS_2: 'N-2', N_MINUS_3: 'N-3' };
     this.SEN_ORDER = Object.keys(this.SEN);
-    this.LABELS = { 'api-keys': 'API keys', 'ai-apps': 'Connected AI apps', 'candidate-tags': 'Candidate tags', 'task-presets': 'Task presets', notifications: 'Notifications', 'pipeline-stages': 'Pipeline stages', integrations: 'Integrations', profile: 'Profile', availability: 'Availability', meetings: 'Meetings & email', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library' };
+    this.LABELS = { 'api-keys': 'API keys', 'ai-apps': 'Connected AI apps', 'candidate-tags': 'Candidate tags', 'task-presets': 'Task presets', notifications: 'Notifications', 'pipeline-stages': 'Pipeline stages', integrations: 'Integrations', profile: 'Profile', availability: 'Availability', meetings: 'Meetings & email', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library', 'platform-variables': 'Variables', 'platform-prompts': 'Prompts', 'platform-prompt-editor': 'Prompts' };
 
     const t = (code, title, discipline, seniority, summary, keywords, extra) => Object.assign({ code, title, discipline, seniority, summary, keywords, fallback: false, copies: 0, revisedAt: '02 Sep 2026', revisedBy: null }, extra || {});
     this.library = [
@@ -2186,6 +2312,48 @@ class Component extends DCLogic {
       ctags: [['openWork', 'Open to work', 'green', 4], ['relocate', 'Open to relocate', 'accent', 4], ['passive', 'Passive', 'neutral', 2], ['referral', 'Referral', 'violet', 2], ['prior', 'Prior placement', 'adjacent', 1], ['interviewed', 'Interviewed before', 'inferred', 1], ['boardReady', 'Board-ready', 'neutral', 0, true]]
         .map(([id, label, colour, count, retired]) => ({ id, label, colour, count, retired: !!retired })),
       ctNew: '', ctEditing: null, ctDraft: '',
+      pcVersion: 14, pcLoaded: 14,
+      pvars: [
+        ['Find executives', 'enrichment.sourcing.max-companies-per-run', 'Companies per run', 'How many companies one Find executives press searches when none are ticked.', 'int', 1, 25, 5, null],
+        ['Find executives', 'enrichment.sourcing.hits-per-company', 'People asked per company', 'Profiles one search asks the index for at each company. Every returned profile is billed.', 'int', 1, 25, 10, null],
+        ['Find executives', 'enrichment.sourcing.picks-per-company', 'People filed per company', 'The best-ranked hits filed at each company. Never more than the people asked per company.', 'int', 1, 10, 3, [4, 'Lina Haddad', '28 Oct 2026']],
+        ['Find executives', 'enrichment.sourcing.max-search-rounds', 'Search rounds', 'How many times a company that found nobody is searched again with other title words.', 'int', 1, 5, 3, null],
+        ['Fair use per seat, each month', 'billing.fair-use.people-search-page-per-seat', 'People search pages', 'Pages of Strategy → People a workspace may read per staff seat. 0 is no ceiling.', 'long', 0, 1000000, 20000, null],
+        ['Fair use per seat, each month', 'billing.fair-use.sourcing-run-per-seat', 'Executives found', 'Executives Find executives may file per staff seat. 0 is no ceiling.', 'long', 0, 1000000, 2000, null],
+        ['Fair use per seat, each month', 'billing.fair-use.ai-enrich-per-seat', 'AI suggestions', 'Suggest with AI and Assess with AI presses per staff seat. 0 is no ceiling.', 'long', 0, 1000000, 2000, null],
+        ['Fair use per seat, each month', 'billing.fair-use.outreach-opener-per-seat', 'Outreach openers', 'People an opener may be written for per staff seat. 0 is no ceiling.', 'long', 0, 1000000, 5000, null],
+        ['Fair use per seat, each month', 'billing.fair-use.assistant-ask-per-seat', 'Assistant questions', 'Questions the assistant may answer per staff seat. 0 is no ceiling.', 'long', 0, 1000000, 1500, [2500, 'Lina Haddad', '30 Oct 2026']],
+        ['Trial', 'billing.trial.credits', 'Trial credits', 'Contact credits a new workspace starts its trial with.', 'int', 0, 1000, 50, null],
+        ['Trial', 'billing.trial.length', 'Trial length', 'How long a new workspace trial lasts, in days (14d).', 'duration', 1, 90, '14d', null],
+        ['Exports', 'export.max-companies', 'Companies per export', 'An export with more companies than this is refused rather than cut short.', 'int', 1, 100000, 5000, null],
+        ['Exports', 'export.max-candidates', 'Candidates per export', 'An export with more candidates than this is refused rather than cut short.', 'int', 1, 100000, 10000, null],
+        ['Exports', 'export.max-audit-events', 'Audit log rows per export', 'An audit log export with more rows than this is refused.', 'int', 1, 100000, 10000, null],
+        ['Connected AI apps', 'mcp.max-result-chars', 'Characters per answer', 'An AI app gets a page cut at this many characters, and reads on from the next row.', 'int', 10000, 400000, 90000, null],
+        ['Assistant', 'assistant.model', 'Model', 'The Gemini model the assistant answers with.', 'model', 0, 0, 'gemini-3.5-flash-lite', null],
+        ['Assistant', 'assistant.temperature', 'Temperature', 'How varied the assistant answers are, from 0.0 to 1.0.', 'double', 0, 1, 0.2, null],
+        ['Assistant', 'assistant.thinking-budget', 'Thinking budget', 'Tokens the model may spend reasoning before it answers.', 'int', 0, 8192, 512, null],
+      ].map(([group, key, label, description, type, min, max, dflt, ov]) => ({ group, key, label, description, type, min, max, dflt, value: ov ? ov[0] : dflt, by: ov ? ov[1] : null, on: ov ? ov[2] : null })),
+      pvEditing: null, pvDraft: '', pvError: '',
+      pprompts: [
+        ['assistant-core', 'Assistant', ['hiring', 'brief'], [[1, 'Lina Haddad', '21 Oct 2026'], [2, 'Lina Haddad', '29 Oct 2026']], 2],
+        ['candidate-ai-enrich', 'Suggest background', [], [], null],
+        ['candidate-nationality', 'Nationality reading', [], [], null],
+        ['candidate-scorecard-draft', 'Assess with AI', [], [[1, 'Omar Saleh', '27 Oct 2026']], 1],
+        ['call-changes', 'Suggest changes from a call', [], [], null],
+        ['executive-sourcing-spec', 'Find executives: title words', [], [], null],
+        ['executive-sourcing-refine', 'Find executives: another round', [], [], null],
+        ['import-column-mapping', 'Spreadsheet columns', [], [], null],
+        ['interview-coach', 'Live copilot', [], [], null],
+        ['interview-plan', 'Prepare questions', [], [], null],
+        ['meeting-summary', 'Call notes', [], [], null],
+        ['outreach-opener', 'Outreach opener', [], [[1, 'Omar Saleh', '12 Oct 2026']], null],
+        ['position-extract-details', 'Position description: role', [], [], null],
+        ['position-extract-context', 'Position description: context', [], [], null],
+        ['position-extract-reporting', 'Position description: reporting', [], [], null],
+        ['position-extract-assessment', 'Position description: assessment', [], [], null],
+        ['recruiter-shortlist', 'Candidate shortlist', [], [], null],
+      ].map(([id, label, vars, versions, active]) => ({ id, label, vars, versions: versions.map(([version, by, on]) => ({ version, by, on })), active })),
+      ppEditing: null, peDraft: '', peError: '',
       tpresets: [
         ['qualify', 'Call to qualify interest', 'CALL', '1', 42], ['followUpEmail', 'Send follow-up email', 'EMAIL', '2', 31],
         ['scheduleCall', 'Schedule a call', 'MEETING', '1', 27], ['referenceCheck', 'Reference check', 'TODO', '5', 12],
@@ -2663,11 +2831,11 @@ class Component extends DCLogic {
     const isAdmin = props.isAdmin !== false, superAdmin = props.superAdmin !== false;
     let sec = st.section;
     if (!isAdmin && ['general', 'members', 'candidate-tags', 'task-presets', 'templates', 'template-editor'].includes(sec)) sec = 'profile';
-    if (!superAdmin && ['library', 'library-editor'].includes(sec)) sec = 'profile';
+    if (!superAdmin && ['library', 'library-editor', 'platform-variables', 'platform-prompts', 'platform-prompt-editor'].includes(sec)) sec = 'profile';
     const scope = this.scopeOf(sec);
     const isTplList = sec === 'templates' || sec === 'library';
     const isEditor = sec === 'template-editor' || sec === 'library-editor';
-    const activeKey = sec === 'template-editor' ? 'templates' : sec === 'library-editor' ? 'library' : sec;
+    const activeKey = sec === 'template-editor' ? 'templates' : sec === 'library-editor' ? 'library' : sec === 'platform-prompt-editor' ? 'platform-prompts' : sec;
     const c = st.collapsed;
 
     const item = (key, label, icon) => {
@@ -2678,7 +2846,7 @@ class Component extends DCLogic {
     const navGroups = [{ label: 'Account', items: [item('profile', 'Profile', I.profile), item('notifications', 'Notifications', 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0'), item('availability', 'Availability', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z'), item('security', 'Security', I.lock), item('workspaces', 'Workspaces', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'), item('api-keys', 'API keys', I.key), item('ai-apps', 'Connected AI apps', I.sparkle)] }];
     if (isAdmin) navGroups.push({ label: 'Workspace', items: [item('general', 'General', I.settings), item('meetings', 'Meetings & email', 'M12 6v6l4 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z'), item('members', 'Members', I.members), item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('candidate-tags', 'Candidate tags', 'M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4ZM7.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z'), item('task-presets', 'Task presets', 'M3 5l2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8'), item('pipeline-stages', 'Pipeline stages', I.columns), item('integrations', 'Integrations', 'M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8ZM12 18v4'), item('templates', 'Templates', I.file)] });
     else navGroups.push({ label: 'Workspace', items: [item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('pipeline-stages', 'Pipeline stages', I.columns)] });
-    if (superAdmin) navGroups.push({ label: 'Platform', items: [item('library', 'Template library', I.position)] });
+    if (superAdmin) navGroups.push({ label: 'Platform', items: [item('library', 'Template library', I.position), item('platform-variables', 'Variables', 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6'), item('platform-prompts', 'Prompts', 'M4 17l6-6-6-6M12 19h8')] });
 
     const inputStyle = (err, bg) => 'width:100%;border-radius:6px;border:1px solid ' + (err ? 'var(--red)' : 'var(--line)') + ';background:' + (bg || 'var(--panel)') + ';padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none';
     const primary = (disabled) => 'display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:' + (disabled ? 'not-allowed;opacity:.5' : 'pointer');
@@ -3120,6 +3288,41 @@ class Component extends DCLogic {
       importSummary: summary, importInvalid: invalid, importBlocked: blocked,
       importButtonLabel: blocked ? 'Import' : 'Import ' + toWrite + ' template' + (toWrite === 1 ? '' : 's'), importButtonStyle: primary(blocked),
 
+      pcVersionLabel: 'Version ' + st.pcVersion + (st.pcLoaded === st.pcVersion ? '' : ' · this server on ' + st.pcLoaded),
+      pcVersionTitle: 'Every save raises the version. This server loaded version ' + st.pcLoaded + '.',
+      isPlatformVariables: sec === 'platform-variables', pvDraft: st.pvDraft,
+      pvGroups: [...new Set(st.pvars.map((v) => v.group))].map((group) => ({ label: group, rows: st.pvars.filter((v) => v.group === group).map((v) => {
+        const editing = st.pvEditing === v.key;
+        const shown = (x) => (typeof x === 'number' && v.type !== 'double' ? x.toLocaleString('en-GB') : String(x));
+        return { key: v.key, label: v.label, description: v.description, editing, reading: !editing,
+          value: shown(v.value), defaultValue: shown(v.dflt), overridden: v.by !== null,
+          changedBy: v.by ? 'Changed by ' + v.by + ' · ' + v.on : '',
+          error: editing ? st.pvError : '',
+          range: v.type === 'model' ? 'A Gemini model name, e.g. gemini-3.5-flash' : v.type === 'duration' ? 'From 1d to 90d' : 'From ' + shown(v.min) + ' to ' + shown(v.max),
+          inputStyle: inputStyle(editing && st.pvError, 'var(--panel)') };
+      }) })),
+      isPlatformPrompts: sec === 'platform-prompts',
+      ppRows: st.pprompts.map((p) => {
+        const last = p.versions[p.versions.length - 1];
+        return { id: p.id, label: p.label,
+          status: p.active ? 'Changed · v' + p.active : 'Shipped',
+          statusStyle: 'display:inline-flex;border-radius:999px;padding:2px 9px;font:500 11.5px var(--sans);' + (p.active ? 'color:var(--u-accent);background:var(--u-accent-tint)' : 'color:var(--text2);background:var(--panel)'),
+          changed: last ? last.by + ' · ' + last.on : '—' };
+      }),
+      ...(() => {
+        const p = st.pprompts.find((x) => x.id === st.ppEditing) || st.pprompts[0];
+        return {
+          isPromptEditor: sec === 'platform-prompt-editor', peLabel: p.label, peId: 'prompts/' + p.id + (p.id === 'assistant-core' ? '.st' : '-system.st'),
+          peOverridden: p.active !== null, peStatus: p.active ? 'Changed · v' + p.active : 'Shipped',
+          peStatusStyle: 'display:inline-flex;border-radius:999px;padding:2px 9px;font:500 11.5px var(--sans);' + (p.active ? 'color:var(--u-accent);background:var(--u-accent-tint)' : 'color:var(--text2);background:var(--panel2)'),
+          peDraft: st.peDraft, peError: st.peError,
+          pePlaceholderHint: p.vars.length ? 'Keep these placeholders exactly as written: ' + p.vars.map((v) => '{' + v + '}').join(' ') : 'This prompt takes no placeholders, so it may not add any {braces} of its own.',
+          peSaveStyle: primary(false),
+          peTextareaStyle: 'display:block;width:100%;min-height:440px;resize:vertical;border-radius:8px;border:1px solid ' + (st.peError ? 'var(--red)' : 'var(--line)') + ';background:var(--panel);padding:12px 14px;font:400 12.5px/1.6 var(--mono);color:var(--text);outline:none;white-space:pre-wrap',
+          peVersions: [{ version: 0, label: 'Shipped', meta: 'Comes with this release', active: p.active === null, restorable: false }]
+            .concat(p.versions.slice().reverse().map((ver) => ({ version: ver.version, label: 'Version ' + ver.version, meta: ver.by + ' · ' + ver.on, active: p.active === ver.version, restorable: p.active !== ver.version }))),
+        };
+      })(),
       isApiKeys: sec === 'api-keys',
       akShowViewToggle: isAdmin && st.apiKeys.length > 0,
       akViews: [['mine', 'Your keys'], ['all', 'All keys in ' + st.wsName]].map(([key, label]) => ({ key, label, on: akView === key,
@@ -3281,6 +3484,42 @@ class Component extends DCLogic {
         if (st.ctags.some((t) => t.label.toLowerCase() === label.toLowerCase())) { this.showToast('That tag already exists'); return; }
         this.setState({ ctags: [...st.ctags, { id: 't' + Date.now(), label, colour: 'neutral', count: 0, retired: false }], ctNew: '' });
         this.showToast('Tag added for the whole team');
+      },
+      pcRefresh: () => { this.setState({ pcVersion: st.pcVersion + 1, pcLoaded: st.pcVersion + 1 }); this.showToast('Every server now runs version ' + (st.pcVersion + 1)); },
+      pvEdit: (e) => { const v = st.pvars.find((x) => x.key === e.currentTarget.dataset.key); this.setState({ pvEditing: v.key, pvDraft: String(v.value), pvError: '' }); },
+      onPvDraft: (e) => this.setState({ pvDraft: e.target.value, pvError: '' }),
+      pvCancel: () => this.setState({ pvEditing: null, pvError: '' }),
+      pvSave: (e) => {
+        const v = st.pvars.find((x) => x.key === e.currentTarget.dataset.key);
+        const raw = st.pvDraft.trim();
+        let value = raw, error = '';
+        if (v.type === 'model') { if (!/^gemini-[a-z0-9.-]{1,48}$/.test(raw)) error = 'Must be a Gemini model name'; }
+        else if (v.type === 'duration') { const days = /^(\d+)d$/.exec(raw); if (!days || +days[1] < v.min || +days[1] > v.max) error = 'Must be between 1d and 90d'; }
+        else { value = Number(raw); if (raw === '' || Number.isNaN(value) || (v.type !== 'double' && !Number.isInteger(value))) error = v.type === 'double' ? 'Must be a number' : 'Must be a whole number'; else if (value < v.min || value > v.max) error = 'Must be between ' + v.min.toLocaleString('en-GB') + ' and ' + v.max.toLocaleString('en-GB'); }
+        if (!error && v.key === 'enrichment.sourcing.picks-per-company' && value > st.pvars.find((x) => x.key === 'enrichment.sourcing.hits-per-company').value) error = 'Must not be more than the people asked per company';
+        if (error) { this.setState({ pvError: error }); return; }
+        this.setState({ pvEditing: null, pcVersion: st.pcVersion + 1, pcLoaded: st.pcVersion + 1, pvars: st.pvars.map((x) => (x.key === v.key ? Object.assign({}, x, { value, by: 'You', on: '02 Nov 2026' }) : x)) });
+        this.showToast(v.label + ' saved');
+      },
+      pvReset: (e) => { const key = e.currentTarget.dataset.key; const v = st.pvars.find((x) => x.key === key); this.setState({ pcVersion: st.pcVersion + 1, pcLoaded: st.pcVersion + 1, pvars: st.pvars.map((x) => (x.key === key ? Object.assign({}, x, { value: x.dflt, by: null, on: null }) : x)) }); this.showToast(v.label + ' is back to its default'); },
+      ppOpen: (e) => { const id = e.currentTarget.dataset.id; const p = st.pprompts.find((x) => x.id === id); this.goto('platform-prompt-editor', { ppEditing: id, peError: '', peDraft: 'You are a research assistant for an executive search firm.\n\n' + (p.vars.length ? 'The hiring company:\n{hiring}\n\nThe position:\n{brief}\n\n' : '') + 'Answer only from what you are given. When the answer is not on file, say so rather than guessing.' }); },
+      ppBack: () => this.goto('platform-prompts', { ppEditing: null }),
+      onPeDraft: (e) => this.setState({ peDraft: e.target.value, peError: '' }),
+      peSave: () => {
+        const p = st.pprompts.find((x) => x.id === st.ppEditing) || st.pprompts[0];
+        const found = new Set((st.peDraft.match(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g) || []).map((m) => m.slice(1, -1)));
+        const missing = p.vars.filter((v) => !found.has(v)), added = [...found].filter((v) => !p.vars.includes(v));
+        if (missing.length || added.length) { this.setState({ peError: [missing.length ? 'Put back ' + missing.map((v) => '{' + v + '}').join(', ') : '', added.length ? 'Take out ' + added.map((v) => '{' + v + '}').join(', ') : ''].filter(Boolean).join('. ') }); return; }
+        const version = (p.versions.length ? p.versions[p.versions.length - 1].version : 0) + 1;
+        this.setState({ pcVersion: st.pcVersion + 1, pcLoaded: st.pcVersion + 1, pprompts: st.pprompts.map((x) => (x.id === p.id ? Object.assign({}, x, { active: version, versions: x.versions.concat([{ version, by: 'You', on: '02 Nov 2026' }]) }) : x)) });
+        this.showToast('Version ' + version + ' is in use from the next AI call');
+      },
+      peRevert: () => { const id = st.ppEditing || st.pprompts[0].id; this.setState({ pcVersion: st.pcVersion + 1, pcLoaded: st.pcVersion + 1, pprompts: st.pprompts.map((x) => (x.id === id ? Object.assign({}, x, { active: null }) : x)) }); this.showToast('Back to the shipped prompt'); },
+      peRestore: (e) => {
+        const from = Number(e.currentTarget.dataset.version), p = st.pprompts.find((x) => x.id === st.ppEditing) || st.pprompts[0];
+        const version = p.versions[p.versions.length - 1].version + 1;
+        this.setState({ pcVersion: st.pcVersion + 1, pcLoaded: st.pcVersion + 1, pprompts: st.pprompts.map((x) => (x.id === p.id ? Object.assign({}, x, { active: version, versions: x.versions.concat([{ version, by: 'You', on: '02 Nov 2026' }]) }) : x)) });
+        this.showToast('Version ' + from + ' restored as version ' + version);
       },
       renameCtag: (e) => { const id = e.currentTarget.dataset.id; this.setState({ ctEditing: id, ctDraft: st.ctags.find((t) => t.id === id).label }); },
       onCtDraft: (e) => this.setState({ ctDraft: e.target.value }),

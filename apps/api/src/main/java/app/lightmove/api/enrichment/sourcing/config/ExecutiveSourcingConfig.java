@@ -2,6 +2,8 @@ package app.lightmove.api.enrichment.sourcing.config;
 
 import app.lightmove.api.core.config.EnrichmentSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.platformconfig.constant.PlatformSetting;
+import app.lightmove.api.core.platformconfig.service.PlatformSettings;
 import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
@@ -45,13 +47,14 @@ public class ExecutiveSourcingConfig {
     }
 
     @Bean(defaultCandidate = false)
-    ContactOutPeopleSearch contactOutPeopleSearch(LightMoveProperties properties,
+    ContactOutPeopleSearch contactOutPeopleSearch(LightMoveProperties properties, PlatformSettings platformSettings,
                                                   ContactOutPeopleIndex index, ObjectMapper json) {
         EnrichmentSettings config = properties.enrichment();
         if (!config.sourcing().searchesContactOut() || !index.isOffered()) {
             return null;
         }
-        return new ContactOutPeopleSearch(index, json, config.sourcing().picksPerCompany());
+        return new ContactOutPeopleSearch(index, json,
+                () -> platformSettings.intValue(PlatformSetting.SOURCING_PICKS_PER_COMPANY));
     }
 
     @Bean

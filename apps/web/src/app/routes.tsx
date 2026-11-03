@@ -36,6 +36,9 @@ import { OutreachPage } from "../features/outreach/pages/OutreachPage";
 import { SequenceEditorPage } from "../features/outreach/pages/SequenceEditorPage";
 import { SequencesPage } from "../features/outreach/pages/SequencesPage";
 import PipelineRedirect from "../features/pipeline/pages/PipelineRedirect";
+import { PlatformPromptEditorPage } from "../features/platform/pages/PlatformPromptEditorPage";
+import { PlatformPromptsPage } from "../features/platform/pages/PlatformPromptsPage";
+import { PlatformVariablesPage } from "../features/platform/pages/PlatformVariablesPage";
 import { PositionPage } from "../features/position/pages/PositionPage";
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
 import { ReportsPage } from "../features/reports/pages/ReportsPage";
@@ -207,6 +210,13 @@ export function AppRoutes() {
           <Route path="/settings/template-library" element={<TemplateListPage scope="library" />} />
           <Route path="/settings/template-library/new" element={<TemplateEditorPage scope="library" />} />
           <Route path="/settings/template-library/:code" element={<TemplateEditorPage scope="library" />} />
+        </Route>
+        <Route element={<RequirePlatformAction action="PLATFORM_SETTINGS_MANAGE"><Outlet /></RequirePlatformAction>}>
+          <Route path="/settings/platform-variables" element={<PlatformVariablesPage />} />
+        </Route>
+        <Route element={<RequirePlatformAction action="PROMPT_MANAGE"><Outlet /></RequirePlatformAction>}>
+          <Route path="/settings/platform-prompts" element={<PlatformPromptsPage />} />
+          <Route path="/settings/platform-prompts/:promptId" element={<PlatformPromptEditorPage />} />
         </Route>
       </Route>
 

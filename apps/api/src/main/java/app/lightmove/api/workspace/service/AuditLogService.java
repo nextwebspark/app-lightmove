@@ -5,9 +5,10 @@ import app.lightmove.api.core.audit.model.AuditEvent;
 import app.lightmove.api.core.audit.model.AuditLogQuery;
 import app.lightmove.api.core.audit.repository.AuditEventRepository;
 import app.lightmove.api.core.audit.service.AuditService;
-import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.platformconfig.constant.PlatformSetting;
+import app.lightmove.api.core.platformconfig.service.PlatformSettings;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.workspace.constant.AuditLogGroup;
 import app.lightmove.api.workspace.constant.MemberStatus;
@@ -42,7 +43,7 @@ public class AuditLogService {
     private final AuditLogCsvWriter csvWriter;
     private final WorkspaceMemberRepository members;
     private final UserRepository users;
-    private final LightMoveProperties properties;
+    private final PlatformSettings platformSettings;
 
     @Transactional(readOnly = true)
     public AuditLogPageResponse page(UUID workspaceId, AuditLogFilters filters, Long before, Integer limit) {
@@ -57,7 +58,7 @@ public class AuditLogService {
     /** The same view as a CSV, refused whole past the ceiling rather than cut short, and itself an audit line. */
     @Transactional(readOnly = true)
     public String export(UUID userId, UUID workspaceId, AuditLogFilters filters, HttpServletRequest request) {
-        int cap = properties.export().maxAuditEvents();
+        int cap = platformSettings.intValue(PlatformSetting.EXPORT_MAX_AUDIT_EVENTS);
         AuditLogQuery query = queryOf(workspaceId, filters, null);
         if (events.countWorkspaceLog(query, cap + 1) > cap) {
             // The ceiling is the server's own number, so it may travel in a user-facing message.

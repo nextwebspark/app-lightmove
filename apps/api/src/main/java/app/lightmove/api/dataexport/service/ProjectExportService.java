@@ -4,9 +4,9 @@ import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.ExportSettings;
-import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.platformconfig.service.PlatformSettings;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
@@ -20,6 +20,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
@@ -27,27 +28,20 @@ import org.springframework.stereotype.Service;
  * {@code @Transactional}: the seams open their own.
  */
 @Service
+@RequiredArgsConstructor
 public class ProjectExportService {
 
     private final StagePairingService pairing;
     private final CustomColumnService customColumns;
     private final CompaniesCsvWriter writer;
     private final AuditService audit;
-    private final ExportSettings caps;
-
-    public ProjectExportService(StagePairingService pairing, CustomColumnService customColumns,
-                                CompaniesCsvWriter writer, AuditService audit, LightMoveProperties properties) {
-        this.pairing = pairing;
-        this.customColumns = customColumns;
-        this.writer = writer;
-        this.audit = audit;
-        this.caps = properties.export();
-    }
+    private final PlatformSettings platformSettings;
 
     public String companies(UUID userId, UUID workspaceId, UUID projectId, String statusToken,
                             TriageCompanyFilters filters, ProjectAudience audience,
                             HttpServletRequest httpRequest) {
         TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(statusToken);
+        ExportSettings caps = platformSettings.exportCaps();
         PairedStage paired = pairing.pair(workspaceId, projectId, status, filters, caps.maxCompanies(),
                 caps.maxCandidates(), audience,
                 audience == ProjectAudience.STAFF);

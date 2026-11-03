@@ -15,10 +15,12 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.logging.service.MdcPropagation;
+import app.lightmove.api.core.platformconfig.constant.PlatformSetting;
+import app.lightmove.api.core.platformconfig.service.PlatformSettings;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.service.BrightDataPersonProfiles;
-import app.lightmove.api.enrichment.common.service.SearchHitFiling;
 import app.lightmove.api.enrichment.candidate.service.ProfilePhotoDownloader;
+import app.lightmove.api.enrichment.common.service.SearchHitFiling;
 import app.lightmove.api.enrichment.sourcing.constant.SourcingOutcome;
 import app.lightmove.api.enrichment.sourcing.model.CompanyOutcome;
 import app.lightmove.api.enrichment.sourcing.model.ExecutivePick;
@@ -71,11 +73,12 @@ class ExecutiveSourcingWorker {
     private final AuditService audit;
     private final UsageRecorder usage;
     private final ExecutiveSourcingSettings settings;
+    private final PlatformSettings platformSettings;
 
     ExecutiveSourcingWorker(SourcingRunStore store, ChainedPeopleSearch peopleSearch, SourcingSpecProposer specs,
                             SourcingSpecRefiner refiner, CandidateService candidates, PositionService positions,
                             ProfilePhotoDownloader photos, AuditService audit, UsageRecorder usage,
-                            LightMoveProperties properties) {
+                            LightMoveProperties properties, PlatformSettings platformSettings) {
         this.store = store;
         this.peopleSearch = peopleSearch;
         this.specs = specs;
@@ -86,6 +89,7 @@ class ExecutiveSourcingWorker {
         this.audit = audit;
         this.usage = usage;
         this.settings = properties.enrichment().sourcing();
+        this.platformSettings = platformSettings;
     }
 
     @Async
@@ -217,10 +221,12 @@ class ExecutiveSourcingWorker {
             int billed = 0;
             int cached = 0;
             int modelCalls = 0;
+            int hitsPerCompany = platformSettings.intValue(PlatformSetting.SOURCING_HITS_PER_COMPANY);
+            int maxSearchRounds = platformSettings.intValue(PlatformSetting.SOURCING_MAX_SEARCH_ROUNDS);
             for (int round = 1; ; round++) {
                 triedWords.putIfAbsent(searching.wordKey(), round);
                 PeopleFound found = peopleSearch.currentEmployeesTitled(company.employer(), searching,
-                        brief.seniority(), searchedCountries, settings.hitsPerCompany());
+                        brief.seniority(), searchedCountries, hitsPerCompany);
                 billed += found.billed();
                 cached += found.cached();
                 PeopleFound total = found.spending(billed, cached);
@@ -238,7 +244,7 @@ class ExecutiveSourcingWorker {
                                 turnedAway.size());
                     }
                 }
-                if (round >= settings.maxSearchRounds() || Instant.now().isAfter(deadline)) {
+                if (round >= maxSearchRounds || Instant.now().isAfter(deadline)) {
                     return outcome(company, nobodyFiled(turnedAway), total, modelCalls, List.of(), turnedAway.size());
                 }
                 if (conversation == null) {
@@ -278,7 +284,7 @@ class ExecutiveSourcingWorker {
         private CompanyOutcome file(SourcingCompany company, PeopleFound found, int modelCalls, SourcingSpec searched,
                                     List<BrightDataPerson> holdingTheSeat, int notFit) {
             List<ExecutivePick> picks = SourcedHitRanking.ranked(holdingTheSeat, searched, brief.seniority()).stream()
-                    .limit(settings.picksPerCompany())
+                    .limit(platformSettings.intValue(PlatformSetting.SOURCING_PICKS_PER_COMPANY))
                     .map(person -> file(company, person, found.researchedBy()))
                     .toList();
             boolean anyFiled = picks.stream().anyMatch(pick -> pick.candidateId() != null);

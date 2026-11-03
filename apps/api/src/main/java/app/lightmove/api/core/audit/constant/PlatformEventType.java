@@ -16,7 +16,15 @@ public enum PlatformEventType implements AuditEventType {
     INVOICED_SUBSCRIPTION_SET,
 
     PLATFORM_ROLE_GRANTED,
-    PLATFORM_ROLE_REVOKED;
+    PLATFORM_ROLE_REVOKED,
+
+    PLATFORM_SETTING_CHANGED,
+    PLATFORM_SETTING_RESET,
+    /** A prompt's id and version only: the body is never recorded. */
+    PLATFORM_PROMPT_SAVED,
+    PLATFORM_PROMPT_RESTORED,
+    PLATFORM_PROMPT_REVERTED,
+    PLATFORM_CONFIG_REFRESHED;
 
     @Override
     public String code() {

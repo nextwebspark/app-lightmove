@@ -7,8 +7,8 @@ import app.lightmove.api.enrichment.candidate.model.BrightDataPeopleHits;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.common.service.ContactOutPeopleClient;
 import app.lightmove.api.enrichment.common.service.ContactOutPeopleIndex;
-import app.lightmove.api.enrichment.common.service.ContactOutPeopleRecords;
 import app.lightmove.api.enrichment.common.service.ContactOutPeopleRecords.ContactOutEmployerKey;
+import app.lightmove.api.enrichment.common.service.ContactOutPeopleRecords;
 import app.lightmove.api.enrichment.sourcing.constant.TitleLevel;
 import app.lightmove.api.enrichment.sourcing.model.SearchedEmployer;
 import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
@@ -19,6 +19,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.IntSupplier;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.ObjectMapper;
@@ -38,10 +39,13 @@ public class ContactOutPeopleSearch implements PeopleSearch {
 
     private final ContactOutPeopleIndex client;
     private final ObjectMapper json;
-    private final int enoughFromATier;
+    private final IntSupplier enoughFromATier;
 
-    /** @param enoughFromATier the people a tier must find before a wider one is not asked — the picks per company */
-    public ContactOutPeopleSearch(ContactOutPeopleIndex client, ObjectMapper json, int enoughFromATier) {
+    /**
+     * @param enoughFromATier the people a tier must find before a wider one is not asked — the picks per company, read
+     *                        per search so a super admin's change reaches the next one
+     */
+    public ContactOutPeopleSearch(ContactOutPeopleIndex client, ObjectMapper json, IntSupplier enoughFromATier) {
         this.client = client;
         this.json = json;
         this.enoughFromATier = enoughFromATier;
@@ -73,6 +77,7 @@ public class ContactOutPeopleSearch implements PeopleSearch {
         }
         List<BrightDataPerson> found = new ArrayList<>();
         long matched = 0;
+        int enough = enoughFromATier.getAsInt();
         for (String title : titleTiers(spec, seat)) {
             Map<String, Object> filter = new LinkedHashMap<>(base.get());
             filter.put("job_title", List.of(title));
@@ -86,7 +91,7 @@ public class ContactOutPeopleSearch implements PeopleSearch {
                         .filter(person -> livesIn(person, countryCodes))
                         .toList());
             }
-            if (found.size() >= enoughFromATier || found.size() >= size) {
+            if (found.size() >= enough || found.size() >= size) {
                 break;
             }
         }

@@ -3,7 +3,7 @@ package app.lightmove.api.candidate.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.TestLlmCallPolicy;
-
+import app.lightmove.api.core.platformconfig.service.PromptTexts;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
@@ -14,13 +14,11 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.Resource;
 
 /** No GCP credentials or network calls — a hand-rolled {@link ChatModel} stands in for Gemini. */
 class CandidateShortlistServiceTest {
 
-    private static final Resource SYSTEM_PROMPT = new ByteArrayResource("Assess the candidate.".getBytes());
+    private static final PromptTexts SYSTEM_PROMPT = promptId -> "Assess the candidate.";
 
     @Test
     void sendsBothFieldsAndReturnsTheModelsVerdict() {

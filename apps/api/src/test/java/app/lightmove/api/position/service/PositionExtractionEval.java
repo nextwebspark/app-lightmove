@@ -11,6 +11,7 @@ import app.lightmove.api.core.config.PositionSettings;
 import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import app.lightmove.api.core.llm.service.TextPseudonymiser;
+import app.lightmove.api.core.platformconfig.service.PromptTexts;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.position.constant.ExtractionSource;
 import app.lightmove.api.position.constant.ProposalConfidence;
@@ -478,7 +479,7 @@ class PositionExtractionEval {
     /** Swaps in {@code prompts/<id>-baseline-*} wherever test resources keep one, the shipped prompt otherwise. */
     private static StructuredPromptFactory promptsFor(String subject) {
         ChatClient chatClient = ChatClient.builder(vertexModel()).build();
-        return new StructuredPromptFactory(chatClient, TestLlmCallPolicy.asShipped()) {
+        return new StructuredPromptFactory(chatClient, TestLlmCallPolicy.asShipped(), PromptTexts.shipped()) {
             @Override
             public StructuredPrompt create(String promptId, String blockedAnswer) {
                 String baseline = promptId + "-baseline";
@@ -497,7 +498,7 @@ class PositionExtractionEval {
         return new LightMoveProperties(null, null, null, null,
                 new PositionSettings(null, settings, null),
                 new LlmSettings(new LlmRateLimitSettings(true, 10, 20, 10), 20_000, 1, List.of()),
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     private static ChatModel vertexModel() {

@@ -252,6 +252,12 @@ public class AuditLogPhrasing {
         on(AuthEventType.AVATAR_REMOVED, line -> "Removed their profile photo");
         on(PlatformEventType.PLATFORM_ROLE_GRANTED, line -> "Gave Uncava platform access");
         on(PlatformEventType.PLATFORM_ROLE_REVOKED, line -> "Removed Uncava platform access");
+        on(PlatformEventType.PLATFORM_SETTING_CHANGED, line -> "Changed an Uncava platform setting");
+        on(PlatformEventType.PLATFORM_SETTING_RESET, line -> "Reset an Uncava platform setting");
+        on(PlatformEventType.PLATFORM_PROMPT_SAVED, line -> "Changed an Uncava AI prompt");
+        on(PlatformEventType.PLATFORM_PROMPT_RESTORED, line -> "Restored an earlier Uncava AI prompt");
+        on(PlatformEventType.PLATFORM_PROMPT_REVERTED, line -> "Put an Uncava AI prompt back as shipped");
+        on(PlatformEventType.PLATFORM_CONFIG_REFRESHED, line -> "Refreshed Uncava's platform settings");
     }
 
     private void on(AuditEventType type, Function<AuditLine, String> phrase) {

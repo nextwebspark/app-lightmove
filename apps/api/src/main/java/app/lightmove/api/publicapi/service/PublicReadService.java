@@ -9,6 +9,7 @@ import app.lightmove.api.core.config.ExportSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.platformconfig.service.PlatformSettings;
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
 import app.lightmove.api.core.security.apikey.PublicReader;
 import app.lightmove.api.core.security.rbac.ProjectAccess;
@@ -60,6 +61,7 @@ public class PublicReadService {
     private final CandidateService candidates;
     private final StagePairingService pairing;
     private final LightMoveProperties properties;
+    private final PlatformSettings platformSettings;
 
     /**
      * A personal reader lists only the positions its user may open; a workspace key lists every one. Paged
@@ -172,7 +174,7 @@ public class PublicReadService {
     /** Refused past the export caps rather than truncated: a partial universe reads as a whole one. */
     public PublicUniverse universe(PublicReader reader, UUID projectId, String stage) {
         TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(stage);
-        ExportSettings caps = properties.export();
+        ExportSettings caps = platformSettings.exportCaps();
         PairedStage paired = pairing.pair(reader.workspaceId(), projectId, status, TriageCompanyFilters.none(),
                 caps.maxCompanies(), caps.maxCandidates(), audienceOf(reader, projectId));
         refuseIfPast("companies", paired.companies().totalCount(), caps.maxCompanies());

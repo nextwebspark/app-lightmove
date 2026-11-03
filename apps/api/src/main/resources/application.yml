@@ -781,6 +781,10 @@ lightmove:
   avatars:
     max-upload-bytes: ${AVATAR_MAX_UPLOAD_BYTES:5242880}
 
+  # Settings → Platform (#1187): a super admin's overrides are re-checked this often; a save's NOTIFY reloads at once.
+  platform:
+    config-check-interval: ${PLATFORM_CONFIG_CHECK_INTERVAL:30s}
+
   # Contact credits (epic #734). On, a find the credits cannot cover is refused (402); off, it is recorded as an overdraft.
   billing:
     enforce: ${BILLING_ENFORCE:true}

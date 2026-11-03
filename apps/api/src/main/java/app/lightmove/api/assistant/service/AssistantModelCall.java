@@ -5,6 +5,10 @@ import app.lightmove.api.assistant.tool.AssistantToolContext;
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.llm.service.ChatCallLog;
+import app.lightmove.api.core.platformconfig.constant.PlatformPrompt;
+import app.lightmove.api.core.platformconfig.constant.PlatformSetting;
+import app.lightmove.api.core.platformconfig.service.PlatformSettings;
+import app.lightmove.api.core.platformconfig.service.PromptTexts;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -19,8 +23,6 @@ import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
@@ -36,19 +38,21 @@ public class AssistantModelCall {
 
     private final ChatClient chatClient;
     private final AssistantSettings settings;
-    private final Resource corePrompt;
+    private final PlatformSettings platformSettings;
+    private final PromptTexts promptTexts;
     private final ToolCallingAdvisor toolLoop;
 
     private final ModelCallThreads modelCalls;
 
     public AssistantModelCall(ChatClient chatClient, LightMoveProperties properties,
-                              @Value("classpath:prompts/assistant-core.st") Resource corePrompt,
+                              PromptTexts promptTexts,
                               AssistantThreads threads, ObjectProvider<ToolCallingManager> toolCalling,
-                              ModelCallThreads modelCalls) {
+                              ModelCallThreads modelCalls, PlatformSettings platformSettings) {
         this.chatClient = chatClient;
+        this.platformSettings = platformSettings;
         this.modelCalls = modelCalls;
         this.settings = properties.assistant();
-        this.corePrompt = corePrompt;
+        this.promptTexts = promptTexts;
         ToolCallingManager oneAtATime = toolCalling.getIfAvailable(() -> ToolCallingManager.builder().build());
         this.toolLoop = ToolCallingAdvisor.builder()
                 .toolCallingManager(new ParallelToolCalls(oneAtATime, threads.tools(),
@@ -58,16 +62,18 @@ public class AssistantModelCall {
 
     public String ask(Map<String, Object> systemParams, List<ToolCallback> tools, List<AssistantTurn> history,
                       String question, AssistantToolContext context) {
+        String model = platformSettings.text(PlatformSetting.ASSISTANT_MODEL);
         ChatResponse response = chatClient.prompt()
                 .advisors(advisors -> advisors.param(ChatCallLog.PROMPT_ID_ATTRIBUTE, PROMPT_ID)
-                        .advisors(toolLoop, new AssistantRounds(context.recorder(), settings.model(),
+                        .advisors(toolLoop, new AssistantRounds(context.recorder(), model,
                                 settings.answerDeadline(), settings.roundPatience(), modelCalls::execute)))
                 .options(GoogleGenAiChatOptions.builder()
-                        .model(settings.model())
-                        .temperature(settings.temperature())
-                        .thinkingBudget(settings.thinkingBudget())
+                        .model(model)
+                        .temperature(platformSettings.doubleValue(PlatformSetting.ASSISTANT_TEMPERATURE))
+                        .thinkingBudget(platformSettings.intValue(PlatformSetting.ASSISTANT_THINKING_BUDGET))
                         .labels(Map.of("prompt", PROMPT_ID)))
-                .system(system -> system.text(corePrompt).params(systemParams))
+                .system(system -> system.text(promptTexts.systemText(PlatformPrompt.ASSISTANT_CORE))
+                        .params(systemParams))
                 .messages(conversation(history, question))
                 .tools(tools.toArray())
                 .toolContext(context.asMap())

@@ -33,5 +33,6 @@ public record LightMoveProperties(
         BillingSettings billing,
         NotificationSettings notifications,
         NoteSettings notes,
-        AvatarSettings avatars
+        AvatarSettings avatars,
+        PlatformConfigSettings platform
 ) {}

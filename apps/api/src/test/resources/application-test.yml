@@ -121,6 +121,10 @@ lightmove:
     # Every test seeds its own universe, so a count cached by the test before it would be wrong.
     facet-cache-ttl: 0s
 
+  # Each test writes its own overrides straight to the table, so every read asks the stored version.
+  platform:
+    config-check-interval: 0s
+
   # Small, because the bucket refills one request every 60/limit seconds: at 60 a test sending 61 would
   # get a token back while it ran and the 61st would pass.
   public-api:

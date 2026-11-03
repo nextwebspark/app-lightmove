@@ -187,6 +187,13 @@ deliberate:
   Platform tab, and nothing trusts it for a decision.
 - **A miss is a 404**, not a 403 — the platform surface is not advertised to anyone who cannot use it.
 
+Its actions have grown since: `CREDIT_GRANT` and `SUBSCRIPTION_MANAGE` (V121), then
+`PLATFORM_SETTINGS_MANAGE` and `PROMPT_MANAGE` (V181, Settings → Platform → Variables and Prompts). Those two change
+what every workspace runs on, so they hold the same line: the variables are a code allowlist (`PlatformSetting`) that
+never reaches a secret, an identity provider, encryption or a sign-in limit, and a prompt edit cannot route around
+the code-side guards — contacts, compensation and custom fields are taken out before any prompt is sent, and no route
+there runs a prompt or reads a workspace's people. The SPA gates each Platform section on its own action.
+
 A workspace's own template edits are a separate, ordinary workspace action (`POSITION_TEMPLATE_MANAGE`,
 ADMIN), and they write the firm's own rows only: a firm's copy shadows the library template of the same
 code for that firm alone, which is what lets the library and every firm's copy of it move independently.

@@ -8,6 +8,7 @@ import app.lightmove.api.candidate.service.CandidatePipelineCatalog;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.config.ExportSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.platformconfig.service.PlatformSettings;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.pairing.constant.StageLineSortField;
 import app.lightmove.api.pairing.dto.StageLineResponse;
@@ -45,6 +46,7 @@ public class StageLinesService {
     private final CompanyNoteService companyNotes;
     private final StageLineSortResolver sorts;
     private final LightMoveProperties properties;
+    private final PlatformSettings platformSettings;
 
     public StageLinesResponse page(UUID workspaceId, UUID projectId, StageLinesCriteria criteria,
                                    ProjectAudience audience) {
@@ -55,7 +57,7 @@ public class StageLinesService {
         boolean staff = audience == ProjectAudience.STAFF;
         StageLineSort sort = sorts.resolve(workspaceId, projectId, criteria.sort(), criteria.direction(), staff);
 
-        ExportSettings caps = properties.export();
+        ExportSettings caps = platformSettings.exportCaps();
         PairedStage paired = pairing.pair(workspaceId, projectId, status,
                 new TriageCompanyFilters(criteria.query(), criteria.executiveQuery(),
                         criteria.executiveStatuses(), criteria.search()),

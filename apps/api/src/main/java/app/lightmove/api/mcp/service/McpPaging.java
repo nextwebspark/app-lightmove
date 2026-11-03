@@ -1,6 +1,7 @@
 package app.lightmove.api.mcp.service;
 
-import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.platformconfig.constant.PlatformSetting;
+import app.lightmove.api.core.platformconfig.service.PlatformSettings;
 import app.lightmove.api.mcp.model.McpRowsPage;
 import app.lightmove.api.mcp.model.McpToolRefusal;
 import app.lightmove.api.publicapi.dto.PublicPage;
@@ -8,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +31,7 @@ public class McpPaging {
     private static final int ENVELOPE_CHARS = 1000;
 
     private final Supplier<JsonMapper> json;
-    private final int maxResultChars;
+    private final IntSupplier maxResultChars;
 
     /**
      * Measures with the mapper the transport writes with, as the guard does, so a page cut to fit is never then
@@ -37,11 +39,15 @@ public class McpPaging {
      */
     @Autowired
     public McpPaging(@Qualifier("mcpServerJsonMapper") ObjectProvider<JsonMapper> json,
-                     LightMoveProperties properties) {
-        this(json::getObject, properties.mcp().maxResultChars());
+                     PlatformSettings platformSettings) {
+        this(json::getObject, () -> platformSettings.intValue(PlatformSetting.MCP_MAX_RESULT_CHARS));
     }
 
     McpPaging(Supplier<JsonMapper> json, int maxResultChars) {
+        this(json, () -> maxResultChars);
+    }
+
+    private McpPaging(Supplier<JsonMapper> json, IntSupplier maxResultChars) {
         this.json = json;
         this.maxResultChars = maxResultChars;
     }
@@ -71,7 +77,7 @@ public class McpPaging {
 
     /** How many of {@code rows}, from the first, fit the result cap beside {@code reserved} characters; never none. */
     public int fittingCount(List<?> rows, int reserved) {
-        int budget = maxResultChars - ENVELOPE_CHARS - reserved;
+        int budget = maxResultChars.getAsInt() - ENVELOPE_CHARS - reserved;
         int used = 0;
         for (int index = 0; index < rows.size(); index++) {
             used += json.get().writeValueAsString(rows.get(index)).length() + 1;
@@ -83,7 +89,7 @@ public class McpPaging {
     }
 
     public boolean exceedsCap(Object value) {
-        return charsOf(value) > maxResultChars;
+        return charsOf(value) > maxResultChars.getAsInt();
     }
 
     public int charsOf(Object value) {

@@ -4,11 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.TestLlmCallPolicy;
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import app.lightmove.api.enrichment.sourcing.model.SourcingBrief;
 import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 
 class SourcingSpecProposerTest {
@@ -59,6 +62,23 @@ class SourcingSpecProposerTest {
 
         assertThat(proposerOver(model).propose(injected)).isEmpty();
         assertThat(model.prompts).isEmpty();
+    }
+
+    @Test
+    @DisplayName("the system text is asked for on every call, so a prompt a super admin saves is the next call's")
+    void systemTextIsReadPerCall() {
+        RecordingChatModel model = new RecordingChatModel("""
+                {"seniorityWords":["Chief"],"functionWords":["Finance"],"excludedWords":[],"roleSummary":"x"}""");
+        AtomicReference<String> saved = new AtomicReference<>("First saved instructions.");
+        SourcingSpecProposer proposer = new SourcingSpecProposer(new StructuredPromptFactory(
+                ChatClient.builder(model).build(), TestLlmCallPolicy.asShipped(), promptId -> saved.get()));
+
+        proposer.propose(BRIEF);
+        saved.set("Second saved instructions.");
+        proposer.propose(BRIEF);
+
+        assertThat(model.prompts.get(0)).startsWith("First saved instructions.");
+        assertThat(model.prompts.get(1)).startsWith("Second saved instructions.");
     }
 
     private static SourcingSpecProposer proposerOver(RecordingChatModel model) {

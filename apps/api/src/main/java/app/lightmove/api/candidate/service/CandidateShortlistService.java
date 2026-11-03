@@ -2,10 +2,10 @@ package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import app.lightmove.api.core.llm.service.LlmCallPolicy;
+import app.lightmove.api.core.platformconfig.constant.PlatformPrompt;
+import app.lightmove.api.core.platformconfig.service.PromptTexts;
 import java.util.function.Consumer;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
@@ -25,16 +25,13 @@ public class CandidateShortlistService {
     private static final String PROMPT_ID = "recruiter-shortlist";
 
     private final ChatClient chatClient;
-    private final Resource systemPrompt;
+    private final PromptTexts promptTexts;
     private final LlmCallPolicy llmCalls;
     private final Consumer<ChatClient.AdvisorSpec> guardedAdvisors;
 
-    // Hand-written: Lombok cannot put @Value on a generated constructor parameter.
-    public CandidateShortlistService(ChatClient chatClient,
-                                     @Value("classpath:prompts/recruiter-shortlist-system.st") Resource systemPrompt,
-                                     LlmCallPolicy llmCalls) {
+    public CandidateShortlistService(ChatClient chatClient, PromptTexts promptTexts, LlmCallPolicy llmCalls) {
         this.chatClient = chatClient;
-        this.systemPrompt = systemPrompt;
+        this.promptTexts = promptTexts;
         this.llmCalls = llmCalls;
         this.guardedAdvisors = llmCalls.forPrompt(PromptGuardSpec.prose(PROMPT_ID));
     }
@@ -42,7 +39,7 @@ public class CandidateShortlistService {
     public String shortlist(String jobBrief, String candidateProfile) {
         String answer = chatClient.prompt()
                 .advisors(guardedAdvisors)
-                .system(systemPrompt)
+                .system(promptTexts.systemText(PlatformPrompt.RECRUITER_SHORTLIST))
                 .user(user -> user.text("""
                         Job brief:
                         {jobBrief}

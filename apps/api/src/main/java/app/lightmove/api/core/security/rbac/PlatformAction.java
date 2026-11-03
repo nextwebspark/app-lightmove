@@ -10,5 +10,11 @@ public enum PlatformAction {
     CREDIT_GRANT,
 
     /** Set the plan and seats of a workspace billed outside Stripe. */
-    SUBSCRIPTION_MANAGE
+    SUBSCRIPTION_MANAGE,
+
+    /** Change and reset the allowlisted application values on Settings → Platform → Variables. */
+    PLATFORM_SETTINGS_MANAGE,
+
+    /** Change, restore and revert the system prompts on Settings → Platform → Prompts. */
+    PROMPT_MANAGE
 }

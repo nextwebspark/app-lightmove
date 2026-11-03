@@ -16,7 +16,12 @@ export const WORKSPACE_MODES = ["AGENCY", "COMPANY"] as const;
 export type WorkspaceMode = (typeof WORKSPACE_MODES)[number];
 
 /** Mirrors the API's `PlatformAction`: what a user may do outside any workspace. */
-export type PlatformAction = "TEMPLATE_LIBRARY_MANAGE" | "CREDIT_GRANT" | "SUBSCRIPTION_MANAGE";
+export type PlatformAction =
+  | "TEMPLATE_LIBRARY_MANAGE"
+  | "CREDIT_GRANT"
+  | "SUBSCRIPTION_MANAGE"
+  | "PLATFORM_SETTINGS_MANAGE"
+  | "PROMPT_MANAGE";
 
 export interface WorkspaceSummary {
   id: string;
@@ -253,4 +258,7 @@ export interface ApiError {
   clientId?: string;
   /** Present on INTEGRATION_KEYS_REFUSED: the provider's own code, such as `AADSTS7000215` or `invalid_client`. */
   providerError?: string;
+  /** Present on PLATFORM_PROMPT_VARIABLES_CHANGED: the placeholders the prompt dropped and the ones it added. */
+  missing?: string[];
+  added?: string[];
 }

@@ -9,6 +9,8 @@ import app.lightmove.api.core.config.ExecutiveSourcingSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.platformconfig.constant.PlatformSetting;
+import app.lightmove.api.core.platformconfig.service.PlatformSettings;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.core.stream.ProjectStreamKind;
@@ -59,12 +61,14 @@ public class ExecutiveSourcingService {
     private final ProjectStreamPublisher stream;
     private final ApplicationEventPublisher events;
     private final ExecutiveSourcingSettings settings;
+    private final PlatformSettings platformSettings;
 
     public ExecutiveSourcingService(ExecutiveSourcingRunRepository runs, TriageCompanyReadService companies,
                                     CandidateService candidates, PeopleSearch peopleSearch,
                                     LlmBudgetGuard llmBudget, FairUseGuard fairUse, AuditService audit,
                                     ProjectStreamPublisher stream,
-                                    ApplicationEventPublisher events, LightMoveProperties properties) {
+                                    ApplicationEventPublisher events, LightMoveProperties properties,
+                                    PlatformSettings platformSettings) {
         this.runs = runs;
         this.companies = companies;
         this.candidates = candidates;
@@ -75,11 +79,14 @@ public class ExecutiveSourcingService {
         this.stream = stream;
         this.events = events;
         this.settings = properties.enrichment().sourcing();
+        this.platformSettings = platformSettings;
     }
 
     public ExecutiveSourcingConfigResponse config() {
-        return new ExecutiveSourcingConfigResponse(peopleSearch.isOffered(), settings.maxCompaniesPerRun(),
-                settings.hitsPerCompany(), settings.picksPerCompany(), settings.lostAfter().toSeconds());
+        return new ExecutiveSourcingConfigResponse(peopleSearch.isOffered(),
+                platformSettings.intValue(PlatformSetting.SOURCING_MAX_COMPANIES_PER_RUN),
+                platformSettings.intValue(PlatformSetting.SOURCING_HITS_PER_COMPANY),
+                platformSettings.intValue(PlatformSetting.SOURCING_PICKS_PER_COMPANY), settings.lostAfter().toSeconds());
     }
 
     /**
@@ -95,7 +102,7 @@ public class ExecutiveSourcingService {
         }
         List<UUID> asked = request.triageCompanyIds() == null ? List.of()
                 : List.copyOf(new LinkedHashSet<>(request.triageCompanyIds()));
-        int cap = settings.maxCompaniesPerRun();
+        int cap = platformSettings.intValue(PlatformSetting.SOURCING_MAX_COMPANIES_PER_RUN);
         if (asked.size() > cap) {
             throw ApiException.of(ErrorCode.EXECUTIVE_SOURCING_TOO_MANY_COMPANIES);
         }
@@ -110,7 +117,8 @@ public class ExecutiveSourcingService {
         }
 
         llmBudget.require(LlmBudget.EXECUTIVE_SOURCING, userId);
-        fairUse.check(workspaceId, userId, UsageKind.SOURCING_RUN, (long) chosen.size() * settings.picksPerCompany());
+        fairUse.check(workspaceId, userId, UsageKind.SOURCING_RUN, (long) chosen.size()
+                * platformSettings.intValue(PlatformSetting.SOURCING_PICKS_PER_COMPANY));
         ExecutiveSourcingRun run = saveRefusingASecond(ExecutiveSourcingRun.requested(workspaceId, projectId, userId,
                 chosen));
         stream.publish(projectId, ProjectStreamKind.EXECUTIVE_SOURCING);
