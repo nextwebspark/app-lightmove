@@ -16,9 +16,21 @@ export const STUB_MARKETS = [
   "Egypt",
 ];
 
+const STUB_COUNTRIES = [
+  { code: "AE", name: "United Arab Emirates", spellings: ["UAE"] },
+  { code: "SA", name: "Saudi Arabia", spellings: ["KSA"] },
+  { code: "QA", name: "Qatar", spellings: [] },
+  { code: "KW", name: "Kuwait", spellings: [] },
+  { code: "OM", name: "Oman", spellings: [] },
+  { code: "BH", name: "Bahrain", spellings: [] },
+  { code: "TR", name: "Türkiye", spellings: ["Turkey"] },
+  { code: "EG", name: "Egypt", spellings: [] },
+];
+
 export function useCountries() {
   return {
     options: STUB_MARKETS.map((name) => ({ value: name, label: name, aliases: [] })),
+    countries: STUB_COUNTRIES,
     markets: STUB_MARKETS,
     isPending: false,
     isError: false,

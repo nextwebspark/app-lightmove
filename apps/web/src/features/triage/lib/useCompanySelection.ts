@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useToast } from "../../../components/ui/Toast";
-import { companiesOf } from "./sourcingSummary";
+import { companiesOf } from "../../sourcing/lib/sourcingSummary";
 
 /**
  * Companies ticked on a stage — by company id, since a grid line is a person at one — held to a cap. The

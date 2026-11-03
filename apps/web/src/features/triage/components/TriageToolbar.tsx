@@ -2,7 +2,6 @@ import { Fragment, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import {
   TOOLBAR_OUTLINE,
-  TOOLBAR_PRIMARY,
   TOOLBAR_ROW,
   ToolbarDivider,
   ToolbarSearch,
@@ -11,6 +10,8 @@ import {
 import { cn } from "../../../lib/cn";
 import type { CompaniesView } from "../../talentmap/lib/useTalentMapPreferences";
 import { COMPANIES_VIEW_LABELS } from "../lib/useCompaniesViews";
+import { FindExecutivesButton } from "../../sourcing/components/FindExecutivesButton";
+import type { FindButtonState } from "../../sourcing/lib/useSourcingRun";
 import { AdvancedMenu, ToolbarMenu, type AdvancedMenuSection } from "./AdvancedMenu";
 
 /** A primary action the current view cannot take: still drawn where it always is, greyed, saying where it can. */
@@ -53,13 +54,8 @@ export function TriageToolbar({
   addToSequence?: { onPress: () => void; unavailable?: UnavailableAction };
   /** Write to anyone on the position; absent where outreach is not offered. */
   sendEmail?: ReactNode;
-  /** Find executives over the universe's companies; takes no second press while a run is in progress. */
-  findExecutives?: {
-    onPress: () => void;
-    running: boolean;
-    /** "3/5" while a run is in progress. */
-    progress?: string;
-  };
+  /** Find executives, which opens its panel whatever the search's state and carries that state on the button. */
+  findExecutives?: { onPress: () => void; state: FindButtonState };
   /** Create ▾; absent for a client representative, who writes nothing, and on the board. */
   create?: { onAddExecutive: () => void; onAddCompany: () => void };
   /** Advanced ▾; absent on the board. */
@@ -91,22 +87,7 @@ export function TriageToolbar({
       node: (findExecutives || advanced) && (
         <>
           {findExecutives && (
-            <ToolbarAction
-              icon={ICONS.search}
-              pulsing={findExecutives.running}
-              busy={findExecutives.running}
-              title={
-                findExecutives.running
-                  ? "A run is in progress"
-                  : "Find executives at the ticked companies, or at the first ones with nobody mapped"
-              }
-              onClick={findExecutives.onPress}
-              className={TOOLBAR_PRIMARY}
-            >
-              {findExecutives.running
-                ? `Finding executives… ${findExecutives.progress ?? ""}`.trimEnd()
-                : "Find executives"}
-            </ToolbarAction>
+            <FindExecutivesButton state={findExecutives.state} onPress={findExecutives.onPress} />
           )}
           {advanced && <AdvancedMenu sections={advanced} dot={advancedDot} />}
         </>

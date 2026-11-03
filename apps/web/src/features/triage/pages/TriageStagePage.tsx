@@ -46,15 +46,16 @@ import { TalentMapView } from "../../talentmap/components/TalentMapView";
 import { useTalentMapPreferences, type CompaniesView } from "../../talentmap/lib/useTalentMapPreferences";
 import { TASKS_KEY_PREFIX } from "../../tasks/api/tasksApi";
 import * as exportApi from "../api/exportApi";
-import * as sourcingApi from "../api/sourcingApi";
+import * as sourcingApi from "../../sourcing/api/sourcingApi";
+import { FindExecutivesPanel } from "../../sourcing/components/FindExecutivesPanel";
+import { companiesOf } from "../../sourcing/lib/sourcingSummary";
+import { useSourcingRun } from "../../sourcing/lib/useSourcingRun";
 import * as triageApi from "../api/triageApi";
 import { executiveStatusOptions as statusFilterOptions, statusKeysOf } from "../lib/executiveStatusFilter";
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import type { AdvancedMenuSection } from "../components/AdvancedMenu";
 import { CompanyDrawer, type CompanyDrawerTab } from "../components/CompanyDrawer";
-import { ExecutiveSourcingBanner } from "../components/ExecutiveSourcingBanner";
-import { FindExecutivesDialog } from "../components/FindExecutivesDialog";
 import { ImportSpreadsheetDialog } from "../components/ImportSpreadsheetDialog";
 import { ManageColumnsDialog } from "../components/ManageColumnsDialog";
 import { DeclineCompanyDialog } from "../components/DeclineCompanyDialog";
@@ -68,10 +69,8 @@ import {
 } from "../lib/triageCompanyColumns";
 import { awaitingResearch, type TriageCompanyRow } from "../lib/triageRows";
 import { OFFERED_TRIAGE_STAGES, offeredStageBySlug } from "../lib/triageStages";
-import { companiesOf } from "../lib/sourcingSummary";
 import { resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
 import { useCompanySelection } from "../lib/useCompanySelection";
-import { useExecutiveSourcing } from "../lib/useExecutiveSourcing";
 import { useProjectStream, type ProjectStreamKind } from "../../../lib/useProjectStream";
 
 /**
@@ -188,7 +187,8 @@ function TriageStage() {
   const [pendingCandidateRemoval, setPendingCandidateRemoval] = useState<Candidate | null>(null);
   const [importing, setImporting] = useState(false);
   const companySelection = useCompanySelection();
-  const [confirmingFindExecutives, setConfirmingFindExecutives] = useState(false);
+  /** The companies Find executives opened on; null while its panel is closed. */
+  const [findingAt, setFindingAt] = useState<readonly string[] | null>(null);
   const [enrolment, setEnrolment] = useState<Enrolment | null>(null);
   const [emailing, setEmailing] = useState<EmailRecipient | null>(null);
   const [pipelineSelection, setPipelineSelection] = useState<ReadonlySet<string>>(() => new Set());
@@ -396,7 +396,8 @@ function TriageStage() {
       refreshPeople();
     }
     if (kinds.includes("executive-sourcing")) {
-      void queryClient.invalidateQueries({ queryKey: sourcingApi.SOURCING_LATEST_KEY(project.id) });
+      void queryClient.invalidateQueries({ queryKey: sourcingApi.sourcingKeys.latest(project.id) });
+      void queryClient.invalidateQueries({ queryKey: sourcingApi.sourcingKeys.suggestions(project.id) });
     }
     // An executive's drawer opened here carries their Outreach fold and next action.
     if (kinds.includes("outreach") || kinds.includes("task")) {
@@ -416,12 +417,7 @@ function TriageStage() {
   const streamIsLive = useProjectStream(project.id, refreshWhatMoved);
 
   /** Offered on the universe only, and only where the deployment has a people search. */
-  const sourcing = useExecutiveSourcing(
-    project.id,
-    canWrite && stage.status === "inUniverse",
-    streamIsLive,
-    companySelection.deselect,
-  );
+  const sourcing = useSourcingRun(project.id, canWrite && stage.status === "inUniverse", streamIsLive);
   const findExecutivesOffered = canWrite && stage.status === "inUniverse" && sourcing.offered;
   const findExecutivesCap = sourcing.config?.maxCompaniesPerRun ?? 0;
   const mailbox = useMailbox(canWrite);
@@ -439,11 +435,8 @@ function TriageStage() {
       toast(`Find executives takes ${companiesOf(findExecutivesCap)} at a time`);
       return;
     }
-    setConfirmingFindExecutives(true);
+    setFindingAt([...companySelection.selectedIds]);
   };
-
-  const handleStartFindExecutives = () =>
-    sourcing.start([...companySelection.selectedIds], () => setConfirmingFindExecutives(false));
 
   /**
    * The screen's ordinary freshness is the project stream above: the server says when something
@@ -909,15 +902,7 @@ function TriageStage() {
             : undefined
         }
         findExecutives={
-          findExecutivesOffered && !isBoard
-            ? {
-                onPress: handleFindExecutives,
-                running: sourcing.isRunning,
-                progress: sourcing.run && sourcing.isRunning
-                  ? `${sourcing.run.companiesDone}/${sourcing.run.companiesTotal}`
-                  : undefined,
-              }
-            : undefined
+          findExecutivesOffered && !isBoard ? { onPress: handleFindExecutives, state: sourcing.button } : undefined
         }
         advanced={isBoard ? undefined : advancedSections()}
         advancedDot={
@@ -927,18 +912,14 @@ function TriageStage() {
         }
       />
 
-      {findExecutivesOffered && sourcing.run && !sourcing.isDismissed && (
-        <ExecutiveSourcingBanner run={sourcing.run} onDismiss={sourcing.dismiss} />
-      )}
-
-      {sourcing.config && (
-        <FindExecutivesDialog
-          open={confirmingFindExecutives}
-          config={sourcing.config}
-          selectedCount={companySelection.selectedIds.size}
-          starting={sourcing.isStarting}
-          onCancel={() => setConfirmingFindExecutives(false)}
-          onConfirm={handleStartFindExecutives}
+      {findExecutivesOffered && (
+        <FindExecutivesPanel
+          open={findingAt !== null}
+          onClose={() => setFindingAt(null)}
+          projectId={project.id}
+          subtitle={project.positionTitle}
+          scope={findingAt ?? []}
+          sourcing={sourcing}
         />
       )}
 
@@ -1100,7 +1081,7 @@ function TriageStage() {
           }
         />
 
-        {selectionOffered && companySelection.selectedIds.size > 0 && !confirmingFindExecutives && (
+        {selectionOffered && companySelection.selectedIds.size > 0 && findingAt === null && (
           <SelectionActionBar
             count={companySelection.selectedIds.size}
             noun="company"
@@ -1115,12 +1096,7 @@ function TriageStage() {
               />
             )}
             {findExecutivesOffered && (
-              <SelectionAction
-                icon={ICONS.search}
-                label="Find executives"
-                disabled={sourcing.isRunning}
-                onClick={handleFindExecutives}
-              />
+              <SelectionAction icon={ICONS.search} label="Find executives" onClick={handleFindExecutives} />
             )}
           </SelectionActionBar>
         )}
@@ -1191,6 +1167,14 @@ function TriageStage() {
           markNoExecutiveFound.mutate(company);
         }}
         markingNoExecutiveFound={!!openCompany?.company && busyIds.has(openCompany.company.id)}
+        onFindExecutives={
+          findExecutivesOffered
+            ? (company) => {
+                setOpenCompany(null);
+                setFindingAt([company.id]);
+              }
+            : undefined
+        }
       />
 
       <CandidateDrawer
