@@ -246,7 +246,7 @@ describe("ContactPanel", () => {
 
     expect(screen.getByRole("button", { name: "Find email" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Find phone" })).toBeDisabled();
-    expect(screen.getAllByText(/Add a LinkedIn profile URL/)).toHaveLength(2);
+    expect(screen.getAllByText(/Add their LinkedIn profile URL so Uncava can find contacts/)).toHaveLength(2);
   });
 
   it("keeps the values on screen while a lookup runs", async () => {

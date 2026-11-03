@@ -438,7 +438,7 @@ function FindButton({
       {hasProfile ? (
         price !== undefined && <span className="text-end font-mono text-[10px] text-u-text3">{creditsLabel(price)}</span>
       ) : (
-        <span className="text-end font-mono text-[10px] text-u-text3">Add a LinkedIn profile URL to look contacts up</span>
+        <span className="text-end font-mono text-[10px] text-u-text3">Add their LinkedIn profile URL so Uncava can find contacts</span>
       )}
     </div>
   );

@@ -793,6 +793,13 @@ export function ContactEntriesFields({
   const lines = useFieldArray({ control, name });
   const errors = formState.errors[name];
   const noun = channel === "email" ? "email" : "phone";
+  const remove = (index: number) => {
+    const wasPrimary = getValues(`${name}.${index}.primary`);
+    lines.remove(index);
+    if (offerPrimary && wasPrimary && getValues(name).length > 0) {
+      setValue(`${name}.0.primary`, true, { shouldDirty: true });
+    }
+  };
   return (
     <div>
       <ul className="space-y-2">
@@ -856,7 +863,7 @@ export function ContactEntriesFields({
               />
               <button
                 type="button"
-                onClick={() => lines.remove(index)}
+                onClick={() => remove(index)}
                 aria-label={`Remove ${noun} ${index + 1}`}
                 className="flex-none rounded-md p-1.5 text-u-text3 transition hover:bg-u-raised hover:text-u-offlimits"
               >
@@ -873,7 +880,7 @@ export function ContactEntriesFields({
       </ul>
       <button
         type="button"
-        onClick={() => lines.append({ ...EMPTY_CONTACT_LINE })}
+        onClick={() => lines.append({ ...EMPTY_CONTACT_LINE, primary: offerPrimary && lines.fields.length === 0 })}
         disabled={lines.fields.length >= 10}
         className="mt-2 inline-flex items-center gap-1.5 rounded-[6px] border border-dashed border-u-border-strong px-3 py-1.5 font-sans text-[12.5px] text-u-text2 transition hover:border-u-text3 hover:text-u-text disabled:cursor-not-allowed disabled:opacity-50"
       >

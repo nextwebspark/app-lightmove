@@ -101,7 +101,7 @@ export function ContactDetailsDialog({
       disabled: !hasProfile || editing || (finding && !lookup.isPending),
       needsProfile: !hasProfile,
       reason: !hasProfile
-        ? "Add a LinkedIn profile URL to look contacts up"
+        ? "Add their LinkedIn profile URL so Uncava can find contacts"
         : editing
           ? "Save or cancel your changes first"
           : undefined,
@@ -374,8 +374,8 @@ function EmptyChannel({
     : !find
       ? "Type one in to keep it on their record."
       : find.needsProfile
-        ? "Type one in, or add a LinkedIn profile URL to look one up."
-        : "Type one in, or find it from their LinkedIn profile.";
+        ? "Type one in. Uncava can find one once their LinkedIn profile URL is added."
+        : "Type one in, or find it with Uncava.";
   return (
     <div className="flex flex-col gap-3 rounded-u-chip border border-dashed border-u-border-strong px-4 py-3.5 sm:flex-row sm:items-center">
       <div className="min-w-0 flex-1">
