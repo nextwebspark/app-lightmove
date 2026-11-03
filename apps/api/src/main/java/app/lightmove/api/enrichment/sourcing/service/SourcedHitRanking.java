@@ -5,7 +5,7 @@ import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataExperience;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataPosition;
 import app.lightmove.api.enrichment.sourcing.constant.TitleLevel;
-import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
+import app.lightmove.api.enrichment.sourcing.model.SearchWords;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -40,10 +40,10 @@ final class SourcedHitRanking {
     private SourcedHitRanking() {
     }
 
-    static List<BrightDataPerson> ranked(List<BrightDataPerson> hits, SourcingSpec spec, Seniority seat) {
+    static List<BrightDataPerson> ranked(List<BrightDataPerson> hits, SearchWords words, Seniority seat) {
         TitleLevel wanted = TitleLevel.ofSeat(seat);
         List<RankedHit> scored = IntStream.range(0, hits.size())
-                .mapToObj(index -> rankedHit(hits.get(index), index, spec, wanted))
+                .mapToObj(index -> rankedHit(hits.get(index), index, words, wanted))
                 .toList();
         return scored.stream()
                 .sorted(Comparator.comparing(RankedHit::functionFits).reversed()
@@ -54,11 +54,11 @@ final class SourcedHitRanking {
                 .toList();
     }
 
-    private static RankedHit rankedHit(BrightDataPerson person, int vendorOrder, SourcingSpec spec,
+    private static RankedHit rankedHit(BrightDataPerson person, int vendorOrder, SearchWords words,
                                        TitleLevel wanted) {
         String title = currentRole(person);
         TitleLevel level = levelOf(title);
-        boolean functionFits = TitleWords.containsFunction(title, spec.functionWords());
+        boolean functionFits = TitleWords.namesFunction(title, words);
         return new RankedHit(person, functionFits, level.distanceTo(wanted), level, vendorOrder);
     }
 

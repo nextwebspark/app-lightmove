@@ -272,11 +272,14 @@ jobs:
           elif [ "${{ vars.ENRICHMENT_PROVIDER }}" = "harvestapi" ]; then
             ENRICHMENT_SECRETS=",HARVESTAPI_API_KEY=lightmove-harvestapi-api-key:latest"
           fi
-          # Find executives' index: `contactout` searches ContactOut first (it needs CONTACTOUT_ENABLED
-          # below for the key), with Bright Data behind it when ENRICHMENT_PROVIDER is brightdata. Unset
-          # is the Bright Data dataset alone. A var, not a console edit: --set-env-vars replaces them all.
-          if [ -n "${{ vars.SOURCING_PEOPLE_SOURCE }}" ]; then
-            ENRICHMENT_ENV="${ENRICHMENT_ENV}|SOURCING_PEOPLE_SOURCE=${{ vars.SOURCING_PEOPLE_SOURCE }}"
+          # Find executives searches two indexes: ContactOut's People Search, on the key CONTACTOUT_ENABLED
+          # mounts below, and Bright Data's Business Search, on the Bright Data key whatever
+          # ENRICHMENT_PROVIDER says. SOURCING_BUSINESS_SEARCH=true mounts that key where the provider did
+          # not; =false turns Business Search off. A var, not a console edit: --set-env-vars replaces them all.
+          if [ "${{ vars.SOURCING_BUSINESS_SEARCH }}" = "false" ]; then
+            ENRICHMENT_ENV="${ENRICHMENT_ENV}|SOURCING_BUSINESS_SEARCH=false"
+          elif [ "${{ vars.SOURCING_BUSINESS_SEARCH }}" = "true" ] && [ "${{ vars.ENRICHMENT_PROVIDER }}" != "brightdata" ]; then
+            ENRICHMENT_SECRETS="${ENRICHMENT_SECRETS},BRIGHTDATA_API_KEY=lightmove-brightdata-api-key:latest"
           fi
 
           # The Companies screen's map view, same shape again: off unless MAPBOX_ENABLED=true, because

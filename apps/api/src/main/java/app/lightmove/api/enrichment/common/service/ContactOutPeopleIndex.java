@@ -2,6 +2,7 @@ package app.lightmove.api.enrichment.common.service;
 
 import app.lightmove.api.enrichment.common.model.ContactOutCount;
 import app.lightmove.api.enrichment.common.service.ContactOutPeopleRecords.ContactOutSearchAnswer;
+import java.time.Duration;
 import java.util.Map;
 
 /**
@@ -18,4 +19,12 @@ public interface ContactOutPeopleIndex {
 
     /** Bills one search credit for every profile the page returns. */
     ContactOutSearchAnswer search(Map<String, Object> filter, int page, int pageSize);
+
+    /**
+     * The same index for a background job, whose calls queue up to {@code maxWait} for a rate permit
+     * rather than failing behind the job's own earlier calls.
+     */
+    default ContactOutPeopleIndex waitingUpTo(Duration maxWait) {
+        return this;
+    }
 }

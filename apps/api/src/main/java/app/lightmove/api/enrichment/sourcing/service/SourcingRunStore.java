@@ -4,7 +4,7 @@ import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
 import app.lightmove.api.enrichment.sourcing.model.CompanyOutcome;
 import app.lightmove.api.enrichment.sourcing.model.ExecutiveSourcingRun;
-import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
+import app.lightmove.api.enrichment.sourcing.model.SearchWords;
 import app.lightmove.api.enrichment.sourcing.repository.ExecutiveSourcingRunRepository;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,10 +36,11 @@ public class SourcingRunStore {
         });
     }
 
+    /** The words drafted for the run, and the model call drafting them cost. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void recordSpec(UUID runId, SourcingSpec spec) {
+    public void recordWords(UUID runId, SearchWords words) {
         runs.findById(runId).ifPresent(run -> {
-            run.recordSpec(spec);
+            run.recordWords(words);
             run.countModelCall();
         });
     }

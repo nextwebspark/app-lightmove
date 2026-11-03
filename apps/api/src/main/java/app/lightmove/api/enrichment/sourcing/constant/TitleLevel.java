@@ -19,19 +19,6 @@ public enum TitleLevel {
         };
     }
 
-    /**
-     * The lowest level a title may read at and still be filed for the seat: a Head of IT is a C-suite or
-     * N-1 hire, an IT Manager is not. A board seat is named by its own words ("Board Member",
-     * "Non-Executive Director"), not by a level.
-     */
-    public static TitleLevel lowestFor(Seniority seniority) {
-        return seniority == null ? HEAD : switch (seniority) {
-            case BOARD -> NONE;
-            case C_SUITE, N_MINUS_1 -> HEAD;
-            case N_MINUS_2, N_MINUS_3 -> MANAGER;
-        };
-    }
-
     public boolean isAtLeast(TitleLevel other) {
         return ordinal() >= other.ordinal();
     }

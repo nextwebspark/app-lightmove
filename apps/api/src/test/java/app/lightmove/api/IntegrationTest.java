@@ -1,5 +1,7 @@
 package app.lightmove.api;
 
+import app.lightmove.api.enrichment.sourcing.service.RecordingLiveProfiles;
+import app.lightmove.api.enrichment.sourcing.service.RecordingProfileIndex;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.context.ImportTestcontainers;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -42,7 +44,8 @@ import java.lang.annotation.Target;
 @Import({SynchronousAuditWrites.class, StubChatModel.Config.class, StubEmbeddingModel.Config.class,
         RecordingEmailSender.Config.class, RecordingProfileEnricher.Config.class,
         RecordingCompanyEnricher.Config.class, StubGeocoder.Config.class,
-        RecordingContactFinder.Config.class, RecordingPeopleSearch.Config.class,
+        RecordingContactFinder.Config.class, RecordingLiveProfiles.Config.class,
+        RecordingProfileIndex.Config.class,
         RecordingContactOutPeopleIndex.Config.class, RecordingMailboxGateway.Config.class,
         RecordingRecallCalendarApi.Config.class, RecordingRecallBotApi.Config.class, RecordingZoomApi.Config.class,
         RecordingProviderTokenClient.Config.class, StubClientMetadataFetcher.Config.class,

@@ -33,14 +33,23 @@ public class ContactOutPeopleClient implements ContactOutPeopleIndex {
     private final RestClient searchClient;
     private final RestClient countClient;
     private final VendorCallGuard guard;
+    private final Duration permitWait;
 
     public ContactOutPeopleClient(ContactOutSettings config, VendorClientFactory clientFactory,
                                   VendorRateLimiter rateLimiter, VendorCallGuard guard) {
+        this(clientFactory.create(VendorClientSpec.header(SEARCH_VENDOR, config.baseUrl(), "token",
+                        config.apiKey(), READ_TIMEOUT, config.searchRequestsPerSecond()), RestClient.builder(), rateLimiter),
+                clientFactory.create(VendorClientSpec.header(COUNT_VENDOR, config.baseUrl(), "token",
+                        config.apiKey(), READ_TIMEOUT, config.countRequestsPerSecond()), RestClient.builder(), rateLimiter),
+                guard, null);
+    }
+
+    private ContactOutPeopleClient(RestClient searchClient, RestClient countClient, VendorCallGuard guard,
+                                   Duration permitWait) {
+        this.searchClient = searchClient;
+        this.countClient = countClient;
         this.guard = guard;
-        this.searchClient = clientFactory.create(VendorClientSpec.header(SEARCH_VENDOR, config.baseUrl(), "token",
-                config.apiKey(), READ_TIMEOUT, config.searchRequestsPerSecond()), RestClient.builder(), rateLimiter);
-        this.countClient = clientFactory.create(VendorClientSpec.header(COUNT_VENDOR, config.baseUrl(), "token",
-                config.apiKey(), READ_TIMEOUT, config.countRequestsPerSecond()), RestClient.builder(), rateLimiter);
+        this.permitWait = permitWait;
     }
 
     @Override
@@ -49,8 +58,13 @@ public class ContactOutPeopleClient implements ContactOutPeopleIndex {
     }
 
     @Override
+    public ContactOutPeopleIndex waitingUpTo(Duration maxWait) {
+        return new ContactOutPeopleClient(searchClient, countClient, guard, maxWait);
+    }
+
+    @Override
     public ContactOutCount count(Map<String, Object> filter) {
-        ContactOutCount answer = guard.call(VendorCall.of(COUNT_VENDOR, "people-count"), () -> countClient.post()
+        ContactOutCount answer = guard.call(call(COUNT_VENDOR, "people-count"), () -> countClient.post()
                 .uri("/v1/people/count")
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
@@ -69,12 +83,17 @@ public class ContactOutPeopleClient implements ContactOutPeopleIndex {
         body.put("detailed_experience", true);
         body.put("detailed_education", true);
         body.put("reveal_info", false);
-        return guard.call(VendorCall.of(SEARCH_VENDOR, "people-search"), () -> searchClient.post()
+        return guard.call(call(SEARCH_VENDOR, "people-search"), () -> searchClient.post()
                 .uri("/v1/people/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
                 .body(body)
                 .retrieve()
                 .body(ContactOutSearchAnswer.class));
+    }
+
+    private VendorCall call(String vendor, String operation) {
+        VendorCall call = VendorCall.of(vendor, operation);
+        return permitWait == null ? call : call.waitingUpTo(permitWait);
     }
 }
