@@ -658,7 +658,7 @@ function wayOf(entry: PersonTimelineEntry, position: PositionOfLine | null, to: 
       return { kind: "action", label: "Open in Meetings", run: to.onOpenMeetings };
     case "PROFILE_EDITED":
     case "RESEARCHED":
-      return { kind: "action", label: "Open Career", run: () => to.onOpenTab("career") };
+      return { kind: "action", label: "Open Background", run: () => to.onOpenTab("background") };
     case "CONTACT_FOUND":
     case "CONTACTS_EDITED":
     case "DO_NOT_CONTACT_SET":
@@ -671,7 +671,7 @@ function wayOf(entry: PersonTimelineEntry, position: PositionOfLine | null, to: 
       return { kind: "action", label: "Open Documents", run: () => to.onOpenTab("documents") };
     case "AI_ASSESSED":
       return entry.details.scope === "BACKGROUND"
-        ? { kind: "action", label: "Open Career", run: () => to.onOpenTab("career") }
+        ? { kind: "action", label: "Open Background", run: () => to.onOpenTab("background") }
         : { kind: "action", label: "Open Assessment", run: () => to.onOpenTab("assessment") };
     case "ASSESSMENT_REVIEWED":
       return { kind: "action", label: "Open Assessment", run: () => to.onOpenTab("assessment") };

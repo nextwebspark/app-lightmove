@@ -380,9 +380,11 @@ public class Person extends BaseEntity {
     /**
      * The Contact section's save: the channel now holds exactly these. A row matched by key takes
      * the entry and keeps its source unless respelled; a new key is the writer's; a key no longer
-     * listed is gone, whoever put it there — the person looking at the profile has decided.
+     * listed is gone, whoever put it there — the person looking at the profile has decided, the primary
+     * included: none named leaves the first of {@link #listed} standing in.
      */
-    public void replaceContacts(ContactChannel channel, List<ContactEntry> entries, ContactSource door) {
+    public void replaceContacts(ContactChannel channel, List<ContactEntry> entries, ContactSource door,
+                                String primary) {
         Instant now = Instant.now();
         Map<String, ContactEntry> wanted = new LinkedHashMap<>();
         for (ContactEntry entry : entries) {
@@ -400,6 +402,19 @@ public class Person extends BaseEntity {
             }
             held.describedBy(entry, door, now);
         });
+        choosePrimary(channel, primary == null ? null : CandidateContact.keyOf(channel, primary));
+    }
+
+    private void choosePrimary(ContactChannel channel, String key) {
+        contactsOf(channel).forEach(contact -> contact.markPrimary(contact.matches(key)));
+    }
+
+    private String primaryKeyOf(ContactChannel channel) {
+        return contactsOf(channel).stream()
+                .filter(CandidateContact::isPrimary)
+                .map(CandidateContact::getValueKey)
+                .findFirst()
+                .orElse(null);
     }
 
     private CandidateContact contactOf(ContactChannel channel, String key) {
@@ -508,6 +523,7 @@ public class Person extends BaseEntity {
     public void recordFoundEmails(FoundEmails found) {
         Instant now = Instant.now();
         ContactSource provider = ContactSource.ofProvider(found.source());
+        String primary = primaryKeyOf(ContactChannel.EMAIL);
         contacts.removeIf(contact -> contact.is(ContactChannel.EMAIL) && contact.isFrom(provider));
         for (CandidateEmail address : found.emails()) {
             CandidateContact held = contactOf(ContactChannel.EMAIL,
@@ -518,6 +534,7 @@ public class Person extends BaseEntity {
                 contacts.add(CandidateContact.foundEmail(address, provider, now));
             }
         }
+        choosePrimary(ContactChannel.EMAIL, primary);
         emailsLookedUpAt = now;
         contactsLookedUpVia = found.source();
     }
@@ -526,6 +543,7 @@ public class Person extends BaseEntity {
     public void recordFoundPhones(FoundPhones found) {
         Instant now = Instant.now();
         ContactSource provider = ContactSource.ofProvider(found.source());
+        String primary = primaryKeyOf(ContactChannel.PHONE);
         contacts.removeIf(contact -> contact.is(ContactChannel.PHONE) && contact.isFrom(provider));
         for (String number : found.phones()) {
             String key = CandidateContact.keyOf(ContactChannel.PHONE, number);
@@ -539,6 +557,7 @@ public class Person extends BaseEntity {
                 contacts.add(CandidateContact.foundPhone(number, provider, now));
             }
         }
+        choosePrimary(ContactChannel.PHONE, primary);
         phonesLookedUpAt = now;
         contactsLookedUpVia = found.source();
     }
@@ -561,8 +580,10 @@ public class Person extends BaseEntity {
     }
 
     /**
-     * The email rows as the drawer lists them: work, then personal, then untagged; within a kind,
-     * what a person supplied before what a lookup found, oldest first.
+     * The email rows as every reader lists them, the first being the one to reach them on: the chosen
+     * primary, then personal before work before untagged — an approach to someone at their current
+     * employer is better read away from that employer's inbox — verified first, what a person supplied
+     * before what a lookup found, oldest first.
      */
     public List<CandidateContact> emailContacts() {
         return listed(ContactChannel.EMAIL);
@@ -574,7 +595,9 @@ public class Person extends BaseEntity {
 
     private List<CandidateContact> listed(ContactChannel channel) {
         return contactsOf(channel).stream()
-                .sorted(Comparator.comparing((CandidateContact contact) -> kindRank(contact.getKind()))
+                .sorted(Comparator.comparing((CandidateContact contact) -> !contact.isPrimary())
+                        .thenComparing(contact -> kindRank(contact.getKind()))
+                        .thenComparing(contact -> !contact.isVerified())
                         .thenComparing(contact -> !contact.isSuppliedByAPerson())
                         .thenComparing(CandidateContact::getFoundAt))
                 .toList();
@@ -588,7 +611,7 @@ public class Person extends BaseEntity {
         if (kind == null) {
             return 2;
         }
-        return kind == ContactKind.WORK ? 0 : 1;
+        return kind == ContactKind.PERSONAL ? 0 : 1;
     }
 
     /** Answers whether anything changed, so a no-op leaves no timeline line. */

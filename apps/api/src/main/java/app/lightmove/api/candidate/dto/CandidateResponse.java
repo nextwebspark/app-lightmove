@@ -64,5 +64,7 @@ public record CandidateResponse(
         /** Whether a client seat on the position sees this executive at all; staff always do. */
         boolean clientVisible,
         /** The Companies stage they are listed under — a {@code TriageCompanyStatus} wire token, their own (V150). */
-        String triageStatus
+        String triageStatus,
+        /** {@code companyName}'s logo: its company row's, else research's where research named it; null for neither. */
+        String companyLogoUrl
 ) {}

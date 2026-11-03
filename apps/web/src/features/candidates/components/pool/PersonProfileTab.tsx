@@ -5,17 +5,16 @@ import type { PersonRecord } from "../../api/types";
 import { CANDIDATE_SOURCE_STYLES, candidateGenderLabel } from "../../lib/candidateVocabulary";
 import { useProfileSections, type ProfileSection } from "../../lib/useProfileSections";
 import { CareerTimeline } from "../CareerTimeline";
-import { CompensationSummary } from "../CompensationSummary";
 import { ClampedText } from "../ProfileParts";
 
 /**
- * The Profile tab: the profile every position shares, read here and edited from a position's own
+ * The Background tab: the profile every position shares, read here and edited from a position's own
  * drawer. Its folds are the executive drawer's, remembered per viewer in the same place.
  */
 export function PersonProfileTab({ person }: { person: PersonRecord }) {
   const sections = useProfileSections();
   const fold = (id: ProfileSection) => ({ id, open: sections.isOpen(id), onToggle: () => sections.toggle(id) });
-  const background = [person.nationality, candidateGenderLabel(person.gender),
+  const background = [person.seniority, person.nationality, candidateGenderLabel(person.gender),
     person.yearsExperience != null ? `${person.yearsExperience} years` : null].filter(Boolean);
   const current = person.career[0];
 
@@ -43,24 +42,13 @@ export function PersonProfileTab({ person }: { person: PersonRecord }) {
         </div>
       </CollapsibleSection>
       <CollapsibleSection
-        {...fold("compensation")}
-        title="Compensation"
-        summary={person.compensation.baseSalary != null ? "On file" : "Nothing on file"}
-      >
-        <div className="pb-3">
-          <CompensationSummary compensation={person.compensation} />
-          <p className="mt-2 text-[12px] text-u-text3">
-            One package on file for this person, read by every position they are in.
-          </p>
-        </div>
-      </CollapsibleSection>
-      <CollapsibleSection
         {...fold("background")}
         title="Background"
         summary={background.length > 0 ? background.join(" · ") : "Nothing on file"}
       >
         <div className="pb-3">
           <DetailGrid>
+            <DetailTile label="Seniority" value={person.seniority} />
             <DetailTile label="Nationality" value={person.nationality} />
             <DetailTile label="Gender" value={candidateGenderLabel(person.gender)} />
             <DetailTile

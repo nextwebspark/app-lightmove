@@ -51,7 +51,7 @@
   --u-text-2: #A6ADBB;
   --u-text-3: #7C8493;
 
-  --u-accent: #6E79F2;          /* text, icons, strokes, series 1 */
+  --u-accent: #7782F4;          /* text, icons, strokes, series 1 */
   --u-accent-hover: #8189F7;
   --u-accent-solid: #4A56D6;    /* filled buttons — only stop that takes white */
   --u-accent-solid-hover: #5A66E6;
@@ -94,13 +94,13 @@
   --u-surface: #F7F8FA;
   --u-raised: #ECEFF3;
   --u-sunken: #E4E8EE;
-  --u-border: rgba(3, 7, 18, .09);
-  --u-border-strong: rgba(3, 7, 18, .16);
+  --u-border: rgba(3, 7, 18, .12);
+  --u-border-strong: rgba(3, 7, 18, .22);
   --u-scrim: rgba(3, 7, 18, .4);
 
   --u-text: #0B0D12;
-  --u-text-2: #4C5462;
-  --u-text-3: #6B7382;
+  --u-text-2: #343A46;
+  --u-text-3: #525967;
 
   --u-accent: #4A56D6;
   --u-accent-hover: #3A46C4;
@@ -109,13 +109,13 @@
   --u-accent-tint: rgba(74, 86, 214, .09);
   --u-accent-ring: rgba(74, 86, 214, .4);
 
-  --u-signal: #A8602F;
+  --u-signal: #A05B2D;
   --u-signal-tint: rgba(168, 96, 47, .1);
 
-  --u-direct: #0F9D6B;   --u-direct-tint: rgba(15, 157, 107, .1);
-  --u-adjacent: #1F72D4; --u-adjacent-tint: rgba(31, 114, 212, .1);
+  --u-direct: #0C7C55;   --u-direct-tint: rgba(15, 157, 107, .1);
+  --u-adjacent: #1D6CC9; --u-adjacent-tint: rgba(31, 114, 212, .1);
   --u-inferred: #8244D6; --u-inferred-tint: rgba(130, 68, 214, .1);
-  --u-offlimits: #D93A45;--u-offlimits-tint: rgba(217, 58, 69, .1);
+  --u-offlimits: #C8353F;--u-offlimits-tint: rgba(217, 58, 69, .1);
 
   --u-chart-1: #4A56D6;
   --u-chart-2: #0F9D6B;

@@ -237,8 +237,11 @@
             </button>
 
             <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
-              <a href="Assistant.dc.html" style="display:inline-flex;align-items:center;gap:8px;height:34px;box-sizing:border-box;white-space:nowrap;border-radius:6px;background:var(--u-inferred);padding:0 14px;font:600 13px var(--sans);color:#fff" style-hover="filter:brightness(1.1)">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.sparkle }}"></path></svg>
+              <!-- AI Research is one of the toolbar's own bordered controls, not a slab of colour: the AI is the sparkle
+                   alone, in the violet every AI mark wears. Pressed while the assistant is open, and a second press
+                   closes it. The assistant docks beside Strategy only; no other screen of a position opens it. -->
+              <a href="Assistant.dc.html" aria-pressed="false" style="display:inline-flex;align-items:center;gap:7px;height:34px;box-sizing:border-box;white-space:nowrap;border-radius:6px;border:1px solid var(--u-border-strong);background:var(--u-surface);padding:0 12px;font:500 13px var(--sans);color:var(--u-text)" style-hover="background:var(--u-raised)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--u-inferred)"><path d="{{ I.sparkle }}"></path></svg>
                 <span>AI Research</span>
               </a>
               <div style="position:relative">

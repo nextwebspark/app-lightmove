@@ -453,7 +453,8 @@ describe("CandidatesPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Fatima Al Mazrouei" })).toBeInTheDocument();
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent?.replace(/\d+$/, ""))).toEqual([
-      "Career",
+      "Background",
+      "Compensation",
       "Notes",
       "Contact",
       "Documents",
@@ -464,7 +465,7 @@ describe("CandidatesPage", () => {
     expect(await screen.findByRole("button", { name: "Remove tag Open to work" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("tab", { name: "Contact" }));
-    expect(screen.getByText("fatima@example.com")).toBeInTheDocument();
+    expect(within(screen.getByRole("tabpanel")).getByText("fatima@example.com")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("tab", { name: /^Notes/ }));
     expect(await screen.findByLabelText("New note")).toBeInTheDocument();

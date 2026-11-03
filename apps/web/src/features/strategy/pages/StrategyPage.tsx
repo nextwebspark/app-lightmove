@@ -101,7 +101,8 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
   const { project } = useOutletContext<ProjectOutletContext>();
   const queryClient = useQueryClient();
   const toast = useToast();
-  const { openAssistant } = useAssistant();
+  const { isOpenFor, openAssistant, closeAssistant } = useAssistant();
+  const assistantOpen = isOpenFor(project.id);
   // Whose searches are "Mine" in the dropdown. The list already excludes other people's private ones,
   // so this only splits what arrived, never widens it.
   const { user } = useAuth();
@@ -398,7 +399,8 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
         onSetSearchVisibility={(searchId, visibility) => editSearch.mutate({ searchId, visibility })}
         onOverwriteSearch={(searchId) => overwriteSearch.mutate(searchId)}
         onDeleteSearch={(searchId) => deleteSearch.mutate(searchId)}
-        onAiResearch={() => openAssistant(project.id)}
+        onAiResearch={() => (assistantOpen ? closeAssistant() : openAssistant(project.id))}
+        aiResearchOpen={assistantOpen}
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
         onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}

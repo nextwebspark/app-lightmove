@@ -6,8 +6,8 @@
     "arbitraryText": 1
   },
   "components/layout/Sidebar.tsx": {
-    "arbitraryRadius": 1,
-    "arbitraryText": 4
+    "arbitraryText": 4,
+    "arbitraryRadius": 1
   },
   "components/layout/Topbar.tsx": {
     "arbitraryText": 7,
@@ -121,10 +121,6 @@
     "arbitraryRadius": 7,
     "arbitraryText": 18
   },
-  "features/candidates/components/documents/PrimaryCvChip.tsx": {
-    "arbitraryRadius": 1,
-    "arbitraryText": 2
-  },
   "features/candidates/components/NoteParts.tsx": {
     "arbitraryText": 8,
     "arbitraryRadius": 2
@@ -159,7 +155,7 @@
     "arbitraryText": 3
   },
   "features/candidates/components/pool/PersonProfileTab.tsx": {
-    "arbitraryText": 2
+    "arbitraryText": 1
   },
   "features/candidates/components/pool/PoolFilterRail.tsx": {
     "arbitraryRadius": 2
@@ -223,7 +219,7 @@
     "arbitraryText": 4
   },
   "features/contactlookup/components/ContactPanel.tsx": {
-    "arbitraryText": 8
+    "arbitraryText": 7
   },
   "features/customcolumns/components/CustomFieldsFieldset.tsx": {
     "arbitraryText": 1
