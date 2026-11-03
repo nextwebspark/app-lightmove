@@ -56,7 +56,6 @@ export function IdentityFields<TTransformed>({
   autoFocus,
   statusField,
   aiInferred,
-  linkedin,
 }: FieldGroupProps & {
   control: Control<CandidateForm, unknown, TTransformed>;
   /** Which background fields hold a value AI proposed, not yet reviewed — seniority is drawn here. */
@@ -66,8 +65,6 @@ export function IdentityFields<TTransformed>({
   autoFocus?: boolean;
   /** The Status select, which the add form places beside the employer and the editor leaves to the header. */
   statusField?: ReactNode;
-  /** The profile link, which the drawer edits with the details and the add form asks for under Contact. */
-  linkedin?: { lockedUrl: string | null };
 }) {
   return (
     <>
@@ -125,9 +122,6 @@ export function IdentityFields<TTransformed>({
           />
         </Field>
       </div>
-      {linkedin && (
-        <LinkedInUrlField register={register} error={errors.linkedinUrl?.message} lockedUrl={linkedin.lockedUrl} />
-      )}
     </>
   );
 }
@@ -744,17 +738,11 @@ export function BackgroundFields({
   );
 }
 
-/** The add form's profile link, read through the form's context like the contact lines beside it. */
-export function ContactFields() {
-  const { register, formState } = useFormContext<CandidateForm>();
-  return <LinkedInUrlField register={register} error={formState.errors.linkedinUrl?.message} lockedUrl={null} />;
-}
-
 /**
  * The profile link. Locked for a person the plugin captured: the URL is the page it read them off,
  * and research and contact lookup both key on it, so retyping it can only break them.
  */
-function LinkedInUrlField({
+export function LinkedInUrlField({
   register,
   error,
   lockedUrl,

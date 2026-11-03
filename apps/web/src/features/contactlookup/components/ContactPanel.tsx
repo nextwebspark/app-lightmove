@@ -202,7 +202,6 @@ export function ContactChannels({
 function ContactSectionEditor({
   projectId,
   candidate,
-  onSaved,
   onDone,
   onCancel,
 }: {

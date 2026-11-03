@@ -14,7 +14,7 @@ import { ClampedText } from "../ProfileParts";
 export function PersonProfileTab({ person }: { person: PersonRecord }) {
   const sections = useProfileSections();
   const fold = (id: ProfileSection) => ({ id, open: sections.isOpen(id), onToggle: () => sections.toggle(id) });
-  const background = [person.nationality, candidateGenderLabel(person.gender),
+  const background = [person.seniority, person.nationality, candidateGenderLabel(person.gender),
     person.yearsExperience != null ? `${person.yearsExperience} years` : null].filter(Boolean);
   const current = person.career[0];
 
@@ -48,6 +48,7 @@ export function PersonProfileTab({ person }: { person: PersonRecord }) {
       >
         <div className="pb-3">
           <DetailGrid>
+            <DetailTile label="Seniority" value={person.seniority} />
             <DetailTile label="Nationality" value={person.nationality} />
             <DetailTile label="Gender" value={candidateGenderLabel(person.gender)} />
             <DetailTile

@@ -127,9 +127,6 @@ export function ProfileSectionForm({
   );
 }
 
-/** A link the plugin read someone off, or one another person of the workspace holds: the link is the field to change. */
-const LINKEDIN_REFUSALS: ReadonlySet<string> = new Set(["CANDIDATE_PROFILE_URL_LOCKED", "PERSON_PROFILE_HELD"]);
-
 /**
  * One section of a stored profile, as a form. Validates and hands back only that section's fields;
  * the caller writes them over the stored profile and sends the whole thing, because the server
@@ -180,7 +177,10 @@ export function SectionEditor<S extends ProfileFormSection>({
         form.setError("fullName", { message: messageFor(error) });
         return;
       }
-      if (section === "identity" && LINKEDIN_REFUSALS.has(codeOf(error) ?? "")) {
+      // Only onto the input when one is drawn: a link locked since the form opened has no field to show it.
+      const code = codeOf(error);
+      const linkRefused = code === "PERSON_PROFILE_HELD" || code === "CANDIDATE_PROFILE_URL_LOCKED";
+      if (section === "identity" && linkRefused && !candidate.linkedinUrlLocked) {
         form.setError("linkedinUrl", { message: messageFor(error) });
         return;
       }

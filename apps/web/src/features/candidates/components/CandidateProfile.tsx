@@ -59,6 +59,7 @@ import {
   CareerFields,
   CompensationFields,
   IdentityFields,
+  LinkedInUrlField,
   SummaryFields,
 } from "./CandidateFieldGroups";
 import { CareerTimeline } from "./CareerTimeline";
@@ -426,14 +427,20 @@ export function CandidateProfile({
                 onCancel={() => setEditing(null)}
               >
                 {(form) => (
-                  <IdentityFields
-                    register={form.register}
-                    errors={form.formState.errors}
-                    control={form.control}
-                    employerLocked={candidate.triageCompanyId !== null}
-                    aiInferred={new Set(candidate.aiInferredFields)}
-                    linkedin={{ lockedUrl: candidate.linkedinUrlLocked ? candidate.linkedinUrl : null }}
-                  />
+                  <>
+                    <IdentityFields
+                      register={form.register}
+                      errors={form.formState.errors}
+                      control={form.control}
+                      employerLocked={candidate.triageCompanyId !== null}
+                      aiInferred={new Set(candidate.aiInferredFields)}
+                    />
+                    <LinkedInUrlField
+                      register={form.register}
+                      error={form.formState.errors.linkedinUrl?.message}
+                      lockedUrl={candidate.linkedinUrlLocked ? candidate.linkedinUrl : null}
+                    />
+                  </>
                 )}
               </SectionEditor>
             </section>
@@ -547,6 +554,11 @@ export function CandidateProfile({
             ) : (
               <>
                 <DetailGrid>
+                  <DetailTile
+                    label="Seniority"
+                    value={candidate.seniority}
+                    badge={candidate.aiInferredFields.includes("seniority") ? <AiInferredBadge /> : undefined}
+                  />
                   <DetailTile
                     label="Nationality"
                     value={candidate.nationality}

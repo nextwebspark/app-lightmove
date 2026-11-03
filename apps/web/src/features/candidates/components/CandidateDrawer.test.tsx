@@ -1078,12 +1078,18 @@ describe("CandidateDrawer", () => {
   });
 
   it("keeps the header to the name, its link, the status and the details pencil", async () => {
-    renderDrawer({ candidate: { ...yasmin, source: "extension" }, company: null });
+    renderDrawer({
+      candidate: { ...yasmin, source: "extension", aiInferredFields: ["seniority"] },
+      company: null,
+    });
 
     expect(screen.getByRole("button", { name: /^Status: / })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Edit details/i })).toBeInTheDocument();
-    expect(screen.queryByText("N-1")).not.toBeInTheDocument();
     expect(screen.queryByText("Plugin")).not.toBeInTheDocument();
+    // The level is read where the rest of the background is, still flagged while it is the AI's.
+    const level = screen.getByText("N-1").parentElement as HTMLElement;
+    expect(level).toHaveTextContent("Seniority");
+    expect(within(level).getByRole("img", { name: "AI-suggested", hidden: true })).toBeInTheDocument();
   });
 
   it("edits the profile link with the details, through the profile write", async () => {
@@ -1116,6 +1122,21 @@ describe("CandidateDrawer", () => {
 
     expect(await screen.findByText(/already has that LinkedIn profile/)).toBeInTheDocument();
     expect(link).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("says why a link locked since the form opened was refused, though no field is drawn for it", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockRejectedValue(
+      new ApiRequestError({ code: "CANDIDATE_PROFILE_URL_LOCKED", detail: "locked", status: 409, correlationId: "x" }),
+    );
+    renderDrawer({
+      candidate: { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin", linkedinUrlLocked: true },
+      company: null,
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    expect(await screen.findByRole("alert")).not.toBeEmptyDOMElement();
   });
 
   it("locks the profile link in the details for a person the plugin captured, on the server's word", async () => {
