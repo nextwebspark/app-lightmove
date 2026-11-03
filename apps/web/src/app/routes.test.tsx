@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../components/ui";
+import { AssistantProvider } from "../features/assistant/AssistantProvider";
+import { ASSISTANT_OPEN_KEY } from "../features/assistant/assistantStorage";
 import { AuthProvider } from "../features/auth/AuthProvider";
 import * as authApi from "../features/auth/api/authApi";
 import * as clientsApi from "../features/clients/api/clientsApi";
@@ -105,8 +107,10 @@ const renderAt = (path: string) =>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <AuthProvider>
           <ToastProvider>
-            <AppRoutes />
-            <Pathname />
+            <AssistantProvider>
+              <AppRoutes />
+              <Pathname />
+            </AssistantProvider>
           </ToastProvider>
         </AuthProvider>
       </QueryClientProvider>
@@ -609,6 +613,20 @@ describe("routes — a position's rail", () => {
 
     expect(await nav.findByRole("link", { name: "Dashboard" })).toBeInTheDocument();
     expect(nav.queryByText("Engage")).not.toBeInTheDocument();
+  });
+
+  it("docks the assistant beside Strategy alone, even while it is left open", async () => {
+    localStorage.setItem(ASSISTANT_OPEN_KEY, "p1");
+
+    renderAt("/projects/p1/strategy");
+    expect(await screen.findByRole("complementary", { name: "Uncava Assistant" })).toBeInTheDocument();
+
+    await userEvent.click((await rail()).getByRole("link", { name: "Team & access" }));
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/projects/p1/team"));
+    expect(screen.queryByRole("complementary", { name: "Uncava Assistant" })).not.toBeInTheDocument();
+
+    await userEvent.click((await rail()).getByRole("link", { name: "Strategy" }));
+    expect(await screen.findByRole("complementary", { name: "Uncava Assistant" })).toBeInTheDocument();
   });
 
   it("marks Outreach inside the sequence editor", async () => {
