@@ -95,10 +95,12 @@ may change, remove or restore one (`PERSON_NOTE_NOT_YOURS`), and a note line on 
 never quotes it. A removed note is out of every read at once (V141) and offered back by the toast's Undo
 (`…/notes/{noteId}/restore`); `PersonNotePurge` deletes it for good after `lightmove.notes.purge-after` (30 days),
 so from then it leaves no copy. Both person drawers — a position's executive drawer and the
-Candidates page's — share one header (`PersonHeaderLayout`: the photo beside one column of name, pills, the tags held
-to one line with a +N chip, and do not contact) and one tab order,
-`Position.dc.html`'s: **Career · Notes · Assessment · Contact · Documents · Activity · Positions** (`lib/drawerTabs.ts`,
-retired `?tab=records|timeline` links still land), a client seat reading Career and Contact alone; the
+Candidates page's — share one header (`PersonHeaderLayout`: the photo beside one column of the name with its LinkedIn
+mark — the drawer's only view of the link, edited with the details' pencil, never in Contact — then on a position the
+status picker and that pencil, the tags held to one line with a +N chip, and do not contact) and one tab order,
+`Position.dc.html`'s: **Background · Compensation · Notes · Assessment · Contact · Documents · Activity · Positions**
+(`lib/drawerTabs.ts`, retired `?tab=career|records|timeline` links still land), a client seat reading Background and
+Contact alone — the Compensation tab is staff's on screen, though `CandidateResponse` still carries the package; the
 workspace drawer leaves out only what a position holds (Assessment among them). **Assessment** (V135) is the
 consultant's own scorecard against the brief's competencies: 0–10 or unscored (an open question, never a zero) per
 competency, out of 100 by each panel's `technical_share` (`ScorecardScoring`, mirrored live by
@@ -138,8 +140,7 @@ uploader's or a `WORKSPACE_MANAGE` holder's (`PERSON_DOCUMENT_NOT_YOURS`), every
 and each change is a timeline line that names the document only while it exists. The bytes live in a
 private GCS bucket behind `core/storage`'s `DocumentStore` (`lightmove.storage.*`; the filesystem store
 for `npm run dev` and tests), streamed by the API, never by a signed URL. The SPA draws them in
-`components/documents`: both drawers' Documents tab, a
-header chip for the primary CV and a preview sheet (a PDF or image fetched as a blob, never a link); the
+`components/documents`: both drawers' Documents tab and a preview sheet (a PDF or image fetched as a blob, never a link); the
 upload tray says what each file will become before sending, and a duplicate is the server's 409.
 `CandidateResponse.linkedinUrlLocked` is the server's own lock, which the Contact section reads rather
 than guessing from this mandate's door.
