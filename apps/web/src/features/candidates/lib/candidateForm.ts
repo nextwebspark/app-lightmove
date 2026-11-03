@@ -13,6 +13,7 @@ import {
 } from "./compensation";
 import type {
   Candidate,
+  CandidateContacts,
   CandidateEmail,
   CandidatePhone,
   CandidateSeniority,
@@ -29,6 +30,7 @@ export const contactEntrySchema = z.object({
   value: z.string().trim().max(320),
   kind: z.enum(["", "work", "personal"]),
   verified: z.boolean(),
+  primary: z.boolean(),
   source: z.string().nullable(),
 });
 
@@ -74,7 +76,7 @@ export function contactEntries(channel: "email" | "phone") {
     });
 }
 
-/** A channel's lines as the request states them: blanks dropped, kind and verified as claimed. */
+/** A channel's lines as the request states them: blanks dropped, kind, verified and primary as claimed. */
 export function contactInputsOf(entries: ContactEntryForm[]): ContactEntryInput[] {
   return entries
     .filter((entry) => entry.value.trim() !== "")
@@ -82,19 +84,41 @@ export function contactInputsOf(entries: ContactEntryForm[]): ContactEntryInput[
       value: entry.value.trim(),
       kind: entry.kind === "" ? null : entry.kind,
       verified: entry.verified,
+      primary: entry.primary,
     }));
 }
 
-export function contactLineOf(entry: CandidateEmail | CandidatePhone): ContactEntryForm {
+/** The server lists the primary first, chosen or standing in, so the first line is the one marked. */
+export function contactLineOf(entry: CandidateEmail | CandidatePhone, index: number): ContactEntryForm {
   return {
     value: "address" in entry ? entry.address : entry.number,
     kind: entry.kind ?? "",
     verified: entry.verified,
+    primary: index === 0,
     source: entry.source,
   };
 }
 
-export const EMPTY_CONTACT_LINE: ContactEntryForm = { value: "", kind: "", verified: false, source: null };
+export const EMPTY_CONTACT_LINE: ContactEntryForm = {
+  value: "",
+  kind: "",
+  verified: false,
+  primary: false,
+  source: null,
+};
+
+/** The Contact section's save with `value` made its channel's primary — the read view's one-click Make primary. */
+export function contactsWithPrimary(contacts: CandidateContacts, channel: "email" | "phone", value: string) {
+  const lines = (entries: (CandidateEmail | CandidatePhone)[], wanted: boolean) =>
+    contactInputsOf(entries.map(contactLineOf)).map((line) => ({
+      ...line,
+      primary: wanted ? line.value === value : line.primary,
+    }));
+  return {
+    emails: lines(contacts.emails, channel === "email"),
+    phones: lines(contacts.phones, channel === "phone"),
+  };
+}
 
 /**
  * The executive profile as a form: one schema, cut into the sections the panel edits one at a time.

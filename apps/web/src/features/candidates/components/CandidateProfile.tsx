@@ -13,10 +13,13 @@ import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate } from "../../../lib/format";
 import { toBrowsableUrl } from "../../../lib/url";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
+import { ContactDetailsDialog } from "../../contactlookup/components/ContactDetailsDialog";
 import { ContactPanel } from "../../contactlookup/components/ContactPanel";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import { CandidateOutreachButtons } from "../../outreach/components/CandidateOutreachButtons";
+import { EmailComposerDialog } from "../../outreach/components/EmailComposerDialog";
+import { useMailbox } from "../../outreach/lib/useMailbox";
 import { OutreachSection } from "../../outreach/components/OutreachSection";
 import { CopilotTab } from "../../outreach/components/copilot/CopilotTab";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
@@ -130,6 +133,7 @@ export function CandidateProfile({
   onClose,
   onSaved,
   onRemove,
+  onOpenCompany,
   focusNoteId = null,
   focusSection = null,
   focusTab = null,
@@ -146,6 +150,8 @@ export function CandidateProfile({
   onSaved: (saved: Candidate) => void;
   /** Absent for a reader who may not write. */
   onRemove?: (candidate: Candidate) => void;
+  /** Opens the drawer of the company they are mapped at, where the page draws one; absent leaves the name plain. */
+  onOpenCompany?: () => void;
   /** A note to open on — a bell row's: the Records tab, scrolled to it. */
   focusNoteId?: string | null;
   /** A part of the Contact tab to open on — a bell row's reply, bounce or booked call: unfolded, scrolled to. */
@@ -248,6 +254,10 @@ export function CandidateProfile({
     queryFn: ({ signal }) => poolApi.getPerson(candidate.personId, signal),
     enabled: canWrite,
   });
+  const [contactWindow, setContactWindow] = useState<"details" | "email" | null>(null);
+  const mailbox = useMailbox(canWrite);
+  const doNotContact = Boolean(personRecord.data?.doNotContact);
+  const emailWritable = canWrite && mailbox.data?.offered === true && !doNotContact;
   // Read once the tab is first opened, then kept: most profiles are read without being scored.
   const [assessmentOpened, setAssessmentOpened] = useState(tab === "assessment");
   if (tab === "assessment" && !assessmentOpened) setAssessmentOpened(true);
@@ -342,7 +352,6 @@ export function CandidateProfile({
   const { compensation } = candidate;
   const capturedFrom = toBrowsableUrl(candidate.sourceUrl);
   const visibleColumns = customColumns.filter((column) => !column.hidden);
-  const employerLabel = candidate.companyName ?? undefined;
   const firstName = candidate.fullName.trim().split(/\s+/)[0];
   const panelProps = (value: DrawerTab) => ({ ...tabPanelProps(TAB_ID_PREFIX, value), hidden: tab !== value });
 
@@ -384,11 +393,34 @@ export function CandidateProfile({
             </>
           }
           title={candidate.title}
-          context={[employerLabel, candidate.locationCity, candidate.locationCountry].filter(Boolean).join(" · ")}
+          contacts={candidate.contacts}
+          onEditContacts={canWrite ? () => setContactWindow("details") : undefined}
+          onShowContacts={drawerTabs.includes("contact") ? () => chooseTab("contact") : undefined}
+          onWriteEmail={emailWritable ? () => setContactWindow("email") : undefined}
+          emailNote={doNotContact ? "Do not contact" : undefined}
+          employer={{ name: candidate.companyName, logoUrl: candidate.companyLogoUrl, onOpen: onOpenCompany }}
+          location={[candidate.locationCity, candidate.locationCountry].filter(Boolean).join(" · ")}
         >
-          {personRecord.data && <PersonTagsSection person={personRecord.data} className="mt-2.5" />}
+          {personRecord.data && <PersonTagsSection person={personRecord.data} className="mt-3" />}
           {canWrite && <DoNotContactStrip personId={candidate.personId} />}
         </PersonHeaderLayout>
+        {contactWindow === "details" && (
+          <ContactDetailsDialog
+            projectId={projectId}
+            candidate={candidate}
+            lookupOffered={lookupConfig.data?.enabled === true}
+            onSaved={onSaved}
+            onClose={() => setContactWindow(null)}
+          />
+        )}
+        {contactWindow === "email" && (
+          <EmailComposerDialog
+            projectId={projectId}
+            candidateId={candidate.id}
+            fullName={candidate.fullName}
+            onClose={() => setContactWindow(null)}
+          />
+        )}
         <DrawerTabBar
           idPrefix={TAB_ID_PREFIX}
           tabs={drawerTabs}

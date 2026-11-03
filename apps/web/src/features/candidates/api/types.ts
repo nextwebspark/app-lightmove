@@ -132,6 +132,8 @@ export interface Candidate {
   personId: string;
   /** The plugin read this person off that page, so the server refuses a retyped URL. */
   linkedinUrlLocked: boolean;
+  /** `companyName`'s logo, from its company row or research; null for neither. */
+  companyLogoUrl?: string | null;
 }
 
 /** Which door one contact value came through — the row's three doors plus the lookup provider. */
@@ -165,6 +167,8 @@ export interface ContactEntryInput {
   value: string;
   kind: "work" | "personal" | null;
   verified: boolean;
+  /** The Contact section's choice of the one to reach them on; the other doors leave it unread. */
+  primary?: boolean;
 }
 
 /** The Contact section's save: both channels, replaced wholesale by what is listed. */
@@ -174,8 +178,8 @@ export interface SaveContactsPayload {
 }
 
 /**
- * Every email and phone known for the person, in the order the drawer lists them, and when each
- * channel was last looked up.
+ * Every email and phone known for the person, in the order the drawer lists them — the first of each the
+ * primary, chosen or standing in — and when each channel was last looked up.
  *
  * <p>The timestamps decide what the Contact section offers, not the lists: null means the button is
  * still worth pressing, and a timestamp with no row from `source` means the provider had nothing and
@@ -476,6 +480,7 @@ export interface PersonRecord {
   fullName: string;
   title: string | null;
   companyName: string | null;
+  companyLogoUrl?: string | null;
   seniority: CandidateSeniority | null;
   linkedinUrl: string | null;
   enrichedAt: string | null;

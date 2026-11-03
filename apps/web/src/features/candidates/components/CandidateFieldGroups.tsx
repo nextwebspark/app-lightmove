@@ -778,10 +778,17 @@ export interface ContactEntriesForm {
  * One channel's lines, editable: the value, its kind, whether the person vouches for it, and a
  * remove. Shared by the Add form and the Contact section's edit mode, so adding a person by hand
  * and correcting one later look identical. Reads the enclosing form through context, because the
- * two forms that hold these lines have different shapes around them.
+ * two forms that hold these lines have different shapes around them. The Contact section alone
+ * offers the primary star: one line per channel, marked by moving the mark.
  */
-export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }) {
-  const { control, register, formState } = useFormContext<ContactEntriesForm>();
+export function ContactEntriesFields({
+  channel,
+  offerPrimary = false,
+}: {
+  channel: "email" | "phone";
+  offerPrimary?: boolean;
+}) {
+  const { control, register, formState, getValues, setValue } = useFormContext<ContactEntriesForm>();
   const name = channel === "email" ? "emails" : "phones";
   const lines = useFieldArray({ control, name });
   const errors = formState.errors[name];
@@ -792,6 +799,23 @@ export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }
         {lines.fields.map((line, index) => (
           <li key={line.id}>
             <div className="flex flex-wrap items-center gap-2">
+              {offerPrimary && (
+                <Controller
+                  control={control}
+                  name={`${name}.${index}.primary`}
+                  render={({ field }) => (
+                    <PrimaryStar
+                      noun={noun}
+                      primary={field.value}
+                      onMakePrimary={() =>
+                        getValues(name).forEach((_, other) =>
+                          setValue(`${name}.${other}.primary`, other === index, { shouldDirty: true }),
+                        )
+                      }
+                    />
+                  )}
+                />
+              )}
               <Input
                 {...register(`${name}.${index}.value`)}
                 inputMode={channel === "email" ? "email" : "tel"}
@@ -866,6 +890,50 @@ export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }
 }
 
 const capitalised = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);
+
+/**
+ * The primary mark, the primary CV's star: filled on the one to reach them on, an outline offering to move it
+ * on the rest. Without `onMakePrimary` it only marks.
+ */
+export function PrimaryStar({
+  noun,
+  primary,
+  onMakePrimary,
+  disabled = false,
+}: {
+  noun: "email" | "phone";
+  primary: boolean;
+  onMakePrimary?: () => void;
+  disabled?: boolean;
+}) {
+  const star = (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill={primary ? "currentColor" : "none"} stroke="currentColor"
+      strokeWidth={primary ? 0 : 2} strokeLinejoin="round" aria-hidden="true">
+      <path d={ICONS.star} />
+    </svg>
+  );
+  if (!onMakePrimary || primary) {
+    return primary ? (
+      <span role="img" aria-label={`Primary ${noun}`} title={`Primary ${noun}`} className="flex flex-none p-1 text-u-accent">
+        {star}
+      </span>
+    ) : (
+      <span aria-hidden="true" className="size-[22px] flex-none" />
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onMakePrimary}
+      disabled={disabled}
+      aria-label={`Make primary ${noun}`}
+      title={`Make primary ${noun}`}
+      className="flex flex-none rounded-md p-1 text-u-text3 transition hover:bg-u-raised hover:text-u-accent disabled:opacity-50"
+    >
+      {star}
+    </button>
+  );
+}
 
 export function NoteFields({ register, errors }: FieldGroupProps) {
   return (
