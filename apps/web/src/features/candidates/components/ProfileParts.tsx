@@ -10,7 +10,7 @@ import { FITTING_PILL, LEFT_OUT_PILL, useFittingCount } from "../../../lib/useFi
  * Strategy's People preview, so a person reads the same before and after they are filed.
  */
 
-/** LinkedIn's own mark beside the name, through the same guard as the Contact row's link. */
+/** LinkedIn's own mark beside the name — the one place a drawer shows the profile link. */
 function HeaderProfileLink({ linkedinUrl }: { linkedinUrl: string | null }) {
   const profileUrl = toBrowsableUrl(linkedinUrl);
   if (!profileUrl) return null;

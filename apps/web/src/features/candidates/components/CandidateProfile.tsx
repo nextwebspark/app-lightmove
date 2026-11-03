@@ -8,8 +8,7 @@ import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
 import { tabPanelProps } from "../../../components/ui/tabPanelProps";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
-import { formatInstantDate, formatNumber } from "../../../lib/format";
-import { noticeSummaryOf } from "../../../lib/noticePeriod";
+import { formatInstantDate } from "../../../lib/format";
 import { toBrowsableUrl } from "../../../lib/url";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import { ContactPanel } from "../../contactlookup/components/ContactPanel";
@@ -34,10 +33,9 @@ import type {
   SaveCandidatePayload,
 } from "../api/types";
 import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
-import { candidateGenderLabel, CANDIDATE_SOURCE_STYLES } from "../lib/candidateVocabulary";
+import { candidateGenderLabel } from "../lib/candidateVocabulary";
 import { statusStyle } from "../lib/pipelineStatus";
 import { careerSummary } from "../lib/careerTimeline";
-import { packageOf } from "../lib/compensation";
 import { useBackgroundSuggestion } from "../lib/useBackgroundSuggestion";
 import { useScorecardEditor } from "../lib/useScorecardEditor";
 import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
@@ -61,13 +59,13 @@ import {
   CareerFields,
   CompensationFields,
   IdentityFields,
+  LinkedInUrlField,
   SummaryFields,
 } from "./CandidateFieldGroups";
 import { CareerTimeline } from "./CareerTimeline";
 import { ClampedText, EducationList, FoldAllButton, PersonHeaderLayout, PillRow } from "./ProfileParts";
 import { CompensationSummary } from "./CompensationSummary";
 import { DocumentPreviewSheet, type PreviewTarget } from "./documents/DocumentPreviewSheet";
-import { PrimaryCvChip } from "./documents/PrimaryCvChip";
 import {
   DoNotContactStrip,
   NotesSection,
@@ -84,13 +82,12 @@ import { NationalitySuggestion } from "./NationalitySuggestion";
 import { focusNoteComposer } from "../../notes/lib/focusNoteComposer";
 
 /** What a pencil opens: one of the form's sections, or the mandate's own columns. */
-type EditableSection = Exclude<ProfileFormSection, "note"> | "columns";
+type EditableSection = Exclude<ProfileFormSection, "note"> | "contact" | "columns";
 
 const PROFILE_TAB_FOLDS: readonly ProfileSection[] = [
   "summary",
   "experience",
   "education",
-  "compensation",
   "background",
   "columns",
 ];
@@ -111,11 +108,11 @@ const TAB_ID_PREFIX = "executive-drawer";
  * section can change. That is what lets six small forms be safer than one big one: a form that has
  * been open for a while can only overwrite the fields it was opened for.
  *
- * <p><b>Status stays live in the header</b>, with a write of its own — it is the field that changes
+ * <p><b>Status stays live beside the name</b>, with a write of its own — it is the field that changes
  * most often and the one a researcher came to flick while reading.
  *
- * <p>Tabs follow `Position.dc.html` — Career, Notes, Assessment, Contact, Documents, Activity and Positions; a
- * client seat gets Career and Contact alone. Every panel stays mounted while hidden, so a half-typed note
+ * <p>Tabs follow `Position.dc.html` — Background, Compensation, Notes, Assessment, Contact, Documents, Activity and
+ * Positions; a client seat gets Background and Contact alone. Every panel stays mounted while hidden, so a half-typed note
  * survives a look at another tab. The next action is not a tab's: it is the header's bar, on view
  * whichever tab is open, since the moment to set one is while writing the note or the email.
  *
@@ -304,7 +301,7 @@ export function CandidateProfile({
   const startEditing = (section: EditableSection) => {
     setEditing(section);
     if (section !== "identity") return;
-    chooseTab("career");
+    chooseTab("background");
     if (body.current) body.current.scrollTop = 0;
   };
 
@@ -341,8 +338,6 @@ export function CandidateProfile({
   });
 
   const { compensation } = candidate;
-  const { total } = packageOf(compensation);
-  const currency = compensation.currency ?? "";
   const capturedFrom = toBrowsableUrl(candidate.sourceUrl);
   const visibleColumns = customColumns.filter((column) => !column.hidden);
   const employerLabel = candidate.companyName ?? undefined;
@@ -363,40 +358,32 @@ export function CandidateProfile({
           }
           fullName={candidate.fullName}
           linkedinUrl={candidate.linkedinUrl}
-          nameAction={pencil("identity", "details")}
+          nameAction={
+            <>
+              <span aria-hidden className="mx-0.5 h-4 w-px flex-none bg-u-border-strong" />
+              {canWrite ? (
+                <StatusPicker
+                  value={candidate.status}
+                  currentLabel={candidate.statusLabel}
+                  aria-label="Status"
+                  disabled={changeStatus.isPending}
+                  onChange={(status) =>
+                    changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
+                  }
+                  className="h-7"
+                />
+              ) : (
+                <DetailPill
+                  label={statusStyle(candidate.status, candidate).label}
+                  className={statusStyle(candidate.status, candidate).className}
+                />
+              )}
+              {pencil("identity", "details")}
+            </>
+          }
           title={candidate.title}
           context={[employerLabel, candidate.locationCity, candidate.locationCountry].filter(Boolean).join(" · ")}
         >
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {candidate.seniority && (
-              <span className="inline-flex items-center gap-1">
-                <DetailPill label={candidate.seniority} />
-                {candidate.aiInferredFields.includes("seniority") && <AiInferredBadge />}
-              </span>
-            )}
-            <DetailPill
-              label={CANDIDATE_SOURCE_STYLES[candidate.source].label}
-              className={CANDIDATE_SOURCE_STYLES[candidate.source].className}
-            />
-            {canWrite ? (
-              <StatusPicker
-                value={candidate.status}
-                currentLabel={candidate.statusLabel}
-                aria-label="Status"
-                disabled={changeStatus.isPending}
-                onChange={(status) =>
-                  changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
-                }
-                className="h-7"
-              />
-            ) : (
-              <DetailPill
-                label={statusStyle(candidate.status, candidate).label}
-                className={statusStyle(candidate.status, candidate).className}
-              />
-            )}
-            {canWrite && <PrimaryCvChip documents={documents} onPreview={openPreview} />}
-          </div>
           {personRecord.data && <PersonTagsSection person={personRecord.data} className="mt-2.5" />}
           {canWrite && <DoNotContactStrip personId={candidate.personId} />}
           {canWrite && (
@@ -427,7 +414,7 @@ export function CandidateProfile({
       </div>
 
       <div ref={body} className="min-h-0 flex-1 overflow-y-auto px-5">
-        <div {...panelProps("career")}>
+        <div {...panelProps("background")}>
           {editing === "identity" ? (
             <section className="border-b border-u-border py-4">
               <SectionHeading>Details</SectionHeading>
@@ -440,13 +427,20 @@ export function CandidateProfile({
                 onCancel={() => setEditing(null)}
               >
                 {(form) => (
-                  <IdentityFields
-                    register={form.register}
-                    errors={form.formState.errors}
-                    control={form.control}
-                    employerLocked={candidate.triageCompanyId !== null}
-                    aiInferred={new Set(candidate.aiInferredFields)}
-                  />
+                  <>
+                    <IdentityFields
+                      register={form.register}
+                      errors={form.formState.errors}
+                      control={form.control}
+                      employerLocked={candidate.triageCompanyId !== null}
+                      aiInferred={new Set(candidate.aiInferredFields)}
+                    />
+                    <LinkedInUrlField
+                      register={form.register}
+                      error={form.formState.errors.linkedinUrl?.message}
+                      lockedUrl={candidate.linkedinUrlLocked ? candidate.linkedinUrl : null}
+                    />
+                  </>
                 )}
               </SectionEditor>
             </section>
@@ -527,43 +521,6 @@ export function CandidateProfile({
           )}
 
           <CollapsibleSection
-            {...foldProps("compensation")}
-            title="Compensation"
-            summary={joinFacts([
-              total > 0 ? `${currency} ${formatNumber(total)}`.trim() : null,
-              noticeSummaryOf(compensation.noticePeriod),
-            ])}
-            action={pencil("compensation", "compensation")}
-          >
-            {editing === "compensation" ? (
-              <SectionEditor
-                section="compensation"
-                candidate={candidate}
-                save={replace}
-                doneMessage="Compensation updated"
-                onDone={finish}
-                onCancel={() => setEditing(null)}
-                footer="plain"
-              >
-                {(form) => (
-                  <CompensationFields
-                    register={form.register}
-                    errors={form.formState.errors}
-                    control={form.control}
-                    watch={form.watch}
-                    setValue={form.setValue}
-                    briefCurrency={briefCurrency}
-                    storedCurrency={compensation.currency}
-                    storedNoticePeriod={compensation.noticePeriod}
-                  />
-                )}
-              </SectionEditor>
-            ) : (
-              <CompensationSummary compensation={compensation} />
-            )}
-          </CollapsibleSection>
-
-          <CollapsibleSection
             {...foldProps("background")}
             title="Background"
             summary={joinFacts([
@@ -597,6 +554,11 @@ export function CandidateProfile({
             ) : (
               <>
                 <DetailGrid>
+                  <DetailTile
+                    label="Seniority"
+                    value={candidate.seniority}
+                    badge={candidate.aiInferredFields.includes("seniority") ? <AiInferredBadge /> : undefined}
+                  />
                   <DetailTile
                     label="Nationality"
                     value={candidate.nationality}
@@ -679,6 +641,43 @@ export function CandidateProfile({
             )}
           </p>
         </div>
+
+        {canWrite && (
+          <div {...panelProps("compensation")}>
+            <section className="py-4">
+              <div className="flex items-center justify-between gap-2">
+                <SectionHeading>Compensation</SectionHeading>
+                {pencil("compensation", "compensation")}
+              </div>
+              {editing === "compensation" ? (
+                <SectionEditor
+                  section="compensation"
+                  candidate={candidate}
+                  save={replace}
+                  doneMessage="Compensation updated"
+                  onDone={finish}
+                  onCancel={() => setEditing(null)}
+                  footer="plain"
+                >
+                  {(form) => (
+                    <CompensationFields
+                      register={form.register}
+                      errors={form.formState.errors}
+                      control={form.control}
+                      watch={form.watch}
+                      setValue={form.setValue}
+                      briefCurrency={briefCurrency}
+                      storedCurrency={compensation.currency}
+                      storedNoticePeriod={compensation.noticePeriod}
+                    />
+                  )}
+                </SectionEditor>
+              ) : (
+                <CompensationSummary compensation={compensation} />
+              )}
+            </section>
+          </div>
+        )}
 
         <div {...panelProps("contact")}>
           {canWrite && (

@@ -339,8 +339,8 @@ describe("ContactPanel", () => {
 
   /**
    * The pencil's edit mode: the same rows as inputs. What matters: every line can be changed, added
-   * or removed and all of it lands in one save; a duplicate is caught before anything is sent; and a
-   * captured person's LinkedIn line is locked.
+   * or removed and all of it lands in one save; a duplicate is caught before anything is sent; and the
+   * profile link is not here — it is edited with the details.
    */
   describe("editing", () => {
     beforeEach(() => {
@@ -381,7 +381,7 @@ describe("ContactPanel", () => {
           phones: [{ value: "+971 50 000 0000", kind: null, verified: false }],
         }),
       );
-      // The link did not change, so the profile itself was not re-sent.
+      // The contacts have their own write: the profile itself is not re-sent.
       expect(candidatesApi.updateCandidate).not.toHaveBeenCalled();
       expect(onDone).toHaveBeenCalledWith(held);
       expect(await screen.findByRole("status")).toHaveTextContent("Contact saved");
@@ -398,78 +398,14 @@ describe("ContactPanel", () => {
       expect(candidatesApi.replaceContacts).not.toHaveBeenCalled();
     });
 
-    it("sends the profile link separately, only when it changed", async () => {
-      vi.mocked(candidatesApi.replaceContacts).mockResolvedValue(held);
-      vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...held, linkedinUrl: "https://linkedin.com/in/new" });
+    it("leaves the profile link out, read or edited: it is edited with the details", () => {
+      const { unmount } = renderPanel(held);
+      expect(screen.queryByText("LinkedIn")).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /linkedin\.com/ })).not.toBeInTheDocument();
+      unmount();
+
       renderPanel(held, { editing: true, onDone: () => {}, onCancel: () => {} });
-
-      const link = screen.getByRole("textbox", { name: "LinkedIn" });
-      await userEvent.clear(link);
-      await userEvent.type(link, "linkedin.com/in/new");
-      await userEvent.click(screen.getByRole("button", { name: "Save" }));
-
-      await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
-      // As typed: the server promotes a bare host, as it does for every other section.
-      expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].linkedinUrl).toBe(
-        "linkedin.com/in/new",
-      );
-    });
-
-    it("hands the saved contacts up when the link write fails after them", async () => {
-      const onSaved = vi.fn();
-      const onDone = vi.fn();
-      vi.mocked(candidatesApi.replaceContacts).mockResolvedValue(held);
-      vi.mocked(candidatesApi.updateCandidate).mockRejectedValue(
-        new ApiRequestError({ code: "VALIDATION_FAILED", detail: "no", status: 400, correlationId: "x" }),
-      );
-      renderPanel(held, { editing: true, onSaved, onDone, onCancel: () => {} });
-
-      const link = screen.getByRole("textbox", { name: "LinkedIn" });
-      await userEvent.clear(link);
-      await userEvent.type(link, "linkedin.com/in/new");
-      await userEvent.click(screen.getByRole("button", { name: "Save" }));
-
-      await waitFor(() => expect(onSaved).toHaveBeenCalledWith(held));
-      expect(await screen.findByRole("alert")).toBeInTheDocument();
-      expect(onDone).not.toHaveBeenCalled();
-      expect(screen.getByRole("textbox", { name: "LinkedIn" })).toBeInTheDocument();
-    });
-
-    it("puts another candidate's profile refusal on the LinkedIn field", async () => {
-      vi.mocked(candidatesApi.replaceContacts).mockResolvedValue(held);
-      vi.mocked(candidatesApi.updateCandidate).mockRejectedValue(
-        new ApiRequestError({ code: "PERSON_PROFILE_HELD", detail: "held", status: 409, correlationId: "x" }),
-      );
-      renderPanel(held, { editing: true, onSaved: () => {}, onDone: () => {}, onCancel: () => {} });
-
-      const link = screen.getByRole("textbox", { name: "LinkedIn" });
-      await userEvent.clear(link);
-      await userEvent.type(link, "linkedin.com/in/someone-else");
-      await userEvent.click(screen.getByRole("button", { name: "Save" }));
-
-      expect(await screen.findByText(/already has that LinkedIn profile/)).toBeInTheDocument();
-      expect(link).toHaveAttribute("aria-invalid", "true");
-    });
-
-    it("locks the LinkedIn line for a person the plugin captured", () => {
-      renderPanel(
-        { ...held, source: "manual", linkedinUrlLocked: true },
-        { editing: true, onDone: () => {}, onCancel: () => {} },
-      );
-
       expect(screen.queryByRole("textbox", { name: "LinkedIn" })).not.toBeInTheDocument();
-      expect(screen.getByText(/Captured from this profile page/)).toBeInTheDocument();
-      expect(screen.getByText("linkedin.com/in/hakan-alac")).toBeInTheDocument();
-    });
-
-    it("takes the lock from the server, not from this position's door", () => {
-      // Captured on this position, but the plugin read another page than the URL now held.
-      renderPanel(
-        { ...held, source: "extension", linkedinUrlLocked: false },
-        { editing: true, onDone: () => {}, onCancel: () => {} },
-      );
-
-      expect(screen.getByRole("textbox", { name: "LinkedIn" })).toBeInTheDocument();
     });
 
     it("cancels without sending anything", async () => {

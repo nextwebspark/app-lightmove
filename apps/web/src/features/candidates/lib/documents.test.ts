@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PersonDocument } from "../api/types";
-import { formatBytes, groupDocuments, guessCategory, planUpload, primaryCvOf } from "./documents";
+import { formatBytes, groupDocuments, guessCategory, planUpload } from "./documents";
 
 const documentOf = (overrides: Partial<PersonDocument> & { fileName?: string; uploadedAt?: string }): PersonDocument => ({
   id: overrides.id ?? "d1",
@@ -66,13 +66,6 @@ describe("groupDocuments", () => {
     ]);
     expect(groups.map((group) => group.category.value)).toEqual(["cv", "reference"]);
     expect(groups[0].documents.map((document) => document.id)).toEqual(["primary", "new-cv"]);
-  });
-});
-
-describe("primaryCvOf", () => {
-  it("answers the marked CV, or nothing", () => {
-    expect(primaryCvOf([documentOf({ id: "a" })])).toBeNull();
-    expect(primaryCvOf([documentOf({ id: "a" }), documentOf({ id: "b", primaryCv: true })])?.id).toBe("b");
   });
 });
 

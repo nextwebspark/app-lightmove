@@ -421,17 +421,16 @@ describe("CandidateDrawer", () => {
     });
     renderDrawer({ candidate: yasmin, company: null, onSaved, onClose }, LiveDrawer);
 
-    await userEvent.click(screen.getByRole("button", { name: /^Compensation/ }));
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
 
     // The section's fields, as stored, with the figures in the shape they are read in.
     expect(screen.getByLabelText(/^Currency$/i)).toHaveValue("AED");
     expect(screen.getByLabelText(/^Base$/i)).toHaveValue("420,000");
-    // The rest of the profile stays readable around it — this is not the old whole-record form.
-    expect(screen.getByText("Regional Foods Co.")).toBeInTheDocument();
+    // This is not the old whole-record form.
     expect(screen.queryByLabelText(/Full name/i)).not.toBeInTheDocument();
     // Every other pencil waits its turn.
-    expect(screen.getByRole("button", { name: /Edit summary/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Edit details/i })).toBeDisabled();
 
     await userEvent.clear(screen.getByLabelText(/^Base$/i));
     await userEvent.type(screen.getByLabelText(/^Base$/i), "500,000");
@@ -462,6 +461,7 @@ describe("CandidateDrawer", () => {
     vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
     renderDrawer({ candidate: yasmin, company: null });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
     await userEvent.clear(screen.getByLabelText(/^Base$/i));
     await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
@@ -476,6 +476,7 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
 
     // A select whose value matched no option would post blank and clear a fact nobody touched.
@@ -492,6 +493,7 @@ describe("CandidateDrawer", () => {
       defaultCurrency: "SAR",
     });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
     expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR - Saudi Riyal");
     expect(screen.getByText(/^From brief$/i)).toBeInTheDocument();
@@ -512,6 +514,7 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
 
     expect(screen.getByLabelText(/^Currency$/i)).toHaveValue("AED");
@@ -521,6 +524,7 @@ describe("CandidateDrawer", () => {
   it("opens a stored currency other than the brief's as overridden", async () => {
     renderDrawer({ candidate: yasmin, company: null, defaultCurrency: "SAR" });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
 
     expect(screen.getByLabelText(/^Currency$/i)).toHaveValue("AED");
@@ -531,6 +535,7 @@ describe("CandidateDrawer", () => {
     vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
     renderDrawer({ candidate: yasmin, company: null, defaultCurrency: "AED" });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
     const base = screen.getByLabelText(/^Base$/i);
     await userEvent.clear(base);
@@ -581,6 +586,7 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
 
     expect(screen.getByLabelText(/^Bonus$/i)).toHaveValue("20%");
@@ -595,6 +601,7 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
     await userEvent.selectOptions(screen.getByLabelText(/^Notice period$/i), "6 months");
     await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
@@ -609,6 +616,7 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
     await userEvent.clear(screen.getByLabelText(/^Base$/i));
     await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
@@ -620,6 +628,7 @@ describe("CandidateDrawer", () => {
   it("takes a percent sign only in the bonus", async () => {
     renderDrawer({ candidate: yasmin, company: null });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
     const base = screen.getByLabelText(/^Base$/i);
     await userEvent.clear(base);
@@ -637,6 +646,7 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
     const notice = screen.getByLabelText(/^Notice period$/i);
     expect(notice).toHaveValue("6 weeks");
@@ -873,14 +883,15 @@ describe("CandidateDrawer", () => {
     // A consultant clicking a name is reading. A form that opens on every click is one you dismiss
     // without looking at.
     expect(screen.getByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /^Compensation/ }));
     expect(screen.getByText("Regional Foods Co.")).toBeInTheDocument();
-    expect(screen.getByText("3 months")).toBeInTheDocument();
     expect(screen.getByText("English")).toBeInTheDocument();
     expect(screen.getByText("Arabic")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Full name/i)).not.toBeInTheDocument();
+
+    await openTab("Compensation");
+    expect(screen.getByText("3 months")).toBeInTheDocument();
     // Twice: the Base tile and the section's total, which for a package with only a base are equal.
     expect(screen.getAllByText(/AED 420,000/)).toHaveLength(2);
-    expect(screen.queryByLabelText(/Full name/i)).not.toBeInTheDocument();
   });
 
   it("reads back the allowance lines and LTIP instruments the editor saved", async () => {
@@ -902,7 +913,7 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
-    await userEvent.click(screen.getByRole("button", { name: /^Compensation/ }));
+    await openTab("Compensation");
     const breakdown = screen.getByText("Allowance breakdown").nextElementSibling as HTMLElement;
     // The empty row the editor left is not read back as an allowance.
     expect(within(breakdown).getAllByRole("listitem")).toHaveLength(2);
@@ -1051,7 +1062,7 @@ describe("CandidateDrawer", () => {
     expect(screen.queryByText("javascript:alert(1)")).not.toBeInTheDocument();
   });
 
-  it("renders a real profile URL as a link, beside the name and under Contact", async () => {
+  it("renders a real profile URL as a link beside the name, and nowhere under Contact", async () => {
     renderDrawer({
       candidate: { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin" },
       company: null,
@@ -1063,10 +1074,88 @@ describe("CandidateDrawer", () => {
     );
 
     await openTab("Contact");
-    expect(screen.getByRole("link", { name: /linkedin.com\/in\/yasmin/i })).toHaveAttribute(
-      "href",
-      "https://linkedin.com/in/yasmin",
+    expect(screen.queryByRole("link", { name: /linkedin.com\/in\/yasmin/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps the header to the name, its link, the status and the details pencil", async () => {
+    renderDrawer({
+      candidate: { ...yasmin, source: "extension", aiInferredFields: ["seniority"] },
+      company: null,
+    });
+
+    expect(screen.getByRole("button", { name: /^Status: / })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Edit details/i })).toBeInTheDocument();
+    expect(screen.queryByText("Plugin")).not.toBeInTheDocument();
+    // The level is read where the rest of the background is, still flagged while it is the AI's.
+    const level = screen.getByText("N-1").parentElement as HTMLElement;
+    expect(level).toHaveTextContent("Seniority");
+    expect(within(level).getByRole("img", { name: "AI-suggested", hidden: true })).toBeInTheDocument();
+  });
+
+  it("edits the profile link with the details, through the profile write", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...yasmin, linkedinUrl: "https://linkedin.com/in/new" });
+    renderDrawer({ candidate: { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin" }, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
+    const link = screen.getByRole("textbox", { name: "LinkedIn" });
+    await userEvent.clear(link);
+    await userEvent.type(link, "linkedin.com/in/new");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    const [, , payload] = vi.mocked(candidatesApi.updateCandidate).mock.calls[0];
+    // As typed: the server promotes a bare host, as it does for every other section.
+    expect(payload.linkedinUrl).toBe("linkedin.com/in/new");
+    expect(payload.fullName).toBe("Yasmin El-Sayed");
+  });
+
+  it("puts another person's hold on the profile onto the LinkedIn field", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockRejectedValue(
+      new ApiRequestError({ code: "PERSON_PROFILE_HELD", detail: "held", status: 409, correlationId: "x" }),
     );
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
+    const link = screen.getByRole("textbox", { name: "LinkedIn" });
+    await userEvent.type(link, "linkedin.com/in/someone-else");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    expect(await screen.findByText(/already has that LinkedIn profile/)).toBeInTheDocument();
+    expect(link).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("says why a link locked since the form opened was refused, though no field is drawn for it", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockRejectedValue(
+      new ApiRequestError({ code: "CANDIDATE_PROFILE_URL_LOCKED", detail: "locked", status: 409, correlationId: "x" }),
+    );
+    renderDrawer({
+      candidate: { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin", linkedinUrlLocked: true },
+      company: null,
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    expect(await screen.findByRole("alert")).not.toBeEmptyDOMElement();
+  });
+
+  it("locks the profile link in the details for a person the plugin captured, on the server's word", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
+    const captured = { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin", linkedinUrlLocked: true };
+    const { unmount } = renderDrawer({ candidate: captured, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
+    expect(screen.queryByRole("textbox", { name: "LinkedIn" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Captured from this profile page/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].linkedinUrl).toBe("https://linkedin.com/in/yasmin");
+    unmount();
+
+    // Captured on this position, but the plugin read another page than the URL now held.
+    renderDrawer({ candidate: { ...captured, source: "extension", linkedinUrlLocked: false }, company: null });
+    await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
+    expect(screen.getByRole("textbox", { name: "LinkedIn" })).toBeInTheDocument();
   });
 
   it("keeps status live while reading, without replacing the profile", async () => {
@@ -1141,11 +1230,19 @@ describe("CandidateDrawer", () => {
   it("splits the profile into the mockup's tabs, and opens the next person on the tab this one was left on", async () => {
     const { unmount } = renderDrawer({ candidate: yasmin, company: null });
 
-    expect(tabLabels()).toEqual(["Career", "Notes", "Assessment", "Contact", "Documents", "Activity", "Positions"]);
-    expect(screen.getByRole("tab", { name: "Career" })).toHaveAttribute("aria-selected", "true");
+    expect(tabLabels()).toEqual([
+      "Background",
+      "Compensation",
+      "Notes",
+      "Assessment",
+      "Contact",
+      "Documents",
+      "Activity",
+      "Positions",
+    ]);
+    expect(screen.getByRole("tab", { name: "Background" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: /^Summary/ })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: /^Experience/ })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("button", { name: /^Compensation/ })).toHaveAttribute("aria-expanded", "false");
 
     await openTab("Activity");
     expect(screen.queryByRole("button", { name: /^Summary/ })).not.toBeInTheDocument();
@@ -1160,7 +1257,7 @@ describe("CandidateDrawer", () => {
     renderDrawer({ candidate: yasmin, company: null });
 
     await waitFor(() => expect(tabLabels()[0]).toBe("Copilot"));
-    expect(screen.getByRole("tab", { name: "Career" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Background" })).toHaveAttribute("aria-selected", "true");
     await openTab("Copilot");
     expect(screen.getByText("Copilot of r1")).toBeInTheDocument();
   });
@@ -1172,7 +1269,7 @@ describe("CandidateDrawer", () => {
     renderDrawer({ candidate: yasmin, company: null });
 
     await waitFor(() => expect(notetakerApi.getNotetaker).toHaveBeenCalled());
-    await screen.findByRole("tab", { name: "Career" });
+    await screen.findByRole("tab", { name: "Background" });
     expect(tabLabels()).not.toContain("Copilot");
   });
 
@@ -1198,7 +1295,7 @@ describe("CandidateDrawer", () => {
     const folds = screen
       .getAllByRole("button", { name: /^(Summary|Experience|Compensation|Background|AI assessment)/ })
       .map((fold) => fold.textContent?.match(/^(Summary|Experience|Compensation|Background|AI assessment)/)?.[0]);
-    expect(folds).toEqual(["Summary", "Experience", "Compensation", "Background"]);
+    expect(folds).toEqual(["Summary", "Experience", "Background"]);
     expect(screen.queryByRole("button", { name: "AI deep enrich" })).not.toBeInTheDocument();
   });
 
@@ -1224,7 +1321,7 @@ describe("CandidateDrawer", () => {
       },
     ]);
     renderDrawer({ candidate: yasmin, company: null }, NoteLinkArrives);
-    expect(await screen.findByRole("tab", { name: "Career", selected: true })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "Background", selected: true })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "follow the link" }));
 
@@ -1299,7 +1396,7 @@ describe("CandidateDrawer", () => {
   it("gives a client seat the profile and contact tabs alone", async () => {
     renderDrawer({ candidate: yasmin, company: null, canWrite: false });
 
-    expect(tabLabels()).toEqual(["Career", "Contact"]);
+    expect(tabLabels()).toEqual(["Background", "Contact"]);
     await openTab("Contact");
     expect(screen.getByRole("button", { name: /^Contact/ })).toBeInTheDocument();
   });
