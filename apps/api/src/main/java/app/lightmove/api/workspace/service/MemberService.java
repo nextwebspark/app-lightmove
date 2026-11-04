@@ -15,6 +15,7 @@ import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.MemberAccessNarrowed;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
+import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Set;
 import java.util.UUID;
@@ -35,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MemberService {
 
     private final WorkspaceMemberRepository members;
+    private final WorkspaceRepository workspaces;
     private final WorkspaceAccess access;
     private final RbacService rbac;
     private final MemberDetachment detachment;
@@ -48,6 +50,7 @@ public class MemberService {
     @Transactional
     public WorkspaceMember changeRoles(UUID actorId, UUID workspaceId, UUID memberId,
                                        Set<WorkspaceRole> newRoles, HttpServletRequest request) {
+        lockRoster(workspaceId);
         WorkspaceMember member = access.requireActiveMemberRow(memberId, workspaceId);
 
         // CLIENT comes from a project invitation, never the roster.
@@ -85,6 +88,7 @@ public class MemberService {
     /** Self-removal is how someone leaves; their session moves to another workspace at its next refresh. */
     @Transactional
     public void remove(UUID actorId, UUID workspaceId, UUID memberId, HttpServletRequest request) {
+        lockRoster(workspaceId);
         WorkspaceMember member = access.requireActiveMemberRow(memberId, workspaceId);
 
         if (holds(member, WorkspaceRole.ADMIN)) {
@@ -106,6 +110,15 @@ public class MemberService {
                 .actor(actorId).workspace(workspaceId).target("member", memberId).from(request)
                 .detail("removedUserId", member.getUserId().toString())
                 .record();
+    }
+
+    /**
+     * Taken before the member row is read: the last-admin count is a read, and two admins demoting or removing each
+     * other at once each counted the other and left the workspace with no admin.
+     */
+    private void lockRoster(UUID workspaceId) {
+        workspaces.lockForRosterChange(workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
     }
 
     private boolean holds(WorkspaceMember member, WorkspaceRole role) {
