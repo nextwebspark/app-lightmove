@@ -10,8 +10,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.ApolloUniverse;
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
@@ -39,7 +41,7 @@ import tools.jackson.databind.JsonNode;
 @IntegrationTest
 class TriageFlowIntegrationTest extends FlowTestSupport {
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
     @Autowired TriageCompanyWriter writer;
 
     private ApolloUniverse universe;
@@ -1222,8 +1224,8 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
 
     /** Market rows straight into the mandate's universe, at the stage a bulk add files them at. */
     private int seedUniverse(UUID projectId, UUID actor, List<CompanyRow> rows) {
-        return writer.insertIgnoringHeld(projectId, actor, rows, TriageCompanySource.STRATEGY,
-                TriageCompanyStatus.IN_UNIVERSE, null);
+        return TestWorkspaceScopes.inProjectsWorkspace(db, projectId, () -> writer.insertIgnoringHeld(projectId, actor,
+                rows, TriageCompanySource.STRATEGY, TriageCompanyStatus.IN_UNIVERSE, null));
     }
 
     /** Only the snapshot fields carry here; the rest are not the subject. */

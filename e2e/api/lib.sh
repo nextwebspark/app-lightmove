@@ -13,7 +13,8 @@ E2E_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_DIR="${RUN_DIR:-$E2E_DIR/results/current}"
 API_LOG="$RUN_DIR/api.log"
 CASES_TSV="$RUN_DIR/cases.tsv"
-PG_URL="${PG_URL:-postgresql://lm_app:lm@localhost:55432/lightmove}"
+# As postgres, above row-level security: a case reads and arranges rows of any workspace (stack/up.sh).
+PG_URL="${PG_URL:-postgresql://postgres:lm@localhost:55432/lightmove}"
 
 mkdir -p "$RUN_DIR"
 

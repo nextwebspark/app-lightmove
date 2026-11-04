@@ -8,6 +8,7 @@ import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
 import app.lightmove.api.core.security.apikey.PublicReader;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.publicapi.service.PublicReadService;
 import jakarta.persistence.EntityManagerFactory;
 import java.util.Set;
@@ -45,12 +46,15 @@ class PositionSummaryQueryCountTest extends FlowTestSupport {
         assertThat(statementsFor(reader, large)).isEqualTo(statementsFor(reader, small));
     }
 
+    /** A read straight from the service, as the reader's workspace: no request carries it here. */
     private long statementsFor(PublicReader reader, UUID projectId) {
         Statistics statistics = entityManagers.unwrap(SessionFactory.class).getStatistics();
-        reads.summary(reader, projectId);
-        statistics.clear();
-        reads.summary(reader, projectId);
-        return statistics.getPrepareStatementCount();
+        return WorkspaceScope.call(reader.workspaceId(), () -> {
+            reads.summary(reader, projectId);
+            statistics.clear();
+            reads.summary(reader, projectId);
+            return statistics.getPrepareStatementCount();
+        });
     }
 
     private String position(String admin, int rows) throws Exception {

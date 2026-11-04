@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
@@ -59,7 +60,7 @@ class OutreachReplyLedgerIntegrationTest extends FlowTestSupport {
     @Autowired private RecordingMailboxGateway gateway;
     @Autowired private OutreachDispatcher dispatcher;
     @Autowired private OutreachInboxService inbox;
-    @Autowired private JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc private JdbcTemplate jdbc;
 
     private String consultant;
     private String projectId;
