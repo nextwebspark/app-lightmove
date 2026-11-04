@@ -184,7 +184,6 @@ const sidebarCount = async (label) => {
   const match = text.trim().match(/(\d+)\s*$/);
   return match ? Number(match[1]) : null;
 };
-const toolbarButton = (name) => page.getByRole("button", { name, exact: true });
 const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const advancedButton = () => page.getByRole("button", { name: /^Advanced/ });
 /** Opens the toolbar's Advanced ▾ (clicking it while open would close it) and answers one of its items. */
@@ -286,7 +285,8 @@ try {
   const FALCON = `Falcon Freight ${TAG}`;
   await step("C2.1", "Add company → 'Not here' → the by-hand form files a new company", async () => {
     await openStage("universe");
-    await toolbarButton("Add company").click();
+    await page.getByRole("button", { name: /^Create/ }).click();
+    await page.getByRole("menuitem", { name: /^Add company/ }).click();
     const drawer = dialog("Add a company");
     await drawer.getByPlaceholder("Search the market…").fill(FALCON);
     await drawer.getByRole("button", { name: /^Not here — add/ }).click();
@@ -389,7 +389,7 @@ try {
     const removable = (await page.getByRole("button", { name: /^Remove .* from this mandate$/ }).count()) > 0;
     check("C6.1", "a row offers its removal and no Shortlist or Decline", "0/true", `${moves}/${removable}`);
   });
-  await step("C6.2", "the drawer's Decline moves a company with nobody at it onto Declined, asking nothing", async () => {
+  await step("C6.2", "the drawer's Decline asks first, counting who goes, then moves the company and Nadia onto Declined", async () => {
     await page.getByRole("button", { name: `Open ${BEACON}` }).first().click();
     const drawer = dialog(BEACON);
     await drawer.waitFor();
@@ -398,11 +398,17 @@ try {
       await drawer.getByRole("button", { name: "Remove", exact: true }).count(),
       await drawer.getByRole("button", { name: "Shortlist", exact: true }).count(),
     ].join("/"));
+    // C4 mapped Nadia at Beacon, so the decline is asked first and names how many go with it.
     await drawer.getByRole("button", { name: "Decline", exact: true }).click();
+    const confirm = page.getByRole("dialog", { name: `Decline ${BEACON}?` });
+    await confirm.waitFor();
+    check("C6.2c", "…the confirmation counts the one executive declined with it", true,
+      (await confirm.innerText()).includes(`${BEACON} has 1 executive`));
+    await confirm.getByRole("button", { name: "Decline company" }).click();
     const gone = await until(async () => (await companyNames()).includes(BEACON), false);
-    check("C6.2", "the drawer's Decline moves a company with nobody at it onto Declined, asking nothing", false, gone);
-    check("C6.2b", "…and the database agrees", "DECLINED",
-      sql(`SELECT status FROM app_lm_project_triage_company WHERE id = '${BEACON_ID}'`));
+    check("C6.2", "the drawer's Decline moves the company off In universe once confirmed", false, gone);
+    check("C6.2b", "…and the database agrees, Nadia declined with it", "DECLINED|DECLINED",
+      `${sql(`SELECT status FROM app_lm_project_triage_company WHERE id = '${BEACON_ID}'`)}|${sql(`SELECT triage_status FROM app_lm_project_candidate WHERE id = '${nadiaId}'`)}`);
   });
   await step("C6.3", "Declined offers Back to universe alone, which brings the company back", async () => {
     await openStage("declined");
@@ -411,8 +417,8 @@ try {
     check("C6.3a", "the Declined grid offers no removal", 0, removable);
     await page.getByRole("button", { name: `Back to universe: ${BEACON}` }).first().click();
     const gone = await until(async () => (await companyNames()).includes(BEACON), false);
-    check("C6.3", "Declined offers Back to universe alone, which brings the company back", "false/IN_UNIVERSE",
-      `${gone}/${sql(`SELECT status FROM app_lm_project_triage_company WHERE id = '${BEACON_ID}'`)}`);
+    check("C6.3", "Declined offers Back to universe alone, which brings the company and Nadia back", "false/IN_UNIVERSE/IN_UNIVERSE",
+      `${gone}/${sql(`SELECT status FROM app_lm_project_triage_company WHERE id = '${BEACON_ID}'`)}/${sql(`SELECT triage_status FROM app_lm_project_candidate WHERE id = '${nadiaId}'`)}`);
   });
 
   // ---------------------------------------------------------------- C7 custom columns
@@ -455,11 +461,13 @@ try {
   await step("C8.1", "the Company header filter narrows to the matching company, and the count agrees", async () => {
     await openStage("universe");
     await headerFilter("Company", "Filter by company name", "Atlas");
-    const api = await triagePage("inUniverse", "&q=Atlas");
-    const want = sortedJoin(api.companies.map((company) => company.companyName));
+    const listed = await triagePage("inUniverse", "&q=Atlas");
+    const want = sortedJoin(listed.companies.map((company) => company.companyName));
     check("C8.1", "the Company header filter narrows to the matching company", want, await until(async () => sortedJoin(await companyNames()), want));
+    // The grid pages over lines — a person at a company — so its total is the lines read's, not the company list's.
+    const lines = (await api(`${TRIAGE}/lines?status=inUniverse&size=100&q=Atlas`, { token })).body;
     const bar = await page.locator("text=/\\d+\\s*-\\s*\\d+ of \\d+|0 results/").first().innerText().catch(() => "");
-    check("C8.1b", "…and the pager's total is the API's totalCount", api.totalCount, bar.includes(" of ") ? Number(bar.split(" of ")[1].replace(/\D/g, "")) : bar);
+    check("C8.1b", "…and the pager's total is the lines read's totalCount", lines.totalCount, bar.includes(" of ") ? Number(bar.split(" of ")[1].replace(/\D/g, "")) : bar);
     await shot("filter-company");
   });
   await step("C8.2", "the Executive header filter keeps only the matching person, not their colleague", async () => {
