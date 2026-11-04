@@ -19,8 +19,9 @@ filters". This document points to it rather than repeating it.
 | CI | all green except **API, still pending** | not checked |
 | Reviews | none yet | one review: **Not Ready to Merge** (§8.2) |
 
-> The migration was renumbered twice as `main` moved: V166, then V170, then **V171** (V170 is now `main`'s
-> `V170__user_avatar.sql`). Older notes or commit messages that say V166 or V170 mean this migration.
+> The migration was renumbered three times as `main` moved: V166, then V170, then V171, then **V184** (V170 is now
+> `main`'s `V170__user_avatar.sql`, V183 its `V183__person_contact_primary.sql`). Older notes or commit messages that
+> say V166, V170 or V171 mean this migration.
 
 ---
 
@@ -29,7 +30,7 @@ filters". This document points to it rather than repeating it.
 **Merging #1132 into `main` does not touch production by itself.** Production changes only when someone runs the
 manual **Release** workflow, which calls `deploy.yml`. The code is careful, and the migration is small and
 transactional. The real danger is the **deploy itself**. `deploy.yml` runs Flyway *before* the new revision takes
-traffic, so for a minute or more the **old revision serves against V171**. The old revision never sets a workspace on
+traffic, so for a minute or more the **old revision serves against V184**. The old revision never sets a workspace on
 its connections, so during that window:
 
 - every position, candidate, company row and note **reads as empty**;
@@ -37,7 +38,7 @@ its connections, so during that window:
 - the old outreach dispatcher **permanently stops any sequence that comes due**, with reason `UNMAPPED`.
 
 If the new revision then fails to boot, that window has no end. **Redeploying the previous tag does not fix it**,
-because V171 stays applied. Ship it as its own release, at a quiet hour, with the pre-flight checks done and the
+because V184 stays applied. Ship it as its own release, at a quiet hour, with the pre-flight checks done and the
 rollback SQL in hand (§5). Or remove the window entirely by splitting the release (§4, risk 1, option C).
 
 ---
@@ -113,7 +114,7 @@ The label is set at checkout, not as `SET LOCAL` at transaction begin, for two r
 
 It **never** comes from a request parameter.
 
-### 2.4 The SQL side (V171)
+### 2.4 The SQL side (V184)
 
 ```sql
 app_lm_current_workspace()   -- NULLIF(current_setting('app.workspace_id', true), '')::uuid
@@ -234,10 +235,10 @@ They are ranked by how much harm they could do. "Window" means the time from the
 until `gcloud run deploy` has moved traffic to the new revision. That is normally one to a few minutes. It has no end if
 the new revision never starts.
 
-### Risk 1 (HIGH): the old revision serves against V171 during the deploy window
+### Risk 1 (HIGH): the old revision serves against V184 during the deploy window
 
 **Why.** `deploy.yml` builds the image, **migrates**, and only then deploys. Between those steps, the running revision
-is `main`'s old code, which never sets `app.workspace_id`. Under V171 its connections see nothing in the 11 tables.
+is `main`'s old code, which never sets `app.workspace_id`. Under V184 its connections see nothing in the 11 tables.
 
 **What users and jobs would see in the window:**
 
@@ -270,22 +271,22 @@ is `main`'s old code, which never sets `app.workspace_id`. Under V171 its connec
   2. **Release 2:** a migration with only `ENABLE`/`FORCE`/policies, and the posture strict again. The revision
      serving during its window is already the RLS-aware code, so nothing breaks.
 
-  This needs a change to the PR: split V171 and adjust the posture check or `deploy.yml`.
+  This needs a change to the PR: split V184 and adjust the posture check or `deploy.yml`.
 
-### Risk 2 (HIGH): a failed boot after V171 leaves production broken, and the normal rollback does not fix it
+### Risk 2 (HIGH): a failed boot after V184 leaves production broken, and the normal rollback does not fix it
 
-If the new revision does not start after V171 has committed, the old revision keeps serving **under V171** (risk 1, with
+If the new revision does not start after V184 has committed, the old revision keeps serving **under V184** (risk 1, with
 no end). Possible causes: the posture check (`lm_app` is a superuser or holds `BYPASSRLS`), a missing secret, or any
 other boot failure.
 
 The Deploy workflow's own rollback (`workflow_dispatch` with an older tag) **runs Flyway (a no-op) and deploys the old
-code under V171: still broken.** The only fix is to turn RLS off on the 11 tables by hand (§5.4). Have that SQL and
+code under V184: still broken.** The only fix is to turn RLS off on the 11 tables by hand (§5.4). Have that SQL and
 credentials for the owning role ready before releasing. `ops/cloudsql/psql.sh` connects as your IAM user, read-only,
 which cannot `ALTER` these tables.
 
 ### Risk 3 (MEDIUM): migration locks on hot tables
 
-V171 runs in one transaction. It takes `ACCESS EXCLUSIVE` locks on all 11 tables (`ADD COLUMN`, `ENABLE/FORCE ROW LEVEL
+V184 runs in one transaction. It takes `ACCESS EXCLUSIVE` locks on all 11 tables (`ADD COLUMN`, `ENABLE/FORCE ROW LEVEL
 SECURITY`, `CREATE POLICY`), rewrites every candidate and triage row once (the backfill `UPDATE`), and validates two
 foreign keys. Two things follow:
 
@@ -297,7 +298,7 @@ The rows are probably few enough (thousands, not millions) that the migration it
 quiet window from risk 1. Optionally add `SET lock_timeout = '10s'` to the Flyway `-initSql`, so a blocked migration
 fails cleanly (and transactionally) instead of stalling the site.
 
-### Risk 4 (MEDIUM): the production role and table owner must be what V171 assumes
+### Risk 4 (MEDIUM): the production role and table owner must be what V184 assumes
 
 - `lm_app` must be `rolsuper = f` and `rolbypassrls = f`, or the boot fails (risk 2). `harden.sql` revoked
   `cloudsqlsuperuser` from `lm_app`, so this is expected, but check it (§5.1, query 1).
@@ -345,7 +346,7 @@ After the release, watch the logs for `violates row-level security policy`. Also
 
 ### Risk 8 (LOW, team): the shared dev database and existing local volumes
 
-- **`npm run dev:cloud` from this branch applies V171 to the shared Cloud SQL dev database at boot.** Everyone running
+- **`npm run dev:cloud` from this branch applies V184 to the shared Cloud SQL dev database at boot.** Everyone running
   `main` against it then sees empty screens. Do not run `dev:cloud` from this branch until it is merged.
 - Every developer's local volume needs **one `npm run dev:db:reset`** after this lands. The reset keeps the Apollo
   snapshot but wipes local accounts and data. Switching back to an older branch afterwards needs another reset (§6.8).
@@ -369,7 +370,7 @@ After the release, watch the logs for `violates row-level security policy`. Also
 -- 1. The runtime role is bound by policies: must be  f | f
 SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'lm_app';
 
--- 2. The Flyway role owns every table V171 alters (expect one owner: the Flyway user, lm_app today)
+-- 2. The Flyway role owns every table V184 alters (expect one owner: the Flyway user, lm_app today)
 SELECT relname, pg_get_userbyid(relowner) AS owner
   FROM pg_class
  WHERE relnamespace = 'public'::regnamespace AND relkind = 'r'
@@ -457,7 +458,7 @@ END $$;
 Then redeploy the previous tag, if the new revision is the problem. Two things to know:
 
 - After this, the **new** code will refuse to boot ("not forced on …") until RLS is back on.
-- Flyway still records V171 as applied, so it will never re-run. Turning RLS back on needs either the same `DO` block
+- Flyway still records V184 as applied, so it will never re-run. Turning RLS back on needs either the same `DO` block
   with `ENABLE` / `FORCE`, or a new migration that does it.
 
 ---
@@ -484,7 +485,7 @@ npm run dev                                      # postgres :55433 + api :8080 +
 
 In the API log, check that:
 
-- Flyway applied **V171** (`row level security core`);
+- Flyway applied **V184** (`row level security core`);
 - there is **no** `Row-level security is not in force: …` (that message would have stopped the boot).
 
 If `db.sh` prints "this volume predates row-level security", the reset was skipped. Run it and start again.
@@ -612,7 +613,7 @@ cd ../../e2e && PROFILE=e2e ./run-all.sh     # always PROFILE=e2e
 
 ### 6.8 Going back to `main` afterwards
 
-Your local database now has V171 applied. `main`'s code does not set the workspace, so on that database **every screen
+Your local database now has V184 applied. `main`'s code does not set the workspace, so on that database **every screen
 reads empty**. Flyway ignores the unknown future migration, so nothing errors. Run `npm run dev:db:reset` when you switch
 back.
 
