@@ -461,8 +461,8 @@ try {
   await step("C8.1", "the Company header filter narrows to the matching company, and the count agrees", async () => {
     await openStage("universe");
     await headerFilter("Company", "Filter by company name", "Atlas");
-    const api = await triagePage("inUniverse", "&q=Atlas");
-    const want = sortedJoin(api.companies.map((company) => company.companyName));
+    const listed = await triagePage("inUniverse", "&q=Atlas");
+    const want = sortedJoin(listed.companies.map((company) => company.companyName));
     check("C8.1", "the Company header filter narrows to the matching company", want, await until(async () => sortedJoin(await companyNames()), want));
     // The grid pages over lines — a person at a company — so its total is the lines read's, not the company list's.
     const lines = (await api(`${TRIAGE}/lines?status=inUniverse&size=100&q=Atlas`, { token })).body;
