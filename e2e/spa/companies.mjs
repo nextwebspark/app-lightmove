@@ -3,7 +3,7 @@
 // 17-companies-executives.sh proves the HTTP contract. This proves what only the screen can: that the
 // three stage pages draw exactly their stage's rows, that a row is a person at a company (two people,
 // two lines; nobody, one line with its "Add executive" slot), that the drawers' forms reach the
-// database, that the Contact section's pencil saves a verified address the grid then lists, that a
+// database, that the header's contact details save a verified address the grid then lists, that a
 // custom column added from the Advanced menu becomes a header, that the header filters narrow the grid the
 // way the API narrows it, and that a pure client seat reads the grid with nothing to write with.
 //
@@ -352,17 +352,19 @@ try {
   });
 
   // ---------------------------------------------------------------- C5 contact section
-  section("C5  the Contact section's pencil");
+  section("C5  the header's contact details window");
   const NADIA_EMAIL = `nadia.${TAG}@beacon.example`;
-  await step("C5.1", "the pencil makes the lines editable; an added, verified email saves", async () => {
-    // The drawer stays open on the profile it just made.
+  await step("C5.1", "the header's Add email opens the contact details; an added, verified email saves", async () => {
+    // The drawer stays open on the profile it just made; its contacts are the header's, on every tab.
     const drawer = page.getByRole("dialog").last();
-    await drawer.getByRole("button", { name: "Edit contact" }).click();
     await drawer.getByRole("button", { name: "Add email" }).click();
-    await drawer.getByRole("textbox", { name: "Email 1", exact: true }).fill(NADIA_EMAIL);
-    await drawer.getByRole("switch", { name: "Email 1 verified" }).click();
+    const details = page.getByRole("dialog", { name: /Contact details/ });
+    await details.waitFor();
+    await details.getByRole("button", { name: "Add email" }).click();
+    await details.getByRole("textbox", { name: "Email 1", exact: true }).fill(NADIA_EMAIL);
+    await details.getByRole("switch", { name: "Email 1 verified" }).click();
     await shot("contact-editing");
-    await drawer.getByRole("button", { name: "Save", exact: true }).click();
+    await details.getByRole("button", { name: "Save", exact: true }).click();
     await page.waitForTimeout(1500);
     check("C5.1", "the pencil makes the lines editable; an added, verified email saves to the ledger", "EMAIL|true|MANUAL|Verified by researcher",
       sql(`SELECT k.channel || '|' || k.verified || '|' || k.source || '|' || coalesce(k.status, '') FROM app_lm_person_contact k

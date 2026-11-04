@@ -62,7 +62,7 @@ export function CandidateDrawer({
   onOpenCompany?: () => void;
   /** A note to open the profile on — a bell row's — rather than on the Profile tab. */
   focusNoteId?: string | null;
-  /** A part of the Contact tab to open the profile on — a bell row's reply, bounce or booked call. */
+  /** A part of the Outreach tab to open the profile on — a bell row's reply, bounce or booked call. */
   focusSection?: DrawerSection | null;
   /** The tab to open on, from a link that says which; the viewer's remembered tab otherwise. */
   focusTab?: DrawerTab | null;
