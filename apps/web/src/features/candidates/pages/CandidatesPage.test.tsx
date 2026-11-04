@@ -444,7 +444,7 @@ describe("CandidatesPage", () => {
     expect(await screen.findByRole("note")).toHaveTextContent("Set by Alok Kumar");
   });
 
-  it("draws the position drawer's tabs, less what only a position holds, with tags in the header", async () => {
+  it("draws the position drawer's tabs, less what only a position holds, with tags and contacts in the header", async () => {
     vi.mocked(poolApi.getPerson).mockResolvedValue({
       ...record,
       contacts: { ...record.contacts, emails: [{ address: "fatima@example.com", kind: "work", verified: true, status: null, source: "manual", foundAt: "2026-09-01T00:00:00Z" }] },
@@ -453,19 +453,19 @@ describe("CandidatesPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Fatima Al Mazrouei" })).toBeInTheDocument();
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent?.replace(/\d+$/, ""))).toEqual([
-      "Background",
-      "Compensation",
+      "Profile",
       "Notes",
-      "Contact",
-      "Documents",
       "Activity",
       "Positions",
     ]);
-    // Tags are the person's, on view whichever tab is open.
+    // Tags are the person's, on view whichever tab is open; so is the primary email.
     expect(await screen.findByRole("button", { name: "Remove tag Open to work" })).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("tab", { name: "Contact" }));
-    expect(within(screen.getByRole("tabpanel")).getByText("fatima@example.com")).toBeInTheDocument();
+    expect(screen.getByText("fatima@example.com")).toBeInTheDocument();
+    // The package and the documents are folds of Profile, closed until asked for.
+    const profile = screen.getByRole("tabpanel");
+    expect(within(profile).getByRole("button", { name: /^Summary/ })).toHaveAttribute("aria-expanded", "true");
+    expect(within(profile).getByRole("button", { name: /^Compensation/ })).toHaveAttribute("aria-expanded", "false");
+    expect(within(profile).getByRole("button", { name: /^Documents/ })).toHaveAttribute("aria-expanded", "false");
 
     await userEvent.click(screen.getByRole("tab", { name: /^Notes/ }));
     expect(await screen.findByLabelText("New note")).toBeInTheDocument();

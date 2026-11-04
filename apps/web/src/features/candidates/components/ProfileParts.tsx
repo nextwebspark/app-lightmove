@@ -65,7 +65,7 @@ export function PersonHeaderLayout({
   contacts: CandidateContacts;
   /** Opens the contact details window: the pencil, "+N" and the Add links. Absent for a reader who may not edit. */
   onEditContacts?: () => void;
-  /** Where "+N" goes when nothing may be edited here: the Contact tab. */
+  /** Where "+N" goes when nothing may be edited here: a read of every contact. */
   onShowContacts?: () => void;
   /** Writes to the primary email in Uncava's composer; absent leaves the address as text, `emailNote` saying why. */
   onWriteEmail?: () => void;
