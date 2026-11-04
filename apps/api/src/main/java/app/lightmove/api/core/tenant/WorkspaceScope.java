@@ -28,10 +28,10 @@ public final class WorkspaceScope {
     }
 
     /**
-     * Refused inside a live transaction begun for another workspace: the task's reads would join it, on the outer
-     * workspace's connection. A connection still bound with no live transaction — an after-commit listener run on
-     * the publishing thread, which Spring reports inactive while the committed transaction's connection is still
-     * what a read joins — and one bound for no workspace are set to this workspace for the task and back after.
+     * Refused inside a transaction begun for another workspace: the task's reads would join it, on the outer
+     * workspace's connection. A connection bound for no workspace — an after-commit listener run on a webhook's or a
+     * job's publishing thread, where the committed transaction's connection is still what a read joins — is set to
+     * this workspace for the task and back after.
      */
     public static <T> T call(UUID workspaceId, Supplier<T> task) {
         Objects.requireNonNull(workspaceId, "workspaceId");
@@ -44,11 +44,19 @@ public final class WorkspaceScope {
             throw new IllegalStateException("A workspace scope must be entered before its transaction begins");
         }
         setOn(joined, workspaceId);
+        T result;
         try {
-            return callBound(workspaceId, task);
-        } finally {
-            setOn(joined, outer);
+            result = callBound(workspaceId, task);
+        } catch (RuntimeException | Error failed) {
+            try {
+                setOn(joined, outer);
+            } catch (RuntimeException restoreFailed) {
+                failed.addSuppressed(restoreFailed);
+            }
+            throw failed;
         }
+        setOn(joined, outer);
+        return result;
     }
 
     private static @Nullable Connection boundConnection() {
