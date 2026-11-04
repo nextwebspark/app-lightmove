@@ -3,7 +3,9 @@ import { Button, FormError, Input, Select, useToast } from "../../../components/
 import { titleCase } from "../../../lib/format";
 import type { InviteRequest, WorkspaceRole } from "../../auth/api/types";
 import { INVITE_ROLES, inviteSchema } from "../../auth/schemas";
+import type { InviteOutcome } from "../api/workspaceApi";
 import { messageFor } from "../../../lib/errorCodes";
+import { undeliveredInvitationsMessage } from "../lib/invitationDelivery";
 
 interface InviteRow {
   id: number;
@@ -26,7 +28,7 @@ export function InviteTeamForm({
   before,
 }: {
   subtitle: string;
-  submit: (invites: InviteRequest[]) => Promise<{ sent: number }>;
+  submit: (invites: InviteRequest[]) => Promise<InviteOutcome>;
   /** After the invitations went out, or when there were none to send. */
   onDone: () => Promise<void> | void;
   onSkip: () => void;
@@ -136,11 +138,14 @@ export function InviteTeamForm({
     setSubmitting(true);
     setError(null);
     try {
-      const { sent } = await submit(filled);
+      const { sent, notDelivered } = await submit(filled);
       // The server skips anyone already on the team; said here, or the button's count is the last word.
       const skipped = filled.length - sent;
       if (skipped > 0) {
         toast(`${skipped === 1 ? "1 person was" : `${skipped} people were`} already a member, so not invited again`);
+      }
+      if (notDelivered.length > 0) {
+        toast.error(undeliveredInvitationsMessage(notDelivered));
       }
       await onDone();
     } catch (err) {

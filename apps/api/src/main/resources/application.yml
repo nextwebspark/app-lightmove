@@ -292,6 +292,8 @@ lightmove:
       booking-page-bookings-per-hour: ${AUTH_BOOKING_PAGE_BOOKINGS_PER_HOUR:5}
       avatar-changes-per-hour: ${AUTH_AVATAR_CHANGES_PER_HOUR:20}
       avatar-changes-per-hour-per-ip: ${AUTH_AVATAR_CHANGES_PER_HOUR_PER_IP:300}
+      invitations-per-hour-per-workspace: ${AUTH_INVITATIONS_PER_HOUR_PER_WORKSPACE:100}
+      invitations-per-hour-per-recipient: ${AUTH_INVITATIONS_PER_HOUR_PER_RECIPIENT:5}
       avatar-reads-per-minute: ${AUTH_AVATAR_READS_PER_MINUTE:1200}
 
   # The demo LLM endpoints (/api/v1/llm/*) call billed Vertex AI usage with only authentication as
