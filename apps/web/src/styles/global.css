@@ -12,11 +12,15 @@ body,
 }
 
 body {
-  background: var(--color-u-bg);
+  background: var(--color-u-canvas);
   color: var(--color-u-text);
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.45;
+}
+
+/* Dark only: on macOS it thins dark text on a light ground, which read as washed out in light mode. */
+body.dark {
   -webkit-font-smoothing: antialiased;
 }
 

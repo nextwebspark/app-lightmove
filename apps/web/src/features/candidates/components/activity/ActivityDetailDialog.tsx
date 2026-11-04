@@ -13,6 +13,7 @@ import { CANDIDATE_TASKS_KEY, getCandidateTasks } from "../../../tasks/api/tasks
 import * as personCrmApi from "../../api/personCrmApi";
 import type { PersonDocument, PersonDocumentVersion, PersonNoteKind, PersonTimelineEntry } from "../../api/types";
 import type { DrawerTab } from "../../lib/drawerTabs";
+import type { ProfileSection } from "../../lib/useProfileSections";
 import {
   actorOf,
   automationCauseOf,
@@ -34,7 +35,10 @@ import { ActorFace, EntryKindTile } from "./ActivityVisuals";
 
 export interface ActivityDestinations {
   onShowNote: (noteId: string) => void;
-  onOpenTab: (tab: DrawerTab) => void;
+  /** A tab, and on Profile the fold that holds the thing. */
+  onOpenTab: (tab: DrawerTab, fold?: ProfileSection) => void;
+  /** The header's contact details: the editor for whoever may edit them, else a read. */
+  onShowContacts: () => void;
   onOpenMeetings: () => void;
   onOpenTask: (taskId: string) => void;
   onPreviewDocument: (document: PersonDocument, version: PersonDocumentVersion) => void;
@@ -214,7 +218,7 @@ function DetailBody({
               ["Provider", details.via === "CONTACTOUT" || !details.via ? "ContactOut" : details.via],
             ]}
           />
-          <Callout>The history keeps no address or number. They are on the Contact tab.</Callout>
+          <Callout>The history keeps no address or number. They are in the contact details at the top of the profile.</Callout>
         </>
       );
     case "CONTACTS_EDITED":
@@ -658,20 +662,20 @@ function wayOf(entry: PersonTimelineEntry, position: PositionOfLine | null, to: 
       return { kind: "action", label: "Open in Meetings", run: to.onOpenMeetings };
     case "PROFILE_EDITED":
     case "RESEARCHED":
-      return { kind: "action", label: "Open Career", run: () => to.onOpenTab("career") };
+      return { kind: "action", label: "Open Background", run: () => to.onOpenTab("profile", "background") };
     case "CONTACT_FOUND":
     case "CONTACTS_EDITED":
     case "DO_NOT_CONTACT_SET":
     case "DO_NOT_CONTACT_CLEARED":
-      return { kind: "action", label: "Open Contact", run: () => to.onOpenTab("contact") };
+      return { kind: "action", label: "Show contact details", run: to.onShowContacts };
     case "DOCUMENT_ADDED":
     case "DOCUMENT_VERSION_ADDED":
     case "DOCUMENT_REMOVED":
     case "DOCUMENT_VERSION_REMOVED":
-      return { kind: "action", label: "Open Documents", run: () => to.onOpenTab("documents") };
+      return { kind: "action", label: "Open Documents", run: () => to.onOpenTab("profile", "documents") };
     case "AI_ASSESSED":
       return entry.details.scope === "BACKGROUND"
-        ? { kind: "action", label: "Open Career", run: () => to.onOpenTab("career") }
+        ? { kind: "action", label: "Open Background", run: () => to.onOpenTab("profile", "background") }
         : { kind: "action", label: "Open Assessment", run: () => to.onOpenTab("assessment") };
     case "ASSESSMENT_REVIEWED":
       return { kind: "action", label: "Open Assessment", run: () => to.onOpenTab("assessment") };

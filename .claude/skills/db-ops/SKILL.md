@@ -60,9 +60,9 @@ carry no workspace and reference none, so the guard never reaches them.
   `@Async` worker woken by one has no principal, so it reads nothing until it opens `WorkspaceScope.run(id, …)`. A job
   over every workspace is a walk (`EveryWorkspace`), its claims and finders run inside each: the dispatcher, the reply
   poll, the calendar and Recall owed lists, the notetaker's reconcile, sweep and purge, every billing job, the purges,
-  the due scan, the bell's emails and digests. `@Async` tasks and hand-built pools inherit the submitter's workspace
-  through `MdcPropagation`, so an event published in scope is heard in it. A scope is refused inside a transaction
-  already holding another workspace's connection — open it first — with one deliberate exception,
+  the due scan, the bell's emails and digests — and a workspace that throws never stops the rest. `@Async` tasks
+  and hand-built pools inherit the submitter's workspace through `ThreadContextPropagation`, so an event published in
+  scope is heard in it. A scope is refused inside a transaction already holding another workspace's connection — open it first — with one deliberate exception,
   `WorkspaceScope.runInJoinedTransaction`, for an account's work that must commit with the change behind it: founding
   a workspace writes its trial there, and a password change ends the account's AI-app grants in every workspace.
 - **A door with no principal resolves, then scopes (V172).** A webhook names a grant, a Recall calendar or bot, or a
@@ -84,13 +84,14 @@ carry no workspace and reference none, so the guard never reaches them.
   role must be neither — `RowLevelSecurityPosture` refuses to boot otherwise (`lightmove.row-level-security.
   require-enforced`). Tests, `npm run dev` and e2e therefore run the API as a non-superuser `lm_app` that owns the
   database; their own fixture SQL (`@FixtureJdbc`, `dev:db:psql`, the seeds, `e2e/api/lib.sh`) runs as the
-  container's superuser, above the policies. A dev volume older than V171 has `lm_app` as its bootstrap superuser,
+  container's superuser, above the policies. A dev volume older than V184 has `lm_app` as its bootstrap superuser,
   which Postgres will not demote: `npm run dev:db:reset`.
 - **Migrations.** Flyway runs as the same forced owner until #256, so its own session sets
   `app.rls_maintenance = 'on'` (`spring.flyway.init-sqls`, the deploy step's `-initSql`), which the direct
   policies honour; a backfill then reaches every workspace. `spring.flyway.user` gives Flyway its own DataSource —
   on a borrowed pool connection the flag would outlive the migration and serve the app, which the posture check
-  also refuses. A standalone migration test runs as the container superuser and is unaffected.
+  also refuses. `TenantAwareDataSource` clears the flag on every checkout too, so one set on a pooled connection
+  never reaches the next borrower. A standalone migration test runs as the container superuser and is unaffected.
 - **Humans.** An IAM user reading production through `psql.sh` sees no rows of these tables. To look into one
   workspace, `SET app.workspace_id = '<id>'` first — deliberately, one workspace at a time. Until #256 the
   break-glass for all of them is `SET app.rls_maintenance = 'on'`.

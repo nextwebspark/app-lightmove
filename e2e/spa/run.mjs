@@ -145,13 +145,8 @@ try {
       // The name is typed; a market match is only ever offered, so a test firm simply continues with its own.
       await page.getByPlaceholder("e.g. Meridian Search Partners").fill(WS);
       await page.getByRole("button", { name: "Continue", exact: true }).click();
-      await page.waitForURL(/\/signup\/invite/, { timeout: 15000 }).catch(() => {});
-      check("S2.6", "the organization step lands on the invite step", `${WEB}/signup/invite`, page.url());
-
-      await page.getByPlaceholder("colleague@firm.com").first().fill(email("colleague"));
-      await page.getByRole("button", { name: /Send invites|Continue|Finish/i }).first().click();
       await page.waitForURL(/\/$/, { timeout: 15000 }).catch(() => {});
-      check("S2.7", "finishing the wizard lands in the app", `${WEB}/`, page.url());
+      check("S2.6", "the organization step finishes the wizard in the app", `${WEB}/`, page.url());
       await shot(page, "s2-wizard-done");
 
       // Going BACK to the emailed link after finishing the wizard elsewhere. The card holds a `user`
@@ -313,13 +308,13 @@ try {
   section("S7  logout");
   await page.goto(`${WEB}/`);
   await page.waitForTimeout(2000);
-  // Sign out lives inside the Topbar workspace menu, so the menu has to be opened first. The
-  await page.locator("header button[aria-expanded]").first().click();
+  // Sign out lives in the Topbar's account (avatar) menu, as a menuitem, so the menu has to be opened first.
+  await page.locator('header button[aria-label^="Account:"]').first().click();
   await page.waitForTimeout(600);
-  await shot(page, "s7-workspace-menu");
+  await shot(page, "s7-account-menu");
 
-  const signOut = page.getByRole("button", { name: /sign out/i }).first();
-  check("S7.1", "the workspace menu offers Sign out", 1, await signOut.count());
+  const signOut = page.getByRole("menuitem", { name: /sign out/i }).first();
+  check("S7.1", "the account menu offers Sign out", 1, await signOut.count());
 
   await signOut.click();
   await page.waitForTimeout(3000);

@@ -530,14 +530,14 @@ a call booked with `MeetingVideo.ZOOM`.
 
 ## Work with no principal names its workspace
 
-Row-level security (V171, `core/tenant`) gives each borrowed connection the workspace `TenantContext` names: an open
+Row-level security (V184, `core/tenant`) gives each borrowed connection the workspace `TenantContext` names: an open
 `WorkspaceScope`, else the signed-in principal's. A `@Scheduled` job, a public webhook, or a listener woken by one
 has neither, and reads none of the protected tables. Open `WorkspaceScope.run(row.getWorkspaceId(), …)` from the row
 the work is about — **before** the transaction, since a joined one keeps its connection — and turn a statement over
 every workspace into `EveryWorkspace`'s walk, its claim run inside each workspace. `@Async` tasks inherit the
-submitter's workspace through `MdcTaskDecorator`; a pool built by hand wraps its tasks with `MdcPropagation`, or they
-read nothing. A door that knows only a key — a webhook's grant, calendar, bot or customer, a public slug, a token's
-hash — has no row to read the workspace from yet: **resolve, then scope**. Ask `TenantResolvers` (V172: ids and the
+submitter's workspace through `ThreadContextTaskDecorator`; a pool built by hand wraps its tasks with
+`ThreadContextPropagation` (`core/concurrent`, MDC and workspace together), or they read nothing. A door that knows
+only a key — a webhook's grant, calendar, bot or customer, a public slug, a token's hash — has no row to read the workspace from yet: **resolve, then scope**. Ask `TenantResolvers` (V172: ids and the
 workspace, never the row), open `WorkspaceScope` on the answer, and read the row there; never an unscoped finder
 followed by a scope, which finds nothing once its table is protected. Beware a check that treats "not found" as
 "allowed" (`existsByIdAndArchivedAtIsNotNull`, `NOT IN (…)`, a purge's `NOT EXISTS`, "is this call still on a

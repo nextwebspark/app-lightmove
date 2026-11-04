@@ -1,13 +1,24 @@
 /** A 16px stroke icon from a mockup path. All nav/menu glyphs are single-path SVGs there. */
-export function Icon({ d, size = 16, className }: { d: string; size?: number; className?: string }) {
+export function Icon({
+  d,
+  size = 16,
+  filled = false,
+  className,
+}: {
+  d: string;
+  size?: number;
+  /** Painted solid rather than stroked, as a chosen star is. */
+  filled?: boolean;
+  className?: string;
+}) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
+      fill={filled ? "currentColor" : "none"}
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth={filled ? 0 : 2}
       className={className}
       aria-hidden="true"
     >

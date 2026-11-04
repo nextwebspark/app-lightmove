@@ -3,7 +3,7 @@ import { DRAWER_TAB_LABELS, type DrawerTab } from "../lib/drawerTabs";
 
 /**
  * Both person drawers' tab bar: one set of names, and a count only where it helps scanning. Text alone, as the
- * mockup draws it — seven tabs with glyphs no longer fit the drawer's width. A live copilot's tab is the exception:
+ * mockup draws it — glyphs crowd the drawer's width. A live copilot's tab is the exception:
  * its pulsing dot and the rule after it say it lasts only the call.
  */
 export function DrawerTabBar({
@@ -17,7 +17,7 @@ export function DrawerTabBar({
   tabs: readonly DrawerTab[];
   value: DrawerTab;
   onChange: (tab: DrawerTab) => void;
-  counts?: Partial<Record<"notes" | "documents" | "positions", number>>;
+  counts?: Partial<Record<"notes" | "positions", number>>;
 }) {
   return (
     <TabList
@@ -37,7 +37,7 @@ export function DrawerTabBar({
           : {
               value: tab,
               label: DRAWER_TAB_LABELS[tab],
-              count: tab === "notes" || tab === "documents" || tab === "positions" ? counts[tab] : undefined,
+              count: tab === "notes" || tab === "positions" ? counts[tab] : undefined,
             },
       )}
     />

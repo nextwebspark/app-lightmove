@@ -229,9 +229,10 @@ function OpenComposer({
                   onChange={(event) => setChosenAddress(event.target.value)}
                   className="min-w-0 flex-1 py-1 font-mono text-note"
                 >
-                  {emails.map((address) => (
+                  {emails.map((address, index) => (
                     <option key={address} value={address}>
                       {address}
+                      {index === 0 ? " · primary" : ""}
                     </option>
                   ))}
                 </Select>

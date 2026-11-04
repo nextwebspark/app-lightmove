@@ -36,7 +36,7 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
                 {"fullName":"Sample Person","email":"typed@them.example","phone":"+971 50 000 0001"}""");
 
         JsonNode saved = contacts(projectId, candidateId, """
-                {"emails":[{"value":"typed@them.example","kind":"work","verified":true},
+                {"emails":[{"value":"typed@them.example","kind":"work","verified":true,"primary":true},
                            {"value":"Second@Them.Example","kind":"personal","verified":false}],
                  "phones":[{"value":"+971 50 000 0002","kind":null,"verified":false}]}""",
                 status().isOk());
@@ -48,7 +48,9 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
         assertThat(emails.get(0).get("verified").asBoolean()).isTrue();
         assertThat(emails.get(0).get("status").asText()).isEqualTo("Verified by researcher");
         assertThat(emails.get(0).get("source").asText()).isEqualTo("manual");
+        assertThat(emails.get(0).get("primary").asBoolean()).isTrue();
         assertThat(emails.get(1).get("address").asText()).isEqualTo("Second@Them.Example");
+        assertThat(emails.get(1).get("primary").asBoolean()).isFalse();
         JsonNode phones = saved.get("contacts").get("phones");
         assertThat(phones).hasSize(1);
         assertThat(phones.get(0).get("number").asText()).isEqualTo("+971 50 000 0002");
@@ -70,6 +72,52 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isBadRequest())
                 .andReturn()))
                 .isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    @DisplayName("two addresses marked primary in one save is refused")
+    void twoPrimariesInOneSaveAreRefused() throws Exception {
+        String projectId = mandate("Two Primaries Firm");
+        String candidateId = executive(projectId, """
+                {"fullName":"Sample Person"}""");
+
+        assertThat(codeOf(mvc.perform(put(contactsUrl(projectId, candidateId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"emails":[{"value":"one@them.example","primary":true},
+                                           {"value":"two@them.example","primary":true}],
+                                 "phones":[]}"""))
+                .andExpect(status().isBadRequest())
+                .andReturn()))
+                .isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    @DisplayName("the primary moves to another address, and a save choosing none stores none")
+    void thePrimaryMovesAndIsNeverStoredUnchosen() throws Exception {
+        String projectId = mandate("Primary Switch Firm");
+        String candidateId = executive(projectId, """
+                {"fullName":"Sample Person"}""");
+        contacts(projectId, candidateId, """
+                {"emails":[{"value":"one@them.example","primary":true},{"value":"two@them.example"}],
+                 "phones":[{"value":"+971 50 000 0001"}]}""", status().isOk());
+
+        JsonNode moved = contacts(projectId, candidateId, """
+                {"emails":[{"value":"one@them.example"},{"value":"two@them.example","primary":true}],
+                 "phones":[{"value":"+971 50 000 0001"}]}""", status().isOk()).get("contacts");
+
+        assertThat(moved.get("emails").get(0).get("address").asText()).isEqualTo("two@them.example");
+        assertThat(moved.get("emails").get(0).get("primary").asBoolean()).isTrue();
+        assertThat(moved.get("emails").get(1).get("primary").asBoolean()).isFalse();
+        assertThat(moved.get("phones").get(0).get("primary").asBoolean()).isFalse();
+
+        JsonNode cleared = contacts(projectId, candidateId, """
+                {"emails":[{"value":"one@them.example"},{"value":"two@them.example"}],
+                 "phones":[{"value":"+971 50 000 0001"}]}""", status().isOk()).get("contacts");
+
+        assertThat(cleared.get("emails").get(0).get("primary").asBoolean()).isFalse();
+        assertThat(cleared.get("emails").get(1).get("primary").asBoolean()).isFalse();
     }
 
     @Test

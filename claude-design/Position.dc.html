@@ -1135,9 +1135,10 @@
   <sc-if value="{{ showCandidateDrawer }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;z-index:90;background:rgba(15,20,30,.4)"></div>
     <aside role="dialog" aria-label="{{ cd.name }}" data-screen-label="Executive drawer" style="position:fixed;right:10px;top:10px;bottom:10px;z-index:95;width:560px;max-width:92vw;display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .2s ease both">
-      <!-- Profile · Contact & outreach · Records · Timeline, the same four tabs as the workspace person
-           drawer (Candidates.dc.html). A client representative reads Profile and Contact only. Every tab
-           stays mounted while hidden, so a half-typed note survives a switch. -->
+      <!-- Background · Compensation · Notes · Assessment · Contact · Documents · Activity · Positions; the workspace
+           person drawer takes the same less Assessment. A client representative reads Background and Contact only.
+           The status sits beside the name; the profile link is the "in" mark there, edited with the details. Every
+           tab stays mounted while hidden, so a half-typed note survives a switch. -->
       <div style="position:relative;flex:none;padding:14px 20px 0">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
           <span style="font:700 10px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ cd.breadcrumb }}</span>
@@ -1153,13 +1154,7 @@
             <span style="display:flex;align-items:center;gap:6px">
               <h2 style="margin:0;font:600 16px var(--sans)">{{ cd.name }}</h2>
               <sc-if value="{{ cd.hasLi }}"><a href="#" aria-label="LinkedIn profile" style="display:flex;flex:none;align-items:center;opacity:.8"><span style="width:16px;height:15px;border-radius:2px;background:var(--text);color:var(--panel);font:700 10px/15px var(--sans);text-align:center">in</span></a></sc-if>
-              <sc-if value="{{ canWrite }}"><button title="Edit details" style="border-radius:6px;padding:6px;color:var(--text3);opacity:.6;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text);opacity:1"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ ic.pencil }}"></path></svg></button></sc-if>
-            </span>
-            <p style="margin:2px 0 0;font:400 12.5px var(--mono);color:var(--text2)">{{ cd.title }}</p>
-            <p style="margin:4px 0 0;font:400 11.5px var(--mono);color:var(--text3)">{{ cd.context }}</p>
-            <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
-              <sc-if value="{{ cd.hasLevel }}"><span style="display:inline-flex;align-items:center;gap:4px;border-radius:5px;padding:2px 7px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;background:var(--line-soft);color:var(--text2)">{{ cd.level }}<sc-if value="{{ cd.levelAi }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--u-accent)"><title>AI-suggested</title><path d="{{ ic.sparkle }}"></path></svg></sc-if></span></sc-if>
-              <span style="{{ cd.sourceStyle }}">{{ cd.sourceLabel }}</span>
+              <span aria-hidden="true" style="width:1px;height:16px;flex:none;margin:0 2px;background:var(--line)"></span>
               <sc-if value="{{ canWrite }}" hint-placeholder-val="{{ true }}">
                 <div style="position:relative">
                   <button onClick="{{ toggleStatusPick }}" aria-label="Status" aria-haspopup="listbox" aria-expanded="{{ statusPickOpen }}" style="display:inline-flex;align-items:center;gap:8px;height:28px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:0 10px;font:500 12px var(--sans);color:var(--text);cursor:pointer" style-hover="border-color:var(--text3)">
@@ -1195,12 +1190,11 @@
                 </div>
               </sc-if>
               <sc-if value="{{ readOnly }}" hint-placeholder-val="{{ false }}"><span style="{{ cd.statusPillStyle }}">{{ cd.statusLabel }}</span></sc-if>
-              <sc-if value="{{ cd.hasCv }}">
-                <span data-screen-label="CV chip" style="display:inline-flex;align-items:stretch;border-radius:6px;border:1px solid color-mix(in srgb,var(--amber) 45%,transparent);background:var(--amber-dim);overflow:hidden">
-                  <button onClick="{{ docPreview }}" title="Preview the CV" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;font:600 11.5px var(--mono);color:var(--amber);background:none;border:none;cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.fileText }}"></path></svg>{{ cd.cvLabel }}</button>
-                  <button onClick="{{ docDownload }}" aria-label="Download the CV" title="Download" style="display:grid;place-items:center;padding:0 7px;color:var(--amber);background:none;border:none;border-left:1px solid color-mix(in srgb,var(--amber) 35%,transparent);cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.importInto }}"></path></svg></button>
-                </span>
-              </sc-if>
+              <sc-if value="{{ canWrite }}"><button title="Edit details" style="border-radius:6px;padding:6px;color:var(--text3);opacity:.6;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text);opacity:1"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ ic.pencil }}"></path></svg></button></sc-if>
+            </span>
+            <p style="margin:2px 0 0;font:400 12.5px var(--mono);color:var(--text2)">{{ cd.title }}</p>
+            <p style="margin:4px 0 0;font:400 11.5px var(--mono);color:var(--text3)">{{ cd.context }}</p>
+            <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
               <sc-if value="{{ canWrite }}" hint-placeholder-val="{{ true }}">
                 <button onClick="{{ aiEnrich }}" title="Read the profile and score this executive against the brief's competencies" style="display:inline-flex;align-items:center;gap:5px;border-radius:6px;border:1px solid color-mix(in srgb,var(--u-accent) 40%,transparent);background:var(--u-accent-tint);padding:3px 9px;font:600 11.5px var(--mono);color:var(--u-accent);cursor:pointer" style-hover="filter:brightness(1.1)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.sparkle }}"></path></svg>{{ cd.aiLabel }}</button>
               </sc-if>
@@ -1643,19 +1637,6 @@
                           </sc-if>
                         </div>
                       </div>
-                      <div style="display:flex;gap:12px;padding:12px 0 4px">
-                        <span style="margin-top:2px;display:flex;width:28px;height:28px;flex:none;align-items:center;justify-content:center"><span style="width:22px;height:20px;border-radius:3px;background:var(--text);color:var(--panel);font:700 12px/20px var(--sans);text-align:center">in</span></span>
-                        <div style="min-width:0;flex:1">
-                          <div style="margin-bottom:4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">LinkedIn</div>
-                          <sc-if value="{{ cd.hasLi }}">
-                            <div style="display:flex;min-width:0;align-items:center;gap:6px">
-                              <a href="#" style="display:flex;min-width:0;align-items:center;gap:4px;font:400 13px var(--mono);color:var(--sky)"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:var(--text3)">linkedin.com/in/</span>{{ cd.liHandle }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none;color:var(--text3)"><path d="{{ ic.externalLink }}"></path></svg></a>
-                              <button onClick="{{ copyValue }}" data-id="LinkedIn URL" title="Copy" style="margin-left:auto;display:flex;flex:none;border-radius:6px;padding:4px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ ic.copy }}"></path></svg></button>
-                            </div>
-                          </sc-if>
-                          <sc-if value="{{ cd.noLi }}"><div style="font:400 13px var(--mono);color:var(--text3)">—</div></sc-if>
-                        </div>
-                      </div>
                     </div>
                   </sc-if>
                   <sc-if value="{{ contactEditing }}">
@@ -1679,19 +1660,6 @@
                           </div>
                         </div>
                       </sc-for>
-                      <div style="display:flex;gap:12px;padding:12px 0 4px">
-                        <span style="margin-top:2px;display:flex;width:28px;height:28px;flex:none;align-items:center;justify-content:center"><span style="width:22px;height:20px;border-radius:3px;background:var(--text);color:var(--panel);font:700 12px/20px var(--sans);text-align:center">in</span></span>
-                        <div style="min-width:0;flex:1">
-                          <div style="margin-bottom:4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">LinkedIn</div>
-                          <label style="display:block;margin-bottom:16px"><span style="display:block;margin-bottom:6px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">LinkedIn</span>
-                            <sc-if value="{{ cd.liLocked }}">
-                              <div style="display:flex;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:8px 12px;font:400 13px var(--mono);color:var(--text2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none;color:var(--text3)"><path d="{{ ic.lock }}"></path></svg><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">linkedin.com/in/{{ cd.liHandle }}</span></div>
-                              <span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--text3)">Captured from this profile page — not editable</span>
-                            </sc-if>
-                            <sc-if value="{{ cd.liEditable }}"><input defaultValue="{{ cd.liUrl }}" placeholder="linkedin.com/in/…" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none"></sc-if>
-                          </label>
-                        </div>
-                      </div>
                       <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;border-top:1px solid var(--line-soft);padding-top:12px">
                         <span style="margin-right:auto;font:400 10.5px var(--mono);color:var(--text3)">Esc cancels · ⌘/Ctrl ↵ saves</span>
                         <button onClick="{{ cancelContactEdit }}" style="border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 12px;font:500 12.5px var(--sans);color:var(--text2);cursor:pointer">Cancel</button>
@@ -3126,7 +3094,7 @@ const EDUCATION = { e01: [["London Business School", "Executive MBA", "2015 – 
 const SKILLS = { e01: ["Treasury", "Capital markets", "IFRS", "M&A"] };
 const NAT_SUGGESTION = { e02: ["Emirati", "medium", "Studied in Abu Dhabi and holds a federal board seat; the name alone would be low confidence."] };
 const OUTREACH_STATE = { active: ["Active", "var(--sky)", "var(--sky-dim)"], replied: ["Replied", "var(--green)", "var(--green-dim)"], booked: ["Booked", "var(--green)", "var(--green-dim)"], stopped: ["Stopped", "var(--text3)", "var(--panel2)"] };
-const ALWAYS_OPEN = ["summary", "experience"];
+const ALWAYS_OPEN = ["summary"];
 const crmOf = (e) => Object.assign({ tags: [], owner: null, also: [], notes: [], timeline: null, last: null, dnc: null, docs: [] }, CRM[e.id] || {});
 // [category, title, file, size, latest upload, primary CV, versions as [no, file, size, by and when]] — Candidates.dc.html draws the full tab.
 const CRM_DOCS = {
@@ -3269,14 +3237,14 @@ class Component extends DCLogic {
       sort: { field: "added", dir: "desc" },
       vis: { founded: false, description: false, source: false },
       toast: null, coId: "c01", candId: "e01", removeId: "c01", contactEditing: false, compEditing: false, compForm: null,
-      cdTab: pick("cdTab", "career"), copilotLive: pick("copilotLive", false), summaryMore: false, aiRunning: false, outreachStopped: {},
+      cdTab: pick("cdTab", "profile"), copilotLive: pick("copilotLive", false), summaryMore: false, aiRunning: false, outreachStopped: {},
       assessView: "scores", assessScore: {}, assessOpen: {}, reportOpen: {}, reportAiOpen: {}, reportAiAction: {}, reportScopeOpen: true,
       noteComposerOpen: true, noteKind: "call", noteText: "", noteEventDate: "2026-09-30",
       noteFlash: null,
       naModal: flag("nextAction", false) ? { mode: "new", execId: "e01" } : null, naWhat: "", naPresetIdx: null, naKind: "CALL", naWho: "yh", naDate: "2026-10-05", naTime: "09:00",
       naDetail: "", naPresetsOpen: true, naWhoOpen: false, tasksDone: {}, naJustDone: false, mentionOpen: false, mentions: ["sa"],
       notesSearch: "", notesFilterType: "all", notesFiltersOpen: true, notesSortNewest: true, noteMenuOpen: null,
-      sec: { summary: true, experience: true, education: false, compensation: false, background: false, ai: false, columns: false, contact: true, outreach: true }, docHist: {}, docTray: false,
+      sec: { summary: true, experience: false, education: false, compensation: false, documents: false, background: false, ai: false, columns: false, contact: true, outreach: true }, docHist: {}, docTray: false,
       mapSel: "c01", mapOpen: { "United Arab Emirates": true, "Saudi Arabia": true, Qatar: true, Oman: true, Bahrain: true, c01: true }, mapExecs: true, mapPanel: true,
       basis: "recent", momentum: "weeks", measure: "package", cpCountry: "All countries", cpNat: "All nationalities",
       dvNat: "All nationalities", dvLevel: "All levels",
@@ -3329,7 +3297,7 @@ class Component extends DCLogic {
   liveCompanies(stage) { return C.filter((c) => !this.state.removed[c.id] && this.stageOf(c) === stage); }
   canWrite() { return !this.state.clientRep; }
   statusOf(e) { return this.state.statusOf[e.id] || PIPE_STATUS_OF[e.id] || e.status; }
-  cdTabOf() { const t = this.state.cdTab; const mapped = t === "records" ? "notes" : t; if (mapped === "copilot" && this.canWrite() && this.state.copilotLive) return "copilot"; return this.canWrite() ? (["career", "notes", "documents", "positions", "assessment", "contact", "timeline"].includes(mapped) ? mapped : "career") : (mapped === "contact" ? "contact" : "career"); }
+  cdTabOf() { const t = this.state.cdTab; const RETIRED = { records: "notes", career: "profile", background: "profile", compensation: "profile", documents: "profile", contact: "outreach" }; const mapped = RETIRED[t] || t; if (mapped === "copilot" && this.canWrite() && this.state.copilotLive) return "copilot"; return this.canWrite() ? (["profile", "notes", "assessment", "outreach", "timeline"].includes(mapped) ? mapped : "profile") : "profile"; }
 
   assessmentVals(s) {
     const score = (id) => s.assessScore[id] ?? ASSESS_DEFAULT[id];
@@ -3757,16 +3725,15 @@ class Component extends DCLogic {
         { id: "summary", fold: true, title: "Summary", summary: firstLine(summary), pencil: "summary" },
         { id: "experience", fold: true, title: "Experience", count: postCount, summary: `${e.title} at ${company} · ${countOf(postCount, "post")}`, pencil: "experience" },
         edu.length ? { id: "education", fold: true, title: "Education", count: edu.length, summary: `${edu[0][1]}, ${edu[0][0]}` } : null,
-        { id: "compensation", fold: true, title: "Compensation", summary: facts([total > 0 ? `${cur} ${num(total)}` : null, noticeSummary]), pencil: "compensation" },
-        { id: "background", fold: true, title: "Background", summary: facts([e.nat || (NAT_SUGGESTION[e.id] ? `AI suggests ${NAT_SUGGESTION[e.id][0]}` : null), `${2026 - e.since + 8} yrs`, countOf(languages.length, "language")]), pencil: "background" }
+        { id: "background", fold: true, title: "Background", summary: facts([e.nat || (NAT_SUGGESTION[e.id] ? `AI suggests ${NAT_SUGGESTION[e.id][0]}` : null), `${2026 - e.since + 8} yrs`, countOf(languages.length, "language")]), pencil: "background" },
+        cw ? { id: "compensation", fold: true, title: "Compensation", pencil: "compensation" } : null,
+        cw ? { id: "documents", fold: true, title: "Documents" } : null
       ],
-      contact: [
-        { id: "contact", fold: true, title: "Contact", summary: facts([e.emails[0] && e.emails[0][0], e.phones[0] && e.phones[0][0], e.emails.some((x) => x[2]) ? "verified" : null]), pencil: "contact" },
+      outreach: [
         cw && run ? { id: "outreach", fold: true, title: "Outreach", summary: `${OUTREACH_STATE[runState][0]} · ${run[3]} of 3 sent` } : null,
         cw ? { id: "meetings", plain: true, title: "Meetings", icon: I.calendar, count: meet.upcoming.length + meet.past.length || undefined } : null
       ],
       notes: [{ id: "notes", plain: true, title: "", noHeader: true }],
-      documents: [{ id: "documents", plain: true, title: "Documents" }],
       positions: [crm.also.length ? { id: "positions", plain: true, title: "Other positions" } : { id: "positions", plain: true, title: "", noHeader: true }],
       timeline: [{ id: "timeline", plain: true, title: "Timeline" }]
     };
@@ -3806,7 +3773,7 @@ class Component extends DCLogic {
         whoName: TEAM_OF[t.who].me ? "Me" : TEAM_OF[t.who].name, whoInitials: initials(TEAM_OF[t.who].name), whoStyle: avatar(t.who, 18, "font-size:8px") })),
       naEmpty: naOpen.length === 0, naHasDone: naDone.length > 0, naDone: naDone.map((t) => ({ title: t.title, done: t.done })), naJustDone: !!s.naJustDone,
       name: e.name, initials: initials(e.name), slotId2: "exec-drawer-" + e.id, avStyle: avatar(e.id, 44, "border-radius:10px;border:1px solid var(--line);font-size:14px"),
-      hasLi: !!e.li, noLi: !e.li, liHandle: e.li || "", liUrl: e.li ? `linkedin.com/in/${e.li}` : "", liLocked: e.source === "extension", liEditable: e.source !== "extension",
+      hasLi: !!e.li, noLi: !e.li, liHandle: e.li || "",
       title: e.title || "—", context: [company, e.city, e.country].filter(Boolean).join(" · ") || "No employer or location recorded",
       hasLevel: !!e.level, level: e.level, sourceLabel: SOURCES[e.source].label, sourceStyle: `${DPILL}color:${SOURCES[e.source].fg};background:${SOURCES[e.source].bg}`,
       status: this.statusOf(e), statusLabel: st.label, statusPillStyle: `${DPILL}color:${st.fg};background:${st.bg}`,
@@ -3818,7 +3785,7 @@ class Component extends DCLogic {
       natSuggestion: cw && !!NAT_SUGGESTION[e.id], natSuggested: NAT_SUGGESTION[e.id] ? NAT_SUGGESTION[e.id][0] : "", natConfidence: NAT_SUGGESTION[e.id] ? NAT_SUGGESTION[e.id][1] : "", natWhy: NAT_SUGGESTION[e.id] ? NAT_SUGGESTION[e.id][2] : "",
       aiAssessed: !!ai, aiNone: !ai, aiDate: ai ? ai[0] : "", aiSummary: ai ? ai[1] : "",
       aiPanels: ai ? [["Technical", ai[2], ai[4]], ["Behavioural", ai[3], ai[5]]].map(([label, score, pts]) => ({ label, score, points: pts.map(([sign, text]) => ({ sign: sign === "+" ? "+" : "–", text, color: sign === "+" ? "var(--green)" : "var(--red)" })) })) : [],
-      showSequenceBar: cw && tab === "contact",
+      showSequenceBar: cw && tab === "outreach",
       orState: run ? OUTREACH_STATE[runState][0] : "", orPill: run ? `${DPILL}color:${OUTREACH_STATE[runState][1]};background:${OUTREACH_STATE[runState][2]}` : "",
       orSeq: run ? run[0] : "", orSender: run ? run[1] : "", orSteps, orLive: runState === "active",
       orBooked: runState === "booked", orReplied: runState === "replied", orRepliedAt: run ? run[4] : "",
@@ -4552,7 +4519,7 @@ class Component extends DCLogic {
         set({ pipelineChecked: next });
       },
       openCompany: (e) => set({ drawer: "company", coId: id(e) }),
-      openCandidate: (e) => set({ drawer: "candidate", candId: id(e), contactEditing: false, cdTab: "career", summaryMore: false }),
+      openCandidate: (e) => set({ drawer: "candidate", candId: id(e), contactEditing: false, cdTab: "profile", summaryMore: false }),
       setCdTab: (e) => set({ cdTab: id(e) }),
       setCdTabRecords: () => set({ cdTab: "notes" }),
       openNoteComposer: () => set({ cdTab: "notes", noteComposerOpen: true }),
@@ -4656,15 +4623,15 @@ class Component extends DCLogic {
       toggleMapKey: (e) => { e.stopPropagation(); const k = id(e); set({ mapOpen: Object.assign({}, this.state.mapOpen, { [k]: !this.state.mapOpen[k] }) }); },
       selectMapNode: (e) => set({ mapSel: id(e) }),
       clearMapSel: () => set({ mapSel: null }),
-      openMapNode: (e) => { e.stopPropagation(); const k = id(e); if (CO[k]) set({ drawer: "company", coId: k }); else set({ drawer: "candidate", candId: k, contactEditing: false, cdTab: "career", summaryMore: false }); },
+      openMapNode: (e) => { e.stopPropagation(); const k = id(e); if (CO[k]) set({ drawer: "company", coId: k }); else set({ drawer: "candidate", candId: k, contactEditing: false, cdTab: "profile", summaryMore: false }); },
       toggleSec: (e) => { const k = id(e); set({ sec: Object.assign({}, this.state.sec, { [k]: !this.state.sec[k] }) }); },
       toggleDocHist: (e) => { const k = id(e); set({ docHist: Object.assign({}, this.state.docHist, { [k]: !this.state.docHist[k] }) }); },
       toggleDocTray: () => set({ docTray: !this.state.docTray }),
       sendDocTray: () => { set({ docTray: false }); this.showToast("Uploaded as version 4 of the CV — on the timeline"); },
       docPreview: () => this.showToast("Opens the preview sheet — see Candidates.dc.html?dialog=preview"),
       docDownload: () => this.showToast("Downloading — recorded in the audit trail"),
-      expandAll: () => set({ sec: Object.assign({}, this.state.sec, { education: true, compensation: true, background: true, ai: true, columns: true }) }),
-      collapseAll: () => set({ sec: Object.assign({}, this.state.sec, { education: false, compensation: false, background: false, ai: false, columns: false }), compEditing: false }),
+      expandAll: () => set({ sec: Object.assign({}, this.state.sec, { experience: true, education: true, compensation: true, documents: true, background: true, ai: true, columns: true }) }),
+      collapseAll: () => set({ sec: Object.assign({}, this.state.sec, { experience: false, education: false, compensation: false, documents: false, background: false, ai: false, columns: false }), compEditing: false }),
       toggleCompOverride: () => { const f = this.state.compForm; set({ compForm: Object.assign({}, f, { overridden: !f.overridden, currency: f.overridden ? BRIEF_CURRENCY : f.currency }) }); },
       setCompCurrency: (e) => set({ compForm: Object.assign({}, this.state.compForm, { currency: e.target.value }) }),
       setCompBase: (e) => set({ compForm: Object.assign({}, this.state.compForm, { base: parseAmt(e.target.value) }) }),
@@ -4787,10 +4754,10 @@ class Component extends DCLogic {
       co: isStage && s.drawer === "company" ? this.coVals() : {}, cd: (isStage || isPipeline) && s.drawer === "candidate" ? this.cdVals() : { cdSections: [] },
       cdSections: (isStage || isPipeline) && s.drawer === "candidate" ? this.cdVals().cdSections : [],
       na: this.naVals(),
-      cdTabProfile: this.cdTabOf() === "career", cdTabAssessment: this.cdTabOf() === "assessment", cdNotAssessment: this.cdTabOf() !== "assessment",
+      cdTabProfile: this.cdTabOf() === "profile", cdTabAssessment: this.cdTabOf() === "assessment", cdNotAssessment: this.cdTabOf() !== "assessment",
       av: this.cdTabOf() === "assessment" ? this.assessmentVals(s) : { sections: [] },
       cdTabCopilot: this.cdTabOf() === "copilot",
-      cdTabs: (cw && s.copilotLive ? [["copilot", "● Copilot"]] : []).concat(cw ? [["career", "Career"], ["notes", "Notes"], ["assessment", "Assessment"], ["contact", "Contact"], ["documents", "Documents"], ["timeline", "Activity"], ["positions", "Positions"]] : [["career", "Career"], ["contact", "Contact"]]).map(([key, label]) => {
+      cdTabs: (cw && s.copilotLive ? [["copilot", "● Copilot"]] : []).concat(cw ? [["profile", "Profile"], ["notes", "Notes"], ["assessment", "Assessment"], ["outreach", "Outreach"], ["timeline", "Activity"]] : []).map(([key, label]) => {
         const on = this.cdTabOf() === key;
         const live = key === "copilot";
         return { key, label, on, style: `display:inline-flex;flex:none;align-items:center;gap:7px;white-space:nowrap;margin-bottom:-1px;padding:9px 10px;font:500 13px var(--sans);background:none;border:none;border-bottom:2px solid ${on ? "var(--amber)" : "transparent"};color:${on ? "var(--text)" : "var(--text3)"};cursor:pointer${live ? ";margin-right:6px;box-shadow:inset -1px 0 0 var(--line)" : ""}` };

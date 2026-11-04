@@ -14,6 +14,7 @@ import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -25,11 +26,13 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
- * The database's own tenant fence (V171): with workspace A's setting a transaction reads and writes A's rows of
+ * The database's own tenant fence (V184): with workspace A's setting a transaction reads and writes A's rows of
  * every protected table and nothing of B's, and with no setting it reads nothing at all — whatever the query, a
  * repository's or raw SQL's.
  */
@@ -151,6 +154,63 @@ class RowLevelSecurityIntegrationTest extends FlowTestSupport {
         WorkspaceScope.run(firmA.workspaceId(), () -> transactions.executeWithoutResult(status ->
                 assertThatThrownBy(() -> WorkspaceScope.run(firmB.workspaceId(), () -> { }))
                         .isInstanceOf(IllegalStateException.class)));
+    }
+
+    /**
+     * A webhook's or job's thread commits with no workspace, and its after-commit listener — run on that same thread
+     * when the async pool is full, always in tests — joins the committed transaction's still-bound connection.
+     */
+    @Test
+    @DisplayName("a scope entered after commit sets the still-bound connection to its workspace, then hands it back")
+    void aScopeAfterCommitSetsAndRestoresTheBoundConnection() {
+        Map<String, Object> seen = new HashMap<>();
+        transactions.executeWithoutResult(status -> {
+            seen.put("committedOn", backendPid());
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    WorkspaceScope.run(firmA.workspaceId(), () -> {
+                        seen.put("scopedOn", backendPid());
+                        seen.put("scopedTo", currentWorkspace());
+                        seen.put("ownPerson", personRows(firmA.personId()));
+                        seen.put("otherPerson", personRows(firmB.personId()));
+                    });
+                    seen.put("afterScope", currentWorkspace());
+                }
+            });
+        });
+
+        assertThat(seen.get("scopedOn")).as("the scope joined the committed connection").isEqualTo(seen.get("committedOn"));
+        assertThat(seen.get("scopedTo")).isEqualTo(firmA.workspaceId());
+        assertThat(seen.get("ownPerson")).isEqualTo(1L);
+        assertThat(seen.get("otherPerson")).isEqualTo(0L);
+        assertThat(seen).containsKey("afterScope");
+        assertThat(seen.get("afterScope")).as("the connection reads no workspace again").isNull();
+    }
+
+    @Test
+    @DisplayName("the maintenance flag set on a borrowed connection is gone at the next checkout")
+    void theMaintenanceFlagDiesWithItsBorrower() {
+        for (int borrow = 0; borrow < 20; borrow++) {
+            transactions.executeWithoutResult(status -> {
+                application.queryForObject("select set_config('app.rls_maintenance', 'on', false)", String.class);
+                assertThat(application.queryForObject("select count(*) from app_lm_person", Long.class)).isPositive();
+            });
+            assertThat(application.queryForObject("select app_lm_rls_maintenance()", Boolean.class)).isFalse();
+            assertThat(application.queryForObject("select count(*) from app_lm_person", Long.class)).isZero();
+        }
+    }
+
+    private Integer backendPid() {
+        return application.queryForObject("select pg_backend_pid()", Integer.class);
+    }
+
+    private UUID currentWorkspace() {
+        return application.queryForObject("select app_lm_current_workspace()", UUID.class);
+    }
+
+    private Long personRows(UUID personId) {
+        return application.queryForObject("select count(*) from app_lm_person where id = ?", Long.class, personId);
     }
 
     private long visibleIn(UUID workspaceId, String table) {

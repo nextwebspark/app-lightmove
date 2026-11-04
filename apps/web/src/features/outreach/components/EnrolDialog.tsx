@@ -615,10 +615,11 @@ function ReviewStep({
             onChange={(event) => onChange({ toAddress: event.target.value })}
             className="min-w-0 rounded-[6px] border border-u-border bg-u-raised px-2 py-1 font-mono text-[12.5px] text-u-text"
           >
-            {reviewing.emails.map((option) => (
+            {reviewing.emails.map((option, index) => (
               <option key={option.address} value={option.address}>
                 {option.address}
                 {option.kind ? ` · ${option.kind}` : ""}
+                {index === 0 ? " · primary" : ""}
               </option>
             ))}
           </select>

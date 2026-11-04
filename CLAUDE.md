@@ -21,9 +21,11 @@ has ended), the projects/clients
 screens, a project's Team & access tab, the client registry with representative invites and their
 scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
 searches saved against it, and the three Companies pages (In universe / Shortlisted / Declined) where a
-mandate triages what it took from it — **Shortlisted and Declined are switched off on screen for now**
-(`SHORTLIST_AND_DECLINE_OFFERED` in `triageStages.ts`: the web app offers In universe alone and redirects the other
-two; the API, the stored rows and the extension keep all three). A company reaches those pages four ways — out of the market
+mandate triages what it took from it — **Shortlisted is switched off on screen for now** (`SHORTLIST_OFFERED` in
+`triageStages.ts`: the web app redirects it; the API, the stored rows and the extension keep all three), and on screen
+**Declined is a company's alone** (`DECLINE_OFFERED`): the company drawer declines a company with everyone mapped at it
+(asking first, counted, when anyone is), no grid line and no People-mode filing declines a person, and the Declined page
+offers nothing but Back to universe, which brings the company and everyone at it back. A company reaches those pages four ways — out of the market
 (Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
 /triage` with an id the server resolves), typed in by hand, captured by the browser plugin
 (`POST /triage/capture`), or **imported from a spreadsheet**. Strategy's rows also carry a tick box:
@@ -93,11 +95,17 @@ may change, remove or restore one (`PERSON_NOTE_NOT_YOURS`), and a note line on 
 never quotes it. A removed note is out of every read at once (V141) and offered back by the toast's Undo
 (`…/notes/{noteId}/restore`); `PersonNotePurge` deletes it for good after `lightmove.notes.purge-after` (30 days),
 so from then it leaves no copy. Both person drawers — a position's executive drawer and the
-Candidates page's — share one header (`PersonHeaderLayout`: the photo beside one column of name, pills, the tags held
-to one line with a +N chip, and do not contact) and one tab order,
-`Position.dc.html`'s: **Career · Notes · Assessment · Contact · Documents · Activity · Positions** (`lib/drawerTabs.ts`,
-retired `?tab=records|timeline` links still land), a client seat reading Career and Contact alone; the
-workspace drawer leaves out only what a position holds (Assessment among them). **Assessment** (V135) is the
+Candidates page's — share one header (`PersonHeaderLayout`: the photo beside one column of the name with its LinkedIn
+mark — the drawer's only view of the link, edited with the details' pencil — then on a position the
+status picker and that pencil, the primary email and phone with "+N" and the contact details window, the tags held to
+one line with a +N chip, and do not contact) and one tab order, `Position.dc.html`'s, grouped by what the consultant
+is doing: **Profile · Notes · Assessment · Outreach · Activity** — Profile's folds Summary, Experience, Education,
+Background, Compensation, Documents and Your columns, Summary alone open on arrival (`useProfileSections`); Outreach
+the run and the calls the Contact tab used to hold, the contacts themselves being the header's — and **Positions** on
+the Candidates page's drawer alone (`lib/drawerTabs.ts`; retired `?tab=background|compensation|documents|contact|…`
+links still land), a client seat reading Profile alone with no tab bar — Compensation and Documents are staff's on
+screen, though `CandidateResponse` still carries the package; the workspace drawer leaves out only what a position
+holds (Assessment and Outreach). **Assessment** (V135) is the
 consultant's own scorecard against the brief's competencies: 0–10 or unscored (an open question, never a zero) per
 competency, out of 100 by each panel's `technical_share` (`ScorecardScoring`, mirrored live by
 `lib/scorecardScoring.ts`), plus evidence and a five-section report, saved from the footer as a draft or **Mark
@@ -110,8 +118,7 @@ back, per competency, evidence naming its source then a 0–10 score against an 
 or a CV can state a behaviour; read from the career alone a score is held to 3–7 and marked "Inferred from …", and
 null only with nothing on file — and the five sections; the weights and the total stay `ScorecardScoring`'s. It writes only what nobody holds — an empty value, or one still in
 `ai_drafted` (an untouched earlier draft, sparkled in the tab) — never a consultant's; an edit takes a value out of
-`ai_drafted`, and **Mark reviewed & submit** adopts every AI value. It runs only when pressed — never on a filing. The executive drawer draws **Positions** (every
-mandate mapping the person, this one first), **Notes** and **Activity** for staff, through the
+`ai_drafted`, and **Mark reviewed & submit** adopts every AI value. It runs only when pressed — never on a filing. The executive drawer draws **Notes** and **Activity** for staff, through the
 position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`).
 **A position's timeline is that position's alone** (`PersonTimelineService.positionTimelineOf`): its own lines and the
 person-level kinds (`PERSON_LEVEL_KINDS`: profile, contacts, tags, owner, do not contact, documents) wherever they were
@@ -136,8 +143,7 @@ uploader's or a `WORKSPACE_MANAGE` holder's (`PERSON_DOCUMENT_NOT_YOURS`), every
 and each change is a timeline line that names the document only while it exists. The bytes live in a
 private GCS bucket behind `core/storage`'s `DocumentStore` (`lightmove.storage.*`; the filesystem store
 for `npm run dev` and tests), streamed by the API, never by a signed URL. The SPA draws them in
-`components/documents`: both drawers' Documents tab, a
-header chip for the primary CV and a preview sheet (a PDF or image fetched as a blob, never a link); the
+`components/documents`: both drawers' Documents fold (on Profile) and a preview sheet (a PDF or image fetched as a blob, never a link); the
 upload tray says what each file will become before sending, and a duplicate is the server's 409.
 `CandidateResponse.linkedinUrlLocked` is the server's own lock, which the Contact section reads rather
 than guessing from this mandate's door.
@@ -172,7 +178,12 @@ the same rows editable in place — add, remove, retag work/personal, mark verif
 "via ContactOut" caption is — who did what is the audit trail's) — saved as one list through
 `PUT …/candidates/{id}/contacts`; a profile PUT adds what it supplies, never removes a contact, and is
 held to the same ten per channel.
-No primary flag anywhere: the grid's Email and Phone columns list them all. A person the plugin
+**One email and one phone are primary** (V183 `is_primary`, at most one per channel by partial unique index): starred
+in the Contact section (Make primary, read or edited), drawn in both drawers' header beside the employer's logo, and
+listed first everywhere — the grid's Email and Phone columns, the export, every send's default (Write email, Add to
+sequence, Book a call), each still changeable at the send. None chosen, the first of the ledger's order stands in:
+personal before work before untagged (an approach to someone at their current employer goes to a personal inbox),
+verified first, what a person supplied before what a lookup found, oldest first (`Person.listed`). A person the plugin
 captured keeps their LinkedIn URL locked (`CANDIDATE_PROFILE_URL_LOCKED`): it is the page they were
 read off and everything keys on it. `lightmove.enrichment.contactout` sits **beside**
 `…enrichment.provider` and is never selected by it: contact lookup is its own account with its own bill,
@@ -815,8 +826,10 @@ leaves calendars read directly (`RecallSettings.isCalendarOffered`). It depends 
 **Tasks and the bell (epic #862, V133, `docs/tasks-notifications.md`).** A **next action is a task**
 (`task`): one `app_lm_task` row per job on one executive of one position, and the Pipeline card's Next action is
 that executive's earliest open one — `task` answers `candidate`'s `NextActionLookup`, so the board, the drawer, My
-tasks and the bell read the same rows. In the executive drawer it is a fixed-height bar in the header, on every tab
-(`NextActionBar`: the earliest open task, ticked done in place, the rest in a popover grouped overdue/today/upcoming);
+tasks and the bell read the same rows. In the executive drawer it is a fixed-height bar docked in the footer, on every tab
+(`NextActionBar`: the earliest open task, ticked done in place, the rest in a popover grouped overdue/today/upcoming,
+folded to one square beside the Assessment tab's save buttons), the drawer's other actions — Add note, Set next action,
+Book a call, Remove from mandate — behind the footer's ⋯;
 off a position, the Candidates drawer shows it on each Positions card (V132's free-text `next_action` columns became open tasks and are no longer
 written). A task goes, and a note's `@[Name](user:<uuid>)` / `@[team](team)` mention reaches, only someone who may
 work the position — `WORK_EXECUTE`, read again on every save (`ProjectAccess.allows`) — never a client seat; a note
@@ -1411,7 +1424,7 @@ An account with no password (a Google or LinkedIn sign-in) turns two-factor on w
 with the code alone.
 V165 indexes `app_lm_audit_event (workspace_id, id DESC)` for the customer audit log, guarded on ownership as V74 is:
 once `harden.sql` has run the index is its to build (`CONCURRENTLY`). An index only; no row is written.
-V171 forces row-level security on the people and position core (#1084; the rest is #1085): `app_lm_tenant_visible`
+V184 forces row-level security on the people and position core (#1084; the rest is #1085): `app_lm_tenant_visible`
 over `app.workspace_id`, set on every connection checkout by `TenantAwareDataSource`; a person's children are visible
 through their person, and `app_lm_project_candidate` / `app_lm_project_triage_company` gain their project's
 `workspace_id` (filled by trigger, held by a composite key). Flyway's own session sets `app.rls_maintenance` until
