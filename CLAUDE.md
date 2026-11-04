@@ -96,13 +96,16 @@ never quotes it. A removed note is out of every read at once (V141) and offered 
 (`…/notes/{noteId}/restore`); `PersonNotePurge` deletes it for good after `lightmove.notes.purge-after` (30 days),
 so from then it leaves no copy. Both person drawers — a position's executive drawer and the
 Candidates page's — share one header (`PersonHeaderLayout`: the photo beside one column of the name with its LinkedIn
-mark — the drawer's only view of the link, edited with the details' pencil, never in Contact — then on a position the
-status picker and that pencil, the tags held to one line with a +N chip, and do not contact) and one tab order,
-`Position.dc.html`'s: **Background · Compensation · Notes · Assessment · Contact · Documents · Activity**, and
-**Positions** on the Candidates page's drawer alone — a position's left it out as too crowded
-(`lib/drawerTabs.ts`, retired `?tab=career|records|timeline` links still land), a client seat reading Background and
-Contact alone — the Compensation tab is staff's on screen, though `CandidateResponse` still carries the package; the
-workspace drawer leaves out only what a position holds (Assessment among them). **Assessment** (V135) is the
+mark — the drawer's only view of the link, edited with the details' pencil — then on a position the
+status picker and that pencil, the primary email and phone with "+N" and the contact details window, the tags held to
+one line with a +N chip, and do not contact) and one tab order, `Position.dc.html`'s, grouped by what the consultant
+is doing: **Profile · Notes · Assessment · Outreach · Activity** — Profile's folds Summary, Experience, Education,
+Background, Compensation, Documents and Your columns, Summary alone open on arrival (`useProfileSections`); Outreach
+the run and the calls the Contact tab used to hold, the contacts themselves being the header's — and **Positions** on
+the Candidates page's drawer alone (`lib/drawerTabs.ts`; retired `?tab=background|compensation|documents|contact|…`
+links still land), a client seat reading Profile alone with no tab bar — Compensation and Documents are staff's on
+screen, though `CandidateResponse` still carries the package; the workspace drawer leaves out only what a position
+holds (Assessment and Outreach). **Assessment** (V135) is the
 consultant's own scorecard against the brief's competencies: 0–10 or unscored (an open question, never a zero) per
 competency, out of 100 by each panel's `technical_share` (`ScorecardScoring`, mirrored live by
 `lib/scorecardScoring.ts`), plus evidence and a five-section report, saved from the footer as a draft or **Mark
@@ -140,7 +143,7 @@ uploader's or a `WORKSPACE_MANAGE` holder's (`PERSON_DOCUMENT_NOT_YOURS`), every
 and each change is a timeline line that names the document only while it exists. The bytes live in a
 private GCS bucket behind `core/storage`'s `DocumentStore` (`lightmove.storage.*`; the filesystem store
 for `npm run dev` and tests), streamed by the API, never by a signed URL. The SPA draws them in
-`components/documents`: both drawers' Documents tab and a preview sheet (a PDF or image fetched as a blob, never a link); the
+`components/documents`: both drawers' Documents fold (on Profile) and a preview sheet (a PDF or image fetched as a blob, never a link); the
 upload tray says what each file will become before sending, and a duplicate is the server's 409.
 `CandidateResponse.linkedinUrlLocked` is the server's own lock, which the Contact section reads rather
 than guessing from this mandate's door.

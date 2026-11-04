@@ -14,7 +14,7 @@ import { formatInstantDate } from "../../../lib/format";
 import { toBrowsableUrl } from "../../../lib/url";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import { ContactDetailsDialog } from "../../contactlookup/components/ContactDetailsDialog";
-import { ContactPanel } from "../../contactlookup/components/ContactPanel";
+import { ContactsReadDialog } from "../../contactlookup/components/ContactsReadDialog";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import { CandidateOutreachButtons } from "../../outreach/components/CandidateOutreachButtons";
@@ -41,6 +41,7 @@ import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
 import { candidateGenderLabel } from "../lib/candidateVocabulary";
 import { statusStyle } from "../lib/pipelineStatus";
 import { careerSummary } from "../lib/careerTimeline";
+import { compensationFoldSummary, documentsFoldSummary, scrollToFold } from "../lib/profileFolds";
 import { useBackgroundSuggestion } from "../lib/useBackgroundSuggestion";
 import { useScorecardEditor, type ScorecardEditor } from "../lib/useScorecardEditor";
 import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
@@ -85,13 +86,15 @@ import { NationalitySuggestion } from "./NationalitySuggestion";
 import { focusNoteComposer } from "../../notes/lib/focusNoteComposer";
 
 /** What a pencil opens: one of the form's sections, or the mandate's own columns. */
-type EditableSection = Exclude<ProfileFormSection, "note"> | "contact" | "columns";
+type EditableSection = Exclude<ProfileFormSection, "note"> | "columns";
 
 const PROFILE_TAB_FOLDS: readonly ProfileSection[] = [
   "summary",
   "experience",
   "education",
   "background",
+  "compensation",
+  "documents",
   "columns",
 ];
 
@@ -114,8 +117,10 @@ const TAB_ID_PREFIX = "executive-drawer";
  * <p><b>Status stays live beside the name</b>, with a write of its own — it is the field that changes
  * most often and the one a researcher came to flick while reading.
  *
- * <p>Tabs follow `Position.dc.html` — Background, Compensation, Notes, Assessment, Contact, Documents and Activity
- * (the person's other positions are the Candidates page's alone, to keep this bar short); a client seat gets Background and Contact alone. Every panel stays mounted while hidden, so a half-typed note
+ * <p>Tabs follow `Position.dc.html` — Profile, Notes, Assessment, Outreach and Activity, grouped by what the
+ * consultant is doing; Profile holds the background, the package and the documents as folds, Summary alone open on
+ * arrival. The contacts are the header's, on every tab. A client seat gets Profile alone, and no tab bar. Every panel
+ * stays mounted while hidden, so a half-typed note
  * survives a look at another tab. The next action is not a tab's: it is the header's bar, on view
  * whichever tab is open, since the moment to set one is while writing the note or the email.
  *
@@ -152,7 +157,7 @@ export function CandidateProfile({
   onOpenCompany?: () => void;
   /** A note to open on — a bell row's: the Records tab, scrolled to it. */
   focusNoteId?: string | null;
-  /** A part of the Contact tab to open on — a bell row's reply, bounce or booked call: unfolded, scrolled to. */
+  /** A part of the Outreach tab to open on — a bell row's reply, bounce or booked call: unfolded, scrolled to. */
   focusSection?: DrawerSection | null;
   focusTab?: DrawerTab | null;
 }) {
@@ -172,8 +177,8 @@ export function CandidateProfile({
   const [tab, setTab] = useState<DrawerTab>(() =>
     canWrite && focusNoteId
       ? "notes"
-      : canWrite && focusSection
-        ? "contact"
+      : canWrite && isOutreachPart(focusSection)
+        ? "outreach"
         : focusTab && offeredTabs.includes(focusTab)
           ? focusTab
           : rememberedDrawerTab("position", offeredTabs),
@@ -191,13 +196,19 @@ export function CandidateProfile({
     }
   }
   const [sectionFocus, setSectionFocus] = useState<SectionFocus | null>(() =>
-    canWrite && focusSection ? { section: focusSection, at: Date.now() } : null,
+    canWrite && isOutreachPart(focusSection) ? { section: focusSection, at: Date.now() } : null,
+  );
+  const contactWindowFor = (section: DrawerSection | null) =>
+    section === "contact" ? (canWrite ? "details" : "read") : null;
+  const [contactWindow, setContactWindow] = useState<"details" | "read" | "email" | null>(() =>
+    contactWindowFor(focusSection),
   );
   const [linkedSection, setLinkedSection] = useState(focusSection);
   if (focusSection !== linkedSection) {
     setLinkedSection(focusSection);
-    if (canWrite && focusSection) {
-      setTab("contact");
+    if (focusSection === "contact") setContactWindow(contactWindowFor(focusSection));
+    else if (canWrite && isOutreachPart(focusSection)) {
+      setTab("outreach");
       setSectionFocus({ section: focusSection, at: (sectionFocus?.at ?? 0) + 1 });
     }
   }
@@ -205,7 +216,7 @@ export function CandidateProfile({
   useEffect(() => {
     if (!sectionFocus) return;
     if (sectionFocus.section !== "meetings") unfoldSections(true, [sectionFocus.section]);
-    return scrollToContactSection(sectionFocus.section);
+    return scrollToOutreachSection(sectionFocus.section);
   }, [sectionFocus, unfoldSections]);
   const showNote = (noteId: string) => {
     setTab("notes");
@@ -227,16 +238,16 @@ export function CandidateProfile({
     rememberDrawerTab("position", next);
     setHeldCopilotId(next === "copilot" ? liveCopilotId : null);
     if (next !== "notes") setNoteFocus(null);
-    if (next !== "contact") setSectionFocus(null);
+    if (next !== "outreach") setSectionFocus(null);
     if (body.current) body.current.scrollTop = 0;
   };
   const showCopilot = (recordingId: string) => {
     chooseTab("copilot");
     setHeldCopilotId(recordingId);
   };
-  /** The phone footer's Call: the Contact tab, scrolled to Meetings and its Book a call. */
+  /** The footer's Book a call: the Outreach tab, scrolled to Meetings and its Book a call. */
   const startCall = () => {
-    chooseTab("contact");
+    chooseTab("outreach");
     setSectionFocus({ section: "meetings", at: Date.now() });
   };
   /** The footer's Add note: the Notes tab, its composer ready to type in. */
@@ -249,7 +260,6 @@ export function CandidateProfile({
     queryFn: ({ signal }) => poolApi.getPerson(candidate.personId, signal),
     enabled: canWrite,
   });
-  const [contactWindow, setContactWindow] = useState<"details" | "email" | null>(null);
   const mailbox = useMailbox(canWrite);
   const doNotContact = Boolean(personRecord.data?.doNotContact);
   const emailWritable = canWrite && mailbox.data?.offered === true && !doNotContact;
@@ -308,8 +318,16 @@ export function CandidateProfile({
   const startEditing = (section: EditableSection) => {
     setEditing(section);
     if (section !== "identity") return;
-    chooseTab("background");
+    chooseTab("profile");
     if (body.current) body.current.scrollTop = 0;
+  };
+
+  /** An Activity line's way back: its tab, and on Profile the fold that holds the thing, unfolded and in view. */
+  const openTab = (next: DrawerTab, fold?: ProfileSection) => {
+    chooseTab(next);
+    if (!fold) return;
+    sections.setAll(true, [fold]);
+    scrollToFold(fold);
   };
 
   const pencil = (section: EditableSection, label: string, isBusy = false) =>
@@ -390,7 +408,7 @@ export function CandidateProfile({
           title={candidate.title}
           contacts={candidate.contacts}
           onEditContacts={canWrite ? () => setContactWindow("details") : undefined}
-          onShowContacts={drawerTabs.includes("contact") ? () => chooseTab("contact") : undefined}
+          onShowContacts={() => setContactWindow("read")}
           onWriteEmail={emailWritable ? () => setContactWindow("email") : undefined}
           emailNote={doNotContact ? "Do not contact" : undefined}
           employer={{ name: candidate.companyName, logoUrl: candidate.companyLogoUrl, onOpen: onOpenCompany }}
@@ -408,6 +426,13 @@ export function CandidateProfile({
             onClose={() => setContactWindow(null)}
           />
         )}
+        {contactWindow === "read" && (
+          <ContactsReadDialog
+            fullName={candidate.fullName}
+            contacts={candidate.contacts}
+            onClose={() => setContactWindow(null)}
+          />
+        )}
         {contactWindow === "email" && (
           <EmailComposerDialog
             projectId={projectId}
@@ -416,20 +441,21 @@ export function CandidateProfile({
             onClose={() => setContactWindow(null)}
           />
         )}
-        <DrawerTabBar
-          idPrefix={TAB_ID_PREFIX}
-          tabs={drawerTabs}
-          value={tab}
-          onChange={chooseTab}
-          counts={{
-            notes: notes.data?.length,
-            documents: documents.documents.data?.length,
-          }}
-        />
+        {drawerTabs.length > 1 ? (
+          <DrawerTabBar
+            idPrefix={TAB_ID_PREFIX}
+            tabs={drawerTabs}
+            value={tab}
+            onChange={chooseTab}
+            counts={{ notes: notes.data?.length }}
+          />
+        ) : (
+          <div className="h-3.5" />
+        )}
       </div>
 
       <div ref={body} className="min-h-0 flex-1 overflow-y-auto px-5">
-        <div {...panelProps("background")}>
+        <div {...panelProps("profile")}>
           {editing === "identity" ? (
             <section className="border-b border-u-border py-4">
               <SectionHeading>Details</SectionHeading>
@@ -606,6 +632,61 @@ export function CandidateProfile({
             )}
           </CollapsibleSection>
 
+          {canWrite && (
+            <CollapsibleSection
+              {...foldProps("compensation")}
+              title="Compensation"
+              summary={compensationFoldSummary(compensation)}
+              action={pencil("compensation", "compensation")}
+            >
+              {editing === "compensation" ? (
+                <SectionEditor
+                  section="compensation"
+                  candidate={candidate}
+                  save={replace}
+                  doneMessage="Compensation updated"
+                  onDone={finish}
+                  onCancel={() => setEditing(null)}
+                  footer="plain"
+                >
+                  {(form) => (
+                    <CompensationFields
+                      register={form.register}
+                      errors={form.formState.errors}
+                      control={form.control}
+                      watch={form.watch}
+                      setValue={form.setValue}
+                      briefCurrency={briefCurrency}
+                      storedCurrency={compensation.currency}
+                      storedNoticePeriod={compensation.noticePeriod}
+                    />
+                  )}
+                </SectionEditor>
+              ) : (
+                <CompensationSummary compensation={compensation} />
+              )}
+            </CollapsibleSection>
+          )}
+
+          {canWrite && (
+            <CollapsibleSection
+              id="documents"
+              open={sections.isOpen("documents")}
+              onToggle={() => sections.toggle("documents")}
+              title="Documents"
+              count={documents.documents.data?.length || undefined}
+              summary={documentsFoldSummary(documents.documents.data)}
+            >
+              <DocumentsPanel
+                scope={documentScope}
+                documents={documents}
+                personName={firstName}
+                compact
+                onPreview={openPreview}
+              />
+            </CollapsibleSection>
+          )}
+
           {visibleColumns.length > 0 && (
             <CollapsibleSection
               {...foldProps("columns")}
@@ -657,70 +738,12 @@ export function CandidateProfile({
           </p>
         </div>
 
-        {canWrite && (
-          <div {...panelProps("compensation")}>
-            <section className="py-4">
-              <div className="flex items-center justify-between gap-2">
-                <SectionHeading>Compensation</SectionHeading>
-                {pencil("compensation", "compensation")}
-              </div>
-              {editing === "compensation" ? (
-                <SectionEditor
-                  section="compensation"
-                  candidate={candidate}
-                  save={replace}
-                  doneMessage="Compensation updated"
-                  onDone={finish}
-                  onCancel={() => setEditing(null)}
-                  footer="plain"
-                >
-                  {(form) => (
-                    <CompensationFields
-                      register={form.register}
-                      errors={form.formState.errors}
-                      control={form.control}
-                      watch={form.watch}
-                      setValue={form.setValue}
-                      briefCurrency={briefCurrency}
-                      storedCurrency={compensation.currency}
-                      storedNoticePeriod={compensation.noticePeriod}
-                    />
-                  )}
-                </SectionEditor>
-              ) : (
-                <CompensationSummary compensation={compensation} />
-              )}
-            </section>
-          </div>
-        )}
-
-        <div {...panelProps("contact")}>
+        <div {...panelProps("outreach")}>
           {canWrite && (
             <div className="flex justify-end pt-3 empty:hidden">
               <CandidateOutreachButtons projectId={projectId} candidateId={candidate.id} fullName={candidate.fullName} />
             </div>
           )}
-          <CollapsibleSection
-            {...foldProps("contact")}
-            title="Contact"
-            summary={joinFacts([
-              candidate.contacts.emails[0]?.address,
-              candidate.contacts.phones[0]?.number,
-              candidate.contacts.emails.some((entry) => entry.verified) ? "verified" : null,
-            ])}
-            action={pencil("contact", "contact")}
-          >
-            <ContactPanel
-              projectId={projectId}
-              candidate={candidate}
-              canWrite={canWrite}
-              lookupOffered={lookupConfig.data?.enabled === true}
-              onSaved={onSaved}
-              editing={editing === "contact"}
-              onDone={finish}
-              onCancel={() => setEditing(null)}
-            />
-          </CollapsibleSection>
           {canWrite && (
             <OutreachSection
               projectId={projectId}
@@ -770,14 +793,6 @@ export function CandidateProfile({
             <div {...panelProps("assessment")}>
               {assessmentOpened && <AssessmentTab projectId={projectId} editor={scorecard} />}
             </div>
-            <div {...panelProps("documents")} className="py-4">
-              <DocumentsPanel
-                scope={documentScope}
-                documents={documents}
-                personName={firstName}
-                onPreview={openPreview}
-              />
-            </div>
             <div {...panelProps("activity")} className="pb-4">
               <ActivityTimeline
                 scope={{ kind: "position", projectId, candidateId: candidate.id }}
@@ -790,7 +805,8 @@ export function CandidateProfile({
                 documents={documents.documents.data}
                 destinations={{
                   onShowNote: showNote,
-                  onOpenTab: chooseTab,
+                  onOpenTab: openTab,
+                  onShowContacts: () => setContactWindow(canWrite ? "details" : "read"),
                   onOpenMeetings: startCall,
                   onOpenTask: (taskId) => openNextAction(taskId),
                   onPreviewDocument: openPreview,
@@ -1012,8 +1028,14 @@ function countOf(count: number, noun: string): string {
   return `${count} ${count === 1 ? noun : `${noun}s`}`;
 }
 
+type OutreachPart = Exclude<DrawerSection, "contact">;
+
+function isOutreachPart(section: DrawerSection | null): section is OutreachPart {
+  return section === "outreach" || section === "meetings";
+}
+
 interface SectionFocus {
-  section: DrawerSection;
+  section: OutreachPart;
   /** Bumped by every new link, so the same section asked for twice scrolls twice. */
   at: number;
 }
@@ -1022,22 +1044,20 @@ const SECTION_FIND_ATTEMPTS = 20;
 const SECTION_FIND_INTERVAL_MS = 100;
 
 /**
- * Scrolls the Contact tab to a section once it is drawn. Outreach and Meetings draw only after their own reads land,
- * so it looks again for a couple of seconds; an Outreach with no run draws nothing, and the Contact fold stands in.
+ * Scrolls the Outreach tab to a section once it is drawn. Outreach and Meetings draw only after their own reads land,
+ * so it looks again for a couple of seconds; an Outreach with no run draws nothing, and the tab stays at its top.
  */
-function scrollToContactSection(section: DrawerSection): () => void {
+function scrollToOutreachSection(section: OutreachPart): () => void {
   let attempts = 0;
   let timer: number | undefined;
   const find = () => {
-    const panel = document.getElementById(`${TAB_ID_PREFIX}-panel-contact`);
+    const panel = document.getElementById(`${TAB_ID_PREFIX}-panel-outreach`);
     const target =
       section === "meetings"
         ? panel?.querySelector('section[aria-label="Meetings"]')
         : panel?.querySelector(`#${section}-section-body`)?.closest("section");
-    const lastTry = ++attempts >= SECTION_FIND_ATTEMPTS;
-    const shown = target ?? (lastTry ? panel?.querySelector("#contact-section-body")?.closest("section") : null);
-    if (shown) shown.scrollIntoView({ block: "start", behavior: "smooth" });
-    else if (!lastTry) timer = window.setTimeout(find, SECTION_FIND_INTERVAL_MS);
+    if (target) target.scrollIntoView({ block: "start", behavior: "smooth" });
+    else if (++attempts < SECTION_FIND_ATTEMPTS) timer = window.setTimeout(find, SECTION_FIND_INTERVAL_MS);
   };
   timer = window.setTimeout(find, 0);
   return () => window.clearTimeout(timer);
