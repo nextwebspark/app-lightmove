@@ -58,6 +58,12 @@ public class TaskDueScanner {
             RETURNING id
             """;
 
+    private static final String WORKSPACES_WITH_TASKS_FALLING_DUE = """
+            SELECT DISTINCT workspace_id FROM app_lm_task
+             WHERE status = 'OPEN' AND due_at > ? AND due_at <= ?
+               AND (due_soon_notified_at IS NULL OR overdue_notified_at IS NULL)
+            """;
+
     private final JdbcTemplate jdbc;
     private final EveryWorkspace workspaces;
     private final TransactionTemplate transactions;
@@ -76,10 +82,11 @@ public class TaskDueScanner {
      * the scheduled call is a self-invocation, and without one the after-commit listeners never hear a claim.
      */
     public int scanAt(Instant now) {
-        return workspaces.sum(workspaceId -> {
+        return workspaces.sumWithWork(WORKSPACES_WITH_TASKS_FALLING_DUE, workspaceId -> {
             Integer announced = transactions.execute(status -> claimAndAnnounce(workspaceId, now));
             return announced == null ? 0 : announced;
-        });
+        }, Timestamp.from(now.minus(OVERDUE_LOOKBACK)),
+                Timestamp.from(now.plus(properties.notifications().dueSoonWindow())));
     }
 
     private int claimAndAnnounce(UUID workspaceId, Instant now) {

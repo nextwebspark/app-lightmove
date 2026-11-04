@@ -80,6 +80,11 @@ public class NotificationEmails {
             RETURNING id
             """;
 
+    private static final String WORKSPACES_WITH_EMAILS_DUE = """
+            SELECT DISTINCT workspace_id FROM app_lm_notification
+             WHERE email_due_at <= ? AND emailed_at IS NULL AND read_at IS NULL AND archived_at IS NULL
+            """;
+
     private final JdbcTemplate jdbc;
     private final EveryWorkspace workspaces;
     private final TransactionTemplate transactions;
@@ -103,7 +108,8 @@ public class NotificationEmails {
 
     /** One pass; a row that fails is logged and the rows after it still sent. */
     public int emailUnreadAt(Instant now) {
-        return workspaces.sum(workspaceId -> emailUnreadIn(workspaceId, now));
+        return workspaces.sumWithWork(WORKSPACES_WITH_EMAILS_DUE, workspaceId -> emailUnreadIn(workspaceId, now),
+                Timestamp.from(now));
     }
 
     private int emailUnreadIn(UUID workspaceId, Instant now) {
