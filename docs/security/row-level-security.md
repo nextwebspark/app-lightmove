@@ -14,7 +14,7 @@ filters". This document points to it rather than repeating it.
 | Branch head | `8cd564a7` | `aa609431` |
 | State | open, **draft** | open, **draft** |
 | Against `main` | 13 commits ahead, 0 behind; mergeable | behind #1132's head (needs #1132 merged in) |
-| Migrations | `V171__row_level_security_core.sql` | `V172__tenant_resolvers.sql`, `V173__row_level_security_rest.sql` |
+| Migrations | `V184__row_level_security_core.sql` | `V172__tenant_resolvers.sql`, `V173__row_level_security_rest.sql` |
 | Diff | 152 files, +1,496 / −257 | (not re-measured) |
 | CI | all green except **API, still pending** | not checked |
 | Reviews | none yet | one review: **Not Ready to Merge** (§8.2) |
@@ -622,7 +622,7 @@ back.
 
 | Area | Files |
 |---|---|
-| Migration | `db/migration/V171__row_level_security_core.sql` |
+| Migration | `db/migration/V184__row_level_security_core.sql` |
 | Tenant core | `core/tenant/`: `TenantAwareDataSource`, `TenantDataSourceConfig`, `TenantContext`, `TenantPrincipal`, `WorkspaceScope`, `EveryWorkspace`, `RowLevelSecurityPosture` |
 | Config | `core/config/RowLevelSecuritySettings`, `LightMoveProperties`, `application.yml` (Flyway user and `init-sqls`, `lightmove.row-level-security`) |
 | Principals and propagation | `AuthPrincipal`, `ApiKeyPrincipal`, `McpCaller`, `McpToolCalls`, `MdcPropagation` |
