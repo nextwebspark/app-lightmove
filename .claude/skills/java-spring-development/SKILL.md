@@ -535,7 +535,8 @@ Row-level security (V184, `core/tenant`) gives each borrowed connection the work
 has neither, and reads none of the protected tables. Open `WorkspaceScope.run(row.getWorkspaceId(), …)` from the row
 the work is about — **before** the transaction, since a joined one keeps its connection — and turn a statement over
 every workspace into `EveryWorkspace`'s walk. `@Async` tasks inherit the submitter's workspace through
-`MdcTaskDecorator`; a pool built by hand wraps its tasks with `MdcPropagation`, or they read nothing. Beware a check
+`ThreadContextTaskDecorator`; a pool built by hand wraps its tasks with `ThreadContextPropagation` (`core/concurrent`,
+MDC and workspace together), or they read nothing. Beware a check
 that treats "not found" as "allowed" (`existsByIdAndArchivedAtIsNotNull`, `NOT IN (…)`): run outside its scope it
 fails open, not closed.
 

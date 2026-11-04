@@ -44,8 +44,10 @@ the list, and the boot fails if any of them is not forced.
 - **System work names its workspace — per item, no bypass role.** A scheduled job, a public webhook, or an
   `@Async` worker woken by one has no principal, so it reads nothing until it opens `WorkspaceScope.run(id, …)` from
   the row it is working on (the enrollment, the message, the mailbox, the recording). A statement over every
-  workspace becomes a walk (`EveryWorkspace`): the note purges, the due scan, the bell's emails. `@Async` tasks and
-  hand-built pools inherit the submitter's workspace through `MdcPropagation`. A scope is refused inside a
+  workspace becomes a walk (`EveryWorkspace`): the note purges, the due scan, the bell's emails — the last two only
+  over the workspaces their own unprotected table says have work (`sumWithWork`), and a workspace that throws never
+  stops the rest. `@Async` tasks and hand-built pools inherit the submitter's workspace through
+  `ThreadContextPropagation`. A scope is refused inside a
   transaction already holding another workspace's connection.
 - **Fail-open traps, now pinned by tests.** A check that reads "not found" as "allowed" turns RLS's empty answer
   into a pass: `existsByIdAndArchivedAtIsNotNull` reads an unseen project as live, and `NOT IN (archived ids)`
@@ -60,7 +62,8 @@ the list, and the boot fails if any of them is not forced.
   `app.rls_maintenance = 'on'` (`spring.flyway.init-sqls`, the deploy step's `-initSql`), which the direct
   policies honour; a backfill then reaches every workspace. `spring.flyway.user` gives Flyway its own DataSource —
   on a borrowed pool connection the flag would outlive the migration and serve the app, which the posture check
-  also refuses. A standalone migration test runs as the container superuser and is unaffected.
+  also refuses. `TenantAwareDataSource` clears the flag on every checkout too, so one set on a pooled connection
+  never reaches the next borrower. A standalone migration test runs as the container superuser and is unaffected.
 - **Humans.** An IAM user reading production through `psql.sh` sees no rows of these tables. To look into one
   workspace, `SET app.workspace_id = '<id>'` first — deliberately, one workspace at a time. Until #256 the
   break-glass for all of them is `SET app.rls_maintenance = 'on'`.

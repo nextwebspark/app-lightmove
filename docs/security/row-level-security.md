@@ -149,13 +149,15 @@ The column is:
   - It is **refused inside a live transaction begun for another workspace**, because the task would join that
     transaction's connection.
   - One case is handled specially: an after-commit listener on the publishing thread. This always happens in tests
-    (`SynchronousAuditWrites`) and in production once the async pool is full (`CallerRunsPolicy`). Spring reports the
-    transaction as inactive while still binding its connection, so the scope relabels that connection for the length
-    of the task and then puts the old label back.
-- **`EveryWorkspace`** lists `app_lm_workspace` (which has no policy) and runs a job's work once per workspace, inside
-  that workspace's scope (`forEach`, `sum`).
-- **`MdcPropagation`** now carries the submitter's workspace into `@Async` tasks and hand-built pools, through
-  `TenantContext.propagating`. This covers the assistant's tool threads, Find executives, People Search filing and the
+    (`SynchronousAuditWrites`) and in production once the async pool is full (`CallerRunsPolicy`). Spring still binds
+    the committed transaction's connection, so on a webhook's or job's thread (no workspace of its own) the scope
+    relabels that connection for the length of the task and then puts the old label back.
+- **`EveryWorkspace`** runs a job's work once per workspace, inside that workspace's scope. `sum` walks every row of
+  `app_lm_workspace` (which has no policy); `sumWithWork` walks only the workspaces a job's own unprotected table names
+  as having work (the bell's `app_lm_notification`, the due scan's `app_lm_task`), so an idle tenant costs nothing. A
+  workspace that throws is logged and the walk carries on.
+- **`ThreadContextPropagation`** (`core/concurrent`) carries the submitter's MDC and workspace into `@Async` tasks
+  (`ThreadContextTaskDecorator`) and hand-built pools, composing `MdcPropagation` with `TenantContext.propagating`. This covers the assistant's tool threads, Find executives, People Search filing and the
   AI enrich worker. The two virtual-thread pools that do not propagate (`BackgroundProposer`,
   `OutreachOpenerService.draftAll`) call only the model, never the database.
 
@@ -167,9 +169,9 @@ The column is:
 | Reply poll and inbox, `MeetingBackfill`, `RecallCalendars` | scope per mailbox row |
 | Public booking page (`DirectBookingPage`) | scope from the mailbox the slug names |
 | Notetaker workers (`MeetingNotesWorker`, `InterviewCoachWorker`) | scope from the recording row |
-| `TaskDueScanner` | `EveryWorkspace.sum`, and its claim SQL adds `workspace_id = ?` |
-| `NotificationEmails` (delayed emails and digest) | `EveryWorkspace` |
-| `PersonNotePurge`, `CompanyNotePurge` | `EveryWorkspace` |
+| `TaskDueScanner` | `EveryWorkspace.sumWithWork` over the workspaces with a task in the window, and its claim SQL adds `workspace_id = ?` |
+| `NotificationEmails` (delayed emails and digest) | `EveryWorkspace.sumWithWork` over the workspaces with an email due |
+| `PersonNotePurge`, `CompanyNotePurge` | `EveryWorkspace.sum` (their tables are protected, so nothing unscoped can say which workspaces have work; hourly) |
 | MCP tools (`McpToolCalls`) | run in the caller's workspace |
 
 **Two fail-open traps are fixed.** With no workspace set, `NOT IN (archived ids)` and
@@ -178,7 +180,8 @@ fallen due, and mentions of deleted notes would have been emailed. Both now run 
 
 ### 2.6 The guard rails
 
-- **`RowLevelSecurityPosture`**: an `ApplicationRunner` at `HIGHEST_PRECEDENCE`. It fails the boot if:
+- **`RowLevelSecurityPosture`**: a `SmartInitializingSingleton`, so it runs after Flyway and before the web server and
+  the scheduler start. It fails the boot if:
   - the runtime role is a superuser or holds `BYPASSRLS`;
   - any of the 11 tables is not both enabled and forced;
   - `app.rls_maintenance` is on for a pooled connection.
@@ -189,7 +192,9 @@ fallen due, and mentions of deleted notes would have been emailed. Both now run 
 - **Flyway's maintenance flag.** `application.yml` gives Flyway its own `user`/`password`, so Flyway builds its own
   DataSource rather than borrowing from the pool, and `init-sqls: SET app.rls_maintenance = 'on'`. `deploy.yml` and
   `ops/gcp/deploy.sh` add `"-initSql=SET app.rls_maintenance = 'on'"` to the Flyway container. Today and in future,
-  migrations' backfills therefore still reach every workspace, while the flag never reaches the app's pool.
+  migrations' backfills therefore still reach every workspace, while the flag never reaches the app's pool — and
+  `TenantAwareDataSource` clears it on every checkout anyway, in the same statement that sets the workspace, so a flag
+  set on a borrowed connection dies with its borrower. That statement is one extra round trip per checkout.
 
 ### 2.7 Test, dev and e2e infrastructure
 
@@ -220,7 +225,8 @@ New tests:
 ## 3. What RLS does *not* stop yet (until #256)
 
 - `lm_app` still **owns** the tables. It could `ALTER TABLE … DISABLE ROW LEVEL SECURITY`.
-- Any session can call `set_config('app.workspace_id', …)` or `set_config('app.rls_maintenance', 'on', …)`.
+- Any session can call `set_config('app.workspace_id', …)` or `set_config('app.rls_maintenance', 'on', …)`. On the
+  app's pool both are overwritten at the next checkout, so neither outlives the borrower that set it.
 
 So this is a backstop against **application bugs** (a forgotten filter), **not against SQL injection**. #256 moves
 ownership to `lm_migrate`, drops the maintenance arm, and makes the posture check also assert that the runtime role owns
@@ -626,7 +632,7 @@ back.
 | Migration | `db/migration/V184__row_level_security_core.sql` |
 | Tenant core | `core/tenant/`: `TenantAwareDataSource`, `TenantDataSourceConfig`, `TenantContext`, `TenantPrincipal`, `WorkspaceScope`, `EveryWorkspace`, `RowLevelSecurityPosture` |
 | Config | `core/config/RowLevelSecuritySettings`, `LightMoveProperties`, `application.yml` (Flyway user and `init-sqls`, `lightmove.row-level-security`) |
-| Principals and propagation | `AuthPrincipal`, `ApiKeyPrincipal`, `McpCaller`, `McpToolCalls`, `MdcPropagation` |
+| Principals and propagation | `AuthPrincipal`, `ApiKeyPrincipal`, `McpCaller`, `McpToolCalls`, `ThreadContextPropagation` |
 | Paths with no principal | `OutreachSendService`, `OutreachMessageSendService`, `OutreachInboxService`, `MeetingBackfill`, `RecallCalendars`, `DirectBookingPage`, `MeetingNotesWorker`, `InterviewCoachWorker`, `TaskDueScanner`, `NotificationEmails`, `PersonNotePurge`, `CompanyNotePurge` |
 | Ops | `.github/workflows/deploy.yml`, `ops/gcp/deploy.sh` (Flyway `-initSql`), `ops/dev/db.sh` |
 | e2e | `e2e/stack/up.sh`, `e2e/api/lib.sh`, `e2e/spa/{companies,import-export,position,reports,strategy}.mjs`, `e2e/README.md` |
@@ -658,7 +664,7 @@ migrations as **V172** (resolvers) and **V173** (policies). It must take #1132's
 | # | Issue |
 |---|---|
 | R1 | `WITH CHECK (workspace_id IS NULL OR …)` lets any workspace write shared library templates and pending OAuth grants. Split it into a shared read and an own-workspace write. |
-| R2 | **`EveryWorkspace` has no per-workspace failure isolation.** One workspace that throws aborts the walk for every later workspace, on every tick. **This class ships in #1132**, where only the task scan, notification emails and note purges use it. Fixing it in #1132 is cheap and protects those jobs too. |
+| R2 | ~~`EveryWorkspace` has no per-workspace failure isolation.~~ Fixed in #1132: a workspace that throws is logged and the walk carries on. |
 | R3 | The `harden.sql` step 2c comment says the boot refuses until it has run. The code only warns. |
 | R4 | The verification checklist is unfinished: e2e; real Recall, Nylas and Stripe payloads; the extension; query plans; the production pre-flight. |
 
@@ -677,7 +683,7 @@ then V173) must be **released separately**, and `harden.sql` must be re-run as `
 - [ ] `cd e2e && PROFILE=e2e ./run-all.sh` is green.
 - [ ] Query plans before and after for the Candidates list and the Companies grid (§6.6).
 - [ ] Decide on risk 1: a quiet-window release (A) or a split release (C).
-- [ ] Optional but cheap: per-workspace failure isolation in `EveryWorkspace` (R2), since it ships here.
+- [x] Per-workspace failure isolation in `EveryWorkspace` (R2).
 - [ ] Optional: `SET lock_timeout` in Flyway's `-initSql` (risk 3).
 - [ ] Update `ops/eval/export-golden.sh` to read past RLS (risk 7).
 - [ ] Production pre-flight queries 1–4 (§5.1).
