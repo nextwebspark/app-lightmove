@@ -3,6 +3,7 @@ package app.lightmove.api.positiontemplate.service;
 import app.lightmove.api.common.constant.CompetencyPanel;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.validation.CurrencyCodeValidator;
 import app.lightmove.api.positiontemplate.model.PositionTemplate;
 import app.lightmove.api.positiontemplate.model.PositionTemplateBenefit;
 import app.lightmove.api.positiontemplate.model.PositionTemplateBody;
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Component;
 class PositionTemplateValidator {
 
     private static final Pattern CURRENCY = Pattern.compile("[A-Z]{3}");
+    private static final CurrencyCodeValidator ISO_CURRENCY = new CurrencyCodeValidator();
     /** Wide enough for a fixed amount — the same ceiling the brief's own write accepts. */
     private static final BigDecimal MAX_BONUS = new BigDecimal("999999999999.99");
     private static final int MAX_COMPETENCIES_PER_PANEL = 10;
@@ -85,13 +87,25 @@ class PositionTemplateValidator {
         if (body.noticeValue() != null && (body.noticeValue() < 0 || body.noticeValue() > 999)) {
             problems.put("body.noticeValue", "Notice is a number from 0 to 999");
         }
-        if (!CURRENCY.matcher(body.currency()).matches()) {
-            problems.put("body.currency", "Use a three-letter currency code");
+        // The brief's own rules, not looser ones: a template the brief's write refuses is stored, applied, and
+        // then wedges every later save of that step ("XYZ", or a bonus of 150% of base).
+        if (!CURRENCY.matcher(body.currency()).matches() || !ISO_CURRENCY.isValid(body.currency(), null)) {
+            problems.put("body.currency", "Choose a currency from the list");
         }
         BigDecimal bonus = body.bonusValue();
         if (bonus != null && (bonus.signum() < 0 || bonus.compareTo(MAX_BONUS) > 0
                 || bonus.stripTrailingZeros().scale() > 2)) {
             problems.put("body.bonusValue", "A bonus is a non-negative figure of at most two decimal places");
+        } else if (body.bonusBasis() != null && !body.bonusBasis().admits(bonus)) {
+            problems.put("body.bonusValue", body.bonusBasis().ceilingMessage());
+        }
+        long distinctPriorities = body.strategicPriorities().stream()
+                .filter(name -> name != null)
+                .map(name -> name.trim().toLowerCase(Locale.ROOT))
+                .distinct()
+                .count();
+        if (distinctPriorities != body.strategicPriorities().size()) {
+            problems.putIfAbsent("body.strategicPriorities", "Two strategic priorities share a name");
         }
         tooLong(problems, "body.incentiveVesting", body.incentiveVesting(), 200,
                 "That vesting schedule is too long");
