@@ -10,6 +10,7 @@ import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -86,37 +87,39 @@ public class MeetingBackfill {
 
     /**
      * The drawer's: every direct calendar of the workspace that nothing pushes changes from and that was last read
-     * more than {@link #FRESH_FOR} ago is read again, off the request thread. A read that fails changes nothing; the
-     * next opening tries again.
+     * more than {@link #FRESH_FOR} ago is read again, off the request thread, by whichever opening claims it first. A
+     * read that fails changes nothing and gives its claim back; the next opening tries again.
      */
     @Async
     public void refreshUnpushed(UUID workspaceId) {
-        Instant now = clock.instant();
+        Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
         mailboxes.findByWorkspaceIdAndGateway(workspaceId, MailboxGatewayKind.DIRECT).stream()
                 .filter(mailbox -> mailbox.canSend() && mailbox.getRecallCalendarId() == null
                         && mailbox.getCalendarSyncedAt() != null
                         && mailbox.getCalendarSyncedAt().isBefore(now.minus(FRESH_FOR)))
                 .limit(MAX_REFRESHED_PER_OPEN)
-                .forEach(mailbox -> refresh(mailbox.getId(), mailbox.getGrantId(), now));
+                .forEach(mailbox -> refresh(mailbox.getId(), mailbox.getGrantId(), mailbox.getCalendarSyncedAt(), now));
     }
 
-    private void refresh(UUID mailboxConnectionId, String grantId, Instant now) {
+    private void refresh(UUID mailboxConnectionId, String grantId, Instant syncedBefore, Instant now) {
+        Integer claimed = transactions.execute(status ->
+                mailboxes.claimCalendarRefresh(mailboxConnectionId, now, now.minus(FRESH_FOR)));
+        if (claimed == null || claimed == 0) {
+            return;
+        }
         Instant from = now.minus(RECHECKED_PAST);
         Instant to = now.plus(REACH);
-        List<CalendarEvent> events;
         try {
-            events = gateway.calendarEvents(grantId, from, to);
+            List<CalendarEvent> events = gateway.calendarEvents(grantId, from, to);
+            transactions.executeWithoutResult(status -> mailboxes.findById(mailboxConnectionId)
+                    .filter(fresh -> grantId.equals(fresh.getGrantId()))
+                    .ifPresent(fresh -> meetings.replaceWindow(fresh, from, to, events)));
         } catch (RuntimeException failed) {
             log.info("Could not read the calendar of mailbox {} again; the next opening tries", mailboxConnectionId,
                     failed);
-            return;
+            transactions.executeWithoutResult(status ->
+                    mailboxes.releaseCalendarRefresh(mailboxConnectionId, now, syncedBefore));
         }
-        transactions.executeWithoutResult(status -> mailboxes.findById(mailboxConnectionId)
-                .filter(fresh -> grantId.equals(fresh.getGrantId()))
-                .ifPresent(fresh -> {
-                    meetings.replaceWindow(fresh, from, to, events);
-                    fresh.markCalendarSynced(now);
-                }));
     }
 
     /** In the mailbox's workspace: the people a calendar event is matched to are read there. */
