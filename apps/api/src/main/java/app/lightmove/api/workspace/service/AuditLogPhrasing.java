@@ -94,6 +94,8 @@ public class AuditLogPhrasing {
                 ? "An invitation was refused: it was sent to another address"
                 : "Joined the workspace as " + roleWord(line, line.text("role")));
         on(WorkspaceEventType.INVITATION_REVOKED, line -> "Withdrew the invitation to " + nameOr(line, "someone"));
+        on(WorkspaceEventType.INVITATION_EMAIL_FAILED,
+                line -> "The invitation email to " + nameOr(line, "someone") + " could not be sent");
         on(WorkspaceEventType.MEMBER_ROLE_CHANGED, line -> line.text("addedRole") != null
                 ? "Made " + nameOr(line, "a member") + " " + article(contactWord(line)) + " as well"
                 : "Changed " + possessive(nameOr(line, "a member")) + " roles from " + rolesWord(line, line.text("from"))

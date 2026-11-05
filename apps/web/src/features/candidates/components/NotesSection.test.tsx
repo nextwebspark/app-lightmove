@@ -441,6 +441,7 @@ describe("a log: a call, a LinkedIn message or a meeting", () => {
     renderLog({ initialKind: "call" });
     await screen.findByRole("button", { name: "Mention a teammate" });
 
+    await userEvent.click(screen.getByRole("button", { name: "When it happened: Today, 10:00" }));
     expect(screen.getByLabelText("Time it happened")).toHaveValue("10:00");
     await userEvent.type(screen.getByRole("textbox", { name: "Title (optional)" }), "First call");
     await typeInto(composer(), "Open to a move.");
@@ -462,8 +463,8 @@ describe("a log: a call, a LinkedIn message or a meeting", () => {
     renderLog({ initialKind: "meeting", pastMeetings: [coffee], presetMeetingId: "mt1" });
     await screen.findByRole("button", { name: "Mention a teammate" });
 
-    expect(screen.getByRole("combobox", { name: "Which meeting" })).toHaveValue("mt1");
-    expect(screen.queryByLabelText("Time it happened")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Which meeting: Coffee at DIFC" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^When it happened/ })).not.toBeInTheDocument();
     await typeInto(composer(), "Wants a listed group.");
     await userEvent.click(screen.getByRole("button", { name: "Save note" }));
 
@@ -487,13 +488,16 @@ describe("a log: a call, a LinkedIn message or a meeting", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save note" }));
     await waitFor(() => expect(personCrmApi.writePersonNote).toHaveBeenCalled());
 
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "Which meeting" })).toHaveValue("mt1"));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Which meeting: Coffee at DIFC" })).toBeInTheDocument(),
+    );
   });
 
   it("says a time later today has not happened yet, and does not save it", async () => {
     renderLog({ initialKind: "call" });
     await screen.findByRole("button", { name: "Mention a teammate" });
 
+    await userEvent.click(screen.getByRole("button", { name: /^When it happened/ }));
     const time = screen.getByLabelText("Time it happened");
     await userEvent.clear(time);
     await userEvent.type(time, "18:00");
@@ -507,7 +511,33 @@ describe("a log: a call, a LinkedIn message or a meeting", () => {
     renderLog({ initialKind: "meeting", pastMeetings: [coffee] });
     await screen.findByRole("button", { name: "Mention a teammate" });
 
-    expect(screen.getByRole("combobox", { name: "Which meeting" })).toHaveValue("");
-    expect(screen.getByLabelText("Time it happened")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Which meeting: Outside Uncava" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "When it happened: Today, 10:00" })).toBeInTheDocument();
+  });
+
+  it("picks a meeting from the calendar list, which then brings its own time", async () => {
+    renderLog({ initialKind: "meeting", pastMeetings: [coffee] });
+    await screen.findByRole("button", { name: "Mention a teammate" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Which meeting: Outside Uncava" }));
+    const list = screen.getByRole("listbox", { name: "Which meeting" });
+    expect(within(list).getByRole("option", { name: /Outside Uncava/ })).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(within(list).getByRole("option", { name: /Coffee at DIFC/ }));
+
+    expect(screen.getByRole("button", { name: "Which meeting: Coffee at DIFC" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^When it happened/ })).not.toBeInTheDocument();
+  });
+
+  it("stamps a quick time picked from the When chip", async () => {
+    renderLog({ initialKind: "call" });
+    await screen.findByRole("button", { name: "Mention a teammate" });
+
+    await userEvent.click(screen.getByRole("button", { name: "When it happened: Today, 10:00" }));
+    await userEvent.click(screen.getByRole("button", { name: "1 hour ago" }));
+    expect(screen.getByRole("button", { name: "When it happened: Today, 09:00" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "When it happened: Today, 09:00" }));
+    await userEvent.click(screen.getByRole("button", { name: "Yesterday, same time" }));
+    expect(screen.getByRole("button", { name: "When it happened: Yesterday, 10:00" })).toBeInTheDocument();
   });
 });

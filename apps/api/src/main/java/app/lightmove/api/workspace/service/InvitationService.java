@@ -10,6 +10,7 @@ import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.RbacService;
@@ -49,6 +50,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Invitations — the <b>only</b> way into an existing workspace; an admin naming a person is the
@@ -74,50 +76,96 @@ public class InvitationService {
     private final AuditService audit;
     private final LightMoveProperties properties;
     private final SeatAllowance seats;
+    private final RateLimitGuard rateLimit;
+    private final TransactionTemplate transactions;
     private final Clock clock;
 
-    /** Invites colleagues. Skippable — the wizard's "Skip for now" simply sends an empty list. */
-    @Transactional
-    public List<Invitation> invite(AuthPrincipal principal, List<InviteCommand> commands,
-                                   HttpServletRequest request) {
-        if (commands == null || commands.isEmpty()) {
-            return List.of();
-        }
+    /** Addresses one request may name: a firm's whole team pasted at once, never a mailing list. */
+    static final int MAX_INVITEES_PER_REQUEST = 50;
 
+    /**
+     * Invites colleagues. Skippable — the wizard's "Skip for now" simply sends an empty list. The invitations are
+     * written in one transaction and mailed once it has committed, so an outcome can say which emails did not go.
+     */
+    public InviteOutcome invite(AuthPrincipal principal, List<InviteCommand> commands, HttpServletRequest request) {
+        if (commands == null || commands.isEmpty()) {
+            return new InviteOutcome(0, List.of());
+        }
+        if (commands.size() > MAX_INVITEES_PER_REQUEST) {
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "Invite at most 50 people at once");
+        }
+        List<OutgoingInvitation> outgoing = transactions.execute(status -> issueAll(principal, commands, request));
+        List<String> notDelivered = deliver(outgoing, principal.userId(), request);
+        return new InviteOutcome(outgoing.size(), notDelivered);
+    }
+
+    /** {@code notDelivered}: the addresses whose invitation is saved but whose email the mail provider refused. */
+    public record InviteOutcome(int sent, List<String> notDelivered) {}
+
+    private List<OutgoingInvitation> issueAll(AuthPrincipal principal, List<InviteCommand> commands,
+                                              HttpServletRequest request) {
         UUID workspaceId = principal.requireWorkspaceId();
         access.requireAdmin(principal.userId(), workspaceId);
 
-        Collection<InviteCommand> invitees = checkedInvitees(commands);
+        // Already staff: skipped rather than failing the other nine invitations in the batch. A pure client
+        // is invited, and accepting adds the staff role to the membership they hold.
+        List<InviteCommand> invitees = checkedInvitees(commands).stream()
+                .filter(invitee -> activeMember(workspaceId, invitee.email())
+                        .filter(WorkspaceMember::holdsStaffRole).isEmpty())
+                .toList();
+        rateLimit.checkInvitations(workspaceId, invitees.stream().map(InviteCommand::email).toList(), request);
 
         Workspace workspace = requireWorkspace(workspaceId);
         User inviter = requireUser(principal.userId());
 
         Instant now = clock.instant();
         Instant expiry = now.plus(properties.auth().invitationTtl());
-        List<Invitation> issued = new ArrayList<>(invitees.size());
+        List<OutgoingInvitation> issued = new ArrayList<>(invitees.size());
         Set<String> pendingStaff = pendingStaffInvitees(workspaceId, now);
 
         for (InviteCommand invitee : invitees) {
             String email = invitee.email();
-
-            // Already staff: skipped rather than failing the other nine invitations in the batch. A pure client
-            // is invited, and accepting adds the staff role to the membership they hold.
-            if (activeMember(workspaceId, email).filter(WorkspaceMember::holdsStaffRole).isPresent()) {
-                log.debug("Skipping invite for {} — already a member", email);
-                continue;
-            }
-
             seats.requireRoomFor(workspaceId, 1 + pendingStaff.size() - (pendingStaff.contains(email) ? 1 : 0));
             Role granted = rbac.role(invitee.role());
             IssuedInvitation invitation = issue(workspace.getId(), null, email, granted, inviter.getId(), expiry);
-            mailOnceCommitted(templates.buildInvitationEmail(
-                    email, inviter.getFullName(), workspace.getName(), granted.getName(), invitation.acceptLink()));
             recordInvited(invitation.invitation(), inviter.getId(), request).detail("role", granted.getName()).record();
-            issued.add(invitation.invitation());
+            issued.add(new OutgoingInvitation(invitation.invitation().getId(), workspaceId, email,
+                    templates.buildInvitationEmail(email, inviter.getFullName(), workspace.getName(),
+                            granted.getName(), invitation.acceptLink())));
             pendingStaff.add(email);
         }
-
         return issued;
+    }
+
+    /** An invitation written and committed, with the email that carries its link. */
+    private record OutgoingInvitation(UUID invitationId, UUID workspaceId, String email, EmailMessage message) {
+
+        @Override
+        public String toString() {
+            return "OutgoingInvitation[invitation=" + invitationId + ", message=<redacted>]";
+        }
+    }
+
+    /**
+     * Sends each committed invitation's email, outside any transaction. A refused send stays a saved invitation the
+     * Team page marks, so an admin can resend it, rather than a silent "sent".
+     */
+    private List<String> deliver(List<OutgoingInvitation> outgoing, UUID actorId, HttpServletRequest request) {
+        List<OutgoingInvitation> refused = outgoing.stream()
+                .filter(invitation -> !emailSender.trySend(invitation.message()))
+                .toList();
+        if (refused.isEmpty()) {
+            return List.of();
+        }
+        Instant now = clock.instant();
+        transactions.executeWithoutResult(status -> refused.forEach(invitation -> {
+            invitations.findById(invitation.invitationId()).ifPresent(found -> found.markEmailFailed(now));
+            audit.event(WorkspaceEventType.INVITATION_EMAIL_FAILED)
+                    .failed().actor(actorId).workspace(invitation.workspaceId())
+                    .target("invitation", invitation.invitationId()).from(request)
+                    .record();
+        }));
+        return refused.stream().map(OutgoingInvitation::email).toList();
     }
 
     /**
@@ -288,11 +336,18 @@ public class InvitationService {
                 .record();
     }
 
-    /** Resend rotates the token, so the earlier emailed link dies with it. */
-    @Transactional
+    /** Resend rotates the token, so the earlier emailed link dies with it. A refused send is said, never swallowed. */
     public void resend(UUID userId, UUID workspaceId, UUID invitationId, HttpServletRequest request) {
+        OutgoingInvitation outgoing = transactions.execute(status -> reissue(userId, workspaceId, invitationId, request));
+        if (!deliver(List.of(outgoing), userId, request).isEmpty()) {
+            throw ApiException.of(ErrorCode.INVITATION_EMAIL_NOT_SENT);
+        }
+    }
+
+    private OutgoingInvitation reissue(UUID userId, UUID workspaceId, UUID invitationId, HttpServletRequest request) {
         access.requireAdmin(userId, workspaceId);
         Invitation invitation = requirePendingInvitation(workspaceId, invitationId);
+        rateLimit.checkInvitations(workspaceId, List.of(invitation.getEmail()), request);
 
         Workspace workspace = requireWorkspace(workspaceId);
         User inviter = requireUser(userId);
@@ -300,10 +355,10 @@ public class InvitationService {
 
         IssuedInvitation issued = issue(workspaceId, null, invitation.getEmail(), role, inviter.getId(),
                 clock.instant().plus(properties.auth().invitationTtl()));
-        mailOnceCommitted(templates.buildInvitationEmail(
-                invitation.getEmail(), inviter.getFullName(), workspace.getName(), role.getName(),
-                issued.acceptLink()));
         recordInvited(issued.invitation(), inviter.getId(), request).detail("role", role.getName()).record();
+        return new OutgoingInvitation(issued.invitation().getId(), workspaceId, invitation.getEmail(),
+                templates.buildInvitationEmail(invitation.getEmail(), inviter.getFullName(), workspace.getName(),
+                        role.getName(), issued.acceptLink()));
     }
 
     private Invitation requirePendingInvitation(UUID workspaceId, UUID invitationId) {

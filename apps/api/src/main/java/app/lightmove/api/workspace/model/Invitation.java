@@ -63,6 +63,10 @@ public class Invitation extends BaseEntity {
     @Column(name = "accepted_by_user_id")
     private UUID acceptedByUserId;
 
+    /** The last send the mail provider refused; null once one went through. */
+    @Column(name = "email_failed_at")
+    private Instant emailFailedAt;
+
     public static Invitation create(UUID workspaceId, String email, Role role,
                                     String tokenHash, UUID invitedBy, Instant expiresAt) {
         return build(workspaceId, null, email, role, tokenHash, invitedBy, expiresAt);
@@ -116,5 +120,10 @@ public class Invitation extends BaseEntity {
         this.role = newRole;
         this.tokenHash = newTokenHash;
         this.expiresAt = newExpiry;
+        this.emailFailedAt = null;
+    }
+
+    public void markEmailFailed(Instant now) {
+        this.emailFailedAt = now;
     }
 }
