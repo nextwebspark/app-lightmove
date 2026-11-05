@@ -10,7 +10,7 @@ Reply with one JSON document and nothing else. It must validate against the atta
 Rules:
 - One template per role I describe. Leave "code" out unless I ask you to change an existing template.
 - Never state a salary band, a location, a target date or a company name — those belong to each search.
-- "keywords" are short lower-case fragments of the role titles this template should match, e.g. "cfo", "finance director". Keep them specific enough not to catch other roles.
+- "keywords" are short lower-case phrases of whole words from the role titles this template should match, e.g. "cfo", "finance director". A keyword matches only as whole words, in order — "group cfo" matches "Group CFO – Energy", never "Group CFOs" — so never write a word cut short ("financ"). Keep them specific enough not to catch other roles.
 - "competencies": a TECHNICAL panel and a BEHAVIOURAL panel of three to six competencies each, with a one-line description. The weights in each panel must total exactly 100.
 - "criteria": three to six screening criteria. REQUIRED for must-haves, PREFERRED for tie-breakers.
 - "benefits": allowance names only (e.g. "Housing allowance"), each MONTHLY or YEARLY. No amounts.
