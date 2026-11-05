@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Select, useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
-import { messageFor } from "../../../lib/errorCodes";
+import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { titleCase } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
 import type { WorkspaceRole } from "../../auth/api/types";
@@ -27,7 +27,7 @@ function useRosterRefresh(member: Member) {
 
 /**
  * An admin's role picker on one roster row. The workspace tier has two staff roles, so it stays a single select;
- * the API takes the full set, and picking one writes exactly that set.
+ * the API takes the staff roles, and keeps a client-contact role the member also holds.
  */
 export function MemberRoleSelect({ member }: { member: Member }) {
   const toast = useToast();
@@ -221,7 +221,10 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
       settle();
       toast.success(`Invitation re-sent to ${invitation.email}`);
     },
-    onError: (error) => toast.error(messageFor(error)),
+    onError: (error) => {
+      toast.error(messageFor(error));
+      settleIfGone(error);
+    },
   });
   const revoke = useMutation({
     mutationFn: () => workspaceApi.revokeInvitation(invitation.id),
@@ -230,8 +233,19 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
       settle();
       toast.success("Invitation revoked");
     },
-    onError: (error) => toast.error(messageFor(error)),
+    onError: (error) => {
+      toast.error(messageFor(error));
+      settleIfGone(error);
+    },
   });
+  // Accepted, revoked or resent by another admin meanwhile: the row is stale, so re-read rather than leave a
+  // button that fails the same way every time.
+  function settleIfGone(error: unknown) {
+    if (codeOf(error) === "NOT_FOUND") {
+      setIsConfirmingRevoke(false);
+      settle();
+    }
+  }
   const busy = resend.isPending || revoke.isPending;
 
   return (
@@ -240,7 +254,7 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
         <div className="break-all font-mono text-body sm:truncate">{invitation.email}</div>
         <div className="mt-0.5 font-mono text-meta text-u-text3">
           {titleCase(invitation.role)} · first sent {sentAgo(invitation.createdAt)}
-          {invitation.invitedByName && ` by ${invitation.invitedByName}`}
+          {invitation.invitedByName && ` · sent by ${invitation.invitedByName}`}
           {invitation.emailFailed ? (
             <span className="text-u-offlimits"> · email didn't send, resend it</span>
           ) : (

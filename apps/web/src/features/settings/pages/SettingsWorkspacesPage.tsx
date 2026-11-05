@@ -1,8 +1,10 @@
 import { useMutation } from "@tanstack/react-query";
+import { useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Button, useToast } from "../../../components/ui";
+import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
 import { titleCase } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
@@ -11,6 +13,7 @@ import type { PendingInvitation, WorkspaceSummary } from "../../auth/api/types";
 import { isPureClient } from "../../auth/roles";
 import { NewWorkspaceModal } from "../../workspace/components/NewWorkspaceModal";
 import { WorkspaceMark } from "../../workspace/components/WorkspaceMark";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 
 /**
  * Settings → Workspaces: every workspace the caller is in, the invitations waiting for them, and the
@@ -104,26 +107,50 @@ function WorkspaceRow({ workspace, current }: { workspace: WorkspaceSummary; cur
 }
 
 function InvitationRow({ invitation }: { invitation: PendingInvitation }) {
-  const { acceptAndSwitch } = useAuth();
+  const { user, acceptAndSwitch, reload } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const vocabulary = useWorkspaceVocabulary();
+  // isPending reaches the button a render late; a double click must not send the accept twice.
+  const inFlight = useRef(false);
 
   const accept = useMutation({
     mutationFn: () => acceptAndSwitch(() => authApi.acceptInvitationById(invitation.id)),
     onSuccess: () => navigate("/"),
-    onError: (error) => toast.error(messageFor(error)),
+    onError: (error) => {
+      toast.error(messageFor(error));
+      // Revoked or lapsed since /me was read: refresh so the row goes rather than failing every click.
+      if (error instanceof ApiRequestError
+        && (error.code === "INVITATION_INVALID" || error.code === "INVITATION_EXPIRED")) {
+        void reload();
+      }
+    },
+    onSettled: () => {
+      inFlight.current = false;
+    },
   });
+
+  const handleAccept = () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    accept.mutate();
+  };
+
+  const here = invitation.workspaceId === user?.workspace?.id;
+  const role = here && invitation.role === "CLIENT" ? vocabulary.contactLower : titleCase(invitation.role);
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-u-border py-3 first:border-t-0">
       <div className="min-w-0 flex-1">
-        <div className="truncate text-body font-medium">{invitation.workspaceName}</div>
+        <div className="truncate text-body font-medium">
+          {invitation.workspaceName}
+          {here && <span className="ms-2 text-meta font-normal text-u-text3">this workspace</span>}
+        </div>
         <div className="mt-0.5 truncate font-mono text-meta text-u-text3">
-          {invitation.inviterName ? `${invitation.inviterName} invited you` : "You were invited"} as{" "}
-          {titleCase(invitation.role)}
+          {invitation.inviterName ? `${invitation.inviterName} invited you` : "You were invited"} as {role}
         </div>
       </div>
-      <Button size="xs" loading={accept.isPending} onClick={() => accept.mutate()}>
+      <Button size="xs" loading={accept.isPending} onClick={handleAccept}>
         Accept
       </Button>
     </div>

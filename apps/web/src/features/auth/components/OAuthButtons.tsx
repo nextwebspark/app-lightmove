@@ -34,10 +34,17 @@ export interface OAuthButtonsProps {
    * Shown where the host screen shows its own failures. Null clears it — a cancelled sign-in reports
    * null, which is how "say nothing" reaches the screen.
    */
-  onError: (message: string | null) => void;
+  onError: (message: string | null, code?: string) => void;
+  /**
+   * Replaces the usual landing: the host page stays where it is with the new session. The accept page uses it,
+   * since its own signed-in states (accept, or "this invitation is for another address") are what comes next.
+   */
+  onSignedIn?: () => void;
+  /** Where a sign-in stopped for a second factor resumes, in place of the remembered destination. */
+  returnTo?: string;
 }
 
-export function OAuthButtons({ onError }: OAuthButtonsProps) {
+export function OAuthButtons({ onError, onSignedIn, returnTo: hostReturnTo }: OAuthButtonsProps) {
   // Server state stays in the query cache rather than useState, so Login and Signup share one fetch.
   // What this deployment has configured cannot change while the page is open — hence no refetching.
   const { data } = useQuery({
@@ -77,6 +84,12 @@ export function OAuthButtons({ onError }: OAuthButtonsProps) {
               return;
             }
 
+            if (onSignedIn) {
+              setPendingProviderId(null);
+              onSignedIn();
+              return;
+            }
+
             // Same ordering the redirect callback uses: a provider sign-in may still land on an
             // invitee or an unfinished wizard, and homeFor is the one place that knows.
             const returnTo = takeReturnTo();
@@ -85,12 +98,12 @@ export function OAuthButtons({ onError }: OAuthButtonsProps) {
         },
         onSecondFactor: () => {
           // No session yet: the challenge cookie waits for the code, as after a password.
-          const returnTo = takeReturnTo();
+          const returnTo = hostReturnTo ?? takeReturnTo();
           navigate(TWO_FACTOR_SIGN_IN_PATH, { state: returnTo ? { from: returnTo } : undefined });
         },
         onError: (code) => {
           setPendingProviderId(null);
-          onError(messageForOAuthError(code));
+          onError(messageForOAuthError(code), code);
         },
         onCancel: () => {
           // Nothing to say. They closed the window, or backed out at the provider.
@@ -98,7 +111,7 @@ export function OAuthButtons({ onError }: OAuthButtonsProps) {
         },
       });
     },
-    [adoptRestoredSession, navigate, onError],
+    [adoptRestoredSession, hostReturnTo, navigate, onError, onSignedIn],
   );
 
   if (providers.length === 0) {

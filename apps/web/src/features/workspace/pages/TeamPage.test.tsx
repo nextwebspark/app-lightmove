@@ -156,7 +156,7 @@ describe("TeamPage — the one roster", () => {
     ).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Remove Rania Haddad" }).length).toBeGreaterThan(0);
     expect(await screen.findByText("Outstanding invitations · 2")).toBeInTheDocument();
-    expect(screen.getByText(/sent 3 days ago by A Lead/)).toBeInTheDocument();
+    expect(screen.getByText(/sent 3 days ago · sent by A Lead/)).toBeInTheDocument();
     // A saved invitation whose email the provider refused says so, rather than reading as sent.
     expect(screen.getByText(/email didn't send, resend it/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Resend" })).toHaveLength(2);

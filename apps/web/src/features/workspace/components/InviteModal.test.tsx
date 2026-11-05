@@ -154,9 +154,27 @@ describe("InviteModal — what a staff seat costs", () => {
     expect(dialog).toHaveTextContent("This seat takes your bill to 6 seats · AED 2,994 a month");
     expect(workspaceApi.invite).not.toHaveBeenCalled();
 
+    // A deliberate click, after the question has been on screen a moment.
+    const shownAt = Date.now();
+    const now = vi.spyOn(Date, "now").mockReturnValue(shownAt + 1000);
     await user.click(screen.getByRole("button", { name: "Send and add seat" }));
+    now.mockRestore();
 
     expect(workspaceApi.invite).toHaveBeenCalledWith([{ email: "sara@firm.com", role: "MEMBER" }]);
+  });
+
+  it("does not agree to a paid seat on the second click of a double click", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aCardBilling());
+    vi.mocked(workspaceApi.invite).mockResolvedValue({ sent: 1, notDelivered: [] });
+    const user = userEvent.setup();
+    open();
+    await screen.findByText(/Adds AED 499 a month/);
+
+    await user.type(screen.getByPlaceholderText("colleague@firm.com"), "sara@firm.com");
+    await user.dblClick(screen.getByRole("button", { name: "Send invite" }));
+
+    expect(screen.getByRole("dialog", { name: "Add a paid seat?" })).toBeInTheDocument();
+    expect(workspaceApi.invite).not.toHaveBeenCalled();
   });
 
   it("goes back to the form from the confirm step without sending", async () => {

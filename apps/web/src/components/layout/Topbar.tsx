@@ -1,16 +1,19 @@
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import type { PendingInvitation, WorkspaceSummary } from "../../features/auth/api/types";
 import * as authApi from "../../features/auth/api/authApi";
+import { invitationLabel } from "../../features/auth/invitationLabel";
 import { isPureClient } from "../../features/auth/roles";
 import { takeWorkspaceMove } from "../../features/auth/workspaceMoveNotice";
 import { CreditChip } from "../../features/billing/components/CreditChip";
 import { useHelp } from "../../features/help/HelpProvider";
 import { NotificationBell } from "../../features/notifications/components/NotificationBell";
 import { WorkspaceMark } from "../../features/workspace/components/WorkspaceMark";
+import { useWorkspaceVocabulary } from "../../features/workspace/lib/vocabulary";
 import { AppIcon, Avatar, useToast } from "../ui";
 import { cn } from "../../lib/cn";
+import { ApiRequestError } from "../../lib/apiClient";
 import { messageFor } from "../../lib/errorCodes";
 import { Icon, ICONS } from "./Icon";
 import { useAccountActions, type AccountAction } from "./useAccountActions";
@@ -108,11 +111,14 @@ export function SettingsBreadcrumb({ section }: { section: string }) {
 }
 
 function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
-  const { user, switchWorkspace, acceptAndSwitch } = useAuth();
+  const { user, switchWorkspace, acceptAndSwitch, reload } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const menu = useDropdownMenu();
+  const vocabulary = useWorkspaceVocabulary();
   const [busy, setBusy] = useState(false);
+  // `busy` disables the items only once it re-renders; a double click must not send a second accept first.
+  const inFlight = useRef(false);
 
   const workspace = user?.workspace;
   if (!workspace) return null;
@@ -127,6 +133,8 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
   };
 
   const moveTo = async (work: () => Promise<unknown>) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     try {
       await work();
@@ -134,7 +142,13 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
       navigate("/");
     } catch (error) {
       toast.error(messageFor(error));
+      // Revoked or lapsed since /me was read: refresh it so the dead entry goes rather than failing every click.
+      if (error instanceof ApiRequestError
+        && (error.code === "INVITATION_INVALID" || error.code === "INVITATION_EXPIRED")) {
+        void reload();
+      }
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
@@ -144,8 +158,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
   const handleAccept = (invitation: PendingInvitation) =>
     moveTo(() => acceptAndSwitch(() => authApi.acceptInvitationById(invitation.id)));
 
-  const invitationCount =
-    invitations.length === 1 ? "1 invitation to another workspace" : `${invitations.length} invitations to other workspaces`;
+  const invitationCount = invitations.length === 1 ? "1 invitation" : `${invitations.length} invitations`;
 
   return (
     <div className={cn("relative", compact ? "flex-none" : "min-w-0")} ref={menu.rootRef}>
@@ -208,7 +221,9 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
               {invitations.map((invitation) => (
                 <MenuItem key={invitation.id} disabled={busy} onClick={() => void handleAccept(invitation)}>
                   <Icon d={ICONS.userPlus} size={15} className="flex-none" />
-                  <span className="min-w-0 flex-1 truncate">Invited to {invitation.workspaceName}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {invitationLabel(invitation, workspace.id, vocabulary)}
+                  </span>
                   <span className="flex-none text-meta font-medium text-u-accent">Accept</span>
                 </MenuItem>
               ))}

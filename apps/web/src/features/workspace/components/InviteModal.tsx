@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button, Field, FormError, Input, Modal, Select, useToast } from "../../../components/ui";
 import { EMAIL_FIELD_ERROR_CODES, codeOf, messageFor } from "../../../lib/errorCodes";
 import { fieldErrorsFrom } from "../../../lib/formErrors";
@@ -13,6 +13,9 @@ import { useBillingRead } from "../../billing/lib/useBilling";
 import * as workspaceApi from "../api/workspaceApi";
 import { undeliveredInvitationsMessage } from "../lib/invitationDelivery";
 
+/** How long the paid-seat question is shown before its confirm counts as a deliberate click. */
+const CONFIRM_SETTLE_MS = 500;
+
 /** Invite one colleague from the Team screen. Batch rows live in signup step 3. */
 export function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -25,9 +28,17 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
   const billing = useBillingRead(role !== "CLIENT");
   const charge = role !== "CLIENT" && billing.data ? seatChargeOf(billing.data) : null;
   const pricing = role !== "CLIENT" && billing.isPending;
+  // isPending disables the button a render late, so a double click could post the invitation twice.
+  const sending = useRef(false);
+  // "Send and add seat" appears where "Send invite" was: the second click of a double click on that spot must not
+  // agree to a charge nobody read.
+  const confirmShownAt = useRef(0);
 
   const send = useMutation({
     mutationFn: () => workspaceApi.invite([{ email: email.trim(), role }]),
+    onSettled: () => {
+      sending.current = false;
+    },
     onSuccess: ({ sent, notDelivered }) => {
       void queryClient.invalidateQueries({ queryKey: workspaceApi.INVITATIONS_KEY });
       void queryClient.invalidateQueries({ queryKey: workspaceApi.PENDING_INVITATIONS_COUNT_KEY });
@@ -69,9 +80,17 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
       return;
     }
     if (charge && !confirming) {
+      confirmShownAt.current = Date.now();
       setConfirming(true);
       return;
     }
+    if (confirming && Date.now() - confirmShownAt.current < CONFIRM_SETTLE_MS) {
+      return;
+    }
+    if (sending.current) {
+      return;
+    }
+    sending.current = true;
     send.mutate();
   };
 
