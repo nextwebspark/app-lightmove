@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubChatModel;
@@ -45,7 +46,7 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
              "evidence_against":[],"rule_applied":"none",
              "gender":"female","yearsExperience":14,"seniority":"N-1"}""";
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
     @Autowired StubChatModel model;
     @Autowired PersonNotePurge purge;
 

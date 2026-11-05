@@ -12,11 +12,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.RecordingRecallBotApi;
 import app.lightmove.api.StubChatModel;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.candidate.model.SpokenLine;
 import app.lightmove.api.candidate.model.TranscriptOnFile;
@@ -89,7 +91,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     @Autowired private NotetakerReconcile reconcile;
     @Autowired private NotetakerService notetakers;
     @Autowired private NotetakerTranscriptPurge transcriptPurge;
-    @Autowired private JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc private JdbcTemplate jdbc;
     @Autowired private CandidateMaterialService material;
 
     private String grantId;
@@ -669,7 +671,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                 {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
         assertThat(statusOf(recordingId)).isEqualTo("DONE");
 
-        List<TranscriptOnFile> read = material.transcriptsOf(UUID.fromString(projectId), UUID.fromString(priya));
+        List<TranscriptOnFile> read = transcriptsOf(UUID.fromString(projectId), UUID.fromString(priya));
         assertThat(read).singleElement().satisfies(transcript -> {
             assertThat(transcript.title()).isEqualTo("First conversation");
             assertThat(transcript.lines()).extracting(SpokenLine::speaker, SpokenLine::team)
@@ -688,11 +690,11 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                         """.formatted(domain)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
-        assertThat(material.transcriptsOf(UUID.fromString(otherProject), UUID.fromString(onOther))).isEmpty();
+        assertThat(transcriptsOf(UUID.fromString(otherProject), UUID.fromString(onOther))).isEmpty();
 
         jdbc.update("update app_lm_person_note set deleted_at = now(), deleted_by = author_user_id where id = "
                 + "(select note_id from app_lm_meeting_recording where id = ?::uuid)", recordingId);
-        assertThat(material.transcriptsOf(UUID.fromString(projectId), UUID.fromString(priya))).isEmpty();
+        assertThat(transcriptsOf(UUID.fromString(projectId), UUID.fromString(priya))).isEmpty();
     }
 
     @Test
@@ -1079,6 +1081,12 @@ class NotetakerIntegrationTest extends FlowTestSupport {
 
     private String scheduledRecordingId() throws Exception {
         return body(schedule().andExpect(status().isCreated()).andReturn()).get("id").asText();
+    }
+
+    /** The assessment's read, straight from the service: the position's workspace is named, as no request carries it. */
+    private List<TranscriptOnFile> transcriptsOf(UUID projectId, UUID candidateId) {
+        return TestWorkspaceScopes.inProjectsWorkspace(jdbc, projectId,
+                () -> material.transcriptsOf(projectId, candidateId));
     }
 
     private String filedRecording() throws Exception {

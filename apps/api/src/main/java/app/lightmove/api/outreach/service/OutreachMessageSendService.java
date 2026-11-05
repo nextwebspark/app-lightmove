@@ -10,6 +10,7 @@ import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MessageStatus;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
@@ -86,7 +87,13 @@ public class OutreachMessageSendService {
                 }));
     }
 
+    /** In the message's own workspace's scope: the claims span every workspace, the person a send reads does not. */
     public void sendClaimed(UUID messageId, Instant now) {
+        messages.findById(messageId).ifPresent(message ->
+                WorkspaceScope.run(message.getWorkspaceId(), () -> sendClaimedInScope(messageId, now)));
+    }
+
+    private void sendClaimedInScope(UUID messageId, Instant now) {
         PreparedOwnSend checked;
         try {
             checked = transactions.execute(status -> prepare(messageId, now));

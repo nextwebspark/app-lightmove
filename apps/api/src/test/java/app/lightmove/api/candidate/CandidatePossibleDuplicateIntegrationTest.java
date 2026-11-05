@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import java.util.ArrayList;
@@ -24,7 +25,7 @@ class CandidatePossibleDuplicateIntegrationTest extends FlowTestSupport {
     private static final String LAYLA_AT_ALDAR = """
             {"fullName":"Layla Nasser","title":"Director of Leasing","employerName":"Aldar Properties"}""";
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     private String admin;
 
