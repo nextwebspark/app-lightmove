@@ -300,8 +300,8 @@ function EmptyTimeline({ firstName, filtered }: { firstName: string; filtered: b
         {filtered ? "Nothing of this kind yet" : `No contact with ${firstName} yet`}
       </p>
       <p className="max-w-[380px] text-note text-u-text3">
-        Emails you send, replies, the calls and LinkedIn messages you log, and calls with their meeting notes all land
-        here, newest first.
+        Emails you send, replies, the calls, LinkedIn messages and meetings you log, and recorded calls with their
+        notes all land here, newest first.
       </p>
     </div>
   );

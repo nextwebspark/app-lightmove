@@ -195,12 +195,15 @@ export function NoteCard({
       <div className="flex items-center gap-2">
         <Avatar id={note.authorUserId} name={authorName} src={note.authorAvatarUrl} size="sm" />
         <span className="text-[12.5px] font-semibold">{authorName}</span>
-        <span className="flex items-center gap-1 text-u-text3">
-          {showsKindMark && <NoteKindMark kind={note.kind} size={12} />}
-          <span className="rounded-[4px] bg-u-raised px-1.5 py-px font-mono text-[9.5px] font-semibold uppercase tracking-[0.06em]">
-            {noteKindLabel(note.kind)}
+        {/* A plain note is the Notes tab's only kind, so it carries no tag; a call or a LinkedIn message does. */}
+        {note.kind !== "general" && (
+          <span className="flex items-center gap-1 text-u-text3">
+            {showsKindMark && <NoteKindMark kind={note.kind} size={12} />}
+            <span className="rounded-[4px] bg-u-raised px-1.5 py-px font-mono text-[9.5px] font-semibold uppercase tracking-[0.06em]">
+              {noteKindLabel(note.kind)}
+            </span>
           </span>
-        </span>
+        )}
         {note.pinned && (
           <span className="flex items-center gap-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-u-accent">
             <Icon d={ICONS.pin} size={10} />

@@ -20,7 +20,7 @@ export function NoteComposerModal({
   projectId: string;
   candidateId: string;
   fullName: string;
-  /** Null while closed; `call` for Log call, `linkedin` for Log LinkedIn, `general` for Add note. */
+  /** Null while closed; `call`, `linkedin` or `meeting` for the Log buttons, `general` for Add note. */
   kind: PersonNoteKind | null;
   onClose: () => void;
   onSaved: () => void;
@@ -36,7 +36,9 @@ export function NoteComposerModal({
       ? `Log a call with ${fullName}`
       : current === "linkedin"
         ? `Log a LinkedIn message with ${fullName}`
-        : `Add a note on ${fullName}`;
+        : current === "meeting"
+          ? `Log a meeting with ${fullName}`
+          : `Add a note on ${fullName}`;
   const close = () => {
     dialog.reset();
     onClose();

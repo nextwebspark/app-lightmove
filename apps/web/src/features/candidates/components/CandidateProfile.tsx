@@ -52,6 +52,7 @@ import { useBackgroundSuggestion } from "../lib/useBackgroundSuggestion";
 import { useScorecardEditor, type ScorecardEditor } from "../lib/useScorecardEditor";
 import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
 import { usePersonDocuments } from "../lib/usePersonDocuments";
+import { isContactNote } from "../lib/noteKinds";
 import { useProfileSections, type ProfileSection } from "../lib/useProfileSections";
 import {
   POSITION_CLIENT_TABS,
@@ -474,7 +475,7 @@ export function CandidateProfile({
             tabs={drawerTabs}
             value={tab}
             onChange={chooseTab}
-            counts={{ notes: notes.data?.length }}
+            counts={{ notes: notes.data?.filter((note) => !isContactNote(note.kind)).length }}
           />
         ) : (
           <div className="h-3.5" />
@@ -799,6 +800,10 @@ export function CandidateProfile({
                         <Button variant="secondary" size="xs" onClick={() => setLogKind("call")}>
                           <Icon d={ICONS.phoneCall} size={13} />
                           Log call
+                        </Button>
+                        <Button variant="secondary" size="xs" onClick={() => setLogKind("meeting")}>
+                          <Icon d={ICONS.video} size={13} />
+                          Log meeting
                         </Button>
                         <Button variant="secondary" size="xs" onClick={() => setLogKind("linkedin")}>
                           <NoteKindMark kind="linkedin" size={13} />

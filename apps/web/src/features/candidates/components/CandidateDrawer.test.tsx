@@ -1345,6 +1345,7 @@ describe("CandidateDrawer", () => {
     const panel = await screen.findByRole("tabpanel", { name: "Outreach" });
     expect(within(panel).getByRole("button", { name: "Log call" })).toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: "Log LinkedIn" })).toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "Log meeting" })).toBeInTheDocument();
     expect(within(panel).getByRole("region", { name: "Timeline" })).toBeInTheDocument();
     const contact = within(panel).getByRole("region", { name: "Contact" });
     expect(within(contact).getByText("yasmin@example.com")).toBeInTheDocument();
@@ -1353,6 +1354,8 @@ describe("CandidateDrawer", () => {
     const dialog = await screen.findByRole("dialog", { name: /Log a LinkedIn message with/ });
     await userEvent.click(within(dialog).getByRole("radio", { name: "Call" }));
     expect(screen.getByRole("dialog", { name: /Log a call with/ })).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("radio", { name: "Meeting" }));
+    expect(screen.getByRole("dialog", { name: /Log a meeting with/ })).toBeInTheDocument();
 
     await userEvent.click(within(contact).getByRole("button", { name: "Edit contact details" }));
     expect(await screen.findByRole("dialog", { name: /Contact details/ })).toBeInTheDocument();

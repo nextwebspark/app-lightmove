@@ -226,7 +226,7 @@ export function PositionNoteComposer({
         onChange={setDraft}
         teammates={forEveryPosition ? null : team.teammates}
         ariaLabel="New note"
-        placeholder={notePlaceholderOf(kind)}
+        placeholder={kindChoices && kindChoices.length > 1 ? "What was said, and what happens next…" : notePlaceholderOf(kind)}
         onSubmit={save}
         submitLabel="Save note"
         canSubmit={canSave}

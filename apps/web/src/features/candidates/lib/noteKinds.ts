@@ -21,8 +21,11 @@ export const NOTE_GLYPHS: Record<Exclude<PersonNoteKind, "linkedin">, string> = 
 /** A plain note, the Notes tab's one kind: what the team should know, not something that passed with the person. */
 export const PLAIN_NOTE_KIND: PersonNoteKind = "general";
 
-/** What can be logged by hand in Outreach: a call or a LinkedIn message. An email is the mailbox's, never logged. */
-export const LOGGED_CONTACT_KINDS: readonly PersonNoteKind[] = ["call", "linkedin"];
+/**
+ * What can be logged by hand in Outreach: a call, a LinkedIn message, or a meeting written up without the Notetaker.
+ * An email is the mailbox's, never logged.
+ */
+export const LOGGED_CONTACT_KINDS: readonly PersonNoteKind[] = ["call", "linkedin", "meeting"];
 
 /** A note of something that passed with the person — the Outreach timeline's; `email` survives only on old notes. */
 export function isContactNote(kind: PersonNoteKind): boolean {
