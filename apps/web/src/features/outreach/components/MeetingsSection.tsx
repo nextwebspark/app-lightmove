@@ -386,28 +386,12 @@ export function MeetingsSection({
 
 /** A call as a calendar row: its date tile, title, when and whose calendar, then its link and ⋯. Past is quieter. */
 function MeetingRow({ meeting, tense, menu }: { meeting: Meeting; tense: "upcoming" | "past"; menu: ReactNode }) {
-  const tile = dateTileOf(meeting.startsAt);
   const when = meetingWhenOf(meeting.startsAt, meeting.endsAt);
   const isUpcoming = tense === "upcoming";
   return (
     <div className="py-2">
       <div className="flex items-start gap-3">
-        <span
-          aria-hidden="true"
-          className="w-[42px] flex-none rounded-[7px] border border-u-border py-[3px] text-center"
-        >
-          <span
-            className={cn(
-              "block font-mono text-[9.5px] font-semibold uppercase",
-              isUpcoming ? "text-u-accent" : "text-u-text3",
-            )}
-          >
-            {tile.month}
-          </span>
-          <span className={cn("block text-[16px]/[1.2] font-semibold tabular-nums", !isUpcoming && "text-u-text2")}>
-            {tile.day}
-          </span>
-        </span>
+        <MeetingDateTile startsAt={meeting.startsAt} tense={tense} />
         <span className="min-w-0 flex-1">
           <span className={cn("block text-[13px] font-medium", !isUpcoming && "text-u-text2")}>
             {meeting.title ?? "Untitled"}
@@ -438,5 +422,29 @@ function MeetingRow({ meeting, tense, menu }: { meeting: Meeting; tense: "upcomi
         </span>
       </div>
     </div>
+  );
+}
+
+/** A call's day as a small calendar leaf: the month in accent while it is to come, grey once it is over. */
+export function MeetingDateTile({ startsAt, tense }: { startsAt: string; tense: "upcoming" | "past" }) {
+  const tile = dateTileOf(startsAt);
+  const isUpcoming = tense === "upcoming";
+  return (
+    <span
+      aria-hidden="true"
+      className="w-[42px] flex-none rounded-[7px] border border-u-border py-[3px] text-center"
+    >
+      <span
+        className={cn(
+          "block font-mono text-[9.5px] font-semibold uppercase",
+          isUpcoming ? "text-u-accent" : "text-u-text3",
+        )}
+      >
+        {tile.month}
+      </span>
+      <span className={cn("block text-[16px]/[1.2] font-semibold tabular-nums", !isUpcoming && "text-u-text2")}>
+        {tile.day}
+      </span>
+    </span>
   );
 }

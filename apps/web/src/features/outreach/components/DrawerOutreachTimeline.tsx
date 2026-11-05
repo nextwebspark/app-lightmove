@@ -18,7 +18,7 @@ import type { Meeting } from "../api/meetingApi";
 import { cardTimeOf, eventFaceOf } from "../lib/conversationVocabulary";
 import { meetingWhenOf } from "../lib/meetingTimes";
 import { ConversationEventBody } from "./ConversationEventCard";
-import type { PastCalls } from "./MeetingsSection";
+import { MeetingDateTile, type PastCalls } from "./MeetingsSection";
 import { linesOf, matches, type TimelineFilter, type TimelineLine as Line } from "../lib/drawerTimeline";
 
 const FILTERS: readonly { value: TimelineFilter; label: string }[] = [
@@ -287,7 +287,8 @@ function CallCard({
       tabIndex={recordedNote ? -1 : undefined}
       className="rounded-u-chip border border-u-border px-3 py-2.5 outline-none"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-3">
+        <MeetingDateTile startsAt={meeting.startsAt} tense="past" />
         <div className="min-w-0 flex-1">
           <span className="block text-body font-semibold text-u-text">{title}</span>
           <span className="block font-mono text-meta text-u-text3">

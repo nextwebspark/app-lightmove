@@ -150,6 +150,8 @@ describe("DrawerOutreachTimeline", () => {
     expect(screen.getByText("Busy with quarter close.")).toBeInTheDocument();
     expect(screen.getByText("Connection request accepted.")).toBeInTheDocument();
     const call = screen.getByRole("article", { name: "Screening call" });
+    // A past meeting reads as one at a glance: its day as a calendar leaf, grey because it is over.
+    expect(within(call).getByText("OCT")).toHaveClass("text-u-text3");
     expect(within(call).getByText(/Meeting notes · written by the Notetaker/)).toBeInTheDocument();
     expect(within(call).getByText("Open to a move in Q2.")).toBeInTheDocument();
     expect(screen.queryByText("Keep the chair out of it.")).not.toBeInTheDocument();
