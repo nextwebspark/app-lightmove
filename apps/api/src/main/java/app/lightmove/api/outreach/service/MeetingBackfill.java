@@ -1,5 +1,6 @@
 package app.lightmove.api.outreach.service;
 
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MailboxStatus;
 import app.lightmove.api.outreach.model.CalendarEvent;
@@ -118,13 +119,15 @@ public class MeetingBackfill {
                 }));
     }
 
+    /** In the mailbox's workspace: the people a calendar event is matched to are read there. */
     void syncCalendar(UUID mailboxConnectionId) {
-        MailboxConnection mailbox = mailboxes.findById(mailboxConnectionId)
+        mailboxes.findById(mailboxConnectionId)
                 .filter(MailboxConnection::canSend)
-                .orElse(null);
-        if (mailbox == null) {
-            return;
-        }
+                .ifPresent(mailbox -> WorkspaceScope.run(mailbox.getWorkspaceId(), () -> syncCalendar(mailbox)));
+    }
+
+    private void syncCalendar(MailboxConnection mailbox) {
+        UUID mailboxConnectionId = mailbox.getId();
         String grantId = mailbox.getGrantId();
         Instant now = clock.instant();
         List<CalendarEvent> events;

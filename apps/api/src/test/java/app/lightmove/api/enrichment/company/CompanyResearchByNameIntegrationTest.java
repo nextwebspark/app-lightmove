@@ -2,6 +2,7 @@ package app.lightmove.api.enrichment.company;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingCompanyEnricher;
 import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
@@ -22,7 +23,7 @@ class CompanyResearchByNameIntegrationTest {
 
     @Autowired private CompanyResearch research;
     @Autowired private RecordingCompanyEnricher enricher;
-    @Autowired private JdbcTemplate db;
+    @Autowired @FixtureJdbc private JdbcTemplate db;
 
     @BeforeEach
     void freshCache() {

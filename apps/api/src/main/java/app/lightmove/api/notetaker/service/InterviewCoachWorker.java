@@ -8,6 +8,7 @@ import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.core.config.RecallSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.notetaker.constant.CoachState;
 import app.lightmove.api.notetaker.constant.RecordGap;
 import app.lightmove.api.notetaker.model.InterviewPlan;
@@ -127,8 +128,17 @@ public class InterviewCoachWorker {
         }
     }
 
-    /** Answers whether a run happened, whatever it found. */
+    /**
+     * Answers whether a run happened, whatever it found. In the recording's workspace: neither the live feed's
+     * webhook nor the sweep carries one, and the call's people and position are read there.
+     */
     public boolean coachIfDue(UUID recordingId, Instant now) {
+        return recordings.findById(recordingId)
+                .map(recording -> WorkspaceScope.call(recording.getWorkspaceId(), () -> coachInScope(recordingId, now)))
+                .orElse(false);
+    }
+
+    private boolean coachInScope(UUID recordingId, Instant now) {
         CoachTurn turn = transactions.execute(status -> turnOf(recordingId, now));
         if (turn == null) {
             return false;
