@@ -1,6 +1,6 @@
 import { countOf } from "../../../lib/format";
 import type { Meeting } from "../api/meetingApi";
-import type { NotetakerRecording } from "../api/notetakerApi";
+import type { NotetakerRecording, NotetakerStatus } from "../api/notetakerApi";
 
 const FAILURE_WORDS: Record<string, string> = {
   SEND_FAILED: "the Notetaker couldn't be sent to the call",
@@ -33,18 +33,26 @@ export function failureWordsOf(reason: string | null): string {
   return (reason && FAILURE_WORDS[reason]) ?? "something went wrong";
 }
 
+/** A bot on its way, in the call, or being written up. */
+const UNDER_WAY: readonly NotetakerStatus[] = ["SCHEDULED", "JOINING", "RECORDING", "PROCESSING"];
+
 /** The bot each calendar row shows, and the bots whose call is on no row any more yet still have something to give. */
 export interface CallRecordings {
   ofMeeting: Map<string, NotetakerRecording>;
   unpaired: NotetakerRecording[];
 }
 
+/** The Meetings section's calls, upcoming soonest first and past latest first, each with the bot it shows. */
+export interface CallRows {
+  upcoming: Meeting[];
+  past: Meeting[];
+  recordingOf: (meeting: Meeting) => NotetakerRecording | null;
+}
+
 /**
- * A bot belongs to the row it was sent for, or, where a calendar's re-read gave the call a new row, the row at the same
- * start with the same title; each bot to one row at most. A bot sent before its call moved is not that call's: it was
- * sent for the old time, and the server calls it back. Where several bots went to one call, the row shows the one that
- * matters most. A bot whose call left the calendar (replaced, renamed, deleted or long past) keeps a row of its own
- * while it is under way or holds what it recorded, so its transcript and changes are never out of reach.
+ * A bot belongs to the row it was sent for, or to the row at the same start with the same title once a calendar's
+ * re-read gave the call a new one, and to one row at most. A bot sent before its call moved is not that call's: the
+ * server calls it back.
  */
 export function pairCallRecordings(meetings: Meeting[], recordings: NotetakerRecording[]): CallRecordings {
   const ofCall = new Map<string, NotetakerRecording[]>();
@@ -72,7 +80,23 @@ export function pairCallRecordings(meetings: Meeting[], recordings: NotetakerRec
   return { ofMeeting, unpaired };
 }
 
-/** A bot whose call is on no row, drawn as the call it was sent for. */
+/** A bot whose call left every calendar keeps a row of its own, so what it recorded is never out of reach. */
+export function callRowsOf(booked: Meeting[], pastCalls: Meeting[], recordings: NotetakerRecording[]): CallRows {
+  const paired = pairCallRecordings([...booked, ...pastCalls], recordings);
+  const ofRecordingCall = new Map(paired.unpaired.map((recording) => [callOfRecording(recording).id, recording]));
+  const recordingOf = (meeting: Meeting) =>
+    (isRecordingCall(meeting) ? ofRecordingCall.get(meeting.id) : paired.ofMeeting.get(meeting.id)) ?? null;
+  const isStillToCome = (meeting: Meeting) =>
+    !hasCallEnded(recordingOf(meeting)) &&
+    (isRecordingCall(meeting) ? isNotetakerLive(recordingOf(meeting)) : booked.includes(meeting));
+  const calls = [...booked, ...pastCalls, ...paired.unpaired.map(callOfRecording)];
+  return {
+    upcoming: calls.filter(isStillToCome).sort(byStart),
+    past: calls.filter((meeting) => !isStillToCome(meeting)).sort((one, other) => byStart(other, one)),
+    recordingOf,
+  };
+}
+
 export function callOfRecording(recording: NotetakerRecording): Meeting {
   return {
     id: `${RECORDING_CALL_PREFIX}${recording.id}`,
@@ -100,29 +124,53 @@ function isSameStart(recording: NotetakerRecording, meeting: Meeting): boolean {
   return new Date(recording.startsAt).getTime() === new Date(meeting.startsAt).getTime();
 }
 
+function byStart(one: Meeting, other: Meeting): number {
+  return new Date(one.startsAt).getTime() - new Date(other.startsAt).getTime();
+}
+
 function titleKeyOf(title: string | null): string {
   return (title ?? "").trim().toLowerCase();
 }
 
-/** Under way first, then what was recorded, then a failure that can still give notes; a called-back bot last. */
+/** Where several bots went to one call, its row shows the first of these it has. */
+const SHOWN_FIRST: ((recording: NotetakerRecording) => boolean)[] = [
+  isUnderWay,
+  isRecorded,
+  canStillGiveNotes,
+  isFailed,
+];
+
 function rankOf(recording: NotetakerRecording): number {
-  if (["SCHEDULED", "JOINING", "RECORDING", "PROCESSING"].includes(recording.status)) return 0;
-  if (recording.status === "DONE") return 1;
-  if (recording.status === "FAILED" && (recording.retryable || recording.mayDownloadRecording)) return 2;
-  if (recording.status === "FAILED") return 3;
-  return 4;
+  const rank = SHOWN_FIRST.findIndex((shows) => shows(recording));
+  return rank === -1 ? SHOWN_FIRST.length : rank;
 }
 
 /** A waiting bot is the server's to call back; a called-back one, or a failure with nothing left to give, is over. */
 function standsAlone(recording: NotetakerRecording): boolean {
-  return rankOf(recording) <= 2 && recording.status !== "SCHEDULED";
+  return (
+    (isUnderWay(recording) && recording.status !== "SCHEDULED") || isRecorded(recording) || canStillGiveNotes(recording)
+  );
+}
+
+function isUnderWay(recording: NotetakerRecording): boolean {
+  return UNDER_WAY.includes(recording.status);
+}
+
+function isRecorded(recording: NotetakerRecording): boolean {
+  return recording.status === "DONE";
+}
+
+function canStillGiveNotes(recording: NotetakerRecording): boolean {
+  return recording.status === "FAILED" && (recording.retryable || recording.mayDownloadRecording);
+}
+
+function isFailed(recording: NotetakerRecording): boolean {
+  return recording.status === "FAILED";
 }
 
 /** Whether any bot is still on its way, in a call or being written up: the section reads again while one is. */
 export function hasLiveRecording(recordings: NotetakerRecording[]): boolean {
-  return recordings.some((recording) =>
-    ["SCHEDULED", "JOINING", "RECORDING", "PROCESSING"].includes(recording.status),
-  );
+  return recordings.some(isUnderWay);
 }
 
 /**

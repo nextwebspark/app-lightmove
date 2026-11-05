@@ -102,23 +102,35 @@ public class MeetingBackfill {
     }
 
     private void refresh(UUID mailboxConnectionId, String grantId, Instant syncedBefore, Instant now) {
-        Integer claimed = transactions.execute(status ->
-                mailboxes.claimCalendarRefresh(mailboxConnectionId, now, now.minus(FRESH_FOR)));
-        if (claimed == null || claimed == 0) {
-            return;
-        }
-        Instant from = now.minus(RECHECKED_PAST);
-        Instant to = now.plus(REACH);
+        boolean claimed = false;
         try {
+            Integer claims = transactions.execute(status ->
+                    mailboxes.claimCalendarRefresh(mailboxConnectionId, now, now.minus(FRESH_FOR)));
+            claimed = claims != null && claims > 0;
+            if (!claimed) {
+                return;
+            }
+            Instant from = now.minus(RECHECKED_PAST);
+            Instant to = now.plus(REACH);
             List<CalendarEvent> events = gateway.calendarEvents(grantId, from, to);
             transactions.executeWithoutResult(status -> mailboxes.findById(mailboxConnectionId)
                     .filter(fresh -> grantId.equals(fresh.getGrantId()))
                     .ifPresent(fresh -> meetings.replaceWindow(fresh, from, to, events)));
         } catch (RuntimeException failed) {
-            log.info("Could not read the calendar of mailbox {} again; the next opening tries", mailboxConnectionId,
+            log.info("Could not refresh the calendar of mailbox {}; the next opening tries", mailboxConnectionId,
                     failed);
+            if (claimed) {
+                giveBack(mailboxConnectionId, now, syncedBefore);
+            }
+        }
+    }
+
+    private void giveBack(UUID mailboxConnectionId, Instant claimedAt, Instant syncedBefore) {
+        try {
             transactions.executeWithoutResult(status ->
-                    mailboxes.releaseCalendarRefresh(mailboxConnectionId, now, syncedBefore));
+                    mailboxes.releaseCalendarRefresh(mailboxConnectionId, claimedAt, syncedBefore));
+        } catch (RuntimeException failed) {
+            log.warn("Mailbox {} keeps its refresh claim until it goes stale", mailboxConnectionId, failed);
         }
     }
 

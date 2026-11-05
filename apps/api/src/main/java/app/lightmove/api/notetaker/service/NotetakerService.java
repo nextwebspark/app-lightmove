@@ -273,14 +273,17 @@ public class NotetakerService {
     }
 
     /**
-     * A call at the same time with no link yet is taken for this one: a calendar that replaces an event writes the new
-     * row before its link, and calling a bot back loses the call, where a bot left on a dead link only leaves the room.
+     * A call at the same time with no link yet, kept since the bot was sent, is taken for this one: a calendar that
+     * replaces an event writes the new row before its link. A linkless row older than the bot is another meeting.
      */
     private boolean isStillOnACalendar(MeetingRecording scheduled) {
         return meetings.ofPerson(scheduled.getWorkspaceId(), scheduled.getPersonId()).stream()
                 .filter(call -> call.startsAt().equals(scheduled.getStartsAt()))
-                .map(call -> joinableOrNull(call.joinUrl()))
-                .anyMatch(link -> link == null || scheduled.getJoinUrl().equals(link));
+                .anyMatch(call -> {
+                    String link = joinableOrNull(call.joinUrl());
+                    return link == null ? call.keptSince().isAfter(scheduled.getCreatedAt())
+                            : scheduled.getJoinUrl().equals(link);
+                });
     }
 
     private void callOff(MeetingRecording held) {

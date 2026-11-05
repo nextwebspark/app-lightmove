@@ -165,6 +165,13 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         assertThat(read.get("drafted").asBoolean()).isTrue();
         assertThat(read.get("questions").get(0).get("id").asText())
                 .isEqualTo(drafted.get("questions").get(0).get("id").asText());
+
+        as(consultant, put(planPath()).contentType(MediaType.APPLICATION_JSON).content("""
+                {"questions":[{"id":null,"section":"CLARIFY","text":"What drew you to the role?","included":true}]}
+                """)).andExpect(status().isOk());
+
+        assertThat(jdbc.queryForList("select title_key from app_lm_interview_plan where project_id = ?::uuid",
+                String.class, projectId)).containsExactly("first conversation - new link");
     }
 
     @Test

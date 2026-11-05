@@ -3,6 +3,7 @@ import type { Meeting } from "../api/meetingApi";
 import type { NotetakerRecording } from "../api/notetakerApi";
 import {
   callOfRecording,
+  callRowsOf,
   canRecord,
   failureWordsOf,
   hasCallEnded,
@@ -131,6 +132,21 @@ describe("notetakerChip", () => {
     expect(paired.ofMeeting.get("m1")?.id).toBe("r1");
     expect(paired.ofMeeting.has("copy")).toBe(false);
     expect(paired.unpaired).toEqual([]);
+  });
+
+  it("puts a bot that lost its call among the calls to come while it is in it, and among the past once it is over", () => {
+    const rows = callRowsOf(
+      [],
+      [],
+      [
+        recording({ id: "in-the-call", status: "RECORDING", startsAt: "2026-10-09T06:00:00Z" }),
+        recording({ id: "recorded", status: "DONE", startsAt: "2026-10-07T06:00:00Z" }),
+        recording({ id: "no-notes", status: "FAILED", retryable: true, startsAt: "2026-10-08T06:00:00Z" }),
+      ],
+    );
+
+    expect(rows.upcoming.map((call) => rows.recordingOf(call)?.id)).toEqual(["in-the-call"]);
+    expect(rows.past.map((call) => rows.recordingOf(call)?.id)).toEqual(["no-notes", "recorded"]);
   });
 
   it("records again only once no bot is on its way", () => {

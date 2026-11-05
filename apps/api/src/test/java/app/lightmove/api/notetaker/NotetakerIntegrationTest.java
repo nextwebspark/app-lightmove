@@ -635,6 +635,25 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a linkless meeting kept before the bot was sent is another meeting, and holds no bot")
+    void anOlderLinklessMeetingHoldsNoBot() throws Exception {
+        gateway.deliverNext(List.of(new CalendarEventChanged(grantId, new CalendarEvent("lunch", "Lunch", start,
+                start.plus(Duration.ofMinutes(30)), List.of(MAILBOX, "priya@" + domain), null, null))));
+        mvc.perform(post("/api/v1/outreach/webhooks/mailbox")
+                        .header("X-Nylas-Signature", RecordingMailboxGateway.VALID_SIGNATURE)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+
+        jdbc.update("delete from app_lm_person_meeting where provider_event_id = 'call-1'");
+        notetakers.callBackMovedCalls(Instant.now());
+
+        assertThat(statusOf(recordingId)).isEqualTo("CANCELLED");
+        assertThat(recall.removed()).containsOnlyOnce(bot);
+    }
+
+    @Test
     @DisplayName("changes are found with no press though the mapping the bot was sent from was removed and made again")
     void changesAreFoundForAPersonMappedAgain() throws Exception {
         chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
