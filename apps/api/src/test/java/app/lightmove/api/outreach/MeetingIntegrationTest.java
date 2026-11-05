@@ -158,6 +158,20 @@ class MeetingIntegrationTest extends FlowTestSupport {
         assertThat(note.get("title").asText()).isEqualTo("Coffee at DIFC");
         assertThat(Instant.parse(note.get("occurredAt").asText())).isEqualTo(pastStart);
 
+        // A title alone keeps the meeting and its time; becoming a call lets the meeting go and keeps the time.
+        String noteUrl = notesOf(priya) + "/" + note.get("id").asText();
+        JsonNode retitled = body(as(consultant, put(noteUrl).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"kind":"meeting","body":"Wants a listed group.","title":"Debrief"}"""))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(retitled.get("meetingId").asText()).isEqualTo(pastId);
+        assertThat(Instant.parse(retitled.get("occurredAt").asText())).isEqualTo(pastStart);
+        assertThat(retitled.get("title").asText()).isEqualTo("Debrief");
+        JsonNode asCall = body(as(consultant, put(noteUrl).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"kind":"call","body":"It was a call after all."}"""))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(asCall.get("meetingId").isNull()).isTrue();
+        assertThat(Instant.parse(asCall.get("occurredAt").asText())).isEqualTo(pastStart);
+
         as(consultant, post(notesOf(priya)).contentType(MediaType.APPLICATION_JSON).content("""
                         {"kind":"meeting","body":"Too early.","meetingId":"%s"}""".formatted(nextId)))
                 .andExpect(status().isBadRequest());

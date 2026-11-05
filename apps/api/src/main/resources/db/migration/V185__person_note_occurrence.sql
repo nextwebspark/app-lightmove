@@ -6,4 +6,5 @@ ALTER TABLE app_lm_person_note
     ADD COLUMN title       varchar(200),
     ADD COLUMN meeting_id  uuid,
     ADD CONSTRAINT app_lm_person_note_meeting_kind_chk CHECK (meeting_id IS NULL OR kind = 'MEETING'),
-    ADD CONSTRAINT app_lm_person_note_occurrence_kind_chk CHECK (occurred_at IS NULL OR kind <> 'GENERAL');
+    ADD CONSTRAINT app_lm_person_note_occurrence_kind_chk CHECK (occurred_at IS NULL OR kind <> 'GENERAL'),
+    ADD CONSTRAINT app_lm_person_note_title_kind_chk CHECK (title IS NULL OR kind <> 'GENERAL');

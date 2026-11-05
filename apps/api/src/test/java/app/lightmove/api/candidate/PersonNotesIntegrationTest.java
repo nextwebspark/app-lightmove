@@ -192,7 +192,37 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"kind":"general","body":"A plain note.","occurredAt":"%s"}""".formatted(lastWeek)))
+                .andExpect(status().isBadRequest());        mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"call","body":"Two lines.","title":"First\\nSecond"}"""))
                 .andExpect(status().isBadRequest());
+
+        // An edit of the words alone, with no kind, keeps the kind, the time and the title.
+        String callUrl = notesUrl(cfo, candidateId) + "/" + call.get("id").asText();
+        JsonNode reworded = body(mvc.perform(put(callUrl)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"body":"Spoke last week, at length."}"""))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(reworded.get("kind").asText()).isEqualTo("call");
+        assertThat(Instant.parse(reworded.get("occurredAt").asText())).isEqualTo(lastWeek);
+        assertThat(reworded.get("title").asText()).isEqualTo("First call");
+
+        // Made a plain note, it lets its time and title go rather than failing the table's checks.
+        JsonNode plainNow = body(mvc.perform(put(callUrl)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"general","body":"Just a note now."}"""))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(plainNow.get("kind").asText()).isEqualTo("general");
+        assertThat(plainNow.get("title").isNull()).isTrue();
+        assertThat(plainNow.get("occurredAt").asText()).isEqualTo(plainNow.get("createdAt").asText());
     }
 
     @Test

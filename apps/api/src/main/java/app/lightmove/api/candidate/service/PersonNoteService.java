@@ -5,7 +5,6 @@ import app.lightmove.api.candidate.constant.PersonNoteKind;
 import app.lightmove.api.candidate.dto.PersonNoteResponse;
 import app.lightmove.api.candidate.dto.WritePersonNoteRequest;
 import app.lightmove.api.candidate.model.Candidate;
-import app.lightmove.api.candidate.model.LoggedMeeting;
 import app.lightmove.api.candidate.model.NoteOccurrence;
 import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.Person;
@@ -30,8 +29,6 @@ import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -67,7 +64,7 @@ public class PersonNoteService {
     private final PersonActivityRecorder activity;
     private final NoteMentions mentions;
     private final AuditService audit;
-    private final PastMeetingLookup pastMeetings;
+    private final LoggedNoteRules loggedNotes;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -89,15 +86,15 @@ public class PersonNoteService {
     public PersonNoteResponse write(UUID userId, UUID workspaceId, UUID personId, UUID aboutProjectId,
                                     WritePersonNoteRequest request, HttpServletRequest httpRequest) {
         Person person = people.requireInWorkspace(personId, workspaceId);
-        PersonNoteKind kind = kindOf(request);
-        refuseLoggedEmail(kind, null);
+        PersonNoteKind kind = kindOf(request, PersonNoteKind.GENERAL);
+        loggedNotes.refuseLoggedEmail(kind, null);
         if (aboutProjectId != null) {
             projectAccess.requireAction(userId, workspaceId, aboutProjectId, ProjectAction.WORK_EXECUTE);
             if (!candidates.existsByProjectIdAndPersonId(aboutProjectId, personId)) {
                 throw ApiException.of(ErrorCode.NOT_FOUND);
             }
         }
-        NoteOccurrence occurrence = occurrenceOf(request, kind, workspaceId, personId);
+        NoteOccurrence occurrence = loggedNotes.occurrenceOf(request, kind, workspaceId, personId);
         PersonNote note = save(person, aboutProjectId, kind, request.body().strip(), formatOf(request), userId,
                 occurrence);
         mentions.keep(note, userId);
@@ -112,14 +109,13 @@ public class PersonNoteService {
     public PersonNoteResponse revise(UUID userId, UUID workspaceId, UUID personId, NoteViewpoint viewpoint,
                                      UUID noteId, WritePersonNoteRequest request, HttpServletRequest httpRequest) {
         people.requireInWorkspace(personId, workspaceId);
-        PersonNoteKind kind = kindOf(request);
         PersonNote note = requireEditable(userId, workspaceId, personId, viewpoint, noteId);
-        refuseLoggedEmail(kind, note.getKind());
+        PersonNoteKind kind = kindOf(request, note.getKind());
+        loggedNotes.refuseLoggedEmail(kind, note.getKind());
+        NoteOccurrence current = new NoteOccurrence(note.getOccurredAt(), note.getTitle(), note.getMeetingId());
+        NoteOccurrence occurrence = loggedNotes.revisedOccurrence(current, request, kind, workspaceId, personId);
         note.revise(kind, request.body().strip(), formatOf(request), userId);
-        // An edit of the words alone sends none of the three, and keeps when it happened and what it is about.
-        if (request.occurredAt() != null || request.title() != null || request.meetingId() != null) {
-            note.placeAt(occurrenceOf(request, kind, workspaceId, personId));
-        }
+        note.placeAt(occurrence);
         mentions.keep(note, userId);
         audit.event(ProjectEventType.PERSON_NOTE_EDITED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
@@ -262,61 +258,12 @@ public class PersonNoteService {
         return workspaceAccess.holdsAction(userId, workspaceId, WorkspaceAction.WORKSPACE_MANAGE);
     }
 
-    /** A clock a minute or two off the browser's is no reason to refuse "now". */
-    private static final Duration FUTURE_GRACE = Duration.ofMinutes(5);
-
-    private static PersonNoteKind kindOf(WritePersonNoteRequest request) {
+    /** A note sent with no kind: a plain one when written, the kind it already has when edited. */
+    private static PersonNoteKind kindOf(WritePersonNoteRequest request, PersonNoteKind absent) {
         if (request.kind() == null || request.kind().isBlank()) {
-            return PersonNoteKind.GENERAL;
+            return absent;
         }
         return ApiValueEnum.require(PersonNoteKind.class, request.kind(), "note kind");
-    }
-
-    /**
-     * An email is the outreach ledger's, sent and recorded by the mailbox, so nobody logs one by hand any more. A note
-     * filed as one before keeps its kind through an edit; nothing else becomes one.
-     */
-    private static void refuseLoggedEmail(PersonNoteKind kind, PersonNoteKind current) {
-        if (kind == PersonNoteKind.EMAIL && current != PersonNoteKind.EMAIL) {
-            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "kind",
-                    "An email is recorded when it is sent; log a call or a LinkedIn message instead");
-        }
-    }
-
-    /**
-     * When a logged call, LinkedIn message or meeting happened, its title, and the meeting it is about. A plain note is
-     * its own event and takes none; nothing is logged as happening in the future; and a meeting's notes bound to a
-     * calendar meeting take that meeting's start, and its title unless one was typed.
-     */
-    private NoteOccurrence occurrenceOf(WritePersonNoteRequest request, PersonNoteKind kind, UUID workspaceId,
-                                        UUID personId) {
-        String title = request.title() == null || request.title().isBlank() ? null : request.title().strip();
-        if (kind == PersonNoteKind.GENERAL) {
-            if (request.occurredAt() != null || title != null || request.meetingId() != null) {
-                throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "kind",
-                        "A plain note has no time, title or meeting of its own");
-            }
-            return NoteOccurrence.NONE;
-        }
-        if (title != null && (title.contains("\n") || title.contains("\r"))) {
-            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "title", "A title is one line");
-        }
-        Instant now = clock.instant();
-        if (request.meetingId() != null) {
-            if (kind != PersonNoteKind.MEETING) {
-                throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "meetingId",
-                        "Only a meeting's notes name a meeting");
-            }
-            LoggedMeeting meeting = pastMeetings.pastMeetingOf(workspaceId, personId, request.meetingId(), now)
-                    .orElseThrow(() -> ApiException.withField(ErrorCode.VALIDATION_FAILED, "meetingId",
-                            "Choose a meeting with this person that has already happened"));
-            return new NoteOccurrence(meeting.startsAt(), title != null ? title : meeting.title(), meeting.meetingId());
-        }
-        if (request.occurredAt() != null && request.occurredAt().isAfter(now.plus(FUTURE_GRACE))) {
-            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "occurredAt",
-                    "Log what has already happened, not what is still to come");
-        }
-        return new NoteOccurrence(request.occurredAt(), title, null);
     }
 
     private static NoteFormat formatOf(WritePersonNoteRequest request) {
