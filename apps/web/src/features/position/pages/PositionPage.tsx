@@ -7,6 +7,7 @@ import type { ProjectOutletContext } from "../../../components/layout/ProjectLay
 import { Spinner, useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { messageFor } from "../../../lib/errorCodes";
+import { useSerialQueue } from "../../../lib/useSerialQueue";
 import { useAutosave, type SaveStatus } from "../../../lib/useAutosave";
 import { useAuth } from "../../auth/AuthProvider";
 import * as projectsApi from "../../projects/api/projectsApi";
@@ -66,7 +67,6 @@ const SECTION_NAMES: Record<ExtractionSection, string> = {
   assessment: "the assessment",
 };
 
-/** The Position tab: loads the brief, then hands the editor a snapshot to draft against. */
 type HeldSection = "details" | "compensation" | "criteria" | "competencies";
 
 /** What keeps each section from saving, said where the consultant would look for why. */
@@ -89,6 +89,7 @@ function saveMessageFor(error: unknown): string {
   return error instanceof HeldBackEditError ? error.message : messageFor(error);
 }
 
+/** The Position tab: loads the brief, then hands the editor a snapshot to draft against. */
 export function PositionPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
   const { user } = useAuth();
@@ -215,15 +216,10 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
    * Every write to the brief goes out one at a time. Each section is its own autosave channel, but they all
    * rewrite one `@Version` row (and the details write renames the project the target date is on), so two
    * channels' saves overlapping was an optimistic-lock 409 that no channel resends: picking a reason for
-   * hire and then a notice period left the brief "Not saved". The queue outlives the page, so the flush on
-   * unmount waits its turn too.
+   * hire and then a notice period left the brief "Not saved". An unmount's flush still chains behind the
+   * writes in flight.
    */
-  const writeQueue = useRef<Promise<unknown>>(Promise.resolve());
-  const serially = <T,>(write: () => Promise<T>): Promise<T> => {
-    const queued = writeQueue.current.then(write);
-    writeQueue.current = queued.catch(() => undefined);
-    return queued;
-  };
+  const serially = useSerialQueue();
 
   /** Shared persistence shape: cache the returned snapshot. A refusal is the autosave's to report. */
   const persist =

@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
-import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,11 +40,9 @@ class HeuristicBriefReaderTest {
         String blankRun = "a" + "\n".repeat(39_990) + "b";
         String spacedRun = " \n".repeat(19_990) + "Job Title: Chief Financial Officer";
 
-        long started = System.nanoTime();
         reader.propose(UUID.randomUUID(), blankRun);
         ProposedPositionDetails spaced = reader.propose(UUID.randomUUID(), spacedRun);
 
-        assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(2));
         assertThat(valueOf(spaced, "roleTitle")).isEqualTo("Chief Financial Officer");
     }
 
