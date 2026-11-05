@@ -15,12 +15,12 @@ import java.time.Duration;
  * one edit per copy and a swapped {@code Duration} pair compiles fine and asserts the wrong thing.
  * One copy makes the next field a single change.
  */
-final class TestAuthSettings {
+public final class TestAuthSettings {
 
     private TestAuthSettings() {
     }
 
-    static LightMoveProperties production() {
+    public static LightMoveProperties production() {
         return withBcryptStrength(12);
     }
 

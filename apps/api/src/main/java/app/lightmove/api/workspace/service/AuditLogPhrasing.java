@@ -93,7 +93,9 @@ public class AuditLogPhrasing {
         on(WorkspaceEventType.INVITATION_ACCEPTED, line -> line.failed()
                 ? "An invitation was refused: it was sent to another address"
                 : "Joined the workspace as " + roleWord(line, line.text("role")));
-        on(WorkspaceEventType.INVITATION_REVOKED, line -> "Withdrew the invitation to " + nameOr(line, "someone"));
+        on(WorkspaceEventType.INVITATION_REVOKED, line -> "Withdrew the invitation to " + nameOr(line, "someone")
+                + (line.is("reason", "inviter_removed") ? " when its sender left the workspace"
+                        : line.is("reason", "inviter_demoted") ? " when its sender stopped being an admin" : ""));
         on(WorkspaceEventType.INVITATION_EMAIL_FAILED,
                 line -> "The invitation email to " + nameOr(line, "someone") + " could not be sent");
         on(WorkspaceEventType.MEMBER_ROLE_CHANGED, line -> line.text("addedRole") != null

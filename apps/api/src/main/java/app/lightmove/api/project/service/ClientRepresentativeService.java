@@ -13,7 +13,9 @@ import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ClientRepository;
 import app.lightmove.api.project.repository.ClientRepresentativeRepository;
+import app.lightmove.api.project.repository.PendingRepresentativeAttachmentRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.workspace.model.ClientInvitationWithdrawn;
 import app.lightmove.api.workspace.model.ClientRepresentativeAcceptedEvent;
 import app.lightmove.api.workspace.model.ClientRepresentativeOnboarding;
 import app.lightmove.api.workspace.service.InvitationService;
@@ -43,6 +45,8 @@ public class ClientRepresentativeService {
     private final InvitationService invitations;
     private final ProjectTeamService team;
     private final AuditService audit;
+    private final PendingRepresentativeAttachmentRepository pendingAttachments;
+    private final RepresentativeViews views;
 
     /**
      * An ACTIVE duplicate is refused before any membership or email side effect; an outstanding or
@@ -94,8 +98,48 @@ public class ClientRepresentativeService {
                 .detail("existingMember", String.valueOf(onboarding.existingMember()))
                 .record();
 
-        return new RepresentativeResponse(representative.getId(), representative.getFullName(),
-                representative.getPosition(), representative.getEmail(), representative.getStatus());
+        return views.of(workspaceId, representative);
+    }
+
+    /** Cancels an invited contact's invitation; the row follows through {@link #onInvitationWithdrawn}. */
+    @Transactional
+    public void cancelInvitation(UUID actorId, UUID workspaceId, UUID clientId, UUID representativeId,
+                                 HttpServletRequest request) {
+        ClientRepresentative representative = requireInvited(workspaceId, clientId, representativeId);
+        invitations.revokeClientInvitation(actorId, workspaceId, clientId, representative.getInvitationId(), request);
+    }
+
+    /** Resends an invited contact's invitation with a fresh link; not transactional, so the email goes after commit. */
+    public void resendInvitation(UUID actorId, UUID workspaceId, UUID clientId, UUID representativeId,
+                                 HttpServletRequest request) {
+        Client client = clients.findByIdAndWorkspaceId(clientId, workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        ClientRepresentative representative = requireInvited(workspaceId, clientId, representativeId);
+        invitations.resendClientInvitation(actorId, workspaceId, clientId, client.getName(),
+                representative.getInvitationId(), request);
+    }
+
+    private ClientRepresentative requireInvited(UUID workspaceId, UUID clientId, UUID representativeId) {
+        return representatives.findByIdAndWorkspaceId(representativeId, workspaceId)
+                .filter(row -> row.getClientId().equals(clientId))
+                .filter(row -> row.getStatus() == ClientRepStatus.INVITED && row.getInvitationId() != null)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
+
+    /**
+     * Runs in the withdrawing transaction — a cancel, or the inviter's removal — so the contact row and the mandates
+     * parked for them go with the link, and the record no longer lists someone nobody can now let in.
+     */
+    @EventListener
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void onInvitationWithdrawn(ClientInvitationWithdrawn event) {
+        representatives
+                .findByClientIdAndEmailIgnoreCaseAndStatus(event.clientId(), event.email(), ClientRepStatus.INVITED)
+                .filter(representative -> representative.getWorkspaceId().equals(event.workspaceId()))
+                .ifPresent(representative -> {
+                    pendingAttachments.deleteByRepresentativeId(representative.getId());
+                    representative.revoke();
+                });
     }
 
     /**

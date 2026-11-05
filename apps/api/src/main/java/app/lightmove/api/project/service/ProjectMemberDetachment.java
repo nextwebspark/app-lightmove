@@ -3,8 +3,11 @@ package app.lightmove.api.project.service;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.rbac.ProjectRole;
+import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.constant.ProjectStage;
+import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.model.ProjectSeatVacated;
+import app.lightmove.api.project.repository.ClientRepresentativeRepository;
 import app.lightmove.api.project.repository.ProjectMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.service.MemberDetachment;
@@ -30,6 +33,7 @@ public class ProjectMemberDetachment implements MemberDetachment {
     private final ProjectMemberRepository seats;
     private final WorkspaceMemberRepository members;
     private final ApplicationEventPublisher events;
+    private final ClientRepresentativeRepository representatives;
 
     @Override
     public void assertRemovable(UUID memberId) {
@@ -45,5 +49,10 @@ public class ProjectMemberDetachment implements MemberDetachment {
                 .forEach(seat -> events.publishEvent(new ProjectSeatVacated(member.getWorkspaceId(),
                         seat.getProjectId(), member.getUserId(), null))));
         seats.deleteByMemberId(memberId);
+        // A contact whose membership ended is no longer one: left ACTIVE, the record refused to re-invite them
+        // ("already one of its representatives") and the mandate screens could neither attach nor detach them.
+        members.findById(memberId).ifPresent(member -> representatives
+                .findByWorkspaceIdAndUserIdAndStatus(member.getWorkspaceId(), member.getUserId(), ClientRepStatus.ACTIVE)
+                .forEach(ClientRepresentative::revoke));
     }
 }

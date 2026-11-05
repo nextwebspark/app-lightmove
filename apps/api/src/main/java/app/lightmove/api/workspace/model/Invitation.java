@@ -114,10 +114,12 @@ public class Invitation extends BaseEntity {
 
     /**
      * Rotates the token, so no resend leaves another live credential in an inbox. The role is the latest
-     * ask's: a re-invite as ADMIN kept MEMBER here while the email it sent said ADMIN.
+     * ask's: a re-invite as ADMIN kept MEMBER here while the email it sent said ADMIN. The inviter is the
+     * resender's too, so the email, the accept page and the Team page name the same person.
      */
-    public void reissue(Role newRole, String newTokenHash, Instant newExpiry) {
+    public void reissue(Role newRole, String newTokenHash, Instant newExpiry, UUID resentBy) {
         this.role = newRole;
+        this.invitedBy = resentBy;
         this.tokenHash = newTokenHash;
         this.expiresAt = newExpiry;
         this.emailFailedAt = null;
