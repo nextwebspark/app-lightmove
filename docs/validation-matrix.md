@@ -130,7 +130,10 @@ is held back rather than sent (the step does not save until it is named) and the
 | Next action detail | trimmed, ≤ 500 | `@Size(500)` | banner |
 | Note body | the note editor's Markdown, trimmed, mentions written as tokens, ≤ 10000 stored (held under the box) | `@NotBlank @Size(10000)`; V142's CHECK | toast |
 | Note format | `markdown` from the editor | `ApiValueEnum`, plain when absent (a door's note is always plain): 400 "That is not a valid note format" | toast |
-| Note kind | five chips (Note, Call, Meeting, Email, LinkedIn) | `ApiValueEnum`: 400 "That is not a valid note kind" | toast |
+| Note kind | none on the Notes tabs (plain); Call, LinkedIn or Meeting in Log call / Log LinkedIn / Log meeting; the extension's chips leave out Email | `ApiValueEnum`, plain when absent: 400 "That is not a valid note kind"; `email` on a new note, or onto a note that was not one, 400 on `kind` | toast |
+| Log's when (call, LinkedIn, meeting) | date and time, now unless changed; never past today in the picker, and a time later than now flagged under When with Save held | `occurredAt` no later than now + 5 min, never on a plain note: 400 on `occurredAt` / `kind` | toast |
+| Log's title | optional, one line, ≤ 200 (line breaks become spaces) | `@Size(200)`, no line break: 400 on `title` | toast |
+| Log meeting's "Which meeting" | the person's calendar meetings already begun, newest first, or Outside Uncava | `meetingId` on a meeting note only, this person's, already begun: 400 on `meetingId` | toast |
 | Note scope, a position's drawer | This position (default) or All positions, sent as `allPositions` | `allPositions: true` files it about no position; `projectId` not read; neither read on an edit; both together 400 | toast |
 | Note position, Candidates page | "About" select of the person's positions | `projectId` needs that position's `WORK_EXECUTE` (403) and a mapping there (404); with `allPositions: true` 400 | toast |
 | Another position's note, from a position | not listed | 404 on edit, pin, delete, restore and a task's `noteId` | toast |
@@ -142,6 +145,17 @@ is held back rather than sent (the step does not save until it is named) and the
 | Assessment report section | `maxLength` 4000 | `@Size(4000)` each | toast |
 | Assessment save | sends the version it opened | `CANDIDATE_ASSESSMENT_STALE` (409) on any other | banner, Reload, keeping mine |
 | Assess with AI | disabled while changes are unsaved or nothing is left open | `CANDIDATE_ASSESSMENT_NO_CRITERIA`, `CANDIDATE_ASSESSMENT_NOTHING_OPEN` (409); `AI_UNAVAILABLE` (502); a blocked prompt `VALIDATION_FAILED` | toast |
+
+### Find executives
+
+| Field | Client | Server | Shown as |
+|---|---|---|---|
+| Title words | trimmed; ≤ 12 title words, a repeat ignored; an abbreviation such as CIO kept as a title on its own | ≤ 12 × 60 (`@Size`); cleaned by `SearchWords` — brackets, quotes and capital AND/OR/NOT dropped, a level-only word or one over three words dropped | toast |
+| Leave out | trimmed; ≤ 4 words | ≤ 4 × 60; a word the search itself looks for is dropped | toast |
+| Where | countries from the catalog | ≤ 12 two-letter codes (`@Pattern`) | toast |
+| Profiles bought per company | 3, 5 or 10 | any other number is read as 3 | — |
+| Companies | the ticked ones, ≤ the cap (`max-companies-per-run`, 10), each In universe | `EXECUTIVE_SOURCING_TOO_MANY_COMPANIES`; a company of another stage `VALIDATION_FAILED` on `triageCompanyIds` | toast |
+| Add | ≤ 50 ticked | `@NotEmpty @Size(50)`; someone no search of this position found is counted `notFound`, never filed | toast |
 
 ### Import, export, outreach, assistant
 | Field | Client | Server | Shown as |

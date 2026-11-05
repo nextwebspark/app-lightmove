@@ -151,6 +151,18 @@ public record SearchWords(List<SearchLevel> levels,
                 standaloneTitles, localLevelWords, excludedWords, List.of(), roleSummary);
     }
 
+    /** The same words at one band alone; titles that stand alone count only at the top band they belong to. */
+    public SearchWords atLevel(SearchLevel level) {
+        return new SearchWords(List.of(level), functionTerms,
+                level == SearchLevel.C_LEVEL ? standaloneTitles : List.of(), List.of(), excludedWords, List.of(),
+                roleSummary);
+    }
+
+    /** The same levels and exclusions with one function term in place of all of them: what a suggestion would reach. */
+    public SearchWords withTermAlone(String term) {
+        return new SearchWords(levels, List.of(term), List.of(), localLevelWords, excludedWords, List.of(), roleSummary);
+    }
+
     /** The lowest band allowed, or the seat's own when none is. */
     public SearchLevel lowestLevel(Seniority seat) {
         return levels.isEmpty() ? SearchLevel.ofSeat(seat) : levels.getLast();

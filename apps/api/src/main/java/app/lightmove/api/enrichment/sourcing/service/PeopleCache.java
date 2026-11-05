@@ -55,7 +55,7 @@ public class PeopleCache {
         }
         List<BrightDataPerson> fitting = store.atCompany(employer.linkedinSlug(), live.provider(), freshAfter,
                         MAX_ON_FILE).stream()
-                .filter(person -> TitleWords.holds(SourcedHitRanking.currentRole(person), tier))
+                .filter(person -> TitleWords.holds(CurrentRole.of(person), tier))
                 .filter(person -> livesIn(person, countryCodes))
                 .limit(size)
                 .toList();
@@ -88,6 +88,17 @@ public class PeopleCache {
         List<BrightDataPerson> answer = distinct(answered.hits());
         store.rememberSearch(key, employer.linkedinSlug(), slugsOf(answer), answered.totalHits());
         return new PeopleFound(answer, 0, 0, true);
+    }
+
+    /** Free: the people the live index answered before, at the employer, whose title the words find, living in the countries. */
+    long onFile(LiveProfiles live, SearchedEmployer employer, SearchWords words, List<String> countryCodes) {
+        if (employer.linkedinSlug() == null) {
+            return 0;
+        }
+        return store.atCompany(employer.linkedinSlug(), live.provider(), Instant.now().minus(ttl), MAX_ON_FILE).stream()
+                .filter(person -> TitleWords.holds(CurrentRole.of(person), words))
+                .filter(person -> livesIn(person, countryCodes))
+                .count();
     }
 
     /**

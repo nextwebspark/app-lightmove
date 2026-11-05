@@ -34,7 +34,7 @@ export function CandidateDrawerById({
   candidateId: string | null;
   /** A note to open the profile on, from a bell row's link. */
   focusNoteId?: string | null;
-  /** A part of the Contact tab to open the profile on, from a bell row's link. */
+  /** A part of the Outreach tab to open the profile on, from a bell row's link. */
   focusSection?: DrawerSection | null;
   /** The tab to open the profile on, from a link that says which. */
   focusTab?: DrawerTab | null;

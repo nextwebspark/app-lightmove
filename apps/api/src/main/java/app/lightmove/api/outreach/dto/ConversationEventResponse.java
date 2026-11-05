@@ -25,7 +25,7 @@ public record ConversationEventResponse(
     }
 
     public static ConversationEventResponse of(PersonNoteResponse note) {
-        return new ConversationEventResponse(ConversationEventType.NOTE, note.createdAt(), null, null, note, null);
+        return new ConversationEventResponse(ConversationEventType.NOTE, note.occurredAt(), null, null, note, null);
     }
 
     public static ConversationEventResponse of(MeetingResponse meeting) {

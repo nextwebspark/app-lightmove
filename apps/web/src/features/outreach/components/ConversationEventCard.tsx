@@ -53,7 +53,7 @@ export function ConversationEventCard({
             {cardTimeOf(event.at)}
           </time>
         </div>
-        <EventBody event={event} title={face.title} projectId={projectId} viewerUserId={viewerUserId} />
+        <ConversationEventBody event={event} title={face.title} projectId={projectId} viewerUserId={viewerUserId} />
         <div className="mt-1.5 text-eyebrow text-u-text3">
           <span className={cn("type-tag", TONE_TEXT[face.tone])}>{face.tag}</span>
           {face.context && <span> · {face.context}</span>}
@@ -86,7 +86,8 @@ function NoteEventBody({ note, title }: { note: Extract<ConversationEvent, { typ
   );
 }
 
-function EventBody({
+/** An event's words — an email's text and files, a note, a meeting's time — without the card around them. */
+export function ConversationEventBody({
   event,
   title,
   projectId,

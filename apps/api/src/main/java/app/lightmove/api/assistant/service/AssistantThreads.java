@@ -2,7 +2,7 @@ package app.lightmove.api.assistant.service;
 
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.logging.service.MdcPropagation;
+import app.lightmove.api.core.concurrent.service.ThreadContextPropagation;
 import jakarta.annotation.PreDestroy;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -35,11 +35,11 @@ class AssistantThreads {
     }
 
     Executor answers() {
-        return MdcPropagation.propagating(answerThreads);
+        return ThreadContextPropagation.propagating(answerThreads);
     }
 
     Executor tools() {
-        return MdcPropagation.propagating(toolThreads);
+        return ThreadContextPropagation.propagating(toolThreads);
     }
 
     /** Never interrupts: an answer is paid for and saved after its stream ends, so it runs on while the instance does. */

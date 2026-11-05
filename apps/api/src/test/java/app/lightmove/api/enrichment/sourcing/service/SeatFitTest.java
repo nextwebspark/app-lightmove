@@ -32,12 +32,12 @@ class SeatFitTest {
 
         assertThat(List.of("Head of Information Technology", "Group Chief Information Officer",
                 "Head – Information Technology । CIO", "Head of IT", "Director, Digital Transformation"))
-                .allSatisfy(title -> assertThat(seat.holds(title)).as(title).isTrue());
+                .allSatisfy(title -> assertThat(holds(seat, title)).as(title).isTrue());
         assertThat(List.of("Doctor of Pharmacy", "DHA pharmacist / Medical director/ senior pharmacist",
                 "Division Commercial Manager - Surgical Infrastructure Solutions",
                 "Head of Sales & Business development", "Information Technology Team Lead", "IT Support Coordinator",
                 "Pharmacist", ""))
-                .allSatisfy(title -> assertThat(seat.holds(title)).as(title).isFalse());
+                .allSatisfy(title -> assertThat(holds(seat, title)).as(title).isFalse());
     }
 
     @Test
@@ -48,14 +48,14 @@ class SeatFitTest {
                 List.of(), List.of("Assistant", "Intern"));
         SeatFit financeManager = SeatFit.of(brief("Finance Manager", Seniority.N_MINUS_2), financeBench);
 
-        assertThat(cfo.holds("Group Finance Director")).isTrue();
-        assertThat(cfo.holds("Chief Financial Officer")).isTrue();
-        assertThat(cfo.holds("Finance Manager")).isFalse();
-        assertThat(cfo.holds("Chief Accountant")).isFalse();
-        assertThat(cfo.holds("Chief Technology Officer")).isFalse();
-        assertThat(financeManager.holds("Finance Manager")).isTrue();
-        assertThat(financeManager.holds("Financial Analyst")).isTrue();
-        assertThat(financeManager.holds("Finance Intern")).isFalse();
+        assertThat(holds(cfo, "Group Finance Director")).isTrue();
+        assertThat(holds(cfo, "Chief Financial Officer")).isTrue();
+        assertThat(holds(cfo, "Finance Manager")).isFalse();
+        assertThat(holds(cfo, "Chief Accountant")).isFalse();
+        assertThat(holds(cfo, "Chief Technology Officer")).isFalse();
+        assertThat(holds(financeManager, "Finance Manager")).isTrue();
+        assertThat(holds(financeManager, "Financial Analyst")).isTrue();
+        assertThat(holds(financeManager, "Finance Intern")).isFalse();
     }
 
     @Test
@@ -68,13 +68,13 @@ class SeatFitTest {
                 List.of(), List.of("Paralegal"));
         SeatFit counsel = SeatFit.of(brief("General Counsel", Seniority.C_SUITE), legal);
 
-        assertThat(hr.holds("HR Director")).isTrue();
-        assertThat(hr.holds("Head of People & Culture")).isTrue();
-        assertThat(hr.holds("HR Manager")).isTrue();
-        assertThat(hr.holds("Talent Acquisition Specialist")).isFalse();
-        assertThat(counsel.holds("General Counsel")).isTrue();
-        assertThat(counsel.holds("Head of Legal")).isTrue();
-        assertThat(counsel.holds("Legal Counsel")).isFalse();
+        assertThat(holds(hr, "HR Director")).isTrue();
+        assertThat(holds(hr, "Head of People & Culture")).isTrue();
+        assertThat(holds(hr, "HR Manager")).isTrue();
+        assertThat(holds(hr, "Talent Acquisition Specialist")).isFalse();
+        assertThat(holds(counsel, "General Counsel")).isTrue();
+        assertThat(holds(counsel, "Head of Legal")).isTrue();
+        assertThat(holds(counsel, "Legal Counsel")).isFalse();
     }
 
     @Test
@@ -85,11 +85,25 @@ class SeatFitTest {
 
         assertThat(List.of("Chief Executive Officer", "Managing Director", "General Manager", "President & CEO",
                 "Group CEO", "Group President"))
-                .allSatisfy(title -> assertThat(ceo.holds(title)).as(title).isTrue());
+                .allSatisfy(title -> assertThat(holds(ceo, title)).as(title).isTrue());
         assertThat(List.of("Chief Financial Officer", "Finance Director", "Vice President Sales",
                 "Executive Director", "Assistant to the CEO", "Chairman", "Executive Chairman",
                 "President, Sales Division"))
-                .allSatisfy(title -> assertThat(ceo.holds(title)).as(title).isFalse());
+                .allSatisfy(title -> assertThat(holds(ceo, title)).as(title).isFalse());
+    }
+
+    @Test
+    @DisplayName("a title that does not fit says why: a leave-out word, a level below the search, or no function word")
+    void aTitleThatDoesNotFitSaysWhy() {
+        SeatFit cfo = SeatFit.of(brief("Group CFO", Seniority.C_SUITE), FINANCE);
+        SeatFit ceo = SeatFit.of(brief("Chief Executive Officer", Seniority.C_SUITE),
+                SearchWords.defaultFor("Chief Executive Officer", Seniority.C_SUITE));
+
+        assertThat(cfo.whyNot("Executive Assistant to the CFO")).contains("LEAVE_OUT:Assistant");
+        assertThat(cfo.whyNot("Finance Manager")).contains("BELOW_LEVEL");
+        assertThat(cfo.whyNot("Chief Operating Officer")).contains("NO_FUNCTION_WORD");
+        assertThat(ceo.whyNot("Chief Financial Officer")).contains("NOT_THE_TOP_SEAT");
+        assertThat(cfo.whyNot("Group Finance Director")).isEmpty();
     }
 
     @Test
@@ -97,10 +111,18 @@ class SeatFitTest {
     void theCurrentRoleIsJudged() {
         SeatFit seat = SeatFit.of(brief("Head of Information Technology", Seniority.C_SUITE), TECHNOLOGY);
 
-        assertThat(seat.holds(person("Head of IT | ex-CIO", "Pharmacist"))).isFalse();
-        assertThat(seat.holds(person("Doctor of Pharmacy", "Head of Information Technology"))).isTrue();
-        assertThat(seat.holds(person("Doctor of Pharmacy", null))).isFalse();
-        assertThat(seat.holds(person("Head of IT at a pharmacy chain", null))).isTrue();
+        assertThat(holds(seat, person("Head of IT | ex-CIO", "Pharmacist"))).isFalse();
+        assertThat(holds(seat, person("Doctor of Pharmacy", "Head of Information Technology"))).isTrue();
+        assertThat(holds(seat, person("Doctor of Pharmacy", null))).isFalse();
+        assertThat(holds(seat, person("Head of IT at a pharmacy chain", null))).isTrue();
+    }
+
+    private static boolean holds(SeatFit seat, String title) {
+        return seat.whyNot(title).isEmpty();
+    }
+
+    private static boolean holds(SeatFit seat, BrightDataPerson person) {
+        return seat.whyNot(CurrentRole.of(person)).isEmpty();
     }
 
     private static SearchWords words(List<SearchLevel> levels, List<String> terms, List<String> standalone,

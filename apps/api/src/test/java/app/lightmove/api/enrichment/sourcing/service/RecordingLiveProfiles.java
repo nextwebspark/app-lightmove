@@ -53,6 +53,13 @@ public class RecordingLiveProfiles implements LiveProfiles {
     }
 
     @Override
+    public long countAcross(List<SearchedEmployer> employers, SearchWords words, List<String> countryCodes) {
+        failIfAsked();
+        return employers.stream().mapToLong(employer -> holding(employer, TitleTier.of(words), countryCodes).count())
+                .sum();
+    }
+
+    @Override
     public BrightDataPeopleHits search(SearchedEmployer employer, TitleTier tier, List<String> countryCodes,
                                        int size) {
         searches.add(new Searched(employer.linkedinSlug(), tier, List.copyOf(countryCodes), size));
@@ -115,14 +122,14 @@ public class RecordingLiveProfiles implements LiveProfiles {
 
     private Stream<BrightDataPerson> holding(SearchedEmployer employer, TitleTier tier, List<String> countryCodes) {
         return at(employer)
-                .filter(person -> TitleWords.holds(SourcedHitRanking.currentRole(person), tier))
+                .filter(person -> TitleWords.holds(CurrentRole.of(person), tier))
                 .filter(person -> PeopleCache.livesIn(person, countryCodes));
     }
 
     private Stream<BrightDataPerson> named(SearchedEmployer employer, String personName, SearchWords words) {
         return at(employer)
                 .filter(person -> person.name().equalsIgnoreCase(personName))
-                .filter(person -> TitleWords.holds(SourcedHitRanking.currentRole(person), words));
+                .filter(person -> TitleWords.holds(CurrentRole.of(person), words));
     }
 
     private Stream<BrightDataPerson> at(SearchedEmployer employer) {

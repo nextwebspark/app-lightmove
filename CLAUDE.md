@@ -78,7 +78,12 @@ LinkedIn profile is refused (`PERSON_PROFILE_HELD`). A plugin capture of someone
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
-**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`), authored,
+**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`) — the Notes tabs write and list plain notes alone, a call, a LinkedIn message or a meeting written up without the Notetaker is logged from Outreach (`NoteComposerModal`, its Call | LinkedIn | Meeting switch) with when it happened — now unless changed, never in the
+future — and an optional title (V185 `occurred_at`, `title`), a meeting's tied to the past calendar meeting it was about
+(`meeting_id`, bare; `PastMeetingLookup`, answered by `outreach`) or held outside Uncava, every past call's ⋯ offering
+Log meeting notes; the conversation and the timeline order them by when they happened. An edit keeps what it leaves
+out and lets go of what the note's kind cannot carry (`LoggedNoteRules`), and the Candidates page's Notes tab lists
+the logs in a group of their own, so one about a position the person has left is never lost. A recorded call's is the Notetaker's, and an email is never logged by hand: a new `email` note is refused (`VALIDATION_FAILED`), an old one keeps its kind through an edit, and a note sent with no kind is plain —, authored,
 timed and **staff-only** — `CandidateResponse`, the talent map and the report carry none, because a client
 seat reads all three (decision D1). A note is about one position or about the person: read from a position,
 only that position's and the person's ("All positions") show, and another position's is not found
@@ -96,13 +101,21 @@ never quotes it. A removed note is out of every read at once (V141) and offered 
 (`…/notes/{noteId}/restore`); `PersonNotePurge` deletes it for good after `lightmove.notes.purge-after` (30 days),
 so from then it leaves no copy. Both person drawers — a position's executive drawer and the
 Candidates page's — share one header (`PersonHeaderLayout`: the photo beside one column of the name with its LinkedIn
-mark — the drawer's only view of the link, edited with the details' pencil, never in Contact — then on a position the
-status picker and that pencil, the tags held to one line with a +N chip, and do not contact) and one tab order,
-`Position.dc.html`'s: **Background · Compensation · Notes · Assessment · Contact · Documents · Activity**, and
-**Positions** on the Candidates page's drawer alone — a position's left it out as too crowded
-(`lib/drawerTabs.ts`, retired `?tab=career|records|timeline` links still land), a client seat reading Background and
-Contact alone — the Compensation tab is staff's on screen, though `CandidateResponse` still carries the package; the
-workspace drawer leaves out only what a position holds (Assessment among them). **Assessment** (V135) is the
+mark — the drawer's only view of the link, edited with the details' pencil — then on a position the
+status picker and that pencil, the primary email and phone with "+N" and the contact details window, the tags held to
+one line with a +N chip, and do not contact) and one tab order, `Position.dc.html`'s, grouped by what the consultant
+is doing: **Profile · Notes · Assessment · Outreach · Activity** — Profile's folds Summary, Experience, Education,
+Background, Compensation, Documents and Your columns, Summary alone open on arrival (`useProfileSections`); Outreach
+the conversation — the action row first (Write email, Log call, Log meeting, Log LinkedIn, Book a call, Add to sequence, held
+while a run is live), then the run where there is one, the calls to come, then one timeline (its latest five, See more for
+the rest) (`DrawerOutreachTimeline`, over the conversation read and
+`MeetingsSection`'s past calls with their ⋯: emails, replies, run lines, logged calls and LinkedIn messages, each past
+call with the Meeting note its recording filed; All · Email · Calls · LinkedIn · Meetings) and the contacts last, their
+pencil the header's contact details window; a link to a call, LinkedIn or meeting note lands there — and **Positions** on
+the Candidates page's drawer alone (`lib/drawerTabs.ts`; retired `?tab=background|compensation|documents|contact|…`
+links still land), a client seat reading Profile alone with no tab bar — Compensation and Documents are staff's on
+screen, though `CandidateResponse` still carries the package; the workspace drawer leaves out only what a position
+holds (Assessment and Outreach). **Assessment** (V135) is the
 consultant's own scorecard against the brief's competencies: 0–10 or unscored (an open question, never a zero) per
 competency, out of 100 by each panel's `technical_share` (`ScorecardScoring`, mirrored live by
 `lib/scorecardScoring.ts`), plus evidence and a five-section report, saved from the footer as a draft or **Mark
@@ -140,7 +153,7 @@ uploader's or a `WORKSPACE_MANAGE` holder's (`PERSON_DOCUMENT_NOT_YOURS`), every
 and each change is a timeline line that names the document only while it exists. The bytes live in a
 private GCS bucket behind `core/storage`'s `DocumentStore` (`lightmove.storage.*`; the filesystem store
 for `npm run dev` and tests), streamed by the API, never by a signed URL. The SPA draws them in
-`components/documents`: both drawers' Documents tab and a preview sheet (a PDF or image fetched as a blob, never a link); the
+`components/documents`: both drawers' Documents fold (on Profile) and a preview sheet (a PDF or image fetched as a blob, never a link); the
 upload tray says what each file will become before sending, and a duplicate is the server's 409.
 `CandidateResponse.linkedinUrlLocked` is the server's own lock, which the Contact section reads rather
 than guessing from this mandate's door.
@@ -207,10 +220,12 @@ out as Website and Company LinkedIn. It is `WORK_VIEW`, the gate that reads the 
 representative may take the mandate they can already read; unlike every other read it records an
 audit event, because a mandate leaving as a file is not the same act as reading a page of it. Past
 `lightmove.export.*` it refuses rather than truncating.
-**The Companies toolbar** (`Position.dc.html`) is the view switch, one search box in every view, then Add to sequence and Send email (the drawer's composer, for anyone on the position) where
-outreach is offered — greyed (`aria-disabled`, saying where it works) on the map and until something is ticked — and,
-on Table and Map only, Find executives filled, **Advanced ▾** (`AdvancedMenu`) and **Create ▾** (Add executive, Add
-company). The Pipeline's row is the switch, the search and the outreach pair alone.
+**The Companies toolbar** (`Position.dc.html`) is the view switch, one search box in every view, then Add to sequence where
+outreach is offered — greyed (`aria-disabled`, saying where it works) on the map and until an executive is ticked, the
+count ticked on the button — and, on Table and Map only, Find executives filled (the ticked companies, each counted once
+whatever lines name them, `max-companies-per-run` at most — none or more is said on press; while a search runs or waits
+it opens that one, and its caret opens the last search whatever is ticked), **Advanced ▾** (`AdvancedMenu`) and **Create ▾** (Add executive, Add
+company). The Pipeline's row is the switch, the search and Add to sequence alone.
 Advanced ▾ holds the rest, by view: show/hide and manage columns on the table, the map's layers, Add to sequence again
 on the table, Import and Export. Strategy's toolbar and Outreach's header are the same row (`components/ui/Toolbar`:
 the page's views, then the search, the page's actions pushed right), Outreach's search in it. The search is matched by the server, the same
@@ -238,40 +253,54 @@ per executive and the same two drawers opened from a pin's popup or a panel row.
 coordinate, so `geocoding` resolves each distinct city + country once through Mapbox and keeps it in
 `app_lm_geocoded_place`; `talentmap` composes the stage's companies, people and points into one
 unpaged, capped read (`GET /projects/{id}/talent-map`), with `…/talent-map/locations` answering the
-same map as points alone for the poll that waits on places rather than on people. **Find executives** (`enrichment/sourcing`, V86) is the fifth door and the one that fills a
-universe by itself: a button on the In-universe toolbar takes the ticked companies — or, with none
-ticked, the first `max-companies-per-run` with nobody mapped — and answers 202 with a run row that
-the strip under the toolbar polls (and the project stream announces). Off the request thread, one
-Gemini call drafts the search's words from the brief (`SearchWordsDrafter` → `SearchWords`: the levels a firm
-maps for the seat, `SearchLevel`'s bands from the seat down; up to twelve function terms, core first, phrases
-allowed, in another language too only where the companies' titles are written in it — Turkish in Türkiye,
-none for the Gulf or Egypt, whose titles are English; the titles that stand alone, "CFO"; up to four excluded
-words; suggestions it does not search), falling back to the role title's own words (`SearchWords.defaultFor`)
-when the model gives nothing searchable. Each company is then searched in two indexes (`CompanySearch`, the
-strategy measured against researchers' own mapping in `docs/find-executives.md`): **ContactOut's People
-Search**, the live index (`ContactOutLiveProfiles`, on the contact-lookup key: today's titles, one Boolean
-title matched as whole words, the company by its website domain or name — a company LinkedIn URL matches
-nothing there), counted free and bought a credit a profile in tiers — the seat's levels from Head and
-Director up (from Manager for an N-2 or N-3 seat) with the four core terms first, then the rest less what the
-first found — `profiles-per-company` at most; and **Bright Data's Business Search**, the profile index
-(`BusinessSearchProfileIndex`, `POST /search/people` on the Bright Data key whatever `provider` says, about
-$0.002 a search, paced one call each 1.5 s), asked once who at the company's LinkedIn slug names the
-function's words in their title, past titles or About — most of its records have lost their current title —
-each untitled one checked by a free ContactOut count narrowed to their name, up to `title-checks-per-company`.
-Both go through the people cache (`PeopleCache`, V87), which reads back the fitting people on file before
-buying the rest and keeps one row a person, the richest fresh record standing (ContactOut over Business
-Search over the dataset; a capture never reads a Business Search row as a profile). Searched: the brief's
-country, the Gulf neighbours and each company's own; a brief with no country searches everywhere. **No model
-judges the people**: those not already mapped are filed only when the current role holds the seat
-(`SeatFit`: a function term or standalone title, at the lowest level searched or above, no excluded word,
-every word matched whole, `TitleWords`), best fit first (`SourcedHitRanking`: a function word, then the
-level against the seat), then those a free check confirmed — their live profile bought as they are filed
-while the company's budget lasts — the first `picks-per-company` each filed through
-`CandidateService.addResearched` as `AI_SOURCED` (no badge on the grid; the drawer's source reads "Sourced"),
-`enriched_by` the index that read them, and the same automatic background run a capture gets proposes the
-missing background, fired with the `SOURCING` trigger that skips the per-user LLM meter. Nothing is reworded:
-a company finding nobody reads so. `max-companies-per-run × profiles-per-company` is one press's ceiling of
-bought profiles (5 × 3). Offered where either index is configured; a client seat sees none of it. **Strategy → People**
+same map as points alone for the poll that waits on places rather than on people. **Find executives** (`enrichment/sourcing`, V86, V184, `docs/find-executives.md`) is the fifth door: a
+panel (`features/sourcing`, `FindExecutivesPanel`, `claude-design/FindExecutives.dc.html`) opened from the
+In-universe toolbar on the ticked companies — at most `max-companies-per-run` (5) — and from a
+company drawer's Find executives on that company alone, as from a company's empty slot, whose button asks Find
+with Uncava or Add manually (`AddExecutiveChoice`). **The search is the position's own** (V184
+`app_lm_executive_sourcing_criteria`): drafted once by one Gemini call (`SearchWordsDrafter` → `SearchWords`: the levels
+a firm maps for the role, `SearchLevel`'s bands from the role down; up to twelve function terms, core first, phrases
+allowed, in another language too only where the companies' titles are written in it — Turkish in Türkiye, none for the
+Gulf or Egypt; the titles that stand alone, "CFO"; up to four leave-out words; suggestions it does not search), falling
+back to the role title's own words (`SearchWords.defaultFor`); shown folded to one line until Edit search opens its six
+dropdowns of one shape (`SearchBar`); then saved as the consultant edits it (`PUT …/criteria`,
+`EDITED`), Reset drafting it again, and `briefChanged` saying when the brief has moved on. Where people may live is the
+brief's country and the Gulf, each company's own added at search time, and profiles bought per company 3, 5 or 10.
+**Every count is free** (`SourcingCounts`, `POST …/counts`): per company, per level and per suggested word, from
+ContactOut's count (held ten minutes) and the people on file, each level and word counted across the companies at once.
+**Search** (`POST …`, 202, one run at a time) runs on the saved search and calls no model. Each company is searched in two
+indexes (`CompanySearch`, the strategy measured against researchers' own mapping): **ContactOut's People Search**, the
+live index (`ContactOutLiveProfiles`, on the contact-lookup key: today's titles, one Boolean title matched as whole words,
+the company by its website domain or name — a company LinkedIn URL matches nothing there), counted free and bought a
+credit a profile in tiers — the role's levels from Head and Director up (from Manager for an N-2 or N-3 role) with the
+four core terms first, then the rest less what the first found — up to the company's profiles; and **Bright Data's
+Business Search**, the profile index (`BusinessSearchProfileIndex`, `POST /search/people` on the Bright Data key whatever
+`provider` says, about $0.002 a search, paced one call each 1.5 s), asked once who at the company's LinkedIn slug names
+the function's words in their title, past titles or About — most of its records have lost their current title — each
+untitled one checked by a free ContactOut count narrowed to their name, up to `title-checks-per-company` (100, the page), and a confirmed
+one's live profile bought while the company's budget lasts. Both go through the people cache (`PeopleCache`, V87), which
+reads back the fitting people on file before buying the rest and keeps one row a person, the richest fresh record standing
+(ContactOut over Business Search over the dataset; a capture never reads a Business Search row as a profile). **No model
+judges the people** (`SuggestionJudge`): a current title fits the role or does not, with why (`SeatFit.whyNot`: a
+leave-out word, below the levels searched, none of the title words, not the company's top role), and someone who fits is
+scored out of 100 by the design's fixed points — the role's own word in the title 40 or a searched word 30, the level
+against the role's, where they live, how their role was read, found by both indexes, time in role — Strong, Good or
+Possible, each point a reason code (`SuggestionReason`) the panel shows as a chip. **The run files nobody**: each company's
+people are stored ranked (V184 `app_lm_executive_sourcing_suggestion`, slugs and our judgement only; names and titles are
+read from the cache, so results last as long as it keeps them) and recorded as the company finishes, Stop
+(`POST …/{runId}/stop`) letting the companies in flight finish and the rest read STOPPED. The panel reads each company's
+latest results (`GET …/suggestions`) — who fits, best first, the top three pre-ticked; *Title not on record* (no check
+reached them) and *Doesn't fit the role* (the live index's own hits; what the profile index alone returned is listed
+only where its title fits or a free check confirms it) folded; a company the running search has not read back shows no
+older results; the position's own people marked; level tabs; a profile pane; a company where nobody fits
+offering the suggested words with their counts and a search of it again — and **Add** (`POST …/suggestions/add`, up to
+50) files the ticked people at their company from what was read, never a second vendor call, only someone a search of
+this position found, through `CandidateService.addResearched` as `AI_SOURCED` (no badge on the grid; the drawer's source
+reads "Sourced"), `enriched_by` the index whose record it is, with the automatic background run the `SOURCING` trigger
+gives, audited `EXECUTIVE_SOURCING_ADDED`. The strip under the toolbar is gone: the toolbar button carries the search —
+Finding… 3/6 while it runs (still a button), a count of who fits until the panel is opened, a dot after one that stopped
+short — with one toast when it ends. Fair use counts live profiles bought (companies × profiles per company checked at
+Search, what was bought recorded at the end). Offered where either index is configured; a client seat sees none of it. **Strategy → People**
 (`enrichment/peoplesearch`, V93) is the sixth door: Companies | People first in Strategy's toolbar
 (`?mode=people`, staff only) swaps the company filter for ContactOut's People Search filter —
 only parameters its API reference lists, the values its accepted-values sheet lists
@@ -651,7 +680,8 @@ Manager names and the `deploy.yml` switches (`GOOGLE_MAIL_ENABLED`, `MICROSOFT_M
 `RECALL_ENABLED`, each off until its secrets exist) — and the five admin guides beside it are what the
 `*_GUIDE_URL` settings link Settings → Integrations to once published.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
-**Add to sequence** — from In universe / Shortlisted (the ticked companies' executives), In universe's Pipeline (the
+**Add to sequence** — from In universe / Shortlisted (the ticked executives: every grid line carries a tick box,
+`useLineSelection`, the header box ticking or clearing the page; no floating bar), In universe's Pipeline (the
 ticked executives) or the executive drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out
 of the running, already in a live sequence); the openers and Start decide the same rules again
 (`RecipientEligibility`), so nobody skipped is sent to the model, charged for or enrolled. Each person's first email is rendered and **frozen on their enrollment** with their own opener,
@@ -790,7 +820,7 @@ carries no Notetaker. It is claimed first (one live
 bot per call by join URL and start, whoever presses), then sent once and never retried — an empty pool of at-once bots
 is `NOTETAKER_BUSY` — as "UNCAVA Notetaker" with Uncava's card as its camera, saying in the chat whose notes it records
 and that anyone may ask it out. **End & file notes** takes a recording bot out of a call that finished early, and the
-notes follow as after any call; Remove discards. A call the bot has left is listed under Past. Recall's Svix-signed webhook (`/api/v1/notetaker/webhooks/recall`,
+notes follow as after any call; Remove discards. A call the bot has left is listed under Past, and a recording whose call left the calendar keeps a row of its own. Recall's Svix-signed webhook (`/api/v1/notetaker/webhooks/recall`,
 `lightmove.recall.bot-webhook-secret`, blank offers nothing) walks its status; on `transcript.done`, `MeetingNotesWorker`
 keeps the transcript (staff-only), summarises it against the brief's `AssessmentBrief` with contacts redacted, files one
 Markdown `MEETING` note in the scheduler's name (one worker per transcript, by claim; an `AI_ENRICH` use) and leaves
@@ -1011,7 +1041,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **Membership is invitation-only**; the one second door is a staff member naming a client representative.
 - A user may hold **several** active memberships (V81 dropped V1's partial unique index), but a session is in exactly **one** workspace — the `wsId` claim, chosen at sign-in from `last_workspace_id`, remembered per refresh-token family, and changed by `POST /auth/switch-workspace` (a 404 unless the caller is an active member of the target) or by a web refresh whose membership has ended (audited `MEMBERSHIP_ENDED`; `/me` and the extension never fall through). The signup wizard's `POST /onboarding/workspace` founds a *first* workspace only (`ALREADY_IN_WORKSPACE`); a further one is `POST /workspaces`, staff-gated.
 - Verification gates the *proof of mailbox*, not the channel — an invite token or a password reset proves it too.
-- **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter.
+- **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter. Forced Postgres row-level security (V184, `core/tenant`) is the backstop: every borrowed connection carries the caller's workspace, and a job, webhook or worker with no principal names its own with `WorkspaceScope` — with none, the protected tables answer nothing (`db-ops`).
 - **Authorise by action, never by role** (`@PreAuthorize` + `@workspaceAuthorizer`/`@projectAuthorizer`); guard beans re-read the DB every check; the JWT `roles` claim is never trusted for a decision.
 - Client access is **two tiers, two decisions**: registry (`CLIENT_RECORD_MANAGE`, ADMIN+MEMBER) vs mandate (`CLIENT_ACCESS_MANAGE`, LEAD only). Project content is seat-gated `WORK_VIEW`/`WORK_EXECUTE`, not `PROJECT_BROWSE`.
 - **A platform role sits above every tenant and inside none**: `SUPER_ADMIN` gates `/api/v1/platform/**` (`@platformAuthorizer`) and nothing else, is granted by ops script only, and never rides in the JWT.
@@ -1420,6 +1450,14 @@ An account with no password (a Google or LinkedIn sign-in) turns two-factor on w
 with the code alone.
 V165 indexes `app_lm_audit_event (workspace_id, id DESC)` for the customer audit log, guarded on ownership as V74 is:
 once `harden.sql` has run the index is its to build (`CONCURRENTLY`). An index only; no row is written.
+V184 forces row-level security on the people and position core (#1084; the rest is #1085): `app_lm_tenant_visible`
+over `app.workspace_id`, set on every connection checkout by `TenantAwareDataSource`; a person's children are visible
+through their person, and `app_lm_project_candidate` / `app_lm_project_triage_company` gain their project's
+`workspace_id` (filled by trigger, held by a composite key). Flyway's own session sets `app.rls_maintenance` until
+#256; the runtime role must be no superuser and no `BYPASSRLS`, or `RowLevelSecurityPosture` refuses the boot.
+V185 gives `app_lm_person_note` `occurred_at` (when a logged call, LinkedIn message or meeting happened; null on a
+plain note, by CHECK, and on every older note, where `created_at` stands in), `title` and `meeting_id` (a meeting's
+notes only, by CHECK; bare, as V151's recording keeps its meeting's id).
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a
@@ -1437,6 +1475,14 @@ public, no redirect, a size cap, one deadline) — and `app_lm_user.avatar_url` 
 or a removal no provider replaces (`User.mayTakeAvatarFrom`), and once a workspace can enforce its identity provider's
 sign-in, `isAvatarEditable` is where its directory photo becomes final. It clears every provider link stored before it,
 which expired and, once dead, kept every other provider out: the next sign-in copies the picture.
+V184 is the Find executives panel: `app_lm_executive_sourcing_criteria` (one per position — the search as `criteria`
+jsonb, `source` `DEFAULT | AI | EDITED`, the `brief_fingerprint` it was drafted from, unique on the project) and
+`app_lm_executive_sourcing_suggestion` (one row per person a run found at a company: the profile slug, `verdict`
+`FITS | NO_TITLE | NOT_FIT`, `score`, `rank`, `reasons text[]` — our codes and our search's words, never a name or a
+title, which are read from the people cache — and `found_by` `LIVE | INDEX | BOTH`; unique on run, company and slug;
+no status, since "added" is read from the position's mapped profiles; deleted by the next run once older than the
+people cache's life). The run gains its `criteria` snapshot, a `suggested` count, `stop_requested_at` and a `STOPPED`
+status; its `spec`, `executives_filed` and `model_calls` columns are frozen, read by nothing since.
 V167 adds `app_lm_project_candidate.company_filed_for_them`: their company was filed for them (research, or the
 employer the workspace knew them at) rather than already held, cleared by any move; only the plugin's Undo reads it.
 V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage

@@ -8,6 +8,8 @@ public enum TitleCheck {
     INDEX_TITLE,
     /** No title on record, but a free live count narrowed to their name confirms one the search wants. */
     CONFIRMED,
-    /** No title on record, and none confirmed. */
-    UNCONFIRMED
+    /** No title on record, and a free check found none the search wants. */
+    UNCONFIRMED,
+    /** No title on record, and no check made: the live index is not offered, or the company's checks ran out. */
+    UNCHECKED
 }

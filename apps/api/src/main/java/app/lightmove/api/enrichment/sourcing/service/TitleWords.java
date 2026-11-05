@@ -46,11 +46,6 @@ final class TitleWords {
         return holds(title, tier.include()) && (tier.exclude() == null || !holds(title, tier.exclude()));
     }
 
-    /** A function term or a standalone title anywhere in it, whatever its level. */
-    static boolean namesFunction(String title, SearchWords words) {
-        return containsAny(title, words.functionTerms()) || containsAny(title, words.standaloneTitles());
-    }
-
     static List<String> wordsOf(String text) {
         if (text == null || text.isBlank()) {
             return List.of();

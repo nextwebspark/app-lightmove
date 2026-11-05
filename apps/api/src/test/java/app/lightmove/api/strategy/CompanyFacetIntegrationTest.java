@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.ApolloUniverse;
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +28,7 @@ class CompanyFacetIntegrationTest extends FlowTestSupport {
 
     private static final String KEYWORDS_URL = "/api/v1/companies/keywords";
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     private ApolloUniverse universe;
 

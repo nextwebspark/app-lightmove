@@ -228,13 +228,17 @@ enrichment/                # the one feature split twice: by subject first, then
               service/(BrightDataSearch, ContactOutPeopleIndex, ContactOutPeopleClient,
                        UnconfiguredContactOutPeopleIndex, ContactOutPeopleRecords, PeopleQueryKeys,
                        SearchHitFiling)  config/(ContactOutPeopleIndexConfig)
-  sourcing/   Find executives — constant/(SourcingRunStatus, SourcingOutcome, TitleLevel, SearchLevel, TitleCheck)
-              model/(ExecutiveSourcingRun, SourcingCompany, SearchedEmployer, SearchWords, TitleTier, SourcingBrief,
-                     FoundPerson, FoundPeople, CompanyOutcome, ExecutivePick, ExecutiveSourcingRequested)  repository/
+  sourcing/   Find executives — constant/(SourcingRunStatus, SourcingOutcome, TitleLevel, SearchLevel, TitleCheck,
+                        SuggestionVerdict, SuggestionReason, SuggestionBand, FoundBy, CriteriaSource)
+              model/(ExecutiveSourcingRun, SourcingCriteria, SearchCriteria, SearchWords, TitleTier, SourcingCompany,
+                     SearchedEmployer, SourcingBrief, FoundPerson, FoundPeople, Suggestion, CompanyOutcome,
+                     ExecutiveSourcingRequested)  repository/
               service/(LiveProfiles, ContactOutLiveProfiles, UnconfiguredLiveProfiles,
                        ProfileIndex, BusinessSearchProfileIndex, BusinessSearchRecords, UnconfiguredProfileIndex,
-                       PeopleCache, CompanySearch, SearchWordsDrafter, ExecutiveSourcingService,
-                       ExecutiveSourcingWorker, SourcingRunStore, SourcedHitRanking, TitleWords, SeatFit)
+                       PeopleCache, CompanySearch, SourcingCompanies, SourcingCriteriaService, SearchWordsDrafter,
+                       SourcingCounts, ExecutiveSourcingService, ExecutiveSourcingWorker, SourcingRunStore,
+                       SuggestionJudge, SeatFit, CurrentRole, TitleWords, SuggestionStore, SuggestionReader,
+                       SuggestionFiling)
               config/(ExecutiveSourcingConfig)  controller/  dto/
   peoplesearch/ Strategy's People mode — model/(PeoplePage)
               service/(StrategyPeopleService, PeopleSearchFiling, CachedContactOutPeopleQuery, PeopleFilterBody, LocationSuggestions)
@@ -526,6 +530,18 @@ tests serve recorded provider answers from a JDK `HttpServer`, every client give
 `RecordingProviderTokenClient` stands in for every token endpoint. Zoom is no mailbox and no gateway: `ZoomService` over
 `ZoomApi` (`ZoomClient`; `RecordingZoomApi` in tests), its tokens in `ZoomTokens`, called by `MeetingService` only for
 a call booked with `MeetingVideo.ZOOM`.
+
+## Work with no principal names its workspace
+
+Row-level security (V184, `core/tenant`) gives each borrowed connection the workspace `TenantContext` names: an open
+`WorkspaceScope`, else the signed-in principal's. A `@Scheduled` job, a public webhook, or a listener woken by one
+has neither, and reads none of the protected tables. Open `WorkspaceScope.run(row.getWorkspaceId(), …)` from the row
+the work is about — **before** the transaction, since a joined one keeps its connection — and turn a statement over
+every workspace into `EveryWorkspace`'s walk. `@Async` tasks inherit the submitter's workspace through
+`ThreadContextTaskDecorator`; a pool built by hand wraps its tasks with `ThreadContextPropagation` (`core/concurrent`,
+MDC and workspace together), or they read nothing. Beware a check
+that treats "not found" as "allowed" (`existsByIdAndArchivedAtIsNotNull`, `NOT IN (…)`): run outside its scope it
+fails open, not closed.
 
 ## Traps this codebase has already fallen into
 

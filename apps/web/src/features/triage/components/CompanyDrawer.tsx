@@ -65,6 +65,7 @@ export function CompanyDrawer({
   onDelete,
   onAddExecutive,
   onMarkNoExecutiveFound,
+  onFindExecutives,
   markingNoExecutiveFound = false,
 }: {
   open: boolean;
@@ -86,6 +87,8 @@ export function CompanyDrawer({
   onAddExecutive: (company: TriageCompany) => void;
   /** Flags the company as researched-and-nobody-suitable, from the panel already open on it. */
   onMarkNoExecutiveFound: (company: TriageCompany) => void;
+  /** Opens Find executives on this company alone; absent where it is not offered. */
+  onFindExecutives?: (company: TriageCompany) => void;
   /** Whether that write is already in flight for this company, so a second click while it settles
    *  cannot fire a second one — the same guard the grid's own cell keeps on its own button. */
   markingNoExecutiveFound?: boolean;
@@ -180,6 +183,17 @@ export function CompanyDrawer({
         cornerActions={
           !editing && canWork && (
             <>
+              {onFindExecutives && (
+                <button
+                  type="button"
+                  title="Find executives"
+                  aria-label={`Find executives at ${company.companyName}`}
+                  onClick={() => onFindExecutives(company)}
+                  className={`${CORNER_BUTTON} text-u-accent hover:text-u-accent-hover`}
+                >
+                  <Icon d={ICONS.search} size={16} />
+                </button>
+              )}
               <button
                 type="button"
                 title="Add executive"

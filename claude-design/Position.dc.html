@@ -122,7 +122,7 @@
         <div data-screen-label="{{ stageScreenLabel }}" style="display:flex;flex-direction:column;height:100%;min-height:0;width:100%">
           <!-- The toolbar row Strategy.dc.html and Outreach.dc.html share: the page's views first — one 240px switch on
                every page, each option its label's width and an even share of the rest, so the search after the rule starts at the same place on all
-               three — then search, the outreach pair, Find executives filled, then Advanced ▾ and Create ▾ quiet. Every
+               three — then search, Add to sequence, Find executives filled, then Advanced ▾ and Create ▾ quiet. Every
                action keeps its place in every view, greyed where the view cannot take it. -->
           <div style="flex:none;display:flex;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel);padding:10px 16px">
             <sc-if value="{{ hasViewSwitch }}" hint-placeholder-val="{{ true }}">
@@ -149,8 +149,6 @@
                 <sc-if value="{{ canOutreach }}" hint-placeholder-val="{{ true }}">
                   <button onClick="{{ enrolTicked }}" title="{{ seqTitle }}" aria-disabled="{{ seqDisabled }}" style="{{ seqBtnStyle }}" style-hover="{{ seqBtnHover }}">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.outreach }}"></path></svg>Add to sequence</button>
-                  <button onClick="{{ sendEmail }}" title="Write to anyone on this position" style="{{ emailBtnStyle }}" style-hover="background:var(--panel2)">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.mail }}"></path></svg>Send email</button>
                   <sc-if value="{{ notBoard }}" hint-placeholder-val="{{ true }}"><span style="width:1px;height:20px;background:var(--line-soft);margin:0 4px"></span></sc-if>
                 </sc-if>
               </sc-if>
@@ -1071,6 +1069,8 @@
           </div>
           <sc-if value="{{ canWrite }}" hint-placeholder-val="{{ true }}">
             <span style="display:flex;flex:none;align-items:center;gap:8px">
+              <!-- Find executives for this company alone: the toolbar's panel (FindExecutives.dc.html), scoped. -->
+              <sc-if value="{{ co.canFind }}"><a href="FindExecutives.dc.html?screen=drawer-panel" style="display:flex;align-items:center;gap:8px;border-radius:6px;border:none;background:var(--amber-btn);padding:10px 14px;font:600 13.5px var(--sans);color:var(--on-amber);white-space:nowrap" style-hover="background:var(--u-accent-solid-hover)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ ic.search }}"></path></svg>Find executives</a></sc-if>
               <button style="display:flex;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 14px;font:500 13.5px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ ic.userPlus }}"></path></svg>Add executive</button>
               <sc-if value="{{ co.noExec }}"><span title="Researched — nobody suitable found. Adding an executive here clears this." style="font:400 11px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">No executive found</span></sc-if>
               <sc-if value="{{ co.canMarkNoExec }}"><button onClick="{{ markNoExec }}" data-id="{{ co.id }}" style="display:flex;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 14px;font:500 13.5px var(--sans);color:var(--text2);cursor:pointer;white-space:nowrap" style-hover="border-color:var(--text3);color:var(--text)">No executive found</button></sc-if>
@@ -1828,11 +1828,6 @@
                       <div style="display:flex;align-items:center;justify-content:space-between">
                         <span style="font:600 14px var(--sans);color:var(--text)">Add note</span>
                         <span style="display:flex;align-items:center;gap:5px;font:400 11px var(--sans);color:var(--green)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M12 13v8M8 21h8M16 7a4 4 0 0 0-7.7-1.5A3.5 3.5 0 0 0 7 12.5"></path><path d="m9.5 13 1.8 1.8L15 11"></path></svg>Draft saved just now</span>
-                      </div>
-                      <div role="radiogroup" aria-label="Kind of note" style="margin-top:16px;display:flex;flex-wrap:wrap;gap:6px">
-                        <sc-for list="{{ cd.noteKinds }}" as="nk" hint-placeholder-count="4">
-                          <button onClick="{{ setNoteKind }}" data-id="{{ nk.key }}" role="radio" aria-checked="{{ nk.on }}" style="{{ nk.style }}"><sc-if value="{{ nk.glyph }}" hint-placeholder-val="{{ true }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ nk.icon }}"></path></svg></sc-if><sc-if value="{{ nk.brand }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="width:12px;height:11px;border-radius:2px;background:var(--text);color:var(--panel);font:700 8px/11px var(--sans);text-align:center">in</span></sc-if>{{ nk.label }}</button>
-                        </sc-for>
                       </div>
                       <p style="margin:16px 0 0;display:flex;align-items:center;gap:5px;font:400 11px var(--sans);color:var(--text3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"></path></svg>Illustrative draft · Not added to the candidate record</p>
                       <div style="position:relative;margin-top:16px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:12px">
@@ -3094,7 +3089,7 @@ const EDUCATION = { e01: [["London Business School", "Executive MBA", "2015 – 
 const SKILLS = { e01: ["Treasury", "Capital markets", "IFRS", "M&A"] };
 const NAT_SUGGESTION = { e02: ["Emirati", "medium", "Studied in Abu Dhabi and holds a federal board seat; the name alone would be low confidence."] };
 const OUTREACH_STATE = { active: ["Active", "var(--sky)", "var(--sky-dim)"], replied: ["Replied", "var(--green)", "var(--green-dim)"], booked: ["Booked", "var(--green)", "var(--green-dim)"], stopped: ["Stopped", "var(--text3)", "var(--panel2)"] };
-const ALWAYS_OPEN = ["summary", "experience"];
+const ALWAYS_OPEN = ["summary"];
 const crmOf = (e) => Object.assign({ tags: [], owner: null, also: [], notes: [], timeline: null, last: null, dnc: null, docs: [] }, CRM[e.id] || {});
 // [category, title, file, size, latest upload, primary CV, versions as [no, file, size, by and when]] — Candidates.dc.html draws the full tab.
 const CRM_DOCS = {
@@ -3237,14 +3232,14 @@ class Component extends DCLogic {
       sort: { field: "added", dir: "desc" },
       vis: { founded: false, description: false, source: false },
       toast: null, coId: "c01", candId: "e01", removeId: "c01", contactEditing: false, compEditing: false, compForm: null,
-      cdTab: pick("cdTab", "background"), copilotLive: pick("copilotLive", false), summaryMore: false, aiRunning: false, outreachStopped: {},
+      cdTab: pick("cdTab", "profile"), copilotLive: pick("copilotLive", false), summaryMore: false, aiRunning: false, outreachStopped: {},
       assessView: "scores", assessScore: {}, assessOpen: {}, reportOpen: {}, reportAiOpen: {}, reportAiAction: {}, reportScopeOpen: true,
-      noteComposerOpen: true, noteKind: "call", noteText: "", noteEventDate: "2026-09-30",
+      noteComposerOpen: true, noteKind: "note", noteText: "", noteEventDate: "2026-09-30",
       noteFlash: null,
       naModal: flag("nextAction", false) ? { mode: "new", execId: "e01" } : null, naWhat: "", naPresetIdx: null, naKind: "CALL", naWho: "yh", naDate: "2026-10-05", naTime: "09:00",
       naDetail: "", naPresetsOpen: true, naWhoOpen: false, tasksDone: {}, naJustDone: false, mentionOpen: false, mentions: ["sa"],
       notesSearch: "", notesFilterType: "all", notesFiltersOpen: true, notesSortNewest: true, noteMenuOpen: null,
-      sec: { summary: true, experience: true, education: false, compensation: false, background: false, ai: false, columns: false, contact: true, outreach: true }, docHist: {}, docTray: false,
+      sec: { summary: true, experience: false, education: false, compensation: false, documents: false, background: false, ai: false, columns: false, contact: true, outreach: true }, docHist: {}, docTray: false,
       mapSel: "c01", mapOpen: { "United Arab Emirates": true, "Saudi Arabia": true, Qatar: true, Oman: true, Bahrain: true, c01: true }, mapExecs: true, mapPanel: true,
       basis: "recent", momentum: "weeks", measure: "package", cpCountry: "All countries", cpNat: "All nationalities",
       dvNat: "All nationalities", dvLevel: "All levels",
@@ -3297,7 +3292,7 @@ class Component extends DCLogic {
   liveCompanies(stage) { return C.filter((c) => !this.state.removed[c.id] && this.stageOf(c) === stage); }
   canWrite() { return !this.state.clientRep; }
   statusOf(e) { return this.state.statusOf[e.id] || PIPE_STATUS_OF[e.id] || e.status; }
-  cdTabOf() { const t = this.state.cdTab; const mapped = t === "records" ? "notes" : t === "career" ? "background" : t; if (mapped === "copilot" && this.canWrite() && this.state.copilotLive) return "copilot"; return this.canWrite() ? (["background", "compensation", "notes", "documents", "positions", "assessment", "contact", "timeline"].includes(mapped) ? mapped : "background") : (mapped === "contact" ? "contact" : "background"); }
+  cdTabOf() { const t = this.state.cdTab; const RETIRED = { records: "notes", career: "profile", background: "profile", compensation: "profile", documents: "profile", contact: "outreach" }; const mapped = RETIRED[t] || t; if (mapped === "copilot" && this.canWrite() && this.state.copilotLive) return "copilot"; return this.canWrite() ? (["profile", "notes", "assessment", "outreach", "timeline"].includes(mapped) ? mapped : "profile") : "profile"; }
 
   assessmentVals(s) {
     const score = (id) => s.assessScore[id] ?? ASSESS_DEFAULT[id];
@@ -3474,7 +3469,7 @@ class Component extends DCLogic {
     }
     if (cw && stageKey === "u" && view === "table") {
       divider(); head("Outreach");
-      item("sequence", "Add to sequence…", I.outreach, { disabled: true, sub: "Tick companies first" });
+      item("sequence", "Add to sequence…", I.outreach, { disabled: true, sub: "Tick executives first" });
     }
     divider(); head("Data");
     if (cw && stageKey === "u") item("import", "Import spreadsheet…", I.importInto, { sub: "CSV or Excel · companies and people" });
@@ -3514,10 +3509,9 @@ class Component extends DCLogic {
       notBoard: view !== "pipeline", canCreate: cw && view !== "pipeline",
       canFind: cw && stageKey === "u" && view !== "pipeline",
       seqDisabled: seqOff, seqBtnStyle: OUTLINE(seqOff), seqBtnHover: seqOff ? "" : "background:var(--panel2)",
-      seqTitle: view === "map" ? "Add to sequence from Table or Pipeline" : seqOff ? (view === "pipeline" ? "Tick executives on the board first" : "Tick companies first") : `Add the ${ticked} ticked to a sequence`,
-      emailBtnStyle: OUTLINE(false),
+      seqTitle: view === "map" ? "Add to sequence from Table or Pipeline" : seqOff ? (view === "pipeline" ? "Tick executives on the board first" : "Tick executives first") : `Add the ${ticked} ticked to a sequence`,
       findDisabled: view === "pipeline", findBtnStyle: FILLED(view === "pipeline"), findBtnHover: view === "pipeline" ? "" : "background:var(--u-accent-solid-hover)",
-      findTitle: view === "pipeline" ? "Find executives from Table, where companies are ticked" : "Find executives at the ticked companies, or at the first 5 with nobody mapped",
+      findTitle: view === "pipeline" ? "Find executives from Table, where companies are ticked" : "Find executives at the ticked companies, 5 at most; its caret opens the last search",
       addCoDisabled: view === "pipeline",
       addCoItemStyle: `display:flex;width:100%;align-items:flex-start;gap:10px;padding:7px 8px;border-radius:6px;border:none;background:none;text-align:left;font:500 13px var(--sans);color:${view === "pipeline" ? "var(--text3)" : "var(--text2)"};cursor:${view === "pipeline" ? "default" : "pointer"};opacity:${view === "pipeline" ? 0.6 : 1}`,
       addCoItemHover: view === "pipeline" ? "" : "background:var(--panel2);color:var(--text)",
@@ -3660,7 +3654,7 @@ class Component extends DCLogic {
       id: c.id, name: c.name, logo: c.name[0], slotId: "company-drawer-" + c.id, web: c.web, li: c.li,
       sourceLabel: src.label, sourceStyle: `${DPILL}color:${src.fg};background:${src.bg}`,
       stageLabel: STAGES[st].label, context: [c.industry, c.city, c.country].filter(Boolean).join(" · ") || "Nothing recorded about where it sits",
-      noExec: cw && noExec, canMarkNoExec: cw && !noExec, canEdit: cw && !c.apollo,
+      noExec: cw && noExec, canMarkNoExec: cw && !noExec, canEdit: cw && !c.apollo, canFind: cw && st === "u",
       about: c.desc || "No description was captured for this company.",
       scale: [lbl("Revenue", c.revenue == null ? null : money(c.revenue)), lbl("Employees", c.employees == null ? null : c.employees.toLocaleString("en-US")), lbl("Founded", c.founded ? String(c.founded) : null), lbl("Sector", c.industry)],
       mandate: [lbl("Stage", STAGES[st].label), lbl("Source", src.label), lbl("Added", dateGB(c.added)), lbl("Country", c.country)],
@@ -3725,16 +3719,19 @@ class Component extends DCLogic {
         { id: "summary", fold: true, title: "Summary", summary: firstLine(summary), pencil: "summary" },
         { id: "experience", fold: true, title: "Experience", count: postCount, summary: `${e.title} at ${company} · ${countOf(postCount, "post")}`, pencil: "experience" },
         edu.length ? { id: "education", fold: true, title: "Education", count: edu.length, summary: `${edu[0][1]}, ${edu[0][0]}` } : null,
-        { id: "background", fold: true, title: "Background", summary: facts([e.nat || (NAT_SUGGESTION[e.id] ? `AI suggests ${NAT_SUGGESTION[e.id][0]}` : null), `${2026 - e.since + 8} yrs`, countOf(languages.length, "language")]), pencil: "background" }
+        { id: "background", fold: true, title: "Background", summary: facts([e.nat || (NAT_SUGGESTION[e.id] ? `AI suggests ${NAT_SUGGESTION[e.id][0]}` : null), `${2026 - e.since + 8} yrs`, countOf(languages.length, "language")]), pencil: "background" },
+        cw ? { id: "compensation", fold: true, title: "Compensation", pencil: "compensation" } : null,
+        cw ? { id: "documents", fold: true, title: "Documents" } : null
       ],
-      contact: [
-        { id: "contact", fold: true, title: "Contact", summary: facts([e.emails[0] && e.emails[0][0], e.phones[0] && e.phones[0][0], e.emails.some((x) => x[2]) ? "verified" : null]), pencil: "contact" },
+      // Outreach is the conversation, top to bottom: the run, the action row (Write email, Log call, Log LinkedIn,
+      // Book a call, Add to sequence), the calls to come, one timeline of emails, logged calls and LinkedIn messages
+      // and past calls with their meeting notes, then the contacts. Drawn in full on the "Outreach & Notes redesign"
+      // canvas; the code is `DrawerOutreachTimeline` beside `MeetingsSection`.
+      outreach: [
         cw && run ? { id: "outreach", fold: true, title: "Outreach", summary: `${OUTREACH_STATE[runState][0]} · ${run[3]} of 3 sent` } : null,
         cw ? { id: "meetings", plain: true, title: "Meetings", icon: I.calendar, count: meet.upcoming.length + meet.past.length || undefined } : null
       ],
-      compensation: [{ id: "compensation", plain: true, title: "Compensation", pencil: "compensation" }],
       notes: [{ id: "notes", plain: true, title: "", noHeader: true }],
-      documents: [{ id: "documents", plain: true, title: "Documents" }],
       positions: [crm.also.length ? { id: "positions", plain: true, title: "Other positions" } : { id: "positions", plain: true, title: "", noHeader: true }],
       timeline: [{ id: "timeline", plain: true, title: "Timeline" }]
     };
@@ -3786,7 +3783,7 @@ class Component extends DCLogic {
       natSuggestion: cw && !!NAT_SUGGESTION[e.id], natSuggested: NAT_SUGGESTION[e.id] ? NAT_SUGGESTION[e.id][0] : "", natConfidence: NAT_SUGGESTION[e.id] ? NAT_SUGGESTION[e.id][1] : "", natWhy: NAT_SUGGESTION[e.id] ? NAT_SUGGESTION[e.id][2] : "",
       aiAssessed: !!ai, aiNone: !ai, aiDate: ai ? ai[0] : "", aiSummary: ai ? ai[1] : "",
       aiPanels: ai ? [["Technical", ai[2], ai[4]], ["Behavioural", ai[3], ai[5]]].map(([label, score, pts]) => ({ label, score, points: pts.map(([sign, text]) => ({ sign: sign === "+" ? "+" : "–", text, color: sign === "+" ? "var(--green)" : "var(--red)" })) })) : [],
-      showSequenceBar: cw && tab === "contact",
+      showSequenceBar: cw && tab === "outreach",
       orState: run ? OUTREACH_STATE[runState][0] : "", orPill: run ? `${DPILL}color:${OUTREACH_STATE[runState][1]};background:${OUTREACH_STATE[runState][2]}` : "",
       orSeq: run ? run[0] : "", orSender: run ? run[1] : "", orSteps, orLive: runState === "active",
       orBooked: runState === "booked", orReplied: runState === "replied", orRepliedAt: run ? run[4] : "",
@@ -3812,7 +3809,9 @@ class Component extends DCLogic {
       noOtherPositions: crm.also.length === 0,
       positions: crm.also.map((a) => [a[0], a[1], a[2], a[3], false]).map(([title, status, by, when, here]) => ({
         title, here, added: `Added by ${by} · ${when}`, status: STATUS[status].label, pill: `${DPILL}color:${STATUS[status].fg};background:${STATUS[status].bg}`, border: here ? "color-mix(in srgb,var(--amber) 45%,transparent)" : "var(--line-soft)" })),
-      noteKinds: [["call", "Call", I.phone], ["note", "Note", I.noteIcon], ["meeting", "Meeting", I.members], ["email", "Email", I.mail], ["linkedin", "LinkedIn", null]].map(([key, label, icon]) => { const on = s.noteKind === key;
+      // Notes are plain notes: no kind to choose. A call or a LinkedIn message is logged from Outreach, an email is
+      // the mailbox's, and a meeting's note is the Notetaker's, drawn in the Outreach timeline under its call.
+      noteKinds: [].map(([key, label, icon]) => { const on = s.noteKind === key;
         return { key, label, icon, glyph: !!icon, brand: !icon, on, style: `display:inline-flex;align-items:center;gap:6px;border-radius:6px;padding:5px 10px;font:500 12px var(--sans);cursor:pointer;border:1px solid ${on ? "transparent" : "var(--line)"};background:${on ? "var(--u-accent-tint)" : "none"};color:${on ? "var(--u-accent)" : "var(--text3)"}` }; }),
       mentionOpen: !!s.mentionOpen, mentionBtnBg: s.mentionOpen ? "var(--line-soft)" : "none",
       teamAv1: avatar("ok", 20, "font-size:8px;border:2px solid var(--panel)"), teamAv2: avatar("sa", 20, "font-size:8px;border:2px solid var(--panel);margin-left:-7px"),
@@ -4445,11 +4444,10 @@ class Component extends DCLogic {
       closeCreate: () => set({ createOpen: false }),
       addExecutive: () => { set({ createOpen: false }); this.showToast("Opens a blank executive drawer — someone met at a company this position has not triaged"); },
       enrolTicked: () => { if (this.currentView() === "pipeline" && Object.values(this.state.pipelineChecked).some(Boolean)) this.showToast("Opens Add to sequence for the ticked executives"); },
-      sendEmail: () => this.showToast("Send email — pick anyone on the position, then write in the composer"),
       closeAdv: () => set({ advOpen: false, advPanel: "menu" }),
       advBack: () => set({ advPanel: "menu" }),
       addCompany: () => { if (this.currentView() === "pipeline") return; set({ createOpen: false }); this.showToast("Opens the company drawer to add one"); },
-      findExecutives: () => this.currentView() === "pipeline" ? null : this.showToast("Find executives — opens the run dialog for the ticked companies, or the first 5 with nobody mapped"),
+      findExecutives: () => { if (this.currentView() !== "pipeline") location.href = "FindExecutives.dc.html?screen=search"; },
       advAction: (e) => {
         const key = id(e);
         const item = this.advancedItems().find((x) => x.key === key);
@@ -4520,7 +4518,7 @@ class Component extends DCLogic {
         set({ pipelineChecked: next });
       },
       openCompany: (e) => set({ drawer: "company", coId: id(e) }),
-      openCandidate: (e) => set({ drawer: "candidate", candId: id(e), contactEditing: false, cdTab: "background", summaryMore: false }),
+      openCandidate: (e) => set({ drawer: "candidate", candId: id(e), contactEditing: false, cdTab: "profile", summaryMore: false }),
       setCdTab: (e) => set({ cdTab: id(e) }),
       setCdTabRecords: () => set({ cdTab: "notes" }),
       openNoteComposer: () => set({ cdTab: "notes", noteComposerOpen: true }),
@@ -4624,15 +4622,15 @@ class Component extends DCLogic {
       toggleMapKey: (e) => { e.stopPropagation(); const k = id(e); set({ mapOpen: Object.assign({}, this.state.mapOpen, { [k]: !this.state.mapOpen[k] }) }); },
       selectMapNode: (e) => set({ mapSel: id(e) }),
       clearMapSel: () => set({ mapSel: null }),
-      openMapNode: (e) => { e.stopPropagation(); const k = id(e); if (CO[k]) set({ drawer: "company", coId: k }); else set({ drawer: "candidate", candId: k, contactEditing: false, cdTab: "background", summaryMore: false }); },
+      openMapNode: (e) => { e.stopPropagation(); const k = id(e); if (CO[k]) set({ drawer: "company", coId: k }); else set({ drawer: "candidate", candId: k, contactEditing: false, cdTab: "profile", summaryMore: false }); },
       toggleSec: (e) => { const k = id(e); set({ sec: Object.assign({}, this.state.sec, { [k]: !this.state.sec[k] }) }); },
       toggleDocHist: (e) => { const k = id(e); set({ docHist: Object.assign({}, this.state.docHist, { [k]: !this.state.docHist[k] }) }); },
       toggleDocTray: () => set({ docTray: !this.state.docTray }),
       sendDocTray: () => { set({ docTray: false }); this.showToast("Uploaded as version 4 of the CV — on the timeline"); },
       docPreview: () => this.showToast("Opens the preview sheet — see Candidates.dc.html?dialog=preview"),
       docDownload: () => this.showToast("Downloading — recorded in the audit trail"),
-      expandAll: () => set({ sec: Object.assign({}, this.state.sec, { education: true, compensation: true, background: true, ai: true, columns: true }) }),
-      collapseAll: () => set({ sec: Object.assign({}, this.state.sec, { education: false, compensation: false, background: false, ai: false, columns: false }), compEditing: false }),
+      expandAll: () => set({ sec: Object.assign({}, this.state.sec, { experience: true, education: true, compensation: true, documents: true, background: true, ai: true, columns: true }) }),
+      collapseAll: () => set({ sec: Object.assign({}, this.state.sec, { experience: false, education: false, compensation: false, documents: false, background: false, ai: false, columns: false }), compEditing: false }),
       toggleCompOverride: () => { const f = this.state.compForm; set({ compForm: Object.assign({}, f, { overridden: !f.overridden, currency: f.overridden ? BRIEF_CURRENCY : f.currency }) }); },
       setCompCurrency: (e) => set({ compForm: Object.assign({}, this.state.compForm, { currency: e.target.value }) }),
       setCompBase: (e) => set({ compForm: Object.assign({}, this.state.compForm, { base: parseAmt(e.target.value) }) }),
@@ -4755,10 +4753,10 @@ class Component extends DCLogic {
       co: isStage && s.drawer === "company" ? this.coVals() : {}, cd: (isStage || isPipeline) && s.drawer === "candidate" ? this.cdVals() : { cdSections: [] },
       cdSections: (isStage || isPipeline) && s.drawer === "candidate" ? this.cdVals().cdSections : [],
       na: this.naVals(),
-      cdTabProfile: this.cdTabOf() === "background", cdTabAssessment: this.cdTabOf() === "assessment", cdNotAssessment: this.cdTabOf() !== "assessment",
+      cdTabProfile: this.cdTabOf() === "profile", cdTabAssessment: this.cdTabOf() === "assessment", cdNotAssessment: this.cdTabOf() !== "assessment",
       av: this.cdTabOf() === "assessment" ? this.assessmentVals(s) : { sections: [] },
       cdTabCopilot: this.cdTabOf() === "copilot",
-      cdTabs: (cw && s.copilotLive ? [["copilot", "● Copilot"]] : []).concat(cw ? [["background", "Background"], ["compensation", "Compensation"], ["notes", "Notes"], ["assessment", "Assessment"], ["contact", "Contact"], ["documents", "Documents"], ["timeline", "Activity"], ["positions", "Positions"]] : [["background", "Background"], ["contact", "Contact"]]).map(([key, label]) => {
+      cdTabs: (cw && s.copilotLive ? [["copilot", "● Copilot"]] : []).concat(cw ? [["profile", "Profile"], ["notes", "Notes"], ["assessment", "Assessment"], ["outreach", "Outreach"], ["timeline", "Activity"]] : []).map(([key, label]) => {
         const on = this.cdTabOf() === key;
         const live = key === "copilot";
         return { key, label, on, style: `display:inline-flex;flex:none;align-items:center;gap:7px;white-space:nowrap;margin-bottom:-1px;padding:9px 10px;font:500 13px var(--sans);background:none;border:none;border-bottom:2px solid ${on ? "var(--amber)" : "transparent"};color:${on ? "var(--text)" : "var(--text3)"};cursor:pointer${live ? ";margin-right:6px;box-shadow:inset -1px 0 0 var(--line)" : ""}` };

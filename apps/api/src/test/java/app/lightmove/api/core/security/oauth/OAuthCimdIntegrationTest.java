@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubClientMetadataFetcher;
 import app.lightmove.api.core.security.token.Tokens;
@@ -31,7 +32,7 @@ import tools.jackson.databind.JsonNode;
 class OAuthCimdIntegrationTest extends OAuthFlowSupport {
 
     @Autowired StubClientMetadataFetcher documents;
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
     @Autowired ClientMetadataDocumentClients documentClients;
 
     @Test

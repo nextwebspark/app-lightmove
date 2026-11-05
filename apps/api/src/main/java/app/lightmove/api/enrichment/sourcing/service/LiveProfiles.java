@@ -24,6 +24,9 @@ public interface LiveProfiles {
     /** Free: how many people at the employer hold a title the tier finds, living in {@code countryCodes}. */
     long count(SearchedEmployer employer, TitleTier tier, List<String> countryCodes);
 
+    /** Free: how many people at any of the employers hold a title {@code words} finds, living in {@code countryCodes}. */
+    long countAcross(List<SearchedEmployer> employers, SearchWords words, List<String> countryCodes);
+
     /** A credit for every profile returned, those living elsewhere included; the caller narrows to the countries. */
     BrightDataPeopleHits search(SearchedEmployer employer, TitleTier tier, List<String> countryCodes, int size);
 

@@ -1,11 +1,11 @@
 package app.lightmove.api.enrichment.sourcing.service;
 
-import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.config.ExecutiveSourcingSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.common.service.SearchHitFiling;
+import app.lightmove.api.enrichment.sourcing.constant.FoundBy;
 import app.lightmove.api.enrichment.sourcing.constant.SearchLevel;
 import app.lightmove.api.enrichment.sourcing.constant.TitleCheck;
 import app.lightmove.api.enrichment.sourcing.model.FoundPeople;
@@ -13,20 +13,18 @@ import app.lightmove.api.enrichment.sourcing.model.FoundPerson;
 import app.lightmove.api.enrichment.sourcing.model.SearchWords;
 import app.lightmove.api.enrichment.sourcing.model.SearchedEmployer;
 import app.lightmove.api.enrichment.sourcing.model.TitleTier;
-import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 
 /**
  * Finds the people at one company a search's words describe, spending as little of the live index as it
- * can. The live index is counted free, tier by tier, and bought at most {@code profiles-per-company} — the
- * role's own level and core terms first, then the rest of the words. The profile index is asked once,
- * cheaply, who at the company names the function; each of those with no title on record is checked by a
- * free live count narrowed to their name, up to {@code title-checks-per-company}. Nobody the mandate already
- * holds is returned.
+ * can. The live index is counted free, tier by tier, and bought at most {@code profiles} — the role's own level
+ * and core terms first, then the rest of the words. The profile index is asked once, cheaply, who at the company
+ * names the function; each of those with no title on record is checked by a free live count narrowed to their
+ * name, up to {@code title-checks-per-company}. Someone both indexes found is one person, found by both.
  *
  * <p>Measured against researchers' own mapping (docs/find-executives.md), the free checks and three bought
  * profiles a company found nearly as many of them as buying every match would have.
@@ -50,21 +48,20 @@ public class CompanySearch {
         return live.isOffered() || index.isOffered();
     }
 
-    /** {@code heldSlugs} are profile slugs already mapped in the mandate, in any case. */
     public FoundPeople search(SearchedEmployer employer, SearchWords words, Seniority seat, List<String> countryCodes,
-                              Set<String> heldSlugs) {
+                              int profiles) {
         if (!words.isSearchable() || employer.linkedinSlug() == null) {
             return FoundPeople.none();
         }
-        Spend spend = new Spend(heldSlugs);
+        Spend spend = new Spend();
         if (live.isOffered()) {
-            buyLive(employer, words, seat, countryCodes, spend);
+            buyLive(employer, words, seat, countryCodes, profiles, spend);
         }
         if (index.isOffered() && !words.roleWords().isEmpty()) {
             checkIndex(employer, words, countryCodes, spend);
         }
-        return new FoundPeople(spend.found, spend.heldFound.size(), spend.credits, spend.cached, spend.matched,
-                spend.indexSearches, spend.titleChecks);
+        return new FoundPeople(List.copyOf(spend.found.values()), spend.credits, spend.cached, spend.matched,
+                spend.indexFound, spend.indexSearches, spend.titleChecks);
     }
 
     /**
@@ -78,30 +75,32 @@ public class CompanySearch {
     }
 
     private void buyLive(SearchedEmployer employer, SearchWords words, Seniority seat, List<String> countryCodes,
-                         Spend spend) {
+                         int profiles, Spend spend) {
         for (TitleTier tier : tiersOf(words, seat)) {
             long matched = live.count(employer, tier, countryCodes);
             spend.matched += matched;
-            int wanted = (int) Math.min(matched, settings.profilesPerCompany() - spend.credits);
+            int wanted = (int) Math.min(matched, profiles - spend.credits);
             if (wanted <= 0) {
                 continue;
             }
             PeopleFound bought = cache.live(live, employer, tier, countryCodes, wanted);
             spend.credits += bought.bought();
             spend.cached += bought.cached();
-            bought.people().forEach(person -> spend.add(person, live.provider(), live.researchedBy(), TitleCheck.LIVE_TITLE));
+            bought.people().forEach(person -> spend.add(new FoundPerson(person, live.provider(), live.researchedBy(),
+                    TitleCheck.LIVE_TITLE, FoundBy.LIVE)));
         }
     }
 
     private void checkIndex(SearchedEmployer employer, SearchWords words, List<String> countryCodes, Spend spend) {
         PeopleFound named = cache.index(index, employer, words, countryCodes, settings.indexPeoplePerCompany());
         spend.indexSearches += named.askedVendor() ? 1 : 0;
-        spend.cached += named.cached();
+        spend.indexFound += named.people().size();
         for (BrightDataPerson person : named.people()) {
-            if (spend.isKnown(person)) {
+            if (spend.alsoFoundByIndex(person)) {
                 continue;
             }
-            spend.add(person, index.provider(), index.researchedBy(), checkOf(employer, words, person, spend));
+            spend.add(new FoundPerson(person, index.provider(), index.researchedBy(),
+                    checkOf(employer, words, person, spend), FoundBy.INDEX));
         }
     }
 
@@ -110,49 +109,48 @@ public class CompanySearch {
             return TitleCheck.INDEX_TITLE;
         }
         if (!live.isOffered() || spend.titleChecks >= settings.titleChecksPerCompany()) {
-            return TitleCheck.UNCONFIRMED;
+            return TitleCheck.UNCHECKED;
         }
         spend.titleChecks++;
         return live.holdsTitle(employer, SearchHitFiling.nameOf(person), words) ? TitleCheck.CONFIRMED
                 : TitleCheck.UNCONFIRMED;
     }
 
-    /** One company's tally as it is searched, and the slugs it may not return twice. */
+    /** One company's tally as it is searched: everyone found once, by slug, and what finding them cost. */
     private static final class Spend {
 
-        private final Set<String> held = new HashSet<>();
-        private final Set<String> heldFound = new HashSet<>();
-        private final Set<String> seen = new HashSet<>();
-        private final List<FoundPerson> found = new ArrayList<>();
+        private final Map<String, FoundPerson> found = new LinkedHashMap<>();
         private int credits;
         private int cached;
         private long matched;
+        private int indexFound;
         private int indexSearches;
         private int titleChecks;
 
-        private Spend(Set<String> heldSlugs) {
-            heldSlugs.forEach(slug -> held.add(slug.toLowerCase(Locale.ROOT)));
+        private void add(FoundPerson person) {
+            String slug = keyOf(person.person());
+            if (slug != null) {
+                found.putIfAbsent(slug, person);
+            }
         }
 
-        /** Already found, already held — counted as held once — or with no slug to key on. */
-        private boolean isKnown(BrightDataPerson person) {
-            if (person.linkedinId() == null || person.linkedinId().isBlank()) {
+        /** True when the live index already found this person — now found by both — or when they have no slug. */
+        private boolean alsoFoundByIndex(BrightDataPerson person) {
+            String slug = keyOf(person);
+            if (slug == null) {
                 return true;
             }
-            String slug = person.linkedinId().toLowerCase(Locale.ROOT);
-            if (held.contains(slug)) {
-                heldFound.add(slug);
-                return true;
+            FoundPerson earlier = found.get(slug);
+            if (earlier == null) {
+                return false;
             }
-            return seen.contains(slug);
+            found.put(slug, earlier.alsoFoundBy(FoundBy.INDEX));
+            return true;
         }
 
-        private void add(BrightDataPerson person, String provider, EnrichmentVendor researchedBy, TitleCheck check) {
-            if (isKnown(person)) {
-                return;
-            }
-            seen.add(person.linkedinId().toLowerCase(Locale.ROOT));
-            found.add(new FoundPerson(person, provider, researchedBy, check));
+        private static String keyOf(BrightDataPerson person) {
+            return person.linkedinId() == null || person.linkedinId().isBlank() ? null
+                    : person.linkedinId().toLowerCase(Locale.ROOT);
         }
     }
 }

@@ -24,7 +24,7 @@ public record ExecutiveSourcingSettings(
         @DefaultValue("100") int indexPeoplePerCompany,
 
         /** Free name-narrowed live counts per company, each confirming one index person's title. */
-        @DefaultValue("40") int titleChecksPerCompany,
+        @DefaultValue("100") int titleChecksPerCompany,
 
         /** Companies searched at once. */
         @DefaultValue("4") int parallelism,
