@@ -30,11 +30,13 @@ public class HeuristicBriefReader {
     /**
      * Label and value separated by a colon or a run of two-or-more spaces or a tab — the gap is how a
      * PDF's key-value table survives extraction ({@code JD_CEO.pdf}'s "Job Title    CEO").
+     * The padding is spaces and tabs only: a {@code ^\s*} under multiline mode ran across every following blank
+     * line from every line start, and a file of 40,000 newlines held a request thread for 49 seconds.
      */
     private static final Pattern HEADER_LINE = Pattern.compile(
-            "(?im)^\\s*(Job Title|Position|Role|Title|Company|Department|Division|Function|Location|"
+            "(?im)^[ \\t]*(Job Title|Position|Role|Title|Company|Department|Division|Function|Location|"
                     + "Based in|Reports to|Reporting to|Employment Type|Contract Type|Grade)"
-                    + "\\s*(?::\\s*|[ \\t]{2,})(.+?)\\s*$");
+                    + "[ \\t]*(?::\\s*|[ \\t]{2,})(.+?)[ \\t]*$");
 
     /** Where a header's captured value spills into the next column's label across a wide gap. */
     private static final Pattern COLUMN_GAP = Pattern.compile("[ \\t]{2,}");
