@@ -14,7 +14,7 @@ import type { PersonNote, PersonNoteKind } from "../api/types";
 import { isContactNote, notePlaceholderOf, PLAIN_NOTE_KIND } from "../lib/noteKinds";
 import { useNoteCardActions } from "../lib/useNoteCardActions";
 import type { Meeting } from "../../outreach/api/meetingApi";
-import { LogDetailsFields, logDetailsNow, logPayloadOf, type LogDetails } from "./LogDetailsFields";
+import { isLogInFuture, LogDetailsFields, logDetailsNow, logPayloadOf, type LogDetails } from "./LogDetailsFields";
 import { NoteCard, NoteKindPicker, NoteScopePicker, noteAnchorOf, type NoteScope } from "./NoteParts";
 
 /**
@@ -176,7 +176,6 @@ export function PositionNoteComposer({
   const positions = usePositions(projectId, candidateId);
   const thisPosition = positions.data?.find((row) => row.projectId === projectId)?.positionTitle;
   const [kind, setKind] = useState<PersonNoteKind>(initialKind);
-  // A call, LinkedIn message or meeting says when it happened: now, unless someone changes it.
   const logs = kindChoices !== undefined && kindChoices.length > 0;
   const [details, setDetails] = useState<LogDetails>(() => logDetailsNow(presetMeetingId));
   const chooseKind = (next: PersonNoteKind) => {
@@ -212,7 +211,7 @@ export function PositionNoteComposer({
       ),
     onSuccess: (note, thenNextAction) => {
       setDraft("");
-      setDetails(logDetailsNow());
+      setDetails(logDetailsNow(presetMeetingId));
       void queryClient.invalidateQueries({
         queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, candidateId),
       });
@@ -230,7 +229,7 @@ export function PositionNoteComposer({
     },
     onError: (error) => toast.error(messageFor(error)),
   });
-  const canSave = body.length > 0 && !tooLong && !saving.isPending;
+  const canSave = body.length > 0 && !tooLong && !saving.isPending && !(logs && isLogInFuture(details, kind));
   const save = () => canSave && saving.mutate(false);
 
   const isDialog = presentation === "dialog";

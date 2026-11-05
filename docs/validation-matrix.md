@@ -131,7 +131,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | Note body | the note editor's Markdown, trimmed, mentions written as tokens, ≤ 10000 stored (held under the box) | `@NotBlank @Size(10000)`; V142's CHECK | toast |
 | Note format | `markdown` from the editor | `ApiValueEnum`, plain when absent (a door's note is always plain): 400 "That is not a valid note format" | toast |
 | Note kind | none on the Notes tabs (plain); Call, LinkedIn or Meeting in Log call / Log LinkedIn / Log meeting; the extension's chips leave out Email | `ApiValueEnum`, plain when absent: 400 "That is not a valid note kind"; `email` on a new note, or onto a note that was not one, 400 on `kind` | toast |
-| Log's when (call, LinkedIn, meeting) | date and time, now unless changed; never past today in the picker | `occurredAt` no later than now + 5 min, never on a plain note: 400 on `occurredAt` / `kind` | toast |
+| Log's when (call, LinkedIn, meeting) | date and time, now unless changed; never past today in the picker, and a time later than now flagged under When with Save held | `occurredAt` no later than now + 5 min, never on a plain note: 400 on `occurredAt` / `kind` | toast |
 | Log's title | optional, one line, ≤ 200 (line breaks become spaces) | `@Size(200)`, no line break: 400 on `title` | toast |
 | Log meeting's "Which meeting" | the person's calendar meetings already begun, newest first, or Outside Uncava | `meetingId` on a meeting note only, this person's, already begun: 400 on `meetingId` | toast |
 | Note scope, a position's drawer | This position (default) or All positions, sent as `allPositions` | `allPositions: true` files it about no position; `projectId` not read; neither read on an edit; both together 400 | toast |

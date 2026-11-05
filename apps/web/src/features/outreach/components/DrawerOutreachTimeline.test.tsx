@@ -183,6 +183,36 @@ describe("DrawerOutreachTimeline", () => {
     expect(screen.queryByText("Call number 0.")).not.toBeInTheDocument();
   });
 
+  it("opens as far as a linked note on a call further down, and Show less still folds it", async () => {
+    const recent = Array.from({ length: 6 }, (_, index) =>
+      noteEvent(aNote(`n-${index}`, "call", `Call number ${index}.`, `2026-11-0${index + 1}T10:00:00Z`)),
+    );
+    const second = { ...aNote("n-hand-2", "meeting", "Second write-up.", "2026-10-29T09:00:00Z"), meetingId: "mt1" };
+    const first = { ...aNote("n-hand-1", "meeting", "First write-up.", "2026-10-28T18:00:00Z"), meetingId: "mt1" };
+    vi.mocked(conversationApi.getConversation).mockResolvedValue({
+      events: [...recent, noteEvent(second), noteEvent(first)],
+      truncated: false,
+    } as unknown as Conversation);
+    Element.prototype.scrollIntoView = vi.fn();
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ToastProvider>
+          <DrawerOutreachTimeline
+            projectId="p1"
+            candidateId="c1"
+            firstName="Sarah"
+            past={{ meetings: [screeningCall], noteIdOf: () => null, menuOf: () => null }}
+            focus={{ noteId: "n-hand-2", at: 1 }}
+          />
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("Second write-up.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Show less" }));
+    expect(screen.queryByText("Second write-up.")).not.toBeInTheDocument();
+  });
+
   it("narrows to one kind from the filter", async () => {
     renderTimeline();
     await screen.findByRole("article", { name: "Opportunity in Riyadh" });

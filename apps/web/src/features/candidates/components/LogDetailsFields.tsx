@@ -31,6 +31,13 @@ export function logPayloadOf(details: LogDetails) {
   return { occurredAt: Number.isNaN(at.getTime()) ? null : at.toISOString(), title, meetingId: null };
 }
 
+/** A log dated later than now, which the server refuses: a meeting chosen from the calendar brings its own past time. */
+export function isLogInFuture(details: LogDetails, kind: PersonNoteKind): boolean {
+  if (kind === "meeting" && details.meetingId) return false;
+  const at = new Date(`${details.date}T${details.time || "00:00"}`);
+  return !Number.isNaN(at.getTime()) && at.getTime() > Date.now();
+}
+
 /**
  * The log dialog's first row: for a meeting, which calendar meeting it was (or one outside Uncava); then when it
  * happened — now unless changed — and an optional title. A chosen meeting brings its own date and time.
@@ -50,6 +57,7 @@ export function LogDetailsFields({
   const shownDate = chosen ? localDateOf(new Date(chosen.startsAt)) : value.date;
   const shownTime = chosen ? localTimeOf(new Date(chosen.startsAt)) : value.time;
   const today = localDateOf(new Date());
+  const inFuture = isLogInFuture(value, kind);
   return (
     <div className="mb-2 flex flex-col gap-2">
       {kind === "meeting" && (
@@ -89,6 +97,8 @@ export function LogDetailsFields({
                 <Input
                   type="time"
                   aria-label="Time it happened"
+                  invalid={inFuture}
+                  aria-describedby={inFuture ? "log-when-error" : undefined}
                   value={shownTime}
                   onChange={(event) => onChange({ ...value, time: event.target.value })}
                   className="w-[130px]"
@@ -97,6 +107,11 @@ export function LogDetailsFields({
             )}
           </div>
         </div>
+        {inFuture && (
+          <p id="log-when-error" role="alert" className="order-last w-full text-meta text-u-offlimits">
+            This time hasn&rsquo;t happened yet.
+          </p>
+        )}
         <label className="flex min-w-[160px] flex-1 flex-col gap-1">
           <span className="text-meta font-medium text-u-text3">Title (optional)</span>
           <Input

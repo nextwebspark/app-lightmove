@@ -9,7 +9,8 @@ import { LOGGED_CONTACT_KINDS } from "../../candidates/lib/noteKinds";
 
 /**
  * Log call, Log LinkedIn and Add note — the executive drawer's Outreach, the conversation dock, the Pipeline card: the
- * drawer's own note composer as a dialog, with room to write. A call or a LinkedIn message switches between the two.
+ * drawer's own note composer as a dialog, with room to write. A log switches between a call, a meeting and a
+ * LinkedIn message.
  */
 export function NoteComposerModal({
   projectId,
@@ -31,21 +32,20 @@ export function NoteComposerModal({
   onSaved: () => void;
 }) {
   const dialog = useComposerDialog();
-  const logsContactAtAll = kind !== null && LOGGED_CONTACT_KINDS.includes(kind);
+  const logsContact = kind !== null && LOGGED_CONTACT_KINDS.includes(kind);
   const meetings = useQuery({
     queryKey: meetingApi.MEETINGS_KEY(projectId, candidateId),
     queryFn: ({ signal }) => meetingApi.getMeetings(projectId, candidateId, signal),
-    enabled: logsContactAtAll,
+    enabled: logsContact,
   });
   const now = Date.now();
   const pastMeetings = [...(meetings.data?.upcoming ?? []), ...(meetings.data?.past ?? [])]
     .filter((meeting) => Date.parse(meeting.startsAt) <= now)
     .sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt));
-  // Log call and Log LinkedIn are one dialog switching between the two; the title follows the switch.
+  // The title follows the dialog's Call | Meeting | LinkedIn switch.
   const [chosen, setChosen] = useState<{ for: PersonNoteKind | null; kind: PersonNoteKind | null }>({ for: kind, kind });
   if (chosen.for !== kind) setChosen({ for: kind, kind });
   const current = chosen.kind;
-  const logsContact = kind !== null && LOGGED_CONTACT_KINDS.includes(kind);
   const title =
     current === "call"
       ? `Log a call with ${fullName}`

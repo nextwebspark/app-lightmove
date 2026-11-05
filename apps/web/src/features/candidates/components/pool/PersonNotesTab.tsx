@@ -66,6 +66,9 @@ export function PersonNotesTab({
   const canSave = body.length > 0 && !tooLong && !saving.isPending;
   const save = () => canSave && saving.mutate({ nextActionOn: null });
   const list = (notes.data ?? []).filter((note) => !isContactNote(note.kind));
+  // Logged calls, meetings and LinkedIn messages stay readable here whatever positions the person is on: one about a
+  // position they have left, or written before Notes became plain, shows on no position's Outreach.
+  const contactLog = (notes.data ?? []).filter((note) => isContactNote(note.kind));
 
   return (
     <div className="flex flex-col gap-3">
@@ -127,8 +130,8 @@ export function PersonNotesTab({
         />
       </div>
       <p className="text-[12px] text-u-text3">
-        Shared with your whole team, on every position this person is in. Client contacts never see notes. Calls,
-        LinkedIn messages and meeting notes are in each position&rsquo;s Outreach.
+        Shared with your whole team, on every position this person is in. Client contacts never see notes. A call,
+        meeting or LinkedIn message is logged from a position&rsquo;s Outreach, and listed here too.
       </p>
 
       {notes.isError ? (
@@ -145,6 +148,16 @@ export function PersonNotesTab({
             <PoolNoteCard key={note.id} personId={person.personId} note={note} />
           ))}
         </ul>
+      )}
+      {contactLog.length > 0 && (
+        <section aria-label="Calls, meetings and LinkedIn" className="flex flex-col gap-2 border-t border-u-border pt-3">
+          <h3 className="type-micro-label text-u-text3">Calls, meetings and LinkedIn</h3>
+          <ul className="flex flex-col gap-2">
+            {contactLog.map((note) => (
+              <PoolNoteCard key={note.id} personId={person.personId} note={note} />
+            ))}
+          </ul>
+        </section>
       )}
       <NextActionModal target={nextAction} onClose={() => setNextAction(null)} />
     </div>

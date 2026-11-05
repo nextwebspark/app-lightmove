@@ -479,6 +479,30 @@ describe("a log: a call, a LinkedIn message or a meeting", () => {
     );
   });
 
+  it("keeps the meeting it opened on for the next note, after saving one", async () => {
+    renderLog({ initialKind: "meeting", pastMeetings: [coffee], presetMeetingId: "mt1" });
+    await screen.findByRole("button", { name: "Mention a teammate" });
+
+    await typeInto(composer(), "First thought.");
+    await userEvent.click(screen.getByRole("button", { name: "Save note" }));
+    await waitFor(() => expect(personCrmApi.writePersonNote).toHaveBeenCalled());
+
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Which meeting" })).toHaveValue("mt1"));
+  });
+
+  it("says a time later today has not happened yet, and does not save it", async () => {
+    renderLog({ initialKind: "call" });
+    await screen.findByRole("button", { name: "Mention a teammate" });
+
+    const time = screen.getByLabelText("Time it happened");
+    await userEvent.clear(time);
+    await userEvent.type(time, "18:00");
+    await typeInto(composer(), "Spoke later.");
+
+    expect(screen.getByRole("alert")).toHaveTextContent("This time hasn’t happened yet.");
+    expect(screen.getByRole("button", { name: "Save note" })).toBeDisabled();
+  });
+
   it("takes a date and time for a meeting held outside Uncava", async () => {
     renderLog({ initialKind: "meeting", pastMeetings: [coffee] });
     await screen.findByRole("button", { name: "Mention a teammate" });

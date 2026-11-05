@@ -63,9 +63,14 @@ export function DrawerOutreachTimeline({
 
   const lines = conversation.data ? linesOf(conversation.data.events, past) : [];
   const visible = lines.filter((line) => matches(line, filter));
-  const focusIndex = focus ? visible.findIndex((line) => noteIdOfLine(line) === focus.noteId) : -1;
-  const limit = Math.max(shown, focusIndex + 1);
-  const page = visible.slice(0, limit);
+  const focusIndex = focus ? visible.findIndex((line) => noteIdsOfLine(line).includes(focus.noteId)) : -1;
+  // A link to a note further down opens the timeline as far as that note, once; Show less still folds it after.
+  const [widenedFor, setWidenedFor] = useState<number | null>(null);
+  if (focus && focusIndex >= 0 && widenedFor !== focus.at) {
+    setWidenedFor(focus.at);
+    if (focusIndex >= shown) setShown(focusIndex + 1);
+  }
+  const page = visible.slice(0, shown);
 
   useEffect(() => {
     if (!focus || !conversation.isSuccess) return;
@@ -110,7 +115,7 @@ export function DrawerOutreachTimeline({
                 firstName={firstName}
                 viewerUserId={user?.id ?? null}
                 callMenu={line.kind === "call" ? past.menuOf(line.meeting) : null}
-                flashAt={focus && noteIdOfLine(line) === focus.noteId ? focus.at : null}
+                flashAt={focus && noteIdsOfLine(line).includes(focus.noteId) ? focus.at : null}
               />
             ))}
           </ol>
@@ -365,10 +370,13 @@ function EmptyTimeline({ firstName, filtered }: { firstName: string; filtered: b
   );
 }
 
-function noteIdOfLine(line: Line): string | null {
-  if (line.kind === "note") return line.note.id;
-  if (line.kind === "call") return line.recordedNote?.id ?? line.loggedNotes[0]?.id ?? null;
-  return null;
+/** Every note a line holds: a logged note, or a call's Notetaker notes and those written up about it by hand. */
+function noteIdsOfLine(line: Line): string[] {
+  if (line.kind === "note") return [line.note.id];
+  if (line.kind === "call") {
+    return [...(line.recordedNote ? [line.recordedNote.id] : []), ...line.loggedNotes.map((note) => note.id)];
+  }
+  return [];
 }
 
 function glyphOf(line: Exclude<Line, { kind: "note" }>): string {

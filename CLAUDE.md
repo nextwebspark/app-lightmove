@@ -81,7 +81,9 @@ as the change (`PersonActivityRecorder`); the security audit trail is written as
 **Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`) — the Notes tabs write and list plain notes alone, a call, a LinkedIn message or a meeting written up without the Notetaker is logged from Outreach (`NoteComposerModal`, its Call | LinkedIn | Meeting switch) with when it happened — now unless changed, never in the
 future — and an optional title (V185 `occurred_at`, `title`), a meeting's tied to the past calendar meeting it was about
 (`meeting_id`, bare; `PastMeetingLookup`, answered by `outreach`) or held outside Uncava, every past call's ⋯ offering
-Log meeting notes; the conversation and the timeline order them by when they happened. A recorded call's is the Notetaker's, and an email is never logged by hand: a new `email` note is refused (`VALIDATION_FAILED`), an old one keeps its kind through an edit, and a note sent with no kind is plain —, authored,
+Log meeting notes; the conversation and the timeline order them by when they happened. An edit keeps what it leaves
+out and lets go of what the note's kind cannot carry (`LoggedNoteRules`), and the Candidates page's Notes tab lists
+the logs in a group of their own, so one about a position the person has left is never lost. A recorded call's is the Notetaker's, and an email is never logged by hand: a new `email` note is refused (`VALIDATION_FAILED`), an old one keeps its kind through an edit, and a note sent with no kind is plain —, authored,
 timed and **staff-only** — `CandidateResponse`, the talent map and the report carry none, because a client
 seat reads all three (decision D1). A note is about one position or about the person: read from a position,
 only that position's and the person's ("All positions") show, and another position's is not found
