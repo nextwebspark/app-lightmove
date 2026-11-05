@@ -7,8 +7,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.ApolloUniverse;
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
@@ -28,7 +30,7 @@ import tools.jackson.databind.JsonNode;
 @IntegrationTest
 class StageLinesIntegrationTest extends FlowTestSupport {
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
     @Autowired TriageCompanyWriter writer;
 
     @BeforeEach
@@ -339,8 +341,9 @@ class StageLinesIntegrationTest extends FlowTestSupport {
 
     private void seed(String projectId, CompanyRow... rows) {
         UUID actor = db.queryForObject("SELECT id FROM app_lm_user WHERE email = ?", UUID.class, "alok@" + domain);
-        writer.insertIgnoringHeld(UUID.fromString(projectId), actor, List.of(rows), TriageCompanySource.STRATEGY,
-                TriageCompanyStatus.IN_UNIVERSE, null);
+        TestWorkspaceScopes.inProjectsWorkspace(db, UUID.fromString(projectId), () -> writer.insertIgnoringHeld(
+                UUID.fromString(projectId), actor, List.of(rows), TriageCompanySource.STRATEGY,
+                TriageCompanyStatus.IN_UNIVERSE, null));
     }
 
     private static CompanyRow row(String apolloAccountId, String companyName, String country) {

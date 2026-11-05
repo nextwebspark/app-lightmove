@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.service.CandidateService;
@@ -75,14 +76,15 @@ class CompanyRemovalIntegrationTest extends PipelineFlowSupport {
         CountDownLatch mayCommit = new CountDownLatch(1);
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
-            Future<?> mapping = pool.submit(() -> transactions.executeWithoutResult(status -> {
-                candidates.add(userId, UUID.fromString(workspaceId), UUID.fromString(projectId),
-                        SaveCandidateRequest.ofFoundExecutive(UUID.fromString(companyId), "Wei Ling Tan", null, null,
-                                null, null), null);
-                candidateRows.flush();
-                mapped.countDown();
-                awaitQuietly(mayCommit);
-            }));
+            Future<?> mapping = pool.submit(() -> TestWorkspaceScopes.inProjectsWorkspace(db,
+                    UUID.fromString(projectId), () -> transactions.executeWithoutResult(status -> {
+                        candidates.add(userId, UUID.fromString(workspaceId), UUID.fromString(projectId),
+                                SaveCandidateRequest.ofFoundExecutive(UUID.fromString(companyId), "Wei Ling Tan", null,
+                                        null, null, null), null);
+                        candidateRows.flush();
+                        mapped.countDown();
+                        awaitQuietly(mayCommit);
+                    })));
             assertThat(mapped.await(10, TimeUnit.SECONDS)).isTrue();
             Future<MvcResult> removal = pool.submit(() -> removeCompany(projectId, companyId, 0));
             Thread.sleep(300);

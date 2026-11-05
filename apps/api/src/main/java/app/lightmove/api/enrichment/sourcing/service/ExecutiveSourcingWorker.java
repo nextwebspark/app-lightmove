@@ -7,7 +7,7 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.ExecutiveSourcingSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.logging.service.MdcPropagation;
+import app.lightmove.api.core.concurrent.service.ThreadContextPropagation;
 import app.lightmove.api.enrichment.sourcing.constant.SourcingOutcome;
 import app.lightmove.api.enrichment.sourcing.constant.TitleCheck;
 import app.lightmove.api.enrichment.sourcing.model.CompanyOutcome;
@@ -110,7 +110,7 @@ class ExecutiveSourcingWorker {
         try (ExecutorService pool = Executors.newFixedThreadPool(settings.parallelism(),
                 Thread.ofVirtual().factory())) {
             started.getCompanies().forEach(company ->
-                    pool.execute(MdcPropagation.wrap(() -> run.record(company, run.searchOne(company)))));
+                    pool.execute(ThreadContextPropagation.wrap(() -> run.record(company, run.searchOne(company)))));
         }
 
         store.finish(request.runId()).ifPresent(finished -> {

@@ -1,7 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ICONS } from "../../../components/layout/Icon";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
+import { NoteKindMark } from "./NoteKindMark";
 import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/ActionMenu";
 import { DrawerFooter } from "../../../components/ui/Drawer";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
@@ -14,7 +15,8 @@ import { formatInstantDate } from "../../../lib/format";
 import { toBrowsableUrl } from "../../../lib/url";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import { ContactDetailsDialog } from "../../contactlookup/components/ContactDetailsDialog";
-import { ContactPanel } from "../../contactlookup/components/ContactPanel";
+import { ContactsReadDialog } from "../../contactlookup/components/ContactsReadDialog";
+import { ContactChannels } from "../../contactlookup/components/ContactPanel";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import { CandidateOutreachButtons } from "../../outreach/components/CandidateOutreachButtons";
@@ -23,6 +25,9 @@ import { useMailbox } from "../../outreach/lib/useMailbox";
 import { OutreachSection } from "../../outreach/components/OutreachSection";
 import { CopilotTab } from "../../outreach/components/copilot/CopilotTab";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
+import { DrawerOutreachTimeline } from "../../outreach/components/DrawerOutreachTimeline";
+import { NoteComposerModal } from "../../outreach/components/NoteComposerModal";
+import * as runApi from "../../outreach/api/runApi";
 import { liveCopilotOf, useNotetaker } from "../../outreach/lib/useNotetaker";
 import { NextActionModal, type NextActionTarget } from "../../tasks/components/NextActionModal";
 import { NextActionBar, NextActionSquare } from "../../tasks/components/NextActionBar";
@@ -35,16 +40,19 @@ import type {
   Candidate,
   PersonDocument,
   PersonDocumentVersion,
+  PersonNoteKind,
   SaveCandidatePayload,
 } from "../api/types";
 import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
 import { candidateGenderLabel } from "../lib/candidateVocabulary";
 import { statusStyle } from "../lib/pipelineStatus";
 import { careerSummary } from "../lib/careerTimeline";
+import { compensationFoldSummary, documentsFoldSummary, scrollToFold } from "../lib/profileFolds";
 import { useBackgroundSuggestion } from "../lib/useBackgroundSuggestion";
 import { useScorecardEditor, type ScorecardEditor } from "../lib/useScorecardEditor";
 import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
 import { usePersonDocuments } from "../lib/usePersonDocuments";
+import { isContactNote } from "../lib/noteKinds";
 import { useProfileSections, type ProfileSection } from "../lib/useProfileSections";
 import {
   POSITION_CLIENT_TABS,
@@ -85,13 +93,15 @@ import { NationalitySuggestion } from "./NationalitySuggestion";
 import { focusNoteComposer } from "../../notes/lib/focusNoteComposer";
 
 /** What a pencil opens: one of the form's sections, or the mandate's own columns. */
-type EditableSection = Exclude<ProfileFormSection, "note"> | "contact" | "columns";
+type EditableSection = Exclude<ProfileFormSection, "note"> | "columns";
 
 const PROFILE_TAB_FOLDS: readonly ProfileSection[] = [
   "summary",
   "experience",
   "education",
   "background",
+  "compensation",
+  "documents",
   "columns",
 ];
 
@@ -114,8 +124,10 @@ const TAB_ID_PREFIX = "executive-drawer";
  * <p><b>Status stays live beside the name</b>, with a write of its own — it is the field that changes
  * most often and the one a researcher came to flick while reading.
  *
- * <p>Tabs follow `Position.dc.html` — Background, Compensation, Notes, Assessment, Contact, Documents and Activity
- * (the person's other positions are the Candidates page's alone, to keep this bar short); a client seat gets Background and Contact alone. Every panel stays mounted while hidden, so a half-typed note
+ * <p>Tabs follow `Position.dc.html` — Profile, Notes, Assessment, Outreach and Activity, grouped by what the
+ * consultant is doing; Profile holds the background, the package and the documents as folds, Summary alone open on
+ * arrival. The contacts are the header's, on every tab. A client seat gets Profile alone, and no tab bar. Every panel
+ * stays mounted while hidden, so a half-typed note
  * survives a look at another tab. The next action is not a tab's: it is the header's bar, on view
  * whichever tab is open, since the moment to set one is while writing the note or the email.
  *
@@ -152,7 +164,7 @@ export function CandidateProfile({
   onOpenCompany?: () => void;
   /** A note to open on — a bell row's: the Records tab, scrolled to it. */
   focusNoteId?: string | null;
-  /** A part of the Contact tab to open on — a bell row's reply, bounce or booked call: unfolded, scrolled to. */
+  /** A part of the Outreach tab to open on — a bell row's reply, bounce or booked call: unfolded, scrolled to. */
   focusSection?: DrawerSection | null;
   focusTab?: DrawerTab | null;
 }) {
@@ -172,8 +184,8 @@ export function CandidateProfile({
   const [tab, setTab] = useState<DrawerTab>(() =>
     canWrite && focusNoteId
       ? "notes"
-      : canWrite && focusSection
-        ? "contact"
+      : canWrite && isOutreachPart(focusSection)
+        ? "outreach"
         : focusTab && offeredTabs.includes(focusTab)
           ? focusTab
           : rememberedDrawerTab("position", offeredTabs),
@@ -191,13 +203,19 @@ export function CandidateProfile({
     }
   }
   const [sectionFocus, setSectionFocus] = useState<SectionFocus | null>(() =>
-    canWrite && focusSection ? { section: focusSection, at: Date.now() } : null,
+    canWrite && isOutreachPart(focusSection) ? { section: focusSection, at: Date.now() } : null,
+  );
+  const contactWindowFor = (section: DrawerSection | null) =>
+    section === "contact" ? (canWrite ? "details" : "read") : null;
+  const [contactWindow, setContactWindow] = useState<"details" | "read" | "email" | null>(() =>
+    contactWindowFor(focusSection),
   );
   const [linkedSection, setLinkedSection] = useState(focusSection);
   if (focusSection !== linkedSection) {
     setLinkedSection(focusSection);
-    if (canWrite && focusSection) {
-      setTab("contact");
+    if (focusSection === "contact") setContactWindow(contactWindowFor(focusSection));
+    else if (canWrite && isOutreachPart(focusSection)) {
+      setTab("outreach");
       setSectionFocus({ section: focusSection, at: (sectionFocus?.at ?? 0) + 1 });
     }
   }
@@ -205,12 +223,30 @@ export function CandidateProfile({
   useEffect(() => {
     if (!sectionFocus) return;
     if (sectionFocus.section !== "meetings") unfoldSections(true, [sectionFocus.section]);
-    return scrollToContactSection(sectionFocus.section);
+    return scrollToOutreachSection(sectionFocus.section);
   }, [sectionFocus, unfoldSections]);
   const showNote = (noteId: string) => {
     setTab("notes");
     setNoteFocus({ noteId, at: Date.now() });
   };
+  // A call, LinkedIn or meeting note is Outreach's: a link to one lands there, the note brought into view.
+  const [outreachNoteFocus, setOutreachNoteFocus] = useState<NoteFocus | null>(null);
+  const showContactNote = useCallback((focus: NoteFocus) => {
+    setTab("outreach");
+    setNoteFocus(null);
+    setOutreachNoteFocus(focus);
+  }, []);
+  const [log, setLog] = useState<{ kind: PersonNoteKind; meetingId: string | null } | null>(null);
+  const candidateOutreach = useQuery({
+    queryKey: runApi.CANDIDATE_OUTREACH_KEY(projectId, candidate.id),
+    queryFn: ({ signal }) => runApi.getCandidateOutreach(projectId, candidate.id, signal),
+    enabled: canWrite,
+  });
+  const liveRun = candidateOutreach.data?.run;
+  const sequenceHeldBy =
+    liveRun && (liveRun.status === "ACTIVE" || liveRun.status === "SCHEDULED")
+      ? `Already in ${liveRun.sequenceName ?? "a sequence"}`
+      : null;
   // The Copilot tab is offered while a call's live copilot runs, and kept while it is open after the copilot stops, so
   // nobody is moved off what they were reading; it is never opened for them.
   const notetaker = useNotetaker(projectId, candidate.id, canWrite);
@@ -227,16 +263,19 @@ export function CandidateProfile({
     rememberDrawerTab("position", next);
     setHeldCopilotId(next === "copilot" ? liveCopilotId : null);
     if (next !== "notes") setNoteFocus(null);
-    if (next !== "contact") setSectionFocus(null);
+    if (next !== "outreach") {
+      setSectionFocus(null);
+      setOutreachNoteFocus(null);
+    }
     if (body.current) body.current.scrollTop = 0;
   };
   const showCopilot = (recordingId: string) => {
     chooseTab("copilot");
     setHeldCopilotId(recordingId);
   };
-  /** The phone footer's Call: the Contact tab, scrolled to Meetings and its Book a call. */
+  /** The footer's Book a call: the Outreach tab, scrolled to its calls and its Book a call. */
   const startCall = () => {
-    chooseTab("contact");
+    chooseTab("outreach");
     setSectionFocus({ section: "meetings", at: Date.now() });
   };
   /** The footer's Add note: the Notes tab, its composer ready to type in. */
@@ -249,7 +288,6 @@ export function CandidateProfile({
     queryFn: ({ signal }) => poolApi.getPerson(candidate.personId, signal),
     enabled: canWrite,
   });
-  const [contactWindow, setContactWindow] = useState<"details" | "email" | null>(null);
   const mailbox = useMailbox(canWrite);
   const doNotContact = Boolean(personRecord.data?.doNotContact);
   const emailWritable = canWrite && mailbox.data?.offered === true && !doNotContact;
@@ -308,8 +346,16 @@ export function CandidateProfile({
   const startEditing = (section: EditableSection) => {
     setEditing(section);
     if (section !== "identity") return;
-    chooseTab("background");
+    chooseTab("profile");
     if (body.current) body.current.scrollTop = 0;
+  };
+
+  /** An Activity line's way back: its tab, and on Profile the fold that holds the thing, unfolded and in view. */
+  const openTab = (next: DrawerTab, fold?: ProfileSection) => {
+    chooseTab(next);
+    if (!fold) return;
+    sections.setAll(true, [fold]);
+    scrollToFold(fold);
   };
 
   const pencil = (section: EditableSection, label: string, isBusy = false) =>
@@ -390,7 +436,7 @@ export function CandidateProfile({
           title={candidate.title}
           contacts={candidate.contacts}
           onEditContacts={canWrite ? () => setContactWindow("details") : undefined}
-          onShowContacts={drawerTabs.includes("contact") ? () => chooseTab("contact") : undefined}
+          onShowContacts={() => setContactWindow("read")}
           onWriteEmail={emailWritable ? () => setContactWindow("email") : undefined}
           emailNote={doNotContact ? "Do not contact" : undefined}
           employer={{ name: candidate.companyName, logoUrl: candidate.companyLogoUrl, onOpen: onOpenCompany }}
@@ -408,6 +454,13 @@ export function CandidateProfile({
             onClose={() => setContactWindow(null)}
           />
         )}
+        {contactWindow === "read" && (
+          <ContactsReadDialog
+            fullName={candidate.fullName}
+            contacts={candidate.contacts}
+            onClose={() => setContactWindow(null)}
+          />
+        )}
         {contactWindow === "email" && (
           <EmailComposerDialog
             projectId={projectId}
@@ -416,20 +469,21 @@ export function CandidateProfile({
             onClose={() => setContactWindow(null)}
           />
         )}
-        <DrawerTabBar
-          idPrefix={TAB_ID_PREFIX}
-          tabs={drawerTabs}
-          value={tab}
-          onChange={chooseTab}
-          counts={{
-            notes: notes.data?.length,
-            documents: documents.documents.data?.length,
-          }}
-        />
+        {drawerTabs.length > 1 ? (
+          <DrawerTabBar
+            idPrefix={TAB_ID_PREFIX}
+            tabs={drawerTabs}
+            value={tab}
+            onChange={chooseTab}
+            counts={{ notes: notes.data?.filter((note) => !isContactNote(note.kind)).length }}
+          />
+        ) : (
+          <div className="h-3.5" />
+        )}
       </div>
 
       <div ref={body} className="min-h-0 flex-1 overflow-y-auto px-5">
-        <div {...panelProps("background")}>
+        <div {...panelProps("profile")}>
           {editing === "identity" ? (
             <section className="border-b border-u-border py-4">
               <SectionHeading>Details</SectionHeading>
@@ -606,6 +660,61 @@ export function CandidateProfile({
             )}
           </CollapsibleSection>
 
+          {canWrite && (
+            <CollapsibleSection
+              {...foldProps("compensation")}
+              title="Compensation"
+              summary={compensationFoldSummary(compensation)}
+              action={pencil("compensation", "compensation")}
+            >
+              {editing === "compensation" ? (
+                <SectionEditor
+                  section="compensation"
+                  candidate={candidate}
+                  save={replace}
+                  doneMessage="Compensation updated"
+                  onDone={finish}
+                  onCancel={() => setEditing(null)}
+                  footer="plain"
+                >
+                  {(form) => (
+                    <CompensationFields
+                      register={form.register}
+                      errors={form.formState.errors}
+                      control={form.control}
+                      watch={form.watch}
+                      setValue={form.setValue}
+                      briefCurrency={briefCurrency}
+                      storedCurrency={compensation.currency}
+                      storedNoticePeriod={compensation.noticePeriod}
+                    />
+                  )}
+                </SectionEditor>
+              ) : (
+                <CompensationSummary compensation={compensation} />
+              )}
+            </CollapsibleSection>
+          )}
+
+          {canWrite && (
+            <CollapsibleSection
+              id="documents"
+              open={sections.isOpen("documents")}
+              onToggle={() => sections.toggle("documents")}
+              title="Documents"
+              count={documents.documents.data?.length || undefined}
+              summary={documentsFoldSummary(documents.documents.data)}
+            >
+              <DocumentsPanel
+                scope={documentScope}
+                documents={documents}
+                personName={firstName}
+                compact
+                onPreview={openPreview}
+              />
+            </CollapsibleSection>
+          )}
+
           {visibleColumns.length > 0 && (
             <CollapsibleSection
               {...foldProps("columns")}
@@ -657,92 +766,96 @@ export function CandidateProfile({
           </p>
         </div>
 
-        {canWrite && (
-          <div {...panelProps("compensation")}>
-            <section className="py-4">
-              <div className="flex items-center justify-between gap-2">
-                <SectionHeading>Compensation</SectionHeading>
-                {pencil("compensation", "compensation")}
-              </div>
-              {editing === "compensation" ? (
-                <SectionEditor
-                  section="compensation"
-                  candidate={candidate}
-                  save={replace}
-                  doneMessage="Compensation updated"
-                  onDone={finish}
-                  onCancel={() => setEditing(null)}
-                  footer="plain"
-                >
-                  {(form) => (
-                    <CompensationFields
-                      register={form.register}
-                      errors={form.formState.errors}
-                      control={form.control}
-                      watch={form.watch}
-                      setValue={form.setValue}
-                      briefCurrency={briefCurrency}
-                      storedCurrency={compensation.currency}
-                      storedNoticePeriod={compensation.noticePeriod}
+        <div {...panelProps("outreach")}>
+          {canWrite && (
+            <>
+              <MeetingsSection
+                projectId={projectId}
+                candidateId={candidate.id}
+                personId={candidate.personId}
+                fullName={candidate.fullName}
+                candidateStatus={candidate.status}
+                emails={candidate.contacts.emails}
+                onShowCopilot={showCopilot}
+                onLogMeeting={(meeting) => setLog({ kind: "meeting", meetingId: meeting.id })}
+                actions={(bookCall) => (
+                  <>
+                    <CandidateOutreachButtons
+                      projectId={projectId}
+                      candidateId={candidate.id}
+                      fullName={candidate.fullName}
+                      sequenceHeldBy={sequenceHeldBy}
+                      between={
+                        <>
+                          <Button variant="secondary" size="xs" onClick={() => setLog({ kind: "call", meetingId: null })}>
+                            <Icon d={ICONS.phoneCall} size={13} />
+                            Log call
+                          </Button>
+                          <Button variant="secondary" size="xs" onClick={() => setLog({ kind: "meeting", meetingId: null })}>
+                            <Icon d={ICONS.video} size={13} />
+                            Log meeting
+                          </Button>
+                          <Button variant="secondary" size="xs" onClick={() => setLog({ kind: "linkedin", meetingId: null })}>
+                            <NoteKindMark kind="linkedin" size={13} />
+                            Log LinkedIn
+                          </Button>
+                          {bookCall && (
+                            <Button variant="secondary" size="xs" onClick={bookCall}>
+                              <Icon d={ICONS.calendar} size={13} />
+                              Book a call
+                            </Button>
+                          )}
+                        </>
+                      }
                     />
-                  )}
-                </SectionEditor>
-              ) : (
-                <CompensationSummary compensation={compensation} />
-              )}
-            </section>
-          </div>
-        )}
-
-        <div {...panelProps("contact")}>
-          {canWrite && (
-            <div className="flex justify-end pt-3 empty:hidden">
-              <CandidateOutreachButtons projectId={projectId} candidateId={candidate.id} fullName={candidate.fullName} />
-            </div>
-          )}
-          <CollapsibleSection
-            {...foldProps("contact")}
-            title="Contact"
-            summary={joinFacts([
-              candidate.contacts.emails[0]?.address,
-              candidate.contacts.phones[0]?.number,
-              candidate.contacts.emails.some((entry) => entry.verified) ? "verified" : null,
-            ])}
-            action={pencil("contact", "contact")}
-          >
-            <ContactPanel
-              projectId={projectId}
-              candidate={candidate}
-              canWrite={canWrite}
-              lookupOffered={lookupConfig.data?.enabled === true}
-              onSaved={onSaved}
-              editing={editing === "contact"}
-              onDone={finish}
-              onCancel={() => setEditing(null)}
-            />
-          </CollapsibleSection>
-          {canWrite && (
-            <OutreachSection
-              projectId={projectId}
-              candidateId={candidate.id}
-              firstName={firstName}
-              candidateStatus={candidate.status}
-              open={sections.isOpen("outreach")}
-              onToggle={() => sections.toggle("outreach")}
-              isSettingStatus={changeStatus.isPending}
-              onSetStatus={(status) => changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })}
-            />
-          )}
-          {canWrite && (
-            <MeetingsSection
-              projectId={projectId}
-              candidateId={candidate.id}
-              personId={candidate.personId}
-              fullName={candidate.fullName}
-              candidateStatus={candidate.status}
-              emails={candidate.contacts.emails}
-              onShowCopilot={showCopilot}
-            />
+                    <OutreachSection
+                      projectId={projectId}
+                      candidateId={candidate.id}
+                      firstName={firstName}
+                      candidateStatus={candidate.status}
+                      open={sections.isOpen("outreach")}
+                      onToggle={() => sections.toggle("outreach")}
+                      isSettingStatus={changeStatus.isPending}
+                      onSetStatus={(status) =>
+                        changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
+                      }
+                    />
+                  </>
+                )}
+                renderPast={(past) => (
+                  <DrawerOutreachTimeline
+                    projectId={projectId}
+                    candidateId={candidate.id}
+                    firstName={firstName}
+                    past={past}
+                    focus={outreachNoteFocus}
+                  />
+                )}
+              />
+              <section aria-label="Contact" className="border-t border-u-border py-4">
+                <div className="mb-1 flex items-center gap-2">
+                  <h3 className="type-micro-label text-u-text3">Contact</h3>
+                  <button
+                    type="button"
+                    aria-label="Edit contact details"
+                    onClick={() => setContactWindow("details")}
+                    className="ms-auto grid size-7 place-items-center rounded-u-control border border-u-border-strong text-u-text2 hover:text-u-text"
+                  >
+                    <Icon d={ICONS.pencil} size={13} />
+                  </button>
+                </div>
+                <ContactChannels contacts={candidate.contacts} />
+              </section>
+              <NoteComposerModal
+                projectId={projectId}
+                candidateId={candidate.id}
+                fullName={candidate.fullName}
+                kind={log?.kind ?? null}
+                presetMeetingId={log?.meetingId ?? null}
+                onClose={() => setLog(null)}
+                onSaved={() => setLog(null)}
+              />
+            </>
           )}
         </div>
 
@@ -764,19 +877,12 @@ export function CandidateProfile({
                 projectId={projectId}
                 candidateId={candidate.id}
                 focus={noteFocus}
+                onShowContactNote={showContactNote}
                 onSetNextAction={(note) => openNextAction(null, note)}
               />
             </div>
             <div {...panelProps("assessment")}>
               {assessmentOpened && <AssessmentTab projectId={projectId} editor={scorecard} />}
-            </div>
-            <div {...panelProps("documents")} className="py-4">
-              <DocumentsPanel
-                scope={documentScope}
-                documents={documents}
-                personName={firstName}
-                onPreview={openPreview}
-              />
             </div>
             <div {...panelProps("activity")} className="pb-4">
               <ActivityTimeline
@@ -790,7 +896,8 @@ export function CandidateProfile({
                 documents={documents.documents.data}
                 destinations={{
                   onShowNote: showNote,
-                  onOpenTab: chooseTab,
+                  onOpenTab: openTab,
+                  onShowContacts: () => setContactWindow(canWrite ? "details" : "read"),
                   onOpenMeetings: startCall,
                   onOpenTask: (taskId) => openNextAction(taskId),
                   onPreviewDocument: openPreview,
@@ -1012,8 +1119,14 @@ function countOf(count: number, noun: string): string {
   return `${count} ${count === 1 ? noun : `${noun}s`}`;
 }
 
+type OutreachPart = Exclude<DrawerSection, "contact">;
+
+function isOutreachPart(section: DrawerSection | null): section is OutreachPart {
+  return section === "outreach" || section === "meetings";
+}
+
 interface SectionFocus {
-  section: DrawerSection;
+  section: OutreachPart;
   /** Bumped by every new link, so the same section asked for twice scrolls twice. */
   at: number;
 }
@@ -1022,22 +1135,21 @@ const SECTION_FIND_ATTEMPTS = 20;
 const SECTION_FIND_INTERVAL_MS = 100;
 
 /**
- * Scrolls the Contact tab to a section once it is drawn. Outreach and Meetings draw only after their own reads land,
- * so it looks again for a couple of seconds; an Outreach with no run draws nothing, and the Contact fold stands in.
+ * Scrolls the Outreach tab to a section once it is drawn. Outreach and Meetings draw only after their own reads land,
+ * so it looks again for a couple of seconds; an Outreach with no run draws nothing, and the tab stays at its top.
  */
-function scrollToContactSection(section: DrawerSection): () => void {
+function scrollToOutreachSection(section: OutreachPart): () => void {
   let attempts = 0;
   let timer: number | undefined;
   const find = () => {
-    const panel = document.getElementById(`${TAB_ID_PREFIX}-panel-contact`);
+    const panel = document.getElementById(`${TAB_ID_PREFIX}-panel-outreach`);
     const target =
       section === "meetings"
-        ? panel?.querySelector('section[aria-label="Meetings"]')
+        ? (panel?.querySelector('[data-outreach-part="meetings"]') ??
+          panel?.querySelector('section[aria-label="Calls and contact"]'))
         : panel?.querySelector(`#${section}-section-body`)?.closest("section");
-    const lastTry = ++attempts >= SECTION_FIND_ATTEMPTS;
-    const shown = target ?? (lastTry ? panel?.querySelector("#contact-section-body")?.closest("section") : null);
-    if (shown) shown.scrollIntoView({ block: "start", behavior: "smooth" });
-    else if (!lastTry) timer = window.setTimeout(find, SECTION_FIND_INTERVAL_MS);
+    if (target) target.scrollIntoView({ block: "start", behavior: "smooth" });
+    else if (++attempts < SECTION_FIND_ATTEMPTS) timer = window.setTimeout(find, SECTION_FIND_INTERVAL_MS);
   };
   timer = window.setTimeout(find, 0);
   return () => window.clearTimeout(timer);

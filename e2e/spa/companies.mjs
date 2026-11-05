@@ -3,7 +3,7 @@
 // 17-companies-executives.sh proves the HTTP contract. This proves what only the screen can: that the
 // three stage pages draw exactly their stage's rows, that a row is a person at a company (two people,
 // two lines; nobody, one line with its "Add executive" slot), that the drawers' forms reach the
-// database, that the Contact section's pencil saves a verified address the grid then lists, that a
+// database, that the header's contact details save a verified address the grid then lists, that a
 // custom column added from the Advanced menu becomes a header, that the header filters narrow the grid the
 // way the API narrows it, and that a pure client seat reads the grid with nothing to write with.
 //
@@ -24,7 +24,7 @@ const SHOTS = join(HERE, "screenshots");
 const API_LOG = join(RUN_DIR, "api.log");
 const WEB = process.env.WEB ?? "http://localhost:5173";
 const API = process.env.API ?? "http://localhost:8080/api/v1";
-const PG_URL = process.env.PG_URL ?? "postgresql://lm_app:lm@localhost:55432/lightmove";
+const PG_URL = process.env.PG_URL ?? "postgresql://postgres:lm@localhost:55432/lightmove";
 const PASSWORD = "Passw0rd123";
 const DOMAIN = "nextwebspark.com";
 const STAMP = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
@@ -184,7 +184,6 @@ const sidebarCount = async (label) => {
   const match = text.trim().match(/(\d+)\s*$/);
   return match ? Number(match[1]) : null;
 };
-const toolbarButton = (name) => page.getByRole("button", { name, exact: true });
 const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const advancedButton = () => page.getByRole("button", { name: /^Advanced/ });
 /** Opens the toolbar's Advanced ▾ (clicking it while open would close it) and answers one of its items. */
@@ -286,7 +285,8 @@ try {
   const FALCON = `Falcon Freight ${TAG}`;
   await step("C2.1", "Add company → 'Not here' → the by-hand form files a new company", async () => {
     await openStage("universe");
-    await toolbarButton("Add company").click();
+    await page.getByRole("button", { name: /^Create/ }).click();
+    await page.getByRole("menuitem", { name: /^Add company/ }).click();
     const drawer = dialog("Add a company");
     await drawer.getByPlaceholder("Search the market…").fill(FALCON);
     await drawer.getByRole("button", { name: /^Not here — add/ }).click();
@@ -352,17 +352,19 @@ try {
   });
 
   // ---------------------------------------------------------------- C5 contact section
-  section("C5  the Contact section's pencil");
+  section("C5  the header's contact details window");
   const NADIA_EMAIL = `nadia.${TAG}@beacon.example`;
-  await step("C5.1", "the pencil makes the lines editable; an added, verified email saves", async () => {
-    // The drawer stays open on the profile it just made.
+  await step("C5.1", "the header's Add email opens the contact details; an added, verified email saves", async () => {
+    // The drawer stays open on the profile it just made; its contacts are the header's, on every tab.
     const drawer = page.getByRole("dialog").last();
-    await drawer.getByRole("button", { name: "Edit contact" }).click();
     await drawer.getByRole("button", { name: "Add email" }).click();
-    await drawer.getByRole("textbox", { name: "Email 1", exact: true }).fill(NADIA_EMAIL);
-    await drawer.getByRole("switch", { name: "Email 1 verified" }).click();
+    const details = page.getByRole("dialog", { name: /Contact details/ });
+    await details.waitFor();
+    await details.getByRole("button", { name: "Add email" }).click();
+    await details.getByRole("textbox", { name: "Email 1", exact: true }).fill(NADIA_EMAIL);
+    await details.getByRole("switch", { name: "Email 1 verified" }).click();
     await shot("contact-editing");
-    await drawer.getByRole("button", { name: "Save", exact: true }).click();
+    await details.getByRole("button", { name: "Save", exact: true }).click();
     await page.waitForTimeout(1500);
     check("C5.1", "the pencil makes the lines editable; an added, verified email saves to the ledger", "EMAIL|true|MANUAL|Verified by researcher",
       sql(`SELECT k.channel || '|' || k.verified || '|' || k.source || '|' || coalesce(k.status, '') FROM app_lm_person_contact k
@@ -387,7 +389,7 @@ try {
     const removable = (await page.getByRole("button", { name: /^Remove .* from this mandate$/ }).count()) > 0;
     check("C6.1", "a row offers its removal and no Shortlist or Decline", "0/true", `${moves}/${removable}`);
   });
-  await step("C6.2", "the drawer's Decline moves a company with nobody at it onto Declined, asking nothing", async () => {
+  await step("C6.2", "the drawer's Decline asks first, counting who goes, then moves the company and Nadia onto Declined", async () => {
     await page.getByRole("button", { name: `Open ${BEACON}` }).first().click();
     const drawer = dialog(BEACON);
     await drawer.waitFor();
@@ -396,11 +398,17 @@ try {
       await drawer.getByRole("button", { name: "Remove", exact: true }).count(),
       await drawer.getByRole("button", { name: "Shortlist", exact: true }).count(),
     ].join("/"));
+    // C4 mapped Nadia at Beacon, so the decline is asked first and names how many go with it.
     await drawer.getByRole("button", { name: "Decline", exact: true }).click();
+    const confirm = page.getByRole("dialog", { name: `Decline ${BEACON}?` });
+    await confirm.waitFor();
+    check("C6.2c", "…the confirmation counts the one executive declined with it", true,
+      (await confirm.innerText()).includes(`${BEACON} has 1 executive`));
+    await confirm.getByRole("button", { name: "Decline company" }).click();
     const gone = await until(async () => (await companyNames()).includes(BEACON), false);
-    check("C6.2", "the drawer's Decline moves a company with nobody at it onto Declined, asking nothing", false, gone);
-    check("C6.2b", "…and the database agrees", "DECLINED",
-      sql(`SELECT status FROM app_lm_project_triage_company WHERE id = '${BEACON_ID}'`));
+    check("C6.2", "the drawer's Decline moves the company off In universe once confirmed", false, gone);
+    check("C6.2b", "…and the database agrees, Nadia declined with it", "DECLINED|DECLINED",
+      `${sql(`SELECT status FROM app_lm_project_triage_company WHERE id = '${BEACON_ID}'`)}|${sql(`SELECT triage_status FROM app_lm_project_candidate WHERE id = '${nadiaId}'`)}`);
   });
   await step("C6.3", "Declined offers Back to universe alone, which brings the company back", async () => {
     await openStage("declined");
@@ -409,8 +417,8 @@ try {
     check("C6.3a", "the Declined grid offers no removal", 0, removable);
     await page.getByRole("button", { name: `Back to universe: ${BEACON}` }).first().click();
     const gone = await until(async () => (await companyNames()).includes(BEACON), false);
-    check("C6.3", "Declined offers Back to universe alone, which brings the company back", "false/IN_UNIVERSE",
-      `${gone}/${sql(`SELECT status FROM app_lm_project_triage_company WHERE id = '${BEACON_ID}'`)}`);
+    check("C6.3", "Declined offers Back to universe alone, which brings the company and Nadia back", "false/IN_UNIVERSE/IN_UNIVERSE",
+      `${gone}/${sql(`SELECT status FROM app_lm_project_triage_company WHERE id = '${BEACON_ID}'`)}/${sql(`SELECT triage_status FROM app_lm_project_candidate WHERE id = '${nadiaId}'`)}`);
   });
 
   // ---------------------------------------------------------------- C7 custom columns
@@ -453,11 +461,13 @@ try {
   await step("C8.1", "the Company header filter narrows to the matching company, and the count agrees", async () => {
     await openStage("universe");
     await headerFilter("Company", "Filter by company name", "Atlas");
-    const api = await triagePage("inUniverse", "&q=Atlas");
-    const want = sortedJoin(api.companies.map((company) => company.companyName));
+    const listed = await triagePage("inUniverse", "&q=Atlas");
+    const want = sortedJoin(listed.companies.map((company) => company.companyName));
     check("C8.1", "the Company header filter narrows to the matching company", want, await until(async () => sortedJoin(await companyNames()), want));
+    // The grid pages over lines — a person at a company — so its total is the lines read's, not the company list's.
+    const lines = (await api(`${TRIAGE}/lines?status=inUniverse&size=100&q=Atlas`, { token })).body;
     const bar = await page.locator("text=/\\d+\\s*-\\s*\\d+ of \\d+|0 results/").first().innerText().catch(() => "");
-    check("C8.1b", "…and the pager's total is the API's totalCount", api.totalCount, bar.includes(" of ") ? Number(bar.split(" of ")[1].replace(/\D/g, "")) : bar);
+    check("C8.1b", "…and the pager's total is the lines read's totalCount", lines.totalCount, bar.includes(" of ") ? Number(bar.split(" of ")[1].replace(/\D/g, "")) : bar);
     await shot("filter-company");
   });
   await step("C8.2", "the Executive header filter keeps only the matching person, not their colleague", async () => {

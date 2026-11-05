@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.positiontemplate.dto.PositionTemplateSummary;
@@ -37,7 +38,7 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
                {"panel":"BEHAVIOURAL","name":"Judgement under Pressure","description":"Decides with the money moving","weight":100}]}
             """;
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
     @Autowired PositionTemplateService templateService;
 
     @Test

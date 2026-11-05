@@ -7,10 +7,10 @@ import app.lightmove.api.candidate.model.ResearchedFiling;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.concurrent.service.ThreadContextPropagation;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.logging.service.MdcPropagation;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.service.BrightDataPersonProfiles;
 import app.lightmove.api.enrichment.candidate.service.CachedPeopleStore;
@@ -146,7 +146,7 @@ public class SuggestionFiling {
      */
     private Map<String, EnrichedProfile> researchOf(Map<String, OnFile> read) {
         try (ExecutorService downloads = Executors.newVirtualThreadPerTaskExecutor()) {
-            Executor withRequestContext = MdcPropagation.propagating(downloads);
+            Executor withRequestContext = ThreadContextPropagation.propagating(downloads);
             Map<String, CompletableFuture<EnrichedProfile>> pending = new LinkedHashMap<>();
             read.forEach((slug, onFile) -> pending.put(slug, CompletableFuture.supplyAsync(() ->
                     BrightDataPersonProfiles.toEnrichedProfile(onFile.person(), vendorOf(onFile.provider()))
