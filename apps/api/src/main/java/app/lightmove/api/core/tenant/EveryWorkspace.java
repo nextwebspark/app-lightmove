@@ -1,6 +1,8 @@
 package app.lightmove.api.core.tenant;
 
+import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.ToIntFunction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,9 +22,20 @@ public class EveryWorkspace {
     private final JdbcTemplate jdbc;
 
     /** Every workspace: {@code app_lm_workspace} carries no policy, so the list is always whole. */
+    public List<UUID> ids() {
+        return jdbc.queryForList("SELECT id FROM app_lm_workspace ORDER BY id", UUID.class);
+    }
+
+    public void forEach(Consumer<UUID> perWorkspace) {
+        sum(workspaceId -> {
+            perWorkspace.accept(workspaceId);
+            return 0;
+        });
+    }
+
     public int sum(ToIntFunction<UUID> perWorkspace) {
         int total = 0;
-        for (UUID workspaceId : jdbc.queryForList("SELECT id FROM app_lm_workspace ORDER BY id", UUID.class)) {
+        for (UUID workspaceId : ids()) {
             try {
                 total += WorkspaceScope.call(workspaceId, () -> perWorkspace.applyAsInt(workspaceId));
             } catch (RuntimeException failed) {
