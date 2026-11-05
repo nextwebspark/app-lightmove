@@ -1,6 +1,8 @@
 package app.lightmove.api.position.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.position.dto.ApplyPositionTemplateRequest;
@@ -38,12 +40,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class PositionController {
 
     private final PositionService position;
+    private final ProjectAccess projectAccess;
 
+    /** A client seat reads the brief with the mandate's internal context withheld, and never drafts one. */
     @GetMapping
     @RequireProjectPermission(ProjectAction.WORK_VIEW)
     public PositionResponse get(@AuthenticationPrincipal AuthPrincipal principal,
                                 @PathVariable UUID projectId) {
-        return position.get(principal.requireWorkspaceId(), projectId);
+        UUID workspaceId = principal.requireWorkspaceId();
+        return projectAccess.audienceOf(principal.userId(), workspaceId, projectId) == ProjectAudience.CLIENT
+                ? position.clientViewOf(workspaceId, projectId)
+                : position.get(workspaceId, projectId);
     }
 
     /** Deliberately not {@link #get}, which drafts and saves a missing brief on every page view. */

@@ -54,6 +54,18 @@ class PositionResponseAssembler {
                 documentOf(position));
     }
 
+    /**
+     * The brief as a client seat reads it. The mandate context is the firm's own reading of why the role exists —
+     * its business driver, priorities and internal notes — so a hiring manager gets none of it.
+     */
+    PositionResponse assembleForClient(PositionBrief brief) {
+        PositionResponse staffView = assemble(brief);
+        MandateContextDto context = staffView.context();
+        return new PositionResponse(staffView.details(),
+                new MandateContextDto(context.mandateReason(), null, List.of(), context.confidential(), null, Map.of()),
+                staffView.reporting(), staffView.compensation(), staffView.assessment(), staffView.publication(), staffView.document());
+    }
+
     private PositionDetailsDto detailsOf(PositionBrief brief) {
         Position position = brief.position();
         return new PositionDetailsDto(
