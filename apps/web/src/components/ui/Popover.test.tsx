@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Modal } from "./Modal";
 import { Popover } from "./Popover";
 
 const stubTriggerRect = (left: number, top = 0) =>
@@ -24,6 +25,26 @@ const stubViewportHeight = (height: number) =>
 
 describe("Popover", () => {
   afterEach(() => vi.restoreAllMocks());
+
+  it("closes on Escape alone when opened inside a dialog, leaving the dialog open", async () => {
+    const onClose = vi.fn();
+    render(
+      <Modal open onClose={onClose} title="Log call">
+        <Popover label="When it happened" trigger={() => "Today"}>
+          {() => <div>quick times</div>}
+        </Popover>
+      </Modal>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "When it happened" }));
+    expect(screen.getByText("quick times")).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByText("quick times")).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledOnce();
+  });
 
   it("keeps a left-aligned panel on screen even when the trigger sits near a narrow viewport's left edge", async () => {
     // Narrower than width (190) + EDGE_GAP (12): the panel's own width no longer fits between the

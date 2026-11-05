@@ -81,6 +81,72 @@ class InvitationAdminIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an invitation whose email the provider refused is saved, said so, and cleared by a resend that goes")
+    void refusedEmailIsSaidNotSwallowed() throws Exception {
+        String alok = "alok@" + domain;
+        String omar = "omar@" + domain;
+        String lina = "lina@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Bounce Firm");
+        String admin = login(alok);
+        email.refuseDeliveryTo(omar);
+
+        mvc.perform(post("/api/v1/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"%s","role":"MEMBER"},{"email":"%s","role":"MEMBER"}]
+                                """.formatted(omar, lina)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sent").value(2))
+                .andExpect(jsonPath("$.notDelivered.length()").value(1))
+                .andExpect(jsonPath("$.notDelivered[0]").value(omar));
+        assertThat(email.subjectsFor(lina)).hasSize(1);
+
+        JsonNode listed = body(mvc.perform(get("/api/v1/invitations").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn());
+        String omarInvitation = null;
+        for (JsonNode invitation : listed) {
+            boolean isOmar = invitation.get("email").asText().equals(omar);
+            assertThat(invitation.get("emailFailed").asBoolean()).isEqualTo(isOmar);
+            if (isOmar) {
+                omarInvitation = invitation.get("id").asText();
+            }
+        }
+
+        MvcResult refusedAgain = mvc.perform(post("/api/v1/invitations/" + omarInvitation + "/resend")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadGateway())
+                .andReturn();
+        assertThat(codeOf(refusedAgain)).isEqualTo("INVITATION_EMAIL_NOT_SENT");
+
+        email.clear();
+        mvc.perform(post("/api/v1/invitations/" + omarInvitation + "/resend")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/invitations").header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$[?(@.email == '%s')].emailFailed".formatted(omar)).value(false));
+    }
+
+    @Test
+    @DisplayName("more than fifty addresses in one request is refused, and nobody is invited")
+    void oneRequestInvitesAtMostFifty() throws Exception {
+        createWorkspace(verifiedUser("Alok Kumar", "alok@" + domain), "Batch Firm");
+        String admin = login("alok@" + domain);
+        StringBuilder batch = new StringBuilder("[");
+        for (int index = 0; index < 51; index++) {
+            batch.append(index == 0 ? "" : ",").append("{\"email\":\"person%d@%s\"}".formatted(index, domain));
+        }
+        email.clear();
+
+        mvc.perform(post("/api/v1/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(batch.append("]").toString()))
+                .andExpect(status().isBadRequest());
+        assertThat(email.sent()).isEmpty();
+    }
+
+    @Test
     @DisplayName("revoking an invitation kills the emailed link")
     void revokeKillsTheLink() throws Exception {
         String alok = "alok@" + domain;

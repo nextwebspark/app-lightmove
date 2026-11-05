@@ -11,6 +11,7 @@ import { SeatCostNotice } from "../../billing/components/SeatCostNotice";
 import { seatChargeOf } from "../../billing/lib/billingView";
 import { useBillingRead } from "../../billing/lib/useBilling";
 import * as workspaceApi from "../api/workspaceApi";
+import { undeliveredInvitationsMessage } from "../lib/invitationDelivery";
 
 /** Invite one colleague from the Team screen. Batch rows live in signup step 3. */
 export function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -27,10 +28,14 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
 
   const send = useMutation({
     mutationFn: () => workspaceApi.invite([{ email: email.trim(), role }]),
-    onSuccess: ({ sent }) => {
+    onSuccess: ({ sent, notDelivered }) => {
       void queryClient.invalidateQueries({ queryKey: workspaceApi.INVITATIONS_KEY });
       void queryClient.invalidateQueries({ queryKey: workspaceApi.PENDING_INVITATIONS_COUNT_KEY });
-      toast(sent > 0 ? "Invitation sent" : "They're already a member");
+      if (notDelivered.length > 0) {
+        toast.error(undeliveredInvitationsMessage(notDelivered));
+      } else {
+        toast(sent > 0 ? "Invitation sent" : "They're already a member");
+      }
       onClose();
     },
     onError: (mutationError) => {

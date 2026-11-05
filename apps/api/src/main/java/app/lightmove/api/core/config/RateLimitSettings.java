@@ -42,6 +42,13 @@ public record RateLimitSettings(
         @DefaultValue("300") int avatarChangesPerHourPerIp,
 
         /**
+         * Invitation emails, counted per address sent to: a firm onboarding its team fits inside the workspace's
+         * budget, and the recipient's, kept across every workspace, stops trial workspaces flooding one inbox.
+         */
+        @DefaultValue("100") int invitationsPerHourPerWorkspace,
+        @DefaultValue("5") int invitationsPerHourPerRecipient,
+
+        /**
          * Opening a stored profile photo: public, and a roster draws dozens at once from one office IP. Each answer is
          * cached for a year, so a browser asks once per picture; this is a brake on scanning tokens, nothing more.
          */

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { AuthProvider } from "../AuthProvider";
@@ -149,6 +149,58 @@ describe("AcceptInvitePage", () => {
 
     const cta = await screen.findByRole("link", { name: /log in to accept/i });
     expect(cta).toHaveAttribute("href", "/login");
+  });
+
+  it("brings an already-registered invitee back to the invitation, or to a reset when they never set a password", async () => {
+    vi.mocked(authApi.acceptInvitationSignup).mockRejectedValue(
+      new ApiRequestError({
+        code: "EMAIL_ALREADY_REGISTERED",
+        detail: "An account with this email already exists",
+        status: 409,
+        correlationId: "x",
+      }),
+    );
+    function StateProbe({ name }: { name: string }) {
+      const location = useLocation();
+      return <p>{`${name} ${JSON.stringify(location.state)}`}</p>;
+    }
+    const renderWithDestinations = () =>
+      render(
+        <MemoryRouter initialEntries={["/auth/accept-invite?token=abc123"]}>
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+            <AuthProvider>
+              <Routes>
+                <Route path="/auth/accept-invite" element={<AcceptInvitePage />} />
+                <Route path="/login" element={<StateProbe name="login" />} />
+                <Route path="/forgot-password" element={<StateProbe name="reset" />} />
+              </Routes>
+            </AuthProvider>
+          </QueryClientProvider>
+        </MemoryRouter>,
+      );
+    const submitAsRegistered = async () => {
+      const user = userEvent.setup();
+      await screen.findByText(/Join NextWebSpark Search/);
+      await user.type(screen.getByPlaceholderText("Yara Haddad"), "Sara Al-Mansour");
+      await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
+      await user.type(screen.getByPlaceholderText("Re-enter your password"), "secret123");
+      await user.click(screen.getByRole("button", { name: /accept & join/i }));
+      return user;
+    };
+
+    const first = renderWithDestinations();
+    let user = await submitAsRegistered();
+    await user.click(await screen.findByRole("link", { name: /log in to accept/i }));
+    // The page itself, never its token: signed in, /me lists the invitation there.
+    expect(
+      await screen.findByText(`login {"email":"sara@nextwebspark.com","from":"/auth/accept-invite"}`),
+    ).toBeInTheDocument();
+    first.unmount();
+
+    renderWithDestinations();
+    user = await submitAsRegistered();
+    await user.click(await screen.findByRole("link", { name: /reset it/i }));
+    expect(await screen.findByText(`reset {"email":"sara@nextwebspark.com"}`)).toBeInTheDocument();
   });
 
   it("refuses to let a forwarded invitation admit somebody else", async () => {

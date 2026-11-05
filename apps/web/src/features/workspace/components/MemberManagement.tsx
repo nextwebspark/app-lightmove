@@ -241,8 +241,12 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
         <div className="mt-0.5 font-mono text-meta text-u-text3">
           {titleCase(invitation.role)} · first sent {sentAgo(invitation.createdAt)}
           {invitation.invitedByName && ` by ${invitation.invitedByName}`}
-          {new Date(invitation.expiresAt).getTime() < Date.now() && (
-            <span className="text-u-offlimits"> · link expired, resend to renew</span>
+          {invitation.emailFailed ? (
+            <span className="text-u-offlimits"> · email didn't send, resend it</span>
+          ) : (
+            new Date(invitation.expiresAt).getTime() < Date.now() && (
+              <span className="text-u-offlimits"> · link expired, resend to renew</span>
+            )
           )}
         </div>
       </div>

@@ -99,6 +99,20 @@ describe("InviteModal — where a refusal is reported", () => {
     expect(field).not.toHaveAttribute("aria-invalid", "true");
   });
 
+  it("says when the invitation is saved but its email did not go out", async () => {
+    vi.mocked(workspaceApi.invite).mockResolvedValue({ sent: 1, notDelivered: ["sara@firm.com"] });
+    const user = userEvent.setup();
+    open();
+
+    await user.type(screen.getByPlaceholderText("colleague@firm.com"), "sara@firm.com");
+    await user.click(screen.getByRole("button", { name: "Send invite" }));
+
+    expect(
+      await screen.findByText("The invitation to sara@firm.com is saved, but the email didn't go out. Resend it from Team."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Invitation sent")).not.toBeInTheDocument();
+  });
+
   // FormError is still the right home for a failure no single input owns.
   it("keeps a form-level refusal in the banner", async () => {
     vi.mocked(workspaceApi.invite).mockRejectedValue(
@@ -126,7 +140,7 @@ describe("InviteModal — what a staff seat costs", () => {
 
   it("asks before a staff invitation adds a paid seat, then sends it", async () => {
     vi.mocked(billingApi.getBilling).mockResolvedValue(aCardBilling());
-    vi.mocked(workspaceApi.invite).mockResolvedValue({ sent: 1 });
+    vi.mocked(workspaceApi.invite).mockResolvedValue({ sent: 1, notDelivered: [] });
     const user = userEvent.setup();
     open();
     await screen.findByText(/Adds AED 499 a month/);
