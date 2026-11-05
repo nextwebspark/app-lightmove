@@ -479,8 +479,7 @@ try {
   });
   // A regression guard for the race the UAT pass found: the filter autosaves on a 700ms debounce and
   // the save endpoint reads the *stored* filter, so a save inside that window records the scope as it
-  // was BEFORE the last chip click — silently, and for every later load of that search. `addAll`
-  // already flushes the autosave for exactly this reason; saving a search does not.
+  // was BEFORE the last chip click — silently, and for every later load of that search.
   await step("S8.2", "a search saved right after a chip click captures that chip", async () => {
     await freshFilter();
     await openAccordion("Location");
@@ -580,18 +579,6 @@ try {
     check("S9.1g", "and nothing is filed anywhere but in universe", "3/0",
       `${filedAt("IN_UNIVERSE")}/${filedAt("SHORTLISTED") + filedAt("DECLINED")}`);
     await shot("bulk-filed");
-  });
-  await step("S9.2", "'Add all' over the whole universe is refused, out loud", async () => {
-    await freshFilter();
-    await page.getByRole("button", { name: /Add all to Universe/ }).click();
-    await page.waitForTimeout(2000);
-    const toast = await toastText();
-    note("S9.2a", `toast: "${toast}"`);
-    // The refusal carries both numbers, which is why errorCodes.ts deliberately has no fixed sentence
-    // for BULK_ADD_SCOPE_TOO_LARGE — a generic message here would lose them.
-    check("S9.2", "the server's own refusal reaches the user with its numbers intact", true,
-      /at a time/.test(toast) && new RegExp(UNIVERSE.toLocaleString("en-US")).test(toast));
-    await shot("add-all-refused");
   });
   await step("S9.3", "the Triage screen shows what Strategy filed", async () => {
     await page.goto(`${WEB}/projects/${PROJECT}/companies/universe`);

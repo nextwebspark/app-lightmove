@@ -13,17 +13,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingRemoteImageFetcher;
+import app.lightmove.api.StubPictureFetcher;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
-import java.nio.charset.StandardCharsets;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
@@ -41,7 +41,7 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
     private static final String LOGO_URL = "https://logos.example/al-futtaim.png";
 
     @Autowired private JdbcTemplate jdbc;
-    @Autowired private RecordingRemoteImageFetcher remoteImages;
+    @Autowired private StubPictureFetcher pictures;
 
     private String yara;
     private String workspaceId;
@@ -85,17 +85,25 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("an uploaded photo is re-encoded and served publicly by its token, and kept for emails after removal")
-    void photoUploadAndServe() throws Exception {
-        JsonNode uploaded = body(mvc.perform(multipart("/api/v1/me/photo")
-                        .file(new MockMultipartFile("file", "me.png", "image/png", picture(900, 600)))
-                        .header("Authorization", "Bearer " + yara))
-                .andExpect(status().isOk()).andReturn());
-        String avatarUrl = uploaded.get("avatarUrl").asText();
-        assertThat(uploaded.get("photoUploaded").asBoolean()).isTrue();
-        assertThat(avatarUrl).contains("/api/v1/email-images/");
-        String path = avatarUrl.substring(avatarUrl.indexOf("/api/v1/email-images/"));
+    @DisplayName("the profile photo is copied once for email, served publicly by its own token, and kept after removal")
+    void photoFromAvatar() throws Exception {
+        String photo = """
+                {"name":"With photo","layout":"PHOTO","showPhoto":true}""";
+        assertThat(previewHtml(photo)).doesNotContain("<img");
 
+        mvc.perform(multipart(HttpMethod.PUT, "/api/v1/auth/me/avatar")
+                        .file(new MockMultipartFile("file", "me.png", "image/png", picture(900, 600)))
+                        .header("Authorization", "Bearer " + yara).with(csrf()))
+                .andExpect(status().isOk());
+        String first = previewHtml(photo);
+        String second = previewHtml(photo);
+        assertThat(first).contains("/api/v1/email-images/").doesNotContain("/api/v1/avatars/");
+        assertThat(second).isEqualTo(first);
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_email_image where kind = 'PHOTO'", Integer.class))
+                .isOne();
+
+        String path = first.substring(first.indexOf("/api/v1/email-images/"), first.indexOf('"',
+                first.indexOf("/api/v1/email-images/")));
         MvcResult served = mvc.perform(get(path))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/jpeg"))
@@ -106,21 +114,14 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
                 .getWidth()).isEqualTo(192);
         mvc.perform(get("/api/v1/email-images/not-a-token")).andExpect(status().isNotFound());
 
-        mvc.perform(multipart("/api/v1/me/photo")
-                        .file(new MockMultipartFile("file", "me.svg", "image/svg+xml",
-                                "<svg onload=alert(1)/>".getBytes(StandardCharsets.UTF_8)))
-                        .header("Authorization", "Bearer " + yara))
-                .andExpect(status().isBadRequest());
-
-        JsonNode removed = body(mvc.perform(delete("/api/v1/me/photo").header("Authorization", "Bearer " + yara))
-                .andExpect(status().isOk()).andReturn());
-        assertThat(removed.get("photoUploaded").asBoolean()).isFalse();
-        assertThat(removed.get("avatarUrl").isNull()).isTrue();
+        mvc.perform(delete("/api/v1/auth/me/avatar").header("Authorization", "Bearer " + yara).with(csrf()))
+                .andExpect(status().isOk());
+        assertThat(previewHtml(photo)).doesNotContain("<img");
         mvc.perform(get(path)).andExpect(status().isOk());
     }
 
     @Test
-    @DisplayName("the first signature is the default, a new default takes the mark, and deleting it hands it on")
+    @DisplayName("the first signature is the default, only another takes the mark, and deleting it hands it on")
     void oneDefault() throws Exception {
         String formal = create(yara, signature("Formal", "PHOTO_LOGO", false)).get("id").asText();
         String shortReply = create(yara, signature("Short reply", "MINIMAL", true)).get("id").asText();
@@ -136,6 +137,11 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
 
         mvc.perform(put(SIGNATURES + "/" + third).header("Authorization", "Bearer " + yara)
                         .contentType(MediaType.APPLICATION_JSON).content(signature("Third, renamed", "CLASSIC", true)))
+                .andExpect(status().isOk());
+        assertThat(namesWithDefault(list(yara))).containsExactly("Formal", "Short reply", "Third, renamed*");
+
+        mvc.perform(put(SIGNATURES + "/" + third).header("Authorization", "Bearer " + yara)
+                        .contentType(MediaType.APPLICATION_JSON).content(signature("Third, renamed", "CLASSIC", false)))
                 .andExpect(status().isOk());
         assertThat(namesWithDefault(list(yara))).containsExactly("Formal", "Short reply", "Third, renamed*");
 
@@ -198,13 +204,18 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
                                 {"name":"Formal","layout":"CLASSIC","fields":{"website":"javascript:alert(1)"}}"""))
                 .andExpect(status().isBadRequest()).andReturn();
         assertThat(body(badSite).get("fieldErrors").has("fields.website")).isTrue();
+        MvcResult badPhone = mvc.perform(post(SIGNATURES + "/preview").header("Authorization", "Bearer " + yara)
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"name":"Formal","layout":"CLASSIC","fields":{"phone":"call me on 4 5 6"}}"""))
+                .andExpect(status().isBadRequest()).andReturn();
+        assertThat(body(badPhone).get("fieldErrors").has("fields.phone")).isTrue();
     }
 
     @Test
     @DisplayName("the workspace logo is copied in once and served from Uncava, never linked where it was published")
     void logoCopiedOnce() throws Exception {
         jdbc.update("update app_lm_workspace set logo_url = ? where id = ?::uuid", LOGO_URL, workspaceId);
-        remoteImages.answer(LOGO_URL, picture(800, 200), "image/png");
+        pictures.answer(LOGO_URL, picture(800, 200));
 
         String first = body(mvc.perform(post(SIGNATURES + "/preview").header("Authorization", "Bearer " + yara)
                         .contentType(MediaType.APPLICATION_JSON).content("""
@@ -215,13 +226,19 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
                 {"name":"Banner","layout":"LOGO_BANNER","showLogo":true}""");
         list(yara);
 
-        assertThat(remoteImages.timesAsked(LOGO_URL)).isOne();
+        assertThat(pictures.fetched()).containsOnlyOnce(LOGO_URL);
         assertThat(list(yara).get("sources").get("logoAvailable").asBoolean()).isTrue();
     }
 
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder profile(String token, String json) {
         return patch("/api/v1/auth/me").header("Authorization", "Bearer " + token).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content(json);
+    }
+
+    private String previewHtml(String json) throws Exception {
+        return body(mvc.perform(post(SIGNATURES + "/preview").header("Authorization", "Bearer " + yara)
+                        .contentType(MediaType.APPLICATION_JSON).content(json))
+                .andExpect(status().isOk()).andReturn()).get("html").asText();
     }
 
     private JsonNode create(String token, String json) throws Exception {

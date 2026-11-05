@@ -29,7 +29,7 @@ const userAt = (emailVerified: boolean): User => ({
   fullName: "Alok Kumar",
   title: null,
   avatarUrl: null,
-  photoUploaded: false,
+  avatarEditable: true,
   phone: null,
   linkedinUrl: null,
   emailVerified,

@@ -19,8 +19,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * What a consultant's signatures follow: their profile, their workspace, the mailbox they send from and their booking
- * link. The logo is copied in from where the workspace's is published the first time it is asked for, outside any
- * transaction, since that is a call to another host.
+ * link. The photo and logo are copied into the email-image store the first time a signature draws them, outside any
+ * transaction, since the logo is a call to another host.
  */
 @Service
 @RequiredArgsConstructor
@@ -33,22 +33,38 @@ public class SignatureSenders {
     private final EmailImageService emailImages;
     private final TransactionTemplate transactions;
 
+    /** For a preview or the list: nothing is written, and a booking link not yet claimed is drawn as a stand-in. */
+    public SignatureSender forPreview(UUID userId, UUID workspaceId, SignatureNeeds needs) {
+        return senderOf(userId, workspaceId, needs, false);
+    }
+
     /**
-     * @param withLogo     whether a signature drawn now shows the logo; only then is it fetched
-     * @param withBooking  whether it shows the booking link; only then is the consultant given a slug, if they have none
+     * For an email about to go: a booking link is claimed and the page behind it made first, so a failure at the mail
+     * service is the consultant's to see, never an executive's.
      */
-    public SignatureSender senderOf(UUID userId, UUID workspaceId, boolean withLogo, boolean withBooking) {
-        SignatureLogo logo = withLogo ? logoOf(workspaceId) : null;
+    public SignatureSender forSending(UUID userId, UUID workspaceId, SignatureNeeds needs) {
+        if (needs.booking()) {
+            boolean offered = transactions.execute(status -> mailboxes.findByWorkspaceIdAndUserId(workspaceId, userId)
+                    .filter(MailboxConnection::canSend).map(bookingPages::isOfferedFor).orElse(false));
+            if (offered) {
+                bookingPages.prepare(userId, workspaceId);
+            }
+        }
+        return senderOf(userId, workspaceId, needs, true);
+    }
+
+    private SignatureSender senderOf(UUID userId, UUID workspaceId, SignatureNeeds needs, boolean sending) {
+        String photoUrl = needs.photo() ? emailImages.photoOf(userId).map(emailImages::urlOf).orElse(null) : null;
+        SignatureLogo logo = needs.logo() ? logoOf(workspaceId) : null;
         return transactions.execute(status -> {
             User user = users.findById(userId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
             Workspace workspace = workspaces.findById(workspaceId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
             MailboxConnection mailbox = mailboxes.findByWorkspaceIdAndUserId(workspaceId, userId).orElse(null);
-            String bookingLink = withBooking && mailbox != null && bookingPages.isOfferedFor(mailbox)
-                    ? bookingPages.claimLink(mailbox) : null;
+            String bookingLink = needs.booking() && mailbox != null && bookingPages.isOfferedFor(mailbox)
+                    ? (sending ? bookingPages.linkOf(mailbox) : bookingPages.previewLinkOf(mailbox)) : null;
             return new SignatureSender(user.getFullName(), user.getTitle(), user.getPhone(), user.getLinkedinUrl(),
                     mailbox == null ? user.getEmail() : mailbox.getAddress(), workspace.getName(),
-                    workspace.getCompanyWebsite(), user.hasUploadedPhoto() ? user.getAvatarUrl() : null, logo,
-                    bookingLink);
+                    workspace.getCompanyWebsite(), photoUrl, logo, bookingLink);
         });
     }
 
@@ -59,7 +75,7 @@ public class SignatureSenders {
             MailboxConnection mailbox = mailboxes.findByWorkspaceIdAndUserId(workspaceId, userId).orElse(null);
             return new SignatureSourcesResponse(user.getFullName(), user.getTitle(), user.getPhone(),
                     user.getLinkedinUrl(), mailbox == null ? user.getEmail() : mailbox.getAddress(), workspace.getName(),
-                    workspace.getCompanyWebsite(), user.hasUploadedPhoto() ? user.getAvatarUrl() : null,
+                    workspace.getCompanyWebsite(), user.getAvatarUrl(),
                     workspace.getLogoUrl() != null && !workspace.getLogoUrl().isBlank(),
                     mailbox != null && bookingPages.isOfferedFor(mailbox));
         });

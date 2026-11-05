@@ -3,6 +3,7 @@ package app.lightmove.api.outreach.repository;
 import app.lightmove.api.outreach.constant.CredentialMode;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.model.WorkspaceMailIntegration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -39,4 +40,50 @@ public interface WorkspaceMailIntegrationRepository extends JpaRepository<Worksp
 
     /** Whether any workspace brought its own app at {@code provider}: the one finder across workspaces, a yes/no. */
     boolean existsByProviderAndMode(IntegrationProvider provider, CredentialMode mode);
+
+    /**
+     * The provider's answer about the keys it was shown, kept only while the row still holds that secret. A bulk
+     * update, so an admin's save racing it never fails on the row's version.
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+            update WorkspaceMailIntegration i set i.keysCheckedAt = :checkedAt, i.keysRefusedWith = :refusedWith
+            where i.id = :id and i.clientSecretEncrypted = :checkedSecret
+            """)
+    int recordKeysCheck(@Param("id") UUID id, @Param("checkedSecret") String checkedSecretEncrypted,
+                        @Param("checkedAt") Instant checkedAt, @Param("refusedWith") String refusedWith);
+
+    /** The hint of a secret saved before V169, kept only while the row still holds that secret and has none. */
+    @Modifying
+    @Transactional
+    @Query("""
+            update WorkspaceMailIntegration i set i.secretHint = :hint
+            where i.id = :id and i.clientSecretEncrypted = :secret and i.secretHint is null
+            """)
+    int recordSecretHint(@Param("id") UUID id, @Param("secret") String secretEncrypted, @Param("hint") String hint);
+
+    /** A refresh the provider refused for the workspace's own app, while that app is still the one in use. */
+    @Modifying
+    @Transactional
+    @Query("""
+            update WorkspaceMailIntegration i set i.keysCheckedAt = :checkedAt, i.keysRefusedWith = :refusedWith
+            where i.workspaceId = :workspaceId and i.provider = :provider and i.mode = :mode
+              and i.clientId = :clientId
+            """)
+    int recordAppRefused(@Param("workspaceId") UUID workspaceId, @Param("provider") IntegrationProvider provider,
+                         @Param("mode") CredentialMode mode, @Param("clientId") String clientId,
+                         @Param("checkedAt") Instant checkedAt, @Param("refusedWith") String refusedWith);
+
+    /** A refresh the provider answered for an app it had refused: whatever was wrong has been put right. */
+    @Modifying
+    @Transactional
+    @Query("""
+            update WorkspaceMailIntegration i set i.keysCheckedAt = :checkedAt, i.keysRefusedWith = null
+            where i.workspaceId = :workspaceId and i.provider = :provider and i.mode = :mode
+              and i.clientId = :clientId and i.keysRefusedWith is not null
+            """)
+    int clearAppRefused(@Param("workspaceId") UUID workspaceId, @Param("provider") IntegrationProvider provider,
+                        @Param("mode") CredentialMode mode, @Param("clientId") String clientId,
+                        @Param("checkedAt") Instant checkedAt);
 }

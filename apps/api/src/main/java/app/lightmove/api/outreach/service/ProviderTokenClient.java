@@ -1,6 +1,7 @@
 package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.outreach.constant.IntegrationProvider;
+import app.lightmove.api.outreach.model.AppKeysVerdict;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ProviderTokenGrant;
 import java.net.URI;
@@ -24,4 +25,11 @@ public interface ProviderTokenClient {
 
     /** Withdraws a token at a provider that revokes by the token itself (Google); a no-op elsewhere. */
     void revoke(IntegrationProvider provider, String token);
+
+    /**
+     * Asks the token endpoint whether it accepts an app's keys, signing nobody in.
+     *
+     * @throws app.lightmove.api.core.resilience.model.VendorException when the provider gave no answer either way
+     */
+    AppKeysVerdict checkKeys(ProviderCredentials credentials, URI redirectUri);
 }

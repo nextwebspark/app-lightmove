@@ -187,6 +187,19 @@ else
     echo "  ✓ enabled"
 fi
 
+# ── Email pictures out of the request log ────────────────────────────────────
+# A signature's photo and logo (/api/v1/email-images/{token}) are fetched each time a recipient opens an email. The app
+# writes no line for them; Cloud Run's own request log would, URL, address and user agent included, which is a record
+# of who read what when. Excluded from the _Default sink, so it is never stored.
+say "Excluding email pictures from the request log"
+if gcloud logging sinks describe _Default --project "$PROJECT" --format='value(exclusions[].name)' | grep -q 'email-images'; then
+    echo "  ✓ already excluded"
+else
+    gcloud logging sinks update _Default --project "$PROJECT" --quiet \
+        --add-exclusion=name=email-images,filter='httpRequest.requestUrl:"/api/v1/email-images/"' >/dev/null
+    echo "  ✓ excluded"
+fi
+
 # ── Workload Identity Federation ──────────────────────────────────────────────
 # Keyless GitHub → GCP. No JSON service-account key is ever created, so there is none to leak, rotate,
 # or find in a GitHub secret three years from now.

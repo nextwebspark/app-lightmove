@@ -9,9 +9,11 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Optional;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
@@ -32,8 +34,8 @@ public final class EmailImageEncoder {
     static final int LOGO_MAX_WIDTH_PX = 480;
     static final int LOGO_MAX_HEIGHT_PX = 160;
 
-    /** Beyond this, a bounded upload still decodes to hundreds of megabytes of raster. */
-    private static final int MAX_DECODABLE_EDGE_PX = 8_000;
+    /** Past this a picture is refused before its pixels are read. */
+    static final long MAX_PIXELS = 40_000_000L;
     private static final float JPEG_QUALITY = 0.88f;
 
     private EmailImageEncoder() {
@@ -41,7 +43,7 @@ public final class EmailImageEncoder {
 
     /** A square, centred crop, as JPEG on white: a photo has no transparency worth keeping. */
     public static Optional<EncodedImage> photo(byte[] content) {
-        return decode(content).map(source -> {
+        return decode(content, PHOTO_EDGE_PX).map(source -> {
             int edge = Math.min(source.getWidth(), source.getHeight());
             BufferedImage square = source.getSubimage((source.getWidth() - edge) / 2, (source.getHeight() - edge) / 2,
                     edge, edge);
@@ -53,7 +55,7 @@ public final class EmailImageEncoder {
 
     /** Fitted inside the logo box, never enlarged, as PNG so a transparent logo stays transparent. */
     public static Optional<EncodedImage> logo(byte[] content) {
-        return decode(content).map(source -> {
+        return decode(content, LOGO_MAX_WIDTH_PX).map(source -> {
             double scale = Math.min(1.0, Math.min((double) LOGO_MAX_WIDTH_PX / source.getWidth(),
                     (double) LOGO_MAX_HEIGHT_PX / source.getHeight()));
             int width = Math.max(1, (int) Math.round(source.getWidth() * scale));
@@ -63,41 +65,44 @@ public final class EmailImageEncoder {
         });
     }
 
-    private static Optional<BufferedImage> decode(byte[] content) {
+    /**
+     * Read from the header first and refused past {@link #MAX_PIXELS} — a few kilobytes of flat-colour PNG can declare a
+     * raster of gigabytes — then decoded at a fraction of its resolution, so the raster held stays near twice the size
+     * it is drawn at whatever the picture declares.
+     */
+    private static Optional<BufferedImage> decode(byte[] content, int largestTargetEdge) {
         if (content == null || content.length == 0) {
             return Optional.empty();
         }
-        try {
-            if (!isReadableAndBounded(content)) {
-                return Optional.empty();
-            }
-            return Optional.ofNullable(ImageIO.read(new ByteArrayInputStream(content)));
-        } catch (IOException | RuntimeException | OutOfMemoryError unreadable) {
-            return Optional.empty();
-        }
-    }
-
-    /** Reads the header only: {@code ImageIO.read} allocates the whole raster before it could be measured. */
-    private static boolean isReadableAndBounded(byte[] content) throws IOException {
         try (ImageInputStream stream = ImageIO.createImageInputStream(new ByteArrayInputStream(content))) {
             if (stream == null) {
-                return false;
+                return Optional.empty();
             }
             Iterator<ImageReader> readers = ImageIO.getImageReaders(stream);
             if (!readers.hasNext()) {
-                return false;
+                return Optional.empty();
             }
             ImageReader reader = readers.next();
             try {
-                String format = reader.getFormatName().toLowerCase(java.util.Locale.ROOT);
+                String format = reader.getFormatName().toLowerCase(Locale.ROOT);
                 if (!format.equals("jpeg") && !format.equals("png")) {
-                    return false;
+                    return Optional.empty();
                 }
-                reader.setInput(stream);
-                return Math.max(reader.getWidth(0), reader.getHeight(0)) <= MAX_DECODABLE_EDGE_PX;
+                reader.setInput(stream, true, true);
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                if (width < 1 || height < 1 || (long) width * height > MAX_PIXELS) {
+                    return Optional.empty();
+                }
+                ImageReadParam param = reader.getDefaultReadParam();
+                int subsampling = Math.max(1, Math.max(width, height) / (2 * largestTargetEdge));
+                param.setSourceSubsampling(subsampling, subsampling, 0, 0);
+                return Optional.ofNullable(reader.read(0, param));
             } finally {
                 reader.dispose();
             }
+        } catch (IOException | RuntimeException unreadable) {
+            return Optional.empty();
         }
     }
 

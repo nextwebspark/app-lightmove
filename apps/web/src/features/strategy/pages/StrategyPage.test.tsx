@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
-import { ApiRequestError } from "../../../lib/apiClient";
 import type { Project } from "../../projects/api/types";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
@@ -39,7 +38,6 @@ vi.mock("../../auth/AuthProvider", () => ({
 vi.mock("../../triage/api/triageApi", async (importOriginal) => ({
   ...(await importOriginal<typeof triageApi>()),
   addMarketCompany: vi.fn(),
-  addAllInScope: vi.fn(),
   addSelectedCompanies: vi.fn(),
 }));
 vi.mock("../api/companiesApi", async (importOriginal) => ({
@@ -772,53 +770,6 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     );
   });
 
-  it("flushes the pending filter before adding everything in scope", async () => {
-    vi.mocked(triageApi.addAllInScope).mockResolvedValue({ added: 12, skipped: 0 });
-    renderPage();
-
-    await userEvent.click(await screen.findByRole("button", { name: /Qatar/ }));
-    await userEvent.click(screen.getByRole("button", { name: /Add all to Universe/ }));
-    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Add all" }));
-
-    // "Add all" acts on the stored filter; a debounced edit still in the timer would mean the
-    // server adds companies from the filter as it was two chips ago.
-    await waitFor(() => expect(triageApi.addAllInScope).toHaveBeenCalled());
-    expect(vi.mocked(strategyApi.putFilter).mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(triageApi.addAllInScope).mock.invocationCallOrder[0]!,
-    );
-  });
-
-  it("states how many companies Add all takes in, and adds nothing until that is confirmed", async () => {
-    vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf({ totalCount: 1200 }));
-    renderPage();
-
-    await userEvent.click(await screen.findByRole("button", { name: /Add all to Universe/ }));
-    const dialog = await screen.findByRole("dialog", { name: "Add all 1,200 companies to universe?" });
-    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
-
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(triageApi.addAllInScope).not.toHaveBeenCalled();
-  });
-
-  it("shows the server's own numbers when a bulk add is refused as too large", async () => {
-    vi.mocked(triageApi.addAllInScope).mockRejectedValue(
-      new ApiRequestError({
-        code: "BULK_ADD_SCOPE_TOO_LARGE",
-        detail: "3,000 companies match this filter. You can add 200 at a time — narrow it and try again.",
-        status: 409,
-        correlationId: "test",
-      }),
-    );
-    renderPage();
-
-    await userEvent.click(await screen.findByRole("button", { name: /Add all to Universe/ }));
-    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Add all" }));
-
-    // The code is deliberately absent from MESSAGES so messageFor falls through to the server's
-    // detail: no fixed sentence here could name how many matched or how many may be added.
-    expect(await screen.findByText(/3,000 companies match this filter/i)).toBeInTheDocument();
-  });
-
   it("saves a search under a name and lets it be loaded back", async () => {
     vi.mocked(strategyApi.saveSearch).mockResolvedValue(savedSearchOf());
     renderPage();
@@ -1449,7 +1400,7 @@ describe("StrategyPage — full screen", () => {
     renderPage();
     await enterFullscreen();
 
-    for (const control of ["Save Search", "Hide Filters", "AI Research", "Columns", "Add all to Universe →"]) {
+    for (const control of ["Save Search", "Hide Filters", "AI Research", "Columns"]) {
       expect(screen.getByRole("button", { name: new RegExp(control) })).toBeInTheDocument();
     }
     expect(screen.getByRole("searchbox", { name: "Search companies" })).toBeInTheDocument();

@@ -2,7 +2,9 @@ package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.text.service.LinkedInUrls;
+import app.lightmove.api.core.text.service.PhoneNumbers;
 import app.lightmove.api.outreach.constant.SignatureLayout;
 import app.lightmove.api.outreach.dto.EmailSignatureResponse;
 import app.lightmove.api.outreach.dto.EmailSignaturesResponse;
@@ -24,8 +26,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * A consultant's email signatures in one workspace: theirs alone, so every read and write is keyed on the caller and the
- * workspace from the principal, and another person's signature reads as one that does not exist. At most one is the
- * default, the one the composer ticks.
+ * workspace from the principal, and another person's signature reads as one that does not exist. While any exist,
+ * exactly one is the default, the one the composer ticks.
  */
 @Service
 @RequiredArgsConstructor
@@ -35,13 +37,13 @@ public class EmailSignatureService {
 
     private final EmailSignatureRepository signatures;
     private final SignatureSenders senders;
+    private final UserRepository users;
     private final TransactionTemplate transactions;
 
     public EmailSignaturesResponse list(UUID userId, UUID workspaceId) {
         List<EmailSignature> owned = signatures.findByWorkspaceIdAndUserIdOrderByCreatedAtAsc(workspaceId, userId);
-        boolean anyLogo = owned.stream().anyMatch(signature -> showsLogo(signature.content()));
-        boolean anyBooking = owned.stream().anyMatch(signature -> signature.content().showBookingLink());
-        SignatureSender sender = senders.senderOf(userId, workspaceId, anyLogo, anyBooking);
+        SignatureSender sender = senders.forPreview(userId, workspaceId,
+                SignatureNeeds.ofAll(owned.stream().map(EmailSignature::content).toList()));
         return new EmailSignaturesResponse(owned.stream().map(signature -> responseOf(signature, sender)).toList(),
                 senders.sourcesOf(userId, workspaceId), MAX_SIGNATURES);
     }
@@ -49,6 +51,7 @@ public class EmailSignatureService {
     public EmailSignatureResponse create(UUID userId, UUID workspaceId, SaveSignatureRequest request) {
         SignatureContent content = contentOf(request);
         EmailSignature saved = transactions.execute(status -> {
+            users.lockForSignatureChange(userId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
             if (signatures.countByWorkspaceIdAndUserId(workspaceId, userId) >= MAX_SIGNATURES) {
                 throw ApiException.of(ErrorCode.EMAIL_SIGNATURE_LIMIT_REACHED);
             }
@@ -60,9 +63,10 @@ public class EmailSignatureService {
             signature.markDefault(request.makesDefault() || firstOne);
             return signatures.saveAndFlush(signature);
         });
-        return responseOf(saved, senderFor(userId, workspaceId, content));
+        return responseOf(saved, previewSender(userId, workspaceId, content));
     }
 
+    /** The default stays the default until another is made one: unticking it alone would leave the composer none. */
     public EmailSignatureResponse update(UUID userId, UUID workspaceId, UUID signatureId, SaveSignatureRequest request) {
         SignatureContent content = contentOf(request);
         EmailSignature saved = transactions.execute(status -> {
@@ -72,10 +76,10 @@ public class EmailSignatureService {
                 signature = owned(userId, workspaceId, signatureId);
             }
             signature.write(content);
-            signature.markDefault(request.makesDefault());
+            signature.markDefault(request.makesDefault() || signature.isDefault());
             return signatures.saveAndFlush(signature);
         });
-        return responseOf(saved, senderFor(userId, workspaceId, content));
+        return responseOf(saved, previewSender(userId, workspaceId, content));
     }
 
     public EmailSignatureResponse makeDefault(UUID userId, UUID workspaceId, UUID signatureId) {
@@ -86,7 +90,7 @@ public class EmailSignatureService {
             signature.markDefault(true);
             return signatures.saveAndFlush(signature);
         });
-        return responseOf(saved, senderFor(userId, workspaceId, saved.content()));
+        return responseOf(saved, previewSender(userId, workspaceId, saved.content()));
     }
 
     /** Deleting the default hands the mark to the oldest left, so the composer still ticks one. */
@@ -105,15 +109,18 @@ public class EmailSignatureService {
 
     public RenderedSignatureResponse preview(UUID userId, UUID workspaceId, SaveSignatureRequest request) {
         SignatureContent content = contentOf(request);
-        RenderedSignature rendered = EmailSignatureRenderer.render(content, senderFor(userId, workspaceId, content));
+        RenderedSignature rendered = EmailSignatureRenderer.render(content, previewSender(userId, workspaceId, content));
         return new RenderedSignatureResponse(rendered.html(), rendered.text());
     }
 
-    /** The caller's signature as an email would carry it now; empty for one that is not theirs. */
-    public Optional<RenderedSignature> renderFor(UUID userId, UUID workspaceId, UUID signatureId) {
+    /**
+     * The caller's signature for an email about to go, its booking page made first where it shows the link; empty for
+     * one that is not theirs.
+     */
+    public Optional<RenderedSignature> renderForSending(UUID userId, UUID workspaceId, UUID signatureId) {
         return signatures.findByIdAndWorkspaceIdAndUserId(signatureId, workspaceId, userId)
                 .map(signature -> EmailSignatureRenderer.render(signature.content(),
-                        senderFor(userId, workspaceId, signature.content())));
+                        senders.forSending(userId, workspaceId, SignatureNeeds.of(signature.content()))));
     }
 
     private EmailSignature owned(UUID userId, UUID workspaceId, UUID signatureId) {
@@ -121,12 +128,8 @@ public class EmailSignatureService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.EMAIL_SIGNATURE_NOT_FOUND));
     }
 
-    private SignatureSender senderFor(UUID userId, UUID workspaceId, SignatureContent content) {
-        return senders.senderOf(userId, workspaceId, showsLogo(content), content.showBookingLink());
-    }
-
-    private static boolean showsLogo(SignatureContent content) {
-        return content.layout().drawsLogo() && content.showLogo();
+    private SignatureSender previewSender(UUID userId, UUID workspaceId, SignatureContent content) {
+        return senders.forPreview(userId, workspaceId, SignatureNeeds.of(content));
     }
 
     private static EmailSignatureResponse responseOf(EmailSignature signature, SignatureSender sender) {
@@ -144,7 +147,7 @@ public class EmailSignatureService {
     static SignatureContent contentOf(SaveSignatureRequest request) {
         SignatureFieldsDto typed = request.fields();
         SignatureFields fields = typed == null ? SignatureFields.NONE : new SignatureFields(
-                trimmed(typed.name()), trimmed(typed.title()), trimmed(typed.phone()),
+                trimmed(typed.name()), trimmed(typed.title()), PhoneNumbers.typedOrNull(typed.phone(), "fields.phone"),
                 linkedinOrNull(typed.linkedinUrl()), trimmed(typed.company()), websiteOrNull(typed.website()),
                 trimmed(typed.address()));
         String customBody = request.layout() == SignatureLayout.CUSTOM ? trimmed(request.customBody()) : null;

@@ -3,7 +3,6 @@ import { PageHeader } from "../../../components/layout/PageHeader";
 import { useToast } from "../../../components/ui";
 import { useAuth } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
-import { messageFor } from "../../../lib/errorCodes";
 import * as mailboxApi from "../../outreach/api/mailboxApi";
 import { ProfileForm } from "../components/ProfileForm";
 import { ProfileIdentityRow } from "../components/ProfileIdentityRow";
@@ -35,24 +34,29 @@ export function SettingsProfilePage() {
     toast("Profile saved");
   };
 
-  const handlePhoto = async (file: File) => {
-    try {
-      await authApi.uploadPhoto(file);
-      await reload();
-      toast("Photo updated");
-    } catch (error) {
-      toast.error(messageFor(error));
-    }
+  // The change is saved by now: what follows only redraws it. The photo is drawn on most screens — rosters, teams,
+  // tasks, notes — so every cached read is marked stale (`refetchType: "none"`) and refetched where it is next shown,
+  // rather than naming each one here and missing the next; the session reload redraws the topbar and this page.
+  const afterPhotoChange = (message: string) => {
+    toast(message);
+    void queryClient.invalidateQueries({ refetchType: "none" });
+    void reload();
+  };
+
+  /** Resolves once the upload has: the dialog closes on a saved photo, whatever the redraw meets. */
+  const handleSavePhoto = async (photo: Blob) => {
+    await authApi.uploadAvatar(photo);
+    afterPhotoChange("Profile photo saved");
   };
 
   const handleRemovePhoto = async () => {
     try {
-      await authApi.removePhoto();
-      await reload();
-      toast("Photo removed");
-    } catch (error) {
-      toast.error(messageFor(error));
+      await authApi.removeAvatar();
+    } catch {
+      toast.error("Could not remove your photo. Try again.", { retry: () => void handleRemovePhoto() });
+      return;
     }
+    afterPhotoChange("Profile photo removed");
   };
 
   return (
@@ -64,11 +68,11 @@ export function SettingsProfilePage() {
           userId={user.id}
           fullName={user.fullName}
           avatarUrl={user.avatarUrl}
+          avatarEditable={user.avatarEditable}
           roles={user.workspace?.roles ?? []}
           joinedAt={user.workspace?.joinedAt ?? null}
-          photoUploaded={user.photoUploaded}
-          onPhotoChosen={handlePhoto}
-          onPhotoRemoved={handleRemovePhoto}
+          onSavePhoto={handleSavePhoto}
+          onRemovePhoto={handleRemovePhoto}
         />
 
         <ProfileForm

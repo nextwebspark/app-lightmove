@@ -47,6 +47,6 @@ import java.lang.annotation.Target;
         RecordingRecallCalendarApi.Config.class, RecordingRecallBotApi.Config.class, RecordingZoomApi.Config.class,
         RecordingProviderTokenClient.Config.class, StubClientMetadataFetcher.Config.class,
         RecordingCreditThresholds.Config.class, RecordingPaymentGateway.Config.class,
-        RecordingRemoteImageFetcher.Config.class})
+        StubPictureFetcher.Config.class})
 public @interface IntegrationTest {
 }
