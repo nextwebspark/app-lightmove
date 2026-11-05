@@ -6,6 +6,7 @@ import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataExperience;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataPosition;
 import app.lightmove.api.enrichment.sourcing.constant.TitleLevel;
+import java.time.YearMonth;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,31 @@ class CurrentRoleTest {
 
         assertThat(CurrentRole.titleOf(grouped)).isEqualTo("Group CFO");
         assertThat(CurrentRole.titleOf(masked)).isEqualTo("Head of Treasury");
+    }
+
+    @Test
+    @DisplayName("of several roles held at once, the one the profile's own current title names is judged, and dated")
+    void readsTheRoleTheHeadlineNames() {
+        BrightDataPerson concurrent = new BrightDataPerson("concurrent", "concurrent", "Concurrent", null, null,
+                "Head of Digital Transformation", null, null, "SA", null, null, null, true, List.of(
+                        new BrightDataExperience("Harbour Group", "Corporate Performance Manager", null, null, null,
+                                "Apr 2022", "Present", null, null),
+                        new BrightDataExperience("Harbour Group", "Head of Digital Transformation", null, null, null,
+                                "Jun 2024", "Present", null, null)),
+                List.of(), List.of(), List.of());
+
+        assertThat(CurrentRole.titleOf(concurrent)).isEqualTo("Head of Digital Transformation");
+        assertThat(CurrentRole.startOf(concurrent)).contains(YearMonth.of(2024, 6));
+    }
+
+    @Test
+    @DisplayName("a role's start reads in each spelling the indexes send, and an unreadable one is no tenure")
+    void readsWhenARoleBegan() {
+        assertThat(CurrentRole.monthOf("Mar 2025")).contains(YearMonth.of(2025, 3));
+        assertThat(CurrentRole.monthOf("March 2021")).contains(YearMonth.of(2021, 3));
+        assertThat(CurrentRole.monthOf("2022-03")).contains(YearMonth.of(2022, 3));
+        assertThat(CurrentRole.monthOf("2020")).contains(YearMonth.of(2020, 1));
+        assertThat(CurrentRole.monthOf("soon")).isEmpty();
     }
 
     @Test

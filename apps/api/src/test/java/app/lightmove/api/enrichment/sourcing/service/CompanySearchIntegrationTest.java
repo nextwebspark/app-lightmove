@@ -152,7 +152,7 @@ class CompanySearchIntegrationTest {
     }
 
     @Test
-    @DisplayName("with the live index unavailable the profile index still answers, its untitled people unconfirmed")
+    @DisplayName("with the live index unavailable the profile index still answers, its untitled people unchecked")
     void theProfileIndexAnswersAlone() {
         Staff fernhill = new Staff("fernhill");
         live.offer(false);
@@ -162,25 +162,28 @@ class CompanySearchIntegrationTest {
         FoundPeople found = search.search(employer(fernhill.company()), FINANCE, Seniority.C_SUITE, UAE, PROFILES);
 
         assertThat(checksBySlug(found)).isEqualTo(Map.of(
-                "director", TitleCheck.INDEX_TITLE, "someone", TitleCheck.UNCONFIRMED));
+                "director", TitleCheck.INDEX_TITLE, "someone", TitleCheck.UNCHECKED));
         assertThat(live.titleChecks()).isEmpty();
         assertThat(found.credits()).isZero();
     }
 
     @Test
-    @DisplayName("free title checks stop at the company's allowance; the rest stay unconfirmed")
-    void titleChecksAreCapped() {
+    @DisplayName("every untitled person on the profile index's page is checked free, up to the company's allowance")
+    void titleChecksCoverThePage() {
         Staff granite = new Staff("granite-works");
-        int allowance = properties.enrichment().sourcing().titleChecksPerCompany();
-        index.answerWith(granite.company(), IntStream.range(0, allowance + 5)
+        int page = properties.enrichment().sourcing().indexPeoplePerCompany();
+        int checked = Math.min(page, properties.enrichment().sourcing().titleChecksPerCompany());
+        index.answerWith(granite.company(), IntStream.range(0, page)
                 .mapToObj(number -> granite.untitled("person-" + number, "Person " + number))
                 .toList());
 
         FoundPeople found = search.search(employer(granite.company()), FINANCE, Seniority.C_SUITE, UAE, PROFILES);
 
-        assertThat(live.titleChecks()).hasSize(allowance);
-        assertThat(found.people()).hasSize(allowance + 5)
+        assertThat(live.titleChecks()).hasSize(checked);
+        assertThat(found.people().subList(0, checked))
                 .allSatisfy(person -> assertThat(person.check()).isEqualTo(TitleCheck.UNCONFIRMED));
+        assertThat(found.people().subList(checked, page))
+                .allSatisfy(person -> assertThat(person.check()).isEqualTo(TitleCheck.UNCHECKED));
     }
 
     private static SearchedEmployer employer(String slug) {

@@ -176,7 +176,8 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         assertThat(result.get("outcome").asText()).isEqualTo("FOUND");
         assertThat(List.of(result.get("found").asInt(), result.get("fits").asInt(), result.get("noTitle").asInt(),
                 result.get("notFit").asInt(), result.get("indexFound").asInt(), result.get("titleChecks").asInt()))
-                .containsExactly(4, 2, 1, 1, 2, 1);
+                .as("what the profile index alone returned, refuted by its title or a free check, is not listed")
+                .containsExactly(2, 2, 0, 0, 2, 1);
         assertThat(outcomeFor(run.get("outcomes"), noPage).get("outcome").asText()).isEqualTo("NO_LINKEDIN_PAGE");
 
         JsonNode found = companyIn(suggestionsOf(projectId).get("companies"), dpWorld);
@@ -185,13 +186,10 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
                         person -> person.get("band").isNull() ? null : person.get("band").asText())
                 .containsExactly(
                         tuple("risalat-rehman", "FITS", "STRONG"),
-                        tuple("group-director", "FITS", "GOOD"),
-                        tuple("omar-khalil", "NO_TITLE", null),
-                        tuple("a-pharmacist", "NOT_FIT", null));
+                        tuple("group-director", "FITS", "GOOD"));
         assertThat(found.at("/people/0/reasons")).extracting(JsonNode::asText)
                 .contains("ROLE_WORD:Financial", "LEVEL:TOP", "LIVES_IN_ROLE_COUNTRY:AE");
         assertThat(found.at("/people/0/person/fullName").asText()).isEqualTo("Risalat Rehman");
-        assertThat(found.at("/people/3/reasons/0").asText()).isEqualTo("BELOW_LEVEL");
 
         assertThat(candidatesOf(projectId)).isEmpty();
         assertThat(db.queryForObject("select count(*) from app_lm_audit_event where target_id = ? and event_type in "
@@ -357,8 +355,8 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         assertThat(index.searches()).isEmpty();
 
         String runId = start(projectId, "[]");
-        assertThat(runOf(projectId, runId).get("companiesTotal").asInt()).isEqualTo(10);
-        assertThat(index.searches()).hasSize(10);
+        assertThat(runOf(projectId, runId).get("companiesTotal").asInt()).isEqualTo(5);
+        assertThat(index.searches()).hasSize(5);
     }
 
     @Test
@@ -419,7 +417,7 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         index.offer(false);
         mvc.perform(get("/api/v1/executive-sourcing/config").header("Authorization", "Bearer " + adminToken))
                 .andExpect(jsonPath("$.enabled").value(false))
-                .andExpect(jsonPath("$.maxCompaniesPerRun").value(10))
+                .andExpect(jsonPath("$.maxCompaniesPerRun").value(5))
                 .andExpect(jsonPath("$.perCompanyChoices[2]").value(10));
         mvc.perform(post(sourcingUrl(projectId))
                         .header("Authorization", "Bearer " + adminToken)

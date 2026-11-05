@@ -2,12 +2,17 @@ package app.lightmove.api.enrichment.sourcing.service;
 
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataExperience;
-import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataPosition;
 import app.lightmove.api.enrichment.sourcing.constant.TitleLevel;
+import java.time.Month;
+import java.time.YearMonth;
+import java.time.format.TextStyle;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -33,6 +38,10 @@ final class CurrentRole {
     private static final Set<String> MANAGER_WORDS = Set.of("manager", "lead", "principal");
     private static final Set<String> STEP_DOWN_WORDS = Set.of("deputy", "assistant", "associate");
 
+    private static final Pattern MONTH_YEAR = Pattern.compile("([A-Za-z]{3})[A-Za-z]*\\.?\\s+(\\d{4})");
+    private static final Pattern YEAR_MONTH = Pattern.compile("(\\d{4})-(\\d{1,2})");
+    private static final Pattern YEAR = Pattern.compile("(\\d{4})");
+
     private CurrentRole() {
     }
 
@@ -42,28 +51,65 @@ final class CurrentRole {
     }
 
     /**
-     * The title of the seat held now — the first experience entry still open, or its first open role
-     * when the company groups several — falling back to the headline when the record has none, or has
-     * it masked.
+     * The title of the seat held now — of the roles still open, the one the record's own current title names (a live
+     * profile lists concurrent roles in no order), else the first, a grouped company's first open role included —
+     * falling back to the headline when the record has none, or has it masked.
      */
     static String titleOf(BrightDataPerson person) {
+        return openRole(person).map(Held::title).orElse(person.position() == null ? "" : person.position());
+    }
+
+    /** When the seat held now began, where the record dates it. */
+    static Optional<YearMonth> startOf(BrightDataPerson person) {
+        return openRole(person).flatMap(held -> monthOf(held.startDate()));
+    }
+
+    static Optional<YearMonth> monthOf(String date) {
+        if (date == null || date.isBlank()) {
+            return Optional.empty();
+        }
+        Matcher monthYear = MONTH_YEAR.matcher(date);
+        if (monthYear.find()) {
+            return monthNamed(monthYear.group(1)).map(month -> YearMonth.of(Integer.parseInt(monthYear.group(2)), month));
+        }
+        Matcher yearMonth = YEAR_MONTH.matcher(date);
+        if (yearMonth.find()) {
+            int month = Integer.parseInt(yearMonth.group(2));
+            return month >= 1 && month <= 12 ? Optional.of(YearMonth.of(Integer.parseInt(yearMonth.group(1)), month))
+                    : Optional.empty();
+        }
+        Matcher year = YEAR.matcher(date);
+        return year.find() ? Optional.of(YearMonth.of(Integer.parseInt(year.group(1)), Month.JANUARY))
+                : Optional.empty();
+    }
+
+    private static Optional<Held> openRole(BrightDataPerson person) {
+        List<Held> open = openRoles(person);
+        String headline = person.position() == null ? "" : person.position().strip();
+        return open.stream()
+                .filter(held -> held.title().strip().equalsIgnoreCase(headline))
+                .findFirst()
+                .or(() -> open.stream().findFirst());
+    }
+
+    private static List<Held> openRoles(BrightDataPerson person) {
         List<BrightDataExperience> experience = person.experience() == null ? List.of() : person.experience();
+        List<Held> open = new ArrayList<>();
         for (BrightDataExperience entry : experience) {
             if (entry == null || !isOpen(entry.endDate())) {
                 continue;
             }
-            if (entry.positions() != null) {
-                for (BrightDataPosition role : entry.positions()) {
-                    if (role != null && isOpen(role.endDate()) && isReadable(role.title())) {
-                        return role.title();
-                    }
-                }
-            }
-            if (isReadable(entry.title())) {
-                return entry.title();
+            List<Held> grouped = entry.positions() == null ? List.of() : entry.positions().stream()
+                    .filter(role -> role != null && isOpen(role.endDate()) && isReadable(role.title()))
+                    .map(role -> new Held(role.title(), role.startDate()))
+                    .toList();
+            if (!grouped.isEmpty()) {
+                open.addAll(grouped);
+            } else if (isReadable(entry.title())) {
+                open.add(new Held(entry.title(), entry.startDate()));
             }
         }
-        return person.position() == null ? "" : person.position();
+        return open;
     }
 
     /**
@@ -124,4 +170,16 @@ final class CurrentRole {
         return title != null && !title.isBlank() && !title.contains("*");
     }
 
+    private static Optional<Month> monthNamed(String abbreviation) {
+        String wanted = abbreviation.toLowerCase(Locale.ROOT);
+        for (Month month : Month.values()) {
+            if (month.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toLowerCase(Locale.ROOT).equals(wanted)) {
+                return Optional.of(month);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** A role still open: its title, and when it began as the record spells it. */
+    private record Held(String title, String startDate) {}
 }

@@ -42,7 +42,7 @@ class SuggestionJudgeTest {
         List<Suggestion> judged = JUDGE.judge(List.of(
                 live("assistant", "Executive Assistant to the CFO", "AE", "Jan 2020"),
                 found(untitled("confirmed", "AE"), TitleCheck.CONFIRMED, FoundBy.INDEX),
-                found(untitled("unconfirmed", "AE"), TitleCheck.UNCONFIRMED, FoundBy.INDEX),
+                found(untitled("unchecked", "AE"), TitleCheck.UNCHECKED, FoundBy.INDEX),
                 found(titled("treasury", "Head of Treasury", "SA", "Jun 2026"), TitleCheck.LIVE_TITLE, FoundBy.BOTH),
                 live("former-cfo", "Chief Strategy Officer", "AE", "Jan 2024"),
                 live("group-cfo", "Group CFO", "AE", "Jan 2022")));
@@ -53,7 +53,7 @@ class SuggestionJudgeTest {
                         tuple("group-cfo", SuggestionVerdict.FITS, 91, 1),
                         tuple("treasury", SuggestionVerdict.FITS, 55, 2),
                         tuple("confirmed", SuggestionVerdict.FITS, 40, 3),
-                        tuple("unconfirmed", SuggestionVerdict.NO_TITLE, null, 4),
+                        tuple("unchecked", SuggestionVerdict.NO_TITLE, null, 4),
                         tuple("assistant", SuggestionVerdict.NOT_FIT, null, 5),
                         tuple("former-cfo", SuggestionVerdict.NOT_FIT, null, 6));
         assertThat(judged.get(0).reasons()).containsExactly("ROLE_WORD:CFO", "LEVEL:TOP", "LIVES_IN_ROLE_COUNTRY:AE");
@@ -83,13 +83,19 @@ class SuggestionJudgeTest {
     }
 
     @Test
-    @DisplayName("a role's start reads in each spelling the indexes send, and an unreadable one is no tenure")
-    void readsWhenARoleBegan() {
-        assertThat(SuggestionJudge.monthOf("Mar 2025")).contains(YearMonth.of(2025, 3));
-        assertThat(SuggestionJudge.monthOf("March 2021")).contains(YearMonth.of(2021, 3));
-        assertThat(SuggestionJudge.monthOf("2022-03")).contains(YearMonth.of(2022, 3));
-        assertThat(SuggestionJudge.monthOf("2020")).contains(YearMonth.of(2020, 1));
-        assertThat(SuggestionJudge.monthOf("soon")).isEmpty();
+    @DisplayName("of what the profile index alone returned, only a title that fits or someone no check reached is listed")
+    void leavesOutTheFunctionsStaff() {
+        List<Suggestion> judged = JUDGE.judge(List.of(
+                found(titled("accountant", "Accountant", "AE", "Jan 2020"), TitleCheck.INDEX_TITLE, FoundBy.INDEX),
+                found(untitled("checked", "AE"), TitleCheck.UNCONFIRMED, FoundBy.INDEX),
+                found(untitled("unchecked", "AE"), TitleCheck.UNCHECKED, FoundBy.INDEX),
+                found(titled("treasury", "Head of Treasury", "AE", "Jan 2020"), TitleCheck.INDEX_TITLE, FoundBy.INDEX),
+                live("finance-manager", "Finance Manager", "AE", "Jan 2020")));
+
+        assertThat(judged).extracting(Suggestion::linkedinSlug, Suggestion::verdict)
+                .containsExactly(tuple("treasury", SuggestionVerdict.FITS),
+                        tuple("unchecked", SuggestionVerdict.NO_TITLE),
+                        tuple("finance-manager", SuggestionVerdict.NOT_FIT));
     }
 
     private static FoundPerson live(String slug, String title, String country, String since) {

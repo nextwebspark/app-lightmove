@@ -12,7 +12,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record ExecutiveSourcingSettings(
 
         /** Companies one run may take; the screen offers that many when nothing is ticked. */
-        @DefaultValue("10") int maxCompaniesPerRun,
+        @DefaultValue("5") int maxCompaniesPerRun,
 
         /** Live profiles bought per company at most, the role's own level first. */
         @DefaultValue("3") int profilesPerCompany,
@@ -24,7 +24,7 @@ public record ExecutiveSourcingSettings(
         @DefaultValue("100") int indexPeoplePerCompany,
 
         /** Free name-narrowed live counts per company, each confirming one index person's title. */
-        @DefaultValue("40") int titleChecksPerCompany,
+        @DefaultValue("100") int titleChecksPerCompany,
 
         /** Companies searched at once. */
         @DefaultValue("4") int parallelism,

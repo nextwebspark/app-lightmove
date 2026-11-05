@@ -1,7 +1,6 @@
 package app.lightmove.api.enrichment.sourcing.service;
 
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
-import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataExperience;
 import app.lightmove.api.enrichment.sourcing.constant.FoundBy;
 import app.lightmove.api.enrichment.sourcing.constant.SuggestionReason;
 import app.lightmove.api.enrichment.sourcing.constant.SuggestionVerdict;
@@ -11,9 +10,7 @@ import app.lightmove.api.enrichment.sourcing.model.FoundPerson;
 import app.lightmove.api.enrichment.sourcing.model.SearchWords;
 import app.lightmove.api.enrichment.sourcing.model.SourcingBrief;
 import app.lightmove.api.enrichment.sourcing.model.Suggestion;
-import java.time.Month;
 import java.time.YearMonth;
-import java.time.format.TextStyle;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -21,16 +18,16 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
  * Judges and ranks the people one company's search found, by fixed points (docs/find-executives.md) — no model.
  * Someone whose current title holds the role ({@link SeatFit}) or whom a free check confirmed fits, and is scored
- * out of 100, each point a reason code; someone with no title on record, or a title that does not hold the role,
- * is listed after them with the reason. The eval tunes the points.
+ * out of 100, each point a reason code; someone the live index found under a title that does not hold the role is
+ * listed after them with the reason, and so is someone with no title on record that no check reached. The rest of
+ * what the profile index alone returned — the function's whole staff, most untitled — is not listed: a title below
+ * the role, or a free check that found no such title, says they are not it. The eval tunes the points.
  */
 final class SuggestionJudge {
 
@@ -48,10 +45,6 @@ final class SuggestionJudge {
     private static final int SETTLED_POINTS = 3;
     private static final int SETTLED_MONTHS = 24;
     private static final int NEW_MONTHS = 12;
-
-    private static final Pattern MONTH_YEAR = Pattern.compile("([A-Za-z]{3})[A-Za-z]*\\.?\\s+(\\d{4})");
-    private static final Pattern YEAR_MONTH = Pattern.compile("(\\d{4})-(\\d{1,2})");
-    private static final Pattern YEAR = Pattern.compile("(\\d{4})");
 
     private final SeatFit seat;
     private final SearchWords words;
@@ -85,6 +78,7 @@ final class SuggestionJudge {
     List<Suggestion> judge(List<FoundPerson> found) {
         List<Judged> judged = IntStream.range(0, found.size())
                 .mapToObj(order -> judgeOne(found.get(order), order))
+                .filter(SuggestionJudge::isListed)
                 .sorted(Comparator.comparingInt((Judged one) -> one.verdict().ordinal())
                         .thenComparing(one -> one.score() == null ? 0 : -one.score())
                         .thenComparingInt(Judged::order))
@@ -92,6 +86,11 @@ final class SuggestionJudge {
         return IntStream.range(0, judged.size())
                 .mapToObj(rank -> judged.get(rank).asSuggestion(rank + 1))
                 .toList();
+    }
+
+    private static boolean isListed(Judged one) {
+        return one.found().foundBy() != FoundBy.INDEX || one.verdict() == SuggestionVerdict.FITS
+                || one.found().check() == TitleCheck.UNCHECKED;
     }
 
     private Judged judgeOne(FoundPerson found, int order) {
@@ -168,11 +167,11 @@ final class SuggestionJudge {
         if (found.foundBy() == FoundBy.INDEX) {
             return INDEX_ROLE_POINTS;
         }
-        return currentRoleStart(found.person()).isPresent() ? DATED_ROLE_POINTS : HEADLINE_ROLE_POINTS;
+        return CurrentRole.startOf(found.person()).isPresent() ? DATED_ROLE_POINTS : HEADLINE_ROLE_POINTS;
     }
 
     private Optional<Points> tenurePoints(BrightDataPerson person) {
-        OptionalInt months = currentRoleStart(person)
+        OptionalInt months = CurrentRole.startOf(person)
                 .map(start -> OptionalInt.of((int) start.until(today, ChronoUnit.MONTHS)))
                 .orElse(OptionalInt.empty());
         if (months.isEmpty() || months.getAsInt() < 0) {
@@ -182,48 +181,6 @@ final class SuggestionJudge {
             return Optional.of(new Points(0, SuggestionReason.NEW_IN_ROLE.with(Integer.toString(months.getAsInt()))));
         }
         return months.getAsInt() >= SETTLED_MONTHS ? Optional.of(new Points(SETTLED_POINTS, null)) : Optional.empty();
-    }
-
-    /** When the role held now began, where the record dates it. */
-    static Optional<YearMonth> currentRoleStart(BrightDataPerson person) {
-        List<BrightDataExperience> experience = person.experience() == null ? List.of() : person.experience();
-        return experience.stream()
-                .filter(entry -> entry != null && isOpen(entry.endDate()))
-                .findFirst()
-                .flatMap(entry -> monthOf(entry.startDate()));
-    }
-
-    static Optional<YearMonth> monthOf(String date) {
-        if (date == null || date.isBlank()) {
-            return Optional.empty();
-        }
-        Matcher monthYear = MONTH_YEAR.matcher(date);
-        if (monthYear.find()) {
-            return monthNamed(monthYear.group(1)).map(month -> YearMonth.of(Integer.parseInt(monthYear.group(2)), month));
-        }
-        Matcher yearMonth = YEAR_MONTH.matcher(date);
-        if (yearMonth.find()) {
-            int month = Integer.parseInt(yearMonth.group(2));
-            return month >= 1 && month <= 12 ? Optional.of(YearMonth.of(Integer.parseInt(yearMonth.group(1)), month))
-                    : Optional.empty();
-        }
-        Matcher year = YEAR.matcher(date);
-        return year.find() ? Optional.of(YearMonth.of(Integer.parseInt(year.group(1)), Month.JANUARY))
-                : Optional.empty();
-    }
-
-    private static Optional<Month> monthNamed(String abbreviation) {
-        String wanted = abbreviation.toLowerCase(Locale.ROOT);
-        for (Month month : Month.values()) {
-            if (month.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toLowerCase(Locale.ROOT).equals(wanted)) {
-                return Optional.of(month);
-            }
-        }
-        return Optional.empty();
-    }
-
-    private static boolean isOpen(String endDate) {
-        return endDate == null || endDate.isBlank() || endDate.strip().equalsIgnoreCase("present");
     }
 
     /** Points earned, and the reason code they show as — null where they show as none. */

@@ -109,7 +109,7 @@ public class CompanySearch {
             return TitleCheck.INDEX_TITLE;
         }
         if (!live.isOffered() || spend.titleChecks >= settings.titleChecksPerCompany()) {
-            return TitleCheck.UNCONFIRMED;
+            return TitleCheck.UNCHECKED;
         }
         spend.titleChecks++;
         return live.holdsTitle(employer, SearchHitFiling.nameOf(person), words) ? TitleCheck.CONFIRMED
