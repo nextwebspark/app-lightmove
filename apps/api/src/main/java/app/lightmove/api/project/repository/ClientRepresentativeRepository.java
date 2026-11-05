@@ -19,6 +19,9 @@ public interface ClientRepresentativeRepository extends JpaRepository<ClientRepr
     /** Dedupe on invite: an outstanding or revoked row for this address is reused, not duplicated. */
     Optional<ClientRepresentative> findByClientIdAndEmailIgnoreCase(UUID clientId, String email);
 
+    List<ClientRepresentative> findByWorkspaceIdAndUserIdAndStatus(UUID workspaceId, UUID userId,
+                                                                   ClientRepStatus status);
+
     Optional<ClientRepresentative> findByClientIdAndEmailIgnoreCaseAndStatus(
             UUID clientId, String email, ClientRepStatus status);
 }

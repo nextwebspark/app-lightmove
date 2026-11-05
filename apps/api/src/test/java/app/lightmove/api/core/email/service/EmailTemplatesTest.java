@@ -2,9 +2,12 @@ package app.lightmove.api.core.email.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.core.config.AuthSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.security.TestAuthSettings;
 import app.lightmove.api.core.config.WebSettings;
 import app.lightmove.api.core.email.model.EmailMessage;
+import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,7 +28,7 @@ class EmailTemplatesTest {
     private static final String PROJECT_LINK = BASE_URL + "/projects/8f2c";
 
     private final EmailTemplates templates = new EmailTemplates(new LightMoveProperties(
-            null, null, new WebSettings(BASE_URL, List.of(), "/auth/callback", 0, true, DataSize.ofMegabytes(2)),
+            TestAuthSettings.production().auth(), null, new WebSettings(BASE_URL, List.of(), "/auth/callback", 0, true, DataSize.ofMegabytes(2)),
             null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
     @Test
@@ -52,6 +55,36 @@ class EmailTemplatesTest {
                         + "as a researcher.")
                 .contains(PROJECT_LINK);
         assertThat(message.htmlBody()).contains("<strong>Group CFO</strong>");
+    }
+
+    @Test
+    @DisplayName("an invitation reads 'an admin', and promises the lifetime the deployment keeps")
+    void invitationArticleAndLifetime() {
+        EmailMessage admin = templates.buildInvitationEmail("nadia@x.ae", "Alok Sharma", "Meridian",
+                "ADMIN", BASE_URL + "/auth/accept-invite?token=t");
+        EmailMessage member = templates.buildInvitationEmail("nadia@x.ae", "Alok Sharma", "Meridian",
+                "MEMBER", BASE_URL + "/auth/accept-invite?token=t");
+
+        assertThat(admin.textBody()).contains("as an admin.").doesNotContain("as a admin");
+        assertThat(member.textBody()).contains("as a member.");
+        assertThat(admin.textBody()).contains("This invitation expires in 7 days.");
+
+        EmailTemplates shortLived = new EmailTemplates(new LightMoveProperties(
+                withInvitationTtl(Duration.ofHours(36)), null,
+                new WebSettings(BASE_URL, List.of(), "/auth/callback", 0, true, DataSize.ofMegabytes(2)),
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null));
+        assertThat(shortLived.buildClientInvitationEmail("nadia@x.ae", "Alok Sharma", "Meridian", "Acme",
+                BASE_URL + "/auth/accept-invite?token=t").textBody())
+                .contains("This invitation expires in 1 day.");
+    }
+
+    private static AuthSettings withInvitationTtl(Duration ttl) {
+        AuthSettings auth = TestAuthSettings.production().auth();
+        return new AuthSettings(auth.jwt(), auth.cookie(), auth.lockout(), auth.rateLimit(), auth.extension(),
+                auth.mfa(), auth.accessTokenTtl(), auth.refreshTokenTtl(), auth.verificationTokenTtl(),
+                auth.passwordResetTokenTtl(), ttl, auth.oauthRequestTtl(), auth.requireVerifiedEmail(),
+                auth.autoVerifyEmail(), auth.bcryptStrength(), auth.oauth());
     }
 
     @Test

@@ -6,15 +6,18 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Card, Field, FormError, Input, Logo, Notice, Spinner } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
+import { useSingleFlight } from "../../../lib/useSingleFlight";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import type { InvitationPreview } from "../api/types";
 import { acceptInviteSchema, type AcceptInviteValues } from "../schemas";
-import { titleCase } from "../../../lib/format";
+import { formatInstantDate, titleCase } from "../../../lib/format";
 import { LegalConsent } from "../components/LegalConsent";
+import { OAuthButtons } from "../components/OAuthButtons";
 import { landingAfterJoining } from "../../projects/lib/landingAfterJoining";
 import { NO_POSITIONS_ORIGIN } from "../../projects/lib/positionsOrigin";
 import { ACCEPT_INVITE_PATH } from "../homeFor";
+import { isDeadInvitation } from "../invitationLabel";
 
 /**
  * Where an invitation lands — and, since membership is invitation-only, the only door into an existing
@@ -84,7 +87,7 @@ function TokenArrival({ token }: { token: string }) {
     return code === "INVITATION_EXPIRED" ? (
       <Dead
         title="This invitation has expired"
-        detail="Invitations are valid for seven days. Ask an admin to send you another."
+        detail="Ask an admin to send you another."
       />
     ) : (
       <Dead
@@ -124,6 +127,7 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
   const navigate = useNavigate();
   const [formError, setFormError] = useState<string | null>(null);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
+  const once = useSingleFlight();
 
   const {
     register,
@@ -134,7 +138,7 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
     defaultValues: { fullName: "", password: "", confirmPassword: "" },
   });
 
-  const onSubmit = async (values: AcceptInviteValues) => {
+  const onSubmit = (values: AcceptInviteValues) => once(async () => {
     setFormError(null);
     setAlreadyRegistered(false);
     try {
@@ -149,12 +153,26 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
       }
       setFormError(messageFor(error));
     }
-  };
+  });
+
+  // A provider sign-in keeps this page: the token is still in the URL, so the signed-in states take over —
+  // Accept for the invited address, or "this invitation is for …" for any other.
+  const handleProviderError = (message: string | null, code?: string) =>
+    setFormError(code === "EMAIL_NOT_WORK_ADDRESS"
+      ? `Continue with the account for ${invitation.email}, the address this invitation was sent to.`
+      : message);
+
+  const expiresOn = formatInstantDate(invitation.expiresAt);
 
   return (
     <Shell workspaceName={invitation.workspaceName} subtitle={invitedAs(invitation)} error={formError}>
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="text-left">
-        <Field label="Work email" hint="The address your invitation was sent to.">
+        <Field
+          label="Work email"
+          hint={expiresOn
+            ? `The address your invitation was sent to. It can be accepted until ${expiresOn}.`
+            : "The address your invitation was sent to."}
+        >
           <Input type="email" value={invitation.email} readOnly className="cursor-not-allowed text-u-text3" />
         </Field>
 
@@ -223,6 +241,10 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
         )}
       </form>
 
+      {!alreadyRegistered && (
+        <OAuthButtons onError={handleProviderError} stayOnPage returnTo={ACCEPT_INVITE_PATH} />
+      )}
+
       <LegalConsent className="mt-4" />
     </Shell>
   );
@@ -232,16 +254,17 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
 
 function ServerDerivedArrival() {
   const queryClient = useQueryClient();
-  const { user, acceptAndSwitch } = useAuth();
+  const { user, acceptAndSwitch, reload } = useAuth();
   const navigate = useNavigate();
 
   const [accepting, setAccepting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const once = useSingleFlight();
 
   const invitations = user!.pendingInvitations;
   const invitation = invitations[0];
 
-  const accept = async (invitationId: string) => {
+  const accept = (invitationId: string) => once(async () => {
     setAccepting(invitationId);
     setError(null);
     try {
@@ -250,8 +273,12 @@ function ServerDerivedArrival() {
     } catch (err) {
       setError(messageFor(err));
       setAccepting(null);
+      // Revoked or lapsed meanwhile: re-read /me so the dead entry goes rather than failing every click.
+      if (isDeadInvitation(err)) {
+        void reload();
+      }
     }
-  };
+  });
 
   // An unverified existing account that was then invited. It still has to prove its address the ordinary
   // way — this path never created it, so the invite token never vouched for it.
@@ -322,6 +349,7 @@ function SignedInBody({
   const navigate = useNavigate();
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const once = useSingleFlight();
 
   // Signed in as somebody else. A forwarded invitation must not admit the person it was forwarded to,
   // so there is nothing to do here but change who you are.
@@ -329,7 +357,8 @@ function SignedInBody({
     return (
       <>
         <Notice>
-          This invitation is for {invitation.email}, but you are signed in as {user!.email}.
+          This invitation is for {invitation.email}, but you are signed in as {user!.email}. Sign out, then
+          sign in as {invitation.email} — with Google or LinkedIn, choose that account.
         </Notice>
 
         <Button variant="secondary" className="w-full" onClick={() => void signOut()}>
@@ -339,7 +368,13 @@ function SignedInBody({
     );
   }
 
-  const accept = async () => {
+  // Their own signup was never confirmed. The link does not stand in for that: whoever opened the account keeps
+  // its password, so a forwarded invitation must not seat them. Confirming the address is the way through.
+  if (!user!.emailVerified) {
+    return <ConfirmAddressFirst email={user!.email} />;
+  }
+
+  const accept = () => once(async () => {
     setAccepting(true);
     setError(null);
     try {
@@ -351,7 +386,7 @@ function SignedInBody({
       setError(messageFor(err));
       setAccepting(false);
     }
-  };
+  });
 
   // Right person, ready to accept.
   return (
@@ -361,6 +396,38 @@ function SignedInBody({
 
       <Button className="w-full" loading={accepting} onClick={() => void accept()}>
         Accept invitation
+      </Button>
+    </>
+  );
+}
+
+function ConfirmAddressFirst({ email }: { email: string }) {
+  const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const resend = async () => {
+    if (sending) return;
+    setSending(true);
+    setError(null);
+    try {
+      await authApi.resendVerification(email);
+      setSent(true);
+    } catch (err) {
+      setError(messageFor(err));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <>
+      <FormError message={error} />
+      <Notice>
+        Confirm {email} first: open the link we emailed when you signed up, then open this invitation again.
+      </Notice>
+      <Button variant="secondary" className="w-full" loading={sending} disabled={sent} onClick={() => void resend()}>
+        {sent ? "Confirmation link sent" : "Send the confirmation link again"}
       </Button>
     </>
   );

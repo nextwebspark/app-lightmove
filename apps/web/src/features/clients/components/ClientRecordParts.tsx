@@ -1,9 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { ArchivedPill, Avatar, Button, Input, StagePill, useToast } from "../../../components/ui";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DrawerSection } from "../../../components/ui/DetailList";
 import { isValidEmail } from "../../../lib/email";
-import { messageFor } from "../../../lib/errorCodes";
+import { codeOf, messageFor } from "../../../lib/errorCodes";
 import type { HiringPersona } from "../../workspace/api/types";
 import { PersonaFields } from "../../workspace/components/PersonaFields";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
@@ -171,7 +172,7 @@ export function Representatives({ client }: { client: ClientDetail }) {
       )}
 
       {client.representatives.map((rep) => (
-        <RepRow key={rep.id} rep={rep} />
+        <RepRow key={rep.id} clientId={client.id} rep={rep} />
       ))}
 
       {open && (
@@ -205,22 +206,106 @@ const REP_BADGE: Record<ClientRepresentative["status"], { label: string; classNa
   INVITED: { label: "Invited", className: "text-u-accent bg-u-accent-tint" },
 };
 
-function RepRow({ rep }: { rep: ClientRepresentative }) {
+/**
+ * One contact. An invited one can be sent a fresh link or have the invitation cancelled — a mistyped address
+ * would otherwise stay live for the link's whole lifetime — and says when its link lapsed or its email bounced.
+ */
+function RepRow({ clientId, rep }: { clientId: string; rep: ClientRepresentative }) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const vocabulary = useWorkspaceVocabulary();
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
   const badge = REP_BADGE[rep.status];
+
+  const settle = () => {
+    void queryClient.invalidateQueries({ queryKey: clientsApi.clientKey(clientId) });
+    void queryClient.invalidateQueries({ queryKey: clientsApi.CLIENTS_KEY });
+  };
+  // Accepted or cancelled by a colleague meanwhile: re-read rather than leave a button that fails every time.
+  const settleIfGone = (error: unknown) => {
+    if (codeOf(error) === "NOT_FOUND") {
+      setConfirmingCancel(false);
+      settle();
+    }
+  };
+  const resend = useMutation({
+    mutationFn: () => clientsApi.resendRepresentativeInvitation(clientId, rep.id),
+    onSuccess: () => {
+      settle();
+      toast.success(`Invitation re-sent to ${rep.email}`);
+    },
+    onError: (error) => {
+      toast.error(messageFor(error));
+      settleIfGone(error);
+    },
+  });
+  const cancel = useMutation({
+    mutationFn: () => clientsApi.cancelRepresentativeInvitation(clientId, rep.id),
+    onSuccess: () => {
+      setConfirmingCancel(false);
+      settle();
+      toast.success("Invitation cancelled");
+    },
+    onError: (error) => {
+      toast.error(messageFor(error));
+      settleIfGone(error);
+    },
+  });
+  const busy = resend.isPending || cancel.isPending;
+  const warning = rep.emailFailed ? "email didn't send, resend it"
+    : rep.invitationExpired ? "link expired, resend to renew" : null;
+
   return (
-    <div className="flex items-center gap-2.5 py-1.5">
-      <Avatar id={rep.id} name={rep.fullName} />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px]">{rep.fullName}</div>
-        <div className="truncate font-mono text-[11px] text-u-text3">
-          {[rep.position, rep.email].filter(Boolean).join(" · ")}
+    <div className="py-1.5">
+      <div className="flex items-center gap-2.5">
+        <Avatar id={rep.id} name={rep.fullName} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[13px]">{rep.fullName}</div>
+          <div className="truncate font-mono text-[11px] text-u-text3">
+            {[rep.position, rep.email].filter(Boolean).join(" · ")}
+          </div>
         </div>
+        <span
+          className={`rounded-md px-1.5 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] ${badge.className}`}
+        >
+          {badge.label}
+        </span>
       </div>
-      <span
-        className={`rounded-md px-1.5 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] ${badge.className}`}
+      {rep.status === "INVITED" && (
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 ps-[38px] font-mono text-meta">
+          {warning && <span className="text-u-offlimits">{warning}</span>}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => resend.mutate()}
+            className="text-u-accent hover:underline disabled:opacity-50"
+          >
+            {resend.isPending ? "Resending…" : "Resend invite"}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setConfirmingCancel(true)}
+            className="text-u-text3 hover:text-u-offlimits hover:underline disabled:opacity-50"
+          >
+            Cancel invite
+          </button>
+        </div>
+      )}
+      <ConfirmDialog
+        open={confirmingCancel}
+        title="Cancel this invitation?"
+        confirmLabel="Cancel invitation"
+        cancelLabel="Keep it"
+        pending={cancel.isPending}
+        onConfirm={() => cancel.mutate()}
+        onClose={() => setConfirmingCancel(false)}
       >
-        {badge.label}
-      </span>
+        <p>
+          The link sent to {rep.email} stops working, and they are taken off this record and any position waiting
+          for them. You can invite them again as a {vocabulary.contactLower} later.
+        </p>
+      </ConfirmDialog>
     </div>
   );
 }

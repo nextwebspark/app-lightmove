@@ -5,12 +5,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
 /**
@@ -24,9 +28,12 @@ import org.springframework.test.web.servlet.ResultActions;
         "lightmove.auth.rate-limit.invitations-per-hour-per-recipient=2",
         "lightmove.auth.rate-limit.workspace-creations-per-hour=100",
         "lightmove.auth.rate-limit.signup-attempts-per-hour=100",
-        "lightmove.auth.rate-limit.login-attempts-per-minute=100"
+        "lightmove.auth.rate-limit.login-attempts-per-minute=100",
+        "lightmove.billing.enforce=true"
 })
 class InvitationBudgetTest extends FlowTestSupport {
+
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     @Test
     @DisplayName("a batch that would pass the workspace's budget is refused whole, and nobody is emailed")
@@ -65,6 +72,26 @@ class InvitationBudgetTest extends FlowTestSupport {
         }
         createWorkspace(verifiedUser("Founder c", "c@" + domain), "Firm c");
         invite(login("c@" + domain), target).andExpect(status().isTooManyRequests());
+    }
+
+    @Test
+    @DisplayName("a batch refused for want of seats spends none of the hourly budget, so the retry goes through")
+    void aSeatRefusalSpendsNoBudget() throws Exception {
+        String workspaceId = createWorkspace(verifiedUser("Alok Kumar", "alok@" + domain), "Full Firm");
+        String admin = login("alok@" + domain);
+        db.update("""
+                INSERT INTO app_lm_workspace_subscription (workspace_id, plan_code, billing_interval, seats, status)
+                VALUES (?::uuid, 'CORE', 'MONTHLY', 1, 'INVOICED')""", workspaceId);
+        String target = "target@" + domain;
+
+        // Three refusals against a recipient budget of two: each would have spent it, were the budget asked first.
+        for (int attempt = 0; attempt < 3; attempt++) {
+            MvcResult refused = invite(admin, target).andExpect(status().isConflict()).andReturn();
+            assertThat(codeOf(refused)).isEqualTo("SEAT_LIMIT_REACHED");
+        }
+
+        db.update("UPDATE app_lm_workspace_subscription SET seats = 2 WHERE workspace_id = ?::uuid", workspaceId);
+        invite(admin, target).andExpect(status().isOk());
     }
 
     private ResultActions invite(String bearerToken, String... addresses) throws Exception {
