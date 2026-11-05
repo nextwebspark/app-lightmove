@@ -54,6 +54,12 @@ class PositionResponseAssembler {
                 documentOf(position));
     }
 
+    /** The brief as a client seat reads it: {@link MandateContextDto#withoutInternalContext} says what goes. */
+    PositionResponse assembleForClient(PositionBrief brief) {
+        PositionResponse staffView = assemble(brief);
+        return staffView.withContext(staffView.context().withoutInternalContext());
+    }
+
     private PositionDetailsDto detailsOf(PositionBrief brief) {
         Position position = brief.position();
         return new PositionDetailsDto(

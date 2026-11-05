@@ -67,6 +67,12 @@ public class PositionService {
         return assembler.assemble(briefs.require(workspaceId, projectId));
     }
 
+    /** The brief a client seat reads: the mandate context withheld, and nothing drafted or saved for it. */
+    @Transactional(readOnly = true)
+    public PositionResponse clientViewOf(UUID workspaceId, UUID projectId) {
+        return assembler.assembleForClient(briefs.read(workspaceId, projectId));
+    }
+
     /**
      * For a reader that must not write (a client seat reads the report): unlike {@link #get}, which
      * drafts and saves a missing brief, this persists nothing.
