@@ -6,6 +6,7 @@ const recording = (overrides: Partial<NotetakerRecording> = {}): NotetakerRecord
   id: "r1",
   meetingId: "m1",
   startsAt: "2026-10-25T10:00:00Z",
+  endsAt: "2026-10-25T10:30:00Z",
   title: "Intro call",
   status: "RECORDING",
   failureReason: null,

@@ -33,23 +33,89 @@ export function failureWordsOf(reason: string | null): string {
   return (reason && FAILURE_WORDS[reason]) ?? "something went wrong";
 }
 
+/** The bot each calendar row shows, and the bots whose call is on no row any more yet still have something to give. */
+export interface CallRecordings {
+  ofMeeting: Map<string, NotetakerRecording>;
+  unpaired: NotetakerRecording[];
+}
+
 /**
- * The latest bot sent to this call as it stands: same start, and the same meeting row or — where a calendar's re-read
- * gave the call a new row — the same title. A bot sent before the call moved is not this call's: it was sent for the
- * old time, and the server calls it back. Newest call first, latest attempt first within one.
+ * A bot belongs to the row it was sent for, or, where a calendar's re-read gave the call a new row, the row at the same
+ * start with the same title; each bot to one row at most. A bot sent before its call moved is not that call's: it was
+ * sent for the old time, and the server calls it back. Where several bots went to one call, the row shows the one that
+ * matters most. A bot whose call left the calendar (replaced, renamed, deleted or long past) keeps a row of its own
+ * while it is under way or holds what it recorded, so its transcript and changes are never out of reach.
  */
-export function recordingOfMeeting(recordings: NotetakerRecording[], meeting: Meeting): NotetakerRecording | null {
-  return (
-    recordings.find(
-      (recording) =>
-        new Date(recording.startsAt).getTime() === new Date(meeting.startsAt).getTime() &&
-        (recording.meetingId === meeting.id || titleKeyOf(recording.title) === titleKeyOf(meeting.title)),
-    ) ?? null
-  );
+export function pairCallRecordings(meetings: Meeting[], recordings: NotetakerRecording[]): CallRecordings {
+  const ofCall = new Map<string, NotetakerRecording[]>();
+  const taken = new Set<string>();
+  const claim = (matches: (meeting: Meeting, recording: NotetakerRecording) => boolean) => {
+    for (const meeting of meetings) {
+      for (const recording of recordings) {
+        if (taken.has(recording.id) || !isSameStart(recording, meeting) || !matches(meeting, recording)) continue;
+        taken.add(recording.id);
+        ofCall.set(meeting.id, [...(ofCall.get(meeting.id) ?? []), recording]);
+      }
+    }
+  };
+  claim((meeting, recording) => recording.meetingId === meeting.id);
+  claim((meeting, recording) => titleKeyOf(recording.title) === titleKeyOf(meeting.title));
+
+  const ofMeeting = new Map<string, NotetakerRecording>();
+  const unpaired: NotetakerRecording[] = [];
+  for (const [meetingId, attempts] of ofCall) {
+    const [shown, ...others] = [...attempts].sort((one, other) => rankOf(one) - rankOf(other));
+    ofMeeting.set(meetingId, shown);
+    unpaired.push(...others.filter(standsAlone));
+  }
+  unpaired.push(...recordings.filter((recording) => !taken.has(recording.id) && standsAlone(recording)));
+  return { ofMeeting, unpaired };
+}
+
+/** A bot whose call is on no row, drawn as the call it was sent for. */
+export function callOfRecording(recording: NotetakerRecording): Meeting {
+  return {
+    id: `${RECORDING_CALL_PREFIX}${recording.id}`,
+    title: recording.title,
+    startsAt: recording.startsAt,
+    endsAt: recording.endsAt,
+    ownerUserId: "",
+    ownerName: null,
+    joinUrl: null,
+    videoProvider: null,
+    viaLink: false,
+    bookedInUncava: false,
+    editable: false,
+  };
+}
+
+/** A row drawn from a bot rather than from a calendar: nothing on it is the calendar's to change. */
+export function isRecordingCall(meeting: Meeting): boolean {
+  return meeting.id.startsWith(RECORDING_CALL_PREFIX);
+}
+
+const RECORDING_CALL_PREFIX = "recording:";
+
+function isSameStart(recording: NotetakerRecording, meeting: Meeting): boolean {
+  return new Date(recording.startsAt).getTime() === new Date(meeting.startsAt).getTime();
 }
 
 function titleKeyOf(title: string | null): string {
   return (title ?? "").trim().toLowerCase();
+}
+
+/** Under way first, then what was recorded, then a failure that can still give notes; a called-back bot last. */
+function rankOf(recording: NotetakerRecording): number {
+  if (["SCHEDULED", "JOINING", "RECORDING", "PROCESSING"].includes(recording.status)) return 0;
+  if (recording.status === "DONE") return 1;
+  if (recording.status === "FAILED" && (recording.retryable || recording.mayDownloadRecording)) return 2;
+  if (recording.status === "FAILED") return 3;
+  return 4;
+}
+
+/** A waiting bot is the server's to call back; a called-back one, or a failure with nothing left to give, is over. */
+function standsAlone(recording: NotetakerRecording): boolean {
+  return rankOf(recording) <= 2 && recording.status !== "SCHEDULED";
 }
 
 /** Whether any bot is still on its way, in a call or being written up: the section reads again while one is. */

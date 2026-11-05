@@ -108,6 +108,14 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 7. **Join now, End & file notes, Remove.** Anyone on the position may press each (`WORK_EXECUTE`), all in the call's
    panel; its ⋯ opens on "Recording 31:42" meanwhile. A call the Notetaker has left — End pressed, its notes being
    written or filed — is listed under Past from then on, and its ⋯ carries what came of it rather than the panel.
+   A bot belongs to the row it was sent for, or — a calendar re-read having given the call a new row — the row at the
+   same start with the same title, one row each; where several went to one call the row shows the one under way, else
+   the one that recorded (`pairCallRecordings`). A bot whose call left every calendar — the event replaced, renamed,
+   deleted or past the drawer's last 20 calls — keeps a row of its own, drawn from the call it was sent for
+   (`endsAt` on the recording), while it is joining, recording or written up, or holds notes or a failure Try again can
+   mend, so its transcript, changes and video are never out of reach; that row offers no questions, move or cancel.
+   A bot still waiting for the start is called back (`CALL_MOVED`) once no calendar row at its start has its link —
+   a row there with no link yet keeps it, since a calendar replacing an event writes the new row before its link.
    - **Join now** (the panel's **Send Notetaker now** while a bot waits for the start) brings a bot scheduled for the start in at once, on the call's day and while its `join_at` is more
      than two minutes away, under the link guards Send now has. A new bot is sent first and the scheduled one called
      back only once the row holds the new id (`NOTETAKER_JOINED_NOW`), so a refusal — an empty pool included — leaves
@@ -183,7 +191,7 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    (`LONGEST_DRAFTED_QUESTION`; `listenFor` and `why` to 80) — because a consultant cannot read a sentence mid-call; the
    prompt splits a long one into two rather than lengthening it, and an edit in the dialog stops at 140.
    The plan is kept per call (V154 `app_lm_interview_plan`, matched on the call's start and title as every teammate's
-   copy of it is), edited, ticked and saved through `PUT …/meetings/{meetingId}/plan`; Regenerate redrafts the model's
+   copy of it is, or on the start alone where the call was renamed and one plan is there), edited, ticked and saved through `PUT …/meetings/{meetingId}/plan`; Regenerate redrafts the model's
    questions and keeps the consultant's own. A press is one `AI_ENRICH` use and its own `LlmBudget.INTERVIEW_PLAN` meter;
    a claim (`drafting_since`) keeps two presses to one call, and a failed or empty draft stores and charges nothing.
 10. **Live copilot.** Beside the Notetaker sits **Live copilot** — in the call's panel, chosen first and sent with Start

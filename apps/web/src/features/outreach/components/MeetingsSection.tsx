@@ -14,7 +14,15 @@ import type { Meeting } from "../api/meetingApi";
 import type { NotetakerRecording } from "../api/notetakerApi";
 import { dateTileOf, meetingWhenOf } from "../lib/meetingTimes";
 import { openCopilotWindow } from "../lib/copilotWindow";
-import { callMarkOf, canRecord, hasCallEnded, isNotetakerLive, recordingOfMeeting } from "../lib/notetakerChip";
+import {
+  callMarkOf,
+  callOfRecording,
+  canRecord,
+  hasCallEnded,
+  isNotetakerLive,
+  isRecordingCall,
+  pairCallRecordings,
+} from "../lib/notetakerChip";
 import { useMailbox } from "../lib/useMailbox";
 import { useNotetaker } from "../lib/useNotetaker";
 import { BookCallDialog } from "./BookCallDialog";
@@ -77,10 +85,18 @@ export function MeetingsSection({
 
   const firstName = fullName.trim().split(/\s+/)[0];
   const recordings = notetaker.data?.recordings ?? [];
-  const recordingOf = (meeting: Meeting): NotetakerRecording | null => recordingOfMeeting(recordings, meeting);
   const booked = meetings.data?.upcoming ?? [];
-  const upcoming = booked.filter((meeting) => !hasCallEnded(recordingOf(meeting)));
-  const past = [...booked.filter((meeting) => hasCallEnded(recordingOf(meeting))), ...(meetings.data?.past ?? [])];
+  const calendarCalls = [...booked, ...(meetings.data?.past ?? [])];
+  const paired = pairCallRecordings(calendarCalls, recordings);
+  const recordingCalls = new Map(paired.unpaired.map((recording) => [callOfRecording(recording).id, recording]));
+  const recordingOf = (meeting: Meeting): NotetakerRecording | null =>
+    (isRecordingCall(meeting) ? recordingCalls.get(meeting.id) : paired.ofMeeting.get(meeting.id)) ?? null;
+  const isStillToCome = (meeting: Meeting) =>
+    !hasCallEnded(recordingOf(meeting)) &&
+    (isRecordingCall(meeting) ? isNotetakerLive(recordingOf(meeting)) : booked.includes(meeting));
+  const calls = [...calendarCalls, ...paired.unpaired.map(callOfRecording)];
+  const upcoming = calls.filter(isStillToCome).sort(byStart);
+  const past = calls.filter((meeting) => !isStillToCome(meeting)).sort((one, other) => byStart(other, one));
   const count = upcoming.length + past.length;
   const collapsedPast = past.filter(
     (meeting, index) => index < PAST_SHOWN || callMarkOf(recordingOf(meeting)) !== null,
@@ -191,7 +207,9 @@ export function MeetingsSection({
                 menu={menuOf(meeting, {
                   options: opensPanel
                     ? { label: "Notetaker & questions…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
-                    : { label: "Prepare questions…", icon: ICONS.checklist, onSelect: () => setPlanOf(meeting.id) },
+                    : isRecordingCall(meeting)
+                      ? undefined
+                      : { label: "Prepare questions…", icon: ICONS.checklist, onSelect: () => setPlanOf(meeting.id) },
                   onReschedule: meeting.editable && canReschedule ? () => setRescheduling(meeting) : undefined,
                   onCancel: meeting.editable && hasActiveMailbox ? () => setCancelling(meeting) : undefined,
                 })}
@@ -270,7 +288,7 @@ export function MeetingsSection({
           recording={recordingOf(panelMeeting)}
           mayRecord={mayRecord(panelMeeting)}
           isCallDay={onCallDay.has(panelMeeting.id)}
-          offersQuestions={upcoming.includes(panelMeeting)}
+          offersQuestions={upcoming.includes(panelMeeting) && !isRecordingCall(panelMeeting)}
           firstName={firstName}
           onPrepareQuestions={() => {
             setPanelOf(null);
@@ -332,6 +350,10 @@ export function MeetingsSection({
       </ConfirmDialog>
     </section>
   );
+}
+
+function byStart(one: Meeting, other: Meeting): number {
+  return new Date(one.startsAt).getTime() - new Date(other.startsAt).getTime();
 }
 
 /** A call as a calendar row: its date tile, title, when and whose calendar, then its link and ⋯. Past is quieter. */

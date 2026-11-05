@@ -797,7 +797,7 @@ carries no Notetaker. It is claimed first (one live
 bot per call by join URL and start, whoever presses), then sent once and never retried — an empty pool of at-once bots
 is `NOTETAKER_BUSY` — as "UNCAVA Notetaker" with Uncava's card as its camera, saying in the chat whose notes it records
 and that anyone may ask it out. **End & file notes** takes a recording bot out of a call that finished early, and the
-notes follow as after any call; Remove discards. A call the bot has left is listed under Past. Recall's Svix-signed webhook (`/api/v1/notetaker/webhooks/recall`,
+notes follow as after any call; Remove discards. A call the bot has left is listed under Past, and a recording whose call left the calendar keeps a row of its own. Recall's Svix-signed webhook (`/api/v1/notetaker/webhooks/recall`,
 `lightmove.recall.bot-webhook-secret`, blank offers nothing) walks its status; on `transcript.done`, `MeetingNotesWorker`
 keeps the transcript (staff-only), summarises it against the brief's `AssessmentBrief` with contacts redacted, files one
 Markdown `MEETING` note in the scheduler's name (one worker per transcript, by claim; an `AI_ENRICH` use) and leaves

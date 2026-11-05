@@ -18,9 +18,13 @@ export type NotetakerStatus = "SCHEDULED" | "JOINING" | "RECORDING" | "PROCESSIN
 
 export interface NotetakerRecording {
   id: string;
-  /** The meeting row it was sent for; a calendar's re-read can replace that row, so `startsAt` and `title` match too. */
+  /**
+   * The meeting row it was sent for; a calendar's re-read can replace that row, so `startsAt` and `title` match too,
+   * and a bot whose call left every calendar is drawn from `title`, `startsAt` and `endsAt`.
+   */
   meetingId: string | null;
   startsAt: string;
+  endsAt: string;
   title: string | null;
   status: NotetakerStatus;
   /** Recall's sub-code or our own word, worded by `lib/notetakerChip.ts`. */
