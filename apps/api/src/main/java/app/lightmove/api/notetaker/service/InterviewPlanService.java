@@ -174,8 +174,7 @@ public class InterviewPlanService {
     @Transactional(readOnly = true)
     public Optional<InterviewPlan> planOfCall(UUID workspaceId, UUID projectId, UUID personId, Instant startsAt,
                                               String title) {
-        return plans.findByWorkspaceIdAndProjectIdAndPersonIdAndStartsAtAndTitleKey(workspaceId, projectId, personId,
-                startsAt, InterviewPlan.titleKeyOf(title));
+        return planAt(workspaceId, projectId, personId, startsAt, title);
     }
 
     /**
@@ -232,8 +231,20 @@ public class InterviewPlanService {
 
     private Optional<InterviewPlan> findPlan(UUID workspaceId, UUID projectId, OutreachRecipient recipient,
                                              KeptMeeting meeting) {
-        return plans.findByWorkspaceIdAndProjectIdAndPersonIdAndStartsAtAndTitleKey(workspaceId, projectId,
-                recipient.personId(), meeting.startsAt(), InterviewPlan.titleKeyOf(meeting.title()));
+        return planAt(workspaceId, projectId, recipient.personId(), meeting.startsAt(), meeting.title());
+    }
+
+    /** A call renamed on the calendar keeps its plan: the one plan at that time is its, whatever its title now. */
+    private Optional<InterviewPlan> planAt(UUID workspaceId, UUID projectId, UUID personId, Instant startsAt,
+                                           String title) {
+        Optional<InterviewPlan> sameCall = plans.findByWorkspaceIdAndProjectIdAndPersonIdAndStartsAtAndTitleKey(
+                workspaceId, projectId, personId, startsAt, InterviewPlan.titleKeyOf(title));
+        if (sameCall.isPresent()) {
+            return sameCall;
+        }
+        List<InterviewPlan> atThatTime = plans.findByWorkspaceIdAndProjectIdAndPersonIdAndStartsAt(workspaceId,
+                projectId, personId, startsAt);
+        return atThatTime.size() == 1 ? Optional.of(atThatTime.getFirst()) : Optional.empty();
     }
 
     private List<PlanCompetencyResponse> competenciesOf(UUID workspaceId, UUID projectId,

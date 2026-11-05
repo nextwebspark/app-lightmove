@@ -154,6 +154,20 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a call renamed on the calendar keeps the plan prepared for it")
+    void aRenamedCallKeepsItsPlan() throws Exception {
+        JsonNode drafted = draftedPlan();
+
+        jdbc.update("update app_lm_person_meeting set title = 'First conversation - new link' where id = ?::uuid",
+                meetingId());
+
+        JsonNode read = body(as(consultant, get(planPath())).andExpect(status().isOk()).andReturn());
+        assertThat(read.get("drafted").asBoolean()).isTrue();
+        assertThat(read.get("questions").get(0).get("id").asText())
+                .isEqualTo(drafted.get("questions").get(0).get("id").asText());
+    }
+
+    @Test
     @DisplayName("a plan the model cannot draft is refused gracefully, and nothing is stored or charged")
     void planFailsGracefully() throws Exception {
         chat.answerWhenSystemContains(PLAN_MARKER, "{\"fit\":[],\"gaps\":[],\"clarify\":[]}");
