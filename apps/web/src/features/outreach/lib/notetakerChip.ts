@@ -105,6 +105,7 @@ export function callOfRecording(recording: NotetakerRecording): Meeting {
     endsAt: recording.endsAt,
     ownerUserId: "",
     ownerName: null,
+    ownerAvatarUrl: null,
     joinUrl: null,
     videoProvider: null,
     viaLink: false,
@@ -116,6 +117,11 @@ export function callOfRecording(recording: NotetakerRecording): Meeting {
 /** A row drawn from a bot rather than from a calendar: nothing on it is the calendar's to change. */
 export function isRecordingCall(meeting: Meeting): boolean {
   return meeting.id.startsWith(RECORDING_CALL_PREFIX);
+}
+
+/** The recording a row drawn from a bot was drawn from, by the row's id; null for a calendar's call. */
+export function recordingIdOfCall(callId: string): string | null {
+  return callId.startsWith(RECORDING_CALL_PREFIX) ? callId.slice(RECORDING_CALL_PREFIX.length) : null;
 }
 
 const RECORDING_CALL_PREFIX = "recording:";

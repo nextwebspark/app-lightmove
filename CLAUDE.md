@@ -79,9 +79,12 @@ person — added, mapped, unmapped, status, profile, contacts, research, AI — 
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
 **Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`) — the Notes tabs write and list plain notes alone, a call, a LinkedIn message or a meeting written up without the Notetaker is logged from Outreach (`NoteComposerModal`, its Call | LinkedIn | Meeting switch) with when it happened — now unless changed, never in the
-future — and an optional title (V185 `occurred_at`, `title`), a meeting's tied to the past calendar meeting it was about
-(`meeting_id`, bare; `PastMeetingLookup`, answered by `outreach`) or held outside Uncava, every past call's ⋯ offering
-Log meeting notes; the conversation and the timeline order them by when they happened. An edit keeps what it leaves
+future — and an optional title (V185 `occurred_at`, `title`), a meeting's tied to the past Uncava meeting it was about
+— its calendar meeting (`meeting_id`, bare; `PastMeetingLookup`, answered by `outreach`) or, once the calendar has let
+the meeting go, its Notetaker recording (V188 `recording_id`; `PastRecordingLookup`, answered by `notetaker`, from that
+recording's position alone) — or held outside Uncava, while a call is a phone call and names none; every past call's ⋯
+offers Log meeting notes, a recorded one's included, so a researcher's own notes sit beside the Notetaker's; the
+conversation and the timeline order them by when they happened. An edit keeps what it leaves
 out and lets go of what the note's kind cannot carry (`LoggedNoteRules`), and the Candidates page's Notes tab lists
 the logs in a group of their own, so one about a position the person has left is never lost. A recorded call's is the Notetaker's, and an email is never logged by hand: a new `email` note is refused (`VALIDATION_FAILED`), an old one keeps its kind through an edit, and a note sent with no kind is plain —, authored,
 timed and **staff-only** — `CandidateResponse`, the talent map and the report carry none, because a client
@@ -109,8 +112,12 @@ Background, Compensation, Documents and Your columns, Summary alone open on arri
 the conversation — the action row first (Write email, Log call, Log meeting, Log LinkedIn, Book a call, Add to sequence, held
 while a run is live), then the run where there is one, the calls to come, then one timeline (its latest five, See more for
 the rest) (`DrawerOutreachTimeline`, over the conversation read and
-`MeetingsSection`'s past calls with their ⋯: emails, replies, run lines, logged calls and LinkedIn messages, each past
-call with the Meeting note its recording filed; All · Email · Calls · LinkedIn · Meetings) and the contacts last, their
+`MeetingsSection`'s past calls with their ⋯: emails, replies, logged calls and LinkedIn messages, each past
+call with the Meeting note its recording filed, every one a card led by its kind's tile — LinkedIn's own mark, a camera
+for a video or recorded call, a calendar for one met in person, its platform named as text ("Google Meet"; never Meet's
+or Teams' logo, which their owners license), a recorded one badged Recorded — and the face of who sent, wrote or held
+it (a call known only from its recording, the sender's) (`OutreachEntryCard`, which the Outreach page's
+history shares); status and run changes are the Activity tab's; All · Email · Calls · LinkedIn · Meetings) and the contacts last, their
 pencil the header's contact details window; a link to a call, LinkedIn or meeting note lands there — and **Positions** on
 the Candidates page's drawer alone (`lib/drawerTabs.ts`; retired `?tab=background|compensation|documents|contact|…`
 links still land), a client seat reading Profile alone with no tab bar — Compensation and Documents are staff's on
@@ -1442,6 +1449,8 @@ through their person, and `app_lm_project_candidate` / `app_lm_project_triage_co
 V185 gives `app_lm_person_note` `occurred_at` (when a logged call, LinkedIn message or meeting happened; null on a
 plain note, by CHECK, and on every older note, where `created_at` stands in), `title` and `meeting_id` (a meeting's
 notes only, by CHECK; bare, as V151's recording keeps its meeting's id).
+V188 adds `app_lm_person_note.recording_id` (the Notetaker recording a meeting's notes are about, where the calendar no
+longer holds its meeting; bare, a meeting's notes only and never beside a `meeting_id`, by CHECK).
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a

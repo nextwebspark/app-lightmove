@@ -15,7 +15,7 @@ import { isContactNote, notePlaceholderOf, PLAIN_NOTE_KIND } from "../lib/noteKi
 import { useNoteCardActions } from "../lib/useNoteCardActions";
 import type { Meeting } from "../../outreach/api/meetingApi";
 import { isLogInFuture, LogDetailsFields, logDetailsNow, logPayloadOf, type LogDetails } from "./LogDetailsFields";
-import { NoteCard, NoteKindPicker, NoteScopePicker, noteAnchorOf, type NoteScope } from "./NoteParts";
+import { NoteCard, NoteKindPicker, NoteScopePicker, noteAnchorOf, type NoteCardLead, type NoteScope } from "./NoteParts";
 
 /**
  * The shared person in a position's drawer — where else they are mapped, the notes on them, and what
@@ -154,7 +154,7 @@ export function PositionNoteComposer({
   /** The kinds the composer switches between; none drawn when it offers one. */
   kindChoices?: readonly PersonNoteKind[];
   onKindChange?: (kind: PersonNoteKind) => void;
-  /** A log's meetings to choose from: this person's, already begun, newest first. */
+  /** A meeting log's Uncava meetings to choose from: this person's, already begun, newest first. */
   pastMeetings?: readonly Meeting[];
   /** The meeting a Log meeting notes on a call opens on. */
   presetMeetingId?: string | null;
@@ -306,7 +306,13 @@ export function PositionNoteCard({
   note,
   flashAt,
   showsKindMark,
-}: PersonSectionProps & { note: PersonNote; flashAt: number | null; showsKindMark?: boolean }) {
+  lead = null,
+}: PersonSectionProps & {
+  note: PersonNote;
+  flashAt: number | null;
+  showsKindMark?: boolean;
+  lead?: NoteCardLead | null;
+}) {
   const queryClient = useQueryClient();
   const actions = useNoteCardActions(
     note,
@@ -335,6 +341,7 @@ export function PositionNoteCard({
       teammates={note.projectId ? team.teammates : null}
       flashAt={flashAt}
       showsKindMark={showsKindMark}
+      lead={lead}
     />
   );
 }

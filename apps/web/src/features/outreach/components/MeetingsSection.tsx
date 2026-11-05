@@ -204,7 +204,7 @@ export function MeetingsSection({
         offersNotetaker(meeting) && !hasCallEnded(recordingOf(meeting))
           ? { label: "Notetaker…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
           : undefined,
-      onLogNotes: onLogMeeting && !isRecordingCall(meeting) ? () => onLogMeeting(meeting) : undefined,
+      onLogNotes: onLogMeeting ? () => onLogMeeting(meeting) : undefined,
       quiet: true,
     });
   const dialogs = (

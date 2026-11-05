@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import * as meetingApi from "../api/meetingApi";
+import { callRowsOf } from "../lib/notetakerChip";
 import { useComposerDialog } from "../lib/useComposerDialog";
+import { useNotetaker } from "../lib/useNotetaker";
 import { Modal } from "../../../components/ui";
 import type { PersonNoteKind } from "../../candidates/api/types";
 import { PositionNoteComposer } from "../../candidates/components/PersonSections";
@@ -26,7 +28,7 @@ export function NoteComposerModal({
   fullName: string;
   /** Null while closed; `call`, `linkedin` or `meeting` for the Log buttons, `general` for Add note. */
   kind: PersonNoteKind | null;
-  /** Log meeting notes from a past call's ⋯: the dialog opens on that meeting. */
+  /** Log meeting notes from a past call's ⋯: the dialog opens on that call. */
   presetMeetingId?: string | null;
   onClose: () => void;
   onSaved: () => void;
@@ -38,8 +40,15 @@ export function NoteComposerModal({
     queryFn: ({ signal }) => meetingApi.getMeetings(projectId, candidateId, signal),
     enabled: logsContact,
   });
+  // A call the calendar let go is still on file by its recording, and its notes may name it as any other.
+  const notetaker = useNotetaker(projectId, candidateId, logsContact);
+  const calls = callRowsOf(
+    meetings.data?.upcoming ?? [],
+    meetings.data?.past ?? [],
+    notetaker.data?.recordings ?? [],
+  );
   const now = Date.now();
-  const pastMeetings = [...(meetings.data?.upcoming ?? []), ...(meetings.data?.past ?? [])]
+  const pastMeetings = [...calls.upcoming, ...calls.past]
     .filter((meeting) => Date.parse(meeting.startsAt) <= now)
     .sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt));
   // The title follows the dialog's Call | Meeting | LinkedIn switch.

@@ -6,19 +6,28 @@ import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import type { PersonNote } from "../../candidates/api/types";
-import { KindTile } from "../../candidates/components/activity/ActivityVisuals";
-import { NoteKindMark } from "../../candidates/components/NoteKindMark";
 import { noteAnchorOf } from "../../candidates/components/NoteParts";
 import { PositionNoteCard, type NoteFocus } from "../../candidates/components/PersonSections";
+import type { ActivityExecutive } from "../../candidates/lib/activityPresentation";
 import { ClampedNoteText } from "../../notes/components/ClampedNoteText";
 import { NoteReaderModal } from "../../notes/components/NoteReaderModal";
 import * as conversationApi from "../api/conversationApi";
 import type { ConversationEvent } from "../api/conversationApi";
 import type { Meeting } from "../api/meetingApi";
-import { cardTimeOf, eventFaceOf } from "../lib/conversationVocabulary";
+import {
+  actorOfEvent,
+  actorOfMeeting,
+  actorOfNote,
+  addressLineOf,
+  eventFaceOf,
+  tileOfEvent,
+  tileOfMeeting,
+  tileOfNote,
+} from "../lib/conversationVocabulary";
 import { meetingWhenOf } from "../lib/meetingTimes";
 import { ConversationEventBody } from "./ConversationEventCard";
-import { MeetingDateTile, type PastCalls } from "./MeetingsSection";
+import type { PastCalls } from "./MeetingsSection";
+import { EntryByline, EntryLeadMark, OutreachEntryCard, RecordedBadge } from "./OutreachEntryCard";
 import { linesOf, matches, type TimelineFilter, type TimelineLine as Line } from "../lib/drawerTimeline";
 
 const FILTERS: readonly { value: TimelineFilter; label: string }[] = [
@@ -37,18 +46,22 @@ const MORE_SHOWN = 10;
  * The executive drawer's Outreach timeline (`Position.dc.html`'s Outreach): everything that passed between the team
  * and the executive on this position, newest first — emails and replies from the conversation read, the calls and
  * LinkedIn messages logged by hand, and each call that is over with the Meeting note the Notetaker filed from it.
- * Plain notes are the Notes tab's and never drawn here. Glyphs are grey on a spine, as the Activity tab draws them.
+ * Plain notes are the Notes tab's and never drawn here. Each is a card led by its kind's mark and the face of whoever
+ * did it; status and run changes are the Activity tab's.
  */
 export function DrawerOutreachTimeline({
   projectId,
   candidateId,
   firstName,
+  executive,
   past,
   focus = null,
 }: {
   projectId: string;
   candidateId: string;
   firstName: string;
+  /** Their face, for a reply they sent. */
+  executive: ActivityExecutive;
   past: PastCalls;
   /** A call, LinkedIn or meeting note a link asked for: brought into view. */
   focus?: NoteFocus | null;
@@ -103,8 +116,7 @@ export function DrawerOutreachTimeline({
         <EmptyTimeline firstName={firstName} filtered={filter !== "all"} />
       ) : (
         <>
-          <ol className="relative flex flex-col">
-            <span aria-hidden="true" className="absolute inset-y-3 start-[10.5px] w-px bg-u-border" />
+          <ol className="flex flex-col gap-2.5">
             {page.map((line, index) => (
               <TimelineRow
                 key={line.key}
@@ -113,6 +125,7 @@ export function DrawerOutreachTimeline({
                 projectId={projectId}
                 candidateId={candidateId}
                 firstName={firstName}
+                executive={executive}
                 viewerUserId={user?.id ?? null}
                 callMenu={line.kind === "call" ? past.menuOf(line.meeting) : null}
                 flashAt={focus && noteIdsOfLine(line).includes(focus.noteId) ? focus.at : null}
@@ -120,7 +133,7 @@ export function DrawerOutreachTimeline({
             ))}
           </ol>
           {(visible.length > page.length || page.length > FIRST_SHOWN) && (
-            <div className="flex gap-4 ps-[34px] text-note">
+            <div className="flex gap-4 text-note">
               {visible.length > page.length && (
                 <button
                   type="button"
@@ -142,7 +155,7 @@ export function DrawerOutreachTimeline({
             </div>
           )}
           {conversation.data.truncated && page.length === visible.length && (
-            <p className="ps-[34px] text-meta text-u-text3">Older history is in the Activity tab.</p>
+            <p className="text-meta text-u-text3">Older history is in the Activity tab.</p>
           )}
         </>
       )}
@@ -156,6 +169,7 @@ function TimelineRow({
   projectId,
   candidateId,
   firstName,
+  executive,
   viewerUserId,
   callMenu,
   flashAt,
@@ -165,100 +179,89 @@ function TimelineRow({
   projectId: string;
   candidateId: string;
   firstName: string;
+  executive: ActivityExecutive;
   viewerUserId: string | null;
   callMenu: ReactNode;
   flashAt: number | null;
 }) {
   return (
-    <li className="flex flex-col">
-      {month && <span className="pb-2 ps-[34px] text-meta text-u-text3">{month}</span>}
-      <div className="flex gap-3 pb-3">
-        <Spine line={line} />
-        <div className="min-w-0 flex-1">
-          {line.kind === "note" ? (
-            <ul>
-              <PositionNoteCard
-                projectId={projectId}
-                candidateId={candidateId}
-                note={line.note}
-                flashAt={flashAt}
-                showsKindMark={false}
-              />
-            </ul>
-          ) : line.kind === "call" ? (
-            <CallCard
-              projectId={projectId}
-              candidateId={candidateId}
-              meeting={line.meeting}
-              recordedNote={line.recordedNote}
-              loggedNotes={line.loggedNotes}
-              menu={callMenu}
-              flashAt={flashAt}
-            />
-          ) : line.kind === "activity" ? (
-            <ActivityLine event={line.event} firstName={firstName} projectId={projectId} />
-          ) : (
-            <MessageCard event={line.event} firstName={firstName} projectId={projectId} viewerUserId={viewerUserId} />
-          )}
+    <li className="flex flex-col gap-2.5">
+      {month && (
+        <div className="flex items-center gap-2.5 pt-1">
+          <span className="type-micro-label text-u-text3">{month}</span>
+          <span aria-hidden="true" className="h-px flex-1 bg-u-border" />
         </div>
-      </div>
+      )}
+      {line.kind === "note" ? (
+        <ul>
+          <PositionNoteCard
+            projectId={projectId}
+            candidateId={candidateId}
+            note={line.note}
+            flashAt={flashAt}
+            lead={{
+              mark: <EntryLeadMark tile={tileOfNote(line.note)} />,
+              heading: line.note.title ?? NOTE_HEADINGS[line.note.kind],
+            }}
+          />
+        </ul>
+      ) : line.kind === "call" ? (
+        <CallCard
+          projectId={projectId}
+          candidateId={candidateId}
+          meeting={line.meeting}
+          recordedNote={line.recordedNote}
+          loggedNotes={line.loggedNotes}
+          executive={executive}
+          menu={callMenu}
+          flashAt={flashAt}
+        />
+      ) : (
+        <MessageCard
+          event={line.event}
+          firstName={firstName}
+          executive={executive}
+          projectId={projectId}
+          viewerUserId={viewerUserId}
+        />
+      )}
     </li>
   );
-}
-
-/** The line's kind on the spine: the app's own grey glyph, a note's kind by its mark (LinkedIn's the network's). */
-function Spine({ line }: { line: Line }) {
-  if (line.kind === "note") {
-    return (
-      <span aria-hidden="true" className="relative grid size-[22px] flex-none place-items-center bg-u-surface text-u-text3">
-        <NoteKindMark kind={line.note.kind} size={14} />
-      </span>
-    );
-  }
-  return <KindTile icon={glyphOf(line)} size="dot" className="relative bg-u-surface" />;
 }
 
 function MessageCard({
   event,
   firstName,
+  executive,
   projectId,
   viewerUserId,
 }: {
   event: Extract<ConversationEvent, { type: "MESSAGE" }>;
   firstName: string;
+  executive: ActivityExecutive;
   projectId: string;
   viewerUserId: string | null;
 }) {
   const face = eventFaceOf(event, firstName, projectId);
+  const actor = actorOfEvent(event);
   return (
-    <article aria-label={face.title} className="rounded-u-chip border border-u-border px-3 py-2.5">
-      <CardHead title={face.title} at={event.at} />
+    <OutreachEntryCard
+      label={face.title}
+      tile={tileOfEvent(event)}
+      title={face.title}
+      at={event.at}
+      byline={
+        <EntryByline
+          actor={actor}
+          executive={executive}
+          name={actor.kind === "automation" ? "Uncava" : undefined}
+          after={addressLineOf(event.message)}
+        />
+      }
+      footer={face.context}
+    >
       <ConversationEventBody event={event} title={face.title} projectId={projectId} viewerUserId={viewerUserId} />
-      {face.context && <p className="mt-1.5 text-meta text-u-text3">{face.context}</p>}
-    </article>
-  );
-}
-
-function ActivityLine({
-  event,
-  firstName,
-  projectId,
-}: {
-  event: Extract<ConversationEvent, { type: "ACTIVITY" }>;
-  firstName: string;
-  projectId: string;
-}) {
-  const face = eventFaceOf(event, firstName, projectId);
-  return (
-    <p className="flex min-h-[22px] items-center gap-2 text-note text-u-text3">
-      <span className="min-w-0 flex-1">
-        {face.title}
-        {face.context && <> · {face.context}</>}
-      </span>
-      <time dateTime={event.at} className="flex-none font-mono text-meta">
-        {cardTimeOf(event.at)}
-      </time>
-    </p>
+    </OutreachEntryCard>
   );
 }
 
@@ -272,6 +275,7 @@ function CallCard({
   meeting,
   recordedNote,
   loggedNotes,
+  executive,
   menu,
   flashAt,
 }: {
@@ -280,29 +284,33 @@ function CallCard({
   meeting: Meeting;
   recordedNote: PersonNote | null;
   loggedNotes: PersonNote[];
+  executive: ActivityExecutive;
   menu: ReactNode;
   flashAt: number | null;
 }) {
   const [reading, setReading] = useState(false);
   const title = meeting.title ?? "Call";
+  const when = [meeting.videoProvider, meetingWhenOf(meeting.startsAt, meeting.endsAt)].filter(Boolean).join(" · ");
+  // A call known only from its recording carries no calendar owner; its notes are filed in the sender's name.
+  const calendarOwner = actorOfMeeting(meeting);
+  const owner = calendarOwner.kind === "user" || !recordedNote ? calendarOwner : actorOfNote(recordedNote);
   return (
-    <article
-      aria-label={title}
+    <OutreachEntryCard
+      label={title}
       id={recordedNote ? noteAnchorOf(recordedNote.id) : undefined}
       tabIndex={recordedNote ? -1 : undefined}
-      className="rounded-u-chip border border-u-border px-3 py-2.5 outline-none"
+      tile={tileOfMeeting(meeting, recordedNote !== null)}
+      title={title}
+      badge={recordedNote && <RecordedBadge />}
+      menu={menu}
+      byline={
+        owner.kind === "user" ? (
+          <EntryByline actor={owner} executive={executive} before={`${when} ·`} />
+        ) : (
+          <span className="font-mono text-meta text-u-text3">{when}</span>
+        )
+      }
     >
-      <div className="flex items-start gap-3">
-        <MeetingDateTile startsAt={meeting.startsAt} tense="past" />
-        <div className="min-w-0 flex-1">
-          <span className="block text-body font-semibold text-u-text">{title}</span>
-          <span className="block font-mono text-meta text-u-text3">
-            {meetingWhenOf(meeting.startsAt, meeting.endsAt)}
-            {meeting.ownerName ? ` · ${meeting.ownerName}` : ""}
-          </span>
-        </div>
-        {menu && <span className="flex-none">{menu}</span>}
-      </div>
       {recordedNote && (
         <div className="mt-2.5 border-t border-u-border pt-2.5">
           <p className="mb-1 flex items-center gap-1.5 text-meta font-medium text-u-text2">
@@ -340,18 +348,7 @@ function CallCard({
           ))}
         </ul>
       )}
-    </article>
-  );
-}
-
-function CardHead({ title, at }: { title: string; at: string }) {
-  return (
-    <div className="flex items-baseline gap-3">
-      <span className="min-w-0 flex-1 text-body font-semibold text-u-text">{title}</span>
-      <time dateTime={at} className="flex-none font-mono text-meta text-u-text3">
-        {cardTimeOf(at)}
-      </time>
-    </div>
+    </OutreachEntryCard>
   );
 }
 
@@ -379,21 +376,14 @@ function noteIdsOfLine(line: Line): string[] {
   return [];
 }
 
-function glyphOf(line: Exclude<Line, { kind: "note" }>): string {
-  switch (line.kind) {
-    case "call":
-      return ICONS.video;
-    case "activity":
-      return ICONS.pipeline;
-    case "message": {
-      const message = line.event.message;
-      if (message.kind === "BOUNCE" || message.status === "FAILED") return ICONS.warning;
-      if (message.direction === "INBOUND") return ICONS.arrowLeft;
-      if (message.status === "SCHEDULED") return ICONS.clock;
-      return ICONS.mail;
-    }
-  }
-}
+/** A logged note's heading where it was given no title of its own. */
+const NOTE_HEADINGS: Record<PersonNote["kind"], string> = {
+  general: "Note",
+  call: "Call",
+  meeting: "Meeting",
+  email: "Email",
+  linkedin: "LinkedIn message",
+};
 
 const MONTH = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" });
 
