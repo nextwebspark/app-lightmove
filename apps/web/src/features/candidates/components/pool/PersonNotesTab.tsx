@@ -3,10 +3,10 @@ import { useState } from "react";
 import { Button, LinesSkeleton, Select, useToast } from "../../../../components/ui";
 import { messageFor } from "../../../../lib/errorCodes";
 import * as poolApi from "../../api/poolApi";
-import type { PersonNote, PersonNoteKind, PersonRecord } from "../../api/types";
-import { NOTE_KINDS } from "../../lib/noteKinds";
+import type { PersonNote, PersonRecord } from "../../api/types";
+import { isContactNote, notePlaceholderOf, PLAIN_NOTE_KIND } from "../../lib/noteKinds";
 import { useNoteCardActions } from "../../lib/useNoteCardActions";
-import { NoteCard, NoteKindPicker } from "../NoteParts";
+import { NoteCard } from "../NoteParts";
 import { taskNoteOf } from "../PersonSections";
 import { NoteEditor } from "../../../notes/components/NoteEditor";
 import { NextActionModal, type NextActionTarget } from "../../../tasks/components/NextActionModal";
@@ -14,8 +14,9 @@ import { NOTE_MAX_STORED, NOTE_TOO_LONG, withoutMentionTokens } from "../../../t
 import { usePositionTeam } from "../../../tasks/lib/usePositionTeam";
 
 /**
- * The Notes tab: a composer about a position or about the person, and the team's notes, pinned first.
- * Pinning is anyone's; changing or deleting a note is its author's or an admin's.
+ * The Notes tab: a plain note about a position or about the person, and the team's plain notes, pinned first. Calls,
+ * LinkedIn messages and meeting notes are each position's Outreach, and the Activity tab's. Pinning is anyone's;
+ * changing or deleting a note is its author's or an admin's.
  */
 export function PersonNotesTab({
   person,
@@ -26,7 +27,6 @@ export function PersonNotesTab({
 }) {
   const toast = useToast();
   const refresh = useNoteRefresh(person.personId);
-  const [kind, setKind] = useState<PersonNoteKind>("call");
   const [about, setAbout] = useState("");
   const [draft, setDraft] = useState("");
   const [nextAction, setNextAction] = useState<NextActionTarget | null>(null);
@@ -44,7 +44,7 @@ export function PersonNotesTab({
   // The position travels with the save: the select may change before the answer comes back.
   const saving = useMutation({
     mutationFn: (_save: { nextActionOn: typeof mapping }) =>
-      poolApi.writePoolNote(person.personId, { kind, body, format: "markdown", projectId: about || null }),
+      poolApi.writePoolNote(person.personId, { kind: PLAIN_NOTE_KIND, body, format: "markdown", projectId: about || null }),
     onSuccess: (note, { nextActionOn }) => {
       setDraft("");
       refresh();
@@ -65,7 +65,7 @@ export function PersonNotesTab({
   });
   const canSave = body.length > 0 && !tooLong && !saving.isPending;
   const save = () => canSave && saving.mutate({ nextActionOn: null });
-  const list = notes.data ?? [];
+  const list = (notes.data ?? []).filter((note) => !isContactNote(note.kind));
 
   return (
     <div className="flex flex-col gap-3">
@@ -76,12 +76,11 @@ export function PersonNotesTab({
           onChange={setDraft}
           teammates={about ? team.teammates : null}
           ariaLabel="New note"
-          placeholder={NOTE_KINDS.find((option) => option.value === kind)?.placeholder}
+          placeholder={notePlaceholderOf(PLAIN_NOTE_KIND)}
           onSubmit={save}
           submitLabel="Save note"
           canSubmit={canSave}
           expandTitle="New note"
-          header={<NoteKindPicker value={kind} onChange={setKind} />}
           footer={
             <>
               {tooLong && (
@@ -128,7 +127,8 @@ export function PersonNotesTab({
         />
       </div>
       <p className="text-[12px] text-u-text3">
-        Shared with your whole team, on every position this person is in. Client contacts never see notes.
+        Shared with your whole team, on every position this person is in. Client contacts never see notes. Calls,
+        LinkedIn messages and meeting notes are in each position&rsquo;s Outreach.
       </p>
 
       {notes.isError ? (
@@ -137,7 +137,7 @@ export function PersonNotesTab({
         <LinesSkeleton />
       ) : list.length === 0 ? (
         <p className="text-[13px]/[1.6] text-u-text3">
-          No notes yet. The first call or meeting you log will sit here for the whole team.
+          No notes yet. What you write here sits with the whole team.
         </p>
       ) : (
         <ul className="flex flex-col gap-2">

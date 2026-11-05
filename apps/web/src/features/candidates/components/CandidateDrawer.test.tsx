@@ -745,7 +745,7 @@ describe("CandidateDrawer", () => {
   it("writes a note about this position by default, and lists it with its author", async () => {
     const written: PersonNote = {
       id: "n1",
-      kind: "call",
+      kind: "general",
       body: "Call in May",
       format: "plain",
       pinned: false,
@@ -769,13 +769,13 @@ describe("CandidateDrawer", () => {
     );
     expect(screen.getByRole("radio", { name: "This position" })).toBeChecked();
     vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([written]);
-    await userEvent.click(screen.getByRole("radio", { name: "Call" }));
+    expect(screen.queryByRole("radiogroup", { name: "Kind of note" })).not.toBeInTheDocument();
     await typeInto(await screen.findByRole("textbox", { name: "New note" }), "Call in May");
     await userEvent.click(screen.getByRole("button", { name: /Save note/i }));
 
     await waitFor(() =>
       expect(personCrmApi.writePersonNote).toHaveBeenCalledWith("p1", "c1", {
-        kind: "call",
+        kind: "general",
         body: "Call in May",
         format: "markdown",
       }),
@@ -853,9 +853,10 @@ describe("CandidateDrawer", () => {
     expect(await within(dialog).findByText(/Notice is three months/)).toBeInTheDocument();
     expect(within(dialog).getByText("Pinned")).toBeInTheDocument();
 
-    await userEvent.click(within(dialog).getByRole("button", { name: /Open in Notes/ }));
+    // A call is Outreach's, not a plain note: the drawer takes the reader to its timeline.
+    await userEvent.click(within(dialog).getByRole("button", { name: /Open in Outreach/ }));
     expect(screen.queryByRole("dialog", { name: "Call note" })).not.toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /^Notes/ })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByRole("tab", { name: "Outreach", selected: true })).toBeInTheDocument();
   });
 
   it("says why the activity could not be read, and reads it again on Try again", async () => {
@@ -1064,9 +1065,14 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
-    // Folded sections are hidden from the accessibility tree; `hidden` looks inside them too. The address is the
-    // header's, written to in Uncava's own composer, so the panel draws no link at all.
-    expect(screen.queryAllByRole("link", { hidden: true }).map((link) => link.getAttribute("href"))).toEqual([]);
+    // Folded sections are hidden from the accessibility tree; `hidden` looks inside them too. The profile address is
+    // the header's, written to in Uncava's own composer, so the only links drawn are the contacts' own mail links.
+    expect(
+      screen
+        .queryAllByRole("link", { hidden: true })
+        .map((link) => link.getAttribute("href"))
+        .filter((href) => !href?.startsWith("mailto:")),
+    ).toEqual([]);
     expect(screen.queryByText("javascript:alert(1)")).not.toBeInTheDocument();
   });
 
@@ -1323,14 +1329,33 @@ describe("CandidateDrawer", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "follow the link" }));
 
-    expect(await screen.findByRole("tab", { name: /^Notes/, selected: true })).toBeInTheDocument();
-    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+    // A call note is Outreach's: the link lands on its timeline.
+    expect(await screen.findByRole("tab", { name: "Outreach", selected: true })).toBeInTheDocument();
   });
 
   it("opens on the Outreach tab for a bell row's reply or booked call", async () => {
     renderDrawer({ candidate: yasmin, company: null, focusSection: "meetings" });
 
     expect(await screen.findByRole("tab", { name: "Outreach", selected: true })).toBeInTheDocument();
+  });
+
+  it("draws Outreach as the conversation: log a call or a LinkedIn message, the timeline, and the contacts last", async () => {
+    renderDrawer({ candidate: yasmin, company: null, focusSection: "outreach" });
+
+    const panel = await screen.findByRole("tabpanel", { name: "Outreach" });
+    expect(within(panel).getByRole("button", { name: "Log call" })).toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "Log LinkedIn" })).toBeInTheDocument();
+    expect(within(panel).getByRole("region", { name: "Timeline" })).toBeInTheDocument();
+    const contact = within(panel).getByRole("region", { name: "Contact" });
+    expect(within(contact).getByText("yasmin@example.com")).toBeInTheDocument();
+
+    await userEvent.click(within(panel).getByRole("button", { name: "Log LinkedIn" }));
+    const dialog = await screen.findByRole("dialog", { name: /Log a LinkedIn message with/ });
+    await userEvent.click(within(dialog).getByRole("radio", { name: "Call" }));
+    expect(screen.getByRole("dialog", { name: /Log a call with/ })).toBeInTheDocument();
+
+    await userEvent.click(within(contact).getByRole("button", { name: "Edit contact details" }));
+    expect(await screen.findByRole("dialog", { name: /Contact details/ })).toBeInTheDocument();
   });
 
   it("opens the contact details window for a bounce, on the tab the viewer reads", async () => {

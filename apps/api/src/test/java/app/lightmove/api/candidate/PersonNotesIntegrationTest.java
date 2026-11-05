@@ -101,6 +101,55 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an email is never logged by hand: a new one is refused, an old one keeps its kind, and no kind is a plain note")
+    void anEmailIsNeverLoggedByHand() throws Exception {
+        firm("Email Notes Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, FATIMA).get("id").asText();
+
+        String refusal = codeOf(mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"email","body":"Sent the brief."}"""))
+                .andExpect(status().isBadRequest())
+                .andReturn());
+        assertThat(refusal).isEqualTo("VALIDATION_FAILED");
+
+        JsonNode plain = body(mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"body":"Keep the chair out of early calls."}"""))
+                .andExpect(status().isCreated())
+                .andReturn());
+        assertThat(plain.get("kind").asText()).isEqualTo("general");
+
+        String noteId = write(admin, cfo, candidateId, "call", "Sent the brief by email.").get("id").asText();
+        db.update("update app_lm_person_note set kind = 'EMAIL' where id = ?::uuid", noteId);
+        mvc.perform(put(notesUrl(cfo, candidateId) + "/" + noteId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"email","body":"Sent the brief and the org chart."}"""))
+                .andExpect(status().isOk());
+        JsonNode kept = null;
+        for (JsonNode each : notes(admin, cfo, candidateId)) {
+            if (each.get("id").asText().equals(noteId)) {
+                kept = each;
+            }
+        }
+        assertThat(kept).isNotNull();
+        assertThat(kept.get("kind").asText()).isEqualTo("email");
+        mvc.perform(put(notesUrl(cfo, candidateId) + "/" + plain.get("id").asText())
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"email","body":"Now an email."}"""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("a note for all positions, written from one, is read on every position the person is in")
     void anAllPositionsNoteIsReadOnEvery() throws Exception {
         firm("All Positions Notes Firm");
@@ -699,7 +748,7 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"status":"contacted"}"""))
                 .andExpect(status().isOk());
-        write(admin, cfo, candidateId, "email", "Sent the brief.");
+        write(admin, cfo, candidateId, "call", "Sent the brief.");
 
         JsonNode all = timeline(cfo, candidateId, null).get("entries");
         assertThat(kindsOf(all)).containsExactly("NOTE_ADDED", "STATUS_CHANGED", "ADDED_TO_POOL");

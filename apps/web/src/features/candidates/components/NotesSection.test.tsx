@@ -227,15 +227,15 @@ describe("the note composer", () => {
     renderNotes({ onSetNextAction });
     await screen.findByRole("button", { name: "Mention a teammate" });
 
-    await userEvent.click(screen.getByRole("radio", { name: "Call" }));
+    expect(screen.queryByRole("radiogroup", { name: "Kind of note" })).not.toBeInTheDocument();
     await typeInto(composer(), "Wants to speak to her family first");
     await userEvent.click(screen.getByRole("button", { name: "Save & set next action" }));
 
     await waitFor(() =>
-      expect(onSetNextAction).toHaveBeenCalledWith({ id: "n1", kind: "call", writtenAt: "2026-10-03T08:00:00Z" }),
+      expect(onSetNextAction).toHaveBeenCalledWith({ id: "n1", kind: "general", writtenAt: "2026-10-03T08:00:00Z" }),
     );
     expect(personCrmApi.writePersonNote).toHaveBeenCalledWith("p1", "c1", {
-      kind: "call",
+      kind: "general",
       body: "Wants to speak to her family first",
       format: "markdown",
     });

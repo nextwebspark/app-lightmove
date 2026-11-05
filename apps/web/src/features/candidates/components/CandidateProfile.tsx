@@ -1,7 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ICONS } from "../../../components/layout/Icon";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
+import { NoteKindMark } from "./NoteKindMark";
 import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/ActionMenu";
 import { DrawerFooter } from "../../../components/ui/Drawer";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
@@ -15,6 +16,7 @@ import { toBrowsableUrl } from "../../../lib/url";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import { ContactDetailsDialog } from "../../contactlookup/components/ContactDetailsDialog";
 import { ContactsReadDialog } from "../../contactlookup/components/ContactsReadDialog";
+import { ContactChannels } from "../../contactlookup/components/ContactPanel";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import { CandidateOutreachButtons } from "../../outreach/components/CandidateOutreachButtons";
@@ -23,6 +25,9 @@ import { useMailbox } from "../../outreach/lib/useMailbox";
 import { OutreachSection } from "../../outreach/components/OutreachSection";
 import { CopilotTab } from "../../outreach/components/copilot/CopilotTab";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
+import { DrawerOutreachTimeline } from "../../outreach/components/DrawerOutreachTimeline";
+import { NoteComposerModal } from "../../outreach/components/NoteComposerModal";
+import * as runApi from "../../outreach/api/runApi";
 import { liveCopilotOf, useNotetaker } from "../../outreach/lib/useNotetaker";
 import { NextActionModal, type NextActionTarget } from "../../tasks/components/NextActionModal";
 import { NextActionBar, NextActionSquare } from "../../tasks/components/NextActionBar";
@@ -35,6 +40,7 @@ import type {
   Candidate,
   PersonDocument,
   PersonDocumentVersion,
+  PersonNoteKind,
   SaveCandidatePayload,
 } from "../api/types";
 import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
@@ -222,6 +228,24 @@ export function CandidateProfile({
     setTab("notes");
     setNoteFocus({ noteId, at: Date.now() });
   };
+  // A call, LinkedIn or meeting note is Outreach's: a link to one lands there, the note brought into view.
+  const [outreachNoteFocus, setOutreachNoteFocus] = useState<NoteFocus | null>(null);
+  const showContactNote = useCallback((focus: NoteFocus) => {
+    setTab("outreach");
+    setNoteFocus(null);
+    setOutreachNoteFocus(focus);
+  }, []);
+  const [logKind, setLogKind] = useState<PersonNoteKind | null>(null);
+  const candidateOutreach = useQuery({
+    queryKey: runApi.CANDIDATE_OUTREACH_KEY(projectId, candidate.id),
+    queryFn: ({ signal }) => runApi.getCandidateOutreach(projectId, candidate.id, signal),
+    enabled: canWrite,
+  });
+  const liveRun = candidateOutreach.data?.run;
+  const sequenceHeldBy =
+    liveRun && (liveRun.status === "ACTIVE" || liveRun.status === "SCHEDULED")
+      ? `Already in ${liveRun.sequenceName ?? "a sequence"}`
+      : null;
   // The Copilot tab is offered while a call's live copilot runs, and kept while it is open after the copilot stops, so
   // nobody is moved off what they were reading; it is never opened for them.
   const notetaker = useNotetaker(projectId, candidate.id, canWrite);
@@ -238,14 +262,17 @@ export function CandidateProfile({
     rememberDrawerTab("position", next);
     setHeldCopilotId(next === "copilot" ? liveCopilotId : null);
     if (next !== "notes") setNoteFocus(null);
-    if (next !== "outreach") setSectionFocus(null);
+    if (next !== "outreach") {
+      setSectionFocus(null);
+      setOutreachNoteFocus(null);
+    }
     if (body.current) body.current.scrollTop = 0;
   };
   const showCopilot = (recordingId: string) => {
     chooseTab("copilot");
     setHeldCopilotId(recordingId);
   };
-  /** The footer's Book a call: the Outreach tab, scrolled to Meetings and its Book a call. */
+  /** The footer's Book a call: the Outreach tab, scrolled to its calls and its Book a call. */
   const startCall = () => {
     chooseTab("outreach");
     setSectionFocus({ section: "meetings", at: Date.now() });
@@ -740,32 +767,86 @@ export function CandidateProfile({
 
         <div {...panelProps("outreach")}>
           {canWrite && (
-            <div className="flex justify-end pt-3 empty:hidden">
-              <CandidateOutreachButtons projectId={projectId} candidateId={candidate.id} fullName={candidate.fullName} />
-            </div>
-          )}
-          {canWrite && (
-            <OutreachSection
-              projectId={projectId}
-              candidateId={candidate.id}
-              firstName={firstName}
-              candidateStatus={candidate.status}
-              open={sections.isOpen("outreach")}
-              onToggle={() => sections.toggle("outreach")}
-              isSettingStatus={changeStatus.isPending}
-              onSetStatus={(status) => changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })}
-            />
-          )}
-          {canWrite && (
-            <MeetingsSection
-              projectId={projectId}
-              candidateId={candidate.id}
-              personId={candidate.personId}
-              fullName={candidate.fullName}
-              candidateStatus={candidate.status}
-              emails={candidate.contacts.emails}
-              onShowCopilot={showCopilot}
-            />
+            <>
+              <OutreachSection
+                projectId={projectId}
+                candidateId={candidate.id}
+                firstName={firstName}
+                candidateStatus={candidate.status}
+                open={sections.isOpen("outreach")}
+                onToggle={() => sections.toggle("outreach")}
+                isSettingStatus={changeStatus.isPending}
+                onSetStatus={(status) =>
+                  changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
+                }
+              />
+              <MeetingsSection
+                projectId={projectId}
+                candidateId={candidate.id}
+                personId={candidate.personId}
+                fullName={candidate.fullName}
+                candidateStatus={candidate.status}
+                emails={candidate.contacts.emails}
+                onShowCopilot={showCopilot}
+                actions={(bookCall) => (
+                  <CandidateOutreachButtons
+                    projectId={projectId}
+                    candidateId={candidate.id}
+                    fullName={candidate.fullName}
+                    sequenceHeldBy={sequenceHeldBy}
+                    between={
+                      <>
+                        <Button variant="secondary" size="xs" onClick={() => setLogKind("call")}>
+                          <Icon d={ICONS.phoneCall} size={13} />
+                          Log call
+                        </Button>
+                        <Button variant="secondary" size="xs" onClick={() => setLogKind("linkedin")}>
+                          <NoteKindMark kind="linkedin" size={13} />
+                          Log LinkedIn
+                        </Button>
+                        {bookCall && (
+                          <Button variant="secondary" size="xs" onClick={bookCall}>
+                            <Icon d={ICONS.calendar} size={13} />
+                            Book a call
+                          </Button>
+                        )}
+                      </>
+                    }
+                  />
+                )}
+                renderPast={(past) => (
+                  <DrawerOutreachTimeline
+                    projectId={projectId}
+                    candidateId={candidate.id}
+                    firstName={firstName}
+                    past={past}
+                    focus={outreachNoteFocus}
+                  />
+                )}
+              />
+              <section aria-label="Contact" className="border-t border-u-border py-4">
+                <div className="mb-1 flex items-center gap-2">
+                  <h3 className="type-micro-label text-u-text3">Contact</h3>
+                  <button
+                    type="button"
+                    aria-label="Edit contact details"
+                    onClick={() => setContactWindow("details")}
+                    className="ms-auto grid size-7 place-items-center rounded-u-control border border-u-border-strong text-u-text2 hover:text-u-text"
+                  >
+                    <Icon d={ICONS.pencil} size={13} />
+                  </button>
+                </div>
+                <ContactChannels contacts={candidate.contacts} />
+              </section>
+              <NoteComposerModal
+                projectId={projectId}
+                candidateId={candidate.id}
+                fullName={candidate.fullName}
+                kind={logKind}
+                onClose={() => setLogKind(null)}
+                onSaved={() => setLogKind(null)}
+              />
+            </>
           )}
         </div>
 
@@ -787,6 +868,7 @@ export function CandidateProfile({
                 projectId={projectId}
                 candidateId={candidate.id}
                 focus={noteFocus}
+                onShowContactNote={showContactNote}
                 onSetNextAction={(note) => openNextAction(null, note)}
               />
             </div>
@@ -1054,7 +1136,8 @@ function scrollToOutreachSection(section: OutreachPart): () => void {
     const panel = document.getElementById(`${TAB_ID_PREFIX}-panel-outreach`);
     const target =
       section === "meetings"
-        ? panel?.querySelector('section[aria-label="Meetings"]')
+        ? (panel?.querySelector('[data-outreach-part="meetings"]') ??
+          panel?.querySelector('section[aria-label="Calls and contact"]'))
         : panel?.querySelector(`#${section}-section-body`)?.closest("section");
     if (target) target.scrollIntoView({ block: "start", behavior: "smooth" });
     else if (++attempts < SECTION_FIND_ATTEMPTS) timer = window.setTimeout(find, SECTION_FIND_INTERVAL_MS);

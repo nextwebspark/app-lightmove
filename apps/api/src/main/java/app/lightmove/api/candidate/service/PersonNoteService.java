@@ -85,6 +85,7 @@ public class PersonNoteService {
                                     WritePersonNoteRequest request, HttpServletRequest httpRequest) {
         Person person = people.requireInWorkspace(personId, workspaceId);
         PersonNoteKind kind = kindOf(request);
+        refuseLoggedEmail(kind, null);
         if (aboutProjectId != null) {
             projectAccess.requireAction(userId, workspaceId, aboutProjectId, ProjectAction.WORK_EXECUTE);
             if (!candidates.existsByProjectIdAndPersonId(aboutProjectId, personId)) {
@@ -106,6 +107,7 @@ public class PersonNoteService {
         people.requireInWorkspace(personId, workspaceId);
         PersonNoteKind kind = kindOf(request);
         PersonNote note = requireEditable(userId, workspaceId, personId, viewpoint, noteId);
+        refuseLoggedEmail(kind, note.getKind());
         note.revise(kind, request.body().strip(), formatOf(request), userId);
         mentions.keep(note, userId);
         audit.event(ProjectEventType.PERSON_NOTE_EDITED).actor(userId).workspace(workspaceId)
@@ -243,7 +245,21 @@ public class PersonNoteService {
     }
 
     private static PersonNoteKind kindOf(WritePersonNoteRequest request) {
+        if (request.kind() == null || request.kind().isBlank()) {
+            return PersonNoteKind.GENERAL;
+        }
         return ApiValueEnum.require(PersonNoteKind.class, request.kind(), "note kind");
+    }
+
+    /**
+     * An email is the outreach ledger's, sent and recorded by the mailbox, so nobody logs one by hand any more. A note
+     * filed as one before keeps its kind through an edit; nothing else becomes one.
+     */
+    private static void refuseLoggedEmail(PersonNoteKind kind, PersonNoteKind current) {
+        if (kind == PersonNoteKind.EMAIL && current != PersonNoteKind.EMAIL) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "kind",
+                    "An email is recorded when it is sent; log a call or a LinkedIn message instead");
+        }
     }
 
     private static NoteFormat formatOf(WritePersonNoteRequest request) {

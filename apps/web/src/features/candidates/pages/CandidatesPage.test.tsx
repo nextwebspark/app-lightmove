@@ -532,7 +532,7 @@ describe("CandidatesPage", () => {
     vi.mocked(poolApi.getPoolNotes).mockResolvedValue([
       {
         id: "n1",
-        kind: "call",
+        kind: "general",
         body: "Open to a move.",
         format: "plain",
         pinned: false,
@@ -582,7 +582,7 @@ describe("CandidatesPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save note" }));
     await waitFor(() =>
       expect(poolApi.writePoolNote).toHaveBeenCalledWith("person-1", {
-        kind: "call",
+        kind: "general",
         body: "Open to a move.",
         format: "markdown",
         projectId: null,

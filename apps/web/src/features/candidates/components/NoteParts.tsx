@@ -18,10 +18,20 @@ import type { TeammateOption } from "../../tasks/lib/team";
 /** Who reads a note written inside a position: that position's team, or every position's. */
 export type NoteScope = "position" | "everywhere";
 
-export function NoteKindPicker({ value, onChange }: { value: PersonNoteKind; onChange: (kind: PersonNoteKind) => void }) {
-  return (
-    <NoteChoiceChips label="Kind of note" options={KIND_OPTIONS} value={value} onChange={onChange} className="mb-2" />
-  );
+export function NoteKindPicker({
+  value,
+  onChange,
+  kinds,
+  label = "Kind of note",
+}: {
+  value: PersonNoteKind;
+  onChange: (kind: PersonNoteKind) => void;
+  /** The kinds offered, in the composer's order; every kind when left out. */
+  kinds?: readonly PersonNoteKind[];
+  label?: string;
+}) {
+  const options = kinds ? KIND_OPTIONS.filter((option) => kinds.includes(option.value)) : KIND_OPTIONS;
+  return <NoteChoiceChips label={label} options={options} value={value} onChange={onChange} className="mb-2" />;
 }
 
 const KIND_OPTIONS = NOTE_KINDS.map((option) => ({
@@ -133,6 +143,7 @@ export function NoteCard({
   actions,
   teammates = null,
   flashAt = null,
+  showsKindMark = true,
 }: {
   note: NoteCardNote;
   actions?: NoteCardActions;
@@ -143,6 +154,8 @@ export function NoteCard({
    * wash is its own element so the card keeps its identity, and with it the keyboard focus it was given.
    */
   flashAt?: number | null;
+  /** Off on a timeline whose spine already draws the kind's mark: the card keeps the kind's word alone. */
+  showsKindMark?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
@@ -183,7 +196,7 @@ export function NoteCard({
         <Avatar id={note.authorUserId} name={authorName} src={note.authorAvatarUrl} size="sm" />
         <span className="text-[12.5px] font-semibold">{authorName}</span>
         <span className="flex items-center gap-1 text-u-text3">
-          <NoteKindMark kind={note.kind} size={12} />
+          {showsKindMark && <NoteKindMark kind={note.kind} size={12} />}
           <span className="rounded-[4px] bg-u-raised px-1.5 py-px font-mono text-[9.5px] font-semibold uppercase tracking-[0.06em]">
             {noteKindLabel(note.kind)}
           </span>
