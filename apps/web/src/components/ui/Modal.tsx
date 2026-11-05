@@ -131,7 +131,7 @@ export function Modal({
             "min-h-0 flex-1 px-5 pt-3 md:px-[22px]",
             fills
               ? "flex flex-col"
-              : "overflow-y-auto [scrollbar-color:var(--color-u-border-strong)_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin]",
+              : "overflow-y-auto [scrollbar-gutter:stable]",
             !footer && "pb-5 md:pb-[22px]",
           )}
         >

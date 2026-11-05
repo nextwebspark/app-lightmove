@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import type { PersonNote } from "../../candidates/api/types";
+import type { ActivityExecutive } from "../../candidates/lib/activityPresentation";
 import * as conversationApi from "../api/conversationApi";
 import type { Conversation, ConversationEvent } from "../api/conversationApi";
 import type { Meeting } from "../api/meetingApi";
@@ -48,12 +49,47 @@ const emailEvent: ConversationEvent = {
     subject: "Opportunity in Riyadh",
     text: "Hi Sarah, I lead a CFO search.",
     format: "PLAIN",
+    toAddress: "sarah@gulfholdings.example",
+    senderUserId: "u2",
+    senderName: "Omar Haddad",
+    senderAvatarUrl: "/api/v1/avatars/omar",
     sequenceName: "CFO approach – Gulf",
     stepNumber: 1,
     stepCount: 3,
     attachments: [],
   },
 } as unknown as ConversationEvent;
+
+const replyEvent: ConversationEvent = {
+  type: "MESSAGE",
+  at: "2026-11-04T08:30:00Z",
+  message: {
+    id: "m2",
+    direction: "INBOUND",
+    channel: "EMAIL",
+    kind: "REPLY",
+    status: "RECEIVED",
+    subject: "Re: Opportunity in Riyadh",
+    text: "Happy to talk on Thursday.",
+    format: "TEXT",
+    fromAddress: "sarah@gulfholdings.example",
+    senderUserId: "u2",
+    senderName: "Omar Haddad",
+    senderAvatarUrl: null,
+    attachments: [],
+  },
+} as unknown as ConversationEvent;
+
+const statusEvent = {
+  type: "ACTIVITY",
+  at: "2026-11-02T10:00:00Z",
+  activity: { id: 7, kind: "STATUS_CHANGED", actorName: "Omar Haddad", details: {} },
+} as unknown as ConversationEvent;
+
+const EXECUTIVE: ActivityExecutive = {
+  fullName: "Sarah Khan",
+  face: () => <img alt="Sarah Khan" src="/sarah.jpg" />,
+};
 
 const screeningCall: Meeting = {
   id: "mt1",
@@ -62,6 +98,7 @@ const screeningCall: Meeting = {
   endsAt: "2026-10-28T15:32:00Z",
   ownerUserId: "u1",
   ownerName: "Omar Haddad",
+  ownerAvatarUrl: null,
   joinUrl: null,
   videoProvider: null,
   viaLink: false,
@@ -86,6 +123,12 @@ describe("linesOf", () => {
     expect(call?.kind === "call" && call.recordedNote?.id).toBe("n-meet");
   });
 
+  it("leaves status and run changes to the Activity tab", () => {
+    const lines = linesOf([...EVENTS, statusEvent], PAST);
+
+    expect(lines.map((line) => line.key)).toEqual(["message:m1", "call:mt1", "note:n-call", "note:n-li"]);
+  });
+
   it("narrows by kind", () => {
     const lines = linesOf(EVENTS, PAST);
     const keysOf = (filter: Parameters<typeof matches>[1]) =>
@@ -104,6 +147,19 @@ describe("linesOf", () => {
     const call = lines.find((line) => line.kind === "call");
     expect(call?.kind === "call" && call.loggedNotes.map((note) => note.id)).toEqual(["n-hand"]);
     expect(lines.map((line) => line.key)).not.toContain("note:n-hand");
+  });
+
+  it("puts a meeting's notes about a call known only from its recording inside it", () => {
+    const recordedOnly = { ...screeningCall, id: "recording:r1" };
+    const aboutIt = {
+      ...aNote("n-rec", "meeting", "She asked about the board.", "2026-10-29T08:00:00Z"),
+      recordingId: "r1",
+    };
+    const lines = linesOf([noteEvent(aboutIt)], { meetings: [recordedOnly], noteIdOf: () => null });
+
+    const call = lines.find((line) => line.kind === "call");
+    expect(call?.kind === "call" && call.loggedNotes.map((note) => note.id)).toEqual(["n-rec"]);
+    expect(lines.map((line) => line.key)).toEqual(["call:recording:r1"]);
   });
 
   it("orders a log by when it happened, not when it was typed", () => {
@@ -136,6 +192,7 @@ describe("DrawerOutreachTimeline", () => {
             projectId="p1"
             candidateId="c1"
             firstName="Sarah"
+            executive={EXECUTIVE}
             past={{ ...PAST, menuOf: () => null }}
           />
         </ToastProvider>
@@ -150,11 +207,54 @@ describe("DrawerOutreachTimeline", () => {
     expect(screen.getByText("Busy with quarter close.")).toBeInTheDocument();
     expect(screen.getByText("Connection request accepted.")).toBeInTheDocument();
     const call = screen.getByRole("article", { name: "Screening call" });
-    // A past meeting reads as one at a glance: its day as a calendar leaf, grey because it is over.
-    expect(within(call).getByText("OCT")).toHaveClass("text-u-text3");
+    // A recorded call says so beside its title, apart from a calendar entry nobody recorded.
+    expect(within(call).getByText("Recorded")).toBeInTheDocument();
     expect(within(call).getByText(/Meeting notes · written by the Notetaker/)).toBeInTheDocument();
     expect(within(call).getByText("Open to a move in Q2.")).toBeInTheDocument();
     expect(screen.queryByText("Keep the chair out of it.")).not.toBeInTheDocument();
+  });
+
+  it("leads each card with its kind's mark and the face of whoever did it", async () => {
+    vi.mocked(conversationApi.getConversation).mockResolvedValue({
+      events: [replyEvent, ...EVENTS],
+      truncated: false,
+    } as unknown as Conversation);
+    const { container } = renderTimeline();
+
+    const email = await screen.findByRole("article", { name: "Opportunity in Riyadh" });
+    expect(within(email).getByRole("img", { name: "Omar Haddad" })).toHaveAttribute("src", "/api/v1/avatars/omar");
+    expect(within(email).getByText("→ sarah@gulfholdings.example")).toBeInTheDocument();
+    const reply = screen.getByRole("article", { name: "Sarah replied" });
+    expect(within(reply).getByRole("img", { name: "Sarah Khan" })).toBeInTheDocument();
+    const linkedin = screen.getByText("Connection request accepted.").closest("li")!;
+    expect(within(linkedin).getByText("LinkedIn message")).toBeInTheDocument();
+    expect(within(linkedin).getByText("Layla Nasser")).toBeInTheDocument();
+    expect(linkedin.querySelector('img[src="/brand/linkedin-in-bug-black.png"]')).not.toBeNull();
+    const call = screen.getByRole("article", { name: "Screening call" });
+    expect(within(call).getByText("Omar Haddad")).toBeInTheDocument();
+    expect(container.querySelector(".w-px")).toBeNull();
+  });
+
+  it("names the call's platform, and gives a call known only from its recording the face of who sent the Notetaker", async () => {
+    const recordedOnly: Meeting = { ...screeningCall, ownerUserId: "", ownerName: null, videoProvider: "Google Meet" };
+    vi.mocked(conversationApi.getConversation).mockResolvedValue({ events: EVENTS, truncated: false } as unknown as Conversation);
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ToastProvider>
+          <DrawerOutreachTimeline
+            projectId="p1"
+            candidateId="c1"
+            firstName="Sarah"
+            executive={EXECUTIVE}
+            past={{ meetings: [recordedOnly], noteIdOf: () => "n-meet", menuOf: () => null }}
+          />
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+
+    const call = await screen.findByRole("article", { name: "Screening call" });
+    expect(within(call).getByText(/^Google Meet · /)).toBeInTheDocument();
+    expect(within(call).getByText("Layla Nasser")).toBeInTheDocument();
   });
 
   it("opens on the latest five, and See more reveals the rest", async () => {
@@ -169,6 +269,7 @@ describe("DrawerOutreachTimeline", () => {
             projectId="p1"
             candidateId="c1"
             firstName="Sarah"
+            executive={EXECUTIVE}
             past={{ meetings: [], noteIdOf: () => null, menuOf: () => null }}
           />
         </ToastProvider>
@@ -201,6 +302,7 @@ describe("DrawerOutreachTimeline", () => {
             projectId="p1"
             candidateId="c1"
             firstName="Sarah"
+            executive={EXECUTIVE}
             past={{ meetings: [screeningCall], noteIdOf: () => null, menuOf: () => null }}
             focus={{ noteId: "n-hand-2", at: 1 }}
           />
@@ -233,6 +335,7 @@ describe("DrawerOutreachTimeline", () => {
             projectId="p1"
             candidateId="c1"
             firstName="Sarah"
+            executive={EXECUTIVE}
             past={{ meetings: [], noteIdOf: () => null, menuOf: () => null }}
           />
         </ToastProvider>

@@ -27,5 +27,7 @@ public record PersonNoteResponse(
         Instant occurredAt,
         String title,
         /** The calendar meeting a meeting's notes are about. */
-        UUID meetingId
+        UUID meetingId,
+        /** The Notetaker recording they are about, where the calendar no longer holds its meeting. */
+        UUID recordingId
 ) {}

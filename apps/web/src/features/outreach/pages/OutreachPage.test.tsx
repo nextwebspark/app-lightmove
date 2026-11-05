@@ -224,6 +224,7 @@ function message(overrides: Partial<conversationApi.ConversationMessage>): conve
     toAddress: "fatima@gulfports.example",
     senderUserId: "u1",
     senderName: "Yara Haddad",
+    senderAvatarUrl: null,
     enrollmentId: null,
     sequenceName: null,
     stepNumber: null,

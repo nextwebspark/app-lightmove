@@ -5,6 +5,7 @@ import { TimeInput } from "../../../components/ui/TimeInput";
 import { cn } from "../../../lib/cn";
 import type { Meeting } from "../../outreach/api/meetingApi";
 import { meetingWhenOf } from "../../outreach/lib/meetingTimes";
+import { recordingIdOfCall } from "../../outreach/lib/notetakerChip";
 import type { PersonNoteKind } from "../api/types";
 
 /** When a logged call, message or meeting happened, its title, and for a meeting which one it was. */
@@ -14,7 +15,10 @@ export interface LogDetails {
   /** HH:mm in the viewer's own zone. */
   time: string;
   title: string;
-  /** A calendar meeting's id; null for one that happened outside Uncava, or for a call or a message. */
+  /**
+   * The Uncava meeting it was, by its id as the Meetings section lists it — a calendar meeting's, or a call known only
+   * from its recording; null for one outside Uncava, or for a call or a message.
+   */
   meetingId: string | null;
 }
 
@@ -29,9 +33,15 @@ export function logDetailsNow(meetingId: string | null = null): LogDetails {
 /** The request fields a log's details become; a chosen meeting brings its own time and, untyped, its title. */
 export function logPayloadOf(details: LogDetails) {
   const title = details.title.trim() || null;
-  if (details.meetingId) return { meetingId: details.meetingId, title, occurredAt: null };
+  if (details.meetingId) {
+    const recordingId = recordingIdOfCall(details.meetingId);
+    return recordingId
+      ? { meetingId: null, recordingId, title, occurredAt: null }
+      : { meetingId: details.meetingId, recordingId: null, title, occurredAt: null };
+  }
   const at = new Date(`${details.date}T${details.time || "00:00"}`);
-  return { occurredAt: Number.isNaN(at.getTime()) ? null : at.toISOString(), title, meetingId: null };
+  const occurredAt = Number.isNaN(at.getTime()) ? null : at.toISOString();
+  return { occurredAt, title, meetingId: null, recordingId: null };
 }
 
 /** A log dated later than now, which the server refuses: a meeting chosen from the calendar brings its own past time. */

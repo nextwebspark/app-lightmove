@@ -101,11 +101,14 @@ class MeetingIntegrationTest extends FlowTestSupport {
         assertThat(meetingRows()).isZero();
 
         changed(event("call-1", "First conversation", start, MAILBOX, "Priya@" + domain));
+        jdbc.update("update app_lm_user set avatar_url = '/api/v1/avatars/yara-photo' where email = ?",
+                "yara@" + domain);
         JsonNode meetings = meetingsOf(priya);
         assertThat(meetings.get("upcoming")).hasSize(1);
         JsonNode upcoming = meetings.get("upcoming").get(0);
         assertThat(upcoming.get("title").asText()).isEqualTo("First conversation");
         assertThat(upcoming.get("ownerName").asText()).isEqualTo("Yara Haddad");
+        assertThat(upcoming.get("ownerAvatarUrl").asText()).isEqualTo("/api/v1/avatars/yara-photo");
         assertThat(upcoming.get("joinUrl").asText()).isEqualTo("https://meet.example/call-1");
         assertThat(upcoming.get("videoProvider").asText()).isEqualTo("Google Meet");
         assertThat(meetingsOf(rajesh).get("upcoming")).isEmpty();
