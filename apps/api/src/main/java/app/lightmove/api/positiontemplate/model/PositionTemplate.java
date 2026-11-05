@@ -16,9 +16,12 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -35,6 +38,8 @@ import org.hibernate.type.SqlTypes;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PositionTemplate extends BaseEntity {
+
+    private static final Pattern NON_WORD = Pattern.compile("[^\\p{L}\\p{N}]+");
 
     /** Null for a shared library template. */
     @Column(name = "workspace_id", updatable = false)
@@ -150,17 +155,26 @@ public class PositionTemplate extends BaseEntity {
     }
 
     /**
-     * A case-insensitive substring match on any keyword. Both sides are lower-cased: a keyword written
-     * before the editor normalised them, or straight into the table, would otherwise silently stop matching.
+     * Whether any keyword appears in the title as whole words, in order. A substring match drafted every
+     * "Sales Director" and "HR Director" as the CTO ("cto" sits inside "director") and every "Project Coordinator"
+     * as the COO, so a keyword matches word for word, never inside a longer word.
      */
     public boolean matchesTitle(String roleTitle) {
         if (roleTitle == null) {
             return false;
         }
-        String title = roleTitle.toLowerCase(Locale.ROOT);
+        List<String> titleWords = wordsOf(roleTitle);
         return keywords.stream()
-                .map(keyword -> keyword.toLowerCase(Locale.ROOT).trim())
-                .anyMatch(title::contains);
+                .map(PositionTemplate::wordsOf)
+                .anyMatch(keywordWords -> !keywordWords.isEmpty()
+                        && Collections.indexOfSubList(titleWords, keywordWords) >= 0);
+    }
+
+    /** Lower-cased, split on anything that is not a letter or a digit, so "CFO – Energy" reads as cfo, energy. */
+    private static List<String> wordsOf(String text) {
+        return Arrays.stream(NON_WORD.split(text.toLowerCase(Locale.ROOT)))
+                .filter(word -> !word.isEmpty())
+                .toList();
     }
 
     /** Postgres keeps microseconds. An in-memory nanosecond instant would compare after its own stored copy. */
