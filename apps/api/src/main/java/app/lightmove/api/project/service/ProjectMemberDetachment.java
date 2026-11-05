@@ -9,9 +9,11 @@ import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.model.ProjectSeatVacated;
 import app.lightmove.api.project.repository.ClientRepresentativeRepository;
 import app.lightmove.api.project.repository.ProjectMemberRepository;
+import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.service.MemberDetachment;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -44,15 +46,18 @@ public class ProjectMemberDetachment implements MemberDetachment {
 
     @Override
     public void detach(UUID memberId) {
-        members.findById(memberId).ifPresent(member -> seats.findByMemberId(memberId).stream()
+        Optional<WorkspaceMember> member = members.findById(memberId);
+        member.ifPresent(leaving -> seats.findByMemberId(memberId).stream()
                 .filter(seat -> seat.getRoles().stream().anyMatch(role -> !role.is(ProjectRole.CLIENT)))
-                .forEach(seat -> events.publishEvent(new ProjectSeatVacated(member.getWorkspaceId(),
-                        seat.getProjectId(), member.getUserId(), null))));
+                .forEach(seat -> events.publishEvent(new ProjectSeatVacated(leaving.getWorkspaceId(),
+                        seat.getProjectId(), leaving.getUserId(), null))));
         seats.deleteByMemberId(memberId);
         // A contact whose membership ended is no longer one: left ACTIVE, the record refused to re-invite them
         // ("already one of its representatives") and the mandate screens could neither attach nor detach them.
-        members.findById(memberId).ifPresent(member -> representatives
-                .findByWorkspaceIdAndUserIdAndStatus(member.getWorkspaceId(), member.getUserId(), ClientRepStatus.ACTIVE)
+        // No audit line of its own: the MEMBER_REMOVED that caused it is the record.
+        member.ifPresent(leaving -> representatives
+                .findByWorkspaceIdAndUserIdAndStatus(leaving.getWorkspaceId(), leaving.getUserId(),
+                        ClientRepStatus.ACTIVE)
                 .forEach(ClientRepresentative::revoke));
     }
 }

@@ -36,15 +36,15 @@ export interface OAuthButtonsProps {
    */
   onError: (message: string | null, code?: string) => void;
   /**
-   * Replaces the usual landing: the host page stays where it is with the new session. The accept page uses it,
-   * since its own signed-in states (accept, or "this invitation is for another address") are what comes next.
+   * Keeps the host page where it is once signed in, instead of the usual landing. The accept page uses it, since its
+   * own signed-in states (Accept, or "this invitation is for another address") are what comes next.
    */
-  onSignedIn?: () => void;
+  stayOnPage?: boolean;
   /** Where a sign-in stopped for a second factor resumes, in place of the remembered destination. */
   returnTo?: string;
 }
 
-export function OAuthButtons({ onError, onSignedIn, returnTo: hostReturnTo }: OAuthButtonsProps) {
+export function OAuthButtons({ onError, stayOnPage = false, returnTo: hostReturnTo }: OAuthButtonsProps) {
   // Server state stays in the query cache rather than useState, so Login and Signup share one fetch.
   // What this deployment has configured cannot change while the page is open — hence no refetching.
   const { data } = useQuery({
@@ -84,9 +84,8 @@ export function OAuthButtons({ onError, onSignedIn, returnTo: hostReturnTo }: OA
               return;
             }
 
-            if (onSignedIn) {
+            if (stayOnPage) {
               setPendingProviderId(null);
-              onSignedIn();
               return;
             }
 
@@ -111,7 +110,7 @@ export function OAuthButtons({ onError, onSignedIn, returnTo: hostReturnTo }: OA
         },
       });
     },
-    [adoptRestoredSession, hostReturnTo, navigate, onError, onSignedIn],
+    [adoptRestoredSession, hostReturnTo, navigate, onError, stayOnPage],
   );
 
   if (providers.length === 0) {

@@ -1,14 +1,14 @@
 import { useMutation } from "@tanstack/react-query";
-import { useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Button, useToast } from "../../../components/ui";
-import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
+import { useSingleFlight } from "../../../lib/useSingleFlight";
 import { titleCase } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
+import { invitationRoleWord, isDeadInvitation, isInvitationHere } from "../../auth/invitationLabel";
 import type { PendingInvitation, WorkspaceSummary } from "../../auth/api/types";
 import { isPureClient } from "../../auth/roles";
 import { NewWorkspaceModal } from "../../workspace/components/NewWorkspaceModal";
@@ -111,8 +111,7 @@ function InvitationRow({ invitation }: { invitation: PendingInvitation }) {
   const navigate = useNavigate();
   const toast = useToast();
   const vocabulary = useWorkspaceVocabulary();
-  // isPending reaches the button a render late; a double click must not send the accept twice.
-  const inFlight = useRef(false);
+  const once = useSingleFlight();
 
   const accept = useMutation({
     mutationFn: () => acceptAndSwitch(() => authApi.acceptInvitationById(invitation.id)),
@@ -120,24 +119,17 @@ function InvitationRow({ invitation }: { invitation: PendingInvitation }) {
     onError: (error) => {
       toast.error(messageFor(error));
       // Revoked or lapsed since /me was read: refresh so the row goes rather than failing every click.
-      if (error instanceof ApiRequestError
-        && (error.code === "INVITATION_INVALID" || error.code === "INVITATION_EXPIRED")) {
+      if (isDeadInvitation(error)) {
         void reload();
       }
     },
-    onSettled: () => {
-      inFlight.current = false;
-    },
   });
 
-  const handleAccept = () => {
-    if (inFlight.current) return;
-    inFlight.current = true;
-    accept.mutate();
-  };
+  // isPending reaches the button a render late; a double click must not send the accept twice.
+  const handleAccept = () => void once(() => accept.mutateAsync().catch(() => undefined));
 
-  const here = invitation.workspaceId === user?.workspace?.id;
-  const role = here && invitation.role === "CLIENT" ? vocabulary.contactLower : titleCase(invitation.role);
+  const here = isInvitationHere(invitation, user?.workspace?.id);
+  const role = invitationRoleWord(invitation, vocabulary);
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-u-border py-3 first:border-t-0">

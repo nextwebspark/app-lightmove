@@ -254,7 +254,7 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
         <div className="break-all font-mono text-body sm:truncate">{invitation.email}</div>
         <div className="mt-0.5 font-mono text-meta text-u-text3">
           {titleCase(invitation.role)} · first sent {sentAgo(invitation.createdAt)}
-          {invitation.invitedByName && ` · sent by ${invitation.invitedByName}`}
+          {invitation.invitedByName && ` · last sent by ${invitation.invitedByName}`}
           {invitation.emailFailed ? (
             <span className="text-u-offlimits"> · email didn't send, resend it</span>
           ) : (

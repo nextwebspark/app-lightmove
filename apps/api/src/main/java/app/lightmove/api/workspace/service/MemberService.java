@@ -11,6 +11,7 @@ import app.lightmove.api.core.security.rbac.RbacService;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
+import app.lightmove.api.workspace.constant.InvitationWithdrawal;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.MemberAccessNarrowed;
 import app.lightmove.api.workspace.model.WorkspaceMember;
@@ -86,7 +87,8 @@ public class MemberService {
         if (dropsAdmin) {
             events.publishEvent(new MemberAccessNarrowed(workspaceId, member.getUserId(), actorId));
             // Their staff invitations were an admin's approval, which no longer stands.
-            invitations.withdrawSentBy(actorId, workspaceId, member.getUserId(), true, "inviter_demoted", request);
+            invitations.withdrawSentBy(actorId, workspaceId, member.getUserId(), InvitationWithdrawal.INVITER_DEMOTED,
+                    request);
         }
 
         audit.event(WorkspaceEventType.MEMBER_ROLE_CHANGED)
@@ -116,7 +118,8 @@ public class MemberService {
             seats.onStaffSeatsChanged(workspaceId);
         }
         apiKeys.revokeOnMembershipEnd(actorId, workspaceId, member.getUserId(), request);
-        invitations.withdrawSentBy(actorId, workspaceId, member.getUserId(), false, "inviter_removed", request);
+        invitations.withdrawSentBy(actorId, workspaceId, member.getUserId(), InvitationWithdrawal.INVITER_REMOVED,
+                request);
         oauthGrants.revokeOnMembershipEnd(actorId, workspaceId, member.getUserId(), request);
 
         log.info("User {} removed member {} from workspace {}", actorId, memberId, workspaceId);

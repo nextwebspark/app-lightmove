@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -154,11 +154,11 @@ describe("InviteModal — what a staff seat costs", () => {
     expect(dialog).toHaveTextContent("This seat takes your bill to 6 seats · AED 2,994 a month");
     expect(workspaceApi.invite).not.toHaveBeenCalled();
 
-    // A deliberate click, after the question has been on screen a moment.
-    const shownAt = Date.now();
-    const now = vi.spyOn(Date, "now").mockReturnValue(shownAt + 1000);
-    await user.click(screen.getByRole("button", { name: "Send and add seat" }));
-    now.mockRestore();
+    // A deliberate click, once the question has been on screen a moment.
+    const confirm = screen.getByRole("button", { name: "Send and add seat" });
+    expect(confirm).toBeDisabled();
+    await waitFor(() => expect(confirm).toBeEnabled());
+    await user.click(confirm);
 
     expect(workspaceApi.invite).toHaveBeenCalledWith([{ email: "sara@firm.com", role: "MEMBER" }]);
   });
@@ -174,6 +174,7 @@ describe("InviteModal — what a staff seat costs", () => {
     await user.dblClick(screen.getByRole("button", { name: "Send invite" }));
 
     expect(screen.getByRole("dialog", { name: "Add a paid seat?" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send and add seat" })).toBeDisabled();
     expect(workspaceApi.invite).not.toHaveBeenCalled();
   });
 

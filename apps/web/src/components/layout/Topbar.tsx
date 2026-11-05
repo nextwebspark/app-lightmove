@@ -1,9 +1,9 @@
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import type { PendingInvitation, WorkspaceSummary } from "../../features/auth/api/types";
 import * as authApi from "../../features/auth/api/authApi";
-import { invitationLabel } from "../../features/auth/invitationLabel";
+import { invitationLabel, isDeadInvitation } from "../../features/auth/invitationLabel";
 import { isPureClient } from "../../features/auth/roles";
 import { takeWorkspaceMove } from "../../features/auth/workspaceMoveNotice";
 import { CreditChip } from "../../features/billing/components/CreditChip";
@@ -13,8 +13,8 @@ import { WorkspaceMark } from "../../features/workspace/components/WorkspaceMark
 import { useWorkspaceVocabulary } from "../../features/workspace/lib/vocabulary";
 import { AppIcon, Avatar, useToast } from "../ui";
 import { cn } from "../../lib/cn";
-import { ApiRequestError } from "../../lib/apiClient";
 import { messageFor } from "../../lib/errorCodes";
+import { useSingleFlight } from "../../lib/useSingleFlight";
 import { Icon, ICONS } from "./Icon";
 import { useAccountActions, type AccountAction } from "./useAccountActions";
 import { useDropdownMenu } from "./useDropdownMenu";
@@ -117,8 +117,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
   const menu = useDropdownMenu();
   const vocabulary = useWorkspaceVocabulary();
   const [busy, setBusy] = useState(false);
-  // `busy` disables the items only once it re-renders; a double click must not send a second accept first.
-  const inFlight = useRef(false);
+  const once = useSingleFlight();
 
   const workspace = user?.workspace;
   if (!workspace) return null;
@@ -132,9 +131,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
     navigate(path);
   };
 
-  const moveTo = async (work: () => Promise<unknown>) => {
-    if (inFlight.current) return;
-    inFlight.current = true;
+  const moveTo = (work: () => Promise<unknown>) => once(async () => {
     setBusy(true);
     try {
       await work();
@@ -143,15 +140,13 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
     } catch (error) {
       toast.error(messageFor(error));
       // Revoked or lapsed since /me was read: refresh it so the dead entry goes rather than failing every click.
-      if (error instanceof ApiRequestError
-        && (error.code === "INVITATION_INVALID" || error.code === "INVITATION_EXPIRED")) {
+      if (isDeadInvitation(error)) {
         void reload();
       }
     } finally {
-      inFlight.current = false;
       setBusy(false);
     }
-  };
+  });
 
   const handleSwitch = (target: WorkspaceSummary) => moveTo(() => switchWorkspace(target.id));
 

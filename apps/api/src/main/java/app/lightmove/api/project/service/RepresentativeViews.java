@@ -3,10 +3,8 @@ package app.lightmove.api.project.service;
 import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.dto.RepresentativeResponse;
 import app.lightmove.api.project.model.ClientRepresentative;
-import app.lightmove.api.workspace.model.Invitation;
+import app.lightmove.api.workspace.model.ClientInvitationState;
 import app.lightmove.api.workspace.service.InvitationService;
-import java.time.Clock;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -20,31 +18,28 @@ import org.springframework.stereotype.Component;
 class RepresentativeViews {
 
     private final InvitationService invitations;
-    private final Clock clock;
 
-    List<RepresentativeResponse> of(UUID workspaceId, List<ClientRepresentative> representatives) {
-        Map<UUID, Invitation> outstanding = invitations.invitationsOf(workspaceId, representatives.stream()
-                .filter(representative -> representative.getStatus() == ClientRepStatus.INVITED)
-                .map(ClientRepresentative::getInvitationId)
-                .filter(Objects::nonNull)
-                .toList());
-        Instant now = clock.instant();
+    List<RepresentativeResponse> listed(UUID workspaceId, List<ClientRepresentative> representatives) {
+        Map<UUID, ClientInvitationState> states = invitations.clientInvitationStates(workspaceId,
+                representatives.stream()
+                        .filter(representative -> representative.getStatus() == ClientRepStatus.INVITED)
+                        .map(ClientRepresentative::getInvitationId)
+                        .filter(Objects::nonNull)
+                        .toList());
         return representatives.stream()
-                // An immutable map throws on a null key, and an active contact has no invitation id.
-                .map(representative -> of(representative, representative.getInvitationId() == null ? null
-                        : outstanding.get(representative.getInvitationId()), now))
+                .map(representative -> toResponse(representative, states.get(representative.getInvitationId())))
                 .toList();
     }
 
-    RepresentativeResponse of(UUID workspaceId, ClientRepresentative representative) {
-        return of(workspaceId, List.of(representative)).getFirst();
+    RepresentativeResponse viewOf(UUID workspaceId, ClientRepresentative representative) {
+        return listed(workspaceId, List.of(representative)).getFirst();
     }
 
-    private static RepresentativeResponse of(ClientRepresentative representative, Invitation invitation, Instant now) {
+    private static RepresentativeResponse toResponse(ClientRepresentative representative,
+                                                     ClientInvitationState invitation) {
         boolean invited = representative.getStatus() == ClientRepStatus.INVITED && invitation != null;
         return new RepresentativeResponse(representative.getId(), representative.getFullName(),
                 representative.getPosition(), representative.getEmail(), representative.getStatus(),
-                invited && !invitation.isRedeemable(now),
-                invited && invitation.getEmailFailedAt() != null);
+                invited && invitation.expired(), invited && invitation.emailFailed());
     }
 }

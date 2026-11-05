@@ -18,9 +18,12 @@ import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.persistence.service.RequiresNewTransactions;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.workspace.constant.InvitationStatus;
+import app.lightmove.api.workspace.constant.InvitationWithdrawal;
 import app.lightmove.api.workspace.constant.MemberStatus;
+import app.lightmove.api.workspace.model.ClientInvitationState;
 import app.lightmove.api.workspace.model.ClientInvitationWithdrawn;
 import app.lightmove.api.workspace.model.ClientRepresentativeOnboarding;
 import app.lightmove.api.workspace.model.Invitation;
@@ -37,6 +40,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,7 +53,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -82,6 +85,7 @@ public class InvitationService {
     private final SeatAllowance seats;
     private final RateLimitGuard rateLimit;
     private final TransactionTemplate transactions;
+    private final RequiresNewTransactions separately;
     private final Clock clock;
     private final ApplicationEventPublisher events;
 
@@ -121,11 +125,8 @@ public class InvitationService {
 
         Instant now = clock.instant();
         // Seats before the hourly budget: a batch refused for want of seats must not spend the retry's budget.
-        Set<String> pendingStaff = pendingStaffInvitees(workspaceId, now);
         if (!invitees.isEmpty()) {
-            Set<String> pendingAfter = new HashSet<>(pendingStaff);
-            invitees.forEach(invitee -> pendingAfter.add(invitee.email()));
-            seats.requireRoomFor(workspaceId, pendingAfter.size());
+            requireSeatsWithAlso(workspaceId, invitees.stream().map(InviteCommand::email).toList(), now);
         }
         rateLimit.checkInvitations(workspaceId, invitees.stream().map(InviteCommand::email).toList(), request);
 
@@ -168,10 +169,8 @@ public class InvitationService {
             return List.of();
         }
         Instant now = clock.instant();
-        // REQUIRES_NEW: deliver also runs from afterCommit, where a joined transaction has already committed.
-        TransactionTemplate marking = new TransactionTemplate(transactions.getTransactionManager());
-        marking.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        marking.executeWithoutResult(status -> refused.forEach(invitation -> {
+        // On its own transaction: deliver also runs from afterCommit, where a joined one has already committed.
+        separately.run(() -> refused.forEach(invitation -> {
             invitations.findById(invitation.invitationId()).ifPresent(found -> found.markEmailFailed(now));
             audit.event(WorkspaceEventType.INVITATION_EMAIL_FAILED)
                     .failed().actor(actorId).workspace(invitation.workspaceId())
@@ -376,9 +375,7 @@ public class InvitationService {
         // A lapsed invitation stopped counting against seats, so renewing it takes one again.
         if (!invitation.isRedeemable(now)
                 && activeMember(workspaceId, invitation.getEmail()).filter(WorkspaceMember::holdsStaffRole).isEmpty()) {
-            Set<String> pendingAfter = pendingStaffInvitees(workspaceId, now);
-            pendingAfter.add(EmailAddressValidator.normalise(invitation.getEmail()));
-            seats.requireRoomFor(workspaceId, pendingAfter.size());
+            requireSeatsWithAlso(workspaceId, List.of(EmailAddressValidator.normalise(invitation.getEmail())), now);
         }
         rateLimit.checkInvitations(workspaceId, List.of(invitation.getEmail()), request);
 
@@ -394,31 +391,30 @@ public class InvitationService {
                         role.getName(), issued.acceptLink()));
     }
 
-    /**
-     * Withdraws what an inviter still has outstanding once their approval no longer stands: every kind on removal,
-     * staff invitations alone when they stop being an admin (a member still adds client contacts).
-     */
+    /** Withdraws what an inviter still has outstanding once their approval no longer stands. */
     @Transactional(propagation = Propagation.MANDATORY)
-    public void withdrawSentBy(UUID actorId, UUID workspaceId, UUID inviterId, boolean staffOnly, String reason,
+    public void withdrawSentBy(UUID actorId, UUID workspaceId, UUID inviterId, InvitationWithdrawal withdrawal,
                                HttpServletRequest request) {
         invitations.findByWorkspaceIdAndInvitedByAndStatus(workspaceId, inviterId, InvitationStatus.PENDING).stream()
-                .filter(invitation -> !staffOnly || invitation.getClientId() == null)
-                .forEach(invitation -> withdraw(invitation, actorId, reason, request));
+                .filter(invitation -> withdrawal.reachesClientInvitations() || invitation.getClientId() == null)
+                .forEach(invitation -> withdraw(invitation, actorId, withdrawal, request));
     }
 
     /** Cancels a client contact's outstanding invitation; the link dies and the contact row follows. */
     @Transactional(propagation = Propagation.MANDATORY)
     public void revokeClientInvitation(UUID actorId, UUID workspaceId, UUID clientId, UUID invitationId,
                                        HttpServletRequest request) {
-        withdraw(requirePendingClientInvitation(workspaceId, clientId, invitationId), actorId, "cancelled", request);
+        withdraw(requirePendingClientInvitation(workspaceId, clientId, invitationId), actorId,
+                InvitationWithdrawal.CANCELLED, request);
     }
 
-    private void withdraw(Invitation invitation, UUID actorId, String reason, HttpServletRequest request) {
+    private void withdraw(Invitation invitation, UUID actorId, InvitationWithdrawal withdrawal,
+                          HttpServletRequest request) {
         invitation.revoke();
         audit.event(WorkspaceEventType.INVITATION_REVOKED)
                 .actor(actorId).workspace(invitation.getWorkspaceId()).target("invitation", invitation.getId())
                 .from(request)
-                .detail("email", invitation.getEmail()).detail("reason", reason)
+                .detail("email", invitation.getEmail()).detail("reason", withdrawal.auditKey())
                 .record();
         if (invitation.getClientId() != null) {
             events.publishEvent(new ClientInvitationWithdrawn(
@@ -451,14 +447,20 @@ public class InvitationService {
         }
     }
 
-    /** A client record's contacts' invitations, by id, for drawing their state; foreign or unknown ids are absent. */
+    /**
+     * The state of a client record's contacts' invitations, by id; foreign or unknown ids are absent. Whether a link
+     * has lapsed is decided here, beside the rule that redeems it.
+     */
     @Transactional(readOnly = true)
-    public Map<UUID, Invitation> invitationsOf(UUID workspaceId, Collection<UUID> invitationIds) {
-        if (invitationIds.isEmpty()) {
-            return Map.of();
+    public Map<UUID, ClientInvitationState> clientInvitationStates(UUID workspaceId, Collection<UUID> invitationIds) {
+        Instant now = clock.instant();
+        Map<UUID, ClientInvitationState> states = new HashMap<>();
+        if (!invitationIds.isEmpty()) {
+            invitations.findByWorkspaceIdAndIdIn(workspaceId, invitationIds).forEach(invitation -> states.put(
+                    invitation.getId(),
+                    new ClientInvitationState(!invitation.isRedeemable(now), invitation.getEmailFailedAt() != null)));
         }
-        return invitations.findByWorkspaceIdAndIdIn(workspaceId, invitationIds).stream()
-                .collect(Collectors.toMap(Invitation::getId, invitation -> invitation));
+        return states;
     }
 
     private Invitation requirePendingClientInvitation(UUID workspaceId, UUID clientId, UUID invitationId) {
@@ -476,6 +478,13 @@ public class InvitationService {
                 // A client-rep invitation's id is invisible here, exactly like a foreign workspace's.
                 .filter(inv -> inv.getClientId() == null)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
+
+    /** Room for every staff invitation still redeemable plus these addresses, each counted once. */
+    private void requireSeatsWithAlso(UUID workspaceId, Collection<String> normalisedEmails, Instant now) {
+        Set<String> pendingAfter = pendingStaffInvitees(workspaceId, now);
+        pendingAfter.addAll(normalisedEmails);
+        seats.requireRoomFor(workspaceId, pendingAfter.size());
     }
 
     private Set<String> pendingStaffInvitees(UUID workspaceId, Instant now) {

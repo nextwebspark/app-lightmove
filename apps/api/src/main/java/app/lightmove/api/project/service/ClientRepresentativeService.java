@@ -98,7 +98,7 @@ public class ClientRepresentativeService {
                 .detail("existingMember", String.valueOf(onboarding.existingMember()))
                 .record();
 
-        return views.of(workspaceId, representative);
+        return views.viewOf(workspaceId, representative);
     }
 
     /** Cancels an invited contact's invitation; the row follows through {@link #onInvitationWithdrawn}. */

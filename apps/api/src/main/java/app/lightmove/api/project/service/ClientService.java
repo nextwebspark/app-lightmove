@@ -99,7 +99,7 @@ public class ClientService {
         long delivered = mandates.stream()
                 .filter(mandate -> mandate.archivedAt() == null && mandate.stage().isDone()).count();
 
-        List<RepresentativeResponse> reps = representativeViews.of(workspaceId,
+        List<RepresentativeResponse> reps = representativeViews.listed(workspaceId,
                 representatives.findByClientIdOrderByCreatedAtAsc(clientId).stream()
                         .filter(rep -> rep.getStatus() != ClientRepStatus.REVOKED)
                         .toList());

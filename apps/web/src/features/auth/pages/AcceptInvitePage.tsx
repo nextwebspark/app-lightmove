@@ -1,11 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Card, Field, FormError, Input, Logo, Notice, Spinner } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
+import { useSingleFlight } from "../../../lib/useSingleFlight";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import type { InvitationPreview } from "../api/types";
@@ -16,6 +17,7 @@ import { OAuthButtons } from "../components/OAuthButtons";
 import { landingAfterJoining } from "../../projects/lib/landingAfterJoining";
 import { NO_POSITIONS_ORIGIN } from "../../projects/lib/positionsOrigin";
 import { ACCEPT_INVITE_PATH } from "../homeFor";
+import { isDeadInvitation } from "../invitationLabel";
 
 /**
  * Where an invitation lands — and, since membership is invitation-only, the only door into an existing
@@ -125,8 +127,7 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
   const navigate = useNavigate();
   const [formError, setFormError] = useState<string | null>(null);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
-  // A second submit landing before isSubmitting re-renders the button would race the first into a 409.
-  const submitting = useRef(false);
+  const once = useSingleFlight();
 
   const {
     register,
@@ -137,18 +138,13 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
     defaultValues: { fullName: "", password: "", confirmPassword: "" },
   });
 
-  const onSubmit = async (values: AcceptInviteValues) => {
-    if (submitting.current) {
-      return;
-    }
-    submitting.current = true;
+  const onSubmit = (values: AcceptInviteValues) => once(async () => {
     setFormError(null);
     setAlreadyRegistered(false);
     try {
       const joined = await acceptInviteSignup(token, values.fullName, values.password);
       navigate(await landingAfterJoining(joined, queryClient), { replace: true, state: NO_POSITIONS_ORIGIN });
     } catch (error) {
-      submitting.current = false;
       // The one failure with a way forward: this address already has an account, so log in and accept
       // from there. The address prefills the login form — and deliberately nothing else is revealed.
       if (error instanceof ApiRequestError && error.code === "EMAIL_ALREADY_REGISTERED") {
@@ -157,7 +153,7 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
       }
       setFormError(messageFor(error));
     }
-  };
+  });
 
   // A provider sign-in keeps this page: the token is still in the URL, so the signed-in states take over —
   // Accept for the invited address, or "this invitation is for …" for any other.
@@ -246,7 +242,7 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
       </form>
 
       {!alreadyRegistered && (
-        <OAuthButtons onError={handleProviderError} onSignedIn={() => undefined} returnTo={ACCEPT_INVITE_PATH} />
+        <OAuthButtons onError={handleProviderError} stayOnPage returnTo={ACCEPT_INVITE_PATH} />
       )}
 
       <LegalConsent className="mt-4" />
@@ -263,23 +259,18 @@ function ServerDerivedArrival() {
 
   const [accepting, setAccepting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const inFlight = useRef(false);
+  const once = useSingleFlight();
 
   const invitations = user!.pendingInvitations;
   const invitation = invitations[0];
 
-  const accept = async (invitationId: string) => {
-    if (inFlight.current) {
-      return;
-    }
-    inFlight.current = true;
+  const accept = (invitationId: string) => once(async () => {
     setAccepting(invitationId);
     setError(null);
     try {
       const joined = await acceptAndSwitch(() => authApi.acceptInvitationById(invitationId));
       navigate(await landingAfterJoining(joined, queryClient), { replace: true, state: NO_POSITIONS_ORIGIN });
     } catch (err) {
-      inFlight.current = false;
       setError(messageFor(err));
       setAccepting(null);
       // Revoked or lapsed meanwhile: re-read /me so the dead entry goes rather than failing every click.
@@ -287,7 +278,7 @@ function ServerDerivedArrival() {
         void reload();
       }
     }
-  };
+  });
 
   // An unverified existing account that was then invited. It still has to prove its address the ordinary
   // way — this path never created it, so the invite token never vouched for it.
@@ -358,7 +349,7 @@ function SignedInBody({
   const navigate = useNavigate();
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const inFlight = useRef(false);
+  const once = useSingleFlight();
 
   // Signed in as somebody else. A forwarded invitation must not admit the person it was forwarded to,
   // so there is nothing to do here but change who you are.
@@ -383,11 +374,7 @@ function SignedInBody({
     return <ConfirmAddressFirst email={user!.email} />;
   }
 
-  const accept = async () => {
-    if (inFlight.current) {
-      return;
-    }
-    inFlight.current = true;
+  const accept = () => once(async () => {
     setAccepting(true);
     setError(null);
     try {
@@ -396,11 +383,10 @@ function SignedInBody({
       const joined = await acceptAndSwitch(() => authApi.acceptInvitation(token));
       navigate(await landingAfterJoining(joined, queryClient), { replace: true, state: NO_POSITIONS_ORIGIN });
     } catch (err) {
-      inFlight.current = false;
       setError(messageFor(err));
       setAccepting(false);
     }
-  };
+  });
 
   // Right person, ready to accept.
   return (
@@ -445,11 +431,6 @@ function ConfirmAddressFirst({ email }: { email: string }) {
       </Button>
     </>
   );
-}
-
-function isDeadInvitation(error: unknown): boolean {
-  return error instanceof ApiRequestError
-    && (error.code === "INVITATION_INVALID" || error.code === "INVITATION_EXPIRED");
 }
 
 // ── Presentational ───────────────────────────────────────────────────────────
