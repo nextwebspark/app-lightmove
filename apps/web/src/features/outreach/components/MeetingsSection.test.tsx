@@ -121,6 +121,7 @@ function renderSection({
   recordings = [],
   recordableMeetingIds = ["m1"],
   callDayMeetingIds = ["m1"],
+  onLogMeeting,
 }: {
   meetings?: PersonMeetings;
   doNotContact?: boolean;
@@ -130,6 +131,7 @@ function renderSection({
   recordings?: NotetakerRecording[];
   recordableMeetingIds?: string[];
   callDayMeetingIds?: string[];
+  onLogMeeting?: (meeting: Meeting) => void;
 } = {}) {
   vi.mocked(meetingApi.getMeetings).mockResolvedValue(meetings);
   vi.mocked(notetakerApi.getNotetaker).mockResolvedValue({
@@ -176,6 +178,7 @@ function renderSection({
           candidateStatus="contacted"
           emails={EMAILS}
           onShowCopilot={onShowCopilot}
+          onLogMeeting={onLogMeeting}
         />
       </ToastProvider>
     </QueryClientProvider>,
@@ -215,6 +218,18 @@ describe("MeetingsSection", () => {
     expect(await screen.findByText("Debrief")).toBeInTheDocument();
     expect(screen.getByText(/7 Oct · \d\d:\d\d–\d\d:\d\d · Yara Haddad/)).toBeInTheDocument();
     expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("offers Log meeting notes on a call that has happened", async () => {
+    const onLogMeeting = vi.fn();
+    const debrief = { ...MEETINGS.upcoming[0], id: "m3", title: "Debrief" };
+    renderSection({ meetings: { upcoming: [], past: [debrief] }, onLogMeeting });
+
+    await screen.findByText("Debrief");
+    await userEvent.click(await screen.findByRole("button", { name: /Call options/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Log meeting notes" }));
+
+    expect(onLogMeeting).toHaveBeenCalledWith(debrief);
   });
 
   it("shows the latest three past calls and the rest on asking", async () => {

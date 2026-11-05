@@ -10,6 +10,7 @@ import { messageFor } from "../../../../lib/errorCodes";
 import * as poolApi from "../../api/poolApi";
 import type { DocumentScope } from "../../api/documentsApi";
 import type { PersonDocument, PersonDocumentVersion, PersonRecord } from "../../api/types";
+import { isContactNote } from "../../lib/noteKinds";
 import { usePersonDocuments } from "../../lib/usePersonDocuments";
 import { usePersonRecordUpdate } from "../../lib/usePersonRecordUpdate";
 import { usePoolLookups } from "../../lib/usePoolLookups";
@@ -221,7 +222,7 @@ function PersonDrawerBody({
           value={tab}
           onChange={onTabChange}
           counts={{
-            notes: notes.data?.length,
+            notes: notes.data?.filter((note) => !isContactNote(note.kind)).length,
             positions: person.positions.length,
           }}
         />

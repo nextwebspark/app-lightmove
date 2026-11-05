@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.constant.PersonNoteKind;
 import app.lightmove.api.candidate.dto.PersonNoteResponse;
 import app.lightmove.api.candidate.dto.WritePersonNoteRequest;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.NoteOccurrence;
 import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonNote;
@@ -63,6 +64,7 @@ public class PersonNoteService {
     private final PersonActivityRecorder activity;
     private final NoteMentions mentions;
     private final AuditService audit;
+    private final LoggedNoteRules loggedNotes;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -84,14 +86,17 @@ public class PersonNoteService {
     public PersonNoteResponse write(UUID userId, UUID workspaceId, UUID personId, UUID aboutProjectId,
                                     WritePersonNoteRequest request, HttpServletRequest httpRequest) {
         Person person = people.requireInWorkspace(personId, workspaceId);
-        PersonNoteKind kind = kindOf(request);
+        PersonNoteKind kind = kindOf(request, PersonNoteKind.GENERAL);
+        loggedNotes.refuseLoggedEmail(kind, null);
         if (aboutProjectId != null) {
             projectAccess.requireAction(userId, workspaceId, aboutProjectId, ProjectAction.WORK_EXECUTE);
             if (!candidates.existsByProjectIdAndPersonId(aboutProjectId, personId)) {
                 throw ApiException.of(ErrorCode.NOT_FOUND);
             }
         }
-        PersonNote note = save(person, aboutProjectId, kind, request.body().strip(), formatOf(request), userId);
+        NoteOccurrence occurrence = loggedNotes.occurrenceOf(request, kind, workspaceId, personId);
+        PersonNote note = save(person, aboutProjectId, kind, request.body().strip(), formatOf(request), userId,
+                occurrence);
         mentions.keep(note, userId);
         audit.event(ProjectEventType.PERSON_NOTE_ADDED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
@@ -104,9 +109,13 @@ public class PersonNoteService {
     public PersonNoteResponse revise(UUID userId, UUID workspaceId, UUID personId, NoteViewpoint viewpoint,
                                      UUID noteId, WritePersonNoteRequest request, HttpServletRequest httpRequest) {
         people.requireInWorkspace(personId, workspaceId);
-        PersonNoteKind kind = kindOf(request);
         PersonNote note = requireEditable(userId, workspaceId, personId, viewpoint, noteId);
+        PersonNoteKind kind = kindOf(request, note.getKind());
+        loggedNotes.refuseLoggedEmail(kind, note.getKind());
+        NoteOccurrence current = new NoteOccurrence(note.getOccurredAt(), note.getTitle(), note.getMeetingId());
+        NoteOccurrence occurrence = loggedNotes.revisedOccurrence(current, request, kind, workspaceId, personId);
         note.revise(kind, request.body().strip(), formatOf(request), userId);
+        note.placeAt(occurrence);
         mentions.keep(note, userId);
         audit.event(ProjectEventType.PERSON_NOTE_EDITED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
@@ -217,9 +226,16 @@ public class PersonNoteService {
 
     private PersonNote save(Person person, UUID projectId, PersonNoteKind kind, String body, NoteFormat format,
                             UUID author) {
+        return save(person, projectId, kind, body, format, author, NoteOccurrence.NONE);
+    }
+
+    private PersonNote save(Person person, UUID projectId, PersonNoteKind kind, String body, NoteFormat format,
+                            UUID author, NoteOccurrence occurrence) {
         String title = projectId == null ? null
                 : projects.findById(projectId).map(Project::getPositionTitle).orElse(null);
-        PersonNote note = notes.save(PersonNote.written(person, projectId, title, kind, body, format, author));
+        PersonNote written = PersonNote.written(person, projectId, title, kind, body, format, author);
+        written.placeAt(occurrence);
+        PersonNote note = notes.save(written);
         activity.record(person, projectId, author, PersonActivityKind.NOTE_ADDED,
                 PersonActivityDetails.of("noteId", note.getId()).and("kind", kind));
         return note;
@@ -242,7 +258,11 @@ public class PersonNoteService {
         return workspaceAccess.holdsAction(userId, workspaceId, WorkspaceAction.WORKSPACE_MANAGE);
     }
 
-    private static PersonNoteKind kindOf(WritePersonNoteRequest request) {
+    /** A note sent with no kind: a plain one when written, the kind it already has when edited. */
+    private static PersonNoteKind kindOf(WritePersonNoteRequest request, PersonNoteKind absent) {
+        if (request.kind() == null || request.kind().isBlank()) {
+            return absent;
+        }
         return ApiValueEnum.require(PersonNoteKind.class, request.kind(), "note kind");
     }
 
@@ -264,6 +284,7 @@ public class PersonNoteService {
                 note.getBodyFormat().value(), note.isPinned(),
                 note.getProjectId(), note.getProjectTitle(), note.getAuthorUserId(),
                 author == null ? null : author.getFullName(), author == null ? null : author.getAvatarUrl(),
-                note.getCreatedAt(), note.getEditedAt(), editor == null ? null : editor.getFullName(), editable);
+                note.getCreatedAt(), note.getEditedAt(), editor == null ? null : editor.getFullName(), editable,
+                note.happenedAt(), note.getTitle(), note.getMeetingId());
     }
 }

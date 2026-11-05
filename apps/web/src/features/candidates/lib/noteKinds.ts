@@ -18,6 +18,24 @@ export const NOTE_GLYPHS: Record<Exclude<PersonNoteKind, "linkedin">, string> = 
   email: ICONS.mail,
 };
 
+/** A plain note, the Notes tab's one kind: what the team should know, not something that passed with the person. */
+export const PLAIN_NOTE_KIND: PersonNoteKind = "general";
+
+/**
+ * What can be logged by hand in Outreach: a call, a LinkedIn message, or a meeting written up without the Notetaker.
+ * An email is the mailbox's, never logged.
+ */
+export const LOGGED_CONTACT_KINDS: readonly PersonNoteKind[] = ["call", "linkedin", "meeting"];
+
+/** A note of something that passed with the person — the Outreach timeline's; `email` survives only on old notes. */
+export function isContactNote(kind: PersonNoteKind): boolean {
+  return kind !== PLAIN_NOTE_KIND;
+}
+
+export function notePlaceholderOf(kind: PersonNoteKind): string {
+  return NOTE_KINDS.find((option) => option.value === kind)?.placeholder ?? NOTE_KINDS[0].placeholder;
+}
+
 export function noteKindLabel(kind: PersonNoteKind): string {
   return NOTE_KINDS.find((option) => option.value === kind)?.label ?? "Note";
 }
@@ -31,4 +49,9 @@ export function isBrandMark(kind: PersonNoteKind): kind is "linkedin" {
 export function noteKindOf(value: string | null | undefined): PersonNoteKind {
   const kind = (value ?? "general").toLowerCase();
   return NOTE_KINDS.find((option) => option.value === kind)?.value ?? "general";
+}
+
+/** When the event a note records happened: the logged time, or its writing for a note that logged none. */
+export function happenedAtOf(note: { occurredAt?: string; createdAt: string }): string {
+  return note.occurredAt ?? note.createdAt;
 }
