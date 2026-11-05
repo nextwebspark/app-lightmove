@@ -399,7 +399,7 @@ describe("ActivityTimeline", () => {
       }
     });
 
-    it("goes to the note itself on Open in Notes, and to the Notes tab for a note it can no longer show", async () => {
+    it("goes to a call note in Outreach, and to the Notes tab for a note it can no longer show", async () => {
       vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([callNote]);
       history(
         line(2, "NOTE_ADDED", { details: { noteId: "n1", kind: "CALL" }, noteExcerpt: "Open" }),
@@ -407,7 +407,7 @@ describe("ActivityTimeline", () => {
       );
       renderTimeline();
       await userEvent.click(await screen.findByRole("button", { name: /logged a call/ }));
-      await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: /Open in Notes/ }));
+      await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: /Open in Outreach/ }));
       expect(destinations.onShowNote).toHaveBeenCalledWith("n1");
 
       await userEvent.click(screen.getByRole("button", { name: /edited a note/ }));

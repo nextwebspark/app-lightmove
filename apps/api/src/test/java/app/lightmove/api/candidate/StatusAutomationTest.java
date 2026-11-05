@@ -62,11 +62,13 @@ class StatusAutomationTest extends PipelineFlowSupport {
         JsonNode emailed = candidate("source");
         JsonNode replied = candidate("contacted");
 
-        transactions.executeWithoutResult(status -> outreach.recordEmailSent(null, UUID.fromString(projectId),
-                idOf(emailed), UUID.randomUUID(), "Opening", 1, UUID.randomUUID()));
-        transactions.executeWithoutResult(status -> outreach.recordReplied(UUID.fromString(workspaceId),
-                UUID.fromString(projectId), UUID.fromString(replied.get("personId").asText()), UUID.randomUUID(),
-                "Opening", UUID.randomUUID()));
+        inWorkspace(() -> {
+            transactions.executeWithoutResult(status -> outreach.recordEmailSent(null, UUID.fromString(projectId),
+                    idOf(emailed), UUID.randomUUID(), "Opening", 1, UUID.randomUUID()));
+            transactions.executeWithoutResult(status -> outreach.recordReplied(UUID.fromString(workspaceId),
+                    UUID.fromString(projectId), UUID.fromString(replied.get("personId").asText()), UUID.randomUUID(),
+                    "Opening", UUID.randomUUID()));
+        });
 
         assertThat(statusOf(idOf(emailed))).isEqualTo("callBeingArranged");
         assertThat(statusOf(idOf(replied))).isEqualTo("interested");

@@ -3,6 +3,7 @@ package app.lightmove.api.outreach.service;
 import app.lightmove.api.core.crypto.service.SecretCipher;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.RecallCalendarStatus;
@@ -159,12 +160,16 @@ public class RecallCalendars {
                 }
             }
         }
-        transactions.executeWithoutResult(status -> mailboxes.findByRecallCalendarId(calendarId).stream()
-                .filter(MailboxConnection::canSend)
-                .forEach(mailbox -> {
-                    meetings.applyAll(mailbox, kept);
-                    gone.forEach(eventId -> meetings.remove(mailbox, eventId));
-                }));
+        // In the mailbox's workspace: the people an event is matched to are read there.
+        for (MailboxConnection owner : mailboxes.findByRecallCalendarId(calendarId)) {
+            WorkspaceScope.run(owner.getWorkspaceId(), () -> transactions.executeWithoutResult(status -> mailboxes
+                    .findById(owner.getId())
+                    .filter(MailboxConnection::canSend)
+                    .ifPresent(mailbox -> {
+                        meetings.applyAll(mailbox, kept);
+                        gone.forEach(eventId -> meetings.remove(mailbox, eventId));
+                    })));
+        }
     }
 
     /**

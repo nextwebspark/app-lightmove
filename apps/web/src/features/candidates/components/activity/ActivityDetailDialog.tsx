@@ -29,7 +29,7 @@ import {
   type TaskState,
 } from "../../lib/activityPresentation";
 import { STOP_REASONS, statusLabel } from "../../lib/candidateActivity";
-import { noteKindLabel, noteKindOf } from "../../lib/noteKinds";
+import { isContactNote, noteKindLabel, noteKindOf } from "../../lib/noteKinds";
 import { StatusPill } from "./ActivityItems";
 import { ActorFace, EntryKindTile } from "./ActivityVisuals";
 
@@ -648,7 +648,11 @@ function wayOf(entry: PersonTimelineEntry, position: PositionOfLine | null, to: 
     case "NOTE_EDITED":
     case "NOTE_RESTORED":
       return entry.details.noteId && entry.noteExcerpt !== null
-        ? { kind: "action", label: "Open in Notes", run: () => to.onShowNote(entry.details.noteId) }
+        ? {
+            kind: "action",
+            label: isContactNote(noteKindOf(entry.details.kind)) ? "Open in Outreach" : "Open in Notes",
+            run: () => to.onShowNote(entry.details.noteId),
+          }
         : { kind: "action", label: "Open Notes", run: () => to.onOpenTab("notes") };
     case "EMAIL_SENT":
     case "EMAIL_REPLIED":
