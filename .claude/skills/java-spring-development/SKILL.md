@@ -537,9 +537,9 @@ the work is about — **before** the transaction, since a joined one keeps its c
 every workspace into `EveryWorkspace`'s walk, its claim run inside each workspace. `@Async` tasks inherit the
 submitter's workspace through `ThreadContextTaskDecorator`; a pool built by hand wraps its tasks with
 `ThreadContextPropagation` (`core/concurrent`, MDC and workspace together), or they read nothing. A door that knows
-only a key — a webhook's grant, calendar, bot or customer, a public slug, a token's hash — has no row to read the workspace from yet: **resolve, then scope**. Ask `TenantResolvers` (V172: ids and the
-workspace, never the row), open `WorkspaceScope` on the answer, and read the row there; never an unscoped finder
-followed by a scope, which finds nothing once its table is protected. Beware a check that treats "not found" as
+only a key — a webhook's grant, calendar, bot or customer, a public slug, a token's hash — has no row to read the
+workspace from yet: **resolve, then scope**. Ask `TenantResolvers` (V185: ids and the workspace, never the row), open
+`WorkspaceScope` on the answer, and read the row there; never an unscoped finder followed by a scope, which finds nothing once its table is protected. Beware a check that treats "not found" as
 "allowed" (`existsByIdAndArchivedAtIsNotNull`, `NOT IN (…)`, a purge's `NOT EXISTS`, "is this call still on a
 calendar?"): run outside its scope it fails open, not closed. And never let a `RETURNING` insert write a row of
 another workspace than the caller's — the read policy checks the returned row (`AuditEvent` takes its id from the

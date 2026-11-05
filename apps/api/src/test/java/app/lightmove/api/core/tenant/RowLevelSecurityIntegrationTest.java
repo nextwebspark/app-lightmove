@@ -52,7 +52,7 @@ class RowLevelSecurityIntegrationTest extends FlowTestSupport {
             ROWS_OF_A_WORKSPACE.put(table, "select count(*) from " + table
                     + " child join app_lm_person p on p.id = child.person_id where p.workspace_id = ?");
         }
-        // V173's two shapes, one table each kind the seed touches: a direct workspace, and a project's child.
+        // V186's two shapes, one table each kind the seed touches: a direct workspace, and a project's child.
         for (String table : new String[] {"app_lm_client", "app_lm_workspace_candidate_tag", "app_lm_person_activity"}) {
             ROWS_OF_A_WORKSPACE.put(table, "select count(*) from " + table + " where workspace_id = ?");
         }
