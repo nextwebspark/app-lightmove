@@ -44,6 +44,7 @@ import type {
   SaveCandidatePayload,
 } from "../api/types";
 import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
+import type { ActivityExecutive } from "../lib/activityPresentation";
 import { candidateGenderLabel } from "../lib/candidateVocabulary";
 import { statusStyle } from "../lib/pipelineStatus";
 import { careerSummary } from "../lib/careerTimeline";
@@ -394,6 +395,12 @@ export function CandidateProfile({
   const capturedFrom = toBrowsableUrl(candidate.sourceUrl);
   const visibleColumns = customColumns.filter((column) => !column.hidden);
   const firstName = candidate.fullName.trim().split(/\s+/)[0];
+  const executiveFace: ActivityExecutive = {
+    fullName: candidate.fullName,
+    face: (size, className) => (
+      <CandidateAvatar projectId={projectId} candidate={candidate} size={size} className={className} />
+    ),
+  };
   const panelProps = (value: DrawerTab) => ({ ...tabPanelProps(TAB_ID_PREFIX, value), hidden: tab !== value });
 
   return (
@@ -827,6 +834,7 @@ export function CandidateProfile({
                     projectId={projectId}
                     candidateId={candidate.id}
                     firstName={firstName}
+                    executive={executiveFace}
                     past={past}
                     focus={outreachNoteFocus}
                   />
@@ -887,12 +895,7 @@ export function CandidateProfile({
             <div {...panelProps("activity")} className="pb-4">
               <ActivityTimeline
                 scope={{ kind: "position", projectId, candidateId: candidate.id }}
-                executive={{
-                  fullName: candidate.fullName,
-                  face: (size, className) => (
-                    <CandidateAvatar projectId={projectId} candidate={candidate} size={size} className={className} />
-                  ),
-                }}
+                executive={executiveFace}
                 documents={documents.documents.data}
                 destinations={{
                   onShowNote: showNote,

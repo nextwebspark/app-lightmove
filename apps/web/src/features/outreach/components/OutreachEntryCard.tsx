@@ -1,0 +1,134 @@
+import type { ReactNode } from "react";
+import { Icon, ICONS } from "../../../components/layout/Icon";
+import { NetworkMark } from "../../../components/ui/NetworkMark";
+import { cn } from "../../../lib/cn";
+import { ActorFace } from "../../candidates/components/activity/ActivityVisuals";
+import { actorNameOf, type ActivityActor, type ActivityExecutive } from "../../candidates/lib/activityPresentation";
+import { cardTimeOf, type EntryTile } from "../lib/conversationVocabulary";
+
+/**
+ * One entry of an executive's Outreach history, as the drawer and the Outreach page both draw it: the mark of its kind,
+ * its title and time, who did it, then whatever it carries.
+ */
+export function OutreachEntryCard({
+  label,
+  tile,
+  title,
+  badge = null,
+  at = null,
+  menu = null,
+  byline,
+  footer = null,
+  id,
+  tabIndex,
+  children,
+}: {
+  label: string;
+  tile: EntryTile;
+  title: ReactNode;
+  badge?: ReactNode;
+  at?: string | null;
+  menu?: ReactNode;
+  byline: ReactNode;
+  footer?: ReactNode;
+  id?: string;
+  tabIndex?: number;
+  children?: ReactNode;
+}) {
+  return (
+    <article
+      aria-label={label}
+      id={id}
+      tabIndex={tabIndex}
+      className="rounded-u-chip border border-u-border px-3 py-2.5 outline-none"
+    >
+      <div className="flex items-start gap-2.5">
+        <EntryLeadMark tile={tile} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <span className="min-w-0 flex-1 text-body font-semibold text-u-text">
+              {title}
+              {badge && <span className="ms-2 inline-flex align-middle">{badge}</span>}
+            </span>
+            {at && (
+              <time dateTime={at} className="flex-none font-mono text-meta text-u-text3">
+                {cardTimeOf(at)}
+              </time>
+            )}
+            {menu && <span className="flex-none self-center">{menu}</span>}
+          </div>
+          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-note text-u-text2">{byline}</div>
+        </div>
+      </div>
+      {children}
+      {footer && <div className="mt-2 font-mono text-meta text-u-text3">{footer}</div>}
+    </article>
+  );
+}
+
+/** Who did it, as a face and a name, then what the line adds — where an email went, when a call was. */
+export function EntryByline({
+  actor,
+  executive,
+  name,
+  before = null,
+  after = null,
+}: {
+  actor: ActivityActor;
+  executive: ActivityExecutive;
+  /** In place of the actor's own name: Uncava, on a delivery it reports. */
+  name?: string;
+  before?: string | null;
+  after?: string | null;
+}) {
+  const shownName = name ?? actorNameOf(actor, executive);
+  return (
+    <>
+      {before && <span className="flex-none font-mono text-meta text-u-text3">{before}</span>}
+      <ActorFace actor={actor} executive={executive} size="xs" title={shownName} />
+      <span className="flex-none font-medium text-u-text">{shownName}</span>
+      {after && <span className="min-w-0 truncate text-u-text3">{after}</span>}
+    </>
+  );
+}
+
+/** A kind's tile, tinted as its tone reads elsewhere — LinkedIn's being the network's own mark, never tinted. */
+export function EntryLeadMark({ tile }: { tile: EntryTile }) {
+  if (tile === "linkedin") {
+    return (
+      <span
+        aria-hidden="true"
+        className="grid size-8 flex-none place-items-center rounded-u-chip border border-u-border bg-u-bg"
+      >
+        <NetworkMark network="linkedin" size={15} />
+      </span>
+    );
+  }
+  const { icon, tone } = TILES[tile];
+  return (
+    <span aria-hidden="true" className={cn("grid size-8 flex-none place-items-center rounded-u-chip", tone)}>
+      <Icon d={icon} size={16} />
+    </span>
+  );
+}
+
+const TILES: Record<Exclude<EntryTile, "linkedin">, { icon: string; tone: string }> = {
+  email: { icon: ICONS.mail, tone: "bg-u-accent-tint text-u-accent" },
+  scheduled: { icon: ICONS.clock, tone: "bg-u-signal-tint text-u-signal" },
+  reply: { icon: ICONS.reply, tone: "bg-u-direct-tint text-u-direct" },
+  problem: { icon: ICONS.warning, tone: "bg-u-offlimits-tint text-u-offlimits" },
+  call: { icon: ICONS.phoneCall, tone: "bg-u-raised text-u-text2" },
+  note: { icon: ICONS.fileText, tone: "bg-u-raised text-u-text2" },
+  video: { icon: ICONS.video, tone: "bg-u-direct-tint text-u-direct" },
+  meeting: { icon: ICONS.calendar, tone: "bg-u-direct-tint text-u-direct" },
+};
+
+/** A call the Notetaker recorded: set apart from a calendar entry nobody recorded. */
+export function RecordedBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-u-raised px-1.5 py-px text-meta font-medium text-u-text2">
+      <Icon d={ICONS.mic} size={11} className="text-u-text3" />
+      Recorded
+    </span>
+  );
+}

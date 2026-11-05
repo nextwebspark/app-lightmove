@@ -94,7 +94,7 @@ public class PersonNoteService {
                 throw ApiException.of(ErrorCode.NOT_FOUND);
             }
         }
-        NoteOccurrence occurrence = loggedNotes.occurrenceOf(request, kind, workspaceId, personId);
+        NoteOccurrence occurrence = loggedNotes.occurrenceOf(request, kind, workspaceId, aboutProjectId, personId);
         PersonNote note = save(person, aboutProjectId, kind, request.body().strip(), formatOf(request), userId,
                 occurrence);
         mentions.keep(note, userId);
@@ -112,8 +112,10 @@ public class PersonNoteService {
         PersonNote note = requireEditable(userId, workspaceId, personId, viewpoint, noteId);
         PersonNoteKind kind = kindOf(request, note.getKind());
         loggedNotes.refuseLoggedEmail(kind, note.getKind());
-        NoteOccurrence current = new NoteOccurrence(note.getOccurredAt(), note.getTitle(), note.getMeetingId());
-        NoteOccurrence occurrence = loggedNotes.revisedOccurrence(current, request, kind, workspaceId, personId);
+        NoteOccurrence current = new NoteOccurrence(note.getOccurredAt(), note.getTitle(), note.getMeetingId(),
+                note.getRecordingId());
+        NoteOccurrence occurrence = loggedNotes.revisedOccurrence(current, request, kind, workspaceId,
+                note.getProjectId(), personId);
         note.revise(kind, request.body().strip(), formatOf(request), userId);
         note.placeAt(occurrence);
         mentions.keep(note, userId);
@@ -285,6 +287,6 @@ public class PersonNoteService {
                 note.getProjectId(), note.getProjectTitle(), note.getAuthorUserId(),
                 author == null ? null : author.getFullName(), author == null ? null : author.getAvatarUrl(),
                 note.getCreatedAt(), note.getEditedAt(), editor == null ? null : editor.getFullName(), editable,
-                note.happenedAt(), note.getTitle(), note.getMeetingId());
+                note.happenedAt(), note.getTitle(), note.getMeetingId(), note.getRecordingId());
     }
 }

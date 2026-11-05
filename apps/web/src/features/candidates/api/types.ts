@@ -297,6 +297,8 @@ export interface PersonNote {
   title?: string | null;
   /** The calendar meeting a meeting's notes are about. */
   meetingId?: string | null;
+  /** The Notetaker recording they are about, where the calendar no longer holds its meeting. */
+  recordingId?: string | null;
 }
 
 export interface WritePersonNotePayload {
@@ -313,6 +315,8 @@ export interface WritePersonNotePayload {
   title?: string | null;
   /** A meeting's notes: the calendar meeting they are about, whose start and title they take. */
   meetingId?: string | null;
+  /** Or the Notetaker recording, for a call known only from it; never with a `meetingId`. */
+  recordingId?: string | null;
 }
 
 /** One mandate a person is mapped on, with that mandate's status and who filed them there. */

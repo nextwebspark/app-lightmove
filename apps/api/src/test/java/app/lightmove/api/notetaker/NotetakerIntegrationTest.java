@@ -355,6 +355,44 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a researcher's own notes name a recorded call, from its position alone, once the call has begun")
+    void notesNameARecordedCall() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String notes = "/api/v1/projects/" + projectId + "/candidates/" + priya + "/notes";
+        String aboutIt = """
+                {"kind":"meeting","body":"She asked about the board.","recordingId":"%s"}""".formatted(recordingId);
+
+        as(consultant, post(notes).contentType(MediaType.APPLICATION_JSON).content(aboutIt))
+                .andExpect(status().isBadRequest());
+        Instant began = Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(Duration.ofHours(1));
+        jdbc.update("update app_lm_meeting_recording set starts_at = ? where id = ?::uuid",
+                Timestamp.from(began), recordingId);
+
+        JsonNode note = body(as(consultant, post(notes).contentType(MediaType.APPLICATION_JSON).content(aboutIt))
+                .andExpect(status().isCreated()).andReturn());
+        assertThat(note.get("recordingId").asText()).isEqualTo(recordingId);
+        assertThat(note.get("meetingId").isNull()).isTrue();
+        assertThat(note.get("title").asText()).isEqualTo("First conversation");
+        assertThat(Instant.parse(note.get("occurredAt").asText())).isEqualTo(began);
+
+        String otherProject = body(as(consultant, post("/api/v1/projects").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"clientId\":\"%s\",\"positionTitle\":\"Group COO\"}".formatted(clientId)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        String onOther = body(as(consultant, post("/api/v1/projects/" + otherProject + "/candidates")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"fullName":"Priya Raman","title":"Chief Financial Officer","employerName":"Target Group",
+                         "email":"priya@%s"}
+                        """.formatted(domain)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        as(consultant, post("/api/v1/projects/" + otherProject + "/candidates/" + onOther + "/notes")
+                .contentType(MediaType.APPLICATION_JSON).content(aboutIt))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("a call running over its booked end can still be sent a bot, which joins at once, until 20 min past")
     void anOverrunningCallIsStillRecordable() throws Exception {
         Instant now = Instant.now();

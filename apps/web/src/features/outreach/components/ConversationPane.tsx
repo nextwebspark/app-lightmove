@@ -4,6 +4,8 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { LinesSkeleton } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
+import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
+import type { ActivityExecutive } from "../../candidates/lib/activityPresentation";
 import * as tasksApi from "../../tasks/api/tasksApi";
 import type { TaskResponse } from "../../tasks/api/types";
 import { useCandidateTasks, useTaskCompletion } from "../../tasks/components/NextActionBar";
@@ -137,6 +139,19 @@ function LoadedConversation({
   const nextAction = nextActionOf(openTasks);
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] });
   const details = <CandidateDetailsPane projectId={projectId} conversation={conversation} onOpenRecord={onOpenRecord} />;
+  // Status and run changes are the Activity tab's; the history is what passed between the team and them.
+  const events = conversation.events.filter((event) => event.type !== "ACTIVITY");
+  const face: ActivityExecutive = {
+    fullName: executive.fullName,
+    face: (size, className) => (
+      <CandidateAvatar
+        projectId={projectId}
+        candidate={{ id: candidateId, fullName: executive.fullName, enrichedAt: executive.enrichedAt ?? null }}
+        size={size}
+        className={className}
+      />
+    ),
+  };
 
   return (
     <>
@@ -158,18 +173,19 @@ function LoadedConversation({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <ConversationGlance conversation={conversation} />
-          {conversation.events.length === 0 ? (
+          {events.length === 0 ? (
             <p className="text-body text-u-text3">
               Nothing yet with {firstName} on this position. Write the first email below, or add them to a sequence.
             </p>
           ) : (
             <ol className="flex flex-col gap-2.5">
-              {conversation.events.map((event) => (
+              {events.map((event) => (
                 <ConversationEventCard
                   key={`${event.type}:${keyOf(event)}`}
                   event={event}
                   projectId={projectId}
                   firstName={firstName}
+                  executive={face}
                   viewerUserId={user?.id ?? null}
                 />
               ))}
