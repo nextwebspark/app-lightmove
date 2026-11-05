@@ -74,8 +74,14 @@ export function invitations(): Promise<Invitation[]> {
   return request<Invitation[]>("/invitations");
 }
 
-export function invite(invites: InviteRequest[]): Promise<{ sent: number }> {
-  return request<{ sent: number }>("/invitations", { method: "POST", body: invites });
+/** `notDelivered`: addresses whose invitation is saved but whose email the mail provider refused. */
+export interface InviteOutcome {
+  sent: number;
+  notDelivered: string[];
+}
+
+export function invite(invites: InviteRequest[]): Promise<InviteOutcome> {
+  return request<InviteOutcome>("/invitations", { method: "POST", body: invites });
 }
 
 export function resendInvitation(invitationId: string): Promise<void> {

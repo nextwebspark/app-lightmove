@@ -14,6 +14,7 @@ import { titleCase } from "../../../lib/format";
 import { LegalConsent } from "../components/LegalConsent";
 import { landingAfterJoining } from "../../projects/lib/landingAfterJoining";
 import { NO_POSITIONS_ORIGIN } from "../../projects/lib/positionsOrigin";
+import { ACCEPT_INVITE_PATH } from "../homeFor";
 
 /**
  * Where an invitation lands — and, since membership is invitation-only, the only door into an existing
@@ -194,13 +195,26 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
         {alreadyRegistered ? (
           <Notice>
             {invitation.email} already has an account.{" "}
+            {/* Back to this page without the token: signed in, /me lists the invitation, and the token never rides
+                sessionStorage through an OAuth round trip. Without it a member of another workspace landed there. */}
             <Link
               to="/login"
-              state={{ email: invitation.email }}
+              state={{ email: invitation.email, from: ACCEPT_INVITE_PATH }}
               className="font-medium text-u-accent hover:underline"
             >
               Log in to accept →
             </Link>
+            <span className="mt-1.5 block">
+              Never set a password, or forgotten it?{" "}
+              <Link
+                to="/forgot-password"
+                state={{ email: invitation.email }}
+                className="font-medium text-u-accent hover:underline"
+              >
+                Reset it
+              </Link>
+              , then accept.
+            </span>
           </Notice>
         ) : (
           <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
