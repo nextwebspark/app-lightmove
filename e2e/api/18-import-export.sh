@@ -344,13 +344,13 @@ post_json "/projects/$PROJECT/candidates" "$(jq -nc --arg c "$SAHARA_ID" \
   '{triageCompanyId:$c, fullName:"Sami Shortlisted", title:"Chief Executive Officer", source:"manual"}')" -H "$LEAD"
 check_status 18.89 "a shortlisted company with one executive is typed in by hand" 201
 
-EXPORT_HEADER='Company,Website,Company LinkedIn,Country,Executive,Title,Email,Phone,Status,Stage,Sector,City,Revenue,Employees,Founded,Added,Description,Source,Mandate Priority'
+EXPORT_HEADER='Company,Website,Company LinkedIn,Country,Executive,Title,Email,Phone,Status,Stage,Sector,City,Revenue,Employees,Founded,Added,Description,Source,Added by,Mandate Priority'
 
 export_as "$LEAD" "status=inUniverse"
 check_status 18.90 "the lead exports the In universe stage" 200
 check_contains 18.91 "…as text/csv" "text/csv" "$(header 'content-type')"
 check_contains 18.92 "…downloaded as an attachment" "uncava-companies.csv" "$(header 'content-disposition')"
-check 18.93 "the header is every grid column, Links spelled out, then the custom column" \
+check 18.93 "the header is every grid column, Links spelled out, Added by for staff, then the custom column" \
   "$EXPORT_HEADER" "$(csv_header)"
 # Falcon x2 people, Dune x1, Oasis with nobody (its own line), Mirage x1, and the unmapped person
 # appended because this is the universe stage with no company search.
@@ -364,7 +364,7 @@ check 18.96 "a phone opening with + is defused so a spreadsheet cannot read it a
   "'+971 50 111 2233" "$(csv_field "$AISHA_LINE" 8)"
 check 18.97 "the import's rows are labelled by their door" "Import" "$(csv_field "$AISHA_LINE" 18)"
 check 18.98 "the custom column's value is on its person's line" "High" \
-  "$(csv_field "$(csv_line_for "Nadia Karim")" 19)"
+  "$(csv_field "$(csv_line_for "Nadia Karim")" 20)"
 check 18.99 "the company with nobody keeps its own line" ",,," \
   "$(csv_line_for "Oasis Foods" | awk -F, '{print "," $5 "," $6 ","}')"
 await_sql "SELECT count(*) FROM app_lm_audit_event WHERE event_type = 'COMPANIES_EXPORTED' AND target_id = '$PROJECT'" "1" >/dev/null

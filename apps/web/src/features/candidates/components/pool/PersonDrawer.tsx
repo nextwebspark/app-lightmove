@@ -10,11 +10,11 @@ import { messageFor } from "../../../../lib/errorCodes";
 import * as poolApi from "../../api/poolApi";
 import type { DocumentScope } from "../../api/documentsApi";
 import type { PersonDocument, PersonDocumentVersion, PersonRecord } from "../../api/types";
+import { isContactNote } from "../../lib/noteKinds";
 import { usePersonDocuments } from "../../lib/usePersonDocuments";
 import { usePersonRecordUpdate } from "../../lib/usePersonRecordUpdate";
 import { usePoolLookups } from "../../lib/usePoolLookups";
 import { DocumentPreviewSheet, type PreviewTarget } from "../documents/DocumentPreviewSheet";
-import { DocumentsPanel } from "../documents/DocumentsPanel";
 import { PositionsSection, type SetNextActionOn } from "../PersonPositions";
 import { PersonTagsSection } from "../PersonTagsSection";
 import { DrawerTabBar } from "../DrawerTabBar";
@@ -24,9 +24,10 @@ import { PersonHeaderLayout } from "../ProfileParts";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonNotesTab } from "./PersonNotesTab";
 import { PersonProfileTab } from "./PersonProfileTab";
-import { PersonCompensationTab } from "./PersonCompensationTab";
 import { ActivityTimeline } from "../activity/ActivityTimeline";
-import { PersonContactTab } from "./PersonContactTab";
+import { ContactsReadDialog } from "../../../contactlookup/components/ContactsReadDialog";
+import { useProfileSections, type ProfileSection } from "../../lib/useProfileSections";
+import { scrollToFold } from "../../lib/profileFolds";
 import { AddToPositionDialog } from "./AddToPositionDialog";
 import { focusNoteComposer } from "../../../notes/lib/focusNoteComposer";
 
@@ -103,6 +104,15 @@ function PersonDrawerBody({
     setPreview({ documentId: document.id, versionId: version.id });
   const closePreview = useCallback(() => setPreview(null), []);
   const changed = usePersonRecordUpdate();
+  const sections = useProfileSections();
+  const [showingContacts, setShowingContacts] = useState(false);
+  /** An Activity line's way back: its tab, and on Profile the fold that holds the thing, unfolded and in view. */
+  const openTab = (next: DrawerTab, fold?: ProfileSection) => {
+    onTabChange(next);
+    if (!fold) return;
+    sections.setAll(true, [fold]);
+    scrollToFold(fold);
+  };
   const [adding, setAdding] = useState(false);
   const [nextAction, setNextAction] = useState<NextActionTarget | null>(null);
   const setNextActionOn: SetNextActionOn = (position, taskId) =>
@@ -142,7 +152,7 @@ function PersonDrawerBody({
           linkedinUrl={person.linkedinUrl}
           title={person.title}
           contacts={person.contacts}
-          onShowContacts={() => onTabChange("contact")}
+          onShowContacts={() => setShowingContacts(true)}
           employer={{ name: person.companyName, logoUrl: person.companyLogoUrl }}
           location={[person.locationCity, person.locationCountry].filter(Boolean).join(" · ")}
         >
@@ -198,48 +208,41 @@ function PersonDrawerBody({
           )}
         </PersonHeaderLayout>
 
+        {showingContacts && (
+          <ContactsReadDialog
+            fullName={person.fullName}
+            contacts={person.contacts}
+            note={doNotContact ? "Do not contact is set — lookups are off for this person." : null}
+            onClose={() => setShowingContacts(false)}
+          />
+        )}
         <DrawerTabBar
           idPrefix={TAB_ID_PREFIX}
           tabs={WORKSPACE_TABS}
           value={tab}
           onChange={onTabChange}
           counts={{
-            notes: notes.data?.length,
-            documents: documents.documents.data?.length,
+            notes: notes.data?.filter((note) => !isContactNote(note.kind)).length,
             positions: person.positions.length,
           }}
         />
       </header>
 
       <div key={tab} className="min-h-0 flex-1 overflow-y-auto px-5" {...tabPanelProps(TAB_ID_PREFIX, tab)}>
-        {tab === "background" && (
+        {tab === "profile" && (
           <div className="py-4">
-            <PersonProfileTab person={person} />
-          </div>
-        )}
-        {tab === "compensation" && (
-          <div className="py-4">
-            <PersonCompensationTab person={person} />
+            <PersonProfileTab
+              person={person}
+              sections={sections}
+              documents={documents}
+              documentScope={documentScope}
+              onPreview={openPreview}
+            />
           </div>
         )}
         {tab === "notes" && (
           <div className="py-4">
             <PersonNotesTab person={person} notes={notes} />
-          </div>
-        )}
-        {tab === "contact" && (
-          <div className="py-4">
-            <PersonContactTab person={person} />
-          </div>
-        )}
-        {tab === "documents" && (
-          <div className="py-4">
-            <DocumentsPanel
-              scope={documentScope}
-              documents={documents}
-              personName={person.fullName.split(" ")[0]}
-              onPreview={openPreview}
-            />
           </div>
         )}
         {tab === "activity" && (
@@ -253,7 +256,8 @@ function PersonDrawerBody({
               documents={documents.documents.data}
               destinations={{
                 onShowNote: () => onTabChange("notes"),
-                onOpenTab: onTabChange,
+                onOpenTab: openTab,
+                onShowContacts: () => setShowingContacts(true),
                 onOpenMeetings: () => onTabChange("positions"),
                 onOpenTask: () => onTabChange("positions"),
                 onPreviewDocument: openPreview,

@@ -308,13 +308,13 @@ try {
   section("S7  logout");
   await page.goto(`${WEB}/`);
   await page.waitForTimeout(2000);
-  // Sign out lives inside the Topbar workspace menu, so the menu has to be opened first. The
-  await page.locator("header button[aria-expanded]").first().click();
+  // Sign out lives in the Topbar's account (avatar) menu, as a menuitem, so the menu has to be opened first.
+  await page.locator('header button[aria-label^="Account:"]').first().click();
   await page.waitForTimeout(600);
-  await shot(page, "s7-workspace-menu");
+  await shot(page, "s7-account-menu");
 
-  const signOut = page.getByRole("button", { name: /sign out/i }).first();
-  check("S7.1", "the workspace menu offers Sign out", 1, await signOut.count());
+  const signOut = page.getByRole("menuitem", { name: /sign out/i }).first();
+  check("S7.1", "the account menu offers Sign out", 1, await signOut.count());
 
   await signOut.click();
   await page.waitForTimeout(3000);

@@ -3,6 +3,7 @@ package app.lightmove.api.strategy;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.ApolloUniverse;
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.model.ScoredCompanyRow;
@@ -26,7 +27,7 @@ class CompanySimilarityIntegrationTest {
     /** Enough of the market that "watch retail", on five companies, is still under 3% of it. */
     private static final int GROCERS = 200;
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     @Autowired ApolloCompanyQueryService companies;
 
