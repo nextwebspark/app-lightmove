@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useEscapeKey } from "../../lib/useEscapeKey";
 import { EDGE_GAP, verticalPlacement } from "./anchoredPlacement";
 
 /**
@@ -55,11 +56,6 @@ export function Popover({
       if (triggerRef.current?.contains(target) || panelRef.current?.contains(target)) return;
       close();
     };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      close();
-      triggerRef.current?.focus();
-    };
     // A scroll inside the panel itself — the checkbox list, or the panel's own overflow — must not
     // close it; only a scroll of whatever sits *behind* it (the table, the page) would strand the
     // fixed position, and that is the one this exists to answer.
@@ -68,7 +64,6 @@ export function Popover({
       close();
     };
     document.addEventListener("mousedown", closeOnOutside);
-    document.addEventListener("keydown", closeOnEscape);
     // Capture: the scroll that would strand the panel is usually the table's box, not the window. Heard a
     // beat late, because bringing the trigger into view on open reports its own scroll after the panel is up.
     const listenForScroll = window.setTimeout(() => window.addEventListener("scroll", closeOnOutsideScroll, true), 150);
@@ -76,11 +71,16 @@ export function Popover({
     return () => {
       window.clearTimeout(listenForScroll);
       document.removeEventListener("mousedown", closeOnOutside);
-      document.removeEventListener("keydown", closeOnEscape);
       window.removeEventListener("scroll", closeOnOutsideScroll, true);
       window.removeEventListener("resize", close);
     };
   }, [open]);
+
+  // Through the overlays' one stack: inside a dialog, Escape closes the panel and leaves the dialog open.
+  useEscapeKey(open, () => {
+    setAnchor(null);
+    triggerRef.current?.focus();
+  });
 
   const toggle = () => {
     // A trigger half under its scroll box's edge is scrolled into view by the click's own focus, and that
