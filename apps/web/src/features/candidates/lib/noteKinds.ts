@@ -50,3 +50,8 @@ export function noteKindOf(value: string | null | undefined): PersonNoteKind {
   const kind = (value ?? "general").toLowerCase();
   return NOTE_KINDS.find((option) => option.value === kind)?.value ?? "general";
 }
+
+/** When the event a note records happened: the logged time, or its writing for a note that logged none. */
+export function happenedAtOf(note: { occurredAt?: string; createdAt: string }): string {
+  return note.occurredAt ?? note.createdAt;
+}

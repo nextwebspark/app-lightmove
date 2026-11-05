@@ -138,6 +138,39 @@ class MeetingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("notes logged about a past meeting take its start and title; a meeting still to come is refused")
+    void meetingNotesAreTiedToAPastMeeting() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        Instant pastStart = now.minus(Duration.ofDays(4));
+        gateway.calendarHolds(List.of(
+                event("past", "Coffee at DIFC", pastStart, MAILBOX, "priya@" + domain),
+                event("next", "Second conversation", now.plus(Duration.ofDays(3)), MAILBOX, "priya@" + domain)));
+        connectMailbox();
+        JsonNode meetings = meetingsOf(priya);
+        String pastId = meetings.get("past").get(0).get("id").asText();
+        String nextId = meetings.get("upcoming").get(0).get("id").asText();
+
+        JsonNode note = body(as(consultant, post(notesOf(priya)).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"kind":"meeting","body":"Wants a listed group.","meetingId":"%s"}""".formatted(pastId)))
+                .andExpect(status().isCreated()).andReturn());
+        assertThat(note.get("meetingId").asText()).isEqualTo(pastId);
+        assertThat(note.get("title").asText()).isEqualTo("Coffee at DIFC");
+        assertThat(Instant.parse(note.get("occurredAt").asText())).isEqualTo(pastStart);
+
+        as(consultant, post(notesOf(priya)).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"kind":"meeting","body":"Too early.","meetingId":"%s"}""".formatted(nextId)))
+                .andExpect(status().isBadRequest());
+        as(consultant, post(notesOf(priya)).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"kind":"call","body":"A call is no meeting.","meetingId":"%s"}""".formatted(pastId)))
+                .andExpect(status().isBadRequest());
+        String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
+        as(consultant, post(notesOf(rajesh)).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"kind":"meeting","body":"Someone else's meeting.","meetingId":"%s"}""".formatted(pastId)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("booking a call invites the executive, moves them to Engaged and ends their run")
     void bookingACallEndsTheRun() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
@@ -680,6 +713,10 @@ class MeetingIntegrationTest extends FlowTestSupport {
 
     private ResultActions as(String token, MockHttpServletRequestBuilder request) throws Exception {
         return mvc.perform(request.header("Authorization", "Bearer " + token));
+    }
+
+    private String notesOf(String candidateId) {
+        return "/api/v1/projects/" + projectId + "/candidates/" + candidateId + "/notes";
     }
 
     private String meetings(String candidateId) {

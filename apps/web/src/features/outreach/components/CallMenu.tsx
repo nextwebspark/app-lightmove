@@ -24,6 +24,7 @@ export function CallMenu({
   onShowChanges,
   onOpenCopilot,
   onReschedule,
+  onLogNotes,
   onCancel,
   quiet = false,
 }: {
@@ -43,6 +44,8 @@ export function CallMenu({
   /** Opens the live copilot's window; called straight from the click, which the window needs. */
   onOpenCopilot: (recordingId: string) => void;
   onReschedule?: () => void;
+  /** A call that has happened: notes written up by hand, with or without the Notetaker's. */
+  onLogNotes?: () => void;
   onCancel?: () => void;
   /** A past call's ⋯: no frame until hovered or open, so a list where only some calls have one stays even. */
   quiet?: boolean;
@@ -56,7 +59,7 @@ export function CallMenu({
   const offersCopilot =
     bot?.liveCopilot === true && (bot.status === "PROCESSING" || (bot.status === "RECORDING" && bot.endRequested));
   const hasCallItems = Boolean(
-    options || changes?.action || offersTranscript || offersRecording || offersRetry || offersCopilot,
+    options || changes?.action || offersTranscript || offersRecording || offersRetry || offersCopilot || onLogNotes,
   );
   const hasChangeItems = Boolean(onReschedule || onCancel);
   if (!bot && !hasCallItems && !hasChangeItems) return null;
@@ -136,6 +139,11 @@ export function CallMenu({
                 {bot && offersCopilot && (
                   <MenuItem icon={ICONS.externalLink} onSelect={choose(() => onOpenCopilot(bot.id))}>
                     Open copilot
+                  </MenuItem>
+                )}
+                {onLogNotes && (
+                  <MenuItem icon={ICONS.pencil} onSelect={choose(onLogNotes)}>
+                    Log meeting notes
                   </MenuItem>
                 )}
                 {hasCallItems && hasChangeItems && <div role="separator" className="my-1 h-px bg-u-border" />}

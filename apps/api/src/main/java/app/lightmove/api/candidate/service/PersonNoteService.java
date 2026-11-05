@@ -5,6 +5,8 @@ import app.lightmove.api.candidate.constant.PersonNoteKind;
 import app.lightmove.api.candidate.dto.PersonNoteResponse;
 import app.lightmove.api.candidate.dto.WritePersonNoteRequest;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.LoggedMeeting;
+import app.lightmove.api.candidate.model.NoteOccurrence;
 import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonNote;
@@ -28,6 +30,8 @@ import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -63,6 +67,7 @@ public class PersonNoteService {
     private final PersonActivityRecorder activity;
     private final NoteMentions mentions;
     private final AuditService audit;
+    private final PastMeetingLookup pastMeetings;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -92,7 +97,9 @@ public class PersonNoteService {
                 throw ApiException.of(ErrorCode.NOT_FOUND);
             }
         }
-        PersonNote note = save(person, aboutProjectId, kind, request.body().strip(), formatOf(request), userId);
+        NoteOccurrence occurrence = occurrenceOf(request, kind, workspaceId, personId);
+        PersonNote note = save(person, aboutProjectId, kind, request.body().strip(), formatOf(request), userId,
+                occurrence);
         mentions.keep(note, userId);
         audit.event(ProjectEventType.PERSON_NOTE_ADDED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
@@ -109,6 +116,10 @@ public class PersonNoteService {
         PersonNote note = requireEditable(userId, workspaceId, personId, viewpoint, noteId);
         refuseLoggedEmail(kind, note.getKind());
         note.revise(kind, request.body().strip(), formatOf(request), userId);
+        // An edit of the words alone sends none of the three, and keeps when it happened and what it is about.
+        if (request.occurredAt() != null || request.title() != null || request.meetingId() != null) {
+            note.placeAt(occurrenceOf(request, kind, workspaceId, personId));
+        }
         mentions.keep(note, userId);
         audit.event(ProjectEventType.PERSON_NOTE_EDITED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
@@ -219,9 +230,16 @@ public class PersonNoteService {
 
     private PersonNote save(Person person, UUID projectId, PersonNoteKind kind, String body, NoteFormat format,
                             UUID author) {
+        return save(person, projectId, kind, body, format, author, NoteOccurrence.NONE);
+    }
+
+    private PersonNote save(Person person, UUID projectId, PersonNoteKind kind, String body, NoteFormat format,
+                            UUID author, NoteOccurrence occurrence) {
         String title = projectId == null ? null
                 : projects.findById(projectId).map(Project::getPositionTitle).orElse(null);
-        PersonNote note = notes.save(PersonNote.written(person, projectId, title, kind, body, format, author));
+        PersonNote written = PersonNote.written(person, projectId, title, kind, body, format, author);
+        written.placeAt(occurrence);
+        PersonNote note = notes.save(written);
         activity.record(person, projectId, author, PersonActivityKind.NOTE_ADDED,
                 PersonActivityDetails.of("noteId", note.getId()).and("kind", kind));
         return note;
@@ -244,6 +262,9 @@ public class PersonNoteService {
         return workspaceAccess.holdsAction(userId, workspaceId, WorkspaceAction.WORKSPACE_MANAGE);
     }
 
+    /** A clock a minute or two off the browser's is no reason to refuse "now". */
+    private static final Duration FUTURE_GRACE = Duration.ofMinutes(5);
+
     private static PersonNoteKind kindOf(WritePersonNoteRequest request) {
         if (request.kind() == null || request.kind().isBlank()) {
             return PersonNoteKind.GENERAL;
@@ -260,6 +281,42 @@ public class PersonNoteService {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "kind",
                     "An email is recorded when it is sent; log a call or a LinkedIn message instead");
         }
+    }
+
+    /**
+     * When a logged call, LinkedIn message or meeting happened, its title, and the meeting it is about. A plain note is
+     * its own event and takes none; nothing is logged as happening in the future; and a meeting's notes bound to a
+     * calendar meeting take that meeting's start, and its title unless one was typed.
+     */
+    private NoteOccurrence occurrenceOf(WritePersonNoteRequest request, PersonNoteKind kind, UUID workspaceId,
+                                        UUID personId) {
+        String title = request.title() == null || request.title().isBlank() ? null : request.title().strip();
+        if (kind == PersonNoteKind.GENERAL) {
+            if (request.occurredAt() != null || title != null || request.meetingId() != null) {
+                throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "kind",
+                        "A plain note has no time, title or meeting of its own");
+            }
+            return NoteOccurrence.NONE;
+        }
+        if (title != null && (title.contains("\n") || title.contains("\r"))) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "title", "A title is one line");
+        }
+        Instant now = clock.instant();
+        if (request.meetingId() != null) {
+            if (kind != PersonNoteKind.MEETING) {
+                throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "meetingId",
+                        "Only a meeting's notes name a meeting");
+            }
+            LoggedMeeting meeting = pastMeetings.pastMeetingOf(workspaceId, personId, request.meetingId(), now)
+                    .orElseThrow(() -> ApiException.withField(ErrorCode.VALIDATION_FAILED, "meetingId",
+                            "Choose a meeting with this person that has already happened"));
+            return new NoteOccurrence(meeting.startsAt(), title != null ? title : meeting.title(), meeting.meetingId());
+        }
+        if (request.occurredAt() != null && request.occurredAt().isAfter(now.plus(FUTURE_GRACE))) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "occurredAt",
+                    "Log what has already happened, not what is still to come");
+        }
+        return new NoteOccurrence(request.occurredAt(), title, null);
     }
 
     private static NoteFormat formatOf(WritePersonNoteRequest request) {
@@ -280,6 +337,7 @@ public class PersonNoteService {
                 note.getBodyFormat().value(), note.isPinned(),
                 note.getProjectId(), note.getProjectTitle(), note.getAuthorUserId(),
                 author == null ? null : author.getFullName(), author == null ? null : author.getAvatarUrl(),
-                note.getCreatedAt(), note.getEditedAt(), editor == null ? null : editor.getFullName(), editable);
+                note.getCreatedAt(), note.getEditedAt(), editor == null ? null : editor.getFullName(), editable,
+                note.happenedAt(), note.getTitle(), note.getMeetingId());
     }
 }

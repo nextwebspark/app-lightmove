@@ -29,7 +29,9 @@ const FILTERS: readonly { value: TimelineFilter; label: string }[] = [
   { value: "meetings", label: "Meetings" },
 ];
 
-const PAGE = 15;
+/** The timeline opens on its latest few; See more reveals the next batch. */
+const FIRST_SHOWN = 5;
+const MORE_SHOWN = 10;
 
 /**
  * The executive drawer's Outreach timeline (`Position.dc.html`'s Outreach): everything that passed between the team
@@ -57,7 +59,7 @@ export function DrawerOutreachTimeline({
     queryFn: ({ signal }) => conversationApi.getConversation(projectId, candidateId, signal),
   });
   const [filter, setFilter] = useState<TimelineFilter>("all");
-  const [shown, setShown] = useState(PAGE);
+  const [shown, setShown] = useState(FIRST_SHOWN);
 
   const lines = conversation.data ? linesOf(conversation.data.events, past) : [];
   const visible = lines.filter((line) => matches(line, filter));
@@ -82,7 +84,7 @@ export function DrawerOutreachTimeline({
           value={filter}
           onChange={(next) => {
             setFilter(next);
-            setShown(PAGE);
+            setShown(FIRST_SHOWN);
           }}
           className="ms-auto"
         />
@@ -112,14 +114,27 @@ export function DrawerOutreachTimeline({
               />
             ))}
           </ol>
-          {visible.length > page.length && (
-            <button
-              type="button"
-              onClick={() => setShown((count) => count + PAGE)}
-              className="self-start ps-[34px] text-note text-u-accent hover:underline"
-            >
-              Show earlier ({visible.length - page.length})
-            </button>
+          {(visible.length > page.length || page.length > FIRST_SHOWN) && (
+            <div className="flex gap-4 ps-[34px] text-note">
+              {visible.length > page.length && (
+                <button
+                  type="button"
+                  onClick={() => setShown(page.length + MORE_SHOWN)}
+                  className="text-u-accent hover:underline"
+                >
+                  See more ({visible.length - page.length})
+                </button>
+              )}
+              {page.length > FIRST_SHOWN && (
+                <button
+                  type="button"
+                  onClick={() => setShown(FIRST_SHOWN)}
+                  className="text-u-text3 hover:text-u-text hover:underline"
+                >
+                  Show less
+                </button>
+              )}
+            </div>
           )}
           {conversation.data.truncated && page.length === visible.length && (
             <p className="ps-[34px] text-meta text-u-text3">Older history is in the Activity tab.</p>
@@ -166,7 +181,15 @@ function TimelineRow({
               />
             </ul>
           ) : line.kind === "call" ? (
-            <CallCard meeting={line.meeting} note={line.note} menu={callMenu} />
+            <CallCard
+              projectId={projectId}
+              candidateId={candidateId}
+              meeting={line.meeting}
+              recordedNote={line.recordedNote}
+              loggedNotes={line.loggedNotes}
+              menu={callMenu}
+              flashAt={flashAt}
+            />
           ) : line.kind === "activity" ? (
             <ActivityLine event={line.event} firstName={firstName} projectId={projectId} />
           ) : (
@@ -234,15 +257,34 @@ function ActivityLine({
   );
 }
 
-/** A call that is over: its calendar line and ⋯, then the Meeting note the Notetaker filed from it, held short. */
-function CallCard({ meeting, note, menu }: { meeting: Meeting; note: PersonNote | null; menu: ReactNode }) {
+/**
+ * A call that is over: its calendar line and ⋯, the Meeting note the Notetaker filed from it, held short, and any notes
+ * written up about it by hand, each editable where it sits.
+ */
+function CallCard({
+  projectId,
+  candidateId,
+  meeting,
+  recordedNote,
+  loggedNotes,
+  menu,
+  flashAt,
+}: {
+  projectId: string;
+  candidateId: string;
+  meeting: Meeting;
+  recordedNote: PersonNote | null;
+  loggedNotes: PersonNote[];
+  menu: ReactNode;
+  flashAt: number | null;
+}) {
   const [reading, setReading] = useState(false);
   const title = meeting.title ?? "Call";
   return (
     <article
       aria-label={title}
-      id={note ? noteAnchorOf(note.id) : undefined}
-      tabIndex={note ? -1 : undefined}
+      id={recordedNote ? noteAnchorOf(recordedNote.id) : undefined}
+      tabIndex={recordedNote ? -1 : undefined}
       className="rounded-u-chip border border-u-border px-3 py-2.5 outline-none"
     >
       <div className="flex items-start gap-2">
@@ -255,15 +297,15 @@ function CallCard({ meeting, note, menu }: { meeting: Meeting; note: PersonNote 
         </div>
         {menu && <span className="flex-none">{menu}</span>}
       </div>
-      {note && (
+      {recordedNote && (
         <div className="mt-2.5 border-t border-u-border pt-2.5">
           <p className="mb-1 flex items-center gap-1.5 text-meta font-medium text-u-text2">
             <Icon d={ICONS.sparkle} size={13} className="text-u-text3" />
             Meeting notes · written by the Notetaker
           </p>
           <ClampedNoteText
-            body={note.body}
-            format={note.format}
+            body={recordedNote.body}
+            format={recordedNote.format}
             className="text-body text-u-text2"
             onOpen={() => setReading(true)}
           />
@@ -271,11 +313,26 @@ function CallCard({ meeting, note, menu }: { meeting: Meeting; note: PersonNote 
             open={reading}
             onClose={() => setReading(false)}
             title={`Meeting notes · ${title}`}
-            writtenAt={note.createdAt}
-            body={note.body}
-            format={note.format}
+            writtenAt={recordedNote.createdAt}
+            body={recordedNote.body}
+            format={recordedNote.format}
           />
         </div>
+      )}
+      {loggedNotes.length > 0 && (
+        <ul aria-label="Notes logged about this meeting" className="mt-2.5 flex flex-col gap-2 border-t border-u-border pt-2.5">
+          {loggedNotes.map((note) => (
+            <PositionNoteCard
+              key={note.id}
+              projectId={projectId}
+              candidateId={candidateId}
+              // Its meeting's own title is the card's heading already.
+              note={note.title === meeting.title ? { ...note, title: null } : note}
+              flashAt={flashAt}
+              showsKindMark={false}
+            />
+          ))}
+        </ul>
       )}
     </article>
   );
@@ -309,7 +366,7 @@ function EmptyTimeline({ firstName, filtered }: { firstName: string; filtered: b
 
 function noteIdOfLine(line: Line): string | null {
   if (line.kind === "note") return line.note.id;
-  if (line.kind === "call") return line.note?.id ?? null;
+  if (line.kind === "call") return line.recordedNote?.id ?? line.loggedNotes[0]?.id ?? null;
   return null;
 }
 

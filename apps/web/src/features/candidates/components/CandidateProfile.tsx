@@ -236,7 +236,7 @@ export function CandidateProfile({
     setNoteFocus(null);
     setOutreachNoteFocus(focus);
   }, []);
-  const [logKind, setLogKind] = useState<PersonNoteKind | null>(null);
+  const [log, setLog] = useState<{ kind: PersonNoteKind; meetingId: string | null } | null>(null);
   const candidateOutreach = useQuery({
     queryKey: runApi.CANDIDATE_OUTREACH_KEY(projectId, candidate.id),
     queryFn: ({ signal }) => runApi.getCandidateOutreach(projectId, candidate.id, signal),
@@ -769,18 +769,6 @@ export function CandidateProfile({
         <div {...panelProps("outreach")}>
           {canWrite && (
             <>
-              <OutreachSection
-                projectId={projectId}
-                candidateId={candidate.id}
-                firstName={firstName}
-                candidateStatus={candidate.status}
-                open={sections.isOpen("outreach")}
-                onToggle={() => sections.toggle("outreach")}
-                isSettingStatus={changeStatus.isPending}
-                onSetStatus={(status) =>
-                  changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
-                }
-              />
               <MeetingsSection
                 projectId={projectId}
                 candidateId={candidate.id}
@@ -789,35 +777,50 @@ export function CandidateProfile({
                 candidateStatus={candidate.status}
                 emails={candidate.contacts.emails}
                 onShowCopilot={showCopilot}
+                onLogMeeting={(meeting) => setLog({ kind: "meeting", meetingId: meeting.id })}
                 actions={(bookCall) => (
-                  <CandidateOutreachButtons
-                    projectId={projectId}
-                    candidateId={candidate.id}
-                    fullName={candidate.fullName}
-                    sequenceHeldBy={sequenceHeldBy}
-                    between={
-                      <>
-                        <Button variant="secondary" size="xs" onClick={() => setLogKind("call")}>
-                          <Icon d={ICONS.phoneCall} size={13} />
-                          Log call
-                        </Button>
-                        <Button variant="secondary" size="xs" onClick={() => setLogKind("meeting")}>
-                          <Icon d={ICONS.video} size={13} />
-                          Log meeting
-                        </Button>
-                        <Button variant="secondary" size="xs" onClick={() => setLogKind("linkedin")}>
-                          <NoteKindMark kind="linkedin" size={13} />
-                          Log LinkedIn
-                        </Button>
-                        {bookCall && (
-                          <Button variant="secondary" size="xs" onClick={bookCall}>
-                            <Icon d={ICONS.calendar} size={13} />
-                            Book a call
+                  <>
+                    <CandidateOutreachButtons
+                      projectId={projectId}
+                      candidateId={candidate.id}
+                      fullName={candidate.fullName}
+                      sequenceHeldBy={sequenceHeldBy}
+                      between={
+                        <>
+                          <Button variant="secondary" size="xs" onClick={() => setLog({ kind: "call", meetingId: null })}>
+                            <Icon d={ICONS.phoneCall} size={13} />
+                            Log call
                           </Button>
-                        )}
-                      </>
-                    }
-                  />
+                          <Button variant="secondary" size="xs" onClick={() => setLog({ kind: "meeting", meetingId: null })}>
+                            <Icon d={ICONS.video} size={13} />
+                            Log meeting
+                          </Button>
+                          <Button variant="secondary" size="xs" onClick={() => setLog({ kind: "linkedin", meetingId: null })}>
+                            <NoteKindMark kind="linkedin" size={13} />
+                            Log LinkedIn
+                          </Button>
+                          {bookCall && (
+                            <Button variant="secondary" size="xs" onClick={bookCall}>
+                              <Icon d={ICONS.calendar} size={13} />
+                              Book a call
+                            </Button>
+                          )}
+                        </>
+                      }
+                    />
+                    <OutreachSection
+                      projectId={projectId}
+                      candidateId={candidate.id}
+                      firstName={firstName}
+                      candidateStatus={candidate.status}
+                      open={sections.isOpen("outreach")}
+                      onToggle={() => sections.toggle("outreach")}
+                      isSettingStatus={changeStatus.isPending}
+                      onSetStatus={(status) =>
+                        changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
+                      }
+                    />
+                  </>
                 )}
                 renderPast={(past) => (
                   <DrawerOutreachTimeline
@@ -847,9 +850,10 @@ export function CandidateProfile({
                 projectId={projectId}
                 candidateId={candidate.id}
                 fullName={candidate.fullName}
-                kind={logKind}
-                onClose={() => setLogKind(null)}
-                onSaved={() => setLogKind(null)}
+                kind={log?.kind ?? null}
+                presetMeetingId={log?.meetingId ?? null}
+                onClose={() => setLog(null)}
+                onSaved={() => setLog(null)}
               />
             </>
           )}

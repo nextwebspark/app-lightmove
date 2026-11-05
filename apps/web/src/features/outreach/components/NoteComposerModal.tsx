@@ -1,4 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import * as meetingApi from "../api/meetingApi";
 import { useComposerDialog } from "../lib/useComposerDialog";
 import { Modal } from "../../../components/ui";
 import type { PersonNoteKind } from "../../candidates/api/types";
@@ -14,6 +16,7 @@ export function NoteComposerModal({
   candidateId,
   fullName,
   kind,
+  presetMeetingId = null,
   onClose,
   onSaved,
 }: {
@@ -22,10 +25,22 @@ export function NoteComposerModal({
   fullName: string;
   /** Null while closed; `call`, `linkedin` or `meeting` for the Log buttons, `general` for Add note. */
   kind: PersonNoteKind | null;
+  /** Log meeting notes from a past call's ⋯: the dialog opens on that meeting. */
+  presetMeetingId?: string | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const dialog = useComposerDialog();
+  const logsContactAtAll = kind !== null && LOGGED_CONTACT_KINDS.includes(kind);
+  const meetings = useQuery({
+    queryKey: meetingApi.MEETINGS_KEY(projectId, candidateId),
+    queryFn: ({ signal }) => meetingApi.getMeetings(projectId, candidateId, signal),
+    enabled: logsContactAtAll,
+  });
+  const now = Date.now();
+  const pastMeetings = [...(meetings.data?.upcoming ?? []), ...(meetings.data?.past ?? [])]
+    .filter((meeting) => Date.parse(meeting.startsAt) <= now)
+    .sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt));
   // Log call and Log LinkedIn are one dialog switching between the two; the title follows the switch.
   const [chosen, setChosen] = useState<{ for: PersonNoteKind | null; kind: PersonNoteKind | null }>({ for: kind, kind });
   if (chosen.for !== kind) setChosen({ for: kind, kind });
@@ -53,12 +68,14 @@ export function NoteComposerModal({
     >
       {kind !== null && (
         <PositionNoteComposer
-          key={kind}
+          key={`${kind}:${presetMeetingId ?? ""}`}
           projectId={projectId}
           candidateId={candidateId}
           initialKind={kind}
           kindChoices={logsContact ? LOGGED_CONTACT_KINDS : undefined}
           onKindChange={(next) => setChosen({ for: kind, kind: next })}
+          pastMeetings={pastMeetings}
+          presetMeetingId={presetMeetingId}
           title={title}
           presentation="dialog"
           onExpandChange={dialog.onExpandChange}

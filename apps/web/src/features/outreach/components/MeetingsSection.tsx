@@ -54,6 +54,7 @@ export function MeetingsSection({
   onShowCopilot,
   actions,
   renderPast,
+  onLogMeeting,
 }: {
   projectId: string;
   candidateId: string;
@@ -70,6 +71,8 @@ export function MeetingsSection({
    * Outreach tab's body: the action row, the calls to come and the timeline, with no Meetings heading or Past list.
    */
   renderPast?: (past: PastCalls) => ReactNode;
+  /** A call that has happened: open Log meeting notes on it. */
+  onLogMeeting?: (meeting: Meeting) => void;
 }) {
   const meetings = useQuery({
     queryKey: meetingApi.MEETINGS_KEY(projectId, candidateId),
@@ -120,11 +123,13 @@ export function MeetingsSection({
       options,
       onReschedule,
       onCancel,
+      onLogNotes,
       quiet,
     }: {
       options?: { label: string; icon: string; onSelect: () => void };
       onReschedule?: () => void;
       onCancel?: () => void;
+      onLogNotes?: () => void;
       quiet?: boolean;
     } = {},
   ) => (
@@ -139,6 +144,7 @@ export function MeetingsSection({
       onOpenCopilot={handleOpenCopilot}
       onReschedule={onReschedule}
       onCancel={onCancel}
+      onLogNotes={onLogNotes}
       quiet={quiet}
     />
   );
@@ -190,6 +196,7 @@ export function MeetingsSection({
         offersNotetaker(meeting) && !hasCallEnded(recordingOf(meeting))
           ? { label: "Notetaker…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
           : undefined,
+      onLogNotes: onLogMeeting ? () => onLogMeeting(meeting) : undefined,
       quiet: true,
     });
   const dialogs = (

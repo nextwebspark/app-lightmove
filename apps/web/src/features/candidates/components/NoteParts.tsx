@@ -7,7 +7,7 @@ import { useRadioGroupKeys } from "../../../components/ui/useRadioGroupKeys";
 import { cn } from "../../../lib/cn";
 import type { PersonNote, PersonNoteKind } from "../api/types";
 import { shortWhen } from "../lib/candidateActivity";
-import { NOTE_KINDS, noteKindLabel } from "../lib/noteKinds";
+import { happenedAtOf, isContactNote, NOTE_KINDS, noteKindLabel } from "../lib/noteKinds";
 import { NoteEditor } from "../../notes/components/NoteEditor";
 import { NoteKindMark } from "./NoteKindMark";
 import { ClampedNoteText } from "../../notes/components/ClampedNoteText";
@@ -210,12 +210,17 @@ export function NoteCard({
             Pinned
           </span>
         )}
+        {/* A log is dated by when it happened; the hover says when it was written, where that differs. */}
         <time
-          dateTime={note.createdAt}
-          title={new Date(note.createdAt).toLocaleString()}
+          dateTime={happenedAtOf(note)}
+          title={
+            happenedAtOf(note) === note.createdAt
+              ? new Date(note.createdAt).toLocaleString()
+              : `Happened ${new Date(happenedAtOf(note)).toLocaleString()} · logged ${new Date(note.createdAt).toLocaleString()}`
+          }
           className="ms-auto flex-none font-mono text-[11px] text-u-text3"
         >
-          {shortWhen(note.createdAt)}
+          {isContactNote(note.kind) ? whenWithClock(happenedAtOf(note)) : shortWhen(note.createdAt)}
         </time>
       </div>
       {editing && actions ? (
@@ -257,6 +262,8 @@ export function NoteCard({
           />
         </div>
       ) : (
+        <>
+        {note.title && <p className="mt-1.5 text-body font-semibold text-u-text">{note.title}</p>}
         <ClampedNoteText
           body={note.body}
           format={note.format}
@@ -264,6 +271,7 @@ export function NoteCard({
           onOpen={() => setReading(true)}
           defaultExpanded={flashAt !== null}
         />
+        </>
       )}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-u-text3">
         {note.projectTitle ? (
@@ -372,4 +380,12 @@ function NoteActionButton({
       <Icon d={icon} size={14} />
     </button>
   );
+}
+
+/** "3 Nov · 15:20": a logged call or meeting is read by the hour it happened, not only the day. */
+function whenWithClock(isoInstant: string): string {
+  const at = new Date(isoInstant);
+  if (Number.isNaN(at.getTime())) return "—";
+  const day = shortWhen(isoInstant);
+  return day.startsWith("Today") ? day : `${day} · ${at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
 }

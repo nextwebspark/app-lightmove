@@ -15,6 +15,7 @@ import app.lightmove.api.StubChatModel;
 import app.lightmove.api.candidate.service.PersonNotePurge;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -147,6 +148,50 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"kind":"email","body":"Now an email."}"""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("a logged call says when it happened and orders the conversation by it; the future and a plain note's time are refused")
+    void aLogSaysWhenItHappened() throws Exception {
+        firm("When It Happened Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, FATIMA).get("id").asText();
+        Instant lastWeek = Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(Duration.ofDays(7));
+
+        JsonNode plain = write(admin, cfo, candidateId, "general", "Typed today.");
+        assertThat(plain.get("occurredAt").asText()).isEqualTo(plain.get("createdAt").asText());
+        JsonNode call = body(mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"call","body":"Spoke last week.","occurredAt":"%s","title":"First call"}"""
+                                .formatted(lastWeek)))
+                .andExpect(status().isCreated())
+                .andReturn());
+        assertThat(Instant.parse(call.get("occurredAt").asText())).isEqualTo(lastWeek);
+        assertThat(call.get("title").asText()).isEqualTo("First call");
+
+        JsonNode events = body(mvc.perform(get("/api/v1/projects/" + cfo + "/outreach/conversations/" + candidateId)
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn()).get("events");
+        JsonNode last = events.get(events.size() - 1);
+        assertThat(last.get("note").get("id").asText()).isEqualTo(call.get("id").asText());
+        assertThat(Instant.parse(last.get("at").asText())).isEqualTo(lastWeek);
+
+        mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"call","body":"Tomorrow.","occurredAt":"%s"}"""
+                                .formatted(Instant.now().plus(Duration.ofDays(1)))))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"general","body":"A plain note.","occurredAt":"%s"}""".formatted(lastWeek)))
                 .andExpect(status().isBadRequest());
     }
 

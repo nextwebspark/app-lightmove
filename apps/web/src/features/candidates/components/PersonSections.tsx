@@ -13,6 +13,8 @@ import * as poolApi from "../api/poolApi";
 import type { PersonNote, PersonNoteKind } from "../api/types";
 import { isContactNote, notePlaceholderOf, PLAIN_NOTE_KIND } from "../lib/noteKinds";
 import { useNoteCardActions } from "../lib/useNoteCardActions";
+import type { Meeting } from "../../outreach/api/meetingApi";
+import { LogDetailsFields, logDetailsNow, logPayloadOf, type LogDetails } from "./LogDetailsFields";
 import { NoteCard, NoteKindPicker, NoteScopePicker, noteAnchorOf, type NoteScope } from "./NoteParts";
 
 /**
@@ -139,6 +141,8 @@ export function PositionNoteComposer({
   initialKind = PLAIN_NOTE_KIND,
   kindChoices,
   onKindChange,
+  pastMeetings = [],
+  presetMeetingId = null,
   title = "New note",
   presentation = "inline",
   onExpandChange,
@@ -150,6 +154,10 @@ export function PositionNoteComposer({
   /** The kinds the composer switches between; none drawn when it offers one. */
   kindChoices?: readonly PersonNoteKind[];
   onKindChange?: (kind: PersonNoteKind) => void;
+  /** A log's meetings to choose from: this person's, already begun, newest first. */
+  pastMeetings?: readonly Meeting[];
+  /** The meeting a Log meeting notes on a call opens on. */
+  presetMeetingId?: string | null;
   /** The larger view's title. */
   title?: string;
   /** In a dialog the composer is the dialog's whole body: no frame of its own, and room to write. */
@@ -168,6 +176,9 @@ export function PositionNoteComposer({
   const positions = usePositions(projectId, candidateId);
   const thisPosition = positions.data?.find((row) => row.projectId === projectId)?.positionTitle;
   const [kind, setKind] = useState<PersonNoteKind>(initialKind);
+  // A call, LinkedIn message or meeting says when it happened: now, unless someone changes it.
+  const logs = kindChoices !== undefined && kindChoices.length > 0;
+  const [details, setDetails] = useState<LogDetails>(() => logDetailsNow(presetMeetingId));
   const chooseKind = (next: PersonNoteKind) => {
     setKind(next);
     onKindChange?.(next);
@@ -191,12 +202,17 @@ export function PositionNoteComposer({
       personCrmApi.writePersonNote(
         projectId,
         candidateId,
-        forEveryPosition
-          ? { kind, body, format: "markdown", allPositions: true }
-          : { kind, body, format: "markdown" },
+        {
+          kind,
+          body,
+          format: "markdown",
+          ...(forEveryPosition ? { allPositions: true } : {}),
+          ...(logs ? logPayloadOf(kind === "meeting" ? details : { ...details, meetingId: null }) : {}),
+        },
       ),
     onSuccess: (note, thenNextAction) => {
       setDraft("");
+      setDetails(logDetailsNow());
       void queryClient.invalidateQueries({
         queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, candidateId),
       });
@@ -236,8 +252,13 @@ export function PositionNoteComposer({
         fillsDialog={isDialog}
         onExpandChange={onExpandChange}
         header={
-          kindChoices && kindChoices.length > 1 ? (
-            <NoteKindPicker value={kind} onChange={chooseKind} kinds={kindChoices} label="What you are logging" />
+          logs ? (
+            <>
+              {kindChoices.length > 1 && (
+                <NoteKindPicker value={kind} onChange={chooseKind} kinds={kindChoices} label="What you are logging" />
+              )}
+              <LogDetailsFields kind={kind} pastMeetings={pastMeetings} value={details} onChange={setDetails} />
+            </>
           ) : undefined
         }
         footer={

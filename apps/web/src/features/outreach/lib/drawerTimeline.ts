@@ -11,7 +11,16 @@ export type TimelineLine =
   | { key: string; at: string; kind: "message"; event: Extract<ConversationEvent, { type: "MESSAGE" }> }
   | { key: string; at: string; kind: "activity"; event: Extract<ConversationEvent, { type: "ACTIVITY" }> }
   | { key: string; at: string; kind: "note"; note: PersonNote }
-  | { key: string; at: string; kind: "call"; meeting: Meeting; note: PersonNote | null };
+  | {
+      key: string;
+      at: string;
+      kind: "call";
+      meeting: Meeting;
+      /** The Notetaker's notes, filed from its recording. */
+      recordedNote: PersonNote | null;
+      /** Notes written up by hand about this meeting, oldest first. */
+      loggedNotes: PersonNote[];
+    };
 
 /** The calls that are over and the note each became, as `MeetingsSection` hands them over. */
 export interface PastCallNotes {
@@ -26,9 +35,13 @@ export function linesOf(events: readonly ConversationEvent[], past: PastCallNote
   const pairedNoteIds = new Set<string>();
   const calls: TimelineLine[] = past.meetings.map((meeting) => {
     const noteId = past.noteIdOf(meeting);
-    const note = noteId ? (notesById.get(noteId) ?? null) : null;
-    if (note) pairedNoteIds.add(note.id);
-    return { key: `call:${meeting.id}`, at: meeting.startsAt, kind: "call", meeting, note };
+    const recordedNote = noteId ? (notesById.get(noteId) ?? null) : null;
+    if (recordedNote) pairedNoteIds.add(recordedNote.id);
+    const loggedNotes = [...notesById.values()]
+      .filter((note) => note.meetingId === meeting.id && note.id !== recordedNote?.id)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    loggedNotes.forEach((note) => pairedNoteIds.add(note.id));
+    return { key: `call:${meeting.id}`, at: meeting.startsAt, kind: "call", meeting, recordedNote, loggedNotes };
   });
   const rest: TimelineLine[] = [];
   for (const event of events) {

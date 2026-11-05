@@ -83,7 +83,7 @@ describe("linesOf", () => {
 
     expect(lines.map((line) => line.key)).toEqual(["message:m1", "call:mt1", "note:n-call", "note:n-li"]);
     const call = lines.find((line) => line.kind === "call");
-    expect(call?.kind === "call" && call.note?.id).toBe("n-meet");
+    expect(call?.kind === "call" && call.recordedNote?.id).toBe("n-meet");
   });
 
   it("narrows by kind", () => {
@@ -95,6 +95,22 @@ describe("linesOf", () => {
     expect(keysOf("calls")).toEqual(["note:n-call"]);
     expect(keysOf("linkedin")).toEqual(["note:n-li"]);
     expect(keysOf("meetings")).toEqual(["call:mt1"]);
+  });
+
+  it("puts a meeting's notes written by hand inside its call, beside the Notetaker's", () => {
+    const handNote = { ...aNote("n-hand", "meeting", "Met at the conference.", "2026-10-29T08:00:00Z"), meetingId: "mt1" };
+    const lines = linesOf([...EVENTS, noteEvent(handNote)], PAST);
+
+    const call = lines.find((line) => line.kind === "call");
+    expect(call?.kind === "call" && call.loggedNotes.map((note) => note.id)).toEqual(["n-hand"]);
+    expect(lines.map((line) => line.key)).not.toContain("note:n-hand");
+  });
+
+  it("orders a log by when it happened, not when it was typed", () => {
+    const backdated = { ...aNote("n-old", "call", "Spoke last month.", "2026-11-04T08:00:00Z"), occurredAt: "2026-09-01T09:00:00Z" };
+    const lines = linesOf([...EVENTS, { type: "NOTE", at: backdated.occurredAt, note: backdated }], PAST);
+
+    expect(lines.at(-1)?.key).toBe("note:n-old");
   });
 
   it("keeps a Meeting note standing alone when no call it came from is listed", () => {
@@ -137,6 +153,32 @@ describe("DrawerOutreachTimeline", () => {
     expect(within(call).getByText(/Meeting notes · written by the Notetaker/)).toBeInTheDocument();
     expect(within(call).getByText("Open to a move in Q2.")).toBeInTheDocument();
     expect(screen.queryByText("Keep the chair out of it.")).not.toBeInTheDocument();
+  });
+
+  it("opens on the latest five, and See more reveals the rest", async () => {
+    const many = Array.from({ length: 8 }, (_, index) =>
+      noteEvent(aNote(`n-${index}`, "call", `Call number ${index}.`, `2026-10-0${index + 1}T10:00:00Z`)),
+    );
+    vi.mocked(conversationApi.getConversation).mockResolvedValue({ events: many, truncated: false } as unknown as Conversation);
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ToastProvider>
+          <DrawerOutreachTimeline
+            projectId="p1"
+            candidateId="c1"
+            firstName="Sarah"
+            past={{ meetings: [], noteIdOf: () => null, menuOf: () => null }}
+          />
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("Call number 7.")).toBeInTheDocument();
+    expect(screen.queryByText("Call number 2.")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "See more (3)" }));
+    expect(screen.getByText("Call number 0.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Show less" }));
+    expect(screen.queryByText("Call number 0.")).not.toBeInTheDocument();
   });
 
   it("narrows to one kind from the filter", async () => {
