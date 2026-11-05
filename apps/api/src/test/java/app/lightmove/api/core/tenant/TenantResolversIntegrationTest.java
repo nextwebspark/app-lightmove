@@ -9,6 +9,7 @@ import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.workspace.repository.InvitationRepository;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -20,7 +21,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * V185's doors: a key names its row's workspace and nothing more, a key nobody holds names nothing, and the row itself
- * stays behind the fence until the workspace it was resolved to is the scope.
+ * stays behind the fence until the workspace it was resolved to is the scope. V187's jobs are told workspaces alone.
  */
 @IntegrationTest
 class TenantResolversIntegrationTest extends FlowTestSupport {
@@ -71,6 +72,24 @@ class TenantResolversIntegrationTest extends FlowTestSupport {
 
         assertThat(shapes).isNotEmpty().allSatisfy(shape ->
                 assertThat(shape).isEqualTo("TABLE(id uuid, workspace_id uuid)"));
+    }
+
+    @Test
+    @DisplayName("a job's resolver answers workspace ids alone, and puts the maintenance flag back down")
+    void aJobsResolverAnswersWorkspacesOnly() {
+        List<String> shapes = fixture.queryForList("""
+                SELECT pg_get_function_result(oid) FROM pg_proc
+                WHERE (proname LIKE 'app\\_lm\\_workspaces\\_with\\_%'
+                       OR proname = 'app_lm_workspaces_owing_seat_sync')
+                  AND pronamespace = 'public'::regnamespace AND prosecdef""", String.class);
+        assertThat(shapes).hasSize(6).allSatisfy(shape -> assertThat(shape).isEqualTo("SETOF uuid"));
+
+        Boolean stillRaised = transactions.execute(status -> {
+            resolvers.workspacesWithSendsDue(Instant.now());
+            resolvers.workspacesWithCopilotListening();
+            return application.queryForObject("SELECT app_lm_rls_maintenance()", Boolean.class);
+        });
+        assertThat(stillRaised).isFalse();
     }
 
     @Test

@@ -11,6 +11,7 @@ import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.tenant.EveryWorkspace;
+import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.notification.constant.NotificationKind;
 import app.lightmove.api.notification.model.Notification;
@@ -82,6 +83,7 @@ public class NotificationEmails {
 
     private final JdbcTemplate jdbc;
     private final EveryWorkspace workspaces;
+    private final TenantResolvers resolvers;
     private final TransactionTemplate transactions;
     private final NotificationRepository rows;
     private final NotificationPreferences preferences;
@@ -103,7 +105,8 @@ public class NotificationEmails {
 
     /** One pass; a row that fails is logged and the rows after it still sent. */
     public int emailUnreadAt(Instant now) {
-        return workspaces.sum(workspaceId -> emailUnreadIn(workspaceId, now));
+        return workspaces.sum(resolvers.workspacesWithNotificationEmailsDue(now),
+                workspaceId -> emailUnreadIn(workspaceId, now));
     }
 
     private int emailUnreadIn(UUID workspaceId, Instant now) {

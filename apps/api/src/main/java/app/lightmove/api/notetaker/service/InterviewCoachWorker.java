@@ -9,6 +9,7 @@ import app.lightmove.api.core.config.RecallSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.tenant.EveryWorkspace;
+import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.notetaker.constant.CoachState;
 import app.lightmove.api.notetaker.constant.RecordGap;
 import app.lightmove.api.notetaker.model.InterviewPlan;
@@ -79,6 +80,7 @@ public class InterviewCoachWorker {
     private final RecallSettings settings;
     private final JdbcTemplate jdbc;
     private final EveryWorkspace workspaces;
+    private final TenantResolvers resolvers;
     private final TransactionTemplate transactions;
     private final Clock clock;
 
@@ -86,7 +88,8 @@ public class InterviewCoachWorker {
                          InterviewPlanService plans, PositionService positions, CandidateCallUpdates updates,
                          CandidateOutreachService outreachPeople, TeamVoices teamVoices,
                          CopilotStreamPublisher publisher, UsageRecorder usage, LightMoveProperties properties,
-                         JdbcTemplate jdbc, EveryWorkspace workspaces, PlatformTransactionManager transactionManager,
+                         JdbcTemplate jdbc, EveryWorkspace workspaces, TenantResolvers resolvers,
+                         PlatformTransactionManager transactionManager,
                          Clock clock) {
         this.recordings = recordings;
         this.lines = lines;
@@ -101,6 +104,7 @@ public class InterviewCoachWorker {
         this.settings = properties.recall();
         this.jdbc = jdbc;
         this.workspaces = workspaces;
+        this.resolvers = resolvers;
         // Woken after another transaction's commit, often on its thread: every write here is a transaction of its own.
         this.transactions = new TransactionTemplate(transactionManager);
         this.transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -121,9 +125,12 @@ public class InterviewCoachWorker {
         }
     }
 
-    /** A workspace at a time: the recordings and their lines are under row-level security. */
+    /**
+     * A workspace at a time, and only one with a copilot listening: the recordings and their lines are under
+     * row-level security, and the sweep runs every few seconds.
+     */
     public void sweepAt(Instant now) {
-        workspaces.forEach(workspaceId -> {
+        workspaces.forEach(resolvers.workspacesWithCopilotListening(), workspaceId -> {
             for (UUID recordingId : jdbc.queryForList(PENDING, UUID.class)) {
                 try {
                     coachIfDue(recordingId, now);

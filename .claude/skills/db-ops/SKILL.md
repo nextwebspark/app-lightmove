@@ -60,7 +60,9 @@ carry no workspace and reference none, so the guard never reaches them.
   `@Async` worker woken by one has no principal, so it reads nothing until it opens `WorkspaceScope.run(id, …)`. A job
   over every workspace is a walk (`EveryWorkspace`), its claims and finders run inside each: the dispatcher, the reply
   poll, the calendar and Recall owed lists, the notetaker's reconcile, sweep and purge, every billing job, the purges,
-  the due scan, the bell's emails and digests — and a workspace that throws never stops the rest. `@Async` tasks and hand-built pools inherit the
+  the due scan, the bell's emails and digests — and a workspace that throws never stops the rest. A frequent job walks
+  only the workspaces V187's resolver for it names (`app_lm_workspaces_with_*`, workspace ids out, its condition wider
+  than the job's claim, never narrower — change the two together). `@Async` tasks and hand-built pools inherit the
   submitter's workspace through `ThreadContextPropagation`, so an event published in scope is heard in it. A scope is
   refused inside a transaction already holding another workspace's connection — open it first — with one deliberate
   exception, `WorkspaceScope.runInJoinedTransaction`, for an account's work that must commit with the change behind

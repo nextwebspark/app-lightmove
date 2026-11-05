@@ -1,5 +1,6 @@
 package app.lightmove.api.core.tenant;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -12,7 +13,8 @@ import org.springframework.stereotype.Component;
 /**
  * A scheduled job's walk over the tenants: the work for each workspace runs in that workspace's scope, because one
  * statement over every workspace's rows is exactly what row-level security refuses. A workspace that fails is logged
- * and the rest still run, so one bad tenant never starves the ones after it.
+ * and the rest still run, so one bad tenant never starves the ones after it. A frequent job walks only the workspaces
+ * {@link TenantResolvers} names as having its work, so an idle tenant costs it no transaction.
  */
 @Slf4j
 @Component
@@ -27,15 +29,23 @@ public class EveryWorkspace {
     }
 
     public void forEach(Consumer<UUID> perWorkspace) {
-        sum(workspaceId -> {
+        forEach(ids(), perWorkspace);
+    }
+
+    public int sum(ToIntFunction<UUID> perWorkspace) {
+        return sum(ids(), perWorkspace);
+    }
+
+    public void forEach(Collection<UUID> workspaceIds, Consumer<UUID> perWorkspace) {
+        sum(workspaceIds, workspaceId -> {
             perWorkspace.accept(workspaceId);
             return 0;
         });
     }
 
-    public int sum(ToIntFunction<UUID> perWorkspace) {
+    public int sum(Collection<UUID> workspaceIds, ToIntFunction<UUID> perWorkspace) {
         int total = 0;
-        for (UUID workspaceId : ids()) {
+        for (UUID workspaceId : workspaceIds) {
             try {
                 total += WorkspaceScope.call(workspaceId, () -> perWorkspace.applyAsInt(workspaceId));
             } catch (RuntimeException failed) {

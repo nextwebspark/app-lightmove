@@ -26,11 +26,4 @@ public interface CreditHoldRepository extends JpaRepository<CreditHold, UUID> {
             ORDER BY h.expiresAt""")
     List<CreditHold> findStale(UUID workspaceId, Instant now);
 
-    /** Workspaces with an unsettled hold past its time or a grant past its expiry still holding credits. */
-    @Query(nativeQuery = true, value = """
-            SELECT workspace_id FROM app_lm_credit_hold WHERE status = 'OPEN' AND expires_at <= :now
-            UNION
-            SELECT workspace_id FROM app_lm_credit_grant WHERE remaining > 0 AND expires_at <= :now
-            LIMIT :limit""")
-    List<UUID> findWorkspacesWithLapsedCredits(Instant now, int limit);
 }

@@ -1435,6 +1435,9 @@ security on every other tenant table (#1085): a direct policy where the table ha
 parent where it has none; a library template and a grant awaiting consent (null workspace) are anyone's, and the audit
 trail takes every insert and is read only in its own workspace or the account's. `app_lm_audit_event` and
 `app_lm_credit_entry` are harden.sql's once it has run (step 2c), which must be re-run after V186 deploys.
+V187 adds the job resolvers (`app_lm_workspaces_with_*`, `app_lm_workspaces_owing_seat_sync`) — the same idiom,
+workspace ids out — so the dispatcher, the copilot coach, the bell's emails, the due scan, the seat sync and the ledger
+sweep walk only the workspaces with their work; each condition is wider than its job's claim, and changes with it.
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a
