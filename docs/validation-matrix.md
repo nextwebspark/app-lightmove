@@ -37,7 +37,9 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Signup password | 8+, a digit, ≤ 72 bytes | same; bytes in `PasswordPolicy` | field |
 | Signup terms | — | `@AssertTrue` | banner (was swallowed) |
 | ☐ Invite accept full name | 1–160, not trimmed | `@NotBlank @Size(160)` | banner |
-| ☐ Invite team rows | email per row, an address listed once, no cap | `List<@Valid InviteRequest>`, at most 50 a request; no role is MEMBER; a repeat is one invitation; every row checked before any is sent; per hour, 100 addresses a workspace and 5 sends an address across workspaces (`RATE_LIMITED`) | row (client), banner, row unnamed (server) |
+| ☐ Invite team rows | email per row, an address listed once, no cap | `List<@Valid InviteRequest>`, at most 50 a request; no role is MEMBER; a repeat is one invitation; every row checked before any is sent; seats (an invoiced workspace, `SEAT_LIMIT_REACHED`) before the hourly budget, so a batch refused for seats spends none; per hour, 100 addresses a workspace and 5 sends an address across workspaces (`RATE_LIMITED`) | row (client), banner, row unnamed (server) |
+| ☐ Invitation resend | — | the outstanding invitation only (`NOT_FOUND` once accepted or withdrawn, and the row re-reads); a lapsed one takes a seat again (`SEAT_LIMIT_REACHED`); the hourly budget; a refused email `INVITATION_EMAIL_NOT_SENT` | toast |
+| ☐ Roster role change | one staff role, from the picker | staff roles only, `@NotEmpty`, no null entry (`VALIDATION_FAILED`); CLIENT refused; a CLIENT role the member already holds is kept; the last admin kept (`LAST_ADMIN`) | toast |
 | ☐ Organisation name | trimmed 1–160, no `maxLength` | `@NotBlank @Size(160)` | banner |
 | Sign-in code (two-factor step) | six digits, spaces dropped; a recovery code instead is 16 Base32 characters, hyphens, spaces and case forgiven | `@NotBlank @Size(32)`; six digits within one 30-second step of now and after the last one used, or an unused recovery code; every refusal `MFA_CODE_INVALID`, counted towards the lock | banner |
 
@@ -66,7 +68,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Own app secret | required in the set-up form and in Replace (the screen never sends a blank one); ≤ 2048; never trimmed, but any space, tab, line break, control or invisible format character (a zero-width space, a BOM) refused; for Microsoft a GUID (the Secret ID) refused | blank keeps the one held for the same client ID (an API caller's path; the screen no longer takes it); the rest the same, after `@Size(2048)` | field |
 | Own app secret expiry | Microsoft only, and required with every new secret; from the browser's today to 24 months out | a date sent for Google or Zoom refused; Microsoft's optional, held to UTC today..+24 months with a day's slack either side (the browser's day may differ), unless the same app keeps its secret and its date | field |
 | Own app keys, Save and verify / Verify again | — (the provider decides) | the provider's token endpoint is asked first, outside any transaction: a refusal is `INTEGRATION_KEYS_REFUSED` with the provider's code as `providerError`, no answer (or an Entra refusal not about the keys) `INTEGRATION_PROVIDER_UNREACHABLE`, past ten checks a minute per workspace on an instance `RATE_LIMITED`; none of them writes anything. Verify again keeps the answer either way | banner ("{Provider} refused these keys ({code}). Nothing was saved." / "… The saved secret is unchanged.") / toast |
-| ☐ Invitation role | always sent | not required (500 when absent) | — |
+| ☐ Invitation role | always sent | not required (MEMBER when absent) | — |
 
 ### Projects and clients
 | Field | Client | Server | Shown as |
@@ -79,6 +81,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Delivery / mapping target date | ordered | `ProjectTimeline` | field |
 | Start / delivery / mapping / target date | ordered | 2000–2100 (`@PlausibleDate`) | field |
 | ☐ Client contact position | required | optional | banner |
+| ☐ Client contact invite, resend, cancel | name, title and work email | work email; the hourly invitation budget (`RATE_LIMITED`), whichever path it takes; resend and cancel only while the contact is invited (`NOT_FOUND`, and the row re-reads); a refused resend email `INVITATION_EMAIL_NOT_SENT` | banner / toast |
 | ☐ Client name, sector, country, domain | no `maxLength`, no domain check | 160/96/64/160 | toast |
 | ☐ Off-limits note | — | unbounded | toast |
 | Business unit / client notes | the note editor's Markdown, ≤ 4000 held under the box (both drawers' Save waits on it); sent only when changed, so stored plain notes stay plain | `@Size(4000)`; `notesFormat` an `ApiValueEnum`, plain when absent | toast |
