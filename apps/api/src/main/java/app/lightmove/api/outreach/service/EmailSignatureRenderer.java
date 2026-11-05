@@ -1,6 +1,5 @@
 package app.lightmove.api.outreach.service;
 
-import app.lightmove.api.outreach.constant.SignatureLayout;
 import app.lightmove.api.outreach.model.OutreachMarkdownEmail;
 import app.lightmove.api.outreach.model.RenderedSignature;
 import app.lightmove.api.outreach.model.SignatureContent;
@@ -57,7 +56,7 @@ public final class EmailSignatureRenderer {
                     .append(escapedLines(content.disclaimer())).append("</div>");
         }
         html.append("</div>");
-        return new RenderedSignature(html.toString(), text(content, details, booking));
+        return new RenderedSignature(html.toString());
     }
 
     /** The details one under another, and a logo beneath them past a rule. */
@@ -122,37 +121,6 @@ public final class EmailSignatureRenderer {
                 + "\" alt=\"\" style=\"display:block;width:" + width + "px;height:" + height + "px;border:0\">";
     }
 
-    private static String text(SignatureContent content, Details details, String booking) {
-        List<String> lines = new ArrayList<>();
-        if (content.layout() == SignatureLayout.CUSTOM) {
-            if (hasText(content.customBody())) {
-                lines.add(OutreachMarkdownEmail.wordsOf(content.customBody()));
-            }
-        } else if (content.layout() == SignatureLayout.MINIMAL) {
-            StringJoiner line = new StringJoiner(" · ");
-            if (details.name != null) {
-                line.add(details.name);
-            }
-            if (details.roleLine() != null) {
-                line.add(details.roleLine());
-            }
-            if (details.phone != null) {
-                line.add(details.phone);
-            }
-            lines.add(line.toString());
-        } else {
-            lines.addAll(details.plainLines());
-        }
-        if (booking != null) {
-            lines.add("Book a call with me: " + booking);
-        }
-        if (hasText(content.disclaimer())) {
-            lines.add("");
-            lines.add(content.disclaimer().strip());
-        }
-        return "-- \n" + String.join("\n", lines);
-    }
-
     /** The signature's own value where it set one, its source's otherwise; blank is absent either way. */
     private record Details(String name, String title, String company, String phone, String email, String website,
                            String linkedinUrl, String address) {
@@ -211,39 +179,6 @@ public final class EmailSignatureRenderer {
             }
             if (address != null) {
                 lines.add(muted(escape(address)));
-            }
-            return lines;
-        }
-
-        List<String> plainLines() {
-            List<String> lines = new ArrayList<>();
-            if (name != null) {
-                lines.add(name);
-            }
-            if (title != null) {
-                lines.add(title);
-            }
-            if (company != null) {
-                lines.add(company);
-            }
-            StringJoiner reach = new StringJoiner(" · ");
-            if (phone != null) {
-                reach.add(phone);
-            }
-            if (email != null) {
-                reach.add(email);
-            }
-            if (reach.length() > 0) {
-                lines.add(reach.toString());
-            }
-            if (websiteHref(website) != null) {
-                lines.add(displayOf(website));
-            }
-            if (websiteHref(linkedinUrl) != null) {
-                lines.add(linkedinUrl.strip());
-            }
-            if (address != null) {
-                lines.add(address);
             }
             return lines;
         }

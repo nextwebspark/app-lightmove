@@ -47,7 +47,6 @@ function aSignature(overrides: Partial<EmailSignature>): EmailSignature {
     isDefault: false,
     updatedAt: "2026-11-01T10:00:00Z",
     html: "<div>Alok Kumar</div>",
-    text: "-- \nAlok Kumar",
     ...overrides,
   };
 }
@@ -68,7 +67,7 @@ function renderPage() {
 describe("SettingsSignaturesPage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(signaturesApi.previewSignature).mockResolvedValue({ html: "<div>preview</div>", text: "-- " });
+    vi.mocked(signaturesApi.previewSignature).mockResolvedValue({ html: "<div>preview</div>" });
   });
 
   it("lists the default first, and makes another the default in one click", async () => {

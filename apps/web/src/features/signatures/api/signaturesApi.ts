@@ -39,7 +39,6 @@ export interface EmailSignature extends SaveSignaturePayload {
   updatedAt: string;
   /** How it draws today, as an email would carry it. */
   html: string;
-  text: string;
 }
 
 /** What the fields follow where a signature overrides nothing. `photoUrl` is set only for an uploaded photo. */
@@ -64,7 +63,6 @@ export interface EmailSignatures {
 
 export interface RenderedSignature {
   html: string;
-  text: string;
 }
 
 export function listSignatures(signal?: AbortSignal): Promise<EmailSignatures> {

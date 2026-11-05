@@ -19,8 +19,9 @@ import org.commonmark.renderer.html.UrlSanitizer;
 /**
  * An email a consultant wrote in the composer, or a Custom signature, both in the notes' Markdown, as the HTML a mailbox
  * sends. Nothing typed becomes markup but what Markdown means — a raw HTML block or tag is text — a link goes only to
- * http, https or mailto, an image is its alt text (an email Uncava sends carries no picture from anywhere), and a
- * mention is the person's name: the id behind it is the team's, never the executive's.
+ * http, https or mailto, an image is its alt text (the only pictures an email Uncava sends carries are a signature's
+ * photo and logo, which Uncava serves), and a mention is the person's name: the id behind it is the team's, never the
+ * executive's.
  */
 public final class OutreachMarkdownEmail {
 

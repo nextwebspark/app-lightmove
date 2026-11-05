@@ -196,7 +196,7 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk()).andReturn());
         assertThat(drawn.get("html").asText()).contains("Yara Haddad", "Head of Talent", "&lt;b&gt;Al-Futtaim&lt;/b&gt;",
                 "tel:+971501234567", "mailto:yara@" + domain, "Confidential");
-        assertThat(drawn.get("text").asText()).startsWith("-- \nYara Haddad");
+        assertThat(drawn.has("text")).isFalse();
         assertThat(list(yara).get("signatures")).isEmpty();
 
         MvcResult badSite = mvc.perform(post(SIGNATURES + "/preview").header("Authorization", "Bearer " + yara)

@@ -110,7 +110,7 @@ public class EmailSignatureService {
     public RenderedSignatureResponse preview(UUID userId, UUID workspaceId, SaveSignatureRequest request) {
         SignatureContent content = contentOf(request);
         RenderedSignature rendered = EmailSignatureRenderer.render(content, previewSender(userId, workspaceId, content));
-        return new RenderedSignatureResponse(rendered.html(), rendered.text());
+        return new RenderedSignatureResponse(rendered.html());
     }
 
     /**
@@ -140,7 +140,7 @@ public class EmailSignatureService {
                 new SignatureFieldsDto(fields.name(), fields.title(), fields.phone(), fields.linkedinUrl(),
                         fields.company(), fields.website(), fields.address()),
                 content.showPhoto(), content.showLogo(), content.showBookingLink(), content.customBody(),
-                content.disclaimer(), signature.isDefault(), signature.getUpdatedAt(), rendered.html(), rendered.text());
+                content.disclaimer(), signature.isDefault(), signature.getUpdatedAt(), rendered.html());
     }
 
     /** Trimmed, blank as absent, and an address that is not what its field says refused by name. */
