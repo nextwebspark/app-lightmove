@@ -99,7 +99,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | Notice period | five options | 0–999 | toast + rail |
 | Target start | date picker | 2000–2100 (`@PlausibleDate`) | toast |
 | Salary, incentive | ≤ 15 digits | ≥ 0 | toast + rail |
-| Bonus | % or months: two decimals, ≤ 100 % / 24 months; fixed: ≤ 15 digits | same, by `BonusBasis.admits` | toast + rail |
+| Bonus | % or months: two decimals, ≤ 100 % / 24 months; fixed: ≤ 15 digits; a basis change clears a figure the new basis cannot read (money ↔ share, or past its ceiling) | same, by `BonusBasis.admits` (a template's too) | toast + rail |
 | Currency | picker | ISO 4217 (`@CurrencyCode`) | toast + rail |
 | Benefits | ≤ 20 × 120, blank held | ≤ 20 × 120, `@NotBlank` | toast + rail |
 | Competency name / description | ≤ 120 / 300, blank name held | same | toast + rail |
