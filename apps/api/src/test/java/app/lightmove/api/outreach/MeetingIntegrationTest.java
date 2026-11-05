@@ -20,10 +20,13 @@ import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.CalendarEventRemoved;
 import app.lightmove.api.outreach.model.GrantedMailbox;
+import app.lightmove.api.outreach.model.MailboxConnection;
+import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.service.MeetingBackfill;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
+import java.sql.Timestamp;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
@@ -34,6 +37,7 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,6 +45,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -61,6 +67,8 @@ class MeetingIntegrationTest extends FlowTestSupport {
     @Autowired private OutreachDispatcher dispatcher;
     @Autowired private MeetingBackfill backfill;
     @Autowired @FixtureJdbc private JdbcTemplate jdbc;
+    @Autowired private MailboxConnectionRepository mailboxes;
+    @Autowired private PlatformTransactionManager transactionManager;
 
     private String grantId;
     private String consultant;
@@ -113,6 +121,28 @@ class MeetingIntegrationTest extends FlowTestSupport {
         gateway.deliverNext(List.of(new CalendarEventRemoved(grantId, "call-1")));
         webhook();
         assertThat(meetingRows()).isZero();
+    }
+
+    @Test
+    @DisplayName("a mailbox saved from a copy read before a calendar refresh claimed it keeps the claim")
+    void aStaleSaveKeepsTheRefreshClaim() throws Exception {
+        connectMailbox();
+        UUID mailboxId = UUID.fromString(jdbc.queryForObject(
+                "select id::text from app_lm_mailbox_connection where workspace_id = ?::uuid", String.class,
+                workspaceId));
+        Instant claimedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            MailboxConnection readBeforeTheClaim = mailboxes.findById(mailboxId).orElseThrow();
+            jdbc.update("update app_lm_mailbox_connection set calendar_synced_at = ? where id = ?::uuid",
+                    Timestamp.from(claimedAt), mailboxId.toString());
+            readBeforeTheClaim.changeTimeZone(ZoneId.of("Europe/London"));
+        });
+
+        assertThat(jdbc.queryForObject("select calendar_synced_at from app_lm_mailbox_connection where id = ?::uuid",
+                Instant.class, mailboxId.toString())).isEqualTo(claimedAt);
+        assertThat(jdbc.queryForObject("select time_zone from app_lm_mailbox_connection where id = ?::uuid",
+                String.class, mailboxId.toString())).isEqualTo("Europe/London");
     }
 
     @Test

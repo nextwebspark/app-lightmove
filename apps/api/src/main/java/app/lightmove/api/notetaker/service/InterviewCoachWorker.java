@@ -3,6 +3,7 @@ package app.lightmove.api.notetaker.service;
 import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.model.MeteredUse;
 import app.lightmove.api.billing.usage.service.UsageRecorder;
+import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.service.CandidateCallUpdates;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.core.config.RecallSettings;
@@ -180,7 +181,7 @@ public class InterviewCoachWorker {
             return null;
         }
         return new CoachTurn(recording.getId(), recording.getWorkspaceId(), recording.getProjectId(),
-                recording.getPersonId(), recording.getCandidateId(), recording.getStartsAt(),
+                recording.getPersonId(), recording.getStartsAt(),
                 recording.callClockStart(), recording.getTitle(), InterviewCopilotService.teamOf(recording),
                 unread.getLast().getSeq(), !recording.isLiveCharged(), recording.getRequestedBy());
     }
@@ -265,12 +266,14 @@ public class InterviewCoachWorker {
 
     /** An unmapped executive has no record to read gaps from; the copilot then follows the competencies alone. */
     private Set<RecordGap> missingOf(CoachTurn turn) {
-        if (turn.candidateId() == null) {
-            return EnumSet.noneOf(RecordGap.class);
-        }
         try {
+            UUID candidateId = outreachPeople.currentRecipientOfPerson(turn.workspaceId(), turn.projectId(),
+                    turn.personId()).map(OutreachRecipient::candidateId).orElse(null);
+            if (candidateId == null) {
+                return EnumSet.noneOf(RecordGap.class);
+            }
             List<RecordGap> missing = InterviewPlanService.missingOf(
-                    updates.heldOf(turn.workspaceId(), turn.projectId(), turn.candidateId()));
+                    updates.heldOf(turn.workspaceId(), turn.projectId(), candidateId));
             return missing.isEmpty() ? EnumSet.noneOf(RecordGap.class) : EnumSet.copyOf(missing);
         } catch (ApiException gone) {
             return EnumSet.noneOf(RecordGap.class);
@@ -291,7 +294,7 @@ public class InterviewCoachWorker {
         return recording.getLive() == null ? CoachState.RUNNING : recording.getLive().coach();
     }
 
-    private record CoachTurn(UUID recordingId, UUID workspaceId, UUID projectId, UUID personId, UUID candidateId,
+    private record CoachTurn(UUID recordingId, UUID workspaceId, UUID projectId, UUID personId,
                              Instant startsAt, Instant clockStart, String title, List<UUID> team, long throughSeq,
                              boolean firstRun, UUID requestedBy) {}
 }

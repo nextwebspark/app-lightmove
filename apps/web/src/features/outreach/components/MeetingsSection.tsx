@@ -11,10 +11,16 @@ import * as poolApi from "../../candidates/api/poolApi";
 import type { CandidateEmail, CandidateStatus } from "../../candidates/api/types";
 import * as meetingApi from "../api/meetingApi";
 import type { Meeting } from "../api/meetingApi";
-import type { NotetakerRecording } from "../api/notetakerApi";
 import { dateTileOf, meetingWhenOf } from "../lib/meetingTimes";
 import { openCopilotWindow } from "../lib/copilotWindow";
-import { callMarkOf, canRecord, hasCallEnded, isNotetakerLive, recordingOfMeeting } from "../lib/notetakerChip";
+import {
+  callMarkOf,
+  callRowsOf,
+  canRecord,
+  hasCallEnded,
+  isNotetakerLive,
+  isRecordingCall,
+} from "../lib/notetakerChip";
 import { useMailbox } from "../lib/useMailbox";
 import { useNotetaker } from "../lib/useNotetaker";
 import { BookCallDialog } from "./BookCallDialog";
@@ -96,11 +102,11 @@ export function MeetingsSection({
   const [showsAllPast, setShowsAllPast] = useState(false);
 
   const firstName = fullName.trim().split(/\s+/)[0];
-  const recordings = notetaker.data?.recordings ?? [];
-  const recordingOf = (meeting: Meeting): NotetakerRecording | null => recordingOfMeeting(recordings, meeting);
-  const booked = meetings.data?.upcoming ?? [];
-  const upcoming = booked.filter((meeting) => !hasCallEnded(recordingOf(meeting)));
-  const past = [...booked.filter((meeting) => hasCallEnded(recordingOf(meeting))), ...(meetings.data?.past ?? [])];
+  const { upcoming, past, recordingOf } = callRowsOf(
+    meetings.data?.upcoming ?? [],
+    meetings.data?.past ?? [],
+    notetaker.data?.recordings ?? [],
+  );
   const count = upcoming.length + past.length;
   const collapsedPast = past.filter(
     (meeting, index) => index < PAST_SHOWN || callMarkOf(recordingOf(meeting)) !== null,
@@ -183,7 +189,9 @@ export function MeetingsSection({
       menu={menuOf(meeting, {
         options: offersNotetaker(meeting)
           ? { label: "Notetaker & questions…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
-          : { label: "Prepare questions…", icon: ICONS.checklist, onSelect: () => setPlanOf(meeting.id) },
+          : isRecordingCall(meeting)
+            ? undefined
+            : { label: "Prepare questions…", icon: ICONS.checklist, onSelect: () => setPlanOf(meeting.id) },
         onReschedule: meeting.editable && canReschedule ? () => setRescheduling(meeting) : undefined,
         onCancel: meeting.editable && hasActiveMailbox ? () => setCancelling(meeting) : undefined,
       })}
@@ -196,7 +204,7 @@ export function MeetingsSection({
         offersNotetaker(meeting) && !hasCallEnded(recordingOf(meeting))
           ? { label: "Notetaker…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
           : undefined,
-      onLogNotes: onLogMeeting ? () => onLogMeeting(meeting) : undefined,
+      onLogNotes: onLogMeeting && !isRecordingCall(meeting) ? () => onLogMeeting(meeting) : undefined,
       quiet: true,
     });
   const dialogs = (
@@ -229,7 +237,7 @@ export function MeetingsSection({
           recording={recordingOf(panelMeeting)}
           mayRecord={mayRecord(panelMeeting)}
           isCallDay={onCallDay.has(panelMeeting.id)}
-          offersQuestions={upcoming.includes(panelMeeting)}
+          offersQuestions={upcoming.includes(panelMeeting) && !isRecordingCall(panelMeeting)}
           firstName={firstName}
           onPrepareQuestions={() => {
             setPanelOf(null);

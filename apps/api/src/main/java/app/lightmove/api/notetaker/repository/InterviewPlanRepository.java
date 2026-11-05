@@ -17,6 +17,9 @@ public interface InterviewPlanRepository extends JpaRepository<InterviewPlan, UU
 
     List<InterviewPlan> findByWorkspaceIdAndProjectIdAndPersonId(UUID workspaceId, UUID projectId, UUID personId);
 
+    List<InterviewPlan> findByWorkspaceIdAndProjectIdAndPersonIdAndStartsAt(UUID workspaceId, UUID projectId,
+                                                                            UUID personId, Instant startsAt);
+
     /** One Prepare questions press at a time per call: two presses ask the model once. */
     @Modifying
     @Query(nativeQuery = true, value = """
