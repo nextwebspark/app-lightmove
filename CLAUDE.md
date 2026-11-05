@@ -1510,8 +1510,8 @@ and the server files it under the resolved row's name, id, industry, city, count
 and logo; a firm typed in by hand leaves them all null.
 V73 gives `app_lm_project` the New position modal's decisions: `project_type` (`MAPPING | SEARCH`, V34's
 CHECK idiom, existing rows `SEARCH`) and a timeline — `start_date`, `delivery_date` (when the business
-unit expects the map or the shortlist) and, on a search only, `mapping_target_date`, which
-`ProjectTimeline` defaults to 60% of the window when the modal sends none. `target_date` is untouched
+unit expects the map or the shortlist) and, on a search only, `mapping_target_date`, entered
+by hand beside the shortlist date and never defaulted (`ProjectTimeline`). `target_date` is untouched
 and stays the brief's hire date; the list's Target and the derived health read `delivery_date` and
 fall back to it (`Project.deadline()`, the SPA's `deadlineOf`).
 V69 adds the workspace's `persona` jsonb — main business, sectors, competitors, geographies, notes —

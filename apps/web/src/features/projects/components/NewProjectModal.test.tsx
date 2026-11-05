@@ -585,7 +585,7 @@ describe("NewProjectModal — project type and timeline", () => {
     );
   });
 
-  it("previews a search's mapping target at 60% of the window and leaves it to the server unless moved", async () => {
+  it("leaves a search's mapping target blank, and keeps the one typed when the delivery date moves", async () => {
     vi.mocked(projectsApi.createProject).mockResolvedValue(created("acme"));
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
@@ -594,19 +594,41 @@ describe("NewProjectModal — project type and timeline", () => {
     await user.click(screen.getByRole("radio", { name: /Search/ }));
     fireEvent.change(dateInput(/Shortlist delivery date/), { target: { value: "2026-11-08" } });
 
-    const mappingTarget = screen.getByLabelText("Mapping target date");
-    expect(mappingTarget).toHaveValue("2026-10-21");
-    expect(screen.getByText(/~60% of window · 27 days from start$/)).toBeInTheDocument();
+    expect(dateInput(/Mapping target date/)).toHaveValue("");
+    expect(screen.queryByText(/% of window/)).not.toBeInTheDocument();
 
-    fireEvent.change(mappingTarget, { target: { value: "2026-10-30" } });
-    expect(screen.getByText(/36 days from start · edited$/)).toBeInTheDocument();
+    fireEvent.change(dateInput(/Mapping target date/), { target: { value: "2026-10-30" } });
+    fireEvent.change(dateInput(/Shortlist delivery date/), { target: { value: "2026-11-15" } });
+    expect(dateInput(/Mapping target date/)).toHaveValue("2026-10-30");
 
     await user.type(screen.getByRole("combobox", { name: "Position" }), "Head of Credit Risk");
     await user.click(screen.getByRole("button", { name: "Create position" }));
 
     await waitFor(() =>
       expect(projectsApi.createProject).toHaveBeenCalledWith(
-        expect.objectContaining({ projectType: "SEARCH", mappingTargetDate: "2026-10-30" }),
+        expect.objectContaining({
+          projectType: "SEARCH",
+          deliveryDate: "2026-11-15",
+          mappingTargetDate: "2026-10-30",
+        }),
+      ),
+    );
+  });
+
+  it("sends no mapping target for a search left blank", async () => {
+    vi.mocked(projectsApi.createProject).mockResolvedValue(created("acme"));
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
+
+    await user.click(screen.getByRole("radio", { name: /Search/ }));
+    fireEvent.change(dateInput(/Shortlist delivery date/), { target: { value: "2026-11-08" } });
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "Head of Credit Risk");
+    await user.click(screen.getByRole("button", { name: "Create position" }));
+
+    await waitFor(() =>
+      expect(projectsApi.createProject).toHaveBeenCalledWith(
+        expect.objectContaining({ projectType: "SEARCH", mappingTargetDate: undefined }),
       ),
     );
   });
@@ -634,7 +656,7 @@ describe("NewProjectModal — project type and timeline", () => {
 
     await user.click(screen.getByRole("radio", { name: /Search/ }));
     fireEvent.change(dateInput(/Shortlist delivery date/), { target: { value: "2026-11-08" } });
-    const mappingTarget = screen.getByLabelText("Mapping target date");
+    const mappingTarget = dateInput(/Mapping target date/);
     expect(mappingTarget).toHaveAttribute("min", "2026-09-25");
     expect(mappingTarget).toHaveAttribute("max", "2026-11-08");
 
