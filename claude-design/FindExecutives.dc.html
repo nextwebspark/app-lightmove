@@ -167,35 +167,33 @@
 
                 <!-- the search bar, on top -->
                 <sc-if value="{{ f.hasSearchBar }}" hint-placeholder-val="{{ true }}">
-                  <div style="flex:none;position:relative;padding:12px 18px 14px;border-bottom:1px solid var(--line-soft);background:var(--panel2)">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;font:500 12px var(--sans);color:var(--text3)">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="{{ f.aiIconStyle }}"><path d="{{ ic.sparkle }}"></path></svg>
-                      <span>{{ f.aiNote }}</span>
-                      <sc-if value="{{ f.canReset }}"><span style="color:var(--text3)">·</span><span style="color:var(--sky);font-weight:500">Reset</span></sc-if>
+                  <!-- One line says what the search looks for; Edit search opens its six fields, each a dropdown of one shape.
+                       The count line and Search stay at the line's end, open or folded. -->
+                  <div style="flex:none;position:relative;padding:12px 18px 0">
+                   <div style="border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:8px 12px">
+                    <div style="display:flex;align-items:center;gap:10px;font:500 12.5px var(--sans)">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="{{ f.aiIconStyle }};flex:none"><path d="{{ ic.sparkle }}"></path></svg>
+                      <span style="flex:none;font-weight:600;color:var(--text)">{{ f.aiNote }}</span>
+                      <sc-if value="{{ f.canReset }}"><span style="flex:none;color:var(--sky);font-weight:500">Reset</span></sc-if>
+                      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">{{ f.searchSummary }}</span>
+                      <span style="flex:none;font:400 12px var(--mono);color:var(--text2)">{{ f.countLine }}</span>
+                      <span style="{{ f.toggleBtnStyle }}">{{ f.toggleLabel }}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="{{ f.toggleChevronStyle }}"><path d="{{ ic.chevronDown }}"></path></svg></span>
+                      <span style="{{ f.searchBtnStyle }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.search }}"></path></svg>{{ f.searchLabel }}</span>
                     </div>
-                    <div style="display:flex;align-items:stretch;gap:8px">
-                      <span style="{{ f.levelBtnStyle }}"><span style="color:var(--text3)">Level</span><span style="{{ f.valueTextStyle }}">{{ f.levelValue }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
-                      <div style="{{ f.titlesFieldStyle }}">
-                        <span style="font:500 12.5px var(--sans);color:var(--text3);padding-right:2px">Titles</span>
-                        <sc-if value="{{ f.drafting }}"><span style="width:62px;height:20px;border-radius:5px;background:var(--line-soft);animation:pulse 1.4s ease infinite"></span><span style="width:78px;height:20px;border-radius:5px;background:var(--line-soft);animation:pulse 1.4s ease infinite"></span><span style="width:48px;height:20px;border-radius:5px;background:var(--line-soft);animation:pulse 1.4s ease infinite"></span></sc-if>
-                        <sc-for list="{{ f.titleChips }}" as="c" hint-placeholder-count="4">
-                          <span style="display:inline-flex;align-items:center;gap:5px;border-radius:5px;background:var(--amber-dim);padding:2px 4px 2px 8px;font:500 12.5px var(--sans);color:var(--text)">{{ c }}<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="{{ ic.close }}"></path></svg></span>
-                        </sc-for>
-                        <span style="{{ f.titleInputStyle }}">{{ f.titleInputText }}</span>
+                    <sc-if value="{{ f.searchOpen }}">
+                      <div style="margin-top:8px;padding-top:10px;border-top:1px solid var(--line-soft);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+                        <span style="{{ f.levelBtnStyle }}"><span style="flex:none;color:var(--text3)">Level</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text)">{{ f.levelValue }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex:none;color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
+                        <span style="{{ f.titlesBtnStyle }}"><span style="flex:none;color:var(--text3)">Titles</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text)">{{ f.titlesValue }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex:none;color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
+                        <span style="{{ f.fieldStyle }}"><span style="flex:none;color:var(--text3)">Leave out</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text)">{{ f.leaveOutValue }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex:none;color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
+                        <span style="{{ f.fieldStyle }}"><span style="flex:none;color:var(--text3)">Where</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text)">{{ f.whereValue }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex:none;color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
+                        <span style="{{ f.companiesBtnStyle }}"><span style="flex:none;color:var(--text3)">Companies</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text)">{{ f.companiesValue }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex:none;color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
+                        <span style="{{ f.fieldStyle }}"><span style="flex:none;color:var(--text3)">Per company</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text)">3 profiles</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex:none;color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
                       </div>
-                    </div>
-                    <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                      <span style="{{ f.fieldStyle }}"><span style="color:var(--text3)">Leave out</span><span style="{{ f.valueTextStyle }}">{{ f.leaveOutValue }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
-                      <span style="{{ f.fieldStyle }}"><span style="color:var(--text3)">Where</span><span style="{{ f.valueTextStyle }}">{{ f.whereValue }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
-                      <span style="{{ f.companiesBtnStyle }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.building }}"></path></svg><span style="{{ f.valueTextStyle }}">{{ f.companiesValue }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
-                      <span style="{{ f.fieldStyle }}"><span style="{{ f.valueTextStyle }}">3</span><span style="color:var(--text3)">bought per company</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--text3)"><path d="{{ ic.chevronDown }}"></path></svg></span>
-                      <span style="flex:1"></span>
-                      <span style="font:400 12px var(--mono);color:var(--text2)">{{ f.countLine }}</span>
-                      <span style="{{ f.searchBtnStyle }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.search }}"></path></svg>{{ f.searchLabel }}</span>
-                    </div>
+                    </sc-if>
+                   </div>
 
                     <sc-if value="{{ f.levelOpen }}">
-                      <div role="listbox" aria-label="Levels" style="position:absolute;left:18px;top:74px;z-index:5;width:360px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
+                      <div role="listbox" aria-label="Levels" style="position:absolute;left:31px;top:104px;z-index:5;width:360px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
                         <div style="padding:6px 8px 4px;font:600 10.5px var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Levels to search</div>
                         <sc-for list="{{ f.levelOptions }}" as="o" hint-placeholder-count="4">
                           <div style="display:flex;align-items:flex-start;gap:10px;padding:8px;border-radius:6px">
@@ -209,7 +207,14 @@
                     </sc-if>
 
                     <sc-if value="{{ f.titlesOpen }}">
-                      <div role="listbox" aria-label="Title words" style="position:absolute;left:250px;top:74px;z-index:5;width:440px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:10px 12px 12px;box-shadow:var(--shadow)">
+                      <div role="dialog" aria-label="Title words" style="position:absolute;left:373px;top:104px;z-index:5;width:440px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:10px 12px 12px;box-shadow:var(--shadow)">
+                        <div style="display:flex;align-items:center;margin-bottom:7px;font:600 10.5px var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)"><span style="flex:1">Title words</span><span style="text-transform:none;letter-spacing:0;font-weight:500;color:var(--sky)">Clear all</span></div>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px">
+                          <sc-for list="{{ f.titleChips }}" as="c" hint-placeholder-count="4">
+                            <span style="display:inline-flex;align-items:center;gap:5px;border-radius:5px;background:var(--amber-dim);padding:2px 4px 2px 8px;font:500 12.5px var(--sans);color:var(--text)">{{ c }}<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="{{ ic.close }}"></path></svg></span>
+                          </sc-for>
+                        </div>
+                        <div style="margin:8px 0 12px;height:32px;display:flex;align-items:center;padding:0 8px;border-radius:6px;border:1px solid var(--amber);box-shadow:0 0 0 3px var(--ring);font:400 12.5px var(--sans);color:var(--text3)">Add a title word…</div>
                         <sc-for list="{{ f.titleGroups }}" as="tg" hint-placeholder-count="2">
                           <div style="margin-bottom:10px">
                             <div style="margin-bottom:7px;font:600 10.5px var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">{{ tg.label }}</div>
@@ -220,12 +225,12 @@
                             </div>
                           </div>
                         </sc-for>
-                        <div style="padding-top:8px;border-top:1px solid var(--line-soft);font:400 11.5px/1.5 var(--sans);color:var(--text3)">Type any other word and press Enter to add it. Each count is how many people at these companies have that word and one of your levels in their current title.</div>
+                        <div style="padding-top:8px;border-top:1px solid var(--line-soft);font:400 11.5px/1.5 var(--sans);color:var(--text3)">Enter adds any other word. Each count is how many people at these companies have that word and one of your levels in their current title.</div>
                       </div>
                     </sc-if>
 
                     <sc-if value="{{ f.companiesOpen }}">
-                      <div role="listbox" aria-label="Companies" style="position:absolute;left:228px;top:116px;z-index:5;width:420px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
+                      <div role="listbox" aria-label="Companies" style="position:absolute;left:373px;top:144px;z-index:5;width:420px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
                         <div style="display:flex;align-items:center;padding:6px 8px 4px;font:600 10.5px var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)"><span style="flex:1">The companies you ticked</span><span style="text-transform:none;letter-spacing:0;font-weight:500;color:var(--sky)">All · None</span></div>
                         <sc-for list="{{ f.companyOptions }}" as="co" hint-placeholder-count="7">
                           <div style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:6px">
@@ -789,7 +794,8 @@ class Component extends DCLogic {
 
     const tabKeys = [['all', 'All'], ['c', 'C-level'], ['s', 'SVP / EVP'], ['v', 'VP · Head · Director'], ['m', 'Manager']];
     const allPeople = scopeIds.reduce((a, id) => a.concat(D.people[id] || []), []);
-    const tabCount = (k) => k === 'all' ? allPeople.length : allPeople.filter((p) => p.lvl === k).length;
+    const fitPeople = allPeople.filter((p) => p.v === 'fit' || p.v === 'on');
+    const tabCount = (k) => k === 'all' ? fitPeople.length : fitPeople.filter((p) => p.lvl === k).length;
     const activeTab = b.tab || 'all';
     const tabs = tabKeys.filter(([k]) => tabCount(k) > 0).map(([k, label]) => ({
       label, count: String(tabCount(k)),
@@ -847,7 +853,7 @@ class Component extends DCLogic {
 
     const pickedCount = allPeople.filter((p) => p.pick && p.v === 'fit').length;
     const selected = b.added ? 0 : (b.results || b.running) ? (b.running ? 6 : pickedCount) : 0;
-    const resultsSummary = b.running ? '' : (b.results ? allPeople.length + ' found · ' + allPeople.filter((p) => p.v === 'fit').length + ' fit the role' : '');
+    const resultsSummary = b.running || !b.results ? '' : fitPeople.length + ' fit the role' + (allPeople.length > fitPeople.length ? ' · ' + (allPeople.length - fitPeople.length) + ' more found' : '');
 
     const gridRows = [
       ['AN', 'Al Naboodah Group', 'Amira Haddad', 'VP Finance', 'Identified', 'Dubai', true],
@@ -876,11 +882,17 @@ class Component extends DCLogic {
       { isHeading: true, isItem: false, label: 'Project' }, navItem('Dashboard', ic.dashboard, false), navItem('Team & access', ic.team, false),
     ];
 
-    const field = 'display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:var(--panel);font:500 12.5px var(--sans);white-space:nowrap';
+    const field = 'display:flex;align-items:center;gap:6px;min-width:0;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:var(--panel);font:500 12.5px var(--sans);white-space:nowrap';
+    const quietBtn = 'flex:none;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:var(--panel);font:500 12.5px var(--sans);color:var(--text);white-space:nowrap';
+    const searchOpen = !!(b.levelOpen || b.titlesOpen || b.companiesOpen);
+    const titleChips = b.drafting || b.noBrief ? [] : b.preview ? ['Finance', 'Financial', 'CFO'] : ['Finance', 'Financial', 'CFO', 'Treasury'];
+    const titlesValue = b.drafting ? '…' : titleChips.length === 0 ? 'None yet' : titleChips.slice(0, 2).join(', ') + (titleChips.length > 2 ? ' +' + (titleChips.length - 2) : '');
+    const levelValue = b.drafting ? '…' : 'C-level, SVP / EVP, VP · Head · Director';
+    const whereValue = 'United Arab Emirates +5';
     const focusField = field.replace('border:1px solid var(--line)', 'border:1px solid var(--amber);box-shadow:0 0 0 3px var(--ring)');
     const searchOff = b.drafting || b.noBrief || b.running;
     const searchLabel = b.running ? 'Searching…' : b.scope ? 'Search 1 company' : b.results || b.sourceOut || b.expired ? 'Search again' : 'Search 6 companies';
-    const filledBtn = 'display:inline-flex;align-items:center;gap:7px;white-space:nowrap;height:34px;border-radius:6px;border:none;background:var(--amber-btn);padding:0 14px;font:600 13px var(--sans);color:var(--on-amber)';
+    const filledBtn = 'flex:none;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;height:28px;border-radius:6px;border:none;background:var(--amber-btn);padding:0 12px;font:600 12.5px var(--sans);color:var(--on-amber)';
     const panelStyle = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10;width:min(1080px,calc(100% - 48px));height:calc(100% - 56px);display:flex;flex-direction:column;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);overflow:hidden';
     const scopeName = b.scope ? D.companies.find((c) => c.id === b.scope).name : null;
 
@@ -929,15 +941,17 @@ class Component extends DCLogic {
       aiNote: b.drafting ? 'Reading the brief…' : b.noBrief ? 'Nothing to draft from yet' : 'Suggested from the brief',
       aiIconStyle: b.drafting ? 'color:var(--ai);animation:pulse 1.2s ease infinite' : 'color:var(--ai)',
       canReset: !b.drafting && !b.noBrief,
+      searchOpen,
+      searchSummary: searchOpen ? '' : b.drafting ? '…' : b.noBrief ? 'No title words yet' : [levelValue, titlesValue, whereValue, companiesValue, '3 per company'].join(' · '),
+      toggleLabel: searchOpen ? 'Hide search' : 'Edit search',
+      toggleBtnStyle: quietBtn,
+      toggleChevronStyle: 'color:var(--text3)' + (searchOpen ? ';transform:rotate(180deg)' : ''),
       levelBtnStyle: (b.levelOpen ? focusField : field),
-      valueTextStyle: 'color:var(--text)',
-      levelValue: b.drafting ? '…' : 'C-level, SVP, VP/Head/Director',
-      titlesFieldStyle: 'flex:1;min-height:32px;display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:3px 8px;border-radius:6px;background:var(--panel);' + (b.titlesOpen ? 'border:1px solid var(--amber);box-shadow:0 0 0 3px var(--ring)' : 'border:1px solid var(--line)'),
-      titleChips: b.drafting || b.noBrief ? [] : b.preview ? ['Finance', 'Financial', 'CFO'] : ['Finance', 'Financial', 'CFO', 'Treasury'],
-      titleInputText: b.titlesOpen ? '|' : b.noBrief ? 'Type a title word, like Finance…' : 'Add a title word…',
-      titleInputStyle: 'font:400 12.5px var(--sans);color:' + (b.titlesOpen ? 'var(--text)' : 'var(--text3)') + ';padding:2px 4px',
+      levelValue,
+      titlesValue, titlesBtnStyle: b.titlesOpen ? focusField : field,
+      titleChips,
       fieldStyle: field, companiesBtnStyle: b.companiesOpen ? focusField : field,
-      leaveOutValue: b.drafting ? '…' : '4 words', whereValue: 'UAE + Gulf', companiesValue,
+      leaveOutValue: b.drafting ? '…' : 'Assistant, Accountant +2', whereValue, companiesValue,
       countLine,
       searchLabel, searchBtnStyle: filledBtn + (searchOff ? ';opacity:.45' : ''),
       levelOpen: !!b.levelOpen, levelOptions,
@@ -959,7 +973,7 @@ class Component extends DCLogic {
       canClear: !b.added && selected > 0,
       hasAdd: !!(b.results || b.running),
       addLabel: b.added ? 'Done' : 'Add ' + (selected || '') + (selected ? ' ' : '') + 'to In universe',
-      addBtnStyle: b.added ? 'display:inline-flex;align-items:center;height:34px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:0 14px;font:500 13px var(--sans);color:var(--text)' : filledBtn + (addOff ? ';opacity:.45' : ''),
+      addBtnStyle: b.added ? 'display:inline-flex;align-items:center;height:34px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:0 14px;font:500 13px var(--sans);color:var(--text)' : filledBtn.replace('height:28px;', 'height:34px;') + (addOff ? ';opacity:.45' : ''),
       hasSheet: !!b.sheet,
       hasToast: !!b.added,
       toastText: '7 executives added to In universe',

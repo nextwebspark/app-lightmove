@@ -33,7 +33,7 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Setup key** | the secret typed into an authenticator app instead of scanning the QR code | seed, secret |
 | **Recovery code** | one of ten single-use codes that sign in when the phone is lost | backup code, scratch code |
 | **Fits the role** / **Doesn't fit the role** | Find executives' verdict on someone found: their current title holds the search's words at the levels searched, or it does not (with why) | qualified, matched, holds the seat |
-| **Title not on record** | someone Find executives found at a company whose current title it could not read or confirm | no title, unknown |
+| **Title not on record** | someone Find executives found at a company with no current title on record, whom no free check reached | no title, unknown |
 | **Live profiles** / **Profile index** | Find executives' two sources, in *How we searched*: today's titles bought a profile at a time, and who works where, searched cheaply | the vendors' names |
 | **Strong** / **Good** / **Possible** | how well someone who fits the role fits it, from their score | score, rank, rating |
 | **12d** | a trial's days left, where a phone has room for nothing longer (the topbar chip; its spoken name is "Trial · 12 days left") | — |

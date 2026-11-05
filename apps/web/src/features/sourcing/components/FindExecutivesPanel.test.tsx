@@ -249,4 +249,44 @@ describe("FindExecutivesPanel", () => {
     await userEvent.click(screen.getByRole("button", { name: "Stop" }));
     expect(sourcing.stop).toHaveBeenCalled();
   });
+
+  it("folds the search to one line, and Edit search opens each field as a dropdown", async () => {
+    vi.mocked(sourcingApi.getSuggestions).mockResolvedValue({ companies: [] });
+    renderPanel(sourcingWith());
+
+    expect(await screen.findByText(/Finance, Financial, CFO · United Arab Emirates/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Title words" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit search" }));
+    const titles = screen.getByRole("button", { name: "Title words" });
+    expect(titles).toHaveTextContent("Finance, Financial +1");
+    await userEvent.click(titles);
+    await userEvent.click(await screen.findByRole("button", { name: /Treasury\s*2/ }));
+    expect(titles).toHaveTextContent("Finance, Financial +2");
+    await userEvent.type(screen.getByRole("textbox", { name: "Add a title word" }), "Audit{Enter}");
+    expect(titles).toHaveTextContent("Finance, Financial +3");
+    expect(screen.getByRole("button", { name: "Hide search" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("shows no older results at a company the search running now has not read back yet", async () => {
+    vi.mocked(sourcingApi.getSuggestions).mockResolvedValue({
+      companies: [harbour([fits(1, "the-cfo", "Fatima Al Mazrouei", "Group CFO", ["ROLE_WORD:CFO"])], 1)],
+    });
+    const searching = sourcingWith({ isRunning: true, run: run({ id: "run2", status: "RUNNING", companiesDone: 0 }) });
+    const { unmount } = renderPanel(searching);
+
+    expect(await screen.findByRole("region", { name: "Harbour Group" })).toHaveTextContent("Searching…");
+    expect(screen.queryByText("Fatima Al Mazrouei")).not.toBeInTheDocument();
+    unmount();
+    const readsBefore = vi.mocked(sourcingApi.getSuggestions).mock.calls.length;
+
+    const finished = sourcingWith({
+      run: run({ id: "run2", outcomes: [{ ...harbour([], 1).result, outcome: "FOUND" }] }),
+    });
+    renderPanel(finished);
+    await waitFor(() =>
+      expect(vi.mocked(sourcingApi.getSuggestions).mock.calls.length).toBeGreaterThanOrEqual(readsBefore + 2),
+    );
+    expect(screen.queryByText("Fatima Al Mazrouei")).not.toBeInTheDocument();
+  });
 });

@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { FilterCheckRow } from "../../../components/ui/FilterCheckRow";
 import { Popover } from "../../../components/ui/Popover";
@@ -6,10 +6,13 @@ import { cn } from "../../../lib/cn";
 import type { Country } from "../../../lib/countries";
 import type { CompanyCount, SavedCriteria, SearchCriteria, SearchLevel, SourcingCounts } from "../api/sourcingApi";
 import { LEVEL_OPTIONS, levelsSummary } from "../lib/searchLevels";
+import { companiesOf } from "../lib/sourcingSummary";
 
 const FIELD =
-  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border border-u-border-strong bg-u-surface px-2.5 text-note font-medium hover:bg-u-raised";
-const POPOVER_HEADING = "px-2 pb-1 pt-1.5 text-meta font-semibold uppercase tracking-[.06em] text-u-text3";
+  "flex h-8 w-full min-w-0 items-center gap-1.5 rounded-md border border-u-border-strong bg-u-surface px-2.5 text-note font-medium hover:bg-u-raised";
+const POPOVER_HEADING = "flex items-center px-1 pb-1.5 text-meta font-semibold uppercase tracking-[.06em] text-u-text3";
+const QUIET_BUTTON =
+  "inline-flex h-7 flex-none items-center gap-1.5 rounded-md border border-u-border-strong bg-u-surface px-2.5 text-note font-medium text-u-text hover:bg-u-raised";
 const MAX_EXCLUDED = 4;
 const MAX_TERMS = 12;
 
@@ -17,9 +20,9 @@ const MAX_TERMS = 12;
 const STANDALONE = /^C[A-Z]{1,3}O$/;
 
 /**
- * The search, drafted from the brief and changed in place: levels and title words with free counts, the words left
- * out, where people may live, which companies, and how many profiles a company may buy. Search is the only press
- * that spends.
+ * The search, drafted from the brief: one line saying what it looks for, opened on Edit search into its fields —
+ * levels and title words with free counts, the words left out, where people may live, which companies, and how
+ * many profiles a company may buy, each a dropdown of one shape. Search is the only press that spends.
  */
 export function SearchBar({
   criteria,
@@ -60,6 +63,8 @@ export function SearchBar({
   searchDisabled: boolean;
   onSearch: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const fieldsId = useId();
   const included = companies.filter((company) => isIncluded(company.triageCompanyId));
   const countLine = !criteria
     ? "Reading the brief…"
@@ -68,71 +73,105 @@ export function SearchBar({
       : counts?.counted
         ? `≈ ${sum(included, "match")} match · ${sum(included, "toBuy")} to buy · ${sum(included, "onFile")} already on file`
         : "";
+  const summary = criteria
+    ? [
+        levelsSummary(criteria.levels),
+        listed(titleWordsOf(criteria), "No title words", 3),
+        whereOf(criteria, countryName),
+        `${included.length} of ${companiesOf(companies.length)}`,
+        `${criteria.perCompany} per company`,
+      ].join(" · ")
+    : null;
+
   return (
-    <div className="relative flex-none border-b border-u-border bg-u-sunken px-[18px] pb-3.5 pt-3">
-      <div className="mb-2 flex items-center gap-2 text-note font-medium text-u-text3">
-        <Icon d={ICONS.sparkle} size={14} className={cn(source === "AI" && "text-u-inferred")} />
-        <span>{noteOf(source, briefChanged, drafting)}</span>
-        {!drafting && source !== null && (
-          <>
-            <span>·</span>
-            <button type="button" onClick={onReset} className="font-medium text-u-accent hover:text-u-accent-hover">
-              Reset
-            </button>
-          </>
-        )}
-      </div>
-      {criteria ? (
-        <>
-          <div className="flex flex-wrap items-stretch gap-2">
-            <LevelField criteria={criteria} onChange={onChange} counts={counts} companyCount={included.length} />
-            <TitlesField criteria={criteria} onChange={onChange} counts={counts} />
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <LeaveOutField criteria={criteria} onChange={onChange} />
-            <WhereField criteria={criteria} onChange={onChange} countries={countries} countryName={countryName} />
-            <CompaniesField
-              companies={companies}
-              included={included.length}
-              isIncluded={isIncluded}
-              onToggle={onToggleCompany}
-              onAll={onAllCompanies}
-            />
-            <label className={FIELD}>
-              <span className="sr-only">Profiles bought per company</span>
-              <select
-                value={criteria.perCompany}
-                onChange={(event) => onChange({ ...criteria, perCompany: Number(event.target.value) })}
-                className="bg-transparent font-semibold text-u-text outline-none"
-              >
-                {perCompanyChoices.map((choice) => (
-                  <option key={choice} value={choice}>
-                    {choice}
-                  </option>
-                ))}
-              </select>
-              <span className="text-u-text3">bought per company</span>
-            </label>
-            <span className="flex-1" />
-            <span className="font-mono text-note text-u-text2">{countLine}</span>
+    <div className="flex-none px-[18px] pt-3">
+      <div className="rounded-lg border border-u-border bg-u-sunken px-3 py-2">
+        <div className="flex items-center gap-2.5">
+          <Icon
+            d={ICONS.sparkle}
+            size={14}
+            className={cn("flex-none", source === "AI" && !briefChanged ? "text-u-inferred" : "text-u-text3")}
+          />
+          <span className={cn("flex-none text-note font-semibold", briefChanged ? "text-u-signal" : "text-u-text")}>
+            {noteOf(source, briefChanged, drafting)}
+          </span>
+          {!drafting && source !== null && (
             <button
               type="button"
-              onClick={onSearch}
-              disabled={searchDisabled}
-              className="inline-flex h-[34px] items-center gap-1.5 rounded-md bg-u-accent-solid px-3.5 text-body font-semibold text-white hover:bg-u-accent-solid-hover disabled:opacity-50"
+              onClick={onReset}
+              className="flex-none text-note font-medium text-u-accent hover:text-u-accent-hover"
             >
-              <Icon d={ICONS.search} size={14} />
-              {searchLabel}
+              Reset
             </button>
-          </div>
-        </>
-      ) : (
-        <div className="flex gap-2" aria-hidden="true">
-          {[96, 280, 120].map((width) => (
-            <span key={width} className="h-8 animate-pulse rounded-md bg-u-border" style={{ width }} />
-          ))}
+          )}
+          <span className="min-w-0 flex-1 truncate text-note text-u-text2">{!expanded && summary}</span>
+          {countLine && (
+            <span className="hidden flex-none font-mono text-note text-u-text2 md:inline">{countLine}</span>
+          )}
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-controls={fieldsId}
+            onClick={() => setExpanded(!expanded)}
+            className={QUIET_BUTTON}
+          >
+            {expanded ? "Hide search" : "Edit search"}
+            <Icon
+              d={ICONS.chevronDown}
+              size={12}
+              className={cn("text-u-text3 transition-transform", expanded && "rotate-180")}
+            />
+          </button>
+          <button
+            type="button"
+            onClick={onSearch}
+            disabled={searchDisabled}
+            className="inline-flex h-7 flex-none items-center gap-1.5 rounded-md bg-u-accent-solid px-3 text-note font-semibold text-white hover:bg-u-accent-solid-hover disabled:opacity-50"
+          >
+            <Icon d={ICONS.search} size={13} />
+            {searchLabel}
+          </button>
         </div>
-      )}
+        {expanded && (
+          <div
+            id={fieldsId}
+            className="mt-2 grid grid-cols-1 gap-2 border-t border-u-border pt-2.5 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            {criteria ? (
+              <>
+                <LevelField criteria={criteria} onChange={onChange} counts={counts} companyCount={included.length} />
+                <TitlesField criteria={criteria} onChange={onChange} counts={counts} />
+                <WordListField
+                  label="Leave out"
+                  words={criteria.excludedWords}
+                  max={MAX_EXCLUDED}
+                  placeholder="A word that marks support to the role…"
+                  hint="A title holding one of these is never bought and reads as not fitting the role."
+                  onChange={(excludedWords) => onChange({ ...criteria, excludedWords })}
+                />
+                <WhereField criteria={criteria} onChange={onChange} countries={countries} countryName={countryName} />
+                <CompaniesField
+                  companies={companies}
+                  included={included.length}
+                  isIncluded={isIncluded}
+                  onToggle={onToggleCompany}
+                  onAll={onAllCompanies}
+                />
+                <PerCompanyField
+                  value={criteria.perCompany}
+                  choices={perCompanyChoices}
+                  onChange={(perCompany) => onChange({ ...criteria, perCompany })}
+                />
+              </>
+            ) : (
+              Array.from({ length: 6 }, (_, index) => (
+                <span key={index} aria-hidden="true" className="h-8 animate-pulse rounded-md bg-u-border" />
+              ))
+            )}
+            {countLine && <p className="font-mono text-note text-u-text2 md:hidden">{countLine}</p>}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -147,6 +186,30 @@ function noteOf(source: SavedCriteria["source"] | null, briefChanged: boolean, d
 
 function sum(companies: CompanyCount[], field: "match" | "toBuy" | "onFile"): number {
   return companies.reduce((total, company) => total + company[field], 0);
+}
+
+/** "Technology, Engineering +13": the first few, then how many more. */
+function listed(items: readonly string[], none: string, shown = 2): string {
+  if (items.length === 0) return none;
+  const head = items.slice(0, shown).join(", ");
+  return items.length > shown ? `${head} +${items.length - shown}` : head;
+}
+
+const titleWordsOf = (criteria: SearchCriteria) => [...criteria.functionTerms, ...criteria.standaloneTitles];
+
+function whereOf(criteria: SearchCriteria, countryName: (code: string) => string): string {
+  return listed(criteria.countryCodes.map(countryName), "Anywhere", 1);
+}
+
+function FieldFace({ label, value, icon }: { label: string; value: ReactNode; icon?: ReactNode }) {
+  return (
+    <>
+      {icon}
+      <span className="flex-none text-u-text3">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-left text-u-text">{value}</span>
+      <Icon d={ICONS.chevronDown} size={12} className="flex-none text-u-text3" />
+    </>
+  );
 }
 
 function LevelField({
@@ -174,16 +237,10 @@ function LevelField({
       hasPopup="listbox"
       label="Levels to search"
       triggerClassName={FIELD}
-      trigger={() => (
-        <>
-          <span className="text-u-text3">Level</span>
-          <span className="max-w-[260px] truncate text-u-text">{levelsSummary(criteria.levels)}</span>
-          <Icon d={ICONS.chevronDown} size={12} className="text-u-text3" />
-        </>
-      )}
+      trigger={() => <FieldFace label="Level" value={levelsSummary(criteria.levels)} />}
     >
       {() => (
-        <div className="p-1.5">
+        <div className="p-1">
           <div className={POPOVER_HEADING}>Levels to search</div>
           {LEVEL_OPTIONS.map((option) => (
             <FilterCheckRow
@@ -194,8 +251,8 @@ function LevelField({
               onToggle={() => toggle(option.level)}
             />
           ))}
-          <p className="mx-2 mb-1 mt-1 border-t border-u-border pt-2 text-note text-u-text3">
-            Counts are people at these {companyCount} companies with your title words. Counting is free.
+          <p className="mx-1 mt-1.5 border-t border-u-border pt-2 text-note text-u-text3">
+            Counts are people at {companiesOf(companyCount)} with your title words. Counting is free.
           </p>
         </div>
       )}
@@ -212,107 +269,135 @@ function TitlesField({
   onChange: (criteria: SearchCriteria) => void;
   counts: SourcingCounts | null;
 }) {
-  const [typed, setTyped] = useState("");
-  const [focused, setFocused] = useState(false);
-  const words = [...criteria.functionTerms, ...criteria.standaloneTitles];
+  const words = titleWordsOf(criteria);
   const full = criteria.functionTerms.length >= MAX_TERMS;
-
-  const add = (word: string) => {
-    const cleaned = word.trim();
-    if (!cleaned || words.some((existing) => existing.toLowerCase() === cleaned.toLowerCase())) return;
-    const suggestions = criteria.suggestions.filter((suggested) => suggested.toLowerCase() !== cleaned.toLowerCase());
-    if (STANDALONE.test(cleaned)) {
-      onChange({ ...criteria, standaloneTitles: [...criteria.standaloneTitles, cleaned], suggestions });
-    } else if (!full) {
-      onChange({ ...criteria, functionTerms: [...criteria.functionTerms, cleaned], suggestions });
-    }
-  };
-  const remove = (word: string) =>
-    onChange({
-      ...criteria,
-      functionTerms: criteria.functionTerms.filter((term) => term !== word),
-      standaloneTitles: criteria.standaloneTitles.filter((title) => title !== word),
-    });
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      add(typed);
-      setTyped("");
-    } else if (event.key === "Backspace" && typed === "" && words.length > 0) {
-      remove(words[words.length - 1]);
-    }
-  };
   const countOf = (word: string) => counts?.words.find((count) => count.word === word)?.count;
 
+  const setWords = (next: string[]) => {
+    const added = new Set(next.map((word) => word.toLowerCase()));
+    onChange({
+      ...criteria,
+      functionTerms: next.filter((word) => !STANDALONE.test(word)).slice(0, MAX_TERMS),
+      standaloneTitles: next.filter((word) => STANDALONE.test(word)),
+      suggestions: criteria.suggestions.filter((suggested) => !added.has(suggested.toLowerCase())),
+    });
+  };
+  const suggestions = criteria.suggestions.filter(
+    (suggested) => !words.some((word) => word.toLowerCase() === suggested.toLowerCase()),
+  );
+
   return (
-    <div
-      className={cn(
-        "relative flex min-h-8 min-w-[280px] flex-1 flex-wrap items-center gap-1.5 rounded-md border bg-u-surface px-2 py-1",
-        focused ? "border-u-accent ring-2 ring-u-accent-ring" : "border-u-border-strong",
-      )}
+    <Popover
+      width={440}
+      hasPopup="dialog"
+      label="Title words"
+      triggerClassName={FIELD}
+      trigger={() => <FieldFace label="Titles" value={listed(words, "None yet")} />}
     >
-      <span className="pe-0.5 text-note font-medium text-u-text3">Titles</span>
-      {words.map((word) => (
-        <Pill key={word} onRemove={() => remove(word)} label={word} />
-      ))}
-      <input
-        value={typed}
-        onChange={(event) => setTyped(event.target.value)}
-        onKeyDown={onKeyDown}
-        onFocus={() => setFocused(true)}
-        onBlur={() => window.setTimeout(() => setFocused(false), 150)}
-        placeholder={full ? "12 words at most" : "Add a title word…"}
-        aria-label="Add a title word"
-        className="min-w-[110px] flex-1 bg-transparent text-note outline-none placeholder:text-u-text3"
-      />
-      {focused && criteria.suggestions.length > 0 && (
-        <div className="absolute left-0 top-full z-20 mt-1.5 w-[440px] max-w-[90vw] rounded-lg border border-u-border-strong bg-u-surface p-3 shadow-u-e3">
-          <div className="mb-1.5 text-meta font-semibold uppercase tracking-[.06em] text-u-text3">
-            Suggested for this role
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {criteria.suggestions.map((word) => (
+      {() => (
+        <div className="p-1">
+          <div className={POPOVER_HEADING}>
+            <span className="flex-1">Title words</span>
+            {words.length > 0 && (
               <button
-                key={word}
                 type="button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => add(word)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-u-border-strong px-2.5 py-[3px] text-note font-medium hover:bg-u-raised"
+                onClick={() => setWords([])}
+                className="normal-case tracking-normal text-u-accent hover:text-u-accent-hover"
               >
-                <Icon d={ICONS.plus} size={11} className="text-u-text3" />
-                {word}
-                {countOf(word) !== undefined && (
-                  <span className="text-meta font-semibold tabular-nums text-u-text3">{countOf(word)}</span>
-                )}
+                Clear all
               </button>
-            ))}
+            )}
           </div>
-          <p className="mt-2 border-t border-u-border pt-2 text-note text-u-text3">
-            Type any other word and press Enter to add it. Each count is how many people at these companies hold that
-            word and one of your levels in their current title.
+          <WordsEditor words={words} onChange={setWords} ariaLabel="Add a title word" placeholder="Add a title word…" />
+          <p className="mt-1.5 px-1 text-note text-u-text3">
+            {full
+              ? `${MAX_TERMS} words at most, besides C-suite titles such as CFO.`
+              : "Enter adds a word. A C-suite title such as CFO is searched on its own; any other word with a level."}
           </p>
+          {suggestions.length > 0 && (
+            <>
+              <div className={cn(POPOVER_HEADING, "mt-2.5 border-t border-u-border pt-2.5")}>
+                Suggested for this role
+              </div>
+              <div className="flex flex-wrap gap-1.5 px-1">
+                {suggestions.map((word) => (
+                  <button
+                    key={word}
+                    type="button"
+                    disabled={full && !STANDALONE.test(word)}
+                    onClick={() => setWords([...words, word])}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-u-border-strong px-2.5 py-0.5 text-note font-medium hover:bg-u-raised disabled:opacity-50"
+                  >
+                    <Icon d={ICONS.plus} size={11} className="text-u-text3" />
+                    {word}
+                    {countOf(word) !== undefined && (
+                      <span className="text-meta font-semibold tabular-nums text-u-text3">{countOf(word)}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 px-1 text-note text-u-text3">
+                Each count is how many people at these companies hold that word and one of your levels in their current
+                title.
+              </p>
+            </>
+          )}
         </div>
       )}
-    </div>
+    </Popover>
   );
 }
 
-function LeaveOutField({
-  criteria,
+function WordListField({
+  label,
+  words,
+  max,
+  placeholder,
+  hint,
   onChange,
 }: {
-  criteria: SearchCriteria;
-  onChange: (criteria: SearchCriteria) => void;
+  label: string;
+  words: string[];
+  max: number;
+  placeholder: string;
+  hint: string;
+  onChange: (words: string[]) => void;
 }) {
   return (
-    <WordListField
-      label="Leave out"
-      summary={criteria.excludedWords.length === 0 ? "Nothing" : criteria.excludedWords.join(", ")}
-      words={criteria.excludedWords}
-      max={MAX_EXCLUDED}
-      placeholder="A word that marks support to the role…"
-      onChange={(excludedWords) => onChange({ ...criteria, excludedWords })}
-    />
+    <Popover
+      width={340}
+      hasPopup="dialog"
+      label={label}
+      triggerClassName={FIELD}
+      trigger={() => <FieldFace label={label} value={listed(words, "Nothing")} />}
+    >
+      {() => (
+        <div className="p-1">
+          <div className={POPOVER_HEADING}>
+            <span className="flex-1">{label}</span>
+            {words.length > 0 && (
+              <button
+                type="button"
+                onClick={() => onChange([])}
+                className="normal-case tracking-normal text-u-accent hover:text-u-accent-hover"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          <WordsEditor
+            words={words}
+            onChange={onChange}
+            full={words.length >= max}
+            ariaLabel={`Add a word to ${label.toLowerCase()}`}
+            placeholder={placeholder}
+          />
+          <p className="mt-1.5 px-1 text-note text-u-text3">
+            {hint} {max} words at most.
+          </p>
+        </div>
+      )}
+    </Popover>
   );
 }
 
@@ -327,35 +412,38 @@ function WhereField({
   countries: Country[];
   countryName: (code: string) => string;
 }) {
-  const summary =
-    criteria.countryCodes.length === 0
-      ? "Anywhere"
-      : criteria.countryCodes.length <= 2
-        ? criteria.countryCodes.map(countryName).join(", ")
-        : `${countryName(criteria.countryCodes[0])} + ${criteria.countryCodes.length - 1} more`;
   return (
     <Popover
-      width={320}
+      width={340}
       hasPopup="dialog"
       label="Where people may live"
       triggerClassName={FIELD}
-      trigger={() => (
-        <>
-          <span className="text-u-text3">Where</span>
-          <span className="text-u-text">{summary}</span>
-          <Icon d={ICONS.chevronDown} size={12} className="text-u-text3" />
-        </>
-      )}
+      trigger={() => <FieldFace label="Where" value={whereOf(criteria, countryName)} />}
     >
       {() => (
-        <div className="p-2.5">
-          <div className="flex flex-wrap gap-1.5">
+        <div className="p-1">
+          <div className={POPOVER_HEADING}>
+            <span className="flex-1">Where people may live</span>
+            {criteria.countryCodes.length > 0 && (
+              <button
+                type="button"
+                onClick={() => onChange({ ...criteria, countryCodes: [] })}
+                className="normal-case tracking-normal text-u-accent hover:text-u-accent-hover"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5 px-1">
             {criteria.countryCodes.map((code) => (
               <Pill
                 key={code}
                 label={countryName(code)}
                 onRemove={() =>
-                  onChange({ ...criteria, countryCodes: criteria.countryCodes.filter((kept) => kept !== code) })
+                  onChange({
+                    ...criteria,
+                    countryCodes: criteria.countryCodes.filter((kept) => kept !== code),
+                  })
                 }
               />
             ))}
@@ -365,7 +453,10 @@ function WhereField({
             value=""
             onChange={(event) =>
               event.target.value &&
-              onChange({ ...criteria, countryCodes: [...criteria.countryCodes, event.target.value] })
+              onChange({
+                ...criteria,
+                countryCodes: [...criteria.countryCodes, event.target.value],
+              })
             }
             className="mt-2 h-8 w-full rounded-md border border-u-border-strong bg-u-surface px-2 text-note"
           >
@@ -378,7 +469,7 @@ function WhereField({
                 </option>
               ))}
           </select>
-          <p className="mt-2 text-note text-u-text3">
+          <p className="mt-2 px-1 text-note text-u-text3">
             Each company&apos;s own country is searched too. With no country, people are searched anywhere.
           </p>
         </div>
@@ -406,19 +497,11 @@ function CompaniesField({
       hasPopup="listbox"
       label="Companies to search"
       triggerClassName={FIELD}
-      trigger={() => (
-        <>
-          <Icon d={ICONS.building} size={13} className="text-u-text3" />
-          <span className="text-u-text">
-            {included} of {companies.length} {companies.length === 1 ? "company" : "companies"}
-          </span>
-          <Icon d={ICONS.chevronDown} size={12} className="text-u-text3" />
-        </>
-      )}
+      trigger={() => <FieldFace label="Companies" value={`${included} of ${companies.length}`} />}
     >
       {() => (
-        <div className="p-1.5">
-          <div className={cn(POPOVER_HEADING, "flex items-center")}>
+        <div className="p-1">
+          <div className={POPOVER_HEADING}>
             <span className="flex-1">Companies</span>
             <button type="button" onClick={() => onAll(true)} className="normal-case tracking-normal text-u-accent">
               All
@@ -438,7 +521,8 @@ function CompaniesField({
               />
             ) : (
               <p key={company.triageCompanyId} className="px-2 py-1.5 text-note text-u-text3">
-                {company.companyName} <span className="text-u-signal">— no LinkedIn page; add it with Edit company</span>
+                {company.companyName}{" "}
+                <span className="text-u-signal">— no LinkedIn page; add it with Edit company</span>
               </p>
             ),
           )}
@@ -448,72 +532,110 @@ function CompaniesField({
   );
 }
 
-function WordListField({
-  label,
-  summary,
-  words,
-  max,
-  placeholder,
+function PerCompanyField({
+  value,
+  choices,
   onChange,
 }: {
-  label: string;
-  summary: string;
-  words: string[];
-  max: number;
-  placeholder: string;
-  onChange: (words: string[]) => void;
+  value: number;
+  choices: number[];
+  onChange: (value: number) => void;
 }) {
-  const [typed, setTyped] = useState("");
   return (
     <Popover
-      width={320}
-      hasPopup="dialog"
-      label={label}
+      width={300}
+      hasPopup="listbox"
+      label="Profiles bought per company"
       triggerClassName={FIELD}
-      trigger={() => (
-        <>
-          <span className="text-u-text3">{label}</span>
-          <span className="max-w-[200px] truncate text-u-text">{summary}</span>
-          <Icon d={ICONS.chevronDown} size={12} className="text-u-text3" />
-        </>
-      )}
+      trigger={() => <FieldFace label="Per company" value={`${value} profiles`} />}
     >
-      {() => (
-        <div className="p-2.5">
-          <div className="flex flex-wrap gap-1.5">
-            {words.map((word) => (
-              <Pill key={word} label={word} onRemove={() => onChange(words.filter((kept) => kept !== word))} />
+      {(close) => (
+        <div className="p-1">
+          <div className={POPOVER_HEADING}>Profiles bought per company</div>
+          <div role="listbox" aria-label="Profiles bought per company">
+            {choices.map((choice) => (
+              <button
+                key={choice}
+                type="button"
+                role="option"
+                aria-selected={choice === value}
+                onClick={() => {
+                  onChange(choice);
+                  close();
+                }}
+                className="flex w-full items-center gap-2 rounded px-1 py-1.5 text-left text-body font-medium text-u-text hover:bg-u-raised"
+              >
+                <span className="flex w-4 flex-none justify-center">
+                  {choice === value && <Icon d={ICONS.check} size={13} className="text-u-accent" />}
+                </span>
+                {choice} at most
+              </button>
             ))}
           </div>
-          {words.length < max && (
-            <input
-              value={typed}
-              onChange={(event) => setTyped(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                event.preventDefault();
-                const word = typed.trim();
-                if (word && !words.some((kept) => kept.toLowerCase() === word.toLowerCase())) {
-                  onChange([...words, word]);
-                }
-                setTyped("");
-              }}
-              placeholder={placeholder}
-              aria-label={`Add a word to ${label.toLowerCase()}`}
-              className="mt-2 h-8 w-full rounded-md border border-u-border-strong bg-u-surface px-2 text-note outline-none"
-            />
-          )}
+          <p className="mx-1 mt-1.5 border-t border-u-border pt-2 text-note text-u-text3">
+            A credit a profile, the role&apos;s own level first. People already on file come back free.
+          </p>
         </div>
       )}
     </Popover>
   );
 }
 
-function Pill({ label, onRemove }: { label: ReactNode; onRemove: () => void }) {
+/** The words as removable pills over a box that adds one on Enter — a repeat, in any case, is not added twice. */
+function WordsEditor({
+  words,
+  onChange,
+  full = false,
+  ariaLabel,
+  placeholder,
+}: {
+  words: string[];
+  onChange: (words: string[]) => void;
+  full?: boolean;
+  ariaLabel: string;
+  placeholder: string;
+}) {
+  const [typed, setTyped] = useState("");
+  const add = () => {
+    const word = typed.trim();
+    setTyped("");
+    if (word && !words.some((kept) => kept.toLowerCase() === word.toLowerCase())) onChange([...words, word]);
+  };
+  return (
+    <div className="px-1">
+      {words.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {words.map((word) => (
+            <Pill key={word} label={word} onRemove={() => onChange(words.filter((kept) => kept !== word))} />
+          ))}
+        </div>
+      )}
+      {!full && (
+        <input
+          value={typed}
+          onChange={(event) => setTyped(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            add();
+          }}
+          aria-label={ariaLabel}
+          placeholder={placeholder}
+          className={cn(
+            "h-8 w-full rounded-md border border-u-border-strong bg-u-surface px-2 text-note outline-none placeholder:text-u-text3 focus:border-u-accent",
+            words.length > 0 && "mt-2",
+          )}
+        />
+      )}
+    </div>
+  );
+}
+
+function Pill({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
     <span className="inline-flex items-center gap-1 rounded bg-u-accent-tint py-0.5 pe-1 ps-2 text-note font-medium text-u-text">
       {label}
-      <button type="button" onClick={onRemove} aria-label={`Remove ${String(label)}`} className="text-u-text3">
+      <button type="button" onClick={onRemove} aria-label={`Remove ${label}`} className="text-u-text3">
         <Icon d={ICONS.close} size={11} />
       </button>
     </span>

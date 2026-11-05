@@ -586,9 +586,15 @@ describe("TriageStagePage", () => {
       vi.mocked(sourcingApi.startSearch).mockResolvedValue(runOf({ status: "QUEUED" }));
       renderStage();
 
+      const find = await screen.findByRole("button", { name: /^Find executives/ });
+      expect(find).toHaveAttribute("aria-disabled", "true");
+      await userEvent.click(find);
+      expect(await screen.findByText("Tick up to 10 companies to find executives there")).toBeInTheDocument();
+
       await userEvent.click(await screen.findByRole("checkbox", { name: "Select ACWA Power" }));
-      const bar = screen.getByRole("region", { name: "1 company selected" });
-      await userEvent.click(within(bar).getByRole("button", { name: /Find executives/i }));
+      expect(find).not.toHaveAttribute("aria-disabled");
+      expect(find).toHaveTextContent("Find executives· 1");
+      await userEvent.click(find);
 
       const panel = await screen.findByRole("dialog", { name: "Find executives" });
       await waitFor(() => expect(sourcingApi.suggestCriteria).toHaveBeenCalledWith("p1", ["u1"]));
@@ -598,6 +604,59 @@ describe("TriageStagePage", () => {
 
       await userEvent.click(within(panel).getByRole("button", { name: /^Search 1 company$/i }));
       await waitFor(() => expect(sourcingApi.startSearch).toHaveBeenCalledWith("p1", ["u1"]));
+    });
+
+    it("counts the companies the ticked rows name, and says so past the cap", async () => {
+      vi.mocked(sourcingApi.getSourcingConfig).mockResolvedValue({
+        ...SOURCING_OFF,
+        enabled: true,
+        maxCompaniesPerRun: 1,
+      });
+      const other: TriageCompany = { ...acwa, id: "u2", companyName: "Almarai" };
+      vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
+        pageOf({ companies: [acwa, other], counts: { inUniverse: 2, shortlisted: 0, declined: 0 } }),
+      );
+      vi.mocked(candidatesApi.getCandidates).mockResolvedValue(peopleOf([yasmin, { ...yasmin, id: "c2", fullName: "Omar Saleh" }]));
+      renderStage();
+
+      await userEvent.click(await screen.findByRole("checkbox", { name: "Select Yasmin El-Sayed at ACWA Power" }));
+      await userEvent.click(screen.getByRole("checkbox", { name: "Select Omar Saleh at ACWA Power" }));
+      const find = screen.getByRole("button", { name: /^Find executives/ });
+      expect(find).toHaveTextContent("Find executives· 1");
+      expect(find).not.toHaveAttribute("aria-disabled");
+
+      await userEvent.click(screen.getByRole("checkbox", { name: "Select Almarai" }));
+      expect(find).toHaveTextContent("Find executives· 2");
+      expect(find).toHaveAttribute("title", "Find executives works on 1 company at most — 2 are ticked");
+      await userEvent.click(find);
+      expect(await screen.findByText("Find executives works on 1 company at most — 2 are ticked")).toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: "Find executives" })).not.toBeInTheDocument();
+    });
+
+    it("asks at an empty slot whether to find with Uncava or add by hand", async () => {
+      offered();
+      renderStage();
+
+      await userEvent.click(await screen.findByRole("button", { name: /Add an executive at ACWA Power/i }));
+      await userEvent.click(screen.getByRole("menuitem", { name: /Find with Uncava/ }));
+      expect(await screen.findByRole("dialog", { name: "Find executives" })).toBeInTheDocument();
+      await waitFor(() => expect(sourcingApi.countSearch).toHaveBeenCalledWith("p1", ["u1"], expect.anything(), expect.anything()));
+
+      await userEvent.click(screen.getByRole("button", { name: "Close" }));
+      await userEvent.click(screen.getByRole("button", { name: /Add an executive at ACWA Power/i }));
+      await userEvent.click(screen.getByRole("menuitem", { name: /Add manually/ }));
+      expect(await screen.findByRole("dialog", { name: /Add executive/i })).toBeInTheDocument();
+    });
+
+    it("opens the last search from the button's menu whatever is ticked", async () => {
+      offered();
+      vi.mocked(sourcingApi.getLatestRun).mockResolvedValue(runOf({ status: "COMPLETED", companiesDone: 2, suggested: 3 }));
+      localStorage.setItem("lightmove.sourcing.opened.p1", runOf().id);
+      renderStage();
+
+      await userEvent.click(await screen.findByRole("button", { name: "Find executives options" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: /Open the last search/ }));
+      expect(await screen.findByRole("dialog", { name: "Find executives" })).toBeInTheDocument();
     });
 
     it("carries the search on the toolbar button: still a button while it runs, then a count of who fits", async () => {
@@ -2129,19 +2188,22 @@ describe("TriageStagePage", () => {
       const toolbarSequence = await screen.findByRole("button", { name: "Add to sequence" });
       expect(toolbarSequence).toHaveAttribute("aria-disabled", "true");
       expect(toolbarSequence).toHaveAttribute("title", "Tick executives on the board first");
-      expect(screen.getByRole("button", { name: "Send email" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Send email" })).not.toBeInTheDocument();
     });
 
-    it("holds Add to sequence greyed until a company is ticked", async () => {
+    it("holds Add to sequence greyed until an executive is ticked, and counts them on the button", async () => {
       vi.mocked(mailboxApi.getMailbox).mockResolvedValue(CONNECTED_MAILBOX);
+      vi.mocked(candidatesApi.getCandidates).mockResolvedValue(peopleOf([yasmin]));
       renderStage();
 
       const toolbarSequence = await screen.findByRole("button", { name: "Add to sequence" });
       expect(toolbarSequence).toHaveAttribute("aria-disabled", "true");
-      expect(toolbarSequence).toHaveAttribute("title", "Tick companies first");
+      expect(toolbarSequence).toHaveAttribute("title", "Tick executives first");
 
-      await userEvent.click(await screen.findByRole("checkbox", { name: "Select ACWA Power" }));
+      await userEvent.click(await screen.findByRole("checkbox", { name: "Select Yasmin El-Sayed at ACWA Power" }));
       expect(toolbarSequence).not.toHaveAttribute("aria-disabled");
+      expect(toolbarSequence).toHaveTextContent("Add to sequence· 1");
+      expect(screen.queryByRole("region", { name: /selected/ })).not.toBeInTheDocument();
       await userEvent.click(toolbarSequence);
       expect(await screen.findByRole("dialog", { name: "Add to sequence" })).toBeInTheDocument();
     });
@@ -2157,20 +2219,7 @@ describe("TriageStagePage", () => {
       expect(toolbarSequence).toHaveAttribute("title", "Add to sequence from Table or Pipeline");
     });
 
-    it("writes to anyone on the position from Send email, in place", async () => {
-      vi.mocked(mailboxApi.getMailbox).mockResolvedValue(CONNECTED_MAILBOX);
-      vi.mocked(pipelineApi.getPipeline).mockResolvedValue(
-        aPipelinePage([aPipelineRow({ candidateId: "c7", fullName: "Rania Khoury", status: "contacted" })]),
-      );
-      renderStage();
-
-      await userEvent.click(await screen.findByRole("button", { name: "Send email" }));
-      await userEvent.click(await screen.findByRole("option", { name: /Rania Khoury/ }));
-
-      expect(await screen.findByRole("dialog", { name: "Email Rania Khoury" })).toBeInTheDocument();
-    });
-
-    it("offers neither outreach action where outreach is not set up", async () => {
+    it("offers no Add to sequence where outreach is not set up", async () => {
       renderStage();
 
       await screen.findByText("ACWA Power");

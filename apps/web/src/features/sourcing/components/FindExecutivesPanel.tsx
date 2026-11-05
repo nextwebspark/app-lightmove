@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FullscreenButton } from "../../../components/ui/FullscreenButton";
 import { Modal } from "../../../components/ui/Modal";
+import { Skeleton } from "../../../components/ui/Skeleton";
 import { cn } from "../../../lib/cn";
 import { useCountries } from "../../../lib/countries";
 import { useFullscreen } from "../../../lib/useFullscreen";
@@ -12,7 +13,7 @@ import { useSearchCriteria } from "../lib/useSearchCriteria";
 import { useSourcingCounts } from "../lib/useSourcingCounts";
 import type { SourcingRunState } from "../lib/useSourcingRun";
 import { useSuggestions } from "../lib/useSuggestions";
-import { CompanyResults, type CompanyStatus } from "./CompanyResults";
+import { CompanyResults, PeopleSkeleton, type CompanyStatus } from "./CompanyResults";
 import { ProfilePane } from "./ProfilePane";
 import { SearchBar } from "./SearchBar";
 import { SearchProgress } from "./SearchProgress";
@@ -67,7 +68,6 @@ export function FindExecutivesPanel({
   const [opened, setOpened] = useState<{ triageCompanyId: string; person: SuggestedPerson } | null>(null);
   const [ticked, setTicked] = useState<ReadonlyMap<string, Picked>>(new Map());
   const [retryWords, setRetryWords] = useState<ReadonlySet<string>>(new Set());
-  const [searchOpen, setSearchOpen] = useState(false);
 
   const { markOpened } = sourcing;
   useEffect(() => {
@@ -103,19 +103,30 @@ export function FindExecutivesPanel({
     if (additions.length > 0) setTicked((current) => new Map([...current, ...additions]));
   }, [suggestions.companies]);
 
-  const shown = companies.map((company) => ({
-    company,
-    status: statusOf(company, run, found.get(company.triageCompanyId)),
-    found: found.get(company.triageCompanyId) ?? null,
-  }));
+  const shown = companies.map((company) => {
+    const status = statusOf(company, run, found.get(company.triageCompanyId));
+    return { company, status, found: SHOWS_RESULTS.has(status) ? (found.get(company.triageCompanyId) ?? null) : null };
+  });
   const people = shown.flatMap((entry) => entry.found?.people ?? []);
-  const hasResults = shown.some((entry) => entry.found !== null) || sourcing.isRunning;
+  const fitCount = people.filter((person) => person.verdict === "FITS").length;
+  const hasResults =
+    shown.some((entry) => entry.found !== null || entry.status === "loading") || sourcing.isRunning;
+  const loadingResults = !hasResults && (suggestions.loading || (counting && companies.length === 0));
   const nobodyFits = shown.filter((entry) => entry.status === "searched" && entry.found?.result.fits === 0);
   const tryWords = (counts?.words ?? []).filter((word) => word.count > 0);
   const tabs = LEVEL_TABS.map((tab) => ({
     ...tab,
     count: people.filter((person) => person.verdict === "FITS" && titleLevelOf(person) === tab.key).length,
   })).filter((tab) => tab.count > 0);
+
+  const behind = shown
+    .filter((entry) => entry.status === "loading")
+    .map((entry) => entry.company.triageCompanyId)
+    .join(",");
+  const { refetch: refetchSuggestions, loading: readingSuggestions } = suggestions;
+  useEffect(() => {
+    if (open && behind && !readingSuggestions) void refetchSuggestions();
+  }, [open, behind, readingSuggestions, refetchSuggestions]);
 
   const toggle = (triageCompanyId: string, person: SuggestedPerson) =>
     setTicked((current) => {
@@ -212,50 +223,41 @@ export function FindExecutivesPanel({
       }
     >
       <div className="flex h-full min-h-0 flex-col">
-        <button
-          type="button"
-          onClick={() => setSearchOpen(!searchOpen)}
-          className="flex-none border-b border-u-border px-4 py-2 text-left text-note font-medium text-u-accent md:hidden"
-        >
-          {searchOpen ? "Hide the search" : "Edit search"}
-        </button>
-        <div className={cn(!searchOpen && "hidden md:block")}>
-          <SearchBar
-            criteria={criteria.criteria}
-            onChange={criteria.update}
-            source={criteria.source}
-            briefChanged={criteria.briefChanged}
-            drafting={criteria.drafting}
-            onReset={criteria.reset}
-            counts={counts}
-            counting={counting}
-            companies={companies}
-            isIncluded={isIncluded}
-            onToggleCompany={(companyId) =>
-              setExcluded((current) => {
-                const next = new Set(current);
-                if (next.has(companyId)) next.delete(companyId);
-                else next.add(companyId);
-                return next;
-              })
-            }
-            onAllCompanies={(all) =>
-              setExcluded(all ? new Set() : new Set(companies.map((company) => company.triageCompanyId)))
-            }
-            perCompanyChoices={sourcing.config?.perCompanyChoices ?? [3, 5, 10]}
-            countries={countries}
-            countryName={countryName}
-            searchLabel={searchLabel}
-            searchDisabled={!searchable || sourcing.isRunning || criteria.drafting || searchIds.length === 0}
-            onSearch={() => void search(searchIds)}
-          />
-        </div>
+        <SearchBar
+          criteria={criteria.criteria}
+          onChange={criteria.update}
+          source={criteria.source}
+          briefChanged={criteria.briefChanged}
+          drafting={criteria.drafting}
+          onReset={criteria.reset}
+          counts={counts}
+          counting={counting}
+          companies={companies}
+          isIncluded={isIncluded}
+          onToggleCompany={(companyId) =>
+            setExcluded((current) => {
+              const next = new Set(current);
+              if (next.has(companyId)) next.delete(companyId);
+              else next.add(companyId);
+              return next;
+            })
+          }
+          onAllCompanies={(all) =>
+            setExcluded(all ? new Set() : new Set(companies.map((company) => company.triageCompanyId)))
+          }
+          perCompanyChoices={sourcing.config?.perCompanyChoices ?? [3, 5, 10]}
+          countries={countries}
+          countryName={countryName}
+          searchLabel={searchLabel}
+          searchDisabled={!searchable || sourcing.isRunning || criteria.drafting || searchIds.length === 0}
+          onSearch={() => void search(searchIds)}
+        />
         {run && sourcing.isRunning && (
           <SearchProgress run={run} onStop={sourcing.stop} stopping={sourcing.isStopping} />
         )}
         {hasResults && (
-          <div className="flex flex-none items-end gap-0.5 border-b border-u-border px-[18px] pt-1.5">
-            <LevelTab label="All" count={people.length} active={levelTab === null} onSelect={() => setLevelTab(null)} />
+          <div className="flex flex-none items-end gap-0.5 border-b border-u-border px-[18px] pt-2">
+            <LevelTab label="All" count={fitCount} active={levelTab === null} onSelect={() => setLevelTab(null)} />
             {tabs.map((tab) => (
               <LevelTab
                 key={tab.key}
@@ -267,18 +269,20 @@ export function FindExecutivesPanel({
             ))}
             <span className="flex-1" />
             <span className="pb-2 font-mono text-note text-u-text3">
-              {people.length} found · {people.filter((person) => person.verdict === "FITS").length} fit the role
+              {fitCount} fit the role
+              {people.length > fitCount && ` · ${people.length - fitCount} more found`}
             </span>
           </div>
         )}
         <div className="flex min-h-0 flex-1">
           <div className={cn("min-w-0 flex-1 overflow-y-auto pb-4", opened && "hidden md:block")}>
-            {!hasResults && criteria.criteria === null && (
+            {loadingResults && <ResultsSkeleton />}
+            {!hasResults && !loadingResults && criteria.criteria === null && (
               <p className="px-[18px] pt-5 text-body text-u-text2">
                 Reading the brief for the role&apos;s title, level and location…
               </p>
             )}
-            {!hasResults && criteria.criteria !== null && (
+            {!hasResults && !loadingResults && criteria.criteria !== null && (
               <Preview companies={companies} isIncluded={isIncluded} perCompany={criteria.criteria.perCompany} />
             )}
             {hasResults && nobodyFits.length > 0 && tryWords.length > 0 && !sourcing.isRunning && (
@@ -362,7 +366,16 @@ export function FindExecutivesPanel({
   );
 }
 
-/** Where a company stands: in the search running now, searched before, or not searched at all. */
+/** The statuses under which a company's stored results are its own and are drawn. */
+const SHOWS_RESULTS: ReadonlySet<CompanyStatus> = new Set(["searched"]);
+
+/** Outcomes that leave results behind, as the server's suggestions read keeps them. */
+const SEARCHED_OUTCOMES: ReadonlySet<string> = new Set(["FOUND", "NOTHING_FIT", "NO_HITS"]);
+
+/**
+ * Where a company stands: in the search running now, searched before, or not searched at all. A company the
+ * search running now has not finished — or has finished, before its results are read back — shows no older results.
+ */
 function statusOf(company: CompanyCount, run: SourcingRun | null, found: CompanySuggestions | undefined): CompanyStatus {
   if (!company.searchable) return "noPage";
   const inRun = run?.companies.some((one) => one.triageCompanyId === company.triageCompanyId) ?? false;
@@ -373,7 +386,20 @@ function statusOf(company: CompanyCount, run: SourcingRun | null, found: Company
   }
   if (outcome?.outcome === "FAILED") return "failed";
   if (outcome?.outcome === "STOPPED" || outcome?.outcome === "NOT_REACHED") return found ? "searched" : "stopped";
+  if (run && outcome && SEARCHED_OUTCOMES.has(outcome.outcome) && found?.runId !== run.id) return "loading";
   return found ? "searched" : "unsearched";
+}
+
+/** The results' stand-in while what was found is read: a company's frame over a few pulsing rows. */
+function ResultsSkeleton() {
+  return (
+    <div role="status" aria-label="Loading results" className="mx-[18px] mt-3.5 overflow-hidden rounded-lg border border-u-border">
+      <div className="bg-u-sunken px-3 py-3">
+        <Skeleton className="h-3.5 w-40" />
+      </div>
+      <PeopleSkeleton />
+    </div>
+  );
 }
 
 function LevelTab({

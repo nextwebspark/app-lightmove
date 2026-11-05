@@ -36,6 +36,7 @@ export function useSuggestions(projectId: string, open: boolean) {
   return {
     companies: suggestions.data?.companies ?? [],
     loading: suggestions.isPending && open,
+    refetch: suggestions.refetch,
     add: add.mutate,
     adding: add.isPending,
   };

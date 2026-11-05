@@ -1,12 +1,21 @@
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { Skeleton } from "../../../components/ui/Skeleton";
 import { cn } from "../../../lib/cn";
 import type { CompanySuggestions, SuggestedPerson } from "../api/sourcingApi";
 import { titleLevelOf } from "../lib/suggestionReasons";
 import { SuggestionRow } from "./SuggestionRow";
 
 /** Where a company stands in the search on screen. */
-export type CompanyStatus = "searching" | "waiting" | "searched" | "unsearched" | "noPage" | "failed" | "stopped";
+export type CompanyStatus =
+  | "searching"
+  | "waiting"
+  | "loading"
+  | "searched"
+  | "unsearched"
+  | "noPage"
+  | "failed"
+  | "stopped";
 
 const STATUS_NOTE: Partial<Record<CompanyStatus, string>> = {
   waiting: "Waiting",
@@ -114,11 +123,12 @@ export function CompanyResults({
             {result.cached} already on file
           </span>
           <span>
-            Profile index — {result.indexFound} here mention the function; {result.titleChecks} checked free;{" "}
-            {result.noTitle} with no title on record
+            Profile index — {result.indexFound} here mention the function; {result.titleChecks} with no title checked
+            free by name; listed only where a title or a check places them in the role
           </span>
         </div>
       )}
+      {(status === "searching" || status === "loading") && <PeopleSkeleton />}
       {fits.map(row)}
       {nobodyFits && (
         <div className="border-t border-u-border py-3 pl-12 pr-3">
@@ -165,6 +175,25 @@ export function CompanyResults({
       {noTitleOpen && noTitle.map(row)}
       {notFitOpen && notFit.map(row)}
     </section>
+  );
+}
+
+/** Rows standing in for people while a company is searched, or its results are read back. */
+export function PeopleSkeleton({ rows = 3 }: { rows?: number }) {
+  return (
+    <div aria-hidden="true">
+      {Array.from({ length: rows }, (_, index) => (
+        <div key={index} className="flex items-center gap-3 border-t border-u-border py-3 pl-3 pr-3">
+          <Skeleton className="size-4 flex-none" />
+          <Skeleton className="size-8 flex-none rounded-full" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <Skeleton className={cn("h-3.5", index % 2 === 0 ? "w-48" : "w-40")} />
+            <Skeleton className={cn("h-3", index % 2 === 0 ? "w-72" : "w-56")} />
+          </div>
+          <Skeleton className="h-5 w-14 flex-none rounded-full" />
+        </div>
+      ))}
+    </div>
   );
 }
 

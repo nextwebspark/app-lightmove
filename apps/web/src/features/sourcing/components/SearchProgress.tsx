@@ -9,7 +9,7 @@ export function SearchProgress({ run, onStop, stopping }: { run: SourcingRun; on
   const firstWaiting = run.companies.find((company) => !done.has(company.triageCompanyId));
   const share = run.companiesTotal === 0 ? 0 : Math.round((run.companiesDone / run.companiesTotal) * 100);
   return (
-    <div role="status" className="flex-none border-b border-u-border">
+    <div role="status" className="mt-3 flex-none border-y border-u-border">
       <div className="flex items-center gap-3 px-[18px] py-2.5">
         <span className="size-3.5 flex-none animate-spin rounded-full border-2 border-u-border border-t-u-accent" />
         <span className="text-body font-medium text-u-text">Searching {companiesOf(run.companiesTotal)}</span>

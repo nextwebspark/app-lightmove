@@ -220,10 +220,12 @@ out as Website and Company LinkedIn. It is `WORK_VIEW`, the gate that reads the 
 representative may take the mandate they can already read; unlike every other read it records an
 audit event, because a mandate leaving as a file is not the same act as reading a page of it. Past
 `lightmove.export.*` it refuses rather than truncating.
-**The Companies toolbar** (`Position.dc.html`) is the view switch, one search box in every view, then Add to sequence and Send email (the drawer's composer, for anyone on the position) where
-outreach is offered — greyed (`aria-disabled`, saying where it works) on the map and until something is ticked — and,
-on Table and Map only, Find executives filled, **Advanced ▾** (`AdvancedMenu`) and **Create ▾** (Add executive, Add
-company). The Pipeline's row is the switch, the search and the outreach pair alone.
+**The Companies toolbar** (`Position.dc.html`) is the view switch, one search box in every view, then Add to sequence where
+outreach is offered — greyed (`aria-disabled`, saying where it works) on the map and until an executive is ticked, the
+count ticked on the button — and, on Table and Map only, Find executives filled (the ticked companies, each counted once
+whatever lines name them, `max-companies-per-run` at most — none or more is said on press; while a search runs or waits
+it opens that one, and its caret opens the last search whatever is ticked), **Advanced ▾** (`AdvancedMenu`) and **Create ▾** (Add executive, Add
+company). The Pipeline's row is the switch, the search and Add to sequence alone.
 Advanced ▾ holds the rest, by view: show/hide and manage columns on the table, the map's layers, Add to sequence again
 on the table, Import and Export. Strategy's toolbar and Outreach's header are the same row (`components/ui/Toolbar`:
 the page's views, then the search, the page's actions pushed right), Outreach's search in it. The search is matched by the server, the same
@@ -253,13 +255,15 @@ coordinate, so `geocoding` resolves each distinct city + country once through Ma
 unpaged, capped read (`GET /projects/{id}/talent-map`), with `…/talent-map/locations` answering the
 same map as points alone for the poll that waits on places rather than on people. **Find executives** (`enrichment/sourcing`, V86, V184, `docs/find-executives.md`) is the fifth door: a
 panel (`features/sourcing`, `FindExecutivesPanel`, `claude-design/FindExecutives.dc.html`) opened from the
-In-universe toolbar on the ticked companies — or the first `max-companies-per-run` (10) with nobody mapped — and from a
-company drawer's Find executives on that company alone. **The search is the position's own** (V184
+In-universe toolbar on the ticked companies — at most `max-companies-per-run` (5) — and from a
+company drawer's Find executives on that company alone, as from a company's empty slot, whose button asks Find
+with Uncava or Add manually (`AddExecutiveChoice`). **The search is the position's own** (V184
 `app_lm_executive_sourcing_criteria`): drafted once by one Gemini call (`SearchWordsDrafter` → `SearchWords`: the levels
 a firm maps for the role, `SearchLevel`'s bands from the role down; up to twelve function terms, core first, phrases
 allowed, in another language too only where the companies' titles are written in it — Turkish in Türkiye, none for the
 Gulf or Egypt; the titles that stand alone, "CFO"; up to four leave-out words; suggestions it does not search), falling
-back to the role title's own words (`SearchWords.defaultFor`); then saved as the consultant edits it (`PUT …/criteria`,
+back to the role title's own words (`SearchWords.defaultFor`); shown folded to one line until Edit search opens its six
+dropdowns of one shape (`SearchBar`); then saved as the consultant edits it (`PUT …/criteria`,
 `EDITED`), Reset drafting it again, and `briefChanged` saying when the brief has moved on. Where people may live is the
 brief's country and the Gulf, each company's own added at search time, and profiles bought per company 3, 5 or 10.
 **Every count is free** (`SourcingCounts`, `POST …/counts`): per company, per level and per suggested word, from
@@ -273,7 +277,7 @@ four core terms first, then the rest less what the first found — up to the com
 Business Search**, the profile index (`BusinessSearchProfileIndex`, `POST /search/people` on the Bright Data key whatever
 `provider` says, about $0.002 a search, paced one call each 1.5 s), asked once who at the company's LinkedIn slug names
 the function's words in their title, past titles or About — most of its records have lost their current title — each
-untitled one checked by a free ContactOut count narrowed to their name, up to `title-checks-per-company`, and a confirmed
+untitled one checked by a free ContactOut count narrowed to their name, up to `title-checks-per-company` (100, the page), and a confirmed
 one's live profile bought while the company's budget lasts. Both go through the people cache (`PeopleCache`, V87), which
 reads back the fitting people on file before buying the rest and keeps one row a person, the richest fresh record standing
 (ContactOut over Business Search over the dataset; a capture never reads a Business Search row as a profile). **No model
@@ -285,8 +289,10 @@ Possible, each point a reason code (`SuggestionReason`) the panel shows as a chi
 people are stored ranked (V184 `app_lm_executive_sourcing_suggestion`, slugs and our judgement only; names and titles are
 read from the cache, so results last as long as it keeps them) and recorded as the company finishes, Stop
 (`POST …/{runId}/stop`) letting the companies in flight finish and the rest read STOPPED. The panel reads each company's
-latest results (`GET …/suggestions`) — who fits, best first, the top three pre-ticked; *Title not on record* and
-*Doesn't fit the role* folded; the position's own people marked; level tabs; a profile pane; a company where nobody fits
+latest results (`GET …/suggestions`) — who fits, best first, the top three pre-ticked; *Title not on record* (no check
+reached them) and *Doesn't fit the role* (the live index's own hits; what the profile index alone returned is listed
+only where its title fits or a free check confirms it) folded; a company the running search has not read back shows no
+older results; the position's own people marked; level tabs; a profile pane; a company where nobody fits
 offering the suggested words with their counts and a search of it again — and **Add** (`POST …/suggestions/add`, up to
 50) files the ticked people at their company from what was read, never a second vendor call, only someone a search of
 this position found, through `CandidateService.addResearched` as `AI_SOURCED` (no badge on the grid; the drawer's source
@@ -674,7 +680,8 @@ Manager names and the `deploy.yml` switches (`GOOGLE_MAIL_ENABLED`, `MICROSOFT_M
 `RECALL_ENABLED`, each off until its secrets exist) — and the five admin guides beside it are what the
 `*_GUIDE_URL` settings link Settings → Integrations to once published.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
-**Add to sequence** — from In universe / Shortlisted (the ticked companies' executives), In universe's Pipeline (the
+**Add to sequence** — from In universe / Shortlisted (the ticked executives: every grid line carries a tick box,
+`useLineSelection`, the header box ticking or clearing the page; no floating bar), In universe's Pipeline (the
 ticked executives) or the executive drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out
 of the running, already in a live sequence); the openers and Start decide the same rules again
 (`RecipientEligibility`), so nobody skipped is sent to the model, charged for or enrolled. Each person's first email is rendered and **frozen on their enrollment** with their own opener,

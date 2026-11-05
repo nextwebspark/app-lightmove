@@ -30,34 +30,43 @@ The redesign is **one panel the consultant can see and steer**:
 
 ## The panel
 
-It opens from the In-universe toolbar, with the ticked companies or else the first ten with nobody mapped. It also
+It opens from the In-universe toolbar on the ticked companies, five at most, counted once each whatever rows name them
+— with none ticked, or more, the button says so on press. While a search runs or its results wait, the button opens
+that search, and its caret's **Open the last search** opens it whatever is ticked. A company's empty slot (the
+add-executive icon) asks **Find with Uncava** — the panel on that company alone — or **Add manually**. It also
 opens from a company drawer's **Find executives**, with that company alone. Either way it is the same panel and the
 same search.
 
 **The search bar** is drafted by the AI once per position. Every change is saved for the position, and **Reset**
-drafts it again.
+drafts it again. It opens folded to one line that says what it looks for, with the count line, **Edit search** and
+**Search** at its end; Edit search opens six fields in a grid, each a dropdown of the same shape and size:
 
 - **Level** — C-level · SVP/EVP · VP·Head·Director · Manager, any of them.
   - These are the levels the role check can tell apart (`TitleLevel` holds VP, Head and Director as one).
   - A level turns into title words in code, so nobody types "Chief OR Head".
   - Each level shows a free count.
-- **Titles** — chips. Focusing the box suggests words: the AI's alternates from the same draft call, the function's
-  abbreviation (IT and Technology), and words seen in found titles. Each suggestion carries a free count of the
-  people it reaches at these companies. Enter adds any word.
-- **Leave out**, **Where** (the brief's country and the Gulf), **Companies** (each counted, no LinkedIn page noted),
-  and **Per company** (3, 5 or 10 profiles bought; three by default).
+- **Titles** — the field reads "Finance, Financial +2"; its dropdown holds the words as removable pills, a box where
+  Enter adds any word, **Clear all**, and the suggested words: the AI's alternates from the same draft call, the
+  function's abbreviation (IT and Technology), and words seen in found titles. Each suggestion carries a free count of
+  the people it reaches at these companies.
+- **Leave out** and **Where** (the brief's country and the Gulf) — the same pills and box. **Companies** (each counted,
+  no LinkedIn page noted) and **Per company** (3, 5 or 10 profiles bought; three by default).
 - **The count line** — "≈ 30 match · 12 to buy · 4 already on file". It is free and refreshes 500 ms after an edit.
   **Search** is the only thing that spends.
 
 **Results** arrive company by company. While a search runs, a progress line names each company as done, searching
-or waiting, with **Stop**. Closing the panel does not stop the search.
+or waiting, with **Stop**. Closing the panel does not stop the search. A company the running search has not finished
+— or has finished, before its results are read back — shows pulsing rows, never its older results.
 
 - **Level tabs** filter what was found, on the client and for free.
 - **Each company** lists the people who fit, best first:
   - each is marked Strong, Good or Possible, with up to three reason chips;
   - the top three are pre-ticked;
   - **Title not on record** and **Doesn't fit the role** fold under the company and can still be ticked. A person
-    who doesn't fit shows why: below the role's level, no finance word in the title, or a leave-out word;
+    who doesn't fit shows why: below the role's level, no finance word in the title, or a leave-out word. Only someone
+    the live index found under its own words is listed as not fitting; of what the profile index alone returned — the
+    function's whole staff at the company — a title below the role, or a free check that found no such title, leaves
+    the person off the list, and *Title not on record* is only someone no check reached;
   - people already on the position read **On this position**.
 - **How we searched** gives a company's words, levels and each source's counts.
 - **A row opens the profile** in a pane inside the panel.
@@ -166,7 +175,10 @@ saved search ─► ContactOut People Search ─┐  side by side; each through 
   `current_company_id` is the slug and whose `role` (title, past titles, About) holds a function term.
   - Its candidates are checked by a free ContactOut count narrowed to the person's name. Where the company is small,
     everyone the index holds there in the region is checked the same way.
-  - A match shows as **title confirmed**. The rest show as **Title not on record**.
+  - A match shows as **title confirmed**; the rest are left off the list. Every untitled person on the page is
+    checked (`title-checks-per-company`, 100); one past it shows as **Title not on record**.
+  - Someone the index holds under a title below the role is left off too: that search finds the function, not the
+    seat, and returned HVAC engineers for a CTO.
   - A title search in the index is not used: it has dropped most current titles.
 - **ContactOut is bought in tiers.** The role's own level and core words come first, then the rest of the family,
   three profiles a company by default. Each tier is counted free first.
