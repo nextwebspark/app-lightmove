@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
+import { Icon, ICONS } from "../../../components/layout/Icon";
+import { Button } from "../../../components/ui";
+import { FoldBody } from "../../../components/ui/FoldBody";
 import { cn } from "../../../lib/cn";
 import type { CandidateStatus } from "../../candidates/api/types";
 import * as runApi from "../api/runApi";
-import type { OutreachStep } from "../api/runApi";
+import type { OutreachRun, OutreachStep, RunStatus } from "../api/runApi";
 import { isLive, RUN_STATES, sendTimeOf, STOP_NOTES } from "../lib/runVocabulary";
 import { useStopRun } from "../lib/useStopRun";
 import { findStatus } from "../../candidates/lib/pipelineStatus";
@@ -16,10 +18,10 @@ import { StopRunDialog } from "./StopRunDialog";
 const REPLY_CHOICES: CandidateStatus[] = ["engaged", "interested", "notInterested"];
 
 /**
- * The executive drawer's Outreach fold (`Outreach.dc.html?drawer=`): their latest run on this position,
- * step by step — sent, scheduled, waiting, or not sent and why — with Stop while it runs and, once they
- * replied, their words and the three statuses a reply can mean. Staff-only; drawn only for someone a sequence reached
- * for or who replied.
+ * The executive drawer's Sequence: their latest run on this position as one row — name, where it stands, progress —
+ * that opens on its steps, why the rest never went, Stop while it runs, and the ways to the sequence and the
+ * conversation. Once they replied, their words and the three statuses a reply can mean sit above it. Staff-only;
+ * drawn only for someone a sequence reached for or who replied.
  */
 export function OutreachSection({
   projectId,
@@ -60,7 +62,6 @@ export function OutreachSection({
   if (!run && !reply) {
     return null;
   }
-  const state = run ? RUN_STATES[run.status] : null;
   const conversationPath = `/projects/${projectId}/outreach?candidate=${candidateId}`;
   // Over the Outreach page itself the drawer opens on top of this very conversation: no link back to it.
   const isOnOutreach = /\/projects\/[^/]+\/outreach\/?$/.test(location.pathname);
@@ -70,175 +71,317 @@ export function OutreachSection({
   const replyText = reply?.text ?? null;
 
   return (
-    <CollapsibleSection
-      id="outreach"
-      open={open}
-      onToggle={onToggle}
-      title="Outreach"
-      summary={run && state ? `${state.label} · ${run.sentCount} of ${run.stepCount} sent` : `${firstName} replied`}
-      action={
-        isOnOutreach ? undefined : (
-          <Link to={conversationPath} className="text-note font-medium text-u-accent hover:underline">
-            Open conversation
-          </Link>
-        )
-      }
-    >
-      <div className="pb-3">
-        {hasReplied && (
-          <div className="mb-3 rounded-[8px] bg-u-direct-tint px-3 py-2.5 text-[12.5px]/[1.5]">
-            <b className="text-u-direct">
-              {firstName} replied{repliedAt ? ` ${sendTimeOf(repliedAt)}` : ""}.
-            </b>{" "}
-            {replyText ? (
-              <>
-                <q className="mt-1 block whitespace-pre-wrap text-u-text2">{replyText}</q>
-                {candidateStatus === "contacted" ? "Record where they stand." : null}
-              </>
-            ) : (
-              <>
-                Read it in your inbox
-                {candidateStatus === "contacted" ? ", then record where they stand." : "."}
-              </>
-            )}
-            {candidateStatus === "contacted" && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {replyChoices.map((choice) => (
-                  <button
-                    key={choice}
-                    type="button"
-                    disabled={isSettingStatus}
-                    onClick={() => onSetStatus(choice)}
-                    className="rounded-[6px] border border-u-border bg-u-surface px-2.5 py-1 text-[12px] font-medium hover:border-u-text3 disabled:opacity-60"
-                  >
-                    {styleOf(choice).label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        {run && state && (
-          <RunSteps
-            run={run}
-            state={state}
-            steps={outreach.data?.steps ?? []}
-            firstName={firstName}
-            isStopping={stop.isPending}
-            onStop={() => setIsConfirmingStop(true)}
-          />
-        )}
-        {run && (
-          <StopRunDialog
-            open={isConfirmingStop}
-            name={firstName}
-            pending={stop.isPending}
-            onConfirm={() =>
-              stop.mutate({ id: run.id, fullName: null }, { onSettled: () => setIsConfirmingStop(false) })
-            }
-            onClose={() => setIsConfirmingStop(false)}
-          />
-        )}
-      </div>
-    </CollapsibleSection>
+    <section aria-label={run ? "Sequence" : "Latest reply"} className="flex flex-col gap-2">
+      <h3 className="type-micro-label text-u-text3">{run ? "Sequence" : "Latest reply"}</h3>
+      {hasReplied && (
+        <div className="rounded-u-chip bg-u-direct-tint px-3 py-2.5 text-body">
+          <b className="text-u-direct">
+            {firstName} replied{repliedAt ? ` ${sendTimeOf(repliedAt)}` : ""}.
+          </b>{" "}
+          {replyText ? (
+            <>
+              <q className="mt-1 block whitespace-pre-wrap text-u-text2">{replyText}</q>
+              {candidateStatus === "contacted" ? "Record where they stand." : null}
+            </>
+          ) : (
+            <>
+              Read it in your inbox
+              {candidateStatus === "contacted" ? ", then record where they stand." : "."}
+            </>
+          )}
+          {candidateStatus === "contacted" && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {replyChoices.map((choice) => (
+                <Button
+                  key={choice}
+                  variant="secondary"
+                  size="xs"
+                  disabled={isSettingStatus}
+                  onClick={() => onSetStatus(choice)}
+                >
+                  {styleOf(choice).label}
+                </Button>
+              ))}
+            </div>
+          )}
+          {!run && !isOnOutreach && (
+            <Link to={conversationPath} className="mt-2 inline-flex items-center gap-1 font-medium text-u-accent hover:underline">
+              Open conversation
+              <Icon d={ICONS.arrowRight} size={12} />
+            </Link>
+          )}
+        </div>
+      )}
+      {run && (
+        <RunRow
+          run={run}
+          steps={outreach.data?.steps ?? []}
+          firstName={firstName}
+          open={open}
+          onToggle={onToggle}
+          sequencePath={`/projects/${projectId}/outreach/sequences/${run.sequenceId}`}
+          conversationPath={isOnOutreach ? null : conversationPath}
+          isStopping={stop.isPending}
+          onStop={() => setIsConfirmingStop(true)}
+        />
+      )}
+      {run && (
+        <StopRunDialog
+          open={isConfirmingStop}
+          name={firstName}
+          pending={stop.isPending}
+          onConfirm={() =>
+            stop.mutate({ id: run.id, fullName: null }, { onSettled: () => setIsConfirmingStop(false) })
+          }
+          onClose={() => setIsConfirmingStop(false)}
+        />
+      )}
+    </section>
   );
 }
 
-function RunSteps({
+function RunRow({
   run,
-  state,
   steps,
   firstName,
+  open,
+  onToggle,
+  sequencePath,
+  conversationPath,
   isStopping,
   onStop,
 }: {
-  run: runApi.OutreachRun;
-  state: { label: string; className: string };
+  run: OutreachRun;
   steps: readonly OutreachStep[];
   firstName: string;
+  open: boolean;
+  onToggle: () => void;
+  sequencePath: string;
+  conversationPath: string | null;
   isStopping: boolean;
   onStop: () => void;
 }) {
+  const state = RUN_STATES[run.status];
+  const tile = TILES[run.status];
+  const ending = endingOf(run, steps, firstName);
+  const bodyId = "outreach-section-body";
   return (
-    <>
-      {run.status === "BOOKED" && (
-        <div className="mb-3 rounded-[8px] bg-u-direct-tint px-3 py-2.5 text-[12.5px]/[1.5]">
-          <b className="text-u-direct">
-            {run.bookedViaLink ? `${firstName} booked a call through your link.` : `A call was booked with ${firstName}.`}
-          </b>{" "}
-          {run.endedAt ? `${sendTimeOf(run.endedAt)}. ` : ""}Their sequence stopped.
+    <div className="rounded-u-card border border-u-border">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={bodyId}
+        onClick={onToggle}
+        className={cn(
+          "grid w-full grid-cols-[34px_minmax(0,1fr)_auto_16px] items-center gap-3 px-3 py-2.5 text-start transition hover:bg-u-raised",
+          open ? "rounded-t-u-card bg-u-canvas" : "rounded-u-card",
+        )}
+      >
+        <span aria-hidden="true" className={cn("grid size-[34px] place-items-center rounded-u-chip", tile.tone)}>
+          <Icon d={tile.icon} size={16} />
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-body font-semibold text-u-text">{run.sequenceName ?? "A sequence"}</span>
+          <span className="block truncate text-note text-u-text3">
+            {[run.senderName, whereItStandsOf(run, firstName)].filter(Boolean).join(" · ")}
+          </span>
+        </span>
+        <span className="flex flex-col items-end gap-1">
+          <span className={cn("rounded-full px-2 py-px text-meta font-semibold", state.className)}>{state.label}</span>
+          <StepDots run={run} />
+        </span>
+        <Icon
+          d={ICONS.chevronDown}
+          size={16}
+          className={cn(
+            "text-u-text3 transition-transform duration-200 motion-reduce:transition-none",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      <FoldBody id={bodyId} open={open}>
+        <div className="flex flex-col gap-3.5 border-t border-u-border px-4 py-3.5">
+          <ol
+            aria-label="Steps"
+            className="grid"
+            style={{ gridTemplateColumns: `repeat(${Math.max(steps.length, 1)}, minmax(0, 1fr))` }}
+          >
+            {steps.map((step, index) => (
+              <StepNode key={step.number} step={step} isLast={index === steps.length - 1} />
+            ))}
+          </ol>
+          {ending && (
+            <p className={cn("rounded-u-chip px-2.5 py-2 text-body text-u-text2", ending.tone)}>
+              <b className={ending.leadClassName}>{ending.lead}</b> {ending.rest}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-note">
+            {isLive(run) && (
+              <Button variant="secondary" size="xs" disabled={isStopping} onClick={onStop}>
+                Stop sequence
+              </Button>
+            )}
+            <Link to={sequencePath} className="inline-flex items-center gap-1 font-medium text-u-accent hover:underline">
+              Open sequence
+              <Icon d={ICONS.arrowRight} size={12} />
+            </Link>
+            {conversationPath && (
+              <Link
+                to={conversationPath}
+                className="inline-flex items-center gap-1 font-medium text-u-accent hover:underline"
+              >
+                Open conversation
+                <Icon d={ICONS.arrowRight} size={12} />
+              </Link>
+            )}
+          </div>
         </div>
-      )}
-      <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[12.5px] font-medium text-u-text2">
-        <span className={cn("rounded-full px-2 py-[2px] font-mono text-[10.5px] uppercase", state.className)}>
-          {state.label}
-        </span>
-        <span>
-          {run.sequenceName ?? "A sequence"}
-          {run.senderName ? ` · from ${run.senderName}` : ""}
-        </span>
-      </div>
-      <ol>
-        {steps.map((step) => (
-          <StepLine key={step.number} step={step} />
-        ))}
-      </ol>
-      {isLive(run) && (
-        <button
-          type="button"
-          disabled={isStopping}
-          onClick={onStop}
-          className="mt-2 rounded-[6px] border border-u-border px-[11px] py-[5px] text-[12px] font-medium text-u-text2 hover:border-u-offlimits hover:text-u-offlimits disabled:opacity-60"
-        >
-          Stop sequence
-        </button>
-      )}
-    </>
+      </FoldBody>
+    </div>
   );
 }
 
-function StepLine({ step }: { step: OutreachStep }) {
-  const isEnded = step.state === "NOT_SENT";
+function StepDots({ run }: { run: OutreachRun }) {
   return (
-    <li className="flex items-start gap-2.5 py-[7px]">
-      <span
-        aria-hidden="true"
-        className={cn(
-          "mt-1 size-2.5 flex-none rounded-full",
-          step.state === "SENT"
-            ? "bg-u-accent"
-            : step.state === "SCHEDULED"
-              ? "border-2 border-u-accent"
-              : "border-[1.5px] border-u-border",
-        )}
-      />
-      <span className="min-w-0 flex-1">
-        <span className={cn("block text-[12.5px] font-medium", isEnded ? "text-u-text3" : "text-u-text")}>
-          Step {step.number} · {step.subject ?? "Follow-up in the same thread"}
+    <span aria-label={`${run.sentCount} of ${run.stepCount} sent`} role="img" className="flex gap-[3px]">
+      {Array.from({ length: run.stepCount }, (_, index) => (
+        <span
+          key={index}
+          className={cn(
+            "h-1 w-3.5 rounded-full",
+            index < run.sentCount
+              ? "bg-u-accent"
+              : index === run.sentCount && isLive(run)
+                ? "bg-u-accent-ring"
+                : "bg-u-border-strong",
+          )}
+        />
+      ))}
+    </span>
+  );
+}
+
+function StepNode({ step, isLast }: { step: OutreachStep; isLast: boolean }) {
+  const subject = step.subject ?? "Follow-up in the same thread";
+  const meta = stepMetaOf(step);
+  return (
+    <li className="flex min-w-0 flex-col gap-1.5" title={subject}>
+      <span className="flex items-center">
+        <span
+          aria-hidden="true"
+          className={cn(
+            "grid size-[22px] flex-none place-items-center rounded-full text-meta font-semibold",
+            step.state === "SENT"
+              ? "bg-u-accent text-white"
+              : step.state === "SCHEDULED"
+                ? "border-2 border-u-accent text-u-accent"
+                : step.state === "WAITING"
+                  ? "border-[1.5px] border-u-border-strong text-u-text3"
+                  : "border-[1.5px] border-dashed border-u-border-strong text-u-text3",
+          )}
+        >
+          {step.state === "SENT" ? (
+            <Icon d={ICONS.check} size={12} />
+          ) : step.state === "SCHEDULED" ? (
+            <Icon d={ICONS.clock} size={11} />
+          ) : (
+            step.number
+          )}
         </span>
-        <span className="block font-mono text-[11.5px] text-u-text3">{stepMetaOf(step)}</span>
+        {!isLast && <span aria-hidden="true" className="mx-1.5 h-0.5 flex-1 rounded-full bg-u-raised" />}
       </span>
+      <span className={cn("text-note font-semibold", step.state === "NOT_SENT" ? "text-u-text3" : "text-u-text")}>
+        Step {step.number} · {STEP_LABELS[step.state]}
+      </span>
+      {meta && <span className="truncate pe-2 font-mono text-meta text-u-text3">{meta}</span>}
     </li>
   );
 }
 
-function stepMetaOf(step: OutreachStep): string {
-  switch (step.state) {
-    case "SENT":
-      return step.at ? `Sent ${sendTimeOf(step.at)}` : "Sent";
+const STEP_LABELS: Record<OutreachStep["state"], string> = {
+  SENT: "sent",
+  SCHEDULED: "scheduled",
+  WAITING: "waiting",
+  NOT_SENT: "not sent",
+};
+
+function stepMetaOf(step: OutreachStep): string | null {
+  if (step.state === "SENT" || step.state === "SCHEDULED") return step.at ? sendTimeOf(step.at) : null;
+  if (step.state === "WAITING") return step.number > 1 ? `After step ${step.number - 1}` : null;
+  return null;
+}
+
+/** The folded row's second line: what happens next, or how it ended. */
+function whereItStandsOf(run: OutreachRun, firstName: string): string {
+  switch (run.status) {
     case "SCHEDULED":
-      return step.at ? `Scheduled ${sendTimeOf(step.at)}` : "Scheduled";
-    case "WAITING":
-      return "Waiting";
-    case "NOT_SENT":
-      return `Not sent: ${notSentReasonOf(step.notSentBecause)}`;
+    case "ACTIVE":
+      return run.nextSendAt
+        ? `step ${run.sentCount + 1} goes ${sendTimeOf(run.nextSendAt)}`
+        : `${run.sentCount} of ${run.stepCount} sent`;
+    case "REPLIED":
+      return `ended with a reply after step ${run.sentCount}`;
+    case "BOOKED":
+      return `${run.bookedViaLink ? `${firstName} booked a call` : "Call booked"}${run.endedAt ? ` ${sendTimeOf(run.endedAt)}` : ""}`;
+    case "BOUNCED":
+      return `the address bounced after step ${run.sentCount}`;
+    case "STOPPED":
+      return `stopped after step ${run.sentCount}${run.stopReason ? ` — ${lowerFirst(STOP_NOTES[run.stopReason])}` : ""}`;
+    case "COMPLETED":
+      return `all ${run.stepCount} emails sent`;
   }
 }
 
-function notSentReasonOf(reason: OutreachStep["notSentBecause"]): string {
-  if (reason === "REPLIED") return "they replied";
-  if (reason === "BOUNCED") return "the address bounced";
-  if (reason === "BOOKED") return "they booked a call";
-  if (reason === null || reason === "MANUAL") return "sequence stopped";
-  return STOP_NOTES[reason].toLowerCase();
+interface Ending {
+  tone: string;
+  leadClassName: string;
+  lead: string;
+  rest: string;
 }
+
+/** Why the rest of the sequence never went, said once rather than under every step. */
+function endingOf(run: OutreachRun, steps: readonly OutreachStep[], firstName: string): Ending | null {
+  const unsent = steps.filter((step) => step.state === "NOT_SENT").map((step) => step.number);
+  const rest = unsent.length === 0 ? "Their sequence stopped." : `${unsentPhraseOf(unsent)} not sent.`;
+  const when = run.endedAt ? ` ${sendTimeOf(run.endedAt)}.` : ".";
+  switch (run.status) {
+    case "BOOKED":
+      return {
+        tone: "bg-u-direct-tint",
+        leadClassName: "text-u-direct",
+        lead: `${run.bookedViaLink ? `${firstName} booked a call through your link` : `A call was booked with ${firstName}`}${when}`,
+        rest,
+      };
+    case "BOUNCED":
+      return { tone: "bg-u-offlimits-tint", leadClassName: "text-u-offlimits", lead: "The address bounced.", rest };
+    case "STOPPED":
+      return {
+        tone: "bg-u-signal-tint",
+        leadClassName: "text-u-signal",
+        lead: `${run.stopReason ? STOP_NOTES[run.stopReason] : "Stopped"}${when}`,
+        rest,
+      };
+    default:
+      return null;
+  }
+}
+
+function unsentPhraseOf(numbers: readonly number[]): string {
+  if (numbers.length === 1) return `Step ${numbers[0]} was`;
+  const head = numbers.slice(0, -1).join(", ");
+  return `Steps ${head} and ${numbers[numbers.length - 1]} were`;
+}
+
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+const TILES: Record<RunStatus, { icon: string; tone: string }> = {
+  SCHEDULED: { icon: ICONS.clock, tone: "bg-u-raised text-u-text2" },
+  ACTIVE: { icon: ICONS.clock, tone: "bg-u-signal-tint text-u-signal" },
+  REPLIED: { icon: ICONS.reply, tone: "bg-u-direct-tint text-u-direct" },
+  BOUNCED: { icon: ICONS.warning, tone: "bg-u-offlimits-tint text-u-offlimits" },
+  STOPPED: { icon: ICONS.listOrdered, tone: "bg-u-sunken text-u-text3" },
+  COMPLETED: { icon: ICONS.check, tone: "bg-u-raised text-u-text2" },
+  BOOKED: { icon: ICONS.calendar, tone: "bg-u-direct-tint text-u-direct" },
+};
