@@ -94,6 +94,7 @@ export interface ConversationMessage {
   toAddress: string | null;
   senderUserId: string;
   senderName: string | null;
+  senderAvatarUrl: string | null;
   enrollmentId: string | null;
   sequenceName: string | null;
   stepNumber: number | null;

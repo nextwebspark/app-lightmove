@@ -1,6 +1,7 @@
 package app.lightmove.api.core.security.apikey;
 
 import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.tenant.TenantPrincipal;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -23,7 +24,7 @@ public record ApiKeyPrincipal(
         @Nullable UUID ownerUserId,
         List<ApiKeyScope> scopes,
         Instant expiresAt
-) implements OAuth2AuthenticatedPrincipal {
+) implements OAuth2AuthenticatedPrincipal, TenantPrincipal {
 
     /** Empty for a key carrying a scope this build no longer knows, which is refused like any other bad key. */
     static Optional<ApiKeyPrincipal> of(ApiKey key) {

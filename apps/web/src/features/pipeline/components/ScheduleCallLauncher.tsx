@@ -64,7 +64,7 @@ export function ScheduleCallLauncher({
               onOpenContact(row);
             }}
           >
-            Open Contact
+            Open contact details
           </Button>
         )
       }

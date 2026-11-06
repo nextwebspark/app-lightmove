@@ -24,7 +24,6 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -96,21 +95,33 @@ public class AuthResponseAssembler {
     /**
      * The caller's own outstanding invitations, so routing can be derived from the server instead of a
      * tab's sessionStorage — an invitee who verifies in a fresh tab must land on "join {workspace}",
-     * not on create-your-own — or to a second workspace. One to a workspace they are already in is hidden.
+     * not on create-your-own — or to a second workspace. One to a workspace they are already in is hidden only
+     * when accepting it would add nothing ({@link WorkspaceMember#alreadyCovers}): a pure client invited as staff,
+     * or staff named a client contact there, still sees it.
      *
      * <p>Carries <b>no token</b>. The emailed token only ever proved control of the invited mailbox,
      * and an authenticated user whose verified address matches the invitation has proven exactly that
      * — the accept-by-id endpoint applies the same guards. (The anonymous preview endpoint already
      * exposes the same fields to any token holder; this is strictly less.)
+     *
+     * <p>None for an unverified account: anyone may sign up on an address they do not hold, and the list would
+     * tell them which firms invited it, and who. Once the address is proven the list appears.
      */
     private List<PendingInvitationSummary> pendingInvitations(User user, List<WorkspaceMember> memberships) {
+        if (!user.isEmailVerified()) {
+            return List.of();
+        }
         Instant now = Instant.now();
-        Set<UUID> alreadyIn = memberships.stream().map(WorkspaceMember::getWorkspaceId).collect(Collectors.toSet());
+        Map<UUID, WorkspaceMember> membershipByWorkspace = memberships.stream()
+                .collect(Collectors.toMap(WorkspaceMember::getWorkspaceId, Function.identity()));
         List<Invitation> outstanding = invitations
                 .findByEmailAndStatusOrderByCreatedAtDesc(user.getEmail(), InvitationStatus.PENDING)
                 .stream()
                 .filter(invitation -> invitation.isRedeemable(now))
-                .filter(invitation -> !alreadyIn.contains(invitation.getWorkspaceId()))
+                .filter(invitation -> {
+                    WorkspaceMember member = membershipByWorkspace.get(invitation.getWorkspaceId());
+                    return member == null || !member.alreadyCovers(invitation.getRole());
+                })
                 .toList();
         if (outstanding.isEmpty()) {
             return List.of();
@@ -129,6 +140,7 @@ public class AuthResponseAssembler {
                 .filter(invitation -> workspaceNames.containsKey(invitation.getWorkspaceId()))
                 .map(invitation -> new PendingInvitationSummary(
                         invitation.getId(),
+                        invitation.getWorkspaceId(),
                         workspaceNames.get(invitation.getWorkspaceId()),
                         invitation.getRole().getName(),
                         inviterNames.get(invitation.getInvitedBy())))

@@ -61,7 +61,7 @@ describe("NewWorkspaceModal", () => {
     vi.mocked(authApi.searchOnboardingCompanies).mockResolvedValue([meridian]);
     const created = aWorkspace({ id: "w2", name: "Meridian Search Partners" });
     vi.mocked(workspaceApi.createWorkspace).mockResolvedValue(aUser({ workspace: created }));
-    vi.mocked(workspaceApi.invite).mockResolvedValue({ sent: 1 });
+    vi.mocked(workspaceApi.invite).mockResolvedValue({ sent: 1, notDelivered: [] });
     switchWorkspace.mockResolvedValue(aUser({ workspace: created }));
   });
 

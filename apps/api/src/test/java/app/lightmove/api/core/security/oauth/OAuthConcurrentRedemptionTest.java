@@ -3,6 +3,7 @@ package app.lightmove.api.core.security.oauth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.core.security.token.Tokens;
 import java.time.Duration;
@@ -30,7 +31,7 @@ class OAuthConcurrentRedemptionTest extends OAuthFlowSupport {
     private static final OAuth2TokenType CODE = new OAuth2TokenType("code");
 
     @Autowired HashingAuthorizationService authorizations;
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     @Test
     @DisplayName("of two requests holding one refresh token, the second to save is refused and the first's token stands")

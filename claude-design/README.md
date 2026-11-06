@@ -12,7 +12,7 @@ folder into claude.ai/design and edit it there. `support.js` is the Claude Desig
 | File | Routes it draws | States (`data-props` knobs, also `?param=` in the URL) |
 |---|---|---|
 | `Login.dc.html` | `/login`, `/forgot-password`, `/auth/reset-password`, `/auth/verify`, `/auth/callback`, `/auth/accept-invite` | `screen`, `showProviders`, `error` |
-| `Signup.dc.html` | `/signup`, `/signup/verify-email`, `/signup/workspace`, `/signup/invite` | `step`, `emailTaken`, `reentered`, `linkSent` |
+| `Signup.dc.html` | `/signup`, `/signup/verify-email`, `/signup/workspace` (the invite step is not built: Team invites) | `step`, `emailTaken`, `reentered`, `linkSent` |
 | `Workspace.dc.html` | `/`, `/all`, `/team`, not-found | `view`, `empty`, `pureClient`, `loading`, `drawerOpen`, `modalOpen`, `inviteOpen`, `workspaces` (the topbar menu's switcher: `one`, `several`, `several-with-invite`) |
 | `Clients.dc.html` | `/clients` | `empty`, `loading`, `drawerOpen`, `modalOpen`, `mandateModalOpen` |
 | `Candidates.dc.html` | `/candidates`, `/candidates/activity`, the person drawer (Profile · Notes · Documents · Timeline) | `view`, `filtersOpen`, `selectedCount`, `drawerOpen`, `drawerTab`, `docsState` (`loaded`, `empty`, `history`, `dropping`), `trayState` (`none`, `newVersion`, `newDocument`, `duplicate`, `mixed`), `tagPickerOpen`, `dialog` (`addToPosition`, `tag`, `owner`, `merge`, `preview`), `empty`, `loading` |

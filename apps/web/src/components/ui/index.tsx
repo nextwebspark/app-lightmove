@@ -251,12 +251,16 @@ export function Card({ children, className }: { children: ReactNode; className?:
   );
 }
 
-/** The app icon without its tile, so it sits on whatever ground is behind it; `className` sets the height. */
-export function AppIcon({ className }: { className?: string }) {
+/**
+ * The app icon without its tile, so it sits on whatever ground is behind it; `className` sets the height. `bold` is the
+ * cut for a face-sized mark, whose hairline cube would otherwise blur away.
+ */
+export function AppIcon({ className, bold = false }: { className?: string; bold?: boolean }) {
+  const cut = bold ? "-bold" : "";
   return (
     <>
-      <img src="/brand/uncava-app-icon-light.svg" alt="" className={cn("w-auto shrink-0 dark:hidden", className)} />
-      <img src="/brand/uncava-app-icon-dark.svg" alt="" className={cn("hidden w-auto shrink-0 dark:block", className)} />
+      <img src={`/brand/uncava-app-icon-light${cut}.svg`} alt="" className={cn("w-auto shrink-0 dark:hidden", className)} />
+      <img src={`/brand/uncava-app-icon-dark${cut}.svg`} alt="" className={cn("hidden w-auto shrink-0 dark:block", className)} />
     </>
   );
 }

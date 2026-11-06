@@ -16,5 +16,8 @@ public record ContactEntryDto(
         String kind,
 
         /** Absent reads as false: the Add form and the plugin do not claim what they do not know. */
-        Boolean verified
+        Boolean verified,
+
+        /** The Contact section's choice of the one to reach them on; every other door leaves it absent. */
+        Boolean primary
 ) {}

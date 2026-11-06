@@ -7,9 +7,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +35,7 @@ class PositionActivityIntegrationTest extends FlowTestSupport {
     private static final String FATIMA = """
             {"fullName":"Fatima Al Mazrouei","linkedinUrl":"https://www.linkedin.com/in/fatima-activity"}""";
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
     @Autowired CandidateOutreachService outreach;
     @Autowired TransactionTemplate transactions;
 
@@ -323,11 +325,13 @@ class PositionActivityIntegrationTest extends FlowTestSupport {
         String workspaceId = db.queryForObject("select workspace_id::text from app_lm_project where id = ?::uuid",
                 String.class, cfo);
 
-        transactions.executeWithoutResult(status -> outreach.recordEmailSent(null, UUID.fromString(cfo), candidateId,
-                UUID.randomUUID(), "CFO approach", 1, sent));
-        transactions.executeWithoutResult(status -> outreach.recordReplied(UUID.fromString(workspaceId),
-                UUID.fromString(cfo), UUID.fromString(filed.get("personId").asText()), UUID.randomUUID(),
-                "CFO approach", reply));
+        WorkspaceScope.run(UUID.fromString(workspaceId), () -> {
+            transactions.executeWithoutResult(status -> outreach.recordEmailSent(null, UUID.fromString(cfo),
+                    candidateId, UUID.randomUUID(), "CFO approach", 1, sent));
+            transactions.executeWithoutResult(status -> outreach.recordReplied(UUID.fromString(workspaceId),
+                    UUID.fromString(cfo), UUID.fromString(filed.get("personId").asText()), UUID.randomUUID(),
+                    "CFO approach", reply));
+        });
 
         JsonNode entries = timeline(cfo, candidateId.toString(), null).get("entries");
         Map<String, JsonNode> byKind = new java.util.LinkedHashMap<>();

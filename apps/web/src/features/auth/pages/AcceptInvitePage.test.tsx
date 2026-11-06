@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { AuthProvider } from "../AuthProvider";
@@ -9,6 +9,10 @@ import { AcceptInvitePage } from "./AcceptInvitePage";
 import * as authApi from "../api/authApi";
 
 vi.mock("../api/authApi");
+vi.mock("../oauthPopup", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../oauthPopup")>()),
+  startOAuthSignIn: vi.fn(),
+}));
 
 // AuthProvider boots by exchanging the refresh cookie for an access token, and only then asks who the
 // user is. Without a token it never calls `me()` — so a signed-in test has to hand it one. The rest of
@@ -21,6 +25,7 @@ vi.mock("../../../lib/apiClient", async (importOriginal) => ({
 }));
 
 const { restoreSession, switchWorkspaceSession } = await import("../../../lib/apiClient");
+const { startOAuthSignIn } = await import("../oauthPopup");
 
 /**
  * Since membership is invitation-only, this page is the only door into an existing workspace. The common
@@ -33,6 +38,7 @@ describe("AcceptInvitePage", () => {
     role: "MEMBER" as const,
     workspaceName: "NextWebSpark Search",
     inviterName: "Alok Kumar",
+    expiresAt: "2026-11-12T10:00:00Z",
   };
 
   const renderAt = (search = "?token=abc123") =>
@@ -153,6 +159,58 @@ describe("AcceptInvitePage", () => {
     expect(cta).toHaveAttribute("href", "/login");
   });
 
+  it("brings an already-registered invitee back to the invitation, or to a reset when they never set a password", async () => {
+    vi.mocked(authApi.acceptInvitationSignup).mockRejectedValue(
+      new ApiRequestError({
+        code: "EMAIL_ALREADY_REGISTERED",
+        detail: "An account with this email already exists",
+        status: 409,
+        correlationId: "x",
+      }),
+    );
+    function StateProbe({ name }: { name: string }) {
+      const location = useLocation();
+      return <p>{`${name} ${JSON.stringify(location.state)}`}</p>;
+    }
+    const renderWithDestinations = () =>
+      render(
+        <MemoryRouter initialEntries={["/auth/accept-invite?token=abc123"]}>
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+            <AuthProvider>
+              <Routes>
+                <Route path="/auth/accept-invite" element={<AcceptInvitePage />} />
+                <Route path="/login" element={<StateProbe name="login" />} />
+                <Route path="/forgot-password" element={<StateProbe name="reset" />} />
+              </Routes>
+            </AuthProvider>
+          </QueryClientProvider>
+        </MemoryRouter>,
+      );
+    const submitAsRegistered = async () => {
+      const user = userEvent.setup();
+      await screen.findByText(/Join NextWebSpark Search/);
+      await user.type(screen.getByPlaceholderText("Yara Haddad"), "Sara Al-Mansour");
+      await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
+      await user.type(screen.getByPlaceholderText("Re-enter your password"), "secret123");
+      await user.click(screen.getByRole("button", { name: /accept & join/i }));
+      return user;
+    };
+
+    const first = renderWithDestinations();
+    let user = await submitAsRegistered();
+    await user.click(await screen.findByRole("link", { name: /log in to accept/i }));
+    // The page itself, never its token: signed in, /me lists the invitation there.
+    expect(
+      await screen.findByText(`login {"email":"sara@nextwebspark.com","from":"/auth/accept-invite"}`),
+    ).toBeInTheDocument();
+    first.unmount();
+
+    renderWithDestinations();
+    user = await submitAsRegistered();
+    await user.click(await screen.findByRole("link", { name: /reset it/i }));
+    expect(await screen.findByText(`reset {"email":"sara@nextwebspark.com"}`)).toBeInTheDocument();
+  });
+
   it("refuses to let a forwarded invitation admit somebody else", async () => {
     vi.mocked(restoreSession).mockResolvedValue("access-token");
     vi.mocked(authApi.me).mockResolvedValue({
@@ -229,7 +287,7 @@ describe("AcceptInvitePage", () => {
       locale: "en",
       platformActions: [],
       pendingInvitations: [
-        { id: "inv-1", workspaceName: "NextWebSpark Search", role: "MEMBER" as const, inviterName: "Alok Kumar" },
+        { id: "inv-1", workspaceId: "ws-northgate", workspaceName: "NextWebSpark Search", role: "MEMBER" as const, inviterName: "Alok Kumar" },
       ],
       workspaces: [],
       workspace: null,
@@ -261,5 +319,128 @@ describe("AcceptInvitePage", () => {
     await waitFor(() => expect(switchWorkspaceSession).toHaveBeenCalledWith("w1"));
     // The token path is never touched — there is no token to redeem.
     expect(authApi.acceptInvitation).not.toHaveBeenCalled();
+  });
+  describe("Google and LinkedIn for a new invitee", () => {
+    const signedInAs = (email: string) => ({
+      id: "u9",
+      email,
+      fullName: "Sara Al-Mansour",
+      title: null,
+      avatarUrl: null,
+      avatarEditable: true,
+      phone: null,
+      linkedinUrl: null,
+      emailVerified: true,
+      hasPassword: false,
+      timezone: "Asia/Dubai",
+      locale: "en",
+      platformActions: [],
+      pendingInvitations: [],
+      workspaces: [],
+      workspace: null,
+    });
+
+    const signInWithGoogleAs = async (email: string) => {
+      vi.mocked(authApi.providers).mockResolvedValue({ providers: ["google"] });
+      vi.mocked(startOAuthSignIn).mockImplementation((_provider, handlers) => {
+        vi.mocked(restoreSession).mockResolvedValue("access-token");
+        vi.mocked(authApi.me).mockResolvedValue(signedInAs(email));
+        handlers.onSuccess();
+        return () => undefined;
+      });
+      const user = userEvent.setup();
+      renderAt();
+      await user.click(await screen.findByRole("button", { name: /Continue with Google/ }));
+    };
+
+    it("stays on the invitation and offers Accept once signed in with the invited account", async () => {
+      await signInWithGoogleAs(invitation.email);
+
+      expect(await screen.findByRole("button", { name: "Accept invitation" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /accept & join/i })).not.toBeInTheDocument();
+    });
+
+    it("says which account to choose when the provider signed in someone else", async () => {
+      await signInWithGoogleAs("sara.personal@other.com");
+
+      expect(await screen.findByText(/This invitation is for sara@nextwebspark.com, but you are signed in as sara.personal@other.com/))
+        .toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Sign out and switch account" })).toBeInTheDocument();
+    });
+
+    it("names the invited address when the provider's account is not a work one", async () => {
+      vi.mocked(authApi.providers).mockResolvedValue({ providers: ["google"] });
+      vi.mocked(startOAuthSignIn).mockImplementation((_provider, handlers) => {
+        handlers.onError("EMAIL_NOT_WORK_ADDRESS");
+        return () => undefined;
+      });
+      const user = userEvent.setup();
+      renderAt();
+      await user.click(await screen.findByRole("button", { name: /Continue with Google/ }));
+
+      expect(await screen.findByText(/Continue with the account for sara@nextwebspark.com/)).toBeInTheDocument();
+    });
+  });
+
+  it("says until when the invitation can be accepted", async () => {
+    renderAt();
+
+    expect(await screen.findByText(/It can be accepted until 12 Nov 2026/)).toBeInTheDocument();
+  });
+
+  it("an expired invitation promises no fixed lifetime", async () => {
+    vi.mocked(authApi.previewInvitation).mockRejectedValue(
+      new ApiRequestError({ code: "INVITATION_EXPIRED", detail: "expired", status: 410, correlationId: "x" }),
+    );
+    renderAt();
+
+    expect(await screen.findByText("This invitation has expired")).toBeInTheDocument();
+    expect(screen.queryByText(/seven days/)).not.toBeInTheDocument();
+  });
+
+  it("sends the account once, however fast the button is pressed twice", async () => {
+    vi.mocked(authApi.acceptInvitationSignup).mockReturnValue(new Promise(() => undefined));
+    const user = userEvent.setup();
+    renderAt();
+    await screen.findByText(/Join NextWebSpark Search/);
+
+    await user.type(screen.getByPlaceholderText("Yara Haddad"), "Sara Al-Mansour");
+    await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
+    await user.type(screen.getByPlaceholderText("Re-enter your password"), "secret123");
+    await user.dblClick(screen.getByRole("button", { name: /accept & join/i }));
+
+    await waitFor(() => expect(authApi.acceptInvitationSignup).toHaveBeenCalled());
+    expect(authApi.acceptInvitationSignup).toHaveBeenCalledTimes(1);
+  });
+  it("asks a signed-in invitee who never confirmed their signup to confirm it, rather than offering Accept", async () => {
+    vi.mocked(restoreSession).mockResolvedValue("access-token");
+    vi.mocked(authApi.me).mockResolvedValue({
+      id: "u4",
+      email: invitation.email,
+      fullName: "Sara Al-Mansour",
+      title: null,
+      avatarUrl: null,
+      avatarEditable: true,
+      phone: null,
+      linkedinUrl: null,
+      emailVerified: false,
+      hasPassword: true,
+      timezone: "Asia/Dubai",
+      locale: "en",
+      platformActions: [],
+      pendingInvitations: [],
+      workspaces: [],
+      workspace: null,
+    });
+    vi.mocked(authApi.resendVerification).mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderAt();
+
+    expect(await screen.findByText(/Confirm sara@nextwebspark.com first/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Accept invitation" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Send the confirmation link again" }));
+
+    expect(authApi.resendVerification).toHaveBeenCalledWith(invitation.email);
+    expect(await screen.findByRole("button", { name: "Confirmation link sent" })).toBeDisabled();
   });
 });

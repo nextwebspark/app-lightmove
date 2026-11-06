@@ -53,3 +53,20 @@ export function Drawer({
     </>
   );
 }
+
+/**
+ * A drawer's tinted action foot. Its corners follow the panel's inside the 1px border, so the tint never
+ * squares off the floating panel's rounded foot.
+ */
+export function DrawerFooter({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <footer
+      className={cn(
+        "flex flex-none items-center gap-2 border-t border-u-border bg-u-canvas px-5 py-3 sm:rounded-b-[9px]",
+        className,
+      )}
+    >
+      {children}
+    </footer>
+  );
+}

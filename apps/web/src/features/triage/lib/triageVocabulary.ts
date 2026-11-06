@@ -1,6 +1,6 @@
 import { ICONS } from "../../../components/layout/Icon";
 import type { TriageCompanySource, TriageCompanyStatus } from "../api/types";
-import { OFFERED_TRIAGE_STAGES, SHORTLIST_AND_DECLINE_OFFERED } from "./triageStages";
+import { DECLINE_OFFERED, OFFERED_TRIAGE_STAGES } from "./triageStages";
 
 /**
  * How a company's provenance and its available moves read on screen, in one place — the grid draws
@@ -27,7 +27,7 @@ export interface TriageMove {
 }
 
 /** What clicking Decline means, versus the trash bin beside it — read by the grid and the drawer alike. */
-const DECLINE_TOOLTIP = "Decline — kept as a record that this company was assessed and ruled out";
+const DECLINE_TOOLTIP = "Decline — rule this company out for now, with everyone mapped at it";
 
 /**
  * The moves a stage offers, keyed by where the company currently is. A company is never offered the
@@ -53,16 +53,17 @@ export function isStageOffered(status: TriageCompanyStatus): boolean {
   return OFFERED_TRIAGE_STAGES.some((stage) => stage.status === status);
 }
 
-/** {@link MOVES} narrowed to the stages the screens offer — none from In universe while Shortlisted and Declined are off. */
+/** {@link MOVES} narrowed to the stages the screens offer — the company drawer's footer. */
 export function offeredMoves(status: TriageCompanyStatus): TriageMove[] {
   return MOVES[status].filter((move) => isStageOffered(move.status));
 }
 
-/** A move on one executive's line, read on hover: Decline rules out the person, never their company. */
-export function candidateMoveTooltip(move: TriageMove): string {
-  return move.status === "declined"
-    ? "Decline — kept as a record that this executive was assessed and ruled out"
-    : move.label;
+/**
+ * The moves a grid line offers: never Decline, which is the company drawer's alone because it takes everyone mapped
+ * at the company with it and asks first.
+ */
+export function lineMoves(status: TriageCompanyStatus): TriageMove[] {
+  return offeredMoves(status).filter((move) => move.status !== "declined");
 }
 
 /**
@@ -71,7 +72,7 @@ export function candidateMoveTooltip(move: TriageMove): string {
  * rather than each explaining only itself.
  */
 export function removeTooltip(name: string): string {
-  return SHORTLIST_AND_DECLINE_OFFERED
-    ? `Remove ${name} from this mandate — not remembered; use Decline to keep a record`
+  return DECLINE_OFFERED
+    ? `Remove ${name} from this mandate — not remembered; use Decline to keep it ruled out`
     : `Remove ${name} from this mandate`;
 }

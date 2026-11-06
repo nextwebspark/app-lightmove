@@ -2,6 +2,7 @@ package app.lightmove.api.mcp.model;
 
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
 import app.lightmove.api.core.security.apikey.PublicReader;
+import app.lightmove.api.core.tenant.TenantPrincipal;
 import app.lightmove.api.mcp.constant.McpCredentialKind;
 import java.util.Set;
 import java.util.UUID;
@@ -20,7 +21,7 @@ public record McpCaller(
         @Nullable String clientId,
         /** The grant behind an OAuth token, or the key itself. */
         UUID credentialId
-) {
+) implements TenantPrincipal {
 
     /** The key a tool reads the caller from in the MCP transport context. */
     public static final String CONTEXT_KEY = "lightmove.mcp.caller";

@@ -365,8 +365,8 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a search stores its timeline and defaults its mapping target to 60% of the window")
-    void searchCarriesTimelineAndDefaultMappingTarget() throws Exception {
+    @DisplayName("a search stores its timeline and leaves a mapping target nobody entered blank")
+    void searchCarriesTimelineWithoutDefaultingMappingTarget() throws Exception {
         String admin = adminOf("Timeline Firm");
         String clientId = createClient(admin, "Engineering");
         LocalDate start = LocalDate.now();
@@ -382,7 +382,7 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.projectType").value("SEARCH"))
                 .andExpect(jsonPath("$.startDate").value(start.toString()))
                 .andExpect(jsonPath("$.deliveryDate").value(start.plusDays(50).toString()))
-                .andExpect(jsonPath("$.mappingTargetDate").value(start.plusDays(30).toString()))
+                .andExpect(jsonPath("$.mappingTargetDate").doesNotExist())
                 .andExpect(jsonPath("$.targetDate").doesNotExist());
     }
 
