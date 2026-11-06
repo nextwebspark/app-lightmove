@@ -6,8 +6,9 @@ import java.util.concurrent.Executor;
 import org.slf4j.MDC;
 
 /**
- * Carries the submitting thread's whole MDC into a task run on another thread. {@link MdcTaskDecorator}
- * applies it to Spring's executor; a pool built by hand must wrap its own tasks.
+ * Carries the submitting thread's whole MDC into a task run on another thread. A task that may touch the database
+ * needs its workspace too, so pools wrap through {@code core/concurrent}'s {@code ThreadContextPropagation}, which
+ * composes this with it; this alone is for work that only logs.
  */
 public final class MdcPropagation {
 

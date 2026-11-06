@@ -6,6 +6,7 @@ import app.lightmove.api.core.audit.constant.PlatformEventType;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.constant.SecurityEventType;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
+import app.lightmove.api.workspace.constant.InvitationWithdrawal;
 import app.lightmove.api.workspace.model.AuditLine;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -93,7 +94,10 @@ public class AuditLogPhrasing {
         on(WorkspaceEventType.INVITATION_ACCEPTED, line -> line.failed()
                 ? "An invitation was refused: it was sent to another address"
                 : "Joined the workspace as " + roleWord(line, line.text("role")));
-        on(WorkspaceEventType.INVITATION_REVOKED, line -> "Withdrew the invitation to " + nameOr(line, "someone"));
+        on(WorkspaceEventType.INVITATION_REVOKED, line -> "Withdrew the invitation to " + nameOr(line, "someone")
+                + withdrawalSuffix(InvitationWithdrawal.fromAuditKey(line.text("reason"))));
+        on(WorkspaceEventType.INVITATION_EMAIL_FAILED,
+                line -> "The invitation email to " + nameOr(line, "someone") + " could not be sent");
         on(WorkspaceEventType.MEMBER_ROLE_CHANGED, line -> line.text("addedRole") != null
                 ? "Made " + nameOr(line, "a member") + " " + article(contactWord(line)) + " as well"
                 : "Changed " + possessive(nameOr(line, "a member")) + " roles from " + rolesWord(line, line.text("from"))
@@ -248,6 +252,8 @@ public class AuditLogPhrasing {
         on(ProjectEventType.SPREADSHEET_IMPORTED, line -> "Imported a spreadsheet");
         on(WorkspaceEventType.MAILBOX_TIME_ZONE_CHANGED, line -> "Changed their time zone");
         on(AuthEventType.PROFILE_UPDATED, line -> "Updated their profile");
+        on(AuthEventType.AVATAR_UPLOADED, line -> "Changed their profile photo");
+        on(AuthEventType.AVATAR_REMOVED, line -> "Removed their profile photo");
         on(PlatformEventType.PLATFORM_ROLE_GRANTED, line -> "Gave Uncava platform access");
         on(PlatformEventType.PLATFORM_ROLE_REVOKED, line -> "Removed Uncava platform access");
     }
@@ -368,5 +374,16 @@ public class AuditLogPhrasing {
         }
         String lower = word.toLowerCase(Locale.ROOT).replace('_', ' ');
         return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
+    }
+
+    private static String withdrawalSuffix(InvitationWithdrawal withdrawal) {
+        if (withdrawal == null) {
+            return "";
+        }
+        return switch (withdrawal) {
+            case CANCELLED -> "";
+            case INVITER_REMOVED -> " when its sender left the workspace";
+            case INVITER_DEMOTED -> " when its sender stopped being an admin";
+        };
     }
 }

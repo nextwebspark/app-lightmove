@@ -1,16 +1,11 @@
 import type { ColumnVisibilityState } from "@tanstack/react-table";
 import type { ReactNode } from "react";
-import { Icon } from "../../../components/layout/Icon";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import type { NumericRange, SavedSearch, SearchVisibility, StrategyFilter } from "../api/types";
 import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { FilterRailToggle } from "../../../components/ui/FilterRail";
-import {
-  TOOLBAR_COUNT,
-  TOOLBAR_GHOST,
-  TOOLBAR_ROW,
-  ToolbarDivider,
-  ToolbarSearch,
-} from "../../../components/ui/Toolbar";
+import { TOOLBAR_COUNT, TOOLBAR_OUTLINE, TOOLBAR_ROW, ToolbarSearch } from "../../../components/ui/Toolbar";
+import { cn } from "../../../lib/cn";
 import { SaveSearchMenu } from "./SaveSearchMenu";
 import { sameFilter } from "../lib/filterIdentity";
 import { companyColumns, DEFAULT_COLUMN_VISIBILITY } from "../lib/companyColumns";
@@ -59,13 +54,12 @@ export function StrategyToolbar({
   onSetSearchVisibility,
   onOverwriteSearch,
   onDeleteSearch,
-  onAddAll,
   onAiResearch,
+  aiResearchOpen,
   columnVisibility,
   onColumnVisibilityChange,
   onResetLayout,
   savingSearch,
-  addingAll,
 }: {
   /** The Companies | People toggle, when the viewer may search people. */
   leading?: ReactNode;
@@ -84,13 +78,13 @@ export function StrategyToolbar({
   onSetSearchVisibility: (searchId: string, visibility: SearchVisibility) => void;
   onOverwriteSearch: (searchId: string) => void;
   onDeleteSearch: (searchId: string) => void;
-  onAddAll: () => void;
   onAiResearch: () => void;
+  /** The assistant is docked beside the page, so the button reads pressed. */
+  aiResearchOpen: boolean;
   columnVisibility: ColumnVisibilityState;
   onColumnVisibilityChange: (visibility: ColumnVisibilityState) => void;
   onResetLayout: () => void;
   savingSearch: boolean;
-  addingAll: boolean;
 }) {
   return (
     <div className={TOOLBAR_ROW}>
@@ -125,17 +119,19 @@ export function StrategyToolbar({
 
       <div className="flex items-center gap-3 sm:ml-auto">
         {/* Hidden below `lg` with the panel it opens: the assistant has no layout on a phone or a tablet yet, so
-            here it would set the open flag and show nothing at all. */}
+            here it would set the open flag and show nothing at all. One of the toolbar's own bordered controls, the
+            AI told by the sparkle's violet alone; pressed while the panel is open, and a second press closes it. */}
         <button
           type="button"
           onClick={onAiResearch}
-          className="hidden h-[34px] items-center gap-2 whitespace-nowrap rounded-u-control bg-u-inferred px-3.5 font-sans text-body font-semibold text-white transition hover:brightness-110 lg:inline-flex"
+          aria-pressed={aiResearchOpen}
+          className={cn(
+            TOOLBAR_OUTLINE,
+            "hidden lg:inline-flex",
+            "aria-pressed:border-u-inferred/50 aria-pressed:bg-u-inferred-tint aria-pressed:text-u-inferred",
+          )}
         >
-          <Icon
-            d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"
-            size={15}
-            className="flex-none"
-          />
+          <Icon d={ICONS.sparkle} size={15} className="flex-none text-u-inferred" />
           AI Research
         </button>
 
@@ -147,11 +143,6 @@ export function StrategyToolbar({
           onResetLayout={onResetLayout}
           variant="toolbar"
         />
-
-        <ToolbarDivider />
-        <button type="button" onClick={onAddAll} disabled={addingAll} className={TOOLBAR_GHOST}>
-          Add all to Universe →
-        </button>
       </div>
     </div>
   );

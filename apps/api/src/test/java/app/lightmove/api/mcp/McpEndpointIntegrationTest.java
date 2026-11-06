@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
@@ -34,7 +35,7 @@ class McpEndpointIntegrationTest extends McpFlowSupport {
     private static final String WHOAMI = """
             {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"uncava_whoami","arguments":{}}}""";
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
     @Autowired JWKSource<SecurityContext> mcpJwkSource;
     @Autowired ApplicationContext context;
 

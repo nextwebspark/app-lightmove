@@ -32,5 +32,7 @@ public record LightMoveProperties(
         McpSettings mcp,
         BillingSettings billing,
         NotificationSettings notifications,
-        NoteSettings notes
+        NoteSettings notes,
+        RowLevelSecuritySettings rowLevelSecurity,
+        AvatarSettings avatars
 ) {}

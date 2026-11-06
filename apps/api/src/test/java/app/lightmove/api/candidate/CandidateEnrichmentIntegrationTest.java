@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.ApolloUniverse;
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingProfileEnricher;
@@ -86,7 +87,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
 
     @Autowired private RecordingProfileEnricher enricher;
     @Autowired private StubChatModel model;
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     private ApolloUniverse universe;
     private String adminToken;

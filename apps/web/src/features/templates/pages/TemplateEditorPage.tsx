@@ -315,7 +315,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
           label="Match keywords"
           values={draft.keywords}
           placeholder="Add a keyword, e.g. group cfo"
-          hint="A new mandate whose role title contains any of these is drafted from this template. Case doesn't matter."
+          hint="A new mandate whose role title has any of these as whole words, in order, is drafted from this template: group cfo matches Group CFO – Energy, never Group CFOs. Case doesn't matter."
           max={20}
           maxLength={80}
           lowercase

@@ -3,15 +3,18 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import type { PendingInvitation, WorkspaceSummary } from "../../features/auth/api/types";
 import * as authApi from "../../features/auth/api/authApi";
+import { invitationLabel, isDeadInvitation } from "../../features/auth/invitationLabel";
 import { isPureClient } from "../../features/auth/roles";
 import { takeWorkspaceMove } from "../../features/auth/workspaceMoveNotice";
 import { CreditChip } from "../../features/billing/components/CreditChip";
 import { useHelp } from "../../features/help/HelpProvider";
 import { NotificationBell } from "../../features/notifications/components/NotificationBell";
 import { WorkspaceMark } from "../../features/workspace/components/WorkspaceMark";
+import { useWorkspaceVocabulary } from "../../features/workspace/lib/vocabulary";
 import { AppIcon, Avatar, useToast } from "../ui";
 import { cn } from "../../lib/cn";
 import { messageFor } from "../../lib/errorCodes";
+import { useSingleFlight } from "../../lib/useSingleFlight";
 import { Icon, ICONS } from "./Icon";
 import { useAccountActions, type AccountAction } from "./useAccountActions";
 import { useDropdownMenu } from "./useDropdownMenu";
@@ -108,11 +111,13 @@ export function SettingsBreadcrumb({ section }: { section: string }) {
 }
 
 function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
-  const { user, switchWorkspace, acceptAndSwitch } = useAuth();
+  const { user, switchWorkspace, acceptAndSwitch, reload } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const menu = useDropdownMenu();
+  const vocabulary = useWorkspaceVocabulary();
   const [busy, setBusy] = useState(false);
+  const once = useSingleFlight();
 
   const workspace = user?.workspace;
   if (!workspace) return null;
@@ -126,7 +131,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
     navigate(path);
   };
 
-  const moveTo = async (work: () => Promise<unknown>) => {
+  const moveTo = (work: () => Promise<unknown>) => once(async () => {
     setBusy(true);
     try {
       await work();
@@ -134,18 +139,21 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
       navigate("/");
     } catch (error) {
       toast.error(messageFor(error));
+      // Revoked or lapsed since /me was read: refresh it so the dead entry goes rather than failing every click.
+      if (isDeadInvitation(error)) {
+        void reload();
+      }
     } finally {
       setBusy(false);
     }
-  };
+  });
 
   const handleSwitch = (target: WorkspaceSummary) => moveTo(() => switchWorkspace(target.id));
 
   const handleAccept = (invitation: PendingInvitation) =>
     moveTo(() => acceptAndSwitch(() => authApi.acceptInvitationById(invitation.id)));
 
-  const invitationCount =
-    invitations.length === 1 ? "1 invitation to another workspace" : `${invitations.length} invitations to other workspaces`;
+  const invitationCount = invitations.length === 1 ? "1 invitation" : `${invitations.length} invitations`;
 
   return (
     <div className={cn("relative", compact ? "flex-none" : "min-w-0")} ref={menu.rootRef}>
@@ -208,7 +216,9 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
               {invitations.map((invitation) => (
                 <MenuItem key={invitation.id} disabled={busy} onClick={() => void handleAccept(invitation)}>
                   <Icon d={ICONS.userPlus} size={15} className="flex-none" />
-                  <span className="min-w-0 flex-1 truncate">Invited to {invitation.workspaceName}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {invitationLabel(invitation, workspace.id, vocabulary)}
+                  </span>
                   <span className="flex-none text-meta font-medium text-u-accent">Accept</span>
                 </MenuItem>
               ))}

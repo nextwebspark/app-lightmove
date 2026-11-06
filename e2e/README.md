@@ -86,8 +86,8 @@ a no-op on a table already loaded, and `SEED_UNIVERSE=0` skips it. Against the r
 npm run dev:db:apollo                                       # once, needs gcloud
 npm run dev                                                 # api + web + postgres on :55433
 cd e2e
-PG_URL=postgresql://lm_app:lm@localhost:55433/lightmove bash api/14-strategy-company-search.sh
-PG_URL=postgresql://lm_app:lm@localhost:55433/lightmove node spa/strategy.mjs
+PG_URL=postgresql://postgres:lm@localhost:55433/lightmove bash api/14-strategy-company-search.sh
+PG_URL=postgresql://postgres:lm@localhost:55433/lightmove node spa/strategy.mjs
 ```
 
 With fewer than 100 rows those two scripts skip themselves and exit 0. `PG_URL` defaults to the

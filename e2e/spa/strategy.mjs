@@ -24,7 +24,7 @@ const SHOTS = join(HERE, "screenshots");
 const API_LOG = join(RUN_DIR, "api.log");
 const WEB = process.env.WEB ?? "http://localhost:5173";
 const API = process.env.API ?? "http://localhost:8080/api/v1";
-const PG_URL = process.env.PG_URL ?? "postgresql://lm_app:lm@localhost:55432/lightmove";
+const PG_URL = process.env.PG_URL ?? "postgresql://postgres:lm@localhost:55432/lightmove";
 const PASSWORD = "Passw0rd123";
 const DOMAIN = "nextwebspark.com";
 const STAMP = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
@@ -479,8 +479,7 @@ try {
   });
   // A regression guard for the race the UAT pass found: the filter autosaves on a 700ms debounce and
   // the save endpoint reads the *stored* filter, so a save inside that window records the scope as it
-  // was BEFORE the last chip click — silently, and for every later load of that search. `addAll`
-  // already flushes the autosave for exactly this reason; saving a search does not.
+  // was BEFORE the last chip click — silently, and for every later load of that search.
   await step("S8.2", "a search saved right after a chip click captures that chip", async () => {
     await freshFilter();
     await openAccordion("Location");
@@ -553,7 +552,7 @@ try {
   // ---------------------------------------------------------------- S9 triage hand-off
   section("S9  what the mandate takes from the market");
   // A row carries a tick box, not a +: a selection raises a floating bar that files every ticked company in one
-  // request (POST /triage/bulk). Shortlisted and Declined are switched off on screen, so it offers In universe alone.
+  // request (POST /triage/bulk). Shortlisted is switched off on screen, so it offers In universe and Declined.
   const tick = (name) => page.getByRole("checkbox", { name: `Select ${name}`, exact: true }).click();
   const filedAt = (status) => num(`SELECT count(*) FROM app_lm_project_triage_company WHERE project_id = '${PROJECT}' AND status = '${status}'`);
   await step("S9.1", "ticked rows are filed at the stage the bar names", async () => {
@@ -573,25 +572,13 @@ try {
     const next = await columnValues("COMPANY");
     check("S9.1e", "a filed company no longer appears in the market", false, next.includes(names[0]) || next.includes(names[1]));
     await tick(next[0]);
-    check("S9.1f", "the bar offers no Shortlisted or Declined", 0,
-      await page.getByRole("button", { name: /^(Shortlisted|Declined)$/ }).count());
-    await page.getByRole("button", { name: /^In universe/ }).last().click();
+    check("S9.1f", "the bar offers no Shortlisted", 0,
+      await page.getByRole("button", { name: /^Shortlisted$/ }).count());
+    await page.getByRole("button", { name: /^Declined/ }).last().click();
     await page.waitForTimeout(2000);
-    check("S9.1g", "and nothing is filed anywhere but in universe", "3/0",
-      `${filedAt("IN_UNIVERSE")}/${filedAt("SHORTLISTED") + filedAt("DECLINED")}`);
+    check("S9.1g", "and declines without taking the company into the universe first", "2/1/0",
+      `${filedAt("IN_UNIVERSE")}/${filedAt("DECLINED")}/${filedAt("SHORTLISTED")}`);
     await shot("bulk-filed");
-  });
-  await step("S9.2", "'Add all' over the whole universe is refused, out loud", async () => {
-    await freshFilter();
-    await page.getByRole("button", { name: /Add all to Universe/ }).click();
-    await page.waitForTimeout(2000);
-    const toast = await toastText();
-    note("S9.2a", `toast: "${toast}"`);
-    // The refusal carries both numbers, which is why errorCodes.ts deliberately has no fixed sentence
-    // for BULK_ADD_SCOPE_TOO_LARGE — a generic message here would lose them.
-    check("S9.2", "the server's own refusal reaches the user with its numbers intact", true,
-      /at a time/.test(toast) && new RegExp(UNIVERSE.toLocaleString("en-US")).test(toast));
-    await shot("add-all-refused");
   });
   await step("S9.3", "the Triage screen shows what Strategy filed", async () => {
     await page.goto(`${WEB}/projects/${PROJECT}/companies/universe`);

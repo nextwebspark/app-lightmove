@@ -248,15 +248,18 @@ note 14.51b "scope held $SCOPE companies; added $(json '.added'), already held $
 http POST "/projects/$PROJECT/triage/from-filter" -H "$AUTH"
 check 14.52 "re-running 'Add all' adds nothing new" "0" "$(json '.added')"
 
+# A company's notes are a feed of their own since V143: the move carries no note, so the reason is filed first.
+post_json "/projects/$PROJECT/triage/$TRIAGE_ID/notes" '{"kind":"general","body":"Client conflict"}' -H "$AUTH"
 http PATCH "/projects/$PROJECT/triage/$TRIAGE_ID" -H 'Content-Type: application/json' -H "$AUTH" \
-  -d '{"status":"declined","note":"Client conflict"}'
-check_status 14.53 "a company moves to Declined with a note" 200
+  -d '{"status":"declined"}'
+check_status 14.53 "a company with a note moves to Declined" 200
 get "/projects/$PROJECT/triage?status=declined" -H "$AUTH"
 check 14.54 "…and appears on that stage" "1" \
   "$(printf '%s' "$LAST_BODY" | jq --arg a "$TAKE" '[.companies[] | select(.apolloAccountId==$a)] | length')"
-# Null leaves the other half alone: moving a company must not silently clear the note explaining why.
+# Moving a company must not take the note explaining why with it.
 http PATCH "/projects/$PROJECT/triage/$TRIAGE_ID" -H 'Content-Type: application/json' -H "$AUTH" -d '{"status":"shortlisted"}'
-check 14.55 "moving stage again keeps the note" "Client conflict" "$(json '.note')"
+get "/projects/$PROJECT/triage/$TRIAGE_ID/notes" -H "$AUTH"
+check 14.55 "moving stage again keeps the note" "Client conflict" "$(json '.[0].body')"
 http PATCH "/projects/$PROJECT/triage/$TRIAGE_ID" -H 'Content-Type: application/json' -H "$AUTH" -d '{"status":"NOT_A_STAGE"}'
 check_status 14.56 "an unknown stage is refused" 400
 get "/projects/$PROJECT/triage?status=NOT_A_STAGE" -H "$AUTH"

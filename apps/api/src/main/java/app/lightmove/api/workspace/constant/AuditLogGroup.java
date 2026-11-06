@@ -31,6 +31,7 @@ public enum AuditLogGroup implements ApiValueEnum {
     MEMBERS_AND_ACCESS("membersAndAccess", "Members & access",
             WorkspaceEventType.WORKSPACE_CREATED, WorkspaceEventType.MEMBER_INVITED,
             WorkspaceEventType.INVITATION_ACCEPTED, WorkspaceEventType.INVITATION_REVOKED,
+            WorkspaceEventType.INVITATION_EMAIL_FAILED,
             WorkspaceEventType.MEMBER_ROLE_CHANGED, WorkspaceEventType.MEMBER_REMOVED,
             ProjectEventType.PROJECT_TEAM_CHANGED, ProjectEventType.CLIENT_REP_INVITED,
             ProjectEventType.CLIENT_REP_ACCEPTED, ProjectEventType.CANDIDATE_CLIENT_VISIBILITY_CHANGED,

@@ -38,6 +38,7 @@ const userWith = (roles: ("ADMIN" | "MEMBER")[]): User => ({
   fullName: "A Lead",
   title: null,
   avatarUrl: null,
+  avatarEditable: true,
   emailVerified: true,
   hasPassword: true,
   timezone: "Asia/Dubai",
@@ -131,6 +132,16 @@ describe("TeamPage — the one roster", () => {
         invitedByName: "A Lead",
         createdAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
         expiresAt: "2099-01-01T00:00:00Z",
+        emailFailed: false,
+      },
+      {
+        id: "i2",
+        email: "lina@firm.example",
+        role: "ADMIN",
+        invitedByName: "A Lead",
+        createdAt: new Date().toISOString(),
+        expiresAt: "2099-01-01T00:00:00Z",
+        emailFailed: true,
       },
     ]);
 
@@ -144,9 +155,11 @@ describe("TeamPage — the one roster", () => {
       ).length,
     ).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Remove Rania Haddad" }).length).toBeGreaterThan(0);
-    expect(await screen.findByText("Outstanding invitations · 1")).toBeInTheDocument();
-    expect(screen.getByText(/sent 3 days ago by A Lead/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Resend" })).toBeInTheDocument();
+    expect(await screen.findByText("Outstanding invitations · 2")).toBeInTheDocument();
+    expect(screen.getByText(/first sent 3 days ago · last sent by A Lead/)).toBeInTheDocument();
+    // A saved invitation whose email the provider refused says so, rather than reading as sent.
+    expect(screen.getByText(/email didn't send, resend it/)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Resend" })).toHaveLength(2);
     expect(screen.getByText("2 members · each position has its own lead")).toBeInTheDocument();
   });
 
