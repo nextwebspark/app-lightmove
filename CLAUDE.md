@@ -820,7 +820,7 @@ row outlives the avatar it was copied from, since a sent email names it. The com
 sender's default (a picker where they keep more than one; replies alike) and `SendMessageRequest.signatureId` draws it
 when the email is written, into the stored `body` only — `body_text` stays the consultant's words; Add to sequence's
 review picks one for the run (`StartSequenceRequest.signatureId`), drawn once at Start and frozen on each enrollment
-(V172 `signature_html`), so every step, follow-ups included, closes alike. Either way a signature showing Book a call
+(V190 `signature_html`), so every step, follow-ups included, closes alike. Either way a signature showing Book a call
 has its page made before anything is written. The mailbox's test email carries the default.
 
 **The Notetaker (V151, `docs/notetaker.md`, `notetaker`)** is a Recall.ai bot a consultant sends into a kept call from
@@ -1478,7 +1478,7 @@ longer holds its meeting; bare, a meeting's notes only and never beside a `meeti
 V189 adds `app_lm_user.phone` / `linkedin_url`, `app_lm_email_image` (a photo's owner or a logo's workspace, and the
 source's SHA-256, by CHECK; one copy per avatar per person and per logo per workspace) and `app_lm_email_signature` (`fields` jsonb holds only the
 overrides; one default per person per workspace by partial unique index).
-V172 adds `app_lm_outreach_enrollment.signature_html` — the signature Start drew for the run; null sends none.
+V190 adds `app_lm_outreach_enrollment.signature_html` — the signature Start drew for the run; null sends none.
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a
