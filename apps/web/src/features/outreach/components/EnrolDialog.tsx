@@ -312,7 +312,7 @@ export function EnrolDialog({
         <Button
           className="px-3.5 py-2 text-[13px] font-semibold"
           loading={start.isPending}
-          disabled={isAnyDrafting || startProblem !== null}
+          disabled={isAnyDrafting || startProblem !== null || signature.isPending}
           onClick={() => start.mutate()}
         >
           Start sequence

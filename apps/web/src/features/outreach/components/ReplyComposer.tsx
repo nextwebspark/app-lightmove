@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, DateInput, Select, useToast } from "../../../components/ui";
 import { Popover } from "../../../components/ui/Popover";
-import { messageFor } from "../../../lib/errorCodes";
+import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { NoteEditor } from "../../notes/components/NoteEditor";
 import { SignatureChooser, SignatureUnderEmail } from "../../signatures/components/SignatureChooser";
+import * as signaturesApi from "../../signatures/api/signaturesApi";
 import { useSignatureChoice } from "../../signatures/lib/useSignatureChoice";
 import * as conversationApi from "../api/conversationApi";
 import type { AttachmentLimits, Conversation } from "../api/conversationApi";
@@ -163,7 +164,13 @@ function OpenComposer({
       void queryClient.invalidateQueries({ queryKey: mailboxApi.MAILBOX_KEY });
       onSent?.();
     },
-    onError: (error) => toast.error(messageFor(error)),
+    onError: (error) => {
+      // Deleted in another tab: the picker reads the list again and falls back to the default.
+      if (codeOf(error) === "EMAIL_SIGNATURE_NOT_FOUND") {
+        void queryClient.invalidateQueries({ queryKey: signaturesApi.SIGNATURES_KEY });
+      }
+      toast.error(messageFor(error));
+    },
   });
 
   const insertFollowUp = useMutation({

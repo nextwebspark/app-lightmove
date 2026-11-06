@@ -16,7 +16,8 @@ import lombok.NoArgsConstructor;
 
 /**
  * A picture an email shows, served to anyone holding its token. Never changed once written: an email already sent
- * names the token, so a new photo or logo is a new row.
+ * names the token, so a new photo or logo is a new row. The token is kept as served — the documented exception to
+ * hashing tokens, as V170's avatar is — since a signature is drawn from it again and again.
  */
 @Entity
 @Table(name = "app_lm_email_image")
@@ -42,8 +43,9 @@ public class EmailImage {
     @Column(name = "workspace_id", updatable = false)
     private UUID workspaceId;
 
-    @Column(name = "source_url_sha256", updatable = false)
-    private String sourceUrlSha256;
+    /** What it was copied from: the avatar's own hash, or the logo's address hashed. */
+    @Column(name = "source_sha256", nullable = false, updatable = false)
+    private String sourceSha256;
 
     @Column(name = "content_type", nullable = false, updatable = false)
     private String contentType;
@@ -63,23 +65,25 @@ public class EmailImage {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    public static EmailImage photoOf(UUID userId, String token, EncodedImage image, String storageKey) {
-        EmailImage photo = stored(EmailImageKind.PHOTO, token, image, storageKey);
+    public static EmailImage photoOf(UUID userId, String avatarSha256, String token, EncodedImage image,
+                                     String storageKey) {
+        EmailImage photo = stored(EmailImageKind.PHOTO, avatarSha256, token, image, storageKey);
         photo.userId = userId;
         return photo;
     }
 
     public static EmailImage logoOf(UUID workspaceId, String sourceUrlSha256, String token, EncodedImage image,
                                     String storageKey) {
-        EmailImage logo = stored(EmailImageKind.LOGO, token, image, storageKey);
+        EmailImage logo = stored(EmailImageKind.LOGO, sourceUrlSha256, token, image, storageKey);
         logo.workspaceId = workspaceId;
-        logo.sourceUrlSha256 = sourceUrlSha256;
         return logo;
     }
 
-    private static EmailImage stored(EmailImageKind kind, String token, EncodedImage image, String storageKey) {
+    private static EmailImage stored(EmailImageKind kind, String sourceSha256, String token, EncodedImage image,
+                                     String storageKey) {
         EmailImage stored = new EmailImage();
         stored.kind = kind;
+        stored.sourceSha256 = sourceSha256;
         stored.token = token;
         stored.contentType = image.contentType();
         stored.width = image.width();

@@ -114,7 +114,6 @@ function aSignature(id: string, name: string, isDefault: boolean): EmailSignatur
     isDefault,
     updatedAt: "2026-11-01T10:00:00Z",
     html: `<div>${name}</div>`,
-    text: `-- \n${name}`,
   };
 }
 

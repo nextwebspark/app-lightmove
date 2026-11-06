@@ -131,11 +131,13 @@ public class OutreachEnrollment extends BaseEntity {
 
     /**
      * The first email is due {@code offset} after {@code firstDue}; the dispatcher holds it to the sender's
-     * daily cap, and to the sequence's window unless {@code pinned}.
+     * daily cap, and to the sequence's window unless {@code pinned}. {@code signatureHtml} is what Start drew to close
+     * every email of the run, or null for none.
      */
     public static OutreachEnrollment scheduled(OutreachSequence sequence, UUID candidateId, UUID personId,
                                                UUID sender, String toAddress, ReviewedFirstEmail email,
-                                               Instant now, Instant firstDue, Duration offset, boolean pinned) {
+                                               Instant now, Instant firstDue, Duration offset, boolean pinned,
+                                               String signatureHtml) {
         OutreachEnrollment enrollment = new OutreachEnrollment();
         enrollment.workspaceId = sequence.getWorkspaceId();
         enrollment.projectId = sequence.getProjectId();
@@ -155,13 +157,8 @@ public class OutreachEnrollment extends BaseEntity {
         enrollment.firstBody = email.body();
         enrollment.enrolledBy = sender;
         enrollment.enrolledAt = now;
+        enrollment.signatureHtml = signatureHtml;
         return enrollment;
-    }
-
-    /** Before it is first saved: the signature Start drew for this run. */
-    public OutreachEnrollment signedWith(String signatureHtml) {
-        this.signatureHtml = signatureHtml;
-        return this;
     }
 
     /** What closes every email of the run, or nothing. */

@@ -109,17 +109,18 @@ public class OutreachEnrollmentService {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "Someone is listed twice");
         }
         refuseUnusableStartAt(request);
+        // Cheap and first: a Start refused for want of a mailbox claims no booking slug and copies no logo.
+        transactions.executeWithoutResult(status -> requireSendingMailbox(userId, workspaceId));
         boolean usesBookingLink = Boolean.TRUE.equals(transactions.execute(status -> sequences
                 .requireInProject(sequenceId, workspaceId, projectId).uses(SequenceTokens.BOOKING_LINK)));
         if (usesBookingLink) {
             // Before anything is written: a page the mail service will not make is the consultant's to see now.
             bookingPages.prepare(userId, workspaceId);
         }
-        // Drawn once, outside any transaction (a logo's first copy is a call to another host), and frozen on each run.
-        String signatureHtml = request.signatureId() == null ? null : signatures
-                .renderFor(userId, workspaceId, request.signatureId())
-                .orElseThrow(() -> ApiException.of(ErrorCode.EMAIL_SIGNATURE_NOT_FOUND))
-                .html();
+        // Drawn once, outside any transaction (a logo's first copy is a call to another host), and frozen on each run;
+        // a signature showing Book a call has its page made first, as a body using the link does.
+        String signatureHtml = request.signatureId() == null ? null
+                : signatures.requireRenderedForSending(userId, workspaceId, request.signatureId()).html();
         // A racing Start that lost on the live index is answered OUTREACH_ALREADY_ENROLLED by
         // GlobalExceptionHandler, by constraint name; every other violation keeps its own answer.
         List<OutreachEnrollment> created =
@@ -200,7 +201,7 @@ public class OutreachEnrollmentService {
                             tokens.render(first.getBody()), opener, person.openerEdited());
                     return OutreachEnrollment.scheduled(sequence, recipient.candidateId(), recipient.personId(),
                             userId, ledgerSpellingOf(recipient, person.toAddress()), email, now,
-                            firstDue, offsets.get(index), pinned).signedWith(signatureHtml);
+                            firstDue, offsets.get(index), pinned, signatureHtml);
                 })
                 .toList();
         List<OutreachEnrollment> saved = enrollments.saveAllAndFlush(created);

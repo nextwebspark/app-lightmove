@@ -118,6 +118,8 @@ export type ApiErrorCode =
   | "ZOOM_CONNECT_FAILED"
   | "INTEGRATION_ENCRYPTION_UNAVAILABLE"
   | "INTEGRATION_SHARED_APP_UNAVAILABLE"
+  | "INTEGRATION_KEYS_REFUSED"
+  | "INTEGRATION_PROVIDER_UNREACHABLE"
   | "MAILBOX_PROVIDER_UNSUPPORTED"
   | "MAILBOX_NOT_CONNECTED"
   | "MAILBOX_RECONNECT_NEEDED"
@@ -251,7 +253,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PERSON_DOCUMENT_LIMIT: "This candidate has reached the limit for documents.",
   EMAIL_IMAGE_UNREADABLE: "That picture could not be read. Use a JPEG or PNG.",
   EMAIL_IMAGE_TOO_LARGE: "That picture is too large. Use one under 5 MB.",
-  EMAIL_SIGNATURE_NOT_FOUND: "That signature no longer exists. Refresh to see your signatures.",
+  EMAIL_SIGNATURE_NOT_FOUND: "That signature no longer exists. Pick another, or send without one.",
   EMAIL_SIGNATURE_LIMIT_REACHED: "You can keep up to 10 signatures. Delete one to make another.",
   TASK_ASSIGNEE_NOT_ON_TEAM: "They aren't on this position's team. Add them in Team & access, or pick someone who is.",
   TASK_NOT_YOURS: "Only whoever set this task, whoever it's assigned to, the position's lead or an admin can change it.",
@@ -314,6 +316,9 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   ZOOM_CONNECT_FAILED: "Zoom could not be connected. Try again.",
   INTEGRATION_ENCRYPTION_UNAVAILABLE: "Your own app's keys can't be stored for your workspace yet. Use the shared app for now, or contact Uncava support.",
   INTEGRATION_SHARED_APP_UNAVAILABLE: "Uncava's shared app isn't available for this provider yet. Use your own app instead.",
+  INTEGRATION_KEYS_REFUSED: "The provider refused these keys. Nothing was saved.",
+  INTEGRATION_PROVIDER_UNREACHABLE:
+    "We couldn't get an answer from the provider about these keys. Nothing was saved — try again in a moment.",
   MAILBOX_PROVIDER_UNSUPPORTED: "That kind of mailbox can't be connected.",
   MAILBOX_NOT_CONNECTED: "Connect your mailbox first.",
   MAILBOX_RECONNECT_NEEDED: "Your mailbox needs reconnecting before it can send.",

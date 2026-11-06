@@ -17,5 +17,4 @@ public record EmailSignatureResponse(
         String disclaimer,
         boolean isDefault,
         Instant updatedAt,
-        String html,
-        String text) {}
+        String html) {}

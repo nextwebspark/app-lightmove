@@ -203,6 +203,12 @@ id of their choosing; never treat a line's trace as proof of which request it be
 | Slow calls on a route | `jsonPayload.message="request" AND jsonPayload.route="/api/v1/projects/{projectId}/strategy/companies" AND jsonPayload.durationMs>1000` |
 | Lost audit rows | `jsonPayload.message=~"^Failed to write audit event"` |
 
+**Email pictures are never logged.** A signature's photo and logo (`/api/v1/email-images/{token}`) are fetched each time
+a recipient opens an email, so a line per fetch would record who read what when. `RequestLogFilter` writes none, and
+`ops/gcp/bootstrap.sh` adds an `email-images` exclusion to the `_Default` sink so Cloud Run's own request entry for
+them is never stored either. Each token names one stored picture shared by every email that shows it — never a
+message or a recipient — so even a fetch seen elsewhere identifies nobody.
+
 Add `workspaceId` and `userId` as **summary fields** (a per-viewer Logs Explorer setting) so they show on
 the collapsed line. None of these ids may ever be a log-based-metric label: every distinct value is its
 own time series. Per-tenant questions are Logs Explorer or Log Analytics questions.

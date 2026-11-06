@@ -54,7 +54,6 @@ const SIGNATURE: signaturesApi.EmailSignature = {
   isDefault: false,
   updatedAt: "2026-11-01T10:00:00Z",
   html: "<div>Yara Haddad</div>",
-  text: "-- \nYara Haddad",
 };
 
 const SEQUENCE: Sequence = {
@@ -191,6 +190,27 @@ describe("EnrolDialog", () => {
     await waitFor(() =>
       expect(sequenceApi.startSequence).toHaveBeenCalledWith("p1", "s1", expect.any(Array), expect.any(Object), "sig-short"),
     );
+  });
+
+  it("says a run goes unsigned when the signatures cannot be read, and waits for them while they load", async () => {
+    vi.mocked(signaturesApi.listSignatures).mockRejectedValue(new Error("offline"));
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
+    renderDialog();
+    await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
+
+    expect(await screen.findByText("Your signatures could not be read, so this sequence goes without one.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByRole("button", { name: "Start sequence" })).toBeEnabled();
+  });
+
+  it("holds Start while the signatures are still being read", async () => {
+    vi.mocked(signaturesApi.listSignatures).mockReturnValue(new Promise(() => {}));
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
+    renderDialog();
+    await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Next" }));
+
+    expect(await screen.findByRole("button", { name: "Start sequence" })).toBeDisabled();
   });
 
   it("keeps an edit to one person's opener on that person alone, and starts each with their own", async () => {

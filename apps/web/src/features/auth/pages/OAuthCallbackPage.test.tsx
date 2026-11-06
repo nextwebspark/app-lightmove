@@ -35,7 +35,7 @@ describe("OAuthCallbackPage", () => {
     fullName: "Alok Kumar",
     title: null,
     avatarUrl: null,
-    photoUploaded: false,
+    avatarEditable: true,
     phone: null,
     linkedinUrl: null,
     emailVerified: true,

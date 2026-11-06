@@ -155,7 +155,7 @@ const lead = {
   fullName: "Alok Kumar",
   title: null,
   avatarUrl: null,
-  photoUploaded: false,
+  avatarEditable: true,
   phone: null,
   linkedinUrl: null,
   emailVerified: true,
@@ -2027,7 +2027,7 @@ describe("TriageStagePage", () => {
       expect(await screen.findByText("Rania Khoury")).toBeInTheDocument();
       expect(screen.queryByRole("table", { name: /In universe companies/i })).not.toBeInTheDocument();
 
-      await userEvent.type(screen.getByRole("searchbox", { name: "Search companies, executives, notes, tags…" }), "treasury");
+      await userEvent.type(screen.getByRole("searchbox", { name: "Search companies, executives, notes…" }), "treasury");
       await waitFor(() =>
         expect(pipelineApi.getPipeline).toHaveBeenLastCalledWith(
           "p1", { q: "treasury", pipelineStage: "" }, expect.anything()),

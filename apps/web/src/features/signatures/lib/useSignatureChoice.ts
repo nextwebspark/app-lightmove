@@ -7,6 +7,10 @@ export interface SignatureChoice {
   /** The sender's signatures, the default first; empty while loading or where they keep none. */
   signatures: EmailSignature[];
   isLoaded: boolean;
+  /** Still being read: a run started now would be frozen without the signature the person meant. */
+  isPending: boolean;
+  /** Could not be read: what is sent goes without one. */
+  isError: boolean;
   /** Whether the email carries one: ticked by default where a default exists. */
   included: boolean;
   chosen: EmailSignature | null;
@@ -37,6 +41,8 @@ export function useSignatureChoice(): SignatureChoice {
   return {
     signatures,
     isLoaded: query.isSuccess,
+    isPending: query.isPending,
+    isError: query.isError,
     included,
     chosen,
     setIncluded: setIncludedChoice,

@@ -61,4 +61,71 @@ class EmailImageEncoderTest {
         assertThat(EmailImageEncoder.photo(picture(20, 20, "gif"))).isEmpty();
         assertThat(EmailImageEncoder.logo(new byte[0])).isEmpty();
     }
+
+    @Test
+    @DisplayName("only the pixels survive: a JPEG's EXIF and a PNG's text chunks are not written back out")
+    void metadataStripped() throws Exception {
+        byte[] secret = "GPS 25.2048N 55.2708E by Yara".getBytes(StandardCharsets.ISO_8859_1);
+
+        byte[] jpeg = picture(300, 300, "jpeg");
+        ByteArrayOutputStream withExif = new ByteArrayOutputStream();
+        withExif.write(jpeg, 0, 2);
+        byte[] exif = concat("Exif\0\0".getBytes(StandardCharsets.ISO_8859_1), secret);
+        withExif.write(new byte[] {(byte) 0xFF, (byte) 0xE1, (byte) ((exif.length + 2) >> 8), (byte) (exif.length + 2)});
+        withExif.write(exif);
+        withExif.write(jpeg, 2, jpeg.length - 2);
+        assertThat(contains(withExif.toByteArray(), secret)).isTrue();
+        assertThat(contains(EmailImageEncoder.photo(withExif.toByteArray()).orElseThrow().content(), secret)).isFalse();
+
+        byte[] png = picture(300, 100, "png");
+        byte[] withText = concat(java.util.Arrays.copyOfRange(png, 0, 33),
+                chunk("tEXt", concat("Author\0".getBytes(StandardCharsets.ISO_8859_1), secret)),
+                java.util.Arrays.copyOfRange(png, 33, png.length));
+        assertThat(contains(withText, secret)).isTrue();
+        assertThat(contains(EmailImageEncoder.logo(withText).orElseThrow().content(), secret)).isFalse();
+    }
+
+    @Test
+    @DisplayName("a small file whose header claims a raster past the cap is refused before its pixels are read")
+    void declaredOversizeRefused() throws Exception {
+        byte[] png = picture(40, 40, "png");
+        java.nio.ByteBuffer.wrap(png, 16, 8).putInt(9_000).putInt(9_000);
+        java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+        crc.update(png, 12, 17);
+        java.nio.ByteBuffer.wrap(png, 29, 4).putInt((int) crc.getValue());
+
+        assertThat(png.length).isLessThan(2_000);
+        assertThat(EmailImageEncoder.photo(png)).isEmpty();
+        assertThat(EmailImageEncoder.logo(png)).isEmpty();
+    }
+
+    private static byte[] chunk(String type, byte[] data) {
+        byte[] typeBytes = type.getBytes(StandardCharsets.ISO_8859_1);
+        java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+        crc.update(typeBytes);
+        crc.update(data);
+        return java.nio.ByteBuffer.allocate(12 + data.length).putInt(data.length).put(typeBytes).put(data)
+                .putInt((int) crc.getValue()).array();
+    }
+
+    private static byte[] concat(byte[]... parts) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        for (byte[] part : parts) {
+            out.writeBytes(part);
+        }
+        return out.toByteArray();
+    }
+
+    private static boolean contains(byte[] haystack, byte[] needle) {
+        outer:
+        for (int i = 0; i <= haystack.length - needle.length; i++) {
+            for (int j = 0; j < needle.length; j++) {
+                if (haystack[i + j] != needle[j]) {
+                    continue outer;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
 }

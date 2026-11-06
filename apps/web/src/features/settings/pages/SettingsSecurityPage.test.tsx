@@ -42,7 +42,7 @@ describe("SettingsSecurityPage", () => {
     fullName: "Alok Kumar",
     title: "Managing Partner",
     avatarUrl: null,
-    photoUploaded: false,
+    avatarEditable: true,
     phone: null,
     linkedinUrl: null,
     emailVerified: true,

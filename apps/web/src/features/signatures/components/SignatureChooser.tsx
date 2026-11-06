@@ -66,6 +66,13 @@ export function SignatureUnderEmail({ choice }: { choice: SignatureChoice }) {
  * follow-ups too — the sender's default first, another, or none — drawn greyed as it will go.
  */
 export function RunSignaturePicker({ choice }: { choice: SignatureChoice }) {
+  if (choice.isError) {
+    return (
+      <p className="mt-3 border-t border-u-border pt-2.5 font-mono text-meta text-u-text3">
+        Your signatures could not be read, so this sequence goes without one.
+      </p>
+    );
+  }
   if (!choice.isLoaded) return null;
   return (
     <div className="mt-3 border-t border-u-border pt-2.5">
