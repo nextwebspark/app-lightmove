@@ -182,7 +182,13 @@ function SignatureList({
                   Edit
                 </Button>
                 {!signature.isDefault && (
-                  <Button variant="secondary" size="xs" onClick={() => makeDefault.mutate(signature.id)}>
+                  <Button
+                    variant="secondary"
+                    size="xs"
+                    disabled={makeDefault.isPending}
+                    loading={makeDefault.isPending && makeDefault.variables === signature.id}
+                    onClick={() => makeDefault.mutate(signature.id)}
+                  >
                     Make default
                   </Button>
                 )}

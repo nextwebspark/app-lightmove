@@ -153,4 +153,57 @@ describe("SettingsSignaturesPage", () => {
 
     expect(await screen.findByText("Enter a website address, like yourcompany.com")).toBeInTheDocument();
   });
+
+  it("holds a Custom signature to 2,000 characters, and says why the server refused one", async () => {
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
+      signatures: [
+        aSignature({ id: "long", name: "Long", layout: "CUSTOM", customBody: "x".repeat(2001) }),
+        aSignature({ id: "short", name: "Short", layout: "CUSTOM", customBody: "Alok", isDefault: true }),
+      ],
+      sources: SOURCES,
+      limit: 10,
+    });
+    const { ApiRequestError } = await import("../../../lib/apiClient");
+    vi.mocked(signaturesApi.updateSignature).mockRejectedValue(
+      new ApiRequestError({
+        code: "VALIDATION_FAILED",
+        detail: "One or more fields are invalid",
+        status: 400,
+        correlationId: "c1",
+        fieldErrors: { customBody: "That signature is too long" },
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const items = await screen.findAllByRole("listitem");
+    await user.click(within(items.find((item) => within(item).queryByText("Long"))!).getByRole("button", { name: "Edit" }));
+    expect(screen.getByText("Keep it to 2,000 characters (2,001 now).")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save signature" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    const again = await screen.findAllByRole("listitem");
+    await user.click(within(again.find((item) => within(item).queryByText("Short"))!).getByRole("button", { name: "Edit" }));
+    await user.click(screen.getByRole("button", { name: "Save signature" }));
+    expect(await screen.findByText("That signature is too long (4 now).")).toBeInTheDocument();
+  });
+
+  it("holds every Make default while one is on its way", async () => {
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
+      signatures: [
+        aSignature({ isDefault: true }),
+        aSignature({ id: "s2", name: "Short reply" }),
+        aSignature({ id: "s3", name: "Minimal" }),
+      ],
+      sources: SOURCES,
+      limit: 10,
+    });
+    vi.mocked(signaturesApi.makeDefaultSignature).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderPage();
+
+    const [first, second] = await screen.findAllByRole("button", { name: "Make default" });
+    await user.click(first);
+    await waitFor(() => expect(second).toBeDisabled());
+  });
 });

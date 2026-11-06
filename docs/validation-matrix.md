@@ -55,7 +55,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Email signature name | ≤ 60; blank is named for its layout | `@NotBlank @Size(60)` | field |
 | Email signature fields | ≤ 160 name and company, 120 title, 40 phone, 255 LinkedIn and website, 200 address; blank follows the profile or workspace | the same `@Size`s; a website must be an http(s) address with a dotted host (`VALIDATION_FAILED` on `fields.website`), a LinkedIn a profile or company page (`fields.linkedinUrl`), a phone the profile's rule (`fields.phone`) | field |
 | Email signature default | "Use as my default" is fixed on while a signature is the default | exactly one while any exist: the first is it, `isDefault: false` on the default is ignored, deleting it hands the mark to the oldest left | — |
-| Email signature body and disclaimer | ≤ 2,000 (Custom only) / ≤ 1,000 | `@Size(2000)` / `@Size(1000)`; a body is kept only for Custom | field |
+| Email signature body and disclaimer | ≤ 2,000 (Custom only; counted under the editor and Save held past it) / ≤ 1,000 | `@Size(2000)` / `@Size(1000)`; a body is kept only for Custom | field |
 | Email signatures kept | New signature and Duplicate off at 10 | at most 10 per person per workspace (`EMAIL_SIGNATURE_LIMIT_REACHED`) | toast |
 | Candidate tag label | trimmed, ≤ 40 | `@NotBlank @Size(40)` | toast |
 | API key name | trimmed, ≤ 80 | `@NotBlank @Size(80)` | banner |

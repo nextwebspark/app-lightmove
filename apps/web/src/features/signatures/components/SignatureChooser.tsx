@@ -5,9 +5,13 @@ import { SignaturePreviewFrame } from "./SignaturePreviewFrame";
 
 /**
  * The composer's Include signature (`Outreach.dc.html`, `signature`): ticked for the sender's default, a picker where
- * they keep more than one, and a way to Settings where they keep none. Nothing is drawn until their signatures load.
+ * they keep more than one, and a way to Settings where they keep none. Nothing is drawn until their signatures load, and
+ * a list that could not be read says the email goes unsigned.
  */
 export function SignatureChooser({ choice, disabled = false }: { choice: SignatureChoice; disabled?: boolean }) {
+  if (choice.isError) {
+    return <span className="text-note text-u-text3">Your signatures could not be read, so this email goes without one.</span>;
+  }
   if (!choice.isLoaded) return null;
   if (choice.signatures.length === 0) {
     return (

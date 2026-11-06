@@ -191,8 +191,14 @@ function OpenComposer({
   useEffect(() => onDraftChange?.(hasDraft), [hasDraft, onDraftChange]);
   const isTooLong = body.length > BODY_MAX_LENGTH;
   const attachmentProblem = attachmentProblemOf(attachments, attachmentLimits);
+  // Still reading the signatures: a send now would go without the default the sender expects.
   const canSend =
-    hasBody && !isTooLong && attachmentProblem === null && (isReply || subject.trim().length > 0) && !send.isPending;
+    hasBody &&
+    !isTooLong &&
+    attachmentProblem === null &&
+    (isReply || subject.trim().length > 0) &&
+    !send.isPending &&
+    !signature.isPending;
   const footnote = composerFootnoteOf({
     isReply,
     resolvesReplyTask,

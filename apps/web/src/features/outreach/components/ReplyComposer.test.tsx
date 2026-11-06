@@ -221,6 +221,21 @@ describe("ReplyComposer", () => {
     );
   });
 
+  it("waits for the signatures before sending, and says the email goes unsigned when they cannot be read", async () => {
+    let failRead: (error: Error) => void = () => {};
+    vi.mocked(signaturesApi.listSignatures).mockReturnValue(new Promise((_, reject) => (failRead = reject)));
+    render(composerFor(conversation()), { wrapper });
+    await writeFirstEmail();
+
+    expect(screen.getByRole("button", { name: "Send now" })).toBeDisabled();
+    failRead(new Error("offline"));
+    expect(await screen.findByText("Your signatures could not be read, so this email goes without one.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Send now" }));
+    await waitFor(() =>
+      expect(conversationApi.sendMessage).toHaveBeenCalledWith("p1", "c1", expect.objectContaining({ signatureId: null }), []),
+    );
+  });
+
   it("schedules at a day and half hour on the mailbox's own clock, held to 60 days and never a cleared day", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-21T06:00:00Z"));

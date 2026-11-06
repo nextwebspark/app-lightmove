@@ -13,6 +13,8 @@ import { SignaturePreviewFrame } from "./SignaturePreviewFrame";
 
 /** How long typing settles before the server draws the preview again. */
 const PREVIEW_DELAY_MS = 350;
+/** `SaveSignatureRequest.customBody`'s `@Size`. */
+const CUSTOM_BODY_MAX_LENGTH = 2000;
 
 type FieldKey = keyof SignatureFields;
 
@@ -63,6 +65,8 @@ export function SignatureEditor({
     onError: (error) => {
       if (error instanceof ApiRequestError && Object.keys(error.fieldErrors).length > 0) {
         setFieldErrors(error.fieldErrors);
+        // A field this form draws no error under still has to say something, or Save looks like it did nothing.
+        if (!Object.keys(error.fieldErrors).some(isDrawnField)) setFormError(messageFor(error));
         return;
       }
       setFormError(messageFor(error));
@@ -73,6 +77,9 @@ export function SignatureEditor({
     setDraft((current) => ({ ...current, fields: { ...current.fields, [key]: value } }));
     setFieldErrors((current) => ({ ...current, [`fields.${key}`]: "" }));
   };
+  const customBodyTooLong = draft.layout === "CUSTOM" && draft.customBody.length > CUSTOM_BODY_MAX_LENGTH;
+  const customBodyError =
+    fieldErrors.customBody || (customBodyTooLong ? `Keep it to ${CUSTOM_BODY_MAX_LENGTH.toLocaleString()} characters` : "");
   const errorOf = (key: FieldKey) => fieldErrors[`fields.${key}`] || undefined;
   const hasPhoto = sources.photoUrl !== null;
 
@@ -118,12 +125,22 @@ export function SignatureEditor({
             <NoteEditor
               value={draft.customBody}
               format="markdown"
-              onChange={(customBody) => setDraft((current) => ({ ...current, customBody }))}
+              onChange={(customBody) => {
+                setDraft((current) => ({ ...current, customBody }));
+                setFieldErrors((current) => ({ ...current, customBody: "" }));
+              }}
               teammates={null}
               ariaLabel="Signature"
               variant="field"
               expandTitle="Signature"
             />
+            <span aria-live="polite">
+              {customBodyError && (
+                <span className="mt-1.5 block font-mono text-meta text-u-offlimits">
+                  {customBodyError} ({draft.customBody.length.toLocaleString()} now).
+                </span>
+              )}
+            </span>
             <p className="mt-1.5 font-mono text-meta text-u-text3">
               Your logo comes from the switch below. A pasted picture is never sent.
             </p>
@@ -221,7 +238,7 @@ export function SignatureEditor({
           <Button variant="secondary" onClick={onDone}>
             Cancel
           </Button>
-          <Button loading={save.isPending} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} disabled={customBodyTooLong} onClick={() => save.mutate()}>
             Save signature
           </Button>
         </div>
@@ -339,4 +356,8 @@ function useSettled(value: string, delayMs: number): string {
     return () => clearTimeout(timer);
   }, [value, delayMs]);
   return settled;
+}
+
+function isDrawnField(key: string): boolean {
+  return key === "name" || key === "disclaimer" || key === "customBody" || key.startsWith("fields.");
 }
