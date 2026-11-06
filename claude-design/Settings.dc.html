@@ -546,31 +546,41 @@
                   </sc-if>
 
                   <sc-if value="{{ sgIsFields }}" hint-placeholder-val="{{ true }}">
-                    <div style="margin-bottom:10px;font:600 13px var(--sans)">Your details</div>
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));column-gap:14px">
-                      <sc-for list="{{ sgPersonFields }}" as="f" hint-placeholder-count="4">
-                        <label style="display:block;margin-bottom:14px">
-                          <span style="{{ sgLabel }}">{{ f.label }}</span>
-                          <input value="{{ f.value }}" onChange="{{ sgField }}" data-field="{{ f.key }}" placeholder="{{ f.placeholder }}" style="{{ sgInput }}" style-focus="border-color:var(--sky)">
-                          <span style="margin-top:5px;display:flex;gap:8px;font:400 11px var(--mono);color:var(--text3)">{{ f.source }}<sc-if value="{{ f.overridden }}" hint-placeholder-val="{{ false }}"><button onClick="{{ sgReset }}" data-field="{{ f.key }}" style="border:none;background:none;padding:0;font:500 11px var(--sans);color:var(--sky);cursor:pointer">Use profile's</button></sc-if></span>
-                        </label>
-                      </sc-for>
-                      <div style="margin-bottom:14px">
-                        <span style="{{ sgLabel }}">Email</span>
-                        <div style="border-radius:6px;border:1px solid var(--line-soft);background:var(--panel);padding:9px 12px;font:500 13px var(--mono);color:var(--text2)">yara@alfuttaim.com</div>
-                        <span style="margin-top:5px;display:block;font:400 11px var(--mono);color:var(--text3)">The mailbox the email goes from</span>
+                    <!-- Only what can be typed into wears a box. A value the profile or the workspace gives is text with
+                         where it comes from; Change turns that one row into a field for this signature alone. -->
+                    <sc-for list="{{ sgGroups }}" as="g" hint-placeholder-count="2">
+                      <div style="margin-bottom:18px">
+                        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
+                          <div style="flex:1;font:600 13px var(--sans)">{{ g.title }}</div>
+                          <button style="border:none;background:none;padding:0;font:500 12px var(--sans);color:var(--sky);cursor:pointer">{{ g.sourceLink }}</button>
+                        </div>
+                        <div style="border-radius:8px;border:1px solid var(--line-soft);background:var(--panel)">
+                          <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="4">
+                            <div style="{{ r.rowStyle }}">
+                              <div style="{{ r.labelStyle }}">{{ r.label }}</div>
+                              <div style="flex:1;min-width:0">
+                                <sc-if value="{{ r.isText }}" hint-placeholder-val="{{ true }}">
+                                  <div style="display:flex;align-items:center;gap:8px;min-height:22px">
+                                    <span style="{{ r.valueStyle }}">{{ r.display }}</span>
+                                    <sc-if value="{{ r.tag }}" hint-placeholder-val="{{ true }}"><span style="flex:none;border-radius:999px;padding:1px 7px;font:500 10px var(--mono);letter-spacing:.04em;color:var(--text3);background:var(--panel2);border:1px solid var(--line-soft)">{{ r.tag }}</span></sc-if>
+                                  </div>
+                                </sc-if>
+                                <sc-if value="{{ r.isInput }}" hint-placeholder-val="{{ false }}">
+                                  <input value="{{ r.value }}" onChange="{{ sgField }}" data-field="{{ r.key }}" placeholder="{{ r.placeholder }}" aria-label="{{ r.label }}" style="{{ sgInput }}" style-focus="border-color:var(--sky)">
+                                  <div style="margin-top:5px;display:flex;gap:8px;font:400 11px var(--mono);color:var(--text3)">{{ r.note }}<sc-if value="{{ r.resettable }}" hint-placeholder-val="{{ false }}"><button onClick="{{ sgReset }}" data-field="{{ r.key }}" style="border:none;background:none;padding:0;font:500 11px var(--sans);color:var(--sky);cursor:pointer">{{ r.resetLabel }}</button></sc-if></div>
+                                </sc-if>
+                              </div>
+                              <sc-if value="{{ r.action }}" hint-placeholder-val="{{ true }}">
+                                <button onClick="{{ sgOverride }}" data-field="{{ r.key }}" style="flex:none;border-radius:6px;padding:4px 10px;font:500 12px var(--sans);cursor:pointer;background:var(--panel);border:1px solid var(--line);color:var(--text2)">{{ r.action }}</button>
+                              </sc-if>
+                              <sc-if value="{{ r.isLocked }}" hint-placeholder-val="{{ false }}">
+                                <span title="Emails go from the mailbox you connected" style="flex:none;display:inline-flex;align-items:center;gap:5px;font:400 11px var(--mono);color:var(--text3)"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>Your mailbox</span>
+                              </sc-if>
+                            </div>
+                          </sc-for>
+                        </div>
                       </div>
-                    </div>
-                    <div style="margin:4px 0 10px;font:600 13px var(--sans)">{{ sgCompanyHeading }}</div>
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));column-gap:14px">
-                      <sc-for list="{{ sgCompanyFields }}" as="f" hint-placeholder-count="3">
-                        <label style="display:block;margin-bottom:14px">
-                          <span style="{{ sgLabel }}">{{ f.label }}</span>
-                          <input value="{{ f.value }}" onChange="{{ sgField }}" data-field="{{ f.key }}" placeholder="{{ f.placeholder }}" style="{{ sgInput }}" style-focus="border-color:var(--sky)">
-                          <span style="margin-top:5px;display:flex;gap:8px;font:400 11px var(--mono);color:var(--text3)">{{ f.source }}<sc-if value="{{ f.resettable }}" hint-placeholder-val="{{ false }}"><button onClick="{{ sgReset }}" data-field="{{ f.key }}" style="border:none;background:none;padding:0;font:500 11px var(--mono);color:var(--sky);cursor:pointer">{{ f.resetLabel }}</button></sc-if></span>
-                        </label>
-                      </sc-for>
-                    </div>
+                    </sc-for>
                   </sc-if>
 
                   <div style="margin-top:4px;border-top:1px solid var(--line-soft);padding-top:6px">
@@ -2619,7 +2629,7 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">SE</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;signatures&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;availability&quot;,&quot;general&quot;,&quot;meetings&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;,&quot;data&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;photo&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;set&quot;,&quot;crop&quot;,&quot;managed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;integrationsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;own-new&quot;,&quot;own-saved&quot;,&quot;replacing&quot;,&quot;verify-failed&quot;,&quot;expiring&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;exportState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;idle&quot;,&quot;options&quot;:[&quot;idle&quot;,&quot;running&quot;,&quot;ready&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dueEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dataDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;delete-due&quot;,&quot;suppress-add&quot;,&quot;suppress-remove&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;accountDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;delete&quot;,&quot;blocked&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;signatureState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;list&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;empty&quot;,&quot;gallery&quot;,&quot;editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaceMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;COMPANY&quot;,&quot;options&quot;:[&quot;COMPANY&quot;,&quot;AGENCY&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaceLogo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;bookingLink&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;signatures&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;availability&quot;,&quot;general&quot;,&quot;meetings&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;,&quot;data&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;photo&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;set&quot;,&quot;crop&quot;,&quot;managed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;integrationsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;own-new&quot;,&quot;own-saved&quot;,&quot;replacing&quot;,&quot;verify-failed&quot;,&quot;expiring&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;exportState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;idle&quot;,&quot;options&quot;:[&quot;idle&quot;,&quot;running&quot;,&quot;ready&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dueEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dataDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;delete-due&quot;,&quot;suppress-add&quot;,&quot;suppress-remove&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;accountDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;delete&quot;,&quot;blocked&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;signatureState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;list&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;empty&quot;,&quot;gallery&quot;,&quot;editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaceMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;COMPANY&quot;,&quot;options&quot;:[&quot;COMPANY&quot;,&quot;AGENCY&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaceLogo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;bookingLink&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;signatureProfile&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;full&quot;,&quot;options&quot;:[&quot;full&quot;,&quot;gaps&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -2799,6 +2809,7 @@ class Component extends DCLogic {
       sgMode: urlProp('workspaceMode') || props.workspaceMode || 'COMPANY',
       sgHasLogo: (urlProp('workspaceLogo') || String(props.workspaceLogo !== false)) !== 'false',
       sgHasBooking: (urlProp('bookingLink') || String(props.bookingLink !== false)) !== 'false',
+      sgProfile: urlProp('signatureProfile') || props.signatureProfile || 'full', sgOpen: [],
       pwCurrent: '', pwNew: '', pwConfirm: '', pwErr: {},
       sessions: [
         { id: 's1', device: 'macOS — Chrome', kind: 'DESKTOP', meta: '94.204.12.8 · active now', current: true },
@@ -3259,7 +3270,9 @@ class Component extends DCLogic {
       ['CLASSIC', 'Classic', 'Your details as text, no pictures'], ['LOGO_BANNER', 'Logo banner', 'Your details over the ' + firmWord + ' logo'],
       ['MINIMAL', 'Minimal', 'One line, good for replies'], ['CUSTOM', 'Custom', 'Write it yourself, with bold, links and lists']];
     const labelOf = (k) => (LAYOUTS.find((l) => l[0] === k) || [k, k])[1];
-    const profile = { fName: st.pName, fTitle: st.pTitle, fPhone: st.pPhone, fLinkedin: st.pLinkedin, fCompany: st.wsName, fWebsite: 'alfuttaim.com', fAddress: '' };
+    const gaps = st.sgProfile === 'gaps';
+    const profile = { fName: st.pName, fTitle: gaps ? '' : st.pTitle, fPhone: gaps ? '' : st.pPhone, fLinkedin: gaps ? '' : st.pLinkedin, fCompany: st.wsName,
+      fWebsite: gaps ? '' : 'alfuttaim.com', fAddress: '' };
     const valueOf = (d, k) => (d[k] !== '' ? d[k] : profile[k]);
     const view = st.sgView, sigs = st.sigs.slice().sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
     const d = st.sgD || this.signatureDraft(st.sigs.find((s) => s.id === st.sgEditId)), dark = st.sgDark;
@@ -3281,11 +3294,19 @@ class Component extends DCLogic {
       const on = key === 'isDefault' && disabled ? true : !disabled && !!d[key], s = sw(on);
       return { key, label, hint, disabled: String(disabled), checked: String(on), style: s.style + (disabled ? ';opacity:.45;cursor:not-allowed' : ''), knob: s.knob };
     });
-    const field = (key, label, placeholder, source, resetLabel) => {
-      const overridden = d[key] !== '' && d[key] !== profile[key];
-      return { key, label, placeholder, value: valueOf(d, key), overridden, resettable: overridden && !!resetLabel, resetLabel,
-        source: source && !overridden ? source : 'Only on this signature' };
+    const labelStyle = (pad) => 'width:84px;flex:none;padding-top:' + pad + 'px;font:500 12px var(--sans);color:var(--text3)';
+    // A row is text while it follows its source, a field once Change is pressed or it holds this signature's own value.
+    const row = (key, label, placeholder, sourceTag, resetLabel, last) => {
+      const own = d[key] !== '', open = own || (st.sgOpen || []).includes(key) || !sourceTag, missing = !own && !profile[key];
+      return { key, label, placeholder: profile[key] || placeholder, value: d[key], isInput: open, isText: !open, isLocked: false,
+        display: missing ? 'Not in your ' + sourceTag.toLowerCase() : profile[key], tag: missing ? '' : sourceTag,
+        valueStyle: missing ? 'font:italic 400 13px var(--sans);color:var(--text3)' : 'font:400 13px var(--sans);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap',
+        action: open ? '' : missing ? '+ Add' : 'Change', labelStyle: labelStyle(open ? 10 : 2),
+        note: !sourceTag ? 'Only on this signature · optional' : 'Only on this signature', resettable: !!sourceTag, resetLabel,
+        rowStyle: 'display:flex;align-items:flex-start;gap:12px;padding:11px 14px' + (last ? '' : ';border-bottom:1px solid var(--line-soft)') };
     };
+    const locked = (label, display) => ({ key: 'email', label, display, tag: '', isText: true, isInput: false, isLocked: true, action: '', labelStyle: labelStyle(2),
+      valueStyle: 'font:400 13px var(--mono);color:var(--text2)', rowStyle: 'display:flex;align-items:flex-start;gap:12px;padding:11px 14px' });
     const ghost = (danger) => 'border-radius:6px;padding:5px 10px;font:500 12px var(--sans);cursor:pointer;background:var(--panel);border:1px solid var(--line);color:' + (danger ? 'var(--red)' : 'var(--text2)');
     const primaryInline = 'display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer';
     const seg = (on) => 'border:none;padding:5px 12px;font:500 12px var(--sans);cursor:pointer;background:' + (on ? 'var(--amber-dim)' : 'var(--panel)') + ';color:' + (on ? 'var(--text)' : 'var(--text3)');
@@ -3312,11 +3333,13 @@ class Component extends DCLogic {
       sgLayoutChips: LAYOUTS.map(([key, label]) => ({ key, label, checked: String(d.layout === key),
         style: 'border-radius:999px;padding:5px 12px;font:500 12px var(--sans);cursor:pointer;border:1px solid ' + (d.layout === key ? 'var(--amber)' : 'var(--line)') + ';background:' + (d.layout === key ? 'var(--amber-dim)' : 'var(--panel)') + ';color:' + (d.layout === key ? 'var(--text)' : 'var(--text2)') })),
       sgD: d, sgIsCustom: d.layout === 'CUSTOM', sgIsFields: d.layout !== 'CUSTOM',
-      sgPersonFields: [field('fName', 'Name', '', 'From your profile'), field('fTitle', 'Title', 'Your job title', 'From your profile'),
-        field('fPhone', 'Phone', '+971 50 000 0000', 'From your profile'), field('fLinkedin', 'LinkedIn', 'linkedin.com/in/…', 'From your profile')],
-      sgCompanyHeading: firm,
-      sgCompanyFields: [field('fCompany', firm, '', 'From your workspace', "Use workspace's"), field('fWebsite', 'Website', 'your' + firmWord + '.com', 'From your workspace', "Use workspace's"),
-        field('fAddress', 'Address', 'Office address (optional)', null)],
+      sgGroups: [
+        { title: 'Your details', sourceLink: 'Edit profile', rows: [row('fName', 'Name', 'Your name', 'Profile', "Use profile's"),
+          row('fTitle', 'Title', 'Your job title', 'Profile', "Use profile's"), row('fPhone', 'Phone', '+971 50 000 0000', 'Profile', "Use profile's"),
+          row('fLinkedin', 'LinkedIn', 'linkedin.com/in/…', 'Profile', "Use profile's"), locked('Email', 'yara@alfuttaim.com')] },
+        { title: firm, sourceLink: st.isAdmin ? 'Edit in General' : '', rows: [row('fCompany', 'Name', 'Your ' + firmWord + "'s name", 'Workspace', "Use workspace's"),
+          row('fWebsite', 'Website', 'your' + firmWord + '.com', 'Workspace', "Use workspace's"), row('fAddress', 'Address', 'Office address', null, '', true)] },
+      ],
       sgSwitches: switches,
       sgLightChecked: String(!dark), sgDarkChecked: String(dark), sgLightStyle: seg(!dark), sgDarkStyle: seg(dark),
       sgSurface: 'border-radius:8px;padding:18px 20px;border:1px solid ' + (dark ? '#3c3c3c' : 'var(--line-soft)') + ';background:' + (dark ? '#1f1f1f' : '#ffffff') + ';color:' + (dark ? '#e3e3e3' : '#1f2328'),
@@ -3330,11 +3353,12 @@ class Component extends DCLogic {
 
       sgNew: () => set({ sgView: 'gallery', sgEditId: null }),
       sgBack: () => set({ sgView: 'list', sgEditId: null }),
-      sgPick: (e) => { const layout = e.currentTarget.dataset.layout; set({ sgView: 'editor', sgEditId: null, sgD: this.signatureDraft({ layout, name: labelOf(layout), isDefault: st.sigs.length === 0 }) }); },
-      sgEdit: (e) => { const sig = st.sigs.find((s) => s.id === e.currentTarget.dataset.id); set({ sgView: 'editor', sgEditId: sig.id, sgD: this.signatureDraft(sig) }); },
+      sgPick: (e) => { const layout = e.currentTarget.dataset.layout; set({ sgView: 'editor', sgEditId: null, sgOpen: [], sgD: this.signatureDraft({ layout, name: labelOf(layout), isDefault: st.sigs.length === 0 }) }); },
+      sgEdit: (e) => { const sig = st.sigs.find((s) => s.id === e.currentTarget.dataset.id); set({ sgView: 'editor', sgEditId: sig.id, sgOpen: [], sgD: this.signatureDraft(sig) }); },
       sgLayout: (e) => set({ sgD: Object.assign({}, d, { layout: e.currentTarget.dataset.layout }) }),
       sgField: (e) => { const k = e.currentTarget.dataset.field, v = e.target.value; set({ sgD: Object.assign({}, d, { [k]: k in profile && v === profile[k] ? '' : v }) }); },
-      sgReset: (e) => { e.preventDefault(); set({ sgD: Object.assign({}, d, { [e.currentTarget.dataset.field]: '' }) }); },
+      sgOverride: (e) => { const k = e.currentTarget.dataset.field; set({ sgOpen: (st.sgOpen || []).concat([k]) }); },
+      sgReset: (e) => { e.preventDefault(); const k = e.currentTarget.dataset.field; set({ sgD: Object.assign({}, d, { [k]: '' }), sgOpen: (st.sgOpen || []).filter((x) => x !== k) }); },
       sgToggle: (e) => { if (e.currentTarget.getAttribute('aria-disabled') === 'true') return; const k = e.currentTarget.dataset.field; set({ sgD: Object.assign({}, d, { [k]: !d[k] }) }); },
       sgPreviewLight: () => set({ sgDark: false }), sgPreviewDark: () => set({ sgDark: true }),
       sgSave: () => {
