@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useEscapeKey } from "../../lib/useEscapeKey";
-import { EDGE_GAP, verticalPlacement } from "./anchoredPlacement";
+import { AUTO_PANEL_ROOM, EDGE_GAP, verticalPlacement } from "./anchoredPlacement";
 
 /**
  * A toolbar dropdown: a button, and a panel that closes on an outside click, Escape, or a scroll.
@@ -44,6 +44,7 @@ export function Popover({
   children: (close: () => void) => ReactNode;
 }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const [wanted, setWanted] = useState(AUTO_PANEL_ROOM);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const open = anchor !== null;
@@ -76,6 +77,17 @@ export function Popover({
     };
   }, [open]);
 
+  // The status picker low in the Companies grid opened beneath its trigger with only the guessed room in mind,
+  // and its later stages ran off the foot of the window. Measured once it is up, so an `auto` panel takes
+  // whichever side holds it — or the larger — and is not flipped while a search narrows it.
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!anchor || !panel || placement !== "auto") return;
+    const borders = panel.offsetHeight - panel.clientHeight;
+    const height = panel.scrollHeight + borders;
+    if (height > 0) setWanted(height);
+  }, [anchor, placement]);
+
   // Through the overlays' one stack: inside a dialog, Escape closes the panel and leaves the dialog open.
   useEscapeKey(open, () => {
     setAnchor(null);
@@ -86,7 +98,13 @@ export function Popover({
     // A trigger half under its scroll box's edge is scrolled into view by the click's own focus, and that
     // scroll would close the panel it just opened — so it is brought in first, and measured where it lands.
     if (!open) triggerRef.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    setWanted(AUTO_PANEL_ROOM);
     setAnchor((current) => (current ? null : (triggerRef.current?.getBoundingClientRect() ?? null)));
+  };
+
+  const placed = (box: DOMRect) => {
+    const side = verticalPlacement(box, placement, wanted);
+    return { ...side, maxHeight: Math.min(side.maxHeight, window.innerHeight * 0.7) };
   };
 
   return (
@@ -110,7 +128,7 @@ export function Popover({
           <div
             ref={panelRef}
             style={{
-              ...verticalPlacement(anchor, placement),
+              ...placed(anchor),
               left:
                 align === "right"
                   ? Math.max(EDGE_GAP, anchor.right - width)
