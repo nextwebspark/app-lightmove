@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
 /** Staff seats: a Stripe subscription's quantity follows them, and an invoiced workspace is held to its agreed number. */
@@ -152,6 +153,28 @@ class SeatBillingIntegrationTest extends BillingFlowSupport {
 
         db.update("UPDATE app_lm_workspace_subscription SET seats = 3 WHERE workspace_id = ?", firm.workspaceId());
         promote(firm.adminToken(), representativeMemberId).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("an invoiced workspace's lapsed invitation takes a seat again when it is resent")
+    void resendingALapsedInvitationTakesASeat() throws Exception {
+        Firm firm = newFirm();
+        db.update("""
+                INSERT INTO app_lm_workspace_subscription (workspace_id, plan_code, billing_interval, seats, status)
+                VALUES (?, 'CORE', 'MONTHLY', 2, 'INVOICED')""", firm.workspaceId());
+        String first = email("layla");
+        invite(firm.adminToken(), first, "MEMBER").andExpect(status().isOk());
+        db.update("UPDATE app_lm_invitation SET expires_at = now() - interval '1 minute' WHERE email = ?", first);
+        // The lapsed one no longer holds the seat, so another invitation may take it.
+        invite(firm.adminToken(), email("karim"), "MEMBER").andExpect(status().isOk());
+        String lapsed = db.queryForObject("SELECT id::text FROM app_lm_invitation WHERE email = ?", String.class, first);
+
+        MvcResult refused = mvc.perform(post("/api/v1/invitations/" + lapsed + "/resend")
+                        .header("Authorization", "Bearer " + firm.adminToken()))
+                .andExpect(status().isConflict())
+                .andReturn();
+
+        assertThat(codeOf(refused)).isEqualTo("SEAT_LIMIT_REACHED");
     }
 
     private record Firm(UUID workspaceId, String adminToken) {

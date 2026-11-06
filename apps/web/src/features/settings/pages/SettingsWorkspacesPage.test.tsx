@@ -85,7 +85,7 @@ describe("SettingsWorkspacesPage", () => {
     vi.mocked(authApi.me).mockResolvedValue(
       aUser({
         workspace: home,
-        pendingInvitations: [{ id: "inv-1", workspaceName: "Northgate Search", role: "MEMBER", inviterName: "Omar Haddad" }],
+        pendingInvitations: [{ id: "inv-1", workspaceId: "ws-northgate", workspaceName: "Northgate Search", role: "MEMBER", inviterName: "Omar Haddad" }],
       }),
     );
     const joined = aWorkspace({ id: "w3", name: "Northgate Search", roles: ["MEMBER"] });

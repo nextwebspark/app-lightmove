@@ -347,8 +347,9 @@ check 19.110 "seating the researcher is on the audit trail" "true" \
      && echo true || echo false)"
 check 19.111 "…but team changes are not progress, so the allowlist keeps them off the panel" "0" \
   "$(printf '%s' "$WHOLE" | jq '[.entries[] | select(.type == "PROJECT_TEAM_CHANGED")] | length')"
-check 19.112 "only allowlisted detail keys reach the panel — never an IP or a candidate id" "0" \
-  "$(printf '%s' "$WHOLE" | jq '[.entries[].details | keys[] | select(. == "candidateId" or . == "ip" or . == "triageCompanyId")] | length')"
+# candidateId is allowlisted on purpose (docs/candidate-crm.md): the panel is WORK_EXECUTE, and a line links to its person.
+check 19.112 "only allowlisted detail keys reach the panel — never an IP, a user agent or a company row id" "0" \
+  "$(printf '%s' "$WHOLE" | jq '[.entries[].details | keys[] | select(. == "ip" or . == "userAgent" or . == "triageCompanyId")] | length')"
 
 get "/projects/$PROJECT/activity?limit=0" -H "$LEAD"
 check 19.113 "a limit below one is clamped to one, not refused" "1" "$(json '.entries | length')"

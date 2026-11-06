@@ -36,6 +36,7 @@ export type ApiErrorCode =
   | "FORBIDDEN"
   | "INVITATION_INVALID"
   | "INVITATION_EXPIRED"
+  | "INVITATION_EMAIL_NOT_SENT"
   | "LAST_ADMIN"
   | "MEMBER_LEADS_PROJECTS"
   | "CLIENT_ALREADY_EXISTS"
@@ -207,6 +208,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
     "The fallback template can't be archived or hidden — a title nothing else matches is drafted from it.",
   TEMPLATE_IMPORT_INVALID: "Some templates in the file are invalid, so none were imported.",
   LAST_ADMIN: "A workspace must keep at least one admin.",
+  INVITATION_EMAIL_NOT_SENT: "The invitation is saved, but its email didn't go out. Try resending it in a few minutes.",
   MEMBER_LEADS_PROJECTS: "They are the only lead on active positions — hand those over first.",
   CLIENT_ALREADY_EXISTS: "That name is already taken.",
   PROJECT_LAST_LEAD: "A position must keep at least one lead.",

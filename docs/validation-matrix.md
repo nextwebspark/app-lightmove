@@ -37,7 +37,9 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Signup password | 8+, a digit, ≤ 72 bytes | same; bytes in `PasswordPolicy` | field |
 | Signup terms | — | `@AssertTrue` | banner (was swallowed) |
 | ☐ Invite accept full name | 1–160, not trimmed | `@NotBlank @Size(160)` | banner |
-| ☐ Invite team rows | email per row, an address listed once, no cap | `List<@Valid InviteRequest>`, no cap; no role is MEMBER; a repeat is one invitation; every row checked before any is sent | row (client), banner, row unnamed (server) |
+| ☐ Invite team rows | email per row, an address listed once, no cap | `List<@Valid InviteRequest>`, at most 50 a request; no role is MEMBER; a repeat is one invitation; every row checked before any is sent; seats (an invoiced workspace, `SEAT_LIMIT_REACHED`) before the hourly budget, so a batch refused for seats spends none; per hour, 100 addresses a workspace and 5 sends an address across workspaces (`RATE_LIMITED`) | row (client), banner, row unnamed (server) |
+| ☐ Invitation resend | — | the outstanding invitation only (`NOT_FOUND` once accepted or withdrawn, and the row re-reads); a lapsed one takes a seat again (`SEAT_LIMIT_REACHED`); the hourly budget; a refused email `INVITATION_EMAIL_NOT_SENT` | toast |
+| ☐ Roster role change | one staff role, from the picker | staff roles only, `@NotEmpty`, no null entry (`VALIDATION_FAILED`); CLIENT refused; a CLIENT role the member already holds is kept; the last admin kept (`LAST_ADMIN`) | toast |
 | ☐ Organisation name | trimmed 1–160, no `maxLength` | `@NotBlank @Size(160)` | banner |
 | Sign-in code (two-factor step) | six digits, spaces dropped; a recovery code instead is 16 Base32 characters, hyphens, spaces and case forgiven | `@NotBlank @Size(32)`; six digits within one 30-second step of now and after the last one used, or an unused recovery code; every refusal `MFA_CODE_INVALID`, counted towards the lock | banner |
 
@@ -66,7 +68,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Own app secret | required in the set-up form and in Replace (the screen never sends a blank one); ≤ 2048; never trimmed, but any space, tab, line break, control or invisible format character (a zero-width space, a BOM) refused; for Microsoft a GUID (the Secret ID) refused | blank keeps the one held for the same client ID (an API caller's path; the screen no longer takes it); the rest the same, after `@Size(2048)` | field |
 | Own app secret expiry | Microsoft only, and required with every new secret; from the browser's today to 24 months out | a date sent for Google or Zoom refused; Microsoft's optional, held to UTC today..+24 months with a day's slack either side (the browser's day may differ), unless the same app keeps its secret and its date | field |
 | Own app keys, Save and verify / Verify again | — (the provider decides) | the provider's token endpoint is asked first, outside any transaction: a refusal is `INTEGRATION_KEYS_REFUSED` with the provider's code as `providerError`, no answer (or an Entra refusal not about the keys) `INTEGRATION_PROVIDER_UNREACHABLE`, past ten checks a minute per workspace on an instance `RATE_LIMITED`; none of them writes anything. Verify again keeps the answer either way | banner ("{Provider} refused these keys ({code}). Nothing was saved." / "… The saved secret is unchanged.") / toast |
-| ☐ Invitation role | always sent | not required (500 when absent) | — |
+| ☐ Invitation role | always sent | not required (MEMBER when absent) | — |
 
 ### Projects and clients
 | Field | Client | Server | Shown as |
@@ -79,6 +81,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Delivery / mapping target date | ordered | `ProjectTimeline` | field |
 | Start / delivery / mapping / target date | ordered | 2000–2100 (`@PlausibleDate`) | field |
 | ☐ Client contact position | required | optional | banner |
+| ☐ Client contact invite, resend, cancel | name, title and work email | work email; the hourly invitation budget (`RATE_LIMITED`), whichever path it takes; resend and cancel only while the contact is invited (`NOT_FOUND`, and the row re-reads); a refused resend email `INVITATION_EMAIL_NOT_SENT` | banner / toast |
 | ☐ Client name, sector, country, domain | no `maxLength`, no domain check | 160/96/64/160 | toast |
 | ☐ Off-limits note | — | unbounded | toast |
 | Business unit / client notes | the note editor's Markdown, ≤ 4000 held under the box (both drawers' Save waits on it); sent only when changed, so stored plain notes stay plain | `@Size(4000)`; `notesFormat` an `ApiValueEnum`, plain when absent | toast |
@@ -123,13 +126,17 @@ is held back rather than sent (the step does not save until it is named) and the
 | ☐ Executive currency | picker | `@Size(3)` | banner |
 | ☐ Languages | one string ≤ 1200 | ≤ 20 × 60 | banner |
 | ☐ Phone | none | a digit | banner |
+| Contact primary (per channel) | one star per channel; moving it clears the others | at most one `primary` per channel (`VALIDATION_FAILED` "Only one email can be primary"); none listed leaves the first of the ledger's order standing in | toast |
 | ☐ Candidates search `q`, `page` | none | unbounded `q`; `page × size` overflows | — |
 | ☐ Companies search box `search` (triage list, its people read, talent map, export; the Pipeline's `q`) | trimmed | trimmed, case-insensitive substring with `%` and `_` literal (`SearchText`), unbounded; notes and tags match only for `WORK_EXECUTE` | — |
 | Next action title | trimmed, ≤ 200, one line, required | `@NotBlank @Size(200)`, no line break (it becomes an email subject) | banner |
 | Next action detail | trimmed, ≤ 500 | `@Size(500)` | banner |
 | Note body | the note editor's Markdown, trimmed, mentions written as tokens, ≤ 10000 stored (held under the box) | `@NotBlank @Size(10000)`; V142's CHECK | toast |
 | Note format | `markdown` from the editor | `ApiValueEnum`, plain when absent (a door's note is always plain): 400 "That is not a valid note format" | toast |
-| Note kind | five chips (Note, Call, Meeting, Email, LinkedIn) | `ApiValueEnum`: 400 "That is not a valid note kind" | toast |
+| Note kind | none on the Notes tabs (plain); Call, LinkedIn or Meeting in Log call / Log LinkedIn / Log meeting; the extension's chips leave out Email | `ApiValueEnum`, plain when absent: 400 "That is not a valid note kind"; `email` on a new note, or onto a note that was not one, 400 on `kind` | toast |
+| Log's when (call, LinkedIn, meeting) | date and time, now unless changed; never past today in the picker, and a time later than now flagged under When with Save held | `occurredAt` no later than now + 5 min, never on a plain note: 400 on `occurredAt` / `kind` | toast |
+| Log's title | optional, one line, ≤ 200 (line breaks become spaces) | `@Size(200)`, no line break: 400 on `title` | toast |
+| Log meeting's "Which meeting" | the person's Uncava meetings already begun — calendar meetings and calls known only from their recording — newest first, or Outside Uncava; a logged call (a phone call) is asked none | `meetingId` or `recordingId`, never both, on a meeting note only, this person's, already begun; a recording only on a note about its own position: 400 on `meetingId` | toast |
 | Note scope, a position's drawer | This position (default) or All positions, sent as `allPositions` | `allPositions: true` files it about no position; `projectId` not read; neither read on an edit; both together 400 | toast |
 | Note position, Candidates page | "About" select of the person's positions | `projectId` needs that position's `WORK_EXECUTE` (403) and a mapping there (404); with `allPositions: true` 400 | toast |
 | Another position's note, from a position | not listed | 404 on edit, pin, delete, restore and a task's `noteId` | toast |

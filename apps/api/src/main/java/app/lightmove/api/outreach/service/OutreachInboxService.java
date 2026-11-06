@@ -1,6 +1,7 @@
 package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
 import app.lightmove.api.outreach.constant.MessageDirection;
 import app.lightmove.api.outreach.constant.MessageKind;
@@ -87,12 +88,29 @@ public class OutreachInboxService {
     public void receive(String signature, byte[] body) {
         Instant now = clock.instant();
         for (MailboxEvent event : gateway.readWebhook(signature, body)) {
-            if (event instanceof InboundMessage inbound) {
-                mailboxes.findByGrantId(inbound.grantId()).forEach(mailbox -> received(mailbox, inbound, now));
-            } else {
-                transactions.executeWithoutResult(status -> apply(event, now));
+            // The delivery names a mailbox, and the mailbox its workspace: the people an event reaches are read there.
+            for (MailboxConnection mailbox : mailboxesOf(event)) {
+                WorkspaceScope.run(mailbox.getWorkspaceId(), () -> {
+                    if (event instanceof InboundMessage inbound) {
+                        received(mailbox, inbound, now);
+                    } else {
+                        transactions.executeWithoutResult(status -> mailboxes.findById(mailbox.getId())
+                                .ifPresent(held -> apply(held, event, now)));
+                    }
+                });
             }
         }
+    }
+
+    private List<MailboxConnection> mailboxesOf(MailboxEvent event) {
+        return switch (event) {
+            case InboundMessage inbound -> mailboxes.findByGrantId(inbound.grantId());
+            case DeliveryFailure failure -> mailboxes.findByGrantId(failure.grantId());
+            case MailboxAccessWithdrawn withdrawn -> mailboxes.findByGrantId(withdrawn.grantId());
+            case CalendarEventChanged changed -> mailboxes.findByGrantId(changed.grantId());
+            case CalendarEventRemoved removed -> mailboxes.findByGrantId(removed.grantId());
+            case BookingMade booking -> mailboxes.findByBookingConfigurationId(booking.configurationId());
+        };
     }
 
     /**
@@ -114,12 +132,12 @@ public class OutreachInboxService {
         Map<SenderKey, List<OutreachThread>> bySender = listening.values().stream()
                 .collect(Collectors.groupingBy(thread -> new SenderKey(thread.workspaceId(), thread.senderUserId()),
                         LinkedHashMap::new, Collectors.toList()));
-        bySender.forEach((sender, threads) -> mailboxes
+        bySender.forEach((sender, threads) -> WorkspaceScope.run(sender.workspaceId(), () -> mailboxes
                 .findByWorkspaceIdAndUserId(sender.workspaceId(), sender.userId())
                 .filter(MailboxConnection::canSend)
                 .ifPresent(mailbox -> threads.stream()
                         .filter(thread -> thread.isReadableBy(mailbox))
-                        .forEach(thread -> pollThread(mailbox, thread, now))));
+                        .forEach(thread -> pollThread(mailbox, thread, now)))));
     }
 
     private void pollThread(MailboxConnection mailbox, OutreachThread thread, Instant now) {
@@ -251,19 +269,14 @@ public class OutreachInboxService {
         return cause.contains("app_lm_outreach_message_inbound_uk");
     }
 
-    private void apply(MailboxEvent event, Instant now) {
+    private void apply(MailboxConnection mailbox, MailboxEvent event, Instant now) {
         switch (event) {
             case InboundMessage inbound -> throw new IllegalStateException("An inbound message is recorded on its own");
-            case DeliveryFailure failure -> mailboxes.findByGrantId(failure.grantId())
-                    .forEach(mailbox -> bouncedIn(mailbox, failure, now));
-            case MailboxAccessWithdrawn withdrawn -> mailboxes.findByGrantId(withdrawn.grantId())
-                    .forEach(MailboxConnection::markAccessWithdrawn);
-            case CalendarEventChanged changed -> mailboxes.findByGrantId(changed.grantId())
-                    .forEach(mailbox -> meetings.apply(mailbox, changed.event()));
-            case CalendarEventRemoved removed -> mailboxes.findByGrantId(removed.grantId())
-                    .forEach(mailbox -> meetings.remove(mailbox, removed.eventId()));
-            case BookingMade booking -> mailboxes.findByBookingConfigurationId(booking.configurationId())
-                    .forEach(mailbox -> linkBookings.apply(mailbox, booking, now));
+            case DeliveryFailure failure -> bouncedIn(mailbox, failure, now);
+            case MailboxAccessWithdrawn withdrawn -> mailbox.markAccessWithdrawn();
+            case CalendarEventChanged changed -> meetings.apply(mailbox, changed.event());
+            case CalendarEventRemoved removed -> meetings.remove(mailbox, removed.eventId());
+            case BookingMade booking -> linkBookings.apply(mailbox, booking, now);
         }
     }
 

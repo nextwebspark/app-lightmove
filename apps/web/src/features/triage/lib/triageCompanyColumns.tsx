@@ -28,8 +28,8 @@ import { StatusPicker } from "../../candidates/components/StatusPicker";
 import { statusStyle } from "../../candidates/lib/pipelineStatus";
 import type { CustomColumn, CustomColumnType } from "../../customcolumns/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
-import { SHORTLIST_AND_DECLINE_OFFERED } from "./triageStages";
-import { candidateMoveTooltip, offeredMoves, removeTooltip, SOURCE_STYLES } from "./triageVocabulary";
+import { SHORTLIST_OFFERED } from "./triageStages";
+import { lineMoves, removeTooltip, SOURCE_STYLES } from "./triageVocabulary";
 import type { TriageCompanyRow } from "./triageRows";
 
 /**
@@ -77,6 +77,8 @@ interface TriageTableMeta {
   busyIds: ReadonlySet<string>;
   /** False for a client representative, who reads these grids but moves nothing. */
   canWrite: boolean;
+  /** Declined: a list of what was ruled out, whose only act is Back to universe — nobody added, removed or worked. */
+  stageReadOnly: boolean;
 }
 
 /**
@@ -161,7 +163,7 @@ const BUILT_IN_COLUMNS = helper.columns([
     header: "Actions",
     enableSorting: false,
     enableHiding: false,
-    meta: { share: 0, min: SHORTLIST_AND_DECLINE_OFFERED ? 134 : 80 },
+    meta: { share: 0, min: SHORTLIST_OFFERED ? 134 : 80 },
     cell: (info) => {
       const row = info.row.original;
       const meta = info.table.options.meta;
@@ -170,37 +172,46 @@ const BUILT_IN_COLUMNS = helper.columns([
       }
       // A line with a person on it acts on that person alone (#903): moving or removing Khaled at Alshaya
       // leaves his colleagues where they stand. The company's own moves and removal are its drawer's, and
-      // the line of a company with nobody listed on this stage.
+      // the line of a company with nobody listed on this stage — except on Declined, where a company was
+      // ruled out whole and Back to universe on any of its lines brings the company and everyone back.
       if (row.candidate) {
-        const { candidate } = row;
-        const candidateBusy = meta.busyIds.has(candidate.id);
-        const moves = offeredMoves(candidate.triageStatus ?? row.company?.status ?? "inUniverse");
+        const { candidate, company } = row;
+        const candidateBusy = meta.busyIds.has(candidate.id) || (!!company && meta.busyIds.has(company.id));
+        const lineStage = candidate.triageStatus ?? company?.status ?? "inUniverse";
+        const moves = lineMoves(lineStage);
+        const movesCompany = lineStage === "declined" && company?.status === "declined";
         return (
           <span className="flex justify-start gap-1.5">
             {moves.map((move) => (
               <button
                 key={move.status}
                 type="button"
-                title={candidateMoveTooltip(move)}
-                aria-label={`${move.label}: ${candidate.fullName}`}
+                title={movesCompany ? `${move.label}: ${company.companyName} and everyone at it` : move.label}
+                aria-label={`${move.label}: ${movesCompany ? company.companyName : candidate.fullName}`}
                 disabled={candidateBusy}
-                onClick={() => meta.onMoveCandidate(candidate, move.status)}
+                onClick={() =>
+                  movesCompany ? meta.onMove(company, move.status) : meta.onMoveCandidate(candidate, move.status)
+                }
                 className={`${GRID_ICON_BUTTON} disabled:opacity-40`}
               >
                 <Icon d={move.icon} size={14} />
               </button>
             ))}
-            {moves.length > 0 && <span aria-hidden className="mx-0.5 w-px self-stretch bg-u-border" />}
-            <button
-              type="button"
-              title={removeTooltip(candidate.fullName)}
-              aria-label={`Remove ${candidate.fullName} from this mandate`}
-              disabled={candidateBusy}
-              onClick={() => meta.onRemoveCandidate(candidate)}
-              className={cn(GRID_ICON_BUTTON, "hover:text-u-offlimits disabled:opacity-40")}
-            >
-              <Icon d={ICONS.trash} size={14} />
-            </button>
+            {meta.stageReadOnly ? null : (
+              <>
+                {moves.length > 0 && <span aria-hidden className="mx-0.5 w-px self-stretch bg-u-border" />}
+                <button
+                  type="button"
+                  title={removeTooltip(candidate.fullName)}
+                  aria-label={`Remove ${candidate.fullName} from this mandate`}
+                  disabled={candidateBusy}
+                  onClick={() => meta.onRemoveCandidate(candidate)}
+                  className={cn(GRID_ICON_BUTTON, "hover:text-u-offlimits disabled:opacity-40")}
+                >
+                  <Icon d={ICONS.trash} size={14} />
+                </button>
+              </>
+            )}
           </span>
         );
       }
@@ -208,7 +219,7 @@ const BUILT_IN_COLUMNS = helper.columns([
       const { company } = row;
       if (!company) return null;
       const busy = meta.busyIds.has(company.id);
-      const moves = offeredMoves(company.status);
+      const moves = lineMoves(company.status);
       return (
         <span className="flex justify-start gap-1.5">
           {moves.map((move) => (
@@ -224,17 +235,21 @@ const BUILT_IN_COLUMNS = helper.columns([
               <Icon d={move.icon} size={14} />
             </button>
           ))}
-          {moves.length > 0 && <span aria-hidden className="mx-0.5 w-px self-stretch bg-u-border" />}
-          <button
-            type="button"
-            title={removeTooltip(company.companyName)}
-            aria-label={`Remove ${company.companyName} from this mandate`}
-            disabled={busy}
-            onClick={() => meta.onDelete(company)}
-            className={cn(GRID_ICON_BUTTON, "hover:text-u-offlimits disabled:opacity-40")}
-          >
-            <Icon d={ICONS.trash} size={14} />
-          </button>
+          {meta.stageReadOnly ? null : (
+            <>
+              {moves.length > 0 && <span aria-hidden className="mx-0.5 w-px self-stretch bg-u-border" />}
+              <button
+                type="button"
+                title={removeTooltip(company.companyName)}
+                aria-label={`Remove ${company.companyName} from this mandate`}
+                disabled={busy}
+                onClick={() => meta.onDelete(company)}
+                className={cn(GRID_ICON_BUTTON, "hover:text-u-offlimits disabled:opacity-40")}
+              >
+                <Icon d={ICONS.trash} size={14} />
+              </button>
+            </>
+          )}
         </span>
       );
     },
@@ -301,7 +316,7 @@ const BUILT_IN_COLUMNS = helper.columns([
       }
       // A company with nobody mapped is the most useful thing this grid shows, so the empty cell is
       // the invitation rather than a dash.
-      if (company && meta?.canWrite) {
+      if (company && meta?.canWrite && !meta.stageReadOnly) {
         // Flagged: the mandate already looked and found nobody. Still opens the same form — one
         // action per cell — so the flag has nothing separate to unset; it clears itself the moment
         // an executive is actually saved against this company.
@@ -367,7 +382,7 @@ const BUILT_IN_COLUMNS = helper.columns([
       const meta = info.table.options.meta;
       if (!candidate) return <DataGridCell value={null} />;
 
-      if (meta?.canWrite) {
+      if (meta?.canWrite && !meta.stageReadOnly) {
         const busy = meta.busyIds.has(candidate.id);
         return (
           <StatusPicker

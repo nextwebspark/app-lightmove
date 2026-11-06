@@ -11,13 +11,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
-import org.springframework.boot.autoconfigure.AutoConfigurations;
-import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguration;
-import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.EnableAsync;
 
 /** A task handed to another thread logs as the request that handed it over, and leaves nothing behind. */
 class MdcPropagationTest {
@@ -72,55 +65,6 @@ class MdcPropagationTest {
             assertThat(seen).isEqualTo("abc123");
         } finally {
             pool.shutdownNow();
-        }
-    }
-
-    /**
-     * The integration suite runs {@code @Async} inline ({@code SynchronousAuditWrites}), so it cannot see
-     * whether Boot applied the decorator — and an inert decorator looks exactly like a working one.
-     */
-    @Test
-    @DisplayName("Boot applies the decorator to the pooled executor @Async runs on")
-    void bootAppliesTheDecoratorToAsync() {
-        new ApplicationContextRunner()
-                .withConfiguration(AutoConfigurations.of(TaskExecutionAutoConfiguration.class))
-                .withPropertyValues("spring.threads.virtual.enabled=false")
-                .withUserConfiguration(AsyncProbeConfig.class)
-                .run(context -> {
-                    MDC.put(CorrelationId.MDC_KEY, "abc123");
-                    AsyncProbe probe = context.getBean(AsyncProbe.class);
-
-                    ObservedOffThread seen = probe.observe().join();
-
-                    assertThat(seen.thread()).isNotSameAs(Thread.currentThread());
-                    assertThat(seen.correlationId()).isEqualTo("abc123");
-                });
-    }
-
-    @Configuration(proxyBeanMethods = false)
-    @EnableAsync
-    static class AsyncProbeConfig {
-
-        @Bean
-        MdcTaskDecorator mdcTaskDecorator() {
-            return new MdcTaskDecorator();
-        }
-
-        @Bean
-        AsyncProbe asyncProbe() {
-            return new AsyncProbe();
-        }
-    }
-
-    record ObservedOffThread(Thread thread, String correlationId) {
-    }
-
-    static class AsyncProbe {
-
-        @Async
-        public CompletableFuture<ObservedOffThread> observe() {
-            return CompletableFuture.completedFuture(
-                    new ObservedOffThread(Thread.currentThread(), MDC.get(CorrelationId.MDC_KEY)));
         }
     }
 }

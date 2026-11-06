@@ -444,8 +444,8 @@ describe("TeamAccessPage", () => {
       apolloAccountId: null,
       persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
       representatives: [
-        { id: "r1", fullName: "Seated Rep", position: "Chair", email: "seated@beta-client.example", status: "ACTIVE" },
-        { id: "r3", fullName: "Fresh Rep", position: null, email: "fresh@beta-client.example", status: "INVITED" },
+        { id: "r1", fullName: "Seated Rep", position: "Chair", email: "seated@beta-client.example", status: "ACTIVE", invitationExpired: false, emailFailed: false },
+        { id: "r3", fullName: "Fresh Rep", position: null, email: "fresh@beta-client.example", status: "INVITED", invitationExpired: false, emailFailed: false },
       ],
       mandates: [],
     });

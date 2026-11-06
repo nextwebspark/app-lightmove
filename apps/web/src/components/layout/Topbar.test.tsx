@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { ApiRequestError } from "../../lib/apiClient";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../../features/auth/AuthProvider";
 import * as authApi from "../../features/auth/api/authApi";
@@ -92,7 +93,7 @@ describe("Topbar — workspace menu", () => {
     vi.mocked(authApi.me).mockResolvedValue(
       aUser({
         workspace: home,
-        pendingInvitations: [{ id: "inv-1", workspaceName: "Northgate Search", role: "MEMBER", inviterName: "Omar" }],
+        pendingInvitations: [{ id: "inv-1", workspaceId: "ws-northgate", workspaceName: "Northgate Search", role: "MEMBER", inviterName: "Omar" }],
       }),
     );
     const joined = aWorkspace({ id: "w3", name: "Northgate Search", roles: ["MEMBER"] });
@@ -111,6 +112,40 @@ describe("Topbar — workspace menu", () => {
 
     await waitFor(() => expect(authApi.acceptInvitationById).toHaveBeenCalledWith("inv-1"));
     await waitFor(() => expect(switchWorkspaceSession).toHaveBeenCalledWith("w3"));
+  });
+
+  it("reads an invitation to the open workspace as a role here, not an invitation to it", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(
+      aUser({
+        workspace: { ...home, roles: ["CLIENT"] },
+        pendingInvitations: [{ id: "inv-2", workspaceId: home.id, workspaceName: home.name, role: "MEMBER", inviterName: "Omar" }],
+      }),
+    );
+    renderAt();
+
+    await userEvent.click(await screen.findByRole("button", { name: /^Workspace:/ }));
+
+    expect(screen.getByRole("menuitem", { name: /Invited as Member here/ })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: new RegExp(`Invited to ${home.name}`) })).not.toBeInTheDocument();
+  });
+
+  it("re-reads who is signed in when an invitation died before it was accepted", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(
+      aUser({
+        workspace: home,
+        pendingInvitations: [{ id: "inv-1", workspaceId: "ws-northgate", workspaceName: "Northgate Search", role: "MEMBER", inviterName: "Omar" }],
+      }),
+    );
+    vi.mocked(authApi.acceptInvitationById).mockRejectedValue(
+      new ApiRequestError({ code: "INVITATION_INVALID", detail: "gone", status: 400, correlationId: "x" }),
+    );
+    renderAt();
+    await userEvent.click(await screen.findByRole("button", { name: /^Workspace:/ }));
+    const readsBefore = vi.mocked(authApi.me).mock.calls.length;
+
+    await userEvent.click(screen.getByRole("menuitem", { name: /Invited to Northgate Search/ }));
+
+    await waitFor(() => expect(vi.mocked(authApi.me).mock.calls.length).toBeGreaterThan(readsBefore));
   });
 
   it("names the current workspace on its trigger, and follows a switch", async () => {
@@ -132,13 +167,13 @@ describe("Topbar — workspace menu", () => {
     vi.mocked(authApi.me).mockResolvedValue(
       aUser({
         workspace: home,
-        pendingInvitations: [{ id: "inv-1", workspaceName: "Northgate Search", role: "MEMBER", inviterName: "Omar" }],
+        pendingInvitations: [{ id: "inv-1", workspaceId: "ws-northgate", workspaceName: "Northgate Search", role: "MEMBER", inviterName: "Omar" }],
       }),
     );
     renderAt();
 
     expect(
-      await screen.findByRole("button", { name: `Workspace: ${home.name} · 1 invitation to another workspace` }),
+      await screen.findByRole("button", { name: `Workspace: ${home.name} · 1 invitation` }),
     ).toBeInTheDocument();
   });
 
