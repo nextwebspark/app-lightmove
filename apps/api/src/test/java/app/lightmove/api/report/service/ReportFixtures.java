@@ -40,7 +40,7 @@ final class ReportFixtures {
                 "identified", null, country, null, nationality, null, null, Set.of(), null, null,
                 List.of(), List.of(), List.of(), List.of(), "manual", null, Map.of(), addedAt, null, null, null,
                 false, "Identified", "neutral", false, IDENTIFIED, addedAt, true,
-                "inUniverse");
+                "inUniverse", null);
         return new ExecutiveRow(person, company);
     }
 

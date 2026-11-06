@@ -10,7 +10,9 @@ import app.lightmove.api.core.security.service.ClientIpResolver;
 import app.lightmove.api.core.security.token.Tokens;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Locale;
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 /**
@@ -93,6 +95,63 @@ public class RateLimitGuard {
     /** Booking through the public page, keyed like opening it: on the caller's IP and the link. */
     public void checkBookingPageBook(String slug, HttpServletRequest request) {
         checkRateLimit("booking-page-book", slug, request, config.bookingPageBookingsPerHour(), Duration.ofHours(1));
+    }
+
+    /** Keyed on the person, as an email keys the others: the request is signed in and carries none. */
+    public void checkAvatarChange(UUID userId, HttpServletRequest request) {
+        checkRateLimit("avatar-change", userId.toString(), request, config.avatarChangesPerHour(),
+                config.avatarChangesPerHourPerIp(), Duration.ofHours(1));
+    }
+
+    /**
+     * Invitation emails: per address, one from the workspace's budget and one from the recipient's, kept across
+     * every workspace. Checked before anything is issued, so a refused batch sends nobody.
+     */
+    public void checkInvitations(UUID workspaceId, Collection<String> recipients, HttpServletRequest request) {
+        if (!config.enabled() || recipients.isEmpty()) {
+            return;
+        }
+        Duration window = Duration.ofHours(1);
+        for (String recipient : recipients) {
+            if (!limiter.tryAcquire("invite:workspace:%s".formatted(workspaceId),
+                    config.invitationsPerHourPerWorkspace(), window)) {
+                refuseInvitations(workspaceId, "workspace", request);
+            }
+            String normalised = recipient.trim().toLowerCase(Locale.ROOT);
+            if (!limiter.tryAcquire("invite:recipient:%s".formatted(normalised),
+                    config.invitationsPerHourPerRecipient(), window)) {
+                refuseInvitations(workspaceId, "recipient", request);
+            }
+        }
+    }
+
+    private void refuseInvitations(UUID workspaceId, String exhausted, HttpServletRequest request) {
+        audit.event(SecurityEventType.RATE_LIMIT_EXCEEDED)
+                .failed()
+                .workspace(workspaceId)
+                .from(request)
+                .detail("action", "invitation")
+                .detail("exhausted", exhausted)
+                .record();
+        throw ApiException.of(ErrorCode.RATE_LIMITED);
+    }
+
+    /** The address alone: the token is what a scan varies, so a budget on it would brake nobody. */
+    public void checkAvatarRead(HttpServletRequest request) {
+        if (!config.enabled()) {
+            return;
+        }
+        if (limiter.tryAcquire("avatar-read:ip:%s".formatted(clientIp(request)), config.avatarReadsPerMinute(),
+                Duration.ofMinutes(1))) {
+            return;
+        }
+        audit.event(SecurityEventType.RATE_LIMIT_EXCEEDED)
+                .failed()
+                .from(request)
+                .detail("action", "avatar-read")
+                .detail("exhausted", "ip")
+                .record();
+        throw ApiException.of(ErrorCode.RATE_LIMITED);
     }
 
     private void checkRateLimit(String action, String email, HttpServletRequest request, int limit, Duration window) {

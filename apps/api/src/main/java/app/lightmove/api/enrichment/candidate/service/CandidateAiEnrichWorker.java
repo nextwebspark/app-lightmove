@@ -9,7 +9,7 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.EnrichmentSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.logging.service.MdcPropagation;
+import app.lightmove.api.core.concurrent.service.ThreadContextPropagation;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import java.util.Queue;
@@ -67,7 +67,7 @@ class CandidateAiEnrichWorker {
         if (!settings.aiEnrichOnCapture()) {
             return;
         }
-        waiting.add(MdcPropagation.wrap(() -> runOne(request)));
+        waiting.add(ThreadContextPropagation.wrap(() -> runOne(request)));
         drain();
     }
 

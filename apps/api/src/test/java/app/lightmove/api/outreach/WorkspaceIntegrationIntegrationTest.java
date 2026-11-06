@@ -9,10 +9,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.RecordingProviderTokenClient;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.core.crypto.service.SecretCipher;
 import app.lightmove.api.outreach.constant.CredentialMode;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
@@ -47,14 +49,21 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
     private static final String GOOGLE_APP = "acme-app.apps.googleusercontent.com";
     private static final DateTimeFormatter EMAIL_DATE = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH);
 
-    @Autowired JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc JdbcTemplate jdbc;
     @Autowired SecretCipher cipher;
-    @Autowired ProviderCredentialsResolver resolver;
+    /** Called directly, so each in the workspace it names, as the gateway and the refresh calling them are. */
+    ProviderCredentialsResolver resolver;
     @Autowired IntegrationSecretExpiryWarnings expiryWarnings;
     @Autowired RecordingEmailSender emails;
     @Autowired WorkspaceMailIntegrationRepository integrations;
     @Autowired RecordingProviderTokenClient tokenEndpoints;
-    @Autowired OwnAppKeyHealth keyHealth;
+    OwnAppKeyHealth keyHealth;
+
+    @Autowired
+    void scopeTheResolvers(ProviderCredentialsResolver credentials, OwnAppKeyHealth health) {
+        resolver = TestWorkspaceScopes.scopedByArguments(credentials);
+        keyHealth = TestWorkspaceScopes.scopedByArguments(health);
+    }
 
     @Test
     @DisplayName("every provider starts on the shared app, offered where this deployment has one")

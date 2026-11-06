@@ -4,6 +4,7 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.mcp.model.McpCallOrigin;
 import app.lightmove.api.mcp.model.McpCaller;
 import app.lightmove.api.mcp.model.McpToolRefusal;
@@ -45,7 +46,8 @@ public class McpToolCalls {
         McpCaller caller = callerOf(context);
         Instant started = clock.instant();
         try {
-            T result = body.apply(caller);
+            // The caller's workspace by name: a tool may run off the request's thread, where no principal is.
+            T result = WorkspaceScope.call(caller.workspaceId(), () -> body.apply(caller));
             record(context, caller, tool, projectId, started).detail("rows", rowsOf.applyAsInt(result)).record();
             return result;
         } catch (RuntimeException failed) {

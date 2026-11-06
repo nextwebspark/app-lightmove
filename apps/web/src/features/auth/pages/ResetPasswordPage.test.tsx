@@ -43,6 +43,7 @@ describe("ResetPasswordPage", () => {
       fullName: "Alok Kumar",
       title: null,
       avatarUrl: null,
+      avatarEditable: true,
       emailVerified: true,
       hasPassword: true,
       timezone: "Asia/Dubai",

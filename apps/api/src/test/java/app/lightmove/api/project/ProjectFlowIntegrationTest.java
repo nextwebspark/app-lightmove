@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.core.email.model.EmailMessage;
@@ -28,7 +29,7 @@ import tools.jackson.databind.JsonNode;
 @IntegrationTest
 class ProjectFlowIntegrationTest extends FlowTestSupport {
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     @Test
     @DisplayName("a client is created inline once — the same name again is a 409, whatever its case")
@@ -365,8 +366,8 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a search stores its timeline and defaults its mapping target to 60% of the window")
-    void searchCarriesTimelineAndDefaultMappingTarget() throws Exception {
+    @DisplayName("a search stores its timeline and leaves a mapping target nobody entered blank")
+    void searchCarriesTimelineWithoutDefaultingMappingTarget() throws Exception {
         String admin = adminOf("Timeline Firm");
         String clientId = createClient(admin, "Engineering");
         LocalDate start = LocalDate.now();
@@ -382,7 +383,7 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.projectType").value("SEARCH"))
                 .andExpect(jsonPath("$.startDate").value(start.toString()))
                 .andExpect(jsonPath("$.deliveryDate").value(start.plusDays(50).toString()))
-                .andExpect(jsonPath("$.mappingTargetDate").value(start.plusDays(30).toString()))
+                .andExpect(jsonPath("$.mappingTargetDate").doesNotExist())
                 .andExpect(jsonPath("$.targetDate").doesNotExist());
     }
 

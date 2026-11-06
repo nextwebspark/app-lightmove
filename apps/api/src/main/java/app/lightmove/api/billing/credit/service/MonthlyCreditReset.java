@@ -9,6 +9,7 @@ import app.lightmove.api.billing.plan.model.WorkspaceSubscription;
 import app.lightmove.api.billing.plan.repository.BillingPlanRepository;
 import app.lightmove.api.billing.plan.repository.WorkspaceSubscriptionRepository;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.tenant.EveryWorkspace;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -40,6 +41,7 @@ public class MonthlyCreditReset {
     private final BillingPlanRepository plans;
     private final CreditLedger ledger;
     private final LightMoveProperties properties;
+    private final EveryWorkspace workspaces;
     private final Clock clock;
 
     /** To the second: the period start Stripe sends has no finer part, and Postgres keeps only microseconds. */
@@ -53,7 +55,16 @@ public class MonthlyCreditReset {
     }
 
     /** Pages past a workspace that fails, so one broken subscription never holds back the ones after it. */
+    /** A workspace at a time: the subscriptions and the ledger are under row-level security. */
     public int resetAt(Instant now) {
+        int granted = workspaces.sum(scoped -> grantDueIn(now));
+        if (granted > 0) {
+            log.info("Granted the month's contact credits to {} workspaces", granted);
+        }
+        return granted;
+    }
+
+    private int grantDueIn(Instant now) {
         int granted = 0;
         UUID after = FIRST;
         List<UUID> due;
@@ -69,9 +80,6 @@ public class MonthlyCreditReset {
                 after = workspaceId;
             }
         } while (due.size() == WORKSPACES_PER_PAGE);
-        if (granted > 0) {
-            log.info("Granted the month's contact credits to {} workspaces", granted);
-        }
         return granted;
     }
 

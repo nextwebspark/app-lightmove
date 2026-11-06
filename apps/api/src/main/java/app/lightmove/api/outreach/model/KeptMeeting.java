@@ -7,10 +7,10 @@ import java.util.UUID;
 
 /**
  * A meeting with a person as another feature reads it: the call, the link to join it, whose calendar holds this copy
- * of it and who booked it in Uncava, if anyone did.
+ * of it, who booked it in Uncava, if anyone did, and when the row was first kept.
  */
 public record KeptMeeting(UUID id, UUID personId, String title, Instant startsAt, Instant endsAt, String joinUrl,
-                          UUID holderUserId, UUID bookedByUserId) {
+                          UUID holderUserId, UUID bookedByUserId, Instant keptSince) {
 
     /** Every teammate's calendar keeps its own copy of a call; this is how {@code MeetingService} tells them apart. */
     public boolean isSameCallAs(KeptMeeting other) {

@@ -46,7 +46,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * the sequence's window (unless the consultant pinned the first one's time) and the sender's daily cap,
  * sends it, and records it. Three short transactions with the mail
  * service called between them, never inside one — and never twice: a send that failed, or whose outcome
- * is unknown, stops the run rather than trying again.
+ * is unknown, stops the run rather than trying again. Each pass is in one workspace's scope, which the
+ * dispatcher's walk opens: the runs, and the people and positions a send reads, are under row-level security.
  */
 @Service
 @RequiredArgsConstructor

@@ -16,7 +16,7 @@ type PersonAction = "note" | "call" | "status";
 
 const PERSON_ACTION_TITLES: Record<PersonAction, string> = {
   note: "Write a note about…",
-  call: "Book a call with…",
+  call: "Book a meeting with…",
   status: "Change the status of…",
 };
 
@@ -104,7 +104,7 @@ export function PositionQuickActions({
           />
           <BottomSheetAction
             icon={<Icon d={ICONS.calendar} size={18} />}
-            label="Book a call"
+            label="Book a meeting"
             hint="Pick a time on your calendar"
             onClick={() => setPicking("call")}
           />

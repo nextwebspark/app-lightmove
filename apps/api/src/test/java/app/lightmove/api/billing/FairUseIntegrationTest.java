@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.model.MeteredUse;
 import app.lightmove.api.billing.usage.model.MonthlyUsage;
@@ -30,9 +31,16 @@ import org.springframework.test.context.TestPropertySource;
         "lightmove.billing.fair-use.assistant-ask-per-seat=0"})
 class FairUseIntegrationTest extends BillingFlowSupport {
 
-    @Autowired private FairUseGuard fairUse;
-    @Autowired private UsageRecorder usage;
-    @Autowired private UsageReport report;
+    private FairUseGuard fairUse;
+    private UsageRecorder usage;
+    private UsageReport report;
+
+    @Autowired
+    void scopeTheMeters(FairUseGuard guard, UsageRecorder recorder, UsageReport usageReport) {
+        fairUse = TestWorkspaceScopes.scopedByArguments(guard);
+        usage = TestWorkspaceScopes.scopedByArguments(recorder);
+        report = TestWorkspaceScopes.scopedByArguments(usageReport);
+    }
 
     @Test
     @DisplayName("uses up to the ceiling pass, and the one past it is refused with its kind and when the month resets")

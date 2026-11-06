@@ -39,13 +39,14 @@ import java.lang.annotation.Target;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @ImportTestcontainers(TestcontainersConfig.class)
-@Import({SynchronousAuditWrites.class, StubChatModel.Config.class, StubEmbeddingModel.Config.class,
+@Import({SynchronousAuditWrites.class, FixtureJdbc.Config.class, StubChatModel.Config.class, StubEmbeddingModel.Config.class,
         RecordingEmailSender.Config.class, RecordingProfileEnricher.Config.class,
         RecordingCompanyEnricher.Config.class, StubGeocoder.Config.class,
         RecordingContactFinder.Config.class, RecordingPeopleSearch.Config.class,
         RecordingContactOutPeopleIndex.Config.class, RecordingMailboxGateway.Config.class,
         RecordingRecallCalendarApi.Config.class, RecordingRecallBotApi.Config.class, RecordingZoomApi.Config.class,
         RecordingProviderTokenClient.Config.class, StubClientMetadataFetcher.Config.class,
-        RecordingCreditThresholds.Config.class, RecordingPaymentGateway.Config.class})
+        RecordingCreditThresholds.Config.class, RecordingPaymentGateway.Config.class,
+        StubPictureFetcher.Config.class})
 public @interface IntegrationTest {
 }

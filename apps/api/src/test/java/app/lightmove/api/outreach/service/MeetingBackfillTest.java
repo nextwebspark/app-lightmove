@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import app.lightmove.api.core.tenant.EveryWorkspace;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.GrantedMailbox;
@@ -37,7 +38,7 @@ class MeetingBackfillTest {
     private final MailboxConnectionRepository mailboxes = mock(MailboxConnectionRepository.class);
     private final MeetingSync meetings = mock(MeetingSync.class);
     private final MeetingBackfill backfill = new MeetingBackfill(gateway, mailboxes, meetings,
-            mock(PlatformTransactionManager.class), Clock.fixed(NOW, ZoneOffset.UTC));
+            mock(EveryWorkspace.class), mock(PlatformTransactionManager.class), Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
     @DisplayName("a quarter of an hour after the first failure, doubling each time, never more than a day")
@@ -60,6 +61,7 @@ class MeetingBackfillTest {
         when(mailboxes.findByWorkspaceIdAndGateway(WORKSPACE, MailboxGatewayKind.DIRECT))
                 .thenReturn(List.of(stale, pushedByRecall, fresh, neverRead));
         when(mailboxes.findById(stale.getId())).thenReturn(Optional.of(stale));
+        when(mailboxes.claimCalendarRefresh(stale.getId(), NOW, NOW.minus(MeetingBackfill.FRESH_FOR))).thenReturn(1);
         List<CalendarEvent> found = List.of(new CalendarEvent("evt-1", "Call", NOW.plus(Duration.ofDays(1)),
                 NOW.plus(Duration.ofDays(1)).plus(Duration.ofMinutes(30)), List.of("priya@client.example"), null,
                 null));
@@ -74,21 +76,51 @@ class MeetingBackfillTest {
         verify(gateway, never()).calendarEvents(eq(fresh.getGrantId()), any(), any());
         verify(gateway, never()).calendarEvents(eq(neverRead.getGrantId()), any(), any());
         verify(meetings).replaceWindow(stale, from, to, found);
-        assertThat(stale.getCalendarSyncedAt()).isEqualTo(NOW);
     }
 
     @Test
-    @DisplayName("a read that fails leaves the meetings and the last read as they were")
+    @DisplayName("two openings at once read a calendar once: the one that did not claim it reads nothing")
+    void anOpeningThatLosesTheClaimReadsNothing() {
+        MailboxConnection stale = direct(NOW.minus(Duration.ofMinutes(10)));
+        when(mailboxes.findByWorkspaceIdAndGateway(WORKSPACE, MailboxGatewayKind.DIRECT)).thenReturn(List.of(stale));
+        when(mailboxes.claimCalendarRefresh(any(), any(), any())).thenReturn(0);
+
+        backfill.refreshUnpushed(WORKSPACE);
+
+        verify(gateway, never()).calendarEvents(anyString(), any(), any());
+        verify(meetings, never()).replaceWindow(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("a read that fails leaves the meetings as they were and gives the last read back")
     void aFailedReadChangesNothing() {
         Instant lastRead = NOW.minus(Duration.ofMinutes(10));
         MailboxConnection stale = direct(lastRead);
         when(mailboxes.findByWorkspaceIdAndGateway(WORKSPACE, MailboxGatewayKind.DIRECT)).thenReturn(List.of(stale));
+        when(mailboxes.claimCalendarRefresh(any(), any(), any())).thenReturn(1);
         when(gateway.calendarEvents(anyString(), any(), any())).thenThrow(new IllegalStateException("unreadable"));
 
         backfill.refreshUnpushed(WORKSPACE);
 
         verify(meetings, never()).replaceWindow(any(), any(), any(), any());
-        assertThat(stale.getCalendarSyncedAt()).isEqualTo(lastRead);
+        verify(mailboxes).releaseCalendarRefresh(stale.getId(), NOW, lastRead);
+    }
+
+    @Test
+    @DisplayName("one calendar failing to save leaves the workspace's other calendars read")
+    void oneFailingCalendarSkipsNoOther() {
+        MailboxConnection first = direct(NOW.minus(Duration.ofMinutes(10)));
+        MailboxConnection second = direct(NOW.minus(Duration.ofMinutes(10)));
+        when(mailboxes.findByWorkspaceIdAndGateway(WORKSPACE, MailboxGatewayKind.DIRECT))
+                .thenReturn(List.of(first, second));
+        when(mailboxes.claimCalendarRefresh(any(), any(), any())).thenReturn(1);
+        when(mailboxes.findById(first.getId())).thenThrow(new IllegalStateException("row changed underneath"));
+        when(mailboxes.findById(second.getId())).thenReturn(Optional.of(second));
+        when(gateway.calendarEvents(anyString(), any(), any())).thenReturn(List.of());
+
+        backfill.refreshUnpushed(WORKSPACE);
+
+        verify(meetings).replaceWindow(eq(second), any(), any(), eq(List.of()));
     }
 
     private static MailboxConnection direct(Instant calendarSyncedAt) {

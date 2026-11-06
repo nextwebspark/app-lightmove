@@ -106,6 +106,13 @@ public class CandidateOutreachService {
         return candidates.findByIdAndProjectId(candidateId, projectId).map(CandidateOutreachService::recipientOf);
     }
 
+    /** {@link #currentRecipient} found by the person: a mapping removed and made again has a new id, the person not. */
+    @Transactional(readOnly = true)
+    public Optional<OutreachRecipient> currentRecipientOfPerson(UUID workspaceId, UUID projectId, UUID personId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return candidates.findByProjectIdAndPersonId(projectId, personId).map(CandidateOutreachService::recipientOf);
+    }
+
     /** A version of the executive's own document, for an email to them to carry. Empty if it is not theirs. */
     @Transactional(readOnly = true)
     public Optional<AttachableDocument> attachableDocumentOf(UUID workspaceId, UUID projectId, UUID candidateId,

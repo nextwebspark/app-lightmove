@@ -2,6 +2,7 @@ package app.lightmove.api.mcp;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import io.modelcontextprotocol.json.schema.jackson3.DefaultJsonSchemaValidator;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;
@@ -25,7 +26,7 @@ import tools.jackson.databind.JsonNode;
 @IntegrationTest
 class McpToolsIntegrationTest extends McpFlowSupport {
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     @Test
     @DisplayName("positions: an OAuth user reads those they are seated on, a workspace key every one, another workspace none")

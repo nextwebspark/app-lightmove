@@ -17,6 +17,7 @@ import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.service.UserTimezones;
 import app.lightmove.api.core.security.token.Tokens;
+import app.lightmove.api.core.tenant.EveryWorkspace;
 import app.lightmove.api.notetaker.constant.CallSuggestionStatus;
 import app.lightmove.api.notetaker.constant.NotetakerJoin;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
@@ -95,6 +96,7 @@ public class NotetakerService {
     private final UserRepository users;
     private final UserTimezones timezones;
     private final AuditService audit;
+    private final EveryWorkspace workspaces;
     private final TransactionTemplate transactions;
     private final ApplicationEventPublisher events;
     private final Clock clock;
@@ -230,11 +232,16 @@ public class NotetakerService {
     }
 
     /**
-     * A bot waits for its call by the time it was sent for. Once that call has moved, or gone from every calendar, the
-     * bot would walk into the room at the old time — on a reused link, into somebody else's call — so it is called back,
-     * and the consultant switches Join at start on again for the new time.
+     * A bot waits for its call by the time it was sent for. Once that call has moved, taken another link, or gone
+     * from every calendar, the bot would walk into the room at the old time — on a reused link, into somebody else's
+     * call — so it is called back, and the consultant switches Join at start on again for the new time. A workspace at
+     * a time: read with no workspace, every calendar would look empty and every waiting bot would be called back.
      */
     public int callBackMovedCalls(Instant now) {
+        return workspaces.sum(workspaceId -> callBackMovedCallsInScope(now));
+    }
+
+    private int callBackMovedCallsInScope(Instant now) {
         List<MeetingRecording> waiting = transactions.execute(status ->
                 recordings.findByStatusAndJoinAtAfter(NotetakerStatus.SCHEDULED, now));
         int calledBack = 0;
@@ -257,7 +264,8 @@ public class NotetakerService {
                         callOff(held);
                         audit.event(ProjectEventType.NOTETAKER_CANCELLED).actor(held.getRequestedBy())
                                 .workspace(held.getWorkspaceId()).target(AuditService.PROJECT_TARGET, held.getProjectId())
-                                .detail("candidateId", String.valueOf(held.getCandidateId()))
+                                .detailIfPresent("candidateId",
+                                        held.getCandidateId() == null ? null : held.getCandidateId().toString())
                                 .detail("recordingId", held.getId().toString())
                                 .detail("reason", "CALL_MOVED")
                                 .record();
@@ -271,10 +279,18 @@ public class NotetakerService {
         return calledBack;
     }
 
+    /**
+     * A call at the same time with no link yet, kept since the bot was sent, is taken for this one: a calendar that
+     * replaces an event writes the new row before its link. A linkless row older than the bot is another meeting.
+     */
     private boolean isStillOnACalendar(MeetingRecording scheduled) {
         return meetings.ofPerson(scheduled.getWorkspaceId(), scheduled.getPersonId()).stream()
-                .anyMatch(call -> call.startsAt().equals(scheduled.getStartsAt())
-                        && scheduled.getJoinUrl().equals(joinableOrNull(call.joinUrl())));
+                .filter(call -> call.startsAt().equals(scheduled.getStartsAt()))
+                .anyMatch(call -> {
+                    String link = joinableOrNull(call.joinUrl());
+                    return link == null ? call.keptSince().isAfter(scheduled.getCreatedAt())
+                            : scheduled.getJoinUrl().equals(link);
+                });
     }
 
     private void callOff(MeetingRecording held) {
@@ -630,7 +646,7 @@ public class NotetakerService {
     static NotetakerRecordingResponse responseOf(MeetingRecording recording, UUID userId, Instant now) {
         boolean heldRecording = recording.isRecordingKept(now);
         return new NotetakerRecordingResponse(recording.getId(), recording.getMeetingId(), recording.getStartsAt(),
-                recording.getTitle(), recording.getStatus(), recording.getFailureReason(),
+                recording.getEndsAt(), recording.getTitle(), recording.getStatus(), recording.getFailureReason(),
                 recording.getTranscript() != null, recording.isRetryable(), recording.getNoteId(),
                 recording.getSuggestions() != null, recording.suggestionsWith(CallSuggestionStatus.PENDING),
                 recording.suggestionsWith(CallSuggestionStatus.APPLIED),

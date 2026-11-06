@@ -67,7 +67,7 @@ export const INTEGRATION_PROVIDERS: Record<IntegrationProvider, IntegrationProvi
   ZOOM: {
     title: "Zoom",
     short: "Zoom",
-    covers: "Zoom links in Book a call.",
+    covers: "Zoom links in Book a meeting.",
     console: "the Zoom App Marketplace",
     registerHint:
       "Develop → Build App → General app, user-managed. The keys are under Basic Information → App Credentials.",

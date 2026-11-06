@@ -18,25 +18,17 @@ public interface MailboxConnectionRepository extends JpaRepository<MailboxConnec
 
     Optional<MailboxConnection> findByWorkspaceIdAndUserId(UUID workspaceId, UUID userId);
 
-    /** One person's mailboxes in every workspace they belong to; only their own profile's clock reads across them. */
+    /** One person's mailbox in the workspace in scope; their profile's clock reaches each workspace's in its own. */
     List<MailboxConnection> findByUserId(UUID userId);
 
     /**
-     * The one finder without a workspace: a mail service's webhook names a grant and nothing else, and
-     * a grant is only ever handed to the person who connected it. A list, because one mailbox connected
-     * in two workspaces can come back as one grant.
+     * A grant's mailbox in the workspace in scope: a mail service's webhook names a grant and nothing else, so its
+     * workspace is resolved first ({@code TenantResolvers}). A list, because one mailbox connected in two workspaces
+     * can come back as one grant.
      */
     List<MailboxConnection> findByGrantId(String grantId);
 
     boolean existsByGrantIdAndStatus(String grantId, MailboxStatus status);
-
-    /** A public booking page's read: the slug is the link's whole identity, so this finder carries no workspace. */
-    Optional<MailboxConnection> findByBookingSlug(String bookingSlug);
-
-    boolean existsByBookingSlug(String bookingSlug);
-
-    /** A booking webhook names the page and nothing else. A list, like {@link #findByGrantId}. */
-    List<MailboxConnection> findByBookingConfigurationId(String bookingConfigurationId);
 
     /**
      * Calendars still owed their first read and due to be tried, oldest connection first. A system job's
@@ -48,6 +40,28 @@ public interface MailboxConnectionRepository extends JpaRepository<MailboxConnec
     List<MailboxConnection> findCalendarsOwed(MailboxStatus status, int maxAttempts, Instant now, Pageable page);
 
     List<MailboxConnection> findByWorkspaceIdAndGateway(UUID workspaceId, MailboxGatewayKind gateway);
+
+    /**
+     * A drawer-opening read's claim on one calendar: two openings at once read it once. Written past the entity's
+     * version, so a refresh never fails a token rotation saving the same row, or the other way round.
+     */
+    @Modifying
+    @Query(nativeQuery = true, value = """
+            UPDATE app_lm_mailbox_connection SET calendar_synced_at = :now
+            WHERE id = :id AND calendar_synced_at < :staleBefore
+            """)
+    int claimCalendarRefresh(UUID id, Instant now, Instant staleBefore);
+
+    /**
+     * A refresh whose read failed gives its claim back, so the next opening reads the calendar again. Matched on the
+     * claim's exact time, so the caller claims at the column's precision, microseconds.
+     */
+    @Modifying
+    @Query(nativeQuery = true, value = """
+            UPDATE app_lm_mailbox_connection SET calendar_synced_at = :before
+            WHERE id = :id AND calendar_synced_at = :claimedAt
+            """)
+    int releaseCalendarRefresh(UUID id, Instant claimedAt, Instant before);
 
     /** Recall's webhook names its calendar and nothing else. A list, like {@link #findByGrantId}. */
     List<MailboxConnection> findByRecallCalendarId(String recallCalendarId);

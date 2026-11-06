@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.ApolloUniverse;
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import java.util.UUID;
@@ -31,7 +32,7 @@ import tools.jackson.databind.JsonNode;
 @IntegrationTest
 class CustomColumnIntegrationTest extends FlowTestSupport {
 
-    @Autowired private JdbcTemplate db;
+    @Autowired @FixtureJdbc private JdbcTemplate db;
 
     @Test
     @DisplayName("a fresh mandate has no custom columns")

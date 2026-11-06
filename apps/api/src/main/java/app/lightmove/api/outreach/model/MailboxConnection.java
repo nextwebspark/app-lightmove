@@ -19,12 +19,16 @@ import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.DynamicUpdate;
 
 /**
  * One consultant's own mailbox in one workspace (V99). Held through Nylas as its grant id only, or through our own
- * gateway (V107) with the provider's refresh token as ciphertext bound to this workspace and consultant.
+ * gateway (V107) with the provider's refresh token as ciphertext bound to this workspace and consultant. A save writes
+ * only what changed: the drawer's refresh claims {@code calendar_synced_at} past the version, and a save of a copy
+ * loaded before it would otherwise write the old time back.
  */
 @Entity
+@DynamicUpdate
 @Table(name = "app_lm_mailbox_connection")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

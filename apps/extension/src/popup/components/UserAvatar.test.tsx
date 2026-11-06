@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { workspaceOrigin } from "../../workspaceOrigin";
 import { UserAvatar } from "./PopupChrome";
 
 describe("UserAvatar", () => {
@@ -18,5 +19,11 @@ describe("UserAvatar", () => {
 
     expect(screen.queryByRole("img")).toBeNull();
     expect(screen.getByText("AK")).toBeTruthy();
+  });
+
+  it("draws a stored photo from the workspace, since the panel is not on its origin", () => {
+    render(<UserAvatar name="Alok Kumar" src="/api/v1/avatars/abc" />);
+
+    expect(screen.getByRole("img", { name: "Alok Kumar" }).getAttribute("src")).toBe(`${workspaceOrigin}/api/v1/avatars/abc`);
   });
 });

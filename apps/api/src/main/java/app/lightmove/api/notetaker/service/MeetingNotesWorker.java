@@ -79,6 +79,7 @@ class MeetingNotesWorker {
         process(event.recordingId());
     }
 
+    /** In the recording's workspace, which the webhook or the reconcile that handed the transcript over opened. */
     void process(UUID recordingId) {
         Instant now = clock.instant();
         // One worker per transcript, however many times it was handed over: the second spends nothing.
