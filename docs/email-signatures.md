@@ -49,8 +49,8 @@ Two owners, and the dependencies point one way:
   `SignatureSenders`). It reads the profile, the workspace (name, logo, website, mode), the mailbox and `BookingPages`.
   Nothing depends back on it.
 
-Each phase brings its own migration, numbered at the next free version when it is built (V171 for phase 1 and V172
-for phase 3 as of writing; main already holds V169 and V170).
+Each phase brings its own migration, numbered at the next free version when it is built (V189 for phase 1 and V190
+for phase 3 as of writing; main already holds V188).
 
 **`app_lm_email_signature`** (phase 1): `workspace_id`, `user_id` (a signature is the person's in one workspace —
 their title and firm can differ between workspaces), `name` ("Formal", "Short"), `layout`
