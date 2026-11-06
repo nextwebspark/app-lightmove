@@ -3,6 +3,9 @@ package app.lightmove.api;
 import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.core.email.service.EmailSender;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -24,14 +27,30 @@ public class RecordingEmailSender implements EmailSender {
     private static final Pattern TOKEN = Pattern.compile("token=([A-Za-z0-9_-]+)");
 
     private final List<EmailMessage> sent = new CopyOnWriteArrayList<>();
+    private final Set<String> refusedRecipients = ConcurrentHashMap.newKeySet();
 
     @Override
     public void send(EmailMessage message) {
+        trySend(message);
+    }
+
+    /** A recipient {@link #refuseDeliveryTo} names is refused as the mail provider would, and nothing is kept. */
+    @Override
+    public boolean trySend(EmailMessage message) {
+        if (refusedRecipients.contains(message.to().toLowerCase(Locale.ROOT))) {
+            return false;
+        }
         sent.add(message);
+        return true;
+    }
+
+    public void refuseDeliveryTo(String recipient) {
+        refusedRecipients.add(recipient.toLowerCase(Locale.ROOT));
     }
 
     public void clear() {
         sent.clear();
+        refusedRecipients.clear();
     }
 
     public List<EmailMessage> sent() {

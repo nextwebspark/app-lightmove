@@ -83,6 +83,7 @@ public enum ErrorCode {
 
     INVITATION_INVALID(HttpStatus.BAD_REQUEST, "This invitation is not valid"),
     INVITATION_EXPIRED(HttpStatus.BAD_REQUEST, "This invitation has expired"),
+    INVITATION_EMAIL_NOT_SENT(HttpStatus.BAD_GATEWAY, "The invitation email could not be sent"),
 
     LAST_ADMIN(HttpStatus.CONFLICT, "A workspace must keep at least one admin"),
 

@@ -8,6 +8,6 @@ public interface MemberDetachment {
     /** Throws {@code MEMBER_LEADS_PROJECTS} if removal would orphan work only this member can hand over. */
     void assertRemovable(UUID memberId);
 
-    /** Releases every reference to the membership row (team seats, assignments). */
+    /** Releases every reference to the membership row (team seats, assignments, client contacts). */
     void detach(UUID memberId);
 }

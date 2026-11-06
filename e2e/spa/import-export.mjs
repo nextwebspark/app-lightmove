@@ -22,7 +22,7 @@ const SHOTS = join(HERE, "screenshots");
 const API_LOG = join(RUN_DIR, "api.log");
 const WEB = process.env.WEB ?? "http://localhost:5173";
 const API = process.env.API ?? "http://localhost:8080/api/v1";
-const PG_URL = process.env.PG_URL ?? "postgresql://lm_app:lm@localhost:55432/lightmove";
+const PG_URL = process.env.PG_URL ?? "postgresql://postgres:lm@localhost:55432/lightmove";
 const PASSWORD = "Passw0rd123";
 const DOMAIN = "nextwebspark.com";
 const STAMP = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
@@ -371,7 +371,9 @@ try {
     check("I3.1a", "no Import is offered to a client seat", 0, await (await advancedItem(/^Import spreadsheet/)).count());
     await page.keyboard.press("Escape");
     const file = await exportFile();
-    check("I3.1", "the representative's Export downloads the same whole stage", `${whole.lines.length}|${whole.lines[0]}`,
+    // Who filed a row is the staff's alone: a client seat's file is the lead's without its Added by column.
+    const clientHeader = whole.lines[0].split(",").filter((header) => header !== "Added by").join(",");
+    check("I3.1", "the representative's Export downloads the same whole stage, without Added by", `${whole.lines.length}|${clientHeader}`,
       `${file.lines.length}|${file.lines[0]}`);
     const repId = sql(`SELECT id FROM app_lm_user WHERE email = '${REP_EMAIL}'`);
     check("I3.1b", "…recorded against the representative", "1",

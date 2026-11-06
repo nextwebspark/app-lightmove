@@ -11,7 +11,6 @@ import { landingAfterSignIn, safeReturnTo } from "../features/auth/returnTo";
 import { hasPendingSignupRestart } from "../features/auth/signupRestart";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
-import { InviteStepPage } from "../features/auth/pages/InviteStepPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
 import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
@@ -106,10 +105,11 @@ export function AppRoutes() {
           and the API refuses /onboarding/** without one, so a bypass here would only earn a 403. */}
       <Route path="/signup/verify-email" element={<RequireAuth><SignupVerifyStepPage /></RequireAuth>} />
 
-      {/* Verified, but not yet in a workspace. Not RequireWorkspace: the workspace is what these two
-          steps create, so guarding on it would bounce the user out of their own signup. */}
+      {/* Verified, but not yet in a workspace. Not RequireWorkspace: the workspace is what this step
+          creates, so guarding on it would bounce the user out of their own signup. */}
       <Route path="/signup/workspace" element={<RequireVerified><WorkspaceStepPage /></RequireVerified>} />
-      <Route path="/signup/invite" element={<RequireVerified><InviteStepPage /></RequireVerified>} />
+      {/* The retired invite step: an open tab or bookmark lands in the app, where Team invites. */}
+      <Route path="/signup/invite" element={<RequireVerified><Navigate to="/" replace /></RequireVerified>} />
 
       {/* Where the browser extension is paired. RequireWorkspace, not RequireAuth: the extension's
           only job is to write into a mandate, so pairing an account that has no workspace would mint a

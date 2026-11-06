@@ -42,7 +42,7 @@
           "type": "array",
           "maxItems": 20,
           "items": { "type": "string", "minLength": 1, "maxLength": 80 },
-          "description": "Lower-case fragments. A new mandate whose role title contains any of them is drafted from this template, e.g. \"cfo\", \"finance director\"."
+          "description": "Lower-case whole words. A new mandate whose role title has any of them as whole words, in order, is drafted from this template, e.g. \"cfo\", \"finance director\": \"group cfo\" matches 'Group CFO – Energy', never 'Group CFOs'."
         },
         "body": { "$ref": "#/$defs/body" }
       }

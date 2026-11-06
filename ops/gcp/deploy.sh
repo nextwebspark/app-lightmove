@@ -176,6 +176,7 @@ docker run --rm --platform linux/amd64 --add-host=host.docker.internal:host-gate
     -password="$FLYWAY_PASSWORD" \
     -baselineOnMigrate=true \
     -placeholders.iam_user= \
+    "-initSql=SET app.rls_maintenance = 'on'" \
     -connectRetries=5 \
     migrate
 

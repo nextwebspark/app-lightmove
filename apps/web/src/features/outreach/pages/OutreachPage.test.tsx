@@ -224,6 +224,7 @@ function message(overrides: Partial<conversationApi.ConversationMessage>): conve
     toAddress: "fatima@gulfports.example",
     senderUserId: "u1",
     senderName: "Yara Haddad",
+    senderAvatarUrl: null,
     enrollmentId: null,
     sequenceName: null,
     stepNumber: null,
@@ -768,7 +769,7 @@ describe("OutreachPage", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Expand" }));
 
     expect(screen.getAllByRole("dialog")).toEqual([dialog]);
-    expect(within(dialog).getByRole("radiogroup", { name: "Kind of note" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("radiogroup", { name: "What you are logging" })).toBeInTheDocument();
     expect(within(dialog).getByRole("radiogroup", { name: "Who reads this note" })).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Save note" })).toBeInTheDocument();
     expect(within(dialog).queryByText("Editing in the larger view…")).not.toBeInTheDocument();

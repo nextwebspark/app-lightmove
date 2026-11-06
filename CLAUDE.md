@@ -21,9 +21,11 @@ has ended), the projects/clients
 screens, a project's Team & access tab, the client registry with representative invites and their
 scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
 searches saved against it, and the three Companies pages (In universe / Shortlisted / Declined) where a
-mandate triages what it took from it — **Shortlisted and Declined are switched off on screen for now**
-(`SHORTLIST_AND_DECLINE_OFFERED` in `triageStages.ts`: the web app offers In universe alone and redirects the other
-two; the API, the stored rows and the extension keep all three). A company reaches those pages four ways — out of the market
+mandate triages what it took from it — **Shortlisted is switched off on screen for now** (`SHORTLIST_OFFERED` in
+`triageStages.ts`: the web app redirects it; the API, the stored rows and the extension keep all three), and on screen
+**Declined is a company's alone** (`DECLINE_OFFERED`): the company drawer declines a company with everyone mapped at it
+(asking first, counted, when anyone is), no grid line and no People-mode filing declines a person, and the Declined page
+offers nothing but Back to universe, which brings the company and everyone at it back. A company reaches those pages four ways — out of the market
 (Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
 /triage` with an id the server resolves), typed in by hand, captured by the browser plugin
 (`POST /triage/capture`), or **imported from a spreadsheet**. Strategy's rows also carry a tick box:
@@ -76,7 +78,15 @@ LinkedIn profile is refused (`PERSON_PROFILE_HELD`). A plugin capture of someone
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
-**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`), authored,
+**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`) — the Notes tabs write and list plain notes alone, a call, a LinkedIn message or a meeting written up without the Notetaker is logged from Outreach (`NoteComposerModal`, its Call | LinkedIn | Meeting switch) with when it happened — now unless changed, never in the
+future — and an optional title (V185 `occurred_at`, `title`), a meeting's tied to the past Uncava meeting it was about
+— its calendar meeting (`meeting_id`, bare; `PastMeetingLookup`, answered by `outreach`) or, once the calendar has let
+the meeting go, its Notetaker recording (V188 `recording_id`; `PastRecordingLookup`, answered by `notetaker`, from that
+recording's position alone) — or held outside Uncava, while a call is a phone call and names none; every past call's ⋯
+offers Log meeting notes, a recorded one's included, so a researcher's own notes sit beside the Notetaker's; the
+conversation and the timeline order them by when they happened. An edit keeps what it leaves
+out and lets go of what the note's kind cannot carry (`LoggedNoteRules`), and the Candidates page's Notes tab lists
+the logs in a group of their own, so one about a position the person has left is never lost. A recorded call's is the Notetaker's, and an email is never logged by hand: a new `email` note is refused (`VALIDATION_FAILED`), an old one keeps its kind through an edit, and a note sent with no kind is plain —, authored,
 timed and **staff-only** — `CandidateResponse`, the talent map and the report carry none, because a client
 seat reads all three (decision D1). A note is about one position or about the person: read from a position,
 only that position's and the person's ("All positions") show, and another position's is not found
@@ -93,11 +103,26 @@ may change, remove or restore one (`PERSON_NOTE_NOT_YOURS`), and a note line on 
 never quotes it. A removed note is out of every read at once (V141) and offered back by the toast's Undo
 (`…/notes/{noteId}/restore`); `PersonNotePurge` deletes it for good after `lightmove.notes.purge-after` (30 days),
 so from then it leaves no copy. Both person drawers — a position's executive drawer and the
-Candidates page's — share one header (`PersonHeaderLayout`: the photo beside one column of name, pills, the tags held
-to one line with a +N chip, and do not contact) and one tab order,
-`Position.dc.html`'s: **Career · Notes · Assessment · Contact · Documents · Activity · Positions** (`lib/drawerTabs.ts`,
-retired `?tab=records|timeline` links still land), a client seat reading Career and Contact alone; the
-workspace drawer leaves out only what a position holds (Assessment among them). **Assessment** (V135) is the
+Candidates page's — share one header (`PersonHeaderLayout`: the photo beside one column of the name with its LinkedIn
+mark — the drawer's only view of the link, edited with the details' pencil — then on a position the
+status picker and that pencil, the primary email and phone with "+N" and the contact details window, the tags held to
+one line with a +N chip, and do not contact) and one tab order, `Position.dc.html`'s, grouped by what the consultant
+is doing: **Profile · Notes · Assessment · Outreach · Activity** — Profile's folds Summary, Experience, Education,
+Background, Compensation, Documents and Your columns, Summary alone open on arrival (`useProfileSections`); Outreach
+the conversation — the action row first (Write email, Log call, Log meeting, Log LinkedIn, Book a call, Add to sequence, held
+while a run is live), then the run where there is one, the calls to come, then one timeline (its latest five, See more for
+the rest) (`DrawerOutreachTimeline`, over the conversation read and
+`MeetingsSection`'s past calls with their ⋯: emails, replies, logged calls and LinkedIn messages, each past
+call with the Meeting note its recording filed, every one a card led by its kind's tile — LinkedIn's own mark, a camera
+for a video or recorded call, a calendar for one met in person, its platform named as text ("Google Meet"; never Meet's
+or Teams' logo, which their owners license), a recorded one badged Recorded — and the face of who sent, wrote or held
+it (a call known only from its recording, the sender's) (`OutreachEntryCard`, which the Outreach page's
+history shares); status and run changes are the Activity tab's; All · Email · Calls · LinkedIn · Meetings) and the contacts last, their
+pencil the header's contact details window; a link to a call, LinkedIn or meeting note lands there — and **Positions** on
+the Candidates page's drawer alone (`lib/drawerTabs.ts`; retired `?tab=background|compensation|documents|contact|…`
+links still land), a client seat reading Profile alone with no tab bar — Compensation and Documents are staff's on
+screen, though `CandidateResponse` still carries the package; the workspace drawer leaves out only what a position
+holds (Assessment and Outreach). **Assessment** (V135) is the
 consultant's own scorecard against the brief's competencies: 0–10 or unscored (an open question, never a zero) per
 competency, out of 100 by each panel's `technical_share` (`ScorecardScoring`, mirrored live by
 `lib/scorecardScoring.ts`), plus evidence and a five-section report, saved from the footer as a draft or **Mark
@@ -110,8 +135,7 @@ back, per competency, evidence naming its source then a 0–10 score against an 
 or a CV can state a behaviour; read from the career alone a score is held to 3–7 and marked "Inferred from …", and
 null only with nothing on file — and the five sections; the weights and the total stay `ScorecardScoring`'s. It writes only what nobody holds — an empty value, or one still in
 `ai_drafted` (an untouched earlier draft, sparkled in the tab) — never a consultant's; an edit takes a value out of
-`ai_drafted`, and **Mark reviewed & submit** adopts every AI value. It runs only when pressed — never on a filing. The executive drawer draws **Positions** (every
-mandate mapping the person, this one first), **Notes** and **Activity** for staff, through the
+`ai_drafted`, and **Mark reviewed & submit** adopts every AI value. It runs only when pressed — never on a filing. The executive drawer draws **Notes** and **Activity** for staff, through the
 position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`).
 **A position's timeline is that position's alone** (`PersonTimelineService.positionTimelineOf`): its own lines and the
 person-level kinds (`PERSON_LEVEL_KINDS`: profile, contacts, tags, owner, do not contact, documents) wherever they were
@@ -136,8 +160,7 @@ uploader's or a `WORKSPACE_MANAGE` holder's (`PERSON_DOCUMENT_NOT_YOURS`), every
 and each change is a timeline line that names the document only while it exists. The bytes live in a
 private GCS bucket behind `core/storage`'s `DocumentStore` (`lightmove.storage.*`; the filesystem store
 for `npm run dev` and tests), streamed by the API, never by a signed URL. The SPA draws them in
-`components/documents`: both drawers' Documents tab, a
-header chip for the primary CV and a preview sheet (a PDF or image fetched as a blob, never a link); the
+`components/documents`: both drawers' Documents fold (on Profile) and a preview sheet (a PDF or image fetched as a blob, never a link); the
 upload tray says what each file will become before sending, and a duplicate is the server's 409.
 `CandidateResponse.linkedinUrlLocked` is the server's own lock, which the Contact section reads rather
 than guessing from this mandate's door.
@@ -172,7 +195,12 @@ the same rows editable in place — add, remove, retag work/personal, mark verif
 "via ContactOut" caption is — who did what is the audit trail's) — saved as one list through
 `PUT …/candidates/{id}/contacts`; a profile PUT adds what it supplies, never removes a contact, and is
 held to the same ten per channel.
-No primary flag anywhere: the grid's Email and Phone columns list them all. A person the plugin
+**One email and one phone are primary** (V183 `is_primary`, at most one per channel by partial unique index): starred
+in the Contact section (Make primary, read or edited), drawn in both drawers' header beside the employer's logo, and
+listed first everywhere — the grid's Email and Phone columns, the export, every send's default (Write email, Add to
+sequence, Book a call), each still changeable at the send. None chosen, the first of the ledger's order stands in:
+personal before work before untagged (an approach to someone at their current employer goes to a personal inbox),
+verified first, what a person supplied before what a lookup found, oldest first (`Person.listed`). A person the plugin
 captured keeps their LinkedIn URL locked (`CANDIDATE_PROFILE_URL_LOCKED`): it is the page they were
 read off and everything keys on it. `lightmove.enrichment.contactout` sits **beside**
 `…enrichment.provider` and is never selected by it: contact lookup is its own account with its own bill,
@@ -237,13 +265,16 @@ the strip under the toolbar polls (and the project stream announces). Off the re
 Gemini call turns the brief into single-word title tokens (`SourcingSpec`: a seniority group, a
 function group — never empty, since "Chief" alone bought every Chief Accountant — and an excluded group
 sent as `not_includes`, four words each — the vendor refuses a fifth rule, runs a phrase at ten seconds
-and matches a word inside longer ones, so an exclusion hiding in a senior title word is dropped),
+and matches a word inside longer ones, so an exclusion hiding in a senior title word is dropped, and a seat
+abbreviation hiding in one — "CTO" in Director and Doctor — is never sent to it, `forSubstringMatching`),
 one **synchronous** Bright Data people search per company keys on the company's LinkedIn slug
 (`current_company_company_id`; the numeric id matches nothing) with the brief's country and the Gulf
 neighbours only — nobody living elsewhere is searched for, and a brief with no country searches everywhere.
 **No model judges the people**: the hits not already mapped are ranked in code (`SourcedHitRanking` —
 the vendor matched the headline and sends no relevance order, so it reads the *current role's* title:
-a function word first, then its level against the brief's seat) and the first `picks-per-company` are each filed through `CandidateService.addSourced` — the search hit *is* the research, so no
+a function word first, then its level against the brief's seat — every word matched whole, `TitleWords`), filed only
+when the current role holds the seat (`SeatFit`: the brief's function, Head or above for a C-suite or N-1 seat; a round
+finding only others is reworded), and the first `picks-per-company` are each filed through `CandidateService.addSourced` — the search hit *is* the research, so no
 second vendor call — as `AI_SOURCED` (no badge on the grid; the drawer's source reads "Sourced"), and
 the same automatic background run a capture gets proposes the missing background, fired with the `SOURCING`
 trigger that skips the per-user LLM meter. A company whose search finds **nobody** is searched again with other title
@@ -768,7 +799,7 @@ webhook names the page; `LinkBookings` counts it **only for an address that cons
 keeps the meeting `booked_via_link`, ends their listening runs as `BOOKED` before the next step, and moves
 the person forward to Engaged once per position — a booking after a reply included.
 
-**Email signatures (V171, epic #1157, `docs/email-signatures.md`)** are a consultant's own, per workspace, in
+**Email signatures (V189, epic #1157, `docs/email-signatures.md`)** are a consultant's own, per workspace, in
 Settings → Email signature (`/me/signatures`, staff only, every row keyed on the caller — another's reads as missing):
 at most ten, exactly one the default while any exist (unticking it does nothing; another is made the default), each a
 layout (Classic, With photo, Photo + logo, Logo banner, Minimal, Custom in the notes' editor) whose empty fields follow
@@ -802,7 +833,7 @@ carries no Notetaker. It is claimed first (one live
 bot per call by join URL and start, whoever presses), then sent once and never retried — an empty pool of at-once bots
 is `NOTETAKER_BUSY` — as "UNCAVA Notetaker" with Uncava's card as its camera, saying in the chat whose notes it records
 and that anyone may ask it out. **End & file notes** takes a recording bot out of a call that finished early, and the
-notes follow as after any call; Remove discards. A call the bot has left is listed under Past. Recall's Svix-signed webhook (`/api/v1/notetaker/webhooks/recall`,
+notes follow as after any call; Remove discards. A call the bot has left is listed under Past, and a recording whose call left the calendar keeps a row of its own. Recall's Svix-signed webhook (`/api/v1/notetaker/webhooks/recall`,
 `lightmove.recall.bot-webhook-secret`, blank offers nothing) walks its status; on `transcript.done`, `MeetingNotesWorker`
 keeps the transcript (staff-only), summarises it against the brief's `AssessmentBrief` with contacts redacted, files one
 Markdown `MEETING` note in the scheduler's name (one worker per transcript, by claim; an `AI_ENRICH` use) and leaves
@@ -831,8 +862,10 @@ leaves calendars read directly (`RecallSettings.isCalendarOffered`). It depends 
 **Tasks and the bell (epic #862, V133, `docs/tasks-notifications.md`).** A **next action is a task**
 (`task`): one `app_lm_task` row per job on one executive of one position, and the Pipeline card's Next action is
 that executive's earliest open one — `task` answers `candidate`'s `NextActionLookup`, so the board, the drawer, My
-tasks and the bell read the same rows. In the executive drawer it is a fixed-height bar in the header, on every tab
-(`NextActionBar`: the earliest open task, ticked done in place, the rest in a popover grouped overdue/today/upcoming);
+tasks and the bell read the same rows. In the executive drawer it is a fixed-height bar docked in the footer, on every tab
+(`NextActionBar`: the earliest open task, ticked done in place, the rest in a popover grouped overdue/today/upcoming,
+folded to one square beside the Assessment tab's save buttons), the drawer's other actions — Add note, Set next action,
+Book a call, Remove from mandate — behind the footer's ⋯;
 off a position, the Candidates drawer shows it on each Positions card (V132's free-text `next_action` columns became open tasks and are no longer
 written). A task goes, and a note's `@[Name](user:<uuid>)` / `@[team](team)` mention reaches, only someone who may
 work the position — `WORK_EXECUTE`, read again on every save (`ProjectAccess.allows`) — never a client seat; a note
@@ -1021,7 +1054,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **Membership is invitation-only**; the one second door is a staff member naming a client representative.
 - A user may hold **several** active memberships (V81 dropped V1's partial unique index), but a session is in exactly **one** workspace — the `wsId` claim, chosen at sign-in from `last_workspace_id`, remembered per refresh-token family, and changed by `POST /auth/switch-workspace` (a 404 unless the caller is an active member of the target) or by a web refresh whose membership has ended (audited `MEMBERSHIP_ENDED`; `/me` and the extension never fall through). The signup wizard's `POST /onboarding/workspace` founds a *first* workspace only (`ALREADY_IN_WORKSPACE`); a further one is `POST /workspaces`, staff-gated.
 - Verification gates the *proof of mailbox*, not the channel — an invite token or a password reset proves it too.
-- **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter.
+- **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter. Forced Postgres row-level security (V184, `core/tenant`) is the backstop: every borrowed connection carries the caller's workspace, and a job, webhook or worker with no principal names its own with `WorkspaceScope` — with none, the protected tables answer nothing (`db-ops`).
 - **Authorise by action, never by role** (`@PreAuthorize` + `@workspaceAuthorizer`/`@projectAuthorizer`); guard beans re-read the DB every check; the JWT `roles` claim is never trusted for a decision.
 - Client access is **two tiers, two decisions**: registry (`CLIENT_RECORD_MANAGE`, ADMIN+MEMBER) vs mandate (`CLIENT_ACCESS_MANAGE`, LEAD only). Project content is seat-gated `WORK_VIEW`/`WORK_EXECUTE`, not `PROJECT_BROWSE`.
 - **A platform role sits above every tenant and inside none**: `SUPER_ADMIN` gates `/api/v1/platform/**` (`@platformAuthorizer`) and nothing else, is granted by ops script only, and never rides in the JWT.
@@ -1427,7 +1460,17 @@ An account with no password (a Google or LinkedIn sign-in) turns two-factor on w
 with the code alone.
 V165 indexes `app_lm_audit_event (workspace_id, id DESC)` for the customer audit log, guarded on ownership as V74 is:
 once `harden.sql` has run the index is its to build (`CONCURRENTLY`). An index only; no row is written.
-V171 adds `app_lm_user.phone` / `linkedin_url`, `app_lm_email_image` (a photo's owner or a logo's workspace, and the
+V184 forces row-level security on the people and position core (#1084; the rest is #1085): `app_lm_tenant_visible`
+over `app.workspace_id`, set on every connection checkout by `TenantAwareDataSource`; a person's children are visible
+through their person, and `app_lm_project_candidate` / `app_lm_project_triage_company` gain their project's
+`workspace_id` (filled by trigger, held by a composite key). Flyway's own session sets `app.rls_maintenance` until
+#256; the runtime role must be no superuser and no `BYPASSRLS`, or `RowLevelSecurityPosture` refuses the boot.
+V185 gives `app_lm_person_note` `occurred_at` (when a logged call, LinkedIn message or meeting happened; null on a
+plain note, by CHECK, and on every older note, where `created_at` stands in), `title` and `meeting_id` (a meeting's
+notes only, by CHECK; bare, as V151's recording keeps its meeting's id).
+V188 adds `app_lm_person_note.recording_id` (the Notetaker recording a meeting's notes are about, where the calendar no
+longer holds its meeting; bare, a meeting's notes only and never beside a `meeting_id`, by CHECK).
+V189 adds `app_lm_user.phone` / `linkedin_url`, `app_lm_email_image` (a photo's owner or a logo's workspace, and the
 source's SHA-256, by CHECK; one copy per avatar per person and per logo per workspace) and `app_lm_email_signature` (`fields` jsonb holds only the
 overrides; one default per person per workspace by partial unique index).
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
@@ -1498,8 +1541,8 @@ and the server files it under the resolved row's name, id, industry, city, count
 and logo; a firm typed in by hand leaves them all null.
 V73 gives `app_lm_project` the New position modal's decisions: `project_type` (`MAPPING | SEARCH`, V34's
 CHECK idiom, existing rows `SEARCH`) and a timeline — `start_date`, `delivery_date` (when the business
-unit expects the map or the shortlist) and, on a search only, `mapping_target_date`, which
-`ProjectTimeline` defaults to 60% of the window when the modal sends none. `target_date` is untouched
+unit expects the map or the shortlist) and, on a search only, `mapping_target_date`, entered
+by hand beside the shortlist date and never defaulted (`ProjectTimeline`). `target_date` is untouched
 and stays the brief's hire date; the list's Target and the derived health read `delivery_date` and
 fall back to it (`Project.deadline()`, the SPA's `deadlineOf`).
 V69 adds the workspace's `persona` jsonb — main business, sectors, competitors, geographies, notes —

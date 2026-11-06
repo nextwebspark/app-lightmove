@@ -9,7 +9,7 @@ import static app.lightmove.api.assistant.tool.NamedCompanyFinding.Status.UNVERI
 import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.logging.service.MdcPropagation;
+import app.lightmove.api.core.concurrent.service.ThreadContextPropagation;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.enrichment.company.model.VendorSearchAllowance;
@@ -73,7 +73,7 @@ public class NamedCompanyResolver {
                 Thread.ofVirtual().factory());
         try {
             List<Callable<Lookup>> lookups = companies.stream()
-                    .map(company -> MdcPropagation.wrap((Callable<Lookup>) () -> lookUp(company, country, allowance)))
+                    .map(company -> ThreadContextPropagation.wrap((Callable<Lookup>) () -> lookUp(company, country, allowance)))
                     .toList();
             List<Future<Lookup>> answers = pool.invokeAll(lookups,
                     settings.nameLookupDeadline().toMillis(), TimeUnit.MILLISECONDS);
