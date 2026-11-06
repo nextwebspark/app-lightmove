@@ -5,6 +5,8 @@ import app.lightmove.api.candidate.constant.SuppressionReason;
 import app.lightmove.api.candidate.dto.AddSuppressionRequest;
 import app.lightmove.api.candidate.dto.AddedByResponse;
 import app.lightmove.api.candidate.dto.SuppressionResponse;
+import app.lightmove.api.candidate.model.CandidateContact;
+import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.SuppressionKey;
 import app.lightmove.api.candidate.model.WorkspaceSuppression;
 import app.lightmove.api.candidate.repository.WorkspaceSuppressionRepository;
@@ -18,6 +20,8 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,6 +75,50 @@ public class PersonSuppressionService {
                 .toList();
         return !emailHashes.isEmpty() && !suppressions.findByWorkspaceIdAndKindAndValueHashIn(workspaceId,
                 SuppressionKind.EMAIL, emailHashes).isEmpty();
+    }
+
+    /**
+     * Refuses mapping someone the workspace already knows whose own profile or any address they hold is listed.
+     * A door's request may carry none of them — a name answered with an existing person, a capture matched by
+     * profile to someone suppressed by email — so the person's keys are asked, not the request's.
+     */
+    @Transactional(readOnly = true)
+    public void refuseSuppressedPerson(UUID workspaceId, Person person) {
+        if (!suppressedPeopleOf(workspaceId, List.of(person)).isEmpty()) {
+            throw ApiException.of(ErrorCode.PERSON_SUPPRESSED);
+        }
+    }
+
+    /** The ids of those people whose own profile or any address they hold is listed — two queries for any number. */
+    @Transactional(readOnly = true)
+    public Set<UUID> suppressedPeopleOf(UUID workspaceId, Collection<Person> people) {
+        Map<String, Set<UUID>> peopleByProfileHash = new HashMap<>();
+        Map<String, Set<UUID>> peopleByEmailHash = new HashMap<>();
+        for (Person person : people) {
+            SuppressionKey profile = SuppressionKey.ofProfileUrlOrNull(workspaceId, person.getLinkedinUrl());
+            if (profile != null) {
+                peopleByProfileHash.computeIfAbsent(profile.hash(), hash -> new HashSet<>()).add(person.getId());
+            }
+            for (CandidateContact email : person.emailContacts()) {
+                SuppressionKey key = SuppressionKey.ofEmailOrNull(workspaceId, email.getValue());
+                if (key != null) {
+                    peopleByEmailHash.computeIfAbsent(key.hash(), hash -> new HashSet<>()).add(person.getId());
+                }
+            }
+        }
+        Set<UUID> suppressed = new HashSet<>();
+        listedAmong(workspaceId, SuppressionKind.PROFILE_SLUG, peopleByProfileHash).forEach(suppressed::addAll);
+        listedAmong(workspaceId, SuppressionKind.EMAIL, peopleByEmailHash).forEach(suppressed::addAll);
+        return suppressed;
+    }
+
+    private List<Set<UUID>> listedAmong(UUID workspaceId, SuppressionKind kind, Map<String, Set<UUID>> peopleByHash) {
+        if (peopleByHash.isEmpty()) {
+            return List.of();
+        }
+        return suppressions.findByWorkspaceIdAndKindAndValueHashIn(workspaceId, kind, peopleByHash.keySet()).stream()
+                .map(suppression -> peopleByHash.get(suppression.getValueHash()))
+                .toList();
     }
 
     /** Which of these profile slugs the list holds, as they were given — one query for a page of hits. */

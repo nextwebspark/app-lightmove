@@ -119,6 +119,59 @@ class PersonSuppressionIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("someone the workspace knows is refused by their own keys, whatever the door's request carries")
+    void aKnownPersonIsAskedByTheirOwnKeys() throws Exception {
+        firm("Known Person Firm");
+        String first = mandate("Chief Financial Officer");
+        String second = mandate("Chief Risk Officer");
+        String noor = body(add(first, """
+                {"fullName":"Noor Haddad","employerName":"Aldar Properties",
+                 "linkedinUrl":"https://www.linkedin.com/in/noor-haddad/","emails":[{"value":"noor@example.com"}]}""")
+                .andExpect(status().isCreated()).andReturn()).get("personId").asText();
+        suppress("""
+                {"email":"noor@example.com","reason":"objected"}""").andExpect(status().isCreated());
+
+        assertThat(codeOf(add(second, """
+                {"fullName":"Noor Haddad","employerName":"Aldar Properties","existingPersonId":"%s"}""".formatted(noor))
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("PERSON_SUPPRESSED");
+        assertThat(codeOf(add(second, """
+                {"fullName":"Noor Haddad","source":"extension","linkedinUrl":"https://www.linkedin.com/in/noor-haddad/"}""")
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("PERSON_SUPPRESSED");
+        assertThat(db.queryForObject("select count(*) from app_lm_project_candidate where project_id = ?::uuid",
+                Long.class, second)).isZero();
+    }
+
+    @Test
+    @DisplayName("Add to position from the Candidates page leaves a suppressed person out and counts them")
+    void addToPositionLeavesSuppressedPeopleOut() throws Exception {
+        firm("Pool Firm");
+        String first = mandate("Chief Technology Officer");
+        String second = mandate("Chief Data Officer");
+        String layla = body(add(first, """
+                {"fullName":"Layla Nasser","linkedinUrl":"https://www.linkedin.com/in/layla-nasser/"}""")
+                .andExpect(status().isCreated()).andReturn()).get("personId").asText();
+        String omar = body(add(first, """
+                {"fullName":"Omar Saleh","emails":[{"value":"omar@example.com"}]}""")
+                .andExpect(status().isCreated()).andReturn()).get("personId").asText();
+        suppress("""
+                {"linkedinUrl":"linkedin.com/in/Layla-Nasser"}""").andExpect(status().isCreated());
+
+        JsonNode answer = body(mvc.perform(post("/api/v1/candidates/bulk/position")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"projectId":"%s","personIds":["%s","%s"]}""".formatted(second, layla, omar)))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        assertThat(answer.get("added").asInt()).isEqualTo(1);
+        assertThat(answer.get("alreadyIn").asInt()).isZero();
+        assertThat(answer.get("suppressed").asInt()).isEqualTo(1);
+        assertThat(db.queryForList("select person_id::text from app_lm_project_candidate where project_id = ?::uuid",
+                String.class, second)).containsExactly(omar);
+    }
+
+    @Test
     @DisplayName("lifting an entry lets the person be filed again")
     void liftingAnEntryReopensTheDoor() throws Exception {
         firm("Lifting Firm");

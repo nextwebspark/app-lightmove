@@ -1061,6 +1061,9 @@ public class CandidateService {
         if (known.isPresent() && candidates.existsByProjectIdAndPersonId(projectId, known.get().getId())) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
         }
+        if (known.isPresent()) {
+            suppression.refuseSuppressedPerson(workspaceId, known.get());
+        }
         Person person = known.orElseGet(() -> people.save(Person.founded(workspaceId, userId, source, details)));
         if (known.isPresent()) {
             person.fillFrom(details, ContactSource.ofDoor(source));
@@ -1136,12 +1139,18 @@ public class CandidateService {
         Map<UUID, List<Candidate>> mappedOldestFirst = candidates
                 .findPositionsOfPeople(workspaceId, persons.stream().map(Person::getId).toList()).stream()
                 .collect(Collectors.groupingBy(row -> row.getPerson().getId()));
+        Set<UUID> suppressed = suppression.suppressedPeopleOf(workspaceId, persons);
         List<UUID> added = new ArrayList<>();
+        int alreadyIn = 0;
         CandidateStatusDefinition startingStatus = pipeline.catalogOf(workspaceId).defaultStatus();
         EmployerFilings filings = new EmployerFilings(triage, projectId, userId, TriageCompanySource.MANUAL);
         for (Person person : persons) {
             List<Candidate> rows = mappedOldestFirst.getOrDefault(person.getId(), List.of());
             if (rows.stream().anyMatch(row -> row.getProjectId().equals(projectId))) {
+                alreadyIn++;
+                continue;
+            }
+            if (suppressed.contains(person.getId())) {
                 continue;
             }
             Candidate candidate = candidates.save(Candidate.mappedFromPool(projectId, userId, person, startingStatus));
@@ -1158,7 +1167,7 @@ public class CandidateService {
                     .detail("personIds", added.stream().map(UUID::toString).toList())
                     .record();
         }
-        return new MapPeopleToPositionResponse(added.size(), persons.size() - added.size());
+        return new MapPeopleToPositionResponse(added.size(), alreadyIn, persons.size() - added.size() - alreadyIn);
     }
 
     /** The stage a person filed or remapped at this company starts at; In universe at none. */

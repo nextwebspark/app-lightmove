@@ -347,7 +347,7 @@ describe("CandidatesPage", () => {
   });
 
   it("adds the people ticked to a position, saying who is already in it", async () => {
-    vi.mocked(poolApi.addToPosition).mockResolvedValue({ added: 1, alreadyIn: 1 });
+    vi.mocked(poolApi.addToPosition).mockResolvedValue({ added: 1, alreadyIn: 1, suppressed: 0 });
     renderPage();
     await screen.findAllByText("Fatima Al Mazrouei");
 

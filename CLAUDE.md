@@ -76,9 +76,10 @@ edit through one mandate is what every other reads, and removing someone from a 
 person. A profile is one person's: an edit that would give a second person of the workspace the same
 LinkedIn profile is refused (`PERSON_PROFILE_HELD`). **A workspace's suppression list (V193, #920)** names the people no door may file again — by a hash of
 their profile slug or email, salted with the workspace (`SuppressionKey`), never the key itself: the add form, the plugin and
-a spreadsheet are refused `PERSON_SUPPRESSED` (an edit only for a key it adds), while Find executives and People Search
-leave them out before a photo is fetched or anything filed, and off a People Search page as it is read
-(`PersonSuppressionService`; an admin's `/workspace/suppressions`, `WORKSPACE_MANAGE`). A plugin capture of someone already researched spends no second vendor call, and is filed under the employer their latest position recorded (`PersonEmployerResolver.knownEmployerOf`, that position's company row's LinkedIn page and all). Every change to a
+a spreadsheet are refused `PERSON_SUPPRESSED` (an edit only for a key it adds; someone the workspace already knows by
+their own keys, whatever the request carries), while Find executives, People Search and the Candidates page's Add to
+position leave them out — before a photo is fetched or anything filed, off a People Search page as it is read, and
+counted as `suppressed` (`PersonSuppressionService`; an admin's `/workspace/suppressions`, `WORKSPACE_MANAGE`). A plugin capture of someone already researched spends no second vendor call, and is filed under the employer their latest position recorded (`PersonEmployerResolver.knownEmployerOf`, that position's company row's LinkedIn page and all). Every change to a
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
