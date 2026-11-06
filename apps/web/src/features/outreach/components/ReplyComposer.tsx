@@ -3,8 +3,11 @@ import { useEffect, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, DateInput, Select, useToast } from "../../../components/ui";
 import { Popover } from "../../../components/ui/Popover";
-import { messageFor } from "../../../lib/errorCodes";
+import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { NoteEditor } from "../../notes/components/NoteEditor";
+import { SignatureChooser, SignatureUnderEmail } from "../../signatures/components/SignatureChooser";
+import * as signaturesApi from "../../signatures/api/signaturesApi";
+import { useSignatureChoice } from "../../signatures/lib/useSignatureChoice";
 import * as conversationApi from "../api/conversationApi";
 import type { AttachmentLimits, Conversation } from "../api/conversationApi";
 import * as mailboxApi from "../api/mailboxApi";
@@ -130,6 +133,7 @@ function OpenComposer({
   const [body, setBody] = useState("");
   const [chosenAddress, setChosenAddress] = useState(emails[0]);
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
+  const signature = useSignatureChoice();
   // The ledger can change under an open composer: an address since removed falls back to the first one left.
   const toAddress = emails.includes(chosenAddress) ? chosenAddress : emails[0];
   // A thread that went away (a reconnect elsewhere) leaves a first email; one that appears is offered only to an empty draft.
@@ -149,6 +153,7 @@ function OpenComposer({
         sendAt: sendAt ? sendAt.toISOString() : null,
         replyInThread: isReply,
         documentVersionIds: attachments.flatMap((attachment) => (attachment.kind === "document" ? [attachment.versionId] : [])),
+        signatureId: signature.signatureId,
       }, attachments.flatMap((attachment) => (attachment.kind === "upload" ? [attachment.file] : []))),
     onSuccess: (scheduled, sendAt) => {
       setBody("");
@@ -159,7 +164,13 @@ function OpenComposer({
       void queryClient.invalidateQueries({ queryKey: mailboxApi.MAILBOX_KEY });
       onSent?.();
     },
-    onError: (error) => toast.error(messageFor(error)),
+    onError: (error) => {
+      // Deleted in another tab: the picker reads the list again and falls back to the default.
+      if (codeOf(error) === "EMAIL_SIGNATURE_NOT_FOUND") {
+        void queryClient.invalidateQueries({ queryKey: signaturesApi.SIGNATURES_KEY });
+      }
+      toast.error(messageFor(error));
+    },
   });
 
   const insertFollowUp = useMutation({
@@ -261,6 +272,7 @@ function OpenComposer({
         }
         footer={
           <>
+            <SignatureUnderEmail choice={signature} />
             <AttachmentChips attachments={attachments} limits={attachmentLimits} onChange={setAttachments} />
             {isTooLong && (
               <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
@@ -281,6 +293,7 @@ function OpenComposer({
                   Insert follow-up
                 </Button>
               )}
+              <SignatureChooser choice={signature} disabled={send.isPending} />
               <div className="ms-auto flex flex-wrap items-center gap-2">
                 <SchedulePicker
                   timeZone={timeZone}
