@@ -114,12 +114,11 @@ public class EmailSignatureService {
     }
 
     /**
-     * The caller's signature for an email about to go, its booking page made first where it shows the link; empty for
-     * one that is not theirs.
+     * The caller's signature for an email about to go, its booking page made first where it shows the link;
+     * {@code EMAIL_SIGNATURE_NOT_FOUND} for one that is not theirs, in this workspace.
      */
-    public Optional<RenderedSignature> renderForSending(UUID userId, UUID workspaceId, UUID signatureId) {
-        return signatures.findByIdAndWorkspaceIdAndUserId(signatureId, workspaceId, userId)
-                .map(signature -> renderedForSending(userId, workspaceId, signature));
+    public RenderedSignature requireRenderedForSending(UUID userId, UUID workspaceId, UUID signatureId) {
+        return renderedForSending(userId, workspaceId, owned(userId, workspaceId, signatureId));
     }
 
     /** The caller's default signature for an email about to go; empty where they keep none. */
