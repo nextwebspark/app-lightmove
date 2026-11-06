@@ -151,6 +151,7 @@ export function NoteCard({
   flashAt = null,
   showsKindMark = true,
   lead = null,
+  namesPosition = true,
 }: {
   note: NoteCardNote;
   actions?: NoteCardActions;
@@ -164,6 +165,8 @@ export function NoteCard({
   /** Off on a timeline whose spine already draws the kind's mark: the card keeps the kind's word alone. */
   showsKindMark?: boolean;
   lead?: NoteCardLead | null;
+  /** Off inside a position, where "About" would only repeat the position being read. */
+  namesPosition?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
@@ -228,11 +231,11 @@ export function NoteCard({
             <div className="flex items-baseline gap-2">
               <span className="min-w-0 flex-1 text-body font-semibold text-u-text">{lead.heading}</span>
               {pinnedMark}
-              {when}
-            </div>
-            <div className="mt-1 flex min-w-0 items-center gap-1.5 text-note">
-              <Avatar id={note.authorUserId} name={authorName} src={note.authorAvatarUrl} size="xs" />
-              <span className="font-medium text-u-text">{authorName}</span>
+              <span className="ms-auto flex flex-none items-center gap-1.5 self-center">
+                <Avatar id={note.authorUserId} name={authorName} src={note.authorAvatarUrl} size="xs" title={authorName} />
+                <span className="sr-only">{authorName}</span>
+                {when}
+              </span>
             </div>
           </div>
         </div>
@@ -304,7 +307,7 @@ export function NoteCard({
         </>
       )}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-u-text3">
-        {note.projectTitle ? (
+        {note.projectTitle && namesPosition ? (
           <span>About {note.projectTitle}</span>
         ) : (
           note.projectId === null && <span>All positions</span>
@@ -347,7 +350,11 @@ export function NoteCard({
         title={note.kind === "general" ? "Note" : `${noteKindLabel(note.kind)} note`}
         details={[
           authorName,
-          note.projectTitle ? `About ${note.projectTitle}` : note.projectId === null ? "All positions" : null,
+          note.projectTitle && namesPosition
+            ? `About ${note.projectTitle}`
+            : note.projectId === null
+              ? "All positions"
+              : null,
         ]}
         writtenAt={note.createdAt}
         body={note.body}

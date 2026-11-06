@@ -785,7 +785,8 @@ describe("CandidateDrawer", () => {
     expect(candidatesApi.updateCandidate).not.toHaveBeenCalled();
     expect(await screen.findByText("Call in May")).toBeInTheDocument();
     expect(screen.getByText("Alok Kumar", { selector: "span" })).toBeInTheDocument();
-    expect(screen.getByText("About Chief Financial Officer")).toBeInTheDocument();
+    // Read from inside the position, a note never repeats which position it is about.
+    expect(screen.queryByText("About Chief Financial Officer")).not.toBeInTheDocument();
   });
 
   it("draws this position's activity as cards with who and when, and opens one read-only", async () => {
@@ -1353,10 +1354,9 @@ describe("CandidateDrawer", () => {
 
     await userEvent.click(within(panel).getByRole("button", { name: "Log LinkedIn" }));
     const dialog = await screen.findByRole("dialog", { name: /Log a LinkedIn message with/ });
-    await userEvent.click(within(dialog).getByRole("radio", { name: "Call" }));
-    expect(screen.getByRole("dialog", { name: /Log a call with/ })).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole("radio", { name: "Meeting" }));
-    expect(screen.getByRole("dialog", { name: /Log a meeting with/ })).toBeInTheDocument();
+    // The button chose the kind: the dialog offers no switch to another.
+    expect(within(dialog).queryByRole("radiogroup", { name: "What you are logging" })).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
 
     await userEvent.click(within(contact).getByRole("button", { name: "Edit contact details" }));
     expect(await screen.findByRole("dialog", { name: /Contact details/ })).toBeInTheDocument();

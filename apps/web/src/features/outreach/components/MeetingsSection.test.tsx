@@ -222,7 +222,7 @@ describe("MeetingsSection", () => {
     expect(screen.getByRole("link", { name: "Google Meet" })).toHaveAttribute("href", "https://meet.google.com/abc");
     expect(screen.getByText("Coffee")).toBeInTheDocument();
     expect(screen.getAllByRole("link")).toHaveLength(1);
-    expect(await screen.findByRole("button", { name: "Book a call" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Book a meeting" })).toBeInTheDocument();
   });
 
   it("draws a past call as a calendar row: its time and whose calendar, never a join link", async () => {
@@ -295,7 +295,7 @@ describe("MeetingsSection", () => {
     await screen.findByText("Coffee");
     await waitFor(() => expect(mailboxApi.getMailbox).toHaveBeenCalled());
     await waitFor(() => expect(poolApi.getPerson).toHaveBeenCalled());
-    expect(screen.queryByRole("button", { name: "Book a call" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Book a meeting" })).not.toBeInTheDocument();
   });
 
   it("offers no Book a call for someone marked do not contact", async () => {
@@ -304,7 +304,7 @@ describe("MeetingsSection", () => {
     await screen.findByText("Coffee");
     await waitFor(() => expect(poolApi.getPerson).toHaveBeenCalled());
     await waitFor(() => expect(mailboxApi.getMailbox).toHaveBeenCalled());
-    expect(screen.queryByRole("button", { name: "Book a call" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Book a meeting" })).not.toBeInTheDocument();
   });
 
   it("books a time picked on the consultant's calendar", async () => {
@@ -316,7 +316,7 @@ describe("MeetingsSection", () => {
     ]);
     renderSection();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
     await waitFor(() => expect(pipelineApi.statusAutomations).toHaveBeenCalled());
     expect(await screen.findByRole("group", { name: "Your week" })).toBeInTheDocument();
     const send = screen.getByRole("button", { name: "Send invite" });
@@ -346,7 +346,7 @@ describe("MeetingsSection", () => {
     vi.mocked(meetingApi.bookMeeting).mockResolvedValue({ meetingId: "m9" });
     renderSection();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
     await screen.findByRole("group", { name: "Your week" });
     pickTime("19:40");
     fireEvent.change(screen.getByLabelText("Call ends"), { target: { value: "20:30" } });
@@ -371,7 +371,7 @@ describe("MeetingsSection", () => {
     );
     renderSection();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
     await screen.findByRole("group", { name: "Your week" });
     pickTime("10:45");
 
@@ -386,7 +386,7 @@ describe("MeetingsSection", () => {
     vi.mocked(meetingApi.bookMeeting).mockResolvedValue({ meetingId: "m9" });
     renderSection();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
     await screen.findByRole("group", { name: "Your week" });
     fireEvent.change(screen.getByLabelText("Call date"), { target: { value: "2099-10-10" } });
     pickTime("10:00");
@@ -472,7 +472,7 @@ describe("MeetingsSection", () => {
     vi.mocked(meetingApi.getMeetingCalendar).mockResolvedValue(aWeek());
     renderSection();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
     await screen.findByRole("group", { name: "Your week" });
     const video = screen.getByRole("combobox", { name: "Video link" });
     expect(Array.from(video.querySelectorAll("option"), (option) => option.textContent)).toEqual([
@@ -487,7 +487,7 @@ describe("MeetingsSection", () => {
     renderSection({ zoomStatus: "ACTIVE" });
 
     expect(await screen.findByText("Zoom connected")).toBeInTheDocument();
-    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
     await screen.findByRole("group", { name: "Your week" });
     pickTime("10:00");
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Video link" }), "ZOOM");
@@ -510,7 +510,7 @@ describe("MeetingsSection", () => {
     );
     renderSection();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
     expect(await screen.findByRole("button", { name: "Earlier days" })).toBeDisabled();
 
     await userEvent.click(screen.getByRole("button", { name: "Later days" }));
@@ -1155,7 +1155,7 @@ describe("MeetingsSection", () => {
     vi.mocked(meetingApi.bookMeeting).mockResolvedValue({ meetingId: "m9" });
     renderSection({ notetakerOffered: true });
 
-    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
     await screen.findByRole("group", { name: "Your week" });
     expect(within(screen.getByRole("dialog")).queryByRole("switch")).toBeNull();
     pickTime("10:00");

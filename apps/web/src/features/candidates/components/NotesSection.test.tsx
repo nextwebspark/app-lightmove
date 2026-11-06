@@ -189,15 +189,16 @@ describe("the note composer", () => {
     expect(await screen.findByText("Note saved — your team sees it on every position")).toBeInTheDocument();
   });
 
-  it("names the position a note is about, and says when one is for all positions", async () => {
+  it("never repeats the position it is read from, and says when a note is for all positions", async () => {
     vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([
       aNote("Wants Dubai"),
       { ...aNote("Prefers a listed company"), id: "n2", projectId: null, projectTitle: null },
     ]);
     renderNotes();
 
-    expect(await screen.findByText("About Chief Financial Officer")).toBeInTheDocument();
-    expect(screen.getByText("All positions", { selector: "span" })).toBeInTheDocument();
+    expect(await screen.findByText("All positions", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("Wants Dubai")).toBeInTheDocument();
+    expect(screen.queryByText("About Chief Financial Officer")).not.toBeInTheDocument();
   });
 
   it("draws a saved note's mentions as chips, never the token", async () => {

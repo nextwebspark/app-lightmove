@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
 import * as meetingApi from "../api/meetingApi";
 import { callRowsOf } from "../lib/notetakerChip";
 import { useComposerDialog } from "../lib/useComposerDialog";
@@ -11,8 +10,8 @@ import { LOGGED_CONTACT_KINDS } from "../../candidates/lib/noteKinds";
 
 /**
  * Log call, Log LinkedIn and Add note — the executive drawer's Outreach, the conversation dock, the Pipeline card: the
- * drawer's own note composer as a dialog, with room to write. A log switches between a call, a meeting and a
- * LinkedIn message.
+ * drawer's own note composer as a dialog, with room to write. A log is of the kind its button named; the dialog offers
+ * no switch to another.
  */
 export function NoteComposerModal({
   projectId,
@@ -51,16 +50,12 @@ export function NoteComposerModal({
   const pastMeetings = [...calls.upcoming, ...calls.past]
     .filter((meeting) => Date.parse(meeting.startsAt) <= now)
     .sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt));
-  // The title follows the dialog's Call | Meeting | LinkedIn switch.
-  const [chosen, setChosen] = useState<{ for: PersonNoteKind | null; kind: PersonNoteKind | null }>({ for: kind, kind });
-  if (chosen.for !== kind) setChosen({ for: kind, kind });
-  const current = chosen.kind;
   const title =
-    current === "call"
+    kind === "call"
       ? `Log a call with ${fullName}`
-      : current === "linkedin"
+      : kind === "linkedin"
         ? `Log a LinkedIn message with ${fullName}`
-        : current === "meeting"
+        : kind === "meeting"
           ? `Log a meeting with ${fullName}`
           : `Add a note on ${fullName}`;
   const close = () => {
@@ -81,8 +76,7 @@ export function NoteComposerModal({
           projectId={projectId}
           candidateId={candidateId}
           initialKind={kind}
-          kindChoices={logsContact ? LOGGED_CONTACT_KINDS : undefined}
-          onKindChange={(next) => setChosen({ for: kind, kind: next })}
+          kindChoices={logsContact ? [kind] : undefined}
           pastMeetings={pastMeetings}
           presetMeetingId={presetMeetingId}
           title={title}
