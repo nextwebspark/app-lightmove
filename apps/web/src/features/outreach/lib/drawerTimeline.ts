@@ -4,8 +4,8 @@ import { recordingIdOfCall } from "./notetakerChip";
 import type { ConversationEvent } from "../api/conversationApi";
 import type { Meeting } from "../api/meetingApi";
 
-/** What the timeline narrows to. */
-export type TimelineFilter = "all" | "email" | "calls" | "linkedin" | "meetings";
+/** The kinds the timeline narrows to; none chosen shows them all. */
+export type TimelineKind = "email" | "calls" | "linkedin" | "meetings";
 
 /** One line of the drawer's Outreach timeline. */
 export type TimelineLine =
@@ -61,18 +61,21 @@ function isAbout(note: PersonNote, call: Meeting): boolean {
   return recordingId ? note.recordingId === recordingId : note.meetingId === call.id;
 }
 
-export function matches(line: TimelineLine, filter: TimelineFilter): boolean {
-  switch (filter) {
-    case "all":
-      return true;
-    case "email":
-      return line.kind === "message" || (line.kind === "note" && line.note.kind === "email");
-    case "calls":
-      return line.kind === "note" && line.note.kind === "call";
+export function kindOfLine(line: TimelineLine): TimelineKind {
+  if (line.kind === "message") return "email";
+  if (line.kind === "call") return "meetings";
+  switch (line.note.kind) {
+    case "call":
+      return "calls";
     case "linkedin":
-      return line.kind === "note" && line.note.kind === "linkedin";
-    case "meetings":
-      return line.kind === "call" || (line.kind === "note" && line.note.kind === "meeting");
+      return "linkedin";
+    case "meeting":
+      return "meetings";
+    default:
+      return "email";
   }
 }
 
+export function matches(line: TimelineLine, kinds: ReadonlySet<TimelineKind>): boolean {
+  return kinds.size === 0 || kinds.has(kindOfLine(line));
+}

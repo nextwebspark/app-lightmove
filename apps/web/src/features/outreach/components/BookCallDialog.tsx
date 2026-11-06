@@ -344,7 +344,7 @@ export function BookCallDialog({
     <Modal
       open
       onClose={onClose}
-      title={isRescheduling ? `Reschedule call with ${fullName}` : `Book a call with ${fullName}`}
+      title={isRescheduling ? `Reschedule call with ${fullName}` : `Book a meeting with ${fullName}`}
       subtitle={view ? `Your calendar · ${view.address} · ${view.timeZone}` : " "}
       closeButton
       initialFocusRef={weekHeading}

@@ -78,7 +78,7 @@ LinkedIn profile is refused (`PERSON_PROFILE_HELD`). A plugin capture of someone
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
-**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`) — the Notes tabs write and list plain notes alone, a call, a LinkedIn message or a meeting written up without the Notetaker is logged from Outreach (`NoteComposerModal`, its Call | LinkedIn | Meeting switch) with when it happened — now unless changed, never in the
+**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`) — the Notes tabs write and list plain notes alone, a call, a LinkedIn message or a meeting written up without the Notetaker is logged from Outreach (`NoteComposerModal`, of the kind its button named, with no switch to another) with when it happened — now unless changed, never in the
 future — and an optional title (V185 `occurred_at`, `title`), a meeting's tied to the past Uncava meeting it was about
 — its calendar meeting (`meeting_id`, bare; `PastMeetingLookup`, answered by `outreach`) or, once the calendar has let
 the meeting go, its Notetaker recording (V188 `recording_id`; `PastRecordingLookup`, answered by `notetaker`, from that
@@ -109,14 +109,14 @@ status picker and that pencil, the primary email and phone with "+N" and the con
 one line with a +N chip, and do not contact) and one tab order, `Position.dc.html`'s, grouped by what the consultant
 is doing: **Profile · Notes · Assessment · Outreach · Activity** — Profile's folds Summary, Experience, Education,
 Background, Compensation, Documents and Your columns, Summary alone open on arrival (`useProfileSections`); Outreach
-the conversation — the action row first (Write email, Log call, Log meeting, Log LinkedIn, Book a call, Add to sequence, held
+the conversation — the action row first (Write email, Log call, Log meeting, Log LinkedIn, Book a meeting, Add to sequence, held
 while a run is live), then the run where there is one, the calls to come, then one timeline (its latest five, See more for
 the rest) (`DrawerOutreachTimeline`, over the conversation read and
 `MeetingsSection`'s past calls with their ⋯: emails, replies, logged calls and LinkedIn messages, each past
 call with the Meeting note its recording filed, every one a card led by its kind's tile — LinkedIn's own mark, a camera
 for a video or recorded call, a calendar for one met in person, its platform named as text ("Google Meet"; never Meet's
 or Teams' logo, which their owners license), a recorded one badged Recorded — and the face of who sent, wrote or held
-it (a call known only from its recording, the sender's) (`OutreachEntryCard`, which the Outreach page's
+it beside the time, never their name on show (a call known only from its recording, the sender's) (`OutreachEntryCard`, which the Outreach page's
 history shares); status and run changes are the Activity tab's; All · Email · Calls · LinkedIn · Meetings) and the contacts last, their
 pencil the header's contact details window; a link to a call, LinkedIn or meeting note lands there — and **Positions** on
 the Candidates page's drawer alone (`lib/drawerTabs.ts`; retired `?tab=background|compensation|documents|contact|…`

@@ -8,7 +8,7 @@ import type { ActivityExecutive } from "../../candidates/lib/activityPresentatio
 import * as conversationApi from "../api/conversationApi";
 import type { Conversation, ConversationEvent } from "../api/conversationApi";
 import type { Meeting } from "../api/meetingApi";
-import { linesOf, matches } from "../lib/drawerTimeline";
+import { linesOf, matches, type TimelineKind } from "../lib/drawerTimeline";
 import { DrawerOutreachTimeline } from "./DrawerOutreachTimeline";
 
 vi.mock("../api/conversationApi", async (importOriginal) => ({
@@ -131,13 +131,15 @@ describe("linesOf", () => {
 
   it("narrows by kind", () => {
     const lines = linesOf(EVENTS, PAST);
-    const keysOf = (filter: Parameters<typeof matches>[1]) =>
-      lines.filter((line) => matches(line, filter)).map((line) => line.key);
+    const keysOf = (...kinds: TimelineKind[]) =>
+      lines.filter((line) => matches(line, new Set(kinds))).map((line) => line.key);
 
     expect(keysOf("email")).toEqual(["message:m1"]);
     expect(keysOf("calls")).toEqual(["note:n-call"]);
     expect(keysOf("linkedin")).toEqual(["note:n-li"]);
     expect(keysOf("meetings")).toEqual(["call:mt1"]);
+    expect(new Set(keysOf("calls", "linkedin"))).toEqual(new Set(["note:n-call", "note:n-li"]));
+    expect(keysOf()).toHaveLength(lines.length);
   });
 
   it("puts a meeting's notes written by hand inside its call, beside the Notetaker's", () => {
@@ -214,7 +216,7 @@ describe("DrawerOutreachTimeline", () => {
     expect(screen.queryByText("Keep the chair out of it.")).not.toBeInTheDocument();
   });
 
-  it("leads each card with its kind's mark and the face of whoever did it", async () => {
+  it("leads each card with its kind's mark, and the face of whoever did it beside the time with no name on show", async () => {
     vi.mocked(conversationApi.getConversation).mockResolvedValue({
       events: [replyEvent, ...EVENTS],
       truncated: false,
@@ -227,11 +229,13 @@ describe("DrawerOutreachTimeline", () => {
     const reply = screen.getByRole("article", { name: "Sarah replied" });
     expect(within(reply).getByRole("img", { name: "Sarah Khan" })).toBeInTheDocument();
     const linkedin = screen.getByText("Connection request accepted.").closest("li")!;
-    expect(within(linkedin).getByText("LinkedIn message")).toBeInTheDocument();
-    expect(within(linkedin).getByText("Layla Nasser")).toBeInTheDocument();
+    expect(within(linkedin).getByText("LinkedIn")).toBeInTheDocument();
+    expect(within(linkedin).queryByText("LinkedIn message")).not.toBeInTheDocument();
+    // The name is the face's tooltip and what a screen reader hears, never a word on the card.
+    expect(within(linkedin).getByText("Layla Nasser")).toHaveClass("sr-only");
     expect(linkedin.querySelector('img[src="/brand/linkedin-in-bug-black.png"]')).not.toBeNull();
     const call = screen.getByRole("article", { name: "Screening call" });
-    expect(within(call).getByText("Omar Haddad")).toBeInTheDocument();
+    expect(within(call).getByText("Omar Haddad")).toHaveClass("sr-only");
     expect(container.querySelector(".w-px")).toBeNull();
   });
 
@@ -315,15 +319,24 @@ describe("DrawerOutreachTimeline", () => {
     expect(screen.queryByText("Second write-up.")).not.toBeInTheDocument();
   });
 
-  it("narrows to one kind from the filter", async () => {
+  it("narrows to the kinds ticked in the filter, and shows everything again once cleared", async () => {
     renderTimeline();
     await screen.findByRole("article", { name: "Opportunity in Riyadh" });
 
-    await userEvent.click(screen.getByRole("radio", { name: "Calls" }));
+    await userEvent.click(screen.getByRole("button", { name: "Filter by kind" }));
+    await userEvent.click(screen.getByRole("menuitemcheckbox", { name: /Calls/ }));
 
     expect(screen.getByText("Busy with quarter close.")).toBeInTheDocument();
     expect(screen.queryByRole("article", { name: "Opportunity in Riyadh" })).not.toBeInTheDocument();
     expect(screen.queryByText("Connection request accepted.")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("menuitemcheckbox", { name: /LinkedIn/ }));
+    expect(screen.getByText("Busy with quarter close.")).toBeInTheDocument();
+    expect(screen.getByText("Connection request accepted.")).toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "Opportunity in Riyadh" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getByRole("article", { name: "Opportunity in Riyadh" })).toBeInTheDocument();
   });
 
   it("says nothing has passed yet on an empty history", async () => {

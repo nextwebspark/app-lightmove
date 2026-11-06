@@ -2,7 +2,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
-import { NoteKindMark } from "./NoteKindMark";
 import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/ActionMenu";
 import { DrawerFooter } from "../../../components/ui/Drawer";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
@@ -23,6 +22,7 @@ import { CandidateOutreachButtons } from "../../outreach/components/CandidateOut
 import { EmailComposerDialog } from "../../outreach/components/EmailComposerDialog";
 import { useMailbox } from "../../outreach/lib/useMailbox";
 import { OutreachSection } from "../../outreach/components/OutreachSection";
+import { LogContactRow } from "../../outreach/components/LogContactRow";
 import { CopilotTab } from "../../outreach/components/copilot/CopilotTab";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
 import { DrawerOutreachTimeline } from "../../outreach/components/DrawerOutreachTimeline";
@@ -793,27 +793,14 @@ export function CandidateProfile({
                       fullName={candidate.fullName}
                       sequenceHeldBy={sequenceHeldBy}
                       between={
-                        <>
-                          <Button variant="secondary" size="xs" onClick={() => setLog({ kind: "call", meetingId: null })}>
-                            <Icon d={ICONS.phoneCall} size={13} />
-                            Log call
+                        bookCall && (
+                          <Button variant="secondary" size="xs" onClick={bookCall}>
+                            <Icon d={ICONS.calendar} size={13} />
+                            Book a meeting
                           </Button>
-                          <Button variant="secondary" size="xs" onClick={() => setLog({ kind: "meeting", meetingId: null })}>
-                            <Icon d={ICONS.video} size={13} />
-                            Log meeting
-                          </Button>
-                          <Button variant="secondary" size="xs" onClick={() => setLog({ kind: "linkedin", meetingId: null })}>
-                            <NoteKindMark kind="linkedin" size={13} />
-                            Log LinkedIn
-                          </Button>
-                          {bookCall && (
-                            <Button variant="secondary" size="xs" onClick={bookCall}>
-                              <Icon d={ICONS.calendar} size={13} />
-                              Book a call
-                            </Button>
-                          )}
-                        </>
+                        )
                       }
+                      below={<LogContactRow onLog={(kind) => setLog({ kind, meetingId: null })} />}
                     />
                     <OutreachSection
                       projectId={projectId}
@@ -1030,7 +1017,7 @@ function MoreActionsMenu({
             Set next action
           </MenuItem>
           <MenuItem icon={ICONS.phoneCall} onSelect={closingThen(close, onBookCall)}>
-            Book a call
+            Book a meeting
           </MenuItem>
           {onRemove && (
             <>
