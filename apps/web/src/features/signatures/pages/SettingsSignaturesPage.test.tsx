@@ -100,9 +100,12 @@ describe("SettingsSignaturesPage", () => {
     await user.click(screen.getByRole("button", { name: "New signature" }));
     await user.click(screen.getByRole("button", { name: /Classic/ }));
 
-    expect(screen.getByLabelText(/^Title/)).toHaveAttribute("placeholder", "Head of Talent");
-    expect(screen.getAllByText("From your profile").length).toBeGreaterThan(0);
-    await user.type(screen.getByLabelText(/^Address/), "Festival Tower");
+    expect(screen.getByText("Head of Talent")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Title" })).not.toBeInTheDocument();
+    expect(screen.getByText("Not in your profile")).toBeInTheDocument();
+    expect(screen.getByText("alok@nextwebspark.com")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Email" })).not.toBeInTheDocument();
+    await user.type(screen.getByRole("textbox", { name: "Address" }), "Festival Tower");
     await user.click(screen.getByRole("button", { name: "Save signature" }));
 
     await waitFor(() =>
@@ -148,10 +151,39 @@ describe("SettingsSignaturesPage", () => {
     renderPage();
 
     await user.click(await screen.findByRole("button", { name: "Edit" }));
-    await user.type(screen.getByLabelText(/^Website/), "not a site");
+    await user.click(screen.getByRole("button", { name: "Change website" }));
+    await user.type(screen.getByRole("textbox", { name: "Website" }), "not a site");
     await user.click(screen.getByRole("button", { name: "Save signature" }));
 
     expect(await screen.findByText("Enter a website address, like yourcompany.com")).toBeInTheDocument();
+  });
+
+  it("makes a profile value this signature's own on Change, and follows the profile again on Use profile's", async () => {
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({ signatures: [aSignature({})], sources: SOURCES, limit: 10 });
+    vi.mocked(signaturesApi.updateSignature).mockResolvedValue(aSignature({}));
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.click(screen.getByRole("button", { name: "Change title" }));
+    const title = screen.getByRole("textbox", { name: "Title" });
+    expect(title).toHaveAttribute("placeholder", "Head of Talent");
+    await user.type(title, "Partner");
+    expect(screen.getByText("Only on this signature")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Use profile's" }));
+    expect(screen.queryByRole("textbox", { name: "Title" })).not.toBeInTheDocument();
+    expect(screen.getByText("Head of Talent")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add linkedin" }));
+    await user.type(screen.getByRole("textbox", { name: "LinkedIn" }), "linkedin.com/in/alok");
+    await user.click(screen.getByRole("button", { name: "Save signature" }));
+    await waitFor(() =>
+      expect(signaturesApi.updateSignature).toHaveBeenCalledWith(
+        "s1",
+        expect.objectContaining({ fields: expect.objectContaining({ title: null, linkedinUrl: "linkedin.com/in/alok" }) }),
+      ),
+    );
   });
 
   it("holds a Custom signature to 2,000 characters, and says why the server refused one", async () => {

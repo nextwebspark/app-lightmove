@@ -35,7 +35,7 @@ export function SettingsSignaturesPage() {
     view.kind === "gallery"
       ? "Pick a layout. Uncava fills it in from your profile and your workspace, and you can change anything after."
       : view.kind === "editor"
-        ? "A field you leave empty follows your profile, so a change there reaches every signature."
+        ? "What you don't change follows your profile and workspace, so an edit there reaches every signature."
         : "What closes every email you send from Uncava";
   const data = signatures.data;
   const atLimit = data ? data.signatures.length >= data.limit : false;

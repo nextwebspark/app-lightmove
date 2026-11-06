@@ -3318,7 +3318,7 @@ class Component extends DCLogic {
       sgIsGallery: view === 'gallery', sgIsEditor: view === 'editor', sgShowBack: view !== 'list',
       sgTitle: view === 'gallery' ? 'New signature' : view === 'editor' ? (st.sgEditId ? 'Edit signature' : 'New signature') : 'Email signature',
       sgSubtitle: view === 'gallery' ? 'Pick a layout. Uncava fills it in from your profile and your workspace, and you can change anything after.'
-        : view === 'editor' ? "A field left as your profile's follows it when your profile changes." : 'What closes every email you send from Uncava',
+        : view === 'editor' ? "What you don't change follows your profile and workspace, so an edit there reaches every signature." : 'What closes every email you send from Uncava',
       sgPrimary: primaryInline, sgGhost: ghost(false), sgGhostDanger: ghost(true),
       sgGhostLg: 'border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);cursor:pointer;background:var(--panel);border:1px solid var(--line);color:var(--text2)',
       sgLabel: 'display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)',

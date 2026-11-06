@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { Button, Field, FormError, Input, SegmentedControl, TextArea, Toggle, useToast } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
+import { useAuth } from "../../auth/AuthProvider";
 import { NoteEditor } from "../../notes/components/NoteEditor";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as signaturesApi from "../api/signaturesApi";
@@ -20,7 +22,8 @@ type FieldKey = keyof SignatureFields;
 
 /**
  * Settings → Email signature's editor (`Settings.dc.html`, `signatureState=editor`): the fields beside a preview the
- * server draws, so what is shown is what an email carries. An empty field shows what it follows, in its placeholder.
+ * server draws, so what is shown is what an email carries. Only what can be typed into is a field: a value the profile or
+ * the workspace gives is text until Change makes it this signature's own.
  */
 export function SignatureEditor({
   initial,
@@ -37,6 +40,8 @@ export function SignatureEditor({
   const queryClient = useQueryClient();
   const toast = useToast();
   const vocabulary = useWorkspaceVocabulary();
+  const { user } = useAuth();
+  const isAdmin = user?.workspace?.roles.includes("ADMIN") ?? false;
   // A link that is not offered is saved off, so a mailbox connected later does not bring back a switch shown off.
   const [draft, setDraft] = useState(() =>
     sources.bookingLinkOffered ? initial : { ...initial, showBookingLink: false },
@@ -44,6 +49,7 @@ export function SignatureEditor({
   const [dark, setDark] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [opened, setOpened] = useState<ReadonlySet<FieldKey>>(() => new Set());
   const payload = payloadOf(draft);
   const previewKey = useSettled(JSON.stringify(payload), PREVIEW_DELAY_MS);
 
@@ -81,6 +87,29 @@ export function SignatureEditor({
   const customBodyError =
     fieldErrors.customBody || (customBodyTooLong ? `Keep it to ${CUSTOM_BODY_MAX_LENGTH.toLocaleString()} characters` : "");
   const errorOf = (key: FieldKey) => fieldErrors[`fields.${key}`] || undefined;
+  const open = (key: FieldKey) => setOpened((current) => new Set(current).add(key));
+  const followSource = (key: FieldKey) => {
+    setField(key, "");
+    setOpened((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
+  };
+  const sourcedRow = (key: FieldKey, label: string, source: string | null, origin: "profile" | "workspace", type = "text") => (
+    <SourcedRow
+      label={label}
+      source={source}
+      origin={origin}
+      value={draft.fields[key]}
+      isOpen={opened.has(key) || draft.fields[key] !== "" || !!errorOf(key)}
+      error={errorOf(key)}
+      type={type}
+      onOpen={() => open(key)}
+      onChange={(value) => setField(key, value)}
+      onFollowSource={() => followSource(key)}
+    />
+  );
   const hasPhoto = sources.photoUrl !== null;
 
   return (
@@ -147,33 +176,50 @@ export function SignatureEditor({
           </div>
         ) : (
           <>
-            <h3 className="mb-2.5 text-note font-semibold">Your details</h3>
-            <div className="grid grid-cols-1 gap-x-3.5 md:grid-cols-2">
-              <TextField label="Name" source={sources.name} sourceName="your profile" value={draft.fields.name}
-                error={errorOf("name")} onChange={(value) => setField("name", value)} />
-              <TextField label="Title" source={sources.title} sourceName="your profile" value={draft.fields.title}
-                error={errorOf("title")} onChange={(value) => setField("title", value)} />
-              <TextField label="Phone" source={sources.phone} sourceName="your profile" value={draft.fields.phone}
-                error={errorOf("phone")} onChange={(value) => setField("phone", value)} type="tel" />
-              <TextField label="LinkedIn" source={sources.linkedinUrl} sourceName="your profile"
-                value={draft.fields.linkedinUrl} error={errorOf("linkedinUrl")}
-                onChange={(value) => setField("linkedinUrl", value)} type="url" />
-              <Field label="Email" hint="The mailbox your email goes from">
-                <div className="rounded-u-control border border-u-border bg-u-surface px-3 py-2.5 font-mono text-body text-u-text2">
-                  {sources.email}
+            <RowGroup
+              title="Your details"
+              sourceLink={<Link to="/settings/profile" className="text-note font-medium text-u-accent hover:underline">Edit profile</Link>}
+            >
+              {sourcedRow("name", "Name", sources.name, "profile")}
+              {sourcedRow("title", "Title", sources.title, "profile")}
+              {sourcedRow("phone", "Phone", sources.phone, "profile", "tel")}
+              {sourcedRow("linkedinUrl", "LinkedIn", sources.linkedinUrl, "profile", "url")}
+              <DetailRow label="Email">
+                <div className="flex min-h-6 items-center gap-3">
+                  <span className="min-w-0 flex-1 truncate font-mono text-body text-u-text2">{sources.email}</span>
+                  <span
+                    title="Emails go from the mailbox you connected"
+                    className="inline-flex shrink-0 items-center gap-1.5 font-mono text-meta text-u-text3"
+                  >
+                    <LockGlyph />
+                    Your mailbox
+                  </span>
                 </div>
-              </Field>
-            </div>
-            <h3 className="mb-2.5 text-note font-semibold">{vocabulary.ownFirm}</h3>
-            <div className="grid grid-cols-1 gap-x-3.5 md:grid-cols-2">
-              <TextField label={vocabulary.ownFirm} source={sources.company} sourceName="your workspace"
-                value={draft.fields.company} error={errorOf("company")} onChange={(value) => setField("company", value)} />
-              <TextField label="Website" source={sources.website} sourceName="your workspace"
-                value={draft.fields.website} error={errorOf("website")} onChange={(value) => setField("website", value)} />
-              <TextField label="Address" source={null} sourceName="" value={draft.fields.address}
-                error={errorOf("address")} onChange={(value) => setField("address", value)}
-                placeholder="Office address (optional)" />
-            </div>
+              </DetailRow>
+            </RowGroup>
+            <RowGroup
+              title={vocabulary.ownFirm}
+              sourceLink={
+                isAdmin ? (
+                  <Link to="/settings/general" className="text-note font-medium text-u-accent hover:underline">
+                    Edit in General
+                  </Link>
+                ) : null
+              }
+            >
+              {sourcedRow("company", "Name", sources.company, "workspace")}
+              {sourcedRow("website", "Website", sources.website, "workspace", "url")}
+              <DetailRow label="Address" isField>
+                <Input
+                  aria-label="Address"
+                  value={draft.fields.address}
+                  invalid={!!errorOf("address")}
+                  placeholder="Office address"
+                  onChange={(event) => setField("address", event.target.value)}
+                />
+                <RowNote error={errorOf("address")}>Only on this signature · optional</RowNote>
+              </DetailRow>
+            </RowGroup>
           </>
         )}
 
@@ -290,37 +336,107 @@ function LayoutChip({ layout, checked, onPick }: { layout: SignatureLayout; chec
   );
 }
 
-/** A field that follows `source` while empty: the placeholder shows it, and the hint says where it comes from. */
-function TextField({
+function RowGroup({ title, sourceLink, children }: { title: string; sourceLink: ReactNode; children: ReactNode }) {
+  return (
+    <section className="mb-4.5">
+      <div className="mb-2 flex items-baseline gap-2.5">
+        <h3 className="flex-1 text-note font-semibold">{title}</h3>
+        {sourceLink}
+      </div>
+      <div className="divide-y divide-u-border rounded-u-card border border-u-border bg-u-surface">{children}</div>
+    </section>
+  );
+}
+
+function DetailRow({ label, isField = false, children }: { label: string; isField?: boolean; children: ReactNode }) {
+  return (
+    <div className={cn("flex gap-3 px-3.5 py-2.5", isField ? "items-start" : "items-center")}>
+      <span className={cn("w-21 shrink-0 text-note font-medium text-u-text3", isField && "pt-2.5")}>{label}</span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+function RowNote({ error, children }: { error?: string; children: ReactNode }) {
+  return (
+    <span aria-live="polite" className="mt-1.5 block font-mono text-meta">
+      {error ? <span className="text-u-offlimits">{error}</span> : <span className="text-u-text3">{children}</span>}
+    </span>
+  );
+}
+
+/** Text tagged with where it comes from, until Change (+ Add with nothing to follow) makes it this signature's own field. */
+function SourcedRow({
   label,
   source,
-  sourceName,
+  origin,
   value,
+  isOpen,
   error,
+  type,
+  onOpen,
   onChange,
-  type = "text",
-  placeholder,
+  onFollowSource,
 }: {
   label: string;
   source: string | null;
-  sourceName: string;
+  origin: "profile" | "workspace";
   value: string;
+  isOpen: boolean;
   error?: string;
+  type: string;
+  onOpen: () => void;
   onChange: (value: string) => void;
-  type?: string;
-  placeholder?: string;
+  onFollowSource: () => void;
 }) {
-  const hint = value.trim() !== "" ? "Only on this signature" : sourceName ? `From ${sourceName}` : "Only on this signature";
+  if (isOpen) {
+    return (
+      <DetailRow label={label} isField>
+        <Input
+          aria-label={label}
+          type={type}
+          value={value}
+          invalid={!!error}
+          placeholder={source ?? ""}
+          autoFocus={value === "" && !error}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <span className="mt-1.5 flex flex-wrap items-baseline gap-x-2 font-mono text-meta">
+          {error ? <span aria-live="polite" className="text-u-offlimits">{error}</span> : <span className="text-u-text3">Only on this signature</span>}
+          <button type="button" onClick={onFollowSource} className="font-sans font-medium text-u-accent hover:underline">
+            {source ? `Use ${origin}'s` : "Remove"}
+          </button>
+        </span>
+      </DetailRow>
+    );
+  }
   return (
-    <Field label={label} error={error} hint={hint}>
-      <Input
-        type={type}
-        value={value}
-        invalid={!!error}
-        placeholder={source ?? placeholder ?? ""}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </Field>
+    <DetailRow label={label}>
+      <div className="flex min-h-6 items-center gap-3">
+        {source ? (
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="truncate text-body text-u-text">{source}</span>
+            <span className="shrink-0 rounded-full border border-u-border bg-u-raised px-1.5 font-mono text-eyebrow text-u-text3">
+              {origin === "profile" ? "Profile" : "Workspace"}
+            </span>
+          </span>
+        ) : (
+          <span className="min-w-0 flex-1 text-body text-u-text3 italic">Not in your {origin}</span>
+        )}
+        <Button variant="secondary" size="xs" aria-label={`${source ? "Change" : "Add"} ${label.toLowerCase()}`} onClick={onOpen}>
+          {source ? "Change" : "+ Add"}
+        </Button>
+      </div>
+    </DetailRow>
+  );
+}
+
+function LockGlyph() {
+  return (
+    <svg aria-hidden="true" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <rect x="3" y="7" width="10" height="7" rx="1.5" />
+      <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
+    </svg>
   );
 }
 
