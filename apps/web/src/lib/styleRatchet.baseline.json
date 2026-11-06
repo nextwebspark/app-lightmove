@@ -491,10 +491,6 @@
   "features/settings/components/ChangePasswordForm.tsx": {
     "important": 3
   },
-  "features/settings/components/CopyableValue.tsx": {
-    "arbitraryText": 1,
-    "arbitraryRadius": 2
-  },
   "features/settings/components/CreateApiKeyModal.tsx": {
     "arbitraryText": 3
   },
@@ -502,15 +498,11 @@
     "arbitraryText": 1
   },
   "features/settings/components/IntegrationCard.tsx": {
-    "arbitraryRadius": 2,
-    "arbitraryText": 4
+    "arbitraryText": 1,
+    "arbitraryRadius": 1
   },
   "features/settings/components/OAuthGrantRow.tsx": {
     "arbitraryText": 2,
-    "arbitraryRadius": 1
-  },
-  "features/settings/components/OwnAppForm.tsx": {
-    "arbitraryText": 3,
     "arbitraryRadius": 1
   },
   "features/settings/components/ProfileForm.tsx": {

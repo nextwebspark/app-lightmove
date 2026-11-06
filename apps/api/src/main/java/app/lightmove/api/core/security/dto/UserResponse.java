@@ -13,8 +13,8 @@ public record UserResponse(
         String title,
         String avatarUrl,
 
-        /** Whether {@code avatarUrl} is a photo the person uploaded, which Profile offers to remove. */
-        boolean photoUploaded,
+        /** Whether Settings → Profile offers Change and Remove photo; false once an identity provider supplies it. */
+        boolean avatarEditable,
 
         /** Shown in the person's email signature; null when they gave none. */
         String phone,

@@ -38,7 +38,7 @@ const userWith = (roles: ("ADMIN" | "MEMBER")[]): User => ({
   fullName: "A Lead",
   title: null,
   avatarUrl: null,
-  photoUploaded: false,
+  avatarEditable: true,
   phone: null,
   linkedinUrl: null,
   emailVerified: true,

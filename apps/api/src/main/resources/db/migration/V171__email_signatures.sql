@@ -6,38 +6,38 @@ ALTER TABLE app_lm_user
     ADD COLUMN phone        varchar(40),
     ADD COLUMN linkedin_url varchar(255);
 
--- A picture an email shows: the person's uploaded photo, or a workspace's logo copied in from where it was published.
--- A recipient's mail client fetches it with no session, so it is served at /api/v1/email-images/{token} to anyone holding
--- the token, which is the only credential: 256 random bits, never derived from anything. The bytes are in object storage
--- (V105's rule), re-encoded on the way in, so no metadata a camera wrote ever leaves. A row outlives the photo or logo it
--- was — an email already sent still names its token — and is never rewritten.
+-- A picture an email shows: a copy of the person's profile photo (V170's avatar, drawn small) or of a workspace's logo,
+-- made the first time a signature draws it. A recipient's mail client fetches it with no session, so it is served at
+-- /api/v1/email-images/{token} to anyone holding the token: 256 random bits, one per stored picture and shared by
+-- every email that shows it, never minted per message or recipient, so a fetch identifies nobody. The bytes are in
+-- object storage (V105's rule), re-encoded on the way in, so no metadata ever leaves. A row outlives the photo or logo
+-- it was copied from — an email already sent names its token — and is never rewritten. `source_sha256` is what it was
+-- copied from: the avatar's own hash, or the logo's address hashed, so each is copied once per owner.
 CREATE TABLE app_lm_email_image (
-    id                uuid         PRIMARY KEY DEFAULT gen_random_uuid(),
-    token             varchar(64)  NOT NULL UNIQUE,
-    kind              varchar(16)  NOT NULL
+    id            uuid         PRIMARY KEY DEFAULT gen_random_uuid(),
+    token         varchar(64)  NOT NULL UNIQUE,
+    kind          varchar(16)  NOT NULL
         CONSTRAINT app_lm_email_image_kind_chk CHECK (kind IN ('PHOTO', 'LOGO')),
-    user_id           uuid         REFERENCES app_lm_user (id) ON DELETE CASCADE,
-    workspace_id      uuid         REFERENCES app_lm_workspace (id) ON DELETE CASCADE,
-    -- The address a logo was copied from, hashed: the same logo is copied once per workspace.
-    source_url_sha256 varchar(64),
-    content_type      varchar(32)  NOT NULL
+    user_id       uuid         REFERENCES app_lm_user (id) ON DELETE CASCADE,
+    workspace_id  uuid         REFERENCES app_lm_workspace (id) ON DELETE CASCADE,
+    source_sha256 varchar(64)  NOT NULL,
+    content_type  varchar(32)  NOT NULL
         CONSTRAINT app_lm_email_image_type_chk CHECK (content_type IN ('image/png', 'image/jpeg')),
-    width             integer      NOT NULL CONSTRAINT app_lm_email_image_width_chk CHECK (width > 0),
-    height            integer      NOT NULL CONSTRAINT app_lm_email_image_height_chk CHECK (height > 0),
-    size_bytes        integer      NOT NULL CONSTRAINT app_lm_email_image_size_chk CHECK (size_bytes > 0),
-    storage_key       varchar(512) NOT NULL UNIQUE,
-    created_at        timestamptz  NOT NULL DEFAULT now(),
+    width         integer      NOT NULL CONSTRAINT app_lm_email_image_width_chk CHECK (width > 0),
+    height        integer      NOT NULL CONSTRAINT app_lm_email_image_height_chk CHECK (height > 0),
+    size_bytes    integer      NOT NULL CONSTRAINT app_lm_email_image_size_chk CHECK (size_bytes > 0),
+    storage_key   varchar(512) NOT NULL UNIQUE,
+    created_at    timestamptz  NOT NULL DEFAULT now(),
     CONSTRAINT app_lm_email_image_owner_chk CHECK (
-        (kind = 'PHOTO' AND user_id IS NOT NULL AND workspace_id IS NULL AND source_url_sha256 IS NULL)
-        OR (kind = 'LOGO' AND workspace_id IS NOT NULL AND user_id IS NULL AND source_url_sha256 IS NOT NULL))
+        (kind = 'PHOTO' AND user_id IS NOT NULL AND workspace_id IS NULL)
+        OR (kind = 'LOGO' AND workspace_id IS NOT NULL AND user_id IS NULL))
 );
 
 COMMENT ON TABLE app_lm_email_image IS
-    'Pictures an email carries (a person''s photo, a workspace''s logo), served publicly by their token; the bytes are in object storage under storage_key.';
+    'Pictures an email carries (a copy of a person''s photo, a workspace''s logo), served publicly by their token; the bytes are in object storage under storage_key.';
 
-CREATE UNIQUE INDEX app_lm_email_image_logo_uk ON app_lm_email_image (workspace_id, source_url_sha256)
-    WHERE kind = 'LOGO';
-CREATE INDEX app_lm_email_image_user_idx ON app_lm_email_image (user_id) WHERE user_id IS NOT NULL;
+CREATE UNIQUE INDEX app_lm_email_image_photo_uk ON app_lm_email_image (user_id, source_sha256) WHERE kind = 'PHOTO';
+CREATE UNIQUE INDEX app_lm_email_image_logo_uk ON app_lm_email_image (workspace_id, source_sha256) WHERE kind = 'LOGO';
 
 -- A consultant's signatures in one workspace — their title and firm can differ between workspaces. `fields` holds only
 -- what this signature overrides; a field it leaves out follows the profile or the workspace when it is drawn.

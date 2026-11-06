@@ -85,15 +85,16 @@ export function updateProfile(payload: UpdateProfileRequest): Promise<User> {
   return request<User>("/auth/me", { method: "PATCH", body: payload, withCsrf: true });
 }
 
-/** The person's own photo — re-encoded and served from Uncava, so their avatar and email signature show it. */
-export function uploadPhoto(file: File): Promise<User> {
+/** Settings → Profile's photo: the square the crop dialog drew. The server re-encodes whatever it is sent. */
+export function uploadAvatar(photo: Blob): Promise<User> {
   const body = new FormData();
-  body.append("file", file);
-  return request<User>("/me/photo", { method: "POST", body });
+  body.append("file", photo, "photo.jpg");
+  return request<User>("/auth/me/avatar", { method: "PUT", body, withCsrf: true });
 }
 
-export function removePhoto(): Promise<User> {
-  return request<User>("/me/photo", { method: "DELETE" });
+/** Back to initials; no provider sign-in brings a picture back after this. */
+export function removeAvatar(): Promise<User> {
+  return request<User>("/auth/me/avatar", { method: "DELETE", withCsrf: true });
 }
 
 export function providers(): Promise<AuthProviders> {

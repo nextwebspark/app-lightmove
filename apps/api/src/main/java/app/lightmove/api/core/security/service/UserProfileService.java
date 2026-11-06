@@ -9,8 +9,6 @@ import app.lightmove.api.core.security.model.ProfileUpdateCommand;
 import app.lightmove.api.core.security.model.TimezoneChanged;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
-import app.lightmove.api.core.storage.model.EmailImage;
-import app.lightmove.api.core.storage.service.EmailImageService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Set;
 import java.util.UUID;
@@ -40,7 +38,6 @@ public class UserProfileService {
     private final UserRepository users;
     private final AuditService audit;
     private final ApplicationEventPublisher events;
-    private final EmailImageService emailImages;
 
     @Transactional
     public User update(UUID actorId, UUID workspaceId, ProfileUpdateCommand command,
@@ -72,33 +69,6 @@ public class UserProfileService {
             events.publishEvent(new TimezoneChanged(actorId, user.zone()));
         }
 
-        return user;
-    }
-
-    /** The person's own photo, re-encoded and served from Uncava: it is what their avatar and signature show. */
-    @Transactional
-    public User uploadPhoto(UUID actorId, UUID workspaceId, byte[] content, HttpServletRequest request) {
-        User user = users.findById(actorId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-        EmailImage photo = emailImages.storePhoto(actorId, content);
-        user.useUploadedPhoto(emailImages.urlOf(photo));
-        audit.event(AuthEventType.PROFILE_UPDATED)
-                .actor(actorId).workspace(workspaceId).from(request)
-                .detail("photo", "uploaded")
-                .record();
-        return user;
-    }
-
-    /** A photo already in a sent email keeps serving there; only the profile lets it go. */
-    @Transactional
-    public User removePhoto(UUID actorId, UUID workspaceId, HttpServletRequest request) {
-        User user = users.findById(actorId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-        if (user.hasUploadedPhoto()) {
-            user.removeUploadedPhoto();
-            audit.event(AuthEventType.PROFILE_UPDATED)
-                    .actor(actorId).workspace(workspaceId).from(request)
-                    .detail("photo", "removed")
-                    .record();
-        }
         return user;
     }
 

@@ -512,10 +512,21 @@ Microsoft, Zoom) is connected through an OAuth app chosen per workspace in **Set
 (`WORKSPACE_MANAGE`, audited as an `integrations` section): Uncava's **shared** app
 (`lightmove.outreach.providers.*`; blank leaves it unoffered) or the workspace's **own**, its keys pasted by
 its admin. `ProviderCredentialsResolver` is the one read: no row is shared. An own app's client secret is
-**write-only** — stored only as `core/crypto` ciphertext, never returned by any read, and discarded when the
+**write-only** — stored only as `core/crypto` ciphertext, never returned by any read but for its last four characters
+(V169 `secret_hint`, the identifier Google's console shows; none under 16 characters), and discarded when the
 workspace returns to the shared app. Its keys are held to the shape each provider issues (a Google client ID's
 suffix, Entra's GUIDs and directory, no whitespace in a secret — refused, never trimmed — an expiry for Microsoft
-alone, within 24 months), and a change of app is a change of who holds the tokens: a refresh token belongs to the
+alone, within 24 months) and **saved only once the provider accepts them**: Save and verify asks its token endpoint
+first, outside any transaction (`ProviderTokenClient.checkKeys` — Entra's app-only grant, or a code nobody issued at
+Google and Zoom), a refusal `INTEGRATION_KEYS_REFUSED` with the provider's code — at Entra only a refused client or an
+unknown directory; any other refusal there is no answer — and no answer `INTEGRATION_PROVIDER_UNREACHABLE`, both
+writing nothing; **Verify again** (`POST …/integrations/{provider}/verify`, audited) keeps the answer either way, ten
+checks a minute per workspace on each instance (`OwnAppKeyCheck`); and a refresh refusing the app records the same
+(`OwnAppKeyHealth`), so the card reads Keys refused unasked, cleared by the next refresh answered while one is on
+record. The screen is `Settings.dc.html`'s
+(`docs/integrations/settings-page-ux.md`): a closed card per provider with a status pill, the console's own order and
+field names for a first set-up, and a saved app as read-only rows — the secret masked to its hint, Replace, never
+revealed. A change of app is a change of who holds the tokens: a refresh token belongs to the
 client it was issued to, so every mailbox or Zoom account connected through the app being left (V168
 `app_client_id`, null read as the app until now) is withdrawn in the change's own transaction
 (`ReplacedAppConnections`, one bulk update so no versioned row fails the save, its Recall calendar let go,
@@ -757,19 +768,24 @@ webhook names the page; `LinkBookings` counts it **only for an address that cons
 keeps the meeting `booked_via_link`, ends their listening runs as `BOOKED` before the next step, and moves
 the person forward to Engaged once per position — a booking after a reply included.
 
-**Email signatures (V169, epic #1157, `docs/email-signatures.md`)** are a consultant's own, per workspace, in
+**Email signatures (V171, epic #1157, `docs/email-signatures.md`)** are a consultant's own, per workspace, in
 Settings → Email signature (`/me/signatures`, staff only, every row keyed on the caller — another's reads as missing):
-at most ten, one the default, each a layout (Classic, With photo, Photo + logo, Logo banner, Minimal, Custom in the
-notes' editor) whose empty fields follow the profile (name, title, phone, LinkedIn, photo), the workspace (name,
-website, logo) and the mailbox's address. `EmailSignatureRenderer` draws them email-safe — tables and inline styles,
-every value escaped, links http/https/mailto/tel only, no picture but Uncava's own — and the editor's preview is its
-drawing (`…/preview`), shown in a sandboxed frame. No mail provider adds a signature to email sent through its API, so
-Uncava adds its own. Pictures are `core/storage`'s `EmailImageService`: a profile photo uploaded in Settings → Profile
-(`POST /me/photo`, V25's `USER` source, which no sign-in replaces) or the workspace's logo copied in once through
-`HttpRemoteImageFetcher` (public addresses only, no redirect, 2 MB, one deadline) — re-encoded, kept in the bucket and
-served publicly at `/api/v1/email-images/{token}`, a 256-bit token its only credential, cached for good and never
-logged, counted or rate-limited per address (mail clients' image proxies fetch for everyone from a few). An image row
-outlives the photo it was, since a sent email names it.
+at most ten, exactly one the default while any exist (unticking it does nothing; another is made the default), each a
+layout (Classic, With photo, Photo + logo, Logo banner, Minimal, Custom in the notes' editor) whose empty fields follow
+the profile (name, title, phone, LinkedIn, photo), the workspace (name, website, logo) and the mailbox's address; a
+phone override is held to the profile's rule (`PhoneNumbers`). `EmailSignatureRenderer` draws them email-safe — tables
+and inline styles, every value escaped, links http/https/mailto/tel only, no picture but Uncava's own — and the
+editor's preview is its drawing (`…/preview`), shown in a sandboxed frame. A preview or the list writes nothing: a
+booking link not yet claimed is drawn as a stand-in, and only a signature about to be sent claims it and makes its page
+(`SignatureSenders.forSending` → `BookingPages.prepare`). No mail provider adds a signature to email sent through its
+API, so Uncava adds its own. Pictures are `core/storage`'s `EmailImageService`: the person's stored avatar (V170,
+uploaded or a provider's copy) or the workspace's logo — fetched once through `PictureFetcher` on `core/http`'s
+`GuardedHttpClient` — each copied once (keyed on the avatar's or the logo URL's SHA-256), refused past 40 megapixels
+from the header and decoded subsampled, re-encoded, kept in the bucket and served publicly at
+`/api/v1/email-images/{token}`, a 256-bit token per picture (never per message or recipient) its only credential,
+cached for good and never logged (`RequestLogFilter` skips it; `ops/gcp/bootstrap.sh` excludes it from Cloud Run's
+request log), counted or rate-limited per address (mail clients' image proxies fetch for everyone from a few). An image
+row outlives the avatar it was copied from, since a sent email names it.
 
 **The Notetaker (V151, `docs/notetaker.md`, `notetaker`)** is a Recall.ai bot a consultant sends into a kept call from
 the executive drawer's Meetings section (`WORK_EXECUTE`, only on a call on the caller's own calendar or booked by them,
@@ -1010,7 +1026,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - Client access is **two tiers, two decisions**: registry (`CLIENT_RECORD_MANAGE`, ADMIN+MEMBER) vs mandate (`CLIENT_ACCESS_MANAGE`, LEAD only). Project content is seat-gated `WORK_VIEW`/`WORK_EXECUTE`, not `PROJECT_BROWSE`.
 - **A platform role sits above every tenant and inside none**: `SUPER_ADMIN` gates `/api/v1/platform/**` (`@platformAuthorizer`) and nothing else, is granted by ops script only, and never rides in the JWT.
 - **An identity provider is a yml block** — never branch on a provider name anywhere.
-- **Tokens are never stored raw** (SHA-256); the refresh cookie rotates on every use; the access token lives in JS memory only.
+- **Tokens are never stored raw** (SHA-256) — the exceptions a profile photo's link and an email picture's (`app_lm_email_image.token`, which a sent email names), which every colleague's screen draws and which opens that one image; the refresh cookie rotates on every use; the access token lives in JS memory only.
 - **The SPA and API are one origin**; every endpoint lives under `/api/v1`. Don't split hosts.
 - **An MCP token's `aud` is the MCP endpoint and it is signed by its own key**; the session decoder checks our issuer and refuses any token carrying an `aud`, so neither token opens the other's routes.
 - **No token passthrough:** an MCP tool calls our services in-process as its `McpCaller`; a caller's token is never forwarded to another service, ours or a provider's.
@@ -1411,13 +1427,26 @@ An account with no password (a Google or LinkedIn sign-in) turns two-factor on w
 with the code alone.
 V165 indexes `app_lm_audit_event (workspace_id, id DESC)` for the customer audit log, guarded on ownership as V74 is:
 once `harden.sql` has run the index is its to build (`CONCURRENTLY`). An index only; no row is written.
-V169 adds `app_lm_user.phone` / `linkedin_url`, `app_lm_email_image` (a photo's owner or a logo's workspace and
-source hash, by CHECK; one copy per logo per workspace) and `app_lm_email_signature` (`fields` jsonb holds only the
+V171 adds `app_lm_user.phone` / `linkedin_url`, `app_lm_email_image` (a photo's owner or a logo's workspace, and the
+source's SHA-256, by CHECK; one copy per avatar per person and per logo per workspace) and `app_lm_email_signature` (`fields` jsonb holds only the
 overrides; one default per person per workspace by partial unique index).
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a
 Google or Zoom row, since only Entra's expire.
+V169 gives `app_lm_workspace_mail_integration` the saved app's read-only facts: `secret_hint` (the last four),
+`secret_saved_at`/`secret_saved_by`, and `keys_checked_at`/`keys_refused_with` (the provider's last answer, its code
+when it refused) — all null on a shared row (CHECK). No backfill: no SQL can read the ciphertext, so an older
+secret's hint is read from it at runtime and never written back.
+V170 adds `app_lm_user_avatar` — a person's profile photo held by us (account data, one per user): their own upload
+from Settings → Profile (cropped in the browser, re-encoded by `core/security/avatar`'s `AvatarImages` to a ≤ 512px JPEG,
+JPEG or PNG only) or a copy of the picture their sign-in provider named, downloaded once a sign-in has completed through
+`HttpPictureFetcher` (on `core/http`'s `GuardedHttpClient`, the client id metadata fetch's guard: every resolved address
+public, no redirect, a size cap, one deadline) — and `app_lm_user.avatar_url` names it as the public
+`/api/v1/avatars/{token}`, a new token per picture, cached privately for a year. V25's `USER` source is written: an upload
+or a removal no provider replaces (`User.mayTakeAvatarFrom`), and once a workspace can enforce its identity provider's
+sign-in, `isAvatarEditable` is where its directory photo becomes final. It clears every provider link stored before it,
+which expired and, once dead, kept every other provider out: the next sign-in copies the picture.
 V167 adds `app_lm_project_candidate.company_filed_for_them`: their company was filed for them (research, or the
 employer the workspace knew them at) rather than already held, cleared by any move; only the plugin's Undo reads it.
 V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage

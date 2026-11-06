@@ -15,7 +15,6 @@ const saved: EmailSignature = {
   isDefault: true,
   updatedAt: "2026-11-01T10:00:00Z",
   html: "<div></div>",
-  text: "-- ",
 };
 
 describe("signature drafts", () => {

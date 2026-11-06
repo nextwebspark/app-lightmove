@@ -82,6 +82,12 @@ public class BookingPages {
         return mailbox.getBookingSlug() == null ? null : properties.web().baseUrl() + "/book/" + mailbox.getBookingSlug();
     }
 
+    /** The link to draw where nothing is sent — a signature's preview — standing in for one not yet claimed. */
+    public String previewLinkOf(MailboxConnection mailbox) {
+        String link = linkOf(mailbox);
+        return link != null ? link : properties.web().baseUrl() + "/book/your-link";
+    }
+
     /** The link, giving the consultant a slug first if they have none. Written in the caller's transaction. */
     @Transactional(propagation = Propagation.MANDATORY)
     public String claimLink(MailboxConnection mailbox) {

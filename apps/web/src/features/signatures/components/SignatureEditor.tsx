@@ -35,7 +35,10 @@ export function SignatureEditor({
   const queryClient = useQueryClient();
   const toast = useToast();
   const vocabulary = useWorkspaceVocabulary();
-  const [draft, setDraft] = useState(initial);
+  // A link that is not offered is saved off, so a mailbox connected later does not bring back a switch shown off.
+  const [draft, setDraft] = useState(() =>
+    sources.bookingLinkOffered ? initial : { ...initial, showBookingLink: false },
+  );
   const [dark, setDark] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -193,8 +196,13 @@ export function SignatureEditor({
           />
           <SwitchRow
             label="Use as my default"
-            hint="Ticked on every new email and reply. You can switch it per email."
+            hint={
+              initial.isDefault && signatureId
+                ? "This is your default. Make another one the default to change it."
+                : "Ticked on every new email and reply. You can switch it per email."
+            }
             checked={draft.isDefault}
+            disabled={initial.isDefault && signatureId !== null}
             onChange={(isDefault) => setDraft({ ...draft, isDefault })}
           />
         </div>

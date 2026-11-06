@@ -49,9 +49,10 @@ export interface User {
   email: string;
   fullName: string;
   title: string | null;
+  /** The stored photo's link (`/api/v1/avatars/…`), or null for initials. */
   avatarUrl: string | null;
-  /** Whether `avatarUrl` is a photo the person uploaded, which Profile offers to remove. */
-  photoUploaded: boolean;
+  /** False where the workspace's identity provider supplies the photo: Settings → Profile offers no change. */
+  avatarEditable: boolean;
   /** Shown in the person's email signature; null when they gave none. */
   phone: string | null;
   /** Their own LinkedIn profile, canonical `https://www.linkedin.com/in/<slug>`. */
@@ -257,4 +258,6 @@ export interface ApiError {
   trialEndedAt?: string;
   /** Present on CLIENT_ALREADY_EXISTS: the live record holding that name or company, to file under instead. */
   clientId?: string;
+  /** Present on INTEGRATION_KEYS_REFUSED: the provider's own code, such as `AADSTS7000215` or `invalid_client`. */
+  providerError?: string;
 }
