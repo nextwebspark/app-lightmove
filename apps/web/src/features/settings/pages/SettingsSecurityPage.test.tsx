@@ -43,6 +43,8 @@ describe("SettingsSecurityPage", () => {
     title: "Managing Partner",
     avatarUrl: null,
     avatarEditable: true,
+    phone: null,
+    linkedinUrl: null,
     emailVerified: true,
     hasPassword: true,
     timezone: "Asia/Dubai",
