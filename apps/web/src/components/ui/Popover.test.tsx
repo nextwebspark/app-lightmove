@@ -128,4 +128,59 @@ describe("Popover", () => {
     expect(panel.style.bottom).toBe("");
     expect(panel.style.top).toBe("130px");
   });
+
+  it("holds a panel below its trigger to the room left above the window's foot", async () => {
+    stubViewportWidth(1440);
+    stubViewportHeight(800);
+    stubTriggerRect(100, 400);
+    render(
+      <Popover label="menu" trigger={() => "open"}>
+        {() => <div>content</div>}
+      </Popover>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "menu" }));
+
+    const panel = screen.getByText("content").parentElement as HTMLElement;
+    expect(panel.style.top).toBe("430px");
+    expect(panel.style.maxHeight).toBe("358px");
+  });
+
+  it("opens a long auto list above a low trigger where it fits better than beneath", async () => {
+    // The status picker on a row low in the Companies grid: 400px beneath it, a list of 700px, more above.
+    stubViewportWidth(1440);
+    stubViewportHeight(1000);
+    stubTriggerRect(100, 580);
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(700);
+    render(
+      <Popover label="menu" placement="auto" trigger={() => "open"}>
+        {() => <div>content</div>}
+      </Popover>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "menu" }));
+
+    const panel = screen.getByText("content").parentElement as HTMLElement;
+    expect(panel.style.top).toBe("");
+    expect(panel.style.bottom).toBe("426px");
+    expect(panel.style.maxHeight).toBe("562px");
+  });
+
+  it("keeps a short auto list below a low trigger when it fits there", async () => {
+    stubViewportWidth(1440);
+    stubViewportHeight(1000);
+    stubTriggerRect(100, 580);
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(200);
+    render(
+      <Popover label="menu" placement="auto" trigger={() => "open"}>
+        {() => <div>content</div>}
+      </Popover>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "menu" }));
+
+    const panel = screen.getByText("content").parentElement as HTMLElement;
+    expect(panel.style.bottom).toBe("");
+    expect(panel.style.top).toBe("610px");
+  });
 });

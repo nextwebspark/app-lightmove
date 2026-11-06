@@ -1,6 +1,9 @@
 package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.tenant.EveryWorkspace;
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
 import app.lightmove.api.outreach.constant.MessageDirection;
@@ -80,6 +83,8 @@ public class OutreachInboxService {
     private final MeetingSync meetings;
     private final LinkBookings linkBookings;
     private final ReplyTextAccess replyText;
+    private final TenantResolvers resolvers;
+    private final EveryWorkspace workspaces;
     private final TransactionTemplate transactions;
     private final LightMoveProperties properties;
     private final Clock clock;
@@ -89,12 +94,12 @@ public class OutreachInboxService {
         Instant now = clock.instant();
         for (MailboxEvent event : gateway.readWebhook(signature, body)) {
             // The delivery names a mailbox, and the mailbox its workspace: the people an event reaches are read there.
-            for (MailboxConnection mailbox : mailboxesOf(event)) {
-                WorkspaceScope.run(mailbox.getWorkspaceId(), () -> {
+            for (ResolvedRow named : mailboxesOf(event)) {
+                WorkspaceScope.run(named.workspaceId(), () -> {
                     if (event instanceof InboundMessage inbound) {
-                        received(mailbox, inbound, now);
+                        mailboxes.findById(named.id()).ifPresent(mailbox -> received(mailbox, inbound, now));
                     } else {
-                        transactions.executeWithoutResult(status -> mailboxes.findById(mailbox.getId())
+                        transactions.executeWithoutResult(status -> mailboxes.findById(named.id())
                                 .ifPresent(held -> apply(held, event, now)));
                     }
                 });
@@ -102,22 +107,27 @@ public class OutreachInboxService {
         }
     }
 
-    private List<MailboxConnection> mailboxesOf(MailboxEvent event) {
+    private List<ResolvedRow> mailboxesOf(MailboxEvent event) {
         return switch (event) {
-            case InboundMessage inbound -> mailboxes.findByGrantId(inbound.grantId());
-            case DeliveryFailure failure -> mailboxes.findByGrantId(failure.grantId());
-            case MailboxAccessWithdrawn withdrawn -> mailboxes.findByGrantId(withdrawn.grantId());
-            case CalendarEventChanged changed -> mailboxes.findByGrantId(changed.grantId());
-            case CalendarEventRemoved removed -> mailboxes.findByGrantId(removed.grantId());
-            case BookingMade booking -> mailboxes.findByBookingConfigurationId(booking.configurationId());
+            case InboundMessage inbound -> resolvers.mailboxesByGrant(inbound.grantId());
+            case DeliveryFailure failure -> resolvers.mailboxesByGrant(failure.grantId());
+            case MailboxAccessWithdrawn withdrawn -> resolvers.mailboxesByGrant(withdrawn.grantId());
+            case CalendarEventChanged changed -> resolvers.mailboxesByGrant(changed.grantId());
+            case CalendarEventRemoved removed -> resolvers.mailboxesByGrant(removed.grantId());
+            case BookingMade booking -> resolvers.mailboxesByBookingConfiguration(booking.configurationId());
         };
     }
 
     /**
      * The fallback for a missed webhook, and the only listener for our own gateways: every thread an email went into
-     * within the listening window, and every thread a run still waits on.
+     * within the listening window, and every thread a run still waits on. A workspace at a time: the threads, runs and
+     * mailboxes are under row-level security.
      */
     public void pollListeningThreads(Instant now) {
+        workspaces.forEach(workspaceId -> pollListeningThreadsInScope(now));
+    }
+
+    private void pollListeningThreadsInScope(Instant now) {
         Instant since = now.minus(properties.outreach().replyListenWindow());
         Map<ThreadKey, OutreachThread> listening = new LinkedHashMap<>();
         for (OutreachMessage sent : messages.findLatestSendOfEachThreadSince(since)) {

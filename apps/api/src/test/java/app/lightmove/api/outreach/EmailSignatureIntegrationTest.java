@@ -11,9 +11,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubPictureFetcher;
+import app.lightmove.api.core.storage.service.EmailImageService;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
@@ -40,7 +42,7 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
     private static final String SIGNATURES = "/api/v1/me/signatures";
     private static final String LOGO_URL = "https://logos.example/al-futtaim.png";
 
-    @Autowired private JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc private JdbcTemplate jdbc;
     @Autowired private StubPictureFetcher pictures;
 
     private String yara;
@@ -227,6 +229,10 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
         list(yara);
 
         assertThat(pictures.fetched()).containsOnlyOnce(LOGO_URL);
+        String logoPath = first.substring(first.indexOf(EmailImageService.PATH), first.indexOf('"',
+                first.indexOf(EmailImageService.PATH)));
+        mvc.perform(get(logoPath)).andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"));
         assertThat(list(yara).get("sources").get("logoAvailable").asBoolean()).isTrue();
     }
 

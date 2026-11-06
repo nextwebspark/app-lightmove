@@ -49,8 +49,8 @@ Two owners, and the dependencies point one way:
   `SignatureSenders`). It reads the profile, the workspace (name, logo, website, mode), the mailbox and `BookingPages`.
   Nothing depends back on it.
 
-Each phase brings its own migration, numbered at the next free version when it is built (V189 for phase 1 and V190
-for phase 3 as of writing; main already holds V188).
+Each phase brings its own migration, numbered at the next free version when it is built (V193 for phase 1 and V194
+for phase 3 as of writing; main already holds V192).
 
 **`app_lm_email_signature`** (phase 1): `workspace_id`, `user_id` (a signature is the person's in one workspace —
 their title and firm can differ between workspaces), `name` ("Formal", "Short"), `layout`
@@ -118,6 +118,9 @@ A recipient's mail client must fetch the photo and logo with no session, and our
   `httpRequest.requestUrl:"/api/v1/email-images/"`, since Cloud Run's own request log records URL, IP and user agent
   whatever the app does.
 - A picture's row outlives the avatar or logo it was copied from, because a sent email names it.
+- **Row-level security** (V184, V190) covers both tables: a signature and a logo are their workspace's, a photo (no
+  workspace) is its person's wherever they sign in. The public route asks `app_lm_resolve_email_image` which workspace
+  holds a token, then reads the row in that workspace's scope.
 
 ## C. Rendering
 

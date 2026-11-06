@@ -25,7 +25,7 @@ type OpenState = Record<ProfileSection, boolean>;
 
 /** What a first visit shows: the summary alone, every other part a click away. */
 const DEFAULTS: OpenState = {
-  outreach: true,
+  outreach: false,
   company: false,
   summary: true,
   experience: false,

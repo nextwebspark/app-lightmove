@@ -10,6 +10,8 @@ import app.lightmove.api.core.storage.constant.EmailImageKind;
 import app.lightmove.api.core.storage.model.EmailImage;
 import app.lightmove.api.core.storage.model.EncodedImage;
 import app.lightmove.api.core.storage.repository.EmailImageRepository;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,6 +48,7 @@ public class EmailImageService {
     private static final Duration FAILED_LOGO_RETRY_AFTER = Duration.ofMinutes(10);
 
     private final EmailImageRepository images;
+    private final TenantResolvers resolvers;
     private final UserAvatarRepository avatars;
     private final DocumentStore store;
     private final PictureFetcher fetcher;
@@ -103,8 +106,14 @@ public class EmailImageService {
                 key -> EmailImage.logoOf(workspaceId, sourceHash, Tokens.generate(), logo.get(), key));
     }
 
+    /** The public route's read: no workspace is known until the token names one. */
     public Optional<EmailImage> find(String token) {
-        return token == null || token.isBlank() ? Optional.empty() : images.findByToken(token);
+        if (token == null || token.isBlank()) {
+            return Optional.empty();
+        }
+        return resolvers.emailImage(token).flatMap(found -> found.workspaceId() == null
+                ? images.findByToken(token)
+                : WorkspaceScope.call(found.workspaceId(), () -> images.findByToken(token)));
     }
 
     public InputStream open(EmailImage image) {

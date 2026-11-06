@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import app.lightmove.api.core.tenant.EveryWorkspace;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.GrantedMailbox;
@@ -37,7 +38,7 @@ class MeetingBackfillTest {
     private final MailboxConnectionRepository mailboxes = mock(MailboxConnectionRepository.class);
     private final MeetingSync meetings = mock(MeetingSync.class);
     private final MeetingBackfill backfill = new MeetingBackfill(gateway, mailboxes, meetings,
-            mock(PlatformTransactionManager.class), Clock.fixed(NOW, ZoneOffset.UTC));
+            mock(EveryWorkspace.class), mock(PlatformTransactionManager.class), Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
     @DisplayName("a quarter of an hour after the first failure, doubling each time, never more than a day")

@@ -78,7 +78,7 @@ LinkedIn profile is refused (`PERSON_PROFILE_HELD`). A plugin capture of someone
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
-**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`) — the Notes tabs write and list plain notes alone, a call, a LinkedIn message or a meeting written up without the Notetaker is logged from Outreach (`NoteComposerModal`, its Call | LinkedIn | Meeting switch) with when it happened — now unless changed, never in the
+**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`) — the Notes tabs write and list plain notes alone, a call, a LinkedIn message or a meeting written up without the Notetaker is logged from Outreach (`NoteComposerModal`, of the kind its button named, with no switch to another) with when it happened — now unless changed, never in the
 future — and an optional title (V185 `occurred_at`, `title`), a meeting's tied to the past Uncava meeting it was about
 — its calendar meeting (`meeting_id`, bare; `PastMeetingLookup`, answered by `outreach`) or, once the calendar has let
 the meeting go, its Notetaker recording (V188 `recording_id`; `PastRecordingLookup`, answered by `notetaker`, from that
@@ -109,14 +109,14 @@ status picker and that pencil, the primary email and phone with "+N" and the con
 one line with a +N chip, and do not contact) and one tab order, `Position.dc.html`'s, grouped by what the consultant
 is doing: **Profile · Notes · Assessment · Outreach · Activity** — Profile's folds Summary, Experience, Education,
 Background, Compensation, Documents and Your columns, Summary alone open on arrival (`useProfileSections`); Outreach
-the conversation — the action row first (Write email, Log call, Log meeting, Log LinkedIn, Book a call, Add to sequence, held
+the conversation — the action row first (Write email, Log call, Log meeting, Log LinkedIn, Book a meeting, Add to sequence, held
 while a run is live), then the run where there is one, the calls to come, then one timeline (its latest five, See more for
 the rest) (`DrawerOutreachTimeline`, over the conversation read and
 `MeetingsSection`'s past calls with their ⋯: emails, replies, logged calls and LinkedIn messages, each past
 call with the Meeting note its recording filed, every one a card led by its kind's tile — LinkedIn's own mark, a camera
 for a video or recorded call, a calendar for one met in person, its platform named as text ("Google Meet"; never Meet's
 or Teams' logo, which their owners license), a recorded one badged Recorded — and the face of who sent, wrote or held
-it (a call known only from its recording, the sender's) (`OutreachEntryCard`, which the Outreach page's
+it beside the time, never their name on show (a call known only from its recording, the sender's) (`OutreachEntryCard`, which the Outreach page's
 history shares); status and run changes are the Activity tab's; All · Email · Calls · LinkedIn · Meetings) and the contacts last, their
 pencil the header's contact details window; a link to a call, LinkedIn or meeting note lands there — and **Positions** on
 the Candidates page's drawer alone (`lib/drawerTabs.ts`; retired `?tab=background|compensation|documents|contact|…`
@@ -799,7 +799,7 @@ webhook names the page; `LinkBookings` counts it **only for an address that cons
 keeps the meeting `booked_via_link`, ends their listening runs as `BOOKED` before the next step, and moves
 the person forward to Engaged once per position — a booking after a reply included.
 
-**Email signatures (V189, epic #1157, `docs/email-signatures.md`)** are a consultant's own, per workspace, in
+**Email signatures (V193, epic #1157, `docs/email-signatures.md`)** are a consultant's own, per workspace, in
 Settings → Email signature (`/me/signatures`, staff only, every row keyed on the caller — another's reads as missing):
 at most ten, exactly one the default while any exist (unticking it does nothing; another is made the default), each a
 layout (Classic, With photo, Photo + logo, Logo banner, Minimal, Custom in the notes' editor) whose empty fields follow
@@ -820,7 +820,7 @@ row outlives the avatar it was copied from, since a sent email names it. The com
 sender's default (a picker where they keep more than one; replies alike) and `SendMessageRequest.signatureId` draws it
 when the email is written, into the stored `body` only — `body_text` stays the consultant's words; Add to sequence's
 review picks one for the run (`StartSequenceRequest.signatureId`), drawn once at Start and frozen on each enrollment
-(V190 `signature_html`), so every step, follow-ups included, closes alike. Either way a signature showing Book a call
+(V194 `signature_html`), so every step, follow-ups included, closes alike. Either way a signature showing Book a call
 has its page made before anything is written. The mailbox's test email carries the default.
 
 **The Notetaker (V151, `docs/notetaker.md`, `notetaker`)** is a Recall.ai bot a consultant sends into a kept call from
@@ -1059,7 +1059,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **Membership is invitation-only**; the one second door is a staff member naming a client representative.
 - A user may hold **several** active memberships (V81 dropped V1's partial unique index), but a session is in exactly **one** workspace — the `wsId` claim, chosen at sign-in from `last_workspace_id`, remembered per refresh-token family, and changed by `POST /auth/switch-workspace` (a 404 unless the caller is an active member of the target) or by a web refresh whose membership has ended (audited `MEMBERSHIP_ENDED`; `/me` and the extension never fall through). The signup wizard's `POST /onboarding/workspace` founds a *first* workspace only (`ALREADY_IN_WORKSPACE`); a further one is `POST /workspaces`, staff-gated.
 - Verification gates the *proof of mailbox*, not the channel — an invite token or a password reset proves it too.
-- **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter. Forced Postgres row-level security (V184, `core/tenant`) is the backstop: every borrowed connection carries the caller's workspace, and a job, webhook or worker with no principal names its own with `WorkspaceScope` — with none, the protected tables answer nothing (`db-ops`).
+- **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter. Forced Postgres row-level security (V184, V190, `core/tenant`) is the backstop on every tenant table, which `TenantTableGuard` reads off the schema and the boot refuses unprotected: every borrowed connection carries the caller's workspace, a job, webhook or worker with no principal names its own with `WorkspaceScope`, and a door that knows only a key (a grant, a bot, a slug, a token's hash) resolves its workspace through V189's `TenantResolvers` first — with none, tenant tables answer nothing (`db-ops`).
 - **Authorise by action, never by role** (`@PreAuthorize` + `@workspaceAuthorizer`/`@projectAuthorizer`); guard beans re-read the DB every check; the JWT `roles` claim is never trusted for a decision.
 - Client access is **two tiers, two decisions**: registry (`CLIENT_RECORD_MANAGE`, ADMIN+MEMBER) vs mandate (`CLIENT_ACCESS_MANAGE`, LEAD only). Project content is seat-gated `WORK_VIEW`/`WORK_EXECUTE`, not `PROJECT_BROWSE`.
 - **A platform role sits above every tenant and inside none**: `SUPER_ADMIN` gates `/api/v1/platform/**` (`@platformAuthorizer`) and nothing else, is granted by ops script only, and never rides in the JWT.
@@ -1475,10 +1475,22 @@ plain note, by CHECK, and on every older note, where `created_at` stands in), `t
 notes only, by CHECK; bare, as V151's recording keeps its meeting's id).
 V188 adds `app_lm_person_note.recording_id` (the Notetaker recording a meeting's notes are about, where the calendar no
 longer holds its meeting; bare, a meeting's notes only and never beside a `meeting_id`, by CHECK).
-V189 adds `app_lm_user.phone` / `linkedin_url`, `app_lm_email_image` (a photo's owner or a logo's workspace, and the
+V189 adds the `app_lm_resolve_*` functions — `SECURITY DEFINER`, one key each, ids and workspace out — that a door with
+no principal asks before opening its scope (`TenantResolvers`), and `app_lm_trial_started_by`. V190 forces row-level
+security on every other tenant table (#1085): a direct policy where the table has a `workspace_id`, one through the
+parent where it has none; a library template (null workspace) is everyone's to read, and the audit
+trail takes every insert and is read only in its own workspace or the account's. V192 lets only a `SharedRows` scope
+(`app.shared_rows`) write a library template or reach a grant awaiting consent at all. `app_lm_audit_event` and
+`app_lm_credit_entry` are harden.sql's once it has run (step 2c), which must be re-run after V190 deploys.
+V191 adds the job resolvers (`app_lm_workspaces_with_*`, `app_lm_workspaces_owing_seat_sync`) — the same idiom,
+workspace ids out — so the dispatcher, the copilot coach, the bell's emails, the due scan, the seat sync and the ledger
+sweep walk only the workspaces with their work; each condition is wider than its job's claim, and changes with it.
+V193 adds `app_lm_user.phone` / `linkedin_url`, `app_lm_email_image` (a photo's owner or a logo's workspace, and the
 source's SHA-256, by CHECK; one copy per avatar per person and per logo per workspace) and `app_lm_email_signature` (`fields` jsonb holds only the
-overrides; one default per person per workspace by partial unique index).
-V190 adds `app_lm_outreach_enrollment.signature_html` — the signature Start drew for the run; null sends none.
+overrides; one default per person per workspace by partial unique index), both under forced row-level security —
+a photo row, account data with no workspace, read wherever its person signs in — and `app_lm_resolve_email_image`, the
+public picture route's resolver.
+V194 adds `app_lm_outreach_enrollment.signature_html` — the signature Start drew for the run; null sends none.
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a

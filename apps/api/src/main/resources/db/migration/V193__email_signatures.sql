@@ -72,3 +72,34 @@ CREATE INDEX app_lm_email_signature_owner_idx ON app_lm_email_signature (workspa
 
 CREATE TRIGGER app_lm_email_signature_touch BEFORE UPDATE ON app_lm_email_signature
     FOR EACH ROW EXECUTE FUNCTION app_lm_touch_updated_at();
+
+-- Row-level security (V184, V190): a signature is its workspace's; a logo is its workspace's, and a photo — account
+-- data with no workspace, a copy of the person's own avatar — is read wherever its person signs in. FORCE, for V184's
+-- reason: lm_app still owns these tables until #256.
+ALTER TABLE app_lm_email_signature ENABLE ROW LEVEL SECURITY;
+ALTER TABLE app_lm_email_signature FORCE ROW LEVEL SECURITY;
+CREATE POLICY app_lm_tenant ON app_lm_email_signature
+    USING (app_lm_tenant_visible(workspace_id))
+    WITH CHECK (app_lm_tenant_visible(workspace_id));
+
+ALTER TABLE app_lm_email_image ENABLE ROW LEVEL SECURITY;
+ALTER TABLE app_lm_email_image FORCE ROW LEVEL SECURITY;
+CREATE POLICY app_lm_tenant ON app_lm_email_image
+    USING (workspace_id IS NULL OR app_lm_tenant_visible(workspace_id))
+    WITH CHECK (workspace_id IS NULL OR app_lm_tenant_visible(workspace_id));
+
+-- The public picture route arrives with a token and no workspace (V189's idiom): which workspace holds it, never the
+-- row. A photo answers a null workspace and is read as it is.
+CREATE FUNCTION app_lm_resolve_email_image(p_token text)
+    RETURNS TABLE (id uuid, workspace_id uuid)
+    LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    outside text := current_setting('app.rls_maintenance', true);
+BEGIN
+    PERFORM set_config('app.rls_maintenance', 'on', true);
+    RETURN QUERY SELECT i.id, i.workspace_id FROM app_lm_email_image i WHERE i.token = p_token;
+    PERFORM set_config('app.rls_maintenance', coalesce(outside, ''), true);
+END
+$$;
+
+REVOKE ALL ON FUNCTION app_lm_resolve_email_image(text) FROM PUBLIC;

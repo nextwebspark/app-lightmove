@@ -764,12 +764,11 @@ describe("OutreachPage", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Log call" }));
     const dialog = await screen.findByRole("dialog", { name: "Log a call with Fatima Al Mazrouei" });
-    expect(within(dialog).getByRole("radio", { name: "Call" })).toHaveAttribute("aria-checked", "true");
     await within(dialog).findByRole("textbox", { name: "New note" });
     await userEvent.click(within(dialog).getByRole("button", { name: "Expand" }));
 
     expect(screen.getAllByRole("dialog")).toEqual([dialog]);
-    expect(within(dialog).getByRole("radiogroup", { name: "What you are logging" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("radiogroup", { name: "What you are logging" })).not.toBeInTheDocument();
     expect(within(dialog).getByRole("radiogroup", { name: "Who reads this note" })).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Save note" })).toBeInTheDocument();
     expect(within(dialog).queryByText("Editing in the larger view…")).not.toBeInTheDocument();
@@ -783,7 +782,7 @@ describe("OutreachPage", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Log LinkedIn" }));
     const dialog = await screen.findByRole("dialog", { name: "Log a LinkedIn message with Fatima Al Mazrouei" });
-    expect(within(dialog).getByRole("radio", { name: "LinkedIn" })).toHaveAttribute("aria-checked", "true");
+    expect(within(dialog).queryByRole("radiogroup", { name: "What you are logging" })).not.toBeInTheDocument();
   });
 
   it("holds a note being written against Escape, as it does an email", async () => {

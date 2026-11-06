@@ -8,7 +8,7 @@ import { cardTimeOf, type EntryTile } from "../lib/conversationVocabulary";
 
 /**
  * One entry of an executive's Outreach history, as the drawer and the Outreach page both draw it: the mark of its kind,
- * its title and time, who did it, then whatever it carries.
+ * its title, who did it as a face beside the time, then whatever it carries.
  */
 export function OutreachEntryCard({
   label,
@@ -17,7 +17,8 @@ export function OutreachEntryCard({
   badge = null,
   at = null,
   menu = null,
-  byline,
+  actor = null,
+  byline = null,
   footer = null,
   id,
   tabIndex,
@@ -29,7 +30,10 @@ export function OutreachEntryCard({
   badge?: ReactNode;
   at?: string | null;
   menu?: ReactNode;
-  byline: ReactNode;
+  /** Who did it: an `EntryActor`, drawn beside the time. */
+  actor?: ReactNode;
+  /** What the line adds beneath the title — where an email went, when a call was. */
+  byline?: ReactNode;
   footer?: ReactNode;
   id?: string;
   tabIndex?: number;
@@ -50,14 +54,19 @@ export function OutreachEntryCard({
               {title}
               {badge && <span className="ms-2 inline-flex align-middle">{badge}</span>}
             </span>
-            {at && (
-              <time dateTime={at} className="flex-none font-mono text-meta text-u-text3">
-                {cardTimeOf(at)}
-              </time>
+            {(actor || at) && (
+              <span className="flex flex-none items-center gap-1.5 self-center">
+                {actor}
+                {at && (
+                  <time dateTime={at} className="font-mono text-meta text-u-text3">
+                    {cardTimeOf(at)}
+                  </time>
+                )}
+              </span>
             )}
             {menu && <span className="flex-none self-center">{menu}</span>}
           </div>
-          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-note text-u-text2">{byline}</div>
+          {byline && <div className="mt-1 flex min-w-0 items-center gap-1.5 text-note text-u-text2">{byline}</div>}
         </div>
       </div>
       {children}
@@ -66,29 +75,23 @@ export function OutreachEntryCard({
   );
 }
 
-/** Who did it, as a face and a name, then what the line adds — where an email went, when a call was. */
-export function EntryByline({
+/** Who did it, as a face alone: the name is its tooltip and what a screen reader hears. */
+export function EntryActor({
   actor,
   executive,
   name,
-  before = null,
-  after = null,
 }: {
   actor: ActivityActor;
   executive: ActivityExecutive;
   /** In place of the actor's own name: Uncava, on a delivery it reports. */
   name?: string;
-  before?: string | null;
-  after?: string | null;
 }) {
   const shownName = name ?? actorNameOf(actor, executive);
   return (
-    <>
-      {before && <span className="flex-none font-mono text-meta text-u-text3">{before}</span>}
+    <span className="inline-flex flex-none">
       <ActorFace actor={actor} executive={executive} size="xs" title={shownName} />
-      <span className="flex-none font-medium text-u-text">{shownName}</span>
-      {after && <span className="min-w-0 truncate text-u-text3">{after}</span>}
-    </>
+      <span className="sr-only">{shownName}</span>
+    </span>
   );
 }
 

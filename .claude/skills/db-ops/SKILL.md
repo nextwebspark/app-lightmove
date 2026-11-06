@@ -18,13 +18,19 @@ forever, which is precisely what `harden.sql` revokes. In the pipeline it runs a
 instead, so a bad migration fails a deploy and the old revision keeps serving — rather than
 crash-looping production, where you can roll back an image but not a schema.
 
-## Row-level security is the backstop to the workspace filters (V184, #1084)
+## Row-level security is the backstop to the workspace filters (V184, V189, V190, #1084, #1085)
 
 Every workspace-scoped query still filters by `AuthPrincipal.requireWorkspaceId()`; Postgres row-level security is
-what stops one missed filter from leaking across firms. V184 forces it on the people and position core —
-`app_lm_project`, `_project_candidate`, `_project_triage_company`, `_person` and its contacts, notes, documents and
-versions, tags and photo, and `_company_note`; #1085 covers the rest. `RowLevelSecurityPosture.PROTECTED_TABLES` is
-the list, and the boot fails if any of them is not forced.
+what stops one missed filter from leaking across firms. V184 forced it on the people and position core, V190 on every
+other tenant table. **Nobody keeps the list:** `TenantTableGuard` reads it off the schema — every `app_lm_` table with
+a `workspace_id`, and every table holding a foreign key into one, however many hops down — and each must be enabled,
+forced and given a policy unless it is on `TenantTableGuard.EXCLUDED` with its reason (membership and refresh tokens:
+the authorisation substrate, read across a person's workspaces before one is chosen). The boot refuses a schema that
+fails it (`RowLevelSecurityPosture`), and `TenantTableGuardIntegrationTest` shows a new table with a workspace, or a
+new child of a tenant table, named until it is protected. **A new tenant table's migration enables, forces and gives
+it its policy in the same file**, or the next boot fails. Global tables (the universe, the vendor caches, geocoding,
+industries, the RBAC and billing-plan catalogues, OAuth clients, users and their factors, `app_lm_workspace` itself)
+carry no workspace and reference none, so the guard never reaches them.
 
 - **The setting.** `app.workspace_id`, written by `core/tenant`'s `TenantAwareDataSource` on **every connection
   checkout** — `set_config(…, false)`, overwritten each time, the empty string when there is no workspace. Not
@@ -38,20 +44,51 @@ the list, and the boot fails if any of them is not forced.
   `app_lm_current_workspace()` — `NULLIF(current_setting('app.workspace_id', true), '')::uuid`, the `NULLIF`
   because a setting once set reads back as `''`, which would throw as a uuid. No setting, no rows; `WITH CHECK`
   refuses an insert or update into another workspace. A person's children (contacts, tags, document versions,
-  photo) carry no workspace and are visible through `EXISTS` on their person, whose own policy answers. The two
-  grid tables carry their project's `workspace_id` (filled by `app_lm_fill_workspace_from_project`, held by a
-  composite key to the project's) so their policy is a plain comparison.
+  photo) carry no workspace and are visible through `EXISTS` on their person, whose own policy answers; V190 does the
+  same for every other child (a position and its lists, a strategy, a sequence's steps, a recording's live lines, a
+  note's mentions, a grant's retired tokens, …), the parent's policy answering the next hop. The two grid tables carry
+  their project's `workspace_id` (filled by `app_lm_fill_workspace_from_project`, held by a composite key to the
+  project's) so their policy is a plain comparison.
+- **Three tables hold rows of no workspace.** A shared library template (`app_lm_position_template`, and its keywords
+  through it) and an OAuth grant still waiting for consent have a null `workspace_id`. Since V192 only a connection the
+  application opened for them reaches one for writing — `SharedRows.run(…)`, entered before its transaction (or on a
+  joined one), raising `app.shared_rows`, which `TenantAwareDataSource` resets on every checkout: the library is read by
+  every session and written only by `PositionTemplateLibraryService`; a pending grant is read and written only by
+  `HashingAuthorizationService`, the grant purge and a password change's revoke-all. A firm's path that dirties a loaded
+  library row is refused at flush rather than rewriting every firm's template. The audit trail is never
+  refused a line (`FOR INSERT WITH CHECK (true)`: a sign-in is audited in the workspace it opens, an account's own
+  events in none) but is read only in the reader's workspace or the account's (null) — every workspace's session may
+  read an account row, and the customer audit log's query (members, from their latest joining) is what narrows it,
+  since the database knows the workspace but not the reader. Its id is drawn from the
+  sequence before the insert, never `RETURNING` it: Postgres checks a returned row against the read policy, and an
+  event of another workspace would fail it.
 - **System work names its workspace — per item, no bypass role.** A scheduled job, a public webhook, or an
-  `@Async` worker woken by one has no principal, so it reads nothing until it opens `WorkspaceScope.run(id, …)` from
-  the row it is working on (the enrollment, the message, the mailbox, the recording). A statement over every
-  workspace becomes a walk (`EveryWorkspace`): the note purges, the due scan, the bell's emails — the last two only
-  over the workspaces their own unprotected table says have work (`sumWithWork`), and a workspace that throws never
-  stops the rest. `@Async` tasks and hand-built pools inherit the submitter's workspace through
-  `ThreadContextPropagation`. A scope is refused inside a
-  transaction already holding another workspace's connection.
+  `@Async` worker woken by one has no principal, so it reads nothing until it opens `WorkspaceScope.run(id, …)`. A job
+  over every workspace is a walk (`EveryWorkspace`), its claims and finders run inside each: the dispatcher, the reply
+  poll, the calendar and Recall owed lists, the notetaker's reconcile, sweep and purge, every billing job, the purges,
+  the due scan, the bell's emails and digests — and a workspace that throws never stops the rest. A frequent job walks
+  only the workspaces V191's resolver for it names (`app_lm_workspaces_with_*`, workspace ids out, its condition wider
+  than the job's claim, never narrower — change the two together). `@Async` tasks and hand-built pools inherit the
+  submitter's workspace through `ThreadContextPropagation`, so an event published in scope is heard in it. A scope is
+  refused inside a transaction already holding another workspace's connection — open it first — with one deliberate
+  exception, `WorkspaceScope.runInJoinedTransaction`, for an account's work that must commit with the change behind
+  it: founding a workspace writes its trial there, and a password change ends the account's AI-app grants in every
+  workspace.
+- **A door with no principal resolves, then scopes (V189).** A webhook names a grant, a Recall calendar or bot, or a
+  Stripe customer; a public page a slug; a credential arrives as a hash; an invitation as a token. Before any
+  workspace is known none of their rows can be read, so `core/tenant`'s `TenantResolvers` asks one of V189's
+  `app_lm_resolve_*` functions — `SECURITY DEFINER`, raising the maintenance flag transaction-locally for its one query
+  and putting it back — which answer **ids and the workspace only**, never the row; the door then opens
+  `WorkspaceScope` on that workspace and reads the row under the fence. A resolver is a deliberate hole, so each is
+  one key, one query, ids out, and `TenantResolvers` is the only caller. Never widen a scope to make an empty read
+  work: add a resolver for the key. Three questions are cross-workspace by nature and answered the same way: one trial
+  per founder (`app_lm_trial_started_by`), a booking slug's uniqueness, and the invitations waiting for an address.
 - **Fail-open traps, now pinned by tests.** A check that reads "not found" as "allowed" turns RLS's empty answer
   into a pass: `existsByIdAndArchivedAtIsNotNull` reads an unseen project as live, and `NOT IN (archived ids)`
-  excludes nothing when the subquery sees nothing. Every such read must run in the right scope.
+  excludes nothing when the subquery sees nothing. #1085's were worse: run unscoped, the notetaker's moved-call check
+  saw every calendar empty and called back every waiting bot, the OAuth purge saw no grant and deleted every old
+  client with live connections (its cascade taking them), the drift check reported no drift, and a founder's every
+  workspace started a fresh trial. Every such read must run in the right scope.
 - **Who is above it.** A superuser skips every policy, forced or not, and so does a `BYPASSRLS` role. The runtime
   role must be neither — `RowLevelSecurityPosture` refuses to boot otherwise (`lightmove.row-level-security.
   require-enforced`). Tests, `npm run dev` and e2e therefore run the API as a non-superuser `lm_app` that owns the
@@ -81,8 +118,14 @@ leaves ownership with `lm_migrate`, and FORCE keeps the owner bound whatever hap
 runtime role that can set `app.workspace_id` can choose its workspace: closing that needs a signed context or
 per-tenant roles, which neither issue builds.
 
+**harden.sql owns two of them.** Once it has run, `app_lm_audit_event` and `app_lm_credit_entry` belong to `postgres`,
+which `lm_app` cannot `ALTER`: V190 enables them where Flyway still owns them and skips them with a warning where it
+does not, and harden.sql's step 2c does the same as their owner, idempotently. Until it has run there the boot logs
+that they wait on it rather than refusing (`TenantTableGuard.HARDEN_OWNED`): the deploy has already migrated, and a
+refused revision would leave the one before it serving the new policies. **Re-run harden.sql after V190 deploys.**
+
 **Rollback.** `ALTER TABLE <t> NO FORCE ROW LEVEL SECURITY; ALTER TABLE <t> DISABLE ROW LEVEL SECURITY;` on the
-listed tables, as their owner, restores the pre-V184 behaviour; the column, trigger and functions can stay.
+protected tables, as their owner, restores the pre-V184 behaviour; the columns, trigger and functions can stay.
 
 ## Humans and roles
 

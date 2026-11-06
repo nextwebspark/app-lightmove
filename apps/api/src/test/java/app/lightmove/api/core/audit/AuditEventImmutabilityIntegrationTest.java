@@ -7,6 +7,8 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.model.AuditEvent;
 import app.lightmove.api.core.audit.repository.AuditEventRepository;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.tenant.WorkspaceScope;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,10 +41,11 @@ class AuditEventImmutabilityIntegrationTest {
     @Test
     void recordsAnEventWhoseDetailsAreNotAllStrings() {
         UUID turnId = UUID.randomUUID();
+        UUID workspaceId = UUID.randomUUID();
 
         audit.event(ProjectEventType.ASSISTANT_ASKED)
                 .actor(UUID.randomUUID())
-                .workspace(UUID.randomUUID())
+                .workspace(workspaceId)
                 .target("project", UUID.randomUUID())
                 .origin("203.0.113.7", "test-agent")
                 .detail("turnId", turnId)
@@ -52,7 +55,9 @@ class AuditEventImmutabilityIntegrationTest {
 
         // Reaching this line at all is most of the assertion: the writer is synchronous under test,
         // so a flush that tried to UPDATE would have surfaced here as the trigger's refusal.
-        assertThat(events.findAll())
+        // Read back in its own workspace: the trail shows a reader its workspace's events and the account's alone.
+        List<AuditEvent> written = WorkspaceScope.call(workspaceId, () -> events.findAll());
+        assertThat(written)
                 .extracting(AuditEvent::getMetadata)
                 .anySatisfy(metadata -> assertThat(metadata).containsEntry("turnId", turnId.toString()));
     }

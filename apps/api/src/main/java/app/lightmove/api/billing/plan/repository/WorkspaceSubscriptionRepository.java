@@ -17,8 +17,6 @@ public interface WorkspaceSubscriptionRepository extends JpaRepository<Workspace
 
     Optional<WorkspaceSubscription> findByWorkspaceId(UUID workspaceId);
 
-    boolean existsByTrialStartedBy(UUID userId);
-
     /**
      * Trials the app started, still unpaid, ending in {@code [from, to)}. One that started already ended — a founder's
      * second, {@code WorkspaceSubscription.trialAlreadySpent} — carries no {@code trial_started_at} and is never listed.
@@ -49,8 +47,4 @@ public interface WorkspaceSubscriptionRepository extends JpaRepository<Workspace
             WHERE workspace_id = :workspaceId AND seat_sync_due_at = :dueAt""")
     int clearSeatSync(UUID workspaceId, Instant dueAt);
 
-    @Query(nativeQuery = true, value = """
-            SELECT workspace_id FROM app_lm_workspace_subscription
-            WHERE seat_sync_due_at <= :before ORDER BY seat_sync_due_at LIMIT :limit""")
-    List<UUID> findWorkspacesOwingSeatSync(Instant before, int limit);
 }

@@ -381,6 +381,12 @@ Asked for, and the honest answer is that some of these are more urgent than the 
    failing, Hikari pool exhaustion, JVM old-gen trending up, Cloud Run pinned at max-instances.
    An alert that pages a human is what makes all the above worth building.
 
+   **Partly done (Nov 2026).** `ops/gcp/monitoring.sh` creates log metrics for app ERRORs and 5xx,
+   email channels, alert policies at 5 or more in 10 minutes, and an external uptime check on
+   `/actuator/health` with its own policy. `ops/gcp/log-digest.sh` adds a daily 08:00 Dubai email
+   (Cloud Run Job + Scheduler) that lists the day's errors, or says all is OK. Still open: p95 latency,
+   Hikari exhaustion, JVM memory, max-instances, and an alert on the digest job failing.
+
 **Soon**
 
 6. **An external uptime check.** Health that is only checked from inside proves the inside works.

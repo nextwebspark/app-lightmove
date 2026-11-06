@@ -1,6 +1,7 @@
 package app.lightmove.api.position;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -8,6 +9,7 @@ import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.TestLlmCallPolicy;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.LlmRateLimitSettings;
 import app.lightmove.api.core.config.LlmSettings;
@@ -49,7 +51,17 @@ import org.springframework.util.StreamUtils;
 @Import(RecordingEmailSender.Config.class)
 class PositionContextProposerTest extends FlowTestSupport {
 
-    @Autowired PositionDocumentRedactor redactor;
+    /** Scoped to the workspace each redaction names, as the request reading the document is. */
+    PositionDocumentRedactor redactor;
+
+    @Autowired
+    void scopeTheRedactor(PositionDocumentRedactor bean) {
+        redactor = TestWorkspaceScopes.scopedByArguments(bean);
+        unscopedRedactor = bean;
+    }
+
+    private PositionDocumentRedactor unscopedRedactor;
+
     @Autowired ExtractedFieldReader fieldReader;
 
     private static final String DOCUMENT_TEXT = """
@@ -91,6 +103,16 @@ class PositionContextProposerTest extends FlowTestSupport {
                 .doesNotContain("jane@acme-search.example")
                 .doesNotContain("+971 50 123 4567")
                 .doesNotContain("Jane Doe");
+    }
+
+    @Test
+    @DisplayName("a client the read cannot see stops the document, rather than reading as nobody to redact")
+    void anUnreadableClientStopsTheDocument() throws Exception {
+        Fixture f = fixture("Context Unscoped Firm", "Acme Holdings Group", "acme.example");
+
+        // No workspace named: under row-level security the client is not found, and nothing may be sent naming it.
+        assertThatThrownBy(() -> unscopedRedactor.redact(DOCUMENT_TEXT, f.clientId(), f.workspaceId()))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test

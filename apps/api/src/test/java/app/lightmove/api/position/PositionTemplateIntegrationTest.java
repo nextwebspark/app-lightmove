@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.positiontemplate.dto.PositionTemplateSummary;
 import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import java.util.ArrayList;
@@ -39,7 +40,13 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
             """;
 
     @Autowired @FixtureJdbc JdbcTemplate db;
-    @Autowired PositionTemplateService templateService;
+    /** Called directly, so each call in the workspace it names, as the request drafting a brief is. */
+    PositionTemplateService templateService;
+
+    @Autowired
+    void scopeTheTemplates(PositionTemplateService templates) {
+        templateService = TestWorkspaceScopes.scopedByArguments(templates);
+    }
 
     @Test
     @DisplayName("the picker lists the seeded library, and every template in it is readable")

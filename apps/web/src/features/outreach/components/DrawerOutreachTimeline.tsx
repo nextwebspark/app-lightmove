@@ -2,12 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { LinesSkeleton } from "../../../components/ui";
-import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import type { PersonNote } from "../../candidates/api/types";
 import { noteAnchorOf } from "../../candidates/components/NoteParts";
 import { PositionNoteCard, type NoteFocus } from "../../candidates/components/PersonSections";
+import { NoteKindMark } from "../../candidates/components/NoteKindMark";
+import { ActivityFilterMenu, type FilterMenuOption } from "../../candidates/components/activity/ActivityFilterMenu";
+import { KindTile } from "../../candidates/components/activity/ActivityVisuals";
 import type { ActivityExecutive } from "../../candidates/lib/activityPresentation";
 import { ClampedNoteText } from "../../notes/components/ClampedNoteText";
 import { NoteReaderModal } from "../../notes/components/NoteReaderModal";
@@ -27,15 +29,14 @@ import {
 import { meetingWhenOf } from "../lib/meetingTimes";
 import { ConversationEventBody } from "./ConversationEventCard";
 import type { PastCalls } from "./MeetingsSection";
-import { EntryByline, EntryLeadMark, OutreachEntryCard, RecordedBadge } from "./OutreachEntryCard";
-import { linesOf, matches, type TimelineFilter, type TimelineLine as Line } from "../lib/drawerTimeline";
+import { EntryActor, EntryLeadMark, OutreachEntryCard, RecordedBadge } from "./OutreachEntryCard";
+import { kindOfLine, linesOf, matches, type TimelineKind, type TimelineLine as Line } from "../lib/drawerTimeline";
 
-const FILTERS: readonly { value: TimelineFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "email", label: "Email" },
-  { value: "calls", label: "Calls" },
-  { value: "linkedin", label: "LinkedIn" },
-  { value: "meetings", label: "Meetings" },
+const KINDS: readonly { kind: TimelineKind; label: string; icon: string | null }[] = [
+  { kind: "email", label: "Email", icon: ICONS.mail },
+  { kind: "calls", label: "Calls", icon: ICONS.phoneCall },
+  { kind: "linkedin", label: "LinkedIn", icon: null },
+  { kind: "meetings", label: "Meetings", icon: ICONS.video },
 ];
 
 /** The timeline opens on its latest few; See more reveals the next batch. */
@@ -71,11 +72,28 @@ export function DrawerOutreachTimeline({
     queryKey: conversationApi.CONVERSATION_KEY(projectId, candidateId),
     queryFn: ({ signal }) => conversationApi.getConversation(projectId, candidateId, signal),
   });
-  const [filter, setFilter] = useState<TimelineFilter>("all");
+  const [kinds, setKinds] = useState<ReadonlySet<TimelineKind>>(() => new Set());
   const [shown, setShown] = useState(FIRST_SHOWN);
 
   const lines = conversation.data ? linesOf(conversation.data.events, past) : [];
-  const visible = lines.filter((line) => matches(line, filter));
+  const visible = lines.filter((line) => matches(line, kinds));
+  const kindOptions: FilterMenuOption[] = KINDS.map(({ kind, label, icon }) => ({
+    key: kind,
+    label,
+    visual: icon ? (
+      <KindTile icon={icon} size="dot" />
+    ) : (
+      <span aria-hidden="true" className="grid size-[22px] flex-none place-items-center">
+        <NoteKindMark kind="linkedin" size={14} />
+      </span>
+    ),
+    count: lines.filter((line) => kindOfLine(line) === kind).length,
+  })).filter((option) => option.count > 0 || kinds.has(option.key as TimelineKind));
+  const isFiltering = kinds.size > 0;
+  const chooseKinds = (next: ReadonlySet<string>) => {
+    setKinds(new Set(next as ReadonlySet<TimelineKind>));
+    setShown(FIRST_SHOWN);
+  };
   const focusIndex = focus ? visible.findIndex((line) => noteIdsOfLine(line).includes(focus.noteId)) : -1;
   // A link to a note further down opens the timeline as far as that note, once; Show less still folds it after.
   const [widenedFor, setWidenedFor] = useState<number | null>(null);
@@ -93,19 +111,37 @@ export function DrawerOutreachTimeline({
   }, [focus, conversation.isSuccess]);
 
   return (
-    <section aria-label="Timeline" className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="type-micro-label text-u-text3">Timeline</h3>
-        <SegmentedControl
-          label="Show"
-          options={FILTERS}
-          value={filter}
-          onChange={(next) => {
-            setFilter(next);
-            setShown(FIRST_SHOWN);
-          }}
-          className="ms-auto"
-        />
+    <section aria-label="History" data-activity-root className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <h3 className="type-micro-label text-u-text3">History</h3>
+        {conversation.isSuccess && lines.length > 0 && (
+          <>
+            <span className="ms-auto font-mono text-meta text-u-text3">
+              {isFiltering ? `${visible.length} of ${lines.length}` : lines.length}
+            </span>
+            <ActivityFilterMenu
+              label="Filter by kind"
+              heading="Show"
+              clearLabel="Show all"
+              options={kindOptions}
+              selected={kinds}
+              onChange={chooseKinds}
+              summary={<KindSummary selected={kinds} options={kindOptions} />}
+              footnote="Tick several to combine, or choose Only. Nothing ticked shows everything."
+            />
+            {isFiltering && (
+              <button
+                type="button"
+                onClick={() => chooseKinds(new Set())}
+                aria-label="Clear filters"
+                title="Clear filters"
+                className="grid size-6 place-items-center rounded-md border border-u-border bg-u-bg text-u-text2 hover:border-u-border-strong hover:text-u-text"
+              >
+                <Icon d={ICONS.x} size={12} />
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       {conversation.isError ? (
@@ -113,7 +149,7 @@ export function DrawerOutreachTimeline({
       ) : conversation.isPending ? (
         <LinesSkeleton />
       ) : visible.length === 0 ? (
-        <EmptyTimeline firstName={firstName} filtered={filter !== "all"} />
+        <EmptyTimeline firstName={firstName} filtered={isFiltering} />
       ) : (
         <>
           <ol className="flex flex-col gap-2.5">
@@ -160,6 +196,27 @@ export function DrawerOutreachTimeline({
         </>
       )}
     </section>
+  );
+}
+
+function KindSummary({ selected, options }: { selected: ReadonlySet<string>; options: readonly FilterMenuOption[] }) {
+  const chosen = options.filter((option) => selected.has(option.key));
+  if (chosen.length === 0) {
+    return (
+      <>
+        <Icon d={ICONS.filter} size={14} className="flex-none text-u-text3" />
+        <span className="truncate">All activity</span>
+      </>
+    );
+  }
+  return (
+    <>
+      {chosen[0].visual}
+      <span className="truncate">
+        {chosen[0].label}
+        {chosen.length > 1 && <span className="opacity-75"> +{chosen.length - 1}</span>}
+      </span>
+    </>
   );
 }
 
@@ -244,20 +301,17 @@ function MessageCard({
 }) {
   const face = eventFaceOf(event, firstName, projectId);
   const actor = actorOfEvent(event);
+  const address = addressLineOf(event.message);
   return (
     <OutreachEntryCard
       label={face.title}
       tile={tileOfEvent(event)}
       title={face.title}
       at={event.at}
-      byline={
-        <EntryByline
-          actor={actor}
-          executive={executive}
-          name={actor.kind === "automation" ? "Uncava" : undefined}
-          after={addressLineOf(event.message)}
-        />
+      actor={
+        <EntryActor actor={actor} executive={executive} name={actor.kind === "automation" ? "Uncava" : undefined} />
       }
+      byline={address && <span className="min-w-0 truncate text-u-text3">{address}</span>}
       footer={face.context}
     >
       <ConversationEventBody event={event} title={face.title} projectId={projectId} viewerUserId={viewerUserId} />
@@ -303,13 +357,8 @@ function CallCard({
       title={title}
       badge={recordedNote && <RecordedBadge />}
       menu={menu}
-      byline={
-        owner.kind === "user" ? (
-          <EntryByline actor={owner} executive={executive} before={`${when} ·`} />
-        ) : (
-          <span className="font-mono text-meta text-u-text3">{when}</span>
-        )
-      }
+      actor={owner.kind === "user" && <EntryActor actor={owner} executive={executive} />}
+      byline={<span className="font-mono text-meta text-u-text3">{when}</span>}
     >
       {recordedNote && (
         <div className="mt-2.5 border-t border-u-border pt-2.5">
@@ -382,7 +431,7 @@ const NOTE_HEADINGS: Record<PersonNote["kind"], string> = {
   call: "Call",
   meeting: "Meeting",
   email: "Email",
-  linkedin: "LinkedIn message",
+  linkedin: "LinkedIn",
 };
 
 const MONTH = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" });

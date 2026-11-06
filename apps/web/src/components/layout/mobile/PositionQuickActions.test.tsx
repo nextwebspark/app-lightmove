@@ -77,7 +77,7 @@ describe("PositionQuickActions", () => {
   it("lists thirty executives and asks for a few letters for the rest", async () => {
     renderActions();
 
-    await userEvent.click(screen.getByRole("button", { name: /Book a call/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Book a meeting/ }));
 
     expect(await screen.findByText("Keep typing to narrow — 4 more")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^Executive \d+/ })).toHaveLength(30);
