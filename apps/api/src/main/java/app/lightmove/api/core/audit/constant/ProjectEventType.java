@@ -75,6 +75,9 @@ public enum ProjectEventType implements AuditEventType {
     PEOPLE_MAPPED_FROM_POOL,
     CANDIDATE_TAG_CREATED,
     CANDIDATE_TAG_UPDATED,
+    /** The suppression list: a key no door may file again, added or lifted. Never names the key. */
+    PERSON_SUPPRESSION_ADDED,
+    PERSON_SUPPRESSION_REMOVED,
 
     /** The Pipeline page's three working facts: the team's manual order, the next action, client visibility. */
     CANDIDATE_PIPELINE_REORDERED,

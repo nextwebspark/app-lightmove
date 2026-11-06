@@ -28,6 +28,7 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Archive** / **Restore** | putting a position or a business unit away, hidden from every list and picker, and bringing it back; nothing is deleted | delete, close |
 | **Uncava support** | who switches on a feature a workspace cannot | "this deployment" |
 | **Audit log** | the workspace's record of sign-ins, member and access changes, exports and downloads, settings, API keys and AI apps, and outreach, in Settings → Security for an admin | activity log, events |
+| **Suppression list** | the people a workspace may not add again — erased at their request, objecting to being processed, or entered by an admin — recognised by LinkedIn profile or email, in Settings for an admin | blocklist, blacklist, do-not-add list |
 | **Two-factor authentication** | a code from an authenticator app asked for after the password, turned on in Settings → Security | MFA, 2FA, TOTP, OTP |
 | **Authenticator app** | the phone app that shows the six-digit code | token, device |
 | **Setup key** | the secret typed into an authenticator app instead of scanning the QR code | seed, secret |

@@ -524,6 +524,8 @@ export interface PersonRecord {
 export interface MapToPositionResult {
   added: number;
   alreadyIn: number;
+  /** Left out by the workspace's suppression list. */
+  suppressed: number;
 }
 
 /** What a person's document is; the server's `PersonDocumentCategory` tokens. */
