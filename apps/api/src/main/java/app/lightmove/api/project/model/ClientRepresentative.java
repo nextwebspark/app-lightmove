@@ -95,6 +95,13 @@ public class ClientRepresentative extends BaseEntity {
         this.position = position;
     }
 
+    /** Their invitation was withdrawn or their membership ended; a later invite reuses the row. */
+    public void revoke() {
+        this.status = ClientRepStatus.REVOKED;
+        this.userId = null;
+        this.invitationId = null;
+    }
+
     public void activate(UUID userId) {
         this.userId = userId;
         this.status = ClientRepStatus.ACTIVE;

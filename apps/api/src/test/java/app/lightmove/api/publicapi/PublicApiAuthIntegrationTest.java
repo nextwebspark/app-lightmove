@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import org.junit.jupiter.api.DisplayName;
@@ -24,7 +25,7 @@ class PublicApiAuthIntegrationTest extends FlowTestSupport {
     private static final String KEYS = "/api/v1/workspace/api-keys";
     private static final String ME = "/api/v1/public/me";
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     @Test
     @DisplayName("a live key describes itself, scoped to its workspace, and its use is stamped")

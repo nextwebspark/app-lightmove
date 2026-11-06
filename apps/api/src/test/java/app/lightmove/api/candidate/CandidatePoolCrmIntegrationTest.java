@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import java.util.ArrayList;
@@ -28,7 +29,7 @@ import tools.jackson.databind.JsonNode;
 @IntegrationTest
 class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     private String admin;
     private String adminId;

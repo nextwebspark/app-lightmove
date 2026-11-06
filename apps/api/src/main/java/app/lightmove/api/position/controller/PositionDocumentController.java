@@ -58,6 +58,8 @@ public class PositionDocumentController {
     /**
      * Always {@code application/octet-stream} with {@code attachment} and {@code nosniff}, never the
      * uploaded type: caller-supplied bytes the browser renders would host content on our origin.
+     * {@code WORK_VIEW} on purpose: the file is the hiring company's own position description, so its client
+     * seat reads it whole, unlike the brief's mandate context.
      */
     @GetMapping
     @RequireProjectPermission(ProjectAction.WORK_VIEW)

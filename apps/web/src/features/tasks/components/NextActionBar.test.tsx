@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import * as tasksApi from "../api/tasksApi";
 import type { TaskResponse, TasksResponse } from "../api/types";
-import { NextActionBar } from "./NextActionBar";
+import { NextActionBar, NextActionSquare } from "./NextActionBar";
 
 vi.mock("../../auth/AuthProvider", () => ({ useAuth: () => ({ user: { id: "u1", fullName: "Yara Haddad" } }) }));
 vi.mock("../api/tasksApi", async (importOriginal) => ({
@@ -179,5 +179,41 @@ describe("a next action set from a note", () => {
     await userEvent.click(await screen.findByRole("button", { name: /Next action: Call back/ }));
     await userEvent.click(await screen.findByRole("button", { name: "From a call note · 03 Oct 2026" }));
     expect(onShowNote).toHaveBeenCalledWith("n1");
+  });
+});
+
+describe("the Next action square", () => {
+  beforeEach(() => vi.mocked(tasksApi.getCandidateTasks).mockReset());
+
+  function renderSquare(onOpen: (taskId: string | null) => void = vi.fn()) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <NextActionSquare projectId="p1" candidateId="c1" firstName="Jawaher" onCompleted={() => {}} onOpen={onOpen} />
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+  }
+
+  it("names when the earliest task is due and opens the same list", async () => {
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString();
+    answer({ open: [aTask("t1", { title: "Call back", dueAt: yesterday }), aTask("t2", { title: "Send the brief" })] });
+    renderSquare();
+
+    const square = await screen.findByRole("button", { name: /Next action: Call back, Overdue/ });
+    await userEvent.click(square);
+
+    const panel = await screen.findByRole("dialog", { name: "Next actions" });
+    expect(within(panel).getByText("Send the brief")).toBeInTheDocument();
+  });
+
+  it("offers to set one when there is none", async () => {
+    const onOpen = vi.fn();
+    answer({});
+    renderSquare(onOpen);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Set next action" }));
+    expect(onOpen).toHaveBeenCalledWith(null);
   });
 });

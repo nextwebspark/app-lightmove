@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
@@ -67,7 +68,7 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
     @Autowired private StubChatModel chat;
     @Autowired private InterviewCoachWorker coachWorker;
     @Autowired private NotetakerReconcile reconcile;
-    @Autowired private JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc private JdbcTemplate jdbc;
 
     private String grantId;
     private String consultant;
@@ -150,6 +151,27 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         JsonNode redrafted = body(as(consultant, post(planPath())).andExpect(status().isOk()).andReturn());
         assertThat(redrafted.get("questions")).hasSize(6);
         assertThat(redrafted.get("questions").get(5).get("text").asText()).isEqualTo("My own question.");
+    }
+
+    @Test
+    @DisplayName("a call renamed on the calendar keeps the plan prepared for it")
+    void aRenamedCallKeepsItsPlan() throws Exception {
+        JsonNode drafted = draftedPlan();
+
+        jdbc.update("update app_lm_person_meeting set title = 'First conversation - new link' where id = ?::uuid",
+                meetingId());
+
+        JsonNode read = body(as(consultant, get(planPath())).andExpect(status().isOk()).andReturn());
+        assertThat(read.get("drafted").asBoolean()).isTrue();
+        assertThat(read.get("questions").get(0).get("id").asText())
+                .isEqualTo(drafted.get("questions").get(0).get("id").asText());
+
+        as(consultant, put(planPath()).contentType(MediaType.APPLICATION_JSON).content("""
+                {"questions":[{"id":null,"section":"CLARIFY","text":"What drew you to the role?","included":true}]}
+                """)).andExpect(status().isOk());
+
+        assertThat(jdbc.queryForList("select title_key from app_lm_interview_plan where project_id = ?::uuid",
+                String.class, projectId)).containsExactly("first conversation - new link");
     }
 
     @Test

@@ -8,6 +8,7 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.OutreachSettings;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
@@ -46,7 +47,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * the sequence's window (unless the consultant pinned the first one's time) and the sender's daily cap,
  * sends it, and records it. Three short transactions with the mail
  * service called between them, never inside one — and never twice: a send that failed, or whose outcome
- * is unknown, stops the run rather than trying again.
+ * is unknown, stops the run rather than trying again. Each run is worked in its own workspace's scope: the
+ * claims span every workspace, the people and positions a send reads do not.
  */
 @Service
 @RequiredArgsConstructor
@@ -83,16 +85,22 @@ public class OutreachSendService {
      * before the mail service answered, or after. Stopped, never resent.
      */
     public void stopUncertainClaims(Instant now) {
-        transactions.executeWithoutResult(status -> enrollments
-                .findByStatusInAndSendingSinceBefore(EnrollmentStatus.LIVE, now.minus(settings().claimTimeout()))
-                .forEach(enrollment -> {
-                    log.warn("Outreach enrollment {} was claimed at {} and never released; stopping it unsent",
-                            enrollment.getId(), enrollment.getSendingSince());
-                    outcomes.stop(enrollment, OutreachStopReason.SEND_UNCERTAIN, null, now, null);
-                }));
+        enrollments.findByStatusInAndSendingSinceBefore(EnrollmentStatus.LIVE, now.minus(settings().claimTimeout()))
+                .forEach(uncertain -> WorkspaceScope.run(uncertain.getWorkspaceId(), () ->
+                        transactions.executeWithoutResult(status -> enrollments.findById(uncertain.getId())
+                                .ifPresent(enrollment -> {
+                                    log.warn("Outreach enrollment {} was claimed at {} and never released; "
+                                            + "stopping it unsent", enrollment.getId(), enrollment.getSendingSince());
+                                    outcomes.stop(enrollment, OutreachStopReason.SEND_UNCERTAIN, null, now, null);
+                                }))));
     }
 
     public void sendClaimed(UUID enrollmentId, Instant now) {
+        enrollments.findById(enrollmentId).ifPresent(enrollment ->
+                WorkspaceScope.run(enrollment.getWorkspaceId(), () -> sendClaimedInScope(enrollmentId, now)));
+    }
+
+    private void sendClaimedInScope(UUID enrollmentId, Instant now) {
         PreparedSend prepared;
         try {
             prepared = transactions.execute(status -> prepare(enrollmentId, now));

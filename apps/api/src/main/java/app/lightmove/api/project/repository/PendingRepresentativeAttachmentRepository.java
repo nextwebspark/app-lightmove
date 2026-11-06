@@ -15,5 +15,7 @@ public interface PendingRepresentativeAttachmentRepository
 
     boolean existsByProjectIdAndRepresentativeId(UUID projectId, UUID representativeId);
 
+    long deleteByRepresentativeId(UUID representativeId);
+
     long deleteByProjectIdAndRepresentativeId(UUID projectId, UUID representativeId);
 }

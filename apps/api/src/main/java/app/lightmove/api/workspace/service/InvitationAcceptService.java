@@ -77,11 +77,12 @@ public class InvitationAcceptService {
                 invitation.getEmail(),
                 invitation.getRole().getName(),
                 workspace.getName(),
-                inviterName);
+                inviterName,
+                invitation.getExpiresAt());
     }
 
     public record InvitationPreview(String email, String role, String workspaceName,
-                                    String inviterName) {}
+                                    String inviterName, Instant expiresAt) {}
 
     /** The invitee lands ACTIVE at once: an admin naming them was the approval. */
     @Transactional
@@ -139,7 +140,9 @@ public class InvitationAcceptService {
                     "Invitation was addressed to a different email");
         }
 
-        // An unverified address is an unproven claim; accepting on it would let an interceptor walk in.
+        // An unverified address is an unproven claim, even holding the link: whoever opened an account on someone
+        // else's address keeps its password, and a forwarded invitation would hand them that person's seat. The
+        // anonymous signup path is safe only because it refuses an address that already has an account.
         if (!user.isEmailVerified()) {
             throw ApiException.of(ErrorCode.EMAIL_NOT_VERIFIED);
         }
@@ -188,9 +191,7 @@ public class InvitationAcceptService {
 
     /** A second staff role (MEMBER beside ADMIN) is not added: the roster is where staff roles change. */
     private void widen(WorkspaceMember member, Role invited, UUID actorId, HttpServletRequest request) {
-        boolean covered = member.getRoles().stream().anyMatch(held -> held.getId().equals(invited.getId()))
-                || (!invited.is(WorkspaceRole.CLIENT) && member.holdsStaffRole());
-        if (covered) {
+        if (member.alreadyCovers(invited)) {
             return;
         }
         String previous = roleNames(member.getRoles());

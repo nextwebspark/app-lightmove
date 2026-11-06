@@ -228,22 +228,11 @@ const yasminRecord = {
   doNotContact: null,
 } as unknown as PersonRecord;
 
-const otherPosition = {
-  candidateId: "c9",
-  projectId: "p9",
-  positionTitle: "Group Treasurer",
-  status: "contacted" as const,
-  addedByUserId: "u2",
-  addedByName: "Sara Haddad",
-  addedAt: "2026-07-01T09:00:00Z",
-  source: "manual" as const,
-  workable: false,
-};
-
 const liveCall = (overrides: Partial<NotetakerRecording> = {}): NotetakerRecording => ({
   id: "r1",
   meetingId: "m1",
   startsAt: "2026-10-25T10:00:00Z",
+  endsAt: "2026-10-25T10:30:00Z",
   title: "Intro call",
   status: "RECORDING",
   failureReason: null,
@@ -297,8 +286,27 @@ const activityLine = (
   ...overrides,
 });
 
-const openTab = async (name: string) =>
-  userEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
+/** The parts of the Profile tab that were tabs of their own, and the folds beside them. */
+const PROFILE_FOLDS = ["Summary", "Experience", "Education", "Background", "Compensation", "Documents"];
+
+/** A tab, or a fold of the Profile tab: the tab chosen (where there is a bar) and the fold opened. */
+const openTab = async (name: string) => {
+  if (!PROFILE_FOLDS.includes(name)) {
+    await userEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
+    return;
+  }
+  const profileTab = screen.queryByRole("tab", { name: /^Profile/ });
+  if (profileTab) await userEvent.click(profileTab);
+  const fold = screen.getByRole("button", { name: new RegExp(`^${name}`), expanded: undefined });
+  if (fold.getAttribute("aria-expanded") === "false") await userEvent.click(fold);
+};
+
+/** The header's contact details window, where every email and phone is edited and looked up. */
+const openContactDetails = async () => {
+  const pencil = screen.queryByRole("button", { name: "Edit contact details" });
+  await userEvent.click(pencil ?? screen.getAllByRole("button", { name: /^Add (email|phone)$/ })[0]);
+  return screen.findByRole("dialog", { name: /Contact details/ });
+};
 
 const tabLabels = () =>
   within(screen.getByRole("tablist", { name: "Executive sections" }))
@@ -421,17 +429,16 @@ describe("CandidateDrawer", () => {
     });
     renderDrawer({ candidate: yasmin, company: null, onSaved, onClose }, LiveDrawer);
 
-    await userEvent.click(screen.getByRole("button", { name: /^Compensation/ }));
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
 
     // The section's fields, as stored, with the figures in the shape they are read in.
     expect(screen.getByLabelText(/^Currency$/i)).toHaveValue("AED");
     expect(screen.getByLabelText(/^Base$/i)).toHaveValue("420,000");
-    // The rest of the profile stays readable around it — this is not the old whole-record form.
-    expect(screen.getByText("Regional Foods Co.")).toBeInTheDocument();
+    // This is not the old whole-record form.
     expect(screen.queryByLabelText(/Full name/i)).not.toBeInTheDocument();
     // Every other pencil waits its turn.
-    expect(screen.getByRole("button", { name: /Edit summary/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Edit details/i })).toBeDisabled();
 
     await userEvent.clear(screen.getByLabelText(/^Base$/i));
     await userEvent.type(screen.getByLabelText(/^Base$/i), "500,000");
@@ -462,6 +469,7 @@ describe("CandidateDrawer", () => {
     vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
     renderDrawer({ candidate: yasmin, company: null });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
     await userEvent.clear(screen.getByLabelText(/^Base$/i));
     await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
@@ -476,6 +484,7 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
 
     // A select whose value matched no option would post blank and clear a fact nobody touched.
@@ -492,6 +501,7 @@ describe("CandidateDrawer", () => {
       defaultCurrency: "SAR",
     });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
     expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR - Saudi Riyal");
     expect(screen.getByText(/^From brief$/i)).toBeInTheDocument();
@@ -512,6 +522,7 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
 
     expect(screen.getByLabelText(/^Currency$/i)).toHaveValue("AED");
@@ -521,6 +532,7 @@ describe("CandidateDrawer", () => {
   it("opens a stored currency other than the brief's as overridden", async () => {
     renderDrawer({ candidate: yasmin, company: null, defaultCurrency: "SAR" });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
 
     expect(screen.getByLabelText(/^Currency$/i)).toHaveValue("AED");
@@ -531,6 +543,7 @@ describe("CandidateDrawer", () => {
     vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
     renderDrawer({ candidate: yasmin, company: null, defaultCurrency: "AED" });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
     const base = screen.getByLabelText(/^Base$/i);
     await userEvent.clear(base);
@@ -581,6 +594,7 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
 
     expect(screen.getByLabelText(/^Bonus$/i)).toHaveValue("20%");
@@ -595,6 +609,7 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
     await userEvent.selectOptions(screen.getByLabelText(/^Notice period$/i), "6 months");
     await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
@@ -609,6 +624,7 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
     await userEvent.clear(screen.getByLabelText(/^Base$/i));
     await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
@@ -620,6 +636,7 @@ describe("CandidateDrawer", () => {
   it("takes a percent sign only in the bonus", async () => {
     renderDrawer({ candidate: yasmin, company: null });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
     const base = screen.getByLabelText(/^Base$/i);
     await userEvent.clear(base);
@@ -637,6 +654,7 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
+    await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
     const notice = screen.getByLabelText(/^Notice period$/i);
     expect(notice).toHaveValue("6 weeks");
@@ -728,7 +746,7 @@ describe("CandidateDrawer", () => {
   it("writes a note about this position by default, and lists it with its author", async () => {
     const written: PersonNote = {
       id: "n1",
-      kind: "call",
+      kind: "general",
       body: "Call in May",
       format: "plain",
       pinned: false,
@@ -752,13 +770,13 @@ describe("CandidateDrawer", () => {
     );
     expect(screen.getByRole("radio", { name: "This position" })).toBeChecked();
     vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([written]);
-    await userEvent.click(screen.getByRole("radio", { name: "Call" }));
+    expect(screen.queryByRole("radiogroup", { name: "Kind of note" })).not.toBeInTheDocument();
     await typeInto(await screen.findByRole("textbox", { name: "New note" }), "Call in May");
     await userEvent.click(screen.getByRole("button", { name: /Save note/i }));
 
     await waitFor(() =>
       expect(personCrmApi.writePersonNote).toHaveBeenCalledWith("p1", "c1", {
-        kind: "call",
+        kind: "general",
         body: "Call in May",
         format: "markdown",
       }),
@@ -836,9 +854,10 @@ describe("CandidateDrawer", () => {
     expect(await within(dialog).findByText(/Notice is three months/)).toBeInTheDocument();
     expect(within(dialog).getByText("Pinned")).toBeInTheDocument();
 
-    await userEvent.click(within(dialog).getByRole("button", { name: /Open in Notes/ }));
+    // A call is Outreach's, not a plain note: the drawer takes the reader to its timeline.
+    await userEvent.click(within(dialog).getByRole("button", { name: /Open in Outreach/ }));
     expect(screen.queryByRole("dialog", { name: "Call note" })).not.toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /^Notes/ })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByRole("tab", { name: "Outreach", selected: true })).toBeInTheDocument();
   });
 
   it("says why the activity could not be read, and reads it again on Try again", async () => {
@@ -873,14 +892,15 @@ describe("CandidateDrawer", () => {
     // A consultant clicking a name is reading. A form that opens on every click is one you dismiss
     // without looking at.
     expect(screen.getByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /^Compensation/ }));
     expect(screen.getByText("Regional Foods Co.")).toBeInTheDocument();
-    expect(screen.getByText("3 months")).toBeInTheDocument();
     expect(screen.getByText("English")).toBeInTheDocument();
     expect(screen.getByText("Arabic")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Full name/i)).not.toBeInTheDocument();
+
+    await openTab("Compensation");
+    expect(screen.getByText("3 months")).toBeInTheDocument();
     // Twice: the Base tile and the section's total, which for a package with only a base are equal.
     expect(screen.getAllByText(/AED 420,000/)).toHaveLength(2);
-    expect(screen.queryByLabelText(/Full name/i)).not.toBeInTheDocument();
   });
 
   it("reads back the allowance lines and LTIP instruments the editor saved", async () => {
@@ -902,7 +922,7 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
-    await userEvent.click(screen.getByRole("button", { name: /^Compensation/ }));
+    await openTab("Compensation");
     const breakdown = screen.getByText("Allowance breakdown").nextElementSibling as HTMLElement;
     // The empty row the editor left is not read back as an allowance.
     expect(within(breakdown).getAllByRole("listitem")).toHaveLength(2);
@@ -943,6 +963,7 @@ describe("CandidateDrawer", () => {
       period: null,
     }));
     renderDrawer({ candidate: { ...yasmin, career }, company: null });
+    await openTab("Experience");
 
     expect(screen.getByText("Post 4")).toBeInTheDocument();
     expect(screen.queryByText("Post 5")).not.toBeInTheDocument();
@@ -965,9 +986,11 @@ describe("CandidateDrawer", () => {
     unmount();
     renderDrawer({ candidate: { ...yasmin, id: "c2", fullName: "Omar Haddad" }, company: null });
     expect(screen.getByRole("button", { name: /^Background/ })).toHaveAttribute("aria-expanded", "true");
-    // Except Summary and Experience, which every profile opens on.
+    // Except Summary, which every profile opens on; everything else waits to be asked for.
     expect(screen.getByRole("button", { name: /^Summary/ })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("button", { name: /^Experience/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /^Experience/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /^Compensation/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /^Documents/ })).toHaveAttribute("aria-expanded", "false");
 
     await userEvent.click(screen.getByRole("button", { name: /Collapse all/i }));
     expect(screen.getByRole("button", { name: /^Background/ })).toHaveAttribute("aria-expanded", "false");
@@ -1043,15 +1066,18 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
-    // Folded sections are hidden from the accessibility tree; `hidden` looks inside them too. The
-    // mailto: link on the address is the only link the panel may draw.
+    // Folded sections are hidden from the accessibility tree; `hidden` looks inside them too. The profile address is
+    // the header's, written to in Uncava's own composer, so the only links drawn are the contacts' own mail links.
     expect(
-      screen.getAllByRole("link", { hidden: true }).map((link) => link.getAttribute("href")),
-    ).toEqual(["mailto:yasmin@example.com"]);
+      screen
+        .queryAllByRole("link", { hidden: true })
+        .map((link) => link.getAttribute("href"))
+        .filter((href) => !href?.startsWith("mailto:")),
+    ).toEqual([]);
     expect(screen.queryByText("javascript:alert(1)")).not.toBeInTheDocument();
   });
 
-  it("renders a real profile URL as a link, beside the name and under Contact", async () => {
+  it("renders a real profile URL as a link beside the name, and nowhere under Contact", async () => {
     renderDrawer({
       candidate: { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin" },
       company: null,
@@ -1062,11 +1088,89 @@ describe("CandidateDrawer", () => {
       "https://linkedin.com/in/yasmin",
     );
 
-    await openTab("Contact");
-    expect(screen.getByRole("link", { name: /linkedin.com\/in\/yasmin/i })).toHaveAttribute(
-      "href",
-      "https://linkedin.com/in/yasmin",
+    const contactDetails = await openContactDetails();
+    expect(within(contactDetails).queryByRole("link", { name: /linkedin.com\/in\/yasmin/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps the header to the name, its link, the status and the details pencil", async () => {
+    renderDrawer({
+      candidate: { ...yasmin, source: "extension", aiInferredFields: ["seniority"] },
+      company: null,
+    });
+
+    expect(screen.getByRole("button", { name: /^Status: / })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Edit details/i })).toBeInTheDocument();
+    expect(screen.queryByText("Plugin")).not.toBeInTheDocument();
+    // The level is read where the rest of the background is, still flagged while it is the AI's.
+    const level = screen.getByText("N-1").parentElement as HTMLElement;
+    expect(level).toHaveTextContent("Seniority");
+    expect(within(level).getByRole("img", { name: "AI-suggested", hidden: true })).toBeInTheDocument();
+  });
+
+  it("edits the profile link with the details, through the profile write", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...yasmin, linkedinUrl: "https://linkedin.com/in/new" });
+    renderDrawer({ candidate: { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin" }, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
+    const link = screen.getByRole("textbox", { name: "LinkedIn" });
+    await userEvent.clear(link);
+    await userEvent.type(link, "linkedin.com/in/new");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    const [, , payload] = vi.mocked(candidatesApi.updateCandidate).mock.calls[0];
+    // As typed: the server promotes a bare host, as it does for every other section.
+    expect(payload.linkedinUrl).toBe("linkedin.com/in/new");
+    expect(payload.fullName).toBe("Yasmin El-Sayed");
+  });
+
+  it("puts another person's hold on the profile onto the LinkedIn field", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockRejectedValue(
+      new ApiRequestError({ code: "PERSON_PROFILE_HELD", detail: "held", status: 409, correlationId: "x" }),
     );
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
+    const link = screen.getByRole("textbox", { name: "LinkedIn" });
+    await userEvent.type(link, "linkedin.com/in/someone-else");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    expect(await screen.findByText(/already has that LinkedIn profile/)).toBeInTheDocument();
+    expect(link).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("says why a link locked since the form opened was refused, though no field is drawn for it", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockRejectedValue(
+      new ApiRequestError({ code: "CANDIDATE_PROFILE_URL_LOCKED", detail: "locked", status: 409, correlationId: "x" }),
+    );
+    renderDrawer({
+      candidate: { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin", linkedinUrlLocked: true },
+      company: null,
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    expect(await screen.findByRole("alert")).not.toBeEmptyDOMElement();
+  });
+
+  it("locks the profile link in the details for a person the plugin captured, on the server's word", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
+    const captured = { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin", linkedinUrlLocked: true };
+    const { unmount } = renderDrawer({ candidate: captured, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
+    expect(screen.queryByRole("textbox", { name: "LinkedIn" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Captured from this profile page/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].linkedinUrl).toBe("https://linkedin.com/in/yasmin");
+    unmount();
+
+    // Captured on this position, but the plugin read another page than the URL now held.
+    renderDrawer({ candidate: { ...captured, source: "extension", linkedinUrlLocked: false }, company: null });
+    await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
+    expect(screen.getByRole("textbox", { name: "LinkedIn" })).toBeInTheDocument();
   });
 
   it("keeps status live while reading, without replacing the profile", async () => {
@@ -1115,7 +1219,6 @@ describe("CandidateDrawer", () => {
     expect(screen.queryByText("Timeline")).not.toBeInTheDocument();
     expect(personCrmApi.getPersonNotes).not.toHaveBeenCalled();
     expect(personCrmApi.getPositionHistory).not.toHaveBeenCalled();
-    expect(personCrmApi.getPersonPositions).not.toHaveBeenCalled();
   });
 
   it("cancels a section on Escape and leaves the panel open", async () => {
@@ -1141,11 +1244,10 @@ describe("CandidateDrawer", () => {
   it("splits the profile into the mockup's tabs, and opens the next person on the tab this one was left on", async () => {
     const { unmount } = renderDrawer({ candidate: yasmin, company: null });
 
-    expect(tabLabels()).toEqual(["Career", "Notes", "Assessment", "Contact", "Documents", "Activity", "Positions"]);
-    expect(screen.getByRole("tab", { name: "Career" })).toHaveAttribute("aria-selected", "true");
+    expect(tabLabels()).toEqual(["Profile", "Notes", "Assessment", "Outreach", "Activity"]);
+    expect(screen.getByRole("tab", { name: "Profile" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: /^Summary/ })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("button", { name: /^Experience/ })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("button", { name: /^Compensation/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /^Experience/ })).toHaveAttribute("aria-expanded", "false");
 
     await openTab("Activity");
     expect(screen.queryByRole("button", { name: /^Summary/ })).not.toBeInTheDocument();
@@ -1160,7 +1262,7 @@ describe("CandidateDrawer", () => {
     renderDrawer({ candidate: yasmin, company: null });
 
     await waitFor(() => expect(tabLabels()[0]).toBe("Copilot"));
-    expect(screen.getByRole("tab", { name: "Career" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Profile" })).toHaveAttribute("aria-selected", "true");
     await openTab("Copilot");
     expect(screen.getByText("Copilot of r1")).toBeInTheDocument();
   });
@@ -1172,7 +1274,7 @@ describe("CandidateDrawer", () => {
     renderDrawer({ candidate: yasmin, company: null });
 
     await waitFor(() => expect(notetakerApi.getNotetaker).toHaveBeenCalled());
-    await screen.findByRole("tab", { name: "Career" });
+    await screen.findByRole("tab", { name: "Profile" });
     expect(tabLabels()).not.toContain("Copilot");
   });
 
@@ -1198,7 +1300,7 @@ describe("CandidateDrawer", () => {
     const folds = screen
       .getAllByRole("button", { name: /^(Summary|Experience|Compensation|Background|AI assessment)/ })
       .map((fold) => fold.textContent?.match(/^(Summary|Experience|Compensation|Background|AI assessment)/)?.[0]);
-    expect(folds).toEqual(["Summary", "Experience", "Compensation", "Background"]);
+    expect(folds).toEqual(["Summary", "Experience", "Background", "Compensation"]);
     expect(screen.queryByRole("button", { name: "AI deep enrich" })).not.toBeInTheDocument();
   });
 
@@ -1224,84 +1326,95 @@ describe("CandidateDrawer", () => {
       },
     ]);
     renderDrawer({ candidate: yasmin, company: null }, NoteLinkArrives);
-    expect(await screen.findByRole("tab", { name: "Career", selected: true })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "Profile", selected: true })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "follow the link" }));
 
-    expect(await screen.findByRole("tab", { name: /^Notes/, selected: true })).toBeInTheDocument();
-    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+    // A call note is Outreach's: the link lands on its timeline.
+    expect(await screen.findByRole("tab", { name: "Outreach", selected: true })).toBeInTheDocument();
   });
 
-  it("opens on the Contact tab, scrolled to the part a bell row's work is in", async () => {
-    const scrollIntoView = vi.fn();
-    Element.prototype.scrollIntoView = scrollIntoView;
+  it("opens on the Outreach tab for a bell row's reply or booked call", async () => {
+    renderDrawer({ candidate: yasmin, company: null, focusSection: "meetings" });
+
+    expect(await screen.findByRole("tab", { name: "Outreach", selected: true })).toBeInTheDocument();
+  });
+
+  it("draws Outreach as the conversation: log a call or a LinkedIn message, the timeline, and the contacts last", async () => {
+    renderDrawer({ candidate: yasmin, company: null, focusSection: "outreach" });
+
+    const panel = await screen.findByRole("tabpanel", { name: "Outreach" });
+    expect(within(panel).getByRole("button", { name: "Log call" })).toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "Log LinkedIn" })).toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "Log meeting" })).toBeInTheDocument();
+    expect(within(panel).getByRole("region", { name: "Timeline" })).toBeInTheDocument();
+    const contact = within(panel).getByRole("region", { name: "Contact" });
+    expect(within(contact).getByText("yasmin@example.com")).toBeInTheDocument();
+
+    await userEvent.click(within(panel).getByRole("button", { name: "Log LinkedIn" }));
+    const dialog = await screen.findByRole("dialog", { name: /Log a LinkedIn message with/ });
+    await userEvent.click(within(dialog).getByRole("radio", { name: "Call" }));
+    expect(screen.getByRole("dialog", { name: /Log a call with/ })).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("radio", { name: "Meeting" }));
+    expect(screen.getByRole("dialog", { name: /Log a meeting with/ })).toBeInTheDocument();
+
+    await userEvent.click(within(contact).getByRole("button", { name: "Edit contact details" }));
+    expect(await screen.findByRole("dialog", { name: /Contact details/ })).toBeInTheDocument();
+  });
+
+  it("opens the contact details window for a bounce, on the tab the viewer reads", async () => {
     renderDrawer({ candidate: yasmin, company: null, focusSection: "contact" });
 
-    expect(await screen.findByRole("tab", { name: "Contact", selected: true })).toBeInTheDocument();
-    const contactFold = document.getElementById("contact-section-body")?.closest("section");
-    await waitFor(() => expect(scrollIntoView.mock.contexts).toContain(contactFold));
+    expect(await screen.findByRole("dialog", { name: /Contact details/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Profile" })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("keeps tags in the header, notes and documents on their own tabs, and lists other positions", async () => {
-    const { unmount } = renderDrawer({ candidate: yasmin, company: null });
+  it("keeps tags in the header, notes on their own tab, documents a fold of Profile, and no Positions tab", async () => {
+    renderDrawer({ candidate: yasmin, company: null });
 
     // Tags are a fact about the person, on view whichever tab is open.
     expect(await screen.findByRole("button", { name: "Remove tag Board ready" })).toBeInTheDocument();
     await openTab("Notes");
     expect(screen.getByRole("tabpanel", { name: /^Notes/ })).toContainElement(screen.getByRole("region", { name: "Notes" }));
     await openTab("Documents");
-    expect(screen.getByRole("tabpanel", { name: /^Documents/ })).toBeVisible();
-    // This drawer is the current position: a person on no other says so rather than showing nothing.
-    await openTab("Positions");
-    await waitFor(() => expect(personCrmApi.getPersonPositions).toHaveBeenCalled());
-    expect(await screen.findByText(/Not mapped to any other positions right now/)).toBeInTheDocument();
-    unmount();
-
-    vi.mocked(personCrmApi.getPersonPositions).mockResolvedValue([
-      {
-        candidateId: "c1",
-        projectId: "p1",
-        positionTitle: "Chief Financial Officer",
-        status: "identified",
-        addedByUserId: "u1",
-        addedByName: "Alok Kumar",
-        addedAt: "2026-08-02T09:00:00Z",
-        source: "manual",
-        workable: true,
-      },
-      otherPosition,
-    ]);
-    renderDrawer({ candidate: yasmin, company: null });
-    await openTab("Positions");
-
-    const others = await screen.findByRole("region", { name: "Other positions" });
-    expect(within(others).getByText("Group Treasurer")).toBeInTheDocument();
-    expect(within(others).queryByText("Chief Financial Officer")).not.toBeInTheDocument();
+    expect(screen.getByRole("tabpanel", { name: /^Profile/ })).toContainElement(
+      document.getElementById("documents-section-body"),
+    );
+    expect(screen.queryByRole("tab", { name: /^Documents/ })).not.toBeInTheDocument();
+    // The person's other positions are the Candidates page's drawer's alone: this one's bar was too crowded.
+    expect(screen.queryByRole("tab", { name: /^Positions/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Other positions" })).not.toBeInTheDocument();
   });
 
-  it("keeps Remove from mandate, Add note and Set next action in a footer every tab shares", async () => {
+  it("docks the next action in a footer every tab shares, and keeps the rest behind More actions", async () => {
     const onClose = vi.fn();
     const onRemove = vi.fn();
     renderDrawer({ candidate: yasmin, company: null, onClose, onDelete: onRemove });
 
     await openTab("Activity");
-    await userEvent.click(screen.getByRole("button", { name: "Remove from mandate" }));
-    expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
-    expect(within(screen.getByRole("contentinfo")).getByRole("button", { name: "Set next action" })).toBeInTheDocument();
+    const footer = screen.getByRole("contentinfo");
+    expect(await within(footer).findByText("No next action for Yasmin")).toBeInTheDocument();
+    expect(within(footer).queryByRole("button", { name: "Remove from mandate" })).toBeNull();
 
-    await userEvent.click(screen.getByRole("button", { name: "Add note" }));
+    await userEvent.click(within(footer).getByRole("button", { name: "More actions" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Remove from mandate" }));
+    expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
+
+    await userEvent.click(within(footer).getByRole("button", { name: "More actions" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Add note" }));
     expect(screen.getByRole("tab", { name: /^Notes/ })).toHaveAttribute("aria-selected", "true");
 
     await userEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("gives a client seat the profile and contact tabs alone", async () => {
+  it("gives a client seat the profile alone, with no tab bar and no package", async () => {
     renderDrawer({ candidate: yasmin, company: null, canWrite: false });
 
-    expect(tabLabels()).toEqual(["Career", "Contact"]);
-    await openTab("Contact");
-    expect(screen.getByRole("button", { name: /^Contact/ })).toBeInTheDocument();
+    expect(screen.queryByRole("tablist", { name: "Executive sections" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Summary/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByRole("button", { name: /^Compensation/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Documents/ })).not.toBeInTheDocument();
   });
 
   it("cuts a long summary to three lines and offers the rest", async () => {
@@ -1320,7 +1433,7 @@ describe("CandidateDrawer", () => {
 
 
   /**
-   * The Contact section's two Find buttons. What matters: they exist only where a provider is
+   * The contact details window's two Find buttons. What matters: they exist only where a provider is
    * configured, and a channel already asked offers no second purchase.
    */
   describe("contact lookup", () => {
@@ -1338,7 +1451,7 @@ describe("CandidateDrawer", () => {
       renderDrawer({ candidate: yasmin, company: null });
 
       expect(await screen.findByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
-      await openTab("Contact");
+      await openContactDetails();
       expect(screen.queryByRole("button", { name: /Find email/i })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /Find phone/i })).not.toBeInTheDocument();
     });
@@ -1355,12 +1468,12 @@ describe("CandidateDrawer", () => {
         creditsLeft: 45,
       });
       renderDrawer({ candidate: { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin" }, company: null }, LiveDrawer);
-      await openTab("Contact");
+      await openContactDetails();
 
       await userEvent.click(await screen.findByRole("button", { name: /Find phone/i }));
 
       await waitFor(() => expect(contactLookupApi.findPhone).toHaveBeenCalledWith("p1", "c1"));
-      expect(await screen.findByRole("link", { name: "+12065550100" })).toHaveAttribute("href", "tel:+12065550100");
+      expect(await screen.findByDisplayValue("+12065550100")).toBeInTheDocument();
     });
 
     it("does not offer a second purchase on a channel the provider had nothing for", async () => {
@@ -1371,9 +1484,9 @@ describe("CandidateDrawer", () => {
         },
         company: null,
       });
-      await openTab("Contact");
+      await openContactDetails();
 
-      expect(await screen.findByText(/No email on record/i)).toBeInTheDocument();
+      expect(await screen.findByText(/No email address yet/i)).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /Find email/i })).not.toBeInTheDocument();
       // The other channel is untouched by that: they bill separately.
       expect(await screen.findByRole("button", { name: /Find phone/i })).toBeInTheDocument();
@@ -1393,7 +1506,7 @@ describe("CandidateDrawer", () => {
           linkedinUrl: "https://linkedin.com/in/yasmin" },
         company: null,
       });
-      await openTab("Contact");
+      await openContactDetails();
 
       await userEvent.click(await screen.findByRole("button", { name: /Find email/i }));
 
@@ -1480,13 +1593,15 @@ describe("CandidateDrawer", () => {
       });
     });
 
-    it("keeps the rest of the footer off the Assessment tab and puts it back elsewhere", async () => {
+    it("folds the next action to one square beside the Assessment tab's own buttons", async () => {
       vi.mocked(scorecardApi.getScorecard).mockResolvedValue(blank);
       renderDrawer({ candidate: yasmin, company: null });
 
       await openTab("Assessment");
       expect(await screen.findByRole("button", { name: "Mark reviewed & submit" })).toBeInTheDocument();
-      expect(within(screen.getByRole("contentinfo")).queryByRole("button", { name: "Set next action" })).toBeNull();
+      const footer = screen.getByRole("contentinfo");
+      expect(await within(footer).findByRole("button", { name: "Set next action" })).toBeInTheDocument();
+      expect(within(footer).queryByText("No next action for Yasmin")).toBeNull();
 
       await openTab("Notes");
       expect(screen.queryByRole("button", { name: "Mark reviewed & submit" })).not.toBeInTheDocument();

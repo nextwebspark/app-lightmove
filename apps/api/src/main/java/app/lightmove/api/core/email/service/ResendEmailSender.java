@@ -32,6 +32,11 @@ public class ResendEmailSender implements EmailSender {
 
     @Override
     public void send(EmailMessage message) {
+        trySend(message);
+    }
+
+    @Override
+    public boolean trySend(EmailMessage message) {
         try {
             client.post()
                     .uri("/emails")
@@ -45,10 +50,12 @@ public class ResendEmailSender implements EmailSender {
                     .toBodilessEntity();
 
             log.debug("Sent '{}' to {}", message.subject(), message.to());
+            return true;
         } catch (RuntimeException ex) {
             // Swallowed by contract (see EmailSender): a mail API's bad minute must not roll back the
             // signup. Recipient logged, body not — a verification link in a log is a live credential.
             log.error("Failed to send '{}' to {}", message.subject(), message.to(), ex);
+            return false;
         }
     }
 }

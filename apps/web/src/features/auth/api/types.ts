@@ -98,6 +98,8 @@ export interface User {
 /** What the invitee is told about an outstanding invitation. Deliberately token-free: the id redeems it. */
 export interface PendingInvitation {
   id: string;
+  /** May be the workspace the session is in: a client contact invited as staff, or staff named a contact. */
+  workspaceId: string;
   workspaceName: string;
   role: WorkspaceRole;
   inviterName: string | null;
@@ -218,6 +220,8 @@ export interface InvitationPreview {
   role: WorkspaceRole;
   workspaceName: string;
   inviterName: string | null;
+  /** When the link stops working: the server's own lifetime, never a number the page assumes. */
+  expiresAt: string;
 }
 
 /** Which sign-in methods this deployment actually offers. */
