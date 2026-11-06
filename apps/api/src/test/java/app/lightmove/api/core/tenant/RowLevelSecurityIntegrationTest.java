@@ -33,7 +33,7 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * The database's own tenant fence (V184): with workspace A's setting a transaction reads and writes A's rows of
- * every protected table and nothing of B's, and with no setting it reads nothing at all — whatever the query, a
+ * every protected table and nothing of B's, and with no setting it reads nothing at all â€” whatever the query, a
  * repository's or raw SQL's.
  */
 @IntegrationTest
@@ -60,6 +60,13 @@ class RowLevelSecurityIntegrationTest extends FlowTestSupport {
             ROWS_OF_A_WORKSPACE.put(table, "select count(*) from " + table
                     + " child join app_lm_project p on p.id = child.project_id where p.workspace_id = ?");
         }
+        // Two hops: the child's parent is itself visible only through its project.
+        ROWS_OF_A_WORKSPACE.put("app_lm_project_member_role", "select count(*) from app_lm_project_member_role r"
+                + " join app_lm_project_member m on m.id = r.project_member_id"
+                + " join app_lm_project p on p.id = m.project_id where p.workspace_id = ?");
+        ROWS_OF_A_WORKSPACE.put("app_lm_position_responsibility", "select count(*) from app_lm_position_responsibility r"
+                + " join app_lm_position pos on pos.id = r.position_id"
+                + " join app_lm_project p on p.id = pos.project_id where p.workspace_id = ?");
     }
 
     @Autowired @FixtureJdbc JdbcTemplate fixture;
@@ -157,8 +164,8 @@ class RowLevelSecurityIntegrationTest extends FlowTestSupport {
     }
 
     /**
-     * A webhook's or job's thread commits with no workspace, and its after-commit listener — run on that same thread
-     * when the async pool is full, always in tests — joins the committed transaction's still-bound connection.
+     * A webhook's or job's thread commits with no workspace, and its after-commit listener â€” run on that same thread
+     * when the async pool is full, always in tests â€” joins the committed transaction's still-bound connection.
      */
     @Test
     @DisplayName("a scope entered after commit sets the still-bound connection to its workspace, then hands it back")
