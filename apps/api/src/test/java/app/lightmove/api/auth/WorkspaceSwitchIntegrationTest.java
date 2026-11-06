@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import jakarta.servlet.http.Cookie;
@@ -31,7 +32,7 @@ import tools.jackson.databind.JsonNode;
 @IntegrationTest
 class WorkspaceSwitchIntegrationTest extends FlowTestSupport {
 
-    @Autowired JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc JdbcTemplate jdbc;
 
     @Test
     @DisplayName("a member of two workspaces switches between them, and each session sees one tenant's data")

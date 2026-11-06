@@ -56,6 +56,7 @@ export function TriageCompanyTable({
   onOpenCompany,
   busyIds,
   canWrite,
+  stageReadOnly = false,
   onEditColumn,
   onDeleteColumn,
   columnFilters,
@@ -90,6 +91,8 @@ export function TriageCompanyTable({
   onOpenCompany: (company: TriageCompany) => void;
   busyIds: ReadonlySet<string>;
   canWrite: boolean;
+  /** Declined: Back to universe is the one act, so nobody is added, removed or has their status changed here. */
+  stageReadOnly?: boolean;
   /** Opens a mandate's own column for rename, from its header menu — the real `CustomColumn` id. */
   onEditColumn?: (customColumnId: string) => void;
   /** Removes a mandate's own column, from its header menu — the real `CustomColumn` id. */
@@ -140,6 +143,7 @@ export function TriageCompanyTable({
       onOpenCompany,
       busyIds,
       canWrite,
+      stageReadOnly,
     },
   });
 
@@ -193,7 +197,7 @@ export function TriageCompanyTable({
       renderCard={asCards ? (row) => (
         <TriageLineCard
           row={row}
-          canWrite={canWrite}
+          canWrite={canWrite && !stageReadOnly}
           busy={!!row.company && busyIds.has(row.company.id)}
           selection={
             selection && row.company && firstLineByCompany.get(row.company.id) === triageRowId(row)

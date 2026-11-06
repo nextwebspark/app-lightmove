@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
 // Spring Boot 4 ships Jackson 3, whose packages moved from com.fasterxml.* to tools.jackson.*.
@@ -50,7 +51,7 @@ class AuthFlowIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired RecordingEmailSender email;
-    @Autowired JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc JdbcTemplate jdbc;
 
     private String domain;
     private String alokEmail;

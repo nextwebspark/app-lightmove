@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import {
   Button,
   ChoiceCardGroup,
@@ -14,7 +14,6 @@ import {
 } from "../../../components/ui";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { ApiRequestError } from "../../../lib/apiClient";
-import { cn } from "../../../lib/cn";
 import { codeOf } from "../../../lib/errorCodes";
 import { fieldErrorsFrom } from "../../../lib/formErrors";
 import { formatDate } from "../../../lib/format";
@@ -28,14 +27,7 @@ import type { CompanySuggestion } from "../../strategy/api/types";
 import { useWorkspaceMode, useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as projectsApi from "../api/projectsApi";
 import type { NewClientPayload, ProjectType } from "../api/types";
-import {
-  addDays,
-  autoMappingTarget,
-  daysBetween,
-  MAPPING_SHARE,
-  mappingTargetFits,
-  todayIso,
-} from "../lib/timeline";
+import { addDays, daysBetween, mappingTargetFits, todayIso } from "../lib/timeline";
 
 /** Mirrors `@Size(max = 160)` on CreateProjectRequest.positionTitle, so the cap is met at the field. */
 const MAX_POSITION_TITLE_LENGTH = 160;
@@ -91,7 +83,7 @@ export function NewProjectModal({
   const [projectType, setProjectType] = useState<ProjectType>("MAPPING");
   const [startDate, setStartDate] = useState(todayIso);
   const [deliveryDate, setDeliveryDate] = useState("");
-  const [mappingTargetOverride, setMappingTargetOverride] = useState("");
+  const [mappingTargetDate, setMappingTargetDate] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ProjectField, string>>>({});
 
@@ -123,7 +115,6 @@ export function NewProjectModal({
     windowDays !== null && windowDays <= 0
       ? `${isMapping ? "Map" : "Shortlist"} delivery date must be after the project start date.`
       : undefined;
-  const mappingTarget = mappingTargetOverride || autoMappingTarget(startDate, deliveryDate);
 
   const create = useMutation({
     mutationFn: async () => {
@@ -132,7 +123,7 @@ export function NewProjectModal({
         projectType,
         startDate: startDate || undefined,
         deliveryDate: deliveryDate || undefined,
-        mappingTargetDate: !isMapping && mappingTargetOverride ? mappingTargetOverride : undefined,
+        mappingTargetDate: !isMapping && mappingTargetDate ? mappingTargetDate : undefined,
       };
       const heldClientId = lockedClientId || knownUnit?.id;
       if (heldClientId) return projectsApi.createProject({ clientId: heldClientId, ...position });
@@ -189,25 +180,25 @@ export function NewProjectModal({
     clearFieldError("positionTitle");
   };
 
-  // A moved mapping target is a statement about the old window, so any change to the window drops it.
+  // A mapping project carries no separate mapping target, so leaving Search drops it.
   const handleProjectTypeChange = (type: ProjectType) => {
     setProjectType(type);
-    setMappingTargetOverride("");
+    setMappingTargetDate("");
     clearFieldError("mappingTargetDate");
   };
   const handleStartDateChange = (isoDate: string) => {
     setStartDate(isoDate);
-    setMappingTargetOverride("");
     clearFieldError("startDate");
     clearFieldError("deliveryDate");
+    clearFieldError("mappingTargetDate");
   };
   const handleDeliveryDateChange = (isoDate: string) => {
     setDeliveryDate(isoDate);
-    setMappingTargetOverride("");
     clearFieldError("deliveryDate");
+    clearFieldError("mappingTargetDate");
   };
   const handleMappingTargetChange = (isoDate: string) => {
-    setMappingTargetOverride(isoDate);
+    setMappingTargetDate(isoDate);
     clearFieldError("mappingTargetDate");
   };
 
@@ -227,10 +218,10 @@ export function NewProjectModal({
     }
     if (
       !isMapping &&
-      mappingTargetOverride &&
+      mappingTargetDate &&
       startDate &&
       deliveryDate &&
-      !mappingTargetFits(startDate, deliveryDate, mappingTargetOverride)
+      !mappingTargetFits(startDate, deliveryDate, mappingTargetDate)
     ) {
       refused.mappingTargetDate = "The mapping target must fall after the start and by the delivery date";
     }
@@ -282,7 +273,6 @@ export function NewProjectModal({
   })();
 
   const showSummary = windowDays !== null && windowDays > 0;
-  const mappingTargetDays = mappingTarget ? daysBetween(startDate, mappingTarget) : null;
 
   return (
     // The template list opens over the type cards below the Position field, inside the scrolling body.
@@ -347,6 +337,21 @@ export function NewProjectModal({
         <DateInput value={startDate} onChange={handleStartDateChange} />
       </Field>
 
+      {!isMapping && (
+        <Field
+          label="Mapping target date"
+          hint="When should the universe be mapped?"
+          error={fieldErrors.mappingTargetDate}
+        >
+          <DateInput
+            value={mappingTargetDate}
+            min={startDate ? addDays(startDate, 1) : undefined}
+            max={deliveryDate || undefined}
+            onChange={handleMappingTargetChange}
+          />
+        </Field>
+      )}
+
       <Field
         label={isMapping ? "Map delivery date" : "Shortlist delivery date"}
         hint={
@@ -368,36 +373,6 @@ export function NewProjectModal({
         </Notice>
       )}
 
-      {showSummary && !isMapping && mappingTarget && (
-        <Notice title="Auto-calculated milestones">
-          <MilestoneRow
-            label="Mapping target"
-            dotClassName="bg-u-accent"
-            note={`~${Math.round(MAPPING_SHARE * 100)}% of window · ${mappingTargetDays} days from start${
-              mappingTargetOverride ? " · edited" : ""
-            }`}
-            error={fieldErrors.mappingTargetDate}
-          >
-            <DateInput
-              value={mappingTarget}
-              min={addDays(startDate, 1)}
-              max={deliveryDate}
-              onChange={handleMappingTargetChange}
-              ariaLabel="Mapping target date"
-              className="w-auto gap-1.5 border-0 bg-transparent p-0 font-sans text-[12.5px] font-semibold"
-            />
-          </MilestoneRow>
-          <MilestoneRow label="Shortlist target" dotClassName="bg-u-accent" note="Matches shortlist delivery date">
-            <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-u-text">
-              {formatDate(deliveryDate)}
-              <Icon d={ICONS.lock} size={12} className="text-u-text3" />
-            </span>
-          </MilestoneRow>
-          <div className="mt-2 border-t border-u-border pt-2 text-meta text-u-text3">
-            Auto-calculated from the start and shortlist dates.
-          </div>
-        </Notice>
-      )}
 
     </Modal>
   );
@@ -411,32 +386,4 @@ async function holderIdOf(refusal: unknown, unitName: string): Promise<string | 
   if (refusal instanceof ApiRequestError && refusal.problem.clientId) return refusal.problem.clientId;
   const fresh = await clientsApi.clients();
   return fresh.find((client) => !client.archivedAt && client.name.toLowerCase() === unitName.toLowerCase())?.id;
-}
-
-function MilestoneRow({
-  label,
-  dotClassName,
-  note,
-  error,
-  children,
-}: {
-  label: string;
-  dotClassName: string;
-  note: string;
-  error?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex items-start gap-2 border-t border-u-border py-2">
-      <span aria-hidden="true" className={cn("mt-[5px] size-1.5 flex-none rounded-full", dotClassName)} />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-u-text3">{label}</span>
-          {children}
-        </div>
-        <div className="mt-0.5 text-meta text-u-text3">{note}</div>
-        {error && <div className="mt-0.5 font-mono text-meta text-u-offlimits">{error}</div>}
-      </div>
-    </div>
-  );
 }

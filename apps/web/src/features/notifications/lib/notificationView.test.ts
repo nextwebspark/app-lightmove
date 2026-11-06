@@ -74,14 +74,14 @@ describe("notificationHref", () => {
     );
   });
 
-  it("opens the drawer on the Contact section a reply, a bounce or a booked call is about", () => {
+  it("opens the drawer on the part a reply, a bounce or a booked call is about", () => {
     const about = (kind: NotificationResponse["kind"], candidateId: string | null = "c1") =>
       notificationHref(aNotification("a", at(14, 9), { kind, candidateId, note: null }));
     expect(about("outreach_replied")).toBe("/projects/p1/companies/universe?view=pipeline&candidate=c1&section=outreach");
     expect(about("outreach_bounced")).toBe("/projects/p1/companies/universe?view=pipeline&candidate=c1&section=contact");
     expect(about("call_booked")).toBe("/projects/p1/companies/universe?view=pipeline&candidate=c1&section=meetings");
     expect(about("task_overdue")).toBe("/projects/p1/companies/universe?view=pipeline&candidate=c1");
-    expect(about("outreach_replied", null)).toBe("/candidates?person=pe1&tab=contact");
+    expect(about("outreach_replied", null)).toBe("/candidates?person=pe1");
   });
 
   it("opens an executive since unmapped from the position on the Candidates page, on Notes when a note is named", () => {

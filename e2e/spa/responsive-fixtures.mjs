@@ -32,7 +32,7 @@ export const USER = {
     { ...WORKSPACE, id: "ws-2", name: "Northgate Leadership Advisory & Board Search", slug: "northgate", logoMark: "N", roles: ["MEMBER"] },
   ],
   pendingInvitations: [
-    { id: "inv-1", workspaceName: "Harbourline Executive Search Partners", role: "MEMBER", inviterName: "Omar Saleh" },
+    { id: "inv-1", workspaceId: "ws-harbourline", workspaceName: "Harbourline Executive Search Partners", role: "MEMBER", inviterName: "Omar Saleh" },
   ],
 };
 
