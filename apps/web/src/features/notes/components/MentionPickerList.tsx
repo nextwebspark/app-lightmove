@@ -1,6 +1,6 @@
 import { useEffect, useReducer } from "react";
 import { createPortal } from "react-dom";
-import { EDGE_GAP, PANEL_GAP, verticalPlacement } from "../../../components/ui/anchoredPlacement";
+import { EDGE_GAP, verticalPlacement } from "../../../components/ui/anchoredPlacement";
 import { Avatar } from "../../../components/ui/Avatar";
 import { cn } from "../../../lib/cn";
 import { RolePill } from "../../tasks/components/TaskBits";
@@ -67,7 +67,6 @@ export function MentionPickerList({
       onMouseDown={(event) => event.preventDefault()}
       style={{
         ...placed,
-        maxHeight: "maxHeight" in placed ? placed.maxHeight : window.innerHeight - box.bottom - PANEL_GAP - EDGE_GAP,
         left: Math.max(EDGE_GAP, Math.min(box.left, window.innerWidth - PICKER_WIDTH - EDGE_GAP)),
         width: PICKER_WIDTH,
         maxWidth: `calc(100vw - ${EDGE_GAP * 2}px)`,
