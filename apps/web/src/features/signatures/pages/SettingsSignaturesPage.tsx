@@ -9,6 +9,7 @@ import * as signaturesApi from "../api/signaturesApi";
 import type { EmailSignature, EmailSignatures, SignatureLayout } from "../api/signaturesApi";
 import { LayoutSketch } from "../components/LayoutSketch";
 import { SignatureEditor } from "../components/SignatureEditor";
+import { SignatureMailboxNote } from "../components/SignatureMailboxNote";
 import { SignaturePreviewFrame } from "../components/SignaturePreviewFrame";
 import { draftOf, duplicateOf, LAYOUT_DETAILS, newDraft, type SignatureDraft } from "../lib/signatureDraft";
 
@@ -86,12 +87,15 @@ export function SettingsSignaturesPage() {
           onDone={() => setView({ kind: "list" })}
         />
       ) : (
-        <SignatureList
-          data={data}
-          atLimit={atLimit}
-          onNew={() => setView({ kind: "gallery" })}
-          onEdit={(signature) => setView({ kind: "editor", signatureId: signature.id, draft: draftOf(signature) })}
-        />
+        <>
+          <SignatureMailboxNote />
+          <SignatureList
+            data={data}
+            atLimit={atLimit}
+            onNew={() => setView({ kind: "gallery" })}
+            onEdit={(signature) => setView({ kind: "editor", signatureId: signature.id, draft: draftOf(signature) })}
+          />
+        </>
       )}
     </>
   );
@@ -152,10 +156,6 @@ function SignatureList({
   const ordered = [...data.signatures].sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
   return (
     <>
-      <p className="mb-4 rounded-u-card border border-u-border bg-u-surface px-4 py-3 font-mono text-note text-u-text2">
-        Uncava adds your signature to the emails it sends for you. Your Gmail or Outlook signature isn't added —
-        mailboxes don't add one to email sent through an app.
-      </p>
       <ul className="grid gap-3">
         {ordered.map((signature) => (
           <li

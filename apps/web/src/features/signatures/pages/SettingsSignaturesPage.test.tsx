@@ -5,6 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { aUser } from "../../../test/fixtures/user";
+import * as mailboxApi from "../../outreach/api/mailboxApi";
+import type { Mailbox } from "../../outreach/api/mailboxApi";
 import * as signaturesApi from "../api/signaturesApi";
 import type { EmailSignature, EmailSignatures } from "../api/signaturesApi";
 import { SettingsSignaturesPage } from "./SettingsSignaturesPage";
@@ -19,6 +21,36 @@ vi.mock("../api/signaturesApi", async (importOriginal) => ({
   deleteSignature: vi.fn(),
   previewSignature: vi.fn(),
 }));
+
+vi.mock("../../outreach/api/mailboxApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../outreach/api/mailboxApi")>()),
+  getMailbox: vi.fn(),
+}));
+
+const NO_MAILBOX: Mailbox = { offered: true, providers: ["google", "microsoft"], bookingLinkOffered: false, connection: null };
+
+function aConnectedMailbox(status: "ACTIVE" | "ERROR"): Mailbox {
+  return {
+    ...NO_MAILBOX,
+    bookingLinkOffered: true,
+    connection: {
+      address: "alok@nextwebspark.com",
+      provider: "google",
+      status,
+      dailyCap: 50,
+      timeZone: "Asia/Dubai",
+      connectedAt: "2026-10-01T09:00:00Z",
+      movesOffNylas: false,
+      runsStoppedByMove: 0,
+      liveSequences: 0,
+      livePeople: 0,
+      readsReplies: true,
+      reconnectToReadReplies: false,
+      sentToday: 0,
+      scheduledEmails: 0,
+    },
+  };
+}
 
 const SOURCES: EmailSignatures["sources"] = {
   name: "Alok Kumar",
@@ -68,6 +100,32 @@ describe("SettingsSignaturesPage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(signaturesApi.previewSignature).mockResolvedValue({ html: "<div>preview</div>" });
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue(NO_MAILBOX);
+  });
+
+  it("names the mailbox the signatures go from, or offers to connect one", async () => {
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
+      signatures: [aSignature({ isDefault: true })],
+      sources: SOURCES,
+      limit: 10,
+    });
+    const { unmount } = renderPage();
+    expect(await screen.findByText("Connect your mailbox to send with a signature")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect Gmail" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Connect Outlook" })).toBeEnabled();
+    unmount();
+
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue(aConnectedMailbox("ACTIVE"));
+    const connected = renderPage();
+    expect(await screen.findByText("alok@nextwebspark.com")).toBeInTheDocument();
+    expect(screen.getByText(/Sending from/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Connect/ })).not.toBeInTheDocument();
+    connected.unmount();
+
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue(aConnectedMailbox("ERROR"));
+    renderPage();
+    expect(await screen.findByText("Reconnect alok@nextwebspark.com to send")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reconnect Gmail" })).toBeEnabled();
   });
 
   it("lists the default first, and makes another the default in one click", async () => {
