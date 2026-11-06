@@ -1454,8 +1454,9 @@ longer holds its meeting; bare, a meeting's notes only and never beside a `meeti
 V189 adds the `app_lm_resolve_*` functions — `SECURITY DEFINER`, one key each, ids and workspace out — that a door with
 no principal asks before opening its scope (`TenantResolvers`), and `app_lm_trial_started_by`. V190 forces row-level
 security on every other tenant table (#1085): a direct policy where the table has a `workspace_id`, one through the
-parent where it has none; a library template and a grant awaiting consent (null workspace) are anyone's, and the audit
-trail takes every insert and is read only in its own workspace or the account's. `app_lm_audit_event` and
+parent where it has none; a library template (null workspace) is everyone's to read, and the audit
+trail takes every insert and is read only in its own workspace or the account's. V192 lets only a `SharedRows` scope
+(`app.shared_rows`) write a library template or reach a grant awaiting consent at all. `app_lm_audit_event` and
 `app_lm_credit_entry` are harden.sql's once it has run (step 2c), which must be re-run after V190 deploys.
 V191 adds the job resolvers (`app_lm_workspaces_with_*`, `app_lm_workspaces_owing_seat_sync`) — the same idiom,
 workspace ids out — so the dispatcher, the copilot coach, the bell's emails, the due scan, the seat sync and the ledger

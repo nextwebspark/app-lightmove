@@ -20,10 +20,10 @@ filters". This document points to it rather than repeating it.
 |---|---|---|
 | State | **merged** into `main` (`8c5050ad`, 2026-11-04) | open, **draft**, base `main` |
 | Against `main` | — | has merged #1132's final head and `main` |
-| Migrations | `V184__row_level_security_core.sql` | `V189__tenant_resolvers.sql`, `V190__row_level_security_rest.sql`, `V191__workspaces_with_work.sql` |
+| Migrations | `V184__row_level_security_core.sql` | `V189__tenant_resolvers.sql`, `V190__row_level_security_rest.sql`, `V191__workspaces_with_work.sql`, `V192__shared_rows_write_scope.sql` |
 | Tables protected | 11 | 68 more (79 in all) |
 | Released to production | check the Release history for a tag containing `8c5050ad` | no |
-| Reviews | done | one review: **Not Ready to Merge** (§8); R2, R3 and the job-walk cost since fixed |
+| Reviews | done | one review: **Not Ready to Merge** (§8); R1, R2, R3 and the job-walk cost since fixed |
 
 > **Migration numbers moved as `main` moved.** #1132's migration was V166, then V170, then V171, and is **V184**
 > (`main`'s V170 is `V170__user_avatar.sql`, its V183 `V183__person_contact_primary.sql`). #1173's were V172 and
@@ -156,8 +156,8 @@ The policies come in a few shapes:
 |---|---|---|
 | **Direct** | `USING` and `WITH CHECK` both `app_lm_tenant_visible(workspace_id)` | every table with a `workspace_id`: 7 in V184, 41 in V190 |
 | **Through the parent** | `EXISTS (SELECT 1 FROM <parent> p WHERE p.id = <parent key>)`; the parent's own policy answers, hop by hop | the person's children in V184 (contacts, tags, document versions, photo); 23 in V190 (the brief and its lists, strategies, custom columns, team seats, sequence steps, a recording's live lines and viewers, a note's mentions, a grant's retired tokens, template keywords, the frozen candidate contact and photo tables) |
-| **Shared rows** | `workspace_id IS NULL OR app_lm_tenant_visible(workspace_id)` | V190: `app_lm_position_template` (the shared library) and `app_lm_oauth_authorization` (a grant still waiting for consent) |
-| **The audit trail** | insert always allowed; read where `workspace_id IS NULL OR app_lm_tenant_visible(workspace_id)` | V190 or harden.sql step 2c: `app_lm_audit_event`. A sign-in is audited in the workspace it opens, an account's own events in none. `AuditEvent` takes its id from the sequence before the insert, because Postgres checks a row an `INSERT … RETURNING` hands back against the read policy |
+| **Shared rows** | own workspace, or `workspace_id IS NULL AND app_lm_shared_rows()`; the library alone is read with `workspace_id IS NULL` unconditionally | V192 (over V190's): `app_lm_position_template` (the shared library, and its keywords through it) and `app_lm_oauth_authorization` (a grant still waiting for consent). `app.shared_rows` is raised only by `SharedRows.run`/`call` and reset on every checkout |
+| **The audit trail** | insert always allowed; read where `workspace_id IS NULL OR app_lm_tenant_visible(workspace_id)` | V190 or harden.sql step 2c: `app_lm_audit_event`. A sign-in is audited in the workspace it opens, an account's own events in none. `AuditEvent` takes its id from the sequence before the insert, because Postgres checks a row an `INSERT … RETURNING` hands back against the read policy. Two deliberate gaps: an account's (null) row is readable from every workspace, because the customer audit log shows a member's account events in each workspace they belong to and the database knows the workspace, not the reader; and any session may insert a line for any workspace, because a sign-in is audited in the workspace it opens before the session is in it. The audit log's own query is the sole guard on the first; the second can forge a line, never read or change one |
 | **The credit ledger** | direct | V190 or harden.sql step 2c: `app_lm_credit_entry` |
 
 **The two grid tables gain a column (V184).** `app_lm_project_candidate` and `app_lm_project_triage_company` get their
@@ -449,12 +449,15 @@ V190 rewrites no rows, so it is quick once it has its locks, but it takes `ACCES
 transaction, including the busiest (the audit trail, outreach messages, notifications, tasks). One long query on any
 of them holds it up, and everything behind it queues. Same mitigation as risk 3.
 
-#### Risk 9 (MEDIUM): shared rows are writable by every workspace (review item R1)
+#### Risk 9 (closed by V192): shared rows were writable by every workspace (review item R1)
 
-The shared-rows policy's `WITH CHECK (workspace_id IS NULL OR …)` lets any workspace's connection write a library
-template or a grant still waiting for consent. The application gates both (the platform authorizer; the consent flow),
-so this is a gap in the backstop, not a hole in the app. The fix is a shared read and an own-workspace write: separate
-`FOR SELECT` and `FOR INSERT/UPDATE/DELETE` policies. Not done.
+V190's `WITH CHECK (workspace_id IS NULL OR …)` let any workspace's connection write a library template or reach a
+grant still waiting for consent. V192 splits the library's policy into a read every session has and writes that need
+`app_lm_shared_rows()`, gives its keywords the same split through their template, and makes a pending grant reachable
+only with the flag, read or write. `SharedRows` raises it for `PositionTemplateLibraryService`'s writes,
+`HashingAuthorizationService`, `OAuthGrantPurge` and a password change's revoke-all; `TenantAwareDataSource` resets it
+on every checkout. Like the rest, it backs up the application against a bug (a firm's path dirtying a loaded library
+row), not against SQL that can set the flag itself (§3).
 
 ### 4.3 Risks common to both
 
@@ -798,8 +801,8 @@ expect, so screens read empty and jobs do nothing. Flyway ignores unknown future
 
 | Area | #1132 | #1173 |
 |---|---|---|
-| Migrations | `V184__row_level_security_core.sql` | `V189__tenant_resolvers.sql`, `V190__row_level_security_rest.sql`, `V191__workspaces_with_work.sql` |
-| Tenant core (`core/tenant/`) | `TenantAwareDataSource`, `TenantDataSourceConfig`, `TenantContext`, `TenantPrincipal`, `WorkspaceScope`, `EveryWorkspace`, `RowLevelSecurityPosture` | `TenantResolvers`, `ResolvedRow`, `TenantTableGuard`; `WorkspaceScope.runInJoinedTransaction`; `EveryWorkspace`'s list overloads |
+| Migrations | `V184__row_level_security_core.sql` | `V189__tenant_resolvers.sql`, `V190__row_level_security_rest.sql`, `V191__workspaces_with_work.sql`, `V192__shared_rows_write_scope.sql` |
+| Tenant core (`core/tenant/`) | `TenantAwareDataSource`, `TenantDataSourceConfig`, `TenantContext`, `TenantPrincipal`, `WorkspaceScope`, `EveryWorkspace`, `RowLevelSecurityPosture` | `TenantResolvers`, `ResolvedRow`, `TenantTableGuard`, `SharedRows`; `WorkspaceScope.runInJoinedTransaction`; `EveryWorkspace`'s list overloads |
 | Config | `RowLevelSecuritySettings`, `LightMoveProperties`, `application.yml` (Flyway user and `init-sqls`, `lightmove.row-level-security`) | — |
 | Principals and propagation | `AuthPrincipal`, `ApiKeyPrincipal`, `McpCaller`, `McpToolCalls`, `ThreadContextPropagation`, `ThreadContextTaskDecorator` | `ApiKeyIntrospector`, `McpCredentials`, `HashingAuthorizationService`, `OAuthGrantService`, `AuthResponseAssembler` |
 | Outreach | `OutreachSendService`, `OutreachMessageSendService`, `OutreachInboxService`, `MeetingBackfill`, `RecallCalendars`, `DirectBookingPage` | the same, plus `OutreachDispatcher`, `BookingPages`, `MailboxService`, `ZoomService`, `IntegrationSecretExpiryWarnings`, `MailboxConnectionRepository` |
@@ -821,7 +824,8 @@ expect, so screens read empty and jobs do nothing. Flyway ignores unknown future
 
 | # | Issue | Status |
 |---|---|---|
-| R1 | `WITH CHECK (workspace_id IS NULL OR …)` lets any workspace write shared library templates and pending OAuth grants. Split it into a shared read and an own-workspace write. | **Open** (risk 9) |
+| R1 | `WITH CHECK (workspace_id IS NULL OR …)` lets any workspace write shared library templates and pending OAuth grants. Split it into a shared read and an own-workspace write. | **Fixed** by V192 and `SharedRows` (risk 9) |
+| R1b | Audit trail: account rows readable from every workspace; `INSERT WITH CHECK (true)` lets a session forge a line into another workspace. | **Accepted**, trade-off stated in §2.4 |
 | R2 | `EveryWorkspace` has no per-workspace failure isolation. | **Fixed** in #1132, kept in #1173's `forEach` too |
 | R3 | The `harden.sql` step 2c comment says the boot refuses until it has run; the code only warns. | **Fixed**: the comment now says it warns |
 | R4 | The verification checklist is unfinished: e2e; real Recall, Nylas and Stripe payloads; the extension; query plans; the production pre-flight. | **Open** (§9) |
@@ -853,7 +857,7 @@ query would always have answered nothing and the two jobs would have stopped. It
 ### Before merging #1173
 
 - [ ] The **API** CI check is green on the PR.
-- [ ] Review done (by Fable or Codex); R1 decided (fix, or accept as a known gap).
+- [ ] Review done (by Fable or Codex). R1 fixed by V192.
 - [ ] Decide on risk 5: a quiet-window release (A) or a split release (C), which means moving V190 to a follow-up PR
       **before** merging.
 - [ ] `cd e2e && PROFILE=e2e ./run-all.sh` is green.

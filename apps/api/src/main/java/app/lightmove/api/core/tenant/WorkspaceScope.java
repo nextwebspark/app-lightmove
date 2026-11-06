@@ -77,7 +77,7 @@ public final class WorkspaceScope {
         return result;
     }
 
-    private static @Nullable Connection boundConnection() {
+    static @Nullable Connection boundConnection() {
         for (Object resource : TransactionSynchronizationManager.getResourceMap().values()) {
             if (resource instanceof ConnectionHolder holder && holder.getConnectionHandle() != null) {
                 return holder.getConnection();

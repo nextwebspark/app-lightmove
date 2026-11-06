@@ -50,10 +50,16 @@ carry no workspace and reference none, so the guard never reaches them.
   their project's `workspace_id` (filled by `app_lm_fill_workspace_from_project`, held by a composite key to the
   project's) so their policy is a plain comparison.
 - **Three tables hold rows of no workspace.** A shared library template (`app_lm_position_template`, and its keywords
-  through it) and an OAuth grant still waiting for consent have a null `workspace_id`, visible and writable by anyone:
-  neither is a firm's data, and who may edit the library is `@platformAuthorizer`'s question. The audit trail is never
+  through it) and an OAuth grant still waiting for consent have a null `workspace_id`. Since V192 only a connection the
+  application opened for them reaches one for writing — `SharedRows.run(…)`, entered before its transaction (or on a
+  joined one), raising `app.shared_rows`, which `TenantAwareDataSource` resets on every checkout: the library is read by
+  every session and written only by `PositionTemplateLibraryService`; a pending grant is read and written only by
+  `HashingAuthorizationService`, the grant purge and a password change's revoke-all. A firm's path that dirties a loaded
+  library row is refused at flush rather than rewriting every firm's template. The audit trail is never
   refused a line (`FOR INSERT WITH CHECK (true)`: a sign-in is audited in the workspace it opens, an account's own
-  events in none) but is read only in the reader's workspace or the account's (null). Its id is drawn from the
+  events in none) but is read only in the reader's workspace or the account's (null) — every workspace's session may
+  read an account row, and the customer audit log's query (members, from their latest joining) is what narrows it,
+  since the database knows the workspace but not the reader. Its id is drawn from the
   sequence before the insert, never `RETURNING` it: Postgres checks a returned row against the read policy, and an
   event of another workspace would fail it.
 - **System work names its workspace — per item, no bypass role.** A scheduled job, a public webhook, or an

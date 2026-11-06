@@ -33,7 +33,7 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * The database's own tenant fence (V184): with workspace A's setting a transaction reads and writes A's rows of
- * every protected table and nothing of B's, and with no setting it reads nothing at all â€” whatever the query, a
+ * every protected table and nothing of B's, and with no setting it reads nothing at all — whatever the query, a
  * repository's or raw SQL's.
  */
 @IntegrationTest
@@ -157,8 +157,8 @@ class RowLevelSecurityIntegrationTest extends FlowTestSupport {
     }
 
     /**
-     * A webhook's or job's thread commits with no workspace, and its after-commit listener â€” run on that same thread
-     * when the async pool is full, always in tests â€” joins the committed transaction's still-bound connection.
+     * A webhook's or job's thread commits with no workspace, and its after-commit listener — run on that same thread
+     * when the async pool is full, always in tests — joins the committed transaction's still-bound connection.
      */
     @Test
     @DisplayName("a scope entered after commit sets the still-bound connection to its workspace, then hands it back")
@@ -199,6 +199,55 @@ class RowLevelSecurityIntegrationTest extends FlowTestSupport {
             assertThat(application.queryForObject("select app_lm_rls_maintenance()", Boolean.class)).isFalse();
             assertThat(application.queryForObject("select count(*) from app_lm_person", Long.class)).isZero();
         }
+    }
+
+    @Test
+    @DisplayName("the shared library is read by every workspace and written only inside a shared-rows scope")
+    void theSharedLibraryIsWrittenOnlyInASharedRowsScope() {
+        UUID libraryTemplate = fixture.queryForObject("""
+                select t.id from app_lm_position_template t
+                where t.workspace_id is null
+                  and exists (select 1 from app_lm_position_template_keyword k where k.template_id = t.id)
+                order by t.code limit 1""", UUID.class);
+        assertThat(visibleIn(firmA.workspaceId(), "app_lm_position_template")).isPositive();
+
+        WorkspaceScope.run(firmA.workspaceId(), () -> transactions.executeWithoutResult(status -> assertThat(
+                application.update("update app_lm_position_template set summary = 'Taken' where id = ?",
+                        libraryTemplate)).isZero()));
+        assertRefusedByPolicy(() -> application.update("""
+                insert into app_lm_position_template_keyword (template_id, sort_order, keyword)
+                select template_id, max(sort_order) + 1, 'planted' from app_lm_position_template_keyword
+                where template_id = ? group by template_id""", libraryTemplate));
+        assertThat(fixture.queryForObject("select summary from app_lm_position_template where id = ?", String.class,
+                libraryTemplate)).isNotEqualTo("Taken");
+
+        SharedRows.run(() -> transactions.executeWithoutResult(status -> assertThat(application.update(
+                "update app_lm_position_template set summary = summary where id = ?", libraryTemplate)).isOne()));
+    }
+
+    @Test
+    @DisplayName("a grant waiting for its consent is seen by no workspace, and inside a shared-rows scope only")
+    void aPendingGrantIsReachedOnlyInASharedRowsScope() {
+        UUID clientId = fixture.queryForObject("""
+                insert into app_lm_oauth_client (client_id, client_name, redirect_uris, scopes, source)
+                values (?, 'Fence client', '["https://fence.example/cb"]', '["projects:read"]', 'DCR') returning id""",
+                UUID.class, "https://fence.example/" + UUID.randomUUID());
+        UUID userId = fixture.queryForObject("select id from app_lm_user where email = ?", UUID.class,
+                "amal@" + domain);
+        UUID grantId = UUID.randomUUID();
+        fixture.update("""
+                insert into app_lm_oauth_authorization (id, client_id, user_id, authorization_grant_type, attributes)
+                values (?, ?, ?, 'authorization_code', '{}')""", grantId, clientId, userId);
+        String ofThisGrant = "select count(*) from app_lm_oauth_authorization where id = '" + grantId + "'";
+
+        Long inAsScope = WorkspaceScope.call(firmA.workspaceId(), () -> transactions.execute(status ->
+                application.queryForObject(ofThisGrant, Long.class)));
+        Long inSharedScope = SharedRows.call(() -> application.queryForObject(ofThisGrant, Long.class));
+        assertThat(inAsScope).isZero();
+        assertThat(application.queryForObject(ofThisGrant, Long.class)).isZero();
+        assertThat(inSharedScope).isOne();
+        assertThat(application.queryForObject("select current_setting('app.shared_rows', true)", String.class))
+                .as("the flag is gone at the next checkout").isEmpty();
     }
 
     private Integer backendPid() {
