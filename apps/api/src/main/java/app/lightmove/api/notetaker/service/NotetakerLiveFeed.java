@@ -2,6 +2,9 @@ package app.lightmove.api.notetaker.service;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.notetaker.model.LiveLinesHeard;
 import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.model.RecallLiveUtterance;
@@ -13,6 +16,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +43,7 @@ public class NotetakerLiveFeed {
     private final Map<UUID, Instant> partialAnnounced = new ConcurrentHashMap<>();
 
     private final RecallBotApi recall;
+    private final TenantResolvers resolvers;
     private final MeetingRecordingRepository recordings;
     private final MeetingLiveLineRepository lines;
     private final CopilotStreamPublisher publisher;
@@ -54,19 +59,21 @@ public class NotetakerLiveFeed {
         }
         List<RecallLiveUtterance> utterances = RecallBotClient.liveUtterancesIn(body);
         for (RecallLiveUtterance utterance : utterances) {
-            Boolean taken = transactions.execute(status -> {
-                MeetingRecording recording = recordings.findByRecallBotId(utterance.botId()).orElse(null);
-                if (recording == null) {
-                    return signed;
-                }
-                if (!signed && !recording.holdsLiveToken(token)) {
-                    return false;
-                }
-                if (recording.isListening()) {
-                    take(recording, utterance, received);
-                }
-                return true;
-            });
+            Optional<ResolvedRow> named = resolvers.recordingByBot(utterance.botId());
+            Boolean taken = named.isEmpty() ? signed : WorkspaceScope.call(named.get().workspaceId(), () ->
+                    transactions.execute(status -> {
+                        MeetingRecording recording = recordings.findById(named.get().id()).orElse(null);
+                        if (recording == null) {
+                            return signed;
+                        }
+                        if (!signed && !recording.holdsLiveToken(token)) {
+                            return false;
+                        }
+                        if (recording.isListening()) {
+                            take(recording, utterance, received);
+                        }
+                        return true;
+                    }));
             if (!Boolean.TRUE.equals(taken)) {
                 throw ApiException.of(ErrorCode.NOTETAKER_WEBHOOK_REJECTED);
             }

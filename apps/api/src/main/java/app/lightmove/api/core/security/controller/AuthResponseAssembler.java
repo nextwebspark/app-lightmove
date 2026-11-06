@@ -12,7 +12,9 @@ import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.core.security.token.TokenPair;
-import app.lightmove.api.workspace.constant.InvitationStatus;
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.workspace.dto.WorkspaceCompanyResponse;
 import app.lightmove.api.workspace.dto.WorkspaceSummary;
 import app.lightmove.api.workspace.model.Invitation;
@@ -45,6 +47,7 @@ public class AuthResponseAssembler {
     private final UserRepository users;
     private final WorkspaceSelection selection;
     private final PlatformAccess platform;
+    private final TenantResolvers resolvers;
 
     public AuthResponse assemble(TokenPair tokens, User user, WorkspaceMember membership) {
         return new AuthResponse(
@@ -112,14 +115,20 @@ public class AuthResponseAssembler {
         Instant now = Instant.now();
         Map<UUID, WorkspaceMember> membershipByWorkspace = memberships.stream()
                 .collect(Collectors.toMap(WorkspaceMember::getWorkspaceId, Function.identity()));
-        List<Invitation> outstanding = invitations
-                .findByEmailAndStatusOrderByCreatedAtDesc(user.getEmail(), InvitationStatus.PENDING)
-                .stream()
+        // Each from its own workspace: the invitations to a workspace the person is not in yet are that workspace's
+        // rows, which the session's own workspace cannot read.
+        Map<UUID, List<UUID>> waitingIn = resolvers.pendingInvitationsFor(user.getEmail()).stream()
+                .collect(Collectors.groupingBy(ResolvedRow::workspaceId,
+                        Collectors.mapping(ResolvedRow::id, Collectors.toList())));
+        List<Invitation> outstanding = waitingIn.entrySet().stream()
+                .flatMap(waiting -> WorkspaceScope.call(waiting.getKey(),
+                        () -> invitations.findAllById(waiting.getValue())).stream())
                 .filter(invitation -> invitation.isRedeemable(now))
                 .filter(invitation -> {
                     WorkspaceMember member = membershipByWorkspace.get(invitation.getWorkspaceId());
                     return member == null || !member.alreadyCovers(invitation.getRole());
                 })
+                .sorted(Comparator.comparing(Invitation::getCreatedAt).reversed())
                 .toList();
         if (outstanding.isEmpty()) {
             return List.of();

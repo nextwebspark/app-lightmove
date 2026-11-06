@@ -12,6 +12,7 @@ import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
@@ -412,8 +413,9 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
         jdbc.update("update app_lm_outreach_message set status = 'FAILED', fail_reason = 'SEND_UNCERTAIN' "
                 + "where id = ?::uuid", id);
 
-        claims.recordDelivered(java.util.UUID.fromString(id), new SentEmail("delivered-1", "thread-delivered-1"),
-                MailboxGatewayKind.NYLAS, Instant.now());
+        TestWorkspaceScopes.inWorkspaceOfRow(jdbc, "app_lm_outreach_message", java.util.UUID.fromString(id),
+                () -> claims.recordDelivered(java.util.UUID.fromString(id),
+                        new SentEmail("delivered-1", "thread-delivered-1"), MailboxGatewayKind.NYLAS, Instant.now()));
 
         assertThat(line(id)).containsEntry("status", "SENT").containsEntry("fail_reason", null)
                 .containsEntry("provider_message_id", "delivered-1")
