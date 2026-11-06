@@ -799,6 +799,25 @@ webhook names the page; `LinkBookings` counts it **only for an address that cons
 keeps the meeting `booked_via_link`, ends their listening runs as `BOOKED` before the next step, and moves
 the person forward to Engaged once per position — a booking after a reply included.
 
+**Email signatures (V189, epic #1157, `docs/email-signatures.md`)** are a consultant's own, per workspace, in
+Settings → Email signature (`/me/signatures`, staff only, every row keyed on the caller — another's reads as missing):
+at most ten, exactly one the default while any exist (unticking it does nothing; another is made the default), each a
+layout (Classic, With photo, Photo + logo, Logo banner, Minimal, Custom in the notes' editor) whose empty fields follow
+the profile (name, title, phone, LinkedIn, photo), the workspace (name, website, logo) and the mailbox's address; a
+phone override is held to the profile's rule (`PhoneNumbers`). `EmailSignatureRenderer` draws them email-safe — tables
+and inline styles, every value escaped, links http/https/mailto/tel only, no picture but Uncava's own — and the
+editor's preview is its drawing (`…/preview`), shown in a sandboxed frame. A preview or the list writes nothing: a
+booking link not yet claimed is drawn as a stand-in, and only a signature about to be sent claims it and makes its page
+(`SignatureSenders.forSending` → `BookingPages.prepare`). No mail provider adds a signature to email sent through its
+API, so Uncava adds its own. Pictures are `core/storage`'s `EmailImageService`: the person's stored avatar (V170,
+uploaded or a provider's copy) or the workspace's logo — fetched once through `PictureFetcher` on `core/http`'s
+`GuardedHttpClient` — each copied once (keyed on the avatar's or the logo URL's SHA-256), refused past 40 megapixels
+from the header and decoded subsampled, re-encoded, kept in the bucket and served publicly at
+`/api/v1/email-images/{token}`, a 256-bit token per picture (never per message or recipient) its only credential,
+cached for good and never logged (`RequestLogFilter` skips it; `ops/gcp/bootstrap.sh` excludes it from Cloud Run's
+request log), counted or rate-limited per address (mail clients' image proxies fetch for everyone from a few). An image
+row outlives the avatar it was copied from, since a sent email names it.
+
 **The Notetaker (V151, `docs/notetaker.md`, `notetaker`)** is a Recall.ai bot a consultant sends into a kept call from
 the executive drawer's Meetings section (`WORK_EXECUTE`, only on a call on the caller's own calendar or booked by them,
 never for do not contact; a recording is read only from the position that sent it). It is kept out of the way: a call's
@@ -1040,7 +1059,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - Client access is **two tiers, two decisions**: registry (`CLIENT_RECORD_MANAGE`, ADMIN+MEMBER) vs mandate (`CLIENT_ACCESS_MANAGE`, LEAD only). Project content is seat-gated `WORK_VIEW`/`WORK_EXECUTE`, not `PROJECT_BROWSE`.
 - **A platform role sits above every tenant and inside none**: `SUPER_ADMIN` gates `/api/v1/platform/**` (`@platformAuthorizer`) and nothing else, is granted by ops script only, and never rides in the JWT.
 - **An identity provider is a yml block** — never branch on a provider name anywhere.
-- **Tokens are never stored raw** (SHA-256) — the one exception a profile photo's link, which every colleague's screen draws and which opens that one image; the refresh cookie rotates on every use; the access token lives in JS memory only.
+- **Tokens are never stored raw** (SHA-256) — the exceptions a profile photo's link and an email picture's (`app_lm_email_image.token`, which a sent email names), which every colleague's screen draws and which opens that one image; the refresh cookie rotates on every use; the access token lives in JS memory only.
 - **The SPA and API are one origin**; every endpoint lives under `/api/v1`. Don't split hosts.
 - **An MCP token's `aud` is the MCP endpoint and it is signed by its own key**; the session decoder checks our issuer and refuses any token carrying an `aud`, so neither token opens the other's routes.
 - **No token passthrough:** an MCP tool calls our services in-process as its `McpCaller`; a caller's token is never forwarded to another service, ours or a provider's.
@@ -1451,6 +1470,9 @@ plain note, by CHECK, and on every older note, where `created_at` stands in), `t
 notes only, by CHECK; bare, as V151's recording keeps its meeting's id).
 V188 adds `app_lm_person_note.recording_id` (the Notetaker recording a meeting's notes are about, where the calendar no
 longer holds its meeting; bare, a meeting's notes only and never beside a `meeting_id`, by CHECK).
+V189 adds `app_lm_user.phone` / `linkedin_url`, `app_lm_email_image` (a photo's owner or a logo's workspace, and the
+source's SHA-256, by CHECK; one copy per avatar per person and per logo per workspace) and `app_lm_email_signature` (`fields` jsonb holds only the
+overrides; one default per person per workspace by partial unique index).
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a

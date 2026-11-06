@@ -11,6 +11,8 @@ public record ProfileUpdateCommand(
         String fullName,
         String title,
         String timezone,
-        String locale
+        String locale,
+        String phone,
+        String linkedinUrl
 ) {
 }

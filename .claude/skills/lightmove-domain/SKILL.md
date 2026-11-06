@@ -447,6 +447,11 @@ persisted. Passwords are BCrypt(12).
 credential — it opens one image and nothing else, as a booking link's slug opens one page — and the same raw link is
 `app_lm_user.avatar_url`, drawn by every colleague's screen, so a hash beside it would protect nothing.
 
+**The same exception for an email picture** (`app_lm_email_image.token`, a signature's photo or logo): it opens one
+re-encoded picture, every email that carries it names it in plain sight, and the server must rebuild its link to draw a
+signature, so it is kept as served. One token per picture, never per message or recipient, so it tracks nobody's
+opening; and its fetches are never logged (`RequestLogFilter`, and the Cloud Logging exclusion in `ops/gcp/bootstrap.sh`).
+
 The **refresh token** is httpOnly + Secure + SameSite, scoped to `/api/v1/auth`, and **rotates on every
 use**. Presenting an already-rotated token is treated as theft and revokes the whole family. The access
 token lives in **JS memory only** — never `localStorage`, because one compromised npm dependency would
