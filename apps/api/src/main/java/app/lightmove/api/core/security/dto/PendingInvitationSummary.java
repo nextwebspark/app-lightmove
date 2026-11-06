@@ -9,6 +9,7 @@ import java.util.UUID;
  */
 public record PendingInvitationSummary(
         UUID id,
+        UUID workspaceId,
         String workspaceName,
         String role,
         String inviterName

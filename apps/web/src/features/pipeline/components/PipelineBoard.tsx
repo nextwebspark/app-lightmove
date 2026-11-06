@@ -279,7 +279,7 @@ export function PipelineBoard({
                 className={cn(
                   "flex min-w-0 flex-col gap-2 rounded-b-u-chip bg-u-raised p-1.5 outline-1 -outline-offset-1",
                   band.height === null ? "max-h-64 self-start" : "min-h-0",
-                  "overflow-y-auto [scrollbar-width:thin]",
+                  "overflow-y-auto",
                   !cell.underColumn && "rounded-t-u-chip",
                   isOver ? "outline-dashed outline-u-text3" : "outline-transparent",
                 )}

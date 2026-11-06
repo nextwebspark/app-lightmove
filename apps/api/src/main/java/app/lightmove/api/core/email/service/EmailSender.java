@@ -8,4 +8,10 @@ import app.lightmove.api.core.email.model.EmailMessage;
 public interface EmailSender {
 
     void send(EmailMessage message);
+
+    /** As {@link #send}, also answering whether the provider accepted it, for a caller that tells someone. */
+    default boolean trySend(EmailMessage message) {
+        send(message);
+        return true;
+    }
 }

@@ -206,6 +206,7 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
         String otherProject = mandate(consultant, "Group Treasurer");
         String priyaThere = executive(otherProject, "Priya Raman", "priya@" + domain);
         note(otherProject, priyaThere, "general", "Treasurer search: not for her.");
+        jdbc.update("update app_lm_user set avatar_url = '/api/v1/avatars/yara-photo' where id = ?::uuid", consultantId);
 
         JsonNode conversation = body(as(consultant, get(outreach("/conversations/" + priya)))
                 .andExpect(status().isOk()).andReturn());
@@ -234,6 +235,7 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
                 .isEqualTo("Hi Priya,\n\nYour treasury work stood out.\n\nWe are hiring a Group CFO.");
         assertThat(email.get("toAddress").asText()).isEqualTo("priya@" + domain);
         assertThat(email.get("senderName").asText()).isEqualTo("Yara Haddad");
+        assertThat(email.get("senderAvatarUrl").asText()).isEqualTo("/api/v1/avatars/yara-photo");
         assertThat(email.get("sequenceName").asText()).isEqualTo("First approach");
         assertThat(email.get("stepNumber").asInt()).isEqualTo(1);
         assertThat(email.get("stepCount").asInt()).isEqualTo(3);

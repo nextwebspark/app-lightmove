@@ -20,15 +20,16 @@ filters". This document points to it rather than repeating it.
 |---|---|---|
 | State | **merged** into `main` (`8c5050ad`, 2026-11-04) | open, **draft**, base `main` |
 | Against `main` | — | has merged #1132's final head and `main` |
-| Migrations | `V184__row_level_security_core.sql` | `V185__tenant_resolvers.sql`, `V186__row_level_security_rest.sql`, `V187__workspaces_with_work.sql` |
+| Migrations | `V184__row_level_security_core.sql` | `V189__tenant_resolvers.sql`, `V190__row_level_security_rest.sql`, `V191__workspaces_with_work.sql` |
 | Tables protected | 11 | 68 more (79 in all) |
 | Released to production | check the Release history for a tag containing `8c5050ad` | no |
 | Reviews | done | one review: **Not Ready to Merge** (§8); R2, R3 and the job-walk cost since fixed |
 
 > **Migration numbers moved as `main` moved.** #1132's migration was V166, then V170, then V171, and is **V184**
 > (`main`'s V170 is `V170__user_avatar.sql`, its V183 `V183__person_contact_primary.sql`). #1173's were V172 and
-> V173 and are **V185** and **V186**; V187 is new. Older notes and commit messages that say V166, V170, V171, V172 or
-> V173 mean these migrations.
+> V173, then V185 and V186, and are **V189** and **V190**; V191 (once V187) is new. `main`'s own V185, V186 and V188
+> are person notes and invitations, not these. Older notes and commit messages that say V166, V170, V171, V172, V173,
+> V185, V186 or V187 mean these migrations.
 
 ---
 
@@ -42,7 +43,7 @@ policies need it:
 
 - **Releasing #1132 (V184)** with pre-RLS code serving: positions, grids, people and notes read as empty, writes to
   them fail, and the old outreach dispatcher **stops for good every sequence that comes due** (`UNMAPPED`).
-- **Releasing #1173 (V186)** with #1132's code serving: **Stripe webhook events are claimed and dropped**, the hourly
+- **Releasing #1173 (V190)** with #1132's code serving: **Stripe webhook events are claimed and dropped**, the hourly
   OAuth purge (if it fires) **deletes AI-app clients with live connections**, and API keys, MCP and several webhooks
   fail until the new revision serves (§4.2).
 
@@ -153,11 +154,11 @@ The policies come in a few shapes:
 
 | Shape | Policy | Where |
 |---|---|---|
-| **Direct** | `USING` and `WITH CHECK` both `app_lm_tenant_visible(workspace_id)` | every table with a `workspace_id`: 7 in V184, 41 in V186 |
-| **Through the parent** | `EXISTS (SELECT 1 FROM <parent> p WHERE p.id = <parent key>)`; the parent's own policy answers, hop by hop | the person's children in V184 (contacts, tags, document versions, photo); 23 in V186 (the brief and its lists, strategies, custom columns, team seats, sequence steps, a recording's live lines and viewers, a note's mentions, a grant's retired tokens, template keywords, the frozen candidate contact and photo tables) |
-| **Shared rows** | `workspace_id IS NULL OR app_lm_tenant_visible(workspace_id)` | V186: `app_lm_position_template` (the shared library) and `app_lm_oauth_authorization` (a grant still waiting for consent) |
-| **The audit trail** | insert always allowed; read where `workspace_id IS NULL OR app_lm_tenant_visible(workspace_id)` | V186 or harden.sql step 2c: `app_lm_audit_event`. A sign-in is audited in the workspace it opens, an account's own events in none. `AuditEvent` takes its id from the sequence before the insert, because Postgres checks a row an `INSERT … RETURNING` hands back against the read policy |
-| **The credit ledger** | direct | V186 or harden.sql step 2c: `app_lm_credit_entry` |
+| **Direct** | `USING` and `WITH CHECK` both `app_lm_tenant_visible(workspace_id)` | every table with a `workspace_id`: 7 in V184, 41 in V190 |
+| **Through the parent** | `EXISTS (SELECT 1 FROM <parent> p WHERE p.id = <parent key>)`; the parent's own policy answers, hop by hop | the person's children in V184 (contacts, tags, document versions, photo); 23 in V190 (the brief and its lists, strategies, custom columns, team seats, sequence steps, a recording's live lines and viewers, a note's mentions, a grant's retired tokens, template keywords, the frozen candidate contact and photo tables) |
+| **Shared rows** | `workspace_id IS NULL OR app_lm_tenant_visible(workspace_id)` | V190: `app_lm_position_template` (the shared library) and `app_lm_oauth_authorization` (a grant still waiting for consent) |
+| **The audit trail** | insert always allowed; read where `workspace_id IS NULL OR app_lm_tenant_visible(workspace_id)` | V190 or harden.sql step 2c: `app_lm_audit_event`. A sign-in is audited in the workspace it opens, an account's own events in none. `AuditEvent` takes its id from the sequence before the insert, because Postgres checks a row an `INSERT … RETURNING` hands back against the read policy |
+| **The credit ledger** | direct | V190 or harden.sql step 2c: `app_lm_credit_entry` |
 
 **The two grid tables gain a column (V184).** `app_lm_project_candidate` and `app_lm_project_triage_company` get their
 project's `workspace_id`, so the policy is a plain comparison rather than a probe of the project on every grid line.
@@ -167,9 +168,9 @@ composite FK, `(project_id, workspace_id) → app_lm_project (id, workspace_id)`
 `app_lm_project_id_workspace_uk`.
 
 **harden.sql owns two of the tables.** Once it has run, `app_lm_audit_event` and `app_lm_credit_entry` belong to
-`postgres`, which `lm_app` cannot `ALTER`. V186 protects them where Flyway still owns them and skips them with a
+`postgres`, which `lm_app` cannot `ALTER`. V190 protects them where Flyway still owns them and skips them with a
 warning where it does not; harden.sql's step 2c does the same as their owner, idempotently. **Re-run harden.sql as
-`postgres` after V186 deploys.**
+`postgres` after V190 deploys.**
 
 ### 2.5 Work with no signed-in user
 
@@ -195,7 +196,7 @@ warning where it does not; harden.sql's step 2c does the same as their owner, id
 
 ### 2.6 Resolve, then scope (#1173)
 
-**V185, the door resolvers.** A webhook, public page or credential knows only a key. One `SECURITY DEFINER` function
+**V189, the door resolvers.** A webhook, public page or credential knows only a key. One `SECURITY DEFINER` function
 per key answers `(id, workspace_id)` and nothing of the row; the door then opens `WorkspaceScope` on that workspace and
 reads the row under the fence. Each raises the maintenance flag transaction-locally for its one query and puts it back
 (a function-level `SET` of a placeholder setting needs a superuser since Postgres 15). `TenantResolvers` is the only
@@ -215,7 +216,7 @@ caller.
 | One trial per founder, across workspaces | `app_lm_trial_started_by` (a boolean) |
 | The platform library's per-code count of firm copies | `app_lm_count_firm_templates_by_code` (counts only) |
 
-**V187, the job resolvers.** A frequent job used to open every workspace's scope on every tick to ask its own claim:
+**V191, the job resolvers.** A frequent job used to open every workspace's scope on every tick to ask its own claim:
 a transaction per tenant per tick, most answering nothing, which also took the backend suite from about 11 to about
 18½ minutes. Each of these asks the question once, across the tenants, before any scope, and answers workspace ids
 alone. The job then walks only those workspaces and claims there, under the fence, as before. Each condition is
@@ -241,23 +242,23 @@ A resolver is a deliberate hole in the fence. The rules: one key or one job ques
 
 | Path | How it names its workspace | PR |
 |---|---|---|
-| Outreach dispatcher (`OutreachSendService`, `OutreachMessageSendService`) | V187's `sends_due`, then claims inside each workspace's scope | #1132, narrowed in #1173 |
+| Outreach dispatcher (`OutreachSendService`, `OutreachMessageSendService`) | V191's `sends_due`, then claims inside each workspace's scope | #1132, narrowed in #1173 |
 | Reply poll and inbox, `MeetingBackfill`, `RecallCalendars` | walks the workspaces, scope per mailbox | #1132 / #1173 |
-| Nylas, Recall calendar and bot webhooks, the live feed | V185 by grant, calendar, bot or transcript, then scope | #1173 |
-| Public booking page (`DirectBookingPage`, `BookingPages`) | V185 by slug, then scope | #1173 |
+| Nylas, Recall calendar and bot webhooks, the live feed | V189 by grant, calendar, bot or transcript, then scope | #1173 |
+| Public booking page (`DirectBookingPage`, `BookingPages`) | V189 by slug, then scope | #1173 |
 | Notetaker workers, reconcile, transcript purge | scope from the recording; the jobs walk the workspaces | #1132 / #1173 |
-| Live copilot sweep (`InterviewCoachWorker`) | V187's `copilot_listening` | #1173 |
-| `TaskDueScanner` | V187's `tasks_falling_due`; its claim SQL adds `workspace_id = ?` | #1132 / #1173 |
-| `NotificationEmails` (delayed emails) | V187's `notification_emails_due` | #1132 / #1173 |
+| Live copilot sweep (`InterviewCoachWorker`) | V191's `copilot_listening` | #1173 |
+| `TaskDueScanner` | V191's `tasks_falling_due`; its claim SQL adds `workspace_id = ?` | #1132 / #1173 |
+| `NotificationEmails` (delayed emails) | V191's `notification_emails_due` | #1132 / #1173 |
 | `NotificationEmails` (digest), `PersonNotePurge`, `CompanyNotePurge` | `EveryWorkspace` (hourly) | #1132 |
 | Billing jobs: reset, reconcile, notices, grandfathering | `EveryWorkspace` | #1173 |
-| `StripeSeatSync`, `CreditLedgerSweeper` | V187's `owing_seat_sync`, `lapsed_credits` | #1173 |
-| Stripe webhook (`StripeEventHandler`) | V185 by customer, then scope | #1173 |
-| API keys (`ApiKeyIntrospector`), MCP (`McpCredentials`), OAuth server (`HashingAuthorizationService`, `OAuthGrantService`) | V185 by hash or id, then scope | #1173 |
+| `StripeSeatSync`, `CreditLedgerSweeper` | V191's `owing_seat_sync`, `lapsed_credits` | #1173 |
+| Stripe webhook (`StripeEventHandler`) | V189 by customer, then scope | #1173 |
+| API keys (`ApiKeyIntrospector`), MCP (`McpCredentials`), OAuth server (`HashingAuthorizationService`, `OAuthGrantService`) | V189 by hash or id, then scope | #1173 |
 | `OAuthGrantPurge` | walks the workspaces | #1173 |
-| Invitations (accept, pending for an address), onboarding's trial | V185, then scope; `runInJoinedTransaction` for the trial | #1173 |
-| `IntegrationSecretExpiryWarnings`, `ZoomService`, `MailboxService` | walks the workspaces / V185 by user | #1173 |
-| Platform screens (credit grants, subscriptions, template library) | scope per workspace; the library counts through V185 | #1173 |
+| Invitations (accept, pending for an address), onboarding's trial | V189, then scope; `runInJoinedTransaction` for the trial | #1173 |
+| `IntegrationSecretExpiryWarnings`, `ZoomService`, `MailboxService` | walks the workspaces / V189 by user | #1173 |
+| Platform screens (credit grants, subscriptions, template library) | scope per workspace; the library counts through V189 | #1173 |
 | MCP tools (`McpToolCalls`) | the caller's workspace | #1132 |
 
 **Fail-open traps, all pinned by tests.** A check that reads "not found" as "allowed" turns RLS's empty answer into a
@@ -311,9 +312,9 @@ Tests for the fence itself:
 | `RowLevelSecurityIntegrationTest` | the posture holds; a workspace reads and writes only its own rows, through repositories too, on each policy shape; a borrowed connection carries only its borrower's label; a scope cannot join another workspace's transaction | #1132, extended in #1173 |
 | `RowLevelSecurityMigrationTest` | V184's backfill, trigger and composite key | #1132 |
 | `TenantTableGuardIntegrationTest` | a new table with a workspace, or a new child of a tenant table, is named until it is protected | #1173 |
-| `TenantResolversIntegrationTest` | a key names its row's workspace and nothing more; an unknown key names nothing; V185's functions answer ids only, V187's workspace ids only; the maintenance flag goes back down | #1173 |
+| `TenantResolversIntegrationTest` | a key names its row's workspace and nothing more; an unknown key names nothing; V189's functions answer ids only, V191's workspace ids only; the maintenance flag goes back down | #1173 |
 | `EveryWorkspaceTest` | a failing workspace stops none after it, each runs in its own scope | #1132 |
-| The jobs' own integration tests (`OutreachDispatchIntegrationTest`, `TaskIntegrationTest`, `NotificationIntegrationTest`, `SeatBillingIntegrationTest`, `CreditJobsIntegrationTest`, …) | each job still finds and claims its work through its V187 resolver; `TaskIntegrationTest` also shows a quiet workspace is not named | #1173 |
+| The jobs' own integration tests (`OutreachDispatchIntegrationTest`, `TaskIntegrationTest`, `NotificationIntegrationTest`, `SeatBillingIntegrationTest`, `CreditJobsIntegrationTest`, …) | each job still finds and claims its work through its V191 resolver; `TaskIntegrationTest` also shows a quiet workspace is not named | #1173 |
 
 ---
 
@@ -322,7 +323,7 @@ Tests for the fence itself:
 - `lm_app` still **owns** the tables. It could `ALTER TABLE … DISABLE ROW LEVEL SECURITY`.
 - Any session can call `set_config('app.workspace_id', …)` or `set_config('app.rls_maintenance', 'on', …)`. On the
   app's pool both are overwritten at the next checkout, so neither outlives the borrower that set it.
-- V185's and V187's functions answer across workspaces by design. They return ids alone, but anyone who can run SQL as
+- V189's and V191's functions answer across workspaces by design. They return ids alone, but anyone who can run SQL as
   `lm_app` can call them.
 
 So this is a backstop against **application bugs** (a forgotten filter), **not against SQL injection**. #256 moves
@@ -397,15 +398,15 @@ migration fails cleanly instead of stalling the site.
   **safe**: the migration rolls back and the old revision keeps serving. It matters if `create-migrate-role.sh` has
   already switched Flyway to `lm_migrate` (§5.1, query 2).
 
-### 4.2 Releasing #1173 (V185, V186, V187)
+### 4.2 Releasing #1173 (V189, V190, V191)
 
-V185 and V187 only add functions; they are harmless to any revision. **V186 is the one with a window**: the revision
+V189 and V191 only add functions; they are harmless to any revision. **V190 is the one with a window**: the revision
 serving during it is #1132's code, which names the workspace for signed-in requests and for the jobs #1132 converted,
-but reads every row V186 newly protects without one.
+but reads every row V190 newly protects without one.
 
-#### Risk 5 (HIGH): the old revision serves against V186 during the window
+#### Risk 5 (HIGH): the old revision serves against V190 during the window
 
-What #1132's code does under V186:
+What #1132's code does under V190:
 
 | Path | Effect | Lasting? |
 |---|---|---|
@@ -424,27 +425,27 @@ What #1132's code does under V186:
 - **A. Pick a quiet window**, as for risk 1, and confirm with Stripe's dashboard that no renewal, invoice or pack
   purchase is expected in it (renewals fall on each subscription's period start). Do it outside the OAuth purge's hour
   if you can tell when it last ran (`MCP_PURGE_INTERVAL`, one hour from boot). Afterwards, run §5.3's #1173 checks.
-- **C. (Removes the window.) Split the release:** release 1 = the code + V185 + V187, with V186 held back and the
+- **C. (Removes the window.) Split the release:** release 1 = the code + V189 + V191, with V190 held back and the
   posture told to wait (`RLS_REQUIRE_ENFORCED=false` for that release, since the guard would name ~68 unprotected
-  tables). The new code works on unprotected tables: its resolvers and scopes answer the same. Release 2 = V186 alone,
+  tables). The new code works on unprotected tables: its resolvers and scopes answer the same. Release 2 = V190 alone,
   with the posture strict again; the revision serving during its window is already #1173's. **The PR does not yet
-  ship this way**: V186 would have to move to a follow-up PR merged after release 1.
+  ship this way**: V190 would have to move to a follow-up PR merged after release 1.
 
-#### Risk 6 (HIGH): a failed boot after V186
+#### Risk 6 (HIGH): a failed boot after V190
 
-As risk 2: the old revision keeps serving under V186 (risk 5 with no end), and redeploying an older tag does not help.
-The fix is §5.4's rollback for the V186 tables, leaving the 11 core tables on: #1132's code checks exactly those at boot
+As risk 2: the old revision keeps serving under V190 (risk 5 with no end), and redeploying an older tag does not help.
+The fix is §5.4's rollback for the V190 tables, leaving the 11 core tables on: #1132's code checks exactly those at boot
 and expects them forced.
 
 #### Risk 7 (MEDIUM): harden.sql must run again
 
-Where harden.sql has already run (production), V186 skips `app_lm_audit_event` and `app_lm_credit_entry` with a warning.
+Where harden.sql has already run (production), V190 skips `app_lm_audit_event` and `app_lm_credit_entry` with a warning.
 Until someone re-runs harden.sql as `postgres`, those two are unprotected and every boot logs that they wait on it.
 Nothing breaks; the backstop is just missing there.
 
 #### Risk 8 (MEDIUM): locks on many tables at once
 
-V186 rewrites no rows, so it is quick once it has its locks, but it takes `ACCESS EXCLUSIVE` on 68 tables in one
+V190 rewrites no rows, so it is quick once it has its locks, but it takes `ACCESS EXCLUSIVE` on 68 tables in one
 transaction, including the busiest (the audit trail, outreach messages, notifications, tasks). One long query on any
 of them holds it up, and everything behind it queues. Same mitigation as risk 3.
 
@@ -466,9 +467,9 @@ where tests use fakes: real Nylas, Recall and Stripe deliveries; the Chrome exte
 real calendar. After each release, watch the logs for `violates row-level security policy`, unexpected `UNMAPPED` /
 `LEFT_THE_RUNNING` stops, and webhook deliveries that match nobody.
 
-A V187 resolver whose condition is narrower than its job's claim would be the same kind of silent miss: work that
+A V191 resolver whose condition is narrower than its job's claim would be the same kind of silent miss: work that
 never runs. Each condition is written as a superset of its claim, and the jobs' integration tests drive each job
-through its resolver. **Change a job's claim and its V187 function together.**
+through its resolver. **Change a job's claim and its V191 function together.**
 
 #### Risk 11 (LOW to MEDIUM): performance
 
@@ -477,7 +478,7 @@ through its resolver. **Change a job's claim and its V187 function together.**
 - **Children's policies are an `EXISTS` per row**, a primary-key probe on the parent, two hops for the brief's lists and
   a sequence's steps. This matters on the Candidates page (`PersonPoolQuery`) and wherever many contacts, tags or
   brief rows are read.
-- **Jobs.** The hourly and daily jobs open one scope per workspace per run. The frequent ones walk only V187's answer.
+- **Jobs.** The hourly and daily jobs open one scope per workspace per run. The frequent ones walk only V191's answer.
 - **Not yet measured:** query plans before and after for the Candidates list and the Companies grid (§6.6).
 
 #### Risk 12 (LOW): people and tools reading the database directly
@@ -601,7 +602,7 @@ Outreach, Settings → Billing and Settings → API keys, and an API key call. I
 
 Run as the **owner** (`lm_app`; `postgres` for the audit trail and the ledger once harden.sql owns them). For #1132's
 release, the list is the 11 core tables; the new column, trigger and foreign key are harmless to old code. For #1173's,
-roll back V186's tables and leave the core on, since #1132's code expects them:
+roll back V190's tables and leave the core on, since #1132's code expects them:
 
 ```sql
 DO $$
@@ -654,8 +655,8 @@ npm run dev                                      # postgres :55433 + api :8080 +
 
 In the API log, check that:
 
-- Flyway applied **V184** (`row level security core`), **V185** (`tenant resolvers`), **V186**
-  (`row level security rest`) and **V187** (`workspaces with work`);
+- Flyway applied **V184** (`row level security core`), **V189** (`tenant resolvers`), **V190**
+  (`row level security rest`) and **V191** (`workspaces with work`);
 - there is **no** `Row-level security is not in force: …` (that message would have stopped the boot), and no
   `waits on ops/cloudsql/harden.sql` (locally Flyway owns every table).
 
@@ -712,14 +713,14 @@ SELECT app_lm_rls_maintenance();                                             -- 
    (Notes, Documents, Contact, Activity); the Position brief; the Dashboard; Outreach; My tasks and the bell;
    Settings → Billing, API keys, Connected AI apps, Integrations and Security → Audit log.
 4. **Several workspaces:** from A, invite B's admin; accept from the topbar menu; switch workspaces. Each workspace
-   shows only its own data. Accept another invitation from its **emailed link** while signed out (a V185 door).
+   shows only its own data. Accept another invitation from its **emailed link** while signed out (a V189 door).
 5. **Doors with no browser session:**
    - Create a workspace API key and call `GET /api/v1/public/...` with it: it reads only that workspace.
    - Connect an MCP client (or call `/api/v1/mcp` with a key holding `mcp:use`).
    - `GET /api/v1/outreach/booking/no-such-slug` answers 404; a real slug's page loads its slots.
    - The API log shows no `violates row-level security policy`.
 6. Where configured locally, also try: the Chrome extension capture; Find executives; the spreadsheet import and the
-   export; Assess with AI; an assistant question; a Stripe test-mode checkout (its webhook is a V185 door).
+   export; Assess with AI; an assistant question; a Stripe test-mode checkout (its webhook is a V189 door).
 
 ### 6.4 Background jobs
 
@@ -765,7 +766,7 @@ As `lm_app`, with a workspace set (§6.2, step 4), run `EXPLAIN (ANALYZE, BUFFER
 - the Companies grid's lines read (`StageLinesService`);
 - a person drawer's contacts and tags read;
 - the position brief's read (two-hop children);
-- each V187 function as `postgres` with `SET app.rls_maintenance = 'on'` (they read across workspaces).
+- each V191 function as `postgres` with `SET app.rls_maintenance = 'on'` (they read across workspaces).
 
 To capture the statements, set `logging.level.org.hibernate.SQL=DEBUG`, or use `pg_stat_statements`. Compare against
 `main` before #1132 on the same data, for example after `npm run dev:db:seed-report`. Look for a `SubPlan` per row on
@@ -787,7 +788,7 @@ cd ../../e2e && PROFILE=e2e ./run-all.sh     # always PROFILE=e2e
 
 ### 6.8 Going back to an older branch
 
-Your local database now has V184–V187 applied. Older code does not name the workspace everywhere these migrations
+Your local database now has V184 and V189–V191 applied. Older code does not name the workspace everywhere these migrations
 expect, so screens read empty and jobs do nothing. Flyway ignores unknown future migrations, so nothing errors. Run
 `npm run dev:db:reset` when you switch back.
 
@@ -797,13 +798,13 @@ expect, so screens read empty and jobs do nothing. Flyway ignores unknown future
 
 | Area | #1132 | #1173 |
 |---|---|---|
-| Migrations | `V184__row_level_security_core.sql` | `V185__tenant_resolvers.sql`, `V186__row_level_security_rest.sql`, `V187__workspaces_with_work.sql` |
+| Migrations | `V184__row_level_security_core.sql` | `V189__tenant_resolvers.sql`, `V190__row_level_security_rest.sql`, `V191__workspaces_with_work.sql` |
 | Tenant core (`core/tenant/`) | `TenantAwareDataSource`, `TenantDataSourceConfig`, `TenantContext`, `TenantPrincipal`, `WorkspaceScope`, `EveryWorkspace`, `RowLevelSecurityPosture` | `TenantResolvers`, `ResolvedRow`, `TenantTableGuard`; `WorkspaceScope.runInJoinedTransaction`; `EveryWorkspace`'s list overloads |
 | Config | `RowLevelSecuritySettings`, `LightMoveProperties`, `application.yml` (Flyway user and `init-sqls`, `lightmove.row-level-security`) | — |
 | Principals and propagation | `AuthPrincipal`, `ApiKeyPrincipal`, `McpCaller`, `McpToolCalls`, `ThreadContextPropagation`, `ThreadContextTaskDecorator` | `ApiKeyIntrospector`, `McpCredentials`, `HashingAuthorizationService`, `OAuthGrantService`, `AuthResponseAssembler` |
 | Outreach | `OutreachSendService`, `OutreachMessageSendService`, `OutreachInboxService`, `MeetingBackfill`, `RecallCalendars`, `DirectBookingPage` | the same, plus `OutreachDispatcher`, `BookingPages`, `MailboxService`, `ZoomService`, `IntegrationSecretExpiryWarnings`, `MailboxConnectionRepository` |
 | Notetaker | `MeetingNotesWorker`, `InterviewCoachWorker` | `NotetakerService`, `NotetakerWebhook`, `NotetakerLiveFeed`, `NotetakerReconcile`, `NotetakerTranscriptPurge`, `InterviewCoachWorker` |
-| Tasks and the bell | `TaskDueScanner`, `NotificationEmails` | the same, on V187 |
+| Tasks and the bell | `TaskDueScanner`, `NotificationEmails` | the same, on V191 |
 | Billing | — | `StripeEventHandler`, `BillingCustomerRepository`, `MonthlyCreditReset`, `CreditBalanceReconcile`, `CreditLedgerSweeper`, `GrandfatherCredits`, `BillingNotices`, `StripeSeatSync`, `UsageReport`, `WorkspaceTrials`, the two platform controllers |
 | Workspace and templates | — | `InvitationAcceptService`, `InvitationRepository`, `OnboardingService`, `PositionTemplateLibraryService`, `PositionTemplateRepository`, `TemplateCodeCount` |
 | Purges | `PersonNotePurge`, `CompanyNotePurge` | `OAuthGrantPurge` |
@@ -824,11 +825,11 @@ expect, so screens read empty and jobs do nothing. Flyway ignores unknown future
 | R2 | `EveryWorkspace` has no per-workspace failure isolation. | **Fixed** in #1132, kept in #1173's `forEach` too |
 | R3 | The `harden.sql` step 2c comment says the boot refuses until it has run; the code only warns. | **Fixed**: the comment now says it warns |
 | R4 | The verification checklist is unfinished: e2e; real Recall, Nylas and Stripe payloads; the extension; query plans; the production pre-flight. | **Open** (§9) |
-| Perf | The job walk is serial over every workspace on every tick (backend suite 11 → 18½ minutes); the reviewer wants a resolver of "workspaces with work due" before production. | **Fixed** by V187 for the six frequent jobs (§2.6) |
+| Perf | The job walk is serial over every workspace on every tick (backend suite 11 → 18½ minutes); the reviewer wants a resolver of "workspaces with work due" before production. | **Fixed** by V191 for the six frequent jobs (§2.6) |
 
 **On merging #1173 with #1132's review fixes.** #1132 shipped `EveryWorkspace.sumWithWork`, which narrowed the due scan
 and the bell's emails by reading `app_lm_task` and `app_lm_notification` unscoped. #1173 protects both tables, so that
-query would always have answered nothing and the two jobs would have stopped. It is gone; V187's
+query would always have answered nothing and the two jobs would have stopped. It is gone; V191's
 `tasks_falling_due` and `notification_emails_due` answer the same question past the fence.
 
 ---
@@ -853,7 +854,7 @@ query would always have answered nothing and the two jobs would have stopped. It
 
 - [ ] The **API** CI check is green on the PR.
 - [ ] Review done (by Fable or Codex); R1 decided (fix, or accept as a known gap).
-- [ ] Decide on risk 5: a quiet-window release (A) or a split release (C), which means moving V186 to a follow-up PR
+- [ ] Decide on risk 5: a quiet-window release (A) or a split release (C), which means moving V190 to a follow-up PR
       **before** merging.
 - [ ] `cd e2e && PROFILE=e2e ./run-all.sh` is green.
 - [ ] Real Nylas, Recall and Stripe deliveries, the extension and the booking page tried against a local or staging

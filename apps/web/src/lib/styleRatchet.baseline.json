@@ -264,10 +264,6 @@
     "arbitraryText": 11,
     "arbitraryRadius": 4
   },
-  "features/outreach/components/OutreachSection.tsx": {
-    "arbitraryRadius": 4,
-    "arbitraryText": 6
-  },
   "features/outreach/components/PeopleInOutreach.tsx": {
     "arbitraryText": 18,
     "arbitraryRadius": 4
@@ -353,7 +349,7 @@
     "arbitraryText": 3
   },
   "features/projects/components/NewProjectModal.tsx": {
-    "arbitraryText": 6
+    "arbitraryText": 3
   },
   "features/projects/components/ProjectDrawer.tsx": {
     "arbitraryRadius": 2,

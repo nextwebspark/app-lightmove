@@ -6,7 +6,7 @@
 --
 -- Each condition is wider than its job's claim, never narrower: a workspace named with nothing to claim costs one empty
 -- pass, a workspace left out would leave its work stuck. Every caller is TenantResolvers. The maintenance flag is
--- raised and put back as V185's resolvers do, for V185's reasons.
+-- raised and put back as V189's resolvers do, for V189's reasons.
 
 -- The dispatcher's two loops: a run's next email or a consultant's own scheduled one due, and any claim still held,
 -- which the loop stops or fails as uncertain once it is old enough.

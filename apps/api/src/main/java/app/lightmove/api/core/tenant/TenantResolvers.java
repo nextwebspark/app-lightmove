@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Which workspace holds a key a door arrives with — a webhook's grant, calendar or bot, a public page's slug, a
- * credential's hash — asked before any workspace is known (V185). Each answers ids and the workspace, never the row:
+ * credential's hash — asked before any workspace is known (V189). Each answers ids and the workspace, never the row:
  * the caller opens {@link WorkspaceScope} on what it is told and reads the row there, under the fence. Resolve, then
  * scope; never widen a scope to make an empty read work.
  */
@@ -102,7 +102,7 @@ public class TenantResolvers {
         return copies;
     }
 
-    /** A run's or a consultant's own email due at {@code at}, or a claim still held: the dispatcher's work (V187). */
+    /** A run's or a consultant's own email due at {@code at}, or a claim still held: the dispatcher's work (V191). */
     public List<UUID> workspacesWithSendsDue(Instant at) {
         return workspaces("SELECT * FROM app_lm_workspaces_with_sends_due(?)", Timestamp.from(at));
     }

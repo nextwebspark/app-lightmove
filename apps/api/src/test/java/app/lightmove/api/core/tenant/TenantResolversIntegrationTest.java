@@ -20,8 +20,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * V185's doors: a key names its row's workspace and nothing more, a key nobody holds names nothing, and the row itself
- * stays behind the fence until the workspace it was resolved to is the scope. V187's jobs are told workspaces alone.
+ * V189's doors: a key names its row's workspace and nothing more, a key nobody holds names nothing, and the row itself
+ * stays behind the fence until the workspace it was resolved to is the scope. V191's jobs are told workspaces alone.
  */
 @IntegrationTest
 class TenantResolversIntegrationTest extends FlowTestSupport {

@@ -528,11 +528,36 @@ describe("CandidatesPage", () => {
     expect(within(positions).getByRole("button", { name: "Set next action" })).toBeInTheDocument();
   });
 
+  it("keeps logged calls readable in their own group, whatever positions the person is on", async () => {
+    vi.mocked(poolApi.getPoolNotes).mockResolvedValue([
+      {
+        id: "n-call",
+        kind: "call",
+        body: "Open to a move in Q2.",
+        format: "plain",
+        pinned: false,
+        projectId: null,
+        projectTitle: null,
+        authorUserId: "u1",
+        authorName: "Alok Kumar",
+        authorAvatarUrl: null,
+        createdAt: "2026-09-22T10:00:00Z",
+        editedAt: null,
+        editedByName: null,
+        editable: true,
+      },
+    ]);
+    renderPage("/candidates?person=person-1&tab=notes");
+
+    const group = await screen.findByRole("region", { name: "Calls, meetings and LinkedIn" });
+    expect(within(group).getByText("Open to a move in Q2.")).toBeInTheDocument();
+  });
+
   it("deletes a note at once and takes it back with Undo", async () => {
     vi.mocked(poolApi.getPoolNotes).mockResolvedValue([
       {
         id: "n1",
-        kind: "call",
+        kind: "general",
         body: "Open to a move.",
         format: "plain",
         pinned: false,
@@ -582,7 +607,7 @@ describe("CandidatesPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save note" }));
     await waitFor(() =>
       expect(poolApi.writePoolNote).toHaveBeenCalledWith("person-1", {
-        kind: "call",
+        kind: "general",
         body: "Open to a move.",
         format: "markdown",
         projectId: null,

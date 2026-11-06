@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ICONS } from "../../../components/layout/Icon";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
 import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/ActionMenu";
 import { DrawerFooter } from "../../../components/ui/Drawer";
@@ -15,14 +15,19 @@ import { toBrowsableUrl } from "../../../lib/url";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import { ContactDetailsDialog } from "../../contactlookup/components/ContactDetailsDialog";
 import { ContactsReadDialog } from "../../contactlookup/components/ContactsReadDialog";
+import { ContactChannels } from "../../contactlookup/components/ContactPanel";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import { CandidateOutreachButtons } from "../../outreach/components/CandidateOutreachButtons";
 import { EmailComposerDialog } from "../../outreach/components/EmailComposerDialog";
 import { useMailbox } from "../../outreach/lib/useMailbox";
 import { OutreachSection } from "../../outreach/components/OutreachSection";
+import { LogContactRow } from "../../outreach/components/LogContactRow";
 import { CopilotTab } from "../../outreach/components/copilot/CopilotTab";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
+import { DrawerOutreachTimeline } from "../../outreach/components/DrawerOutreachTimeline";
+import { NoteComposerModal } from "../../outreach/components/NoteComposerModal";
+import * as runApi from "../../outreach/api/runApi";
 import { liveCopilotOf, useNotetaker } from "../../outreach/lib/useNotetaker";
 import { NextActionModal, type NextActionTarget } from "../../tasks/components/NextActionModal";
 import { NextActionBar, NextActionSquare } from "../../tasks/components/NextActionBar";
@@ -35,9 +40,11 @@ import type {
   Candidate,
   PersonDocument,
   PersonDocumentVersion,
+  PersonNoteKind,
   SaveCandidatePayload,
 } from "../api/types";
 import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
+import type { ActivityExecutive } from "../lib/activityPresentation";
 import { candidateGenderLabel } from "../lib/candidateVocabulary";
 import { statusStyle } from "../lib/pipelineStatus";
 import { careerSummary } from "../lib/careerTimeline";
@@ -46,6 +53,7 @@ import { useBackgroundSuggestion } from "../lib/useBackgroundSuggestion";
 import { useScorecardEditor, type ScorecardEditor } from "../lib/useScorecardEditor";
 import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
 import { usePersonDocuments } from "../lib/usePersonDocuments";
+import { isContactNote } from "../lib/noteKinds";
 import { useProfileSections, type ProfileSection } from "../lib/useProfileSections";
 import {
   POSITION_CLIENT_TABS,
@@ -222,6 +230,24 @@ export function CandidateProfile({
     setTab("notes");
     setNoteFocus({ noteId, at: Date.now() });
   };
+  // A call, LinkedIn or meeting note is Outreach's: a link to one lands there, the note brought into view.
+  const [outreachNoteFocus, setOutreachNoteFocus] = useState<NoteFocus | null>(null);
+  const showContactNote = useCallback((focus: NoteFocus) => {
+    setTab("outreach");
+    setNoteFocus(null);
+    setOutreachNoteFocus(focus);
+  }, []);
+  const [log, setLog] = useState<{ kind: PersonNoteKind; meetingId: string | null } | null>(null);
+  const candidateOutreach = useQuery({
+    queryKey: runApi.CANDIDATE_OUTREACH_KEY(projectId, candidate.id),
+    queryFn: ({ signal }) => runApi.getCandidateOutreach(projectId, candidate.id, signal),
+    enabled: canWrite,
+  });
+  const liveRun = candidateOutreach.data?.run;
+  const sequenceHeldBy =
+    liveRun && (liveRun.status === "ACTIVE" || liveRun.status === "SCHEDULED")
+      ? `Already in ${liveRun.sequenceName ?? "a sequence"}`
+      : null;
   // The Copilot tab is offered while a call's live copilot runs, and kept while it is open after the copilot stops, so
   // nobody is moved off what they were reading; it is never opened for them.
   const notetaker = useNotetaker(projectId, candidate.id, canWrite);
@@ -238,14 +264,17 @@ export function CandidateProfile({
     rememberDrawerTab("position", next);
     setHeldCopilotId(next === "copilot" ? liveCopilotId : null);
     if (next !== "notes") setNoteFocus(null);
-    if (next !== "outreach") setSectionFocus(null);
+    if (next !== "outreach") {
+      setSectionFocus(null);
+      setOutreachNoteFocus(null);
+    }
     if (body.current) body.current.scrollTop = 0;
   };
   const showCopilot = (recordingId: string) => {
     chooseTab("copilot");
     setHeldCopilotId(recordingId);
   };
-  /** The footer's Book a call: the Outreach tab, scrolled to Meetings and its Book a call. */
+  /** The footer's Book a call: the Outreach tab, scrolled to its calls and its Book a call. */
   const startCall = () => {
     chooseTab("outreach");
     setSectionFocus({ section: "meetings", at: Date.now() });
@@ -366,6 +395,12 @@ export function CandidateProfile({
   const capturedFrom = toBrowsableUrl(candidate.sourceUrl);
   const visibleColumns = customColumns.filter((column) => !column.hidden);
   const firstName = candidate.fullName.trim().split(/\s+/)[0];
+  const executiveFace: ActivityExecutive = {
+    fullName: candidate.fullName,
+    face: (size, className) => (
+      <CandidateAvatar projectId={projectId} candidate={candidate} size={size} className={className} />
+    ),
+  };
   const panelProps = (value: DrawerTab) => ({ ...tabPanelProps(TAB_ID_PREFIX, value), hidden: tab !== value });
 
   return (
@@ -447,7 +482,7 @@ export function CandidateProfile({
             tabs={drawerTabs}
             value={tab}
             onChange={chooseTab}
-            counts={{ notes: notes.data?.length }}
+            counts={{ notes: notes.data?.filter((note) => !isContactNote(note.kind)).length }}
           />
         ) : (
           <div className="h-3.5" />
@@ -740,32 +775,82 @@ export function CandidateProfile({
 
         <div {...panelProps("outreach")}>
           {canWrite && (
-            <div className="flex justify-end pt-3 empty:hidden">
-              <CandidateOutreachButtons projectId={projectId} candidateId={candidate.id} fullName={candidate.fullName} />
-            </div>
-          )}
-          {canWrite && (
-            <OutreachSection
-              projectId={projectId}
-              candidateId={candidate.id}
-              firstName={firstName}
-              candidateStatus={candidate.status}
-              open={sections.isOpen("outreach")}
-              onToggle={() => sections.toggle("outreach")}
-              isSettingStatus={changeStatus.isPending}
-              onSetStatus={(status) => changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })}
-            />
-          )}
-          {canWrite && (
-            <MeetingsSection
-              projectId={projectId}
-              candidateId={candidate.id}
-              personId={candidate.personId}
-              fullName={candidate.fullName}
-              candidateStatus={candidate.status}
-              emails={candidate.contacts.emails}
-              onShowCopilot={showCopilot}
-            />
+            <>
+              <MeetingsSection
+                projectId={projectId}
+                candidateId={candidate.id}
+                personId={candidate.personId}
+                fullName={candidate.fullName}
+                candidateStatus={candidate.status}
+                emails={candidate.contacts.emails}
+                onShowCopilot={showCopilot}
+                onLogMeeting={(meeting) => setLog({ kind: "meeting", meetingId: meeting.id })}
+                actions={(bookCall) => (
+                  <>
+                    <CandidateOutreachButtons
+                      projectId={projectId}
+                      candidateId={candidate.id}
+                      fullName={candidate.fullName}
+                      sequenceHeldBy={sequenceHeldBy}
+                      between={
+                        bookCall && (
+                          <Button variant="secondary" size="xs" onClick={bookCall}>
+                            <Icon d={ICONS.calendar} size={13} />
+                            Book a meeting
+                          </Button>
+                        )
+                      }
+                      below={<LogContactRow onLog={(kind) => setLog({ kind, meetingId: null })} />}
+                    />
+                    <OutreachSection
+                      projectId={projectId}
+                      candidateId={candidate.id}
+                      firstName={firstName}
+                      candidateStatus={candidate.status}
+                      open={sections.isOpen("outreach")}
+                      onToggle={() => sections.toggle("outreach")}
+                      isSettingStatus={changeStatus.isPending}
+                      onSetStatus={(status) =>
+                        changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
+                      }
+                    />
+                  </>
+                )}
+                renderPast={(past) => (
+                  <DrawerOutreachTimeline
+                    projectId={projectId}
+                    candidateId={candidate.id}
+                    firstName={firstName}
+                    executive={executiveFace}
+                    past={past}
+                    focus={outreachNoteFocus}
+                  />
+                )}
+              />
+              <section aria-label="Contact" className="border-t border-u-border py-4">
+                <div className="mb-1 flex items-center gap-2">
+                  <h3 className="type-micro-label text-u-text3">Contact</h3>
+                  <button
+                    type="button"
+                    aria-label="Edit contact details"
+                    onClick={() => setContactWindow("details")}
+                    className="ms-auto grid size-7 place-items-center rounded-u-control border border-u-border-strong text-u-text2 hover:text-u-text"
+                  >
+                    <Icon d={ICONS.pencil} size={13} />
+                  </button>
+                </div>
+                <ContactChannels contacts={candidate.contacts} />
+              </section>
+              <NoteComposerModal
+                projectId={projectId}
+                candidateId={candidate.id}
+                fullName={candidate.fullName}
+                kind={log?.kind ?? null}
+                presetMeetingId={log?.meetingId ?? null}
+                onClose={() => setLog(null)}
+                onSaved={() => setLog(null)}
+              />
+            </>
           )}
         </div>
 
@@ -787,6 +872,7 @@ export function CandidateProfile({
                 projectId={projectId}
                 candidateId={candidate.id}
                 focus={noteFocus}
+                onShowContactNote={showContactNote}
                 onSetNextAction={(note) => openNextAction(null, note)}
               />
             </div>
@@ -796,12 +882,7 @@ export function CandidateProfile({
             <div {...panelProps("activity")} className="pb-4">
               <ActivityTimeline
                 scope={{ kind: "position", projectId, candidateId: candidate.id }}
-                executive={{
-                  fullName: candidate.fullName,
-                  face: (size, className) => (
-                    <CandidateAvatar projectId={projectId} candidate={candidate} size={size} className={className} />
-                  ),
-                }}
+                executive={executiveFace}
                 documents={documents.documents.data}
                 destinations={{
                   onShowNote: showNote,
@@ -936,7 +1017,7 @@ function MoreActionsMenu({
             Set next action
           </MenuItem>
           <MenuItem icon={ICONS.phoneCall} onSelect={closingThen(close, onBookCall)}>
-            Book a call
+            Book a meeting
           </MenuItem>
           {onRemove && (
             <>
@@ -1054,7 +1135,8 @@ function scrollToOutreachSection(section: OutreachPart): () => void {
     const panel = document.getElementById(`${TAB_ID_PREFIX}-panel-outreach`);
     const target =
       section === "meetings"
-        ? panel?.querySelector('section[aria-label="Meetings"]')
+        ? (panel?.querySelector('[data-outreach-part="meetings"]') ??
+          panel?.querySelector('section[aria-label="Calls and contact"]'))
         : panel?.querySelector(`#${section}-section-body`)?.closest("section");
     if (target) target.scrollIntoView({ block: "start", behavior: "smooth" });
     else if (++attempts < SECTION_FIND_ATTEMPTS) timer = window.setTimeout(find, SECTION_FIND_INTERVAL_MS);

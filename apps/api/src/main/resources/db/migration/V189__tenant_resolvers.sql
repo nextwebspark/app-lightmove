@@ -1,6 +1,6 @@
 -- The doors that open before any workspace is known (#1085): a webhook names a grant, a calendar, a bot or a Stripe
 -- customer; a public page names a slug; a credential arrives as a token whose hash is the lookup key. Once their
--- tables are under row-level security (V186) none of those rows can be read until the workspace is named — so each
+-- tables are under row-level security (V190) none of those rows can be read until the workspace is named — so each
 -- door asks one of these first, and then opens WorkspaceScope on the workspace it was told.
 --
 -- Each answers ids and the workspace for one key, and nothing of the row: the hole a resolver makes in the fence is

@@ -59,7 +59,7 @@ BEGIN
     END IF;
 END $$;
 
--- 2c. Row-level security on the two tables this file owns (V186, #1085). Where they were already postgres's when V186
+-- 2c. Row-level security on the two tables this file owns (V190, #1085). Where they were already postgres's when V190
 --     ran, it skipped them with a warning; where they were still lm_app's it applied the same policies, which the
 --     ownership change keeps. Either way this leaves both forced with their policies; until it has, every API boot
 --     logs that they wait on it (TenantTableGuard.HARDEN_OWNED) rather than refusing, since the deploy has already

@@ -292,6 +292,13 @@ export interface PersonNote {
   editedByName: string | null;
   /** Whether the viewer may change or remove it: its author, or a workspace admin. */
   editable: boolean;
+  /** When the call, message or meeting happened; for a plain note, when it was written. */
+  occurredAt?: string;
+  title?: string | null;
+  /** The calendar meeting a meeting's notes are about. */
+  meetingId?: string | null;
+  /** The Notetaker recording they are about, where the calendar no longer holds its meeting. */
+  recordingId?: string | null;
 }
 
 export interface WritePersonNotePayload {
@@ -303,6 +310,13 @@ export interface WritePersonNotePayload {
   projectId?: string | null;
   /** Read on a position's routes only: the note is about the person, read on every position. */
   allPositions?: boolean;
+  /** When a logged call, message or meeting happened; now when left out. Never on a plain note. */
+  occurredAt?: string | null;
+  title?: string | null;
+  /** A meeting's notes: the calendar meeting they are about, whose start and title they take. */
+  meetingId?: string | null;
+  /** Or the Notetaker recording, for a call known only from it; never with a `meetingId`. */
+  recordingId?: string | null;
 }
 
 /** One mandate a person is mapped on, with that mandate's status and who filed them there. */

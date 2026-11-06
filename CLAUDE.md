@@ -78,7 +78,15 @@ LinkedIn profile is refused (`PERSON_PROFILE_HELD`). A plugin capture of someone
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
-**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`), authored,
+**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`) — the Notes tabs write and list plain notes alone, a call, a LinkedIn message or a meeting written up without the Notetaker is logged from Outreach (`NoteComposerModal`, of the kind its button named, with no switch to another) with when it happened — now unless changed, never in the
+future — and an optional title (V185 `occurred_at`, `title`), a meeting's tied to the past Uncava meeting it was about
+— its calendar meeting (`meeting_id`, bare; `PastMeetingLookup`, answered by `outreach`) or, once the calendar has let
+the meeting go, its Notetaker recording (V188 `recording_id`; `PastRecordingLookup`, answered by `notetaker`, from that
+recording's position alone) — or held outside Uncava, while a call is a phone call and names none; every past call's ⋯
+offers Log meeting notes, a recorded one's included, so a researcher's own notes sit beside the Notetaker's; the
+conversation and the timeline order them by when they happened. An edit keeps what it leaves
+out and lets go of what the note's kind cannot carry (`LoggedNoteRules`), and the Candidates page's Notes tab lists
+the logs in a group of their own, so one about a position the person has left is never lost. A recorded call's is the Notetaker's, and an email is never logged by hand: a new `email` note is refused (`VALIDATION_FAILED`), an old one keeps its kind through an edit, and a note sent with no kind is plain —, authored,
 timed and **staff-only** — `CandidateResponse`, the talent map and the report carry none, because a client
 seat reads all three (decision D1). A note is about one position or about the person: read from a position,
 only that position's and the person's ("All positions") show, and another position's is not found
@@ -101,7 +109,16 @@ status picker and that pencil, the primary email and phone with "+N" and the con
 one line with a +N chip, and do not contact) and one tab order, `Position.dc.html`'s, grouped by what the consultant
 is doing: **Profile · Notes · Assessment · Outreach · Activity** — Profile's folds Summary, Experience, Education,
 Background, Compensation, Documents and Your columns, Summary alone open on arrival (`useProfileSections`); Outreach
-the run and the calls the Contact tab used to hold, the contacts themselves being the header's — and **Positions** on
+the conversation — the action row first (Write email, Log call, Log meeting, Log LinkedIn, Book a meeting, Add to sequence, held
+while a run is live), then the run where there is one, the calls to come, then one timeline (its latest five, See more for
+the rest) (`DrawerOutreachTimeline`, over the conversation read and
+`MeetingsSection`'s past calls with their ⋯: emails, replies, logged calls and LinkedIn messages, each past
+call with the Meeting note its recording filed, every one a card led by its kind's tile — LinkedIn's own mark, a camera
+for a video or recorded call, a calendar for one met in person, its platform named as text ("Google Meet"; never Meet's
+or Teams' logo, which their owners license), a recorded one badged Recorded — and the face of who sent, wrote or held
+it beside the time, never their name on show (a call known only from its recording, the sender's) (`OutreachEntryCard`, which the Outreach page's
+history shares); status and run changes are the Activity tab's; All · Email · Calls · LinkedIn · Meetings) and the contacts last, their
+pencil the header's contact details window; a link to a call, LinkedIn or meeting note lands there — and **Positions** on
 the Candidates page's drawer alone (`lib/drawerTabs.ts`; retired `?tab=background|compensation|documents|contact|…`
 links still land), a client seat reading Profile alone with no tab bar — Compensation and Documents are staff's on
 screen, though `CandidateResponse` still carries the package; the workspace drawer leaves out only what a position
@@ -797,7 +814,7 @@ carries no Notetaker. It is claimed first (one live
 bot per call by join URL and start, whoever presses), then sent once and never retried — an empty pool of at-once bots
 is `NOTETAKER_BUSY` — as "UNCAVA Notetaker" with Uncava's card as its camera, saying in the chat whose notes it records
 and that anyone may ask it out. **End & file notes** takes a recording bot out of a call that finished early, and the
-notes follow as after any call; Remove discards. A call the bot has left is listed under Past. Recall's Svix-signed webhook (`/api/v1/notetaker/webhooks/recall`,
+notes follow as after any call; Remove discards. A call the bot has left is listed under Past, and a recording whose call left the calendar keeps a row of its own. Recall's Svix-signed webhook (`/api/v1/notetaker/webhooks/recall`,
 `lightmove.recall.bot-webhook-secret`, blank offers nothing) walks its status; on `transcript.done`, `MeetingNotesWorker`
 keeps the transcript (staff-only), summarises it against the brief's `AssessmentBrief` with contacts redacted, files one
 Markdown `MEETING` note in the scheduler's name (one worker per transcript, by claim; an `AI_ENRICH` use) and leaves
@@ -1018,7 +1035,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **Membership is invitation-only**; the one second door is a staff member naming a client representative.
 - A user may hold **several** active memberships (V81 dropped V1's partial unique index), but a session is in exactly **one** workspace — the `wsId` claim, chosen at sign-in from `last_workspace_id`, remembered per refresh-token family, and changed by `POST /auth/switch-workspace` (a 404 unless the caller is an active member of the target) or by a web refresh whose membership has ended (audited `MEMBERSHIP_ENDED`; `/me` and the extension never fall through). The signup wizard's `POST /onboarding/workspace` founds a *first* workspace only (`ALREADY_IN_WORKSPACE`); a further one is `POST /workspaces`, staff-gated.
 - Verification gates the *proof of mailbox*, not the channel — an invite token or a password reset proves it too.
-- **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter. Forced Postgres row-level security (V184, V186, `core/tenant`) is the backstop on every tenant table, which `TenantTableGuard` reads off the schema and the boot refuses unprotected: every borrowed connection carries the caller's workspace, a job, webhook or worker with no principal names its own with `WorkspaceScope`, and a door that knows only a key (a grant, a bot, a slug, a token's hash) resolves its workspace through V185's `TenantResolvers` first — with none, tenant tables answer nothing (`db-ops`).
+- **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter. Forced Postgres row-level security (V184, V190, `core/tenant`) is the backstop on every tenant table, which `TenantTableGuard` reads off the schema and the boot refuses unprotected: every borrowed connection carries the caller's workspace, a job, webhook or worker with no principal names its own with `WorkspaceScope`, and a door that knows only a key (a grant, a bot, a slug, a token's hash) resolves its workspace through V189's `TenantResolvers` first — with none, tenant tables answer nothing (`db-ops`).
 - **Authorise by action, never by role** (`@PreAuthorize` + `@workspaceAuthorizer`/`@projectAuthorizer`); guard beans re-read the DB every check; the JWT `roles` claim is never trusted for a decision.
 - Client access is **two tiers, two decisions**: registry (`CLIENT_RECORD_MANAGE`, ADMIN+MEMBER) vs mandate (`CLIENT_ACCESS_MANAGE`, LEAD only). Project content is seat-gated `WORK_VIEW`/`WORK_EXECUTE`, not `PROJECT_BROWSE`.
 - **A platform role sits above every tenant and inside none**: `SUPER_ADMIN` gates `/api/v1/platform/**` (`@platformAuthorizer`) and nothing else, is granted by ops script only, and never rides in the JWT.
@@ -1429,13 +1446,18 @@ over `app.workspace_id`, set on every connection checkout by `TenantAwareDataSou
 through their person, and `app_lm_project_candidate` / `app_lm_project_triage_company` gain their project's
 `workspace_id` (filled by trigger, held by a composite key). Flyway's own session sets `app.rls_maintenance` until
 #256; the runtime role must be no superuser and no `BYPASSRLS`, or `RowLevelSecurityPosture` refuses the boot.
-V185 adds the `app_lm_resolve_*` functions — `SECURITY DEFINER`, one key each, ids and workspace out — that a door with
-no principal asks before opening its scope (`TenantResolvers`), and `app_lm_trial_started_by`. V186 forces row-level
+V185 gives `app_lm_person_note` `occurred_at` (when a logged call, LinkedIn message or meeting happened; null on a
+plain note, by CHECK, and on every older note, where `created_at` stands in), `title` and `meeting_id` (a meeting's
+notes only, by CHECK; bare, as V151's recording keeps its meeting's id).
+V188 adds `app_lm_person_note.recording_id` (the Notetaker recording a meeting's notes are about, where the calendar no
+longer holds its meeting; bare, a meeting's notes only and never beside a `meeting_id`, by CHECK).
+V189 adds the `app_lm_resolve_*` functions — `SECURITY DEFINER`, one key each, ids and workspace out — that a door with
+no principal asks before opening its scope (`TenantResolvers`), and `app_lm_trial_started_by`. V190 forces row-level
 security on every other tenant table (#1085): a direct policy where the table has a `workspace_id`, one through the
 parent where it has none; a library template and a grant awaiting consent (null workspace) are anyone's, and the audit
 trail takes every insert and is read only in its own workspace or the account's. `app_lm_audit_event` and
-`app_lm_credit_entry` are harden.sql's once it has run (step 2c), which must be re-run after V186 deploys.
-V187 adds the job resolvers (`app_lm_workspaces_with_*`, `app_lm_workspaces_owing_seat_sync`) — the same idiom,
+`app_lm_credit_entry` are harden.sql's once it has run (step 2c), which must be re-run after V190 deploys.
+V191 adds the job resolvers (`app_lm_workspaces_with_*`, `app_lm_workspaces_owing_seat_sync`) — the same idiom,
 workspace ids out — so the dispatcher, the copilot coach, the bell's emails, the due scan, the seat sync and the ledger
 sweep walk only the workspaces with their work; each condition is wider than its job's claim, and changes with it.
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
@@ -1506,8 +1528,8 @@ and the server files it under the resolved row's name, id, industry, city, count
 and logo; a firm typed in by hand leaves them all null.
 V73 gives `app_lm_project` the New position modal's decisions: `project_type` (`MAPPING | SEARCH`, V34's
 CHECK idiom, existing rows `SEARCH`) and a timeline — `start_date`, `delivery_date` (when the business
-unit expects the map or the shortlist) and, on a search only, `mapping_target_date`, which
-`ProjectTimeline` defaults to 60% of the window when the modal sends none. `target_date` is untouched
+unit expects the map or the shortlist) and, on a search only, `mapping_target_date`, entered
+by hand beside the shortlist date and never defaulted (`ProjectTimeline`). `target_date` is untouched
 and stays the brief's hire date; the list's Target and the derived health read `delivery_date` and
 fall back to it (`Project.deadline()`, the SPA's `deadlineOf`).
 V69 adds the workspace's `persona` jsonb — main business, sectors, competitors, geographies, notes —

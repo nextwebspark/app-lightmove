@@ -36,7 +36,7 @@ public class AuditEvent {
     /**
      * Drawn from the sequence before the insert, never returned by it: an event is often of another workspace than the
      * writer's (a sign-in, a switch), and row-level security checks a row an INSERT … RETURNING hands back against the
-     * read policy, which shows only the reader's own (V186).
+     * read policy, which shows only the reader's own (V190).
      */
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "audit_event_id")
