@@ -821,7 +821,8 @@ sender's default (a picker where they keep more than one; replies alike) and `Se
 when the email is written, into the stored `body` only — `body_text` stays the consultant's words; Add to sequence's
 review picks one for the run (`StartSequenceRequest.signatureId`), drawn once at Start and frozen on each enrollment
 (V194 `signature_html`), so every step, follow-ups included, closes alike. Either way a signature showing Book a call
-has its page made before anything is written. The mailbox's test email carries the default.
+has its page made before anything is written. The mailbox's test email carries the default, leaving Book a call out
+where its page cannot be made, since the test proves the mailbox and nothing else.
 
 **The Notetaker (V151, `docs/notetaker.md`, `notetaker`)** is a Recall.ai bot a consultant sends into a kept call from
 the executive drawer's Meetings section (`WORK_EXECUTE`, only on a call on the caller's own calendar or booked by them,

@@ -187,7 +187,8 @@ email and every follow-up. Nothing is stored on the sequence itself: a sequence 
 sender's.
 
 **Gateways are untouched**: the signature is part of `OutgoingEmail.htmlBody`. The test email from Settings carries
-the default signature, which doubles as a "see it in your own inbox" check.
+the default signature, which doubles as a "see it in your own inbox" check. Where the booking page cannot be made, it
+goes without the Book a call line rather than failing, since the test is about the mailbox.
 
 ## F. What it never touches
 

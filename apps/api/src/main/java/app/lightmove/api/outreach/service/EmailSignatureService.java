@@ -51,7 +51,7 @@ public class EmailSignatureService {
     public EmailSignatureResponse create(UUID userId, UUID workspaceId, SaveSignatureRequest request) {
         SignatureContent content = contentOf(request);
         EmailSignature saved = transactions.execute(status -> {
-            users.lockForSignatureChange(userId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+            lockSignaturesOf(userId);
             if (signatures.countByWorkspaceIdAndUserId(workspaceId, userId) >= MAX_SIGNATURES) {
                 throw ApiException.of(ErrorCode.EMAIL_SIGNATURE_LIMIT_REACHED);
             }
@@ -70,6 +70,7 @@ public class EmailSignatureService {
     public EmailSignatureResponse update(UUID userId, UUID workspaceId, UUID signatureId, SaveSignatureRequest request) {
         SignatureContent content = contentOf(request);
         EmailSignature saved = transactions.execute(status -> {
+            lockSignaturesOf(userId);
             EmailSignature signature = owned(userId, workspaceId, signatureId);
             if (request.makesDefault() && !signature.isDefault()) {
                 signatures.clearDefault(workspaceId, userId);
@@ -84,6 +85,7 @@ public class EmailSignatureService {
 
     public EmailSignatureResponse makeDefault(UUID userId, UUID workspaceId, UUID signatureId) {
         EmailSignature saved = transactions.execute(status -> {
+            lockSignaturesOf(userId);
             owned(userId, workspaceId, signatureId);
             signatures.clearDefault(workspaceId, userId);
             EmailSignature signature = owned(userId, workspaceId, signatureId);
@@ -96,6 +98,7 @@ public class EmailSignatureService {
     /** Deleting the default hands the mark to the oldest left, so the composer still ticks one. */
     public void delete(UUID userId, UUID workspaceId, UUID signatureId) {
         transactions.executeWithoutResult(status -> {
+            lockSignaturesOf(userId);
             EmailSignature signature = owned(userId, workspaceId, signatureId);
             boolean wasDefault = signature.isDefault();
             signatures.delete(signature);
@@ -121,15 +124,37 @@ public class EmailSignatureService {
         return renderedForSending(userId, workspaceId, owned(userId, workspaceId, signatureId));
     }
 
-    /** The caller's default signature for an email about to go; empty where they keep none. */
-    public Optional<RenderedSignature> renderDefaultForSending(UUID userId, UUID workspaceId) {
-        return signatures.findByWorkspaceIdAndUserIdAndIsDefaultTrue(workspaceId, userId)
-                .map(signature -> renderedForSending(userId, workspaceId, signature));
+    /**
+     * The default for the mailbox's test email. The test proves the mailbox sends, so a booking page that cannot be made
+     * leaves the Book a call line out rather than failing it; a mailbox the page found withdrawn still fails it.
+     */
+    public Optional<RenderedSignature> renderDefaultForTest(UUID userId, UUID workspaceId) {
+        return signatures.findByWorkspaceIdAndUserIdAndIsDefaultTrue(workspaceId, userId).map(signature -> {
+            try {
+                return renderedForSending(userId, workspaceId, signature);
+            } catch (ApiException bookingPage) {
+                if (bookingPage.getCode() != ErrorCode.OUTREACH_BOOKING_LINK_FAILED
+                        && bookingPage.getCode() != ErrorCode.OUTREACH_BOOKING_LINK_UNAVAILABLE) {
+                    throw bookingPage;
+                }
+                SignatureContent content = signature.content().withoutBookingLink();
+                return EmailSignatureRenderer.render(content,
+                        senders.forSending(userId, workspaceId, SignatureNeeds.of(content)));
+            }
+        });
     }
 
     private RenderedSignature renderedForSending(UUID userId, UUID workspaceId, EmailSignature signature) {
         return EmailSignatureRenderer.render(signature.content(),
                 senders.forSending(userId, workspaceId, SignatureNeeds.of(signature.content())));
+    }
+
+    /**
+     * Every write that moves the default takes this first. Without it, two Make defaults in flight together each clear
+     * only the default their snapshot saw, and the second meets the first's new one on the one-default index.
+     */
+    private void lockSignaturesOf(UUID userId) {
+        users.lockForSignatureChange(userId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
     private EmailSignature owned(UUID userId, UUID workspaceId, UUID signatureId) {

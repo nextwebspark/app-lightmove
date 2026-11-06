@@ -154,6 +154,35 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("two Make defaults in flight together both land, the later one the default")
+    void makeDefaultsTogether() throws Exception {
+        String formal = create(yara, signature("Formal", "CLASSIC", true)).get("id").asText();
+        String shortReply = create(yara, signature("Short reply", "MINIMAL", false)).get("id").asText();
+        String third = create(yara, signature("Third", "CLASSIC", false)).get("id").asText();
+
+        // Holding the old default's row makes both requests queue behind it, the interleaving that once left the
+        // second clearing nothing and meeting the first's new default on the one-default index.
+        int[] statuses = new int[2];
+        try (java.sql.Connection holder = jdbc.getDataSource().getConnection()) {
+            holder.setAutoCommit(false);
+            try (var lock = holder.prepareStatement("select 1 from app_lm_email_signature where id = ? for update")) {
+                lock.setObject(1, java.util.UUID.fromString(formal));
+                lock.executeQuery();
+            }
+            Thread first = Thread.ofVirtual().start(() -> statuses[0] = makeDefault(shortReply));
+            awaitWaiting(1);
+            Thread second = Thread.ofVirtual().start(() -> statuses[1] = makeDefault(third));
+            awaitWaiting(2);
+            holder.commit();
+            first.join(10_000);
+            second.join(10_000);
+        }
+
+        assertThat(statuses).containsExactly(200, 200);
+        assertThat(namesWithDefault(list(yara))).containsExactly("Formal", "Short reply", "Third*");
+    }
+
+    @Test
     @DisplayName("a signature is its owner's alone: a colleague reads it as missing, and a pure client reaches none")
     void ownersOnly() throws Exception {
         String formal = create(yara, signature("Formal", "CLASSIC", true)).get("id").asText();
@@ -234,6 +263,24 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
         mvc.perform(get(logoPath)).andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/png"));
         assertThat(list(yara).get("sources").get("logoAvailable").asBoolean()).isTrue();
+    }
+
+    private int makeDefault(String signatureId) {
+        try {
+            return mvc.perform(post(SIGNATURES + "/" + signatureId + "/default").header("Authorization", "Bearer " + yara))
+                    .andReturn().getResponse().getStatus();
+        } catch (Exception failed) {
+            throw new IllegalStateException(failed);
+        }
+    }
+
+    private void awaitWaiting(int sessions) throws InterruptedException {
+        long deadline = System.nanoTime() + java.time.Duration.ofSeconds(10).toNanos();
+        while (jdbc.queryForObject("select count(*) from pg_stat_activity where wait_event_type = 'Lock'"
+                + " and datname = current_database()", Integer.class) < sessions) {
+            assertThat(System.nanoTime()).as("%d requests waiting on a lock", sessions).isLessThan(deadline);
+            Thread.sleep(20);
+        }
     }
 
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder profile(String token, String json) {

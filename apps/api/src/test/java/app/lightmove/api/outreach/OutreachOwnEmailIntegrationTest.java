@@ -241,6 +241,20 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
         assertThat(gateway.sent().getLast().email().htmlBody()).contains("This is a test from Uncava", "Partner");
     }
 
+    @Test
+    @DisplayName("a booking page the mail service cannot make leaves Book a call off the test email, never fails it")
+    void theTestEmailOutlivesTheBookingPage() throws Exception {
+        signature(consultant, """
+                {"name":"Formal","layout":"CLASSIC","fields":{"title":"Partner"},"showBookingLink":true,"isDefault":true}""");
+        gateway.failBookingPagesWith(new VendorException(VendorCall.of("nylas", "create-booking-page"),
+                VendorFailureKind.UNAVAILABLE, null));
+
+        as(consultant, post("/api/v1/outreach/mailbox/test")).andExpect(status().is2xxSuccessful());
+
+        assertThat(gateway.sent().getLast().email().htmlBody())
+                .contains("This is a test from Uncava", "Partner").doesNotContain("/book/");
+    }
+
     private String signature(String token, String json) throws Exception {
         return body(as(token, post("/api/v1/me/signatures").contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isCreated()).andReturn()).get("id").asText();
