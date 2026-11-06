@@ -106,7 +106,7 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
 
         attachRepresentative(admin, attached, representative.get("id").asText());
         User repAccount = users.findByEmail(repEmail).orElseThrow();
-        repAccount.adoptAvatarFrom("GOOGLE", "https://lh3.googleusercontent.com/a/ext-rep");
+        repAccount.showAvatar("GOOGLE", "/api/v1/avatars/ext-rep");
         users.save(repAccount);
 
         // Sharing a mandate with an already-active representative is announced, not silent — a person
@@ -127,7 +127,7 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$[0].representatives[0].email").value(repEmail))
                 .andExpect(jsonPath("$[0].representatives[0].status").value("ACTIVE"))
                 .andExpect(jsonPath("$[0].representatives[0].avatarUrl")
-                        .value("https://lh3.googleusercontent.com/a/ext-rep"));
+                        .value("/api/v1/avatars/ext-rep"));
 
         // They may read the attached mandate's content...
         mvc.perform(get("/api/v1/projects/" + attached + "/position").header("Authorization", "Bearer " + rep))

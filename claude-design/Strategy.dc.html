@@ -148,16 +148,16 @@
           <!-- The toolbar row Position.dc.html's In universe and Outreach.dc.html share: the page's views, the search,
                the page's own controls beside it, its actions pushed right. -->
           <div data-screen-label="Strategy toolbar" style="display:flex;flex:none;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel);padding:10px 16px">
-            <!-- Companies | People: the page's views, one 272px switch on every page, its options sharing it equally,
-                 so the search after the rule starts where Position.dc.html's and Outreach.dc.html's do. -->
-            <div role="radiogroup" aria-label="Search for" style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;flex:none;width:272px;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
+            <!-- Companies | People: the page's views, one 240px switch on every page, each option its label's width and an
+                 even share of the rest, so the search after the rule starts where Position.dc.html's and Outreach.dc.html's do. -->
+            <div role="radiogroup" aria-label="Search for" style="display:flex;flex:none;width:240px;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
               <button role="radio" aria-checked="{{ modeCompaniesChecked }}" onClick="{{ showCompanies }}" style="{{ modeCompaniesStyle }}" style-hover="color:var(--text)">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.globe }}"></path></svg>Companies</button>
               <button role="radio" aria-checked="{{ modePeopleChecked }}" onClick="{{ showPeople }}" style="{{ modePeopleStyle }}" style-hover="color:var(--text)">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.candidates }}"></path></svg>People</button>
             </div>
             <span aria-hidden="true" style="flex:none;width:1px;height:20px;background:var(--line-soft)"></span>
-            <div style="display:flex;flex:1 1 280px;max-width:360px;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);padding:8px 12px">
+            <div style="display:flex;flex:1 1 240px;max-width:280px;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);padding:8px 12px">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ I.search }}"></path></svg>
               <input value="{{ q }}" onInput="{{ onQuery }}" placeholder="Search companies..." aria-label="Search companies" style="width:100%;min-width:0;background:transparent;border:none;font:400 13px var(--sans);color:var(--text);outline:none">
             </div>
@@ -268,8 +268,6 @@
                   </div>
                 </sc-if>
               </div>
-              <span style="width:1px;height:20px;background:var(--line-soft)"></span>
-              <button onClick="{{ addAll }}" style="white-space:nowrap;border-radius:6px;padding:8px 10px;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Add all to Universe →</button>
             </div>
           </div>
 
@@ -654,16 +652,16 @@
           <!-- The Companies toolbar's row: the name ContactOut searches on is this page's search box, the rail holds the
                rest. Typing moves the free count; Enter is the Search press, as the rail's button is. -->
           <div data-screen-label="People toolbar" style="display:flex;flex:none;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel);padding:10px 16px">
-            <!-- Companies | People: the page's views, one 272px switch on every page, its options sharing it equally,
-                 so the search after the rule starts where Position.dc.html's and Outreach.dc.html's do. -->
-            <div role="radiogroup" aria-label="Search for" style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;flex:none;width:272px;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
+            <!-- Companies | People: the page's views, one 240px switch on every page, each option its label's width and an
+                 even share of the rest, so the search after the rule starts where Position.dc.html's and Outreach.dc.html's do. -->
+            <div role="radiogroup" aria-label="Search for" style="display:flex;flex:none;width:240px;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
               <button role="radio" aria-checked="{{ modeCompaniesChecked }}" onClick="{{ showCompanies }}" style="{{ modeCompaniesStyle }}" style-hover="color:var(--text)">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.globe }}"></path></svg>Companies</button>
               <button role="radio" aria-checked="{{ modePeopleChecked }}" onClick="{{ showPeople }}" style="{{ modePeopleStyle }}" style-hover="color:var(--text)">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.candidates }}"></path></svg>People</button>
             </div>
             <span aria-hidden="true" style="flex:none;width:1px;height:20px;background:var(--line-soft)"></span>
-            <div style="display:flex;flex:1 1 280px;max-width:360px;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);padding:8px 12px">
+            <div style="display:flex;flex:1 1 240px;max-width:280px;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);padding:8px 12px">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ I.search }}"></path></svg>
               <input placeholder="Search people by name..." aria-label="Search people by name" style="width:100%;min-width:0;background:transparent;border:none;font:400 13px var(--sans);color:var(--text);outline:none">
             </div>
@@ -1089,7 +1087,7 @@ class Component extends DCLogic {
       indQ: '', indListOpen: false, kwQ: '', includeKw: true, offQ: '', adjacentAll: false,
       q: '', page: 0, pageSize: 50, sort: { field: 'employees', dir: 'desc' },
       selected: {}, presetSelection: selectedCount,
-      triaged: {}, allAdded: false,
+      triaged: {},
       saveMenuOpen: flag('saveMenuOpen', props.saveMenuOpen ?? false),
       saveName: '', saveVis: 'SHARED', saveTab: null, renamingId: null, renameDraft: '', hoverSearchId: null,
       searches: [
@@ -1180,7 +1178,6 @@ class Component extends DCLogic {
     });
   }
   matchedRows(st) {
-    if (st.allAdded) return [];
     return this.COMPANIES.filter((c) => this.matches(c, st.filter));
   }
   visibleRows(st) {
@@ -1366,7 +1363,7 @@ class Component extends DCLogic {
     const q = st.q.trim();
     const matched = this.matchedRows(st).length;
     const removed = this.matchedRows(st).filter((c) => st.triaged[c.id] || st.offLimits.includes(c.name)).length;
-    const total = st.allAdded ? 0 : (q ? visible.length : Math.max(visible.length, Math.round(1240 * matched / 16) - removed));
+    const total = q ? visible.length : Math.max(visible.length, Math.round(1240 * matched / 16) - removed);
     const lastPage = Math.max(0, Math.ceil(total / st.pageSize) - 1);
     const countLabel = total === 0 ? '0 results' : (st.page * st.pageSize + 1) + ' - ' + Math.min((st.page + 1) * st.pageSize, total) + ' of ' + total.toLocaleString('en-US');
 
@@ -1445,7 +1442,7 @@ class Component extends DCLogic {
         ? 'position:fixed;inset:0;z-index:96;background:var(--panel);display:flex;flex-direction:column;min-height:0'
         : 'display:flex;min-height:0;flex:1;flex-direction:column';
     const peoplePageStyle = st.mode === 'people' ? 'display:flex;min-height:0;flex:1;flex-direction:column' : 'display:none';
-    const viewSeg = (on) => `display:inline-flex;min-width:0;justify-content:center;align-items:center;gap:6px;white-space:nowrap;border-radius:4px;border:none;padding:6px 10px;font:500 12.5px var(--sans);cursor:pointer;background:${on ? 'var(--sky-dim)' : 'none'};color:${on ? 'var(--text)' : 'var(--text3)'}`;
+    const viewSeg = (on) => `display:inline-flex;flex:1 1 auto;min-width:0;justify-content:center;align-items:center;gap:6px;white-space:nowrap;border-radius:4px;border:none;padding:6px 10px;font:500 12.5px var(--sans);cursor:pointer;background:${on ? 'var(--sky-dim)' : 'none'};color:${on ? 'var(--text)' : 'var(--text3)'}`;
     const modeChip = (on) => `border-radius:4px;border:none;padding:6px 10px;font:500 12.5px var(--sans);cursor:pointer;background:${on ? 'var(--sky-dim)' : 'none'};color:${on ? 'var(--text)' : 'var(--text3)'}`;
 
     const selectedIds = () => Object.keys(this.state.selected);
@@ -1608,11 +1605,6 @@ class Component extends DCLogic {
         this.setState({ visibility });
       },
       resetColumns: () => this.setState({ visibility: Object.assign({}, this.DEFAULT_VISIBILITY) }),
-      addAll: () => {
-        const added = Math.max(0, Math.round(1240 * this.matchedRows(this.state).length / 16) - this.matchedRows(this.state).filter((c) => this.state.triaged[c.id] || this.state.offLimits.includes(c.name)).length);
-        this.setState({ allAdded: true, selected: {}, page: 0, counts: Object.assign({}, this.state.counts, { universe: this.state.counts.universe + added }) });
-        this.showToast('Added ' + added + ' companies to universe');
-      },
 
       toggleAcc: (e) => { const key = e.currentTarget.dataset.key; this.setState({ open: this.state.open === key ? null : key }); },
       resetAcc: (e) => {

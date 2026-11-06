@@ -46,6 +46,6 @@ public class ProviderCredentialsResolver {
     private ProviderCredentials ownCredentials(WorkspaceMailIntegration integration) {
         String secret = cipher.decrypt(integration.getClientSecretEncrypted(), integration.clientSecretContext());
         return new ProviderCredentials(integration.getProvider(), CredentialMode.OWN, integration.getClientId(),
-                secret, integration.getTenantId());
+                secret, integration.getTenantId(), integration.getKeysRefusedWith() != null);
     }
 }

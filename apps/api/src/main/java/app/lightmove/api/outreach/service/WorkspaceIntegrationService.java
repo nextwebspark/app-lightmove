@@ -8,12 +8,16 @@ import app.lightmove.api.core.config.RecallSettings;
 import app.lightmove.api.core.crypto.service.SecretCipher;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.outreach.constant.CredentialMode;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.dto.WorkspaceIntegrationResponse;
 import app.lightmove.api.outreach.dto.WorkspaceIntegrationsResponse;
+import app.lightmove.api.outreach.model.AppKeysVerdict;
 import app.lightmove.api.outreach.model.OwnAppKeys;
 import app.lightmove.api.outreach.model.ProviderAppKeysReplaced;
+import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.WorkspaceMailIntegration;
 import app.lightmove.api.outreach.repository.WorkspaceMailIntegrationRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +27,7 @@ import java.time.LocalDate;
 import java.time.Period;
 import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -30,17 +35,20 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Settings → Integrations: which OAuth app each provider is connected through. Every change is an audit event
- * of the {@code integrations} section, which names the provider and the mode and never the secret. A change of app
- * withdraws every connection made through the old one, since its refresh tokens cannot be refreshed through the new
- * one; new keys for the same app are handed to Recall once they commit.
+ * of the {@code integrations} section, which names the provider and the mode and never the secret. An own app's keys
+ * are saved only once the provider accepts them, asked outside any transaction. A change of app withdraws every
+ * connection made through the old one, since its refresh tokens cannot be refreshed through the new one.
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class WorkspaceIntegrationService {
 
@@ -51,6 +59,9 @@ public class WorkspaceIntegrationService {
     private static final String GOOGLE_CLIENT_ID_SUFFIX = ".apps.googleusercontent.com";
     /** Entra's ceiling on a client secret's lifetime. */
     private static final Period LONGEST_MICROSOFT_SECRET = Period.ofMonths(24);
+    /** A secret shorter than this would show too much of itself in its last four characters, so it gets no hint. */
+    private static final int SHORTEST_HINTED_SECRET = 16;
+    private static final int HINT_LENGTH = 4;
 
     private final WorkspaceMailIntegrationRepository integrations;
     private final ProviderAppSetup setup;
@@ -60,22 +71,31 @@ public class WorkspaceIntegrationService {
     private final Clock clock;
     private final ReplacedAppConnections connections;
     private final ApplicationEventPublisher events;
+    private final OwnAppKeyCheck keyCheck;
+    private final TransactionTemplate transactions;
+    private final UserRepository users;
 
-    @Transactional(readOnly = true)
+    /** Read-write only so a secret saved before V169 gets its hint written back, once. */
+    @Transactional
     public WorkspaceIntegrationsResponse list(UUID workspaceId) {
-        Map<IntegrationProvider, WorkspaceMailIntegration> chosen = integrations.findByWorkspaceId(workspaceId)
-                .stream()
+        List<WorkspaceMailIntegration> rows = integrations.findByWorkspaceId(workspaceId);
+        Map<IntegrationProvider, WorkspaceMailIntegration> chosen = rows.stream()
                 .collect(Collectors.toMap(WorkspaceMailIntegration::getProvider, Function.identity()));
+        Map<UUID, String> saverNames = users.findAllById(rows.stream()
+                        .map(WorkspaceMailIntegration::getSecretSavedBy)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet()))
+                .stream()
+                .collect(Collectors.toMap(User::getId, user -> Objects.toString(user.getFullName(), user.getEmail())));
         return new WorkspaceIntegrationsResponse(
                 Arrays.stream(IntegrationProvider.values())
-                        .map(provider -> toDto(workspaceId, provider, chosen.get(provider)))
+                        .map(provider -> toDto(workspaceId, provider, chosen.get(provider), saverNames))
                         .toList(),
                 cipher.isAvailable(),
                 isRecallOffered());
     }
 
     /** {@code PUT}: the shared app takes no keys, so keys sent with it are refused rather than dropped. */
-    @Transactional
     public WorkspaceIntegrationsResponse update(UUID actorId, UUID workspaceId, IntegrationProvider provider,
                                                 CredentialMode mode, OwnAppKeys keys, HttpServletRequest request) {
         if (mode == CredentialMode.OWN) {
@@ -88,10 +108,9 @@ public class WorkspaceIntegrationService {
     }
 
     /** Discards the workspace's own keys. A workspace already on the shared app records nothing. */
-    @Transactional
     public WorkspaceIntegrationsResponse useSharedApp(UUID actorId, UUID workspaceId, IntegrationProvider provider,
                                                       HttpServletRequest request) {
-        integrations.findByWorkspaceIdAndProvider(workspaceId, provider)
+        transactions.executeWithoutResult(status -> integrations.findByWorkspaceIdAndProvider(workspaceId, provider)
                 .filter(WorkspaceMailIntegration::isOwnApp)
                 .ifPresent(integration -> {
                     String replacedClientId = integration.getClientId();
@@ -100,39 +119,106 @@ public class WorkspaceIntegrationService {
                             sharedClientId(provider));
                     recordIntegrationChange(actorId, workspaceId, provider, CredentialMode.SHARED, null, withdrawn,
                             request);
-                });
+                }));
         return list(workspaceId);
     }
 
-    /** A save that changes nothing records nothing, as the shared app and the calendar sync do. */
+    /**
+     * Verify again: the provider is asked about the keys on file, and its answer is kept either way — unless the
+     * secret was replaced meanwhile, when the answer is about keys nobody holds any more.
+     */
+    public WorkspaceIntegrationsResponse verify(UUID actorId, UUID workspaceId, IntegrationProvider provider,
+                                                HttpServletRequest request) {
+        if (!cipher.isAvailable()) {
+            throw ApiException.of(ErrorCode.INTEGRATION_ENCRYPTION_UNAVAILABLE);
+        }
+        WorkspaceMailIntegration integration = integrations.findByWorkspaceIdAndProvider(workspaceId, provider)
+                .filter(held -> held.isOwnApp() && held.hasSecret())
+                .orElseThrow(() -> ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                        "Only your own app's keys can be checked"));
+        String secret = cipher.decrypt(integration.getClientSecretEncrypted(), integration.clientSecretContext());
+        AppKeysVerdict verdict = askProvider(workspaceId, provider, integration.getClientId(), secret,
+                integration.getTenantId());
+        integrations.recordKeysCheck(integration.getId(), integration.getClientSecretEncrypted(), clock.instant(),
+                verdict.refusedWith());
+        audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
+                .actor(actorId).workspace(workspaceId).from(request)
+                .detail("section", "integrations")
+                .detail("provider", provider.name())
+                .detail("keysChecked", verdict.accepted() ? "ACCEPTED" : "REFUSED")
+                .detailIfPresent("providerError", verdict.refusedWith())
+                .record();
+        return list(workspaceId);
+    }
+
+    /** Save and verify. A save that changes nothing records nothing, as the shared app and the calendar sync do. */
     private WorkspaceIntegrationsResponse useOwnApp(UUID actorId, UUID workspaceId, IntegrationProvider provider,
                                                     OwnAppKeys keys, HttpServletRequest request) {
         if (!cipher.isAvailable()) {
             throw ApiException.of(ErrorCode.INTEGRATION_ENCRYPTION_UNAVAILABLE);
         }
-        WorkspaceMailIntegration integration = integrations.findByWorkspaceIdAndProvider(workspaceId, provider)
+        WorkspaceMailIntegration held = integrations.findByWorkspaceIdAndProvider(workspaceId, provider)
                 .orElseGet(() -> WorkspaceMailIntegration.sharedApp(workspaceId, provider));
         String clientId = requireClientId(provider, keys);
         String tenantId = tenantIdFor(provider, keys);
         String newSecret = secretOf(provider, keys);
-        if (newSecret == null && !integration.holdsSecretFor(clientId)) {
+        if (newSecret == null && !held.holdsSecretFor(clientId)) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "clientSecret", "Enter your app's client secret");
         }
-        LocalDate secretExpiresOn = expiryOf(provider, keys, integration, clientId, newSecret);
-        String previousClientId = integration.isOwnApp() ? integration.getClientId() : sharedClientId(provider);
-        boolean keysReplaced = newSecret != null || !Objects.equals(integration.getTenantId(), tenantId);
+        LocalDate secretExpiresOn = expiryOf(provider, keys, held, clientId, newSecret);
+        String checkedHeldSecret = newSecret == null ? held.getClientSecretEncrypted() : null;
+        String secret = newSecret != null ? newSecret
+                : cipher.decrypt(checkedHeldSecret, held.clientSecretContext());
 
-        String encryptedSecret = newSecret == null ? null : cipher.encrypt(newSecret, integration.clientSecretContext());
-        if (integration.useOwnApp(clientId, encryptedSecret, tenantId, secretExpiresOn, actorId)) {
-            integrations.save(integration);
-            int withdrawn = withdrawUnlessSameApp(workspaceId, provider, previousClientId, clientId);
-            if (clientId.equals(previousClientId) && keysReplaced) {
+        AppKeysVerdict verdict = askProvider(workspaceId, provider, clientId, secret, tenantId);
+        if (!verdict.accepted()) {
+            throw ApiException.withProperty(ErrorCode.INTEGRATION_KEYS_REFUSED, "providerError", verdict.refusedWith());
+        }
+        transactions.executeWithoutResult(status -> saveOwnApp(actorId, workspaceId, provider,
+                new AcceptedKeys(clientId, tenantId, newSecret, checkedHeldSecret, secretExpiresOn), request));
+        return list(workspaceId);
+    }
+
+    private void saveOwnApp(UUID actorId, UUID workspaceId, IntegrationProvider provider, AcceptedKeys keys,
+                            HttpServletRequest request) {
+        WorkspaceMailIntegration integration = integrations.findByWorkspaceIdAndProvider(workspaceId, provider)
+                .orElseGet(() -> WorkspaceMailIntegration.sharedApp(workspaceId, provider));
+        if (keys.newSecret() == null && !(integration.holdsSecretFor(keys.clientId())
+                && Objects.equals(integration.getClientSecretEncrypted(), keys.checkedHeldSecret()))) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "clientSecret",
+                    "The saved secret changed while it was checked. Enter it again");
+        }
+        String previousClientId = integration.isOwnApp() ? integration.getClientId() : sharedClientId(provider);
+        boolean keysReplaced = keys.newSecret() != null || !Objects.equals(integration.getTenantId(), keys.tenantId());
+        String encryptedSecret = keys.newSecret() == null ? null
+                : cipher.encrypt(keys.newSecret(), integration.clientSecretContext());
+
+        boolean changed = integration.useOwnApp(keys.clientId(), encryptedSecret, keys.tenantId(),
+                keys.secretExpiresOn(), actorId);
+        if (keys.newSecret() != null) {
+            integration.recordNewSecret(hintOf(keys.newSecret()), actorId, clock.instant());
+        }
+        integration.recordKeysCheck(clock.instant(), null);
+        integrations.save(integration);
+        if (changed) {
+            int withdrawn = withdrawUnlessSameApp(workspaceId, provider, previousClientId, keys.clientId());
+            if (keys.clientId().equals(previousClientId) && keysReplaced) {
                 events.publishEvent(new ProviderAppKeysReplaced(workspaceId, provider));
             }
-            recordIntegrationChange(actorId, workspaceId, provider, CredentialMode.OWN, newSecret != null, withdrawn,
-                    request);
+            recordIntegrationChange(actorId, workspaceId, provider, CredentialMode.OWN, keys.newSecret() != null,
+                    withdrawn, request);
         }
-        return list(workspaceId);
+    }
+
+    /** {@code checkedHeldSecret} is the ciphertext of the held secret the provider was shown, when none was new. */
+    private record AcceptedKeys(String clientId, String tenantId, String newSecret, String checkedHeldSecret,
+                                LocalDate secretExpiresOn) {
+
+        @Override
+        public String toString() {
+            return "AcceptedKeys[clientId=" + clientId + ", newSecret=" + (newSecret == null ? "null" : "[redacted]")
+                    + "]";
+        }
     }
 
     /**
@@ -163,6 +249,12 @@ public class WorkspaceIntegrationService {
         return list(workspaceId);
     }
 
+    private AppKeysVerdict askProvider(UUID workspaceId, IntegrationProvider provider, String clientId, String secret,
+                                       String tenantId) {
+        return keyCheck.ask(workspaceId,
+                new ProviderCredentials(provider, CredentialMode.OWN, clientId, secret, tenantId));
+    }
+
     /** The {@code integrations} section's one shape: the provider and the mode, never a key. */
     private void recordIntegrationChange(UUID actorId, UUID workspaceId, IntegrationProvider provider,
                                          CredentialMode mode, Boolean secretChanged, int connectionsWithdrawn,
@@ -189,7 +281,7 @@ public class WorkspaceIntegrationService {
     }
 
     private WorkspaceIntegrationResponse toDto(UUID workspaceId, IntegrationProvider provider,
-                                               WorkspaceMailIntegration integration) {
+                                               WorkspaceMailIntegration integration, Map<UUID, String> saverNames) {
         boolean own = integration != null && integration.isOwnApp();
         String appClientId = own ? integration.getClientId() : sharedClientId(provider);
         String adminConsentUrl = provider == IntegrationProvider.MICROSOFT
@@ -211,7 +303,35 @@ public class WorkspaceIntegrationService {
                 integration == null ? null : integration.getUpdatedAt(),
                 integration == null ? null : integration.getAdminConsentedAt(),
                 integration == null ? null : integration.getAdminConsentTenantId(),
-                connections.countThrough(workspaceId, provider, appClientId));
+                connections.countThrough(workspaceId, provider, appClientId),
+                own ? secretHintOf(integration) : null,
+                own ? integration.getSecretSavedAt() : null,
+                own && integration.getSecretSavedBy() != null ? saverNames.get(integration.getSecretSavedBy()) : null,
+                own ? integration.getKeysCheckedAt() : null,
+                own ? integration.getKeysRefusedWith() : null);
+    }
+
+    /** A secret saved before V169 is read for its hint once, and the hint kept unless the secret changed meanwhile. */
+    private String secretHintOf(WorkspaceMailIntegration integration) {
+        if (integration.getSecretHint() != null || !integration.hasSecret() || !cipher.isAvailable()) {
+            return integration.getSecretHint();
+        }
+        try {
+            String hint = hintOf(cipher.decrypt(integration.getClientSecretEncrypted(),
+                    integration.clientSecretContext()));
+            if (hint != null) {
+                integrations.recordSecretHint(integration.getId(), integration.getClientSecretEncrypted(), hint);
+            }
+            return hint;
+        } catch (IllegalStateException unreadable) {
+            log.warn("The {} secret of workspace {} could not be read for its hint", integration.getProvider(),
+                    integration.getWorkspaceId());
+            return null;
+        }
+    }
+
+    private static String hintOf(String secret) {
+        return secret.length() < SHORTEST_HINTED_SECRET ? null : secret.substring(secret.length() - HINT_LENGTH);
     }
 
     /** Each provider issues its client ids in one shape; another is a paste of the wrong value. */

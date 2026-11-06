@@ -94,17 +94,17 @@
               </div>
             </div>
             <!-- The toolbar row Strategy.dc.html and Position.dc.html's In universe share: Conversations | Sequences — one
-                 272px switch on every page, its options sharing it equally, so the search after the rule starts at the same
+                 240px switch on every page, each option its label's width and an even share of the rest, so the search after the rule starts at the same
                  place on all three — then search, the sending mailbox and the view's one filled action pushed right. -->
             <div style="display:flex;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;padding:10px 16px;border-top:1px solid var(--line-soft);background:var(--panel)">
-              <div role="radiogroup" aria-label="Outreach view" style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;flex:none;width:272px;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
+              <div role="radiogroup" aria-label="Outreach view" style="display:flex;flex:none;width:240px;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
                 <button role="radio" aria-checked="true" onClick="{{ backToOverview }}" style="{{ convSegStyle }}" style-hover="color:var(--text)">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ ic.mail }}"></path></svg>Conversations</button>
                 <button role="radio" aria-checked="false" onClick="{{ openEditor }}" data-id="s1" style="{{ seqSegStyle }}" style-hover="color:var(--text)">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ ic.listOrdered }}"></path></svg>Sequences</button>
               </div>
               <span aria-hidden="true" style="flex:none;width:1px;height:20px;background:var(--line-soft)"></span>
-              <label style="display:flex;flex:1 1 280px;max-width:360px;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px">
+              <label style="display:flex;flex:1 1 240px;max-width:280px;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:var(--text3)"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z M21 21l-4.35-4.35"></path></svg>
                 <input value="{{ oqQuery }}" onChange="{{ oqOnQuery }}" placeholder="Search people or emails…" aria-label="Search people or emails" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font:400 13px var(--sans);color:var(--text)">
               </label>
@@ -230,11 +230,14 @@
                   <textarea value="{{ oc.draft }}" onChange="{{ oqOnDraft }}" rows="4" aria-label="Email" style="width:100%;resize:vertical;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13.5px/1.55 var(--sans);color:var(--text);outline:none"></textarea>
                   <sc-if value="{{ sg.previewOn }}" hint-placeholder-val="{{ true }}">
                     <div aria-label="Signature preview" style="padding:2px 0 2px 12px;border-left:2px solid var(--line);opacity:.6;font:400 12.5px/1.45 var(--sans);color:var(--text2)">
+                      <!-- "Formal" exactly as Settings → Email signature draws it (Photo + logo, Book a call on), smaller and greyed. -->
                       <sc-if value="{{ sg.isFull }}" hint-placeholder-val="{{ true }}">
                         <div style="display:flex;align-items:center;gap:10px">
                           <span style="width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 11px var(--mono)">YH</span>
-                          <span style="min-width:0"><b style="color:var(--text)">Yara Haddad</b><br>Head of Talent Acquisition, Al-Futtaim<br>+971 50 123 4567 · yara.haddad@alfuttaim.com</span>
+                          <span style="min-width:0"><b style="color:var(--text)">Yara Haddad</b><br>Head of Talent Acquisition, Al-Futtaim<br>+971 50 123 4567 · yara.haddad@alfuttaim.com<br>alfuttaim.com · LinkedIn<br>Festival Tower, Dubai Festival City</span>
+                          <img src="assets/al-futtaim-logo.png" alt="" style="height:28px;width:auto;flex:none;margin-left:6px;padding-left:10px;border-left:1px solid var(--line)">
                         </div>
+                        <div style="margin-top:4px;font-weight:600">Book a call with me →</div>
                       </sc-if>
                       <sc-if value="{{ sg.isMinimal }}" hint-placeholder-val="{{ false }}"><span><b style="color:var(--text)">Yara Haddad</b> · Head of Talent Acquisition, Al-Futtaim · +971 50 123 4567</span></sc-if>
                     </div>
@@ -547,18 +550,35 @@
               <div style="font:400 13.5px/1.6 var(--sans);color:var(--text2);white-space:pre-wrap">{{ rv.rest }}</div>
               <!-- The signature every email of this run carries, follow-ups too: chosen here, frozen at Start. -->
               <div data-screen-label="Sequence signature" style="margin-top:14px;border-top:1px solid var(--line-soft);padding-top:10px">
+                <!-- The composer's picker, by the same count: several, one (it or none), or none kept at all. -->
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font:400 12px var(--mono);color:var(--text3)">
                   <span>Signature</span>
-                  <select value="{{ sg.enChoice }}" onChange="{{ sgEnPick }}" aria-label="Signature" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--sans);color:var(--text)">
-                    <option value="formal">Formal (default)</option>
-                    <option value="short">Short reply</option>
-                    <option value="none">No signature</option>
-                  </select>
-                  <span>On every email of the sequence, follow-ups too</span>
+                  <sc-if value="{{ sg.enSeveral }}" hint-placeholder-val="{{ false }}">
+                    <select value="{{ sg.enChoice }}" onChange="{{ sgEnPick }}" aria-label="Signature" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--sans);color:var(--text)">
+                      <option value="formal">Formal (default)</option>
+                      <option value="short">Short reply</option>
+                      <option value="none">No signature</option>
+                    </select>
+                  </sc-if>
+                  <sc-if value="{{ sg.enOne }}" hint-placeholder-val="{{ true }}">
+                    <select value="{{ sg.enChoice }}" onChange="{{ sgEnPick }}" aria-label="Signature" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--sans);color:var(--text)">
+                      <option value="formal">Formal (default)</option>
+                      <option value="none">No signature</option>
+                    </select>
+                  </sc-if>
+                  <sc-if value="{{ sg.hasAny }}" hint-placeholder-val="{{ true }}"><span>On every email of the sequence, follow-ups too</span></sc-if>
+                  <sc-if value="{{ sg.none }}" hint-placeholder-val="{{ false }}"><span style="font-family:var(--sans)">No signature yet · <a href="Settings.dc.html?section=signatures" style="color:var(--sky)">Add one in Settings</a></span></sc-if>
                 </div>
                 <sc-if value="{{ sg.enOn }}" hint-placeholder-val="{{ true }}">
                   <div style="margin-top:8px;padding:2px 0 2px 12px;border-left:2px solid var(--line);opacity:.6;font:400 12.5px/1.45 var(--sans);color:var(--text2)">
-                    <sc-if value="{{ sg.enFull }}" hint-placeholder-val="{{ true }}"><span><b style="color:var(--text)">Yara Haddad</b><br>Head of Talent Acquisition, Al-Futtaim<br>+971 50 123 4567 · yara.haddad@alfuttaim.com</span></sc-if>
+                    <sc-if value="{{ sg.enFull }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:flex;align-items:center;gap:10px">
+                          <span style="width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 11px var(--mono)">YH</span>
+                          <span style="min-width:0"><b style="color:var(--text)">Yara Haddad</b><br>Head of Talent Acquisition, Al-Futtaim<br>+971 50 123 4567 · yara.haddad@alfuttaim.com<br>alfuttaim.com · LinkedIn<br>Festival Tower, Dubai Festival City</span>
+                          <img src="assets/al-futtaim-logo.png" alt="" style="height:28px;width:auto;flex:none;margin-left:6px;padding-left:10px;border-left:1px solid var(--line)">
+                        </div>
+                        <div style="margin-top:4px;font-weight:600">Book a call with me →</div>
+                    </sc-if>
                     <sc-if value="{{ sg.enMinimal }}" hint-placeholder-val="{{ false }}"><span><b style="color:var(--text)">Yara Haddad</b> · Head of Talent Acquisition, Al-Futtaim · +971 50 123 4567</span></sc-if>
                   </div>
                 </sc-if>
@@ -1169,12 +1189,13 @@ class Component extends DCLogic {
     const kept = s.signature === "none" ? 0 : s.signature === "several" ? 2 : 1;
     const included = kept > 0 && s.sigIncluded;
     const box = (on) => "width:14px;height:14px;flex:none;display:grid;place-items:center;border-radius:3px;border:1px solid " + (on ? "var(--amber-btn)" : "var(--line)") + ";background:" + (on ? "var(--amber-btn)" : "transparent") + ";color:var(--on-amber)";
-    const enOn = s.enSigChoice !== "none";
+    const enChoice = kept === 1 && s.enSigChoice === "short" ? "formal" : s.enSigChoice;
+    const enOn = kept > 0 && enChoice !== "none";
     return {
       sg: { composerOpen: s.composerOpen, hasAny: kept > 0, none: kept === 0, showPicker: kept > 1 && included, choice: s.sigChoice,
         included, checked: String(included), boxStyle: box(included), previewOn: included,
         isFull: s.sigChoice === "formal", isMinimal: s.sigChoice === "short",
-        enChoice: s.enSigChoice, enOn, enFull: s.enSigChoice === "formal", enMinimal: s.enSigChoice === "short" },
+        enChoice, enOn, enFull: enChoice === "formal", enMinimal: enChoice === "short", enSeveral: kept > 1, enOne: kept === 1 },
       sgOpenComposer: () => set({ composerOpen: true }),
       sgCloseComposer: () => set({ composerOpen: false }),
       sgToggleInclude: () => set({ sigIncluded: !s.sigIncluded }),
@@ -1246,7 +1267,7 @@ class Component extends DCLogic {
     const navItem = (label, icon, href, active, count, key) => ({ key, label, icon, href, hasCount: count !== undefined, count,
       rowStyle: `display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13.5px;text-decoration:none;background:${active ? "var(--panel2)" : "transparent"};color:${active ? "var(--text)" : "var(--text2)"}`,
       iconStyle: `flex:none;color:${active ? "var(--amber)" : "currentColor"}` });
-    const viewSeg = (on) => `display:inline-flex;min-width:0;justify-content:center;align-items:center;gap:6px;white-space:nowrap;border-radius:4px;border:none;padding:6px 10px;font:500 12.5px var(--sans);cursor:pointer;background:${on ? "var(--u-accent-tint)" : "none"};color:${on ? "var(--text)" : "var(--text3)"}`;
+    const viewSeg = (on) => `display:inline-flex;flex:1 1 auto;min-width:0;justify-content:center;align-items:center;gap:6px;white-space:nowrap;border-radius:4px;border:none;padding:6px 10px;font:500 12.5px var(--sans);cursor:pointer;background:${on ? "var(--u-accent-tint)" : "none"};color:${on ? "var(--text)" : "var(--text3)"}`;
     const navGroups = [
       { label: "Position", items: [
         navItem("Brief", I.position, "Brief.dc.html", false, undefined, "brief"),

@@ -353,7 +353,7 @@ method plus the records it returns — never another feature's internals:
 
 - `triagecompany`'s `TriageCompanyService` calls `strategy`'s `ApolloCompanyQueryService` to resolve
   a company snapshot at write time, and `StrategyService.scopeOf` to resolve the saved filter behind
-  "Add all to Universe". Reads that must run the reverse way are the exception below: the Strategy
+  `POST …/triage/from-filter`. Reads that must run the reverse way are the exception below: the Strategy
   search excludes a project's already-triaged companies, so they stop reappearing once filed. That's
   bridged through
   `TriagedCompanyLookup` — an interface `strategy` declares and `triagecompany` implements
@@ -499,7 +499,8 @@ and a direct mailbox's provider refresh token (V107). Three rules hold for every
 - **Encrypt under an `EncryptionContext` naming the owner and the column** (`WorkspaceMailIntegration
   .clientSecretContext`, `MailboxConnection.refreshTokenContext`). It is the ciphertext's associated data, so a value copied onto another workspace's
   row, or into another column, fails to decrypt rather than handing one tenant's key to another.
-- **Write-only over the API.** A response says a secret is held (`secretSet`), never what it is; a request
+- **Write-only over the API.** A response says a secret is held (`secretSet`) and, for an own app's client secret,
+  its last four characters (`secretHint`, none under 16), never the rest; a request
   record carrying one overrides `toString` to redact it, and so does any model record holding it decrypted
   (`ProviderCredentials`, `OwnAppKeys`). Never trim one — whitespace inside a secret is the secret.
 - **Decrypt for the one call that spends it.** `MailboxTokens` and `RecallCalendars` decrypt a refresh token

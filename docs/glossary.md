@@ -15,6 +15,7 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Position** | a project: one open role, end to end | project (mandate where a mockup says it) |
 | **Business unit** / **Client** | who a position is for — in-house / agency | a literal either way: `useWorkspaceVocabulary().unit` |
 | **Hiring manager** / **Client contact** | the people there who read the work | a literal either way: `useWorkspaceVocabulary().contact` |
+| **Company** / **Agency** | the workspace's own firm, as an email signature names it — in-house / agency | a literal either way: `useWorkspaceVocabulary().ownFirm` |
 | **Executive** | a person mapped at a company on a position | — |
 | **Candidate** | the same person on the workspace's Candidates page | — |
 | **Universe** | the companies a position has taken from the market (In universe / Shortlisted / Declined) | triage |

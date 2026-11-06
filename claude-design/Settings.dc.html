@@ -163,17 +163,29 @@
               <div style="margin-top:4px;font:400 12px var(--mono);color:var(--text3)">How you appear across the workspace</div>
             </div>
             <div style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
-              <div style="margin-bottom:20px;display:flex;align-items:center;gap:14px">
-                <image-slot id="profile-photo" title="{{ pName }}" shape="rounded" radius="12" style="width:52px;height:52px;flex:none" placeholder="YH"></image-slot>
-                <div style="flex:1;min-width:0">
+              <div style="margin-bottom:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+                <sc-if value="{{ hasPhoto }}" hint-placeholder-val="{{ false }}">
+                  <span role="img" aria-label="{{ pName }}" title="{{ pName }}" style="width:52px;height:52px;border-radius:12px;flex:none;background:radial-gradient(circle at 50% 38%, #d9b48f 0 22%, transparent 23%), radial-gradient(ellipse at 50% 100%, #3d5a80 0 46%, transparent 47%), linear-gradient(160deg, #9fb7cc, #5d7a96)"></span>
+                </sc-if>
+                <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">
+                  <span title="{{ pName }}" style="width:52px;height:52px;border-radius:12px;display:grid;place-items:center;flex:none;background:var(--sky-dim);color:var(--sky);font:600 17px var(--mono)">YH</span>
+                </sc-if>
+                <div style="flex:1;min-width:160px">
                   <div style="font:600 14px var(--sans)">{{ pName }}</div>
                   <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">{{ membershipMeta }}</div>
                 </div>
-                <!-- A photo the person uploads is theirs: a Google or LinkedIn sign-in never replaces it (V25's USER source). -->
-                <div style="display:flex;flex-wrap:wrap;gap:8px">
-                  <button onClick="{{ changePhoto }}" style="border-radius:6px;padding:7px 12px;font:500 12.5px var(--sans);cursor:pointer;background:var(--panel);border:1px solid var(--line);color:var(--text2)" style-hover="color:var(--text)">Change photo</button>
-                  <sc-if value="{{ pHasPhoto }}" hint-placeholder-val="{{ true }}"><button onClick="{{ removePhoto }}" style="border:none;background:none;padding:7px 4px;font:500 12.5px var(--sans);cursor:pointer;color:var(--text3)" style-hover="color:var(--text)">Remove</button></sc-if>
-                </div>
+                <!-- Change photo opens the crop dialog after a file is picked; hidden where the workspace's identity provider supplies the photo -->
+                <sc-if value="{{ photoEditable }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <button onClick="{{ openPhoto }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:7px 12px;font:500 12.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Change photo</button>
+                    <sc-if value="{{ hasPhoto }}" hint-placeholder-val="{{ false }}">
+                      <button onClick="{{ removePhoto }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:7px 12px;font:500 12.5px var(--sans);background:none;border:1px solid transparent;color:var(--text3);cursor:pointer" style-hover="color:var(--red)">Remove photo</button>
+                    </sc-if>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ photoManaged }}" hint-placeholder-val="{{ false }}">
+                  <div style="font:400 11.5px var(--mono);color:var(--text3)">Your photo comes from your organisation's sign-in</div>
+                </sc-if>
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:16px;row-gap:14px">
                 <label style="display:block;margin-bottom:16px">
@@ -421,6 +433,10 @@
                       <sc-if value="{{ s.isMinimal }}" hint-placeholder-val="{{ false }}">
                         <div style="font:400 12px/1.5 Arial,Helvetica,sans-serif"><b>{{ s.v.name }}</b> · {{ s.v.title }}, {{ s.v.company }} · {{ s.v.phone }}</div>
                       </sc-if>
+                      <sc-if value="{{ s.isCustom }}" hint-placeholder-val="{{ false }}">
+                        <div style="font:400 12px/1.5 Arial,Helvetica,sans-serif;white-space:pre-line">{{ s.custom }}</div>
+                        <sc-if value="{{ s.showLogo }}" hint-placeholder-val="{{ false }}"><img src="assets/al-futtaim-logo.png" alt="" style="margin-top:8px;height:28px;width:auto"></sc-if>
+                      </sc-if>
                       <sc-if value="{{ s.isFull }}" hint-placeholder-val="{{ true }}">
                         <div style="display:flex;align-items:center;gap:12px">
                           <sc-if value="{{ s.showPhoto }}" hint-placeholder-val="{{ true }}"><span style="width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;background:#e7eefc;color:#1a56db;font:600 14px Arial,Helvetica,sans-serif">YH</span></sc-if>
@@ -456,7 +472,7 @@
               <div style="border-radius:10px;border:1px dashed var(--line);background:var(--panel2);padding:36px 20px;text-align:center">
                 <div style="font:600 14px var(--sans)">No signature yet</div>
                 <div style="margin:6px auto 16px;max-width:420px;font:400 12px/1.5 var(--mono);color:var(--text3)">Your emails go without one. Pick a layout and Uncava fills it in from your profile.</div>
-                <button onClick="{{ sgNew }}" style="{{ sgPrimaryInline }}">New signature</button>
+                <button onClick="{{ sgNew }}" style="{{ sgPrimary }}">New signature</button>
               </div>
             </sc-if>
 
@@ -464,12 +480,12 @@
             <sc-if value="{{ sgIsGallery }}" hint-placeholder-val="{{ false }}">
               <div role="list" aria-label="Layouts" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px">
                 <sc-for list="{{ sgLayouts }}" as="l" hint-placeholder-count="6">
-                  <button role="listitem" onClick="{{ sgPick }}" data-layout="{{ l.key }}" style="display:flex;flex-direction:column;gap:10px;text-align:left;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:12px;cursor:pointer" style-hover="border-color:var(--amber)">
+                  <div role="listitem" style="display:flex"><button onClick="{{ sgPick }}" data-layout="{{ l.key }}" style="display:flex;flex-direction:column;gap:10px;text-align:left;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:12px;cursor:pointer" style-hover="border-color:var(--amber)">
                     <div aria-hidden="true" style="height:96px;border-radius:7px;border:1px solid var(--line-soft);background:#ffffff;color:#1f2328;padding:12px;overflow:hidden;font:400 10.5px/1.45 Arial,Helvetica,sans-serif">
                       <sc-if value="{{ l.isClassic }}" hint-placeholder-val="{{ false }}"><div style="font-weight:700;font-size:11.5px">Yara Haddad</div><div style="color:#57606a">Head of Talent Acquisition</div><div style="color:#57606a">Al-Futtaim</div><div style="color:#57606a">+971 50 123 4567 · <span style="color:#1a56db">LinkedIn</span></div></sc-if>
                       <sc-if value="{{ l.isPhoto }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:10px;align-items:center"><span style="width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;background:#e7eefc;color:#1a56db;font-weight:600">YH</span><div><div style="font-weight:700;font-size:11.5px">Yara Haddad</div><div style="color:#57606a">Head of Talent Acquisition, Al-Futtaim</div><div style="color:#57606a">+971 50 123 4567</div></div></div></sc-if>
-                      <sc-if value="{{ l.isPhotoLogo }}" hint-placeholder-val="{{ true }}"><div style="display:flex;gap:10px;align-items:center"><span style="width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;background:#e7eefc;color:#1a56db;font-weight:600">YH</span><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:11.5px">Yara Haddad</div><div style="color:#57606a">Head of Talent Acquisition</div><div style="color:#57606a">+971 50 123 4567</div></div><img src="assets/al-futtaim-logo.png" alt="" style="height:28px;width:auto;flex:none;padding-left:10px;border-left:1px solid #d0d7de"></div></sc-if>
-                      <sc-if value="{{ l.isBanner }}" hint-placeholder-val="{{ false }}"><div style="font-weight:700;font-size:11.5px">Yara Haddad</div><div style="color:#57606a">Head of Talent Acquisition · +971 50 123 4567</div><div style="margin-top:8px;padding-top:8px;border-top:2px solid #1f2328"><img src="assets/al-futtaim-logo.png" alt="" style="height:24px;width:auto"></div></sc-if>
+                      <sc-if value="{{ l.isPhotoLogo }}" hint-placeholder-val="{{ true }}"><div style="display:flex;gap:10px;align-items:center"><span style="width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;background:#e7eefc;color:#1a56db;font-weight:600">YH</span><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:11.5px">Yara Haddad</div><div style="color:#57606a">Head of Talent Acquisition</div><div style="color:#57606a">+971 50 123 4567</div></div><sc-if value="{{ l.showLogo }}" hint-placeholder-val="{{ true }}"><img src="assets/al-futtaim-logo.png" alt="" style="height:28px;width:auto;flex:none;padding-left:10px;border-left:1px solid #d0d7de"></sc-if></div></sc-if>
+                      <sc-if value="{{ l.isBanner }}" hint-placeholder-val="{{ false }}"><div style="font-weight:700;font-size:11.5px">Yara Haddad</div><div style="color:#57606a">Head of Talent Acquisition · +971 50 123 4567</div><sc-if value="{{ l.showLogo }}" hint-placeholder-val="{{ true }}"><div style="margin-top:8px;padding-top:8px;border-top:2px solid #1f2328"><img src="assets/al-futtaim-logo.png" alt="" style="height:24px;width:auto"></div></sc-if></sc-if>
                       <sc-if value="{{ l.isMinimal }}" hint-placeholder-val="{{ false }}"><div style="padding-top:30px"><b>Yara Haddad</b> · Head of Talent Acquisition, Al-Futtaim · +971 50 123 4567</div></sc-if>
                       <sc-if value="{{ l.isCustom }}" hint-placeholder-val="{{ false }}"><div style="color:#57606a">Kind regards,</div><div style="font-weight:700;font-size:11.5px;margin-top:4px">Yara</div><div style="color:#57606a;font-style:italic;margin-top:4px">Write it your own way, with bold, links and lists</div></sc-if>
                     </div>
@@ -477,7 +493,7 @@
                       <div style="font:600 13px var(--sans);color:var(--text)">{{ l.label }}</div>
                       <div style="margin-top:2px;font:400 11px/1.45 var(--mono);color:var(--text3)">{{ l.hint }}</div>
                     </div>
-                  </button>
+                  </button></div>
                 </sc-for>
               </div>
             </sc-if>
@@ -532,7 +548,7 @@
                         <label style="display:block;margin-bottom:14px">
                           <span style="{{ sgLabel }}">{{ f.label }}</span>
                           <input value="{{ f.value }}" onChange="{{ sgField }}" data-field="{{ f.key }}" placeholder="{{ f.placeholder }}" style="{{ sgInput }}" style-focus="border-color:var(--sky)">
-                          <span style="margin-top:5px;display:block;font:400 11px var(--mono);color:var(--text3)">{{ f.source }}</span>
+                          <span style="margin-top:5px;display:flex;gap:8px;font:400 11px var(--mono);color:var(--text3)">{{ f.source }}<sc-if value="{{ f.resettable }}" hint-placeholder-val="{{ false }}"><button onClick="{{ sgReset }}" data-field="{{ f.key }}" style="border:none;background:none;padding:0;font:500 11px var(--mono);color:var(--sky);cursor:pointer">{{ f.resetLabel }}</button></sc-if></span>
                         </label>
                       </sc-for>
                     </div>
@@ -542,7 +558,7 @@
                     <sc-for list="{{ sgSwitches }}" as="w" hint-placeholder-count="4">
                       <div style="display:flex;align-items:center;gap:12px;padding:10px 0">
                         <div style="flex:1;min-width:0"><div style="font:500 13px var(--sans)">{{ w.label }}</div><div style="margin-top:2px;font:400 11px/1.45 var(--mono);color:var(--text3)">{{ w.hint }}</div></div>
-                        <button role="switch" aria-checked="{{ w.checked }}" aria-label="{{ w.label }}" onClick="{{ sgToggle }}" data-field="{{ w.key }}" style="{{ w.style }}"><span style="{{ w.knob }}"></span></button>
+                        <button role="switch" aria-checked="{{ w.checked }}" aria-disabled="{{ w.disabled }}" aria-label="{{ w.label }}" onClick="{{ sgToggle }}" data-field="{{ w.key }}" style="{{ w.style }}"><span style="{{ w.knob }}"></span></button>
                       </div>
                     </sc-for>
                   </div>
@@ -554,7 +570,7 @@
 
                   <div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end">
                     <button onClick="{{ sgBack }}" style="{{ sgGhostLg }}">Cancel</button>
-                    <button onClick="{{ sgSave }}" style="{{ sgPrimaryInline }}">Save signature</button>
+                    <button onClick="{{ sgSave }}" style="{{ sgPrimary }}">Save signature</button>
                   </div>
                 </div>
 
@@ -2043,6 +2059,28 @@
     </div>
   </sc-if>
 
+  <!-- Profile photo: frame the picked picture — drag to move, the slider zooms; saved as a square, drawn round or rounded wherever a face is shown -->
+  <sc-if value="{{ photoCropOpen }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Profile photo" onClick="{{ closePhoto }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="Profile photo" onClick="{{ stop }}" style="width:420px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="margin-bottom:4px;font:600 16px var(--sans)">Profile photo</div>
+        <div style="margin-bottom:16px;font:400 12px var(--mono);color:var(--text3)">Drag to position, zoom to fit your face</div>
+        <div style="position:relative;height:300px;border-radius:8px;overflow:hidden;background:#11161f">
+          <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 40%, #d9b48f 0 16%, transparent 17%), radial-gradient(ellipse at 50% 96%, #3d5a80 0 34%, transparent 35%), linear-gradient(160deg, #9fb7cc, #5d7a96)"></div>
+          <div style="position:absolute;left:50%;top:50%;width:240px;height:240px;transform:translate(-50%,-50%);border-radius:50%;box-shadow:0 0 0 999px rgba(10,14,20,.55);border:1px solid rgba(255,255,255,.7)"></div>
+        </div>
+        <label style="margin-top:16px;display:flex;align-items:center;gap:12px">
+          <span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Zoom</span>
+          <input type="range" min="1" max="3" step="0.01" value="1.2" aria-label="Zoom" style="flex:1;accent-color:var(--sky)">
+        </label>
+        <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closePhoto }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ savePhoto }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Save photo</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- Delete workspace modal -->
   <sc-if value="{{ deleteOpen }}" hint-placeholder-val="{{ false }}">
     <div data-screen-label="Delete workspace" onClick="{{ closeDelete }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
@@ -2275,7 +2313,7 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">SE</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;signatures&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;availability&quot;,&quot;general&quot;,&quot;meetings&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;signatureState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;list&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;empty&quot;,&quot;gallery&quot;,&quot;editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;integrationsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;own-new&quot;,&quot;own-saved&quot;,&quot;replacing&quot;,&quot;verify-failed&quot;,&quot;expiring&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;signatures&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;availability&quot;,&quot;general&quot;,&quot;meetings&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;photo&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;set&quot;,&quot;crop&quot;,&quot;managed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;integrationsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;own-new&quot;,&quot;own-saved&quot;,&quot;replacing&quot;,&quot;verify-failed&quot;,&quot;expiring&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;signatureState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;list&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;empty&quot;,&quot;gallery&quot;,&quot;editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaceMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;COMPANY&quot;,&quot;options&quot;:[&quot;COMPANY&quot;,&quot;AGENCY&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaceLogo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;bookingLink&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -2435,13 +2473,17 @@ class Component extends DCLogic {
       akRevealName: 'Power BI dashboard', akSecret: 'uncava_pat_7Kq2vXyR9bN4mTc8LwZp1sHe6uJfA3dGkQ5rVo0iYtBn_f9a1c03e',
       newWorkspaceOpen: !!props.newWorkspaceOpen, newWorkspaceStage: props.newWorkspaceStage || 'organisation',
       pName: 'Yara Haddad', pTitle: 'Head of Talent Acquisition', pTz: 'Asia/Dubai', pLocale: 'en', pNameError: '',
-      pPhone: '+971 50 123 4567', pLinkedin: 'linkedin.com/in/yarahaddad', pHasPhoto: true,
+      pPhone: '+971 50 123 4567', pLinkedin: 'linkedin.com/in/yarahaddad',
       sgView: sgState === 'gallery' || sgState === 'editor' ? sgState : 'list', sgEditId: sgState === 'editor' ? 'formal' : null, sgDark: false,
       sigs: sgState === 'empty' ? [] : [
         { id: 'formal', name: 'Formal', layout: 'PHOTO_LOGO', isDefault: true, updated: '28 Oct 2026', fName: '', fTitle: '', fPhone: '', fLinkedin: '', fCompany: '', fWebsite: '', fAddress: 'Festival Tower, Dubai Festival City', showPhoto: true, showLogo: true, showBooking: true, disclaimer: '', custom: '' },
         { id: 'short', name: 'Short reply', layout: 'MINIMAL', isDefault: false, updated: '12 Oct 2026', fName: '', fTitle: '', fPhone: '', fLinkedin: '', fCompany: '', fWebsite: '', fAddress: '', showPhoto: false, showLogo: false, showBooking: false, disclaimer: '', custom: '' },
       ],
       sgD: null,
+      photo: urlProp('photo') || props.photo || 'none', photoBefore: 'none',
+      sgMode: urlProp('workspaceMode') || props.workspaceMode || 'COMPANY',
+      sgHasLogo: (urlProp('workspaceLogo') || String(props.workspaceLogo !== false)) !== 'false',
+      sgHasBooking: (urlProp('bookingLink') || String(props.bookingLink !== false)) !== 'false',
       pwCurrent: '', pwNew: '', pwConfirm: '', pwErr: {},
       sessions: [
         { id: 's1', device: 'macOS — Chrome', kind: 'DESKTOP', meta: '94.204.12.8 · active now', current: true },
@@ -2878,8 +2920,11 @@ class Component extends DCLogic {
 
   signatureVals(inputStyle) {
     const st = this.state, set = (c) => this.setState(c);
-    const LAYOUTS = [['PHOTO_LOGO', 'Photo + logo', 'Your photo, your details and the company logo'], ['PHOTO', 'With photo', 'Your photo beside your details'],
-      ['CLASSIC', 'Classic', 'Your details as text, no pictures'], ['LOGO_BANNER', 'Logo banner', 'Your details over the company logo'],
+    // useWorkspaceVocabulary().ownFirm: the workspace's own firm is a Company in-house and an Agency at an agency.
+    const firm = st.sgMode === 'AGENCY' ? 'Agency' : 'Company', firmWord = firm.toLowerCase();
+    const hasLogo = st.sgHasLogo, hasBooking = st.sgHasBooking;
+    const LAYOUTS = [['PHOTO_LOGO', 'Photo + logo', 'Your photo, your details and the ' + firmWord + ' logo'], ['PHOTO', 'With photo', 'Your photo beside your details'],
+      ['CLASSIC', 'Classic', 'Your details as text, no pictures'], ['LOGO_BANNER', 'Logo banner', 'Your details over the ' + firmWord + ' logo'],
       ['MINIMAL', 'Minimal', 'One line, good for replies'], ['CUSTOM', 'Custom', 'Write it yourself, with bold, links and lists']];
     const labelOf = (k) => (LAYOUTS.find((l) => l[0] === k) || [k, k])[1];
     const profile = { fName: st.pName, fTitle: st.pTitle, fPhone: st.pPhone, fLinkedin: st.pLinkedin, fCompany: st.wsName, fWebsite: 'alfuttaim.com', fAddress: '' };
@@ -2890,22 +2935,30 @@ class Component extends DCLogic {
       knob: 'position:absolute;top:2px;left:' + (on ? 16 : 2) + 'px;width:14px;height:14px;border-radius:50%;transition:left .15s;background:' + (on ? '#fff' : 'var(--text3)') });
     const usesPhoto = d.layout === 'PHOTO' || d.layout === 'PHOTO_LOGO';
     const usesLogo = ['PHOTO_LOGO', 'LOGO_BANNER', 'CUSTOM'].includes(d.layout);
+    const isTheDefault = !!st.sgEditId && !!(st.sigs.find((s) => s.id === st.sgEditId) || {}).isDefault;
+    // A switch that cannot be used says why, and is drawn off: what is saved is what the person saw.
     const switches = [
-      usesPhoto && ['showPhoto', 'Show my photo', 'Your profile photo. Change it in Profile.'],
-      usesLogo && ['showLogo', 'Show the company logo', st.wsName + "'s logo, from your workspace"],
-      ['showBooking', 'Add "Book a call with me"', 'Your booking link, so an executive can pick a time'],
-      ['isDefault', 'Use as my default', 'Ticked on every new email and reply. You can switch it per email.'],
-    ].filter(Boolean).map(([key, label, hint]) => { const s = sw(!!d[key]); return { key, label, hint, checked: String(!!d[key]), style: s.style, knob: s.knob }; });
-    const field = (key, label, placeholder, source) => {
+      usesPhoto && ['showPhoto', 'Show my photo', 'Your profile photo. Change it in Profile.', false],
+      usesLogo && (hasLogo ? ['showLogo', 'Show the ' + firmWord + ' logo', st.wsName + "'s logo, from your workspace", false]
+        : ['showLogo', 'Show the ' + firmWord + ' logo', 'Your workspace has no logo yet. An admin picks the ' + firmWord + ' in Settings → General.', true]),
+      hasBooking ? ['showBooking', 'Add "Book a call with me"', 'Your booking link, so an executive can pick a time', false]
+        : ['showBooking', 'Add "Book a call with me"', 'Connect your mailbox on the Outreach page to get a booking link.', true],
+      isTheDefault ? ['isDefault', 'Use as my default', 'This is your default. Make another one the default to change it.', true]
+        : ['isDefault', 'Use as my default', 'Ticked on every new email and reply. You can switch it per email.', false],
+    ].filter(Boolean).map(([key, label, hint, disabled]) => {
+      const on = key === 'isDefault' && disabled ? true : !disabled && !!d[key], s = sw(on);
+      return { key, label, hint, disabled: String(disabled), checked: String(on), style: s.style + (disabled ? ';opacity:.45;cursor:not-allowed' : ''), knob: s.knob };
+    });
+    const field = (key, label, placeholder, source, resetLabel) => {
       const overridden = d[key] !== '' && d[key] !== profile[key];
-      return { key, label, placeholder, value: valueOf(d, key), overridden, source: source && !overridden ? source : 'Only on this signature' };
+      return { key, label, placeholder, value: valueOf(d, key), overridden, resettable: overridden && !!resetLabel, resetLabel,
+        source: source && !overridden ? source : 'Only on this signature' };
     };
     const ghost = (danger) => 'border-radius:6px;padding:5px 10px;font:500 12px var(--sans);cursor:pointer;background:var(--panel);border:1px solid var(--line);color:' + (danger ? 'var(--red)' : 'var(--text2)');
     const primaryInline = 'display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer';
     const seg = (on) => 'border:none;padding:5px 12px;font:500 12px var(--sans);cursor:pointer;background:' + (on ? 'var(--amber-dim)' : 'var(--panel)') + ';color:' + (on ? 'var(--text)' : 'var(--text3)');
     const muted = 'color:' + (dark ? '#a8b0b8' : '#57606a');
     const link = 'color:' + (dark ? '#8ab4f8' : '#1a56db') + ';text-decoration:underline';
-    const sigs2 = (list) => list.map((x) => Object.assign({}, x, { isDefault: false }));
     const updated = '01 Nov 2026';
     return {
       sgIsList: view === 'list' && sigs.length > 0, sgIsEmpty: view === 'list' && sigs.length === 0,
@@ -2913,23 +2966,24 @@ class Component extends DCLogic {
       sgTitle: view === 'gallery' ? 'New signature' : view === 'editor' ? (st.sgEditId ? 'Edit signature' : 'New signature') : 'Email signature',
       sgSubtitle: view === 'gallery' ? 'Pick a layout. Uncava fills it in from your profile and your workspace, and you can change anything after.'
         : view === 'editor' ? "A field left as your profile's follows it when your profile changes." : 'What closes every email you send from Uncava',
-      sgPrimary: primaryInline, sgPrimaryInline: primaryInline, sgGhost: ghost(false), sgGhostDanger: ghost(true),
+      sgPrimary: primaryInline, sgGhost: ghost(false), sgGhostDanger: ghost(true),
       sgGhostLg: 'border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);cursor:pointer;background:var(--panel);border:1px solid var(--line);color:var(--text2)',
       sgLabel: 'display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)',
       sgInput: inputStyle(false),
       sgRows: sigs.map((s) => ({ id: s.id, name: s.name, isDefault: s.isDefault, canMakeDefault: !s.isDefault, updated: s.updated, layoutLabel: labelOf(s.layout),
-        isMinimal: s.layout === 'MINIMAL' || s.layout === 'CUSTOM', isFull: s.layout !== 'MINIMAL' && s.layout !== 'CUSTOM',
-        showPhoto: (s.layout === 'PHOTO' || s.layout === 'PHOTO_LOGO') && s.showPhoto, showLogo: (s.layout === 'PHOTO_LOGO' || s.layout === 'LOGO_BANNER') && s.showLogo,
+        isMinimal: s.layout === 'MINIMAL', isCustom: s.layout === 'CUSTOM', isFull: s.layout !== 'MINIMAL' && s.layout !== 'CUSTOM',
+        custom: (s.custom || this.signatureDraft().custom).replace(/\*\*/g, ''),
+        showPhoto: (s.layout === 'PHOTO' || s.layout === 'PHOTO_LOGO') && s.showPhoto, showLogo: ['PHOTO_LOGO', 'LOGO_BANNER', 'CUSTOM'].includes(s.layout) && s.showLogo && hasLogo,
         v: { name: valueOf(s, 'fName'), title: valueOf(s, 'fTitle'), company: valueOf(s, 'fCompany'), phone: valueOf(s, 'fPhone'), email: 'yara@alfuttaim.com' } })),
-      sgLayouts: LAYOUTS.map(([key, label, hint]) => ({ key, label, hint, isClassic: key === 'CLASSIC', isPhoto: key === 'PHOTO', isPhotoLogo: key === 'PHOTO_LOGO',
+      sgLayouts: LAYOUTS.map(([key, label, hint]) => ({ key, label, hint, showLogo: hasLogo, isClassic: key === 'CLASSIC', isPhoto: key === 'PHOTO', isPhotoLogo: key === 'PHOTO_LOGO',
         isBanner: key === 'LOGO_BANNER', isMinimal: key === 'MINIMAL', isCustom: key === 'CUSTOM' })),
       sgLayoutChips: LAYOUTS.map(([key, label]) => ({ key, label, checked: String(d.layout === key),
         style: 'border-radius:999px;padding:5px 12px;font:500 12px var(--sans);cursor:pointer;border:1px solid ' + (d.layout === key ? 'var(--amber)' : 'var(--line)') + ';background:' + (d.layout === key ? 'var(--amber-dim)' : 'var(--panel)') + ';color:' + (d.layout === key ? 'var(--text)' : 'var(--text2)') })),
       sgD: d, sgIsCustom: d.layout === 'CUSTOM', sgIsFields: d.layout !== 'CUSTOM',
       sgPersonFields: [field('fName', 'Name', '', 'From your profile'), field('fTitle', 'Title', 'Your job title', 'From your profile'),
         field('fPhone', 'Phone', '+971 50 000 0000', 'From your profile'), field('fLinkedin', 'LinkedIn', 'linkedin.com/in/…', 'From your profile')],
-      sgCompanyHeading: 'Company',
-      sgCompanyFields: [field('fCompany', 'Company', '', 'From your workspace'), field('fWebsite', 'Website', 'yourcompany.com', 'From your workspace'),
+      sgCompanyHeading: firm,
+      sgCompanyFields: [field('fCompany', firm, '', 'From your workspace', "Use workspace's"), field('fWebsite', 'Website', 'your' + firmWord + '.com', 'From your workspace', "Use workspace's"),
         field('fAddress', 'Address', 'Office address (optional)', null)],
       sgSwitches: switches,
       sgLightChecked: String(!dark), sgDarkChecked: String(dark), sgLightStyle: seg(!dark), sgDarkStyle: seg(dark),
@@ -2938,8 +2992,8 @@ class Component extends DCLogic {
       sgSideLogo: 'height:44px;width:auto;flex:none;margin-left:auto;padding-left:14px;border-left:1px solid ' + (dark ? '#3c3c3c' : '#d0d7de'),
       sgBannerRule: 'margin-top:10px;padding-top:10px;border-top:2px solid ' + (dark ? '#e3e3e3' : '#1f2328'),
       sgPv: { isClassic: d.layout === 'CLASSIC', isPhotoFamily: usesPhoto, isBanner: d.layout === 'LOGO_BANNER', isMinimal: d.layout === 'MINIMAL', isCustom: d.layout === 'CUSTOM',
-        showPhoto: usesPhoto && d.showPhoto, showSideLogo: d.layout === 'PHOTO_LOGO' && d.showLogo, showLogo: d.showLogo, customLogo: d.layout === 'CUSTOM' && d.showLogo,
-        showBooking: d.showBooking, disclaimer: d.disclaimer, address: d.fAddress, custom: d.custom.replace(/\*\*/g, ''),
+        showPhoto: usesPhoto && d.showPhoto, showSideLogo: d.layout === 'PHOTO_LOGO' && d.showLogo && hasLogo, showLogo: d.showLogo && hasLogo, customLogo: d.layout === 'CUSTOM' && d.showLogo && hasLogo,
+        showBooking: d.showBooking && hasBooking, disclaimer: d.disclaimer, address: d.fAddress, custom: d.custom.replace(/\*\*/g, ''),
         name: valueOf(d, 'fName'), title: valueOf(d, 'fTitle'), company: valueOf(d, 'fCompany'), phone: valueOf(d, 'fPhone'), website: valueOf(d, 'fWebsite'), email: 'yara@alfuttaim.com' },
 
       sgNew: () => set({ sgView: 'gallery', sgEditId: null }),
@@ -2949,16 +3003,17 @@ class Component extends DCLogic {
       sgLayout: (e) => set({ sgD: Object.assign({}, d, { layout: e.currentTarget.dataset.layout }) }),
       sgField: (e) => { const k = e.currentTarget.dataset.field, v = e.target.value; set({ sgD: Object.assign({}, d, { [k]: k in profile && v === profile[k] ? '' : v }) }); },
       sgReset: (e) => { e.preventDefault(); set({ sgD: Object.assign({}, d, { [e.currentTarget.dataset.field]: '' }) }); },
-      sgToggle: (e) => { const k = e.currentTarget.dataset.field; set({ sgD: Object.assign({}, d, { [k]: !d[k] }) }); },
+      sgToggle: (e) => { if (e.currentTarget.getAttribute('aria-disabled') === 'true') return; const k = e.currentTarget.dataset.field; set({ sgD: Object.assign({}, d, { [k]: !d[k] }) }); },
       sgPreviewLight: () => set({ sgDark: false }), sgPreviewDark: () => set({ sgDark: true }),
       sgSave: () => {
-        const saved = Object.assign({}, d, { name: d.name.trim() || labelOf(d.layout), updated, id: st.sgEditId || 's' + Date.now() });
+        const saved = Object.assign({}, d, { name: d.name.trim() || labelOf(d.layout), updated, id: st.sgEditId || 's' + Date.now(),
+          showBooking: d.showBooking && hasBooking, isDefault: d.isDefault || isTheDefault });
         let list = st.sgEditId ? st.sigs.map((s) => (s.id === saved.id ? saved : s)) : st.sigs.concat([saved]);
         if (saved.isDefault) list = list.map((s) => Object.assign({}, s, { isDefault: s.id === saved.id }));
         set({ sigs: list, sgView: 'list', sgEditId: null }); this.showToast('Signature saved');
       },
       sgMakeDefault: (e) => { const id = e.currentTarget.dataset.id; set({ sigs: st.sigs.map((s) => Object.assign({}, s, { isDefault: s.id === id })) }); this.showToast('Default signature changed'); },
-      sgDuplicate: (e) => { const sig = st.sigs.find((s) => s.id === e.currentTarget.dataset.id); set({ sigs: st.sigs.concat(sigs2([Object.assign({}, sig, { id: 's' + Date.now(), name: sig.name + ' (copy)', updated })])) }); this.showToast('Signature duplicated'); },
+      sgDuplicate: (e) => { const sig = st.sigs.find((s) => s.id === e.currentTarget.dataset.id); set({ sigs: st.sigs.concat([Object.assign({}, sig, { id: 's' + Date.now(), name: sig.name + ' (copy)', updated, isDefault: false })]) }); this.showToast('Signature duplicated'); },
       sgDelete: (e) => {
         const id = e.currentTarget.dataset.id, gone = st.sigs.find((s) => s.id === id);
         let list = st.sigs.filter((s) => s.id !== id);
@@ -3388,9 +3443,11 @@ class Component extends DCLogic {
       themeLabel: st.dark ? 'Light mode' : 'Dark mode', themeIcon: st.dark ? I.sun : I.moon,
       collapseIcon: c ? I.expand : I.collapse, collapseTitle: c ? 'Expand sidebar' : 'Collapse sidebar',
 
-      pPhone: st.pPhone, pLinkedin: st.pLinkedin, pHasPhoto: st.pHasPhoto,
+      pPhone: st.pPhone, pLinkedin: st.pLinkedin,
       pName: st.pName, pTitle: st.pTitle, pTz: st.pTz, pLocale: st.pLocale, pNameError: st.pNameError, pNameInputStyle: inputStyle(!!st.pNameError),
       membershipMeta: roleWord + ' · joined Mar 2026', roleReadOnly: roleWord + ' — set by workspace owner',
+      hasPhoto: st.photo === 'set' || st.photo === 'managed' || (st.photo === 'crop' && st.photoBefore === 'set'), noPhoto: st.photo === 'none' || (st.photo === 'crop' && st.photoBefore !== 'set'),
+      photoEditable: st.photo !== 'managed', photoManaged: st.photo === 'managed', photoCropOpen: st.photo === 'crop',
 
       pwCurrent: st.pwCurrent, pwNew: st.pwNew, pwConfirm: st.pwConfirm,
       pwErrCurrent: pwErr.current || '', pwErrNew: pwErr.new || '', pwErrConfirm: pwErr.confirm || '',
@@ -3524,11 +3581,13 @@ class Component extends DCLogic {
       toggleTheme: () => { const d = !st.dark; document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light'); try { localStorage.setItem('lm-theme', d ? 'dark' : 'light'); } catch (e) {} this.setState({ dark: d }); },
       toggleCollapse: () => { const v = !st.collapsed; try { localStorage.setItem('lm-side-collapsed', v ? '1' : '0'); } catch (e) {} this.setState({ collapsed: v }); },
 
+      openPhoto: () => this.setState({ photo: 'crop', photoBefore: st.photo }),
+      closePhoto: () => this.setState({ photo: st.photoBefore === 'set' ? 'set' : 'none' }),
+      savePhoto: () => { this.setState({ photo: 'set' }); this.showToast('Profile photo saved'); },
+      removePhoto: () => { this.setState({ photo: 'none' }); this.showToast('Profile photo removed'); },
       onProfileName: (e) => this.setState({ pName: e.target.value, pNameError: '' }),
       onProfilePhone: (e) => this.setState({ pPhone: e.target.value }),
       onProfileLinkedin: (e) => this.setState({ pLinkedin: e.target.value }),
-      changePhoto: () => { this.setState({ pHasPhoto: true }); this.showToast('Photo updated'); },
-      removePhoto: () => { this.setState({ pHasPhoto: false }); this.showToast('Photo removed'); },
       onProfileTitle: (e) => this.setState({ pTitle: e.target.value }),
       onProfileTz: (e) => this.setState({ pTz: e.target.value }),
       onProfileLocale: (e) => this.setState({ pLocale: e.target.value }),

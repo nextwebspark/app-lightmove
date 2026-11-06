@@ -120,13 +120,13 @@
     <main style="flex:1;min-width:0;overflow-y:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel)">
       <sc-if value="{{ isStage }}" hint-placeholder-val="{{ true }}">
         <div data-screen-label="{{ stageScreenLabel }}" style="display:flex;flex-direction:column;height:100%;min-height:0;width:100%">
-          <!-- The toolbar row Strategy.dc.html and Outreach.dc.html share: the page's views first — one 272px switch on
-               every page, its options sharing it equally, so the search after the rule starts at the same place on all
+          <!-- The toolbar row Strategy.dc.html and Outreach.dc.html share: the page's views first — one 240px switch on
+               every page, each option its label's width and an even share of the rest, so the search after the rule starts at the same place on all
                three — then search, the outreach pair, Find executives filled, then Advanced ▾ and Create ▾ quiet. Every
                action keeps its place in every view, greyed where the view cannot take it. -->
           <div style="flex:none;display:flex;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel);padding:10px 16px">
             <sc-if value="{{ hasViewSwitch }}" hint-placeholder-val="{{ true }}">
-              <div role="radiogroup" aria-label="View" style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;flex:none;width:272px;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
+              <div role="radiogroup" aria-label="View" style="display:flex;flex:none;width:240px;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
                 <sc-for list="{{ viewSwitch }}" as="v" hint-placeholder-count="3">
                   <button role="radio" aria-checked="{{ v.checked }}" onClick="{{ setView }}" data-id="{{ v.key }}" style="{{ v.style }}" style-hover="color:var(--text)">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ v.icon }}"></path></svg>
@@ -136,7 +136,7 @@
               </div>
               <span aria-hidden="true" style="flex:none;width:1px;height:20px;background:var(--line-soft)"></span>
             </sc-if>
-            <div style="display:flex;align-items:center;gap:8px;flex:1 1 280px;min-width:220px;max-width:360px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 10px 8px 12px">
+            <div style="display:flex;align-items:center;gap:8px;flex:1 1 240px;min-width:180px;max-width:280px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 10px 8px 12px">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none;color:var(--text3)"><path d="{{ ic.search }}"></path></svg>
               <input value="{{ searchQuery }}" onChange="{{ setSearchQuery }}" placeholder="{{ searchPlaceholder }}" aria-label="{{ searchPlaceholder }}" style="width:100%;min-width:0;background:transparent;border:none;outline:none;font:400 13px var(--sans);color:var(--text)">
               <sc-if value="{{ hasSearch }}" hint-placeholder-val="{{ false }}">
@@ -3167,7 +3167,7 @@ const PILL = "display:inline-flex;align-items:center;border-radius:4px;padding:2
 const DPILL = "display:inline-flex;align-items:center;border-radius:5px;padding:2px 7px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;";
 const tile = (value) => { const empty = value === null || value === undefined || value === ""; return { value: empty ? "—" : value, style: `min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:7px 10px;font:400 13px var(--mono);color:${empty ? "var(--text3)" : "var(--text)"}` }; };
 /** One option of a page's view switch: the options share the switch's fixed width equally. */
-const viewSeg = (sel) => `display:inline-flex;min-width:0;justify-content:center;cursor:pointer;align-items:center;gap:6px;white-space:nowrap;border-radius:4px;padding:6px 10px;font:500 12.5px var(--sans);border:none;${sel ? "background:var(--u-accent-tint);color:var(--text)" : "background:none;color:var(--text3)"}`;
+const viewSeg = (sel) => `display:inline-flex;flex:1 1 auto;min-width:0;justify-content:center;cursor:pointer;align-items:center;gap:6px;white-space:nowrap;border-radius:4px;padding:6px 10px;font:500 12.5px var(--sans);border:none;${sel ? "background:var(--u-accent-tint);color:var(--text)" : "background:none;color:var(--text3)"}`;
 const segD = (sel) => `display:inline-flex;cursor:pointer;align-items:center;gap:6px;white-space:nowrap;border-radius:4px;padding:6px 10px;font:500 12.5px var(--sans);border:none;${sel ? "background:var(--amber-dim);color:var(--text)" : "background:none;color:var(--text3)"}`;
 const segU = (sel) => `display:inline-flex;cursor:pointer;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:6px 12px;font:600 11.5px var(--sans);border:none;${sel ? "background:var(--u-accent-solid);color:#fff" : "background:none;color:var(--u-text2)"}`;
 const sw = (shape, color) => {
@@ -3542,7 +3542,7 @@ class Component extends DCLogic {
       hasViewSwitch: offered.length > 1,
       viewSwitch: offered.map((v) => ({ key: v, label: VIEW_LABELS[v][0], icon: VIEW_LABELS[v][1], checked: String(v === view), style: viewSeg(v === view) })),
       searchQuery: s.searchQuery, hasSearch: !!s.searchQuery,
-      searchPlaceholder: !cw ? "Search companies and executives…" : "Search companies, executives, notes, tags…",
+      searchPlaceholder: !cw ? "Search companies and executives…" : "Search companies, executives, notes…",
       notBoard: view !== "pipeline", canCreate: cw && view !== "pipeline",
       canFind: cw && stageKey === "u" && view !== "pipeline",
       seqDisabled: seqOff, seqBtnStyle: OUTLINE(seqOff), seqBtnHover: seqOff ? "" : "background:var(--panel2)",

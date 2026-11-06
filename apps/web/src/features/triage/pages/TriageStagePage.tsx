@@ -848,7 +848,7 @@ function TriageStage() {
       <TriageToolbar
         search={search}
         onSearch={setSearch}
-        searchPlaceholder={!canWrite ? "Search companies and executives…" : "Search companies, executives, notes, tags…"}
+        searchPlaceholder={!canWrite ? "Search companies and executives…" : "Search companies, executives, notes…"}
         views={views}
         view={view}
         onViewChange={handleViewChange}
