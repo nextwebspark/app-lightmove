@@ -209,7 +209,7 @@ public class MailboxService {
         }
         try {
             // The default signature rides along, so the consultant sees it in their own inbox as an executive will.
-            String signature = signatures.renderDefaultFor(userId, workspaceId).map(RenderedSignature::html).orElse("");
+            String signature = signatures.renderDefaultForSending(userId, workspaceId).map(RenderedSignature::html).orElse("");
             gateway.send(connection.getGrantId(),
                     new OutgoingEmail(connection.getAddress(), TEST_SUBJECT, TEST_BODY + signature));
         } catch (VendorException failed) {

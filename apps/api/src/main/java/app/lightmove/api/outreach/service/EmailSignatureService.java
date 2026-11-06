@@ -119,15 +119,18 @@ public class EmailSignatureService {
      */
     public Optional<RenderedSignature> renderForSending(UUID userId, UUID workspaceId, UUID signatureId) {
         return signatures.findByIdAndWorkspaceIdAndUserId(signatureId, workspaceId, userId)
-                .map(signature -> EmailSignatureRenderer.render(signature.content(),
-                        senders.forSending(userId, workspaceId, SignatureNeeds.of(signature.content()))));
+                .map(signature -> renderedForSending(userId, workspaceId, signature));
     }
 
-    /** The caller's default signature as an email would carry it now; empty where they keep none. */
-    public Optional<RenderedSignature> renderDefaultFor(UUID userId, UUID workspaceId) {
+    /** The caller's default signature for an email about to go; empty where they keep none. */
+    public Optional<RenderedSignature> renderDefaultForSending(UUID userId, UUID workspaceId) {
         return signatures.findByWorkspaceIdAndUserIdAndIsDefaultTrue(workspaceId, userId)
-                .map(signature -> EmailSignatureRenderer.render(signature.content(),
-                        senderFor(userId, workspaceId, signature.content())));
+                .map(signature -> renderedForSending(userId, workspaceId, signature));
+    }
+
+    private RenderedSignature renderedForSending(UUID userId, UUID workspaceId, EmailSignature signature) {
+        return EmailSignatureRenderer.render(signature.content(),
+                senders.forSending(userId, workspaceId, SignatureNeeds.of(signature.content())));
     }
 
     private EmailSignature owned(UUID userId, UUID workspaceId, UUID signatureId) {

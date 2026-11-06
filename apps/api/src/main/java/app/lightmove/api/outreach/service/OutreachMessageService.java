@@ -78,9 +78,10 @@ public class OutreachMessageService {
             bookingPages.prepare(userId, workspaceId);
         }
         // Drawn now, outside any transaction (a logo's first copy is a call to another host), and kept with the email:
-        // what is scheduled goes as it was previewed, whatever becomes of the signature later.
+        // what is scheduled goes as it was previewed, whatever becomes of the signature later. A signature showing Book a
+        // call has its page made first, as a body using the link does.
         String signatureHtml = request.signatureId() == null ? "" : signatures
-                .renderFor(userId, workspaceId, request.signatureId())
+                .renderForSending(userId, workspaceId, request.signatureId())
                 .orElseThrow(() -> ApiException.of(ErrorCode.EMAIL_SIGNATURE_NOT_FOUND))
                 .html();
         List<StagedAttachment> staged = attachments.stage(workspaceId, projectId, candidateId, files,
