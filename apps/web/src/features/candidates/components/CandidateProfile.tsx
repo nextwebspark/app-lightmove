@@ -796,7 +796,7 @@ export function CandidateProfile({
                         bookCall && (
                           <Button variant="secondary" size="xs" onClick={bookCall}>
                             <Icon d={ICONS.calendar} size={13} />
-                            Book a call
+                            Book a meeting
                           </Button>
                         )
                       }
@@ -1017,7 +1017,7 @@ function MoreActionsMenu({
             Set next action
           </MenuItem>
           <MenuItem icon={ICONS.phoneCall} onSelect={closingThen(close, onBookCall)}>
-            Book a call
+            Book a meeting
           </MenuItem>
           {onRemove && (
             <>

@@ -29,7 +29,7 @@ import {
 import { meetingWhenOf } from "../lib/meetingTimes";
 import { ConversationEventBody } from "./ConversationEventCard";
 import type { PastCalls } from "./MeetingsSection";
-import { EntryByline, EntryLeadMark, OutreachEntryCard, RecordedBadge } from "./OutreachEntryCard";
+import { EntryActor, EntryLeadMark, OutreachEntryCard, RecordedBadge } from "./OutreachEntryCard";
 import { kindOfLine, linesOf, matches, type TimelineKind, type TimelineLine as Line } from "../lib/drawerTimeline";
 
 const KINDS: readonly { kind: TimelineKind; label: string; icon: string | null }[] = [
@@ -301,20 +301,17 @@ function MessageCard({
 }) {
   const face = eventFaceOf(event, firstName, projectId);
   const actor = actorOfEvent(event);
+  const address = addressLineOf(event.message);
   return (
     <OutreachEntryCard
       label={face.title}
       tile={tileOfEvent(event)}
       title={face.title}
       at={event.at}
-      byline={
-        <EntryByline
-          actor={actor}
-          executive={executive}
-          name={actor.kind === "automation" ? "Uncava" : undefined}
-          after={addressLineOf(event.message)}
-        />
+      actor={
+        <EntryActor actor={actor} executive={executive} name={actor.kind === "automation" ? "Uncava" : undefined} />
       }
+      byline={address && <span className="min-w-0 truncate text-u-text3">{address}</span>}
       footer={face.context}
     >
       <ConversationEventBody event={event} title={face.title} projectId={projectId} viewerUserId={viewerUserId} />
@@ -360,13 +357,8 @@ function CallCard({
       title={title}
       badge={recordedNote && <RecordedBadge />}
       menu={menu}
-      byline={
-        owner.kind === "user" ? (
-          <EntryByline actor={owner} executive={executive} before={`${when} ·`} />
-        ) : (
-          <span className="font-mono text-meta text-u-text3">{when}</span>
-        )
-      }
+      actor={owner.kind === "user" && <EntryActor actor={owner} executive={executive} />}
+      byline={<span className="font-mono text-meta text-u-text3">{when}</span>}
     >
       {recordedNote && (
         <div className="mt-2.5 border-t border-u-border pt-2.5">
@@ -439,7 +431,7 @@ const NOTE_HEADINGS: Record<PersonNote["kind"], string> = {
   call: "Call",
   meeting: "Meeting",
   email: "Email",
-  linkedin: "LinkedIn message",
+  linkedin: "LinkedIn",
 };
 
 const MONTH = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" });
