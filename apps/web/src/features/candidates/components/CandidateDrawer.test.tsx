@@ -1216,7 +1216,7 @@ describe("CandidateDrawer", () => {
     expect(screen.queryByRole("button", { name: /Remove from mandate/i })).not.toBeInTheDocument();
     // Notes, history and other positions are staff-only: a client seat's drawer never asks.
     expect(screen.queryByText("Notes")).not.toBeInTheDocument();
-    expect(screen.queryByText("Timeline")).not.toBeInTheDocument();
+    expect(screen.queryByText("History")).not.toBeInTheDocument();
     expect(personCrmApi.getPersonNotes).not.toHaveBeenCalled();
     expect(personCrmApi.getPositionHistory).not.toHaveBeenCalled();
   });
@@ -1347,7 +1347,7 @@ describe("CandidateDrawer", () => {
     expect(within(panel).getByRole("button", { name: "Log call" })).toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: "Log LinkedIn" })).toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: "Log meeting" })).toBeInTheDocument();
-    expect(within(panel).getByRole("region", { name: "Timeline" })).toBeInTheDocument();
+    expect(within(panel).getByRole("region", { name: "History" })).toBeInTheDocument();
     const contact = within(panel).getByRole("region", { name: "Contact" });
     expect(within(contact).getByText("yasmin@example.com")).toBeInTheDocument();
 
