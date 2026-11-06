@@ -78,7 +78,7 @@ public class CandidateMaterialService {
         List<NoteOnFile> written = notes
                 .findReadableNewestFirst(person.getWorkspaceId(), person.getId(), NoteViewpoint.position(projectId))
                 .stream()
-                .map(note -> new NoteOnFile(note.getKind(), note.getCreatedAt(), note.getProjectTitle(),
+                .map(note -> new NoteOnFile(note.getKind(), note.happenedAt(), note.getProjectTitle(),
                         NoteText.forPrompt(note.getBody())))
                 .toList();
         Map<UUID, PersonDocumentVersion> latest = new LinkedHashMap<>();

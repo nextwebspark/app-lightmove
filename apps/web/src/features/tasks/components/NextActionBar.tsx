@@ -5,6 +5,7 @@ import { Avatar } from "../../../components/ui/Avatar";
 import { Popover } from "../../../components/ui/Popover";
 import { Spinner, useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
+import { describeDue } from "../../../lib/format";
 import { messageFor } from "../../../lib/errorCodes";
 import { useEscapeKey } from "../../../lib/useEscapeKey";
 import * as tasksApi from "../api/tasksApi";
@@ -21,9 +22,8 @@ const SET_NEXT_PROMPT_MS = 6000;
 const POPOVER_WIDTH = 380;
 
 /**
- * One executive's next action on one position, as a single fixed-height bar: the earliest open task —
- * ticked done in place — and every other one in a popover, so the header holding it never grows and
- * the tabs under it never move. Staff-only.
+ * One executive's next action on one position, as a single fixed-height bar in the drawer's footer: the
+ * earliest open task — ticked done in place — and every other one in a popover opening upward. Staff-only.
  */
 export function NextActionBar({
   projectId,
@@ -64,7 +64,7 @@ export function NextActionBar({
 
   if (tasks.isError) {
     return (
-      <div className={cn(frame, "border-u-border bg-u-sunken text-note text-u-text3", className)}>
+      <div className={cn(frame, "border-u-border bg-u-surface text-note text-u-text3", className)}>
         {messageFor(tasks.error)}
       </div>
     );
@@ -72,7 +72,7 @@ export function NextActionBar({
 
   if (tasks.isPending) {
     return (
-      <div aria-busy="true" className={cn(frame, "border-u-border bg-u-sunken", className)}>
+      <div aria-busy="true" className={cn(frame, "border-u-border bg-u-surface", className)}>
         <span className="h-2.5 w-40 animate-pulse rounded-full bg-u-raised" />
       </div>
     );
@@ -121,11 +121,12 @@ export function NextActionBar({
     <div
       role="group"
       aria-label="Next action"
-      className={cn(frame, "border-u-border bg-u-sunken transition-colors hover:border-u-border-strong", className)}
+      className={cn(frame, "border-u-border bg-u-surface transition-colors hover:border-u-border-strong hover:bg-u-raised has-[[aria-expanded=true]]:border-u-border-strong has-[[aria-expanded=true]]:bg-u-raised", className)}
     >
       <TaskCheckbox title={first.title} completing={completingFirst} onComplete={() => completion.complete(first)} />
       <Popover
         width={POPOVER_WIDTH}
+        placement="auto"
         hasPopup="dialog"
         label={`Next action: ${first.title}. ${open.length} open — show all`}
         triggerClassName="flex h-full min-w-0 flex-1 items-center gap-2 rounded-u-control pe-1.5 text-start outline-offset-2"
@@ -163,28 +164,139 @@ export function NextActionBar({
           </span>
         )}
       >
-        {(close) => (
-          <NextActionsPanel
-            tasks={tasks.data}
-            projectId={projectId}
-            candidateId={candidateId}
-            completion={completion}
-            onClose={close}
-            onOpen={(taskId) => {
-              close();
-              onOpen(taskId);
-            }}
-            onShowNote={
-              onShowNote &&
-              ((noteId) => {
-                close();
-                onShowNote(noteId);
-              })
-            }
-          />
-        )}
+        {panelFor({ tasks: tasks.data, projectId, candidateId, completion, onOpen, onShowNote })}
       </Popover>
     </div>
+  );
+}
+
+/**
+ * The bar folded to one square, for a footer whose tab has buttons of its own: the earliest task's kind,
+ * a dot when it is overdue or due today, and the same popover behind it.
+ */
+export function NextActionSquare({
+  projectId,
+  candidateId,
+  firstName,
+  onCompleted,
+  onOpen,
+  onShowNote,
+  className,
+}: {
+  projectId: string;
+  candidateId: string;
+  firstName: string;
+  onCompleted: () => void;
+  onOpen: (taskId: string | null) => void;
+  onShowNote?: (noteId: string) => void;
+  className?: string;
+}) {
+  const tasks = useCandidateTasks(projectId, candidateId);
+  const completion = useTaskCompletion(projectId, onCompleted);
+  const square = "relative grid size-10 flex-none place-items-center rounded-u-card border";
+
+  if (tasks.isError) {
+    return (
+      <span
+        role="img"
+        aria-label={messageFor(tasks.error)}
+        title={messageFor(tasks.error)}
+        className={cn(square, "border-u-border bg-u-surface text-u-text3", className)}
+      >
+        <Icon d={ICONS.calendar} size={14} />
+      </span>
+    );
+  }
+
+  if (tasks.isPending) {
+    return <span aria-busy="true" className={cn(square, "animate-pulse border-u-border bg-u-raised", className)} />;
+  }
+
+  const open = tasks.data.open;
+  const first = open[0];
+  if (!first) {
+    return (
+      <button
+        type="button"
+        aria-label="Set next action"
+        title={`No next action for ${firstName}`}
+        onClick={() => onOpen(null)}
+        className={cn(square, "border-dashed border-u-border-strong text-u-text3 hover:border-u-accent hover:text-u-accent", className)}
+      >
+        <Icon d={ICONS.plus} size={14} />
+      </button>
+    );
+  }
+
+  const due = describeDue(first.dueAt);
+  const urgent = due?.tone === "overdue" || due?.tone === "today";
+  return (
+    <Popover
+      width={POPOVER_WIDTH}
+      placement="auto"
+      hasPopup="dialog"
+      label={`Next action: ${first.title}${due ? `, ${due.label}` : ""}. ${open.length} open — show all`}
+      title={due ? `${first.title} · ${due.label}` : first.title}
+      triggerClassName={cn(
+        square,
+        "border-u-border bg-u-surface text-u-text2 transition-colors hover:border-u-border-strong hover:bg-u-raised hover:text-u-text aria-expanded:border-u-border-strong aria-expanded:bg-u-raised",
+        className,
+      )}
+      trigger={() => (
+        <>
+          <Icon d={taskKindOf(first.kind).icon} size={15} />
+          {urgent && (
+            <span
+              aria-hidden
+              className={cn(
+                "absolute end-1.5 top-1.5 size-2 rounded-full ring-2 ring-u-surface",
+                due?.tone === "overdue" ? "bg-u-offlimits" : "bg-u-signal",
+              )}
+            />
+          )}
+        </>
+      )}
+    >
+      {panelFor({ tasks: tasks.data, projectId, candidateId, completion, onOpen, onShowNote })}
+    </Popover>
+  );
+}
+
+/** The popover body both the bar and the square open, closing itself before it hands anything on. */
+function panelFor({
+  tasks,
+  projectId,
+  candidateId,
+  completion,
+  onOpen,
+  onShowNote,
+}: {
+  tasks: TasksResponse;
+  projectId: string;
+  candidateId: string;
+  completion: TaskCompletion;
+  onOpen: (taskId: string | null) => void;
+  onShowNote?: (noteId: string) => void;
+}) {
+  return (close: () => void) => (
+    <NextActionsPanel
+      tasks={tasks}
+      projectId={projectId}
+      candidateId={candidateId}
+      completion={completion}
+      onClose={close}
+      onOpen={(taskId) => {
+        close();
+        onOpen(taskId);
+      }}
+      onShowNote={
+        onShowNote &&
+        ((noteId) => {
+          close();
+          onShowNote(noteId);
+        })
+      }
+    />
   );
 }
 

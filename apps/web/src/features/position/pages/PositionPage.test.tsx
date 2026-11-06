@@ -408,6 +408,60 @@ describe("PositionPage", () => {
     });
   });
 
+  describe("two sections saved together", () => {
+    it("sends one section's save only after the other's has landed, never both at once", async () => {
+      let landContext: (saved: Position) => void = () => {};
+      vi.mocked(positionApi.putContext).mockImplementationOnce(
+        () => new Promise<Position>((resolve) => (landContext = resolve)),
+      );
+      vi.mocked(positionApi.putReporting).mockResolvedValue(seeded);
+      renderPage();
+      const person = userEvent.setup();
+
+      // Two decisions on one screen, each its own section's immediate save: both rewrite the brief's one row.
+      await person.click(await screen.findByRole("radio", { name: "Succession plan" }));
+      await person.click(screen.getByRole("radio", { name: "3 months" }));
+
+      await waitFor(() => expect(positionApi.putContext).toHaveBeenCalledTimes(1));
+      expect(positionApi.putReporting).not.toHaveBeenCalled();
+
+      landContext(seeded);
+      await waitFor(() => expect(positionApi.putReporting).toHaveBeenCalledTimes(1));
+      expect(await within(rail()).findByText("Saved")).toBeInTheDocument();
+    });
+  });
+
+  describe("an edit held back because the server would refuse it", () => {
+    it("reads as unsaved, and Save draft says what holds it rather than Draft saved", async () => {
+      vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+      renderPage();
+      const person = userEvent.setup();
+
+      await person.clear(await screen.findByRole("combobox", { name: "Role title" }));
+      const city = screen.getByRole("textbox", { name: "City" });
+      await person.clear(city);
+      await person.type(city, "Riyadh");
+
+      expect(await within(rail()).findByRole("button", { name: "Not saved — Retry" })).toBeInTheDocument();
+      await person.click(within(rail()).getByRole("button", { name: "Save draft" }));
+
+      expect(await screen.findByText(/can't be saved without one/)).toBeInTheDocument();
+      expect(screen.queryByText("Draft saved")).not.toBeInTheDocument();
+      expect(positionApi.putDetails).not.toHaveBeenCalled();
+    });
+
+    it("does not publish while an edit is held back", async () => {
+      renderPage();
+      const person = userEvent.setup();
+
+      await person.clear(await screen.findByRole("combobox", { name: "Role title" }));
+      await person.click(within(rail()).getByRole("button", { name: "Publish profile" }));
+
+      expect(await screen.findByText(/can't be saved without one/)).toBeInTheDocument();
+      expect(positionApi.publish).not.toHaveBeenCalled();
+    });
+  });
+
   describe("a section the server refuses", () => {
     const unavailable = () =>
       new ApiRequestError({ code: "INTERNAL_ERROR", detail: "Service unavailable", status: 503, correlationId: "c1" });

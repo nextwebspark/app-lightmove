@@ -15,4 +15,9 @@ public record PositionResponse(
         AssessmentDto assessment,
         PublicationDto publication,
         PositionDocumentDto document
-) {}
+) {
+
+    public PositionResponse withContext(MandateContextDto replacement) {
+        return new PositionResponse(details, replacement, reporting, compensation, assessment, publication, document);
+    }
+}

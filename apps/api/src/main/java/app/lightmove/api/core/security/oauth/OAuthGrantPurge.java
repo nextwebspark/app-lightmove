@@ -2,6 +2,7 @@ package app.lightmove.api.core.security.oauth;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.tenant.EveryWorkspace;
+import app.lightmove.api.core.tenant.SharedRows;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
@@ -49,10 +50,14 @@ public class OAuthGrantPurge {
     }
 
     /**
-     * A workspace at a time: the grants are under row-level security. A grant waiting for its consent belongs to none
-     * and is cleared on the first workspace's pass.
+     * A workspace at a time: the grants are under row-level security. A grant waiting for its consent belongs to none,
+     * is reached only in a {@link SharedRows} scope, and is cleared on the first workspace's pass.
      */
     public void purgeAt(Instant now) {
+        SharedRows.run(() -> purgeInSharedScope(now));
+    }
+
+    private void purgeInSharedScope(Instant now) {
         MapSqlParameterSource expired = new MapSqlParameterSource("now", Timestamp.from(now))
                 .addValue("graceSeconds", UNCONSENTED_GRACE.toSeconds());
         MapSqlParameterSource retiredBefore = new MapSqlParameterSource("cutoff",

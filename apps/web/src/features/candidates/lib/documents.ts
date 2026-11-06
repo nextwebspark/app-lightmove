@@ -77,7 +77,3 @@ export function groupDocuments(
       .sort((a, b) => Number(b.primaryCv) - Number(a.primaryCv) || latest(b).localeCompare(latest(a))),
   })).filter((group) => group.documents.length > 0);
 }
-
-export function primaryCvOf(documents: readonly PersonDocument[]): PersonDocument | null {
-  return documents.find((document) => document.primaryCv && document.versions.length > 0) ?? null;
-}

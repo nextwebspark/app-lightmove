@@ -10,7 +10,7 @@ import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.candidate.service.PersonSuppressionService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.logging.service.MdcPropagation;
+import app.lightmove.api.core.concurrent.service.ThreadContextPropagation;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.service.BrightDataPersonProfiles;
 import app.lightmove.api.enrichment.candidate.service.ProfilePhotoDownloader;
@@ -103,7 +103,7 @@ public class PeopleSearchFiling {
 
     private Map<String, EnrichedProfile> researchOf(Map<String, BrightDataPerson> people) {
         try (ExecutorService downloads = Executors.newVirtualThreadPerTaskExecutor()) {
-            Executor withRequestContext = MdcPropagation.propagating(downloads);
+            Executor withRequestContext = ThreadContextPropagation.propagating(downloads);
             Map<String, CompletableFuture<EnrichedProfile>> pending = new LinkedHashMap<>();
             people.forEach((key, person) -> pending.put(key, CompletableFuture.supplyAsync(() ->
                     BrightDataPersonProfiles.toEnrichedProfile(person, EnrichmentVendor.CONTACTOUT)

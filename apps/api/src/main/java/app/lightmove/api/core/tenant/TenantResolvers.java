@@ -1,5 +1,7 @@
 package app.lightmove.api.core.tenant;
 
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,7 +15,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Which workspace holds a key a door arrives with — a webhook's grant, calendar or bot, a public page's slug, a
- * credential's hash — asked before any workspace is known (V172). Each answers ids and the workspace, never the row:
+ * credential's hash — asked before any workspace is known (V189). Each answers ids and the workspace, never the row:
  * the caller opens {@link WorkspaceScope} on what it is told and reads the row there, under the fence. Resolve, then
  * scope; never widen a scope to make an empty read work.
  */
@@ -98,6 +100,38 @@ public class TenantResolvers {
         jdbc.query("SELECT code, copies FROM app_lm_count_firm_templates_by_code()",
                 (RowCallbackHandler) row -> copies.put(row.getString("code"), row.getLong("copies")));
         return copies;
+    }
+
+    /** A run's or a consultant's own email due at {@code at}, or a claim still held: the dispatcher's work (V191). */
+    public List<UUID> workspacesWithSendsDue(Instant at) {
+        return workspaces("SELECT * FROM app_lm_workspaces_with_sends_due(?)", Timestamp.from(at));
+    }
+
+    /** An open task due within {@code (after, until]} not yet announced as both due soon and overdue. */
+    public List<UUID> workspacesWithTasksFallingDue(Instant after, Instant until) {
+        return workspaces("SELECT * FROM app_lm_workspaces_with_tasks_falling_due(?, ?)",
+                Timestamp.from(after), Timestamp.from(until));
+    }
+
+    public List<UUID> workspacesWithNotificationEmailsDue(Instant at) {
+        return workspaces("SELECT * FROM app_lm_workspaces_with_notification_emails_due(?)", Timestamp.from(at));
+    }
+
+    public List<UUID> workspacesWithCopilotListening() {
+        return workspaces("SELECT * FROM app_lm_workspaces_with_copilot_listening()");
+    }
+
+    public List<UUID> workspacesOwingSeatSync(Instant before, int limit) {
+        return workspaces("SELECT * FROM app_lm_workspaces_owing_seat_sync(?, ?)", Timestamp.from(before), limit);
+    }
+
+    /** An unsettled hold past its time, or a grant past its expiry still holding credits. */
+    public List<UUID> workspacesWithLapsedCredits(Instant at, int limit) {
+        return workspaces("SELECT * FROM app_lm_workspaces_with_lapsed_credits(?, ?)", Timestamp.from(at), limit);
+    }
+
+    private List<UUID> workspaces(String sql, Object... args) {
+        return jdbc.queryForList(sql, UUID.class, args);
     }
 
     private List<ResolvedRow> rows(String function, Object key) {

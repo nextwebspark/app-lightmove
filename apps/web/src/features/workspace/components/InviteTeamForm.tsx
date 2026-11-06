@@ -3,7 +3,9 @@ import { Button, FormError, Input, Select, useToast } from "../../../components/
 import { titleCase } from "../../../lib/format";
 import type { InviteRequest, WorkspaceRole } from "../../auth/api/types";
 import { INVITE_ROLES, inviteSchema } from "../../auth/schemas";
+import type { InviteOutcome } from "../api/workspaceApi";
 import { messageFor } from "../../../lib/errorCodes";
+import { undeliveredInvitationsMessage } from "../lib/invitationDelivery";
 
 interface InviteRow {
   id: number;
@@ -12,7 +14,7 @@ interface InviteRow {
 }
 
 /**
- * "Invite your team" — Signup.dc.html's final step, and the second stage of the New workspace modal.
+ * "Invite your team" — the second stage of the New workspace modal (the signup wizard no longer asks it).
  * Rows of address + role, validated before anything is sent, and skippable: blank rows are an empty
  * form, not an error, and "Skip for now" sends nothing at all.
  *
@@ -26,7 +28,7 @@ export function InviteTeamForm({
   before,
 }: {
   subtitle: string;
-  submit: (invites: InviteRequest[]) => Promise<{ sent: number }>;
+  submit: (invites: InviteRequest[]) => Promise<InviteOutcome>;
   /** After the invitations went out, or when there were none to send. */
   onDone: () => Promise<void> | void;
   onSkip: () => void;
@@ -136,11 +138,14 @@ export function InviteTeamForm({
     setSubmitting(true);
     setError(null);
     try {
-      const { sent } = await submit(filled);
+      const { sent, notDelivered } = await submit(filled);
       // The server skips anyone already on the team; said here, or the button's count is the last word.
       const skipped = filled.length - sent;
       if (skipped > 0) {
         toast(`${skipped === 1 ? "1 person was" : `${skipped} people were`} already a member, so not invited again`);
+      }
+      if (notDelivered.length > 0) {
+        toast.error(undeliveredInvitationsMessage(notDelivered));
       }
       await onDone();
     } catch (err) {

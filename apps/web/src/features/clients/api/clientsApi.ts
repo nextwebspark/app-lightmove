@@ -63,6 +63,14 @@ export function updateClientPersona(clientId: string, persona: HiringPersona): P
   return request<ClientDetail>(`/clients/${clientId}/persona`, { method: "PUT", body: persona });
 }
 
+export function resendRepresentativeInvitation(clientId: string, representativeId: string): Promise<void> {
+  return request<void>(`/clients/${clientId}/representatives/${representativeId}/resend`, { method: "POST" });
+}
+
+export function cancelRepresentativeInvitation(clientId: string, representativeId: string): Promise<void> {
+  return request<void>(`/clients/${clientId}/representatives/${representativeId}/invitation`, { method: "DELETE" });
+}
+
 export function inviteRepresentative(
   clientId: string,
   payload: InviteRepresentativePayload,

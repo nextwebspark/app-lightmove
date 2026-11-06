@@ -135,7 +135,9 @@ export function CompanyDrawer({
   // the apolloAccountId/source split above happened in the first place. Editing is that rule plus a
   // permission, which is what `canEdit` says.
   const isMandateSupplied = company !== null && company.apolloAccountId === null;
-  const canEdit = isMandateSupplied && canWrite;
+  // A declined company is ruled out whole: its panel reads, keeps its notes, and offers Back to universe alone.
+  const canWork = canWrite && company?.status !== "declined";
+  const canEdit = isMandateSupplied && canWork;
 
   if (company === null) {
     return (
@@ -176,20 +178,18 @@ export function CompanyDrawer({
           </>
         }
         cornerActions={
-          !editing && (canWrite || canEdit) && (
+          !editing && canWork && (
             <>
-              {canWrite && (
-                <button
-                  type="button"
-                  title="Add executive"
-                  aria-label={`Add an executive at ${company.companyName}`}
-                  onClick={() => onAddExecutive(company)}
-                  className={`${CORNER_BUTTON} text-u-accent hover:text-u-accent-hover`}
-                >
-                  <Icon d={ICONS.userPlus} size={16} />
-                </button>
-              )}
-              {canWrite && !company.noExecutiveFound && (
+              <button
+                type="button"
+                title="Add executive"
+                aria-label={`Add an executive at ${company.companyName}`}
+                onClick={() => onAddExecutive(company)}
+                className={`${CORNER_BUTTON} text-u-accent hover:text-u-accent-hover`}
+              >
+                <Icon d={ICONS.userPlus} size={16} />
+              </button>
+              {!company.noExecutiveFound && (
                 <button
                   type="button"
                   title="Mark as researched — nobody suitable found"
@@ -287,7 +287,7 @@ export function CompanyDrawer({
               columns={customColumns}
               values={customFields}
               onChange={setCustomFields}
-              canWrite={canWrite}
+              canWrite={canWork}
               dirty={JSON.stringify(customFields) !== JSON.stringify(company.customFields ?? {})}
               saving={saveCustomFields.isPending}
               onSave={() => saveCustomFields.mutate(customFields)}
@@ -309,15 +309,17 @@ export function CompanyDrawer({
                   {move.label}
                 </Button>
               ))}
-              <Button
-                type="button"
-                variant="secondary"
-                className="ms-auto text-u-offlimits"
-                title={removeTooltip(company.companyName)}
-                onClick={() => onDelete(company)}
-              >
-                Remove
-              </Button>
+              {canWork && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="ms-auto text-u-offlimits"
+                  title={removeTooltip(company.companyName)}
+                  onClick={() => onDelete(company)}
+                >
+                  Remove
+                </Button>
+              )}
             </div>
           )}
         </>

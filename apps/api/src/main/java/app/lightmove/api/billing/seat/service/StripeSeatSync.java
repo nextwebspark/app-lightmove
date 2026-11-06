@@ -14,7 +14,7 @@ import app.lightmove.api.billing.seat.model.StaffSeatsChanged;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
-import app.lightmove.api.core.tenant.EveryWorkspace;
+import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -53,13 +53,13 @@ public class StripeSeatSync {
     private final PaymentGateway gateway;
     private final CreditLedger ledger;
     private final AuditService audit;
-    private final EveryWorkspace workspaces;
+    private final TenantResolvers resolvers;
     private final TransactionTemplate transactions;
     private final Clock clock;
 
     /** Its own transactions, never the caller's: the membership's has committed, and Stripe is called outside any. */
     StripeSeatSync(WorkspaceSubscriptionRepository subscriptions, BillingPlanRepository plans, WorkspaceAccess access,
-                   PaymentGateway gateway, CreditLedger ledger, AuditService audit, EveryWorkspace workspaces,
+                   PaymentGateway gateway, CreditLedger ledger, AuditService audit, TenantResolvers resolvers,
                    PlatformTransactionManager transactionManager, Clock clock) {
         this.subscriptions = subscriptions;
         this.plans = plans;
@@ -67,7 +67,7 @@ public class StripeSeatSync {
         this.gateway = gateway;
         this.ledger = ledger;
         this.audit = audit;
-        this.workspaces = workspaces;
+        this.resolvers = resolvers;
         this.transactions = new TransactionTemplate(transactionManager);
         this.transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.clock = clock;
@@ -89,16 +89,13 @@ public class StripeSeatSync {
     }
 
     /** @return how many workspaces Stripe now holds the right quantity for */
-    /** A workspace at a time: the subscriptions and the ledger are under row-level security. */
+    /** Each owing workspace in its own scope: the subscriptions and the ledger are under row-level security. */
     public int syncDueAt(Instant now) {
-        return workspaces.sum(scoped -> {
-            int synced = 0;
-            for (UUID workspaceId : subscriptions.findWorkspacesOwingSeatSync(now.minus(RETRY_AFTER),
-                    WORKSPACES_PER_RUN)) {
-                synced += syncQuietly(workspaceId) ? 1 : 0;
-            }
-            return synced;
-        });
+        int synced = 0;
+        for (UUID workspaceId : resolvers.workspacesOwingSeatSync(now.minus(RETRY_AFTER), WORKSPACES_PER_RUN)) {
+            synced += syncQuietly(workspaceId) ? 1 : 0;
+        }
+        return synced;
     }
 
     private boolean syncQuietly(UUID workspaceId) {

@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
@@ -106,6 +107,55 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
         assertThat(codeOf(masked)).isEqualTo("NOT_A_MEMBER");
     }
 
+    @Test
+    @DisplayName("a client representative reads the brief without the firm's mandate context")
+    void clientSeatReadsNoInternalContext() throws Exception {
+        Fixture f = fixture("Client Brief Firm");
+        mvc.perform(put(positionUrl(f.projectId) + "/context")
+                        .header("Authorization", "Bearer " + f.admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"mandateReason":"SUCCESSION","businessDriver":"The incumbent is underperforming",
+                                 "strategicPriorities":[{"name":"Turnaround","selected":true}],
+                                 "confidential":true,"internalContext":"Board wants him out before Q3"}"""))
+                .andExpect(status().isOk());
+
+        String repEmail = "ext@brief-client.example";
+        String representativeId = body(mvc.perform(post("/api/v1/clients/" + f.clientId + "/representatives")
+                        .header("Authorization", "Bearer " + f.admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Ext Rep","position":"Chair","email":"%s"}
+                                """.formatted(repEmail)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        String rep = body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s","fullName":"Ext Rep","password":"%s"}
+                                """.formatted(email.latestTokenFor(repEmail), PASSWORD)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("accessToken").asText();
+        mvc.perform(post("/api/v1/projects/" + f.projectId + "/representatives")
+                        .header("Authorization", "Bearer " + f.admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"representativeId":"%s"}
+                                """.formatted(representativeId)))
+                .andExpect(status().isOk());
+
+        mvc.perform(get(positionUrl(f.projectId)).header("Authorization", "Bearer " + rep))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.roleTitle").value("CFO"))
+                .andExpect(jsonPath("$.context.internalContext").isEmpty())
+                .andExpect(jsonPath("$.context.businessDriver").isEmpty())
+                .andExpect(jsonPath("$.context.strategicPriorities.length()").value(0));
+        mvc.perform(get(positionUrl(f.projectId)).header("Authorization", "Bearer " + f.admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.context.internalContext").value("Board wants him out before Q3"))
+                .andExpect(jsonPath("$.context.businessDriver").value("The incumbent is underperforming"));
+    }
+
     private static final String DETAILS_STEP = """
             {"roleTitle":"CFO","department":null,"locationCity":null,"locationCountry":null,
              "employmentType":null,"seniority":null,"responsibilities":[],"narrative":null}""";
@@ -116,7 +166,7 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
 
     // fixture
 
-    private record Fixture(String admin, String projectId, String saraEmail, String saraId) {}
+    private record Fixture(String admin, String projectId, String saraEmail, String saraId, String clientId) {}
 
     /** A workspace admin, a project the admin created, and one plain member (Sara). */
     private Fixture fixture(String firmName) throws Exception {
@@ -140,7 +190,7 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
                                 """.formatted(clientId)))
                 .andReturn()).get("id").asText();
 
-        return new Fixture(admin, projectId, sara, memberIdOf(admin, sara));
+        return new Fixture(admin, projectId, sara, memberIdOf(admin, sara), clientId);
     }
 
     private void seat(String leadToken, String projectId, String memberId, String role)

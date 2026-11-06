@@ -219,7 +219,7 @@ public class CandidateService {
                 triageStatus, searched), pageRequest);
 
         return new CandidatesResponse(
-                found.getContent().stream().map(responses::toDto).toList(),
+                responses.toDtos(found.getContent()),
                 found.getTotalElements(), page, size);
     }
 
@@ -318,7 +318,7 @@ public class CandidateService {
                 ? candidates.findByProjectIdAndClientVisibleTrue(projectId, wholePosition)
                 : candidates.findByProjectId(projectId, wholePosition);
         return new CandidatesResponse(
-                found.getContent().stream().map(responses::toDto).toList(),
+                responses.toDtos(found.getContent()),
                 found.getTotalElements(), 0, cap);
     }
 
@@ -763,8 +763,10 @@ public class CandidateService {
         List<ContactEntry> phones = requests.entriesOf(ContactChannel.PHONE, request.phones(), null);
         Person person = candidate.getPerson();
         refuseSuppressedAdditions(workspaceId, person, null, emails);
-        person.replaceContacts(ContactChannel.EMAIL, emails, ContactSource.MANUAL);
-        person.replaceContacts(ContactChannel.PHONE, phones, ContactSource.MANUAL);
+        person.replaceContacts(ContactChannel.EMAIL, emails, ContactSource.MANUAL,
+                requests.primaryOf(ContactChannel.EMAIL, request.emails()));
+        person.replaceContacts(ContactChannel.PHONE, phones, ContactSource.MANUAL,
+                requests.primaryOf(ContactChannel.PHONE, request.phones()));
         activity.record(candidate, userId, PersonActivityKind.CONTACTS_EDITED,
                 PersonActivityDetails.of("emails", emails.size()).and("phones", phones.size()));
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
