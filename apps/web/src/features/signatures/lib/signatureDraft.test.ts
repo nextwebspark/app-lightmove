@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EmailSignature } from "../api/signaturesApi";
-import { draftOf, duplicateOf, newDraft, payloadOf } from "./signatureDraft";
+import { customBodyFor, draftOf, duplicateOf, newDraft, payloadOf } from "./signatureDraft";
 
 const saved: EmailSignature = {
   id: "s1",
@@ -18,6 +18,11 @@ const saved: EmailSignature = {
 };
 
 describe("signature drafts", () => {
+  it("signs a Custom body in bold whatever spaces the profile name carries", () => {
+    expect(customBodyFor("Alok Kumar ")).toBe("Kind regards,\n\n**Alok Kumar**");
+    expect(customBodyFor("  ")).toBe("Kind regards,");
+  });
+
   it("starts a layout with its own pictures on, and the first one as the default", () => {
     expect(newDraft("PHOTO_LOGO", true, "Yara")).toMatchObject({ name: "Photo + logo", showPhoto: true, showLogo: true, isDefault: true });
     expect(newDraft("CLASSIC", false, "Yara")).toMatchObject({ showPhoto: false, showLogo: false, isDefault: false });

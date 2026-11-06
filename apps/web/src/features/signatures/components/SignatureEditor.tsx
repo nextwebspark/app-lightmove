@@ -118,6 +118,7 @@ export function SignatureEditor({
         <FormError message={formError} />
         <Field label="Signature name" error={fieldErrors.name || undefined}>
           <Input
+            className="bg-u-surface"
             value={draft.name}
             maxLength={60}
             placeholder={LAYOUT_DETAILS[draft.layout].label}
@@ -151,18 +152,20 @@ export function SignatureEditor({
         {draft.layout === "CUSTOM" ? (
           <div className="mb-4">
             <span className="type-micro-label mb-1.5 block font-mono text-u-text3">Signature</span>
-            <NoteEditor
-              value={draft.customBody}
-              format="markdown"
-              onChange={(customBody) => {
-                setDraft((current) => ({ ...current, customBody }));
-                setFieldErrors((current) => ({ ...current, customBody: "" }));
-              }}
-              teammates={null}
-              ariaLabel="Signature"
-              variant="field"
-              expandTitle="Signature"
-            />
+            <div className="rounded-u-card border border-u-border-strong bg-u-surface px-3 py-2 transition focus-within:border-u-accent">
+              <NoteEditor
+                value={draft.customBody}
+                format="markdown"
+                onChange={(customBody) => {
+                  setDraft((current) => ({ ...current, customBody }));
+                  setFieldErrors((current) => ({ ...current, customBody: "" }));
+                }}
+                teammates={null}
+                ariaLabel="Signature"
+                variant="field"
+                expandTitle="Signature"
+              />
+            </div>
             <span aria-live="polite">
               {customBodyError && (
                 <span className="mt-1.5 block font-mono text-meta text-u-offlimits">
@@ -211,6 +214,7 @@ export function SignatureEditor({
               {sourcedRow("website", "Website", sources.website, "workspace", "url")}
               <DetailRow label="Address" isField>
                 <Input
+                  className="bg-u-surface"
                   aria-label="Address"
                   value={draft.fields.address}
                   invalid={!!errorOf("address")}
@@ -270,15 +274,18 @@ export function SignatureEditor({
           />
         </div>
 
-        <Field label="Disclaimer · optional" error={fieldErrors.disclaimer || undefined}>
-          <TextArea
-            rows={2}
-            maxLength={1000}
-            value={draft.disclaimer}
-            placeholder="This email and any attachments are confidential…"
-            onChange={(event) => setDraft({ ...draft, disclaimer: event.target.value })}
-          />
-        </Field>
+        <div className="mt-2">
+          <Field label="Disclaimer · optional" error={fieldErrors.disclaimer || undefined}>
+            <TextArea
+              className="bg-u-surface"
+              rows={2}
+              maxLength={1000}
+              value={draft.disclaimer}
+              placeholder="This email and any attachments are confidential…"
+              onChange={(event) => setDraft({ ...draft, disclaimer: event.target.value })}
+            />
+          </Field>
+        </div>
 
         <div className="mt-2 flex flex-wrap justify-end gap-2.5">
           <Button variant="secondary" onClick={onDone}>
@@ -393,6 +400,7 @@ function SourcedRow({
     return (
       <DetailRow label={label} isField>
         <Input
+          className="bg-u-surface"
           aria-label={label}
           type={type}
           value={value}

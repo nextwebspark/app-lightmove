@@ -58,7 +58,9 @@ export function newDraft(layout: SignatureLayout, isFirst: boolean, ownName: str
 
 /** What a Custom signature starts from, so the editor never opens empty. */
 export function customBodyFor(name: string): string {
-  return `Kind regards,\n\n**${name}**`;
+  // Trimmed: CommonMark reads `**Alok Kumar **` as literal asterisks, and a profile name may end in a space.
+  const signedAs = name.trim();
+  return signedAs ? `Kind regards,\n\n**${signedAs}**` : "Kind regards,";
 }
 
 export function draftOf(signature: EmailSignature): SignatureDraft {
