@@ -132,15 +132,14 @@ export function NotesSection({
 
 /**
  * A note on one executive, written from one position: its words, and whether it is about this position or all of
- * them. The drawer's Notes tab opens on a plain note; Log call and Log LinkedIn open it as a dialog, switching between
- * the two (`kindChoices`).
+ * them. The drawer's Notes tab opens on a plain note; Log call, Log meeting and Log LinkedIn open it as a dialog on
+ * their own kind (`kindChoices`).
  */
 export function PositionNoteComposer({
   projectId,
   candidateId,
   initialKind = PLAIN_NOTE_KIND,
   kindChoices,
-  onKindChange,
   pastMeetings = [],
   presetMeetingId = null,
   title = "New note",
@@ -153,7 +152,6 @@ export function PositionNoteComposer({
   initialKind?: PersonNoteKind;
   /** The kinds the composer switches between; none drawn when it offers one. */
   kindChoices?: readonly PersonNoteKind[];
-  onKindChange?: (kind: PersonNoteKind) => void;
   /** A meeting log's Uncava meetings to choose from: this person's, already begun, newest first. */
   pastMeetings?: readonly Meeting[];
   /** The meeting a Log meeting notes on a call opens on. */
@@ -178,10 +176,6 @@ export function PositionNoteComposer({
   const [kind, setKind] = useState<PersonNoteKind>(initialKind);
   const logs = kindChoices !== undefined && kindChoices.length > 0;
   const [details, setDetails] = useState<LogDetails>(() => logDetailsNow(presetMeetingId));
-  const chooseKind = (next: PersonNoteKind) => {
-    setKind(next);
-    onKindChange?.(next);
-  };
   const [scope, setScope] = useState<NoteScope>("position");
   const [draft, setDraft] = useState("");
   const forEveryPosition = scope === "everywhere";
@@ -254,7 +248,7 @@ export function PositionNoteComposer({
           logs ? (
             <>
               {kindChoices.length > 1 && (
-                <NoteKindPicker value={kind} onChange={chooseKind} kinds={kindChoices} label="What you are logging" />
+                <NoteKindPicker value={kind} onChange={setKind} kinds={kindChoices} label="What you are logging" />
               )}
               <LogDetailsFields kind={kind} pastMeetings={pastMeetings} value={details} onChange={setDetails} />
             </>
@@ -342,6 +336,7 @@ export function PositionNoteCard({
       flashAt={flashAt}
       showsKindMark={showsKindMark}
       lead={lead}
+      namesPosition={false}
     />
   );
 }

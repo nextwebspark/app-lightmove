@@ -14,7 +14,7 @@ import * as conversationApi from "../api/conversationApi";
 import type { ConversationAttachment, ConversationEvent, ConversationMessage } from "../api/conversationApi";
 import { actorOfEvent, addressLineOf, eventFaceOf, tileOfEvent, TONE_TEXT } from "../lib/conversationVocabulary";
 import { sendTimeOf } from "../lib/runVocabulary";
-import { EntryByline, OutreachEntryCard } from "./OutreachEntryCard";
+import { EntryActor, OutreachEntryCard } from "./OutreachEntryCard";
 
 /**
  * One line of an executive's communication history (`Outreach.dc.html`'s history cards): an email that went or is
@@ -36,6 +36,7 @@ export function ConversationEventCard({
 }) {
   const face = eventFaceOf(event, firstName, projectId);
   const actor = actorOfEvent(event);
+  const address = event.type === "MESSAGE" ? addressLineOf(event.message) : null;
   return (
     <li>
       <OutreachEntryCard
@@ -43,14 +44,10 @@ export function ConversationEventCard({
         tile={tileOfEvent(event)}
         title={face.title}
         at={event.at}
-        byline={
-          <EntryByline
-            actor={actor}
-            executive={executive}
-            name={actor.kind === "automation" ? "Uncava" : undefined}
-            after={event.type === "MESSAGE" ? addressLineOf(event.message) : null}
-          />
+        actor={
+          <EntryActor actor={actor} executive={executive} name={actor.kind === "automation" ? "Uncava" : undefined} />
         }
+        byline={address && <span className="min-w-0 truncate text-u-text3">{address}</span>}
         footer={
           <>
             <span className={cn("type-tag", TONE_TEXT[face.tone])}>{face.tag}</span>

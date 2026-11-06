@@ -52,7 +52,7 @@ export function ScheduleCallLauncher({
     <Modal
       open
       onClose={onClose}
-      title={`Book a call with ${row.fullName}`}
+      title={`Book a meeting with ${row.fullName}`}
       closeButton
       footer={
         !record.isError && (

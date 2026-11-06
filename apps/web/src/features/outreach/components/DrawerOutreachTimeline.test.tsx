@@ -216,7 +216,7 @@ describe("DrawerOutreachTimeline", () => {
     expect(screen.queryByText("Keep the chair out of it.")).not.toBeInTheDocument();
   });
 
-  it("leads each card with its kind's mark and the face of whoever did it", async () => {
+  it("leads each card with its kind's mark, and the face of whoever did it beside the time with no name on show", async () => {
     vi.mocked(conversationApi.getConversation).mockResolvedValue({
       events: [replyEvent, ...EVENTS],
       truncated: false,
@@ -229,11 +229,13 @@ describe("DrawerOutreachTimeline", () => {
     const reply = screen.getByRole("article", { name: "Sarah replied" });
     expect(within(reply).getByRole("img", { name: "Sarah Khan" })).toBeInTheDocument();
     const linkedin = screen.getByText("Connection request accepted.").closest("li")!;
-    expect(within(linkedin).getByText("LinkedIn message")).toBeInTheDocument();
-    expect(within(linkedin).getByText("Layla Nasser")).toBeInTheDocument();
+    expect(within(linkedin).getByText("LinkedIn")).toBeInTheDocument();
+    expect(within(linkedin).queryByText("LinkedIn message")).not.toBeInTheDocument();
+    // The name is the face's tooltip and what a screen reader hears, never a word on the card.
+    expect(within(linkedin).getByText("Layla Nasser")).toHaveClass("sr-only");
     expect(linkedin.querySelector('img[src="/brand/linkedin-in-bug-black.png"]')).not.toBeNull();
     const call = screen.getByRole("article", { name: "Screening call" });
-    expect(within(call).getByText("Omar Haddad")).toBeInTheDocument();
+    expect(within(call).getByText("Omar Haddad")).toHaveClass("sr-only");
     expect(container.querySelector(".w-px")).toBeNull();
   });
 
