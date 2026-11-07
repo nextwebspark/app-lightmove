@@ -29,14 +29,15 @@ The list is API-only for now. Its screen (Settings → Data & retention) is draw
 
 ## How it does it
 
-### Storage: hashes, never the key
+### Storage: keyed hashes, never the key
 
 `app_lm_workspace_suppression` (V195) holds one row per key:
 
 | Column | Meaning |
 |---|---|
 | `kind` | `PROFILE_SLUG` or `EMAIL` |
-| `value_hash` | SHA-256 of `workspaceId:kind:normalisedKey`, unique per workspace and kind |
+| `value_hash` | HMAC-SHA-256 of `workspaceId:kind:normalisedKey` under the suppression keyset, unique per workspace and kind |
+| `key_id` | the keyset key the hash was taken under |
 | `reason` | `ERASED`, `OBJECTED` or `MANUAL` |
 | `note` | an admin's own words, at most 500 characters |
 | `created_by`, `created_at` | who added it, and when |
@@ -49,26 +50,40 @@ The list is API-only for now. Its screen (Settings → Data & retention) is draw
 So the list recognises exactly the people the matcher would find. Because the workspace id is part of the hash, one
 person suppressed by two firms gives two unrelated hashes. No read returns a slug or an address.
 
+The hash is keyed (`core/crypto`'s `KeyedHasher`, a Tink PRF keyset of HMAC-SHA-256 keys at
+`lightmove.crypto.suppression-keyset`, mounted from the `lightmove-suppression-keyset` secret). Without the key, a copy
+of the table cannot be tested against a guessed address or slug.
+
+- **Rotation:** add a key to the keyset and promote it. New entries are written under the new primary, and a lookup
+  asks every key's hash, so entries written under the old key still match.
+- **No keyset:** the admin's add is refused with `SUPPRESSION_UNAVAILABLE` (503), and a workspace with no entries
+  files as before.
+- **Fail closed:** a workspace holding an entry whose `key_id` the keyset does not hold is refused with
+  `SUPPRESSION_UNAVAILABLE` at every door. That covers a deployment that lost its keyset, or a key deleted too early.
+  Answering "not listed" there would let every suppressed person back in.
+
 Adding a key that is already listed changes nothing (`INSERT … ON CONFLICT DO NOTHING`): the first reason and note
 stay as the record.
 
 The table has forced row-level security from its first migration (`ENABLE`, `FORCE`, an `app_lm_tenant` policy over
 `app_lm_tenant_visible(workspace_id)`), so `TenantTableGuard` accepts it at boot.
 
-### One service, asked at every door
+### The gate, asked at every door
 
-`PersonSuppressionService` asks two kinds of question.
+The doors depend on `SuppressionGate`, which only reads. The admin routes and the erasure write through
+`SuppressionListService`, and both find entries through `SuppressionEntries`, which owns the hashing and the
+fail-closed check. The gate asks two kinds of question.
 
 About the keys a request carries:
 
 - `refuseSuppressed(workspaceId, linkedinUrl, emails)` throws `PERSON_SUPPRESSED`;
-- `isSuppressed(…)` answers the same question as a boolean;
-- `suppressedProfileSlugsOf(workspaceId, slugs)` takes a whole page of hits and answers in one query.
+- `suppressedProfileSlugsOf(workspaceId, slugs)` takes a whole page of hits and answers in one query, with every
+  spelling of a suppressed slug (`Jane-Doe` and `jane-doe` alike).
 
 About a person the workspace already holds, by the profile and addresses stored on them:
 
 - `refuseSuppressedPerson(workspaceId, person)` throws `PERSON_SUPPRESSED`;
-- `suppressedPeopleOf(workspaceId, people)` answers for any number of people in two queries.
+- `suppressedPeopleOf(workspaceId, people)` answers for any number of people in one query.
 
 | Door | Where it asks | What happens |
 |---|---|---|
@@ -91,7 +106,8 @@ All three routes require `WORKSPACE_MANAGE`:
 
 - `GET /api/v1/workspace/suppressions` lists the entries: kind, reason, note, who added it, when.
 - `POST /api/v1/workspace/suppressions` takes `linkedinUrl` and/or `email`, `reason` (`manual` or `objected`) and
-  `note`, and answers `201` with the entries. A link pasted without `https://` is accepted.
+  `note`, and answers with the entries holding its keys: `201` when any was new, `200` when all were already
+  listed. A link pasted without `https://` is accepted.
 - `DELETE /api/v1/workspace/suppressions/{id}` lifts an entry, `204`. From then on the person can be filed again.
 
 Both writes are audited, `PERSON_SUPPRESSION_ADDED` and `PERSON_SUPPRESSION_REMOVED`. The audit metadata records
@@ -102,6 +118,7 @@ log ("Added someone to the suppression list") under its Settings category.
 
 - `PERSON_SUPPRESSED`: added to `ErrorCode`, the SPA's `errorCodes.ts` and the plugin's refusal copy. The message
   is "This person is on your workspace's suppression list, so they can't be added."
+- `SUPPRESSION_UNAVAILABLE` (503): added to `ErrorCode` and the SPA's `errorCodes.ts`.
 - `MapPeopleToPositionResponse` gains `suppressed`. The Add to position dialog's toast (`addedMessageOf`) reads, for
   example, "Added 2 people to CFO. 1 person is on your workspace's suppression list and was left out".
 - "Suppression list" added to `docs/glossary.md`, with blocklist and blacklist as the words not to use.
@@ -116,6 +133,16 @@ suppression diff, so the PR's diff against `main` is these 26 files alone.
 
 The migration moved from V174 to **V193**. There was one code conflict, in `replaceContacts`: the merge keeps
 main's primary-contact arguments and runs the suppression check before them.
+
+### Review fixes (2026-11-07)
+
+- The plain SHA-256 became an HMAC under the suppression keyset, with `key_id` per row (V195 edited in place: it had
+  run nowhere but tests since the renumbering).
+- `PersonSuppressionService` was split into `SuppressionGate` (the doors' reads), `SuppressionListService` (the admin
+  routes, the audit, and `suppress` for #1179) and `SuppressionEntries`.
+- `suppressedProfileSlugsOf` returns every spelling of a suppressed slug. An edit's own-slug comparison ignores case.
+- `add` reads its entries back in one query, and answers `200` when nothing was new.
+- `deploy.yml` mounts the keyset behind `SUPPRESSION_LIST_ENABLED`.
 
 ### The second merge with main (2026-11-07)
 
@@ -136,7 +163,14 @@ main's primary-contact arguments and runs the suppression check before them.
   - someone the workspace knows is refused by their own keys: once by `existingPersonId`, once by a plugin capture
     matched by profile while suppressed by email;
   - Add to position leaves a suppressed person out and counts them.
-- **Unit test:** `AddToPositionDialog.test.ts` covers the toast's wording.
+- **Added after review:** the stored hash is not the plain SHA-256 and carries the dev key's id; a repeat add answers
+  `200`; an entry under a key the keyset lacks refuses the add form with `SUPPRESSION_UNAVAILABLE`.
+- **Unit tests:**
+  - `AddToPositionDialog.test.ts` covers the toast's wording.
+  - `SuppressionKeyTest` pins the normalisation, the hash input and two hashes under the dev keyset.
+  - `TinkKeyedHasherTest` checks that a hash is keyed and survives a rotation.
+  - `SuppressionEntriesTest` covers the old-key match, the fail-closed refusals and the primary key on a write.
+  - `SuppressionGateTest` covers mixed-case slugs.
 - **Added cases** in `ExecutiveSourcingIntegrationTest` and `StrategyPeopleSearchIntegrationTest`: a suppressed hit
   is never filed and leaves no person behind; a suppressed person drops off the page that is read back; ticking them
   files nobody.
@@ -164,18 +198,17 @@ A plugin capture matched by profile to someone suppressed by email also got thro
 
 All three now ask about the person's own stored keys (see the doors table above), and each has a test.
 
-### 1. The hashes are pseudonymous, not anonymous (medium)
+### 1. The keyset is now what protects the list (medium, operational)
 
-The salt is the workspace id, which sits in the same row, and the hash uses no secret. Anyone who can read the
-table can test a guessed email or LinkedIn slug against it. Emails and slugs are easy to guess. So the list hides a
-key from casual reading but does not stop someone looking for a known person.
+Since review the hashes are keyed, so reading the table alone no longer lets anyone test a guessed address or slug.
+The keyset is the thing to keep:
 
-Under GDPR this is still personal data. Keeping it is usually justified, because a suppression record is needed to
-honour an erasure or an objection. But the privacy notice and the record of processing should say it is kept.
+- `lightmove-suppression-keyset` must exist before `SUPPRESSION_LIST_ENABLED` is set.
+- A key may leave the keyset only once no entry uses it (`key_id`); before that, the workspaces holding those
+  entries are refused at every door.
 
-**Option:** use an HMAC under a server-side key from `core/crypto`'s keyset in place of the plain hash. Doing it
-later means rehashing, and we cannot rehash: the raw keys are not stored. So this should be decided before the
-first production entry exists.
+Under GDPR a keyed hash of an email is still pseudonymous personal data: the privacy notice and the record of
+processing should say the list is kept.
 
 ### 2. The list depends on the matcher's normalisation forever (medium)
 
@@ -183,8 +216,8 @@ Every stored hash depends on how `LinkedInUrls.profileSlugOrNull` and `Candidate
 either changes, for example in case handling, percent-decoding or email aliasing, existing entries silently stop
 matching and the list lets people through. Nothing can rebuild the hashes from what is stored.
 
-**Mitigation:** a test that pins the normalisation of a few known inputs to fixed hashes, so a change to either
-reader fails CI instead of failing open.
+**Mitigation, built:** `SuppressionKeyTest` pins the normalisation of known inputs and their hashes under the dev
+keyset, so a change to either reader fails CI instead of failing open.
 
 ### 3. Vendor slugs are hashed without percent-decoding (low)
 
@@ -197,7 +230,7 @@ because `addResearched` checks the full URL. So the miss is a display and a phot
 
 A suppression committed while a filing is in flight can lose the race, so that one filing goes through. This is
 acceptable for an admin action, but worth knowing if erasure (#1179) relies on it. Erasure deletes the person in the
-same flow, which closes most of the window.
+same flow, which closes most of the window. Noted on #1179.
 
 ### 5. People Search still pays for suppressed people (low)
 
@@ -223,6 +256,10 @@ security copies. Each needs the same merge from `main`, with its migrations renu
 ### 8. Not done in this PR
 
 - No screen: until #1186, an admin can only use the API.
+- The rest of #920 is not here, so this PR does not close it:
+  - `processing_restricted`, the gating of the AI and enrichment workers, and the Restrict processing toggle are
+    #1180;
+  - the cross-workspace suppression question waits for counsel.
 - Adding an entry does nothing to people already filed. They stay where they are, and only filing them again is
   blocked. Removing them is #1179's job, and restricting them is #1180's.
 - Name and phone are never keys, deliberately: the matcher never matches on them. A person typed in by name alone,

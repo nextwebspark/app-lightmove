@@ -59,7 +59,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Email signatures kept | New signature and Duplicate off at 10 | at most 10 per person per workspace (`EMAIL_SIGNATURE_LIMIT_REACHED`) | toast |
 | Candidate tag label | trimmed, ≤ 40 | `@NotBlank @Size(40)` | toast |
 | API key name | trimmed, ≤ 80 | `@NotBlank @Size(80)` | banner |
-| Suppression list entry: LinkedIn profile, email | — (no screen yet; API only) | at least one (`VALIDATION_FAILED` on `linkedinUrl`); the link must name a member profile, a missing `https://` forgiven (`VALIDATION_FAILED` on `linkedinUrl`); email normalised, `@Email @Size(320)`; `@Size(500)` on the link | field |
+| Suppression list entry: LinkedIn profile, email | — (no screen yet; API only) | at least one (`VALIDATION_FAILED` on `linkedinUrl`); the link must name a member profile, a missing `https://` forgiven (`VALIDATION_FAILED` on `linkedinUrl`); email normalised, `@Email @Size(320)`; `@Size(500)` on the link; refused with no suppression keyset (`SUPPRESSION_UNAVAILABLE`) | field (banner for the keyset) |
 | Suppression list entry: reason, note | — | reason `manual` (default) or `objected`, never `erased` (`VALIDATION_FAILED` on `reason`); note trimmed, `@Size(500)` | field |
 | Two-factor: current password | required where the account has a password; not drawn for one that has none | required where the account has one (`VALIDATION_FAILED` on `currentPassword` when blank); must match (`CURRENT_PASSWORD_INVALID` on `currentPassword`); an account with none turns it on only within `lightmove.auth.mfa.recent-sign-in` (10 min) of signing in (`MFA_SIGN_IN_AGAIN`), and off or new codes with the code alone | field (banner for `MFA_SIGN_IN_AGAIN`) |
 | Two-factor: code to turn on | six digits, spaces dropped | `@NotBlank @Size(32)`; the app's code for the new secret (`MFA_CODE_INVALID` on `code`) | field |
@@ -132,7 +132,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | ☐ Custom field values | no length | TEXT unbounded, DATE unchecked, NUMBER accepts NaN | toast |
 | ☐ Custom column label | no `maxLength` | ≤ 60 | toast |
 | Executive name | trimmed, ≤ 200 | `@NotBlank @Size(200)` | banner |
-| Executive LinkedIn profile and emails, on every door | — | not on the workspace's suppression list (`PERSON_SUPPRESSED`): the add form, the plugin and a spreadsheet row are refused, and so is mapping someone the workspace already knows whose own profile or address is listed; an edit only for a profile or address it adds; Find executives, People Search and the Candidates page's Add to position leave the person out unfiled | banner (row error on import; toast on Add to position) |
+| Executive LinkedIn profile and emails, on every door | — | not on the workspace's suppression list (`PERSON_SUPPRESSED`): the add form, the plugin and a spreadsheet row are refused, and so is mapping someone the workspace already knows whose own profile or address is listed; an edit only for a profile or address it adds; Find executives, People Search and the Candidates page's Add to position leave the person out unfiled; a workspace holding entries the keyset cannot read is refused at every door (`SUPPRESSION_UNAVAILABLE`) | banner (row error on import; toast on Add to position) |
 | ☐ Executive currency | picker | `@Size(3)` | banner |
 | ☐ Languages | one string ≤ 1200 | ≤ 20 × 60 | banner |
 | ☐ Phone | none | a digit | banner |
