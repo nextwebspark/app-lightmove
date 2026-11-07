@@ -46,6 +46,15 @@ export function useComboboxList({
     [],
   );
 
+  /**
+   * A closed list forgets its highlight. Kept, Escape and then Enter committed a row nobody could see: on the
+   * role title that redrafted the whole brief from a template the mouse had only passed over.
+   */
+  const close = () => {
+    setOpen(false);
+    setActive(none);
+  };
+
   const commit = (index: number) => {
     onCommit(index);
     setActive(none);
@@ -67,7 +76,7 @@ export function useComboboxList({
     inputHandlers: {
       onFocus: () => setOpen(true),
       onBlur: () => {
-        blurTimer.current = setTimeout(() => setOpen(false), 120);
+        blurTimer.current = setTimeout(close, 120);
       },
       onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
         if (event.key === "ArrowDown") {
@@ -85,7 +94,7 @@ export function useComboboxList({
           // Consumed while the list is open: inside a modal, Escape must close the innermost
           // surface first, not the dialog around it.
           if (open) event.stopPropagation();
-          setOpen(false);
+          close();
         }
       },
     },
