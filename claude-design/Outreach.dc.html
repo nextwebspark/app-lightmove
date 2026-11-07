@@ -221,13 +221,53 @@
               <!-- The reply composer (ReplyComposer): the email, then the signature it carries — the person's default,
                    ticked; a picker when they keep more than one; a link to Settings when they keep none. -->
               <sc-if value="{{ sg.composerOpen }}" hint-placeholder-val="{{ false }}">
-                <div data-screen-label="Reply composer" style="flex:none;display:flex;flex-direction:column;gap:8px;padding:12px 24px 10px;border-top:1px solid var(--line-soft);background:var(--panel)">
+                <div data-screen-label="Reply composer" style="position:relative;flex:none;display:flex;flex-direction:column;gap:8px;padding:12px 24px 10px;border-top:1px solid var(--line-soft);background:var(--panel)">
                   <div style="display:flex;align-items:baseline;gap:10px">
                     <span style="font:500 13px/1.2 var(--sans);color:var(--text)">{{ oc.composeTitle }}</span>
-                    <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)">{{ oc.subject }}</span>
+                    <span aria-label="Subject" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)"><sc-for list="{{ tp.subjectParts }}" as="sp" hint-placeholder-count="1"><span title="{{ sp.title }}" style="{{ sp.style }}">{{ sp.text }}</span></sc-for></span>
                     <button onClick="{{ sgCloseComposer }}" aria-label="Close" style="margin-left:auto;border:none;background:none;padding:0 2px;font:400 16px/1 var(--sans);color:var(--text3);cursor:pointer">×</button>
                   </div>
-                  <textarea value="{{ oc.draft }}" onChange="{{ oqOnDraft }}" rows="4" aria-label="Email" style="width:100%;resize:vertical;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13.5px/1.55 var(--sans);color:var(--text);outline:none"></textarea>
+                  <!-- The notes editor with the email schema (docs/email-templates.md §F): a token is a pill showing this
+                       executive's value, blue when filled, in italics when its fallback stands in, red when blank. -->
+                  <div data-screen-label="Email editor" style="position:relative;border-radius:6px;border:1px solid var(--line);background:var(--panel2)">
+                    <div role="toolbar" aria-label="Formatting" style="display:flex;align-items:center;gap:1px;padding:3px 6px;border-bottom:1px solid var(--line-soft)">
+                      <sc-for list="{{ tp.fmt }}" as="f" hint-placeholder-count="10"><button title="{{ f.tip }}" aria-label="{{ f.tip }}" style="{{ f.style }}" style-hover="background:var(--panel);color:var(--text)">{{ f.glyph }}</button></sc-for>
+                      <span style="flex:1"></span>
+                      <button onClick="{{ tpToggleInsert }}" aria-haspopup="menu" aria-expanded="{{ tp.insertExpanded }}" style="{{ tp.insertBtnStyle }}" style-hover="color:var(--text)"><span style="font:600 11px var(--mono)">{ }</span>Insert<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"></path></svg></button>
+                    </div>
+                    <sc-if value="{{ tp.insertOpen }}" hint-placeholder-val="{{ false }}">
+                      <div role="menu" aria-label="Insert a token" data-screen-label="Insert token menu" style="position:absolute;right:6px;top:32px;z-index:30;width:320px;border-radius:8px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:6px">
+                        <div style="padding:4px 8px 6px;font:500 10.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--text3)">Insert at the cursor</div>
+                        <sc-for list="{{ tp.insertItems }}" as="ti" hint-placeholder-count="7">
+                          <button role="menuitem" onClick="{{ tpInsert }}" data-id="{{ ti.token }}" title="{{ ti.tip }}" style="display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;border:none;background:none;border-radius:6px;padding:6px 8px;cursor:pointer;font-family:inherit" style-hover="background:var(--panel2)">
+                            <span style="flex:none;width:112px;font:500 12px var(--sans);color:var(--text)">{{ ti.label }}</span>
+                            <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px var(--sans);color:{{ ti.valueColor }}">{{ ti.value }}</span>
+                          </button>
+                        </sc-for>
+                        <div style="margin-top:4px;border-top:1px solid var(--line-soft);padding:7px 8px 3px;font:400 11px/1.45 var(--sans);color:var(--text3)">Values are {{ tp.first }}'s. A token with no value holds Send until it has a fallback, text in its place, or is removed.</div>
+                      </div>
+                    </sc-if>
+                    <div aria-label="Email" style="min-height:96px;padding:10px 12px 4px;font:400 13.5px/1.6 var(--sans);color:var(--text)">
+                      <sc-for list="{{ tp.paragraphs }}" as="pg" hint-placeholder-count="2">
+                        <p style="margin:0 0 8px"><sc-for list="{{ pg.parts }}" as="pt" hint-placeholder-count="3"><span onClick="{{ tpPill }}" data-id="{{ pt.token }}" title="{{ pt.title }}" style="{{ pt.style }}">{{ pt.text }}</span></sc-for></p>
+                      </sc-for>
+                    </div>
+                    <sc-if value="{{ tp.popoverOpen }}" hint-placeholder-val="{{ false }}">
+                      <div role="dialog" aria-label="{{ tp.blankTitle }}" data-screen-label="Blank token" style="position:absolute;left:12px;bottom:6px;transform:translateY(100%);z-index:30;width:320px;border-radius:8px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:12px">
+                        <div style="font:500 12.5px var(--sans);color:var(--text)">{{ tp.blankTitle }}</div>
+                        <div style="margin-top:3px;font:400 11.5px/1.45 var(--sans);color:var(--text3)">Send waits until this is filled. Add it to {{ tp.first }}'s profile, or for this email:</div>
+                        <label style="display:block;margin-top:10px;font:500 11px var(--sans);color:var(--text2)">Fallback
+                          <input value="{{ tp.fallbackDraft }}" onChange="{{ tpOnFallback }}" maxlength="60" placeholder="the UAE" aria-label="Fallback" style="display:block;margin-top:4px;width:100%;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:6px 8px;font:400 12.5px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--ring)">
+                        </label>
+                        <div style="margin-top:4px;font:400 10.5px/1.4 var(--mono);color:var(--text3)">Kept as {{ tp.fallbackToken }}: anyone else with no {{ tp.blankLower }} reads it too.</div>
+                        <div style="margin-top:10px;display:flex;align-items:center;gap:6px">
+                          <button onClick="{{ tpUseFallback }}" style="height:26px;padding:0 10px;border-radius:6px;border:1px solid var(--amber-btn);background:var(--amber-btn);font:500 11.5px/1 var(--sans);color:var(--on-amber);cursor:pointer">Add fallback</button>
+                          <button onClick="{{ tpReplaceText }}" style="height:26px;padding:0 10px;border-radius:6px;border:none;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line);font:500 11.5px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">Replace with text</button>
+                          <button onClick="{{ tpRemoveToken }}" style="margin-left:auto;height:26px;padding:0 6px;border:none;background:none;font:500 11.5px/1 var(--sans);color:var(--red);cursor:pointer">Remove</button>
+                        </div>
+                      </div>
+                    </sc-if>
+                  </div>
                   <sc-if value="{{ sg.previewOn }}" hint-placeholder-val="{{ true }}">
                     <div aria-label="Signature preview" style="padding:2px 0 2px 12px;border-left:2px solid var(--line);opacity:.6;font:400 12.5px/1.45 var(--sans);color:var(--text2)">
                       <!-- "Formal" exactly as Settings → Email signature draws it (Photo + logo, Book a call on), smaller and greyed. -->
@@ -243,6 +283,10 @@
                     </div>
                   </sc-if>
                   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                    <!-- The app's Attach (phase 5 of docs/outreach-conversations.md); Templates sits beside it. -->
+                    <button onClick="{{ tpAttach }}" style="{{ tp.ghostBtn }}" style-hover="color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>Attach</button>
+                    <button onClick="{{ tpTogglePicker }}" aria-haspopup="dialog" aria-expanded="{{ tp.pickerExpanded }}" style="{{ tp.templatesBtnStyle }}" style-hover="color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M16 13H8"></path><path d="M16 17H8"></path><path d="M10 9H8"></path></svg>Templates</button>
+                    <span style="width:1px;height:16px;background:var(--line)"></span>
                     <sc-if value="{{ sg.hasAny }}" hint-placeholder-val="{{ true }}">
                       <button role="checkbox" aria-checked="{{ sg.checked }}" onClick="{{ sgToggleInclude }}" style="display:inline-flex;align-items:center;gap:7px;border:none;background:none;padding:0;font:400 12px var(--sans);color:var(--text2);cursor:pointer">
                         <span style="{{ sg.boxStyle }}"><sc-if value="{{ sg.included }}" hint-placeholder-val="{{ true }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if></span>Include signature</button>
@@ -258,9 +302,66 @@
                     </sc-if>
                     <span style="flex:1"></span>
                     <button onClick="{{ oqSchedule }}" style="height:30px;padding:0 12px;border-radius:6px;border:none;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line);font:500 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">Schedule</button>
-                    <button onClick="{{ oqSend }}" style="height:30px;padding:0 14px;border-radius:6px;border:1px solid var(--amber-btn);background:var(--amber-btn);font:500 12px/1 var(--sans);color:var(--on-amber);cursor:pointer">Send now</button>
+                    <button onClick="{{ oqSend }}" aria-disabled="{{ tp.blockedStr }}" style="{{ tp.sendStyle }}">Send now</button>
                   </div>
-                  <span style="font:400 11px var(--sans);color:var(--text3)">{{ oc.footNote }}</span>
+                  <sc-if value="{{ tp.blocked }}" hint-placeholder-val="{{ false }}">
+                    <span role="status" style="display:flex;align-items:center;gap:6px;font:400 11px var(--sans);color:var(--red)"><span style="width:6px;height:6px;flex:none;border-radius:50%;background:var(--red)"></span>{{ tp.blockedLine }}</span>
+                  </sc-if>
+                  <sc-if value="{{ tp.notBlocked }}" hint-placeholder-val="{{ true }}">
+                    <span style="font:400 11px var(--sans);color:var(--text3)">{{ oc.footNote }}</span>
+                  </sc-if>
+
+                  <!-- Templates picker (docs/email-templates.md §D): search, Recently used, Mine, Shared with the owner's face;
+                       the highlighted one previewed with this executive's values. -->
+                  <sc-if value="{{ tp.pickerOpen }}" hint-placeholder-val="{{ false }}">
+                    <div role="dialog" aria-label="Templates" data-screen-label="Templates picker" style="position:absolute;left:24px;bottom:62px;z-index:40;width:min(680px,calc(100% - 48px));display:flex;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);overflow:hidden;animation:fadeUp .15s ease both">
+                      <div style="width:256px;flex:none;display:flex;flex-direction:column;border-right:1px solid var(--line-soft)">
+                        <div style="padding:10px 10px 6px">
+                          <input value="{{ tp.query }}" onChange="{{ tpOnQuery }}" placeholder="Search templates" aria-label="Search templates" style="width:100%;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:6px 9px;font:400 12.5px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--ring)">
+                        </div>
+                        <div role="listbox" aria-label="Templates" style="flex:1;max-height:300px;overflow-y:auto;padding:0 6px 6px">
+                          <sc-for list="{{ tp.groups }}" as="tg" hint-placeholder-count="3">
+                            <div style="padding:8px 8px 4px;font:500 10.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--text3)">{{ tg.label }}</div>
+                            <sc-for list="{{ tg.items }}" as="tt" hint-placeholder-count="2">
+                              <button role="option" aria-selected="{{ tt.selectedStr }}" onClick="{{ tpHighlight }}" data-id="{{ tt.id }}" style="{{ tt.style }}" style-hover="background:var(--panel2)">
+                                <span style="flex:1;min-width:0">
+                                  <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 12.5px var(--sans);color:var(--text)">{{ tt.name }}</span>
+                                  <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--sans);color:var(--text3)">{{ tt.meta }}</span>
+                                </span>
+                                <sc-if value="{{ tt.shared }}" hint-placeholder-val="{{ false }}"><span title="Shared by {{ tt.owner }}" style="{{ tt.faceStyle }}">{{ tt.initials }}</span></sc-if>
+                              </button>
+                            </sc-for>
+                          </sc-for>
+                          <sc-if value="{{ tp.noMatch }}" hint-placeholder-val="{{ false }}">
+                            <div style="padding:16px 8px;font:400 12px/1.5 var(--sans);color:var(--text3)">No template matches “{{ tp.query }}”.</div>
+                          </sc-if>
+                        </div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line-soft);padding:8px 10px">
+                          <button onClick="{{ tpOpenSave }}" style="border:none;background:none;padding:0;font:500 12px var(--sans);color:var(--sky);cursor:pointer">Save as template</button>
+                          <a href="Settings.dc.html?section=email-templates" style="font:400 12px var(--sans);color:var(--text3);text-decoration:none" style-hover="color:var(--text)">Manage templates</a>
+                        </div>
+                      </div>
+                      <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+                        <div style="padding:12px 16px 8px;border-bottom:1px solid var(--line-soft)">
+                          <div style="font:600 13px var(--sans);color:var(--text)">{{ tp.pv.name }}</div>
+                          <div style="margin-top:2px;font:400 11px var(--sans);color:var(--text3)">{{ tp.pv.ownerLine }}</div>
+                        </div>
+                        <div style="padding:8px 16px 0;font:400 11.5px var(--sans);color:var(--text3)">
+                          <sc-if value="{{ tp.pv.hasSubject }}" hint-placeholder-val="{{ false }}"><span>Subject <span style="color:var(--text)"><sc-for list="{{ tp.pv.subjectParts }}" as="sp" hint-placeholder-count="1"><span style="{{ sp.style }}">{{ sp.text }}</span></sc-for></span></span></sc-if>
+                          <sc-if value="{{ tp.pv.subjectNote }}" hint-placeholder-val="{{ true }}"><span>{{ tp.pv.subjectNote }}</span></sc-if>
+                        </div>
+                        <div style="flex:1;max-height:230px;overflow-y:auto;padding:10px 16px;font:400 12.5px/1.6 var(--sans);color:var(--text)">
+                          <sc-for list="{{ tp.pv.paragraphs }}" as="pg" hint-placeholder-count="2">
+                            <p style="margin:0 0 8px"><sc-for list="{{ pg.parts }}" as="pt" hint-placeholder-count="3"><span style="{{ pt.style }}">{{ pt.text }}</span></sc-for></p>
+                          </sc-for>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px;border-top:1px solid var(--line-soft);padding:8px 12px 8px 16px">
+                          <span style="flex:1;min-width:0;font:400 11px/1.4 var(--sans);color:var(--text3)">{{ tp.pv.applyNote }}</span>
+                          <button onClick="{{ tpApply }}" style="height:28px;padding:0 12px;border-radius:6px;border:1px solid var(--amber-btn);background:var(--amber-btn);font:500 12px/1 var(--sans);color:var(--on-amber);cursor:pointer">Use template</button>
+                        </div>
+                      </div>
+                    </div>
+                  </sc-if>
                 </div>
               </sc-if>
               <div data-screen-label="Conversation dock" role="toolbar" aria-label="Conversation actions" style="flex:none;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:10px 24px;border-top:1px solid var(--line-soft)">
@@ -380,10 +481,38 @@
                     <span style="width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--amber-dim);color:var(--amber);font:700 11px var(--mono)">{{ st.n }}</span>
                     <span style="font:600 13px var(--sans)">{{ st.label }}</span>
                     <span style="font:400 12px var(--mono);color:var(--text3)">{{ st.when }}</span>
-                    <sc-if value="{{ st.removable }}" hint-placeholder-val="{{ false }}">
-                      <button title="Remove this step" style="margin-left:auto;border-radius:6px;padding:5px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--red)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.trash }}"></path></svg></button>
-                    </sc-if>
+                    <span style="margin-left:auto;display:flex;align-items:center;gap:2px">
+                      <!-- docs/email-templates.md, Phase 3: a template is copied into a step, never linked. -->
+                      <button onClick="{{ stFromTemplate }}" data-id="{{ st.n }}" style="{{ st.tplBtnStyle }}" style-hover="background:var(--panel2);color:var(--text)">From template</button>
+                      <button onClick="{{ stSaveTemplate }}" data-id="{{ st.n }}" style="{{ st.tplBtnStyle }}" style-hover="background:var(--panel2);color:var(--text)">Save as template</button>
+                      <sc-if value="{{ st.removable }}" hint-placeholder-val="{{ false }}">
+                        <button title="Remove this step" style="border-radius:6px;padding:5px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--red)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.trash }}"></path></svg></button>
+                      </sc-if>
+                    </span>
                   </div>
+                  <sc-if value="{{ st.pickerOpen }}" hint-placeholder-val="{{ false }}">
+                    <div role="dialog" aria-label="From template" data-screen-label="Step from template" style="margin-bottom:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px">
+                      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+                        <input placeholder="Search templates" aria-label="Search templates" style="width:220px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:5px 8px;font:400 12px var(--sans);color:var(--text);outline:none">
+                        <span style="flex:1;font:400 11px/1.4 var(--sans);color:var(--text3)">Sequence emails are plain text: bold, lists and links come in as plain words.</span>
+                        <button onClick="{{ stCloseTemplate }}" aria-label="Close" style="border:none;background:none;padding:0 2px;font:400 15px/1 var(--sans);color:var(--text3);cursor:pointer">×</button>
+                      </div>
+                      <sc-for list="{{ stepTemplates }}" as="sx" hint-placeholder-count="4">
+                        <button onClick="{{ stPickTemplate }}" data-id="{{ sx.id }}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:none;background:none;border-radius:6px;padding:6px 8px;cursor:pointer;font-family:inherit" style-hover="background:var(--panel)">
+                          <span style="flex:1;min-width:0"><span style="display:block;font:500 12.5px var(--sans);color:var(--text)">{{ sx.name }}</span><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--sans);color:var(--text3)">{{ sx.meta }}</span></span>
+                          <sc-if value="{{ sx.shared }}" hint-placeholder-val="{{ false }}"><span title="Shared by {{ sx.owner }}" style="{{ sx.faceStyle }}">{{ sx.initials }}</span></sc-if>
+                        </button>
+                      </sc-for>
+                      <div style="margin-top:6px;border-top:1px solid var(--line-soft);padding-top:7px;font:400 11px/1.45 var(--sans);color:var(--text3)">{{ st.pickerNote }}</div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ st.replaceOpen }}" hint-placeholder-val="{{ false }}">
+                    <div role="alertdialog" aria-label="Replace this step's text?" data-screen-label="Replace step text" style="margin-bottom:10px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;border-radius:8px;border:1px solid var(--amber);background:var(--amber-dim);padding:10px 12px">
+                      <span style="flex:1;min-width:240px"><span style="display:block;font:500 12.5px var(--sans);color:var(--text)">Replace this step's text with “{{ st.replaceName }}”?</span><span style="display:block;margin-top:2px;font:400 11.5px/1.45 var(--sans);color:var(--text2)">{{ st.replaceNote }}</span></span>
+                      <button onClick="{{ stCloseTemplate }}" style="height:28px;padding:0 10px;border-radius:6px;border:none;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line);font:500 12px/1 var(--sans);color:var(--text2);cursor:pointer">Cancel</button>
+                      <button onClick="{{ stReplace }}" style="height:28px;padding:0 12px;border-radius:6px;border:1px solid var(--amber-btn);background:var(--amber-btn);font:500 12px/1 var(--sans);color:var(--on-amber);cursor:pointer">Replace</button>
+                    </div>
+                  </sc-if>
                   <sc-if value="{{ st.hasDelay }}" hint-placeholder-val="{{ false }}">
                     <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;font:400 12px var(--mono);color:var(--text2)">
                       Send
@@ -398,7 +527,7 @@
                     </div>
                   </sc-if>
                   <sc-if value="{{ st.hasSubject }}" hint-placeholder-val="{{ false }}">
-                    <input value="{{ st.subject }}" aria-label="Subject" style="margin-bottom:8px;width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px;font:500 13px var(--sans);color:var(--text);outline:none">
+                    <input value="{{ st.subject }}" onChange="{{ onSeqSubject }}" aria-label="Subject" style="margin-bottom:8px;width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px;font:500 13px var(--sans);color:var(--text);outline:none">
                   </sc-if>
                   <textarea value="{{ st.body }}" onChange="{{ onStepBody }}" data-id="{{ st.n }}" rows="{{ st.rows }}" aria-label="Email body" style="width:100%;resize:vertical;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px;font:400 13px/1.55 var(--sans);color:var(--text);outline:none"></textarea>
                 </div>
@@ -471,6 +600,33 @@
   </div>
 
   <!-- ============ ENROL MODAL ============ -->
+  <!-- Save as template (docs/email-templates.md §D, §J): from the composer's picker or a sequence step. -->
+  <sc-if value="{{ tp.saveOpen }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Save as template" onClick="{{ tpCloseSave }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="{{ tp.saveTitle }}" onClick="{{ stop }}" style="width:460px;max-width:92vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:20px;animation:fadeUp .2s ease both">
+        <div style="font:600 15px var(--sans);color:var(--text)">{{ tp.saveTitle }}</div>
+        <div style="margin-top:4px;font:400 12.5px/1.5 var(--sans);color:var(--text2)">{{ tp.saveIntro }}</div>
+        <sc-if value="{{ tp.saveRefused }}" hint-placeholder-val="{{ false }}">
+          <div role="alert" style="margin-top:14px;border-radius:8px;border:1px solid var(--red);background:var(--red-dim);padding:10px 12px;font:400 12.5px/1.5 var(--sans);color:var(--text)">{{ tp.saveRefusal }}</div>
+        </sc-if>
+        <sc-if value="{{ tp.saveAllowed }}" hint-placeholder-val="{{ true }}">
+          <label style="display:block;margin-top:16px;font:500 12px var(--sans);color:var(--text2)">Name
+            <input value="{{ tp.saveName }}" onChange="{{ tpOnSaveName }}" maxlength="80" placeholder="Thanks — let's find a time" aria-label="Name" style="display:block;margin-top:5px;width:100%;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px;font:400 13px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--ring)">
+          </label>
+          <div style="margin-top:10px;font:400 11.5px var(--mono);color:var(--text3)">{{ tp.saveWhat }}</div>
+          <div style="margin-top:14px;display:flex;align-items:flex-start;gap:10px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
+            <button role="switch" aria-checked="{{ tp.shareStr }}" aria-label="Share with workspace" onClick="{{ tpToggleShare }}" style="{{ tp.switchStyle }}"><span style="{{ tp.knobStyle }}"></span></button>
+            <span><span style="display:block;font:500 12.5px var(--sans);color:var(--text)">Share with workspace</span><span style="display:block;margin-top:2px;font:400 11.5px/1.45 var(--sans);color:var(--text3)">Everyone on the team can use it, filled with their own name and booking link. Only you and admins can change it.</span></span>
+          </div>
+        </sc-if>
+        <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ tpCloseSave }}" style="height:32px;padding:0 12px;border-radius:7px;border:none;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line);font:500 12.5px/1 var(--sans);color:var(--text2);cursor:pointer">{{ tp.saveCancelLabel }}</button>
+          <sc-if value="{{ tp.saveAllowed }}" hint-placeholder-val="{{ true }}"><button onClick="{{ tpSave }}" style="height:32px;padding:0 14px;border-radius:7px;border:1px solid var(--amber-btn);background:var(--amber-btn);font:500 12.5px/1 var(--sans);color:var(--on-amber);cursor:pointer">Save template</button></sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <sc-if value="{{ showEnrol }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeDialog }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.5)">
       <div role="dialog" aria-modal="true" aria-label="Add to sequence" data-screen-label="Add to sequence" onClick="{{ stop }}" style="width:{{ enrolWidth }};max-width:95vw;max-height:90vh;display:flex;flex-direction:column;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .2s ease both">
@@ -848,7 +1004,7 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="11" font-weight="700" letter-spacing="2" text-anchor="middle">OUTREACH</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;page&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;sequence&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;mailbox&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;connected&quot;,&quot;options&quot;:[&quot;connected&quot;,&quot;none&quot;,&quot;error&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;enrol&quot;,&quot;bookCall&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;enrolStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;choose&quot;,&quot;options&quot;:[&quot;choose&quot;,&quot;review&quot;,&quot;start&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;composer&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;signature&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;default&quot;,&quot;options&quot;:[&quot;default&quot;,&quot;several&quot;,&quot;unticked&quot;,&quot;none&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;e01&quot;,&quot;e06&quot;,&quot;e09&quot;,&quot;e05&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;page&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;sequence&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;mailbox&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;connected&quot;,&quot;options&quot;:[&quot;connected&quot;,&quot;none&quot;,&quot;error&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;enrol&quot;,&quot;bookCall&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;enrolStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;choose&quot;,&quot;options&quot;:[&quot;choose&quot;,&quot;review&quot;,&quot;start&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;composer&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;signature&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;default&quot;,&quot;options&quot;:[&quot;default&quot;,&quot;several&quot;,&quot;unticked&quot;,&quot;none&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;e01&quot;,&quot;e06&quot;,&quot;e09&quot;,&quot;e05&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;templates&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;closed&quot;,&quot;options&quot;:[&quot;closed&quot;,&quot;picker&quot;,&quot;save&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;tokenState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;filled&quot;,&quot;options&quot;:[&quot;filled&quot;,&quot;blank&quot;,&quot;popover&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;insertMenu&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;stepTemplate&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;picker&quot;,&quot;replace&quot;,&quot;save&quot;,&quot;saveOpener&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 const I = {
   back: "M19 12H5M12 19l-7-7 7-7",
   plus: "M12 5v14M5 12h14",
@@ -966,9 +1122,9 @@ const firstOf = (n) => n.split(" ")[0];
 
 function render(text, id) {
   const p = PEOPLE[id];
-  return text.replace(/\{\{firstName\}\}/g, firstOf(p.name)).replace(/\{\{currentTitle\}\}/g, p.title).replace(/\{\{currentCompany\}\}/g, p.company)
-    .replace(/\{\{positionTitle\}\}/g, "Chief Financial Officer").replace(/\{\{senderFirstName\}\}/g, "Yara")
-    .replace(/\{\{bookingLink\}\}/g, BOOKING_URL);
+  const v = { firstName: firstOf(p.name), currentTitle: p.title, currentCompany: p.company, positionTitle: "Chief Financial Officer", location: p.city || "Dubai", senderFirstName: "Yara", bookingLink: BOOKING_URL };
+  // {{name}} or {{name|fallback}} (docs/email-templates.md §C); opener and anything unknown stay as typed.
+  return text.replace(/\{\{\s*([A-Za-z]+)\s*(?:\\?\|([^{}|\n]{1,60}))?\s*\}\}/g, (m, n, fb) => (n in v ? v[n] || (fb || "").trim() : m));
 }
 
 const isClosed = (st) => st === "replied" || st === "booked" || st === "bounced" || st === "stopped";
@@ -1016,7 +1172,7 @@ const OQ_P = {
     history: [["auto", "Approved for outreach", "TODAY · 08:40", "Approved from the Pipeline. No email has been sent.", "AUTOMATION", "Preparation task created"]],
     composeTitle: "First email to Layla", subject: "CFO search — confidential introduction", salutation: "Layla,", draft: "I’m leading a discreet Group CFO search in Dubai and would value a confidential introduction.",
     footNote: "Nothing is sent until you press Send now or Schedule.",
-    contact: [["Email", "layla.haddad@maf.ae"], ["Mobile", "Not found"], ["Location", "Dubai, UAE"], ["Time zone", "GST · UTC+4"]],
+    contact: [["Email", "layla.haddad@maf.ae"], ["Mobile", "Not found"], ["Location", "Not on file"], ["Time zone", "GST · UTC+4"]],
     dates: [["Added", "02 OCT 2026"], ["First contacted", "—"], ["Replied", "—"], ["Last updated", "TODAY 08:40"]],
     seq: "None yet", seqStep: "0 / 3", seqDone: 0, seqState: "DRAFT", sendStatus: "Not enrolled.", visible: false },
   khalid: { name: "Khalid Al Mansouri", role: "CFO · Automotive · AW Rostamani", photo: "assets/outreach/khalid.jpg", group: "prep", time: "PREP", tone: "accent", action: "Review contact details", preview: "Approval creates preparation work, not sends.",
@@ -1036,6 +1192,53 @@ const OQ_P = {
     dates: [["Added", "15 SEP 2026"], ["First contacted", "Bounced"], ["Replied", "—"], ["Last updated", "YESTERDAY 09:00"]],
     seq: "CFO — first approach", seqStep: "0 / 3", seqDone: 0, seqState: "PAUSED", sendStatus: "Paused on delivery failure.", visible: false }
 };
+// Email templates (docs/email-templates.md). Yara's own, and two colleagues' shared ones.
+const EMAIL_TEMPLATES = [
+  { id: "t1", name: "Thanks — let's find a time", recent: 1, updated: "2 days ago", subject: null,
+    body: "Thank you for coming back to me, {{firstName}}. I'd value 30 minutes this week: would Thursday afternoon suit?\n\nIf it is easier, pick a time that works for you: {{bookingLink}}" },
+  { id: "t2", name: "Follow-up after no reply", owner: "Sara Al-Mansour", recent: 2, updated: "last week", subject: "{{positionTitle}}: following up",
+    body: "{{firstName|Hello}}, I wanted to follow up on my note about the {{positionTitle}} role. Given your work as {{currentTitle}} at {{currentCompany}}, I think 20 minutes would be well spent.\n\nWould early next week suit?" },
+  { id: "t3", name: "Not the right time", updated: "3 weeks ago", subject: null,
+    body: "Thank you for letting me know, {{firstName}}. I'll keep you in mind for future roles and check in again in the new year." },
+  { id: "t4", name: "CV before we speak", updated: "1 month ago", subject: null,
+    body: "Thank you, {{firstName}}. Before we speak, could you send me an up-to-date CV? It stays confidential to the search team." },
+  { id: "t5", name: "Confidential introduction", owner: "Omar Khalil", updated: "yesterday", subject: "Confidential: {{positionTitle}}",
+    body: "{{firstName|Hello}},\n\nI'm leading a discreet search for a {{positionTitle}}, and your work as {{currentTitle}} at {{currentCompany}} stood out. Are you still based in {{location}}, and would you be open to a confidential conversation?\n\nIf it suits, pick a time here: {{bookingLink}}" },
+  { id: "t6", name: "Declining politely", owner: "Sara Al-Mansour", updated: "2 months ago", subject: null,
+    body: "Thank you for your time, {{firstName}}. The client has decided to move forward with other candidates, but I'd very much like to stay in touch." }
+];
+const TOKEN_LABELS = { firstName: "First name", currentTitle: "Current title", currentCompany: "Current company", positionTitle: "Position title", location: "Location", senderFirstName: "Your first name", bookingLink: "Your booking link" };
+const TOKEN_TIPS = { firstName: "Their first name", currentTitle: "Their current title", currentCompany: "Their current employer", positionTitle: "This position's role title", location: "Their city", senderFirstName: "Your first name, whoever sends it", bookingLink: "Your booking page: they pick a free slot on your calendar" };
+const TOKEN_ORDER = ["firstName", "currentTitle", "currentCompany", "positionTitle", "location", "senderFirstName", "bookingLink"];
+const TOKEN_RE = /\{\{\s*([A-Za-z]+)\s*(?:\\?\|([^{}|\n]{1,60}))?\s*\}\}/g;
+const TOKEN_PILL = "display:inline;white-space:nowrap;padding:1px 6px;border-radius:4px;font-weight:500;background:var(--sky-dim);color:var(--sky);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--sky) 30%,transparent)";
+const TOKEN_PILL_FALLBACK = TOKEN_PILL + ";font-style:italic";
+const TOKEN_PILL_BLANK = "display:inline;white-space:nowrap;padding:1px 6px;border-radius:4px;font-weight:500;background:var(--red-dim);color:var(--red);box-shadow:inset 0 0 0 1px var(--red);cursor:pointer";
+function tokenValuesOf(p) {
+  const bits = p.role.split(" · ");
+  const loc = (p.contact.find(([k]) => k === "Location") || [])[1] || "";
+  return { firstName: p.name.split(" ")[0], currentTitle: bits[0], currentCompany: bits[bits.length - 1], positionTitle: "Group CFO",
+    location: loc === "Not on file" ? "" : loc.split(",")[0], senderFirstName: "Yara", bookingLink: BOOKING_URL };
+}
+function tokenParts(text, values, fixes) {
+  const parts = []; let last = 0; let m; const re = new RegExp(TOKEN_RE.source, "g");
+  while ((m = re.exec(text))) {
+    if (m.index > last) parts.push({ text: text.slice(last, m.index), style: "", token: "", title: "" });
+    const name = m[1]; const fix = (fixes || {})[name] || {}; const label = TOKEN_LABELS[name] || name;
+    const fallback = (fix.fallback || m[2] || "").trim(); const value = values[name] || "";
+    const raw = "{{" + name + (fallback ? "|" + fallback : "") + "}}";
+    if (fix.removed) { /* the pill is gone */ }
+    else if (fix.replaced) parts.push({ text: fix.replaced, style: "", token: "", title: "" });
+    else if (value) parts.push({ text: value, style: TOKEN_PILL, token: name, title: label + " · " + raw });
+    else if (fallback) parts.push({ text: fallback, style: TOKEN_PILL_FALLBACK, token: name, title: "No " + label.toLowerCase() + " on file: the fallback stands in · " + raw });
+    else parts.push({ text: label, style: TOKEN_PILL_BLANK, token: name, blank: true, title: "No " + label.toLowerCase() + " on file. Click to fill it in." });
+    last = re.lastIndex;
+  }
+  if (last < text.length) parts.push({ text: text.slice(last), style: "", token: "", title: "" });
+  return parts;
+}
+const paragraphsOf = (text, values, fixes) => text.split(/\n\n/).map((t) => ({ parts: tokenParts(t, values, fixes) }));
+const faceOf = (name, size) => avatar(name, size || 22) + ";font-size:9px";
 const OQ_GROUPS = [["reply", "Needs reply", "Since yesterday 16:00"], ["follow", "Follow-ups", "2 due today"], ["prep", "Preparation", ""], ["attn", "Attention", ""]];
 const OQ_TONE = { accent: "var(--amber)", green: "var(--green)", red: "var(--red)", signal: "var(--u-signal)", neutral: "var(--text3)" };
 const OQ_TONE_BG = { accent: "var(--amber-dim)", green: "var(--green-dim)", red: "var(--red-dim)", signal: "var(--u-signal-tint)", neutral: "var(--panel2)" };
@@ -1060,6 +1263,18 @@ class Component extends DCLogic {
       signature: pick("signature", "default"), composerOpen: flag("composer", false) || q.get("signature") !== null,
       sigIncluded: pick("signature", "default") !== "unticked", sigChoice: "formal", enSigChoice: "formal"
     };
+    const templates = pick("templates", "closed"), tokenState = pick("tokenState", "filled"), stepTemplate = pick("stepTemplate", "none");
+    const blankDemo = tokenState !== "filled";
+    Object.assign(this.state, {
+      composerOpen: this.state.composerOpen || templates !== "closed" || blankDemo || flag("insertMenu", false),
+      tplPicker: templates === "picker", tplHighlight: "t2", tplQuery: "", tplInsert: flag("insertMenu", false),
+      tplSave: templates === "save" ? "composer" : stepTemplate === "save" || stepTemplate === "saveOpener" ? "step" : null,
+      tplShare: false, tplSaveName: "", tplFallbackDraft: "", tplPopover: tokenState === "popover",
+      tplBody: blankDemo ? { layla: EMAIL_TEMPLATES[4].body } : {}, tplSubject: blankDemo ? { layla: EMAIL_TEMPLATES[4].subject } : {}, tplFix: {},
+      oqSel: blankDemo ? "layla" : undefined,
+      stepPicker: stepTemplate === "picker", stepReplace: stepTemplate === "replace" ? "t2" : null, seqSubject: SUBJECT
+    });
+    if (stepTemplate !== "none") Object.assign(this.state, { page: "sequence", step: stepTemplate === "saveOpener" ? 1 : 2 });
   }
 
   componentDidMount() { this.setState({ dark: document.documentElement.getAttribute("data-theme") !== "light" }); }
@@ -1204,6 +1419,90 @@ class Component extends DCLogic {
     };
   }
 
+  templateVals(p, sel) {
+    const s = this.state, set = (c) => this.setState(c);
+    const values = tokenValuesOf(p); const first = values.firstName;
+    const isReply = /^Re:/.test(p.subject);
+    const body = (s.tplBody || {})[sel] ?? "{{firstName}},\n\n" + ((s.oqDrafts || {})[sel] ?? p.draft);
+    const subject = (s.tplSubject || {})[sel] ?? p.subject;
+    const fixes = (s.tplFix || {})[sel] || {};
+    const paragraphs = paragraphsOf(body, values, fixes);
+    const subjectParts = tokenParts(subject, values, fixes);
+    const blanks = [...new Set([...subjectParts, ...paragraphs.flatMap((g) => g.parts)].filter((x) => x.blank).map((x) => x.token))];
+    const blocked = blanks.length > 0; const blankName = blanks[0] || "location"; const blankLabel = TOKEN_LABELS[blankName] || blankName;
+    const ghost = "display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 9px;border-radius:6px;border:none;background:none;font:500 12px/1 var(--sans);color:var(--text2);cursor:pointer";
+    const fmtBtn = "min-width:24px;height:24px;padding:0 5px;border:none;border-radius:4px;background:none;color:var(--text3);cursor:pointer;";
+    const fmt = [["B", "Bold", "font:700 12px var(--sans)"], ["I", "Italic", "font:italic 500 12px var(--serif, Georgia)"], ["U", "Underline", "font:500 12px var(--sans);text-decoration:underline"], ["S", "Strikethrough", "font:500 12px var(--sans);text-decoration:line-through"], ["H", "Heading", "font:700 12px var(--sans)"], ["•", "Bulleted list", "font:700 13px var(--sans)"], ["1.", "Numbered list", "font:500 11px var(--mono)"], ["☐", "Checklist", "font:400 12px var(--sans)"], ["❝", "Quote", "font:400 13px var(--sans)"], ["↗", "Link", "font:500 12px var(--sans)"]]
+      .map(([glyph, tip, f]) => ({ glyph, tip, style: fmtBtn + f }));
+    const q = (s.tplQuery || "").trim().toLowerCase();
+    const matches = (t) => !q || (t.name + " " + t.body + " " + (t.owner || "")).toLowerCase().includes(q);
+    const pool = EMAIL_TEMPLATES.filter(matches);
+    const recent = q ? [] : pool.filter((t) => t.recent).sort((a, b) => a.recent - b.recent);
+    const rest = pool.filter((t) => !recent.includes(t));
+    const hl = pool.find((t) => t.id === s.tplHighlight) || pool[0] || EMAIL_TEMPLATES[0];
+    const row = (t) => { const on = t.id === hl.id; const shared = !!t.owner;
+      return { id: t.id, name: t.name, shared, owner: t.owner || "", initials: shared ? initials(t.owner) : "", faceStyle: faceOf(t.owner || "you"), selectedStr: String(on),
+        meta: (t.subject ? t.subject.replace(TOKEN_RE, (_, n) => TOKEN_LABELS[n] || n) : t.body.replace(TOKEN_RE, (_, n) => TOKEN_LABELS[n] || n)).slice(0, 60),
+        style: "display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;font-family:inherit;background:" + (on ? "var(--panel2)" : "transparent") + ";box-shadow:" + (on ? "inset 2px 0 0 var(--amber)" : "none") };
+    };
+    const groups = [["Recently used", recent], ["Mine", rest.filter((t) => !t.owner)], ["Shared", rest.filter((t) => t.owner)]]
+      .filter(([, list]) => list.length).map(([label, list]) => ({ label, items: list.map(row) }));
+    const bodyEmpty = body.replace(TOKEN_RE, "x").trim() === "";
+    const pv = { name: hl.name, ownerLine: hl.owner ? "Shared by " + hl.owner + " · updated " + hl.updated : "Yours · updated " + hl.updated,
+      hasSubject: !isReply && !!hl.subject, subjectParts: tokenParts(hl.subject || "", values, {}),
+      subjectNote: isReply ? (hl.subject ? "A reply keeps its subject: " + p.subject : "") : hl.subject ? "" : "No subject: yours stays as it is.",
+      paragraphs: paragraphsOf(hl.body, values, {}),
+      applyNote: (bodyEmpty ? "Replaces the empty email." : "Goes in at your cursor.") + (isReply ? " The reply keeps its subject." : hl.subject && subject.trim() ? " Your subject stays." : "") + " Include signature stays as it is." };
+    const step = s.tplSave === "step"; const stepN = s.step; const stepUsesOpener = step && /\{\{\s*opener\s*\}\}/.test(s.bodies[stepN - 1] || "");
+    const sw = s.tplShare;
+    return {
+      tp: {
+        first, fmt, paragraphs, subjectParts, blocked, notBlocked: !blocked, blockedStr: String(blocked),
+        blockedLine: blocked ? "Fill in or remove " + blanks.length + " token" + (blanks.length > 1 ? "s" : "") + " to send: " + blanks.map((b) => TOKEN_LABELS[b] || b).join(", ") : "",
+        sendStyle: "height:30px;padding:0 14px;border-radius:6px;border:1px solid var(--amber-btn);background:var(--amber-btn);font:500 12px/1 var(--sans);color:var(--on-amber);cursor:" + (blocked ? "not-allowed;opacity:.45" : "pointer"),
+        insertOpen: !!s.tplInsert, insertExpanded: String(!!s.tplInsert),
+        insertBtnStyle: "display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 7px;border-radius:4px;border:none;background:" + (s.tplInsert ? "var(--panel)" : "none") + ";font:500 12px/1 var(--sans);color:var(--text2);cursor:pointer",
+        insertItems: TOKEN_ORDER.map((token) => ({ token, label: TOKEN_LABELS[token], tip: TOKEN_TIPS[token], value: values[token] || "Not on file", valueColor: values[token] ? "var(--text3)" : "var(--red)" })),
+        popoverOpen: !!s.tplPopover && blocked, blankTitle: first + " has no " + blankLabel.toLowerCase() + " on file", blankLower: blankLabel.toLowerCase(),
+        fallbackDraft: s.tplFallbackDraft || "", fallbackToken: "{{" + blankName + "|" + (s.tplFallbackDraft || "the UAE") + "}}",
+        ghostBtn: ghost, templatesBtnStyle: ghost + ";background:" + (s.tplPicker ? "var(--panel2)" : "none"),
+        pickerOpen: !!s.tplPicker, pickerExpanded: String(!!s.tplPicker), query: s.tplQuery || "", groups, noMatch: groups.length === 0, pv,
+        saveOpen: !!s.tplSave, saveTitle: step ? "Save step as template" : "Save as template",
+        saveIntro: step ? "Saves this step's " + (stepN === 1 ? "subject and " : "") + "words, tokens kept, as one of your email templates. It is a copy: editing the template later changes no step."
+          : "Saves this email's words and tokens, so it fills in for whoever you send it to next. Your signature is added when you send, so it is never saved." + (isReply ? " A reply saves its body only: the subject stays the thread's." : ""),
+        saveRefused: stepUsesOpener, saveAllowed: !stepUsesOpener, saveCancelLabel: stepUsesOpener ? "Close" : "Cancel",
+        saveRefusal: "This step uses ✦ opener, the line AI writes for each person when the sequence starts. A template can't fill it: take it out of the step to save the step as a template.",
+        saveName: s.tplSaveName || "", saveWhat: step ? (stepN === 1 ? "Subject " + s.seqSubject + " · " : "") + "body as written, formatting none"
+          : (isReply ? "Body" : "Subject " + subject + " · body") + ((n) => (n ? " · " + n + (n === 1 ? " token" : " tokens") + " kept" : ""))(new Set([...((isReply ? "" : subject) + body).matchAll(TOKEN_RE)].map((x) => x[1])).size),
+        shareStr: String(sw),
+        switchStyle: "position:relative;flex:none;margin-top:1px;width:30px;height:18px;border-radius:99px;border:none;padding:0;cursor:pointer;background:" + (sw ? "var(--amber-btn)" : "var(--line)"),
+        knobStyle: "position:absolute;top:2px;left:" + (sw ? 14 : 2) + "px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s"
+      },
+      tpToggleInsert: () => set({ tplInsert: !s.tplInsert, tplPicker: false, tplPopover: false }),
+      tpInsert: (e) => { const t = e.currentTarget.dataset.id; set({ tplInsert: false, tplBody: { ...(s.tplBody || {}), [sel]: body + " {{" + t + "}}" } }); },
+      tpPill: (e) => { const t = e.currentTarget.dataset.id; if (t && blanks.includes(t)) set({ tplPopover: !s.tplPopover, tplInsert: false, tplPicker: false }); },
+      tpOnFallback: (e) => set({ tplFallbackDraft: e.target.value }),
+      tpUseFallback: () => { const fb = (s.tplFallbackDraft || "the UAE").trim(); set({ tplPopover: false, tplFix: { ...(s.tplFix || {}), [sel]: { ...fixes, [blankName]: { fallback: fb } } } }); this.showToast("Fallback added: anyone with no " + blankLabel.toLowerCase() + " reads “" + fb + "”."); },
+      tpReplaceText: () => set({ tplPopover: false, tplFix: { ...(s.tplFix || {}), [sel]: { ...fixes, [blankName]: { replaced: (s.tplFallbackDraft || "Dubai").trim() } } } }),
+      tpRemoveToken: () => set({ tplPopover: false, tplFix: { ...(s.tplFix || {}), [sel]: { ...fixes, [blankName]: { removed: true } } } }),
+      tpAttach: () => this.showToast("Attach: one of " + first + "'s documents, or a file from your computer."),
+      tpTogglePicker: () => set({ tplPicker: !s.tplPicker, tplInsert: false, tplPopover: false }),
+      tpOnQuery: (e) => set({ tplQuery: e.target.value }),
+      tpHighlight: (e) => set({ tplHighlight: e.currentTarget.dataset.id }),
+      tpApply: () => {
+        const nextBody = bodyEmpty ? hl.body : body + "\n\n" + hl.body;
+        const nextSubject = !isReply && hl.subject && !subject.trim() ? hl.subject : subject;
+        set({ tplPicker: false, tplBody: { ...(s.tplBody || {}), [sel]: nextBody }, tplSubject: { ...(s.tplSubject || {}), [sel]: nextSubject } });
+        this.showToast("“" + hl.name + "” added. Include signature is unchanged.");
+      },
+      tpOpenSave: () => set({ tplPicker: false, tplSave: "composer", tplSaveName: "", tplShare: false }),
+      tpCloseSave: () => set({ tplSave: null }),
+      tpOnSaveName: (e) => set({ tplSaveName: e.target.value }),
+      tpToggleShare: () => set({ tplShare: !s.tplShare }),
+      tpSave: () => { set({ tplSave: null }); this.showToast(s.tplShare ? "Saved and shared with the workspace." : "Saved to your templates."); }
+    };
+  }
+
   oqVals() {
     const s = this.state; const set = (o) => this.setState(o);
     const done = s.oqDone || {}; const q = (s.oqQuery || "").toLowerCase();
@@ -1252,12 +1551,13 @@ class Component extends DCLogic {
       oqOnDraft: (e) => set({ oqDrafts: { ...(s.oqDrafts || {}), [sel]: e.target.value } }),
       oqToggleVisible: () => set({ oqVisible: { ...(s.oqVisible || {}), [sel]: !vis } }),
       oqHandled: () => resolve(p.name + " marked handled."),
-      oqSend: () => resolve("Sent to " + p.name.split(" ")[0] + "."),
+      oqSend: () => { if (this.templateVals(p, sel).tp.blocked) { this.showToast("Fill in or remove the red tokens first."); return; } resolve("Sent to " + p.name.split(" ")[0] + "."); },
       oqSchedule: () => resolve("Scheduled for tomorrow, 09:00."),
       oqLogCall: () => this.showToast("Call logged for " + p.name + "."),
       oqLogLinkedIn: () => this.showToast("LinkedIn message logged for " + p.name + "."),
       oqAddNote: () => this.showToast("Note added."),
-      oqViewHistory: () => set({ drawer: "none" })
+      oqViewHistory: () => set({ drawer: "none" }),
+      ...this.templateVals(p, sel)
     };
   }
 
@@ -1309,9 +1609,16 @@ class Component extends DCLogic {
     const stepCards = s.bodies.map((body, i) => ({
       n: i + 1, label: i === 0 ? "First email" : i === 1 ? "Follow-up" : "Last follow-up",
       when: i === 0 ? "sent when you start" : `+${delays[i]} working days`,
-      hasDelay: i > 0, delay: String(delays[i]), hasSubject: i === 0, subject: SUBJECT, body, rows: i === 0 ? 11 : 6, removable: i > 0,
+      hasDelay: i > 0, delay: String(delays[i]), hasSubject: i === 0, subject: s.seqSubject, body, rows: i === 0 ? 11 : 6, removable: i > 0,
+      tplBtnStyle: "border-radius:6px;padding:4px 8px;border:none;background:none;font:500 11.5px var(--sans);color:var(--text3);cursor:pointer",
+      pickerOpen: s.stepPicker && s.step === i + 1, replaceOpen: !!s.stepReplace && s.step === i + 1,
+      pickerNote: i === 0 ? "The template's subject comes into the first email too. A copy: editing the template later changes no step." : "Follow-ups reply in the thread, so a template's subject is left out. A copy: editing the template later changes no step.",
+      replaceName: s.stepReplace ? EMAIL_TEMPLATES.find((t) => t.id === s.stepReplace).name : "",
+      replaceNote: "What this step says now is replaced" + (i === 0 ? ", and its subject too where the template has one." : ".") + " The signature chosen at Start still closes it.",
       cardStyle: `border-radius:10px;border:1px solid ${s.step === i + 1 ? "var(--amber)" : "var(--line)"};background:var(--panel);padding:14px 16px;cursor:default`
     }));
+    const stepTemplates = EMAIL_TEMPLATES.map((t) => ({ id: t.id, name: t.name, shared: !!t.owner, owner: t.owner || "", initials: t.owner ? initials(t.owner) : "", faceStyle: faceOf(t.owner || "you"),
+      meta: (t.owner ? "Shared by " + t.owner + " · " : "Yours · ") + t.body.replace(TOKEN_RE, (_, n) => "{{" + n + "}}").replace(/\n+/g, " ").slice(0, 70) }));
     const stepTabs = [1, 2, 3].map((n) => ({ n, style: `border:none;cursor:pointer;border-radius:4px;padding:4px 10px;font:500 12px var(--sans);${s.step === n ? "background:var(--amber-dim);color:var(--text)" : "background:none;color:var(--text3)"}` }));
     const pid = s.previewId;
     const pvBody = render(s.bodies[s.step - 1], pid);
@@ -1360,7 +1667,7 @@ class Component extends DCLogic {
       ],
       kpis, seqCards, filterChips, rows,
       seqName: s.seqName, seqState: "Live", seqPillStyle: pill("live"),
-      tokens, stepCards, stepTabs, pv, previewId: pid, previewPeople,
+      tokens, stepCards, stepTemplates, stepTabs, pv, previewId: pid, previewPeople,
       showEnrol: s.dialog === "enrol", enrolWidth: s.enrolStep === "review" ? "900px" : "680px",
       enChoose: s.enrolStep === "choose", enReview: s.enrolStep === "review", enStart: s.enrolStep === "start",
       enrolGroups, enrolSteps, reviewList, rv,
@@ -1383,6 +1690,13 @@ class Component extends DCLogic {
       onSeqName: (e) => set({ seqName: e.target.value }),
       onStepBody: (e) => { const i = Number(e.currentTarget.dataset.id) - 1; const b = s.bodies.slice(); b[i] = e.target.value; set({ bodies: b }); },
       pickStep: (e) => set({ step: Number(e.currentTarget.dataset.id) }),
+      onSeqSubject: (e) => set({ seqSubject: e.target.value }),
+      stFromTemplate: (e) => { e.stopPropagation(); set({ step: Number(e.currentTarget.dataset.id), stepPicker: true, stepReplace: null }); },
+      stSaveTemplate: (e) => { e.stopPropagation(); set({ step: Number(e.currentTarget.dataset.id), stepPicker: false, stepReplace: null, tplSave: "step", tplSaveName: "", tplShare: false }); },
+      stCloseTemplate: (e) => { e.stopPropagation(); set({ stepPicker: false, stepReplace: null }); },
+      stPickTemplate: (e) => { e.stopPropagation(); set({ stepPicker: false, stepReplace: e.currentTarget.dataset.id }); },
+      stReplace: (e) => { e.stopPropagation(); const t = EMAIL_TEMPLATES.find((x) => x.id === s.stepReplace); const b = s.bodies.slice(); b[s.step - 1] = t.body;
+        set({ bodies: b, stepReplace: null, seqSubject: s.step === 1 && t.subject ? t.subject : s.seqSubject }); this.showToast("Step " + s.step + " now reads “" + t.name + "”. Save the sequence to keep it."); },
       setPreview: (e) => set({ previewId: e.target.value }),
       setFilter: (e) => set({ filter: e.currentTarget.dataset.id }),
       openDrawer: (e) => { e.stopPropagation(); set({ drawer: e.currentTarget.dataset.id }); },
