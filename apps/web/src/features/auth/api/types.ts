@@ -53,6 +53,10 @@ export interface User {
   avatarUrl: string | null;
   /** False where the workspace's identity provider supplies the photo: Settings → Profile offers no change. */
   avatarEditable: boolean;
+  /** Shown in the person's email signature; null when they gave none. */
+  phone: string | null;
+  /** Their own LinkedIn profile, canonical `https://www.linkedin.com/in/<slug>`. */
+  linkedinUrl: string | null;
   emailVerified: boolean;
 
   /**
@@ -171,6 +175,9 @@ export interface UpdateProfileRequest {
   title: string | null;
   timezone: string;
   locale: string;
+  /** Left out: unchanged. Blank: cleared. */
+  phone?: string;
+  linkedinUrl?: string;
 }
 
 /** Settings → Security. The confirm field never leaves the client — two matching copies prove nothing. */

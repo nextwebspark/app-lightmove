@@ -67,6 +67,8 @@ public class AuthResponseAssembler {
                 user.getTitle(),
                 user.getAvatarUrl(),
                 user.isAvatarEditable(),
+                user.getPhone(),
+                user.getLinkedinUrl(),
                 user.isEmailVerified(),
                 user.hasPassword(),
                 user.getTimezone(),

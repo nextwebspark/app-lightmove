@@ -24,6 +24,8 @@ export function SettingsProfilePage() {
       title: values.title === "" ? null : values.title,
       timezone: values.timezone,
       locale: values.locale,
+      phone: values.phone,
+      linkedinUrl: values.linkedinUrl,
     });
     // The topbar avatar and the roster read the same name, and reload() re-mints the token first.
     await reload();
@@ -81,6 +83,8 @@ export function SettingsProfilePage() {
             title: user.title ?? "",
             timezone: user.timezone,
             locale: user.locale,
+            phone: user.phone ?? "",
+            linkedinUrl: user.linkedinUrl ?? "",
           }}
           onSave={handleSave}
         />

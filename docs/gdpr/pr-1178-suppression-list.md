@@ -1,6 +1,6 @@
 # PR #1178: the suppression list (#920, part 1)
 
-Part of GDPR epic #917 (section D of #1080). Base: `main`. Migration: **V193**.
+Part of GDPR epic #917 (section D of #1080). Base: `main`. Migration: **V195**.
 Stacked above it: #1179 (erasure), #1180 (restrict processing), #1185/#1186 (retention), #1188/#1190 (offboarding, account deletion).
 
 ## What it does
@@ -31,7 +31,7 @@ The list is API-only for now. Its screen (Settings → Data & retention) is draw
 
 ### Storage: hashes, never the key
 
-`app_lm_workspace_suppression` (V193) holds one row per key:
+`app_lm_workspace_suppression` (V195) holds one row per key:
 
 | Column | Meaning |
 |---|---|
@@ -116,6 +116,11 @@ suppression diff, so the PR's diff against `main` is these 26 files alone.
 
 The migration moved from V174 to **V193**. There was one code conflict, in `replaceContacts`: the merge keeps
 main's primary-contact arguments and runs the suppression check before them.
+
+### The second merge with main (2026-11-07)
+
+`main` took V193 and V194 for email signatures (#1157), so the suppression migration moved again, from V193 to
+**V195**. The only conflict was the migration list in `CLAUDE.md`; both entries are kept, in version order.
 
 ## Testing
 
@@ -208,12 +213,12 @@ choice: the alternative is a generic refusal, which would leave researchers gues
 
 ### 7. The migration was renumbered (operational)
 
-Any database that applied this branch's earlier `V174__workspace_suppression.sql` will fail Flyway validation on
+Any database that applied this branch's earlier `V174__workspace_suppression.sql` or `V193__workspace_suppression.sql` will fail Flyway validation on
 boot, with "applied migration not resolved locally". That includes a shared dev database reached through
 `npm run dev:cloud` with this branch checked out. Such a database needs its history row repaired, or a reset.
 
 The PRs stacked on this one (#1179 onward) still number their migrations V175–V180 and carry the old row-level
-security copies. Each needs the same merge from `main`, with its migrations renumbered from V194.
+security copies. Each needs the same merge from `main`, with its migrations renumbered from V196.
 
 ### 8. Not done in this PR
 

@@ -9,7 +9,7 @@ import { connectMailboxInPopup } from "./mailboxPopup";
  * Connects, or reconnects, the consultant's mailbox in a popup, for whichever control on the page asked. One popup
  * at a time: asking again abandons the one still open, and leaving the page abandons it too.
  */
-export function useMailboxConnect() {
+export function useMailboxConnect({ onConnected }: { onConnected?: () => void } = {}) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [connectingProvider, setConnectingProvider] = useState<string | null>(null);
@@ -28,6 +28,7 @@ export function useMailboxConnect() {
           finish();
           toast("Mailbox connected.");
           void queryClient.invalidateQueries({ queryKey: mailboxApi.MAILBOX_KEY });
+          onConnected?.();
         },
         onError: (code) => {
           finish();

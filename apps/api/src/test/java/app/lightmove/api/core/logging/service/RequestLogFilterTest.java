@@ -115,8 +115,9 @@ class RequestLogFilterTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/actuator/health", "/actuator/health/liveness", "/assets/index-abc.js", "/projects"})
-    @DisplayName("health probes and the SPA write no line")
+    @ValueSource(strings = {"/actuator/health", "/actuator/health/liveness", "/assets/index-abc.js", "/projects",
+            "/api/v1/email-images/AbCdEf0123456789_-AbCdEf0123456789_-AbCdEf0"})
+    @DisplayName("health probes, the SPA and an email's pictures write no line")
     void skipsProbesAndTheSpa(String path) throws Exception {
         filter(null).doFilter(new MockHttpServletRequest("GET", path), response, (req, res) -> { });
 

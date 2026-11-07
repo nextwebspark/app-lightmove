@@ -40,6 +40,11 @@ public class TenantResolvers {
         return rows("app_lm_resolve_mailboxes_by_recall_calendar", calendarId);
     }
 
+    /** A picture an email shows, by its public token; a photo answers a null workspace. */
+    public Optional<ResolvedRow> emailImage(String token) {
+        return single("app_lm_resolve_email_image", token);
+    }
+
     public Optional<ResolvedRow> mailboxByBookingSlug(String slug) {
         return single("app_lm_resolve_mailbox_by_booking_slug", slug);
     }
