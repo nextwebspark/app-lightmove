@@ -524,12 +524,45 @@ describe("PositionPage", () => {
       await person.type(title, "compl");
       await person.click(screen.getByRole("option", { name: /Chief Compliance Officer/ }));
 
+      // The brief holds a typed responsibility, so the redraft, which has no Undo, waits for a yes.
+      const confirm = await screen.findByRole("dialog", { name: /Redraft the brief as Chief Compliance Officer/ });
+      expect(positionApi.applyTemplate).not.toHaveBeenCalled();
+      await person.click(within(confirm).getByRole("button", { name: "Redraft the brief" }));
+
       await waitFor(() => expect(positionApi.applyTemplate).toHaveBeenCalledWith("p1", "t-cco"));
       // The title is the mandate's and travels through the ordinary details write, not the template.
       await waitFor(() =>
         expect(lastCall(positionApi.putDetails)[1]).toMatchObject({ roleTitle: "Chief Compliance Officer" }),
       );
       expect(screen.getByText("Group compliance framework")).toBeInTheDocument();
+    });
+
+    it("redrafts nothing when the redraft is declined", async () => {
+      renderPage();
+      const person = userEvent.setup();
+
+      const title = await screen.findByRole("combobox", { name: "Role title" });
+      await person.clear(title);
+      await person.type(title, "compl");
+      await person.click(screen.getByRole("option", { name: /Chief Compliance Officer/ }));
+      const confirm = await screen.findByRole("dialog", { name: /Redraft the brief/ });
+      await person.click(within(confirm).getByRole("button", { name: "Cancel" }));
+
+      expect(positionApi.applyTemplate).not.toHaveBeenCalled();
+    });
+
+    it("never commits a suggestion the pointer only passed over once the list is closed", async () => {
+      renderPage();
+      const person = userEvent.setup();
+
+      const title = await screen.findByRole("combobox", { name: "Role title" });
+      await person.clear(title);
+      await person.type(title, "compl");
+      await person.hover(screen.getByRole("option", { name: /Chief Compliance Officer/ }));
+      await person.keyboard("{Escape}{Enter}");
+
+      expect(screen.queryByRole("dialog", { name: /Redraft the brief/ })).not.toBeInTheDocument();
+      expect(positionApi.applyTemplate).not.toHaveBeenCalled();
     });
 
     it("stays a free-text title when the catalog cannot be read", async () => {

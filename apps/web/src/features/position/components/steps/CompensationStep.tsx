@@ -1,6 +1,6 @@
 import { SegmentedControl, type SegmentedOption } from "../../../../components/ui/SegmentedControl";
 import type { BaseSalaryMode, BonusBasis, Compensation, IncentiveType } from "../../api/types";
-import { formatAmount, packageTotal } from "../../lib/compensation";
+import { bonusValueAfterBasisChange, formatAmount, packageTotal } from "../../lib/compensation";
 import {
   BASE_SALARY_MODE_LABELS,
   BONUS_BASIS_LABELS,
@@ -112,7 +112,19 @@ export function CompensationStep({
               label="Bonus basis"
               options={withRecorded(BONUS_OPTIONS, compensation.bonusBasis, (basis) => BONUS_BASIS_LABELS[basis])}
               value={compensation.bonusBasis}
-              onChange={(bonusBasis) => onChange({ bonusBasis }, true)}
+              onChange={(bonusBasis) =>
+                onChange(
+                  {
+                    bonusBasis,
+                    bonusValue: bonusValueAfterBasisChange(
+                      compensation.bonusValue,
+                      compensation.bonusBasis,
+                      bonusBasis,
+                    ),
+                  },
+                  true,
+                )
+              }
               className="flex-nowrap"
             />
           </div>
