@@ -7,7 +7,7 @@ import app.lightmove.api.candidate.model.ResearchedCandidate;
 import app.lightmove.api.candidate.model.ResearchedEmployer;
 import app.lightmove.api.candidate.model.ResearchedFiling;
 import app.lightmove.api.candidate.service.CandidateService;
-import app.lightmove.api.candidate.service.PersonSuppressionService;
+import app.lightmove.api.candidate.service.SuppressionGate;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.concurrent.service.ThreadContextPropagation;
@@ -51,7 +51,7 @@ public class PeopleSearchFiling {
 
     private final CachedContactOutPeopleQuery contactOut;
     private final CandidateService candidates;
-    private final PersonSuppressionService suppression;
+    private final SuppressionGate suppression;
     private final ProfilePhotoDownloader photos;
     private final ObjectMapper json;
 

@@ -2,9 +2,11 @@
 -- being processed, or named by an admin. Every door consults it before a person is founded or mapped: the add
 -- form, the plugin, a spreadsheet, Find executives and People Search.
 --
--- A row holds no personal data a reader could use: value_hash is SHA-256 over the workspace id, the kind and the
--- normalised key (a LinkedIn profile slug, or an email's ledger key), so the list cannot be read back into names,
--- and the same person suppressed by two firms is two unrelated hashes. note is an admin's own words about why.
+-- A row holds no personal data a reader could use: value_hash is HMAC-SHA-256, under the suppression keyset
+-- (lightmove.crypto.suppression-keyset, Secret Manager), of the workspace id, the kind and the normalised key (a
+-- LinkedIn profile slug, or an email's ledger key). Without the key a copy of the table cannot be tested against a
+-- guessed address or slug, and the same person suppressed by two firms is two unrelated hashes. key_id names the
+-- keyset key a row was written under, so a rotation keeps reading it. note is an admin's own words about why.
 
 CREATE TABLE app_lm_workspace_suppression (
     id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -13,6 +15,7 @@ CREATE TABLE app_lm_workspace_suppression (
         CONSTRAINT app_lm_workspace_suppression_kind_chk CHECK (kind IN ('PROFILE_SLUG', 'EMAIL')),
     value_hash   varchar(64) NOT NULL
         CONSTRAINT app_lm_workspace_suppression_hash_chk CHECK (value_hash ~ '^[0-9a-f]{64}$'),
+    key_id       integer     NOT NULL,
     reason       varchar(16) NOT NULL
         CONSTRAINT app_lm_workspace_suppression_reason_chk CHECK (reason IN ('ERASED', 'OBJECTED', 'MANUAL')),
     note         varchar(500),
@@ -24,7 +27,7 @@ CREATE TABLE app_lm_workspace_suppression (
 );
 
 COMMENT ON TABLE app_lm_workspace_suppression IS
-    'People no door may file again, by a hash of their profile slug or email. Tenant data: every read filters by workspace_id.';
+    'People no door may file again, by a keyed hash of their profile slug or email. Tenant data: every read filters by workspace_id.';
 
 CREATE TRIGGER app_lm_workspace_suppression_touch BEFORE UPDATE ON app_lm_workspace_suppression
     FOR EACH ROW EXECUTE FUNCTION app_lm_touch_updated_at();

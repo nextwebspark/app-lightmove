@@ -135,7 +135,7 @@ public class CandidateService {
     private final UserRepository users;
     private final CandidateSearchService searches;
     private final CandidateRemoval removal;
-    private final PersonSuppressionService suppression;
+    private final SuppressionGate suppression;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -146,7 +146,7 @@ public class CandidateService {
                             CandidateRequestReader requests, CandidateResponseMapper responses,
                             CandidatePipelineCatalog pipeline, PersonEmployerResolver employerResolver,
                             UserRepository users, CandidateSearchService searches,
-                            CandidateRemoval removal, PersonSuppressionService suppression,
+                            CandidateRemoval removal, SuppressionGate suppression,
                             LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
@@ -778,15 +778,12 @@ public class CandidateService {
         return responses.toDto(candidate);
     }
 
-    /**
-     * An edit may not hand someone a profile or address the suppression list holds. Only what the edit adds is
-     * asked: a key the person already holds is theirs, and keeping it on an edit files nobody new.
-     */
+    /** Asks the suppression list only for a profile or address the edit adds: what a person holds is theirs. */
     private void refuseSuppressedAdditions(UUID workspaceId, Person person, String linkedinUrl,
                                            List<ContactEntry> emails) {
         String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
-        String newProfile = slug != null && !slug.equals(LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl()))
-                ? linkedinUrl : null;
+        String newProfile = slug != null
+                && !slug.equalsIgnoreCase(LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl())) ? linkedinUrl : null;
         Set<String> heldEmailKeys = person.emailContacts().stream()
                 .map(CandidateContact::getValueKey)
                 .collect(Collectors.toSet());

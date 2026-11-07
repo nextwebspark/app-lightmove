@@ -738,6 +738,12 @@ lightmove:
   # and rotate by adding a key and promoting it: what was written under the old one still decrypts.
   crypto:
     keyset: ${CREDENTIAL_KEYSET:}
+    # The suppression list's HMAC-SHA-256 keyset, mounted from lightmove-suppression-keyset: every entry is a hash
+    # under it, so a copy of the table cannot be tested against a guessed email or slug. Blank, no workspace can add
+    # to its list, and one already holding entries is refused at every door rather than let through. Make one with
+    #   tinkey create-keyset --key-template HMAC_SHA256_PRF --out-format json
+    # and rotate by adding a key and promoting it, keeping the old one while any entry is written under it.
+    suppression-keyset: ${SUPPRESSION_KEYSET:}
 
   # Recall.ai's Calendar API: one platform account, never one per workspace. The region is the base URL (each
   # region is its own account and key; EU is https://eu-central-1.recall.ai). Blank, calendars are read directly

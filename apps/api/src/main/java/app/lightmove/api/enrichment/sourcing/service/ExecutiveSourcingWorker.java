@@ -8,7 +8,7 @@ import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.model.ResearchedFiling;
 import app.lightmove.api.candidate.service.CandidateService;
-import app.lightmove.api.candidate.service.PersonSuppressionService;
+import app.lightmove.api.candidate.service.SuppressionGate;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.ExecutiveSourcingSettings;
@@ -67,7 +67,7 @@ class ExecutiveSourcingWorker {
     private final SourcingSpecProposer specs;
     private final SourcingSpecRefiner refiner;
     private final CandidateService candidates;
-    private final PersonSuppressionService suppression;
+    private final SuppressionGate suppression;
     private final PositionService positions;
     private final ProfilePhotoDownloader photos;
     private final AuditService audit;
@@ -76,7 +76,7 @@ class ExecutiveSourcingWorker {
 
     ExecutiveSourcingWorker(SourcingRunStore store, ChainedPeopleSearch peopleSearch, SourcingSpecProposer specs,
                             SourcingSpecRefiner refiner, CandidateService candidates,
-                            PersonSuppressionService suppression, PositionService positions,
+                            SuppressionGate suppression, PositionService positions,
                             ProfilePhotoDownloader photos, AuditService audit, UsageRecorder usage,
                             LightMoveProperties properties) {
         this.store = store;

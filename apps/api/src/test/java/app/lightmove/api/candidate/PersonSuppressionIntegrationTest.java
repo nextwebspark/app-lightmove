@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.TestKeyedHashers;
+import app.lightmove.api.core.security.token.Tokens;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,16 +47,42 @@ class PersonSuppressionIntegrationTest extends FlowTestSupport {
         assertThat(db.queryForList("select value_hash from app_lm_workspace_suppression", String.class))
                 .isNotEmpty()
                 .allSatisfy(hash -> assertThat(hash).matches("[0-9a-f]{64}").doesNotContain("noor"));
+        String workspaceId = db.queryForObject("select id::text from app_lm_workspace where name = 'Hashing Firm'",
+                String.class);
+        assertThat(db.queryForList("select value_hash from app_lm_workspace_suppression where workspace_id = ?::uuid",
+                String.class, workspaceId))
+                .doesNotContain(Tokens.hash(workspaceId + ":EMAIL:noor@example.com"));
+        assertThat(db.queryForList("select key_id from app_lm_workspace_suppression where workspace_id = ?::uuid",
+                Integer.class, workspaceId)).containsOnly(TestKeyedHashers.DEV_KEY_ID);
 
         JsonNode list = body(mvc.perform(get("/api/v1/workspace/suppressions")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk()).andReturn());
         assertThat(list).hasSize(2);
 
-        suppress("""
-                {"email":"noor@example.com"}""").andExpect(status().isCreated());
+        JsonNode again = body(suppress("""
+                {"email":"NOOR@example.com"}""").andExpect(status().isOk()).andReturn());
+        assertThat(again).hasSize(1);
+        assertThat(again.get(0).get("reason").asText()).isEqualTo("objected");
         assertThat(body(mvc.perform(get("/api/v1/workspace/suppressions")
                 .header("Authorization", "Bearer " + admin)).andReturn())).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("an entry the deployment's keyset cannot read refuses every door, rather than letting the person in")
+    void anUnreadableListRefusesTheDoor() throws Exception {
+        firm("Rotated Key Firm");
+        String position = mandate("Chief Legal Officer");
+        suppress("""
+                {"email":"rania@example.com"}""").andExpect(status().isCreated());
+        db.update("update app_lm_workspace_suppression set key_id = 1 where workspace_id ="
+                + " (select id from app_lm_workspace where name = 'Rotated Key Firm')");
+
+        assertThat(codeOf(add(position, """
+                {"fullName":"Omar Saleh","linkedinUrl":"https://www.linkedin.com/in/omar-saleh/"}""")
+                .andExpect(status().isServiceUnavailable()).andReturn())).isEqualTo("SUPPRESSION_UNAVAILABLE");
+        assertThat(db.queryForObject("select count(*) from app_lm_project_candidate where project_id = ?::uuid",
+                Long.class, position)).isZero();
     }
 
     @Test

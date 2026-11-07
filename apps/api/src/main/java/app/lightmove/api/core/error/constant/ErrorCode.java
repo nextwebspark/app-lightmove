@@ -308,6 +308,13 @@ public enum ErrorCode {
     PERSON_SUPPRESSED(HttpStatus.CONFLICT,
             "This person is on your workspace's suppression list, so they can't be added"),
 
+    /**
+     * The deployment has no suppression keyset, or none holding the key a workspace's entries were written under.
+     * Refused rather than read as an empty list, which would let every suppressed person back in.
+     */
+    SUPPRESSION_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
+            "Your workspace's suppression list can't be checked right now, so nobody can be added. Contact Uncava support"),
+
     /** Nothing was saved. Never sent for a stream that ran out of time: see {@link #ASSISTANT_STILL_ANSWERING}. */
     ASSISTANT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
             "The assistant could not answer just now. Try again in a moment"),

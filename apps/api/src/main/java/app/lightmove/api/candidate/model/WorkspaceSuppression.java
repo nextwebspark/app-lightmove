@@ -14,7 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * One key no door may file again in this workspace (V195). It holds a hash, never the slug or address itself:
+ * One key no door may file again in this workspace (V195). It holds a keyed hash, never the slug or address itself:
  * the list exists to recognise someone, not to remember them.
  */
 @Entity
@@ -35,6 +35,9 @@ public class WorkspaceSuppression extends BaseEntity {
     @Column(name = "value_hash", nullable = false, updatable = false, length = 64)
     private String valueHash;
 
+    @Column(name = "key_id", nullable = false, updatable = false)
+    private int keyId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "reason", nullable = false, length = 16)
     private SuppressionReason reason;
@@ -44,16 +47,4 @@ public class WorkspaceSuppression extends BaseEntity {
 
     @Column(name = "created_by", updatable = false)
     private UUID createdBy;
-
-    public static WorkspaceSuppression of(UUID workspaceId, SuppressionKey key, SuppressionReason reason,
-                                          String note, UUID createdBy) {
-        WorkspaceSuppression suppression = new WorkspaceSuppression();
-        suppression.workspaceId = workspaceId;
-        suppression.kind = key.kind();
-        suppression.valueHash = key.hash();
-        suppression.reason = reason;
-        suppression.note = note;
-        suppression.createdBy = createdBy;
-        return suppression;
-    }
 }
