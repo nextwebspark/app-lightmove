@@ -555,6 +555,17 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     onError: (error) => toast.error(saveMessageFor(error)),
   });
 
+  /**
+   * A template picked over a brief somebody has worked on waits for a yes: the redraft replaces the
+   * responsibilities, org chart, competencies and benefits, and has no Undo. An untouched brief redrafts at once.
+   */
+  const [templateToConfirm, setTemplateToConfirm] = useState<PositionTemplate | null>(null);
+  const pickTemplate = (template: PositionTemplate) => {
+    if (applyTemplate.isPending) return;
+    if (isUntouched(drafted)) applyTemplate.mutate(template);
+    else setTemplateToConfirm(template);
+  };
+
   const [isConfirmingWithdraw, setIsConfirmingWithdraw] = useState(false);
   const withdraw = useMutation({
     mutationFn: () => serially(() => positionApi.withdrawPublication(projectId)),
@@ -858,7 +869,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
               onChangeContext={changeContext}
               onChangeReporting={changeReporting}
               onChangeTargetDate={(isoDate) => updateTargetDate.mutate(isoDate)}
-              onPickTemplate={(template) => applyTemplate.mutate(template)}
+              onPickTemplate={pickTemplate}
               onAttachDocument={(file) => {
                 if (file.size > BRIEF_LIMITS.documentBytes) {
                   toast.error("That file is too large. Attach one under 10 MB.");
@@ -914,6 +925,23 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
           {step.key === "review" && (
             <ReviewStep position={drafted} readBack={readBack} onWithdraw={() => setIsConfirmingWithdraw(true)} />
           )}
+          <ConfirmDialog
+            open={templateToConfirm !== null}
+            title={`Redraft the brief as ${templateToConfirm?.title ?? "this role"}?`}
+            confirmLabel="Redraft the brief"
+            pending={applyTemplate.isPending}
+            onConfirm={() => {
+              if (templateToConfirm) applyTemplate.mutate(templateToConfirm);
+              setTemplateToConfirm(null);
+            }}
+            onClose={() => setTemplateToConfirm(null)}
+          >
+            <p>
+              The template&rsquo;s responsibilities, reporting line, competencies and benefits replace the
+              brief&rsquo;s, and every field it fills in is overwritten. What it leaves blank, your own criteria and
+              priorities, and the salary band stay as they are.
+            </p>
+          </ConfirmDialog>
           <ConfirmDialog
             open={isConfirmingWithdraw}
             title="Withdraw publication?"
