@@ -230,7 +230,7 @@ because `addResearched` checks the full URL. So the miss is a display and a phot
 
 A suppression committed while a filing is in flight can lose the race, so that one filing goes through. This is
 acceptable for an admin action, but worth knowing if erasure (#1179) relies on it. Erasure deletes the person in the
-same flow, which closes most of the window. Noted on #1179.
+same flow, which closes most of the window; #1179 should account for it.
 
 ### 5. People Search still pays for suppressed people (low)
 
