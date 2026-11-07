@@ -3,6 +3,9 @@ package app.lightmove.api.outreach.service;
 import app.lightmove.api.core.crypto.service.SecretCipher;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.core.tenant.EveryWorkspace;
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
@@ -58,19 +61,24 @@ public class RecallCalendars {
     private final SecretCipher cipher;
     private final WorkspaceSettingsService workspaces;
     private final MeetingSync meetings;
+    private final TenantResolvers resolvers;
+    private final EveryWorkspace everyWorkspace;
     private final TransactionTemplate transactions;
     private final Clock clock;
 
     /** Its own transactions, never the caller's: run after a commit, the finished one is still bound to the thread. */
     RecallCalendars(RecallCalendarApi recall, MailboxConnectionRepository mailboxes,
                     ProviderCredentialsResolver credentials, SecretCipher cipher, WorkspaceSettingsService workspaces,
-                    MeetingSync meetings, PlatformTransactionManager transactionManager, Clock clock) {
+                    MeetingSync meetings, TenantResolvers resolvers, EveryWorkspace everyWorkspace,
+                    PlatformTransactionManager transactionManager, Clock clock) {
         this.recall = recall;
         this.mailboxes = mailboxes;
         this.credentials = credentials;
         this.cipher = cipher;
         this.workspaces = workspaces;
         this.meetings = meetings;
+        this.resolvers = resolvers;
+        this.everyWorkspace = everyWorkspace;
         this.transactions = new TransactionTemplate(transactionManager);
         this.transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.clock = clock;
@@ -109,38 +117,51 @@ public class RecallCalendars {
                 .forEach(mailbox -> reconcile(mailbox, true, null));
     }
 
-    /** The reply poll's: calendars a failed call left unmade, each tried again once its backoff has passed. */
+    /**
+     * The reply poll's: calendars a failed call left unmade, each tried again once its backoff has passed. A workspace
+     * at a time: the mailboxes, and the app keys a calendar is made with, are under row-level security.
+     */
     public void createOwed() {
         if (recall.isOffered()) {
-            mailboxes.findOwedRecallCalendars(MAX_ATTEMPTS, clock.instant(), MAX_OWED_PER_POLL)
-                    .forEach(mailbox -> reconcile(mailbox, false, CalendarSync.RECALL));
+            everyWorkspace.forEach(workspaceId -> mailboxes
+                    .findOwedRecallCalendars(MAX_ATTEMPTS, clock.instant(), MAX_OWED_PER_POLL)
+                    .forEach(mailbox -> reconcile(mailbox, false, CalendarSync.RECALL)));
         }
     }
 
-    /** A Recall webhook delivery; refused by the API when its signature does not verify. */
+    /**
+     * A Recall webhook delivery; refused by the API when its signature does not verify. Recall names its calendar and
+     * nothing else, so each mailbox holding it is worked in its own workspace.
+     */
     public void receive(RecallWebhookDelivery delivery) {
         for (RecallWebhookNotice notice : recall.notices(delivery)) {
-            if (mailboxes.findByRecallCalendarId(notice.calendarId()).isEmpty()) {
+            List<UUID> holders = resolvers.mailboxesByRecallCalendar(notice.calendarId()).stream()
+                    .map(ResolvedRow::workspaceId).distinct().toList();
+            if (holders.isEmpty()) {
                 continue;
             }
             switch (notice) {
-                case RecallWebhookNotice.CalendarStateChanged changed -> checkAccess(changed.calendarId());
-                case RecallWebhookNotice.CalendarEventsChanged changed ->
-                        syncEvents(changed.calendarId(), recall.eventsUpdatedSince(changed.calendarId(),
-                                changed.since()));
+                case RecallWebhookNotice.CalendarStateChanged changed -> checkAccess(changed.calendarId(), holders);
+                case RecallWebhookNotice.CalendarEventsChanged changed -> {
+                    List<RecallCalendarEvent> events = recall.eventsUpdatedSince(changed.calendarId(),
+                            changed.since());
+                    holders.forEach(workspaceId ->
+                            WorkspaceScope.run(workspaceId, () -> syncEvents(changed.calendarId(), events)));
+                }
             }
         }
     }
 
-    private void checkAccess(String calendarId) {
+    private void checkAccess(String calendarId, List<UUID> holders) {
         if (recall.status(calendarId) == RecallCalendarStatus.DISCONNECTED) {
-            transactions.executeWithoutResult(status -> mailboxes.findByRecallCalendarId(calendarId)
-                    .forEach(mailbox -> {
-                        mailbox.markAccessWithdrawn();
-                        mailbox.releaseRecallCalendar();
-                        log.info("Recall lost access to the calendar of mailbox {}; it needs reconnecting",
-                                mailbox.getId());
-                    }));
+            holders.forEach(workspaceId -> WorkspaceScope.run(workspaceId, () ->
+                    transactions.executeWithoutResult(status -> mailboxes.findByRecallCalendarId(calendarId)
+                            .forEach(mailbox -> {
+                                mailbox.markAccessWithdrawn();
+                                mailbox.releaseRecallCalendar();
+                                log.info("Recall lost access to the calendar of mailbox {}; it needs reconnecting",
+                                        mailbox.getId());
+                            }))));
             deleteQuietly(calendarId);
         }
     }
@@ -160,16 +181,12 @@ public class RecallCalendars {
                 }
             }
         }
-        // In the mailbox's workspace: the people an event is matched to are read there.
-        for (MailboxConnection owner : mailboxes.findByRecallCalendarId(calendarId)) {
-            WorkspaceScope.run(owner.getWorkspaceId(), () -> transactions.executeWithoutResult(status -> mailboxes
-                    .findById(owner.getId())
-                    .filter(MailboxConnection::canSend)
-                    .ifPresent(mailbox -> {
-                        meetings.applyAll(mailbox, kept);
-                        gone.forEach(eventId -> meetings.remove(mailbox, eventId));
-                    })));
-        }
+        transactions.executeWithoutResult(status -> mailboxes.findByRecallCalendarId(calendarId).stream()
+                .filter(MailboxConnection::canSend)
+                .forEach(mailbox -> {
+                    meetings.applyAll(mailbox, kept);
+                    gone.forEach(eventId -> meetings.remove(mailbox, eventId));
+                }));
     }
 
     /**

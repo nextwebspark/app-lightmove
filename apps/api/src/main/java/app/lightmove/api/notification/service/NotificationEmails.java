@@ -11,6 +11,7 @@ import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.tenant.EveryWorkspace;
+import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.notification.constant.NotificationKind;
 import app.lightmove.api.notification.model.Notification;
@@ -80,13 +81,9 @@ public class NotificationEmails {
             RETURNING id
             """;
 
-    private static final String WORKSPACES_WITH_EMAILS_DUE = """
-            SELECT DISTINCT workspace_id FROM app_lm_notification
-             WHERE email_due_at <= ? AND emailed_at IS NULL AND read_at IS NULL AND archived_at IS NULL
-            """;
-
     private final JdbcTemplate jdbc;
     private final EveryWorkspace workspaces;
+    private final TenantResolvers resolvers;
     private final TransactionTemplate transactions;
     private final NotificationRepository rows;
     private final NotificationPreferences preferences;
@@ -108,8 +105,8 @@ public class NotificationEmails {
 
     /** One pass; a row that fails is logged and the rows after it still sent. */
     public int emailUnreadAt(Instant now) {
-        return workspaces.sumWithWork(WORKSPACES_WITH_EMAILS_DUE, workspaceId -> emailUnreadIn(workspaceId, now),
-                Timestamp.from(now));
+        return workspaces.sum(resolvers.workspacesWithNotificationEmailsDue(now),
+                workspaceId -> emailUnreadIn(workspaceId, now));
     }
 
     private int emailUnreadIn(UUID workspaceId, Instant now) {
@@ -182,12 +179,18 @@ public class NotificationEmails {
         digestAt(clock.instant());
     }
 
-    /** One pass over everyone with something due or unread; each is sent at most one digest per local day. */
+    /**
+     * One pass over everyone with something due or unread; each is sent at most one digest per local day. Who that is
+     * is read a workspace at a time: the tasks and the bell are under row-level security.
+     */
     public int digestAt(Instant now) {
-        Set<TaskHolder> recipients = new LinkedHashSet<>(tasks.holdersDueBy(now.plus(DIGEST_HORIZON)));
-        for (NotificationRecipientRow mention : rows.findUnreadMentionRecipients()) {
-            recipients.add(new TaskHolder(mention.getWorkspaceId(), mention.getUserId()));
-        }
+        Set<TaskHolder> recipients = new LinkedHashSet<>();
+        workspaces.forEach(workspaceId -> {
+            recipients.addAll(tasks.holdersDueBy(now.plus(DIGEST_HORIZON)));
+            for (NotificationRecipientRow mention : rows.findUnreadMentionRecipients()) {
+                recipients.add(new TaskHolder(mention.getWorkspaceId(), mention.getUserId()));
+            }
+        });
         Map<UUID, User> people = users.findAllById(recipients.stream().map(TaskHolder::userId).distinct().toList())
                 .stream().collect(Collectors.toMap(User::getId, Function.identity()));
         int sent = 0;

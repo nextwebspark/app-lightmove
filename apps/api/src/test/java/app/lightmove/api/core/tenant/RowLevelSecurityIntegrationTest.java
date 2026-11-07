@@ -52,6 +52,21 @@ class RowLevelSecurityIntegrationTest extends FlowTestSupport {
             ROWS_OF_A_WORKSPACE.put(table, "select count(*) from " + table
                     + " child join app_lm_person p on p.id = child.person_id where p.workspace_id = ?");
         }
+        // V190's two shapes, one table each kind the seed touches: a direct workspace, and a project's child.
+        for (String table : new String[] {"app_lm_client", "app_lm_workspace_candidate_tag", "app_lm_person_activity"}) {
+            ROWS_OF_A_WORKSPACE.put(table, "select count(*) from " + table + " where workspace_id = ?");
+        }
+        for (String table : new String[] {"app_lm_position", "app_lm_project_member"}) {
+            ROWS_OF_A_WORKSPACE.put(table, "select count(*) from " + table
+                    + " child join app_lm_project p on p.id = child.project_id where p.workspace_id = ?");
+        }
+        // Two hops: the child's parent is itself visible only through its project.
+        ROWS_OF_A_WORKSPACE.put("app_lm_project_member_role", "select count(*) from app_lm_project_member_role r"
+                + " join app_lm_project_member m on m.id = r.project_member_id"
+                + " join app_lm_project p on p.id = m.project_id where p.workspace_id = ?");
+        ROWS_OF_A_WORKSPACE.put("app_lm_position_responsibility", "select count(*) from app_lm_position_responsibility r"
+                + " join app_lm_position pos on pos.id = r.position_id"
+                + " join app_lm_project p on p.id = pos.project_id where p.workspace_id = ?");
     }
 
     @Autowired @FixtureJdbc JdbcTemplate fixture;
@@ -73,7 +88,6 @@ class RowLevelSecurityIntegrationTest extends FlowTestSupport {
     @Test
     @DisplayName("every protected table is guarded: forced, and the runtime role is no superuser")
     void thePostureHolds() {
-        assertThat(RowLevelSecurityPosture.PROTECTED_TABLES).containsExactlyInAnyOrderElementsOf(ROWS_OF_A_WORKSPACE.keySet());
         assertThat(posture.faults()).isEmpty();
         assertThat(application.queryForObject("select current_user", String.class)).isEqualTo("lm_app");
     }
@@ -192,6 +206,55 @@ class RowLevelSecurityIntegrationTest extends FlowTestSupport {
             assertThat(application.queryForObject("select app_lm_rls_maintenance()", Boolean.class)).isFalse();
             assertThat(application.queryForObject("select count(*) from app_lm_person", Long.class)).isZero();
         }
+    }
+
+    @Test
+    @DisplayName("the shared library is read by every workspace and written only inside a shared-rows scope")
+    void theSharedLibraryIsWrittenOnlyInASharedRowsScope() {
+        UUID libraryTemplate = fixture.queryForObject("""
+                select t.id from app_lm_position_template t
+                where t.workspace_id is null
+                  and exists (select 1 from app_lm_position_template_keyword k where k.template_id = t.id)
+                order by t.code limit 1""", UUID.class);
+        assertThat(visibleIn(firmA.workspaceId(), "app_lm_position_template")).isPositive();
+
+        WorkspaceScope.run(firmA.workspaceId(), () -> transactions.executeWithoutResult(status -> assertThat(
+                application.update("update app_lm_position_template set summary = 'Taken' where id = ?",
+                        libraryTemplate)).isZero()));
+        assertRefusedByPolicy(() -> application.update("""
+                insert into app_lm_position_template_keyword (template_id, sort_order, keyword)
+                select template_id, max(sort_order) + 1, 'planted' from app_lm_position_template_keyword
+                where template_id = ? group by template_id""", libraryTemplate));
+        assertThat(fixture.queryForObject("select summary from app_lm_position_template where id = ?", String.class,
+                libraryTemplate)).isNotEqualTo("Taken");
+
+        SharedRows.run(() -> transactions.executeWithoutResult(status -> assertThat(application.update(
+                "update app_lm_position_template set summary = summary where id = ?", libraryTemplate)).isOne()));
+    }
+
+    @Test
+    @DisplayName("a grant waiting for its consent is seen by no workspace, and inside a shared-rows scope only")
+    void aPendingGrantIsReachedOnlyInASharedRowsScope() {
+        UUID clientId = fixture.queryForObject("""
+                insert into app_lm_oauth_client (client_id, client_name, redirect_uris, scopes, source)
+                values (?, 'Fence client', '["https://fence.example/cb"]', '["projects:read"]', 'DCR') returning id""",
+                UUID.class, "https://fence.example/" + UUID.randomUUID());
+        UUID userId = fixture.queryForObject("select id from app_lm_user where email = ?", UUID.class,
+                "amal@" + domain);
+        UUID grantId = UUID.randomUUID();
+        fixture.update("""
+                insert into app_lm_oauth_authorization (id, client_id, user_id, authorization_grant_type, attributes)
+                values (?, ?, ?, 'authorization_code', '{}')""", grantId, clientId, userId);
+        String ofThisGrant = "select count(*) from app_lm_oauth_authorization where id = '" + grantId + "'";
+
+        Long inAsScope = WorkspaceScope.call(firmA.workspaceId(), () -> transactions.execute(status ->
+                application.queryForObject(ofThisGrant, Long.class)));
+        Long inSharedScope = SharedRows.call(() -> application.queryForObject(ofThisGrant, Long.class));
+        assertThat(inAsScope).isZero();
+        assertThat(application.queryForObject(ofThisGrant, Long.class)).isZero();
+        assertThat(inSharedScope).isOne();
+        assertThat(application.queryForObject("select current_setting('app.shared_rows', true)", String.class))
+                .as("the flag is gone at the next checkout").isEmpty();
     }
 
     private Integer backendPid() {

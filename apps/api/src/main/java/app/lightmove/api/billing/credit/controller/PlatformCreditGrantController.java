@@ -6,6 +6,7 @@ import app.lightmove.api.billing.credit.service.PlatformCreditGrantService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.PlatformAction;
 import app.lightmove.api.core.security.rbac.RequirePlatformPermission;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -32,6 +33,8 @@ public class PlatformCreditGrantController {
                                      @PathVariable UUID workspaceId,
                                      @Valid @RequestBody CreditGrantRequest request,
                                      HttpServletRequest httpRequest) {
-        return grants.grant(principal.userId(), workspaceId, request, httpRequest);
+        // A platform admin is signed in to their own workspace; the grant is written in the one the path names.
+        return WorkspaceScope.call(workspaceId, () -> grants.grant(principal.userId(), workspaceId, request,
+                httpRequest));
     }
 }

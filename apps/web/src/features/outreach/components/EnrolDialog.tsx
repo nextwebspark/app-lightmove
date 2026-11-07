@@ -33,6 +33,8 @@ import {
 } from "../lib/sendSchedule";
 import { BOOKING_LINK_PLACEHOLDER, render, renderParts } from "../lib/sequenceTokens";
 import { useMailbox } from "../lib/useMailbox";
+import { RunSignaturePicker } from "../../signatures/components/SignatureChooser";
+import { useSignatureChoice, type SignatureChoice } from "../../signatures/lib/useSignatureChoice";
 
 type EnrolStep = "choose" | "review" | "start";
 
@@ -196,6 +198,8 @@ export function EnrolDialog({
     if (fresh.length > 0) void draft(fresh.map((person) => person.candidateId));
   };
 
+  const signature = useSignatureChoice();
+
   const start = useMutation({
     mutationFn: () =>
       sequenceApi.startSequence(
@@ -214,6 +218,7 @@ export function EnrolDialog({
           startMode: startChoice.mode,
           startAt: startChoice.mode === "AT" && chosenStart ? chosenStart.toISOString() : null,
         },
+        signature.signatureId,
       ),
     onSuccess: (started) => {
       void queryClient.invalidateQueries({
@@ -307,7 +312,7 @@ export function EnrolDialog({
         <Button
           className="px-3.5 py-2 text-[13px] font-semibold"
           loading={start.isPending}
-          disabled={isAnyDrafting || startProblem !== null}
+          disabled={isAnyDrafting || startProblem !== null || signature.isPending}
           onClick={() => start.mutate()}
         >
           Start sequence
@@ -365,6 +370,7 @@ export function EnrolDialog({
               },
             }))
           }
+          signature={signature}
           onRedraft={() => {
             const candidateId = reviewing.candidateId;
             void draft([candidateId], true).then((received) => {
@@ -559,7 +565,9 @@ function ReviewStep({
   onReview,
   onChange,
   onRedraft,
+  signature,
 }: {
+  signature: SignatureChoice;
   bookingLink: string | null;
   sequence: Sequence;
   chosen: EnrollmentCandidate[];
@@ -668,6 +676,7 @@ function ReviewStep({
             .join("")
             .replace(/^\n+/, "")}
         </div>
+        <RunSignaturePicker choice={signature} />
         {sequence.steps.length > 1 && (
           <p className="mt-3 border-t border-u-border pt-2.5 font-mono text-[11.5px] text-u-text3">
             {followUpLine(sequence)}, each only if {firstName} hasn't replied.

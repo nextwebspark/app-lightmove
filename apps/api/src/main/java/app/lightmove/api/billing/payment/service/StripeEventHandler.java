@@ -6,12 +6,10 @@ import app.lightmove.api.billing.credit.model.CreditGrantReceipt;
 import app.lightmove.api.billing.credit.repository.CreditGrantRepository;
 import app.lightmove.api.billing.credit.service.CreditLedger;
 import app.lightmove.api.billing.credit.service.MonthlyCreditReset;
-import app.lightmove.api.billing.payment.model.BillingCustomer;
 import app.lightmove.api.billing.payment.model.PaymentEvent;
 import app.lightmove.api.billing.payment.model.PlanPrice;
 import app.lightmove.api.billing.payment.model.StripeSubscriptionState;
 import app.lightmove.api.billing.payment.model.SubscriptionPaymentFailed;
-import app.lightmove.api.billing.payment.repository.BillingCustomerRepository;
 import app.lightmove.api.billing.payment.repository.BillingWebhookEventRepository;
 import app.lightmove.api.billing.plan.constant.BillingInterval;
 import app.lightmove.api.billing.plan.constant.PlanCode;
@@ -27,6 +25,9 @@ import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CreditPackSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -40,12 +41,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Turns verified Stripe events into the subscription's state and contact-credit grants, each claimed and handled in
  * one transaction. A paid period's month is granted under {@link MonthlyCreditReset#grantKey}, so the job and the
- * webhook never both grant it. An event this deployment cannot place is claimed and ignored, never retried.
+ * webhook never both grant it. An event this deployment cannot place is claimed and ignored, never retried. Nobody is
+ * signed in: the customer an event names is the workspace it is handled in, resolved before its transaction begins.
  */
 @Slf4j
 @Service
@@ -55,7 +57,7 @@ public class StripeEventHandler {
     private static final int PURCHASED_CREDITS_MONTHS = 12;
 
     private final BillingWebhookEventRepository events;
-    private final BillingCustomerRepository customers;
+    private final TenantResolvers resolvers;
     private final WorkspaceSubscriptionRepository subscriptions;
     private final BillingPlanRepository plans;
     private final CreditGrantRepository grants;
@@ -64,26 +66,43 @@ public class StripeEventHandler {
     private final AuditService audit;
     private final LightMoveProperties properties;
     private final ApplicationEventPublisher publisher;
+    private final TransactionTemplate transactions;
     private final Clock clock;
 
-    @Transactional
     public void handle(PaymentEvent event) {
-        if (event instanceof PaymentEvent.Ignored || events.claim(event.eventId(), event.type()) == 0) {
+        if (event instanceof PaymentEvent.Ignored) {
             return;
         }
-        switch (event) {
-            case PaymentEvent.SubscriptionChanged changed -> workspaceOf(changed.subscription().customerId(), event)
-                    .ifPresent(workspaceId -> paidOf(changed.subscription(), event)
-                            .ifPresent(paid -> follow(workspaceId, paid, event.createdAt())));
-            case PaymentEvent.InvoicePaid paid ->
-                    workspaceOf(paid.customerId(), event).ifPresent(workspaceId -> invoicePaid(workspaceId, paid));
-            case PaymentEvent.InvoicePaymentFailed failed ->
-                    workspaceOf(failed.customerId(), event).ifPresent(workspaceId -> paymentFailed(workspaceId, failed));
-            case PaymentEvent.CreditsPaid bought ->
-                    workspaceOf(bought.customerId(), event).ifPresent(workspaceId -> credit(workspaceId, bought));
-            case PaymentEvent.Ignored ignored -> {
-            }
+        Optional<UUID> workspace = workspaceOf(customerOf(event), event);
+        if (workspace.isEmpty()) {
+            transactions.executeWithoutResult(status -> events.claim(event.eventId(), event.type()));
+            return;
         }
+        UUID workspaceId = workspace.get();
+        WorkspaceScope.run(workspaceId, () -> transactions.executeWithoutResult(status -> {
+            if (events.claim(event.eventId(), event.type()) == 0) {
+                return;
+            }
+            switch (event) {
+                case PaymentEvent.SubscriptionChanged changed -> paidOf(changed.subscription(), event)
+                        .ifPresent(paid -> follow(workspaceId, paid, event.createdAt()));
+                case PaymentEvent.InvoicePaid paid -> invoicePaid(workspaceId, paid);
+                case PaymentEvent.InvoicePaymentFailed failed -> paymentFailed(workspaceId, failed);
+                case PaymentEvent.CreditsPaid bought -> credit(workspaceId, bought);
+                case PaymentEvent.Ignored ignored -> {
+                }
+            }
+        }));
+    }
+
+    private static String customerOf(PaymentEvent event) {
+        return switch (event) {
+            case PaymentEvent.SubscriptionChanged changed -> changed.subscription().customerId();
+            case PaymentEvent.InvoicePaid paid -> paid.customerId();
+            case PaymentEvent.InvoicePaymentFailed failed -> failed.customerId();
+            case PaymentEvent.CreditsPaid bought -> bought.customerId();
+            case PaymentEvent.Ignored ignored -> null;
+        };
     }
 
     private void follow(UUID workspaceId, PaidSubscription paid, Instant eventAt) {
@@ -222,7 +241,7 @@ public class StripeEventHandler {
     /** A customer nobody here made, such as one added by hand in Stripe's dashboard, belongs to no workspace. */
     private Optional<UUID> workspaceOf(String customerId, PaymentEvent event) {
         Optional<UUID> workspaceId = customerId == null ? Optional.empty()
-                : customers.findByStripeCustomerId(customerId).map(BillingCustomer::getWorkspaceId);
+                : resolvers.billingCustomer(customerId).map(ResolvedRow::workspaceId);
         if (workspaceId.isEmpty()) {
             log.warn("Stripe event {} ({}) names customer {}, which is no workspace's", event.eventId(), event.type(),
                     customerId);

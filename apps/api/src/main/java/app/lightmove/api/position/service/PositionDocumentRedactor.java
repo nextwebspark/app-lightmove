@@ -76,10 +76,18 @@ public class PositionDocumentRedactor {
         return pseudonymiser.redact(stripped, terms, patterns);
     }
 
+    /**
+     * A client the mandate names but this read cannot see — another workspace's, or any, read with no workspace under
+     * row-level security — is refused rather than read as nobody to redact: the document would go out naming them.
+     */
     private List<String> companyTermsOf(UUID clientId, UUID workspaceId) {
+        if (clientId == null) {
+            return List.of();
+        }
         return clients.findByIdAndWorkspaceId(clientId, workspaceId)
                 .map(PositionDocumentRedactor::variantsOf)
-                .orElse(List.of());
+                .orElseThrow(() -> new IllegalStateException(
+                        "Client " + clientId + " is not readable in workspace " + workspaceId + "; nothing is sent"));
     }
 
     private static List<String> variantsOf(Client client) {

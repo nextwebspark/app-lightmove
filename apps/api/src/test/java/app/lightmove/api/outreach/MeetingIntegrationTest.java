@@ -15,6 +15,7 @@ import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
@@ -135,12 +136,13 @@ class MeetingIntegrationTest extends FlowTestSupport {
                 workspaceId));
         Instant claimedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
-        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-            MailboxConnection readBeforeTheClaim = mailboxes.findById(mailboxId).orElseThrow();
-            jdbc.update("update app_lm_mailbox_connection set calendar_synced_at = ? where id = ?::uuid",
-                    Timestamp.from(claimedAt), mailboxId.toString());
-            readBeforeTheClaim.changeTimeZone(ZoneId.of("Europe/London"));
-        });
+        WorkspaceScope.run(UUID.fromString(workspaceId), () ->
+                new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+                    MailboxConnection readBeforeTheClaim = mailboxes.findById(mailboxId).orElseThrow();
+                    jdbc.update("update app_lm_mailbox_connection set calendar_synced_at = ? where id = ?::uuid",
+                            Timestamp.from(claimedAt), mailboxId.toString());
+                    readBeforeTheClaim.changeTimeZone(ZoneId.of("Europe/London"));
+                }));
 
         assertThat(jdbc.queryForObject("select calendar_synced_at from app_lm_mailbox_connection where id = ?::uuid",
                 Instant.class, mailboxId.toString())).isEqualTo(claimedAt);

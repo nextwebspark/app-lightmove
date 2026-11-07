@@ -15,9 +15,11 @@ import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.RecordingMailboxGateway.SentRecord;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.service.ProviderAppUnavailable;
 import app.lightmove.api.outreach.model.DeliveryFailure;
 import app.lightmove.api.outreach.model.GrantedMailbox;
@@ -38,6 +40,7 @@ import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -91,6 +94,88 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         connectMailbox();
         monday = LocalDate.now(DUBAI).plusWeeks(1).with(TemporalAdjusters.next(DayOfWeek.MONDAY))
                 .atTime(LocalTime.of(10, 0)).atZone(DUBAI).toInstant();
+    }
+
+    @Test
+    @DisplayName("the signature chosen at Start closes every step as it was drawn then, follow-ups included")
+    void theStartsSignatureClosesEveryStep() throws Exception {
+        String signatureId = body(as(consultant, post("/api/v1/me/signatures").contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"Formal","layout":"MINIMAL","fields":{"title":"Partner"}}"""))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+        String sequenceId = createSequence("Signed approach");
+        String priya = executive("Priya Raman", "priya@" + domain);
+        startTimed(sequenceId, List.of(person(priya, "priya@" + domain, null)),
+                ",\"signatureId\":\"" + signatureId + "\"").andExpect(status().isCreated());
+        as(consultant, put("/api/v1/me/signatures/" + signatureId).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"Formal","layout":"MINIMAL","fields":{"title":"Changed since"}}"""))
+                .andExpect(status().isOk());
+
+        dispatcher.dispatchAt(monday);
+        dispatcher.dispatchAt(monday.plus(Duration.ofDays(3)));
+
+        List<SentRecord> sent = sentTo("priya@" + domain);
+        assertThat(sent).hasSize(2);
+        assertThat(sent).allSatisfy(record -> assertThat(record.email().htmlBody())
+                .contains("<strong>Yara Haddad</strong> · Partner").doesNotContain("Changed since"));
+        assertThat(sent.get(1).email().htmlBody()).startsWith("<p>Following up, Priya.</p>");
+    }
+
+    @Test
+    @DisplayName("a run started with no signature sends none, and one naming a signature that is not theirs is refused")
+    void onlyTheSendersOwnSignatureStartsARun() throws Exception {
+        String sequenceId = createSequence("Unsigned approach");
+        String priya = executive("Priya Raman", "priya@" + domain);
+
+        inviteAndAccept(consultant, "Omar Saleh", "omar@" + domain, "MEMBER");
+        String colleagues = body(as(login("omar@" + domain), post("/api/v1/me/signatures")
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                        {"name":"Omar's","layout":"CLASSIC"}""")).andExpect(status().isCreated()).andReturn())
+                .get("id").asText();
+        String otherWorkspace = body(as(consultant, post("/api/v1/workspaces").contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"mode":"COMPANY","name":"Yara's Other Firm"}""")).andExpect(status().isCreated()).andReturn())
+                .at("/workspace/id").asText();
+        String ownElsewhere = jdbc.queryForObject("""
+                insert into app_lm_email_signature (workspace_id, user_id, name, layout, is_default)
+                select ?::uuid, id, 'Elsewhere', 'CLASSIC', true from app_lm_user where email = ?
+                returning id::text""", String.class, otherWorkspace, "yara@" + domain);
+
+        for (String notTheirs : List.of(UUID.randomUUID().toString(), colleagues, ownElsewhere)) {
+            MvcResult refused = startTimed(sequenceId, List.of(person(priya, "priya@" + domain, null)),
+                    ",\"signatureId\":\"" + notTheirs + "\"").andExpect(status().isNotFound()).andReturn();
+            assertThat(codeOf(refused)).isEqualTo("EMAIL_SIGNATURE_NOT_FOUND");
+        }
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_outreach_enrollment where candidate_id = ?::uuid",
+                Integer.class, priya)).isZero();
+
+        start(sequenceId, priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+        assertThat(sentTo("priya@" + domain).getFirst().email().htmlBody()).doesNotContain("font-family:Arial");
+    }
+
+    @Test
+    @DisplayName("a signature showing Book a call has its page made at Start, though no step uses the link")
+    void aBookingSignatureMakesThePageAtStart() throws Exception {
+        String signatureId = body(as(consultant, post("/api/v1/me/signatures").contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"With booking","layout":"CLASSIC","showBookingLink":true}"""))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+        String sequenceId = createSequence("Booking by signature");
+        String priya = executive("Priya Raman", "priya@" + domain);
+        assertThat(gateway.bookingPages()).isEmpty();
+
+        startTimed(sequenceId, List.of(person(priya, "priya@" + domain, null)),
+                ",\"signatureId\":\"" + signatureId + "\"").andExpect(status().isCreated());
+
+        assertThat(gateway.bookingPages()).hasSize(1);
+        String slug = jdbc.queryForObject("""
+                select m.booking_slug from app_lm_mailbox_connection m join app_lm_user u on u.id = m.user_id
+                where u.email = ?""", String.class, "yara@" + domain);
+        dispatcher.dispatchAt(monday);
+        assertThat(sentTo("priya@" + domain).getFirst().email().htmlBody()).contains("/book/" + slug)
+                .doesNotContain("/book/your-link");
     }
 
     @Test
@@ -557,14 +642,16 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         start(createSequence("First approach"), priya, "priya@" + domain, null);
         dispatcher.dispatchAt(monday);
         Instant thursday = monday.plus(Duration.ofDays(3));
-        List<java.util.UUID> claimed = sends.claimDue(thursday);
+        // The dispatcher's two halves, called as its walk calls them: in the position's workspace.
+        java.util.UUID firm = TestWorkspaceScopes.workspaceOfProject(jdbc, java.util.UUID.fromString(projectId));
+        List<java.util.UUID> claimed = WorkspaceScope.call(firm, () -> sends.claimDue(thursday));
         java.util.UUID run = java.util.UUID.fromString(enrollmentOf(priya).get("id").toString());
         assertThat(claimed).contains(run);
 
         gateway.deliverNext(List.of(new InboundMessage("grant-1", (String) enrollmentOf(priya).get("thread_id"),
                 "priya@" + domain)));
         webhook();
-        sends.sendClaimed(run, thursday);
+        WorkspaceScope.run(firm, () -> sends.sendClaimed(run, thursday));
         dispatcher.dispatchAt(thursday.plus(Duration.ofMinutes(11)));
 
         assertThat(sentTo("priya@" + domain)).hasSize(1);
