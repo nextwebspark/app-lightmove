@@ -73,6 +73,7 @@ public class OutreachEnrollmentService {
     private final TransactionTemplate transactions;
     private final AuditService audit;
     private final Clock clock;
+    private final EmailSignatureService signatures;
 
     @Transactional(readOnly = true)
     public EnrollmentCandidatesResponse candidates(UUID userId, UUID workspaceId, UUID projectId,
@@ -108,16 +109,22 @@ public class OutreachEnrollmentService {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "Someone is listed twice");
         }
         refuseUnusableStartAt(request);
+        // Cheap and first: a Start refused for want of a mailbox claims no booking slug and copies no logo.
+        transactions.executeWithoutResult(status -> requireSendingMailbox(userId, workspaceId));
         boolean usesBookingLink = Boolean.TRUE.equals(transactions.execute(status -> sequences
                 .requireInProject(sequenceId, workspaceId, projectId).uses(SequenceTokens.BOOKING_LINK)));
         if (usesBookingLink) {
             // Before anything is written: a page the mail service will not make is the consultant's to see now.
             bookingPages.prepare(userId, workspaceId);
         }
+        // Drawn once, outside any transaction (a logo's first copy is a call to another host), and frozen on each run;
+        // a signature showing Book a call has its page made first, as a body using the link does.
+        String signatureHtml = request.signatureId() == null ? null
+                : signatures.requireRenderedForSending(userId, workspaceId, request.signatureId()).html();
         // A racing Start that lost on the live index is answered OUTREACH_ALREADY_ENROLLED by
         // GlobalExceptionHandler, by constraint name; every other violation keeps its own answer.
         List<OutreachEnrollment> created =
-                transactions.execute(status -> enroll(userId, workspaceId, projectId, sequenceId, request));
+                transactions.execute(status -> enroll(userId, workspaceId, projectId, sequenceId, request, signatureHtml));
         for (OutreachEnrollment enrollment : created) {
             audit.projectEvent(ProjectEventType.OUTREACH_ENROLLED, userId, workspaceId, projectId, httpRequest)
                     .detail("sequenceId", sequenceId.toString())
@@ -156,7 +163,7 @@ public class OutreachEnrollmentService {
     }
 
     private List<OutreachEnrollment> enroll(UUID userId, UUID workspaceId, UUID projectId, UUID sequenceId,
-                                            StartSequenceRequest request) {
+                                            StartSequenceRequest request, String signatureHtml) {
         MailboxConnection mailbox = requireSendingMailbox(userId, workspaceId);
         OutreachSequence sequence = sequences.requireInProject(sequenceId, workspaceId, projectId);
         List<UUID> candidateIds = request.people().stream().map(EnrollPersonRequest::candidateId).toList();
@@ -194,7 +201,7 @@ public class OutreachEnrollmentService {
                             tokens.render(first.getBody()), opener, person.openerEdited());
                     return OutreachEnrollment.scheduled(sequence, recipient.candidateId(), recipient.personId(),
                             userId, ledgerSpellingOf(recipient, person.toAddress()), email, now,
-                            firstDue, offsets.get(index), pinned);
+                            firstDue, offsets.get(index), pinned, signatureHtml);
                 })
                 .toList();
         List<OutreachEnrollment> saved = enrollments.saveAllAndFlush(created);

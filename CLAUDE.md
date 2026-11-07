@@ -799,6 +799,31 @@ webhook names the page; `LinkBookings` counts it **only for an address that cons
 keeps the meeting `booked_via_link`, ends their listening runs as `BOOKED` before the next step, and moves
 the person forward to Engaged once per position — a booking after a reply included.
 
+**Email signatures (V193, epic #1157, `docs/email-signatures.md`)** are a consultant's own, per workspace, in
+Settings → Email signature (`/me/signatures`, staff only, every row keyed on the caller — another's reads as missing):
+at most ten, exactly one the default while any exist (unticking it does nothing; another is made the default), each a
+layout (Classic, With photo, Photo + logo, Logo banner, Minimal, Custom in the notes' editor) whose empty fields follow
+the profile (name, title, phone, LinkedIn, photo), the workspace (name, website, logo) and the mailbox's address; a
+phone override is held to the profile's rule (`PhoneNumbers`). `EmailSignatureRenderer` draws them email-safe — tables
+and inline styles, every value escaped, links http/https/mailto/tel only, no picture but Uncava's own — and the
+editor's preview is its drawing (`…/preview`), shown in a sandboxed frame. A preview or the list writes nothing: a
+booking link not yet claimed is drawn as a stand-in, and only a signature about to be sent claims it and makes its page
+(`SignatureSenders.forSending` → `BookingPages.prepare`). No mail provider adds a signature to email sent through its
+API, so Uncava adds its own. Pictures are `core/storage`'s `EmailImageService`: the person's stored avatar (V170,
+uploaded or a provider's copy) or the workspace's logo — fetched once through `PictureFetcher` on `core/http`'s
+`GuardedHttpClient` — each copied once (keyed on the avatar's or the logo URL's SHA-256), refused past 40 megapixels
+from the header and decoded subsampled, re-encoded, kept in the bucket and served publicly at
+`/api/v1/email-images/{token}`, a 256-bit token per picture (never per message or recipient) its only credential,
+cached for good and never logged (`RequestLogFilter` skips it; `ops/gcp/bootstrap.sh` excludes it from Cloud Run's
+request log), counted or rate-limited per address (mail clients' image proxies fetch for everyone from a few). An image
+row outlives the avatar it was copied from, since a sent email names it. The composer's **Include signature** ticks the
+sender's default (a picker where they keep more than one; replies alike) and `SendMessageRequest.signatureId` draws it
+when the email is written, into the stored `body` only — `body_text` stays the consultant's words; Add to sequence's
+review picks one for the run (`StartSequenceRequest.signatureId`), drawn once at Start and frozen on each enrollment
+(V194 `signature_html`), so every step, follow-ups included, closes alike. Either way a signature showing Book a call
+has its page made before anything is written. The mailbox's test email carries the default, leaving Book a call out
+where its page cannot be made, since the test proves the mailbox and nothing else.
+
 **The Notetaker (V151, `docs/notetaker.md`, `notetaker`)** is a Recall.ai bot a consultant sends into a kept call from
 the executive drawer's Meetings section (`WORK_EXECUTE`, only on a call on the caller's own calendar or booked by them,
 never for do not contact; a recording is read only from the position that sent it). It is kept out of the way: a call's
@@ -1035,12 +1060,12 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **Membership is invitation-only**; the one second door is a staff member naming a client representative.
 - A user may hold **several** active memberships (V81 dropped V1's partial unique index), but a session is in exactly **one** workspace — the `wsId` claim, chosen at sign-in from `last_workspace_id`, remembered per refresh-token family, and changed by `POST /auth/switch-workspace` (a 404 unless the caller is an active member of the target) or by a web refresh whose membership has ended (audited `MEMBERSHIP_ENDED`; `/me` and the extension never fall through). The signup wizard's `POST /onboarding/workspace` founds a *first* workspace only (`ALREADY_IN_WORKSPACE`); a further one is `POST /workspaces`, staff-gated.
 - Verification gates the *proof of mailbox*, not the channel — an invite token or a password reset proves it too.
-- **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter. Forced Postgres row-level security (V184, `core/tenant`) is the backstop: every borrowed connection carries the caller's workspace, and a job, webhook or worker with no principal names its own with `WorkspaceScope` — with none, the protected tables answer nothing (`db-ops`).
+- **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter. Forced Postgres row-level security (V184, V190, `core/tenant`) is the backstop on every tenant table, which `TenantTableGuard` reads off the schema and the boot refuses unprotected: every borrowed connection carries the caller's workspace, a job, webhook or worker with no principal names its own with `WorkspaceScope`, and a door that knows only a key (a grant, a bot, a slug, a token's hash) resolves its workspace through V189's `TenantResolvers` first — with none, tenant tables answer nothing (`db-ops`).
 - **Authorise by action, never by role** (`@PreAuthorize` + `@workspaceAuthorizer`/`@projectAuthorizer`); guard beans re-read the DB every check; the JWT `roles` claim is never trusted for a decision.
 - Client access is **two tiers, two decisions**: registry (`CLIENT_RECORD_MANAGE`, ADMIN+MEMBER) vs mandate (`CLIENT_ACCESS_MANAGE`, LEAD only). Project content is seat-gated `WORK_VIEW`/`WORK_EXECUTE`, not `PROJECT_BROWSE`.
 - **A platform role sits above every tenant and inside none**: `SUPER_ADMIN` gates `/api/v1/platform/**` (`@platformAuthorizer`) and nothing else, is granted by ops script only, and never rides in the JWT.
 - **An identity provider is a yml block** — never branch on a provider name anywhere.
-- **Tokens are never stored raw** (SHA-256) — the one exception a profile photo's link, which every colleague's screen draws and which opens that one image; the refresh cookie rotates on every use; the access token lives in JS memory only.
+- **Tokens are never stored raw** (SHA-256) — the exceptions a profile photo's link and an email picture's (`app_lm_email_image.token`, which a sent email names), which every colleague's screen draws and which opens that one image; the refresh cookie rotates on every use; the access token lives in JS memory only.
 - **The SPA and API are one origin**; every endpoint lives under `/api/v1`. Don't split hosts.
 - **An MCP token's `aud` is the MCP endpoint and it is signed by its own key**; the session decoder checks our issuer and refuses any token carrying an `aud`, so neither token opens the other's routes.
 - **No token passthrough:** an MCP tool calls our services in-process as its `McpCaller`; a caller's token is never forwarded to another service, ours or a provider's.
@@ -1451,6 +1476,22 @@ plain note, by CHECK, and on every older note, where `created_at` stands in), `t
 notes only, by CHECK; bare, as V151's recording keeps its meeting's id).
 V188 adds `app_lm_person_note.recording_id` (the Notetaker recording a meeting's notes are about, where the calendar no
 longer holds its meeting; bare, a meeting's notes only and never beside a `meeting_id`, by CHECK).
+V189 adds the `app_lm_resolve_*` functions — `SECURITY DEFINER`, one key each, ids and workspace out — that a door with
+no principal asks before opening its scope (`TenantResolvers`), and `app_lm_trial_started_by`. V190 forces row-level
+security on every other tenant table (#1085): a direct policy where the table has a `workspace_id`, one through the
+parent where it has none; a library template (null workspace) is everyone's to read, and the audit
+trail takes every insert and is read only in its own workspace or the account's. V192 lets only a `SharedRows` scope
+(`app.shared_rows`) write a library template or reach a grant awaiting consent at all. `app_lm_audit_event` and
+`app_lm_credit_entry` are harden.sql's once it has run (step 2c), which must be re-run after V190 deploys.
+V191 adds the job resolvers (`app_lm_workspaces_with_*`, `app_lm_workspaces_owing_seat_sync`) — the same idiom,
+workspace ids out — so the dispatcher, the copilot coach, the bell's emails, the due scan, the seat sync and the ledger
+sweep walk only the workspaces with their work; each condition is wider than its job's claim, and changes with it.
+V193 adds `app_lm_user.phone` / `linkedin_url`, `app_lm_email_image` (a photo's owner or a logo's workspace, and the
+source's SHA-256, by CHECK; one copy per avatar per person and per logo per workspace) and `app_lm_email_signature` (`fields` jsonb holds only the
+overrides; one default per person per workspace by partial unique index), both under forced row-level security —
+a photo row, account data with no workspace, read wherever its person signs in — and `app_lm_resolve_email_image`, the
+public picture route's resolver.
+V194 adds `app_lm_outreach_enrollment.signature_html` — the signature Start drew for the run; null sends none.
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a

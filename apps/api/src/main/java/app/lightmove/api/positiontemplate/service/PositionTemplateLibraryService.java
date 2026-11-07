@@ -6,6 +6,8 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.tenant.SharedRows;
+import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.positiontemplate.constant.TemplateImportAction;
 import app.lightmove.api.positiontemplate.dto.PositionTemplateDetail;
 import app.lightmove.api.positiontemplate.dto.PositionTemplateOverview;
@@ -15,7 +17,6 @@ import app.lightmove.api.positiontemplate.model.ImportedTemplate;
 import app.lightmove.api.positiontemplate.model.PlannedTemplateImport;
 import app.lightmove.api.positiontemplate.model.PositionTemplate;
 import app.lightmove.api.positiontemplate.model.PositionTemplateDraft;
-import app.lightmove.api.positiontemplate.model.TemplateCodeCount;
 import app.lightmove.api.positiontemplate.repository.PositionTemplateRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -24,6 +25,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,7 +35,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 /**
  * The shared library as a super admin edits it; a change reaches the next brief drafted, never one
- * already written. Reads no workspace data beyond counting firms' copies.
+ * already written. Reads no workspace data beyond counting firms' copies. Every write is a {@link SharedRows} scope,
+ * opened before its transaction: the library belongs to no workspace, and no other session may write it.
  */
 @Service
 @RequiredArgsConstructor
@@ -47,12 +50,13 @@ public class PositionTemplateLibraryService {
     private final UserRepository users;
     private final AuditService audit;
     private final TransactionTemplate transactions;
+    /** The firms' copies are each firm's rows; the library screen counts them across every firm. */
+    private final TenantResolvers resolvers;
 
     @Transactional(readOnly = true)
     public List<PositionTemplateOverview> list() {
         List<PositionTemplate> library = templates.findLibrary();
-        Map<String, Long> copies = templates.countWorkspaceTemplatesByCode().stream()
-                .collect(Collectors.toMap(TemplateCodeCount::code, TemplateCodeCount::count));
+        Map<String, Long> copies = resolvers.firmTemplateCopiesByCode();
         Map<UUID, String> reviserNames = users.findAllById(library.stream()
                         .map(PositionTemplate::getRevisedBy).filter(Objects::nonNull).distinct().toList())
                 .stream().collect(Collectors.toMap(User::getId, User::getFullName));
@@ -70,45 +74,48 @@ public class PositionTemplateLibraryService {
         return detailOf(require(code));
     }
 
-    @Transactional
     public PositionTemplateDetail create(UUID userId, PositionTemplateWriteRequest request,
                                          HttpServletRequest httpRequest) {
         PositionTemplateDraft draft = validator.requireValid(request.draft());
-        Set<String> taken = templates.findLibraryCodes();
-        PositionTemplate template = templates.saveAndFlush(PositionTemplate.forLibrary(
-                PositionTemplateCodes.unusedCode(draft.title(), taken), draft,
-                templates.findLastLibrarySortOrder() + SORT_STEP, userId));
-        record(PlatformEventType.POSITION_TEMPLATE_LIBRARY_CREATED, userId, template.getCode(), httpRequest);
-        return detailOf(template);
+        return writeLibrary(() -> {
+            Set<String> taken = templates.findLibraryCodes();
+            PositionTemplate template = templates.saveAndFlush(PositionTemplate.forLibrary(
+                    PositionTemplateCodes.unusedCode(draft.title(), taken), draft,
+                    templates.findLastLibrarySortOrder() + SORT_STEP, userId));
+            record(PlatformEventType.POSITION_TEMPLATE_LIBRARY_CREATED, userId, template.getCode(), httpRequest);
+            return detailOf(template);
+        });
     }
 
     /** Flushed before answering, so the version handed back is the one the next save must quote. */
-    @Transactional
     public PositionTemplateDetail update(UUID userId, String code, PositionTemplateWriteRequest request,
                                          HttpServletRequest httpRequest) {
         PositionTemplateDraft draft = validator.requireValid(request.draft());
-        PositionTemplate template = require(code);
-        PositionTemplateValidator.requireVersion(template, request.version());
-        template.revise(draft, userId);
-        templates.flush();
-        record(PlatformEventType.POSITION_TEMPLATE_LIBRARY_UPDATED, userId, code, httpRequest);
-        return detailOf(template);
+        return writeLibrary(() -> {
+            PositionTemplate template = require(code);
+            PositionTemplateValidator.requireVersion(template, request.version());
+            template.revise(draft, userId);
+            templates.flush();
+            record(PlatformEventType.POSITION_TEMPLATE_LIBRARY_UPDATED, userId, code, httpRequest);
+            return detailOf(template);
+        });
     }
 
-    @Transactional
     public PositionTemplateDetail setActive(UUID userId, String code, boolean active,
                                             HttpServletRequest httpRequest) {
-        PositionTemplate template = require(code);
-        if (!active && PositionTemplateService.isFallback(template)) {
-            throw ApiException.of(ErrorCode.TEMPLATE_FALLBACK_REQUIRED);
-        }
-        if (template.isActive() != active) {
-            template.setActive(active);
-            templates.flush();
-            record(active ? PlatformEventType.POSITION_TEMPLATE_LIBRARY_RESTORED
-                    : PlatformEventType.POSITION_TEMPLATE_LIBRARY_ARCHIVED, userId, code, httpRequest);
-        }
-        return detailOf(template);
+        return writeLibrary(() -> {
+            PositionTemplate template = require(code);
+            if (!active && PositionTemplateService.isFallback(template)) {
+                throw ApiException.of(ErrorCode.TEMPLATE_FALLBACK_REQUIRED);
+            }
+            if (template.isActive() != active) {
+                template.setActive(active);
+                templates.flush();
+                record(active ? PlatformEventType.POSITION_TEMPLATE_LIBRARY_RESTORED
+                        : PlatformEventType.POSITION_TEMPLATE_LIBRARY_ARCHIVED, userId, code, httpRequest);
+            }
+            return detailOf(template);
+        });
     }
 
     @Transactional(readOnly = true)
@@ -127,7 +134,11 @@ public class PositionTemplateLibraryService {
 
     public TemplateImportResponse commitImport(UUID userId, MultipartFile file, HttpServletRequest httpRequest) {
         List<ImportedTemplate> imported = exchange.read(file);
-        return transactions.execute(status -> commit(userId, imported, httpRequest));
+        return writeLibrary(() -> commit(userId, imported, httpRequest));
+    }
+
+    private <T> T writeLibrary(Supplier<T> write) {
+        return SharedRows.call(() -> transactions.execute(status -> write.get()));
     }
 
     private TemplateImportResponse commit(UUID userId, List<ImportedTemplate> entries,
@@ -175,7 +186,7 @@ public class PositionTemplateLibraryService {
         return new PositionTemplateDetail(template.getCode(), template.getTitle(), template.getDiscipline(),
                 template.getSeniority(), template.getSummary(), List.copyOf(template.getKeywords()),
                 template.getBody(), null, template.isActive(), PositionTemplateService.isFallback(template), false,
-                templates.countWorkspaceTemplatesCoded(template.getCode()), template.getVersion(),
+                resolvers.firmTemplateCopiesByCode().getOrDefault(template.getCode(), 0L), template.getVersion(),
                 template.getRevisedAt(), nameOf(template.getRevisedBy()));
     }
 

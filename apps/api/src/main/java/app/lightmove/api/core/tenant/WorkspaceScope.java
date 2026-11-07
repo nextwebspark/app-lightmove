@@ -28,19 +28,37 @@ public final class WorkspaceScope {
     }
 
     /**
-     * Refused inside a transaction begun for another workspace: the task's reads would join it, on the outer
-     * workspace's connection. A connection bound for no workspace — an after-commit listener run on a webhook's or a
-     * job's publishing thread, where the committed transaction's connection is still what a read joins — is set to
-     * this workspace for the task and back after.
+     * Refused inside a live transaction begun for another workspace: the task's reads would join it, on the outer
+     * workspace's connection. A connection still bound with no live transaction — an after-commit listener run on
+     * the publishing thread, which Spring reports inactive while the committed transaction's connection is still
+     * what a read joins — and one bound for no workspace are set to this workspace for the task and back after.
      */
     public static <T> T call(UUID workspaceId, Supplier<T> task) {
+        return enter(workspaceId, task, false);
+    }
+
+    /**
+     * The deliberate exception to entering a scope before its transaction: an account's work that reaches past the
+     * caller's workspace and must commit with the change behind it — founding a workspace (its trial is written in the
+     * founding transaction) and a changed password ending the account's AI-app grants in every workspace. The joined
+     * connection reads {@code workspaceId} for the task and the caller's again after, so anything the task leaves to
+     * the session's flush must be flushed inside it.
+     */
+    public static void runInJoinedTransaction(UUID workspaceId, Runnable task) {
+        enter(workspaceId, () -> {
+            task.run();
+            return null;
+        }, true);
+    }
+
+    private static <T> T enter(UUID workspaceId, Supplier<T> task, boolean joinedOnPurpose) {
         Objects.requireNonNull(workspaceId, "workspaceId");
         UUID outer = TenantContext.currentWorkspaceId();
         Connection joined = boundConnection();
         if (joined == null || workspaceId.equals(outer)) {
             return callBound(workspaceId, task);
         }
-        if (outer != null && TransactionSynchronizationManager.isActualTransactionActive()) {
+        if (!joinedOnPurpose && outer != null && TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("A workspace scope must be entered before its transaction begins");
         }
         setOn(joined, workspaceId);
@@ -59,7 +77,7 @@ public final class WorkspaceScope {
         return result;
     }
 
-    private static @Nullable Connection boundConnection() {
+    static @Nullable Connection boundConnection() {
         for (Object resource : TransactionSynchronizationManager.getResourceMap().values()) {
             if (resource instanceof ConnectionHolder holder && holder.getConnectionHandle() != null) {
                 return holder.getConnection();

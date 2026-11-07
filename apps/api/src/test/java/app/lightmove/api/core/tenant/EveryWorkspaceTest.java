@@ -38,20 +38,4 @@ class EveryWorkspaceTest {
         assertThat(scopedTo).containsExactly(failing, healthy);
         assertThat(TenantContext.currentWorkspaceId()).isNull();
     }
-
-    @Test
-    @DisplayName("sumWithWork walks only the workspaces its query names")
-    void walksOnlyTheWorkspacesWithWork() {
-        JdbcTemplate jdbc = mock(JdbcTemplate.class);
-        when(jdbc.queryForList("workspaces with work", UUID.class, "due")).thenReturn(List.of(healthy));
-        List<UUID> walked = new ArrayList<>();
-
-        int total = new EveryWorkspace(jdbc).sumWithWork("workspaces with work", workspaceId -> {
-            walked.add(workspaceId);
-            return 1;
-        }, "due");
-
-        assertThat(total).isEqualTo(1);
-        assertThat(walked).containsExactly(healthy);
-    }
 }

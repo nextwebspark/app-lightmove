@@ -1,10 +1,9 @@
 package app.lightmove.api.billing.credit.service;
 
-import app.lightmove.api.billing.credit.repository.CreditHoldRepository;
+import app.lightmove.api.core.tenant.EveryWorkspace;
+import app.lightmove.api.core.tenant.TenantResolvers;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,8 +20,9 @@ public class CreditLedgerSweeper {
 
     private static final int WORKSPACES_PER_SWEEP = 500;
 
-    private final CreditHoldRepository holds;
+    private final TenantResolvers resolvers;
     private final CreditLedger ledger;
+    private final EveryWorkspace everyWorkspace;
     private final Clock clock;
 
     @Scheduled(fixedDelayString = "${lightmove.billing.sweep-interval}",
@@ -31,17 +31,15 @@ public class CreditLedgerSweeper {
         sweepAt(clock.instant());
     }
 
+    /** A workspace at a time, in its own scope: the holds, grants and balances are under row-level security. */
     public void sweepAt(Instant now) {
-        List<UUID> workspaces = holds.findWorkspacesWithLapsedCredits(now, WORKSPACES_PER_SWEEP);
-        for (UUID workspaceId : workspaces) {
-            try {
-                ledger.settleLapsed(workspaceId);
-            } catch (RuntimeException failure) {
-                log.error("Could not settle lapsed credits of workspace {}", workspaceId, failure);
-            }
-        }
-        if (!workspaces.isEmpty()) {
-            log.info("Settled lapsed credits in {} workspaces", workspaces.size());
+        int settled = everyWorkspace.sum(resolvers.workspacesWithLapsedCredits(now, WORKSPACES_PER_SWEEP),
+                workspaceId -> {
+                    ledger.settleLapsed(workspaceId);
+                    return 1;
+                });
+        if (settled > 0) {
+            log.info("Settled lapsed credits in {} workspaces", settled);
         }
     }
 }

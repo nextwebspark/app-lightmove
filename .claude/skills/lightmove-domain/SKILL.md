@@ -117,11 +117,15 @@ which email carried it.
 Every workspace-scoped query filters by the `workspace_id` **from the authenticated principal**, never
 from a request parameter. `AuthPrincipal.requireWorkspaceId()` is the only supported way to get it.
 
-The database enforces it too, as a backstop rather than a replacement (V184, `db-ops`): forced row-level security
-on the people and position core reads `app.workspace_id`, which every connection is given at checkout from the same
+The database enforces it too, as a backstop rather than a replacement (V184, V189, V190, `db-ops`): forced row-level
+security on every tenant table reads `app.workspace_id`, which every connection is given at checkout from the same
 principal. A path that is no signed-in request — a scheduled job, a public webhook, a worker woken by one — names
-the workspace of the row it works on with `WorkspaceScope`; with none, those tables answer nothing. Never "fix" an
-empty read by widening the scope: find the row that names the workspace.
+the workspace of the row it works on with `WorkspaceScope`; with none, tenant tables answer nothing. A door that
+arrives with only a key — an invitation or API key's hash, an OAuth grant's, a Stripe customer, a booking slug —
+resolves its workspace first (`TenantResolvers`, ids out and nothing else) and is then fenced like any request.
+Membership and refresh tokens stay outside the fence on purpose: they decide which workspace a session is in, so they
+are read before one is chosen. Never "fix" an empty read by widening the scope: find the row that names the
+workspace, or resolve the key.
 
 ## Authorisation asks for an action, never a role
 
@@ -446,6 +450,11 @@ persisted. Passwords are BCrypt(12).
 **One deliberate exception: a profile photo's token** (`app_lm_user_avatar.token`) is kept as served. It is not a
 credential — it opens one image and nothing else, as a booking link's slug opens one page — and the same raw link is
 `app_lm_user.avatar_url`, drawn by every colleague's screen, so a hash beside it would protect nothing.
+
+**The same exception for an email picture** (`app_lm_email_image.token`, a signature's photo or logo): it opens one
+re-encoded picture, every email that carries it names it in plain sight, and the server must rebuild its link to draw a
+signature, so it is kept as served. One token per picture, never per message or recipient, so it tracks nobody's
+opening; and its fetches are never logged (`RequestLogFilter`, and the Cloud Logging exclusion in `ops/gcp/bootstrap.sh`).
 
 The **refresh token** is httpOnly + Secure + SameSite, scoped to `/api/v1/auth`, and **rotates on every
 use**. Presenting an already-rotated token is treated as theft and revokes the whole family. The access

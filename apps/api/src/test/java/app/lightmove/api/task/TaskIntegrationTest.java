@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.candidate.PipelineFlowSupport;
+import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.outreach.model.OutreachReplied;
 import app.lightmove.api.task.service.TaskDueScanner;
 import java.time.Instant;
@@ -38,6 +39,7 @@ class TaskIntegrationTest extends PipelineFlowSupport {
     @Autowired private TransactionTemplate transactions;
     @Autowired @FixtureJdbc private JdbcTemplate db;
     @Autowired private TaskDueScanner dueScanner;
+    @Autowired private TenantResolvers resolvers;
 
     private String projectId;
     private String researcher;
@@ -198,6 +200,24 @@ class TaskIntegrationTest extends PipelineFlowSupport {
 
         assertThat(titles(read(admin, "/api/v1/me/tasks?view=overdue"))).containsExactly("Overdue one");
         assertThat(overdueNoticeOf(overdueId)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("the due scan is told a workspace has work only while a task in it is falling due")
+    void theDueScanWalksOnlyAWorkspaceWithWork() throws Exception {
+        Instant now = Instant.now();
+        UUID workspaceId = db.queryForObject("select workspace_id from app_lm_project where id = ?::uuid", UUID.class,
+                projectId);
+        String taskId = body(created(admin, layla, "Call back", adminId,
+                now.plus(30, ChronoUnit.MINUTES).toString())).get("id").asText();
+
+        assertThat(resolvers.workspacesWithTasksFallingDue(now.minus(2, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS)))
+                .contains(workspaceId);
+
+        write(admin, "PATCH", "/api/v1/tasks/" + taskId, """
+                {"status":"done"}""");
+        assertThat(resolvers.workspacesWithTasksFallingDue(now.minus(2, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS)))
+                .doesNotContain(workspaceId);
     }
 
     @Test
