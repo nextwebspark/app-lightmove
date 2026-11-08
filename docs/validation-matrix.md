@@ -132,6 +132,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | ☐ Custom field values | no length | TEXT unbounded, DATE unchecked, NUMBER accepts NaN | toast |
 | ☐ Custom column label | no `maxLength` | ≤ 60 | toast |
 | Executive name | trimmed, ≤ 200 | `@NotBlank @Size(200)` | banner |
+| Delete person permanently: full name typed back | the button wakes only on a match (case, spacing and dashes forgiven, `confirmationNameMatches`) | `@NotBlank @Size(200)`; `ConfirmationName.matches` the person's name (`VALIDATION_FAILED` on `confirmName`); refused while an email to them is sending (`PERSON_ERASE_SEND_IN_FLIGHT`) | banner (an alert for the email) |
 | Executive LinkedIn profile and emails, on every door | — | not on the workspace's suppression list (`PERSON_SUPPRESSED`): the add form, the plugin and a spreadsheet row are refused, and so is mapping someone the workspace already knows whose own profile or address is listed; an edit only for a profile or address it adds; Find executives, People Search and the Candidates page's Add to position leave the person out unfiled; a workspace holding entries the keyset cannot read is refused at every door (`SUPPRESSION_UNAVAILABLE`) | banner (row error on import; toast on Add to position) |
 | ☐ Executive currency | picker | `@Size(3)` | banner |
 | ☐ Languages | one string ≤ 1200 | ≤ 20 × 60 | banner |

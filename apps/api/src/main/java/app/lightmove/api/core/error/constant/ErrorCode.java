@@ -308,6 +308,8 @@ public enum ErrorCode {
     PERSON_SUPPRESSED(HttpStatus.CONFLICT,
             "This person is on your workspace's suppression list, so they can't be added"),
 
+    /** An email to the person is on its way to the mail service; erasing them now would race it. Nothing changed. */
+    PERSON_ERASE_SEND_IN_FLIGHT(HttpStatus.CONFLICT, "An email to this person is sending right now. Try again in a minute"),
     /**
      * The deployment has no suppression keyset, or none holding the key a workspace's entries were written under.
      * Refused rather than read as an empty list, which would let every suppressed person back in.

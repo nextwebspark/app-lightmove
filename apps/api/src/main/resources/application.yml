@@ -756,6 +756,8 @@ lightmove:
     base-url: ${RECALL_BASE_URL:https://us-east-1.recall.ai}
     # Read by @Scheduled, which never sees a binding default, so it is spelled out here.
     bot-reconcile-interval: ${RECALL_BOT_RECONCILE_INTERVAL:PT10M}
+    # How often an erased person's Recall bots still refused are tried again; read by @Scheduled, so spelled out.
+    bot-erasure-sweep-interval: ${RECALL_BOT_ERASURE_SWEEP_INTERVAL:PT1M}
     # Blank keeps every Notetaker transcript; a duration (e.g. 90d) clears one whose note is gone, or that never filed
     # one, once it has sat untouched that long.
     transcript-retention: ${NOTETAKER_TRANSCRIPT_RETENTION:}
@@ -770,6 +772,7 @@ lightmove:
     provider: ${STORAGE_PROVIDER:filesystem}
     bucket: ${STORAGE_BUCKET:}
     directory: ${STORAGE_DIRECTORY:.data/documents}
+    deletion-sweep-interval: ${STORAGE_DELETION_SWEEP_INTERVAL:PT1M}
 
   # A person's CV, cover letter and references, each a stack of versions.
   person-documents:

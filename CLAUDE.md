@@ -79,7 +79,15 @@ their profile slug or email under `lightmove.crypto.suppression-keyset` (`Suppre
 itself: the add form, the plugin and a spreadsheet are refused `PERSON_SUPPRESSED` (an edit only for a key it adds; a
 known person by their own keys), while Find executives, People Search and Add to position leave them out, counted as
 `suppressed` (`SuppressionGate`; an admin's `/workspace/suppressions`, `SuppressionListService`, `WORKSPACE_MANAGE`). A
-workspace holding entries the keyset cannot read is refused `SUPPRESSION_UNAVAILABLE` at every door, never let through. A plugin capture of someone already researched spends no second vendor call, and is filed under the employer their latest position recorded (`PersonEmployerResolver.knownEmployerOf`, that position's company row's LinkedIn page and all). Every change to a
+workspace holding entries the keyset cannot read is refused `SUPPRESSION_UNAVAILABLE` at every door, never let through. **An admin erases a person
+for good (#918, `PERSON_ERASE`)**: `POST /candidates/{personId}/erase` with the name typed back, after
+`…/erase-preview` counts what goes; one transaction deletes the person (every cascade from `app_lm_person`) and, through
+each `PersonErasureContributor` — declared in `candidate`, implemented where the rows live — refuses while an email is
+mid-send, queues their Recall bots in `app_lm_recall_bot_erasure` (global, bot ids only) for `RecallBotErasureSweeper` to
+call back and strip of media until Recall answers, forgets the vendor cache's copy of the profile and scrubs the name from the bell
+and Find executives' runs; their files are queued in `app_lm_storage_deletion` (global, keys only) for
+`StorageDeletionSweeper`, and their profile and addresses suppressed unless the admin unticks it. Audited by id and
+counts, never the name. A plugin capture of someone already researched spends no second vendor call, and is filed under the employer their latest position recorded (`PersonEmployerResolver.knownEmployerOf`, that position's company row's LinkedIn page and all). Every change to a
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
@@ -1500,6 +1508,12 @@ V194 adds `app_lm_outreach_enrollment.signature_html` — the signature Start dr
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.
+V196 seeds `PERSON_ERASE` to ADMIN alone and adds `app_lm_storage_deletion` (a bucket key per row, its attempts and
+next attempt; global by design, so outside row-level security), drained by `StorageDeletionSweeper`
+(`lightmove.storage.deletion-sweep-interval`) with a back-off to a day, never giving up.
+V197 adds `app_lm_recall_bot_erasure` — an erased person's Recall bots (bot id, whether to call it back, whether its
+media is still held), global for V196's reason, drained by `RecallBotErasureSweeper`
+(`lightmove.recall.bot-erasure-sweep-interval`) with a back-off to an hour, given up only past Recall's 7-day retention.
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a
