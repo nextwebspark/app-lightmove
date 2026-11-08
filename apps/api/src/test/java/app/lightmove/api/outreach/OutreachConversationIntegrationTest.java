@@ -3,6 +3,7 @@ package app.lightmove.api.outreach;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FixtureJdbc;
@@ -109,6 +110,25 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
                 .doesNotContain(hana);
         assertThat(candidateIdsOf(conversations("view", "scheduled"))).containsExactly(omar);
         assertThat(candidateIdsOf(conversations("view", "sent"))).containsExactlyInAnyOrder(priya, rajesh, omar);
+    }
+
+    @Test
+    @DisplayName("someone Declined is off the Pipeline board, yet their reply still waits in the queue and opens")
+    void aDeclinedReplyStillWaits() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("First approach"), List.of(person(priya, "priya@" + domain, null)));
+        dispatcher.dispatchAt(monday);
+        reply(priya, "priya@" + domain);
+        as(consultant, put("/api/v1/projects/" + projectId + "/candidates/" + priya + "/triage-status")
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                        {"status":"declined"}"""))
+                .andExpect(status().isOk());
+
+        JsonNode board = body(as(consultant, get("/api/v1/projects/" + projectId + "/pipeline"))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(candidateIdsOf(board)).doesNotContain(priya);
+        assertThat(rowOf(conversations(), priya).get("group").asText()).isEqualTo("NEEDS_REPLY");
+        as(consultant, get(outreach("/conversations/" + priya))).andExpect(status().isOk());
     }
 
     @Test

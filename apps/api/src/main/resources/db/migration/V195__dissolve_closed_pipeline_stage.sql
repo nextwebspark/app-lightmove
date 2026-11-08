@@ -25,7 +25,10 @@ WHERE stage.workspace_id IN (SELECT workspace_id FROM v195_closed)
 DELETE FROM v195_closed WHERE workspace_id NOT IN (SELECT workspace_id FROM v195_gate);
 
 -- Where each holder of a closed status left: the stage of the latest status their position's history shows them at,
--- read off its status lines by key (a key is never rewritten). Null where no line says.
+-- read off its status lines by key (a key is never rewritten). Null where no line says. The latest line is the
+-- highest id, a bigserial taken at insert. A line names two statuses, and its "to" is the later: "contacted → withdrew"
+-- left at Contacted through its "from", while "identified → contacted" followed by a decline no line recorded left
+-- at Contacted through its "to". A line between two closed statuses names no column, and the walk goes on past it.
 CREATE TEMPORARY TABLE v195_holder ON COMMIT DROP AS
 SELECT candidate.id AS candidate_id, candidate.status_id,
        (SELECT coalesce(to_gate.stage_id, from_gate.stage_id)

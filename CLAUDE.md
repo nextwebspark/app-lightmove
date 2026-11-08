@@ -246,7 +246,7 @@ rail is one row per page and nests nothing. `useCompaniesViews` decides what In 
 notification's `?view=pipeline`, is a visit. **Pipeline** is the position's
 board by pipeline stage — the retired CRM Pipeline page, board only, every executive on the position but those Declined
 on the Companies pages (Declined is a company's decision, which takes everyone at it, and no pipeline stage; Outreach's
-queue still lists them, `executivesOf`), staff only (`WORK_EXECUTE`); `/projects/{id}/pipeline` and its `?candidate=`
+queue still lists them, `rowsIncludingDeclined`), staff only (`WORK_EXECUTE`); `/projects/{id}/pipeline` and its `?candidate=`
 links land there
 (`positionPipelinePath`). Its columns are the stages holding a status in process, the five seeded ones each with its
 mark (`stageMarkOf`); under them the **Out of process** band, resized from its grip, holds a cell per stage of whoever

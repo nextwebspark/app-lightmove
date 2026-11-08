@@ -135,7 +135,7 @@ public class ConversationService {
     public ConversationListResponse list(UUID userId, UUID workspaceId, UUID projectId, ConversationView view,
                                          ConversationScope scope, String query) {
         String needle = needleOf(query);
-        List<PipelineRowResponse> executives = pipeline.executivesOf(workspaceId, projectId);
+        List<PipelineRowResponse> executives = pipeline.rowsIncludingDeclined(workspaceId, projectId);
         if (executives.isEmpty()) {
             return new ConversationListResponse(new ConversationCountsResponse(0, 0), null, List.of(), false);
         }

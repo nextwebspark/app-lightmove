@@ -79,8 +79,8 @@ public class PositionPipelineService {
         SearchText search = SearchText.ofOrNull(query);
         CandidateSearchMatches searched = search == null ? null
                 : searches.matchesOf(workspaceId, projectId, search, ProjectAudience.STAFF);
-        List<Candidate> matching = candidates.findPipelineOfProject(projectId).stream()
-                .filter(row -> row.getTriageStatus() != TriageCompanyStatus.DECLINED)
+        List<Candidate> matching = candidates
+                .findPipelineOfProjectWithTriageStatusNot(projectId, TriageCompanyStatus.DECLINED).stream()
                 .filter(row -> searched == null || searched.keeps(row.getId(), row.getTriageCompanyId()))
                 .sorted(PIPELINE_ORDER)
                 .toList();
@@ -96,21 +96,17 @@ public class PositionPipelineService {
         List<Candidate> shown = stageKey == null || stageKey.isBlank() ? matching : matching.stream()
                 .filter(row -> row.getStatus().getStage().getStageKey().equals(stageKey.strip()))
                 .toList();
-        Map<UUID, CandidateNextActionDto> next = nextActionsOf(projectId, shown);
-        return new PositionPipelineResponse(shown.stream().map(row -> toRow(row, next)).toList(), counts,
-                inactive, shown.size());
+        return new PositionPipelineResponse(rowsOf(projectId, shown), counts, inactive, shown.size());
     }
 
     /**
-     * Everyone on the position as the Pipeline draws them, the Declined included: Outreach's queue, where a reply from
-     * someone whose company was declined still asks for an answer.
+     * Everyone on the position as the Pipeline draws them, unlike {@link #pipelineOf} the Declined included: Outreach's
+     * queue, where a reply from someone whose company was declined still asks for an answer.
      */
     @Transactional(readOnly = true)
-    public List<PipelineRowResponse> executivesOf(UUID workspaceId, UUID projectId) {
+    public List<PipelineRowResponse> rowsIncludingDeclined(UUID workspaceId, UUID projectId) {
         projects.requireInWorkspace(projectId, workspaceId);
-        List<Candidate> everyone = candidates.findPipelineOfProject(projectId).stream().sorted(PIPELINE_ORDER).toList();
-        Map<UUID, CandidateNextActionDto> next = nextActionsOf(projectId, everyone);
-        return everyone.stream().map(row -> toRow(row, next)).toList();
+        return rowsOf(projectId, candidates.findPipelineOfProject(projectId).stream().sorted(PIPELINE_ORDER).toList());
     }
 
     /** One executive as the Pipeline draws them, for a read that shows a single person (the outreach conversation). */
@@ -170,6 +166,11 @@ public class PositionPipelineService {
                     .record();
         }
         return toRow(candidate, nextActionsOf(projectId, List.of(candidate)));
+    }
+
+    private List<PipelineRowResponse> rowsOf(UUID projectId, List<Candidate> rows) {
+        Map<UUID, CandidateNextActionDto> next = nextActionsOf(projectId, rows);
+        return rows.stream().map(row -> toRow(row, next)).toList();
     }
 
     /** Where the moved row goes among the others: after {@code after}, else before {@code before}, else last. */

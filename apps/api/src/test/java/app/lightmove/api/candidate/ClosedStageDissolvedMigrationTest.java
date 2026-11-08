@@ -80,6 +80,15 @@ class ClosedStageDissolvedMigrationTest {
                         .containsExactly("No response (Interested)|NEUTRAL|false|true",
                                 "Not interested (Shortlisted)|NEUTRAL|false|true");
 
+                assertThat(strings(connection, """
+                        SELECT a.trigger || ':' || s.key || '@' || g.key || ':' || a.enabled
+                        FROM app_lm_workspace_status_automation a
+                        JOIN app_lm_workspace_candidate_status s ON s.id = a.status_id
+                        JOIN app_lm_workspace_candidate_stage g ON g.id = s.stage_id
+                        WHERE a.workspace_id = ?""", LEGACY))
+                        .as("an automation naming a moved status still names it, wherever it now sits")
+                        .containsExactly("REPLIED:notInterested@contacted:true");
+
                 assertThat(standing(connection, people.get("approached"))).isEqualTo("contacted:notInterested");
                 assertThat(standing(connection, people.get("shortlisted")))
                         .isEqualTo("shortlisted:notInterestedShortlisted");
@@ -116,6 +125,10 @@ class ClosedStageDissolvedMigrationTest {
                     SELECT workspace_id, id, 'placedElsewhere', 'Placed elsewhere', 'NEUTRAL', 8, false
                     FROM app_lm_workspace_candidate_stage WHERE workspace_id = '%s' AND key = 'declined'"""
                     .formatted(LEGACY));
+            statement.execute("""
+                    INSERT INTO app_lm_workspace_status_automation (workspace_id, trigger, status_id, enabled)
+                    SELECT workspace_id, 'REPLIED', id, true FROM app_lm_workspace_candidate_status
+                    WHERE workspace_id = '%s' AND key = 'notInterested'""".formatted(LEGACY));
             statement.execute("""
                     INSERT INTO app_lm_client (id, workspace_id, name, created_by)
                     VALUES ('%s', '%s', 'Group Finance', '%s'),
