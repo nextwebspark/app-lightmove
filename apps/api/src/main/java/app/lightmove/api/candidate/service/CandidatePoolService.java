@@ -79,7 +79,7 @@ public class CandidatePoolService {
     private final PersonTimelineService timeline;
     private final PersonActivityRecorder activity;
     private final AuditService audit;
-    private final PersonSuppressionService suppression;
+    private final SuppressionListService suppression;
     private final ApplicationEventPublisher events;
 
     @Transactional(readOnly = true)

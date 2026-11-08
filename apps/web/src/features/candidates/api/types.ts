@@ -132,6 +132,8 @@ export interface Candidate {
   personId: string;
   /** The plugin read this person off that page, so the server refuses a retyped URL. */
   linkedinUrlLocked: boolean;
+  /** `companyName`'s logo, from its company row or research; null for neither. */
+  companyLogoUrl?: string | null;
 }
 
 /** Which door one contact value came through — the row's three doors plus the lookup provider. */
@@ -148,6 +150,8 @@ export interface CandidateEmail {
   status: string | null;
   source: ContactSource;
   foundAt: string;
+  /** Someone chose it as the one to reach them on; with none chosen the first listed stands in. */
+  primary?: boolean;
 }
 
 /** One number the mandate knows, spelled as it arrived. `kind` only where a person tagged it. */
@@ -158,6 +162,8 @@ export interface CandidatePhone {
   status: string | null;
   source: ContactSource;
   foundAt: string;
+  /** As on {@link CandidateEmail}. */
+  primary?: boolean;
 }
 
 /** One email or phone as the Contact section or the Add form states it. */
@@ -165,6 +171,8 @@ export interface ContactEntryInput {
   value: string;
   kind: "work" | "personal" | null;
   verified: boolean;
+  /** The Contact section's choice of the one to reach them on; the other doors leave it unread. */
+  primary?: boolean;
 }
 
 /** The Contact section's save: both channels, replaced wholesale by what is listed. */
@@ -174,8 +182,8 @@ export interface SaveContactsPayload {
 }
 
 /**
- * Every email and phone known for the person, in the order the drawer lists them, and when each
- * channel was last looked up.
+ * Every email and phone known for the person, in the order the drawer lists them — the first of each the
+ * primary, chosen or standing in — and when each channel was last looked up.
  *
  * <p>The timestamps decide what the Contact section offers, not the lists: null means the button is
  * still worth pressing, and a timestamp with no row from `source` means the provider had nothing and
@@ -284,6 +292,13 @@ export interface PersonNote {
   editedByName: string | null;
   /** Whether the viewer may change or remove it: its author, or a workspace admin. */
   editable: boolean;
+  /** When the call, message or meeting happened; for a plain note, when it was written. */
+  occurredAt?: string;
+  title?: string | null;
+  /** The calendar meeting a meeting's notes are about. */
+  meetingId?: string | null;
+  /** The Notetaker recording they are about, where the calendar no longer holds its meeting. */
+  recordingId?: string | null;
 }
 
 export interface WritePersonNotePayload {
@@ -295,6 +310,13 @@ export interface WritePersonNotePayload {
   projectId?: string | null;
   /** Read on a position's routes only: the note is about the person, read on every position. */
   allPositions?: boolean;
+  /** When a logged call, message or meeting happened; now when left out. Never on a plain note. */
+  occurredAt?: string | null;
+  title?: string | null;
+  /** A meeting's notes: the calendar meeting they are about, whose start and title they take. */
+  meetingId?: string | null;
+  /** Or the Notetaker recording, for a call known only from it; never with a `meetingId`. */
+  recordingId?: string | null;
 }
 
 /** One mandate a person is mapped on, with that mandate's status and who filed them there. */
@@ -486,6 +508,7 @@ export interface PersonRecord {
   fullName: string;
   title: string | null;
   companyName: string | null;
+  companyLogoUrl?: string | null;
   seniority: CandidateSeniority | null;
   linkedinUrl: string | null;
   enrichedAt: string | null;
@@ -513,6 +536,8 @@ export interface PersonRecord {
 export interface MapToPositionResult {
   added: number;
   alreadyIn: number;
+  /** Left out by the workspace's suppression list. */
+  suppressed: number;
   /** Left out: their processing is restricted. */
   restricted: number;
 }

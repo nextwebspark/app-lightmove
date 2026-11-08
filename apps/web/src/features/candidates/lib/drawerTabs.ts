@@ -1,50 +1,45 @@
 /**
- * The tabs both person drawers draw, in `Position.dc.html`'s order. A position's drawer shows every one
- * a staff seat may use; the workspace Candidates drawer leaves out what only a position can hold. `copilot` is in
- * no list: a position's drawer puts it first only while a call's live copilot runs.
+ * The tabs both person drawers draw, in `Position.dc.html`'s order, grouped by what the consultant is doing: who the
+ * person is (Profile: background, package and documents as folds), what the team thinks (Notes), how they score
+ * (Assessment), how they are being approached (Outreach: the run and the calls) and what happened (Activity). The
+ * contacts are the header's, on every tab. `copilot` is in no list: a position's drawer puts it first only while a
+ * call's live copilot runs.
  */
-export type DrawerTab =
-  | "copilot"
-  | "career"
-  | "notes"
-  | "assessment"
-  | "contact"
-  | "documents"
-  | "activity"
-  | "positions";
+export type DrawerTab = "copilot" | "profile" | "notes" | "assessment" | "outreach" | "activity" | "positions";
 
 export const DRAWER_TAB_LABELS: Readonly<Record<DrawerTab, string>> = {
   copilot: "Copilot",
-  career: "Career",
+  profile: "Profile",
   notes: "Notes",
   assessment: "Assessment",
-  contact: "Contact",
-  documents: "Documents",
+  outreach: "Outreach",
   activity: "Activity",
   positions: "Positions",
 };
 
-export const POSITION_STAFF_TABS: readonly DrawerTab[] = [
-  "career",
-  "notes",
-  "assessment",
-  "contact",
-  "documents",
-  "activity",
-  "positions",
-];
+export const POSITION_STAFF_TABS: readonly DrawerTab[] = ["profile", "notes", "assessment", "outreach", "activity"];
 
-export const POSITION_CLIENT_TABS: readonly DrawerTab[] = ["career", "contact"];
+/** A client seat reads who the executive is; how to reach them is the header's, and the package is the firm's. */
+export const POSITION_CLIENT_TABS: readonly DrawerTab[] = ["profile"];
 
-/** The position drawer's own tabs, less what only a position holds — so a new tab reaches both drawers. */
-export const WORKSPACE_TABS: readonly DrawerTab[] = POSITION_STAFF_TABS.filter((tab) => tab !== "assessment");
+/** The workspace drawer reads; what only a position holds (its scorecard, its outreach) is that position's drawer's. */
+export const WORKSPACE_TABS: readonly DrawerTab[] = ["profile", "notes", "activity", "positions"];
 
-/** Links written before the split — `?tab=records`, a bell's `tab=timeline` — still land somewhere sensible. */
+/**
+ * Links written before a rename or a regrouping — `?tab=records`, a bell's `tab=timeline`, a remembered `contact` —
+ * still land somewhere sensible. Background, Compensation and Documents are Profile's folds now; Contact's outreach
+ * and calls are the Outreach tab's.
+ */
 const RETIRED_TABS: Readonly<Record<string, DrawerTab>> = {
-  profile: "career",
+  background: "profile",
+  career: "profile",
+  compensation: "profile",
+  documents: "profile",
+  contact: "outreach",
   records: "notes",
   timeline: "activity",
 };
+
 
 export function drawerTabOf(value: string | null | undefined, offered: readonly DrawerTab[]): DrawerTab {
   const tab = (offered as readonly string[]).includes(value ?? "")
@@ -53,7 +48,10 @@ export function drawerTabOf(value: string | null | undefined, offered: readonly 
   return tab && offered.includes(tab) ? tab : offered[0];
 }
 
-/** A part of the Contact tab a link may open on: a bell row's bounce, reply or booked call. */
+/**
+ * Where a link may open the drawer: `contact` the contact details window (a bounce's, or Book a call stopped for want
+ * of an address), `outreach` and `meetings` the Outreach tab's parts (a reply, a booked call).
+ */
 export type DrawerSection = "contact" | "outreach" | "meetings";
 
 const DRAWER_SECTIONS: readonly DrawerSection[] = ["contact", "outreach", "meetings"];

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { isPureClient } from "../../features/auth/roles";
+import { cn } from "../../lib/cn";
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
 import { workspaceTabs } from "./mobile/mobileTabs";
@@ -49,13 +50,19 @@ export function SettingsLayout() {
       contentClassName={
         GRID_PAGES.has(pathname)
           ? "flex h-full w-full flex-col"
-          : "mx-auto max-w-[760px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7"
+          : cn(
+              "mx-auto px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7",
+              WIDE_PAGES.has(pathname) ? "max-w-[1080px]" : "max-w-[760px]",
+            )
       }
     >
       <Outlet />
     </AppShell>
   );
 }
+
+/** Pages that draw a form beside its preview, which the narrow column would stack. */
+const WIDE_PAGES = new Set(["/settings/signature"]);
 
 const GROUP_ORDER: SettingsGroupLabel[] = ["Your account", "Workspace", "Platform"];
 

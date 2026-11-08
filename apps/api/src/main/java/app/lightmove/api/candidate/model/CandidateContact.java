@@ -23,6 +23,7 @@ import lombok.NoArgsConstructor;
  *
  * <p>{@code kind}, {@code verified} and {@code status} are claims, and {@code status} says whose:
  * a provider's own word ({@code "Verified"}) or {@code "Verified by researcher"} for a person's.
+ * {@code primary} is the team's choice of the one to reach them on, held to one per channel by {@link Person}.
  */
 @Embeddable
 @Getter
@@ -55,6 +56,9 @@ public class CandidateContact {
 
     @Column(name = "found_at", nullable = false)
     private Instant foundAt;
+
+    @Column(name = "is_primary", nullable = false)
+    private boolean primary;
 
     public static CandidateContact typed(ContactChannel channel, String value, ContactSource door) {
         CandidateContact contact = new CandidateContact();
@@ -128,6 +132,10 @@ public class CandidateContact {
             status = null;
         }
         verified = entry.verified();
+    }
+
+    void markPrimary(boolean chosen) {
+        this.primary = chosen;
     }
 
     public static final String VERIFIED_BY_RESEARCHER = "Verified by researcher";

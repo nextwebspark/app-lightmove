@@ -2,6 +2,7 @@ package app.lightmove.api.workspace.repository;
 
 import app.lightmove.api.workspace.model.Invitation;
 import app.lightmove.api.workspace.constant.InvitationStatus;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,7 +27,10 @@ public interface InvitationRepository extends JpaRepository<Invitation, UUID> {
     /** Client-rep invites never surface on Members. */
     List<Invitation> findByWorkspaceIdAndClientIdIsNullAndStatus(UUID workspaceId, InvitationStatus status);
 
-    long countByWorkspaceIdAndClientIdIsNullAndStatus(UUID workspaceId, InvitationStatus status);
+    /** What an inviter still has outstanding, to withdraw when their approval no longer stands. */
+    List<Invitation> findByWorkspaceIdAndInvitedByAndStatus(UUID workspaceId, UUID invitedBy, InvitationStatus status);
+
+    List<Invitation> findByWorkspaceIdAndIdIn(UUID workspaceId, Collection<UUID> ids);
 
     /** Scoped by client too, so it never collides with a staff invite to the same email. */
     Optional<Invitation> findByWorkspaceIdAndClientIdAndEmailAndStatus(

@@ -287,17 +287,18 @@ public class ConversationService {
         Map<UUID, OutreachSequence> sequencesById = sequences.findAllById(runs.stream()
                         .map(OutreachEnrollment::getSequenceId).distinct().toList()).stream()
                 .collect(Collectors.toMap(OutreachSequence::getId, Function.identity()));
-        Map<UUID, String> senderNames = users.findAllById(lines.stream().map(OutreachMessage::getSenderUserId)
+        Map<UUID, User> senders = users.findAllById(lines.stream().map(OutreachMessage::getSenderUserId)
                         .distinct().toList()).stream()
-                .filter(user -> user.getFullName() != null)
-                .collect(Collectors.toMap(User::getId, User::getFullName));
+                .collect(Collectors.toMap(User::getId, Function.identity()));
         return lines.stream().map(line -> {
             OutreachEnrollment run = line.getEnrollmentId() == null ? null : runsById.get(line.getEnrollmentId());
             OutreachSequence sequence = run == null ? null : sequencesById.get(run.getSequenceId());
+            User sender = senders.get(line.getSenderUserId());
             return new ConversationMessageResponse(line.getId(), line.getDirection(), line.getChannel(),
                     line.getKind(), line.getStatus(), line.getOccurredAt(), line.getSubject(), line.getBodyText(),
                     line.getBodyFormat(), line.getFromAddress(), line.getToAddress(), line.getSenderUserId(),
-                    senderNames.get(line.getSenderUserId()), line.getEnrollmentId(),
+                    sender == null ? null : sender.getFullName(), sender == null ? null : sender.getAvatarUrl(),
+                    line.getEnrollmentId(),
                     sequence == null ? null : sequence.getName(), line.getStep() == null ? null : line.getStep() + 1,
                     sequence == null ? null : Math.max(sequence.getSteps().size(), run.sentCount()),
                     line.getFailReason(),

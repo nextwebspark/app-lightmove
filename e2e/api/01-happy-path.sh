@@ -191,8 +191,9 @@ post_json /auth/signup "$(jq -nc --arg e "$EXISTING_EMAIL" --arg p "$PASSWORD" \
   '{fullName:"Eve Existing", email:$e, password:$p, termsAccepted:true}')" -c "$(jar existing)"
 check_status P9.1 "the invited address can still sign up directly" 201
 EXISTING_TOKEN=$(json '.accessToken')
-check P9.2 "/signup surfaces the pending invitation" "$WORKSPACE_NAME" "$(json '.user.pendingInvitations[0].workspaceName')"
-EXISTING_INVITATION=$(json '.user.pendingInvitations[0].id')
+# An unproven address learns nothing about who invited it: anyone may sign up on a mailbox they do not hold.
+check P9.2 "/signup names no invitation before the address is proven" "0" "$(json '.user.pendingInvitations | length')"
+EXISTING_INVITATION=$(sql "SELECT id FROM app_lm_invitation WHERE email = '$EXISTING_EMAIL' AND status = 'PENDING' AND client_id IS NULL")
 
 # Verified email is required before the token-less accept.
 http POST "/onboarding/invitations/$EXISTING_INVITATION/accept" -H "$(auth_header "$EXISTING_TOKEN")"
@@ -202,6 +203,7 @@ post_json /auth/verify "$(jq -nc --arg t "$(token_for "$EXISTING_EMAIL" verify)"
 check_status P9.4 "verify the second account" 200
 post_json /auth/login "$(jq -nc --arg e "$EXISTING_EMAIL" --arg p "$PASSWORD" '{email:$e, password:$p}')" -c "$(jar existing)"
 EXISTING_TOKEN=$(json '.accessToken')
+check P9.4b "once proven, the invitation is listed" "$WORKSPACE_NAME" "$(json '.user.pendingInvitations[0].workspaceName')"
 
 http POST "/onboarding/invitations/$EXISTING_INVITATION/accept" -H "$(auth_header "$EXISTING_TOKEN")"
 check_status P9.5 "token-less accept by id once verified" 200

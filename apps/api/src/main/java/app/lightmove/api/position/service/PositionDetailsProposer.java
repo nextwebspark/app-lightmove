@@ -64,9 +64,10 @@ public class PositionDetailsProposer {
     }
 
     public ProposedPositionDetails propose(UUID userId, String documentText, UUID clientId, UUID workspaceId) {
-        ProposedPositionDetails heuristic = heuristics.propose(workspaceId, documentText);
-
+        // The budget first: a caller already over it must not get the document parsed for nothing.
         llmBudget.require(LlmBudget.POSITION_EXTRACT, userId);
+
+        ProposedPositionDetails heuristic = heuristics.propose(workspaceId, documentText);
 
         try {
             Redaction redaction = redactor.redact(documentText, clientId, workspaceId);

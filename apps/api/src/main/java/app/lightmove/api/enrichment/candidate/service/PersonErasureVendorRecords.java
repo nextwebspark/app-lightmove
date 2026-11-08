@@ -6,9 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * What the vendors told us about an erased person's profile. The people cache is Uncava's and every workspace's, so
- * this reaches beyond the erasing workspace: kept, the next capture or search would fill the person back in from it
- * for free. Forgetting it costs another workspace one paid lookup at most.
+ * The vendor cache's copy of an erased person's profile, forgotten across every workspace (the cache is shared): kept,
+ * the next capture would fill them back in for free; forgetting it costs another workspace one paid lookup at most.
  */
 @Component
 @RequiredArgsConstructor

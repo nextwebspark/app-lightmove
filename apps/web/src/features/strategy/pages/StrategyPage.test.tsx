@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
+import { AssistantProvider } from "../../assistant/AssistantProvider";
 import type { Project } from "../../projects/api/types";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
@@ -186,11 +187,13 @@ const renderPage = (client = new QueryClient({ defaultOptions: { queries: { retr
     <MemoryRouter>
       <QueryClientProvider client={client}>
         <ToastProvider>
-          <Routes>
-            <Route element={<Outlet context={{ project }} />}>
-              <Route path="/" element={<StrategyPage />} />
-            </Route>
-          </Routes>
+          <AssistantProvider>
+            <Routes>
+              <Route element={<Outlet context={{ project }} />}>
+                <Route path="/" element={<StrategyPage />} />
+              </Route>
+            </Routes>
+          </AssistantProvider>
         </ToastProvider>
       </QueryClientProvider>
     </MemoryRouter>,
@@ -1106,6 +1109,27 @@ describe("StrategyPage — the filter sidebar and its results", () => {
 
     expect(within(screen.getByRole("table", { name: "Companies" })).getByText("Riyadh"))
       .toBeInTheDocument();
+  });
+});
+
+describe("StrategyPage — AI Research", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(strategyOf());
+    vi.mocked(companiesApi.getFacets).mockResolvedValue(FACETS);
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf());
+  });
+
+  it("reads pressed while the assistant is open, and a second press closes it", async () => {
+    renderPage();
+    const button = await screen.findByRole("button", { name: "AI Research", pressed: false });
+
+    await userEvent.click(button);
+    expect(button).toHaveAttribute("aria-pressed", "true");
+
+    await userEvent.click(button);
+    expect(button).toHaveAttribute("aria-pressed", "false");
   });
 });
 

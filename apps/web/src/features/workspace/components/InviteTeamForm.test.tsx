@@ -5,7 +5,7 @@ import { ToastProvider } from "../../../components/ui";
 import type { InviteRequest } from "../../auth/api/types";
 import { addressesIn, InviteTeamForm } from "./InviteTeamForm";
 
-const sendsAll = () => vi.fn(async (invites: InviteRequest[]) => ({ sent: invites.length }));
+const sendsAll = () => vi.fn(async (invites: InviteRequest[]) => ({ sent: invites.length, notDelivered: [] }));
 
 const renderForm = (submit = sendsAll(), onDone = vi.fn()) => {
   render(
@@ -89,7 +89,7 @@ describe("InviteTeamForm", () => {
 
   it("says when someone was skipped as already a member", async () => {
     const user = userEvent.setup();
-    const { onDone } = renderForm(vi.fn().mockResolvedValue({ sent: 1 }));
+    const { onDone } = renderForm(vi.fn().mockResolvedValue({ sent: 1, notDelivered: [] }));
     const [first, second] = screen.getAllByRole("textbox", { name: "Colleague's email" });
     await user.type(first, "a@x.com");
     await user.type(second, "b@x.com");

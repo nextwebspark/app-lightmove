@@ -526,7 +526,7 @@ const FIELD_LABELS: Record<string, string> = {
   task: "A task",
 };
 
-/** A field's name as the Career tab writes it; a key a newer server sends reads as words. */
+/** A field's name as the profile writes it; a key a newer server sends reads as words. */
 export function fieldLabel(field: string): string {
   const known = FIELD_LABELS[field];
   if (known) return known;

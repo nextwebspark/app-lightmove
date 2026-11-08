@@ -8,14 +8,14 @@ import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.model.ResearchedFiling;
 import app.lightmove.api.candidate.service.CandidateService;
-import app.lightmove.api.candidate.service.PersonSuppressionService;
+import app.lightmove.api.candidate.service.SuppressionGate;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.ExecutiveSourcingSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.logging.service.MdcPropagation;
+import app.lightmove.api.core.concurrent.service.ThreadContextPropagation;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.service.BrightDataPersonProfiles;
 import app.lightmove.api.enrichment.common.service.SearchHitFiling;
@@ -67,7 +67,7 @@ class ExecutiveSourcingWorker {
     private final SourcingSpecProposer specs;
     private final SourcingSpecRefiner refiner;
     private final CandidateService candidates;
-    private final PersonSuppressionService suppression;
+    private final SuppressionGate suppression;
     private final PositionService positions;
     private final ProfilePhotoDownloader photos;
     private final AuditService audit;
@@ -76,7 +76,7 @@ class ExecutiveSourcingWorker {
 
     ExecutiveSourcingWorker(SourcingRunStore store, ChainedPeopleSearch peopleSearch, SourcingSpecProposer specs,
                             SourcingSpecRefiner refiner, CandidateService candidates,
-                            PersonSuppressionService suppression, PositionService positions,
+                            SuppressionGate suppression, PositionService positions,
                             ProfilePhotoDownloader photos, AuditService audit, UsageRecorder usage,
                             LightMoveProperties properties) {
         this.store = store;
@@ -125,7 +125,7 @@ class ExecutiveSourcingWorker {
 
         try (ExecutorService pool = Executors.newFixedThreadPool(settings.parallelism(),
                 Thread.ofVirtual().factory())) {
-            companies.forEach(company -> pool.execute(MdcPropagation.wrap(() -> run.record(company, run.sourceOne(company)))));
+            companies.forEach(company -> pool.execute(ThreadContextPropagation.wrap(() -> run.record(company, run.sourceOne(company)))));
         }
 
         store.finish(request.runId()).ifPresent(finished -> {

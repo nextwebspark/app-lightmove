@@ -4,6 +4,7 @@ import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.SharedRows;
 import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import jakarta.servlet.http.HttpServletRequest;
@@ -63,7 +64,7 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>A grant is its workspace's row, and nobody signed in to that workspace is calling: the token endpoint has no
  * principal, and the consent screen's session may be in another workspace. So each method names the grant's workspace
  * — from the stored request, or from its hash or id ({@link TenantResolvers}) — and opens its own transaction there. A
- * grant still waiting for its consent belongs to none, and its table's policy shows it to anyone.
+ * grant still waiting for its consent belongs to none, and only a {@link SharedRows} scope reaches it.
  */
 @Slf4j
 @Component
@@ -265,7 +266,7 @@ public class HashingAuthorizationService implements OAuth2AuthorizationService {
     }
 
     private static <T> T inWorkspace(UUID workspaceId, Supplier<T> work) {
-        return workspaceId == null ? work.get() : WorkspaceScope.call(workspaceId, work);
+        return SharedRows.call(() -> workspaceId == null ? work.get() : WorkspaceScope.call(workspaceId, work));
     }
 
     private void revokeOnReplay(String retiredHash) {

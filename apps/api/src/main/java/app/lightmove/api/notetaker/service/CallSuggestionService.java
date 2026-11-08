@@ -154,9 +154,8 @@ public class CallSuggestionService {
             if (recording == null || !recording.isSuggestible() || recording.getSuggestions() != null) {
                 return;
             }
-            OutreachRecipient recipient = people.currentRecipient(recording.getWorkspaceId(),
-                            recording.getProjectId(), recording.getCandidateId())
-                    .filter(found -> found.personId().equals(recording.getPersonId()))
+            OutreachRecipient recipient = people.currentRecipientOfPerson(recording.getWorkspaceId(),
+                            recording.getProjectId(), recording.getPersonId())
                     .filter(found -> !found.processingRestricted())
                     .orElse(null);
             if (recipient == null) {

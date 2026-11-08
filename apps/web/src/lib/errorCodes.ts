@@ -36,6 +36,7 @@ export type ApiErrorCode =
   | "FORBIDDEN"
   | "INVITATION_INVALID"
   | "INVITATION_EXPIRED"
+  | "INVITATION_EMAIL_NOT_SENT"
   | "LAST_ADMIN"
   | "MEMBER_LEADS_PROJECTS"
   | "CLIENT_ALREADY_EXISTS"
@@ -53,6 +54,10 @@ export type ApiErrorCode =
   | "PERSON_DOCUMENT_DUPLICATE"
   | "PERSON_DOCUMENT_NOT_YOURS"
   | "PERSON_DOCUMENT_LIMIT"
+  | "EMAIL_IMAGE_UNREADABLE"
+  | "EMAIL_IMAGE_TOO_LARGE"
+  | "EMAIL_SIGNATURE_NOT_FOUND"
+  | "EMAIL_SIGNATURE_LIMIT_REACHED"
   | "CANDIDATE_TAG_EXISTS"
   | "CANDIDATE_TAG_RETIRED"
   | "CANDIDATE_ASSESSMENT_STALE"
@@ -71,6 +76,7 @@ export type ApiErrorCode =
   | "PERSON_SUPPRESSED"
   | "PERSON_PROCESSING_RESTRICTED"
   | "PERSON_ERASE_SEND_IN_FLIGHT"
+  | "SUPPRESSION_UNAVAILABLE"
   | "TASK_ASSIGNEE_NOT_ON_TEAM"
   | "TASK_NOT_YOURS"
   | "STRATEGY_SEARCH_NAME_TAKEN"
@@ -210,6 +216,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
     "The fallback template can't be archived or hidden — a title nothing else matches is drafted from it.",
   TEMPLATE_IMPORT_INVALID: "Some templates in the file are invalid, so none were imported.",
   LAST_ADMIN: "A workspace must keep at least one admin.",
+  INVITATION_EMAIL_NOT_SENT: "The invitation is saved, but its email didn't go out. Try resending it in a few minutes.",
   MEMBER_LEADS_PROJECTS: "They are the only lead on active positions — hand those over first.",
   CLIENT_ALREADY_EXISTS: "That name is already taken.",
   PROJECT_LAST_LEAD: "A position must keep at least one lead.",
@@ -250,6 +257,10 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PERSON_DOCUMENT_DUPLICATE: "That file is already on this candidate.",
   PERSON_DOCUMENT_NOT_YOURS: "Only the person who uploaded this, or an admin, can remove it.",
   PERSON_DOCUMENT_LIMIT: "This candidate has reached the limit for documents.",
+  EMAIL_IMAGE_UNREADABLE: "That picture could not be read. Use a JPEG or PNG.",
+  EMAIL_IMAGE_TOO_LARGE: "That picture is too large. Use one under 5 MB.",
+  EMAIL_SIGNATURE_NOT_FOUND: "That signature no longer exists. Pick another, or send without one.",
+  EMAIL_SIGNATURE_LIMIT_REACHED: "You can keep up to 10 signatures. Delete one to make another.",
   TASK_ASSIGNEE_NOT_ON_TEAM: "They aren't on this position's team. Add them in Team & access, or pick someone who is.",
   TASK_NOT_YOURS: "Only whoever set this task, whoever it's assigned to, the position's lead or an admin can change it.",
   CANDIDATE_TAG_EXISTS: "Your team already has that tag.",
@@ -273,6 +284,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PERSON_PROCESSING_RESTRICTED:
     "Processing is restricted for this person, so this can't be done until the restriction is lifted.",
   PERSON_ERASE_SEND_IN_FLIGHT: "An email to this person is sending right now. Try again in a minute.",
+  SUPPRESSION_UNAVAILABLE: "Your workspace's suppression list can't be checked right now, so nobody can be added. Contact Uncava support.",
   // Two uploads raise this — the spreadsheet import and the position description — so the wording
   // stays neutral. Naming one screen's file types here misdescribes the other's refusal, and each
   // dropzone already states what it takes.

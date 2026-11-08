@@ -5,10 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -18,19 +15,22 @@ import org.springframework.stereotype.Component;
  * ({@link TenantTableGuard}) has no fence at all, and Flyway's maintenance flag left on a
  * pooled connection lets that connection read every workspace. A deploy that fails here keeps the old revision
  * serving, which beats a new one quietly unprotected.
+ *
+ * <p>Checked once every singleton exists — Flyway's migration included — and before the context's refresh starts the
+ * web server and the scheduler, so an unprotected revision never serves a request or runs a job. An
+ * {@code ApplicationRunner} would run only after both had started.
  */
 @Slf4j
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
 @RequiredArgsConstructor
-public class RowLevelSecurityPosture implements ApplicationRunner {
+public class RowLevelSecurityPosture implements SmartInitializingSingleton {
 
     private final JdbcTemplate jdbc;
     private final TenantTableGuard tenantTables;
     private final LightMoveProperties properties;
 
     @Override
-    public void run(ApplicationArguments args) {
+    public void afterSingletonsInstantiated() {
         List<String> awaitingHarden = tenantTables.awaitingHarden();
         if (!awaitingHarden.isEmpty()) {
             log.warn("Row-level security waits on ops/cloudsql/harden.sql, run as postgres, for {}",

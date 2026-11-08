@@ -7,9 +7,10 @@ export const PROFILE_SECTIONS = [
   "summary",
   "experience",
   "education",
-  "compensation",
   "profile",
   "background",
+  "compensation",
+  "documents",
   "certifications",
   "publications",
   "projects",
@@ -22,16 +23,17 @@ export type ProfileSection = (typeof PROFILE_SECTIONS)[number];
 
 type OpenState = Record<ProfileSection, boolean>;
 
-/** What a first visit shows: who they are and where they have been, then how to reach them. */
+/** What a first visit shows: the summary alone, every other part a click away. */
 const DEFAULTS: OpenState = {
-  outreach: true,
+  outreach: false,
   company: false,
   summary: true,
-  experience: true,
+  experience: false,
   education: false,
-  compensation: false,
   profile: false,
   background: false,
+  compensation: false,
+  documents: false,
   certifications: false,
   publications: false,
   projects: false,
@@ -40,10 +42,10 @@ const DEFAULTS: OpenState = {
   columns: false,
 };
 
-const STORAGE_KEY = "lm.candidate-profile.sections.v2";
+const STORAGE_KEY = "lm.candidate-profile.sections.v3";
 
-/** Who they are and where they have been: open on every profile, whatever was folded on the last one. */
-const OPEN_ON_EVERY_PROFILE: readonly ProfileSection[] = ["summary", "experience"];
+/** Who they are in a line or two: open on every profile, whatever was folded on the last one. */
+const OPEN_ON_EVERY_PROFILE: readonly ProfileSection[] = ["summary"];
 
 /**
  * Which sections of an executive's profile are unfolded, remembered per viewer and per section

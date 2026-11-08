@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Compensation } from "../api/types";
-import { annualisedAllowances, bandReadings, bonusOn, packageMix, packageTotal } from "./compensation";
+import {
+  annualisedAllowances,
+  bandReadings,
+  bonusOn,
+  bonusValueAfterBasisChange,
+  packageMix,
+  packageTotal,
+} from "./compensation";
 
 const compensation = (overrides: Partial<Compensation> = {}): Compensation => ({
   currency: "AED",
@@ -131,5 +138,24 @@ describe("a bonus stated as a fixed amount", () => {
   it("is stated even before a band is entered, where a share of base would be nothing", () => {
     expect(bonusOn(compensation({ bonusValue: 150_000, bonusBasis: "FIXED_AMOUNT" }), 0)).toBe(150_000);
     expect(bonusOn(compensation({ bonusValue: 40, bonusBasis: "PERCENT_OF_BASE" }), 0)).toBe(0);
+  });
+});
+
+describe("bonusValueAfterBasisChange", () => {
+  it("clears the figure moving between money and a proportion", () => {
+    expect(bonusValueAfterBasisChange(150_000, "FIXED_AMOUNT", "PERCENT_OF_BASE")).toBeNull();
+    expect(bonusValueAfterBasisChange(30, "PERCENT_OF_BASE", "FIXED_AMOUNT")).toBeNull();
+  });
+
+  it("keeps a figure the new basis still reads as true, and clears one past its ceiling", () => {
+    expect(bonusValueAfterBasisChange(30, "PERCENT_OF_BASE", "PERCENT_OF_TOTAL_FIXED")).toBe(30);
+    expect(bonusValueAfterBasisChange(30, "PERCENT_OF_BASE", "MONTHS_OF_BASE")).toBeNull();
+    expect(bonusValueAfterBasisChange(12, "PERCENT_OF_BASE", "MONTHS_OF_BASE")).toBe(12);
+  });
+
+  it("leaves the figure alone when the basis is cleared or first chosen within its ceiling", () => {
+    expect(bonusValueAfterBasisChange(30, "PERCENT_OF_BASE", null)).toBe(30);
+    expect(bonusValueAfterBasisChange(30, null, "PERCENT_OF_BASE")).toBe(30);
+    expect(bonusValueAfterBasisChange(150, null, "PERCENT_OF_BASE")).toBeNull();
   });
 });

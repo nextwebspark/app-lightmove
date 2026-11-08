@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.TestKeyedHashers;
+import app.lightmove.api.core.security.token.Tokens;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,16 +47,42 @@ class PersonSuppressionIntegrationTest extends FlowTestSupport {
         assertThat(db.queryForList("select value_hash from app_lm_workspace_suppression", String.class))
                 .isNotEmpty()
                 .allSatisfy(hash -> assertThat(hash).matches("[0-9a-f]{64}").doesNotContain("noor"));
+        String workspaceId = db.queryForObject("select id::text from app_lm_workspace where name = 'Hashing Firm'",
+                String.class);
+        assertThat(db.queryForList("select value_hash from app_lm_workspace_suppression where workspace_id = ?::uuid",
+                String.class, workspaceId))
+                .doesNotContain(Tokens.hash(workspaceId + ":EMAIL:noor@example.com"));
+        assertThat(db.queryForList("select key_id from app_lm_workspace_suppression where workspace_id = ?::uuid",
+                Integer.class, workspaceId)).containsOnly(TestKeyedHashers.DEV_KEY_ID);
 
         JsonNode list = body(mvc.perform(get("/api/v1/workspace/suppressions")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk()).andReturn());
         assertThat(list).hasSize(2);
 
-        suppress("""
-                {"email":"noor@example.com"}""").andExpect(status().isCreated());
+        JsonNode again = body(suppress("""
+                {"email":"NOOR@example.com"}""").andExpect(status().isOk()).andReturn());
+        assertThat(again).hasSize(1);
+        assertThat(again.get(0).get("reason").asText()).isEqualTo("objected");
         assertThat(body(mvc.perform(get("/api/v1/workspace/suppressions")
                 .header("Authorization", "Bearer " + admin)).andReturn())).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("an entry the deployment's keyset cannot read refuses every door, rather than letting the person in")
+    void anUnreadableListRefusesTheDoor() throws Exception {
+        firm("Rotated Key Firm");
+        String position = mandate("Chief Legal Officer");
+        suppress("""
+                {"email":"rania@example.com"}""").andExpect(status().isCreated());
+        db.update("update app_lm_workspace_suppression set key_id = 1 where workspace_id ="
+                + " (select id from app_lm_workspace where name = 'Rotated Key Firm')");
+
+        assertThat(codeOf(add(position, """
+                {"fullName":"Omar Saleh","linkedinUrl":"https://www.linkedin.com/in/omar-saleh/"}""")
+                .andExpect(status().isServiceUnavailable()).andReturn())).isEqualTo("SUPPRESSION_UNAVAILABLE");
+        assertThat(db.queryForObject("select count(*) from app_lm_project_candidate where project_id = ?::uuid",
+                Long.class, position)).isZero();
     }
 
     @Test
@@ -116,6 +144,59 @@ class PersonSuppressionIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"fullName":"Omar Saleh","emails":[{"value":"noor@example.com"}]}"""))
                 .andExpect(status().isConflict()).andReturn())).isEqualTo("PERSON_SUPPRESSED");
+    }
+
+    @Test
+    @DisplayName("someone the workspace knows is refused by their own keys, whatever the door's request carries")
+    void aKnownPersonIsAskedByTheirOwnKeys() throws Exception {
+        firm("Known Person Firm");
+        String first = mandate("Chief Financial Officer");
+        String second = mandate("Chief Risk Officer");
+        String noor = body(add(first, """
+                {"fullName":"Noor Haddad","employerName":"Aldar Properties",
+                 "linkedinUrl":"https://www.linkedin.com/in/noor-haddad/","emails":[{"value":"noor@example.com"}]}""")
+                .andExpect(status().isCreated()).andReturn()).get("personId").asText();
+        suppress("""
+                {"email":"noor@example.com","reason":"objected"}""").andExpect(status().isCreated());
+
+        assertThat(codeOf(add(second, """
+                {"fullName":"Noor Haddad","employerName":"Aldar Properties","existingPersonId":"%s"}""".formatted(noor))
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("PERSON_SUPPRESSED");
+        assertThat(codeOf(add(second, """
+                {"fullName":"Noor Haddad","source":"extension","linkedinUrl":"https://www.linkedin.com/in/noor-haddad/"}""")
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("PERSON_SUPPRESSED");
+        assertThat(db.queryForObject("select count(*) from app_lm_project_candidate where project_id = ?::uuid",
+                Long.class, second)).isZero();
+    }
+
+    @Test
+    @DisplayName("Add to position from the Candidates page leaves a suppressed person out and counts them")
+    void addToPositionLeavesSuppressedPeopleOut() throws Exception {
+        firm("Pool Firm");
+        String first = mandate("Chief Technology Officer");
+        String second = mandate("Chief Data Officer");
+        String layla = body(add(first, """
+                {"fullName":"Layla Nasser","linkedinUrl":"https://www.linkedin.com/in/layla-nasser/"}""")
+                .andExpect(status().isCreated()).andReturn()).get("personId").asText();
+        String omar = body(add(first, """
+                {"fullName":"Omar Saleh","emails":[{"value":"omar@example.com"}]}""")
+                .andExpect(status().isCreated()).andReturn()).get("personId").asText();
+        suppress("""
+                {"linkedinUrl":"linkedin.com/in/Layla-Nasser"}""").andExpect(status().isCreated());
+
+        JsonNode answer = body(mvc.perform(post("/api/v1/candidates/bulk/position")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"projectId":"%s","personIds":["%s","%s"]}""".formatted(second, layla, omar)))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        assertThat(answer.get("added").asInt()).isEqualTo(1);
+        assertThat(answer.get("alreadyIn").asInt()).isZero();
+        assertThat(answer.get("suppressed").asInt()).isEqualTo(1);
+        assertThat(db.queryForList("select person_id::text from app_lm_project_candidate where project_id = ?::uuid",
+                String.class, second)).containsExactly(omar);
     }
 
     @Test

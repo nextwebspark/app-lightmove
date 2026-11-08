@@ -1,12 +1,14 @@
 package app.lightmove.api.task.service;
 
+import static app.lightmove.api.candidate.service.PersonErasureQueries.count;
+import static app.lightmove.api.candidate.service.PersonErasureQueries.scopeOf;
+
 import app.lightmove.api.candidate.constant.ErasedHolding;
 import app.lightmove.api.candidate.model.ErasedPerson;
 import app.lightmove.api.candidate.service.PersonErasureContributor;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -19,10 +21,9 @@ class PersonErasureTasks implements PersonErasureContributor {
 
     @Override
     public Map<ErasedHolding, Long> holdingsOf(UUID workspaceId, UUID personId) {
-        Long tasks = jdbc.queryForObject("SELECT count(*) FROM app_lm_task WHERE person_id = :personId"
-                        + " AND workspace_id = :workspaceId",
-                new MapSqlParameterSource("personId", personId).addValue("workspaceId", workspaceId), Long.class);
-        return Map.of(ErasedHolding.TASKS, tasks == null ? 0 : tasks);
+        return Map.of(ErasedHolding.TASKS, count(jdbc, """
+                SELECT count(*) FROM app_lm_task WHERE person_id = :personId AND workspace_id = :workspaceId
+                """, scopeOf(workspaceId, personId)));
     }
 
     @Override
