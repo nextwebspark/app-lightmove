@@ -189,7 +189,7 @@ public class Person extends BaseEntity {
     @Column(name = "do_not_contact_set_at")
     private Instant doNotContactSetAt;
 
-    /** Restriction of processing (V176, GDPR Art. 18): on file and readable, used by nothing until it is lifted. */
+    /** Restriction of processing (V198, GDPR Art. 18): on file and readable, used by nothing until it is lifted. */
     @Column(name = "processing_restricted", nullable = false)
     private boolean processingRestricted;
 

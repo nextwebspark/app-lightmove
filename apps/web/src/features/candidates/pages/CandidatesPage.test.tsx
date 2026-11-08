@@ -454,6 +454,7 @@ describe("CandidatesPage", () => {
         restrictedByUserId: "u1",
         restrictedByName: "Alok Kumar",
         restrictedAt: "2026-09-21T11:20:00Z",
+        mayLift: true,
       },
     };
     vi.mocked(poolApi.getPerson).mockResolvedValue(restricted);
@@ -468,6 +469,24 @@ describe("CandidatesPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Lift restriction" }));
 
     await waitFor(() => expect(poolApi.setProcessingRestriction).toHaveBeenCalledWith("person-1", false));
+  });
+
+  it("offers no Lift to a teammate who neither set the restriction nor is an admin", async () => {
+    vi.mocked(poolApi.getPerson).mockResolvedValue({
+      ...record,
+      processingRestriction: {
+        reason: "Asked on 20 Sep what we hold about her.",
+        restrictedByUserId: "u2",
+        restrictedByName: "Sara Al-Mansour",
+        restrictedAt: "2026-09-21T11:20:00Z",
+        mayLift: false,
+      },
+    });
+    renderPage("/candidates?person=person-1");
+
+    const note = await screen.findByRole("note", { name: "Processing restricted" });
+    expect(note).toHaveTextContent("Only Sara Al-Mansour or an admin can lift it.");
+    expect(screen.queryByRole("button", { name: "Lift restriction" })).not.toBeInTheDocument();
   });
 
   it("offers Restrict processing in the person's ⋯ to anyone on the team", async () => {

@@ -158,52 +158,56 @@ function PersonDrawerBody({
 
   const doNotContact = person.doNotContact;
   const restriction = person.processingRestriction;
+  const offersRestriction = !restriction || restriction.mayLift;
+  const hasMenu = offersRestriction || isAdmin;
 
   return (
     <>
       <header className="relative flex-none border-b border-u-border px-5 pt-4">
         <PanelCloseButton onClose={onClose} />
-        <div className="absolute end-12 top-3.5">
-          <ActionMenu label={`More for ${person.fullName}`} width={256}>
-            {(close) => (
-              <>
-                {restriction ? (
-                  <MenuItem
-                    icon={ICONS.unlock}
-                    onSelect={() => {
-                      close();
-                      lifting.mutate();
-                    }}
-                  >
-                    Lift restriction
-                  </MenuItem>
-                ) : (
-                  <MenuItem
-                    icon={ICONS.lock}
-                    onSelect={() => {
-                      close();
-                      setRestricting(true);
-                    }}
-                  >
-                    Restrict processing…
-                  </MenuItem>
-                )}
-                {isAdmin && (
-                  <MenuItem
-                    icon={ICONS.trash}
-                    tone="danger"
-                    onSelect={() => {
-                      close();
-                      setErasing(true);
-                    }}
-                  >
-                    Delete person permanently…
-                  </MenuItem>
-                )}
-              </>
-            )}
-          </ActionMenu>
-        </div>
+        {hasMenu && (
+          <div className="absolute end-12 top-3.5">
+            <ActionMenu label={`More for ${person.fullName}`} width={256}>
+              {(close) => (
+                <>
+                  {!offersRestriction ? null : restriction ? (
+                    <MenuItem
+                      icon={ICONS.unlock}
+                      onSelect={() => {
+                        close();
+                        lifting.mutate();
+                      }}
+                    >
+                      Lift restriction
+                    </MenuItem>
+                  ) : (
+                    <MenuItem
+                      icon={ICONS.lock}
+                      onSelect={() => {
+                        close();
+                        setRestricting(true);
+                      }}
+                    >
+                      Restrict processing…
+                    </MenuItem>
+                  )}
+                  {isAdmin && (
+                    <MenuItem
+                      icon={ICONS.trash}
+                      tone="danger"
+                      onSelect={() => {
+                        close();
+                        setErasing(true);
+                      }}
+                    >
+                      Delete person permanently…
+                    </MenuItem>
+                  )}
+                </>
+              )}
+            </ActionMenu>
+          </div>
+        )}
         <PersonHeaderLayout
           avatar={<PersonAvatar person={person} size="xl" className="size-11 rounded-u-card border border-u-border-strong text-sm" />}
           fullName={person.fullName}
@@ -213,7 +217,7 @@ function PersonDrawerBody({
           onShowContacts={() => setShowingContacts(true)}
           employer={{ name: person.companyName, logoUrl: person.companyLogoUrl }}
           location={[person.locationCity, person.locationCountry].filter(Boolean).join(" · ")}
-          hasCornerMenu
+          hasCornerMenu={hasMenu}
         >
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-1.5">
@@ -288,16 +292,23 @@ function PersonDrawerBody({
                   Restricted by {restriction.restrictedByName ?? "someone"} ·{" "}
                   {new Date(restriction.restrictedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
                 </div>
+                {!restriction.mayLift && (
+                  <div className="mt-0.5 text-note text-u-text3">
+                    Only {restriction.restrictedByName ?? "whoever restricted them"} or an admin can lift it.
+                  </div>
+                )}
               </div>
-              <Button
-                variant="secondary"
-                size="xs"
-                disabled={lifting.isPending}
-                onClick={() => lifting.mutate()}
-                className="flex-none"
-              >
-                Lift restriction
-              </Button>
+              {restriction.mayLift && (
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  disabled={lifting.isPending}
+                  onClick={() => lifting.mutate()}
+                  className="flex-none"
+                >
+                  Lift restriction
+                </Button>
+              )}
             </div>
           )}
         </PersonHeaderLayout>

@@ -310,6 +310,8 @@ public enum ErrorCode {
      */
     PERSON_PROCESSING_RESTRICTED(HttpStatus.CONFLICT,
             "Processing is restricted for this person, so this can't be done until the restriction is lifted"),
+    PERSON_PROCESSING_RESTRICTION_NOT_YOURS(HttpStatus.FORBIDDEN,
+            "Only the person who restricted processing, or an admin, can lift it"),
 
     /** A LinkedIn profile or email the workspace's suppression list holds: nobody may file that person again. */
     PERSON_SUPPRESSED(HttpStatus.CONFLICT,

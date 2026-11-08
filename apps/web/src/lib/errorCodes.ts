@@ -75,6 +75,7 @@ export type ApiErrorCode =
   | "PERSON_DO_NOT_CONTACT"
   | "PERSON_SUPPRESSED"
   | "PERSON_PROCESSING_RESTRICTED"
+  | "PERSON_PROCESSING_RESTRICTION_NOT_YOURS"
   | "PERSON_ERASE_SEND_IN_FLIGHT"
   | "SUPPRESSION_UNAVAILABLE"
   | "TASK_ASSIGNEE_NOT_ON_TEAM"
@@ -283,6 +284,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PERSON_SUPPRESSED: "This person is on your workspace's suppression list, so they can't be added.",
   PERSON_PROCESSING_RESTRICTED:
     "Processing is restricted for this person, so this can't be done until the restriction is lifted.",
+  PERSON_PROCESSING_RESTRICTION_NOT_YOURS: "Only the person who restricted processing, or an admin, can lift it.",
   PERSON_ERASE_SEND_IN_FLIGHT: "An email to this person is sending right now. Try again in a minute.",
   SUPPRESSION_UNAVAILABLE: "Your workspace's suppression list can't be checked right now, so nobody can be added. Contact Uncava support.",
   // Two uploads raise this — the spreadsheet import and the position description — so the wording

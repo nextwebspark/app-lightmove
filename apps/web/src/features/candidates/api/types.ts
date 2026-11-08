@@ -500,6 +500,8 @@ export interface ProcessingRestriction {
   restrictedByUserId: string | null;
   restrictedByName: string | null;
   restrictedAt: string;
+  /** Whoever restricted them, or an admin, as the server decides. */
+  mayLift: boolean;
 }
 
 /** A workspace person as the Candidates drawer reads them. Staff-only. */
