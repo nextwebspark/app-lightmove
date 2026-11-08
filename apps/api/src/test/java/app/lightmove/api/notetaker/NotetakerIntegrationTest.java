@@ -27,6 +27,7 @@ import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import app.lightmove.api.notetaker.service.NotetakerReconcile;
+import app.lightmove.api.notetaker.service.RecallBotErasureSweeper;
 import app.lightmove.api.notetaker.service.NotetakerService;
 import app.lightmove.api.notetaker.service.NotetakerTranscriptPurge;
 import app.lightmove.api.outreach.model.CalendarEvent;
@@ -91,6 +92,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     @Autowired private NotetakerReconcile reconcile;
     @Autowired private NotetakerService notetakers;
     @Autowired private NotetakerTranscriptPurge transcriptPurge;
+    @Autowired private RecallBotErasureSweeper recallCleanup;
     @Autowired @FixtureJdbc private JdbcTemplate jdbc;
     @Autowired private CandidateMaterialService material;
 
@@ -921,6 +923,27 @@ class NotetakerIntegrationTest extends FlowTestSupport {
 
         restrictProcessing(false);
         schedule().andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("a bot Recall refuses to strip when someone is restricted stays queued until Recall takes it")
+    void restrictionQueuesTheBotUntilRecallAnswers() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        recall.refuseMediaDeletes(VendorFailureKind.UNAVAILABLE);
+
+        restrictProcessing(true);
+
+        assertThat(statusOf(recordingId)).isEqualTo("CANCELLED");
+        assertThat(recall.removed()).contains(bot);
+        assertThat(jdbc.queryForObject("select call_back from app_lm_recall_bot_erasure where recall_bot_id = ?",
+                Boolean.class, bot)).isFalse();
+
+        recall.refuseMediaDeletes(null);
+        recallCleanup.sweepAt(Instant.now().plus(Duration.ofHours(2)));
+        assertThat(recall.mediaDeleted()).contains(bot);
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_recall_bot_erasure where recall_bot_id = ?",
+                Long.class, bot)).isZero();
     }
 
     @Test
