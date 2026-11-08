@@ -1527,6 +1527,12 @@ Offer, each with its ways out flagged — under the legacy stage and system-stat
 V131's seed to the letter, that nobody's candidates hold and no automation names, was reseeded onto it; every other
 catalog was left as it stood. The public API and MCP no longer carry a stage `kind`; an executive's `outOfProcess`
 says it.
+V195 dissolves the old closed Declined stage V163 kept, which the board drew a band cell of its own, wherever none of
+its statuses is in process: each moves under the stage it is usually given at (Off-limits and Out of scope to
+Identified, Not interested and No response to Contacted, Withdrew to Interested, Not a fit to Qualified, Rejected by
+client to Shortlisted; any other where most of its holders left, else the last column); whoever left at another
+stage — their latest status line at a column says which — takes a copy of their status there, `<status> (<stage>)`;
+and the emptied stage is deleted, the rest renumbered.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

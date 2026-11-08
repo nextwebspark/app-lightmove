@@ -82,7 +82,7 @@ export function findStatus(
 
 /**
  * Whether a status should say it is a way out: beside statuses in process it would read as one of them. A stage of
- * ways out alone, an old Declined say, needs no tag on every row.
+ * ways out alone needs no tag on every row.
  */
 export function tagsOutOfProcess(stage: Pick<PipelineStage, "statuses">, status: Pick<PipelineStatus, "outOfProcess">) {
   return status.outOfProcess && liveStatuses(stage).some((other) => !other.outOfProcess);

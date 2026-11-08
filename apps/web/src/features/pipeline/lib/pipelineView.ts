@@ -118,7 +118,7 @@ export interface OutOfProcessCell {
 
 /**
  * The band's cells: one under each column, in the columns' order, then one for each stage with no column that
- * offers a way out or holds someone — a stage of ways out alone, like the old Declined.
+ * offers a way out or holds someone — a stage of ways out alone, which an admin may still build.
  */
 export function outOfProcessCellsOf(
   rows: readonly PipelineRow[],
