@@ -18,6 +18,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.text.model.SearchText;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import jakarta.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -36,6 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
  * search box's one rule (staff, so notes and tags count too), the drag that sets
  * that order, the next action (the earliest open task, {@link NextActionLookup}) and whether a client seat
  * sees them. Staff-only throughout; a stage change is the ordinary status change, to the stage's default status.
+ * Declined is the Companies pages' decision and no pipeline stage, so whoever it took (a company's decline takes
+ * everyone at it) is off the board until they are back in the universe.
  */
 @Service
 @RequiredArgsConstructor
@@ -77,6 +80,7 @@ public class PositionPipelineService {
         CandidateSearchMatches searched = search == null ? null
                 : searches.matchesOf(workspaceId, projectId, search, ProjectAudience.STAFF);
         List<Candidate> matching = candidates.findPipelineOfProject(projectId).stream()
+                .filter(row -> row.getTriageStatus() != TriageCompanyStatus.DECLINED)
                 .filter(row -> searched == null || searched.keeps(row.getId(), row.getTriageCompanyId()))
                 .sorted(PIPELINE_ORDER)
                 .toList();
@@ -95,6 +99,18 @@ public class PositionPipelineService {
         Map<UUID, CandidateNextActionDto> next = nextActionsOf(projectId, shown);
         return new PositionPipelineResponse(shown.stream().map(row -> toRow(row, next)).toList(), counts,
                 inactive, shown.size());
+    }
+
+    /**
+     * Everyone on the position as the Pipeline draws them, the Declined included: Outreach's queue, where a reply from
+     * someone whose company was declined still asks for an answer.
+     */
+    @Transactional(readOnly = true)
+    public List<PipelineRowResponse> executivesOf(UUID workspaceId, UUID projectId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        List<Candidate> everyone = candidates.findPipelineOfProject(projectId).stream().sorted(PIPELINE_ORDER).toList();
+        Map<UUID, CandidateNextActionDto> next = nextActionsOf(projectId, everyone);
+        return everyone.stream().map(row -> toRow(row, next)).toList();
     }
 
     /** One executive as the Pipeline draws them, for a read that shows a single person (the outreach conversation). */

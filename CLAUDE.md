@@ -244,8 +244,10 @@ screen, one fixed width whether it holds two views or three so the search starts
 rail is one row per page and nests nothing. `useCompaniesViews` decides what In universe offers. A view someone
 *chose* in the switch is remembered per mandate; a link that only names one, a
 notification's `?view=pipeline`, is a visit. **Pipeline** is the position's
-board by pipeline stage — the retired CRM Pipeline page, board only, every executive on the position whatever their
-Companies stage, staff only (`WORK_EXECUTE`); `/projects/{id}/pipeline` and its `?candidate=` links land there
+board by pipeline stage — the retired CRM Pipeline page, board only, every executive on the position but those Declined
+on the Companies pages (Declined is a company's decision, which takes everyone at it, and no pipeline stage; Outreach's
+queue still lists them, `executivesOf`), staff only (`WORK_EXECUTE`); `/projects/{id}/pipeline` and its `?candidate=`
+links land there
 (`positionPipelinePath`). Its columns are the stages holding a status in process, the five seeded ones each with its
 mark (`stageMarkOf`); under them the **Out of process** band, resized from its grip, holds a cell per stage of whoever
 left at one of its ways out — a drop in a cell offers that stage's ways out alone — and a stage of ways out alone gets

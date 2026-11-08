@@ -145,22 +145,23 @@ class CompaniesSearchIntegrationTest extends PipelineFlowSupport {
     }
 
     @Test
-    @DisplayName("the Pipeline lists every executive whatever their stage, and its search is the same rule")
+    @DisplayName("the Pipeline lists every executive but the Declined, and its search is the same rule")
     void pipelineSearchIsTheSameRule() throws Exception {
         universe("Search Pipeline Firm");
         note(projectId, khaled, "Speaks fluent Mandarin", false);
-        write(admin, "PUT", candidatesUrl(projectId) + "/" + rana + "/triage-status", """
+        write(admin, "PATCH", "/api/v1/projects/" + projectId + "/triage/" + masdar, """
                 {"status":"declined"}""");
 
-        assertThat(pipelineNames(null)).containsExactlyInAnyOrder("Khaled Al Beirouty", "Rana Haddad", "Omar Farouk");
+        assertThat(pipelineNames(null)).containsExactlyInAnyOrder("Khaled Al Beirouty", "Rana Haddad");
         long counted = 0;
         for (JsonNode stage : pipeline(null).get("stageCounts")) {
             counted += stage.get("count").asLong();
         }
-        assertThat(counted).isEqualTo(3);
+        assertThat(counted).isEqualTo(2);
         assertThat(pipelineNames("mandarin")).containsExactly("Khaled Al Beirouty");
         assertThat(pipelineNames("retail")).containsExactlyInAnyOrder("Khaled Al Beirouty", "Rana Haddad");
         assertThat(pipelineNames("treasurer")).containsExactly("Rana Haddad");
+        assertThat(pipelineNames("omar")).as("a search never brings the Declined back").isEmpty();
         assertThat(pipelineNames("nothing like it")).isEmpty();
     }
 

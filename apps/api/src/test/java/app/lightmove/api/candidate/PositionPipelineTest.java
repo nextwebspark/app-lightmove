@@ -62,6 +62,34 @@ class PositionPipelineTest extends PipelineFlowSupport {
     }
 
     @Test
+    @DisplayName("a company's decline takes everyone at it off the board, and Back to universe brings them back")
+    void aDeclinedCompanyIsOffTheBoard() throws Exception {
+        String declined = capture(projectId, "Declined Holdings");
+        String kept = capture(projectId, "Kept Holdings");
+        String rania = add(projectId, """
+                {"triageCompanyId":"%s","fullName":"Rania Fares","status":"contacted"}""".formatted(declined))
+                .get("id").asText();
+        String sami = add(projectId, """
+                {"triageCompanyId":"%s","fullName":"Sami Khoury","status":"outOfScope"}""".formatted(declined))
+                .get("id").asText();
+        String nadia = add(projectId, """
+                {"triageCompanyId":"%s","fullName":"Nadia Saleh","status":"contacted"}""".formatted(kept))
+                .get("id").asText();
+        assertThat(ids(pipeline(""))).containsExactlyInAnyOrder(rania, sami, nadia);
+
+        moveCompany(declined, "declined");
+
+        JsonNode pipeline = pipeline("");
+        assertThat(ids(pipeline)).containsExactly(nadia);
+        assertThat(count(pipeline, "contacted")).isEqualTo(1);
+        assertThat(pipeline.get("inactiveCount").asLong()).isZero();
+        assertThat(pipeline.get("total").asLong()).isEqualTo(1);
+
+        moveCompany(declined, "inUniverse");
+        assertThat(ids(pipeline(""))).containsExactlyInAnyOrder(rania, sami, nadia);
+    }
+
+    @Test
     @DisplayName("a drag lands a row between its neighbours, and only between rows of its own stage")
     void aDragRanksOneRow() throws Exception {
         String first = person("First Person", "identified");
@@ -204,6 +232,11 @@ class PositionPipelineTest extends PipelineFlowSupport {
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andReturn());
+    }
+
+    private void moveCompany(String triageCompanyId, String stage) throws Exception {
+        assertThat(write(admin, "PATCH", "/api/v1/projects/" + projectId + "/triage/" + triageCompanyId, """
+                {"status":"%s"}""".formatted(stage)).getResponse().getStatus()).isEqualTo(200);
     }
 
     private String rankUrl(String candidateId) {
