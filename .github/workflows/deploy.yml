@@ -339,6 +339,15 @@ jobs:
           if [ "${{ vars.CREDENTIAL_ENCRYPTION_ENABLED }}" = "true" ]; then
             CREDENTIAL_SECRETS=",CREDENTIAL_KEYSET=lightmove-credential-keyset:latest"
           fi
+          # The suppression list's HMAC keyset (#920): every entry is a hash under it. Off unless
+          # SUPPRESSION_LIST_ENABLED=true, for the secret-must-exist reason above. Prerequisite:
+          #   tinkey create-keyset --key-template HMAC_SHA256_PRF --out-format json | \
+          #     gcloud secrets create lightmove-suppression-keyset --data-file=-
+          # Left unset no workspace can add to its list. Never delete a key from it while an entry uses it: a workspace
+          # holding entries the keyset cannot read is refused at every door.
+          if [ "${{ vars.SUPPRESSION_LIST_ENABLED }}" = "true" ]; then
+            CREDENTIAL_SECRETS="${CREDENTIAL_SECRETS},SUPPRESSION_KEYSET=lightmove-suppression-keyset:latest"
+          fi
 
           # Our own mail gateways and Zoom (epic #642): Uncava's shared OAuth app at each provider, each off unless
           # its switch is true, for the secret-must-exist reason above. docs/integrations/registration.md gives

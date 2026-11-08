@@ -8,6 +8,7 @@ import * as projectsApi from "../../../projects/api/projectsApi";
 import type { Project } from "../../../projects/api/types";
 import { CANDIDATES_KEY_PREFIX } from "../../api/candidatesApi";
 import * as poolApi from "../../api/poolApi";
+import type { MapToPositionResult } from "../../api/types";
 
 /**
  * Adds the people named to a position as Identified, from the selection bar or one person's drawer.
@@ -49,11 +50,9 @@ export function AddToPositionDialog({
     mutationFn: (projectId: string) => poolApi.addToPosition(projectId, personIds),
     onSuccess: (result, projectId) => {
       const title = positions.find((position) => position.id === projectId)?.positionTitle ?? "the position";
-      toast(
-        result.added === 0
-          ? `Everyone was already in ${title}`
-          : `Added ${result.added === 1 && targetName ? targetName : `${result.added} ${result.added === 1 ? "person" : "people"}`} to ${title}`,
-      );
+      const message = addedMessageOf(result, title, targetName);
+      if (result.added === 0 && result.suppressed > 0) toast.error(message);
+      else toast(message);
       void queryClient.invalidateQueries({ queryKey: poolApi.POOL_KEY });
       void queryClient.invalidateQueries({ queryKey: CANDIDATES_KEY_PREFIX(projectId) });
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
@@ -134,4 +133,24 @@ export function AddToPositionDialog({
       )}
     </Modal>
   );
+}
+
+/** What adding said: who went in, and who the suppression list left out. */
+export function addedMessageOf(result: MapToPositionResult, title: string, targetName: string | null): string {
+  const leftOut =
+    result.suppressed === 1
+      ? "1 person is on your workspace's suppression list"
+      : `${result.suppressed} people are on your workspace's suppression list`;
+  if (result.added === 0) {
+    if (result.suppressed === 0) return `Everyone was already in ${title}`;
+    if (targetName && result.suppressed === 1 && result.alreadyIn === 0) {
+      return `${targetName} is on your workspace's suppression list, so they can't be added`;
+    }
+    return `Nobody was added to ${title}: ${leftOut}`;
+  }
+  const who =
+    result.added === 1 && targetName ? targetName : `${result.added} ${result.added === 1 ? "person" : "people"}`;
+  return result.suppressed === 0
+    ? `Added ${who} to ${title}`
+    : `Added ${who} to ${title}. ${leftOut} and ${result.suppressed === 1 ? "was" : "were"} left out`;
 }

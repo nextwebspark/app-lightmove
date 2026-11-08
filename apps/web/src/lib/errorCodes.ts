@@ -73,6 +73,8 @@ export type ApiErrorCode =
   | "PIPELINE_ORDER_INVALID"
   | "PERSON_OWNER_NOT_STAFF"
   | "PERSON_DO_NOT_CONTACT"
+  | "PERSON_SUPPRESSED"
+  | "SUPPRESSION_UNAVAILABLE"
   | "TASK_ASSIGNEE_NOT_ON_TEAM"
   | "TASK_NOT_YOURS"
   | "STRATEGY_SEARCH_NAME_TAKEN"
@@ -276,6 +278,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PIPELINE_ORDER_INVALID: "The pipeline changed meanwhile. Reload and try again.",
   PERSON_OWNER_NOT_STAFF: "The owner must be someone on your team.",
   PERSON_DO_NOT_CONTACT: "This person is marked do not contact, so contact lookups are off.",
+  PERSON_SUPPRESSED: "This person is on your workspace's suppression list, so they can't be added.",
+  SUPPRESSION_UNAVAILABLE: "Your workspace's suppression list can't be checked right now, so nobody can be added. Contact Uncava support.",
   // Two uploads raise this — the spreadsheet import and the position description — so the wording
   // stays neutral. Naming one screen's file types here misdescribes the other's refusal, and each
   // dropzone already states what it takes.

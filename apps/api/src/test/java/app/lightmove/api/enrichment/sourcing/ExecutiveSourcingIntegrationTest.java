@@ -218,6 +218,33 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("someone on the workspace's suppression list is left out before anything is filed")
+    void suppressedPeopleAreLeftOut() throws Exception {
+        String projectId = mandate("Suppressed Hit Firm");
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        mvc.perform(post("/api/v1/workspace/suppressions")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"linkedinUrl":"linkedin.com/in/Asked-To-Leave"}"""))
+                .andExpect(status().isCreated());
+        peopleSearch.answerWith("dp-world", List.of(
+                person("asked-to-leave", "Asked To Leave", "Chief Financial Officer"),
+                person("risalat-rehman", "Risalat Rehman", "Chief Financial Officer at DP World Jeddah")));
+
+        String runId = start(projectId, "[\"" + dpWorld + "\"]");
+
+        JsonNode outcome = outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld);
+        assertThat(outcome.get("filed").asInt()).isEqualTo(1);
+        assertThat(outcome.get("picks")).extracting(pick -> pick.get("name").asText())
+                .containsExactly("Risalat Rehman");
+        assertThat(candidatesOf(projectId)).extracting(candidate -> candidate.get("fullName").asText())
+                .containsExactly("Risalat Rehman");
+        assertThat(db.queryForObject("select count(*) from app_lm_person where profile_slug = 'asked-to-leave'",
+                Long.class)).isZero();
+    }
+
+    @Test
     @DisplayName("more companies than the cap, a company from another stage, and a second run are refused unspent")
     void overTheCapAStrayCompanyAndASecondRunAreRefused() throws Exception {
         String projectId = mandate("Refusal Firm");
