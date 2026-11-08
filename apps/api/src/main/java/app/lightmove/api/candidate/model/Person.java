@@ -189,6 +189,19 @@ public class Person extends BaseEntity {
     @Column(name = "do_not_contact_set_at")
     private Instant doNotContactSetAt;
 
+    /** Restriction of processing (V198, GDPR Art. 18): on file and readable, used by nothing until it is lifted. */
+    @Column(name = "processing_restricted", nullable = false)
+    private boolean processingRestricted;
+
+    @Column(name = "processing_restricted_reason")
+    private String processingRestrictedReason;
+
+    @Column(name = "processing_restricted_by")
+    private UUID processingRestrictedBy;
+
+    @Column(name = "processing_restricted_at")
+    private Instant processingRestrictedAt;
+
     /**
      * The workspace's tags this person holds (V98), by id, so a rename reaches everyone at once. Who
      * tagged them, and when, is the timeline's.
@@ -642,6 +655,28 @@ public class Person extends BaseEntity {
         this.doNotContactReason = null;
         this.doNotContactSetBy = null;
         this.doNotContactSetAt = null;
+        return true;
+    }
+
+    public boolean restrictProcessing(String reason, UUID restrictedBy) {
+        if (processingRestricted) {
+            return false;
+        }
+        this.processingRestricted = true;
+        this.processingRestrictedReason = reason;
+        this.processingRestrictedBy = restrictedBy;
+        this.processingRestrictedAt = Instant.now();
+        return true;
+    }
+
+    public boolean liftProcessingRestriction() {
+        if (!processingRestricted) {
+            return false;
+        }
+        this.processingRestricted = false;
+        this.processingRestrictedReason = null;
+        this.processingRestrictedBy = null;
+        this.processingRestrictedAt = null;
         return true;
     }
 

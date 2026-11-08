@@ -51,7 +51,7 @@ export function AddToPositionDialog({
     onSuccess: (result, projectId) => {
       const title = positions.find((position) => position.id === projectId)?.positionTitle ?? "the position";
       const message = addedMessageOf(result, title, targetName);
-      if (result.added === 0 && result.suppressed > 0) toast.error(message);
+      if (result.added === 0 && result.suppressed + result.restricted > 0) toast.error(message);
       else toast(message);
       void queryClient.invalidateQueries({ queryKey: poolApi.POOL_KEY });
       void queryClient.invalidateQueries({ queryKey: CANDIDATES_KEY_PREFIX(projectId) });
@@ -137,20 +137,29 @@ export function AddToPositionDialog({
 
 /** What adding said: who went in, and who the suppression list left out. */
 export function addedMessageOf(result: MapToPositionResult, title: string, targetName: string | null): string {
-  const leftOut =
+  const onList =
     result.suppressed === 1
       ? "1 person is on your workspace's suppression list"
       : `${result.suppressed} people are on your workspace's suppression list`;
+  const restricted =
+    result.restricted === 1
+      ? "1 person's processing is restricted"
+      : `${result.restricted} people's processing is restricted`;
+  const leftOut = result.suppressed + result.restricted;
   if (result.added === 0) {
-    if (result.suppressed === 0) return `Everyone was already in ${title}`;
-    if (targetName && result.suppressed === 1 && result.alreadyIn === 0) {
-      return `${targetName} is on your workspace's suppression list, so they can't be added`;
+    if (leftOut === 0) return `Everyone was already in ${title}`;
+    if (targetName && leftOut === 1 && result.alreadyIn === 0) {
+      return result.suppressed === 1
+        ? `${targetName} is on your workspace's suppression list, so they can't be added`
+        : `${targetName}'s processing is restricted, so they can't be added`;
     }
-    return `Nobody was added to ${title}: ${leftOut}`;
+    const reasons = [result.suppressed > 0 && onList, result.restricted > 0 && restricted].filter(Boolean);
+    return `Nobody was added to ${title}: ${reasons.join("; ")}`;
   }
   const who =
     result.added === 1 && targetName ? targetName : `${result.added} ${result.added === 1 ? "person" : "people"}`;
-  return result.suppressed === 0
-    ? `Added ${who} to ${title}`
-    : `Added ${who} to ${title}. ${leftOut} and ${result.suppressed === 1 ? "was" : "were"} left out`;
+  let message = `Added ${who} to ${title}`;
+  if (result.suppressed > 0) message += `. ${onList} and ${result.suppressed === 1 ? "was" : "were"} left out`;
+  if (result.restricted > 0) message += `. ${restricted}, so they were left out`;
+  return message;
 }

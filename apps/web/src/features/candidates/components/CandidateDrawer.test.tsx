@@ -226,6 +226,7 @@ const yasminRecord = {
   positions: [],
   tagIds: ["t1"],
   doNotContact: null,
+  processingRestriction: null,
 } as unknown as PersonRecord;
 
 const liveCall = (overrides: Partial<NotetakerRecording> = {}): NotetakerRecording => ({

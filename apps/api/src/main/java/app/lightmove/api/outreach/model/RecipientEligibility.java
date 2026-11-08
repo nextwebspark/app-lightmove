@@ -13,6 +13,9 @@ import java.util.UUID;
 public record RecipientEligibility(Map<UUID, OutreachEnrollment> liveByPerson) {
 
     public OutreachSkipReason skipReasonOf(OutreachRecipient recipient) {
+        if (recipient.processingRestricted()) {
+            return OutreachSkipReason.PROCESSING_RESTRICTED;
+        }
         if (recipient.doNotContact()) {
             return OutreachSkipReason.DO_NOT_CONTACT;
         }

@@ -27,6 +27,7 @@ import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import app.lightmove.api.notetaker.service.NotetakerReconcile;
+import app.lightmove.api.notetaker.service.RecallBotErasureSweeper;
 import app.lightmove.api.notetaker.service.NotetakerService;
 import app.lightmove.api.notetaker.service.NotetakerTranscriptPurge;
 import app.lightmove.api.outreach.model.CalendarEvent;
@@ -91,6 +92,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     @Autowired private NotetakerReconcile reconcile;
     @Autowired private NotetakerService notetakers;
     @Autowired private NotetakerTranscriptPurge transcriptPurge;
+    @Autowired private RecallBotErasureSweeper recallCleanup;
     @Autowired @FixtureJdbc private JdbcTemplate jdbc;
     @Autowired private CandidateMaterialService material;
 
@@ -904,6 +906,72 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("restricting processing calls back a waiting bot, and no further bot goes until it is lifted")
+    void restrictionCallsBotsBackAndRefusesNew() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+
+        restrictProcessing(true);
+
+        assertThat(statusEventually(recordingId, "CANCELLED")).isEqualTo("CANCELLED");
+        assertThat(recall.removed()).contains(bot);
+        assertThat(recall.mediaDeleted()).contains(bot);
+        assertThat(auditedFor("NOTETAKER_CANCELLED", recordingId, 1)).isEqualTo(1);
+        schedule().andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PERSON_PROCESSING_RESTRICTED"));
+        assertThat(notetaker().get("recordableMeetingIds")).isEmpty();
+
+        restrictProcessing(false);
+        schedule().andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("a bot Recall refuses to strip when someone is restricted stays queued until Recall takes it")
+    void restrictionQueuesTheBotUntilRecallAnswers() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        recall.refuseMediaDeletes(VendorFailureKind.UNAVAILABLE);
+
+        restrictProcessing(true);
+
+        assertThat(statusOf(recordingId)).isEqualTo("CANCELLED");
+        assertThat(recall.removed()).contains(bot);
+        assertThat(jdbc.queryForObject("select call_back from app_lm_recall_bot_erasure where recall_bot_id = ?",
+                Boolean.class, bot)).isFalse();
+
+        recall.refuseMediaDeletes(null);
+        recallCleanup.sweepAt(Instant.now().plus(Duration.ofHours(2)));
+        assertThat(recall.mediaDeleted()).contains(bot);
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_recall_bot_erasure where recall_bot_id = ?",
+                Long.class, bot)).isZero();
+    }
+
+    @Test
+    @DisplayName("a transcript arriving for someone restricted since is neither summarised nor read for changes")
+    void restrictedTranscriptIsNotSummarised() throws Exception {
+        chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        recall.holdsTranscript("t-1", List.of(new TranscriptLine(start, "Priya Raman", "Hello.", true)));
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        deliver(bot, """
+                {"event":"bot.done","data":{"bot":{"id":"%s"},"data":{"code":"done","sub_code":null}}}""");
+        restrictProcessing(true);
+
+        deliver(bot, """
+                {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
+
+        JsonNode failed = notetaker().get("recordings").get(0);
+        assertThat(failed.get("status").asText()).isEqualTo("FAILED");
+        assertThat(failed.get("failureReason").asText()).isEqualTo("PROCESSING_RESTRICTED");
+        assertThat(transcriptHeld(recordingId)).isFalse();
+        assertThat(chat.prompts()).isEmpty();
+        as(consultant, post(suggestionsPath(recordingId))).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PERSON_PROCESSING_RESTRICTED"));
+    }
+
+    @Test
     @DisplayName("Suggest changes reads the transcript once; one review applies what was kept through each field's owner")
     void oneReviewAppliesWhatWasKept() throws Exception {
         String recordingId = filedRecording();
@@ -1344,6 +1412,25 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"doNotContact\":true,\"reason\":\"Asked not to be approached.\"}"))
                 .andExpect(status().isOk());
+    }
+
+    private void restrictProcessing(boolean restricted) throws Exception {
+        String personId = body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + priya))
+                .andReturn()).get("personId").asText();
+        as(consultant, put("/api/v1/candidates/" + personId + "/processing-restriction")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"restricted\":%s,\"reason\":\"Asked what we hold about them.\"}".formatted(restricted)))
+                .andExpect(status().isOk());
+    }
+
+    /** The call-back runs after the restriction commits, off the request. */
+    private String statusEventually(String recordingId, String expected) throws InterruptedException {
+        String status = statusOf(recordingId);
+        for (int attempt = 0; attempt < 100 && !expected.equals(status); attempt++) {
+            Thread.sleep(50);
+            status = statusOf(recordingId);
+        }
+        return status;
     }
 
     private String mandate() throws Exception {

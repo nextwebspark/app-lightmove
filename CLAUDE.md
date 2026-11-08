@@ -87,7 +87,20 @@ mid-send, queues their Recall bots in `app_lm_recall_bot_erasure` (global, bot i
 call back and strip of media until Recall answers, forgets the vendor cache's copy of the profile and scrubs the name from the bell
 and Find executives' runs; their files are queued in `app_lm_storage_deletion` (global, keys only) for
 `StorageDeletionSweeper`, and their profile and addresses suppressed unless the admin unticks it. Audited by id and
-counts, never the name. A plugin capture of someone already researched spends no second vendor call, and is filed under the employer their latest position recorded (`PersonEmployerResolver.knownEmployerOf`, that position's company row's LinkedIn page and all). Every change to a
+counts, never the name. **Anyone on the team restricts processing of a person (#920, V198, GDPR Art. 18)** from the
+Candidates drawer's ⋯, with a reason and optionally the suppression list as an objection (`PUT
+/candidates/{personId}/processing-restriction`, `CANDIDATE_POOL_MANAGE`, `ProcessingRestrictionService`), lifted only
+by whoever restricted them or a `WORKSPACE_MANAGE` holder (`PERSON_PROCESSING_RESTRICTION_NOT_YOURS`; the read's
+`mayLift`); an objection added to someone already restricted is audited on its own: the record stays readable and
+editable, and nothing uses it until it is lifted — `CandidateService.dossierOf`, every model run's one read, refuses
+`PERSON_PROCESSING_RESTRICTED` (Suggest with AI, Assess with AI, the openers, the interview plan and copilot; the
+automatic background run and the assistant's profile tool skip them); a contact lookup, an own email, Book a call and
+a Notetaker are refused; Add to sequence skips them and a run or a waiting email stops at its next send
+(`PROCESSING_RESTRICTED`); no door maps them onto a further position (Find executives and People Search count a skip,
+Add to position counts them `restricted`); their waiting or recording bots are called off in the restriction's own
+transaction and queued for `RecallBotErasureSweeper` (V197's table) to call back and strip until Recall answers, and a
+transcript arriving later is never summarised. Client-facing reads (the grid, talent map, report, export) still show
+them — that exclusion waits on counsel. A plugin capture of someone already researched spends no second vendor call, and is filed under the employer their latest position recorded (`PersonEmployerResolver.knownEmployerOf`, that position's company row's LinkedIn page and all). Every change to a
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
@@ -1511,7 +1524,7 @@ in the same migration.
 V196 seeds `PERSON_ERASE` to ADMIN alone and adds `app_lm_storage_deletion` (a bucket key per row, its attempts and
 next attempt; global by design, so outside row-level security), drained by `StorageDeletionSweeper`
 (`lightmove.storage.deletion-sweep-interval`) with a back-off to a day, never giving up.
-V197 adds `app_lm_recall_bot_erasure` — an erased person's Recall bots (bot id, whether to call it back, whether its
+V197 adds `app_lm_recall_bot_erasure` — an erased or restricted person's Recall bots (bot id, whether to call it back, whether its
 media is still held), global for V196's reason, drained by `RecallBotErasureSweeper`
 (`lightmove.recall.bot-erasure-sweep-interval`) with a back-off to an hour, given up only past Recall's 7-day retention.
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct

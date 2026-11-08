@@ -66,7 +66,12 @@ export interface SaveSequence {
   schedule: SequenceSchedule;
 }
 
-export type OutreachSkipReason = "NO_EMAIL" | "DO_NOT_CONTACT" | "LEFT_THE_RUNNING" | "ALREADY_IN_SEQUENCE";
+export type OutreachSkipReason =
+  | "NO_EMAIL"
+  | "DO_NOT_CONTACT"
+  | "PROCESSING_RESTRICTED"
+  | "LEFT_THE_RUNNING"
+  | "ALREADY_IN_SEQUENCE";
 
 export interface RecipientEmail {
   address: string;

@@ -363,6 +363,8 @@ export type PersonActivityKind =
   | "OWNER_CHANGED"
   | "DO_NOT_CONTACT_SET"
   | "DO_NOT_CONTACT_CLEARED"
+  | "PROCESSING_RESTRICTED"
+  | "PROCESSING_RESTRICTION_LIFTED"
   | "OUTREACH_ENROLLED"
   | "EMAIL_SENT"
   | "EMAIL_REPLIED"
@@ -492,6 +494,16 @@ export interface DoNotContact {
   setAt: string | null;
 }
 
+/** Why processing of a person is restricted (GDPR Art. 18), and who restricted it. */
+export interface ProcessingRestriction {
+  reason: string;
+  restrictedByUserId: string | null;
+  restrictedByName: string | null;
+  restrictedAt: string;
+  /** Whoever restricted them, or an admin, as the server decides. */
+  mayLift: boolean;
+}
+
 /** A workspace person as the Candidates drawer reads them. Staff-only. */
 export interface PersonRecord {
   personId: string;
@@ -514,6 +526,8 @@ export interface PersonRecord {
   positions: PersonPosition[];
   ownerUserId: string | null;
   doNotContact: DoNotContact | null;
+  /** Null unless processing is restricted: nothing uses the person until it is lifted. */
+  processingRestriction: ProcessingRestriction | null;
   tagIds: string[];
   source: CandidateSource;
   addedAt: string;
@@ -526,6 +540,8 @@ export interface MapToPositionResult {
   alreadyIn: number;
   /** Left out by the workspace's suppression list. */
   suppressed: number;
+  /** Left out: their processing is restricted. */
+  restricted: number;
 }
 
 /** What a person's document is; the server's `PersonDocumentCategory` tokens. */

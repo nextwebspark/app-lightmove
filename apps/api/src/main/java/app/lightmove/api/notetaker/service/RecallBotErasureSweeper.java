@@ -1,11 +1,13 @@
 package app.lightmove.api.notetaker.service;
 
+import app.lightmove.api.core.persistence.service.RequiresNewTransactions;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -14,11 +16,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Calls back and strips the media of the Recall bots an erasure queued (V197), retrying until Recall answers. Past
- * Recall's own retention there is nothing left to delete, so a bot still refused then is given up, loudly.
+ * Calls back and strips the media of the Recall bots an erasure or a restriction of processing queued (V197), retrying
+ * until Recall answers. Past Recall's own retention there is nothing left to delete, so a bot still refused then is
+ * given up, loudly.
  */
 @Slf4j
 @Component
@@ -33,12 +40,40 @@ public class RecallBotErasureSweeper {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transaction;
     private final RecallBotApi recall;
+    private final RequiresNewTransactions requiresNew;
     private final Clock clock;
 
     @Scheduled(fixedDelayString = "${lightmove.recall.bot-erasure-sweep-interval}",
             initialDelayString = "${lightmove.recall.bot-erasure-sweep-interval}")
     public void scheduledSweep() {
         sweepAt(clock.instant());
+    }
+
+    /** Queues bots to call back and strip of media, in the caller's transaction, and tries them once it commits. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void queue(Collection<String> botIds) {
+        if (botIds.isEmpty()) {
+            return;
+        }
+        jdbc.batchUpdate("""
+                INSERT INTO app_lm_recall_bot_erasure (recall_bot_id, call_back, delete_media) VALUES (?, true, true)
+                ON CONFLICT (recall_bot_id) DO NOTHING
+                """, botIds.stream().map(botId -> new Object[] {botId}).toList());
+        sweepAfterCommit();
+    }
+
+    /** Tries the queue once the caller's transaction commits; whatever Recall refuses then is the schedule's. */
+    void sweepAfterCommit() {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    requiresNew.run(() -> sweepAt(clock.instant()));
+                } catch (RuntimeException failed) {
+                    log.warn("Recall cleanup is left to the sweeper: {}", failed.getMessage());
+                }
+            }
+        });
     }
 
     /** Answers how many bots Recall is done with. */
@@ -84,14 +119,14 @@ public class RecallBotErasureSweeper {
             int attempts = queued.attempts() + 1;
             if (now.isAfter(queued.queuedAt().plus(GIVE_UP_AFTER))) {
                 jdbc.update("DELETE FROM app_lm_recall_bot_erasure WHERE id = ?", queued.id());
-                log.error("Recall still refused erased bot {} after {} attempts; check Recall's dashboard: {}",
+                log.error("Recall still refused queued bot {} after {} attempts; check Recall's dashboard: {}",
                         queued.botId(), attempts, refused.getMessage());
                 return false;
             }
             jdbc.update("""
                     UPDATE app_lm_recall_bot_erasure SET call_back = ?, attempts = ?, next_attempt_at = ? WHERE id = ?
                     """, !calledBack, attempts, Timestamp.from(now.plus(backoffAfter(attempts))), queued.id());
-            log.warn("Recall refused erased bot {}, attempt {}: {}", queued.botId(), attempts, refused.getMessage());
+            log.warn("Recall refused queued bot {}, attempt {}: {}", queued.botId(), attempts, refused.getMessage());
             return false;
         }
     }

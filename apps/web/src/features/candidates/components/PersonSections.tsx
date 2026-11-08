@@ -59,6 +59,25 @@ export function DoNotContactStrip({ personId }: { personId: string }) {
   );
 }
 
+/**
+ * Restriction of processing, shown on every position the person sits on, as do not contact is: nothing uses them —
+ * no AI, lookups or outreach — until someone lifts it from the Candidates drawer. Staff-only, read from the pool record.
+ */
+export function ProcessingRestrictedStrip({ personId }: { personId: string }) {
+  const record = useQuery({
+    queryKey: poolApi.PERSON_RECORD_KEY(personId),
+    queryFn: ({ signal }) => poolApi.getPerson(personId, signal),
+  });
+  const restriction = record.data?.processingRestriction;
+  if (!restriction) return null;
+  return (
+    <p role="note" className="mt-3 rounded-u-card border border-u-signal/35 bg-u-signal-tint px-3 py-2 text-note text-u-text2">
+      <b className="font-semibold text-u-signal">Processing restricted.</b> {restriction.reason} No AI, lookups or
+      outreach until it is lifted on the Candidates page.
+    </p>
+  );
+}
+
 /** A note to bring into view — the one a task was set from — stamped so asking again scrolls again. */
 export interface NoteFocus {
   noteId: string;

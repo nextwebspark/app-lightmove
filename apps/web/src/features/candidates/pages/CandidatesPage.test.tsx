@@ -24,6 +24,7 @@ vi.mock("../api/poolApi", async (importOriginal) => ({
   getPerson: vi.fn(),
   setOwner: vi.fn(),
   setDoNotContact: vi.fn(),
+  setProcessingRestriction: vi.fn(),
   tagPerson: vi.fn(),
   untagPerson: vi.fn(),
   retagPeople: vi.fn(),
@@ -181,6 +182,7 @@ const record: PersonRecord = {
   positions: fatima.positions,
   ownerUserId: null,
   doNotContact: null,
+  processingRestriction: null,
   tagIds: ["t1"],
   source: "manual",
   addedAt: "2026-09-01T10:00:00Z",
@@ -347,7 +349,7 @@ describe("CandidatesPage", () => {
   });
 
   it("adds the people ticked to a position, saying who is already in it", async () => {
-    vi.mocked(poolApi.addToPosition).mockResolvedValue({ added: 1, alreadyIn: 1, suppressed: 0 });
+    vi.mocked(poolApi.addToPosition).mockResolvedValue({ added: 1, alreadyIn: 1, suppressed: 0, restricted: 0 });
     renderPage();
     await screen.findAllByText("Fatima Al Mazrouei");
 
@@ -442,6 +444,59 @@ describe("CandidatesPage", () => {
       expect(poolApi.setDoNotContact).toHaveBeenCalledWith("person-1", true, "Marked from the candidate drawer."),
     );
     expect(await screen.findByRole("note")).toHaveTextContent("Set by Alok Kumar");
+  });
+
+  it("shows a restriction with its reason and who set it, and lifts it from the note", async () => {
+    const restricted: PersonRecord = {
+      ...record,
+      processingRestriction: {
+        reason: "Asked on 20 Sep what we hold about her.",
+        restrictedByUserId: "u1",
+        restrictedByName: "Alok Kumar",
+        restrictedAt: "2026-09-21T11:20:00Z",
+        mayLift: true,
+      },
+    };
+    vi.mocked(poolApi.getPerson).mockResolvedValue(restricted);
+    vi.mocked(poolApi.setProcessingRestriction).mockResolvedValue(record);
+    renderPage("/candidates?person=person-1");
+
+    const note = await screen.findByRole("note", { name: "Processing restricted" });
+    expect(note).toHaveTextContent("Asked on 20 Sep what we hold about her.");
+    expect(note).toHaveTextContent("Restricted by Alok Kumar");
+    expect(screen.getByText("Processing restricted", { selector: "span" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Lift restriction" }));
+
+    await waitFor(() => expect(poolApi.setProcessingRestriction).toHaveBeenCalledWith("person-1", false));
+  });
+
+  it("offers no Lift to a teammate who neither set the restriction nor is an admin", async () => {
+    vi.mocked(poolApi.getPerson).mockResolvedValue({
+      ...record,
+      processingRestriction: {
+        reason: "Asked on 20 Sep what we hold about her.",
+        restrictedByUserId: "u2",
+        restrictedByName: "Sara Al-Mansour",
+        restrictedAt: "2026-09-21T11:20:00Z",
+        mayLift: false,
+      },
+    });
+    renderPage("/candidates?person=person-1");
+
+    const note = await screen.findByRole("note", { name: "Processing restricted" });
+    expect(note).toHaveTextContent("Only Sara Al-Mansour or an admin can lift it.");
+    expect(screen.queryByRole("button", { name: "Lift restriction" })).not.toBeInTheDocument();
+  });
+
+  it("offers Restrict processing in the person's ⋯ to anyone on the team", async () => {
+    renderPage("/candidates?person=person-1");
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+
+    await userEvent.click(screen.getByRole("button", { name: "More for Fatima Al Mazrouei" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: /Restrict processing/ }));
+
+    expect(await screen.findByRole("dialog", { name: /Restrict processing for Fatima Al Mazrouei/ })).toBeInTheDocument();
   });
 
   it("draws the position drawer's tabs, less what only a position holds, with tags and contacts in the header", async () => {

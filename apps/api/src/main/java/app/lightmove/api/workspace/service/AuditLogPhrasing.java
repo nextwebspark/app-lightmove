@@ -163,6 +163,8 @@ public class AuditLogPhrasing {
         on(ProjectEventType.CANDIDATE_TAG_UPDATED, line -> "Changed a candidate tag");
         on(ProjectEventType.PERSON_SUPPRESSION_ADDED, line -> "Added someone to the suppression list");
         on(ProjectEventType.PERSON_SUPPRESSION_REMOVED, line -> "Removed someone from the suppression list");
+        on(ProjectEventType.PERSON_PROCESSING_RESTRICTED, line -> "Restricted processing of a candidate");
+        on(ProjectEventType.PERSON_PROCESSING_RESTRICTION_LIFTED, line -> "Lifted a candidate's processing restriction");
         on(ProjectEventType.PERSON_ERASED, line -> "Permanently deleted a candidate");
         on(ProjectEventType.CANDIDATE_PIPELINE_REORDERED, line -> "Reordered the pipeline");
         on(ProjectEventType.TASK_PRESET_CREATED, line -> "Added a task preset");

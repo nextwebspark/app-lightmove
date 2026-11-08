@@ -82,6 +82,7 @@ import { CompensationSummary } from "./CompensationSummary";
 import { DocumentPreviewSheet, type PreviewTarget } from "./documents/DocumentPreviewSheet";
 import {
   DoNotContactStrip,
+  ProcessingRestrictedStrip,
   NotesSection,
   type NoteFocus,
 } from "./PersonSections";
@@ -451,6 +452,7 @@ export function CandidateProfile({
         >
           {personRecord.data && <PersonTagsSection person={personRecord.data} className="mt-3" />}
           {canWrite && <DoNotContactStrip personId={candidate.personId} />}
+          {canWrite && <ProcessingRestrictedStrip personId={candidate.personId} />}
         </PersonHeaderLayout>
         {contactWindow === "details" && (
           <ContactDetailsDialog

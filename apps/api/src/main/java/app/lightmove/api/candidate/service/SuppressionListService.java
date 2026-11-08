@@ -4,6 +4,7 @@ import app.lightmove.api.candidate.constant.SuppressionReason;
 import app.lightmove.api.candidate.dto.AddSuppressionRequest;
 import app.lightmove.api.candidate.dto.AddedByResponse;
 import app.lightmove.api.candidate.dto.SuppressionResponse;
+import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.SuppressionAddition;
 import app.lightmove.api.candidate.model.SuppressionKey;
 import app.lightmove.api.candidate.model.WorkspaceSuppression;
@@ -59,6 +60,21 @@ public class SuppressionListService {
                     reason.name(), note, userId);
         }
         return added;
+    }
+
+    /** Suppresses the person's profile and every address they hold; answers how many keys were new. */
+    @Transactional
+    public int suppressPerson(Person person, UUID userId, SuppressionReason reason) {
+        List<SuppressionKey> keys = new ArrayList<>();
+        SuppressionKey profile = SuppressionKey.ofProfileUrlOrNull(person.getLinkedinUrl());
+        if (profile != null) {
+            keys.add(profile);
+        }
+        person.emailContacts().stream()
+                .map(contact -> SuppressionKey.ofEmailOrNull(contact.getValue()))
+                .filter(Objects::nonNull)
+                .forEach(keys::add);
+        return suppress(person.getWorkspaceId(), userId, keys, reason, null);
     }
 
     @Transactional(readOnly = true)

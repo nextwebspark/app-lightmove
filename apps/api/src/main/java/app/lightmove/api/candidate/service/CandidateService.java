@@ -567,6 +567,10 @@ public class CandidateService {
     public void applyResearch(UUID projectId, UUID candidateId, EnrichedProfile enriched) {
         candidates.findByIdAndProjectId(candidateId, projectId).ifPresentOrElse(candidate -> {
             Person person = candidate.getPerson();
+            if (person.isProcessingRestricted()) {
+                log.info("Candidate {} was restricted before its research landed; it is not kept", candidateId);
+                return;
+            }
             boolean fresh = !person.isResearched();
             // Two mandates capturing one new person before either's research lands each queue a call;
             // the second finds the person researched, but its own mandate still wants the employer
@@ -694,12 +698,16 @@ public class CandidateService {
 
     /**
      * What the AI enrichment may send to the model — {@link CandidateDossier} is an allowlist, so
-     * contact details and compensation never leave through here. Empty once the row is gone.
+     * contact details and compensation never leave through here. Empty once the row is gone. Every model run on an
+     * executive reads them here, so a person whose processing is restricted is refused here, for all of them.
      */
     @Transactional(readOnly = true)
     public Optional<CandidateDossier> dossierOf(UUID projectId, UUID candidateId) {
         return candidates.findByIdAndProjectId(candidateId, projectId).map(candidate -> {
             Person person = candidate.getPerson();
+            if (person.isProcessingRestricted()) {
+                throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
+            }
             CandidateProfile profile = person.getProfile();
             return new CandidateDossier(person.getFullName(), person.getTitle(),
                     candidate.getCompanyName(), person.getLocationCity(), person.getLocationCountry(),
@@ -818,7 +826,7 @@ public class CandidateService {
         return new CandidateContactState(person.getLinkedinUrl(),
                 person.hasAskedForEmails(), person.hasAskedForPhones(),
                 person.hasFoundEmails(), person.hasFoundPhones(), person.isDoNotContact(),
-                responses.toDto(candidate));
+                person.isProcessingRestricted(), responses.toDto(candidate));
     }
 
     /**
@@ -1044,7 +1052,8 @@ public class CandidateService {
      * Files an executive on this mandate as a workspace person: the one the workspace already knows
      * them as, whose empty fields this filing fills, or a new one it founds. A person this mandate
      * already holds is refused as {@code CANDIDATE_ALREADY_MAPPED}, the answer every door already
-     * handles — V91's (project, person) index is the backstop a race would hit.
+     * handles — V91's (project, person) index is the backstop a race would hit. A person whose processing is
+     * restricted is mapped onto no further position.
      */
     private Filed file(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
                        CandidateSource source, CandidateStatusDefinition status, CandidateDetails details) {
@@ -1060,6 +1069,9 @@ public class CandidateService {
         }
         if (known.isPresent()) {
             suppression.refuseSuppressedPerson(workspaceId, known.get());
+        }
+        if (known.isPresent() && known.get().isProcessingRestricted()) {
+            throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
         }
         Person person = known.orElseGet(() -> people.save(Person.founded(workspaceId, userId, source, details)));
         if (known.isPresent()) {
@@ -1126,8 +1138,8 @@ public class CandidateService {
 
     /**
      * Adds people the workspace already holds to a mandate, as Identified, each under the employer their latest
-     * position recorded, as a plugin capture of someone known is. Someone it already holds stays as they are. The
-     * caller has checked they may work the mandate.
+     * position recorded, as a plugin capture of someone known is. Someone it already holds stays as they are, and
+     * someone whose processing is restricted is left out and counted. The caller has checked they may work the mandate.
      */
     @Transactional
     public MapPeopleToPositionResponse mapFromPool(UUID userId, UUID workspaceId, UUID projectId,
@@ -1139,6 +1151,7 @@ public class CandidateService {
         Set<UUID> suppressed = suppression.suppressedPeopleOf(workspaceId, persons);
         List<UUID> added = new ArrayList<>();
         int alreadyIn = 0;
+        int restricted = 0;
         CandidateStatusDefinition startingStatus = pipeline.catalogOf(workspaceId).defaultStatus();
         EmployerFilings filings = new EmployerFilings(triage, projectId, userId, TriageCompanySource.MANUAL);
         for (Person person : persons) {
@@ -1148,6 +1161,10 @@ public class CandidateService {
                 continue;
             }
             if (suppressed.contains(person.getId())) {
+                continue;
+            }
+            if (person.isProcessingRestricted()) {
+                restricted++;
                 continue;
             }
             Candidate candidate = candidates.save(Candidate.mappedFromPool(projectId, userId, person, startingStatus));
@@ -1164,7 +1181,8 @@ public class CandidateService {
                     .detail("personIds", added.stream().map(UUID::toString).toList())
                     .record();
         }
-        return new MapPeopleToPositionResponse(added.size(), alreadyIn, persons.size() - added.size() - alreadyIn);
+        return new MapPeopleToPositionResponse(added.size(), alreadyIn,
+                persons.size() - added.size() - alreadyIn - restricted, restricted);
     }
 
     /** The stage a person filed or remapped at this company starts at; In universe at none. */
