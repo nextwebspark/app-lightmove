@@ -1,0 +1,2 @@
+google-cloud-logging==3.11.4
+certifi==2026.10.23

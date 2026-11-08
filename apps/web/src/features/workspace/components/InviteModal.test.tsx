@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -99,6 +99,20 @@ describe("InviteModal — where a refusal is reported", () => {
     expect(field).not.toHaveAttribute("aria-invalid", "true");
   });
 
+  it("says when the invitation is saved but its email did not go out", async () => {
+    vi.mocked(workspaceApi.invite).mockResolvedValue({ sent: 1, notDelivered: ["sara@firm.com"] });
+    const user = userEvent.setup();
+    open();
+
+    await user.type(screen.getByPlaceholderText("colleague@firm.com"), "sara@firm.com");
+    await user.click(screen.getByRole("button", { name: "Send invite" }));
+
+    expect(
+      await screen.findByText("The invitation to sara@firm.com is saved, but the email didn't go out. Resend it from Team."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Invitation sent")).not.toBeInTheDocument();
+  });
+
   // FormError is still the right home for a failure no single input owns.
   it("keeps a form-level refusal in the banner", async () => {
     vi.mocked(workspaceApi.invite).mockRejectedValue(
@@ -126,7 +140,7 @@ describe("InviteModal — what a staff seat costs", () => {
 
   it("asks before a staff invitation adds a paid seat, then sends it", async () => {
     vi.mocked(billingApi.getBilling).mockResolvedValue(aCardBilling());
-    vi.mocked(workspaceApi.invite).mockResolvedValue({ sent: 1 });
+    vi.mocked(workspaceApi.invite).mockResolvedValue({ sent: 1, notDelivered: [] });
     const user = userEvent.setup();
     open();
     await screen.findByText(/Adds AED 499 a month/);
@@ -140,9 +154,28 @@ describe("InviteModal — what a staff seat costs", () => {
     expect(dialog).toHaveTextContent("This seat takes your bill to 6 seats · AED 2,994 a month");
     expect(workspaceApi.invite).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "Send and add seat" }));
+    // A deliberate click, once the question has been on screen a moment.
+    const confirm = screen.getByRole("button", { name: "Send and add seat" });
+    expect(confirm).toBeDisabled();
+    await waitFor(() => expect(confirm).toBeEnabled());
+    await user.click(confirm);
 
     expect(workspaceApi.invite).toHaveBeenCalledWith([{ email: "sara@firm.com", role: "MEMBER" }]);
+  });
+
+  it("does not agree to a paid seat on the second click of a double click", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aCardBilling());
+    vi.mocked(workspaceApi.invite).mockResolvedValue({ sent: 1, notDelivered: [] });
+    const user = userEvent.setup();
+    open();
+    await screen.findByText(/Adds AED 499 a month/);
+
+    await user.type(screen.getByPlaceholderText("colleague@firm.com"), "sara@firm.com");
+    await user.dblClick(screen.getByRole("button", { name: "Send invite" }));
+
+    expect(screen.getByRole("dialog", { name: "Add a paid seat?" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send and add seat" })).toBeDisabled();
+    expect(workspaceApi.invite).not.toHaveBeenCalled();
   });
 
   it("goes back to the form from the confirm step without sending", async () => {

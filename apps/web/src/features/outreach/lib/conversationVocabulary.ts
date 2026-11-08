@@ -1,6 +1,8 @@
-import type { PersonNoteKind } from "../../candidates/api/types";
+import type { PersonNote, PersonNoteKind } from "../../candidates/api/types";
+import { actorOf, type ActivityActor } from "../../candidates/lib/activityPresentation";
 import { timelineLines } from "../../candidates/lib/candidateActivity";
-import type { ConversationEvent, ConversationGroup, ConversationRow } from "../api/conversationApi";
+import type { ConversationEvent, ConversationGroup, ConversationMessage, ConversationRow } from "../api/conversationApi";
+import type { Meeting } from "../api/meetingApi";
 import type { OutreachRun } from "../api/runApi";
 import { isLive, STOP_NOTES } from "./runVocabulary";
 
@@ -147,6 +149,92 @@ export function eventFaceOf(event: ConversationEvent, firstName: string, project
       return { tag: "AUTOMATION", tone: "signal", title: `${line.actorName} ${line.text}`, context: line.detail };
     }
   }
+}
+
+/** The tile an entry's card leads with: its kind, a meeting's by whether it was held on video. */
+export type EntryTile =
+  | "email"
+  | "scheduled"
+  | "reply"
+  | "problem"
+  | "call"
+  | "linkedin"
+  | "note"
+  | "video"
+  | "meeting";
+
+export function tileOfEvent(event: ConversationEvent): EntryTile {
+  switch (event.type) {
+    case "MESSAGE": {
+      const { message } = event;
+      if (message.kind === "BOUNCE" || message.status === "FAILED") return "problem";
+      if (message.direction === "INBOUND") return "reply";
+      return message.status === "SCHEDULED" ? "scheduled" : "email";
+    }
+    case "NOTE":
+      return tileOfNote(event.note);
+    case "MEETING":
+      return tileOfMeeting(event.meeting);
+    case "ACTIVITY":
+      return "note";
+  }
+}
+
+export function tileOfNote(note: PersonNote): EntryTile {
+  switch (note.kind) {
+    case "meeting":
+      return "meeting";
+    case "call":
+      return "call";
+    case "linkedin":
+      return "linkedin";
+    case "email":
+      return "email";
+    case "general":
+      return "note";
+  }
+}
+
+/** A calendar call held on a video link — or recorded, which only a video call can be — or one met in person. */
+export function tileOfMeeting(meeting: Meeting, recorded = false): EntryTile {
+  return recorded || meeting.videoProvider || meeting.joinUrl ? "video" : "meeting";
+}
+
+/** Who an entry was: the sender, the note's author, the call's holder, the executive answering, Uncava on a bounce. */
+export function actorOfEvent(event: ConversationEvent): ActivityActor {
+  switch (event.type) {
+    case "MESSAGE": {
+      const { message } = event;
+      if (message.kind === "BOUNCE" || message.status === "FAILED") return { kind: "automation", triggeredBy: null };
+      if (message.direction === "INBOUND") return { kind: "executive" };
+      return teammate(message.senderUserId, message.senderName, message.senderAvatarUrl);
+    }
+    case "NOTE":
+      return actorOfNote(event.note);
+    case "MEETING":
+      return actorOfMeeting(event.meeting);
+    case "ACTIVITY":
+      return actorOf(event.activity);
+  }
+}
+
+export function actorOfNote(note: PersonNote): ActivityActor {
+  return teammate(note.authorUserId, note.authorName, note.authorAvatarUrl);
+}
+
+export function actorOfMeeting(meeting: Meeting): ActivityActor {
+  return teammate(meeting.ownerUserId, meeting.ownerName, meeting.ownerAvatarUrl);
+}
+
+/** The address beside who sent it: where an email went, or where a reply came from; nothing on a bounce. */
+export function addressLineOf(message: ConversationMessage): string | null {
+  if (message.kind === "BOUNCE") return null;
+  if (message.direction === "INBOUND") return message.fromAddress;
+  return message.toAddress ? `→ ${message.toAddress}` : null;
+}
+
+function teammate(id: string | null, name: string | null, avatarUrl: string | null): ActivityActor {
+  return id && name ? { kind: "user", id, name, avatarUrl } : { kind: "unknown" };
 }
 
 /** The sentences under the composer, as the mockup writes them, for what pressing Send would do. */

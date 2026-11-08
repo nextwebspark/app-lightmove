@@ -2,6 +2,7 @@ package app.lightmove.api.task.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.tenant.EveryWorkspace;
+import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.task.model.Task;
 import app.lightmove.api.task.model.TaskFallingDue;
@@ -60,6 +61,7 @@ public class TaskDueScanner {
 
     private final JdbcTemplate jdbc;
     private final EveryWorkspace workspaces;
+    private final TenantResolvers resolvers;
     private final TransactionTemplate transactions;
     private final TaskRepository tasks;
     private final ApplicationEventPublisher events;
@@ -76,7 +78,9 @@ public class TaskDueScanner {
      * the scheduled call is a self-invocation, and without one the after-commit listeners never hear a claim.
      */
     public int scanAt(Instant now) {
-        return workspaces.sum(workspaceId -> {
+        List<UUID> withTasksFallingDue = resolvers.workspacesWithTasksFallingDue(now.minus(OVERDUE_LOOKBACK),
+                now.plus(properties.notifications().dueSoonWindow()));
+        return workspaces.sum(withTasksFallingDue, workspaceId -> {
             Integer announced = transactions.execute(status -> claimAndAnnounce(workspaceId, now));
             return announced == null ? 0 : announced;
         });

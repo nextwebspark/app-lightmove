@@ -203,6 +203,12 @@ id of their choosing; never treat a line's trace as proof of which request it be
 | Slow calls on a route | `jsonPayload.message="request" AND jsonPayload.route="/api/v1/projects/{projectId}/strategy/companies" AND jsonPayload.durationMs>1000` |
 | Lost audit rows | `jsonPayload.message=~"^Failed to write audit event"` |
 
+**Email pictures are never logged.** A signature's photo and logo (`/api/v1/email-images/{token}`) are fetched each time
+a recipient opens an email, so a line per fetch would record who read what when. `RequestLogFilter` writes none, and
+`ops/gcp/bootstrap.sh` adds an `email-images` exclusion to the `_Default` sink so Cloud Run's own request entry for
+them is never stored either. Each token names one stored picture shared by every email that shows it — never a
+message or a recipient — so even a fetch seen elsewhere identifies nobody.
+
 Add `workspaceId` and `userId` as **summary fields** (a per-viewer Logs Explorer setting) so they show on
 the collapsed line. None of these ids may ever be a log-based-metric label: every distinct value is its
 own time series. Per-tenant questions are Logs Explorer or Log Analytics questions.
@@ -374,6 +380,12 @@ Asked for, and the honest answer is that some of these are more urgent than the 
 5. **Nothing alerts anyone.** The minimum set: 5xx rate over a threshold, p95 latency, readiness
    failing, Hikari pool exhaustion, JVM old-gen trending up, Cloud Run pinned at max-instances.
    An alert that pages a human is what makes all the above worth building.
+
+   **Partly done (Nov 2026).** `ops/gcp/monitoring.sh` creates log metrics for app ERRORs and 5xx,
+   email channels, alert policies at 5 or more in 10 minutes, and an external uptime check on
+   `/actuator/health` with its own policy. `ops/gcp/log-digest.sh` adds a daily 08:00 Dubai email
+   (Cloud Run Job + Scheduler) that lists the day's errors, or says all is OK. Still open: p95 latency,
+   Hikari exhaustion, JVM memory, max-instances, and an alert on the digest job failing.
 
 **Soon**
 

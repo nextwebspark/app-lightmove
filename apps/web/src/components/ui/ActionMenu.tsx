@@ -7,11 +7,14 @@ import { Popover } from "./Popover";
 export function ActionMenu({
   label,
   width = 240,
+  triggerClassName,
   children,
 }: {
   /** Names both the trigger and the menu, e.g. "Engaged options". */
   label: string;
   width?: number;
+  /** Resizes the trigger where it sits beside a full-size control rather than in a row. */
+  triggerClassName?: string;
   children: (close: () => void) => ReactNode;
 }) {
   return (
@@ -22,7 +25,10 @@ export function ActionMenu({
       placement="auto"
       width={width}
       hasPopup="menu"
-      triggerClassName="grid size-[26px] flex-none place-items-center rounded-u-control border border-transparent text-u-text3 transition-colors hover:border-u-border hover:bg-u-raised hover:text-u-text focus-visible:outline-2 focus-visible:outline-u-accent aria-expanded:border-u-border aria-expanded:bg-u-raised aria-expanded:text-u-text"
+      triggerClassName={cn(
+        "grid size-[26px] flex-none place-items-center rounded-u-control border border-transparent text-u-text3 transition-colors hover:border-u-border hover:bg-u-raised hover:text-u-text focus-visible:outline-2 focus-visible:outline-u-accent aria-expanded:border-u-border aria-expanded:bg-u-raised aria-expanded:text-u-text",
+        triggerClassName,
+      )}
       trigger={() => <Icon d={ICONS.more} size={14} />}
     >
       {(close) => (

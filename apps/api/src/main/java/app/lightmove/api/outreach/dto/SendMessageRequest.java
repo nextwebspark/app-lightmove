@@ -11,7 +11,7 @@ import java.util.UUID;
  * sequence tokens. {@code replyInThread} answers the thread their mailbox last wrote to this person in, under its own
  * subject; otherwise {@code subject} starts a thread of its own. {@code sendAt} null is now.
  * {@code documentVersionIds} are versions of the person's own documents the email carries, beside any files uploaded
- * with it.
+ * with it. {@code signatureId} is one of the sender's own signatures, added under the words; null sends none.
  */
 public record SendMessageRequest(
         @NotBlank @Size(max = 320) String toAddress,
@@ -19,4 +19,5 @@ public record SendMessageRequest(
         @NotBlank @Size(max = 10_000) String body,
         Instant sendAt,
         boolean replyInThread,
-        List<UUID> documentVersionIds) {}
+        List<UUID> documentVersionIds,
+        UUID signatureId) {}

@@ -45,7 +45,7 @@ export function NoteEditor(props: NoteEditorProps) {
       <div className="flex min-h-0 flex-1 flex-col">
         {props.header !== undefined && <div className="flex-none">{props.header}</div>}
         <div className={cn("flex min-h-0 flex-1 flex-col", props.header !== undefined && "mt-3")}>
-          <Suspense fallback={<div aria-busy="true" className="min-h-40 flex-1" />}>
+          <Suspense fallback={<div aria-busy="true" className="min-h-32 flex-1" />}>
             <RichNoteEditor {...props} header={undefined} footer={undefined} />
           </Suspense>
         </div>

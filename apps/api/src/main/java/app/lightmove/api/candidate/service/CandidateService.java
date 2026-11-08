@@ -135,7 +135,7 @@ public class CandidateService {
     private final UserRepository users;
     private final CandidateSearchService searches;
     private final CandidateRemoval removal;
-    private final PersonSuppressionService suppression;
+    private final SuppressionGate suppression;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -146,7 +146,7 @@ public class CandidateService {
                             CandidateRequestReader requests, CandidateResponseMapper responses,
                             CandidatePipelineCatalog pipeline, PersonEmployerResolver employerResolver,
                             UserRepository users, CandidateSearchService searches,
-                            CandidateRemoval removal, PersonSuppressionService suppression,
+                            CandidateRemoval removal, SuppressionGate suppression,
                             LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
@@ -219,7 +219,7 @@ public class CandidateService {
                 triageStatus, searched), pageRequest);
 
         return new CandidatesResponse(
-                found.getContent().stream().map(responses::toDto).toList(),
+                responses.toDtos(found.getContent()),
                 found.getTotalElements(), page, size);
     }
 
@@ -318,7 +318,7 @@ public class CandidateService {
                 ? candidates.findByProjectIdAndClientVisibleTrue(projectId, wholePosition)
                 : candidates.findByProjectId(projectId, wholePosition);
         return new CandidatesResponse(
-                found.getContent().stream().map(responses::toDto).toList(),
+                responses.toDtos(found.getContent()),
                 found.getTotalElements(), 0, cap);
     }
 
@@ -763,8 +763,10 @@ public class CandidateService {
         List<ContactEntry> phones = requests.entriesOf(ContactChannel.PHONE, request.phones(), null);
         Person person = candidate.getPerson();
         refuseSuppressedAdditions(workspaceId, person, null, emails);
-        person.replaceContacts(ContactChannel.EMAIL, emails, ContactSource.MANUAL);
-        person.replaceContacts(ContactChannel.PHONE, phones, ContactSource.MANUAL);
+        person.replaceContacts(ContactChannel.EMAIL, emails, ContactSource.MANUAL,
+                requests.primaryOf(ContactChannel.EMAIL, request.emails()));
+        person.replaceContacts(ContactChannel.PHONE, phones, ContactSource.MANUAL,
+                requests.primaryOf(ContactChannel.PHONE, request.phones()));
         activity.record(candidate, userId, PersonActivityKind.CONTACTS_EDITED,
                 PersonActivityDetails.of("emails", emails.size()).and("phones", phones.size()));
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
@@ -776,15 +778,12 @@ public class CandidateService {
         return responses.toDto(candidate);
     }
 
-    /**
-     * An edit may not hand someone a profile or address the suppression list holds. Only what the edit adds is
-     * asked: a key the person already holds is theirs, and keeping it on an edit files nobody new.
-     */
+    /** Asks the suppression list only for a profile or address the edit adds: what a person holds is theirs. */
     private void refuseSuppressedAdditions(UUID workspaceId, Person person, String linkedinUrl,
                                            List<ContactEntry> emails) {
         String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
-        String newProfile = slug != null && !slug.equals(LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl()))
-                ? linkedinUrl : null;
+        String newProfile = slug != null
+                && !slug.equalsIgnoreCase(LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl())) ? linkedinUrl : null;
         Set<String> heldEmailKeys = person.emailContacts().stream()
                 .map(CandidateContact::getValueKey)
                 .collect(Collectors.toSet());
@@ -1059,6 +1058,9 @@ public class CandidateService {
         if (known.isPresent() && candidates.existsByProjectIdAndPersonId(projectId, known.get().getId())) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
         }
+        if (known.isPresent()) {
+            suppression.refuseSuppressedPerson(workspaceId, known.get());
+        }
         Person person = known.orElseGet(() -> people.save(Person.founded(workspaceId, userId, source, details)));
         if (known.isPresent()) {
             person.fillFrom(details, ContactSource.ofDoor(source));
@@ -1134,12 +1136,18 @@ public class CandidateService {
         Map<UUID, List<Candidate>> mappedOldestFirst = candidates
                 .findPositionsOfPeople(workspaceId, persons.stream().map(Person::getId).toList()).stream()
                 .collect(Collectors.groupingBy(row -> row.getPerson().getId()));
+        Set<UUID> suppressed = suppression.suppressedPeopleOf(workspaceId, persons);
         List<UUID> added = new ArrayList<>();
+        int alreadyIn = 0;
         CandidateStatusDefinition startingStatus = pipeline.catalogOf(workspaceId).defaultStatus();
         EmployerFilings filings = new EmployerFilings(triage, projectId, userId, TriageCompanySource.MANUAL);
         for (Person person : persons) {
             List<Candidate> rows = mappedOldestFirst.getOrDefault(person.getId(), List.of());
             if (rows.stream().anyMatch(row -> row.getProjectId().equals(projectId))) {
+                alreadyIn++;
+                continue;
+            }
+            if (suppressed.contains(person.getId())) {
                 continue;
             }
             Candidate candidate = candidates.save(Candidate.mappedFromPool(projectId, userId, person, startingStatus));
@@ -1156,7 +1164,7 @@ public class CandidateService {
                     .detail("personIds", added.stream().map(UUID::toString).toList())
                     .record();
         }
-        return new MapPeopleToPositionResponse(added.size(), persons.size() - added.size());
+        return new MapPeopleToPositionResponse(added.size(), alreadyIn, persons.size() - added.size() - alreadyIn);
     }
 
     /** The stage a person filed or remapped at this company starts at; In universe at none. */

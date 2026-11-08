@@ -11,6 +11,9 @@ export const NOTE_KINDS: { value: NoteKind; label: string; placeholder: string }
   { value: "linkedin", label: "LinkedIn", placeholder: "What was said on LinkedIn: the message, the request, the reply…" },
 ];
 
+/** What the composer offers: an email is the mailbox's, recorded when it is sent, so it is never logged by hand. */
+export const COMPOSER_KINDS = NOTE_KINDS.filter((option) => option.value !== "email");
+
 /** The panel sits on LinkedIn, so what a consultant writes there is most often a LinkedIn exchange. The extension's own. */
 export const DEFAULT_NOTE_KIND: NoteKind = "linkedin";
 

@@ -46,7 +46,7 @@ public class PersonErasureService {
     private static final String PERSON_TARGET = "person";
 
     private final NamedParameterJdbcTemplate jdbc;
-    private final PersonSuppressionService suppression;
+    private final SuppressionListService suppression;
     private final StorageDeletionQueue storageDeletions;
     private final List<PersonErasureContributor> contributors;
     private final AuditService audit;
@@ -95,7 +95,7 @@ public class PersonErasureService {
                 """, person, String.class));
         boolean suppress = !Boolean.FALSE.equals(request.suppress());
         int suppressed = suppress ? suppression.suppress(workspaceId, userId,
-                suppressionKeysOf(workspaceId, profileSlug, person), SuppressionReason.ERASED, null) : 0;
+                suppressionKeysOf(profileSlug, person), SuppressionReason.ERASED, null) : 0;
 
         jdbc.update("DELETE FROM app_lm_person WHERE id = :personId AND workspace_id = :workspaceId", person);
 
@@ -128,16 +128,16 @@ public class PersonErasureService {
         return holdings;
     }
 
-    private List<SuppressionKey> suppressionKeysOf(UUID workspaceId, String profileSlug,
+    private List<SuppressionKey> suppressionKeysOf(String profileSlug,
                                                    MapSqlParameterSource person) {
         List<SuppressionKey> keys = new ArrayList<>();
         if (profileSlug != null) {
-            keys.add(SuppressionKey.ofProfileSlug(workspaceId, profileSlug));
+            keys.add(SuppressionKey.ofProfileSlug(profileSlug));
         }
         jdbc.queryForList("""
                 SELECT value_key FROM app_lm_person_contact WHERE person_id = :personId AND channel = 'EMAIL'
                 """, person, String.class).stream()
-                .map(email -> SuppressionKey.ofEmailOrNull(workspaceId, email))
+                .map(email -> SuppressionKey.ofEmailOrNull(email))
                 .filter(Objects::nonNull)
                 .forEach(keys::add);
         return keys;
