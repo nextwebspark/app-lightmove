@@ -4,6 +4,7 @@ import app.lightmove.api.candidate.dto.AddSuppressionRequest;
 import app.lightmove.api.candidate.dto.SuppressionResponse;
 import app.lightmove.api.candidate.model.SuppressionAddition;
 import app.lightmove.api.candidate.service.SuppressionListService;
+import app.lightmove.api.core.config.DataProtectionSettings;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
@@ -12,6 +13,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/workspace/suppressions")
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = DataProtectionSettings.SWITCH, havingValue = "true")
 public class SuppressionController {
 
     private final SuppressionListService suppressions;

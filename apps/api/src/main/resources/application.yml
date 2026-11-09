@@ -795,6 +795,10 @@ lightmove:
     purge-after: ${NOTES_PURGE_AFTER:30d}
     purge-interval: ${NOTES_PURGE_INTERVAL:PT1H}
 
+  # The suppression list, erasure, restriction and the retention review (#917). Off, their routes are a 404.
+  data-protection:
+    enabled: ${DATA_PROTECTION_ENABLED:false}
+
   # How long system rows holding personal data are kept (#921): one value per row of
   # docs/gdpr/retention-schedule.md, swept every sweep-interval by RetentionSweeper. Defaults await counsel.
   # Off until counsel signs the periods off: no sweeper is made, and nothing is deleted.

@@ -35,5 +35,6 @@ public record LightMoveProperties(
         NoteSettings notes,
         RowLevelSecuritySettings rowLevelSecurity,
         AvatarSettings avatars,
-        RetentionSettings retention
+        RetentionSettings retention,
+        DataProtectionSettings dataProtection
 ) {}
