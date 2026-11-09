@@ -796,7 +796,7 @@ lightmove:
     purge-interval: ${NOTES_PURGE_INTERVAL:PT1H}
 
   # How long system rows holding personal data are kept (#921): one value per row of
-  # docs/privacy/retention-schedule.md, swept every sweep-interval by RetentionSweeper. Defaults await counsel.
+  # docs/gdpr/retention-schedule.md, swept every sweep-interval by RetentionSweeper. Defaults await counsel.
   # Off until counsel signs the periods off: no sweeper is made, and nothing is deleted.
   retention:
     enabled: ${RETENTION_ENABLED:false}

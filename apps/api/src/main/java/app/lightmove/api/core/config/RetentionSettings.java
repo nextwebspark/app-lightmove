@@ -5,7 +5,7 @@ import java.util.List;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * How long system rows holding personal data are kept, one value per row of {@code docs/privacy/retention-schedule.md}.
+ * How long system rows holding personal data are kept, one value per row of {@code docs/gdpr/retention-schedule.md}.
  * The defaults await counsel's sign-off (#921, ⚖️).
  */
 public record RetentionSettings(

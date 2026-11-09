@@ -100,7 +100,7 @@ a Notetaker are refused; Add to sequence skips them and a run or a waiting email
 Add to position counts them `restricted`); their waiting or recording bots are called off in the restriction's own
 transaction and queued for `RecallBotErasureSweeper` (V197's table) to call back and strip until Recall answers, and a
 transcript arriving later is never summarised. Client-facing reads (the grid, talent map, report, export) still show
-them — that exclusion waits on counsel. **What is kept, and for how long, is `docs/privacy/retention-schedule.md`** (#921): one row per
+them — that exclusion waits on counsel. **What is kept, and for how long, is `docs/gdpr/retention-schedule.md`** (#921): one row per
 table holding a person, an account or an address, which `RetentionScheduleCoverageTest` holds the schema to.
 `RetentionSweeper` (hourly, `lightmove.retention.*`, defaults awaiting counsel; off unless `RETENTION_ENABLED=true`) deletes expired refresh-token families,
 verification links and two-factor challenges, the vendor caches past their TTL, closed invitations, read
