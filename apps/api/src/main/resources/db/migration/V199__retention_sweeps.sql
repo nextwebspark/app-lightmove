@@ -37,6 +37,10 @@ BEGIN
 END
 $$;
 
+REVOKE ALL ON FUNCTION
+    app_lm_resolve_workspaces_with_retention_due(timestamptz, timestamptz, timestamptz, timestamptz, timestamptz)
+    FROM PUBLIC;
+
 -- What each sweep and the resolver scan by.
 CREATE INDEX app_lm_refresh_token_expires_idx ON app_lm_refresh_token (expires_at);
 CREATE INDEX app_lm_verification_token_expires_idx ON app_lm_verification_token (expires_at);
