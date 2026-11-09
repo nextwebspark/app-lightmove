@@ -19,6 +19,7 @@ import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.PoolCriteria;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.service.CandidatePoolService;
+import app.lightmove.api.candidate.service.DataProtectionControls;
 import app.lightmove.api.candidate.service.PersonNoteService;
 import app.lightmove.api.candidate.service.PersonRecordService;
 import app.lightmove.api.candidate.service.PersonTimelineService;
@@ -65,6 +66,7 @@ public class CandidatePoolController {
     private final PersonTimelineService timeline;
     private final CandidatePoolService pool;
     private final ProcessingRestrictionService restrictions;
+    private final DataProtectionControls controls;
 
     /**
      * A page of the workspace's people. Every filter is optional; {@code owner} is a user id or
@@ -157,6 +159,7 @@ public class CandidatePoolController {
                                                       @PathVariable UUID personId,
                                                       @Valid @RequestBody ProcessingRestrictionRequest request,
                                                       HttpServletRequest httpRequest) {
+        controls.requireOffered();
         return restrictions.restrictProcessing(principal.userId(), principal.requireWorkspaceId(), personId, request,
                 httpRequest);
     }

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { isPureClient } from "../../features/auth/roles";
+import { useDataProtectionOffered } from "../../features/candidates/lib/useDataProtectionOffered";
 import { cn } from "../../lib/cn";
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
@@ -27,10 +28,11 @@ const GRID_PAGES = new Set(["/settings/templates", "/settings/template-library"]
 export function SettingsLayout() {
   const { pathname } = useLocation();
   const { user } = useAuth();
+  const dataProtection = useDataProtectionOffered();
 
-  useEffect(() => rememberSettingsSection(user, pathname), [user, pathname]);
+  useEffect(() => rememberSettingsSection(user, pathname, { dataProtection }), [user, pathname, dataProtection]);
 
-  const visible = visibleSettingsSections(user);
+  const visible = visibleSettingsSections(user, { dataProtection });
   const groups: SidebarGroup[] = GROUP_ORDER.map((group) => ({
     label: group,
     items: visible

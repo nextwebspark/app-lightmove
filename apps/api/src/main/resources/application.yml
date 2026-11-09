@@ -795,6 +795,12 @@ lightmove:
     purge-after: ${NOTES_PURGE_AFTER:30d}
     purge-interval: ${NOTES_PURGE_INTERVAL:PT1H}
 
+  # The people controls of epic #917: the suppression list, erasure, restriction of processing and the candidate
+  # retention review. Off, their routes answer 404 and no screen offers them. The checks inside every door stay, and
+  # hold nobody back while nobody is suppressed or restricted. RetentionSweeper has its own switch below.
+  data-protection:
+    enabled: ${DATA_PROTECTION_ENABLED:false}
+
   # How long system rows holding personal data are kept (#921): one value per row of
   # docs/gdpr/retention-schedule.md, swept every sweep-interval by RetentionSweeper. Defaults await counsel.
   # Off until counsel signs the periods off: no sweeper is made, and nothing is deleted.

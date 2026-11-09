@@ -3,6 +3,7 @@ package app.lightmove.api.candidate.controller;
 import app.lightmove.api.candidate.dto.AddSuppressionRequest;
 import app.lightmove.api.candidate.dto.SuppressionResponse;
 import app.lightmove.api.candidate.model.SuppressionAddition;
+import app.lightmove.api.candidate.service.DataProtectionControls;
 import app.lightmove.api.candidate.service.SuppressionListService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
@@ -31,10 +32,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class SuppressionController {
 
     private final SuppressionListService suppressions;
+    private final DataProtectionControls controls;
 
     @GetMapping
     @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
     public List<SuppressionResponse> list(@AuthenticationPrincipal AuthPrincipal principal) {
+        controls.requireOffered();
         return suppressions.list(principal.requireWorkspaceId());
     }
 
@@ -44,6 +47,7 @@ public class SuppressionController {
     public ResponseEntity<List<SuppressionResponse>> add(@AuthenticationPrincipal AuthPrincipal principal,
                                                          @Valid @RequestBody AddSuppressionRequest request,
                                                          HttpServletRequest httpRequest) {
+        controls.requireOffered();
         SuppressionAddition addition = suppressions.add(principal.userId(), principal.requireWorkspaceId(), request,
                 httpRequest);
         return ResponseEntity.status(addition.added() > 0 ? HttpStatus.CREATED : HttpStatus.OK)
@@ -55,6 +59,7 @@ public class SuppressionController {
     @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
     public void remove(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID suppressionId,
                        HttpServletRequest httpRequest) {
+        controls.requireOffered();
         suppressions.remove(principal.userId(), principal.requireWorkspaceId(), suppressionId, httpRequest);
     }
 }

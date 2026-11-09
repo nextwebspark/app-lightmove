@@ -4,10 +4,15 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
+import * as dataProtectionApi from "../../candidates/api/dataProtectionApi";
 import * as dataRetentionApi from "../api/dataRetentionApi";
 import type { CandidateRetention, RetentionDue } from "../api/dataRetentionApi";
 import { SettingsDataRetentionPage } from "./SettingsDataRetentionPage";
 
+vi.mock("../../candidates/api/dataProtectionApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../candidates/api/dataProtectionApi")>()),
+  getDataProtectionConfig: vi.fn(),
+}));
 vi.mock("../api/dataRetentionApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/dataRetentionApi")>()),
   getCandidateRetention: vi.fn(),
@@ -65,9 +70,20 @@ function renderPage() {
 describe("SettingsDataRetentionPage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.mocked(dataProtectionApi.getDataProtectionConfig).mockResolvedValue({ enabled: true });
     vi.mocked(dataRetentionApi.getCandidateRetention).mockResolvedValue(TWO_YEARS);
     vi.mocked(dataRetentionApi.getRetentionDue).mockResolvedValue(DUE);
     vi.mocked(dataRetentionApi.getSuppressions).mockResolvedValue([]);
+  });
+
+  it("reads nothing and draws nothing where the deployment holds the controls back", async () => {
+    vi.mocked(dataProtectionApi.getDataProtectionConfig).mockResolvedValue({ enabled: false });
+    renderPage();
+
+    await waitFor(() => expect(dataProtectionApi.getDataProtectionConfig).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText("Data & retention")).not.toBeInTheDocument());
+    expect(dataRetentionApi.getCandidateRetention).not.toHaveBeenCalled();
+    expect(dataRetentionApi.getSuppressions).not.toHaveBeenCalled();
   });
 
   it("lists who is due with when they were last touched, and saves a new period", async () => {
