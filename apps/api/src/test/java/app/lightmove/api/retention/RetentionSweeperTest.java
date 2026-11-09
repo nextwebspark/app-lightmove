@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -77,6 +78,16 @@ class RetentionSweeperTest {
 
         assertThat(deleted).containsEntry(RetentionTarget.REFRESH_TOKENS, 0)
                 .doesNotContainKey(RetentionTarget.INVITATIONS);
+    }
+
+    @Test
+    @DisplayName("no sweeper is made unless lightmove.retention.enabled is true: nothing is deleted by default")
+    void offUnlessEnabled() {
+        ApplicationContextRunner context = new ApplicationContextRunner().withUserConfiguration(RetentionSweeper.class);
+
+        context.run(started -> assertThat(started).doesNotHaveBean(RetentionSweeper.class));
+        context.withPropertyValues("lightmove.retention.enabled=false")
+                .run(started -> assertThat(started).doesNotHaveBean(RetentionSweeper.class));
     }
 
     private RetentionSweeper sweeper() {

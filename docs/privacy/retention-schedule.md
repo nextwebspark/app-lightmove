@@ -10,7 +10,9 @@ written down here.
 environment override under `lightmove.retention.*` (`RetentionSettings`), so a deployment can change it without a
 release. Backups and point-in-time recovery keep a deleted row until they age out; nothing rewrites them.
 
-**Jobs.** `RetentionSweeper` (hourly, `lightmove.retention.sweep-interval`) deletes the system rows below. A tenant
+**Jobs.** `RetentionSweeper` (hourly, `lightmove.retention.sweep-interval`) deletes the system rows below. It is off
+until counsel signs the periods off: only a deployment with `RETENTION_ENABLED=true` (`lightmove.retention.enabled`,
+the `RETENTION_ENABLED` variable in `deploy.yml`) makes it at all. A tenant
 table is swept only in the workspaces `app_lm_resolve_workspaces_with_retention_due` (V199) names, each inside its own
 `WorkspaceScope`. `PersonErasureService` (#918) is how a person goes, by an admin or, once built, by candidate
 retention (#921 part 2). The workspace purge (#926) is how a workspace goes. Audit-trail retention waits for a

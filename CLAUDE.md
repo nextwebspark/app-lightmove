@@ -102,7 +102,7 @@ transaction and queued for `RecallBotErasureSweeper` (V197's table) to call back
 transcript arriving later is never summarised. Client-facing reads (the grid, talent map, report, export) still show
 them — that exclusion waits on counsel. **What is kept, and for how long, is `docs/privacy/retention-schedule.md`** (#921): one row per
 table holding a person, an account or an address, which `RetentionScheduleCoverageTest` holds the schema to.
-`RetentionSweeper` (hourly, `lightmove.retention.*`, defaults awaiting counsel) deletes expired refresh-token families,
+`RetentionSweeper` (hourly, `lightmove.retention.*`, defaults awaiting counsel; off unless `RETENTION_ENABLED=true`) deletes expired refresh-token families,
 verification links and two-factor challenges, the vendor caches past their TTL, closed invitations, read
 notifications, sent digests, idle assistant chats and aged metered uses — the tenant tables only in the workspaces
 V199's `app_lm_resolve_workspaces_with_retention_due` names, each in its own `WorkspaceScope`. A plugin capture of someone already researched spends no second vendor call, and is filed under the employer their latest position recorded (`PersonEmployerResolver.knownEmployerOf`, that position's company row's LinkedIn page and all). Every change to a

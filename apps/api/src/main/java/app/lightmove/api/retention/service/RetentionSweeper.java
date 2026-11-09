@@ -17,6 +17,7 @@ import java.util.UUID;
 import java.util.function.IntSupplier;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -28,6 +29,7 @@ import org.springframework.stereotype.Component;
  * assistant chats and aged metered uses. Every delete is batched and harmless run twice, so instances need no claim:
  * a batch skips the rows another instance has locked rather than waiting on them. Each table, in each workspace, is
  * swept on its own, so one that fails is logged and retried next hour without holding back the rest.
+ * Made only where {@code lightmove.retention.enabled} is true ({@code RETENTION_ENABLED}, off by default).
  *
  * <p>The tenant tables are under forced row-level security: read with no workspace they answer nothing, and a sweep
  * would find nothing due. So the resolver names the workspaces holding a due row, and each is swept inside its own
@@ -35,6 +37,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(prefix = "lightmove.retention", name = "enabled", havingValue = "true")
 public class RetentionSweeper {
 
     private static final int BATCH = 1000;
