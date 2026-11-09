@@ -2,7 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
 import { hasRoomForRails } from "../../lib/viewport";
-import { TOOLBAR_GHOST } from "./Toolbar";
+import { TOOLBAR_GHOST, ToolbarLabel } from "./Toolbar";
 
 const WIDTHS = {
   default: "w-[min(300px,86vw)] lg:w-[21%] lg:min-w-[280px] lg:max-w-[330px]",
@@ -107,7 +107,13 @@ export function FilterRailToggle({
       }
     >
       <Icon d="M3 4h18l-7 8v6l-4 2v-8L3 4Z" size={variant === "toolbar" ? 15 : 14} className="flex-none" />
-      {open ? "Hide Filters" : "Show Filters"}
+      {variant === "toolbar" ? (
+        <ToolbarLabel>{open ? "Hide Filters" : "Show Filters"}</ToolbarLabel>
+      ) : open ? (
+        "Hide Filters"
+      ) : (
+        "Show Filters"
+      )}
       {badge}
     </button>
   );

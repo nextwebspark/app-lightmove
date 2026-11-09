@@ -3,7 +3,7 @@ import { useId, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { LinesSkeleton } from "../../../components/ui";
 import { Popover } from "../../../components/ui/Popover";
-import { TOOLBAR_PRIMARY } from "../../../components/ui/Toolbar";
+import { TOOLBAR_PRIMARY, ToolbarLabel } from "../../../components/ui/Toolbar";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import * as pipelineApi from "../../pipeline/api/pipelineApi";
@@ -36,6 +36,7 @@ export function NewEmailButton({
   label = "New email",
   icon = ICONS.plus,
   triggerClassName = TOOLBAR_PRIMARY,
+  collapsible = false,
 }: {
   projectId: string;
   mailbox: MailboxState;
@@ -44,11 +45,13 @@ export function NewEmailButton({
   label?: string;
   icon?: string;
   triggerClassName?: string;
+  /** The label gives way to the icon when the toolbar is narrow; the primary New email keeps its words. */
+  collapsible?: boolean;
 }) {
   const content = (
     <>
       <Icon d={icon} size={14} className="flex-none" />
-      {label}
+      {collapsible ? <ToolbarLabel>{label}</ToolbarLabel> : label}
     </>
   );
   if (mailbox.kind === "unavailable") return null;

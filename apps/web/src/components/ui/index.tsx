@@ -404,6 +404,7 @@ export { SegmentedControl } from "./SegmentedControl";
 export type { SegmentedOption } from "./SegmentedControl";
 export {
   ToolbarDivider,
+  ToolbarLabel,
   ToolbarSearch,
   ToolbarViewSwitch,
   TOOLBAR_COUNT,

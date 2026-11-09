@@ -269,10 +269,14 @@ rule in every read (`search` on the triage list, its
 people reads, the export and the talent map, the pipeline's `q`): a company by name, place or industry, an executive
 by name, title, place or employer, and — only for a `WORK_EXECUTE` holder, decided server-side — the company's and
 the person's live notes readable from this position and the person's tags; a matching company keeps all its people.
-In universe reads as **Table | Map | Pipeline** (`?view=`), Strategy as Companies | People and Outreach as
+In universe reads as **Table | Pipeline** (`?view=`; **Map is switched off on screen for now**, `MAP_OFFERED` in
+`triageStages.ts`: the globe, its reads and a stored choice stay, and a link or remembered choice of it lands on the table),
+Strategy as Companies | People and Outreach as
 Conversations | Sequences — each the page's own `ToolbarViewSwitch`, first in its toolbar at every width and in full
-screen, one fixed width whether it holds two views or three so the search starts at the same place on all three; the
-rail is one row per page and nests nothing. `useCompaniesViews` decides what In universe offers. A view someone
+screen, one width whether it holds two views or three so the search starts at the same place on all three. **The row stays
+on one line** from a phone up (`TOOLBAR_ROW`, `components/ui/Toolbar`): the search and the switch shrink first, then the
+buttons give up their words for their icons by the row's own width (`ToolbarLabel`, a container query), and only below
+`sm` does it wrap. The rail is one row per page and nests nothing. `useCompaniesViews` decides what In universe offers. A view someone
 *chose* in the switch is remembered per mandate; a link that only names one, a
 notification's `?view=pipeline`, is a visit. **Pipeline** is the position's
 board by pipeline stage — the retired CRM Pipeline page, board only, every executive on the position whatever their

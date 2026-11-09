@@ -4,7 +4,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import type { NumericRange, SavedSearch, SearchVisibility, StrategyFilter } from "../api/types";
 import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { FilterRailToggle } from "../../../components/ui/FilterRail";
-import { TOOLBAR_COUNT, TOOLBAR_OUTLINE, TOOLBAR_ROW, ToolbarSearch } from "../../../components/ui/Toolbar";
+import { TOOLBAR_COUNT, TOOLBAR_OUTLINE, TOOLBAR_ROW, ToolbarLabel, ToolbarSearch } from "../../../components/ui/Toolbar";
 import { cn } from "../../../lib/cn";
 import { SaveSearchMenu } from "./SaveSearchMenu";
 import { sameFilter } from "../lib/filterIdentity";
@@ -117,7 +117,7 @@ export function StrategyToolbar({
         }
       />
 
-      <div className="flex items-center gap-3 sm:ml-auto">
+      <div className="flex flex-none items-center gap-3 sm:ml-auto">
         {/* Hidden below `lg` with the panel it opens: the assistant has no layout on a phone or a tablet yet, so
             here it would set the open flag and show nothing at all. One of the toolbar's own bordered controls, the
             AI told by the sparkle's violet alone; pressed while the panel is open, and a second press closes it. */}
@@ -132,7 +132,7 @@ export function StrategyToolbar({
           )}
         >
           <Icon d={ICONS.sparkle} size={15} className="flex-none text-u-inferred" />
-          AI Research
+          <ToolbarLabel>AI Research</ToolbarLabel>
         </button>
 
         <ColumnPicker

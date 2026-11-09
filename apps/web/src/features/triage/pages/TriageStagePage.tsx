@@ -901,6 +901,7 @@ function TriageStage() {
               label="Send email"
               icon={ICONS.mail}
               triggerClassName={TOOLBAR_OUTLINE}
+              collapsible
             />
           )
         }
