@@ -83,6 +83,8 @@ public enum ProjectEventType implements AuditEventType {
     PERSON_SUPPRESSION_REMOVED,
     /** A person and everything held about them, deleted for good. Recorded by id and counts, never a name. */
     PERSON_ERASED,
+    /** Candidate retention: an admin kept someone due for deletion for another period. Recorded by id. */
+    PERSON_RETENTION_KEPT,
 
     /** The Pipeline page's three working facts: the team's manual order, the next action, client visibility. */
     CANDIDATE_PIPELINE_REORDERED,

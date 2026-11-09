@@ -148,6 +148,7 @@ public class AuditLogPhrasing {
                     : "Changed the " + providerName(line.text("provider")) + " app in Integrations";
             case "availability" -> "Changed working hours or the daily email limit";
             case "pipeline" -> "Changed the pipeline stages";
+            case "retention" -> "Changed how long candidates are kept";
             default -> "Updated the workspace's details";
         });
         on(WorkspaceEventType.WORKSPACE_DELETED, line -> "Deleted the workspace");
@@ -165,7 +166,9 @@ public class AuditLogPhrasing {
         on(ProjectEventType.PERSON_SUPPRESSION_REMOVED, line -> "Removed someone from the suppression list");
         on(ProjectEventType.PERSON_PROCESSING_RESTRICTED, line -> "Restricted processing of a candidate");
         on(ProjectEventType.PERSON_PROCESSING_RESTRICTION_LIFTED, line -> "Lifted a candidate's processing restriction");
-        on(ProjectEventType.PERSON_ERASED, line -> "Permanently deleted a candidate");
+        on(ProjectEventType.PERSON_ERASED, line -> line.is("reason", "retention")
+                ? "Permanently deleted a candidate past the retention period" : "Permanently deleted a candidate");
+        on(ProjectEventType.PERSON_RETENTION_KEPT, line -> "Kept a candidate due for deletion");
         on(ProjectEventType.CANDIDATE_PIPELINE_REORDERED, line -> "Reordered the pipeline");
         on(ProjectEventType.TASK_PRESET_CREATED, line -> "Added a task preset");
         on(ProjectEventType.TASK_PRESET_UPDATED, line -> "Changed a task preset");

@@ -98,7 +98,7 @@ class RetentionSweeperTest {
         when(properties.enrichment()).thenReturn(enrichment);
         when(properties.retention()).thenReturn(new RetentionSettings("PT1H", Duration.ofDays(30), Duration.ofDays(30),
                 Duration.ofDays(1), Duration.ofDays(90), Duration.ofDays(90), Duration.ofDays(90), Duration.ofDays(180),
-                Duration.ofDays(400)));
+                Duration.ofDays(400), 24));
         return new RetentionSweeper(jdbc, resolvers, people, Clock.systemUTC(), properties);
     }
 }

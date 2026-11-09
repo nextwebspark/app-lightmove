@@ -55,6 +55,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { to: "/settings/integrations", label: "Integrations", icon: ICONS.plug, group: "Workspace" },
   { to: "/settings/billing", label: "Billing", icon: ICONS.card, group: "Workspace", everyStaff: true },
   { to: "/settings/templates", label: "Templates", icon: ICONS.file, group: "Workspace" },
+  { to: "/settings/data", label: "Data & retention", icon: ICONS.database, group: "Workspace" },
   { to: "/settings/template-library", label: "Template library", icon: ICONS.position, group: "Platform" },
 ];
 

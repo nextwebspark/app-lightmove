@@ -14,8 +14,10 @@ release. Backups and point-in-time recovery keep a deleted row until they age ou
 until counsel signs the periods off: only a deployment with `RETENTION_ENABLED=true` (`lightmove.retention.enabled`,
 the `RETENTION_ENABLED` variable in `deploy.yml`) makes it at all. A tenant
 table is swept only in the workspaces `app_lm_resolve_workspaces_with_retention_due` (V199) names, each inside its own
-`WorkspaceScope`. `PersonErasureService` (#918) is how a person goes, by an admin or, once built, by candidate
-retention (#921 part 2). The workspace purge (#926) is how a workspace goes. Audit-trail retention waits for a
+`WorkspaceScope`. `PersonErasureService` (#918) is how a person goes: by an admin from Candidates, or by an admin
+reviewing candidate retention (#921 part 2) — a workspace's period (Settings → Data & retention, V200
+`app_lm_workspace_retention`, `lightmove.retention.candidate-months` where it has not chosen, 24 ⚖️) lists whoever is
+untouched that long and on no live position; nothing deletes a person without that review. The workspace purge (#926) is how a workspace goes. Audit-trail retention waits for a
 delete-capable maintenance role (#256).
 
 | Table | Personal data | Purpose | Retention | Trigger | Job |
@@ -41,7 +43,7 @@ delete-capable maintenance role (#256).
 | `app_lm_mailbox_authorization` | user | a mailbox connect in flight | until the connect completes | completion | — |
 | `app_lm_mailbox_connection` | user, address, sealed refresh token | sending from the consultant's own mailbox | while connected | disconnected, workspace purge | — |
 | `app_lm_zoom_connection` | user, sealed refresh token | Zoom links | while connected | disconnected, workspace purge | — |
-| `app_lm_person` | the executive: name, profile, background, package | the candidate record | while held; candidate retention ⚖️ (#921 part 2) | erasure, retention | `PersonErasureService` |
+| `app_lm_person` | the executive: name, profile, background, package | the candidate record | while held; reviewed for deletion once untouched for the workspace's period (default 24 months ⚖️) and on no live position | erasure, retention review | `PersonErasureService` |
 | `app_lm_person_contact` | emails, phones | reaching the executive | with the person | erasure, edit | cascade |
 | `app_lm_person_photo` | photo | the drawer | with the person | erasure | cascade |
 | `app_lm_person_tag` | person | the workspace's tags | with the person | erasure, untag | cascade |
