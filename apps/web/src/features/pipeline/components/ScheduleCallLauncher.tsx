@@ -33,7 +33,7 @@ export function ScheduleCallLauncher({
     : record.data.doNotContact
       ? `${row.fullName} is marked do not contact.`
       : emails.length === 0
-        ? `There is no email on file to send ${row.fullName} the invite.`
+        ? `There is no email on file to send ${row.fullName} the invite.${onOpenContact ? "" : " Add one to their profile first."}`
         : null;
 
   if (refusal === null) {

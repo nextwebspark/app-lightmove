@@ -183,7 +183,7 @@ function ToolbarAction({
       // aria-disabled rather than disabled, so the greyed button still takes focus and its title is read.
       aria-disabled={inert || undefined}
       aria-busy={busy || undefined}
-      title={unavailable?.reason ?? title}
+      title={unavailable?.reason ?? title ?? (typeof children === "string" ? children : undefined)}
       onClick={inert ? undefined : onClick}
       className={className}
     >

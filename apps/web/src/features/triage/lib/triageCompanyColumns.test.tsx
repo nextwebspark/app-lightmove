@@ -23,9 +23,10 @@ describe("the Actions column", () => {
   const actions = createTriageCompanyColumns([], { staff: true }).find((column) => column.id === "actions");
 
   it("takes its content's width rather than a share of the row", () => {
-    const meta = actions?.meta as { share: number; min: number };
+    const meta = actions?.meta as { share: number; min: number; fixed?: boolean };
 
     expect(meta.share).toBe(0);
+    expect(meta.fixed).toBe(true);
     expect(meta.min).toBeLessThanOrEqual(64);
   });
 });

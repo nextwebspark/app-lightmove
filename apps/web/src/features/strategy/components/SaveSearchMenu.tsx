@@ -72,6 +72,7 @@ export function SaveSearchMenu({
   return (
     <Popover
       width={360}
+      title="Save Search"
       triggerClassName={TOOLBAR_MENU}
       trigger={() => (
         <>

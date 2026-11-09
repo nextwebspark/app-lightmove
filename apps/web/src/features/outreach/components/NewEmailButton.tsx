@@ -72,6 +72,7 @@ export function NewEmailButton({
       align="right"
       width={340}
       hasPopup="dialog"
+      title={collapsible ? label : undefined}
       disabled={mailbox.kind === "loading"}
       triggerClassName={cn(triggerClassName, "disabled:opacity-50")}
       trigger={() => content}

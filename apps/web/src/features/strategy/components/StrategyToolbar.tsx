@@ -125,6 +125,7 @@ export function StrategyToolbar({
           type="button"
           onClick={onAiResearch}
           aria-pressed={aiResearchOpen}
+          title="AI Research"
           className={cn(
             TOOLBAR_OUTLINE,
             "hidden lg:inline-flex",

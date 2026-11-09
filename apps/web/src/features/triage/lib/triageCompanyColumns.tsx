@@ -28,6 +28,7 @@ import { StatusPicker } from "../../candidates/components/StatusPicker";
 import { statusStyle } from "../../candidates/lib/pipelineStatus";
 import type { CustomColumn, CustomColumnType } from "../../customcolumns/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
+import { SHORTLIST_OFFERED } from "./triageStages";
 import { lineMoves, removeTooltip, SOURCE_STYLES } from "./triageVocabulary";
 import type { TriageCompanyRow } from "./triageRows";
 
@@ -98,8 +99,11 @@ const helper = createColumnHelper<typeof triageTableFeatures, TriageCompanyRow>(
 const PILL =
   "inline-flex items-center rounded-[4px] px-[6px] py-[2px] font-mono text-[10px] font-bold uppercase tracking-[0.04em]";
 
-/** The "ACTIONS" label (about 52px) and the widest row — one move, a divider and the trash, with 4px gaps. */
-const ACTIONS_MIN_WIDTH = 62;
+/**
+ * The "ACTIONS" label (about 52px) and the widest row: one move, a divider and the trash, with 4px gaps — or, while
+ * Shortlisted is offered, two moves.
+ */
+const ACTIONS_MIN_WIDTH = SHORTLIST_OFFERED ? 92 : 62;
 
 /**
  * The Companies grid's columns — the same widths and shapes as Strategy's, so moving between the market and what a

@@ -234,7 +234,11 @@ public class Person extends BaseEntity {
         this.title = details.title();
         confirmIfChanged(BackgroundField.SENIORITY, seniorityLevel, details.seniority());
         this.seniorityLevel = details.seniority();
-        linkedinUrlLocked = linkedinUrlLocked && Objects.equals(linkedinUrl, details.linkedinUrl());
+        if (pointsAtAnotherProfile(details.linkedinUrl())) {
+            linkedinUrlLocked = false;
+            emailsLookedUpAt = null;
+            phonesLookedUpAt = null;
+        }
         recordLinkedinUrl(details.linkedinUrl());
         this.locationCountry = details.locationCountry();
         this.locationCity = details.locationCity();
@@ -294,6 +298,17 @@ public class Person extends BaseEntity {
         boolean isThatPage = linkedinUrl.equals(capturedUrl)
                 || (held != null && held.equals(LinkedInUrls.profileSlugOrNull(capturedUrl)));
         linkedinUrlLocked = linkedinUrlLocked || isThatPage;
+    }
+
+    /**
+     * A corrected URL names another page, so what was asked of the vendors about the old one no longer answers for
+     * this person: a recorded miss must not stop the next lookup. Spellings of one profile (a trailing slash, a
+     * tracking parameter) are not another page.
+     */
+    private boolean pointsAtAnotherProfile(String newUrl) {
+        String held = LinkedInUrls.profileSlugOrNull(linkedinUrl);
+        String named = LinkedInUrls.profileSlugOrNull(newUrl);
+        return held == null ? named != null : !held.equalsIgnoreCase(named);
     }
 
     /** Re-derived on every write, so a key V95's SQL read differently from Java heals on the next save. */

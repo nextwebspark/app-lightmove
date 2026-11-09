@@ -6,13 +6,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -26,6 +29,8 @@ import tools.jackson.databind.JsonNode;
  */
 @IntegrationTest
 class CandidateContactsIntegrationTest extends FlowTestSupport {
+
+    @Autowired @FixtureJdbc private JdbcTemplate db;
 
     private String adminToken;
 
@@ -209,6 +214,41 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"fullName":"Typed Person","linkedinUrl":"https://www.linkedin.com/in/typed-person-2"}"""))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("a corrected LinkedIn URL lets the next lookup ask again, and a respelling of the same profile does not")
+    void aCorrectedProfileUrlForgetsTheRecordedMisses() throws Exception {
+        String projectId = mandate("Corrected Url Firm");
+        String candidate = executive(projectId, """
+                {"fullName":"Moved Person","linkedinUrl":"https://www.linkedin.com/in/moved-person"}""");
+        db.update("""
+                update app_lm_person set emails_looked_up_at = now(), phones_looked_up_at = now()
+                where id = (select person_id from app_lm_project_candidate where id = ?::uuid)""", candidate);
+
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidate)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Moved Person","linkedinUrl":"https://www.linkedin.com/in/moved-person/?trk=x"}"""))
+                .andExpect(status().isOk());
+        assertThat(lookupStampsOf(candidate)).isEqualTo(2);
+
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidate)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Moved Person","linkedinUrl":"https://www.linkedin.com/in/moved-person-new"}"""))
+                .andExpect(status().isOk());
+        assertThat(lookupStampsOf(candidate)).isZero();
+    }
+
+    private int lookupStampsOf(String candidateId) {
+        return db.queryForObject("""
+                select (emails_looked_up_at is not null)::int + (phones_looked_up_at is not null)::int
+                from app_lm_person
+                where id = (select person_id from app_lm_project_candidate where id = ?::uuid)""",
+                Integer.class, candidateId);
     }
 
     @Test

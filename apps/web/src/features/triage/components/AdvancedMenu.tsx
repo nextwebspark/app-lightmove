@@ -53,7 +53,7 @@ export function ToolbarMenu({
       align="right"
       width={width}
       hasPopup="menu"
-      title={dot}
+      title={dot ?? label}
       triggerClassName={TOOLBAR_MENU}
       trigger={(open) => (
         <>

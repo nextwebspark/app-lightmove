@@ -48,6 +48,7 @@ export function ColumnPicker({
     <Popover
       align="right"
       width={220}
+      title={isToolbar ? "Columns" : undefined}
       triggerClassName={
         isToolbar
           ? TOOLBAR_MENU

@@ -95,11 +95,13 @@ export function FilterRailToggle({
   badge?: ReactNode;
   variant?: "default" | "toolbar";
 }) {
+  const label = open ? "Hide Filters" : "Show Filters";
   return (
     <button
       type="button"
       onClick={onToggle}
       aria-expanded={open}
+      title={variant === "toolbar" ? label : undefined}
       className={
         variant === "toolbar"
           ? TOOLBAR_GHOST
@@ -107,13 +109,7 @@ export function FilterRailToggle({
       }
     >
       <Icon d="M3 4h18l-7 8v6l-4 2v-8L3 4Z" size={variant === "toolbar" ? 15 : 14} className="flex-none" />
-      {variant === "toolbar" ? (
-        <ToolbarLabel>{open ? "Hide Filters" : "Show Filters"}</ToolbarLabel>
-      ) : open ? (
-        "Hide Filters"
-      ) : (
-        "Show Filters"
-      )}
+      {variant === "toolbar" ? <ToolbarLabel>{label}</ToolbarLabel> : label}
       {badge}
     </button>
   );

@@ -854,7 +854,7 @@ function templateOf<TData extends RowData>(
     cols.push(
       !layout
         ? "1fr"
-        : layout.share > 0
+        : layout.share > 0 && !layout.fixed
           ? `minmax(${floor}px, ${layout.share}fr)`
           : `${floor}px`,
     );

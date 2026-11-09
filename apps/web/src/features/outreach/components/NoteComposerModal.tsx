@@ -8,6 +8,15 @@ import type { PersonNoteKind } from "../../candidates/api/types";
 import { PositionNoteComposer } from "../../candidates/components/PersonSections";
 import { LOGGED_CONTACT_KINDS } from "../../candidates/lib/noteKinds";
 
+const DIALOG_TITLES: Record<PersonNoteKind, (fullName: string) => string> = {
+  general: (fullName) => `Add a note on ${fullName}`,
+  call: (fullName) => `Log a call with ${fullName}`,
+  meeting: (fullName) => `Log a meeting with ${fullName}`,
+  email: (fullName) => `Add a note on ${fullName}`,
+  linkedin: (fullName) => `Log a LinkedIn message with ${fullName}`,
+  whatsapp: (fullName) => `Log a WhatsApp message with ${fullName}`,
+};
+
 /**
  * Log call, Log LinkedIn, Log WhatsApp and Add note — the executive drawer's Outreach, the conversation dock, the Pipeline card: the
  * drawer's own note composer as a dialog, with room to write. A log is of the kind its button named; the dialog offers
@@ -50,16 +59,7 @@ export function NoteComposerModal({
   const pastMeetings = [...calls.upcoming, ...calls.past]
     .filter((meeting) => Date.parse(meeting.startsAt) <= now)
     .sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt));
-  const title =
-    kind === "call"
-      ? `Log a call with ${fullName}`
-      : kind === "linkedin"
-        ? `Log a LinkedIn message with ${fullName}`
-        : kind === "whatsapp"
-          ? `Log a WhatsApp message with ${fullName}`
-          : kind === "meeting"
-            ? `Log a meeting with ${fullName}`
-            : `Add a note on ${fullName}`;
+  const title = (kind ? DIALOG_TITLES[kind] : DIALOG_TITLES.general)(fullName);
   const close = () => {
     dialog.reset();
     onClose();
