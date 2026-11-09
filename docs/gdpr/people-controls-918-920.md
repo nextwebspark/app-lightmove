@@ -7,7 +7,7 @@ as its own PR:
 |---|---|---|---|---|
 | Suppression list: no door files a listed person again | #920, part 1 (Art. 21) | #1178 | V195 | merged |
 | Erase a person for good | #918 (Art. 17) | #1179 | V196, V197 | merged |
-| Restrict processing of a person | #920, part 2 (Art. 18) | #1180 | V198 | in review |
+| Restrict processing of a person | #920, part 2 (Art. 18) | #1180 | V198 | merged |
 
 They depend on each other in one direction. The erasure writes suppression entries so an erased person isn't filed
 again, and restriction can add an objection to the same list. All three rely on forced row-level security (V184,
@@ -50,7 +50,7 @@ is listed:
 - A workspace holding entries the keyset can't read (a key removed too early) is refused at every door with
   `SUPPRESSION_UNAVAILABLE`, never let through.
 
-The list has no screen yet. Settings → Data & retention is drawn in #1177 and arrives with #1186.
+The list's screen is Settings → Data & retention (#1186).
 
 ---
 
@@ -136,7 +136,6 @@ readable and editable, and nothing uses it until someone lifts the restriction.
 | Keep a restricted person out of what a **client seat** reads (Companies grid, talent map, report, export, public API and MCP universe) | Needs counsel to say whether showing an already-mapped person to the hiring company counts as processing | Follow-up issue to file (asked for in the #1180 review) |
 | The assistant's executive **list** still sends names and titles to the model | Only the profile tool is held back so far | #1180, "Not in this PR" |
 | **Cross-workspace** suppression for an objection sent to Uncava as controller (vendor-sourced data) | Needs a decision from #920 | #920 checklist; not built |
-| A **screen** for the suppression list (Settings → Data & retention) | Drawn in #1177; API only today | #1186 |
 | **Names in older audit lines.** `CANDIDATE_REMOVED` still stores `fullName`, the audit trail is append-only (`harden.sql`), and the erasure leaves earlier lines as they are | Needs a decision from #918 (keep as a legal-obligation/security log, recorded in the RoPA, or stop writing names) | #918 notes, and the logs issue |
 | **Backups** keep erased data until they age out | By design: an erasure never rewrites backups | Document the retention window in the privacy notice |
 | `CandidateReadsGoldenIntegrationTest` and `OutreachReplyMigrationTest` fail locally | They fail the same on `main` (a session-time-zone assumption and a golden recording); this work doesn't cause them | CI decides |
