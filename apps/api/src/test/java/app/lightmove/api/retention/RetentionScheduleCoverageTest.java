@@ -19,7 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * #921: every table that holds a person, an account or an address is written down in
- * {@code docs/privacy/retention-schedule.md} with how long it is kept — a new one fails here until it is — and the
+ * {@code docs/gdpr/retention-schedule.md} with how long it is kept — a new one fails here until it is — and the
  * schedule names no table that no longer exists.
  */
 @IntegrationTest
@@ -47,13 +47,13 @@ class RetentionScheduleCoverageTest {
                 """, String.class));
 
         assertThat(personal).as("the schema read found the tables it looks for").contains("app_lm_person", "app_lm_user");
-        assertThat(scheduled).as("tables holding personal data with no row in docs/privacy/retention-schedule.md")
+        assertThat(scheduled).as("tables holding personal data with no row in docs/gdpr/retention-schedule.md")
                 .containsAll(personal);
-        assertThat(existing).as("rows of docs/privacy/retention-schedule.md naming no table").containsAll(scheduled);
+        assertThat(existing).as("rows of docs/gdpr/retention-schedule.md naming no table").containsAll(scheduled);
     }
 
     private static Set<String> scheduledTables() throws IOException {
-        Matcher rows = ROW.matcher(Files.readString(repositoryRoot().resolve(Path.of("docs", "privacy",
+        Matcher rows = ROW.matcher(Files.readString(repositoryRoot().resolve(Path.of("docs", "gdpr",
                 "retention-schedule.md"))));
         Set<String> tables = new HashSet<>();
         while (rows.find()) {

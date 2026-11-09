@@ -24,7 +24,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Deletes the system rows {@code docs/privacy/retention-schedule.md} holds no longer (#921): expired sign-in tokens
+ * Deletes the system rows {@code docs/gdpr/retention-schedule.md} holds no longer (#921): expired sign-in tokens
  * and challenges, the vendor caches past their TTL, closed invitations, read notifications, sent digests, old
  * assistant chats and aged metered uses. Every delete is batched and harmless run twice, so instances need no claim:
  * a batch skips the rows another instance has locked rather than waiting on them. Each table, in each workspace, is
