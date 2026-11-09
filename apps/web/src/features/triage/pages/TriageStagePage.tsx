@@ -1009,7 +1009,7 @@ function TriageStage() {
       /* `min-h-0`: a `flex-1` child of a flex *column* keeps `min-height: auto` and refuses to
          shrink, so without it the grid grows to the height of every row it holds and the whole
          screen scrolls — header and pager included — rather than the rows scrolling under them. */
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-2">
         <TriageCompanyTable
           rows={rows}
           projectId={project.id}
