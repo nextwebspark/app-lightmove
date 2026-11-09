@@ -293,9 +293,8 @@ check N17.6.2 "…recorded as the extension's" "extension|extension" "$(json '.s
 KARIM_PROFILE="$(person "Karim Aziz $RUN_TAG" ".source = \"extension\" | .linkedinUrl = \"$CAPTURED_URL\"")"
 
 put_json "$PEOPLE/$KARIM" "$(printf '%s' "$KARIM_PROFILE" | jq -c '.linkedinUrl = "https://www.linkedin.com/in/someone-else"')" -H "$LEAD_AUTH"
-check_code N17.6.3 "its LinkedIn URL cannot be retyped" 409 CANDIDATE_PROFILE_URL_LOCKED
-put_json "$PEOPLE/$KARIM" "$(printf '%s' "$KARIM_PROFILE" | jq -c 'del(.linkedinUrl)')" -H "$LEAD_AUTH"
-check_code N17.6.4 "…nor cleared" 409 CANDIDATE_PROFILE_URL_LOCKED
+check_status N17.6.3 "its LinkedIn URL can be corrected when the person has moved it" 200
+check N17.6.4 "…and is then no longer the page the plugin read" "https://www.linkedin.com/in/someone-else|false" "$(json '.linkedinUrl')|$(json '.linkedinUrlLocked')"
 put_json "$PEOPLE/$KARIM" "$(printf '%s' "$KARIM_PROFILE" | jq -c '.title = "Group CFO"')" -H "$LEAD_AUTH"
 check_status N17.6.5 "every other field stays editable" 200
 check N17.6.6 "…and the URL is what the plugin read" "$CAPTURED_URL" "$(json '.linkedinUrl')"

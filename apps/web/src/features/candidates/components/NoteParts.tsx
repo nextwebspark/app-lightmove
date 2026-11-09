@@ -243,7 +243,7 @@ export function NoteCard({
         <div className="flex items-center gap-2">
           <Avatar id={note.authorUserId} name={authorName} src={note.authorAvatarUrl} size="sm" />
           <span className="text-[12.5px] font-semibold">{authorName}</span>
-          {/* A plain note is the Notes tab's only kind, so it carries no tag; a call or a LinkedIn message does. */}
+          {/* A plain note is the Notes tab's only kind, so it carries no tag; a call or a LinkedIn or WhatsApp message does. */}
           {note.kind !== "general" && (
             <span className="flex items-center gap-1 text-u-text3">
               {showsKindMark && <NoteKindMark kind={note.kind} size={12} />}

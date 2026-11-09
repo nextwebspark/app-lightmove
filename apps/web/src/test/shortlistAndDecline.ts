@@ -1,7 +1,7 @@
 import type * as TriageStages from "../features/triage/lib/triageStages";
 
 /**
- * The Companies stages with Shortlisted offered again, for the tests that keep that half covered while it is off.
+ * The Companies stages with Shortlisted and the Map view offered again, for the tests that keep that half covered while it is off.
  * Every export derived from the switch is re-derived here, since the original module computed it as off.
  */
 export function withShortlistAndDecline(actual: typeof TriageStages): typeof TriageStages {
@@ -10,6 +10,7 @@ export function withShortlistAndDecline(actual: typeof TriageStages): typeof Tri
     ...actual,
     SHORTLIST_OFFERED: true,
     DECLINE_OFFERED: true,
+    MAP_OFFERED: true,
     OFFERED_TRIAGE_STAGES: offered,
     PERSON_FILING_STAGES: offered.filter((stage) => stage.status !== "declined"),
     offeredStageBySlug: (slug) => offered.find((stage) => stage.slug === slug),

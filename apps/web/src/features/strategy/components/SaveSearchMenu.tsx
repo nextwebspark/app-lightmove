@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Popover } from "../../../components/ui/Popover";
-import { TOOLBAR_COUNT_ACCENT, TOOLBAR_MENU } from "../../../components/ui/Toolbar";
+import { TOOLBAR_COUNT_ACCENT, TOOLBAR_MENU, ToolbarLabel } from "../../../components/ui/Toolbar";
 import { cn } from "../../../lib/cn";
 import type { SavedSearch, SearchVisibility } from "../api/types";
 import { SavedSearchRow } from "./SavedSearchRow";
@@ -72,6 +72,7 @@ export function SaveSearchMenu({
   return (
     <Popover
       width={360}
+      title="Save Search"
       triggerClassName={TOOLBAR_MENU}
       trigger={() => (
         <>
@@ -80,7 +81,7 @@ export function SaveSearchMenu({
             size={15}
             className="flex-none"
           />
-          Save Search
+          <ToolbarLabel>Save Search</ToolbarLabel>
           {searches.length > 0 && <span className={TOOLBAR_COUNT_ACCENT}>{searches.length}</span>}
         </>
       )}

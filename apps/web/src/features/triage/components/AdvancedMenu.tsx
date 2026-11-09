@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Popover } from "../../../components/ui/Popover";
-import { TOOLBAR_MENU } from "../../../components/ui/Toolbar";
+import { TOOLBAR_MENU, ToolbarLabel } from "../../../components/ui/Toolbar";
 import { cn } from "../../../lib/cn";
 
 export interface AdvancedMenuItem {
@@ -53,12 +53,12 @@ export function ToolbarMenu({
       align="right"
       width={width}
       hasPopup="menu"
-      title={dot}
+      title={dot ?? label}
       triggerClassName={TOOLBAR_MENU}
       trigger={(open) => (
         <>
           <Icon d={icon} size={15} className="flex-none" />
-          {label}
+          <ToolbarLabel>{label}</ToolbarLabel>
           {dot && <span aria-hidden="true" className="size-1.5 flex-none rounded-full bg-u-accent" />}
           <Icon
             d={ICONS.chevronDown}

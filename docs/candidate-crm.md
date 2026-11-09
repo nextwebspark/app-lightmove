@@ -477,7 +477,7 @@ expand and the contract in separate deploys.
 >   row's `updated_at`) with a `NOTE_ADDED` line, and leaves the column frozen for #606.
 > - **Kinds** are the four the mockups offer: `GENERAL, CALL, MEETING, EMAIL`, and since V164 `LINKEDIN` — a
 >   message, connection request or reply on LinkedIn, typed by hand, drawn with the network's own mark
->   (`NoteKindMark`). FEEDBACK waits for the client-feedback work (Phase 5).
+>   (`NoteKindMark`), and since V201 `WHATSAPP` likewise. FEEDBACK waits for the client-feedback work (Phase 5).
 > - **Doors keep sending `note`.** `SaveCandidateRequest.note` (the add form, the plugin, a sheet's Note
 >   column) is filed as a general note about the mandate, once: the same words already there are skipped,
 >   so a re-import adds none.

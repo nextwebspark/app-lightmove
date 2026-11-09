@@ -92,7 +92,7 @@ export function NotesSection({
   onShowContactNote,
 }: PersonSectionProps & {
   focus?: NoteFocus | null;
-  /** A link to a call, LinkedIn or meeting note: those are Outreach's, so the drawer shows it there. */
+  /** A link to a call, LinkedIn, WhatsApp or meeting note: those are Outreach's, so the drawer shows it there. */
   onShowContactNote?: (focus: NoteFocus) => void;
   /** Opens the Next action modal on the note just saved; without it the composer offers Save note alone. */
   onSetNextAction?: (note: TaskNote) => void;
@@ -129,7 +129,7 @@ export function NotesSection({
         ) : list.length === 0 ? (
           <p className="text-[13px]/[1.6] text-u-text3">
             No notes yet. A note saved here stays with this position; choose All positions to share it with
-            every position this person is in. Calls, LinkedIn messages and meeting notes are in Outreach.
+            every position this person is in. Calls, LinkedIn and WhatsApp messages and meeting notes are in Outreach.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -151,7 +151,7 @@ export function NotesSection({
 
 /**
  * A note on one executive, written from one position: its words, and whether it is about this position or all of
- * them. The drawer's Notes tab opens on a plain note; Log call, Log meeting and Log LinkedIn open it as a dialog on
+ * them. The drawer's Notes tab opens on a plain note; Log call, Log meeting, Log LinkedIn and Log WhatsApp open it as a dialog on
  * their own kind (`kindChoices`).
  */
 export function PositionNoteComposer({

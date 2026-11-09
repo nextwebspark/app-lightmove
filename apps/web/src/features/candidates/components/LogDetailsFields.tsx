@@ -102,6 +102,7 @@ const WHEN_ERROR_ID = "log-when-error";
 const TITLE_EXAMPLES: Partial<Record<PersonNoteKind, string>> = {
   call: "First call",
   linkedin: "InMail reply",
+  whatsapp: "Voice note",
   meeting: "Coffee at DIFC",
 };
 

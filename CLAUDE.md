@@ -118,7 +118,7 @@ once their row is held, never suppressed, audited `reason: retention`; the same 
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
-**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`) — the Notes tabs write and list plain notes alone, a call, a LinkedIn message or a meeting written up without the Notetaker is logged from Outreach (`NoteComposerModal`, of the kind its button named, with no switch to another) with when it happened — now unless changed, never in the
+**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn, WhatsApp — V164 and V201, each network drawn with its own mark by `NoteKindMark`) — the Notes tabs write and list plain notes alone, a call, a LinkedIn or WhatsApp message or a meeting written up without the Notetaker is logged from Outreach (`NoteComposerModal`, of the kind its button named, with no switch to another) with when it happened — now unless changed, never in the
 future — and an optional title (V185 `occurred_at`, `title`), a meeting's tied to the past Uncava meeting it was about
 — its calendar meeting (`meeting_id`, bare; `PastMeetingLookup`, answered by `outreach`) or, once the calendar has let
 the meeting go, its Notetaker recording (V188 `recording_id`; `PastRecordingLookup`, answered by `notetaker`, from that
@@ -149,7 +149,7 @@ status picker and that pencil, the primary email and phone with "+N" and the con
 one line with a +N chip, and do not contact) and one tab order, `Position.dc.html`'s, grouped by what the consultant
 is doing: **Profile · Notes · Assessment · Outreach · Activity** — Profile's folds Summary, Experience, Education,
 Background, Compensation, Documents and Your columns, Summary alone open on arrival (`useProfileSections`); Outreach
-the conversation — the action row first (Write email, Log call, Log meeting, Log LinkedIn, Book a meeting, Add to sequence, held
+the conversation — the action row first (Write email, Log call, Log meeting, Log LinkedIn, Log WhatsApp, Book a meeting, Add to sequence, held
 while a run is live), then the run where there is one, the calls to come, then one timeline (its latest five, See more for
 the rest) (`DrawerOutreachTimeline`, over the conversation read and
 `MeetingsSection`'s past calls with their ⋯: emails, replies, logged calls and LinkedIn messages, each past
@@ -202,8 +202,8 @@ private GCS bucket behind `core/storage`'s `DocumentStore` (`lightmove.storage.*
 for `npm run dev` and tests), streamed by the API, never by a signed URL. The SPA draws them in
 `components/documents`: both drawers' Documents fold (on Profile) and a preview sheet (a PDF or image fetched as a blob, never a link); the
 upload tray says what each file will become before sending, and a duplicate is the server's 409.
-`CandidateResponse.linkedinUrlLocked` is the server's own lock, which the Contact section reads rather
-than guessing from this mandate's door.
+`CandidateResponse.linkedinUrlLocked` says the plugin read the held URL off its page; it fences nothing —
+a person's URL is always editable, and an edit that changes it clears the flag.
 **The workspace's Candidates page** (`/candidates`, `RequireStaff`, `Candidates.dc.html`, Phase 4) reads
 those routes: a People list the server searches (name, title, employer, an email; a plain scan per
 workspace, V33's reasoning), pages, sorts and narrows — quick views (owned by me, in an active position,
@@ -241,8 +241,8 @@ listed first everywhere — the grid's Email and Phone columns, the export, ever
 sequence, Book a call), each still changeable at the send. None chosen, the first of the ledger's order stands in:
 personal before work before untagged (an approach to someone at their current employer goes to a personal inbox),
 verified first, what a person supplied before what a lookup found, oldest first (`Person.listed`). A person the plugin
-captured keeps their LinkedIn URL locked (`CANDIDATE_PROFILE_URL_LOCKED`): it is the page they were
-read off and everything keys on it. `lightmove.enrichment.contactout` sits **beside**
+captured keeps their LinkedIn URL editable, since people change their address (`PERSON_PROFILE_HELD` still refuses
+a second person's profile). `lightmove.enrichment.contactout` sits **beside**
 `…enrichment.provider` and is never selected by it: contact lookup is its own account with its own bill,
 so `provider: off` leaves the buttons working, and an unconfigured deployment simply does not offer them.
 The **spreadsheet import** is that fourth door and carries both halves at once: a CSV or Excel file
@@ -278,10 +278,14 @@ rule in every read (`search` on the triage list, its
 people reads, the export and the talent map, the pipeline's `q`): a company by name, place or industry, an executive
 by name, title, place or employer, and — only for a `WORK_EXECUTE` holder, decided server-side — the company's and
 the person's live notes readable from this position and the person's tags; a matching company keeps all its people.
-In universe reads as **Table | Map | Pipeline** (`?view=`), Strategy as Companies | People and Outreach as
+In universe reads as **Table | Pipeline** (`?view=`; **Map is switched off on screen for now**, `MAP_OFFERED` in
+`triageStages.ts`: the globe, its reads and a stored choice stay, and a link or remembered choice of it lands on the table),
+Strategy as Companies | People and Outreach as
 Conversations | Sequences — each the page's own `ToolbarViewSwitch`, first in its toolbar at every width and in full
-screen, one fixed width whether it holds two views or three so the search starts at the same place on all three; the
-rail is one row per page and nests nothing. `useCompaniesViews` decides what In universe offers. A view someone
+screen, one width whether it holds two views or three so the search starts at the same place on all three. **The row stays
+on one line** from a phone up (`TOOLBAR_ROW`, `components/ui/Toolbar`): the search and the switch shrink first, then the
+buttons give up their words for their icons by the row's own width (`ToolbarLabel`, a container query), and only below
+`sm` does it wrap. The rail is one row per page and nests nothing. `useCompaniesViews` decides what In universe offers. A view someone
 *chose* in the switch is remembered per mandate; a link that only names one, a
 notification's `?view=pipeline`, is a visit. **Pipeline** is the position's
 board by pipeline stage — the retired CRM Pipeline page, board only, every executive on the position whatever their
