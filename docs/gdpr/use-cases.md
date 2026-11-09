@@ -197,6 +197,10 @@ Three deployment switches decide what a deployment offers. All three are off by 
 | `SUPPRESSION_LIST_ENABLED` | Mounts the suppression list's keyset. Without it, nothing can be added to the list, and an erasure that suppresses is refused. | The `lightmove-suppression-keyset` secret |
 | `RETENTION_ENABLED` | The hourly sweep of system records (5b) | Counsel's sign-off on the periods (#930) |
 
+**Turning `DATA_PROTECTION_ENABLED` off again does not lift anything.** Suppression entries and processing
+restrictions made while it was on are still enforced at every route that files a person. But no screen can remove an
+entry or lift a restriction until the switch is back on.
+
 ## 7. Not built yet
 
 - Hiding a restricted person from client seats (waits on counsel).
