@@ -177,10 +177,7 @@ export function SectionEditor<S extends ProfileFormSection>({
         form.setError("fullName", { message: messageFor(error) });
         return;
       }
-      // Only onto the input when one is drawn: a link locked since the form opened has no field to show it.
-      const code = codeOf(error);
-      const linkRefused = code === "PERSON_PROFILE_HELD" || code === "CANDIDATE_PROFILE_URL_LOCKED";
-      if (section === "identity" && linkRefused && !candidate.linkedinUrlLocked) {
+      if (section === "identity" && codeOf(error) === "PERSON_PROFILE_HELD") {
         form.setError("linkedinUrl", { message: messageFor(error) });
         return;
       }

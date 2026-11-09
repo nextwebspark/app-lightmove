@@ -225,10 +225,6 @@ public enum ErrorCode {
     CONTACT_LIMIT_REACHED(HttpStatus.CONFLICT,
             "A profile holds ten email addresses and ten phone numbers at most"),
 
-    /** A plugin capture's URL is the page it was read off, and research and contact lookup key on it. */
-    CANDIDATE_PROFILE_URL_LOCKED(HttpStatus.CONFLICT,
-            "This profile was captured from LinkedIn; its URL is not editable"),
-
     /** Another person in the workspace is that LinkedIn profile; the mandate may map them instead. */
     PERSON_PROFILE_HELD(HttpStatus.CONFLICT,
             "Another candidate in this workspace already has that LinkedIn profile"),

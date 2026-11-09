@@ -19,7 +19,6 @@ import { cn } from "../../../lib/cn";
 import { CURRENCIES, currencyOptionLabel, DEFAULT_CURRENCY } from "../../../lib/currencies";
 import { formatNumber } from "../../../lib/format";
 import { NOTICE_PERIODS } from "../../../lib/noticePeriod";
-import { toReadableUrl } from "../../../lib/url";
 import type { CandidateBackgroundField } from "../api/types";
 import {
   allowanceTotalOf,
@@ -744,29 +743,14 @@ export function BackgroundFields({
   );
 }
 
-/**
- * The profile link. Locked for a person the plugin captured: the URL is the page it read them off,
- * and research and contact lookup both key on it, so retyping it can only break them.
- */
+/** The profile link, editable even for a person the plugin captured: people move their LinkedIn address. */
 export function LinkedInUrlField({
   register,
   error,
-  lockedUrl,
 }: {
   register: UseFormRegister<CandidateForm>;
   error: string | undefined;
-  lockedUrl: string | null;
 }) {
-  if (lockedUrl) {
-    return (
-      <Field label="LinkedIn" hint="Captured from this profile page — not editable">
-        <div className="flex items-center gap-2 rounded-lg border border-u-border bg-u-raised px-3 py-2 font-mono text-[13px] text-u-text2">
-          <Icon d={ICONS.lock} size={13} className="flex-none text-u-text3" />
-          <span className="min-w-0 truncate">{toReadableUrl(lockedUrl)}</span>
-        </div>
-      </Field>
-    );
-  }
   return (
     <Field label="LinkedIn" error={error}>
       <Input {...register("linkedinUrl")} placeholder="linkedin.com/in/…" invalid={Boolean(error)} />

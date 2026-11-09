@@ -234,6 +234,7 @@ public class Person extends BaseEntity {
         this.title = details.title();
         confirmIfChanged(BackgroundField.SENIORITY, seniorityLevel, details.seniority());
         this.seniorityLevel = details.seniority();
+        linkedinUrlLocked = linkedinUrlLocked && Objects.equals(linkedinUrl, details.linkedinUrl());
         recordLinkedinUrl(details.linkedinUrl());
         this.locationCountry = details.locationCountry();
         this.locationCity = details.locationCity();

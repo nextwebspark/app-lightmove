@@ -194,7 +194,7 @@ export function AddCandidateForm({
                 <ContactEntriesFields channel="phone" />
               </div>
             </div>
-            <LinkedInUrlField register={register} error={formState.errors.linkedinUrl?.message} lockedUrl={null} />
+            <LinkedInUrlField register={register} error={formState.errors.linkedinUrl?.message} />
           </Section>
 
           <Section title="Background">

@@ -3,6 +3,7 @@ package app.lightmove.api.candidate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
@@ -20,8 +21,8 @@ import tools.jackson.databind.JsonNode;
  * <p>What must hold: the save makes each channel hold exactly what was listed, a value's door is
  * kept unless the person respells it, a duplicate in one save is refused rather than silently
  * merged, someone who may only read the mandate may not write, a profile URL the plugin captured
- * cannot be retyped through the profile's own PUT, and the profile's own writes are held to the same
- * cap and duplicate rule as the section's.
+ * can still be corrected through the profile's own PUT, and the profile's own writes are held to the
+ * same cap and duplicate rule as the section's.
  */
 @IntegrationTest
 class CandidateContactsIntegrationTest extends FlowTestSupport {
@@ -174,8 +175,8 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a captured profile's LinkedIn URL cannot be retyped; a hand-added one can")
-    void aCapturedProfileUrlIsLocked() throws Exception {
+    @DisplayName("a captured profile's LinkedIn URL can be corrected when the person has moved it")
+    void aCapturedProfileUrlCanBeCorrected() throws Exception {
         String projectId = mandate("Locked Url Firm");
         String captured = executive(projectId, """
                 {"fullName":"Captured Person","source":"extension",
@@ -183,24 +184,24 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
         String typed = executive(projectId, """
                 {"fullName":"Typed Person","linkedinUrl":"https://www.linkedin.com/in/typed-person"}""");
 
-        assertThat(codeOf(mvc.perform(put(candidatesUrl(projectId) + "/" + captured)
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"fullName":"Captured Person","source":"extension",
-                                 "linkedinUrl":"https://www.linkedin.com/in/someone-else"}"""))
-                .andExpect(status().isConflict())
-                .andReturn()))
-                .isEqualTo("CANDIDATE_PROFILE_URL_LOCKED");
-
-        // Replaying the captured URL unchanged is how every other section saves; it must pass.
         mvc.perform(put(candidatesUrl(projectId) + "/" + captured)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fullName":"Captured Person","title":"CFO","source":"extension",
                                  "linkedinUrl":"https://www.linkedin.com/in/captured-person"}"""))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linkedinUrlLocked").value(true));
+
+        mvc.perform(put(candidatesUrl(projectId) + "/" + captured)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Captured Person","source":"extension",
+                                 "linkedinUrl":"https://www.linkedin.com/in/captured-person-new"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linkedinUrl").value("https://www.linkedin.com/in/captured-person-new"))
+                .andExpect(jsonPath("$.linkedinUrlLocked").value(false));
 
         mvc.perform(put(candidatesUrl(projectId) + "/" + typed)
                         .header("Authorization", "Bearer " + adminToken)
