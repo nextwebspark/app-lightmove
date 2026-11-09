@@ -44,6 +44,10 @@ lightmove:
   scheduling:
     enabled: false
 
+  # The retention tests drive RetentionSweeper.sweepAt themselves, so the bean must exist.
+  retention:
+    enabled: true
+
   # Uploaded documents land under target/ and go with mvn clean; no test reaches a bucket.
   storage:
     provider: filesystem

@@ -93,6 +93,19 @@ class TenantResolversIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("no resolver is executable by PUBLIC: each reaches past row-level security")
+    void noResolverIsPublic() {
+        List<String> open = fixture.queryForList("""
+                SELECT proname FROM pg_proc p
+                WHERE (proname LIKE 'app\\_lm\\_resolve\\_%' OR proname LIKE 'app\\_lm\\_workspaces\\_%')
+                  AND pronamespace = 'public'::regnamespace AND prosecdef
+                  AND EXISTS (SELECT 1 FROM aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+                              WHERE acl.grantee = 0 AND acl.privilege_type = 'EXECUTE')""", String.class);
+
+        assertThat(open).isEmpty();
+    }
+
+    @Test
     @DisplayName("a resolver puts the maintenance flag back down, even inside its caller's transaction")
     void theFlagGoesBackDown() {
         Boolean stillRaised = transactions.execute(status -> {

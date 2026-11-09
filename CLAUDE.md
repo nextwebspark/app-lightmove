@@ -100,7 +100,12 @@ a Notetaker are refused; Add to sequence skips them and a run or a waiting email
 Add to position counts them `restricted`); their waiting or recording bots are called off in the restriction's own
 transaction and queued for `RecallBotErasureSweeper` (V197's table) to call back and strip until Recall answers, and a
 transcript arriving later is never summarised. Client-facing reads (the grid, talent map, report, export) still show
-them — that exclusion waits on counsel. A plugin capture of someone already researched spends no second vendor call, and is filed under the employer their latest position recorded (`PersonEmployerResolver.knownEmployerOf`, that position's company row's LinkedIn page and all). Every change to a
+them — that exclusion waits on counsel. **What is kept, and for how long, is `docs/privacy/retention-schedule.md`** (#921): one row per
+table holding a person, an account or an address, which `RetentionScheduleCoverageTest` holds the schema to.
+`RetentionSweeper` (hourly, `lightmove.retention.*`, defaults awaiting counsel; off unless `RETENTION_ENABLED=true`) deletes expired refresh-token families,
+verification links and two-factor challenges, the vendor caches past their TTL, closed invitations, read
+notifications, sent digests, idle assistant chats and aged metered uses — the tenant tables only in the workspaces
+V199's `app_lm_resolve_workspaces_with_retention_due` names, each in its own `WorkspaceScope`. A plugin capture of someone already researched spends no second vendor call, and is filed under the employer their latest position recorded (`PersonEmployerResolver.knownEmployerOf`, that position's company row's LinkedIn page and all). Every change to a
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
