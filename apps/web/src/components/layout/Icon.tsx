@@ -93,6 +93,8 @@ export const ICONS = {
   searchX: "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3M13.5 8.5l-5 5M8.5 8.5l5 5",
   /** A funnel — a column's header menu has narrowed the grid by this one. */
   filter: "M22 3H2l8 9.46V19l4 2v-8.54L22 3Z",
+  /** A funnel struck through — clear every column filter at once. */
+  filterX: "M13 3H2l8 9.46V19l4 2v-8.54M22 3l-5 5M17 3l5 5",
   sliders: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
   globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.5 9h17M3.5 15h17M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z",
   // Stroked like every other glyph here rather than the filled brand mark, which would be the only

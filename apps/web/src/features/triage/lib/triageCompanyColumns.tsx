@@ -28,7 +28,6 @@ import { StatusPicker } from "../../candidates/components/StatusPicker";
 import { statusStyle } from "../../candidates/lib/pipelineStatus";
 import type { CustomColumn, CustomColumnType } from "../../customcolumns/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
-import { SHORTLIST_OFFERED } from "./triageStages";
 import { lineMoves, removeTooltip, SOURCE_STYLES } from "./triageVocabulary";
 import type { TriageCompanyRow } from "./triageRows";
 
@@ -99,6 +98,9 @@ const helper = createColumnHelper<typeof triageTableFeatures, TriageCompanyRow>(
 const PILL =
   "inline-flex items-center rounded-[4px] px-[6px] py-[2px] font-mono text-[10px] font-bold uppercase tracking-[0.04em]";
 
+/** The "ACTIONS" label (about 52px) and the widest row — one move, a divider and the trash, with 4px gaps. */
+const ACTIONS_MIN_WIDTH = 62;
+
 /**
  * The Companies grid's columns — the same widths and shapes as Strategy's, so moving between the market and what a
  * mandate took from it does not feel like moving between two products.
@@ -163,7 +165,7 @@ const BUILT_IN_COLUMNS = helper.columns([
     header: "Actions",
     enableSorting: false,
     enableHiding: false,
-    meta: { share: 0, min: SHORTLIST_OFFERED ? 134 : 80 },
+    meta: { share: 0, min: ACTIONS_MIN_WIDTH, fixed: true },
     cell: (info) => {
       const row = info.row.original;
       const meta = info.table.options.meta;
@@ -181,7 +183,7 @@ const BUILT_IN_COLUMNS = helper.columns([
         const moves = lineMoves(lineStage);
         const movesCompany = lineStage === "declined" && company?.status === "declined";
         return (
-          <span className="flex justify-start gap-1.5">
+          <span className="flex justify-start gap-1">
             {moves.map((move) => (
               <button
                 key={move.status}
@@ -221,7 +223,7 @@ const BUILT_IN_COLUMNS = helper.columns([
       const busy = meta.busyIds.has(company.id);
       const moves = lineMoves(company.status);
       return (
-        <span className="flex justify-start gap-1.5">
+        <span className="flex justify-start gap-1">
           {moves.map((move) => (
             <button
               key={move.status}
@@ -259,7 +261,7 @@ const BUILT_IN_COLUMNS = helper.columns([
     id: "links",
     header: "Links",
     enableSorting: false,
-    meta: { share: 0, min: 56 },
+    meta: { share: 0, min: 56, fixed: true },
     cell: (info) => {
       const { company } = info.row.original;
       if (!company) return <span className="font-sans text-[13px] text-u-text3">—</span>;
