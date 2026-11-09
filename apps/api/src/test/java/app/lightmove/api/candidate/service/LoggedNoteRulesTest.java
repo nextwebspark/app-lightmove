@@ -69,6 +69,18 @@ class LoggedNoteRulesTest {
     }
 
     @Test
+    void aWhatsAppMessageTakesATimeAndATitleButNeverAMeeting() {
+        Instant earlier = NOW.minus(Duration.ofHours(2));
+
+        assertThat(write(request("whatsapp", earlier, "Intro", null), PersonNoteKind.WHATSAPP, POSITION))
+                .isEqualTo(new NoteOccurrence(earlier, "Intro", null, null));
+        assertThatThrownBy(() -> write(request("whatsapp", null, null, MEETING), PersonNoteKind.WHATSAPP, POSITION))
+                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> write(request("whatsapp", NOW.plus(Duration.ofHours(1)), null, null),
+                PersonNoteKind.WHATSAPP, POSITION)).isInstanceOf(ApiException.class);
+    }
+
+    @Test
     void anEmptyTitleClearsIt() {
         NoteOccurrence current = new NoteOccurrence(MEETING_START, "First call", null, null);
 

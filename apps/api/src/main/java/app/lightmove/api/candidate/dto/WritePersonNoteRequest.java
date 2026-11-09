@@ -13,7 +13,7 @@ import java.util.UUID;
  * under a position's own route the note is about that position unless {@code allPositions} says it is about
  * the person, on every position. Neither is read on a revise: what a note is about never changes. {@code format}
  * is a {@code NoteFormat} token, plain when absent: a caller that sends words alone sends them as typed. {@code kind}
- * left out is a plain note, the Notes tab's one kind. A logged call, LinkedIn message or meeting may say when it
+ * left out is a plain note, the Notes tab's one kind. A logged call, LinkedIn or WhatsApp message or meeting may say when it
  * happened ({@code occurredAt}, now when absent), carry a {@code title}, and a meeting's notes may name the Uncava
  * meeting they are about — a calendar meeting ({@code meetingId}) or a Notetaker recording ({@code recordingId}), never
  * both — whose start and title they then take.

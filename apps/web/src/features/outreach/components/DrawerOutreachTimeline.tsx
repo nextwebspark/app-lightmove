@@ -36,6 +36,7 @@ const KINDS: readonly { kind: TimelineKind; label: string; icon: string | null }
   { kind: "email", label: "Email", icon: ICONS.mail },
   { kind: "calls", label: "Calls", icon: ICONS.phoneCall },
   { kind: "linkedin", label: "LinkedIn", icon: null },
+  { kind: "whatsapp", label: "WhatsApp", icon: null },
   { kind: "meetings", label: "Meetings", icon: ICONS.video },
 ];
 
@@ -46,7 +47,8 @@ const MORE_SHOWN = 10;
 /**
  * The executive drawer's Outreach timeline (`Position.dc.html`'s Outreach): everything that passed between the team
  * and the executive on this position, newest first — emails and replies from the conversation read, the calls and
- * LinkedIn messages logged by hand, and each call that is over with the Meeting note the Notetaker filed from it.
+ * LinkedIn and WhatsApp messages logged by hand, and each call that is over with the Meeting note the Notetaker filed
+ * from it.
  * Plain notes are the Notes tab's and never drawn here. Each is a card led by its kind's mark and the face of whoever
  * did it; status and run changes are the Activity tab's.
  */
@@ -84,7 +86,7 @@ export function DrawerOutreachTimeline({
       <KindTile icon={icon} size="dot" />
     ) : (
       <span aria-hidden="true" className="grid size-[22px] flex-none place-items-center">
-        <NoteKindMark kind="linkedin" size={14} />
+        <NoteKindMark kind={kind} size={14} />
       </span>
     ),
     count: lines.filter((line) => kindOfLine(line) === kind).length,
@@ -409,7 +411,7 @@ function EmptyTimeline({ firstName, filtered }: { firstName: string; filtered: b
         {filtered ? "Nothing of this kind yet" : `No contact with ${firstName} yet`}
       </p>
       <p className="max-w-[380px] text-note text-u-text3">
-        Emails you send, replies, the calls, LinkedIn messages and meetings you log, and recorded calls with their
+        Emails you send, replies, the calls, LinkedIn and WhatsApp messages and meetings you log, and recorded calls with their
         notes all land here, newest first.
       </p>
     </div>
@@ -432,6 +434,7 @@ const NOTE_HEADINGS: Record<PersonNote["kind"], string> = {
   meeting: "Meeting",
   email: "Email",
   linkedin: "LinkedIn",
+  whatsapp: "WhatsApp",
 };
 
 const MONTH = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" });

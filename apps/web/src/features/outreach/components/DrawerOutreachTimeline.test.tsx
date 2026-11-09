@@ -142,6 +142,16 @@ describe("linesOf", () => {
     expect(keysOf()).toHaveLength(lines.length);
   });
 
+  it("keeps a WhatsApp message in its own filter, apart from LinkedIn", () => {
+    const whatsappNote = aNote("n-wa", "whatsapp", "Sent the outline.", "2026-10-19T09:00:00Z");
+    const lines = linesOf([...EVENTS, noteEvent(whatsappNote)], PAST);
+    const keysOf = (...kinds: TimelineKind[]) =>
+      lines.filter((line) => matches(line, new Set(kinds))).map((line) => line.key);
+
+    expect(keysOf("whatsapp")).toEqual(["note:n-wa"]);
+    expect(keysOf("linkedin")).toEqual(["note:n-li"]);
+  });
+
   it("puts a meeting's notes written by hand inside its call, beside the Notetaker's", () => {
     const handNote = { ...aNote("n-hand", "meeting", "Met at the conference.", "2026-10-29T08:00:00Z"), meetingId: "mt1" };
     const lines = linesOf([...EVENTS, noteEvent(handNote)], PAST);

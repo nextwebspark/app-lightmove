@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * When a logged call, LinkedIn message or meeting happened, its optional title, and the calendar meeting or the
+ * When a logged call, LinkedIn or WhatsApp message or meeting happened, its optional title, and the calendar meeting or the
  * Notetaker recording it is about — at most one of the two.
  */
 public record NoteOccurrence(Instant occurredAt, String title, UUID meetingId, UUID recordingId) {

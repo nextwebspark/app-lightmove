@@ -78,6 +78,7 @@ export const NOTE_VERBS: Record<string, string> = {
   MEETING: "logged a meeting",
   EMAIL: "logged an email",
   LINKEDIN: "logged a LinkedIn message",
+  WHATSAPP: "logged a WhatsApp message",
 };
 
 export function timelineLines(

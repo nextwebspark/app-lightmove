@@ -15,7 +15,8 @@ public enum CompanyNoteKind implements ApiValueEnum {
     CALL("call"),
     MEETING("meeting"),
     EMAIL("email"),
-    LINKEDIN("linkedin");
+    LINKEDIN("linkedin"),
+    WHATSAPP("whatsapp");
 
     private final String value;
 }

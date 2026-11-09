@@ -9,7 +9,7 @@ import { PositionNoteComposer } from "../../candidates/components/PersonSections
 import { LOGGED_CONTACT_KINDS } from "../../candidates/lib/noteKinds";
 
 /**
- * Log call, Log LinkedIn and Add note — the executive drawer's Outreach, the conversation dock, the Pipeline card: the
+ * Log call, Log LinkedIn, Log WhatsApp and Add note — the executive drawer's Outreach, the conversation dock, the Pipeline card: the
  * drawer's own note composer as a dialog, with room to write. A log is of the kind its button named; the dialog offers
  * no switch to another.
  */
@@ -55,9 +55,11 @@ export function NoteComposerModal({
       ? `Log a call with ${fullName}`
       : kind === "linkedin"
         ? `Log a LinkedIn message with ${fullName}`
-        : kind === "meeting"
-          ? `Log a meeting with ${fullName}`
-          : `Add a note on ${fullName}`;
+        : kind === "whatsapp"
+          ? `Log a WhatsApp message with ${fullName}`
+          : kind === "meeting"
+            ? `Log a meeting with ${fullName}`
+            : `Add a note on ${fullName}`;
   const close = () => {
     dialog.reset();
     onClose();

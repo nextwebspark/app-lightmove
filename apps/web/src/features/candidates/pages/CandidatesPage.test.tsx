@@ -619,7 +619,7 @@ describe("CandidatesPage", () => {
     ]);
     renderPage("/candidates?person=person-1&tab=notes");
 
-    const group = await screen.findByRole("region", { name: "Calls, meetings and LinkedIn" });
+    const group = await screen.findByRole("region", { name: "Calls, meetings and messages" });
     expect(within(group).getByText("Open to a move in Q2.")).toBeInTheDocument();
   });
 

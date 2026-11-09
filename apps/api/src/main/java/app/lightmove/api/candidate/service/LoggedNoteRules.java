@@ -38,7 +38,7 @@ public class LoggedNoteRules {
     public void refuseLoggedEmail(PersonNoteKind kind, PersonNoteKind current) {
         if (kind == PersonNoteKind.EMAIL && current != PersonNoteKind.EMAIL) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "kind",
-                    "An email is recorded when it is sent; log a call or a LinkedIn message instead");
+                    "An email is recorded when it is sent; log a call, a LinkedIn or a WhatsApp message instead");
         }
     }
 

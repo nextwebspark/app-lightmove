@@ -5,7 +5,7 @@ import type { ConversationEvent } from "../api/conversationApi";
 import type { Meeting } from "../api/meetingApi";
 
 /** The kinds the timeline narrows to; none chosen shows them all. */
-export type TimelineKind = "email" | "calls" | "linkedin" | "meetings";
+export type TimelineKind = "email" | "calls" | "linkedin" | "whatsapp" | "meetings";
 
 /** One line of the drawer's Outreach timeline. */
 export type TimelineLine =
@@ -69,6 +69,8 @@ export function kindOfLine(line: TimelineLine): TimelineKind {
       return "calls";
     case "linkedin":
       return "linkedin";
+    case "whatsapp":
+      return "whatsapp";
     case "meeting":
       return "meetings";
     default:

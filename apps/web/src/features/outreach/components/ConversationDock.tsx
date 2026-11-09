@@ -13,7 +13,7 @@ import { NoteComposerModal } from "./NoteComposerModal";
 import { ReplyComposer } from "./ReplyComposer";
 
 /**
- * The foot of the conversation: Reply or Write email, Log call, Log LinkedIn, Add note and Add to sequence, each opening its own
+ * The foot of the conversation: Reply or Write email, Log call, Log LinkedIn, Log WhatsApp, Add note and Add to sequence, each opening its own
  * dialog over the history.
  */
 export function ConversationDock({
@@ -59,6 +59,9 @@ export function ConversationDock({
       </DockButton>
       <DockButton icon={<NoteKindMark kind="linkedin" size={14} />} onClick={() => setNoteKind("linkedin")}>
         Log LinkedIn
+      </DockButton>
+      <DockButton icon={<NoteKindMark kind="whatsapp" size={14} />} onClick={() => setNoteKind("whatsapp")}>
+        Log WhatsApp
       </DockButton>
       <DockButton icon={<Icon d={ICONS.pencil} size={14} />} onClick={() => setNoteKind("general")}>
         Add note
