@@ -40,21 +40,19 @@ import org.springframework.transaction.annotation.Transactional;
 public class CandidateRetentionService {
 
     private static final String KEPT_KIND = "RETENTION_KEPT";
-    private static final int MAX_PAGE = 500;
+    public static final int MAX_PAGE = 500;
 
-    /** {@code p} is the person, {@code last} their latest line. */
-    private static final String DUE_PEOPLE = """
-            FROM app_lm_person p
-            LEFT JOIN LATERAL (
-                SELECT a.kind, a.occurred_at FROM app_lm_person_activity a
-                WHERE a.person_id = p.id ORDER BY a.occurred_at DESC, a.id DESC LIMIT 1) last ON true
-            """;
-
-    /** Bound to {@code :workspaceId} and {@code :cutoff}. */
+    /**
+     * Over {@code p}, the person, bound to {@code :workspaceId} and {@code :cutoff}. Each touch is its own range test
+     * rather than one {@code greatest(…)}, so the latest line is an index probe and only the due are read further.
+     */
     private static final String DUE_WHERE = """
             WHERE p.workspace_id = :workspaceId
               AND NOT p.processing_restricted
-              AND greatest(last.occurred_at, p.retention_kept_at, p.created_at) < :cutoff
+              AND p.created_at < :cutoff
+              AND (p.retention_kept_at IS NULL OR p.retention_kept_at < :cutoff)
+              AND NOT EXISTS (
+                  SELECT 1 FROM app_lm_person_activity a WHERE a.person_id = p.id AND a.occurred_at >= :cutoff)
               AND NOT EXISTS (
                   SELECT 1 FROM app_lm_project_candidate c JOIN app_lm_project pr ON pr.id = c.project_id
                   WHERE c.person_id = p.id AND pr.archived_at IS NULL)
@@ -116,20 +114,24 @@ public class CandidateRetentionService {
         }
         Instant cutoff = cutoffOf(months);
         MapSqlParameterSource parameters = dueParameters(workspaceId, cutoff)
-                .addValue("limit", Math.clamp(limit, 1, MAX_PAGE))
-                .addValue("offset", Math.max(offset, 0));
-        Long total = jdbc.queryForObject("SELECT count(*) " + DUE_PEOPLE + DUE_WHERE, parameters, Long.class);
+                .addValue("limit", limit)
+                .addValue("offset", offset)
+                .addValue("keptKind", KEPT_KIND);
+        Long total = jdbc.queryForObject("SELECT count(*) FROM app_lm_person p " + DUE_WHERE, parameters, Long.class);
         List<RetentionDuePersonResponse> people = jdbc.query("""
                 SELECT p.id, p.full_name, p.title, owner.full_name AS owner_name,
                        greatest(last.occurred_at, p.retention_kept_at, p.created_at) AS touched_at,
                        CASE WHEN p.retention_kept_at >= coalesce(last.occurred_at, '-infinity')
-                            THEN '%s' ELSE last.kind END AS touched_by,
+                            THEN :keptKind ELSE last.kind END AS touched_by,
                        (SELECT count(*) FROM app_lm_project_candidate c WHERE c.person_id = p.id) AS positions,
                        coalesce((SELECT c.company_name FROM app_lm_project_candidate c
                                  WHERE c.person_id = p.id AND c.company_name <> ''
                                  ORDER BY c.created_at DESC LIMIT 1),
                                 p.profile -> 'career' -> 0 ->> 'company') AS employer
-                """.formatted(KEPT_KIND) + DUE_PEOPLE + """
+                FROM app_lm_person p
+                LEFT JOIN LATERAL (
+                    SELECT a.kind, a.occurred_at FROM app_lm_person_activity a
+                    WHERE a.person_id = p.id ORDER BY a.occurred_at DESC, a.id DESC LIMIT 1) last ON true
                 LEFT JOIN app_lm_user owner ON owner.id = p.owner_user_id
                 """ + DUE_WHERE + """
                 ORDER BY touched_at, p.id
@@ -142,8 +144,9 @@ public class CandidateRetentionService {
     }
 
     /**
-     * Each person in a transaction of their own, so one still being emailed waits for the next review rather than
-     * keeping everyone else. Whether they are still due is asked again once erasure holds their row.
+     * Deliberately not {@code @Transactional}: each person is erased in a transaction of their own
+     * ({@link PersonErasureService#eraseUnderRetention}), so one still being emailed waits for the next review rather
+     * than keeping everyone else. Whether they are still due is asked again once erasure holds their row.
      */
     public RetentionEraseResponse erase(UUID actorId, UUID workspaceId, List<UUID> personIds,
                                         HttpServletRequest httpRequest) {
@@ -192,7 +195,7 @@ public class CandidateRetentionService {
     }
 
     private boolean isDue(UUID workspaceId, UUID personId, Instant cutoff) {
-        return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 " + DUE_PEOPLE + DUE_WHERE
+        return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM app_lm_person p " + DUE_WHERE
                         + " AND p.id = :personId)",
                 dueParameters(workspaceId, cutoff).addValue("personId", personId), Boolean.class));
     }
