@@ -103,7 +103,7 @@ export const LOCAL_ROW_MODELS = {
 /** `gap-3` in numbers, so the row's minimum width can be added up rather than guessed. */
 const ROW_GAP = 12;
 
-/** The header's "Clear all filters" button (`size-5`) and the gap before it. */
+/** The header's "Clear all filters" button (`size-5`) and the gap before it; its `-my-1` keeps it from setting the header's height. */
 const CLEAR_ALL_ROOM = 24;
 
 /** Below this a pointer is still a click, so a header drag cannot steal the sort. */
@@ -251,8 +251,8 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   columnFilters?: Record<string, DataGridColumnFilter>;
   /**
    * The column whose header carries "Clear all filters" while any of `columnFilters` is in force — the last
-   * visible column when this one is absent or hidden. The button is that header's own, so the column
-   * grows by its width only while it shows.
+   * visible column when this one is absent or hidden. The button's room is that header's own and is held
+   * whenever the grid offers filters, so the columns never shift as the button comes and goes.
    */
   clearFiltersColumnId?: string;
   /**
@@ -321,9 +321,10 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   }, [pinnedIds.join(","), layout.widths]);
 
   const filtersInForce = Object.values(columnFilters ?? {}).some(isFilterInForce);
-  const clearAllHost = filtersInForce
-    ? (visibleColumns.find((column) => column.id === clearFiltersColumnId) ?? visibleColumns[visibleColumns.length - 1])
-    : undefined;
+  const clearAllHost =
+    Object.keys(columnFilters ?? {}).length > 0
+      ? (visibleColumns.find((column) => column.id === clearFiltersColumnId) ?? visibleColumns[visibleColumns.length - 1])
+      : undefined;
   const clearAllRoom = clearAllHost ? { id: clearAllHost.id, px: CLEAR_ALL_ROOM } : undefined;
 
   const clearAllFilters = () => {
@@ -645,7 +646,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                       the boxes stay on screen when the row scrolls away from its own name. */}
                   <LeadingSlot lead={index === 0 && headerLead}>
                     {menuOnHeaderClick ? (
-                      <WithClearAll show={clearAllHost?.id === column.id} onClear={clearAllFilters}>
+                      <WithClearAll host={clearAllHost?.id === column.id} show={filtersInForce} onClear={clearAllFilters}>
                         <HeaderMenu
                           column={column}
                           visibleColumns={visibleColumns}
@@ -690,7 +691,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                           onFreeze={setFrozen}
                           onEditColumn={onEditColumn}
                         />
-                        {clearAllHost?.id === column.id && <ClearAllFiltersButton onClear={clearAllFilters} />}
+                        {filtersInForce && clearAllHost?.id === column.id && <ClearAllFiltersButton onClear={clearAllFilters} />}
                       </span>
                     )}
                   </LeadingSlot>
@@ -927,19 +928,29 @@ function ClearAllFiltersButton({ onClear }: { onClear: () => void }) {
       onPointerDown={(event) => event.stopPropagation()}
       aria-label="Clear all filters"
       title="Clear all filters"
-      className="grid size-5 flex-none place-items-center rounded-[4px] text-u-accent transition hover:bg-u-surface"
+      className="-my-1 grid size-5 flex-none place-items-center rounded-[4px] text-u-accent transition hover:bg-u-surface"
     >
       <Icon d={ICONS.filterX} size={13} />
     </button>
   );
 }
 
-function WithClearAll({ show, onClear, children }: { show: boolean; onClear: () => void; children: ReactNode }) {
-  if (!show) return children;
+function WithClearAll({
+  host,
+  show,
+  onClear,
+  children,
+}: {
+  host: boolean;
+  show: boolean;
+  onClear: () => void;
+  children: ReactNode;
+}) {
+  if (!host) return children;
   return (
     <span className="flex min-w-0 items-center gap-1">
       <span className="min-w-0 flex-1">{children}</span>
-      <ClearAllFiltersButton onClear={onClear} />
+      {show && <ClearAllFiltersButton onClear={onClear} />}
     </span>
   );
 }
