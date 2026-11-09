@@ -1,19 +1,22 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Modal } from "../../../components/ui";
+import { Button, Modal } from "../../../components/ui";
 import type { PersonNoteKind } from "../../candidates/api/types";
 import type { Conversation } from "../api/conversationApi";
 import type { MailboxState } from "../lib/mailboxState";
 import { canEnrolFrom } from "../lib/runVocabulary";
 import { useComposerDialog } from "../lib/useComposerDialog";
 import type { MailboxConnect } from "../lib/useMailboxConnect";
-import { NoteKindMark } from "../../candidates/components/NoteKindMark";
+import { ScheduleCallLauncher } from "../../pipeline/components/ScheduleCallLauncher";
+import { OUTREACH_ACTION_ROW } from "./CandidateOutreachButtons";
 import { EnrolDialog } from "./EnrolDialog";
+import { LogContactRow } from "./LogContactRow";
 import { NoteComposerModal } from "./NoteComposerModal";
 import { ReplyComposer } from "./ReplyComposer";
 
 /**
- * The foot of the conversation: Reply or Write email, Log call, Log LinkedIn, Log WhatsApp, Add note and Add to sequence, each opening its own
+ * The foot of the conversation, laid out as the executive drawer's Outreach tab is: Reply or Write email, Book a meeting and
+ * Add to sequence on one row, what is logged beneath them (Call, Meeting, LinkedIn, WhatsApp, Add note), each opening its own
  * dialog over the history.
  */
 export function ConversationDock({
@@ -39,6 +42,7 @@ export function ConversationDock({
   const emailDialog = useComposerDialog();
   const [noteKind, setNoteKind] = useState<PersonNoteKind | null>(null);
   const [isEnrolling, setIsEnrolling] = useState(false);
+  const [isBooking, setIsBooking] = useState(false);
   const canEnrol = !isArchived && canEnrolFrom(mailbox, currentRun.run);
   const closeEmail = () => {
     setIsEmailing(false);
@@ -49,30 +53,27 @@ export function ConversationDock({
     <div
       role="toolbar"
       aria-label="Conversation actions"
-      className="flex flex-none flex-wrap items-center gap-1.5 border-t border-u-border bg-u-surface px-5 py-2.5"
+      className="flex flex-none flex-col gap-2.5 border-t border-u-border bg-u-surface px-5 py-3"
     >
-      <DockButton icon={<Icon d={ICONS.mail} size={14} />} onClick={() => setIsEmailing(true)}>
-        {composer.replySubject !== null ? "Reply" : "Write email"}
-      </DockButton>
-      <DockButton icon={<Icon d={ICONS.phone} size={14} />} onClick={() => setNoteKind("call")}>
-        Log call
-      </DockButton>
-      <DockButton icon={<NoteKindMark kind="linkedin" size={14} />} onClick={() => setNoteKind("linkedin")}>
-        Log LinkedIn
-      </DockButton>
-      <DockButton icon={<NoteKindMark kind="whatsapp" size={14} />} onClick={() => setNoteKind("whatsapp")}>
-        Log WhatsApp
-      </DockButton>
-      <DockButton icon={<Icon d={ICONS.pencil} size={14} />} onClick={() => setNoteKind("general")}>
-        Add note
-      </DockButton>
-      {canEnrol && (
-        <span className="ms-auto">
-          <DockButton icon={<Icon d={ICONS.outreach} size={14} />} onClick={() => setIsEnrolling(true)}>
+      <div className={OUTREACH_ACTION_ROW}>
+        <Button variant="primary" size="xs" onClick={() => setIsEmailing(true)}>
+          <Icon d={ICONS.mail} size={13} />
+          {composer.replySubject !== null ? "Reply" : "Write email"}
+        </Button>
+        {mailbox.kind === "ready" && !isArchived && (
+          <Button variant="secondary" size="xs" onClick={() => setIsBooking(true)}>
+            <Icon d={ICONS.calendar} size={13} />
+            Book a meeting
+          </Button>
+        )}
+        {canEnrol && (
+          <Button variant="secondary" size="xs" onClick={() => setIsEnrolling(true)}>
+            <Icon d={ICONS.outreach} size={13} />
             Add to sequence
-          </DockButton>
-        </span>
-      )}
+          </Button>
+        )}
+      </div>
+      <LogContactRow onLog={setNoteKind} onAddNote={() => setNoteKind("general")} />
 
       <Modal
         open={isEmailing}
@@ -101,6 +102,9 @@ export function ConversationDock({
         onClose={() => setNoteKind(null)}
         onSaved={onNoteSaved}
       />
+      {isBooking && (
+        <ScheduleCallLauncher projectId={projectId} row={executive} onClose={() => setIsBooking(false)} />
+      )}
       {isEnrolling && (
         <EnrolDialog
           projectId={projectId}
@@ -110,18 +114,5 @@ export function ConversationDock({
         />
       )}
     </div>
-  );
-}
-
-function DockButton({ icon, onClick, children }: { icon: ReactNode; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex items-center gap-1.5 rounded-u-control border border-u-border-strong bg-u-surface px-3 py-1.5 text-note font-medium text-u-text2 transition hover:border-u-text3 hover:text-u-text"
-    >
-      {icon}
-      {children}
-    </button>
   );
 }

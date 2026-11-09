@@ -18,7 +18,8 @@ export function ScheduleCallLauncher({
   projectId: string;
   row: PipelineRow;
   onClose: () => void;
-  onOpenContact: (row: PipelineRow) => void;
+  /** Offered beside a refusal that the contact details can fix; absent where there is no such window. */
+  onOpenContact?: (row: PipelineRow) => void;
 }) {
   const record = useQuery({
     queryKey: poolApi.PERSON_RECORD_KEY(row.personId),
@@ -55,7 +56,8 @@ export function ScheduleCallLauncher({
       title={`Book a meeting with ${row.fullName}`}
       closeButton
       footer={
-        !record.isError && (
+        !record.isError &&
+        onOpenContact && (
           <Button
             size="sm"
             variant="secondary"
