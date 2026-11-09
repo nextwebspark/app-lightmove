@@ -106,6 +106,8 @@ class PersonErasureIntegrationTest extends FlowTestSupport {
         assertThat(referencesTo(personId, candidateIds)).isEmpty();
         assertThat(recall.removed()).containsExactly("bot-live");
         assertThat(recall.mediaDeleted()).containsExactlyInAnyOrder("bot-live", "bot-done");
+        assertThat(db.queryForObject("select count(*) from app_lm_recall_bot_erasure where recall_bot_id in"
+                + " ('bot-live', 'bot-done')", Long.class)).isZero();
         assertThat(db.queryForObject("select count(*) from app_lm_vendor_person where linkedin_slug = 'noor-haddad'",
                 Long.class)).isZero();
         assertThat(db.queryForObject("select count(*) from app_lm_vendor_people_search where query_key = 'erasure-q'",

@@ -96,7 +96,7 @@ export function SignupPage() {
 
       <Card className="w-[480px] max-w-[94vw] [animation-delay:80ms]">
         <h1 className="text-[19px] font-semibold leading-tight">Create your account</h1>
-        <p className="mb-6 mt-1 font-mono text-xs text-u-text3">Step 1 of 4 · your details</p>
+        <p className="mb-6 mt-1 font-mono text-xs text-u-text3">Step 1 of 3 · your details</p>
 
         <FormError message={formError} />
 

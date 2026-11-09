@@ -81,6 +81,8 @@ describe("SignupPage", () => {
         title: null,
         avatarUrl: null,
         avatarEditable: true,
+        phone: null,
+        linkedinUrl: null,
         emailVerified: false,
         hasPassword: true,
         timezone: "Asia/Dubai",

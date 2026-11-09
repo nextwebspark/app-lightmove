@@ -321,6 +321,9 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, API + "/outreach/booking/*").permitAll()
 
+                        // A picture an email shows, fetched by the recipient's mail client: the random token is the credential.
+                        .requestMatchers(HttpMethod.GET, API + "/email-images/*").permitAll()
+
                         // The mail service's webhook holds no bearer token: the delivery's HMAC signature,
                         // checked by OutreachInboxService before anything is read, is its credential.
                         .requestMatchers(API + "/outreach/webhooks/mailbox").permitAll()

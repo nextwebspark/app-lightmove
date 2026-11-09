@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
-import { Drawer } from "../../../../components/ui/Drawer";
+import { Drawer, DrawerFooter } from "../../../../components/ui/Drawer";
 import { PanelCloseButton } from "../../../../components/ui/PanelCloseButton";
 import { Button, DrawerSkeleton, Select, useToast } from "../../../../components/ui";
 import { tabPanelProps } from "../../../../components/ui/tabPanelProps";
@@ -10,16 +10,14 @@ import { messageFor } from "../../../../lib/errorCodes";
 import * as poolApi from "../../api/poolApi";
 import type { DocumentScope } from "../../api/documentsApi";
 import type { PersonDocument, PersonDocumentVersion, PersonRecord } from "../../api/types";
+import { isContactNote } from "../../lib/noteKinds";
 import { usePersonDocuments } from "../../lib/usePersonDocuments";
 import { usePersonRecordUpdate } from "../../lib/usePersonRecordUpdate";
 import { usePoolLookups } from "../../lib/usePoolLookups";
 import { DocumentPreviewSheet, type PreviewTarget } from "../documents/DocumentPreviewSheet";
-import { DocumentsPanel } from "../documents/DocumentsPanel";
-import { PrimaryCvChip } from "../documents/PrimaryCvChip";
 import { PositionsSection, type SetNextActionOn } from "../PersonPositions";
 import { PersonTagsSection } from "../PersonTagsSection";
 import { DrawerTabBar } from "../DrawerTabBar";
-import { DetailPill } from "../../../../components/ui/DetailList";
 import { WORKSPACE_TABS, type DrawerTab } from "../../lib/drawerTabs";
 import { NextActionModal, type NextActionTarget } from "../../../tasks/components/NextActionModal";
 import { PersonHeaderLayout } from "../ProfileParts";
@@ -27,7 +25,9 @@ import { PersonAvatar } from "./PersonAvatar";
 import { PersonNotesTab } from "./PersonNotesTab";
 import { PersonProfileTab } from "./PersonProfileTab";
 import { ActivityTimeline } from "../activity/ActivityTimeline";
-import { PersonContactTab } from "./PersonContactTab";
+import { ContactsReadDialog } from "../../../contactlookup/components/ContactsReadDialog";
+import { useProfileSections, type ProfileSection } from "../../lib/useProfileSections";
+import { scrollToFold } from "../../lib/profileFolds";
 import { AddToPositionDialog } from "./AddToPositionDialog";
 import { focusNoteComposer } from "../../../notes/lib/focusNoteComposer";
 import { ActionMenu, MenuItem } from "../../../../components/ui/ActionMenu";
@@ -108,6 +108,15 @@ function PersonDrawerBody({
     setPreview({ documentId: document.id, versionId: version.id });
   const closePreview = useCallback(() => setPreview(null), []);
   const changed = usePersonRecordUpdate();
+  const sections = useProfileSections();
+  const [showingContacts, setShowingContacts] = useState(false);
+  /** An Activity line's way back: its tab, and on Profile the fold that holds the thing, unfolded and in view. */
+  const openTab = (next: DrawerTab, fold?: ProfileSection) => {
+    onTabChange(next);
+    if (!fold) return;
+    sections.setAll(true, [fold]);
+    scrollToFold(fold);
+  };
   const [adding, setAdding] = useState(false);
   const [erasing, setErasing] = useState(false);
   const [restricting, setRestricting] = useState(false);
@@ -147,65 +156,70 @@ function PersonDrawerBody({
     onError: (error) => toast.error(messageFor(error)),
   });
 
-  const context = [person.companyName, person.locationCity, person.locationCountry].filter(Boolean).join(" · ");
   const doNotContact = person.doNotContact;
   const restriction = person.processingRestriction;
+  const offersRestriction = !restriction || restriction.mayLift;
+  const hasMenu = offersRestriction || isAdmin;
 
   return (
     <>
       <header className="relative flex-none border-b border-u-border px-5 pt-4">
         <PanelCloseButton onClose={onClose} />
-        <div className="absolute end-12 top-3.5">
-          <ActionMenu label={`More for ${person.fullName}`} width={256}>
-            {(close) => (
-              <>
-                {restriction ? (
-                  <MenuItem
-                    icon={ICONS.unlock}
-                    onSelect={() => {
-                      close();
-                      lifting.mutate();
-                    }}
-                  >
-                    Lift restriction
-                  </MenuItem>
-                ) : (
-                  <MenuItem
-                    icon={ICONS.lock}
-                    onSelect={() => {
-                      close();
-                      setRestricting(true);
-                    }}
-                  >
-                    Restrict processing…
-                  </MenuItem>
-                )}
-                {isAdmin && (
-                  <MenuItem
-                    icon={ICONS.trash}
-                    tone="danger"
-                    onSelect={() => {
-                      close();
-                      setErasing(true);
-                    }}
-                  >
-                    Delete person permanently…
-                  </MenuItem>
-                )}
-              </>
-            )}
-          </ActionMenu>
-        </div>
+        {hasMenu && (
+          <div className="absolute end-12 top-3.5">
+            <ActionMenu label={`More for ${person.fullName}`} width={256}>
+              {(close) => (
+                <>
+                  {!offersRestriction ? null : restriction ? (
+                    <MenuItem
+                      icon={ICONS.unlock}
+                      onSelect={() => {
+                        close();
+                        lifting.mutate();
+                      }}
+                    >
+                      Lift restriction
+                    </MenuItem>
+                  ) : (
+                    <MenuItem
+                      icon={ICONS.lock}
+                      onSelect={() => {
+                        close();
+                        setRestricting(true);
+                      }}
+                    >
+                      Restrict processing…
+                    </MenuItem>
+                  )}
+                  {isAdmin && (
+                    <MenuItem
+                      icon={ICONS.trash}
+                      tone="danger"
+                      onSelect={() => {
+                        close();
+                        setErasing(true);
+                      }}
+                    >
+                      Delete person permanently…
+                    </MenuItem>
+                  )}
+                </>
+              )}
+            </ActionMenu>
+          </div>
+        )}
         <PersonHeaderLayout
           avatar={<PersonAvatar person={person} size="xl" className="size-11 rounded-u-card border border-u-border-strong text-sm" />}
           fullName={person.fullName}
           linkedinUrl={person.linkedinUrl}
           title={person.title}
-          context={context}
-          hasCornerMenu
+          contacts={person.contacts}
+          onShowContacts={() => setShowingContacts(true)}
+          employer={{ name: person.companyName, logoUrl: person.companyLogoUrl }}
+          location={[person.locationCity, person.locationCountry].filter(Boolean).join(" · ")}
+          hasCornerMenu={hasMenu}
         >
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            {person.seniority && <DetailPill label={person.seniority} />}
             <label className="flex items-center gap-1.5">
               <span className="type-label text-u-text3">Owner</span>
               <Select
@@ -252,7 +266,6 @@ function PersonDrawerBody({
                 Processing restricted
               </span>
             )}
-            <PrimaryCvChip documents={documents} onPreview={openPreview} />
           </div>
           <PersonTagsSection person={person} className="mt-2.5" />
           {doNotContact && (
@@ -279,57 +292,62 @@ function PersonDrawerBody({
                   Restricted by {restriction.restrictedByName ?? "someone"} ·{" "}
                   {new Date(restriction.restrictedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
                 </div>
+                {!restriction.mayLift && (
+                  <div className="mt-0.5 text-note text-u-text3">
+                    Only {restriction.restrictedByName ?? "whoever restricted them"} or an admin can lift it.
+                  </div>
+                )}
               </div>
-              <Button
-                variant="secondary"
-                size="xs"
-                disabled={lifting.isPending}
-                onClick={() => lifting.mutate()}
-                className="flex-none"
-              >
-                Lift restriction
-              </Button>
+              {restriction.mayLift && (
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  disabled={lifting.isPending}
+                  onClick={() => lifting.mutate()}
+                  className="flex-none"
+                >
+                  Lift restriction
+                </Button>
+              )}
             </div>
           )}
         </PersonHeaderLayout>
 
+        {showingContacts && (
+          <ContactsReadDialog
+            fullName={person.fullName}
+            contacts={person.contacts}
+            note={doNotContact ? "Do not contact is set — lookups are off for this person." : null}
+            onClose={() => setShowingContacts(false)}
+          />
+        )}
         <DrawerTabBar
           idPrefix={TAB_ID_PREFIX}
           tabs={WORKSPACE_TABS}
           value={tab}
           onChange={onTabChange}
           counts={{
-            notes: notes.data?.length,
-            documents: documents.documents.data?.length,
+            notes: notes.data?.filter((note) => !isContactNote(note.kind)).length,
             positions: person.positions.length,
           }}
         />
       </header>
 
       <div key={tab} className="min-h-0 flex-1 overflow-y-auto px-5" {...tabPanelProps(TAB_ID_PREFIX, tab)}>
-        {tab === "career" && (
+        {tab === "profile" && (
           <div className="py-4">
-            <PersonProfileTab person={person} />
+            <PersonProfileTab
+              person={person}
+              sections={sections}
+              documents={documents}
+              documentScope={documentScope}
+              onPreview={openPreview}
+            />
           </div>
         )}
         {tab === "notes" && (
           <div className="py-4">
             <PersonNotesTab person={person} notes={notes} />
-          </div>
-        )}
-        {tab === "contact" && (
-          <div className="py-4">
-            <PersonContactTab person={person} />
-          </div>
-        )}
-        {tab === "documents" && (
-          <div className="py-4">
-            <DocumentsPanel
-              scope={documentScope}
-              documents={documents}
-              personName={person.fullName.split(" ")[0]}
-              onPreview={openPreview}
-            />
           </div>
         )}
         {tab === "activity" && (
@@ -343,7 +361,8 @@ function PersonDrawerBody({
               documents={documents.documents.data}
               destinations={{
                 onShowNote: () => onTabChange("notes"),
-                onOpenTab: onTabChange,
+                onOpenTab: openTab,
+                onShowContacts: () => setShowingContacts(true),
                 onOpenMeetings: () => onTabChange("positions"),
                 onOpenTask: () => onTabChange("positions"),
                 onPreviewDocument: openPreview,
@@ -375,7 +394,7 @@ function PersonDrawerBody({
         )}
       </div>
 
-      <footer className="flex flex-none items-center gap-2 border-t border-u-border px-5 py-3">
+      <DrawerFooter>
         <Button variant="secondary" className="ms-auto" onClick={startNote}>
           <Icon d={ICONS.plus} size={14} />
           Add note
@@ -383,7 +402,7 @@ function PersonDrawerBody({
         <Button variant="secondary" onClick={onClose}>
           Close
         </Button>
-      </footer>
+      </DrawerFooter>
 
       <NextActionModal target={nextAction} onClose={() => setNextAction(null)} />
 

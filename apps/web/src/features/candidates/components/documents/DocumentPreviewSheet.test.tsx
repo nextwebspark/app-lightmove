@@ -9,7 +9,6 @@ import type { DocumentScope } from "../../api/documentsApi";
 import type { PersonDocument } from "../../api/types";
 import { usePersonDocuments } from "../../lib/usePersonDocuments";
 import { DocumentPreviewSheet, type PreviewTarget } from "./DocumentPreviewSheet";
-import { PrimaryCvChip } from "./PrimaryCvChip";
 
 vi.mock("../../api/documentsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof documentsApi>()),
@@ -52,10 +51,9 @@ function Harness() {
   const [target, setTarget] = useState<PreviewTarget | null>(null);
   return (
     <>
-      <PrimaryCvChip
-        documents={documents}
-        onPreview={(document, version) => setTarget({ documentId: document.id, versionId: version.id })}
-      />
+      <button type="button" onClick={() => setTarget({ documentId: "d1", versionId: "v3" })}>
+        Preview the CV
+      </button>
       <DocumentPreviewSheet
         scope={scope}
         documents={documents}
@@ -95,12 +93,12 @@ describe("DocumentPreviewSheet", () => {
     });
   });
 
-  it("opens the primary CV from the header chip as a PDF, whatever type the bytes arrived as", async () => {
+  it("opens a CV as a PDF, whatever type the bytes arrived as", async () => {
     const user = userEvent.setup();
     vi.mocked(documentsApi.documentContent).mockResolvedValue(new Blob(["<html>"], { type: "text/html" }));
     renderHarness();
 
-    await user.click(await screen.findByRole("button", { name: /CV · v3/ }));
+    await user.click(await screen.findByRole("button", { name: "Preview the CV" }));
 
     const frame = await screen.findByTitle("Fatima Al Mazrouei CV, version 3");
     expect(frame).toHaveAttribute("src", "blob:preview-1");
@@ -112,7 +110,7 @@ describe("DocumentPreviewSheet", () => {
     const user = userEvent.setup();
     vi.mocked(documentsApi.documentContent).mockResolvedValue(new Blob(["%PDF"], { type: "application/pdf" }));
     renderHarness();
-    await user.click(await screen.findByRole("button", { name: /CV · v3/ }));
+    await user.click(await screen.findByRole("button", { name: "Preview the CV" }));
     await screen.findByTitle("Fatima Al Mazrouei CV, version 3");
 
     await user.keyboard("{Escape}");

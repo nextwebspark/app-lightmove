@@ -43,7 +43,7 @@ public class InterviewPlan extends BaseEntity {
     @Column(name = "title")
     private String title;
 
-    @Column(name = "title_key", nullable = false, updatable = false)
+    @Column(name = "title_key", nullable = false)
     private String titleKey;
 
     @Column(name = "starts_at", nullable = false, updatable = false)
@@ -99,6 +99,13 @@ public class InterviewPlan extends BaseEntity {
         this.questions = List.copyOf(edited);
         this.savedBy = by;
         this.savedAt = at;
+    }
+
+    /** The call renamed on the calendar: the plan takes its new row and title, and is found by them from now on. */
+    public void followCall(UUID meetingId, String title) {
+        this.meetingId = meetingId;
+        this.title = title;
+        this.titleKey = titleKeyOf(title);
     }
 
     /** The meeting row a calendar re-read made in place of the one the plan was made from. */

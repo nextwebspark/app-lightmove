@@ -4,6 +4,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import app.lightmove.api.core.config.SpaRequestPaths;
 import app.lightmove.api.core.error.service.ClientDisconnects;
+import app.lightmove.api.core.storage.service.EmailImageService;
 import jakarta.servlet.AsyncEvent;
 import jakarta.servlet.AsyncListener;
 import jakarta.servlet.FilterChain;
@@ -36,11 +37,14 @@ public class RequestLogFilter extends OncePerRequestFilter {
 
     private final RouteResolver routeResolver;
 
-    /** Health probes and the SPA's assets would otherwise be most of the log volume, and of the bill. */
+    /**
+     * Health probes and the SPA's assets would otherwise be most of the log volume, and of the bill. An email's picture
+     * is fetched each time a recipient opens the email, so a line per fetch would be a record of who read what when.
+     */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String uri = request.getRequestURI();
-        return uri.startsWith("/actuator") || SpaRequestPaths.isSpaPath(uri);
+        return uri.startsWith("/actuator") || uri.startsWith(EmailImageService.PATH) || SpaRequestPaths.isSpaPath(uri);
     }
 
     @Override

@@ -14,6 +14,7 @@ import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -25,11 +26,13 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
- * The database's own tenant fence (V171): with workspace A's setting a transaction reads and writes A's rows of
+ * The database's own tenant fence (V184): with workspace A's setting a transaction reads and writes A's rows of
  * every protected table and nothing of B's, and with no setting it reads nothing at all — whatever the query, a
  * repository's or raw SQL's.
  */
@@ -49,7 +52,7 @@ class RowLevelSecurityIntegrationTest extends FlowTestSupport {
             ROWS_OF_A_WORKSPACE.put(table, "select count(*) from " + table
                     + " child join app_lm_person p on p.id = child.person_id where p.workspace_id = ?");
         }
-        // V173's two shapes, one table each kind the seed touches: a direct workspace, and a project's child.
+        // V190's two shapes, one table each kind the seed touches: a direct workspace, and a project's child.
         for (String table : new String[] {"app_lm_client", "app_lm_workspace_candidate_tag", "app_lm_person_activity"}) {
             ROWS_OF_A_WORKSPACE.put(table, "select count(*) from " + table + " where workspace_id = ?");
         }
@@ -57,6 +60,13 @@ class RowLevelSecurityIntegrationTest extends FlowTestSupport {
             ROWS_OF_A_WORKSPACE.put(table, "select count(*) from " + table
                     + " child join app_lm_project p on p.id = child.project_id where p.workspace_id = ?");
         }
+        // Two hops: the child's parent is itself visible only through its project.
+        ROWS_OF_A_WORKSPACE.put("app_lm_project_member_role", "select count(*) from app_lm_project_member_role r"
+                + " join app_lm_project_member m on m.id = r.project_member_id"
+                + " join app_lm_project p on p.id = m.project_id where p.workspace_id = ?");
+        ROWS_OF_A_WORKSPACE.put("app_lm_position_responsibility", "select count(*) from app_lm_position_responsibility r"
+                + " join app_lm_position pos on pos.id = r.position_id"
+                + " join app_lm_project p on p.id = pos.project_id where p.workspace_id = ?");
     }
 
     @Autowired @FixtureJdbc JdbcTemplate fixture;
@@ -151,6 +161,112 @@ class RowLevelSecurityIntegrationTest extends FlowTestSupport {
         WorkspaceScope.run(firmA.workspaceId(), () -> transactions.executeWithoutResult(status ->
                 assertThatThrownBy(() -> WorkspaceScope.run(firmB.workspaceId(), () -> { }))
                         .isInstanceOf(IllegalStateException.class)));
+    }
+
+    /**
+     * A webhook's or job's thread commits with no workspace, and its after-commit listener — run on that same thread
+     * when the async pool is full, always in tests — joins the committed transaction's still-bound connection.
+     */
+    @Test
+    @DisplayName("a scope entered after commit sets the still-bound connection to its workspace, then hands it back")
+    void aScopeAfterCommitSetsAndRestoresTheBoundConnection() {
+        Map<String, Object> seen = new HashMap<>();
+        transactions.executeWithoutResult(status -> {
+            seen.put("committedOn", backendPid());
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    WorkspaceScope.run(firmA.workspaceId(), () -> {
+                        seen.put("scopedOn", backendPid());
+                        seen.put("scopedTo", currentWorkspace());
+                        seen.put("ownPerson", personRows(firmA.personId()));
+                        seen.put("otherPerson", personRows(firmB.personId()));
+                    });
+                    seen.put("afterScope", currentWorkspace());
+                }
+            });
+        });
+
+        assertThat(seen.get("scopedOn")).as("the scope joined the committed connection").isEqualTo(seen.get("committedOn"));
+        assertThat(seen.get("scopedTo")).isEqualTo(firmA.workspaceId());
+        assertThat(seen.get("ownPerson")).isEqualTo(1L);
+        assertThat(seen.get("otherPerson")).isEqualTo(0L);
+        assertThat(seen).containsKey("afterScope");
+        assertThat(seen.get("afterScope")).as("the connection reads no workspace again").isNull();
+    }
+
+    @Test
+    @DisplayName("the maintenance flag set on a borrowed connection is gone at the next checkout")
+    void theMaintenanceFlagDiesWithItsBorrower() {
+        for (int borrow = 0; borrow < 20; borrow++) {
+            transactions.executeWithoutResult(status -> {
+                application.queryForObject("select set_config('app.rls_maintenance', 'on', false)", String.class);
+                assertThat(application.queryForObject("select count(*) from app_lm_person", Long.class)).isPositive();
+            });
+            assertThat(application.queryForObject("select app_lm_rls_maintenance()", Boolean.class)).isFalse();
+            assertThat(application.queryForObject("select count(*) from app_lm_person", Long.class)).isZero();
+        }
+    }
+
+    @Test
+    @DisplayName("the shared library is read by every workspace and written only inside a shared-rows scope")
+    void theSharedLibraryIsWrittenOnlyInASharedRowsScope() {
+        UUID libraryTemplate = fixture.queryForObject("""
+                select t.id from app_lm_position_template t
+                where t.workspace_id is null
+                  and exists (select 1 from app_lm_position_template_keyword k where k.template_id = t.id)
+                order by t.code limit 1""", UUID.class);
+        assertThat(visibleIn(firmA.workspaceId(), "app_lm_position_template")).isPositive();
+
+        WorkspaceScope.run(firmA.workspaceId(), () -> transactions.executeWithoutResult(status -> assertThat(
+                application.update("update app_lm_position_template set summary = 'Taken' where id = ?",
+                        libraryTemplate)).isZero()));
+        assertRefusedByPolicy(() -> application.update("""
+                insert into app_lm_position_template_keyword (template_id, sort_order, keyword)
+                select template_id, max(sort_order) + 1, 'planted' from app_lm_position_template_keyword
+                where template_id = ? group by template_id""", libraryTemplate));
+        assertThat(fixture.queryForObject("select summary from app_lm_position_template where id = ?", String.class,
+                libraryTemplate)).isNotEqualTo("Taken");
+
+        SharedRows.run(() -> transactions.executeWithoutResult(status -> assertThat(application.update(
+                "update app_lm_position_template set summary = summary where id = ?", libraryTemplate)).isOne()));
+    }
+
+    @Test
+    @DisplayName("a grant waiting for its consent is seen by no workspace, and inside a shared-rows scope only")
+    void aPendingGrantIsReachedOnlyInASharedRowsScope() {
+        UUID clientId = fixture.queryForObject("""
+                insert into app_lm_oauth_client (client_id, client_name, redirect_uris, scopes, source)
+                values (?, 'Fence client', '["https://fence.example/cb"]', '["projects:read"]', 'DCR') returning id""",
+                UUID.class, "https://fence.example/" + UUID.randomUUID());
+        UUID userId = fixture.queryForObject("select id from app_lm_user where email = ?", UUID.class,
+                "amal@" + domain);
+        UUID grantId = UUID.randomUUID();
+        fixture.update("""
+                insert into app_lm_oauth_authorization (id, client_id, user_id, authorization_grant_type, attributes)
+                values (?, ?, ?, 'authorization_code', '{}')""", grantId, clientId, userId);
+        String ofThisGrant = "select count(*) from app_lm_oauth_authorization where id = '" + grantId + "'";
+
+        Long inAsScope = WorkspaceScope.call(firmA.workspaceId(), () -> transactions.execute(status ->
+                application.queryForObject(ofThisGrant, Long.class)));
+        Long inSharedScope = SharedRows.call(() -> application.queryForObject(ofThisGrant, Long.class));
+        assertThat(inAsScope).isZero();
+        assertThat(application.queryForObject(ofThisGrant, Long.class)).isZero();
+        assertThat(inSharedScope).isOne();
+        assertThat(application.queryForObject("select current_setting('app.shared_rows', true)", String.class))
+                .as("the flag is gone at the next checkout").isEmpty();
+    }
+
+    private Integer backendPid() {
+        return application.queryForObject("select pg_backend_pid()", Integer.class);
+    }
+
+    private UUID currentWorkspace() {
+        return application.queryForObject("select app_lm_current_workspace()", UUID.class);
+    }
+
+    private Long personRows(UUID personId) {
+        return application.queryForObject("select count(*) from app_lm_person where id = ?", Long.class, personId);
     }
 
     private long visibleIn(UUID workspaceId, String table) {

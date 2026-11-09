@@ -43,11 +43,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -55,7 +55,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -98,6 +98,7 @@ public class NotetakerService {
     private final MeetingRecordingRepository recordings;
     private final MeetingLiveLineRepository liveLines;
     private final CopilotStreamPublisher copilotStream;
+    private final RecallBotErasureSweeper recallCleanup;
     private final KeptMeetings meetings;
     private final CandidateOutreachService people;
     private final UserRepository users;
@@ -242,10 +243,10 @@ public class NotetakerService {
     }
 
     /**
-     * A bot waits for its call by the time it was sent for. Once that call has moved, or gone from every calendar, the
-     * bot would walk into the room at the old time — on a reused link, into somebody else's call — so it is called back,
-     * and the consultant switches Join at start on again for the new time. A workspace at a time: read with no
-     * workspace, every calendar would look empty and every waiting bot would be called back.
+     * A bot waits for its call by the time it was sent for. Once that call has moved, taken another link, or gone
+     * from every calendar, the bot would walk into the room at the old time — on a reused link, into somebody else's
+     * call — so it is called back, and the consultant switches Join at start on again for the new time. A workspace at
+     * a time: read with no workspace, every calendar would look empty and every waiting bot would be called back.
      */
     public int callBackMovedCalls(Instant now) {
         return workspaces.sum(workspaceId -> callBackMovedCallsInScope(now));
@@ -274,7 +275,8 @@ public class NotetakerService {
                         callOff(held);
                         audit.event(ProjectEventType.NOTETAKER_CANCELLED).actor(held.getRequestedBy())
                                 .workspace(held.getWorkspaceId()).target(AuditService.PROJECT_TARGET, held.getProjectId())
-                                .detail("candidateId", String.valueOf(held.getCandidateId()))
+                                .detailIfPresent("candidateId",
+                                        held.getCandidateId() == null ? null : held.getCandidateId().toString())
                                 .detail("recordingId", held.getId().toString())
                                 .detail("reason", "CALL_MOVED")
                                 .record();
@@ -288,42 +290,46 @@ public class NotetakerService {
         return calledBack;
     }
 
+    /**
+     * A call at the same time with no link yet, kept since the bot was sent, is taken for this one: a calendar that
+     * replaces an event writes the new row before its link. A linkless row older than the bot is another meeting.
+     */
     private boolean isStillOnACalendar(MeetingRecording scheduled) {
         return meetings.ofPerson(scheduled.getWorkspaceId(), scheduled.getPersonId()).stream()
-                .anyMatch(call -> call.startsAt().equals(scheduled.getStartsAt())
-                        && scheduled.getJoinUrl().equals(joinableOrNull(call.joinUrl())));
+                .filter(call -> call.startsAt().equals(scheduled.getStartsAt()))
+                .anyMatch(call -> {
+                    String link = joinableOrNull(call.joinUrl());
+                    return link == null ? call.keptSince().isAfter(scheduled.getCreatedAt())
+                            : scheduled.getJoinUrl().equals(link);
+                });
     }
 
     /**
-     * Processing of the person was restricted: every bot of theirs still to join, or recording now, is called back and
-     * its media deleted, in every position. A bot already asked to leave is filing its notes, which the notes' worker
-     * refuses for a restricted person. Run in the person's workspace, off the request that restricted them.
+     * Processing of the person was restricted: every bot of theirs still to join, or recording now, is called off and
+     * queued for {@link RecallBotErasureSweeper} to call back and strip of media, in every position. In the
+     * restriction's own transaction, so nothing is left scheduled at Recall if the instance dies after the commit. A bot
+     * already asked to leave is filing its notes, which the notes' worker refuses for a restricted person.
      */
+    @Transactional(propagation = Propagation.MANDATORY)
     public void callBackForRestriction(UUID workspaceId, UUID personId, UUID restrictedBy) {
-        // Its own transactions: a listener the pool runs on the publishing thread would otherwise join the finished one.
-        TransactionTemplate own = new TransactionTemplate(Objects.requireNonNull(transactions.getTransactionManager()));
-        own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        List<UUID> live = own.execute(status -> recordings.findByWorkspaceIdAndPersonIdAndStatusIn(workspaceId,
-                personId, CANCELLABLE).stream().map(MeetingRecording::getId).toList());
-        for (UUID recordingId : live == null ? List.<UUID>of() : live) {
-            String botId = own.execute(status -> recordings.lockById(recordingId)
-                    .filter(held -> !held.isEnding() && CANCELLABLE.contains(held.getStatus()))
-                    .map(held -> {
-                        callOff(held);
-                        audit.event(ProjectEventType.NOTETAKER_CANCELLED).actor(restrictedBy).workspace(workspaceId)
-                                .target(AuditService.PROJECT_TARGET, held.getProjectId())
-                                .detail("candidateId", String.valueOf(held.getCandidateId()))
-                                .detail("recordingId", recordingId.toString())
-                                .detail("reason", "PROCESSING_RESTRICTED")
-                                .record();
-                        return held.getRecallBotId() == null ? "" : held.getRecallBotId();
-                    })
-                    .orElse(null));
-            if (botId != null && !botId.isEmpty()) {
-                removeQuietly(botId);
-                deleteMediaQuietly(botId);
+        List<String> botIds = new ArrayList<>();
+        for (MeetingRecording held : recordings.lockByWorkspaceIdAndPersonIdAndStatusIn(workspaceId, personId,
+                CANCELLABLE)) {
+            if (held.isEnding()) {
+                continue;
+            }
+            callOff(held);
+            audit.event(ProjectEventType.NOTETAKER_CANCELLED).actor(restrictedBy).workspace(workspaceId)
+                    .target(AuditService.PROJECT_TARGET, held.getProjectId())
+                    .detail("candidateId", String.valueOf(held.getCandidateId()))
+                    .detail("recordingId", held.getId().toString())
+                    .detail("reason", "PROCESSING_RESTRICTED")
+                    .record();
+            if (held.getRecallBotId() != null) {
+                botIds.add(held.getRecallBotId());
             }
         }
+        recallCleanup.queue(botIds);
     }
 
     private void callOff(MeetingRecording held) {
@@ -651,7 +657,7 @@ public class NotetakerService {
         }
     }
 
-    void removeQuietly(String botId) {
+    private void removeQuietly(String botId) {
         try {
             recall.remove(botId);
         } catch (VendorException failed) {
@@ -663,7 +669,7 @@ public class NotetakerService {
         }
     }
 
-    void deleteMediaQuietly(String botId) {
+    private void deleteMediaQuietly(String botId) {
         try {
             recall.deleteMedia(botId);
         } catch (VendorException failed) {
@@ -680,7 +686,7 @@ public class NotetakerService {
     static NotetakerRecordingResponse responseOf(MeetingRecording recording, UUID userId, Instant now) {
         boolean heldRecording = recording.isRecordingKept(now);
         return new NotetakerRecordingResponse(recording.getId(), recording.getMeetingId(), recording.getStartsAt(),
-                recording.getTitle(), recording.getStatus(), recording.getFailureReason(),
+                recording.getEndsAt(), recording.getTitle(), recording.getStatus(), recording.getFailureReason(),
                 recording.getTranscript() != null, recording.isRetryable(), recording.getNoteId(),
                 recording.getSuggestions() != null, recording.suggestionsWith(CallSuggestionStatus.PENDING),
                 recording.suggestionsWith(CallSuggestionStatus.APPLIED),

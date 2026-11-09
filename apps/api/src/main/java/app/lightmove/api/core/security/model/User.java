@@ -42,6 +42,16 @@ public class User extends BaseEntity {
     @Column(length = 120)
     private String title;
 
+    /** Shown in the person's email signature. */
+    @Setter
+    @Column(name = "phone", length = 40)
+    private String phone;
+
+    /** Their own LinkedIn profile, canonical {@code https://www.linkedin.com/in/<slug>}. */
+    @Setter
+    @Column(name = "linkedin_url", length = 255)
+    private String linkedinUrl;
+
     @Column(name = "avatar_url")
     private String avatarUrl;
 

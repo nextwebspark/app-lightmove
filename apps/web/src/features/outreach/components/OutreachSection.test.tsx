@@ -42,7 +42,9 @@ function renderSection(
   onSetStatus = vi.fn(),
   candidateStatus: CandidateStatus = "contacted",
   path = "/projects/p1/universe",
+  open = true,
 ) {
+  const onToggle = vi.fn();
   vi.mocked(runApi.getCandidateOutreach).mockResolvedValue(outreach);
   render(
     <MemoryRouter initialEntries={[path]}>
@@ -53,8 +55,8 @@ function renderSection(
           candidateId="c1"
           firstName="Fatima"
           candidateStatus={candidateStatus}
-          open
-          onToggle={() => {}}
+          open={open}
+          onToggle={onToggle}
           isSettingStatus={false}
           onSetStatus={onSetStatus}
         />
@@ -62,7 +64,7 @@ function renderSection(
     </QueryClientProvider>
     </MemoryRouter>,
   );
-  return onSetStatus;
+  return { onSetStatus, onToggle };
 }
 
 describe("OutreachSection", () => {
@@ -79,11 +81,15 @@ describe("OutreachSection", () => {
       ],
     });
 
-    expect(await screen.findByText("Step 1 · Confidential: CFO")).toBeInTheDocument();
-    expect(screen.getByText(/^Sent /)).toBeInTheDocument();
-    expect(screen.getByText(/^Scheduled /)).toBeInTheDocument();
-    expect(screen.getByText("Waiting")).toBeInTheDocument();
-    expect(screen.getByText("CFO — first approach · from Yara Haddad")).toBeInTheDocument();
+    const row = await screen.findByRole("button", { name: /CFO — first approach/ });
+    expect(row).toHaveTextContent(/Yara Haddad · step 2 goes /);
+    expect(row).toHaveTextContent("In sequence");
+    expect(screen.getByRole("img", { name: "1 of 3 sent" })).toBeInTheDocument();
+    expect(screen.getByText("Step 1 · sent")).toBeInTheDocument();
+    expect(screen.getByText("Step 2 · scheduled")).toBeInTheDocument();
+    expect(screen.getByText("Step 3 · waiting")).toBeInTheDocument();
+    expect(screen.getByText("After step 2")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open sequence" })).toHaveAttribute("href", "/projects/p1/outreach/sequences/s1");
 
     await userEvent.click(screen.getByRole("button", { name: "Stop sequence" }));
     const dialog = await screen.findByRole("dialog", { name: /^Stop .*'s sequence\?$/ });
@@ -94,8 +100,44 @@ describe("OutreachSection", () => {
     expect(await screen.findByText("Sequence stopped.")).toBeInTheDocument();
   });
 
-  it("asks where someone who replied stands, and says why the rest never went", async () => {
-    const onSetStatus = renderSection({
+  it("says once why the rest of a stopped sequence never went", async () => {
+    renderSection({
+      run: { ...RUN, status: "STOPPED", stopReason: "MAILBOX_INACTIVE", nextSendAt: null, endedAt: "2026-10-05T06:00:00Z" },
+      steps: [
+        { number: 1, subject: "Confidential: CFO", state: "SENT", at: "2026-10-05T05:12:00Z", notSentBecause: null },
+        { number: 2, subject: null, state: "NOT_SENT", at: null, notSentBecause: "MAILBOX_INACTIVE" },
+        { number: 3, subject: null, state: "NOT_SENT", at: null, notSentBecause: "MAILBOX_INACTIVE" },
+      ],
+    });
+
+    const row = await screen.findByRole("button", { name: /CFO — first approach/ });
+    expect(row).toHaveTextContent("stopped after step 1 — mailbox disconnected");
+    expect(screen.getAllByText(/Mailbox disconnected/)).toHaveLength(1);
+    expect(screen.getByText(/Steps 2 and 3 were not sent\./)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Stop sequence" })).not.toBeInTheDocument();
+  });
+
+  it("folds to its one row, which opens it", async () => {
+    const onToggle = renderSection(
+      {
+        run: RUN,
+        steps: [{ number: 1, subject: "Confidential: CFO", state: "SENT", at: "2026-10-05T05:12:00Z", notSentBecause: null }],
+      },
+      vi.fn(),
+      "contacted",
+      "/projects/p1/universe",
+      false,
+    ).onToggle;
+
+    const row = await screen.findByRole("button", { name: /CFO — first approach/ });
+    expect(row).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("link", { name: "Open sequence" })).not.toBeInTheDocument();
+    await userEvent.click(row);
+    expect(onToggle).toHaveBeenCalled();
+  });
+
+  it("asks where someone who replied stands, and marks the steps that never went", async () => {
+    const { onSetStatus } = renderSection({
       run: { ...RUN, status: "REPLIED", nextSendAt: null, endedAt: "2026-10-06T10:20:00Z" },
       steps: [
         { number: 1, subject: "Confidential: CFO", state: "SENT", at: "2026-10-05T05:12:00Z", notSentBecause: null },
@@ -104,8 +146,9 @@ describe("OutreachSection", () => {
       ],
     });
 
-    expect(await screen.findByText(/Fatima replied/)).toBeInTheDocument();
-    expect(screen.getAllByText("Not sent: they replied")).toHaveLength(2);
+    expect(await screen.findByText(/Fatima replied .*\./)).toBeInTheDocument();
+    expect(screen.getByText("Step 2 · not sent")).toBeInTheDocument();
+    expect(screen.getByText("Step 3 · not sent")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Stop sequence" })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Interested" }));
@@ -130,7 +173,8 @@ describe("OutreachSection", () => {
     renderSection({ run: null, steps: [] });
 
     await waitFor(() => expect(runApi.getCandidateOutreach).toHaveBeenCalled());
-    expect(screen.queryByText("Outreach")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Sequence" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Latest reply" })).not.toBeInTheDocument();
   });
 
   it("quotes their latest reply and links to the conversation, except from the conversation itself", async () => {

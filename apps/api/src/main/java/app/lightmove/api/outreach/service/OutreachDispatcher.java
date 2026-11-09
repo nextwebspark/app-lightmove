@@ -1,6 +1,7 @@
 package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.core.tenant.EveryWorkspace;
+import app.lightmove.api.core.tenant.TenantResolvers;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -30,6 +31,7 @@ public class OutreachDispatcher {
     private final RecallCalendars recallCalendars;
     private final MailboxGateway gateway;
     private final EveryWorkspace workspaces;
+    private final TenantResolvers resolvers;
     private final Clock clock;
 
     @Scheduled(fixedDelayString = "${lightmove.outreach.dispatch-interval}",
@@ -53,11 +55,11 @@ public class OutreachDispatcher {
     /**
      * One pass. The timer calls it with the clock; tests call it with the moment they arranged. A workspace at a time:
      * the runs, their people and the senders' mailboxes are all under row-level security, so each claim and each send
-     * is made in the workspace it belongs to.
+     * is made in the workspace it belongs to — and only in a workspace with something due or a claim still held.
      */
     public void dispatchAt(Instant now) {
         Instant started = clock.instant();
-        workspaces.forEach(workspaceId -> {
+        workspaces.forEach(resolvers.workspacesWithSendsDue(now), workspaceId -> {
             dispatchSequencesAt(now);
             // Moved on by the time the pass has taken so far: a claim stamped with the pass's start would read to
             // every other instance as already that old, and be failed as uncertain while its email was still going.

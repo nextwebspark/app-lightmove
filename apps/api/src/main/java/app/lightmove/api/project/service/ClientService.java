@@ -60,6 +60,7 @@ public class ClientService {
     private final UserRepository users;
     private final AuditService audit;
     private final Clock clock;
+    private final RepresentativeViews representativeViews;
 
     @Transactional(readOnly = true)
     public List<ClientListResponse> list(UUID workspaceId, ClientListScope scope) {
@@ -98,11 +99,10 @@ public class ClientService {
         long delivered = mandates.stream()
                 .filter(mandate -> mandate.archivedAt() == null && mandate.stage().isDone()).count();
 
-        List<RepresentativeResponse> reps = representatives.findByClientIdOrderByCreatedAtAsc(clientId).stream()
-                .filter(rep -> rep.getStatus() != ClientRepStatus.REVOKED)
-                .map(rep -> new RepresentativeResponse(
-                        rep.getId(), rep.getFullName(), rep.getPosition(), rep.getEmail(), rep.getStatus()))
-                .toList();
+        List<RepresentativeResponse> reps = representativeViews.listed(workspaceId,
+                representatives.findByClientIdOrderByCreatedAtAsc(clientId).stream()
+                        .filter(rep -> rep.getStatus() != ClientRepStatus.REVOKED)
+                        .toList());
 
         return new ClientDetailResponse(client.getId(), client.getName(), client.universeAccountId(),
                 client.getSector(), client.getHqCountry(), client.getHqCity(), client.getLogoUrl(),

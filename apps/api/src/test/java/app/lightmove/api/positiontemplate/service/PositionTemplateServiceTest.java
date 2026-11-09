@@ -67,6 +67,25 @@ class PositionTemplateServiceTest {
         assertThat(service.matching(WORKSPACE, "Head of Treasury")).contains(fallback);
     }
 
+    @Test
+    @DisplayName("a keyword matches whole words: 'cto' is not in Director, 'coo' is not in Coordinator")
+    void keywordsMatchWholeWordsOnly() {
+        PositionTemplate cto = library("chief-technology-officer", "Chief Technology Officer",
+                "chief technology", "cto", "vp engineering");
+        PositionTemplate coo = library("chief-operating-officer", "Chief Operating Officer", "chief operating", "coo");
+        PositionTemplate cco = library("chief-commercial-officer", "Chief Commercial Officer", "sales director");
+        when(repository.findAllVisibleTo(WORKSPACE)).thenReturn(List.of(cto, coo, cco, libraryCfo, fallback));
+
+        assertThat(service.matching(WORKSPACE, "Sales Director")).contains(cco);
+        assertThat(service.matching(WORKSPACE, "HR Director")).contains(fallback);
+        assertThat(service.matching(WORKSPACE, "Executive Director, Contractor Sector")).contains(fallback);
+        assertThat(service.matching(WORKSPACE, "Project Coordinator")).contains(fallback);
+        assertThat(service.matching(WORKSPACE, "Group CTO")).contains(cto);
+        assertThat(service.matching(WORKSPACE, "VP, Engineering")).contains(cto);
+        assertThat(service.matching(WORKSPACE, "Deputy COO (Interim)")).contains(coo);
+        assertThat(service.matching(WORKSPACE, "Chief Financial Officer – Energy")).contains(libraryCfo);
+    }
+
     private static PositionTemplate library(String code, String title, String... keywords) {
         return PositionTemplate.forLibrary(code, draft(title, keywords), 0, null);
     }

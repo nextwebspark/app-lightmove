@@ -741,19 +741,22 @@ the mapping with FEEDBACK notes from the client seat, saved views, configurable 
 categories (today's seven `CandidateStatus` values stay).
 
 > **Built (#918): erasure.** `PersonErasureService` deletes a person for good behind `PERSON_ERASE` (ADMIN alone,
-> V175): the cascades from `app_lm_person` take every row, and each `PersonErasureContributor` reaches what they
-> cannot — outreach refuses while an email is mid-send and queues its attachments, the notetaker calls the person's
-> bots back at Recall and deletes the media, the vendor cache forgets the profile (across workspaces, by design), the
+> V196): the cascades from `app_lm_person` take every row, and each `PersonErasureContributor` reaches what they
+> cannot — outreach refuses while an email is mid-send and queues its attachments, the notetaker queues the person's
+> Recall bots (V197) to be called back and stripped of media, retried until Recall answers or its 7-day retention has
+> deleted them anyway, the vendor cache forgets the profile (across workspaces, by design), the
 > bell and Find executives' runs lose the name. Their files go through `StorageDeletionQueue` in the same transaction,
 > and by default their profile and addresses go on the suppression list (#920). The audit trail and the credit ledger
 > keep the id, never the name; names already written into older audit details are #927's.
 
-> **Built (#920, part 2): restriction of processing.** `Person.restrictProcessing` (V176, do not contact's shape: a
-> reason, who and when, kept only while set) is set and lifted by anyone holding `CANDIDATE_POOL_MANAGE`, optionally
-> suppressing the person as an objection, which lifting leaves in place. The gates: `CandidateService.dossierOf`
+> **Built (#920, part 2): restriction of processing.** `Person.restrictProcessing` (V198, do not contact's shape: a
+> reason, who and when, kept only while set) is set by anyone holding `CANDIDATE_POOL_MANAGE` and lifted only by
+> whoever set it or a `WORKSPACE_MANAGE` holder (`ProcessingRestrictionService`), optionally suppressing the person as
+> an objection, which lifting leaves in place. The gates: `CandidateService.dossierOf`
 > refuses `PERSON_PROCESSING_RESTRICTED`, so no model reads them; the filing step and `mapFromPool` map them onto no
 > further position; `OutreachRecipient.processingRestricted` stops contact lookups, own emails, bookings, the
-> Notetaker and every run at its next send; `PersonProcessingRestricted` calls their bots back after commit, and
+> Notetaker and every run at its next send; `PersonProcessingRestricted` calls their bots off in the restriction's transaction and queues them for
+> `RecallBotErasureSweeper`, and
 > `MeetingNotesWorker` leaves a later transcript unread. What a client seat reads is unchanged until counsel decides.
 
 ### Suggested PR sequence

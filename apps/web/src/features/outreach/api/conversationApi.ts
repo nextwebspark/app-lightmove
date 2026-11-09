@@ -94,6 +94,7 @@ export interface ConversationMessage {
   toAddress: string | null;
   senderUserId: string;
   senderName: string | null;
+  senderAvatarUrl: string | null;
   enrollmentId: string | null;
   sequenceName: string | null;
   stepNumber: number | null;
@@ -176,6 +177,8 @@ export interface SendMessageRequest {
   replyInThread: boolean;
   /** Versions of the person's own documents the email carries. */
   documentVersionIds: string[];
+  /** One of the sender's own signatures, added under the words; null sends none. */
+  signatureId: string | null;
 }
 
 export interface ScheduledMessage {

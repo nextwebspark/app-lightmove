@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { buttonClassName, EmptyState, Skeleton } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
-import { SHORTLIST_AND_DECLINE_OFFERED } from "../../triage/lib/triageStages";
+import { SHORTLIST_OFFERED } from "../../triage/lib/triageStages";
 import * as sequenceApi from "../api/sequenceApi";
 import type { Sequence } from "../api/sequenceApi";
 import { scheduleLabelOf } from "../lib/sendSchedule";
@@ -33,7 +33,7 @@ export function SequenceCards({ projectId }: { projectId: string }) {
         icon={<Icon d={ICONS.outreach} size={22} />}
         title="No sequences on this position yet"
         body={
-          SHORTLIST_AND_DECLINE_OFFERED
+          SHORTLIST_OFFERED
             ? "Write one, then add people to it from In universe, Shortlisted or a conversation."
             : "Write one, then add people to it from In universe or a conversation."
         }

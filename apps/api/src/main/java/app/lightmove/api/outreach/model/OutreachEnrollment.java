@@ -74,6 +74,10 @@ public class OutreachEnrollment extends BaseEntity {
     @Column(name = "first_body", nullable = false)
     private String firstBody;
 
+    /** The signature every step carries, drawn at Start; null sends none. */
+    @Column(name = "signature_html", updatable = false)
+    private String signatureHtml;
+
     @Column(name = "enrolled_by", updatable = false)
     private UUID enrolledBy;
 
@@ -127,11 +131,13 @@ public class OutreachEnrollment extends BaseEntity {
 
     /**
      * The first email is due {@code offset} after {@code firstDue}; the dispatcher holds it to the sender's
-     * daily cap, and to the sequence's window unless {@code pinned}.
+     * daily cap, and to the sequence's window unless {@code pinned}. {@code signatureHtml} is what Start drew to close
+     * every email of the run, or null for none.
      */
     public static OutreachEnrollment scheduled(OutreachSequence sequence, UUID candidateId, UUID personId,
                                                UUID sender, String toAddress, ReviewedFirstEmail email,
-                                               Instant now, Instant firstDue, Duration offset, boolean pinned) {
+                                               Instant now, Instant firstDue, Duration offset, boolean pinned,
+                                               String signatureHtml) {
         OutreachEnrollment enrollment = new OutreachEnrollment();
         enrollment.workspaceId = sequence.getWorkspaceId();
         enrollment.projectId = sequence.getProjectId();
@@ -151,7 +157,13 @@ public class OutreachEnrollment extends BaseEntity {
         enrollment.firstBody = email.body();
         enrollment.enrolledBy = sender;
         enrollment.enrolledAt = now;
+        enrollment.signatureHtml = signatureHtml;
         return enrollment;
+    }
+
+    /** What closes every email of the run, or nothing. */
+    public String signatureHtmlOrEmpty() {
+        return signatureHtml == null ? "" : signatureHtml;
     }
 
     /** Whether the email due next is a pinned first one, which the sending window lets through. */

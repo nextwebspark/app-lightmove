@@ -2,6 +2,7 @@ package app.lightmove.api.core.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.TestKeyedHashers;
 import app.lightmove.api.TestSecretCiphers;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -11,14 +12,15 @@ import org.junit.jupiter.api.Test;
 class SecretSettingsToStringTest {
 
     @Test
-    @DisplayName("the key-encryption keyset never prints, alone or inside the root properties")
+    @DisplayName("neither keyset ever prints, alone or inside the root properties")
     void keysetIsRedacted() {
-        CredentialEncryptionSettings crypto = new CredentialEncryptionSettings(TestSecretCiphers.DEV_KEYSET);
+        CredentialEncryptionSettings crypto = new CredentialEncryptionSettings(TestSecretCiphers.DEV_KEYSET,
+                TestKeyedHashers.DEV_KEYSET);
         LightMoveProperties properties = new LightMoveProperties(null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, crypto, null, null, null, null, null, null, null, null, null);
 
-        assertThat(crypto.toString()).doesNotContain("GiDd").contains("<redacted>");
-        assertThat(properties.toString()).doesNotContain("GiDd");
+        assertThat(crypto.toString()).doesNotContain("GiDd").doesNotContain("EgII").contains("<redacted>");
+        assertThat(properties.toString()).doesNotContain("GiDd").doesNotContain("EgII");
     }
 
     @Test

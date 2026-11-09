@@ -41,6 +41,28 @@ public interface MailboxConnectionRepository extends JpaRepository<MailboxConnec
 
     List<MailboxConnection> findByWorkspaceIdAndGateway(UUID workspaceId, MailboxGatewayKind gateway);
 
+    /**
+     * A drawer-opening read's claim on one calendar: two openings at once read it once. Written past the entity's
+     * version, so a refresh never fails a token rotation saving the same row, or the other way round.
+     */
+    @Modifying
+    @Query(nativeQuery = true, value = """
+            UPDATE app_lm_mailbox_connection SET calendar_synced_at = :now
+            WHERE id = :id AND calendar_synced_at < :staleBefore
+            """)
+    int claimCalendarRefresh(UUID id, Instant now, Instant staleBefore);
+
+    /**
+     * A refresh whose read failed gives its claim back, so the next opening reads the calendar again. Matched on the
+     * claim's exact time, so the caller claims at the column's precision, microseconds.
+     */
+    @Modifying
+    @Query(nativeQuery = true, value = """
+            UPDATE app_lm_mailbox_connection SET calendar_synced_at = :before
+            WHERE id = :id AND calendar_synced_at = :claimedAt
+            """)
+    int releaseCalendarRefresh(UUID id, Instant claimedAt, Instant before);
+
     /** Recall's webhook names its calendar and nothing else. A list, like {@link #findByGrantId}. */
     List<MailboxConnection> findByRecallCalendarId(String recallCalendarId);
 
