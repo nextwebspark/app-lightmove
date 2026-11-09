@@ -24,6 +24,7 @@ export interface Meeting {
   endsAt: string;
   ownerUserId: string;
   ownerName: string | null;
+  ownerAvatarUrl: string | null;
   /** Only on a meeting still to come. */
   joinUrl: string | null;
   /** The calendar's own name for the video link, e.g. "Google Meet". */

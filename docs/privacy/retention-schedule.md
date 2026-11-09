@@ -10,10 +10,12 @@ written down here.
 environment override under `lightmove.retention.*` (`RetentionSettings`), so a deployment can change it without a
 release. Backups and point-in-time recovery keep a deleted row until they age out; nothing rewrites them.
 
-**Jobs.** `RetentionSweeper` (hourly, `lightmove.retention.sweep-interval`) deletes the system rows below. A tenant
-table is swept only in the workspaces `app_lm_resolve_workspaces_with_retention_due` (V177) names, each inside its own
+**Jobs.** `RetentionSweeper` (hourly, `lightmove.retention.sweep-interval`) deletes the system rows below. It is off
+until counsel signs the periods off: only a deployment with `RETENTION_ENABLED=true` (`lightmove.retention.enabled`,
+the `RETENTION_ENABLED` variable in `deploy.yml`) makes it at all. A tenant
+table is swept only in the workspaces `app_lm_resolve_workspaces_with_retention_due` (V199) names, each inside its own
 `WorkspaceScope`. `PersonErasureService` (#918) is how a person goes: by an admin from Candidates, or by an admin
-reviewing candidate retention (#921 part 2) — a workspace's period (Settings → Data & retention, V178
+reviewing candidate retention (#921 part 2) — a workspace's period (Settings → Data & retention, V200
 `app_lm_workspace_retention`, `lightmove.retention.candidate-months` where it has not chosen, 24 ⚖️) lists whoever is
 untouched that long and on no live position; nothing deletes a person without that review. The workspace purge (#926) is how a workspace goes. Audit-trail retention waits for a
 delete-capable maintenance role (#256).
@@ -22,6 +24,8 @@ delete-capable maintenance role (#256).
 |---|---|---|---|---|---|
 | `app_lm_user` | name, work email, sign-in facts | the account | while the account lives | account deletion (#926) | — |
 | `app_lm_user_avatar` | profile photo | the person's picture beside their name | while the account lives | a new picture, removal, account deletion (#926) | — |
+| `app_lm_email_image` | a copy of the person's profile photo | the picture a sent email's signature shows | kept: an email already sent names it | account deletion (#926) | — |
+| `app_lm_email_signature` | user, the profile details a signature shows | a consultant's email signatures | while a member, until removed | removed, workspace purge, account deletion | — |
 | `app_lm_user_identity` | provider email and subject | Google / LinkedIn sign-in | while the account lives | account deletion, unlink | — |
 | `app_lm_user_mfa_factor` | sealed authenticator secret | two-factor | while two-factor is on | turned off, account deletion | — |
 | `app_lm_user_mfa_recovery_code` | hashed codes | two-factor recovery | while two-factor is on | regenerated, turned off | — |

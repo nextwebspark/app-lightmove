@@ -6,6 +6,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,9 +16,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Deletes from the bucket the files {@link StorageDeletionQueue} was handed. A batch is claimed by pushing its next
- * attempt past a lease in a committed transaction, so two instances never work one key; a delete the bucket refuses is
- * tried again later, backing off to a day, and never given up — a file whose rows are gone must not outlive them.
+ * Deletes the files {@link StorageDeletionQueue} was handed, a leased batch at a time so two instances never share a
+ * key; a refused delete backs off to a day and is never given up, since a file must not outlive its rows.
  */
 @Slf4j
 @Component
@@ -56,14 +56,14 @@ public class StorageDeletionSweeper {
     }
 
     private List<QueuedKey> claim(Instant now) {
-        return transaction.execute(status -> jdbc.query("""
+        return Objects.requireNonNullElse(transaction.execute(status -> jdbc.query("""
                 UPDATE app_lm_storage_deletion SET next_attempt_at = ?
                 WHERE id IN (SELECT id FROM app_lm_storage_deletion WHERE next_attempt_at <= ?
                              ORDER BY next_attempt_at LIMIT ? FOR UPDATE SKIP LOCKED)
                 RETURNING id, storage_key, attempts
                 """, (row, index) -> new QueuedKey(row.getObject("id", UUID.class), row.getString("storage_key"),
                         row.getInt("attempts")),
-                Timestamp.from(now.plus(LEASE)), Timestamp.from(now), BATCH));
+                Timestamp.from(now.plus(LEASE)), Timestamp.from(now), BATCH)), List.of());
     }
 
     private boolean deleteOne(QueuedKey queued, Instant now) {

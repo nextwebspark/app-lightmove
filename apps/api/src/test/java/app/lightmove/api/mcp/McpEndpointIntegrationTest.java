@@ -155,6 +155,18 @@ class McpEndpointIntegrationTest extends McpFlowSupport {
                 .getStatus()).isEqualTo(405);
     }
 
+    @Test
+    @DisplayName("a method the server does not offer, such as Claude's server/discover probe, is Method not found,"
+            + " never a 500")
+    void unknownMethod() throws Exception {
+        String key = keyOf(adminOf(domain), "projects:read", "mcp:use");
+
+        JsonNode answered = rpc(key, """
+                {"jsonrpc":"2.0","id":4,"method":"server/discover","params":{}}""");
+        assertThat(answered.at("/error/code").asInt()).isEqualTo(-32601);
+        assertThat(answered.get("id").asInt()).isEqualTo(4);
+    }
+
     private void assertRefused(String bearer) throws Exception {
         MockHttpServletRequestBuilder request = call(bearer, LIST_TOOLS);
         MvcResult refused = mvc.perform(request).andReturn();

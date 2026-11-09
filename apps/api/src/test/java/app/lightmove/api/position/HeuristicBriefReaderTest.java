@@ -14,6 +14,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -31,6 +32,30 @@ import org.springframework.beans.factory.annotation.Autowired;
 class HeuristicBriefReaderTest {
 
     @Autowired HeuristicBriefReader reader;
+
+    @Test
+    @Timeout(5)
+    @DisplayName("a document of blank lines reads in linear time: a padding that spanned lines took 49 seconds")
+    void blankLinesDoNotBacktrack() {
+        String blankRun = "a" + "\n".repeat(39_990) + "b";
+        String spacedRun = " \n".repeat(19_990) + "Job Title: Chief Financial Officer";
+
+        reader.propose(UUID.randomUUID(), blankRun);
+        ProposedPositionDetails spaced = reader.propose(UUID.randomUUID(), spacedRun);
+
+        assertThat(valueOf(spaced, "roleTitle")).isEqualTo("Chief Financial Officer");
+    }
+
+    @Test
+    @DisplayName("a value on the line after its label is still read")
+    void readsAValueOnTheNextLine() {
+        ProposedPositionDetails proposed = reader.propose(UUID.randomUUID(), """
+                Job Title:
+                Chief Financial Officer
+                """);
+
+        assertThat(valueOf(proposed, "roleTitle")).isEqualTo("Chief Financial Officer");
+    }
 
     @Test
     @DisplayName("a colon-separated header block yields title, location and department")

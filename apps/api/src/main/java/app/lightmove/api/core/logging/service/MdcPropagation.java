@@ -1,15 +1,14 @@
 package app.lightmove.api.core.logging.service;
 
-import app.lightmove.api.core.tenant.TenantContext;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import org.slf4j.MDC;
 
 /**
- * Carries the submitting thread's whole MDC into a task run on another thread, and with it the workspace that thread
- * works for ({@link TenantContext}), without which the task's transactions would read no tenant rows.
- * {@link MdcTaskDecorator} applies it to Spring's executor; a pool built by hand must wrap its own tasks.
+ * Carries the submitting thread's whole MDC into a task run on another thread. A task that may touch the database
+ * needs its workspace too, so pools wrap through {@code core/concurrent}'s {@code ThreadContextPropagation}, which
+ * composes this with it; this alone is for work that only logs.
  */
 public final class MdcPropagation {
 
@@ -18,17 +17,15 @@ public final class MdcPropagation {
 
     public static Runnable wrap(Runnable task) {
         Map<String, String> submitted = MDC.getCopyOfContextMap();
-        Runnable inWorkspace = TenantContext.propagating(task);
         return () -> runWith(submitted, () -> {
-            inWorkspace.run();
+            task.run();
             return null;
         });
     }
 
     public static <T> Callable<T> wrap(Callable<T> task) {
         Map<String, String> submitted = MDC.getCopyOfContextMap();
-        Callable<T> inWorkspace = TenantContext.propagating(task);
-        return () -> runWith(submitted, inWorkspace::call);
+        return () -> runWith(submitted, task::call);
     }
 
     /** An executor whose every task runs with the MDC of the thread that handed it over. */

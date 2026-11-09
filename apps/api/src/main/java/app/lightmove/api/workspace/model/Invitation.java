@@ -63,6 +63,10 @@ public class Invitation extends BaseEntity {
     @Column(name = "accepted_by_user_id")
     private UUID acceptedByUserId;
 
+    /** The last send the mail provider refused; null once one went through. */
+    @Column(name = "email_failed_at")
+    private Instant emailFailedAt;
+
     public static Invitation create(UUID workspaceId, String email, Role role,
                                     String tokenHash, UUID invitedBy, Instant expiresAt) {
         return build(workspaceId, null, email, role, tokenHash, invitedBy, expiresAt);
@@ -110,11 +114,18 @@ public class Invitation extends BaseEntity {
 
     /**
      * Rotates the token, so no resend leaves another live credential in an inbox. The role is the latest
-     * ask's: a re-invite as ADMIN kept MEMBER here while the email it sent said ADMIN.
+     * ask's: a re-invite as ADMIN kept MEMBER here while the email it sent said ADMIN. The inviter is the
+     * resender's too, so the email, the accept page and the Team page name the same person.
      */
-    public void reissue(Role newRole, String newTokenHash, Instant newExpiry) {
+    public void reissue(Role newRole, String newTokenHash, Instant newExpiry, UUID resentBy) {
         this.role = newRole;
+        this.invitedBy = resentBy;
         this.tokenHash = newTokenHash;
         this.expiresAt = newExpiry;
+        this.emailFailedAt = null;
+    }
+
+    public void markEmailFailed(Instant now) {
+        this.emailFailedAt = now;
     }
 }

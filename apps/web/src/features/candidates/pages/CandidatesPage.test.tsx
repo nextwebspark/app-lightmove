@@ -349,7 +349,7 @@ describe("CandidatesPage", () => {
   });
 
   it("adds the people ticked to a position, saying who is already in it", async () => {
-    vi.mocked(poolApi.addToPosition).mockResolvedValue({ added: 1, alreadyIn: 1, restricted: 0 });
+    vi.mocked(poolApi.addToPosition).mockResolvedValue({ added: 1, alreadyIn: 1, suppressed: 0, restricted: 0 });
     renderPage();
     await screen.findAllByText("Fatima Al Mazrouei");
 
@@ -454,6 +454,7 @@ describe("CandidatesPage", () => {
         restrictedByUserId: "u1",
         restrictedByName: "Alok Kumar",
         restrictedAt: "2026-09-21T11:20:00Z",
+        mayLift: true,
       },
     };
     vi.mocked(poolApi.getPerson).mockResolvedValue(restricted);
@@ -470,6 +471,24 @@ describe("CandidatesPage", () => {
     await waitFor(() => expect(poolApi.setProcessingRestriction).toHaveBeenCalledWith("person-1", false));
   });
 
+  it("offers no Lift to a teammate who neither set the restriction nor is an admin", async () => {
+    vi.mocked(poolApi.getPerson).mockResolvedValue({
+      ...record,
+      processingRestriction: {
+        reason: "Asked on 20 Sep what we hold about her.",
+        restrictedByUserId: "u2",
+        restrictedByName: "Sara Al-Mansour",
+        restrictedAt: "2026-09-21T11:20:00Z",
+        mayLift: false,
+      },
+    });
+    renderPage("/candidates?person=person-1");
+
+    const note = await screen.findByRole("note", { name: "Processing restricted" });
+    expect(note).toHaveTextContent("Only Sara Al-Mansour or an admin can lift it.");
+    expect(screen.queryByRole("button", { name: "Lift restriction" })).not.toBeInTheDocument();
+  });
+
   it("offers Restrict processing in the person's ⋯ to anyone on the team", async () => {
     renderPage("/candidates?person=person-1");
     await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
@@ -480,7 +499,7 @@ describe("CandidatesPage", () => {
     expect(await screen.findByRole("dialog", { name: /Restrict processing for Fatima Al Mazrouei/ })).toBeInTheDocument();
   });
 
-  it("draws the position drawer's tabs, less what only a position holds, with tags in the header", async () => {
+  it("draws the position drawer's tabs, less what only a position holds, with tags and contacts in the header", async () => {
     vi.mocked(poolApi.getPerson).mockResolvedValue({
       ...record,
       contacts: { ...record.contacts, emails: [{ address: "fatima@example.com", kind: "work", verified: true, status: null, source: "manual", foundAt: "2026-09-01T00:00:00Z" }] },
@@ -489,18 +508,19 @@ describe("CandidatesPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Fatima Al Mazrouei" })).toBeInTheDocument();
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent?.replace(/\d+$/, ""))).toEqual([
-      "Career",
+      "Profile",
       "Notes",
-      "Contact",
-      "Documents",
       "Activity",
       "Positions",
     ]);
-    // Tags are the person's, on view whichever tab is open.
+    // Tags are the person's, on view whichever tab is open; so is the primary email.
     expect(await screen.findByRole("button", { name: "Remove tag Open to work" })).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("tab", { name: "Contact" }));
     expect(screen.getByText("fatima@example.com")).toBeInTheDocument();
+    // The package and the documents are folds of Profile, closed until asked for.
+    const profile = screen.getByRole("tabpanel");
+    expect(within(profile).getByRole("button", { name: /^Summary/ })).toHaveAttribute("aria-expanded", "true");
+    expect(within(profile).getByRole("button", { name: /^Compensation/ })).toHaveAttribute("aria-expanded", "false");
+    expect(within(profile).getByRole("button", { name: /^Documents/ })).toHaveAttribute("aria-expanded", "false");
 
     await userEvent.click(screen.getByRole("tab", { name: /^Notes/ }));
     expect(await screen.findByLabelText("New note")).toBeInTheDocument();
@@ -563,11 +583,36 @@ describe("CandidatesPage", () => {
     expect(within(positions).getByRole("button", { name: "Set next action" })).toBeInTheDocument();
   });
 
+  it("keeps logged calls readable in their own group, whatever positions the person is on", async () => {
+    vi.mocked(poolApi.getPoolNotes).mockResolvedValue([
+      {
+        id: "n-call",
+        kind: "call",
+        body: "Open to a move in Q2.",
+        format: "plain",
+        pinned: false,
+        projectId: null,
+        projectTitle: null,
+        authorUserId: "u1",
+        authorName: "Alok Kumar",
+        authorAvatarUrl: null,
+        createdAt: "2026-09-22T10:00:00Z",
+        editedAt: null,
+        editedByName: null,
+        editable: true,
+      },
+    ]);
+    renderPage("/candidates?person=person-1&tab=notes");
+
+    const group = await screen.findByRole("region", { name: "Calls, meetings and LinkedIn" });
+    expect(within(group).getByText("Open to a move in Q2.")).toBeInTheDocument();
+  });
+
   it("deletes a note at once and takes it back with Undo", async () => {
     vi.mocked(poolApi.getPoolNotes).mockResolvedValue([
       {
         id: "n1",
-        kind: "call",
+        kind: "general",
         body: "Open to a move.",
         format: "plain",
         pinned: false,
@@ -617,7 +662,7 @@ describe("CandidatesPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save note" }));
     await waitFor(() =>
       expect(poolApi.writePoolNote).toHaveBeenCalledWith("person-1", {
-        kind: "call",
+        kind: "general",
         body: "Open to a move.",
         format: "markdown",
         projectId: null,

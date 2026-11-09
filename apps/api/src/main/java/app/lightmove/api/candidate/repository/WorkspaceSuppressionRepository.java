@@ -1,6 +1,5 @@
 package app.lightmove.api.candidate.repository;
 
-import app.lightmove.api.candidate.constant.SuppressionKind;
 import app.lightmove.api.candidate.model.WorkspaceSuppression;
 import java.util.Collection;
 import java.util.List;
@@ -17,18 +16,19 @@ public interface WorkspaceSuppressionRepository extends JpaRepository<WorkspaceS
 
     Optional<WorkspaceSuppression> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
-    List<WorkspaceSuppression> findByWorkspaceIdAndKindAndValueHashIn(UUID workspaceId, SuppressionKind kind,
-                                                                      Collection<String> valueHashes);
+    List<WorkspaceSuppression> findByWorkspaceIdAndValueHashIn(UUID workspaceId, Collection<String> valueHashes);
 
-    Optional<WorkspaceSuppression> findByWorkspaceIdAndKindAndValueHash(UUID workspaceId, SuppressionKind kind,
-                                                                        String valueHash);
+    boolean existsByWorkspaceId(UUID workspaceId);
+
+    boolean existsByWorkspaceIdAndKeyIdNotIn(UUID workspaceId, Collection<Integer> keyIds);
 
     /** A key already on the list keeps its first reason and note: who suppressed it first is the record. */
     @Modifying
     @Query(value = """
-            INSERT INTO app_lm_workspace_suppression (workspace_id, kind, value_hash, reason, note, created_by)
-            VALUES (:workspaceId, :kind, :valueHash, :reason, :note, :createdBy)
+            INSERT INTO app_lm_workspace_suppression (workspace_id, kind, value_hash, key_id, reason, note, created_by)
+            VALUES (:workspaceId, :kind, :valueHash, :keyId, :reason, :note, :createdBy)
             ON CONFLICT (workspace_id, kind, value_hash) DO NOTHING
             """, nativeQuery = true)
-    int insertIfAbsent(UUID workspaceId, String kind, String valueHash, String reason, String note, UUID createdBy);
+    int insertIfAbsent(UUID workspaceId, String kind, String valueHash, int keyId, String reason, String note,
+                       UUID createdBy);
 }

@@ -47,6 +47,6 @@ public class KeptMeetings {
 
     private static KeptMeeting keptOf(PersonMeeting row) {
         return new KeptMeeting(row.getId(), row.getPersonId(), row.getTitle(), row.getStartsAt(), row.getEndsAt(),
-                row.getJoinUrl(), row.getUserId(), row.getBookedByUserId());
+                row.getJoinUrl(), row.getUserId(), row.getBookedByUserId(), row.getCreatedAt());
     }
 }

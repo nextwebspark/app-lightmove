@@ -26,7 +26,7 @@ import { isBillingRefusal } from "../../billing/lib/billingView";
 import { CANDIDATES_KEY_PREFIX } from "../../candidates/api/candidatesApi";
 import { TRIAGE_KEY_PREFIX } from "../../triage/api/triageApi";
 import type { TriageCompanyStatus } from "../../triage/api/types";
-import { OFFERED_TRIAGE_STAGES, stageByStatus } from "../../triage/lib/triageStages";
+import { PERSON_FILING_STAGES, stageByStatus } from "../../triage/lib/triageStages";
 import * as peopleApi from "../api/peopleApi";
 import * as strategyApi from "../api/strategyApi";
 import type { PeopleFilter, PeopleSearchPage, PersonResult, SavedSearch, SearchVisibility } from "../api/types";
@@ -404,7 +404,7 @@ export function PeopleStrategyEditor({
                 plural="people"
                 onClear={() => setRowSelection({})}
               >
-                {OFFERED_TRIAGE_STAGES.map((stage) => (
+                {PERSON_FILING_STAGES.map((stage) => (
                   <SelectionAction
                     key={stage.status}
                     icon={stage.icon}

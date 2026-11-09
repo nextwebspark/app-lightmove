@@ -11,7 +11,6 @@ import { landingAfterSignIn, safeReturnTo } from "../features/auth/returnTo";
 import { hasPendingSignupRestart } from "../features/auth/signupRestart";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
-import { InviteStepPage } from "../features/auth/pages/InviteStepPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
 import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
@@ -53,6 +52,7 @@ import { SettingsDataRetentionPage } from "../features/settings/pages/SettingsDa
 import { SettingsMeetingsPage } from "../features/settings/pages/SettingsMeetingsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
 import { SettingsProfilePage } from "../features/settings/pages/SettingsProfilePage";
+import { SettingsSignaturesPage } from "../features/signatures/pages/SettingsSignaturesPage";
 import { SettingsSecurityPage } from "../features/settings/pages/SettingsSecurityPage";
 import { SettingsWorkspacesPage } from "../features/settings/pages/SettingsWorkspacesPage";
 import { TriageStagePage } from "../features/triage/pages/TriageStagePage";
@@ -106,10 +106,11 @@ export function AppRoutes() {
           and the API refuses /onboarding/** without one, so a bypass here would only earn a 403. */}
       <Route path="/signup/verify-email" element={<RequireAuth><SignupVerifyStepPage /></RequireAuth>} />
 
-      {/* Verified, but not yet in a workspace. Not RequireWorkspace: the workspace is what these two
-          steps create, so guarding on it would bounce the user out of their own signup. */}
+      {/* Verified, but not yet in a workspace. Not RequireWorkspace: the workspace is what this step
+          creates, so guarding on it would bounce the user out of their own signup. */}
       <Route path="/signup/workspace" element={<RequireVerified><WorkspaceStepPage /></RequireVerified>} />
-      <Route path="/signup/invite" element={<RequireVerified><InviteStepPage /></RequireVerified>} />
+      {/* The retired invite step: an open tab or bookmark lands in the app, where Team invites. */}
+      <Route path="/signup/invite" element={<RequireVerified><Navigate to="/" replace /></RequireVerified>} />
 
       {/* Where the browser extension is paired. RequireWorkspace, not RequireAuth: the extension's
           only job is to write into a mandate, so pairing an account that has no workspace would mint a
@@ -185,6 +186,7 @@ export function AppRoutes() {
       <Route element={<RequireWorkspace><SettingsLayout /></RequireWorkspace>}>
         <Route path="/settings" element={<SettingsLanding />} />
         <Route path="/settings/profile" element={<SettingsProfilePage />} />
+        <Route path="/settings/signature" element={<RequireStaff><SettingsSignaturesPage /></RequireStaff>} />
         <Route path="/settings/notifications" element={<RequireStaff><SettingsNotificationsPage /></RequireStaff>} />
         <Route path="/settings/availability" element={<RequireStaff><SettingsAvailabilityPage /></RequireStaff>} />
         <Route path="/settings/security" element={<SettingsSecurityPage />} />

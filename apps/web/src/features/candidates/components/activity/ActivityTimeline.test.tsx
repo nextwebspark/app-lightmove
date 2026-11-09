@@ -91,6 +91,7 @@ describe("ActivityTimeline", () => {
     destinations = {
       onShowNote: vi.fn(),
       onOpenTab: vi.fn(),
+      onShowContacts: vi.fn(),
       onOpenMeetings: vi.fn(),
       onOpenTask: vi.fn(),
       onPreviewDocument: vi.fn(),
@@ -398,7 +399,7 @@ describe("ActivityTimeline", () => {
       }
     });
 
-    it("goes to the note itself on Open in Notes, and to the Notes tab for a note it can no longer show", async () => {
+    it("goes to a call note in Outreach, and to the Notes tab for a note it can no longer show", async () => {
       vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([callNote]);
       history(
         line(2, "NOTE_ADDED", { details: { noteId: "n1", kind: "CALL" }, noteExcerpt: "Open" }),
@@ -406,7 +407,7 @@ describe("ActivityTimeline", () => {
       );
       renderTimeline();
       await userEvent.click(await screen.findByRole("button", { name: /logged a call/ }));
-      await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: /Open in Notes/ }));
+      await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: /Open in Outreach/ }));
       expect(destinations.onShowNote).toHaveBeenCalledWith("n1");
 
       await userEvent.click(screen.getByRole("button", { name: /edited a note/ }));
@@ -478,7 +479,7 @@ describe("ActivityTimeline", () => {
         entry: line(1, "CONTACTS_EDITED", { details: { emails: "2", phones: "1" } }),
         card: /edited the contacts/, title: "Edited the contacts",
         shows: ["2 emails · 1 phones", /keeps counts only/],
-        way: { button: /Open Contact/, called: "onOpenTab", withArgs: ["contact"] },
+        way: { button: /Show contact details/, called: "onShowContacts" },
       },
       {
         entry: line(1, "OWNER_CHANGED", { details: { ownerUserId: "y", owner: "Yara Haddad" } }),
@@ -514,7 +515,7 @@ describe("ActivityTimeline", () => {
         entry: line(1, "AI_ASSESSED", { details: { scope: "BACKGROUND" } }),
         card: /had the AI suggest the background/, title: "Had the AI suggest the background",
         shows: [/marked AI until a researcher changes it/],
-        way: { button: /Open Career/, called: "onOpenTab", withArgs: ["career"] },
+        way: { button: /Open Background/, called: "onOpenTab", withArgs: ["profile", "background"] },
       },
       {
         entry: line(1, "AI_ASSESSED", { details: { scope: "ASSESSMENT" } }),
@@ -529,12 +530,12 @@ describe("ActivityTimeline", () => {
       {
         entry: line(1, "DO_NOT_CONTACT_SET"),
         card: /marked them do not contact/, title: "Marked them do not contact", shows: [],
-        way: { button: /Open Contact/, called: "onOpenTab", withArgs: ["contact"] },
+        way: { button: /Show contact details/, called: "onShowContacts" },
       },
       {
         entry: line(1, "DOCUMENT_REMOVED", { details: { category: "CV", documentId: "d1" } }),
         card: /deleted a CV/, title: "Deleted a CV", shows: [/keeps no copy of the file/],
-        way: { button: /Open Documents/, called: "onOpenTab", withArgs: ["documents"] },
+        way: { button: /Open Documents/, called: "onOpenTab", withArgs: ["profile", "documents"] },
       },
       {
         entry: line(1, "OUTREACH_ENROLLED", { details: { sequence: "CFO approach" } }),
@@ -792,7 +793,7 @@ describe("ActivityTimeline", () => {
       return screen.findByRole("dialog");
     };
 
-    it("shows a profile save's fields old and new, and goes to Career", async () => {
+    it("shows a profile save's fields old and new, and goes to Background", async () => {
       history(
         line(1, "PROFILE_EDITED", {
           changes: [
@@ -814,8 +815,8 @@ describe("ActivityTimeline", () => {
       expect(rows[4]).toHaveTextContent("Career historyEdited");
       expect(within(dialog).getByText("Dana Aboud", { selector: "p" })).toBeInTheDocument();
 
-      await userEvent.click(within(dialog).getByRole("button", { name: /Open Career/ }));
-      expect(destinations.onOpenTab).toHaveBeenCalledWith("career");
+      await userEvent.click(within(dialog).getByRole("button", { name: /Open Background/ }));
+      expect(destinations.onOpenTab).toHaveBeenCalledWith("profile", "background");
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
@@ -1030,6 +1031,7 @@ function message(overrides: Partial<ConversationMessage>): ConversationMessage {
     toAddress: "fatima@example.com",
     senderUserId: "dana",
     senderName: "Dana Aboud",
+    senderAvatarUrl: null,
     enrollmentId: null,
     sequenceName: null,
     stepNumber: null,
@@ -1055,6 +1057,7 @@ function meeting(overrides: Partial<meetingApi.Meeting>): meetingApi.Meeting {
     endsAt: "2026-10-30T11:45:00Z",
     ownerUserId: "dana",
     ownerName: "Dana Aboud",
+    ownerAvatarUrl: null,
     joinUrl: null,
     videoProvider: "Microsoft Teams",
     viaLink: false,

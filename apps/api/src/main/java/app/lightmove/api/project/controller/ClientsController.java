@@ -21,6 +21,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -122,5 +123,23 @@ public class ClientsController {
                 principal.userId(), principal.requireWorkspaceId(), clientId,
                 request.fullName(), request.position(), request.email(), httpRequest);
         return invited;
+    }
+
+    @PostMapping("/{clientId}/representatives/{representativeId}/resend")
+    @RequireWorkspacePermission(WorkspaceAction.CLIENT_RECORD_MANAGE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resendInvitation(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID clientId,
+                                 @PathVariable UUID representativeId, HttpServletRequest httpRequest) {
+        representatives.resendInvitation(principal.userId(), principal.requireWorkspaceId(), clientId,
+                representativeId, httpRequest);
+    }
+
+    @DeleteMapping("/{clientId}/representatives/{representativeId}/invitation")
+    @RequireWorkspacePermission(WorkspaceAction.CLIENT_RECORD_MANAGE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void cancelInvitation(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID clientId,
+                                 @PathVariable UUID representativeId, HttpServletRequest httpRequest) {
+        representatives.cancelInvitation(principal.userId(), principal.requireWorkspaceId(), clientId,
+                representativeId, httpRequest);
     }
 }

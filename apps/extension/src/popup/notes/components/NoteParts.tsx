@@ -9,7 +9,7 @@ import { ICONS } from "../../lib/icons";
 import { shortWhen } from "../../lib/shortWhen";
 import { useRadioGroupKeys } from "../../lib/useRadioGroupKeys";
 import { FIELD_LIMITS } from "../../../api/fieldLimits";
-import { NOTE_KINDS, noteKindLabel } from "../lib/noteKinds";
+import { COMPOSER_KINDS, noteKindLabel } from "../lib/noteKinds";
 import type { TeammateOption } from "../lib/teammates";
 import { ClampedNoteText } from "./ClampedNoteText";
 import { NoteKindMark } from "./NoteKindMark";
@@ -24,7 +24,7 @@ export function NoteKindPicker({ value, onChange }: { value: NoteKind; onChange:
   return <NoteChoiceChips label="Kind of note" options={KIND_OPTIONS} value={value} onChange={onChange} />;
 }
 
-const KIND_OPTIONS = NOTE_KINDS.map((option) => ({
+const KIND_OPTIONS = COMPOSER_KINDS.map((option) => ({
   ...option,
   mark: <NoteKindMark kind={option.value} size={12} />,
 }));
