@@ -2,8 +2,8 @@ package app.lightmove.api.candidate.controller;
 
 import app.lightmove.api.candidate.dto.ErasePersonRequest;
 import app.lightmove.api.candidate.dto.PersonErasurePreviewResponse;
-import app.lightmove.api.candidate.service.DataProtectionControls;
 import app.lightmove.api.candidate.service.PersonErasureService;
+import app.lightmove.api.core.config.DataProtectionSettings;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,16 +26,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/candidates/{personId}")
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = DataProtectionSettings.SWITCH, havingValue = "true")
 public class PersonErasureController {
 
     private final PersonErasureService erasure;
-    private final DataProtectionControls controls;
 
     @GetMapping("/erase-preview")
     @RequireWorkspacePermission(WorkspaceAction.PERSON_ERASE)
     public PersonErasurePreviewResponse preview(@AuthenticationPrincipal AuthPrincipal principal,
                                                 @PathVariable UUID personId) {
-        controls.requireOffered();
         return erasure.preview(principal.requireWorkspaceId(), personId);
     }
 
@@ -43,7 +43,6 @@ public class PersonErasureController {
     @RequireWorkspacePermission(WorkspaceAction.PERSON_ERASE)
     public void erase(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID personId,
                       @Valid @RequestBody ErasePersonRequest request, HttpServletRequest httpRequest) {
-        controls.requireOffered();
         erasure.erase(principal.userId(), principal.requireWorkspaceId(), personId, request, httpRequest);
     }
 }

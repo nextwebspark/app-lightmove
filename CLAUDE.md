@@ -76,7 +76,7 @@ edit through one mandate is what every other reads, and removing someone from a 
 person. A profile is one person's: an edit that would give a second person of the workspace the same
 LinkedIn profile is refused (`PERSON_PROFILE_HELD`). The people controls below (the suppression list, erasure,
 restriction and the candidate retention review) are offered only where `lightmove.data-protection.enabled`
-(`DATA_PROTECTION_ENABLED`, off by default, read by the SPA from `GET /data-protection/config`, `DataProtectionControls`)
+(`DATA_PROTECTION_ENABLED`, off by default, read by the SPA from `GET /data-protection/config`; the four controllers are `@ConditionalOnProperty` on it)
 is on: off, their routes answer 404 and no screen offers them, while the doors' checks stay. **A workspace's suppression list (V195, #920)** names the people no door may file again — by an HMAC of
 their profile slug or email under `lightmove.crypto.suppression-keyset` (`SuppressionKey`, `KeyedHasher`), never the key
 itself: the add form, the plugin and a spreadsheet are refused `PERSON_SUPPRESSED` (an edit only for a key it adds; a

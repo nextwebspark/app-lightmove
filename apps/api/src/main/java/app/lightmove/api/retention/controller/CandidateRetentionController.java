@@ -1,6 +1,6 @@
 package app.lightmove.api.retention.controller;
 
-import app.lightmove.api.candidate.service.DataProtectionControls;
+import app.lightmove.api.core.config.DataProtectionSettings;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
@@ -17,6 +17,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,15 +34,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/workspace/retention")
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = DataProtectionSettings.SWITCH, havingValue = "true")
 public class CandidateRetentionController {
 
     private final CandidateRetentionService retention;
-    private final DataProtectionControls controls;
 
     @GetMapping
     @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
     public CandidateRetentionResponse period(@AuthenticationPrincipal AuthPrincipal principal) {
-        controls.requireOffered();
         return retention.period(principal.requireWorkspaceId());
     }
 
@@ -50,7 +50,6 @@ public class CandidateRetentionController {
     public CandidateRetentionResponse changePeriod(@AuthenticationPrincipal AuthPrincipal principal,
                                                    @RequestBody UpdateCandidateRetentionRequest request,
                                                    HttpServletRequest httpRequest) {
-        controls.requireOffered();
         return retention.changePeriod(principal.userId(), principal.requireWorkspaceId(), request.months(),
                 httpRequest);
     }
@@ -61,7 +60,6 @@ public class CandidateRetentionController {
                                     @RequestParam(defaultValue = "200") @Min(1)
                                     @Max(CandidateRetentionService.MAX_PAGE) int limit,
                                     @RequestParam(defaultValue = "0") @Min(0) int offset) {
-        controls.requireOffered();
         return retention.due(principal.requireWorkspaceId(), limit, offset);
     }
 
@@ -70,7 +68,6 @@ public class CandidateRetentionController {
     public RetentionKeepResponse keep(@AuthenticationPrincipal AuthPrincipal principal,
                                       @Valid @RequestBody RetentionPeopleRequest request,
                                       HttpServletRequest httpRequest) {
-        controls.requireOffered();
         return retention.keep(principal.userId(), principal.requireWorkspaceId(), request.personIds(), httpRequest);
     }
 
@@ -79,7 +76,6 @@ public class CandidateRetentionController {
     public RetentionEraseResponse erase(@AuthenticationPrincipal AuthPrincipal principal,
                                         @Valid @RequestBody RetentionEraseRequest request,
                                         HttpServletRequest httpRequest) {
-        controls.requireOffered();
         return retention.erase(principal.userId(), principal.requireWorkspaceId(), request.personIds(), httpRequest);
     }
 }

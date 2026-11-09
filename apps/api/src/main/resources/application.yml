@@ -795,9 +795,7 @@ lightmove:
     purge-after: ${NOTES_PURGE_AFTER:30d}
     purge-interval: ${NOTES_PURGE_INTERVAL:PT1H}
 
-  # The people controls of epic #917: the suppression list, erasure, restriction of processing and the candidate
-  # retention review. Off, their routes answer 404 and no screen offers them. The checks inside every door stay, and
-  # hold nobody back while nobody is suppressed or restricted. RetentionSweeper has its own switch below.
+  # The suppression list, erasure, restriction and the retention review (#917). Off, their routes are a 404.
   data-protection:
     enabled: ${DATA_PROTECTION_ENABLED:false}
 
