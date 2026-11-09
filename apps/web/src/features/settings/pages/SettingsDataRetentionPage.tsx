@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { CardsSkeleton } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
-import * as dataProtectionApi from "../../candidates/api/dataProtectionApi";
+import { useDataProtection } from "../../candidates/lib/useDataProtection";
 import * as dataRetentionApi from "../api/dataRetentionApi";
 import { CandidateRetentionCard } from "../components/CandidateRetentionCard";
 import { DueForDeletionCard } from "../components/DueForDeletionCard";
@@ -15,13 +15,9 @@ import { SuppressionListCard } from "../components/SuppressionListCard";
  * mockup draws last comes with workspace offboarding (#926).
  */
 export function SettingsDataRetentionPage() {
-  const config = useQuery({
-    queryKey: dataProtectionApi.DATA_PROTECTION_CONFIG_KEY,
-    queryFn: ({ signal }) => dataProtectionApi.getDataProtectionConfig(signal),
-    staleTime: Infinity,
-  });
-  if (config.isPending) return <CardsSkeleton />;
-  if (config.data?.enabled !== true) return <Navigate to="/settings" replace />;
+  const dataProtection = useDataProtection();
+  if (dataProtection.isPending) return <CardsSkeleton />;
+  if (!dataProtection.offered) return <Navigate to="/settings" replace />;
   return <DataRetentionSettings />;
 }
 

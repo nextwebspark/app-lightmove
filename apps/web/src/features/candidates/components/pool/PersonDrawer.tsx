@@ -11,7 +11,7 @@ import * as poolApi from "../../api/poolApi";
 import type { DocumentScope } from "../../api/documentsApi";
 import type { PersonDocument, PersonDocumentVersion, PersonRecord } from "../../api/types";
 import { isContactNote } from "../../lib/noteKinds";
-import { useDataProtectionOffered } from "../../lib/useDataProtectionOffered";
+import { useDataProtection } from "../../lib/useDataProtection";
 import { usePersonDocuments } from "../../lib/usePersonDocuments";
 import { usePersonRecordUpdate } from "../../lib/usePersonRecordUpdate";
 import { usePoolLookups } from "../../lib/usePoolLookups";
@@ -122,7 +122,7 @@ function PersonDrawerBody({
   const [erasing, setErasing] = useState(false);
   const [restricting, setRestricting] = useState(false);
   const isAdmin = useIsWorkspaceAdmin();
-  const dataProtection = useDataProtectionOffered();
+  const { offered: dataProtection } = useDataProtection();
   const [nextAction, setNextAction] = useState<NextActionTarget | null>(null);
   const setNextActionOn: SetNextActionOn = (position, taskId) =>
     setNextAction({

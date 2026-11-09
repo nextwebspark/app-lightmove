@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { isPureClient } from "../../features/auth/roles";
-import { useDataProtectionOffered } from "../../features/candidates/lib/useDataProtectionOffered";
+import { useDataProtection } from "../../features/candidates/lib/useDataProtection";
 import { cn } from "../../lib/cn";
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
@@ -28,7 +28,7 @@ const GRID_PAGES = new Set(["/settings/templates", "/settings/template-library"]
 export function SettingsLayout() {
   const { pathname } = useLocation();
   const { user } = useAuth();
-  const dataProtection = useDataProtectionOffered();
+  const { offered: dataProtection } = useDataProtection();
 
   useEffect(() => rememberSettingsSection(user, pathname, { dataProtection }), [user, pathname, dataProtection]);
 
@@ -71,5 +71,8 @@ const GROUP_ORDER: SettingsGroupLabel[] = ["Your account", "Workspace", "Platfor
 /** `/settings` itself: the section this person last had open, or the one their role most likely came for. */
 export function SettingsLanding() {
   const { user } = useAuth();
-  return <Navigate to={settingsLandingOf(user)} replace />;
+  const dataProtection = useDataProtection();
+  // A remembered Data & retention is only reachable once the deployment says it is offered.
+  if (dataProtection.isPending) return null;
+  return <Navigate to={settingsLandingOf(user, { dataProtection: dataProtection.offered })} replace />;
 }
