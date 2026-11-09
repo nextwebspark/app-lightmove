@@ -17,7 +17,7 @@ class SecretSettingsToStringTest {
         CredentialEncryptionSettings crypto = new CredentialEncryptionSettings(TestSecretCiphers.DEV_KEYSET,
                 TestKeyedHashers.DEV_KEYSET);
         LightMoveProperties properties = new LightMoveProperties(null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, crypto, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, crypto, null, null, null, null, null, null, null, null, null, null);
 
         assertThat(crypto.toString()).doesNotContain("GiDd").doesNotContain("EgII").contains("<redacted>");
         assertThat(properties.toString()).doesNotContain("GiDd").doesNotContain("EgII");

@@ -29,7 +29,7 @@ class EmailTemplatesTest {
 
     private final EmailTemplates templates = new EmailTemplates(new LightMoveProperties(
             TestAuthSettings.production().auth(), null, new WebSettings(BASE_URL, List.of(), "/auth/callback", 0, true, DataSize.ofMegabytes(2)),
-            null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+            null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
     @Test
     @DisplayName("every one renders, subject and both bodies, under one brand")
@@ -73,7 +73,7 @@ class EmailTemplatesTest {
                 withInvitationTtl(Duration.ofHours(36)), null,
                 new WebSettings(BASE_URL, List.of(), "/auth/callback", 0, true, DataSize.ofMegabytes(2)),
                 null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null));
+                null, null, null, null, null, null, null, null, null));
         assertThat(shortLived.buildClientInvitationEmail("nadia@x.ae", "Alok Sharma", "Meridian", "Acme",
                 BASE_URL + "/auth/accept-invite?token=t").textBody())
                 .contains("This invitation expires in 1 day.");

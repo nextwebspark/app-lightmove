@@ -1,5 +1,6 @@
 package app.lightmove.api.retention.controller;
 
+import app.lightmove.api.core.config.DataProtectionSettings;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
@@ -16,6 +17,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/workspace/retention")
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = DataProtectionSettings.SWITCH, havingValue = "true")
 public class CandidateRetentionController {
 
     private final CandidateRetentionService retention;

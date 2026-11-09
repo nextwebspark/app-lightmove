@@ -44,6 +44,9 @@ lightmove:
   scheduling:
     enabled: false
 
+  data-protection:
+    enabled: true
+
   # The retention tests drive RetentionSweeper.sweepAt themselves, so the bean must exist.
   retention:
     enabled: true

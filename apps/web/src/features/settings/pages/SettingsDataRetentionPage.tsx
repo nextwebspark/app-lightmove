@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { Navigate } from "react-router-dom";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { CardsSkeleton } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
+import { useDataProtection } from "../../candidates/lib/useDataProtection";
 import * as dataRetentionApi from "../api/dataRetentionApi";
 import { CandidateRetentionCard } from "../components/CandidateRetentionCard";
 import { DueForDeletionCard } from "../components/DueForDeletionCard";
@@ -13,6 +15,13 @@ import { SuppressionListCard } from "../components/SuppressionListCard";
  * mockup draws last comes with workspace offboarding (#926).
  */
 export function SettingsDataRetentionPage() {
+  const dataProtection = useDataProtection();
+  if (dataProtection.isPending) return <CardsSkeleton />;
+  if (!dataProtection.offered) return <Navigate to="/settings" replace />;
+  return <DataRetentionSettings />;
+}
+
+function DataRetentionSettings() {
   const retention = useQuery({
     queryKey: dataRetentionApi.CANDIDATE_RETENTION_KEY,
     queryFn: ({ signal }) => dataRetentionApi.getCandidateRetention(signal),

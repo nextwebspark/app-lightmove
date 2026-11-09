@@ -11,6 +11,7 @@ import * as poolApi from "../../api/poolApi";
 import type { DocumentScope } from "../../api/documentsApi";
 import type { PersonDocument, PersonDocumentVersion, PersonRecord } from "../../api/types";
 import { isContactNote } from "../../lib/noteKinds";
+import { useDataProtection } from "../../lib/useDataProtection";
 import { usePersonDocuments } from "../../lib/usePersonDocuments";
 import { usePersonRecordUpdate } from "../../lib/usePersonRecordUpdate";
 import { usePoolLookups } from "../../lib/usePoolLookups";
@@ -121,6 +122,7 @@ function PersonDrawerBody({
   const [erasing, setErasing] = useState(false);
   const [restricting, setRestricting] = useState(false);
   const isAdmin = useIsWorkspaceAdmin();
+  const { offered: dataProtection } = useDataProtection();
   const [nextAction, setNextAction] = useState<NextActionTarget | null>(null);
   const setNextActionOn: SetNextActionOn = (position, taskId) =>
     setNextAction({
@@ -158,8 +160,9 @@ function PersonDrawerBody({
 
   const doNotContact = person.doNotContact;
   const restriction = person.processingRestriction;
-  const offersRestriction = !restriction || restriction.mayLift;
-  const hasMenu = offersRestriction || isAdmin;
+  const offersRestriction = dataProtection && (!restriction || restriction.mayLift);
+  const offersErasure = dataProtection && isAdmin;
+  const hasMenu = offersRestriction || offersErasure;
 
   return (
     <>
@@ -191,7 +194,7 @@ function PersonDrawerBody({
                       Restrict processing…
                     </MenuItem>
                   )}
-                  {isAdmin && (
+                  {offersErasure && (
                     <MenuItem
                       icon={ICONS.trash}
                       tone="danger"
