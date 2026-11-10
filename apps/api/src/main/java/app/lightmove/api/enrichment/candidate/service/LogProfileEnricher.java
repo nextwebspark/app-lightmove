@@ -10,7 +10,7 @@ public class LogProfileEnricher implements LinkedInProfileEnricher {
 
     @Override
     public Optional<EnrichedProfile> fetch(String linkedinUrl) {
-        log.debug("Enrichment is off — {} stays as captured.", linkedinUrl);
+        log.debug("Enrichment is off — the profile stays as captured.");
         return Optional.empty();
     }
 }

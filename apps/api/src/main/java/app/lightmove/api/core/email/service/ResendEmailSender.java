@@ -49,13 +49,20 @@ public class ResendEmailSender implements EmailSender {
                     .retrieve()
                     .toBodilessEntity();
 
-            log.debug("Sent '{}' to {}", message.subject(), message.to());
+            log.debug("Sent '{}' to an address at {}", message.subject(), recipientDomainOf(message));
             return true;
         } catch (RuntimeException ex) {
             // Swallowed by contract (see EmailSender): a mail API's bad minute must not roll back the
-            // signup. Recipient logged, body not — a verification link in a log is a live credential.
-            log.error("Failed to send '{}' to {}", message.subject(), message.to(), ex);
+            // signup. The body is never logged — a verification link in a log is a live credential — and
+            // the recipient only by their domain, since an address in a log outlives its owner (#927).
+            log.error("Failed to send '{}' to an address at {}", message.subject(), recipientDomainOf(message), ex);
             return false;
         }
+    }
+
+    private static String recipientDomainOf(EmailMessage message) {
+        String to = message.to();
+        int at = to == null ? -1 : to.lastIndexOf('@');
+        return at < 0 ? "an unreadable address" : to.substring(at + 1);
     }
 }
