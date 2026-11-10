@@ -10,6 +10,8 @@ import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate } from "../../candidates/api/types";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
+import { SignatureUnderEmail } from "../../signatures/components/SignatureChooser";
+import { useSignatureChoice } from "../../signatures/lib/useSignatureChoice";
 import * as sequenceApi from "../api/sequenceApi";
 import type { RecipientTokens, Sequence, SequenceSchedule, SequenceStep, Weekday } from "../api/sequenceApi";
 import {
@@ -606,6 +608,7 @@ function SequencePreview({
     queryFn: ({ signal }) => candidatesApi.getCandidates(projectId, {}, signal),
   });
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const signature = useSignatureChoice();
   const candidates = people.data?.candidates ?? [];
   const person = candidates.find((candidate) => candidate.id === previewId) ?? candidates[0] ?? null;
   const step = steps[Math.min(selectedStep, steps.length - 1)];
@@ -687,6 +690,7 @@ function SequencePreview({
             ),
           )}
         </div>
+        <SignatureUnderEmail choice={signature} />
         {selectedStep > 0 && (
           <div className="mt-3.5 border-s-2 border-u-border ps-2.5 text-[12px]/[1.5] text-u-text3">
             Your earlier email to {tokens.firstName ?? "them"} is quoted below, as in any reply.
