@@ -20,7 +20,7 @@ import { insightOf, sensitivityOf, splitLabel } from "../lib/rankingWording";
 import { useRankingScenario } from "../lib/useRankingScenario";
 
 const MAX_COMPARED = 2;
-const TWO_COLUMNS = "grid items-start gap-x-5 @min-[900px]:grid-cols-[minmax(0,1fr)_340px]";
+const TWO_COLUMNS = "grid items-start gap-x-4 @min-[900px]:grid-cols-[minmax(0,1fr)_296px]";
 type PoolFilter = "all" | "reviewed";
 
 /**

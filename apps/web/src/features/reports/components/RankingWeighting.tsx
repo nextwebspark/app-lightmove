@@ -20,6 +20,8 @@ const PANEL_LABEL: Record<CompetencyPanel, string> = { technical: "Technical", b
 const PANEL_TEXT: Record<CompetencyPanel, string> = { technical: "text-u-inferred", behavioural: "text-u-signal" };
 const PANEL_FILL: Record<CompetencyPanel, string> = { technical: "bg-u-inferred", behavioural: "bg-u-signal" };
 const STEP = 5;
+/** Tighter than a report card's gutter: the column beside the ranking is narrow, and the ranking wants the width. */
+const WEIGHTING_PANEL = "p-4 sm:p-4";
 
 const formatPercent = (value: number) => `${Math.round(value * 10) / 10}%`;
 
@@ -42,7 +44,7 @@ export function GroupWeighting({ criteria, baseline, weighting, onChange }: Weig
   const setShare = (share: number) => onChange?.({ ...weighting, share });
 
   return (
-    <ReportPanel>
+    <ReportPanel className={WEIGHTING_PANEL}>
       <div className="flex flex-col gap-3">
         <WeightingHeader title="Weighting">
           <span className="rounded-full bg-u-inferred-tint px-2.5 py-1 text-meta text-u-inferred">
@@ -89,7 +91,7 @@ export function CompetencyWeights({ criteria, weighting, onChange }: Omit<Weight
     onChange?.({ ...weighting, weights: { ...weighting.weights, [key]: weight } });
 
   return (
-    <ReportPanel>
+    <ReportPanel className={WEIGHTING_PANEL}>
       <WeightingHeader title="Competency weights">
         {changed.length > 0 && (
           <span className="rounded-full bg-u-signal-tint px-2.5 py-1 text-meta text-u-signal">

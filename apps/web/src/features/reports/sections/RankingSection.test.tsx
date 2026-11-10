@@ -132,6 +132,30 @@ describe("RankingSection", () => {
     expect(rows[0]).not.toHaveTextContent(/Draft|unscored/);
   });
 
+  it("sorts by any column and searches the candidates, then goes back to the ranking order", async () => {
+    vi.mocked(reportApi.getRanking).mockResolvedValue(RANKING);
+    const user = userEvent.setup();
+    renderSection();
+    await screen.findByText("Marcus leads under these priorities");
+    const grid = screen.getByRole("table", { name: "Candidate ranking" });
+
+    await user.click(within(grid).getByRole("button", { name: "Candidate column menu" }));
+    await user.click(screen.getByRole("button", { name: /Sort ascending/ }));
+    expect(namesInOrder()).toEqual([
+      expect.stringMatching(/Asha Mehta/),
+      expect.stringMatching(/Marcus Chen/),
+      expect.stringMatching(/Omar Haddad/),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "Back to ranking order" }));
+    expect(namesInOrder()[0]).toMatch(/Marcus Chen/);
+
+    await user.click(within(grid).getByRole("button", { name: "Candidate column menu" }));
+    await user.type(screen.getByRole("textbox", { name: "Filter by candidate" }), "oma");
+    expect(namesInOrder()).toEqual([expect.stringMatching(/Omar Haddad/)]);
+    expect(screen.getByText(/1 of 3 candidates/)).toBeInTheDocument();
+  });
+
   it("re-ranks as the technical split moves, and marks the change unsaved", async () => {
     vi.mocked(reportApi.getRanking).mockResolvedValue(RANKING);
     renderSection();

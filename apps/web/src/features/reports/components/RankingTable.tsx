@@ -1,9 +1,10 @@
 import { createColumnHelper, tableFeatures, type ColumnPinningState } from "@tanstack/react-table";
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { DATA_GRID_FEATURES, DataGrid, type DataGridColumnLayout } from "../../../components/ui/DataGrid";
 import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { cn } from "../../../lib/cn";
+import { compareNumber, compareText } from "../../../lib/gridSortFns";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import { layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
@@ -26,30 +27,26 @@ const helper = createColumnHelper<typeof rankingTableFeatures, RankedRow>();
 
 const NUMBER_CELL = "font-u-num text-body tabular-nums";
 
-// The order is the scenario's and nothing else, so no header re-sorts it.
 const columns = helper.columns([
   helper.display({
     id: "candidate",
     header: "Candidate",
-    enableSorting: false,
     enableHiding: false,
-    meta: { share: 2, min: 160 },
+    meta: { share: 2, min: 160, sortKind: "text" },
     cell: (info) => <CandidateCell row={info.row.original} meta={info.table.options.meta} />,
   }),
   helper.display({
     id: "baseline",
     header: "Baseline",
-    enableSorting: false,
     enableHiding: false,
-    meta: { share: 1, min: 76 },
+    meta: { share: 1, min: 76, sortKind: "number" },
     cell: (info) => <span className={cn(NUMBER_CELL, "text-u-text2")}>{oneDecimal(info.row.original.baselineTotal)}</span>,
   }),
   helper.display({
     id: "scenario",
     header: "Scenario",
-    enableSorting: false,
     enableHiding: false,
-    meta: { share: 1, min: 80 },
+    meta: { share: 1, min: 80, sortKind: "number" },
     cell: (info) => (
       <span className={cn(NUMBER_CELL, "font-semibold text-u-inferred")}>{oneDecimal(info.row.original.total)}</span>
     ),
@@ -57,24 +54,50 @@ const columns = helper.columns([
   helper.display({
     id: "rankShift",
     header: "Rank shift",
-    enableSorting: false,
     enableHiding: false,
-    meta: { share: 1, min: 84 },
+    meta: { share: 1, min: 84, sortKind: "number" },
     cell: (info) => <RankShift shift={info.row.original.rankShift} />,
   }),
   helper.display({
     id: "scoreShift",
     header: "Score shift",
-    enableSorting: false,
     enableHiding: false,
-    meta: { share: 1, min: 88 },
+    meta: { share: 1, min: 88, sortKind: "number" },
     cell: (info) => <span className={cn(NUMBER_CELL, "text-u-text2")}>{signedPoints(info.row.original.scoreShift)}</span>,
   }),
 ]);
 
 const LAYOUT_COLUMNS = layoutColumnsOf(columns);
 const PINNING: ColumnPinningState = { start: ["candidate"], end: [] };
-const SCENARIO_ORDER: GridSort<"scenario"> = { field: "scenario", direction: "desc" };
+
+type RankingSortField = "candidate" | "baseline" | "scenario" | "rankShift" | "scoreShift";
+
+const RANKING_ORDER: GridSort<RankingSortField> = { field: "scenario", direction: "desc" };
+
+/** Ascending only, as `gridSortFns` asks; a tie keeps the ranking's own order, since the sort is stable. */
+const COMPARE: Record<RankingSortField, (left: RankedRow, right: RankedRow) => number> = {
+  candidate: (left, right) => compareText(left.candidate.fullName, right.candidate.fullName),
+  baseline: (left, right) => compareNumber(left.baselineTotal, right.baselineTotal),
+  scenario: (left, right) => compareNumber(left.total, right.total),
+  rankShift: (left, right) => compareNumber(left.rankShift, right.rankShift),
+  scoreShift: (left, right) => compareNumber(left.scoreShift, right.scoreShift),
+};
+
+const isRankingOrder = (sort: GridSort<RankingSortField>) =>
+  sort.field === RANKING_ORDER.field && sort.direction === RANKING_ORDER.direction;
+
+function sortedRows(rows: readonly RankedRow[], sort: GridSort<RankingSortField>): readonly RankedRow[] {
+  if (isRankingOrder(sort)) return rows;
+  const direction = sort.direction === "asc" ? 1 : -1;
+  return [...rows].sort((left, right) => direction * COMPARE[sort.field](left, right));
+}
+
+function matches(row: RankedRow, query: string): boolean {
+  const needle = query.trim().toLocaleLowerCase();
+  if (!needle) return true;
+  const { fullName, title, companyName } = row.candidate;
+  return [fullName, title, companyName].some((value) => value?.toLocaleLowerCase().includes(needle));
+}
 
 /**
  * "How the shortlist changes": the pool in the scenario's order beside where the baseline put each one. Drawn on the
@@ -101,14 +124,17 @@ export function RankingTable({
   filters?: ReactNode;
 }) {
   const [layout, setLayout] = useGridLayout("report.ranking.v2", LAYOUT_COLUMNS);
-  const table = useDataGridTable<typeof rankingTableFeatures, RankedRow, "scenario">({
+  const [sort, setSort] = useState(RANKING_ORDER);
+  const [query, setQuery] = useState("");
+  const shown = useMemo(() => sortedRows(rows.filter((row) => matches(row, query)), sort), [rows, query, sort]);
+  const table = useDataGridTable<typeof rankingTableFeatures, RankedRow, RankingSortField>({
     features: rankingTableFeatures,
     columns,
-    data: rows,
+    data: shown,
     getRowId: (row) => row.candidate.candidateId,
     pinning: PINNING,
-    sort: SCENARIO_ORDER,
-    onSortChange: () => {},
+    sort,
+    onSortChange: setSort,
     layout,
     onLayoutChange: setLayout,
     meta: { projectId, onOpen },
@@ -134,9 +160,24 @@ export function RankingTable({
       <div className="flex flex-wrap items-start justify-between gap-3.5">
         <div>
           <h2 className="text-lead font-bold">How the shortlist changes</h2>
-          <div className="mt-0.5 text-note text-u-text3">
-            {rows.length} {rows.length === 1 ? "candidate" : "candidates"} · Baseline vs scenario
-            {notAssessedCount > 0 && ` · ${notAssessedCount} not assessed`}
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-1 text-note text-u-text3">
+            <span>
+              {shown.length < rows.length && `${shown.length} of `}
+              {rows.length} {rows.length === 1 ? "candidate" : "candidates"} · Baseline vs scenario
+              {notAssessedCount > 0 && ` · ${notAssessedCount} not assessed`}
+            </span>
+            {!isRankingOrder(sort) && (
+              <>
+                <span aria-hidden="true">·</span>
+                <button
+                  type="button"
+                  onClick={() => setSort(RANKING_ORDER)}
+                  className="text-u-accent underline-offset-2 transition hover:underline"
+                >
+                  Back to ranking order
+                </button>
+              </>
+            )}
           </div>
         </div>
         {filters}
@@ -152,6 +193,15 @@ export function RankingTable({
           error={false}
           errorMessage="The ranking could not be loaded."
           emptyMessage="No candidate matches these filters."
+          menuOnHeaderClick
+          columnFilters={{
+            candidate: {
+              value: query,
+              onChange: setQuery,
+              placeholder: "Name, title or company",
+              "aria-label": "Filter by candidate",
+            },
+          }}
           headerLead={<span aria-hidden="true" className="size-4 flex-none" />}
           rowLead={checkbox}
           renderCard={(row) => <RankingCard row={row} checkbox={checkbox(row)} meta={{ projectId, onOpen }} />}

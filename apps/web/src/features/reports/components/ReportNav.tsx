@@ -7,7 +7,7 @@ import { useReportNavCollapsed } from "../lib/useReportNavCollapsed";
 export type ReportChapterLink = RailNavItem;
 
 /**
- * The report's chapter menu, and where the figures came from. A column beside the chapter at `lg`
+ * The report's chapter menu, and who the report is for. A column beside the chapter at `lg`
  * — folded to its icons by the Collapse row at its foot, as the app's own sidebar folds — and a strip
  * above it below that, because the menu is the only way between chapters and cannot be hidden on a phone.
  * The menu itself is `UncavaRailNav`, which the brief's rail shares.
@@ -29,13 +29,13 @@ export function ReportNav({
     <aside
       className={cn(
         "flex-none border-b border-u-border transition-[width] duration-200 lg:border-b-0 lg:border-r",
-        collapsed ? "lg:w-14" : "lg:w-[258px]",
+        collapsed ? "lg:w-14" : "lg:w-56",
       )}
     >
       <div
         className={cn(
           "px-4 py-3.5 lg:sticky lg:top-0 lg:py-[30px]",
-          collapsed ? "lg:px-2" : "lg:px-[22px]",
+          collapsed ? "lg:px-2" : "lg:px-3",
         )}
       >
         <UncavaRailNav
