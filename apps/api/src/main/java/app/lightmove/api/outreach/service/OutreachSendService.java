@@ -233,11 +233,8 @@ public class OutreachSendService {
             sender = new SenderContext(sender.positionTitle(), sender.senderFirstName(),
                     bookingPages.claimLink(mailbox));
         }
-        String body = OutreachPersonalisation.tokensOf(recipient, sender, enrollment.getOpener())
-                .render(followUp.getBody());
-        if (enrollment.getSignatureHtml() == null) {
-            body = SequenceTokens.signedOffBy(body, sender.senderFirstName());
-        }
+        String body = SequenceTokens.signedOff(OutreachPersonalisation.tokensOf(recipient, sender,
+                enrollment.getOpener()).render(followUp.getBody()), enrollment.getSignatureHtml(), sender.senderFirstName());
         return new RenderedEmail(new OutgoingEmail(enrollment.getToAddress(),
                 replySubjectOf(enrollment.getFirstSubject()),
                 OutreachEmailBody.htmlOf(body, sender.bookingLink(), enrollment.getSignatureHtml()),

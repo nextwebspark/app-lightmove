@@ -186,7 +186,9 @@ Settings — and there is no picker at Start. It is drawn there, outside any tra
 may place it with **`{{signature}}`** (new sequences end every step in it; the Insert bar offers it, into the body only,
 and a subject leaves it as typed): `OutreachEmailBody.htmlOf` puts it between paragraphs there, and closes a body
 placing none with it, as before. The conversation's `body_text` drops the token. A sender keeping no signature signs off
-with their first name where the token stands. Nothing is stored on the sequence itself: a sequence is the position's, a
+with their first name where the token stands. A value filled in from a profile or the opener can never place it: the
+token is taken out of every value first. A sequence saved before the token keeps its steps as written: one still ending in
+`{{senderFirstName}}` reads the first name above the signature until its author changes that line to `{{signature}}`. Nothing is stored on the sequence itself: a sequence is the position's, a
 signature its sender's.
 
 **Gateways are untouched**: the signature is part of `OutgoingEmail.htmlBody`. The test email from Settings carries

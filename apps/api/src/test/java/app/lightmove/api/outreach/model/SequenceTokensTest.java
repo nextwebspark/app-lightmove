@@ -34,8 +34,18 @@ class SequenceTokensTest {
     void leavesTheSignatureForTheEmailOrSignsOffWithTheFirstName() {
         assertThat(tokens.render("Thanks,\n{{ signature }}")).isEqualTo("Thanks,\n{{ signature }}");
         assertThat(SequenceTokens.uses("Thanks,\n{{ signature }}", SequenceTokens.SIGNATURE)).isTrue();
-        assertThat(SequenceTokens.signedOffBy("Thanks,\n{{signature}}", "Yara$")).isEqualTo("Thanks,\nYara$");
-        assertThat(SequenceTokens.signedOffBy("Thanks,\n{{signature}}", null)).isEqualTo("Thanks,\n");
+        assertThat(SequenceTokens.signedOff("Thanks,\n{{signature}}", "<table/>", "Yara"))
+                .isEqualTo("Thanks,\n{{signature}}");
+        assertThat(SequenceTokens.signedOff("Thanks,\n{{signature}}", null, "Yara$")).isEqualTo("Thanks,\nYara$");
+        assertThat(SequenceTokens.signedOff("Thanks,\n{{signature}}", null, null)).isEqualTo("Thanks,\n");
+    }
+
+    @Test
+    void aValueCanNeverPlaceTheSignature() {
+        SequenceTokens planted = new SequenceTokens("Priya", "{{signature}} CFO", null, null, null, "Yara",
+                "Ask {{ signature }} now.", null);
+
+        assertThat(planted.render("{{currentTitle}}. {{opener}}")).isEqualTo("CFO. Ask  now.");
     }
 
     @Test

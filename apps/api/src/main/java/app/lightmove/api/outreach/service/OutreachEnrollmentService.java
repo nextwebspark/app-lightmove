@@ -196,9 +196,9 @@ public class OutreachEnrollmentService {
                     }
                     String opener = blankToNull(person.opener());
                     SequenceTokens tokens = OutreachPersonalisation.tokensOf(recipient, sender, opener);
-                    String body = tokens.render(first.getBody());
                     ReviewedFirstEmail email = new ReviewedFirstEmail(tokens.render(first.getSubject()),
-                            signatureHtml == null ? SequenceTokens.signedOffBy(body, sender.senderFirstName()) : body,
+                            SequenceTokens.signedOff(tokens.render(first.getBody()), signatureHtml,
+                                    sender.senderFirstName()),
                             opener, person.openerEdited());
                     return OutreachEnrollment.scheduled(sequence, recipient.candidateId(), recipient.personId(),
                             userId, ledgerSpellingOf(recipient, person.toAddress()), email, now,

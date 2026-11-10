@@ -35,5 +35,6 @@ class OutreachEmailBodyTest {
         assertThat(OutreachEmailBody.htmlOf("Hi Priya", null, signature)).isEqualTo("<p>Hi Priya</p><table>Yara</table>");
         assertThat(OutreachEmailBody.htmlOf("Hi Priya", null, null)).isEqualTo("<p>Hi Priya</p>");
         assertThat(OutreachEmailBody.withoutSignatures("Thanks,\n\n{{signature}}")).isEqualTo("Thanks,");
+        assertThat(OutreachEmailBody.withoutSignatures("Hi,\n\n{{signature}}\n\nP.S. Soon")).isEqualTo("Hi,\n\nP.S. Soon");
     }
 }

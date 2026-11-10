@@ -581,7 +581,7 @@ function ReviewStep({
   const email = reviewed[reviewing.candidateId];
   const first = sequence.steps[0];
   const firstName = reviewing.tokens.firstName ?? reviewing.fullName;
-  const signOff = signature.included ? "" : (reviewing.tokens.senderFirstName ?? "");
+  const signOff = signature.included || signature.isError ? "" : (reviewing.tokens.senderFirstName ?? "");
   const parts = renderParts(first.body, withBookingLink(reviewing.tokens, bookingLink), null);
   const openerAt = parts.findIndex((part) => part.isOpener);
   const before = openerAt < 0 ? parts : parts.slice(0, openerAt);
@@ -679,6 +679,11 @@ function ReviewStep({
             .replace(/^\n+/, "")}
         </div>
         <SignatureUnderEmail choice={signature} />
+        {signature.isError && (
+          <p className="mt-3 border-t border-u-border pt-2.5 font-mono text-meta text-u-text3">
+            Your signatures could not be read here. Your default signature still signs these emails.
+          </p>
+        )}
         {sequence.steps.length > 1 && (
           <p className="mt-3 border-t border-u-border pt-2.5 font-mono text-[11.5px] text-u-text3">
             {followUpLine(sequence)}, each only if {firstName} hasn't replied.

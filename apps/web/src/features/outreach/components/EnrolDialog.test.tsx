@@ -200,6 +200,19 @@ describe("EnrolDialog", () => {
     expect(screen.queryByTitle("Signature")).not.toBeInTheDocument();
   });
 
+  it("says the default still signs the run when the signatures cannot be read here", async () => {
+    vi.mocked(signaturesApi.listSignatures).mockRejectedValue(new Error("offline"));
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
+    renderDialog();
+    await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
+
+    expect(
+      await screen.findByText("Your signatures could not be read here. Your default signature still signs these emails."),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByRole("button", { name: "Start sequence" })).toBeEnabled();
+  });
+
   it("holds Start while the signatures are still being read", async () => {
     vi.mocked(signaturesApi.listSignatures).mockReturnValue(new Promise(() => {}));
     vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);

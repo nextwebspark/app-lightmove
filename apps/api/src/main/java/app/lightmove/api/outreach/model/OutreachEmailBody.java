@@ -21,7 +21,7 @@ public final class OutreachEmailBody {
 
     /**
      * The signature goes where {@code {{signature}}} stands, between paragraphs, or closes a text placing none. Where
-     * there is no signature, {@link SequenceTokens#signedOffBy} first.
+     * there is no signature, {@link SequenceTokens#signedOff} first.
      */
     public static String htmlOf(String plainText, String bookingLink, String signatureHtml) {
         String text = plainText == null ? "" : plainText;
@@ -37,9 +37,13 @@ public final class OutreachEmailBody {
         return from == 0 ? html.append(signature).toString() : html.toString();
     }
 
-    /** The words of a signed text as the conversation keeps them: the signature is HTML, and never words. */
+    /**
+     * The words of a signed text as the conversation keeps them: the signature is HTML, and never words, and the gap it
+     * stood in closes to one blank line.
+     */
     public static String withoutSignatures(String plainText) {
-        return plainText == null ? "" : SequenceTokens.SIGNATURE_TOKEN.matcher(plainText).replaceAll("").strip();
+        return plainText == null ? "" : SequenceTokens.SIGNATURE_TOKEN.matcher(plainText).replaceAll("")
+                .replaceAll("(\\r?\\n[ \\t]*){3,}", "\n\n").strip();
     }
 
     /**
