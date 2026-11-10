@@ -281,8 +281,8 @@
     "arbitraryText": 1
   },
   "features/outreach/pages/SequenceEditorPage.tsx": {
-    "arbitraryText": 32,
-    "arbitraryRadius": 19
+    "arbitraryText": 30,
+    "arbitraryRadius": 18
   },
   "features/position/components/BenefitsTable.tsx": {
     "arbitraryRadius": 1

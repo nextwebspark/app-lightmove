@@ -58,6 +58,10 @@ export type ApiErrorCode =
   | "EMAIL_IMAGE_TOO_LARGE"
   | "EMAIL_SIGNATURE_NOT_FOUND"
   | "EMAIL_SIGNATURE_LIMIT_REACHED"
+  | "EMAIL_TEMPLATE_NOT_FOUND"
+  | "EMAIL_TEMPLATE_NOT_YOURS"
+  | "EMAIL_TEMPLATE_LIMIT_REACHED"
+  | "EMAIL_TEMPLATE_STALE"
   | "CANDIDATE_TAG_EXISTS"
   | "CANDIDATE_TAG_RETIRED"
   | "CANDIDATE_ASSESSMENT_STALE"
@@ -261,6 +265,10 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   EMAIL_IMAGE_TOO_LARGE: "That picture is too large. Use one under 5 MB.",
   EMAIL_SIGNATURE_NOT_FOUND: "That signature no longer exists. Pick another, or send without one.",
   EMAIL_SIGNATURE_LIMIT_REACHED: "You can keep up to 10 signatures. Delete one to make another.",
+  EMAIL_TEMPLATE_NOT_FOUND: "That template no longer exists, or is no longer shared with you.",
+  EMAIL_TEMPLATE_NOT_YOURS: "Only its owner or an admin can change this template. Duplicate it to make your own.",
+  EMAIL_TEMPLATE_LIMIT_REACHED: "You can keep up to 100 email templates. Delete one to make another.",
+  EMAIL_TEMPLATE_STALE: "Someone changed this template after you opened it. Reload to see their version.",
   TASK_ASSIGNEE_NOT_ON_TEAM: "They aren't on this position's team. Add them in Team & access, or pick someone who is.",
   TASK_NOT_YOURS: "Only whoever set this task, whoever it's assigned to, the position's lead or an admin can change it.",
   CANDIDATE_TAG_EXISTS: "Your team already has that tag.",

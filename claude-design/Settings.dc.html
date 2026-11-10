@@ -751,7 +751,7 @@
             <sc-if value="{{ etIsEmpty }}" hint-placeholder-val="{{ false }}">
               <div data-screen-label="Email templates — empty" style="border-radius:10px;border:1px dashed var(--line);background:var(--panel2);padding:32px 24px;text-align:center">
                 <div style="font:500 14px var(--sans);color:var(--text)">No email templates yet</div>
-                <div style="margin:6px auto 0;max-width:460px;font:400 12.5px/1.55 var(--sans);color:var(--text3)">Save the emails and replies you send again and again. Tokens such as First name fill in for each executive, and a template shared with the workspace works for whoever sends it.</div>
+                <div style="margin:6px auto 0;max-width:460px;font:400 12.5px/1.55 var(--sans);color:var(--text3)">Save the emails and replies you send again and again. Variables such as First name fill in for each executive, as in a sequence, and a template shared with the workspace works for whoever sends it.</div>
                 <button onClick="{{ etNew }}" style="margin-top:16px;{{ etPrimaryInline }}">New template</button>
               </div>
             </sc-if>
@@ -769,6 +769,15 @@
                 <label style="display:block;font:500 12px var(--sans);color:var(--text2)">Name
                   <input value="{{ etD.name }}" onChange="{{ etField }}" data-field="name" maxlength="80" placeholder="Thanks — let's find a time" style="{{ etInput }}" style-focus="border-color:var(--sky)">
                 </label>
+                <!-- The sequence editor's own Insert bar: the same variables in the same order, each inserted as typed, as a
+                     sequence step shows it, into whichever of the subject or the email the cursor was last in. -->
+                <div role="toolbar" aria-label="Insert a variable" style="margin-top:14px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:8px 10px">
+                  <span style="margin-right:4px;font:500 11px var(--mono);color:var(--text3)">Insert</span>
+                  <sc-for list="{{ etTokens }}" as="tk" hint-placeholder-count="7">
+                    <button title="{{ tk.tip }}" onClick="{{ etInsert }}" data-id="{{ tk.token }}" style="border-radius:999px;border:1px solid var(--line);background:var(--panel2);padding:3px 8px;font:400 11.5px var(--mono);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">{{ tk.label }}</button>
+                  </sc-for>
+                  <span style="flex-basis:100%;margin-top:2px;font:400 11px/1.45 var(--sans);color:var(--text3)">{{ etFallbackHint }}</span>
+                </div>
                 <label style="display:block;margin-top:14px;font:500 12px var(--sans);color:var(--text2)">Subject <span style="font-weight:400;color:var(--text3)">· optional, used only by a new email; a reply keeps its own</span>
                   <span style="display:block;margin-top:6px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:9px 12px;min-height:18px;font:400 13px var(--sans);color:var(--text)"><sc-for list="{{ etSubjectParts }}" as="sp" hint-placeholder-count="2"><span title="{{ sp.title }}" style="{{ sp.style }}">{{ sp.text }}</span></sc-for></span>
                 </label>
@@ -776,21 +785,7 @@
                 <div style="position:relative;margin-top:6px;border-radius:6px;border:1px solid {{ etBodyBorder }};background:var(--panel)">
                   <div role="toolbar" aria-label="Formatting" style="display:flex;align-items:center;gap:1px;padding:3px 6px;border-bottom:1px solid var(--line-soft)">
                     <sc-for list="{{ etFmt }}" as="f" hint-placeholder-count="10"><button title="{{ f.tip }}" aria-label="{{ f.tip }}" style="{{ f.style }}" style-hover="background:var(--panel2);color:var(--text)">{{ f.glyph }}</button></sc-for>
-                    <span style="flex:1"></span>
-                    <button onClick="{{ etToggleInsert }}" aria-haspopup="menu" aria-expanded="{{ etInsertStr }}" style="{{ etInsertBtn }}" style-hover="color:var(--text)"><span style="font:600 11px var(--mono)">{ }</span>Insert<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"></path></svg></button>
                   </div>
-                  <sc-if value="{{ etInsertOpen }}" hint-placeholder-val="{{ false }}">
-                    <div role="menu" aria-label="Insert a token" style="position:absolute;right:6px;top:32px;z-index:30;width:330px;border-radius:8px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:6px">
-                      <div style="padding:4px 8px 6px;font:500 10.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--text3)">Insert at the cursor</div>
-                      <sc-for list="{{ etTokens }}" as="tk" hint-placeholder-count="7">
-                        <button role="menuitem" onClick="{{ etInsert }}" data-id="{{ tk.token }}" style="display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;border:none;background:none;border-radius:6px;padding:6px 8px;cursor:pointer;font-family:inherit" style-hover="background:var(--panel2)">
-                          <span style="flex:none;width:118px;font:500 12px var(--sans);color:var(--text)">{{ tk.label }}</span>
-                          <span style="min-width:0;font:400 11.5px/1.35 var(--sans);color:var(--text3)">{{ tk.tip }}</span>
-                        </button>
-                      </sc-for>
-                      <div style="margin-top:4px;border-top:1px solid var(--line-soft);padding:7px 8px 3px;font:400 11px/1.45 var(--sans);color:var(--text3)">A token shows its executive's value when you write the email. Give it a fallback for anyone with none: click the token once it is in.</div>
-                    </div>
-                  </sc-if>
                   <div aria-label="Email" style="min-height:150px;padding:12px 14px 6px;font:400 13.5px/1.65 var(--sans);color:var(--text)">
                     <sc-for list="{{ etParagraphs }}" as="pg" hint-placeholder-count="3">
                       <p style="margin:0 0 9px"><sc-for list="{{ pg.parts }}" as="pt" hint-placeholder-count="3"><span title="{{ pt.title }}" style="{{ pt.style }}">{{ pt.text }}</span></sc-for></p>
@@ -3179,15 +3174,14 @@ class Component extends DCLogic {
     const LABELS = { firstName: 'First name', currentTitle: 'Current title', currentCompany: 'Current company', positionTitle: 'Position title', location: 'Location', senderFirstName: 'Your first name', bookingLink: 'Your booking link' };
     const TIPS = { firstName: 'Their first name', currentTitle: 'Their current title', currentCompany: 'Their current employer', positionTitle: "The position's role title", location: 'Their city', senderFirstName: 'The first name of whoever sends it', bookingLink: "The sender's booking page" };
     const RE = /\{\{\s*([A-Za-z]+)\s*(?:\\?\|([^{}|\n]{1,60}))?\s*\}\}/g;
-    const PILL = 'display:inline;white-space:nowrap;padding:1px 6px;border-radius:4px;font-weight:500;background:var(--panel2);color:var(--text2);box-shadow:inset 0 0 0 1px var(--line)';
     const BAD = 'display:inline;white-space:nowrap;padding:1px 6px;border-radius:4px;font:500 12px var(--mono);background:var(--red-dim);color:var(--red);box-shadow:inset 0 0 0 1px var(--red)';
     const partsOf = (text) => { const out = []; let last = 0; let m; const re = new RegExp(RE.source, 'g');
       while ((m = re.exec(text))) { if (m.index > last) out.push({ text: text.slice(last, m.index), style: '', title: '' });
         const known = LABELS[m[1]]; const fb = (m[2] || '').trim();
-        out.push(known ? { text: known + (fb ? ' or “' + fb + '”' : ''), style: PILL, title: m[0] } : { text: m[0], style: BAD, title: m[1] === 'signature' ? 'Include signature adds your signature' : 'Not a token Uncava knows' });
+        out.push(known ? { text: m[0], style: '', title: known + (fb ? ' or “' + fb + '”' : '') } : { text: m[0], style: BAD, title: m[1] === 'signature' ? 'Include signature adds your signature' : 'Not a variable Uncava knows' });
         last = re.lastIndex; }
       if (last < text.length) out.push({ text: text.slice(last), style: '', title: '' }); return out; };
-    const flat = (text) => text.replace(RE, (_, n, fb) => (LABELS[n] || n) + (fb ? ' or “' + fb.trim() + '”' : '')).replace(/\n+/g, ' ');
+    const flat = (text) => text.replace(/\n+/g, ' ');
     const all = st.etTemplates;
     const canEdit = (t) => t.owner === ME || isAdmin;
     const q = st.etQuery.trim().toLowerCase();
@@ -3209,7 +3203,7 @@ class Component extends DCLogic {
       isEmailTemplates: this.state.section === 'email-templates',
       etIsList: view === 'list', etIsEmpty: view === 'empty', etIsEditor: view === 'editor',
       etTitle: view === 'editor' ? (editing ? editing.name : 'New template') : 'Email templates',
-      etSubtitle: view === 'editor' ? 'Tokens fill in for each executive when you write the email. Apply it from Templates in any email or reply.'
+      etSubtitle: view === 'editor' ? 'Variables fill in for each executive when you write the email, as in a sequence. Apply it from Templates in any email or reply.'
         : 'Emails and replies you send again and again. Apply one from Templates in the composer, or copy one into a sequence step.',
       etPrimary: primary(false), etPrimaryInline: 'border-radius:6px;padding:9px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer',
       etTabs: tabs, etQuery: st.etQuery, etRows: rows, etNoMatch: view === 'list' && rows.length === 0,
@@ -3220,12 +3214,11 @@ class Component extends DCLogic {
       etSubjectParts: d && d.subject ? partsOf(d.subject) : [{ text: 'No subject', style: 'color:var(--text3)', title: '' }],
       etParagraphs: d ? d.body.split(/\n\n/).map((t) => ({ parts: partsOf(t) })) : [],
       etBodyInvalid: invalid.length > 0, etBodyBorder: invalid.length ? 'var(--red)' : 'var(--line)',
-      etBodyError: invalid.includes('signature') ? '{{signature}} isn’t a token: Include signature adds your signature when the email goes. Remove it here.'
-        : invalid.length ? '{{' + invalid[0] + '}} isn’t a token Uncava knows. Use Insert to pick one.' : '',
+      etBodyError: invalid.includes('signature') ? '{{signature}} isn’t a variable: Include signature adds your signature when the email goes. Remove it here.'
+        : invalid.length ? '{{' + invalid[0] + '}} isn’t a variable Uncava knows. Insert one from the Insert bar.' : '',
       etFmt: [['B', 'Bold', 'font:700 12px var(--sans)'], ['I', 'Italic', 'font:italic 500 12px Georgia'], ['U', 'Underline', 'font:500 12px var(--sans);text-decoration:underline'], ['S', 'Strikethrough', 'font:500 12px var(--sans);text-decoration:line-through'], ['H', 'Heading', 'font:700 12px var(--sans)'], ['•', 'Bulleted list', 'font:700 13px var(--sans)'], ['1.', 'Numbered list', 'font:500 11px var(--mono)'], ['☐', 'Checklist', 'font:400 12px var(--sans)'], ['❝', 'Quote', 'font:400 13px var(--sans)'], ['↗', 'Link', 'font:500 12px var(--sans)']].map(([glyph, tip, f]) => ({ glyph, tip, style: fmtBtn + f })),
-      etInsertOpen: st.etInsert, etInsertStr: String(st.etInsert),
-      etInsertBtn: 'display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 7px;border-radius:4px;border:none;background:' + (st.etInsert ? 'var(--panel2)' : 'none') + ';font:500 12px/1 var(--sans);color:var(--text2);cursor:pointer',
-      etTokens: Object.keys(LABELS).map((token) => ({ token, label: LABELS[token], tip: TIPS[token] })),
+      etFallbackHint: 'Each variable fills in for the executive when you write the email. Give one a fallback for anyone with none: {{firstName|there}}.',
+      etTokens: Object.keys(LABELS).map((token) => ({ token, label: token === 'bookingLink' ? '▦ booking link' : '{{' + token + '}}', tip: TIPS[token] })),
       etEditingShared: !!(editing && editing.shared),
       etSharedNote: editing && editing.owner !== ME ? editing.owner + "'s template, shared with the workspace. You can change it as an admin: everyone who uses it next gets your version, and the change is in the audit log."
         : 'Shared with the workspace. A change reaches everyone who uses it next, and is recorded in the audit log.',
@@ -3243,8 +3236,7 @@ class Component extends DCLogic {
       etBack: () => set({ etD: null, etEditId: null, etInsert: false }),
       etField: (e) => set({ etD: Object.assign({}, d, { [e.currentTarget.dataset.field]: e.target.value }) }),
       etToggleShare: () => set({ etD: Object.assign({}, d, { shared: !d.shared }) }),
-      etToggleInsert: () => set({ etInsert: !st.etInsert }),
-      etInsert: (e) => set({ etInsert: false, etD: Object.assign({}, d, { body: d.body + ' {{' + e.currentTarget.dataset.id + '}}' }) }),
+      etInsert: (e) => set({ etD: Object.assign({}, d, { body: d.body + '{{' + e.currentTarget.dataset.id + '}}' }) }),
       etSave: () => { if (invalid.length) { this.showToast('Fix the email first.'); return; } set({ etD: null, etEditId: null }); this.showToast('Template saved.'); },
       etDuplicate: (e) => { const t = all.find((x) => x.id === e.currentTarget.dataset.id); set({ etMenu: null, etTemplates: [Object.assign({}, t, { id: 'c' + Date.now(), name: ('Copy of ' + t.name).slice(0, 80), owner: ME, shared: false, updated: 'just now' })].concat(all) }); this.showToast('Duplicated as a personal template.'); },
       etDuplicateEditing: () => { set({ etD: null, etEditId: null, etTemplates: [Object.assign({}, editing, { id: 'c' + Date.now(), name: ('Copy of ' + editing.name).slice(0, 80), owner: ME, shared: false, updated: 'just now' })].concat(all) }); this.showToast('Duplicated as a personal template.'); },

@@ -29,6 +29,7 @@ import { MailboxBanner } from "../components/MailboxBanner";
 import { MailboxChip, mailboxChipShows } from "../components/MailboxChip";
 import { OutreachHeader } from "../components/OutreachHeader";
 import { SequenceStatePill } from "../components/SequenceStatePill";
+import { TokenInsertBar } from "../components/TokenInsertBar";
 
 const NEW_SEQUENCE = "new";
 const MAX_STEPS = 3;
@@ -264,25 +265,7 @@ function SequenceEditor({
 
       <div className="grid items-start gap-[22px] lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-1.5 rounded-[8px] border border-u-border bg-u-raised px-2.5 py-2">
-            <span className="me-1 font-mono text-[11px] font-medium text-u-text3">Insert</span>
-            {tokenOptions(mailbox.data?.bookingLinkOffered === true).map((option) => (
-              <button
-                key={option.token}
-                type="button"
-                title={option.tip}
-                onClick={() => insertToken(option.token)}
-                className={cn(
-                  "rounded-full border px-2 py-[3px] font-mono text-[11.5px]",
-                  option.isAi
-                    ? "border-transparent bg-u-inferred-tint text-u-inferred"
-                    : "border-u-border bg-u-surface text-u-text2 hover:text-u-text",
-                )}
-              >
-                {option.isAi ? "✦ opener" : option.isLink ? "▦ booking link" : option.token}
-              </button>
-            ))}
-          </div>
+          <TokenInsertBar options={tokenOptions(mailbox.data?.bookingLinkOffered === true)} onInsert={insertToken} />
 
           {steps.map((step, index) => (
             <div
