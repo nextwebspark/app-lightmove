@@ -34,6 +34,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -152,7 +153,78 @@ public class ZoomService {
     }
 
     public void disconnect(UUID userId, UUID workspaceId, HttpServletRequest request) {
-        String released = transactions.execute(status -> {
+        release(userId, workspaceId, userId, request, transactions);
+    }
+
+    /**
+     * A deleted workspace's Zoom accounts, as {@code MailboxService.disconnectAllOf} lets its mailboxes go: a row goes
+     * only once Zoom has answered the revoke, and one it could not be reached for stays, {@code ERROR}, for the purge to
+     * try again. Answers how many are still held.
+     */
+    public int disconnectAllOf(UUID workspaceId, UUID actorId) {
+        TransactionTemplate own = new TransactionTemplate(transactions.getTransactionManager());
+        own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        List<UUID> holders = own.execute(status -> connections.findByWorkspaceId(workspaceId).stream()
+                .map(ZoomConnection::getUserId).toList());
+        int held = 0;
+        for (UUID holder : holders) {
+            try {
+                if (!releaseOfDeletedWorkspace(holder, workspaceId, actorId, own)) {
+                    held++;
+                }
+            } catch (RuntimeException failed) {
+                held++;
+                log.warn("Could not disconnect a Zoom account of deleted workspace {}", workspaceId, failed);
+            }
+        }
+        return held;
+    }
+
+    private boolean releaseOfDeletedWorkspace(UUID userId, UUID workspaceId, UUID actorId, TransactionTemplate own) {
+        HeldZoomToken held = own.execute(status -> {
+            ZoomConnection connection = connections.findByWorkspaceIdAndUserId(workspaceId, userId)
+                    .orElseThrow(() -> ApiException.of(ErrorCode.ZOOM_NOT_CONNECTED));
+            connection.markAccessWithdrawn();
+            return new HeldZoomToken(connection.getId(), readableRefreshToken(connection));
+        });
+        if (held.refreshToken() != null && !revokedOrSettled(workspaceId, held.refreshToken())) {
+            return false;
+        }
+        own.executeWithoutResult(status -> connections.findByWorkspaceIdAndUserId(workspaceId, userId)
+                .ifPresent(connections::delete));
+        tokens.forget(held.connectionId());
+        audit.event(WorkspaceEventType.ZOOM_DISCONNECTED)
+                .actor(actorId)
+                .workspace(workspaceId)
+                .target(TARGET, userId)
+                .record();
+        return true;
+    }
+
+    /** False only where trying again could help; no Zoom app left to revoke through is nothing to wait for. */
+    private boolean revokedOrSettled(UUID workspaceId, String refreshToken) {
+        try {
+            credentials.resolve(workspaceId, IntegrationProvider.ZOOM)
+                    .ifPresent(app -> zoom.revoke(app, refreshToken));
+            return true;
+        } catch (VendorException refused) {
+            if (refused.getKind().retryable()) {
+                log.warn("Could not reach Zoom to revoke a deleted workspace's token; tried again later", refused);
+                return false;
+            }
+            log.warn("Zoom refused to revoke a deleted workspace's token ({}); letting it go", refused.getKind());
+            return true;
+        } catch (RuntimeException unreachable) {
+            log.warn("Could not revoke a deleted workspace's Zoom token; tried again later", unreachable);
+            return false;
+        }
+    }
+
+    private record HeldZoomToken(UUID connectionId, String refreshToken) {}
+
+    private void release(UUID userId, UUID workspaceId, UUID actorId, HttpServletRequest request,
+                         TransactionTemplate transaction) {
+        String released = transaction.execute(status -> {
             ZoomConnection connection = connections.findByWorkspaceIdAndUserId(workspaceId, userId)
                     .orElseThrow(() -> ApiException.of(ErrorCode.ZOOM_NOT_CONNECTED));
             tokens.forget(connection.getId());
@@ -161,7 +233,7 @@ public class ZoomService {
             return refreshToken;
         });
         audit.event(WorkspaceEventType.ZOOM_DISCONNECTED)
-                .actor(userId)
+                .actor(actorId)
                 .workspace(workspaceId)
                 .target(TARGET, userId)
                 .from(request)

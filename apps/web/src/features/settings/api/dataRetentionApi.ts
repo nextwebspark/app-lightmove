@@ -1,4 +1,4 @@
-import { request } from "../../../lib/apiClient";
+import { request, requestBlob } from "../../../lib/apiClient";
 
 /**
  * Settings → Data & retention: how long candidates are kept, who is past it (an admin keeps or deletes them; nothing
@@ -8,6 +8,7 @@ import { request } from "../../../lib/apiClient";
 export const CANDIDATE_RETENTION_KEY = ["candidate-retention"] as const;
 export const RETENTION_DUE_KEY = ["candidate-retention", "due"] as const;
 export const SUPPRESSIONS_KEY = ["suppressions"] as const;
+export const WORKSPACE_EXPORT_KEY = ["workspace-export"] as const;
 
 /** The most people the review list draws at once; keeping or deleting them brings the next ones up. */
 export const DUE_PAGE_SIZE = 200;
@@ -112,4 +113,34 @@ export function addSuppression(entry: NewSuppression): Promise<Suppression[]> {
 
 export function removeSuppression(suppressionId: string): Promise<void> {
   return request<void>(`/workspace/suppressions/${suppressionId}`, { method: "DELETE" });
+}
+
+/** Only READY has a file; a READY one past its expiry already reads EXPIRED. */
+export type WorkspaceExportStatus = "RUNNING" | "READY" | "FAILED" | "EXPIRED";
+
+export interface WorkspaceExport {
+  id: string;
+  status: WorkspaceExportStatus;
+  fileName: string;
+  sizeBytes: number | null;
+  people: number | null;
+  documents: number | null;
+  positions: number | null;
+  requestedAt: string;
+  requestedByName: string | null;
+  completedAt: string | null;
+  expiresAt: string | null;
+}
+
+/** Null until the workspace's first export. */
+export async function getLatestWorkspaceExport(signal?: AbortSignal): Promise<WorkspaceExport | null> {
+  return (await request<WorkspaceExport | undefined>("/workspace/exports/latest", { signal })) ?? null;
+}
+
+export function startWorkspaceExport(): Promise<WorkspaceExport> {
+  return request<WorkspaceExport>("/workspace/exports", { method: "POST" });
+}
+
+export function downloadWorkspaceExport(exportId: string): Promise<Blob> {
+  return requestBlob(`/workspace/exports/${exportId}/download`);
 }

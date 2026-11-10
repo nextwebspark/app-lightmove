@@ -39,6 +39,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -198,7 +199,83 @@ public class MailboxService {
     }
 
     public void disconnect(UUID userId, UUID workspaceId, HttpServletRequest request) {
-        ReleasedGrant released = transactions.execute(status -> {
+        release(userId, workspaceId, userId, request, transactions);
+    }
+
+    /**
+     * A deleted workspace's mailboxes, each let go as its consultant's own Disconnect would — the Recall calendar
+     * released, the grant revoked at the provider — in a transaction of its own, since the deletion's has already
+     * committed. Unlike a Disconnect, the row goes only once the provider has answered: it is the only copy of the grant
+     * to revoke, so one the provider could not be reached for stays, marked {@code ERROR} so nothing reads or sends
+     * through it, for the purge to try again. Answers how many are still held.
+     */
+    public int disconnectAllOf(UUID workspaceId, UUID actorId) {
+        TransactionTemplate own = new TransactionTemplate(transactions.getTransactionManager());
+        own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        List<UUID> holders = own.execute(status -> connections.findByWorkspaceId(workspaceId).stream()
+                .map(MailboxConnection::getUserId).toList());
+        int held = 0;
+        for (UUID holder : holders) {
+            try {
+                if (!releaseOfDeletedWorkspace(holder, workspaceId, actorId, own)) {
+                    held++;
+                }
+            } catch (RuntimeException failed) {
+                held++;
+                log.warn("Could not disconnect a mailbox of deleted workspace {}", workspaceId, failed);
+            }
+        }
+        return held;
+    }
+
+    private boolean releaseOfDeletedWorkspace(UUID userId, UUID workspaceId, UUID actorId, TransactionTemplate own) {
+        ReleasedGrant grant = own.execute(status -> {
+            MailboxConnection connection = requireConnection(userId, workspaceId);
+            String recallCalendar = connection.releaseRecallCalendar();
+            if (recallCalendar != null) {
+                events.publishEvent(new RecallCalendarReleased(recallCalendar));
+            }
+            connection.markAccessWithdrawn();
+            return releasedGrantOf(connection);
+        });
+        if (!revokedOrSettled(grant)) {
+            return false;
+        }
+        own.executeWithoutResult(status -> connections.findByWorkspaceIdAndUserId(workspaceId, userId)
+                .ifPresent(connections::delete));
+        tokens.forget(grant.grantId());
+        audit.event(WorkspaceEventType.MAILBOX_DISCONNECTED)
+                .actor(actorId)
+                .workspace(workspaceId)
+                .target(TARGET, userId)
+                .record();
+        return true;
+    }
+
+    /** False only where trying again could help: the provider did not answer, or this deployment cannot reach it. */
+    private boolean revokedOrSettled(ReleasedGrant released) {
+        try {
+            gateway.revoke(released);
+            return true;
+        } catch (VendorException refused) {
+            if (refused.getKind().retryable()) {
+                log.warn("Could not reach the mail service to revoke a deleted workspace's grant; tried again later",
+                        refused);
+                return false;
+            }
+            // An answer, not an outage: a grant the provider no longer holds, or a token it will not take.
+            log.warn("The mail service refused to revoke a deleted workspace's grant ({}); letting it go",
+                    refused.getKind());
+            return true;
+        } catch (RuntimeException unreachable) {
+            log.warn("Could not revoke a deleted workspace's grant; tried again later", unreachable);
+            return false;
+        }
+    }
+
+    private void release(UUID userId, UUID workspaceId, UUID actorId, HttpServletRequest request,
+                         TransactionTemplate transaction) {
+        ReleasedGrant released = transaction.execute(status -> {
             MailboxConnection connection = requireConnection(userId, workspaceId);
             String recallCalendar = connection.releaseRecallCalendar();
             if (recallCalendar != null) {
@@ -210,7 +287,7 @@ public class MailboxService {
         });
         tokens.forget(released.grantId());
         audit.event(WorkspaceEventType.MAILBOX_DISCONNECTED)
-                .actor(userId)
+                .actor(actorId)
                 .workspace(workspaceId)
                 .target(TARGET, userId)
                 .from(request)

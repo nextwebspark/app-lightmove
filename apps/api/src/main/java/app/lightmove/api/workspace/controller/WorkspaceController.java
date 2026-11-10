@@ -1,6 +1,7 @@
 package app.lightmove.api.workspace.controller;
 
 import app.lightmove.api.common.persona.model.HiringPersona;
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
@@ -36,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class WorkspaceController {
 
     private final WorkspaceSettingsService settings;
+    private final LightMoveProperties properties;
 
     @GetMapping
     @PreAuthorize("@workspaceAuthorizer.staff(principal)")
@@ -101,6 +103,7 @@ public class WorkspaceController {
                 ws.getEmailDomain(), ws.getMode(), ws.getCalendarSync(), ws.getDefaultRegion(),
                 ws.getDefaultCurrency(), ws.getPlan(),
                 detail.memberCount(), ws.getCreatedAt(), ws.getPersona(),
-                WorkspaceCompanyResponse.of(ws.getCompany()));
+                WorkspaceCompanyResponse.of(ws.getCompany()),
+                properties.retention().deletedWorkspacesAfter().toDays());
     }
 }

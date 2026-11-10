@@ -181,6 +181,8 @@ export type ApiErrorCode =
   | "NOTETAKER_RECORDING_UNAVAILABLE"
   | "INTERVIEW_PLAN_DRAFTING"
   | "WORKSPACE_NAME_MISMATCH"
+  | "WORKSPACE_EXPORT_RUNNING"
+  | "WORKSPACE_EXPORT_UNAVAILABLE"
   | "ARCHIVE_NAME_MISMATCH"
   | "CLIENT_HAS_LIVE_POSITIONS"
   | "CLIENT_ARCHIVED"
@@ -221,6 +223,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CLIENT_ALREADY_EXISTS: "That name is already taken.",
   PROJECT_LAST_LEAD: "A position must keep at least one lead.",
   WORKSPACE_NAME_MISMATCH: "Type the workspace name exactly to confirm.",
+  WORKSPACE_EXPORT_RUNNING: "An export is already being built. It will be ready soon.",
+  WORKSPACE_EXPORT_UNAVAILABLE: "This export is no longer available. Start a new one.",
   ARCHIVE_NAME_MISMATCH: "Type the name exactly as shown to confirm.",
   PROJECT_ARCHIVED: "This position is archived. Restore it to start outreach.",
   CLIENT_HAS_LIVE_POSITIONS: "Some of its positions are still open. Their leads archive them first.",

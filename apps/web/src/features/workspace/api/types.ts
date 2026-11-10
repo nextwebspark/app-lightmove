@@ -18,6 +18,8 @@ export interface WorkspaceDetail {
   createdAt: string;
   persona: HiringPersona;
   company: WorkspaceCompany | null;
+  /** How long a deleted workspace is kept before everything is purged. */
+  deletionGraceDays: number;
 }
 
 /** How calendar events are read: pushed through Recall.ai, or read directly when a drawer opens. */

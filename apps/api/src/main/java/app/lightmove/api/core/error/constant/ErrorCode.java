@@ -322,6 +322,15 @@ public enum ErrorCode {
     SUPPRESSION_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
             "Your workspace's suppression list can't be checked right now, so nobody can be added. Contact Uncava support"),
 
+    /** A whole-workspace export is already being built; its card shows it. Nothing new was started. */
+    WORKSPACE_EXPORT_RUNNING(HttpStatus.CONFLICT, "An export is already being built. It will be ready soon"),
+
+    /** Past its expiry, failed or still building: there is no file to download. */
+    WORKSPACE_EXPORT_UNAVAILABLE(HttpStatus.NOT_FOUND, "This export is no longer available. Start a new one"),
+
+    /** A platform admin's restore of a workspace that is not deleted, or whose purge has begun. Nothing changed. */
+    WORKSPACE_NOT_RESTORABLE(HttpStatus.CONFLICT, "This workspace can't be restored"),
+
     /** Nothing was saved. Never sent for a stream that ran out of time: see {@link #ASSISTANT_STILL_ANSWERING}. */
     ASSISTANT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
             "The assistant could not answer just now. Try again in a moment"),
