@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -43,6 +44,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class EmailTemplateService {
 
     public static final int MAX_TEMPLATES = 100;
+    private static final int RECENTLY_USED = 5;
+    /** Read past five, since a template unshared or deleted since leaves a gap the next one fills. */
+    private static final int RECENTLY_USED_SCAN = 20;
 
     static final String TARGET = "emailTemplate";
 
@@ -59,9 +63,26 @@ public class EmailTemplateService {
         List<EmailTemplate> visible = templates.findVisibleTo(workspaceId, userId);
         boolean isAdmin = access.holdsAction(userId, workspaceId, WorkspaceAction.WORKSPACE_MANAGE);
         Map<UUID, User> owners = ownersOf(visible);
+        Set<UUID> visibleIds = visible.stream().map(EmailTemplate::getId).collect(Collectors.toSet());
+        List<UUID> recentlyUsed = templates.findRecentlyUsedBy(workspaceId, userId, RECENTLY_USED_SCAN).stream()
+                .filter(visibleIds::contains)
+                .limit(RECENTLY_USED)
+                .toList();
         return new EmailTemplatesResponse(
                 visible.stream().map(template -> responseOf(template, userId, isAdmin, owners)).toList(),
-                MAX_TEMPLATES, bookingPages.isOffered());
+                MAX_TEMPLATES, bookingPages.isOffered(), recentlyUsed);
+    }
+
+    /**
+     * The template an own email names, if the sender may apply it in this workspace; null otherwise, never a refusal.
+     * Under row-level security the foreign key alone would not keep another workspace's template out, since the
+     * reference check runs as the table's owner.
+     */
+    public UUID visibleIdOrNull(UUID userId, UUID workspaceId, UUID templateId) {
+        if (templateId == null) {
+            return null;
+        }
+        return templates.findVisible(templateId, workspaceId, userId).map(EmailTemplate::getId).orElse(null);
     }
 
     public EmailTemplateResponse create(UUID userId, UUID workspaceId, CreateEmailTemplateRequest request,

@@ -36,4 +36,14 @@ public interface EmailTemplateRepository extends JpaRepository<EmailTemplate, UU
     long countByWorkspaceIdAndOwnerUserId(UUID workspaceId, UUID ownerUserId);
 
     List<EmailTemplate> findByWorkspaceIdAndIdInAndSharedAtIsNotNull(UUID workspaceId, Collection<UUID> ids);
+
+    /** The templates a sender's own emails came from, the most recently written first. */
+    @Query(value = """
+            SELECT m.template_id FROM app_lm_outreach_message m
+             WHERE m.workspace_id = :workspaceId AND m.sender_user_id = :userId AND m.template_id IS NOT NULL
+             GROUP BY m.template_id
+             ORDER BY max(m.created_at) DESC
+             LIMIT :limit""", nativeQuery = true)
+    List<UUID> findRecentlyUsedBy(@Param("workspaceId") UUID workspaceId, @Param("userId") UUID userId,
+                                  @Param("limit") int limit);
 }

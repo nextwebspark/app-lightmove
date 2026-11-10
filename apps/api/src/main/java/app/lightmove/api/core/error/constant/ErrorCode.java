@@ -554,6 +554,13 @@ public enum ErrorCode {
     OUTREACH_DO_NOT_CONTACT(HttpStatus.CONFLICT, "This person is marked do not contact"),
 
     /** A reply needs a thread the caller's mailbox started and can still read; a first email needs none. */
+    /**
+     * An own email holding a variable this executive has no value for and no fallback, or one no email can fill
+     * ({@code {{opener}}} included); the body's {@code tokens} names them.
+     */
+    OUTREACH_TOKENS_UNFILLED(HttpStatus.CONFLICT,
+            "Some variables in this email have nothing to fill them. Fill them in, give them a fallback or remove them"),
+
     OUTREACH_THREAD_UNAVAILABLE(HttpStatus.CONFLICT,
             "There is no email thread from your mailbox to reply in. Send a new email instead"),
 

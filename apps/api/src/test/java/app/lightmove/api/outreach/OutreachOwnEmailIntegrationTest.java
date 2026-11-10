@@ -626,6 +626,84 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
                 .containsEntry("from_address", "yara.haddad@firm.example");
     }
 
+    @Test
+    @DisplayName("the composer carries this executive's variable values, the blank ones as null")
+    void theComposerCarriesTheValues() throws Exception {
+        JsonNode tokens = conversation().at("/composer/tokens");
+        assertThat(tokens.get("firstName").asText()).isEqualTo("Priya");
+        assertThat(tokens.get("currentTitle").asText()).isEqualTo("Chief Financial Officer");
+        assertThat(tokens.get("currentCompany").asText()).isEqualTo("Target Group");
+        assertThat(tokens.get("positionTitle").asText()).isEqualTo("Group CFO");
+        assertThat(tokens.get("senderFirstName").asText()).isEqualTo("Yara");
+        assertThat(tokens.get("location").isNull()).isTrue();
+    }
+
+    @Test
+    @DisplayName("a variable with no value and no fallback refuses the email and names it; nothing is written")
+    void aBlankVariableIsRefused() throws Exception {
+        MvcResult refused = sendExpecting(status().isConflict(), """
+                {"toAddress":"%s","subject":"Hello","replyInThread":false,"body":"Hi {{firstName}}, in {{location}}?"}"""
+                .formatted(priyaAddress)).andReturn();
+        assertThat(codeOf(refused)).isEqualTo("OUTREACH_TOKENS_UNFILLED");
+        assertThat(body(refused).get("tokens").toString()).isEqualTo("[\"location\"]");
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_outreach_message where candidate_id = ?::uuid",
+                Integer.class, priya)).isZero();
+    }
+
+    @Test
+    @DisplayName("a fallback stands in for a blank value, and a new email's subject is filled on one line")
+    void aFallbackAndASubjectAreFilled() throws Exception {
+        send("""
+                {"toAddress":"%s","subject":"{{firstName}}, a {{positionTitle}} question","replyInThread":false,
+                 "body":"Are you still in {{location|the region}}?"}""".formatted(priyaAddress));
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
+        OutgoingEmail email = gateway.sent().getLast().email();
+        assertThat(email.subject()).isEqualTo("Priya, a Group CFO question");
+        assertThat(email.htmlBody()).contains("Are you still in the region?").doesNotContain("{{");
+    }
+
+    @Test
+    @DisplayName("an unknown variable and the opener are refused at send, named in the order written")
+    void anUnknownVariableIsRefused() throws Exception {
+        MvcResult refused = sendExpecting(status().isConflict(), """
+                {"toAddress":"%s","subject":"Hi {{fristName}}","replyInThread":false,"body":"{{opener}} {{firstName}}"}"""
+                .formatted(priyaAddress)).andReturn();
+        assertThat(codeOf(refused)).isEqualTo("OUTREACH_TOKENS_UNFILLED");
+        assertThat(body(refused).get("tokens").toString()).isEqualTo("[\"fristName\",\"opener\"]");
+    }
+
+    @Test
+    @DisplayName("an email records the template it came from, only one the sender may see; deleting it leaves the email")
+    void anEmailRecordsItsTemplate() throws Exception {
+        JsonNode template = body(as(consultant, post("/api/v1/me/email-templates").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Intro\",\"body\":\"Hi {{firstName}}\"}"))
+                .andExpect(status().isCreated()).andReturn());
+        String templateId = template.get("id").asText();
+        String otherEmail = "rita@" + domain;
+        createWorkspace(verifiedUser("Rita Rival", otherEmail), "Rival Own Email Partners");
+        String rival = login(otherEmail);
+        String foreignId = body(as(rival, post("/api/v1/me/email-templates").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Theirs\",\"body\":\"Hi\",\"shared\":true}"))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+
+        JsonNode fromOwn = send("""
+                {"toAddress":"%s","subject":"Hello","replyInThread":false,"body":"Hi {{firstName}}","templateId":"%s"}"""
+                .formatted(priyaAddress, templateId));
+        JsonNode fromForeign = send("""
+                {"toAddress":"%s","subject":"Hello","replyInThread":false,"body":"Hi","templateId":"%s"}"""
+                .formatted(priyaAddress, foreignId));
+        assertThat(line(fromOwn.get("id").asText()).get("template_id")).hasToString(templateId);
+        assertThat(line(fromForeign.get("id").asText()).get("template_id")).isNull();
+
+        JsonNode listed = body(as(consultant, get("/api/v1/me/email-templates")).andExpect(status().isOk()).andReturn());
+        assertThat(listed.get("recentlyUsed").toString()).isEqualTo("[\"" + templateId + "\"]");
+
+        as(consultant, delete("/api/v1/me/email-templates/" + templateId).param("version", "0"))
+                .andExpect(status().isNoContent());
+        assertThat(line(fromOwn.get("id").asText()).get("template_id")).isNull();
+        assertThat(line(fromOwn.get("id").asText())).containsEntry("status", "SCHEDULED");
+    }
+
     private JsonNode send(String json) throws Exception {
         return body(sendExpecting(status().isCreated(), json).andReturn());
     }
