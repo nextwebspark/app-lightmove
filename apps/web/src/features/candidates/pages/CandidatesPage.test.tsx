@@ -9,6 +9,7 @@ import type { User } from "../../auth/api/types";
 import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project } from "../../projects/api/types";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
+import * as dataProtectionApi from "../api/dataProtectionApi";
 import * as poolApi from "../api/poolApi";
 import * as tasksApi from "../../tasks/api/tasksApi";
 import type { CandidateTag, PersonNote, PersonRecord, PoolPage, PoolRow } from "../api/types";
@@ -38,6 +39,10 @@ vi.mock("../api/poolApi", async (importOriginal) => ({
   getActivityFeed: vi.fn(),
   tagCatalog: vi.fn(),
   createTag: vi.fn(),
+}));
+vi.mock("../api/dataProtectionApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api/dataProtectionApi")>()),
+  getDataProtectionConfig: vi.fn(),
 }));
 vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../workspace/api/workspaceApi")>()),
@@ -206,6 +211,7 @@ describe("CandidatesPage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     currentUser = aUser();
+    vi.mocked(dataProtectionApi.getDataProtectionConfig).mockResolvedValue({ enabled: true });
     vi.mocked(poolApi.listPool).mockResolvedValue(page([fatima, rajesh]));
     vi.mocked(poolApi.poolCount).mockResolvedValue(2);
     vi.mocked(poolApi.tagCatalog).mockResolvedValue([openToWork, referral]);
@@ -493,10 +499,19 @@ describe("CandidatesPage", () => {
     renderPage("/candidates?person=person-1");
     await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
 
-    await userEvent.click(screen.getByRole("button", { name: "More for Fatima Al Mazrouei" }));
+    await userEvent.click(await screen.findByRole("button", { name: "More for Fatima Al Mazrouei" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: /Restrict processing/ }));
 
     expect(await screen.findByRole("dialog", { name: /Restrict processing for Fatima Al Mazrouei/ })).toBeInTheDocument();
+  });
+
+  it("offers neither Restrict processing nor Delete permanently where the deployment holds the controls back", async () => {
+    vi.mocked(dataProtectionApi.getDataProtectionConfig).mockResolvedValue({ enabled: false });
+    renderPage("/candidates?person=person-1");
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+
+    await waitFor(() => expect(dataProtectionApi.getDataProtectionConfig).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "More for Fatima Al Mazrouei" })).not.toBeInTheDocument();
   });
 
   it("draws the position drawer's tabs, less what only a position holds, with tags and contacts in the header", async () => {
@@ -604,7 +619,7 @@ describe("CandidatesPage", () => {
     ]);
     renderPage("/candidates?person=person-1&tab=notes");
 
-    const group = await screen.findByRole("region", { name: "Calls, meetings and LinkedIn" });
+    const group = await screen.findByRole("region", { name: "Calls, meetings and messages" });
     expect(within(group).getByText("Open to a move in Q2.")).toBeInTheDocument();
   });
 

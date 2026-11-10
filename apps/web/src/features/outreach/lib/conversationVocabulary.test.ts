@@ -180,6 +180,7 @@ describe("an entry's lead and face", () => {
   it("leads a call, a LinkedIn message and a meeting with their own mark, a video call with the camera", () => {
     expect(tileOfEvent(note("call"))).toBe("call");
     expect(tileOfEvent(note("linkedin"))).toBe("linkedin");
+    expect(tileOfEvent(note("whatsapp"))).toBe("whatsapp");
     expect(tileOfEvent(note("meeting"))).toBe("meeting");
     expect(tileOfEvent({ type: "MEETING", at: meeting.startsAt, meeting })).toBe("meeting");
     expect(tileOfMeeting({ ...meeting, videoProvider: "Google Meet" })).toBe("video");
@@ -307,7 +308,7 @@ describe("glanceOf", () => {
   const run = (status: OutreachRun["status"]) =>
     ({ status, sequenceName: "CFO — first approach", sentCount: 1, stepCount: 3 }) as OutreachRun;
 
-  it("counts LinkedIn notes apart from calls and other notes", () => {
+  it("counts LinkedIn and WhatsApp notes apart from calls and other notes", () => {
     const noteOf = (id: string, kind: PersonNote["kind"]) => ({
       type: "NOTE" as const,
       at: "2026-10-20T05:00:00Z",
@@ -328,8 +329,17 @@ describe("glanceOf", () => {
         editable: true,
       },
     });
-    const glance = glanceOf([noteOf("n1", "call"), noteOf("n2", "linkedin"), noteOf("n3", "general")], null, NOW);
-    expect(glance.facts.map((fact) => `${fact.count} ${fact.noun}`)).toEqual(["1 call", "1 LinkedIn", "1 note"]);
+    const glance = glanceOf(
+      [noteOf("n1", "call"), noteOf("n2", "linkedin"), noteOf("n4", "whatsapp"), noteOf("n3", "general")],
+      null,
+      NOW,
+    );
+    expect(glance.facts.map((fact) => `${fact.count} ${fact.noun}`)).toEqual([
+      "1 call",
+      "1 LinkedIn",
+      "1 WhatsApp",
+      "1 note",
+    ]);
   });
 
   it("counts only what happened, and dates the last touch by the latest of it", () => {

@@ -516,7 +516,6 @@ export function CandidateProfile({
                     <LinkedInUrlField
                       register={form.register}
                       error={form.formState.errors.linkedinUrl?.message}
-                      lockedUrl={candidate.linkedinUrlLocked ? candidate.linkedinUrl : null}
                     />
                   </>
                 )}

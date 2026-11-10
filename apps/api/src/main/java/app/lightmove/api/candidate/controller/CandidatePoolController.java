@@ -13,7 +13,6 @@ import app.lightmove.api.candidate.dto.PersonNoteResponse;
 import app.lightmove.api.candidate.dto.PersonRecordResponse;
 import app.lightmove.api.candidate.dto.PersonTimelineResponse;
 import app.lightmove.api.candidate.dto.PinPersonNoteRequest;
-import app.lightmove.api.candidate.dto.ProcessingRestrictionRequest;
 import app.lightmove.api.candidate.dto.WritePersonNoteRequest;
 import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.PoolCriteria;
@@ -22,7 +21,6 @@ import app.lightmove.api.candidate.service.CandidatePoolService;
 import app.lightmove.api.candidate.service.PersonNoteService;
 import app.lightmove.api.candidate.service.PersonRecordService;
 import app.lightmove.api.candidate.service.PersonTimelineService;
-import app.lightmove.api.candidate.service.ProcessingRestrictionService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
@@ -64,7 +62,6 @@ public class CandidatePoolController {
     private final PersonNoteService notes;
     private final PersonTimelineService timeline;
     private final CandidatePoolService pool;
-    private final ProcessingRestrictionService restrictions;
 
     /**
      * A page of the workspace's people. Every filter is optional; {@code owner} is a user id or
@@ -149,16 +146,6 @@ public class CandidatePoolController {
                                              HttpServletRequest httpRequest) {
         return pool.markDoNotContact(principal.userId(), principal.requireWorkspaceId(), personId,
                 request.doNotContact(), request.reason(), httpRequest);
-    }
-
-    @PutMapping("/{personId}/processing-restriction")
-    @RequireWorkspacePermission(WorkspaceAction.CANDIDATE_POOL_MANAGE)
-    public PersonRecordResponse processingRestriction(@AuthenticationPrincipal AuthPrincipal principal,
-                                                      @PathVariable UUID personId,
-                                                      @Valid @RequestBody ProcessingRestrictionRequest request,
-                                                      HttpServletRequest httpRequest) {
-        return restrictions.restrictProcessing(principal.userId(), principal.requireWorkspaceId(), personId, request,
-                httpRequest);
     }
 
     @PutMapping("/{personId}/tags/{tagId}")

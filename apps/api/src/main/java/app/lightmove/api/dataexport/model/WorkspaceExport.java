@@ -13,7 +13,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** One export of a whole workspace (V179): built off the request, downloadable until it expires. */
+/** One export of a whole workspace (V202): built off the request, downloadable until it expires. */
 @Entity
 @Table(name = "app_lm_workspace_export")
 @Getter

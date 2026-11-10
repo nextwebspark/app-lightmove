@@ -13,7 +13,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Deletes a whole-workspace export's zip once it expires, and fails one whose worker died mid-build. V179's resolver
+ * Deletes a whole-workspace export's zip once it expires, and fails one whose worker died mid-build. V202's resolver
  * names the exports due, so only the workspaces holding one are visited, each in its own scope.
  */
 @Slf4j

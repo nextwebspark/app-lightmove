@@ -60,7 +60,7 @@ public class WorkspaceMember extends BaseEntity {
     @Column(name = "decided_at")
     private Instant decidedAt;
 
-    /** The workspace's deletion ended this membership, so restoring the workspace brings it back (V179). */
+    /** The workspace's deletion ended this membership, so restoring the workspace brings it back (V202). */
     @Column(name = "ended_with_workspace", nullable = false)
     private boolean endedWithWorkspace;
 

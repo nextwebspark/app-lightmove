@@ -3,7 +3,7 @@ import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
 import { Popover } from "./Popover";
 import { FilterCheckRow } from "./FilterCheckRow";
-import { TOOLBAR_COUNT, TOOLBAR_COUNT_ACCENT, TOOLBAR_MENU } from "./Toolbar";
+import { TOOLBAR_COUNT, TOOLBAR_COUNT_ACCENT, TOOLBAR_MENU, ToolbarLabel } from "./Toolbar";
 
 /** One column a user may turn off: the table's column id, and the header it is known by. */
 export interface HideableColumn {
@@ -48,6 +48,7 @@ export function ColumnPicker({
     <Popover
       align="right"
       width={220}
+      title={isToolbar ? "Columns" : undefined}
       triggerClassName={
         isToolbar
           ? TOOLBAR_MENU
@@ -56,7 +57,7 @@ export function ColumnPicker({
       trigger={(open) => (
         <>
           <Icon d={ICONS.columns} size={isToolbar ? 15 : 14} className="flex-none" />
-          Columns
+          {isToolbar ? <ToolbarLabel>Columns</ToolbarLabel> : "Columns"}
           {hiddenCount > 0 && (
             <span className={isToolbar ? TOOLBAR_COUNT : TOOLBAR_COUNT_ACCENT}>{hiddenCount} hidden</span>
           )}

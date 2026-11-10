@@ -39,7 +39,7 @@ export function CandidateOutreachButtons({
   if (mailbox.data?.offered !== true) {
     return between || below ? (
       <div className="flex flex-col gap-2.5">
-        {between && <div className={ROW}>{between}</div>}
+        {between && <div className={OUTREACH_ACTION_ROW}>{between}</div>}
         {below}
       </div>
     ) : null;
@@ -71,7 +71,7 @@ export function CandidateOutreachButtons({
   return (
     <>
       <div className="flex flex-col gap-2.5">
-        <div className={ROW}>
+        <div className={OUTREACH_ACTION_ROW}>
           {actionOf("email", ICONS.mail, "Write email")}
           {between}
           {actionOf("sequence", ICONS.outreach, "Add to sequence")}
@@ -99,4 +99,4 @@ export function CandidateOutreachButtons({
 }
 
 /** Equal widths while they fit on one line; on a narrow screen each wraps to a full-width line of its own. */
-const ROW = "flex flex-wrap items-center gap-2 *:min-w-fit *:flex-1 *:whitespace-nowrap";
+export const OUTREACH_ACTION_ROW = "flex flex-wrap items-center gap-2 *:min-w-fit *:flex-1 *:whitespace-nowrap";

@@ -106,7 +106,6 @@ export type ApiErrorCode =
   | "BILLING_PACK_UNKNOWN"
   | "SUBSCRIPTION_BILLED_BY_STRIPE"
   | "SEAT_LIMIT_REACHED"
-  | "CANDIDATE_PROFILE_URL_LOCKED"
   | "EXECUTIVE_SOURCING_UNAVAILABLE"
   | "EXECUTIVE_SOURCING_TOO_MANY_COMPANIES"
   | "EXECUTIVE_SOURCING_IN_PROGRESS"
@@ -313,8 +312,6 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   BILLING_PACK_UNKNOWN: "That credit pack is no longer sold. Choose another.",
   SUBSCRIPTION_BILLED_BY_STRIPE: "This workspace already pays through Stripe — change the plan from Invoices & card.",
   SEAT_LIMIT_REACHED: "Every seat your workspace pays for is taken. An admin can add seats through Contact Uncava in Settings → Billing.",
-  CANDIDATE_PROFILE_URL_LOCKED:
-    "This profile was captured from LinkedIn, so its URL is not editable.",
   EXECUTIVE_SOURCING_UNAVAILABLE: "Find executives isn't switched on for your workspace. Contact Uncava support to turn it on.",
   EXECUTIVE_SOURCING_TOO_MANY_COMPANIES: "Too many companies ticked. Find executives takes a limited batch — untick some and try again.",
   EXECUTIVE_SOURCING_IN_PROGRESS: "A Find executives run is already in progress for this position.",

@@ -119,7 +119,7 @@ public class WorkspaceExportService {
             export = exports.saveAndFlush(WorkspaceExport.start(workspaceId, userId, fileName,
                     storageKeyOf(workspaceId, UUID.randomUUID()), now));
         } catch (DataIntegrityViolationException racing) {
-            // A second press landing beside the first: V179's partial unique index holds one build at a time.
+            // A second press landing beside the first: V202's partial unique index holds one build at a time.
             throw ApiException.of(ErrorCode.WORKSPACE_EXPORT_RUNNING);
         }
         audit.event(WorkspaceEventType.WORKSPACE_EXPORT_STARTED)

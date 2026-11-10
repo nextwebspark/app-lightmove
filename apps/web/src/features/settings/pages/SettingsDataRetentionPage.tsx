@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
+import { Navigate } from "react-router-dom";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { CardsSkeleton } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
+import { useDataProtection } from "../../candidates/lib/useDataProtection";
 import * as dataRetentionApi from "../api/dataRetentionApi";
 import { CandidateRetentionCard } from "../components/CandidateRetentionCard";
 import { DueForDeletionCard } from "../components/DueForDeletionCard";
@@ -15,6 +17,13 @@ import { WorkspaceExportCard } from "../components/WorkspaceExportCard";
  * own.
  */
 export function SettingsDataRetentionPage() {
+  const dataProtection = useDataProtection();
+  if (dataProtection.isPending) return <CardsSkeleton />;
+  if (!dataProtection.offered) return <Navigate to="/settings" replace />;
+  return <DataRetentionSettings />;
+}
+
+function DataRetentionSettings() {
   const { user } = useAuth();
   const retention = useQuery({
     queryKey: dataRetentionApi.CANDIDATE_RETENTION_KEY,

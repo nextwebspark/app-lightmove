@@ -463,7 +463,6 @@ public class CandidateService {
         if (claim == ProfileClaim.HELD) {
             throw ApiException.of(ErrorCode.PERSON_PROFILE_HELD);
         }
-        refuseRetypedCapturedProfile(person, details.linkedinUrl());
         refuseSuppressedAdditions(workspaceId, person, details.linkedinUrl(), details.emails());
 
         boolean confirmBackground = Boolean.TRUE.equals(request.confirmBackground());
@@ -803,16 +802,6 @@ public class CandidateService {
 
     private static List<String> emailsOf(List<ContactEntry> emails) {
         return emails.stream().map(ContactEntry::value).filter(Objects::nonNull).toList();
-    }
-
-    /**
-     * The plugin read this row's URL off the profile page it was on; research and contact lookup
-     * key on that slug, and a retyped one can only break them. A person's own row is theirs to fix.
-     */
-    private static void refuseRetypedCapturedProfile(Person person, String linkedinUrl) {
-        if (person.isLinkedinUrlLocked() && !Objects.equals(person.getLinkedinUrl(), linkedinUrl)) {
-            throw ApiException.of(ErrorCode.CANDIDATE_PROFILE_URL_LOCKED);
-        }
     }
 
     /**
