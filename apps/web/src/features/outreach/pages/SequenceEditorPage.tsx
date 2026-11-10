@@ -10,6 +10,8 @@ import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate } from "../../candidates/api/types";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
+import { SignatureUnderEmail } from "../../signatures/components/SignatureChooser";
+import { useSignatureChoice } from "../../signatures/lib/useSignatureChoice";
 import * as sequenceApi from "../api/sequenceApi";
 import type { RecipientTokens, Sequence, SequenceSchedule, SequenceStep, Weekday } from "../api/sequenceApi";
 import {
@@ -35,8 +37,6 @@ const MAX_STEPS = 3;
 const DELAY_CHOICES = [2, 3, 4, 5, 7];
 const STEP_LABELS = ["First email", "Follow-up", "Last follow-up"];
 const PREVIEW_OPENER = "Their opener is drafted for each person when you add them, and you review it then.";
-const SIGNATURE_PREVIEW_LINE =
-  "Your signature goes here. You choose it when you add people, and it closes every email, follow-ups too.";
 
 const FIRST_STEP_BODY = `Hi {{firstName}},
 
@@ -44,7 +44,9 @@ const FIRST_STEP_BODY = `Hi {{firstName}},
 
 I'm leading a confidential search for a {{positionTitle}}. Given your time as {{currentTitle}} at {{currentCompany}}, I'd value twenty minutes of your view, whether or not the role is right for you.
 
-Would a short call next week work?`;
+Would a short call next week work?
+
+{{senderFirstName}}`;
 
 const DEFAULT_STEPS: SequenceStep[] = [
   {
@@ -55,12 +57,12 @@ const DEFAULT_STEPS: SequenceStep[] = [
   {
     delayWorkingDays: 3,
     subject: null,
-    body: "Hi {{firstName}},\n\nFollowing up on my note below, in case it slipped past. Happy to work around your diary.",
+    body: "Hi {{firstName}},\n\nFollowing up on my note below, in case it slipped past. Happy to work around your diary.\n\n{{senderFirstName}}",
   },
   {
     delayWorkingDays: 5,
     subject: null,
-    body: "Hi {{firstName}},\n\nI'll leave it here for now. If the timing is ever better, I'd be glad to hear from you.",
+    body: "Hi {{firstName}},\n\nI'll leave it here for now. If the timing is ever better, I'd be glad to hear from you.\n\n{{senderFirstName}}",
   },
 ];
 
@@ -606,6 +608,7 @@ function SequencePreview({
     queryFn: ({ signal }) => candidatesApi.getCandidates(projectId, {}, signal),
   });
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const signature = useSignatureChoice();
   const candidates = people.data?.candidates ?? [];
   const person = candidates.find((candidate) => candidate.id === previewId) ?? candidates[0] ?? null;
   const step = steps[Math.min(selectedStep, steps.length - 1)];
@@ -687,9 +690,7 @@ function SequencePreview({
             ),
           )}
         </div>
-        <p className="mt-3.5 border-t border-dashed border-u-border pt-2.5 text-note text-u-text3">
-          {SIGNATURE_PREVIEW_LINE}
-        </p>
+        <SignatureUnderEmail choice={signature} />
         {selectedStep > 0 && (
           <div className="mt-3.5 border-s-2 border-u-border ps-2.5 text-[12px]/[1.5] text-u-text3">
             Your earlier email to {tokens.firstName ?? "them"} is quoted below, as in any reply.

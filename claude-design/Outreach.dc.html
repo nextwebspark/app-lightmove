@@ -455,6 +455,16 @@
                   <span style="color:var(--text3)">Subject</span><span style="color:var(--text);font-weight:500">{{ pv.subject }}</span>
                 </div>
                 <div style="padding-top:14px;font:400 13.5px/1.6 var(--sans);color:var(--text);white-space:pre-wrap"><sc-for list="{{ pv.parts }}" as="pt" hint-placeholder-count="3"><span style="{{ pt.style }}">{{ pt.t }}</span></sc-for></div>
+                <!-- The sender's default signature, greyed as Add to sequence's review draws it; none kept, none drawn. -->
+                <sc-if value="{{ sg.hasAny }}" hint-placeholder-val="{{ true }}">
+                  <div data-screen-label="Sequence preview signature" style="margin-top:8px;padding:2px 0 2px 12px;border-left:2px solid var(--line);opacity:.6;font:400 12.5px/1.45 var(--sans);color:var(--text2)">
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <span style="width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 11px var(--mono)">YH</span>
+                      <span style="min-width:0"><b style="color:var(--text)">Yara Haddad</b><br>Head of Talent Acquisition, Al-Futtaim<br>+971 50 123 4567 · yara.haddad@alfuttaim.com<br>alfuttaim.com · LinkedIn<br>Festival Tower, Dubai Festival City</span>
+                      <img src="assets/al-futtaim-logo.png" alt="" style="height:28px;width:auto;flex:none;margin-left:6px;padding-left:10px;border-left:1px solid var(--line)">
+                    </div>
+                  </div>
+                </sc-if>
                 <sc-if value="{{ pv.quoted }}" hint-placeholder-val="{{ false }}">
                   <div style="margin-top:14px;border-left:2px solid var(--line);padding-left:10px;font:400 12px/1.5 var(--sans);color:var(--text3)">On Mon 29 Sep, Yara Haddad wrote:<br>Hi {{ pv.first }}, your move from audit into running group finance…</div>
                 </sc-if>

@@ -5,6 +5,7 @@ import { MemoryRouter, Outlet, Route, Routes, useLocation } from "react-router-d
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
+import * as signaturesApi from "../../signatures/api/signaturesApi";
 import * as mailboxApi from "../api/mailboxApi";
 import { SequenceEditorPage } from "./SequenceEditorPage";
 
@@ -22,7 +23,40 @@ vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
   getCandidates: vi.fn(),
 }));
 
+vi.mock("../../signatures/api/signaturesApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../signatures/api/signaturesApi")>()),
+  listSignatures: vi.fn(),
+}));
+
 const PROJECT = { id: "p1", positionTitle: "Group CFO" };
+
+const SIGNATURE_SOURCES = {
+  name: "Yara Haddad",
+  title: null,
+  phone: null,
+  linkedinUrl: null,
+  email: "yara@firm.example",
+  company: "Firm",
+  website: null,
+  photoUrl: null,
+  logoAvailable: false,
+  bookingLinkOffered: false,
+};
+
+const DEFAULT_SIGNATURE: signaturesApi.EmailSignature = {
+  id: "sig",
+  name: "Formal",
+  layout: "MINIMAL",
+  fields: { name: null, title: null, phone: null, linkedinUrl: null, company: null, website: null, address: null },
+  showPhoto: false,
+  showLogo: false,
+  showBookingLink: false,
+  customBody: null,
+  disclaimer: null,
+  isDefault: true,
+  updatedAt: "2026-11-01T10:00:00Z",
+  html: "<div>Yara Haddad</div>",
+};
 
 function Where() {
   return <output aria-label="Location">{useLocation().pathname}</output>;
@@ -56,6 +90,11 @@ describe("SequenceEditorPage", () => {
       connection: null,
       bookingLinkOffered: false,
     });
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
+      signatures: [],
+      sources: SIGNATURE_SOURCES,
+      limit: 10,
+    });
   });
 
   it("writes a new sequence under the Outreach header, a click from the conversations", async () => {
@@ -72,20 +111,31 @@ describe("SequenceEditorPage", () => {
     await waitFor(() => expect(screen.getByLabelText("Location")).toHaveTextContent(/^\/projects\/p1\/outreach$/));
   });
 
-  it("starts with steps that leave the sign-off to the signature, which the preview says closes every email", async () => {
+  it("previews the sender's default signature under each step", async () => {
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
+      signatures: [DEFAULT_SIGNATURE],
+      sources: SIGNATURE_SOURCES,
+      limit: 10,
+    });
+    renderEditor();
+
+    expect(await screen.findByTitle("Signature")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Step 2" }));
+
+    expect(screen.getByTitle("Signature")).toBeInTheDocument();
+  });
+
+  it("keeps the defaults' sign-off, so an email sent with no signature still names its sender", async () => {
     renderEditor();
 
     const bodies = await screen.findAllByRole("textbox", { name: "Email body" });
     expect(bodies).toHaveLength(3);
     for (const body of bodies) {
-      expect((body as HTMLTextAreaElement).value).not.toContain("{{senderFirstName}}");
+      expect((body as HTMLTextAreaElement).value).toMatch(/\{\{senderFirstName\}\}$/);
     }
-    expect((bodies[0] as HTMLTextAreaElement).value).toMatch(/Would a short call next week work\?$/);
-    expect(screen.getByText(/Your signature goes here/)).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("tab", { name: "Step 2" }));
-
-    expect(screen.getByText(/Your signature goes here/)).toBeInTheDocument();
+    await waitFor(() => expect(signaturesApi.listSignatures).toHaveBeenCalled());
+    expect(screen.queryByTitle("Signature")).not.toBeInTheDocument();
   });
 
   it("goes back to the list from the header's Sequences", async () => {
