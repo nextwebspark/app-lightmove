@@ -38,7 +38,7 @@ export function tallyOf(panels: readonly ScorecardPanelTally[], scoreOf: (key: s
     const count = panel.criteria.length;
     const criteria = panel.criteria.map((criterion) => {
       const score = scoreOf(criterionKey(criterion.panel, criterion.name));
-      const weightInPanel = weightSum === 0 ? 100 / count : (100 * criterion.weight) / weightSum;
+      const weightInPanel = partOfPanel(criterion.weight, weightSum, count);
       const maxPoints = (weightInPanel / 100) * panel.share;
       const earned = score === null ? 0 : (score / 10) * maxPoints;
       if (score !== null) {
@@ -61,6 +61,14 @@ export function tallyOf(panels: readonly ScorecardPanelTally[], scoreOf: (key: s
     };
   });
   return { overall: roundOne(overall), scoredCount, criteriaCount, panels: live };
+}
+
+/**
+ * A criterion's part of its panel, out of 100: its weight over the panel's, split evenly when the panel weighs
+ * nothing. The one copy the drawer and the Ranking chapter share, so their totals cannot drift apart.
+ */
+export function partOfPanel(weight: number, panelWeight: number, panelSize: number): number {
+  return panelWeight === 0 ? 100 / panelSize : (100 * weight) / panelWeight;
 }
 
 export function roundOne(value: number): number {

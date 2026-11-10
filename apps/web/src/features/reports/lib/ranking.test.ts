@@ -4,9 +4,9 @@ import {
   baselineOf,
   differentiators,
   effectiveOverall,
+  leaderAt,
   leaderFlips,
   panelsOffHundred,
-  pairCrossover,
   rankRows,
   rankStandings,
   standingOf,
@@ -92,7 +92,6 @@ describe("ranking arithmetic", () => {
 
     expect(first.candidate.candidateId).toBe("layla");
     expect(first.rankShift).toBe(1);
-    expect(first.baselineRank).toBe(2);
     expect(second.rankShift).toBe(-1);
     expect(first.scoreShift).toBeCloseTo(85 - 70);
     expect(second.scoreShift).toBeCloseTo(58 - 76);
@@ -119,7 +118,6 @@ describe("leader flips", () => {
     expect(flips[0].at).toBeCloseTo(45.4545, 3);
     expect(flips[0].from.candidateId).toBe("layla");
     expect(flips[0].to.candidateId).toBe("tariq");
-    expect(pairCrossover(standings[0], standings[1])).toBeCloseTo(45.4545, 3);
   });
 
   it("follows the lead through a chain of three, and finds none where one leads throughout", () => {
@@ -136,6 +134,16 @@ describe("leader flips", () => {
 
     const dominant = candidate("noura", scoresOf(9, 9, 9));
     expect(leaderFlips(rankStandings([dominant, balanced], CRITERIA, BASELINE), CRITERIA)).toEqual([]);
+  });
+
+  it("hands a tie where the range starts to the steeper line, so its overtaking is not lost", () => {
+    // Both total 60 at 30% technical; Aisha's line is steeper, so she leads from just past it.
+    const flat = candidate("zaid", scoresOf(6, 6, 6));
+    const steep = candidate("aisha", scoresOf(8, 8, 360 / 70 / 1), "draft");
+    const standings = rankStandings([flat, steep], CRITERIA, BASELINE);
+
+    expect(leaderAt(standings, 30)?.candidate.candidateId).toBe("aisha");
+    expect(leaderFlips(standings, CRITERIA)).toEqual([]);
   });
 
   it("says nothing about the split where only one panel is scored", () => {

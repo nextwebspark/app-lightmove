@@ -1,3 +1,4 @@
+import { partOfPanel } from "../../candidates/lib/scorecardScoring";
 import type { CompetencyPanel, RankedCandidate, Ranking, RankingCriterion } from "../api/types";
 
 /**
@@ -29,8 +30,9 @@ export interface Standing {
 
 export interface RankedRow {
   candidate: RankedCandidate;
+  /** The row's standing under the scenario, whose points the leader's flip points are found from. */
+  standing: Standing;
   rank: number;
-  baselineRank: number;
   total: number;
   baselineTotal: number;
   /** Places moved up from the baseline: positive is up. */
@@ -80,11 +82,22 @@ export function hasBothPanels(criteria: readonly RankingCriterion[]): boolean {
   return PANELS.every((panel) => criteria.some((criterion) => criterion.panel === panel));
 }
 
+/** Every competency's part of its panel at these weights, worked out once per weighting rather than per score. */
+function partsOf(criteria: readonly RankingCriterion[], weights: Weights): Map<string, number> {
+  const parts = new Map<string, number>();
+  for (const panel of PANELS) {
+    const inPanel = criteriaOf(criteria, panel);
+    const panelWeight = inPanel.reduce((total, each) => total + (weights[each.key] ?? 0), 0);
+    for (const criterion of inPanel) {
+      parts.set(criterion.key, partOfPanel(weights[criterion.key] ?? 0, panelWeight, inPanel.length));
+    }
+  }
+  return parts;
+}
+
 /** A competency's part of its panel, out of 100; a panel weighing nothing splits evenly. */
 export function weightInPanel(criterion: RankingCriterion, criteria: readonly RankingCriterion[], weights: Weights) {
-  const panel = criteriaOf(criteria, criterion.panel);
-  const sum = panel.reduce((total, each) => total + (weights[each.key] ?? 0), 0);
-  return sum === 0 ? 100 / panel.length : (100 * (weights[criterion.key] ?? 0)) / sum;
+  return partsOf(criteria, weights).get(criterion.key) ?? 0;
 }
 
 /** What a competency carries of the whole 100 at this weighting — the "Effective overall" line. */
@@ -102,13 +115,15 @@ export function panelPointsOf(
   candidate: RankedCandidate,
   criteria: readonly RankingCriterion[],
   weights: Weights,
+  parts: Map<string, number> = partsOf(criteria, weights),
 ): PanelPoints {
-  const pointsOf = (panel: CompetencyPanel) =>
-    criteriaOf(criteria, panel).reduce((points, criterion) => {
-      const score = scoreOf(candidate, criterion.key);
-      return score === null ? points : points + (score / 10) * weightInPanel(criterion, criteria, weights);
-    }, 0);
-  return { technical: pointsOf("technical"), behavioural: pointsOf("behavioural") };
+  const scores = new Map(candidate.assessment.scores.map((score) => [score.key, score.score]));
+  const points: PanelPoints = { technical: 0, behavioural: 0 };
+  for (const criterion of criteria) {
+    const score = scores.get(criterion.key);
+    if (score != null) points[criterion.panel] += (score / 10) * (parts.get(criterion.key) ?? 0);
+  }
+  return points;
 }
 
 export function totalAt(points: PanelPoints, technicalPart: number): number {
@@ -119,8 +134,9 @@ export function standingOf(
   candidate: RankedCandidate,
   criteria: readonly RankingCriterion[],
   weighting: Weighting,
+  parts: Map<string, number> = partsOf(criteria, weighting.weights),
 ): Standing {
-  const points = panelPointsOf(candidate, criteria, weighting.weights);
+  const points = panelPointsOf(candidate, criteria, weighting.weights, parts);
   return { candidate, points, total: totalAt(points, effectiveShare(criteria, weighting.share)) };
 }
 
@@ -141,7 +157,8 @@ export function rankStandings(
   criteria: readonly RankingCriterion[],
   weighting: Weighting,
 ): Standing[] {
-  return candidates.map((candidate) => standingOf(candidate, criteria, weighting)).sort(compareStandings);
+  const parts = partsOf(criteria, weighting.weights);
+  return candidates.map((candidate) => standingOf(candidate, criteria, weighting, parts)).sort(compareStandings);
 }
 
 /** The pool ranked under the scenario, each row beside where the baseline put it. */
@@ -157,8 +174,8 @@ export function rankRows(
     const before = baselineOf.get(standing.candidate.candidateId)!;
     return {
       candidate: standing.candidate,
+      standing,
       rank: index + 1,
-      baselineRank: before.index + 1,
       total: standing.total,
       baselineTotal: before.standing.total,
       rankShift: before.index - index,
@@ -245,6 +262,19 @@ export function differentiators(
 const slopeOf = (points: PanelPoints) => (points.technical - points.behavioural) / 100;
 
 /**
+ * Who leads at this technical share. Two level there go to the steeper line, which leads from just past it — the
+ * ordinary tie-breaks would hand the share to one who leads nowhere beyond it.
+ */
+export function leaderAt(standings: readonly Standing[], share: number): Standing | undefined {
+  const atShare = standings.map((standing) => ({ ...standing, total: totalAt(standing.points, share) }));
+  return atShare.sort((a, b) => {
+    if (Math.abs(a.total - b.total) > EPSILON) return b.total - a.total;
+    const steeper = slopeOf(b.points) - slopeOf(a.points);
+    return Math.abs(steeper) > EPSILON ? steeper : compareStandings(a, b);
+  })[0];
+}
+
+/**
  * Every technical share between `from` and `to` at which the leader changes. A total is a line in the share
  * (`behavioural + share × slope`), so each overtaking is found exactly rather than by stepping a slider: from the
  * leader at `from`, the next one is the steeper line that crosses it soonest. Null when a panel is empty, since the
@@ -258,8 +288,7 @@ export function leaderFlips(
 ): LeaderFlip[] | null {
   if (!hasBothPanels(criteria)) return null;
   if (standings.length < 2) return [];
-  const atShare = (standing: Standing, share: number): Standing => ({ ...standing, total: totalAt(standing.points, share) });
-  let leader = [...standings].map((standing) => atShare(standing, from)).sort(compareStandings)[0];
+  let leader = leaderAt(standings, from)!;
   let share = from;
   const flips: LeaderFlip[] = [];
   for (;;) {
@@ -279,13 +308,4 @@ export function leaderFlips(
     leader = next.standing;
     share = next.at;
   }
-}
-
-/** The technical share at which two candidates' totals meet, or null where they never do between 0 and 100. */
-export function pairCrossover(a: Standing, b: Standing): number | null {
-  const slopeA = slopeOf(a.points);
-  const slopeB = slopeOf(b.points);
-  if (Math.abs(slopeA - slopeB) <= EPSILON) return null;
-  const at = (b.points.behavioural - a.points.behavioural) / (slopeA - slopeB);
-  return at >= 0 && at <= 100 ? at : null;
 }

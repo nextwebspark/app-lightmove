@@ -4,6 +4,7 @@ import { ICONS } from "../../../components/layout/Icon";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Spinner } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
+import { formatRelativeTime } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
 import type { Project } from "../../projects/api/types";
 import { canExecuteProjectWork } from "../../projects/lib/access";
@@ -87,13 +88,19 @@ function ReportBody({ project, report }: { project: Project; report: Report }) {
       <ReportNav
         chapters={chapters}
         activeKey={active.key}
-        footer={<>Talent mapping report, prepared for {project.clientName} — confidential.</>}
+        footer={
+          <>
+            Talent mapping report, prepared for {project.clientName} — confidential. Generated{" "}
+            {formatRelativeTime(report.head.generatedAt)}, live from the mandate's rows.
+            {report.head.truncated && " Row caps were hit: the chapters describe a sample."}
+          </>
+        }
       />
       <div className="min-w-0 flex-1">
         <div
           className={cn(
-            "px-4 pb-[100px] pt-[34px] sm:px-6",
-            active.key !== "ranking" && "max-w-[900px]",
+            "px-4 pb-[100px] pt-[34px]",
+            active.key === "ranking" ? "sm:px-6" : "max-w-[900px] sm:px-10",
           )}
         >
           <Chapter chapterKey={active.key} project={project} report={report} />

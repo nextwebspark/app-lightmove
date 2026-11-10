@@ -14,8 +14,9 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * A position's one shared ranking scenario (V203): the technical share and competency weights the team is trying
- * out against the brief's, and why. It never writes the brief, and no row is the brief's own weighting.
+ * A position's one shared ranking scenario (V204): the technical share and competency weights the team is trying
+ * out against the brief's, and why. It never writes the brief; no row, or one saved at the brief's own weighting
+ * (a cleared scenario, kept so its version keeps climbing), is no scenario.
  */
 @Entity
 @Table(name = "app_lm_ranking_scenario")

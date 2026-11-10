@@ -139,10 +139,11 @@ export function whyOrderOf(
   };
 }
 
-export function sensitivityOf(flips: readonly LeaderFlip[] | null, leader: RankedCandidate | undefined): string | null {
+/** `leader` is whoever leads where the range starts, which the flips are counted from. */
+export function sensitivityOf(flips: readonly LeaderFlip[] | null, leader: Standing | undefined): string | null {
   if (flips === null || !leader) return null;
   if (flips.length === 0) {
-    return `Reference sensitivity: ${firstName(leader)} leads at every technical weighting from ${SENSITIVITY_FROM}% to ${SENSITIVITY_TO}%.`;
+    return `Reference sensitivity: ${firstName(leader.candidate)} leads at every technical weighting from ${SENSITIVITY_FROM}% to ${SENSITIVITY_TO}%.`;
   }
   const points = flips.map(
     (flip, index) =>

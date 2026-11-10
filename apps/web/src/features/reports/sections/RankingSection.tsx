@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ComponentProps, useState } from "react";
+import { type ComponentProps, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button } from "../../../components/ui";
@@ -15,7 +15,7 @@ import { ReportGap } from "../components/ReportGap";
 import { Figure, ReportFinding, ReportSection } from "../components/ReportSection";
 import { SaveScenarioDialog } from "../components/SaveScenarioDialog";
 import { ShortlistComparison } from "../components/ShortlistComparison";
-import { leaderFlips, rankRows, rankStandings, type RankedRow } from "../lib/ranking";
+import { leaderAt, leaderFlips, rankRows, SENSITIVITY_FROM, type RankedRow } from "../lib/ranking";
 import { insightOf, sensitivityOf, splitLabel } from "../lib/rankingWording";
 import { useRankingScenario } from "../lib/useRankingScenario";
 
@@ -57,6 +57,25 @@ function RankingBody({ project, ranking }: { project: Project; ranking: Ranking 
   const [chosenIds, setChosenIds] = useState<string[] | null>(null);
   const [openCandidateId, setOpenCandidateId] = useState<string | null>(null);
   const [isSaveOpen, setSaveOpen] = useState(false);
+  const { baseline, atBaseline } = scenario;
+  const { share, weights } = scenario.weighting;
+
+  // Re-ranked only when the pool or the weighting moves: a rationale keystroke or a drawer toggle reuses it.
+  const ranked = useMemo(() => {
+    const weighting = { share, weights };
+    const pool = ranking.candidates.filter(
+      (candidate) =>
+        (filter === "all" || candidate.assessment.status === "reviewed") &&
+        !(hideOutOfProcess && candidate.outOfProcess),
+    );
+    const rows = rankRows(pool, ranking.criteria, baseline, weighting);
+    const standings = rows.map((row) => row.standing);
+    return {
+      rows,
+      insight: insightOf(rows, ranking.criteria, baseline, weighting, atBaseline),
+      sensitivity: sensitivityOf(leaderFlips(standings, ranking.criteria), leaderAt(standings, SENSITIVITY_FROM)),
+    };
+  }, [ranking, filter, hideOutOfProcess, baseline, share, weights, atBaseline]);
 
   if (ranking.criteria.length === 0) {
     return (
@@ -74,11 +93,7 @@ function RankingBody({ project, ranking }: { project: Project; ranking: Ranking 
     );
   }
 
-  const pool = ranking.candidates.filter(
-    (candidate) =>
-      (filter === "all" || candidate.assessment.status === "reviewed") && !(hideOutOfProcess && candidate.outOfProcess),
-  );
-  const rows = rankRows(pool, ranking.criteria, scenario.baseline, scenario.weighting);
+  const { rows, insight, sensitivity } = ranked;
   const selectedIds = (chosenIds ?? rows.slice(0, MAX_COMPARED).map((row) => row.candidate.candidateId)).filter((id) =>
     rows.some((row) => row.candidate.candidateId === id),
   );
@@ -89,9 +104,6 @@ function RankingBody({ project, ranking }: { project: Project; ranking: Ranking 
     setChosenIds(next);
   };
   const pair = rows.filter((row) => selectedIds.includes(row.candidate.candidateId));
-  const standings = rankStandings(pool, ranking.criteria, scenario.weighting);
-  const insight = insightOf(rows, ranking.criteria, scenario.baseline, scenario.weighting, scenario.atBaseline);
-  const sensitivity = sensitivityOf(leaderFlips(standings, ranking.criteria), rows[0]?.candidate);
   // Saving is offered for a change, and for a saved scenario whose rationale the team may want to revisit.
   const canSave = (scenario.isDirty || ranking.scenario !== null) && scenario.offHundred.length === 0;
 
@@ -210,7 +222,11 @@ function RankingBody({ project, ranking }: { project: Project; ranking: Ranking 
         project={project}
         candidateId={openCandidateId}
         focusTab="assessment"
-        onClose={() => setOpenCandidateId(null)}
+        onClose={() => {
+          setOpenCandidateId(null);
+          // An assessment saved in the drawer announces nothing to this chapter, so its order is read again on close.
+          void queryClient.invalidateQueries({ queryKey: reportApi.RANKING_KEY(project.id) });
+        }}
         onChanged={() => void queryClient.invalidateQueries({ queryKey: reportApi.RANKING_KEY(project.id) })}
       />
     </Shell>

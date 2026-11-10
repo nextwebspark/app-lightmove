@@ -167,6 +167,10 @@ describe("RankingSection", () => {
     expect(screen.getAllByText("Up 1").length).toBeGreaterThan(0);
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
     expect(screen.getByText("Exploration scenario")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("slider", { name: "Technical weight" }), { target: { value: "50" } });
+    expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
+    expect(sessionStorage.getItem("ranking-draft:p1")).toBeNull();
   });
 
   it("holds the save while a changed group does not total 100", async () => {

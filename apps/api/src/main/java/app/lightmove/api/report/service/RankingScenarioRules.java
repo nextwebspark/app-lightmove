@@ -24,6 +24,17 @@ final class RankingScenarioRules {
 
     private RankingScenarioRules() {}
 
+    /**
+     * The brief with one competency per match key. Two rows named alike (case and spacing aside) share one score on
+     * the scorecard, so the drawer counts them as one competency carrying both weights, and so does the ranking.
+     */
+    static List<ScorecardCriterion> uniqueOf(List<ScorecardCriterion> brief) {
+        Map<String, ScorecardCriterion> byKey = new LinkedHashMap<>();
+        brief.forEach(criterion -> byKey.merge(criterion.matchKey(), criterion, (held, again) ->
+                new ScorecardCriterion(held.panel(), held.name(), held.description(), held.weight() + again.weight())));
+        return List.copyOf(byKey.values());
+    }
+
     static Map<String, Integer> briefWeightsOf(List<ScorecardCriterion> brief) {
         Map<String, Integer> weights = new LinkedHashMap<>();
         brief.forEach(criterion -> weights.putIfAbsent(criterion.matchKey(), criterion.weight()));
@@ -63,15 +74,36 @@ final class RankingScenarioRules {
         return technicalShare == briefShare && weights.equals(briefWeightsOf(brief));
     }
 
-    /** A saved scenario's weights on today's brief: a competency it never weighed takes the brief's weight. */
-    static Map<String, Integer> weightsOnto(Map<String, Integer> saved, List<ScorecardCriterion> brief) {
+    /**
+     * A saved scenario's weights on today's brief. Only what the team changed is the scenario's: a competency it left
+     * at the brief's weight, or never weighed, follows the brief as it stands.
+     */
+    static Map<String, Integer> weightsOnto(Map<String, Integer> saved, BriefWeighting against,
+                                            List<ScorecardCriterion> brief) {
+        Map<String, Integer> was = weightsOf(against);
         Map<String, Integer> onto = new LinkedHashMap<>();
-        briefWeightsOf(brief).forEach((key, weight) -> onto.put(key, saved.getOrDefault(key, weight)));
+        briefWeightsOf(brief).forEach((key, weight) -> {
+            Integer kept = saved.get(key);
+            onto.put(key, kept == null || kept.equals(was.get(key)) ? weight : kept);
+        });
         return onto;
     }
 
+    /** A saved share that the team left at the brief's follows the brief's, as an untouched weight does. */
+    static int shareOnto(int saved, BriefWeighting against, int briefShare) {
+        return saved == against.technicalShare() ? briefShare : saved;
+    }
+
+    /** Saved at the brief's own weighting: the scenario was cleared, and reads as no scenario at all. */
+    static boolean isCleared(int savedShare, Map<String, Integer> saved, BriefWeighting against) {
+        return savedShare == against.technicalShare() && saved.equals(weightsOf(against));
+    }
+
+    /** Order aside: dragging the brief's competencies about changes nothing a scenario weighed. */
     static boolean briefChangedSince(BriefWeighting against, List<ScorecardCriterion> brief, int briefShare) {
-        return !weightingOf(brief, briefShare).equals(against);
+        BriefWeighting now = weightingOf(brief, briefShare);
+        return now.technicalShare() != against.technicalShare()
+                || !Set.copyOf(now.competencies()).equals(Set.copyOf(against.competencies()));
     }
 
     /** The competencies a scenario weighed that the brief no longer has, by the name they had. */
@@ -88,6 +120,12 @@ final class RankingScenarioRules {
         return briefWeights.keySet().stream()
                 .filter(key -> !Objects.equals(weights.get(key), briefWeights.get(key)))
                 .count();
+    }
+
+    private static Map<String, Integer> weightsOf(BriefWeighting weighting) {
+        Map<String, Integer> weights = new LinkedHashMap<>();
+        weighting.competencies().forEach(competency -> weights.putIfAbsent(competency.key(), competency.weight()));
+        return weights;
     }
 
     private static Set<String> keysOf(List<ScorecardCriterion> brief, CompetencyPanel panel) {

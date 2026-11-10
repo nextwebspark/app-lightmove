@@ -29,13 +29,13 @@ export function ReportNav({
     <aside
       className={cn(
         "flex-none border-b border-u-border transition-[width] duration-200 lg:border-b-0 lg:border-r",
-        collapsed ? "lg:w-14" : "lg:w-56",
+        collapsed ? "lg:w-14" : "lg:w-[258px]",
       )}
     >
       <div
         className={cn(
           "px-4 py-3.5 lg:sticky lg:top-0 lg:py-[30px]",
-          collapsed ? "lg:px-2" : "lg:px-3",
+          collapsed ? "lg:px-2" : "lg:px-[22px]",
         )}
       >
         <UncavaRailNav

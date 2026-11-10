@@ -28,21 +28,28 @@ const helper = createColumnHelper<typeof rankingTableFeatures, RankedRow>();
 const NUMBER_CELL = "font-u-num text-body tabular-nums";
 
 const columns = helper.columns([
-  helper.display({
+  helper.accessor((row) => row.candidate.fullName, {
     id: "candidate",
     header: "Candidate",
     enableHiding: false,
     meta: { share: 2, min: 160, sortKind: "text" },
     cell: (info) => <CandidateCell row={info.row.original} meta={info.table.options.meta} />,
   }),
-  helper.display({
+  helper.accessor((row) => row.rank, {
+    id: "rank",
+    header: "Rank",
+    enableHiding: false,
+    meta: { share: 0, min: 64, fixed: true, sortKind: "number" },
+    cell: (info) => <span className={cn(NUMBER_CELL, "text-u-text2")}>{info.row.original.rank}</span>,
+  }),
+  helper.accessor((row) => row.baselineTotal, {
     id: "baseline",
     header: "Baseline",
     enableHiding: false,
     meta: { share: 1, min: 76, sortKind: "number" },
     cell: (info) => <span className={cn(NUMBER_CELL, "text-u-text2")}>{oneDecimal(info.row.original.baselineTotal)}</span>,
   }),
-  helper.display({
+  helper.accessor((row) => row.total, {
     id: "scenario",
     header: "Scenario",
     enableHiding: false,
@@ -51,14 +58,14 @@ const columns = helper.columns([
       <span className={cn(NUMBER_CELL, "font-semibold text-u-inferred")}>{oneDecimal(info.row.original.total)}</span>
     ),
   }),
-  helper.display({
+  helper.accessor((row) => row.rankShift, {
     id: "rankShift",
     header: "Rank shift",
     enableHiding: false,
     meta: { share: 1, min: 84, sortKind: "number" },
     cell: (info) => <RankShift shift={info.row.original.rankShift} />,
   }),
-  helper.display({
+  helper.accessor((row) => row.scoreShift, {
     id: "scoreShift",
     header: "Score shift",
     enableHiding: false,
@@ -70,13 +77,14 @@ const columns = helper.columns([
 const LAYOUT_COLUMNS = layoutColumnsOf(columns);
 const PINNING: ColumnPinningState = { start: ["candidate"], end: [] };
 
-type RankingSortField = "candidate" | "baseline" | "scenario" | "rankShift" | "scoreShift";
+type RankingSortField = "candidate" | "rank" | "baseline" | "scenario" | "rankShift" | "scoreShift";
 
 const RANKING_ORDER: GridSort<RankingSortField> = { field: "scenario", direction: "desc" };
 
 /** Ascending only, as `gridSortFns` asks; a tie keeps the ranking's own order, since the sort is stable. */
 const COMPARE: Record<RankingSortField, (left: RankedRow, right: RankedRow) => number> = {
   candidate: (left, right) => compareText(left.candidate.fullName, right.candidate.fullName),
+  rank: (left, right) => compareNumber(left.rank, right.rank),
   baseline: (left, right) => compareNumber(left.baselineTotal, right.baselineTotal),
   scenario: (left, right) => compareNumber(left.total, right.total),
   rankShift: (left, right) => compareNumber(left.rankShift, right.rankShift),

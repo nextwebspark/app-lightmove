@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useToast } from "../../../components/ui";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import * as reportApi from "../api/reportApi";
@@ -22,16 +22,19 @@ const DRAFT_KEY = (projectId: string) => `ranking-draft:${projectId}`;
 export function useRankingScenario(projectId: string, ranking: Ranking) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const baseline = baselineOf(ranking);
-  const saved = savedDraftOf(ranking);
+  const baseline = useMemo(() => baselineOf(ranking), [ranking]);
+  const saved = useMemo(() => savedDraftOf(ranking), [ranking]);
   const [draft, setDraftState] = useState<ScenarioDraft | null>(() => readStoredDraft(projectId, ranking));
   const [isStale, setStale] = useState(false);
 
+  // A draft no different from the saved scenario is no draft, so a teammate's later save is never hidden behind it;
+  // nor is one made against other competencies than the brief's, as a refetch after a brief edit can bring.
   const setDraft = (next: ScenarioDraft | null) => {
-    setDraftState(next);
-    storeDraft(projectId, next);
+    const kept = next && !sameDraft(next, saved) ? next : null;
+    setDraftState(kept);
+    storeDraft(projectId, kept);
   };
-  const current = draft ?? saved;
+  const current = draft && fitsBrief(draft, ranking) ? draft : saved;
   const isDirty = !sameDraft(current, saved);
   const atBaseline = isBaseline(ranking.criteria, baseline, current);
   const offHundred = panelsOffHundred(ranking.criteria, current.weights);
@@ -65,13 +68,17 @@ export function useRankingScenario(projectId: string, ranking: Ranking) {
 
   /** Fetches the teammate's version and keeps this tab's weighting on top of it. */
   const reloadKeepingMine = async () => {
-    const fresh = await queryClient.fetchQuery({
-      queryKey: reportApi.RANKING_KEY(projectId),
-      queryFn: ({ signal }) => reportApi.getRanking(projectId, signal),
-      staleTime: 0,
-    });
-    setDraft({ ...current, baseVersion: fresh.scenario?.version ?? null });
-    setStale(false);
+    try {
+      const fresh = await queryClient.fetchQuery({
+        queryKey: reportApi.RANKING_KEY(projectId),
+        queryFn: ({ signal }) => reportApi.getRanking(projectId, signal),
+        staleTime: 0,
+      });
+      setDraft({ ...current, baseVersion: fresh.scenario?.version ?? null });
+      setStale(false);
+    } catch (error) {
+      toast.error(messageFor(error));
+    }
   };
 
   return {
@@ -117,13 +124,16 @@ function readStoredDraft(projectId: string, ranking: Ranking): ScenarioDraft | n
     const stored = sessionStorage.getItem(DRAFT_KEY(projectId));
     const parsed = stored ? (JSON.parse(stored) as ScenarioDraft) : null;
     if (!parsed || typeof parsed.share !== "number" || !parsed.weights) return null;
-    const briefKeys = ranking.criteria.map((criterion) => criterion.key);
-    const draftKeys = Object.keys(parsed.weights);
-    const sameBrief = briefKeys.length === draftKeys.length && briefKeys.every((key) => key in parsed.weights);
-    return sameBrief ? parsed : null;
+    return fitsBrief(parsed, ranking) && !sameDraft(parsed, savedDraftOf(ranking)) ? parsed : null;
   } catch {
     return null;
   }
+}
+
+function fitsBrief(draft: ScenarioDraft, ranking: Ranking): boolean {
+  const briefKeys = new Set(ranking.criteria.map((criterion) => criterion.key));
+  const draftKeys = Object.keys(draft.weights);
+  return briefKeys.size === draftKeys.length && draftKeys.every((key) => briefKeys.has(key));
 }
 
 function storeDraft(projectId: string, draft: ScenarioDraft | null) {

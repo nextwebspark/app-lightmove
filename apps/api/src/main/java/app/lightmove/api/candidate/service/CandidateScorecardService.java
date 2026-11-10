@@ -3,7 +3,6 @@ package app.lightmove.api.candidate.service;
 import app.lightmove.api.candidate.constant.AiRunScope;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.ScorecardStatus;
-import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidateScorecardResponse;
 import app.lightmove.api.candidate.dto.CriterionScoreRequest;
 import app.lightmove.api.candidate.dto.SaveScorecardRequest;
@@ -12,6 +11,7 @@ import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateScorecard;
 import app.lightmove.api.candidate.model.CriterionScore;
 import app.lightmove.api.candidate.model.ProjectScorecards;
+import app.lightmove.api.candidate.model.RankedPerson;
 import app.lightmove.api.candidate.model.ScorecardCriterion;
 import app.lightmove.api.candidate.model.ScorecardStanding;
 import app.lightmove.api.candidate.model.ScorecardTally;
@@ -61,7 +61,7 @@ public class CandidateScorecardService {
     private final ProjectRepository projects;
     private final CandidateRepository candidates;
     private final CandidateScorecardRepository scorecards;
-    private final CandidateResponseMapper responses;
+    private final PersonEmployerResolver employers;
     private final PositionService positions;
     private final UserRepository users;
     private final PersonActivityRecorder activity;
@@ -103,23 +103,23 @@ public class CandidateScorecardService {
         List<Tallied> mapped = kept.stream()
                 .filter(tallied -> rowOf.containsKey(tallied.scorecard().getCandidateId()))
                 .toList();
-        List<CandidateResponse> dtos = responses.toDtos(mapped.stream()
-                .map(tallied -> rowOf.get(tallied.scorecard().getCandidateId()))
-                .toList());
+        List<Candidate> rows = mapped.stream().map(tallied -> rowOf.get(tallied.scorecard().getCandidateId())).toList();
+        Map<UUID, String> logoOf = rows.isEmpty() ? Map.of() : employers.logosOfMappings(workspaceId, rows);
         Map<UUID, String> nameOf = namesOf(mapped.stream()
                 .map(tallied -> tallied.scorecard().getReviewedBy())
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()));
 
-        List<ScorecardStanding> standings = new ArrayList<>();
-        for (int index = 0; index < mapped.size(); index++) {
-            CandidateScorecard scorecard = mapped.get(index).scorecard();
-            standings.add(new ScorecardStanding(dtos.get(index), scorecard.getStatus(), scorecard.getUpdatedAt(),
-                    scorecard.getReviewedAt(),
-                    scorecard.getReviewedBy() == null ? null : nameOf.get(scorecard.getReviewedBy()),
-                    mapped.get(index).tally(),
-                    rowOf.get(scorecard.getCandidateId()).getPerson().isProcessingRestricted()));
-        }
+        List<ScorecardStanding> standings = mapped.stream()
+                .map(tallied -> {
+                    CandidateScorecard scorecard = tallied.scorecard();
+                    Candidate row = rowOf.get(scorecard.getCandidateId());
+                    return new ScorecardStanding(RankedPerson.of(row, logoOf.get(row.getId())),
+                            scorecard.getStatus(), scorecard.getUpdatedAt(), scorecard.getReviewedAt(),
+                            scorecard.getReviewedBy() == null ? null : nameOf.get(scorecard.getReviewedBy()),
+                            tallied.tally());
+                })
+                .toList();
         return new ProjectScorecards(brief.criteria(), brief.technicalShare(), standings, assessed.size(),
                 candidates.countByProjectId(projectId));
     }
@@ -286,6 +286,6 @@ public class CandidateScorecardService {
     }
 
     private String nameOf(UUID userId) {
-        return userId == null ? null : users.findById(userId).map(User::getFullName).orElse(null);
+        return userId == null ? null : namesOf(Set.of(userId)).get(userId);
     }
 }

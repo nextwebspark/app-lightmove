@@ -75,13 +75,43 @@ class RankingScenarioRulesTest {
         ScorecardCriterion cloud = technical("Cloud", 20);
         List<ScorecardCriterion> edited = List.of(ERP, cloud, LEADERSHIP, INFLUENCE);
 
-        assertThat(RankingScenarioRules.weightsOnto(saved, edited))
+        assertThat(RankingScenarioRules.weightsOnto(saved, savedAgainst, edited))
                 .containsExactly(Map.entry(ERP.matchKey(), 70), Map.entry(cloud.matchKey(), 20),
                         Map.entry(LEADERSHIP.matchKey(), 60), Map.entry(INFLUENCE.matchKey(), 40));
         assertThat(RankingScenarioRules.droppedSince(savedAgainst, edited)).containsExactly("Security");
         assertThat(RankingScenarioRules.briefChangedSince(savedAgainst, edited, 60)).isTrue();
         assertThat(RankingScenarioRules.briefChangedSince(savedAgainst, BRIEF, 60)).isFalse();
         assertThat(RankingScenarioRules.briefChangedSince(savedAgainst, BRIEF, 50)).isTrue();
+    }
+
+    @Test
+    @DisplayName("what the team left at the brief's weight or share follows a later brief edit; what it changed stays")
+    void untouchedWeightsFollowTheBrief() {
+        BriefWeighting savedAgainst = RankingScenarioRules.weightingOf(BRIEF, 60);
+        Map<String, Integer> saved = weights(ERP, 70, SECURITY, 30, LEADERSHIP, 60, INFLUENCE, 40);
+        List<ScorecardCriterion> edited = List.of(ERP, SECURITY, behavioural("Leadership", 30),
+                behavioural("Influence", 70));
+
+        assertThat(RankingScenarioRules.weightsOnto(saved, savedAgainst, edited))
+                .containsExactly(Map.entry(ERP.matchKey(), 70), Map.entry(SECURITY.matchKey(), 30),
+                        Map.entry(LEADERSHIP.matchKey(), 30), Map.entry(INFLUENCE.matchKey(), 70));
+        assertThat(RankingScenarioRules.shareOnto(60, savedAgainst, 45)).isEqualTo(45);
+        assertThat(RankingScenarioRules.shareOnto(70, savedAgainst, 45)).isEqualTo(70);
+        assertThat(RankingScenarioRules.isCleared(60, RankingScenarioRules.briefWeightsOf(BRIEF), savedAgainst))
+                .isTrue();
+        assertThat(RankingScenarioRules.isCleared(60, saved, savedAgainst)).isFalse();
+    }
+
+    @Test
+    @DisplayName("reordering the brief is no change, and two competencies named alike are one carrying both weights")
+    void orderAsideAndNamesAlikeFolded() {
+        BriefWeighting savedAgainst = RankingScenarioRules.weightingOf(BRIEF, 60);
+        assertThat(RankingScenarioRules.briefChangedSince(savedAgainst, List.of(SECURITY, ERP, INFLUENCE, LEADERSHIP),
+                60)).isFalse();
+
+        ScorecardCriterion again = technical(" erp ", 20);
+        assertThat(RankingScenarioRules.uniqueOf(List.of(ERP, again, LEADERSHIP)))
+                .containsExactly(technical("ERP", 50), LEADERSHIP);
     }
 
     private static Map<String, Integer> weights(Object... criterionThenWeight) {

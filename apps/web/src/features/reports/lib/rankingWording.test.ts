@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RankedCandidate, RankingCriterion } from "../api/types";
-import { baselineOf, leaderFlips, rankRows, rankStandings } from "./ranking";
+import { baselineOf, leaderAt, leaderFlips, rankRows, rankStandings, SENSITIVITY_FROM } from "./ranking";
 import {
   differentiatorsOf,
   evidenceContextOf,
@@ -71,10 +71,21 @@ describe("ranking wording", () => {
 
   it("names the share at which the lead changes hands", () => {
     const standings = rankStandings([MARCUS, ASHA], CRITERIA, BASELINE);
-    expect(sensitivityOf(leaderFlips(standings, CRITERIA), standings[0].candidate)).toBe(
+    expect(sensitivityOf(leaderFlips(standings, CRITERIA), standings[0])).toBe(
       "Reference sensitivity: 50.0% technical (Asha → Marcus). Check these thresholds against the competency weights in force before relying on them.",
     );
-    expect(sensitivityOf(null, MARCUS)).toBeNull();
+    expect(sensitivityOf(null, standings[0])).toBeNull();
+  });
+
+  it("names who leads across the range, not who leads at a share outside it", () => {
+    const technical = candidate("tariq", "Tariq Aziz", 10, 0);
+    const balanced = candidate("layla", "Layla Nasser", 8, 9);
+    const atNinety = rankStandings([technical, balanced], CRITERIA, { ...BASELINE, share: 90 });
+
+    expect(atNinety[0].candidate.candidateId).toBe("tariq");
+    expect(sensitivityOf(leaderFlips(atNinety, CRITERIA), leaderAt(atNinety, SENSITIVITY_FROM))).toBe(
+      "Reference sensitivity: Layla leads at every technical weighting from 30% to 80%.",
+    );
   });
 
   it("formats shifts with a sign, and says when a rank holds", () => {

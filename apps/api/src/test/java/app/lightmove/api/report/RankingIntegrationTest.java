@@ -112,10 +112,16 @@ class RankingIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isNoContent());
         assertThat(read(admin, cfo).get("scenario").isNull()).isTrue();
 
+        long reopened = body(saveScenario(admin, cfo, null, 80, weights(60, 40, 100), null)
+                .andExpect(status().isOk()).andReturn()).get("version").asLong();
+        assertThat(reopened).isGreaterThan(version);
+        assertThat(codeOf(saveScenario(admin, cfo, version, 30, weights(60, 40, 100), null)
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("RANKING_SCENARIO_STALE");
+
         assertThat(db.queryForObject("""
                 SELECT count(*) FROM app_lm_audit_event
                 WHERE event_type IN ('RANKING_SCENARIO_SAVED', 'RANKING_SCENARIO_CLEARED') AND target_id = ?""",
-                Integer.class, cfo)).isEqualTo(2);
+                Integer.class, cfo)).isEqualTo(3);
         assertThat(db.queryForObject("""
                 SELECT count(*) FROM app_lm_audit_event
                 WHERE target_id = ? AND metadata::text LIKE '%treasury depth%'""",
