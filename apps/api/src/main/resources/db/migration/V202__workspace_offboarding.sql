@@ -145,6 +145,8 @@ BEGIN
 END
 $$;
 
+REVOKE ALL ON FUNCTION app_lm_resolve_workspace_exports_to_close(timestamptz, timestamptz) FROM PUBLIC;
+
 -- Restoring a workspace in its grace period and reading its certificate: Uncava's, never a tenant's.
 INSERT INTO app_lm_action (scope, name, description)
 VALUES ('PLATFORM', 'WORKSPACE_LIFECYCLE_MANAGE',
