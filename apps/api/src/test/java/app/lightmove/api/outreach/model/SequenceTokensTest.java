@@ -2,6 +2,7 @@ package app.lightmove.api.outreach.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class SequenceTokensTest {
@@ -40,5 +41,52 @@ class SequenceTokensTest {
     void theFirstNameIsTheFirstWord() {
         assertThat(SequenceTokens.firstNameOf("  Priya   Raman ")).isEqualTo("Priya");
         assertThat(SequenceTokens.firstNameOf(" ")).isNull();
+    }
+
+    @Test
+    void aFallbackStandsInOnlyWhereThePersonHasNoValue() {
+        SequenceTokens sparse = new SequenceTokens(null, "CFO", null, null, null, "Yara", null, null);
+        assertThat(sparse.render("Hi {{firstName|there}}, as {{ currentTitle | our lead }}"))
+                .isEqualTo("Hi there, as CFO");
+        assertThat(sparse.render("Hi {{firstName|  dear   reader }}")).isEqualTo("Hi dear reader");
+        assertThat(tokens.render("Hi {{firstName|there}}")).isEqualTo("Hi Priya");
+    }
+
+    @Test
+    void anEscapedPipeIsAFallbackAsWell() {
+        SequenceTokens sparse = new SequenceTokens(null, null, null, null, null, null, null, null);
+        assertThat(sparse.render("Hi {{firstName\\|there}}")).isEqualTo("Hi there");
+        assertThat(SequenceTokens.usesIn("{{firstName\\|there}}"))
+                .containsExactly(new TokenUse("firstName", "there"));
+    }
+
+    @Test
+    void aFallbackInMarkdownIsEscapedAsAValueIs() {
+        SequenceTokens sparse = new SequenceTokens(null, null, null, null, null, null, null, null);
+        assertThat(sparse.renderMarkdown("Hi {{firstName|*friend*}}")).isEqualTo("Hi \\*friend\\*");
+        assertThat(new SequenceTokens("[Priya](x)", null, null, null, null, null, null, null)
+                .renderMarkdown("Hi {{firstName|there}}")).isEqualTo("Hi \\[Priya\\](x)");
+    }
+
+    @Test
+    void aLineKeepsEveryValueOnOneLine() {
+        SequenceTokens multiline = new SequenceTokens("Priya", "Chief\nFinancial   Officer", null, null, null, null,
+                null, null);
+        assertThat(multiline.renderLine("{{firstName}}: {{currentTitle}} at {{currentCompany|your firm}}"))
+                .isEqualTo("Priya: Chief Financial Officer at your firm");
+    }
+
+    @Test
+    void reportsUnknownAndUnfilledTokensInOrderOfFirstUse() {
+        String text = "Hi {{firstName}} {{fristName}} {{location}} {{location|here}} {{opener}} {{fristName}}";
+        assertThat(SequenceTokens.unknownIn(text, SequenceTokens.PROFILE_TOKENS)).containsExactly("fristName", "opener");
+        SequenceTokens sparse = new SequenceTokens("Priya", null, null, null, null, null, null, null);
+        assertThat(sparse.unfilledIn(text)).containsExactly("location", "opener");
+        assertThat(sparse.unfilledIn("{{location|here}}")).isEqualTo(List.of());
+    }
+
+    @Test
+    void aBraceOrAPipeInsideAFallbackIsNoToken() {
+        assertThat(tokens.render("{{firstName|a|b}} {{firstName|{x}}}")).isEqualTo("{{firstName|a|b}} {{firstName|{x}}}");
     }
 }
