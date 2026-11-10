@@ -30,7 +30,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -184,19 +183,38 @@ public class WorkspaceExportService {
                     .ifPresent(running -> running.fail(clock.instant())));
             return;
         }
-        Instant builtAt = clock.instant();
-        WorkspaceExport ready = ownTransaction.execute(status -> {
-            WorkspaceExport running = exports.findById(exportId).orElseThrow();
-            running.ready(size, counts, builtAt, builtAt.plus(lifetime));
-            return running;
-        });
+        WorkspaceExport ready = markReady(exportId, size, counts);
+        if (ready == null) {
+            // Its row went while it was written — purged with the workspace, or failed as stale — so nothing will ever
+            // name this file again, and the purge's prefix delete may already be behind it.
+            log.warn("Export {} of workspace {} finished after its row closed; its file is queued for deletion",
+                    exportId, export.getWorkspaceId());
+            ownTransaction.executeWithoutResult(status -> deletions.enqueue(List.of(export.getStorageKey())));
+            return;
+        }
         log.info("Exported workspace {}: {} bytes, {} people, {} documents, {} positions", export.getWorkspaceId(),
                 size, counts.people(), counts.documents(), counts.positions());
         if (!workspace.isDeleted() && export.getRequestedBy() != null) {
             users.findById(export.getRequestedBy()).ifPresent(requester -> emails.send(
                     templates.buildWorkspaceExportReadyEmail(requester.getEmail(), requester.getFullName(),
-                            workspace.getName(), EMAIL_DAY.format(Objects.requireNonNull(ready).getExpiresAt()),
-                            dataPageLink)));
+                            workspace.getName(), EMAIL_DAY.format(ready.getExpiresAt()), dataPageLink)));
+        }
+    }
+
+    /** Answers null where the row is no longer this build's to finish: gone with a purge, or already failed. */
+    private WorkspaceExport markReady(UUID exportId, long size, ExportedCounts counts) {
+        Instant builtAt = clock.instant();
+        try {
+            return ownTransaction.execute(status -> exports.findById(exportId)
+                    .filter(WorkspaceExport::isRunning)
+                    .map(running -> {
+                        running.ready(size, counts, builtAt, builtAt.plus(lifetime));
+                        return running;
+                    })
+                    .orElse(null));
+        } catch (RuntimeException deletedUnderneath) {
+            // A purge batch deleting the row between the read and the commit.
+            return null;
         }
     }
 
