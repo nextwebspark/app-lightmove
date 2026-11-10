@@ -115,6 +115,23 @@ describe("RankingSection", () => {
     expect(screen.queryByText("Exploration scenario")).not.toBeInTheDocument();
   });
 
+  it("marks a draft and an unscored competency on the candidate's own line", async () => {
+    vi.mocked(reportApi.getRanking).mockResolvedValue({
+      ...RANKING,
+      candidates: [
+        candidate("marcus", "Marcus Chen", [10, 10, 7]),
+        candidate("omar", "Omar Haddad", [5, null, 5], "draft"),
+      ],
+    });
+
+    renderSection();
+    await screen.findByText("Marcus leads under these priorities");
+
+    const rows = within(screen.getByRole("table", { name: "Candidate ranking" })).getAllByRole("row").slice(1);
+    expect(rows[1]).toHaveTextContent(/Omar Haddad\s*Draft\s*1 unscored/);
+    expect(rows[0]).not.toHaveTextContent(/Draft|unscored/);
+  });
+
   it("re-ranks as the technical split moves, and marks the change unsaved", async () => {
     vi.mocked(reportApi.getRanking).mockResolvedValue(RANKING);
     renderSection();

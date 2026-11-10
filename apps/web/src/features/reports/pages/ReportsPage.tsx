@@ -99,8 +99,8 @@ function ReportBody({ project, report }: { project: Project; report: Report }) {
       <div className="min-w-0 flex-1">
         <div
           className={cn(
-            "px-4 pb-[100px] pt-[34px] sm:px-10",
-            active.key === "ranking" ? "max-w-[1200px]" : "max-w-[900px]",
+            "px-4 pb-[100px] pt-[34px] sm:px-6",
+            active.key !== "ranking" && "max-w-[900px]",
           )}
         >
           <Chapter chapterKey={active.key} project={project} report={report} />

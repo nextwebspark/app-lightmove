@@ -532,6 +532,23 @@ describe("ReportsPage", () => {
     expect(hues.slice(7)).toEqual(["bg-u-text3", "bg-u-text3"]);
   });
 
+  it("folds the chapter menu to its icons, keeps each chapter named, and remembers the choice", async () => {
+    localStorage.removeItem("lm-report-nav-collapsed");
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+    const user = userEvent.setup();
+
+    const first = renderPage();
+    await screen.findByText("36 days");
+    await user.click(screen.getByRole("button", { name: "Collapse chapters" }));
+    expect(screen.getByRole("link", { name: "Remuneration" })).toHaveAttribute("title", "Remuneration");
+    first.unmount();
+
+    renderPage();
+    await screen.findByText("36 days");
+    expect(screen.getByRole("button", { name: "Expand chapters" })).toBeInTheDocument();
+    localStorage.removeItem("lm-report-nav-collapsed");
+  });
+
   it("heads a chapter with its question alone, not with a screen counter", async () => {
     vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
 

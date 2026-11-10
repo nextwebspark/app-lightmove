@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { cn } from "../../../lib/cn";
 import type { CompetencyPanel, RankingCriterion } from "../api/types";
 import {
@@ -44,12 +44,11 @@ export function GroupWeighting({ criteria, baseline, weighting, onChange }: Weig
   return (
     <ReportPanel>
       <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2.5">
-          <h2 className="text-title font-semibold">Weighting</h2>
+        <WeightingHeader title="Weighting">
           <span className="rounded-full bg-u-inferred-tint px-2.5 py-1 text-meta text-u-inferred">
             Scenario {splitLabel(technical)}
           </span>
-        </div>
+        </WeightingHeader>
         <div className="flex justify-between text-note text-u-text2">
           <span>Group weighting</span>
           <span>Baseline {splitLabel(baseline.share)}</span>
@@ -91,8 +90,7 @@ export function CompetencyWeights({ criteria, weighting, onChange }: Omit<Weight
 
   return (
     <ReportPanel>
-      <div className="flex items-center gap-2.5">
-        <h2 className="flex-1 text-lead font-semibold">Competency weights</h2>
+      <WeightingHeader title="Competency weights">
         {changed.length > 0 && (
           <span className="rounded-full bg-u-signal-tint px-2.5 py-1 text-meta text-u-signal">
             {changed.length} changed
@@ -107,8 +105,8 @@ export function CompetencyWeights({ criteria, weighting, onChange }: Omit<Weight
         >
           <Icon d={ICONS.chevronDown} size={16} className={cn("transition", showWeights && "rotate-180")} />
         </button>
-      </div>
-      <p className="mt-3.5 text-note text-u-text2">
+      </WeightingHeader>
+      <p className="mt-3 text-note text-u-text2">
         Adjustments stay active while hidden.{" "}
         {PANELS.map((panel) =>
           criteriaOf(criteria, panel).length === 0
@@ -122,7 +120,7 @@ export function CompetencyWeights({ criteria, weighting, onChange }: Omit<Weight
         .
       </p>
       {showWeights && (
-        <div className="mt-3.5 flex flex-col gap-4">
+        <div className="mt-3 flex flex-col gap-4">
           {PANELS.map((panel, index) => {
             const panelCriteria = criteriaOf(criteria, panel);
             if (panelCriteria.length === 0) return null;
@@ -168,6 +166,16 @@ export function CompetencyWeights({ criteria, weighting, onChange }: Omit<Weight
         </div>
       )}
     </ReportPanel>
+  );
+}
+
+/** The one header both weighting cards wear, so the two read as a pair. */
+function WeightingHeader({ title, children }: { title: string; children?: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <h2 className="flex-1 text-lead font-bold">{title}</h2>
+      {children}
+    </div>
   );
 }
 

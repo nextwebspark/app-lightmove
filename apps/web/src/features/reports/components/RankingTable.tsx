@@ -10,7 +10,6 @@ import type { GridSort } from "../../../lib/useGridSort";
 import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
 import type { RankedRow } from "../lib/ranking";
 import { oneDecimal, rankShiftLabel, signedPoints } from "../lib/rankingWording";
-import { ReportCard } from "./ReportCard";
 
 interface RankingTableMeta {
   projectId: string;
@@ -34,23 +33,15 @@ const columns = helper.columns([
     header: "Candidate",
     enableSorting: false,
     enableHiding: false,
-    meta: { share: 42, min: 180 },
+    meta: { share: 2, min: 160 },
     cell: (info) => <CandidateCell row={info.row.original} meta={info.table.options.meta} />,
-  }),
-  helper.display({
-    id: "assessment",
-    header: "Assessment",
-    enableSorting: false,
-    enableHiding: false,
-    meta: { share: 22, min: 100 },
-    cell: (info) => <AssessmentCell row={info.row.original} />,
   }),
   helper.display({
     id: "baseline",
     header: "Baseline",
     enableSorting: false,
     enableHiding: false,
-    meta: { share: 0, min: 92, fixed: true },
+    meta: { share: 1, min: 76 },
     cell: (info) => <span className={cn(NUMBER_CELL, "text-u-text2")}>{oneDecimal(info.row.original.baselineTotal)}</span>,
   }),
   helper.display({
@@ -58,7 +49,7 @@ const columns = helper.columns([
     header: "Scenario",
     enableSorting: false,
     enableHiding: false,
-    meta: { share: 0, min: 104, fixed: true },
+    meta: { share: 1, min: 80 },
     cell: (info) => (
       <span className={cn(NUMBER_CELL, "font-semibold text-u-inferred")}>{oneDecimal(info.row.original.total)}</span>
     ),
@@ -68,7 +59,7 @@ const columns = helper.columns([
     header: "Rank shift",
     enableSorting: false,
     enableHiding: false,
-    meta: { share: 0, min: 104, fixed: true },
+    meta: { share: 1, min: 84 },
     cell: (info) => <RankShift shift={info.row.original.rankShift} />,
   }),
   helper.display({
@@ -76,7 +67,7 @@ const columns = helper.columns([
     header: "Score shift",
     enableSorting: false,
     enableHiding: false,
-    meta: { share: 0, min: 112, fixed: true },
+    meta: { share: 1, min: 88 },
     cell: (info) => <span className={cn(NUMBER_CELL, "text-u-text2")}>{signedPoints(info.row.original.scoreShift)}</span>,
   }),
 ]);
@@ -85,7 +76,10 @@ const LAYOUT_COLUMNS = layoutColumnsOf(columns);
 const PINNING: ColumnPinningState = { start: ["candidate"], end: [] };
 const SCENARIO_ORDER: GridSort<"scenario"> = { field: "scenario", direction: "desc" };
 
-/** "How the shortlist changes": the pool in the scenario's order beside where the baseline put each one. */
+/**
+ * "How the shortlist changes": the pool in the scenario's order beside where the baseline put each one. Drawn on the
+ * page rather than in a report card, since the grid's own frame is the card.
+ */
 export function RankingTable({
   projectId,
   rows,
@@ -106,7 +100,7 @@ export function RankingTable({
   /** The pool's own filters, at the card's right like every report card's scope controls. */
   filters?: ReactNode;
 }) {
-  const [layout, setLayout] = useGridLayout("report.ranking", LAYOUT_COLUMNS);
+  const [layout, setLayout] = useGridLayout("report.ranking.v2", LAYOUT_COLUMNS);
   const table = useDataGridTable<typeof rankingTableFeatures, RankedRow, "scenario">({
     features: rankingTableFeatures,
     columns,
@@ -136,19 +130,17 @@ export function RankingTable({
   );
 
   return (
-    <ReportCard
-      title="How the shortlist changes"
-      action={filters}
-      caption={`${rows.length} ${rows.length === 1 ? "candidate" : "candidates"} · Baseline vs scenario${
-        notAssessedCount > 0 ? ` · ${notAssessedCount} not assessed` : ""
-      }`}
-      note={
-        <>
-          Both levels of weighting are applied together. Score shifts use unrounded totals; assessment scores are
-          unchanged. Equal totals order a reviewed assessment first, then the one with more scored.
-        </>
-      }
-    >
+    <section className="mt-5">
+      <div className="flex flex-wrap items-start justify-between gap-3.5">
+        <div>
+          <h2 className="text-lead font-bold">How the shortlist changes</h2>
+          <div className="mt-0.5 text-note text-u-text3">
+            {rows.length} {rows.length === 1 ? "candidate" : "candidates"} · Baseline vs scenario
+            {notAssessedCount > 0 && ` · ${notAssessedCount} not assessed`}
+          </div>
+        </div>
+        {filters}
+      </div>
       <div className="mt-3.5">
         <DataGrid
           table={table}
@@ -174,16 +166,20 @@ export function RankingTable({
           </button>
         )}
       </div>
-    </ReportCard>
+      <p className="mt-3 border-t border-dashed border-u-border-strong pt-3 text-note italic leading-relaxed text-u-text2">
+        Both levels of weighting are applied together. Score shifts use unrounded totals; assessment scores are
+        unchanged. Equal totals order a reviewed assessment first, then the one with more scored.
+      </p>
+    </section>
   );
 }
 
 function CandidateCell({ row, meta }: { row: RankedRow; meta?: RankingTableMeta }) {
   const { candidate } = row;
-  const subtitle = [candidate.title, candidate.companyName].filter(Boolean).join(" · ");
+  const flags = flagsOf(row);
+  const subtitle = flags || [candidate.title, candidate.companyName].filter(Boolean).join(" · ");
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <span className="min-w-4 flex-none text-right font-u-num text-note text-u-text3">{row.rank}</span>
       {meta && (
         <CandidateAvatar
           projectId={meta.projectId}
@@ -197,39 +193,33 @@ function CandidateCell({ row, meta }: { row: RankedRow; meta?: RankingTableMeta 
         title="Open assessment"
         className="flex w-full min-w-0 flex-col text-start transition hover:text-u-accent"
       >
-        <TruncatedText value={candidate.fullName} className="block font-sans text-body font-medium" />
-        {subtitle && <TruncatedText value={subtitle} className="block font-sans text-meta text-u-text3" />}
+        <span className="flex min-w-0 items-center gap-1.5">
+          <TruncatedText value={candidate.fullName} className="block min-w-0 font-sans text-body font-medium" />
+          {candidate.assessment.status !== "reviewed" && (
+            <span className="flex-none rounded bg-u-raised px-1.5 py-px text-meta font-medium text-u-text2">Draft</span>
+          )}
+        </span>
+        {subtitle && (
+          <TruncatedText
+            value={subtitle}
+            className={cn("block font-sans text-meta", flags ? "text-u-signal" : "text-u-text3")}
+          />
+        )}
       </button>
     </span>
   );
 }
 
-function AssessmentCell({ row }: { row: RankedRow }) {
-  const { assessment, processingRestricted, outOfProcess } = row.candidate;
-  const reviewed = assessment.status === "reviewed";
-  const extras = [
+/** What stands against reading the total at face value, said in place of the role line where there is any. */
+function flagsOf(row: RankedRow): string {
+  const { processingRestricted, outOfProcess } = row.candidate;
+  return [
     row.unscoredCount > 0 ? `${row.unscoredCount} unscored` : null,
     outOfProcess ? "Out of process" : null,
     processingRestricted ? "Processing restricted" : null,
-  ].filter(Boolean);
-  return (
-    <span className="flex min-w-0 items-center gap-2">
-      <span
-        className={cn(
-          "flex-none rounded px-1.5 py-px text-meta font-medium",
-          reviewed ? "bg-u-direct-tint text-u-direct" : "bg-u-raised text-u-text2",
-        )}
-      >
-        {reviewed ? "Reviewed" : "Draft"}
-      </span>
-      {extras.length > 0 && (
-        <TruncatedText
-          value={extras.join(" · ")}
-          className={cn("block font-sans text-meta", row.unscoredCount > 0 ? "text-u-signal" : "text-u-text3")}
-        />
-      )}
-    </span>
-  );
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function RankShift({ shift }: { shift: number }) {
@@ -246,9 +236,6 @@ function RankingCard({ row, checkbox, meta }: { row: RankedRow; checkbox: ReactN
       {checkbox}
       <div className="min-w-0 flex-1">
         <CandidateCell row={row} meta={meta} />
-        <div className="mt-1.5 ps-[60px]">
-          <AssessmentCell row={row} />
-        </div>
       </div>
       <div className="flex flex-col items-end gap-0.5">
         <span className={cn(NUMBER_CELL, "font-semibold text-u-inferred")}>{oneDecimal(row.total)}</span>

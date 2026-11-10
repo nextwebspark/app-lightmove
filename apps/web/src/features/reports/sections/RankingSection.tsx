@@ -21,7 +21,6 @@ import { useRankingScenario } from "../lib/useRankingScenario";
 
 const MAX_COMPARED = 2;
 const TWO_COLUMNS = "grid items-start gap-x-5 @min-[900px]:grid-cols-[minmax(0,1fr)_340px]";
-
 type PoolFilter = "all" | "reviewed";
 
 /**
@@ -128,49 +127,39 @@ function RankingBody({ project, ranking }: { project: Project; ranking: Ranking 
             </ReportFinding>
           )}
           <ScenarioStatus ranking={ranking} scenario={scenario} />
-        </div>
-        <GroupWeighting
-          criteria={ranking.criteria}
-          baseline={scenario.baseline}
-          weighting={scenario.weighting}
-          onChange={scenario.change}
-        />
-      </div>
 
-      {ranking.candidates.length === 0 ? (
-        <ReportPanel>
-          <p className="text-body text-u-text2">
-            {ranking.mappedCount} mapped · none assessed yet. Score candidates in their drawer's Assessment tab to rank
-            them here.
-          </p>
-        </ReportPanel>
-      ) : (
-        <RankingTable
-          projectId={project.id}
-          rows={rows}
-          selectedIds={selectedIds}
-          notAssessedCount={ranking.notAssessedCount}
-          onToggle={toggle}
-          onClearSelection={() => setChosenIds([])}
-          onOpen={setOpenCandidateId}
-          filters={
-            <PoolFilters
-              filter={filter}
-              onFilter={setFilter}
-              hideOutOfProcess={hideOutOfProcess}
-              onHideOutOfProcess={setHideOutOfProcess}
+          {ranking.candidates.length === 0 ? (
+            <ReportPanel>
+              <p className="text-body text-u-text2">
+                {ranking.mappedCount} mapped · none assessed yet. Score candidates in their drawer's Assessment tab to
+                rank them here.
+              </p>
+            </ReportPanel>
+          ) : (
+            <RankingTable
+              projectId={project.id}
+              rows={rows}
+              selectedIds={selectedIds}
+              notAssessedCount={ranking.notAssessedCount}
+              onToggle={toggle}
+              onClearSelection={() => setChosenIds([])}
+              onOpen={setOpenCandidateId}
+              filters={
+                <PoolFilters
+                  filter={filter}
+                  onFilter={setFilter}
+                  hideOutOfProcess={hideOutOfProcess}
+                  onHideOutOfProcess={setHideOutOfProcess}
+                />
+              }
             />
-          }
-        />
-      )}
-      {ranking.truncated && (
-        <p className="mt-3 text-meta text-u-text3">
-          Only the {ranking.candidates.length} best-scored at the baseline are listed.
-        </p>
-      )}
+          )}
+          {ranking.truncated && (
+            <p className="mt-3 text-meta text-u-text3">
+              Only the {ranking.candidates.length} best-scored at the baseline are listed.
+            </p>
+          )}
 
-      <div className={TWO_COLUMNS}>
-        <div className="min-w-0">
           {pair.length === MAX_COMPARED ? (
             <ShortlistComparison
               pair={pair as [RankedRow, RankedRow]}
@@ -187,7 +176,16 @@ function RankingBody({ project, ranking }: { project: Project; ranking: Ranking 
             </ReportPanel>
           )}
         </div>
-        <CompetencyWeights criteria={ranking.criteria} weighting={scenario.weighting} onChange={scenario.change} />
+
+        <aside aria-label="Scenario weighting" className="min-w-0">
+          <GroupWeighting
+            criteria={ranking.criteria}
+            baseline={scenario.baseline}
+            weighting={scenario.weighting}
+            onChange={scenario.change}
+          />
+          <CompetencyWeights criteria={ranking.criteria} weighting={scenario.weighting} onChange={scenario.change} />
+        </aside>
       </div>
 
       <div className="mt-5 flex flex-wrap justify-between gap-x-4 gap-y-2 text-meta text-u-text3">
