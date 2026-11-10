@@ -1,8 +1,9 @@
 # Email signatures — design and build plan
 
-Status: **planned** (decisions taken 2026-11-01; revised on 2026-11-05 after review and #1172's avatars). Nothing
-below exists yet; each phase is one PR, and until a phase ships the tables, routes and entities it names do not exist.
-Phase 0 draws the mockups the rest is built from.
+Status: **built** (#1157, all four phases, merged to `main` in #1245; decisions taken 2026-11-01, revised on
+2026-11-05 after review and #1172's avatars). What follows is the plan as it was built: V193 and V194, Settings → Email
+signature, the composer's Include signature and Start's picker. Email templates (#1247, `docs/email-templates.md`)
+build on it and never hold a signature.
 
 ## Context
 
