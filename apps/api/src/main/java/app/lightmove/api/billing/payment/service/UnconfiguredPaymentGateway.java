@@ -54,6 +54,11 @@ public class UnconfiguredPaymentGateway implements PaymentGateway {
     }
 
     @Override
+    public void cancelAtPeriodEnd(String subscriptionId, boolean cancel) {
+        throw ApiException.of(ErrorCode.BILLING_UNAVAILABLE);
+    }
+
+    @Override
     public Optional<PaymentCard> cardOf(String subscriptionId) {
         return Optional.empty();
     }

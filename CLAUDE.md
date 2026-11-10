@@ -963,6 +963,35 @@ and the New position picker; nothing is opened or restored under it (`CLIENT_ARC
 against a racing archive), and its name stays held (`CLIENT_NAME_ARCHIVED`, kept apart from
 `CLIENT_ALREADY_EXISTS`, whose caller reuses the record it names).
 
+**A workspace is deleted with a grace period, then purged (#926, V202).** `DELETE /workspace` (the name typed back)
+ends access at once — every membership ended (`ended_with_workspace`), invitations revoked, API keys and AI apps
+revoked, live runs stopped `WORKSPACE_DELETED` and waiting emails cancelled in the same transaction
+(`WorkspaceDeleted` → `WorkspaceDeletionOutreach`), every Notetaker bot called off and queued for
+`RecallBotErasureSweeper` there too, and once it commits every mailbox and Zoom account let go at its provider — its row kept, `ERROR`, until the provider
+answers the revoke, since it is the only copy of the grant — and a Stripe subscription set to cancel at the period's end
+(`WorkspaceBillingClosure`; no month's credits are granted to a deleted workspace). It stamps `purge_after`
+(`lightmove.retention.deleted-workspaces-after`, 30 days ⚖️) and the deleting admin's address, captured because nobody
+can sign in by the purge. `WorkspacePurge` claims a due workspace on `app_lm_workspace` (no policy) with a committed
+lease renewed every batch, and inside its `WorkspaceScope` empties every table carrying `workspace_id` but `WorkspacePurgeTables.RETAINED`
+(the audit trail, the credit ledger and billing records, kept by id) — read off the schema, children first by the
+foreign keys, so a new tenant table is purged without anyone listing it — after each `WorkspacePurgeContributor`
+(Recall's media, a grant the deletion could not revoke) — one still holding something fails the attempt, retried
+after the lease, until `WorkspacePurge.RELEASE_PATIENCE` (7 days) from the purge's start; deletes every file under `ws/{id}/`
+(`DocumentStore.deletePrefix`); refuses to finish while any row is left; scrubs the row into a tombstone (ids kept,
+every word naming the firm gone); and completes `app_lm_workspace_purge_certificate` — counts per table taken at its
+first attempt, files, times, no name, and the SHA-256 of its body — audits `WORKSPACE_PURGED` and emails it — owed,
+the address and the firm's name kept on the tombstone (`purge_notice_name`), until the mail service accepts it or a week
+has passed. An export finishing after its row went is queued for deletion. A platform
+admin (`WORKSPACE_LIFECYCLE_MANAGE`) restores a workspace and the memberships its deletion ended until the purge
+starts (`POST /platform/workspaces/{id}/restore`; mailboxes, keys and invitations stay gone) and reads the certificate
+(`GET …/purge-certificate`), resolve-then-scope. **Export workspace data** (Settings → Data & retention, so only where
+`DATA_PROTECTION_ENABLED` offers that page; `WORKSPACE_MANAGE`, audited start and download) builds one zip at a time off the request
+(`WorkspaceExportWorker` → `WorkspaceArchiveWriter`, streamed into the store through `core/export`'s
+`ZipArchiveWriter`, which #919 reuses): every position with its brief and its three Companies stages as the staff grid
+exports them, the Candidates CSV, each person's notes and the latest file of each document, and the whole audit log;
+the admin is emailed, and `WorkspaceExportExpiry` (V202's resolver) deletes it `workspace-exports-after` (7 days ⚖️)
+later, or fails one whose worker died.
+
 **The customer audit log (#1083)** is Settings → Security's Audit log tab, an admin's alone: `GET
 /workspace/audit-events` (cursor-paged; actor, Category, outcome and a date range), `…/people` (everyone the workspace
 ever held, for the Person filter) and `…/export` (the same view as a CSV, itself audited `AUDIT_LOG_EXPORTED` and refused
@@ -1559,6 +1588,12 @@ save) and an optional `rationale`; no row is the brief's own weighting. Forced r
 V197 adds `app_lm_recall_bot_erasure` — an erased or restricted person's Recall bots (bot id, whether to call it back, whether its
 media is still held), global for V196's reason, drained by `RecallBotErasureSweeper`
 (`lightmove.recall.bot-erasure-sweep-interval`) with a back-off to an hour, given up only past Recall's 7-day retention.
+V202 gives `app_lm_workspace` its deletion and purge columns (`deleted_at`/`deleted_by`, `purge_after`,
+`purge_notice_email` with the `purge_notice_name` its certificate email gives, `purge_started_at`, the claim's `purge_claimed_until`, `purged_at`; a workspace deleted before it
+was given 30 days from the deploy), `app_lm_workspace_member.ended_with_workspace`, `WORKSPACE_DELETED` among the
+enrollment's stop reasons, `app_lm_workspace_export` and `app_lm_workspace_purge_certificate` (both under forced
+row-level security; the certificate is never purged), the resolver `app_lm_resolve_workspace_exports_to_close`, and the
+platform action `WORKSPACE_LIFECYCLE_MANAGE`.
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a

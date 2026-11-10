@@ -817,6 +817,11 @@ lightmove:
     usage-events-after: ${RETENTION_USAGE_EVENTS_AFTER:400d}
     # A workspace that has not chosen in Settings → Data & retention: 12, 24, 36 or 60, blank for never.
     candidate-months: ${RETENTION_CANDIDATE_MONTHS:24}
+    # A deleted workspace (#926): members lose access at once, everything is purged after this grace period.
+    deleted-workspaces-after: ${RETENTION_DELETED_WORKSPACES_AFTER:30d}
+    workspace-purge-interval: ${RETENTION_WORKSPACE_PURGE_INTERVAL:PT15M}
+    workspace-exports-after: ${RETENTION_WORKSPACE_EXPORTS_AFTER:7d}
+    workspace-export-deadline: ${RETENTION_WORKSPACE_EXPORT_DEADLINE:2h}
 
   # Forced row-level security on the tenant tables (V184). On, a database that would not enforce it — a superuser or
   # BYPASSRLS runtime role, an unforced table — fails the boot; off, it is only a warning.
