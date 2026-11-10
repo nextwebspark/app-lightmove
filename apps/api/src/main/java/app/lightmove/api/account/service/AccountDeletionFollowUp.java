@@ -1,6 +1,8 @@
 package app.lightmove.api.account.service;
 
 import app.lightmove.api.account.model.AccountDeleted;
+import app.lightmove.api.core.email.service.EmailSender;
+import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import java.util.List;
 import java.util.UUID;
@@ -12,8 +14,8 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Once a deletion has committed, what the account held at a provider — a mailbox's grant, a Zoom account — is let go
- * there, each workspace in its own scope. A provider that cannot be reached is logged and the rest still go: the rows
+ * Once a deletion has committed, its owner is told at their former address, and what the account held at a provider —
+ * a mailbox's grant, a Zoom account — is let go there, each workspace in its own scope. A provider that cannot be reached is logged and the rest still go: the rows
  * that could spend a token were already unreachable once the membership ended. Each contributor writes in transactions
  * of its own.
  */
@@ -23,6 +25,14 @@ import org.springframework.transaction.event.TransactionalEventListener;
 class AccountDeletionFollowUp {
 
     private final List<AccountDeletionContributor> contributors;
+    private final EmailSender emailSender;
+    private final EmailTemplates templates;
+
+    /** After the commit, never before: a deletion rolled back must not tell anyone their account is gone. */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    void confirmToFormerOwner(AccountDeleted deleted) {
+        emailSender.send(templates.buildAccountDeletedEmail(deleted.formerEmail(), deleted.formerName()));
+    }
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)

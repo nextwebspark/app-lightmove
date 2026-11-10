@@ -7,6 +7,7 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.constant.SecurityEventType;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.workspace.constant.InvitationWithdrawal;
+import app.lightmove.api.workspace.constant.MemberRemovalReason;
 import app.lightmove.api.workspace.model.AuditLine;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -102,7 +103,7 @@ public class AuditLogPhrasing {
                 ? "Made " + nameOr(line, "a member") + " " + article(contactWord(line)) + " as well"
                 : "Changed " + possessive(nameOr(line, "a member")) + " roles from " + rolesWord(line, line.text("from"))
                         + " to " + rolesWord(line, line.text("to")));
-        on(WorkspaceEventType.MEMBER_REMOVED, line -> line.is("reason", "ACCOUNT_DELETED")
+        on(WorkspaceEventType.MEMBER_REMOVED, line -> line.is("reason", MemberRemovalReason.ACCOUNT_DELETED.name())
                 ? "Deleted their account and left the workspace"
                 : "Removed " + nameOr(line, "a member") + " from the workspace");
         on(ProjectEventType.PROJECT_TEAM_CHANGED, line -> switch (String.valueOf(line.text("action"))) {

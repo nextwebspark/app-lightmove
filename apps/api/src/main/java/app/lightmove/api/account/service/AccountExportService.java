@@ -81,7 +81,9 @@ public class AccountExportService {
 
     @Transactional(readOnly = true)
     public AccountExportResponse export(UUID userId, String presentedRefreshToken, HttpServletRequest request) {
-        User user = users.findById(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
+        // A deleted account's access token outlives it by up to its fifteen minutes; there is nothing left to export.
+        User user = users.findById(userId).filter(found -> !found.isDeleted())
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         List<WorkspaceMember> memberships = members.findAllByUserIdOrderByJoinedAtAsc(userId);
         Map<UUID, String> names = workspaces.findAllById(
                         memberships.stream().map(WorkspaceMember::getWorkspaceId).toList()).stream()

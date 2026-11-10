@@ -16,10 +16,16 @@ import app.lightmove.api.core.security.mfa.TestTotp;
 import jakarta.servlet.http.Cookie;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -92,6 +98,12 @@ class AccountDeletionIntegrationTest extends FlowTestSupport {
                 alpha, omarId, grant);
         db.update("insert into app_lm_user_avatar (user_id, token, content, content_type, sha256) "
                 + "values (?, ?, decode('ffd8', 'hex'), 'image/jpeg', ?)", omarId, "t".repeat(43), "0".repeat(64));
+        String photoKey = "email-images/photo-" + UUID.randomUUID() + ".jpg";
+        db.update("""
+                insert into app_lm_email_image (token, kind, user_id, source_sha256, content_type, width, height,
+                    size_bytes, storage_key)
+                values (?, 'PHOTO', ?, ?, 'image/jpeg', 96, 96, 2048, ?)""",
+                "p".repeat(43), omarId, "0".repeat(64), photoKey);
         assertThat(countOf("app_lm_notification_preference", omarId)).as("the seeded rows are there to go").isOne();
         assertThat(countOf("app_lm_user_avatar", omarId)).isOne();
         assertThat(countOf("app_lm_member_availability", omarId)).isOne();
@@ -135,6 +147,9 @@ class AccountDeletionIntegrationTest extends FlowTestSupport {
                 "app_lm_email_signature")) {
             assertThat(countOf(table, omarId)).as(table).isZero();
         }
+        assertThat(countOf("app_lm_email_image", omarId)).as("a sent signature's copy of the photo").isZero();
+        assertThat(db.queryForObject("select count(*) from app_lm_storage_deletion where storage_key = ?",
+                Long.class, photoKey)).as("its file queued for the bucket").isOne();
         // Let go at the provider once the deletion has committed, off the request.
         Awaitility.await().atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> assertThat(mailboxes.revoked()).contains(grant));
@@ -147,6 +162,12 @@ class AccountDeletionIntegrationTest extends FlowTestSupport {
         assertThat(codeOf(loginRaw(omar))).isEqualTo("INVALID_CREDENTIALS");
         mvc.perform(post("/api/v1/auth/refresh").cookie(session.refresh()).with(csrf()))
                 .andExpect(status().isUnauthorized());
+        // The access token outlives the account by its fifteen minutes, and reaches nothing of it.
+        mvc.perform(get("/api/v1/auth/me/deletion-preview").header("Authorization", "Bearer " + session.token()))
+                .andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/auth/me/export").header("Authorization", "Bearer " + session.token()))
+                .andExpect(status().isNotFound());
+        assertThat(codeOf(deleteAccount(session, Map.of("currentPassword", PASSWORD)))).isEqualTo("NOT_FOUND");
         assertThat(db.queryForObject("""
                 select count(*) from app_lm_audit_event where event_type = 'ACCOUNT_DELETED' and actor_user_id = ?
                   and outcome = 'SUCCESS' and workspace_id is null""", Long.class, omarId)).isOne();
@@ -239,6 +260,49 @@ class AccountDeletionIntegrationTest extends FlowTestSupport {
                 .isEqualTo("ACTIVE");
         assertThat(db.queryForObject("select count(*) from app_lm_workspace_member m join app_lm_user u "
                 + "on u.id = m.user_id where u.email = ? and m.status = 'ACTIVE'", Long.class, sara)).isOne();
+    }
+
+    @Test
+    @DisplayName("a workspace's last two admins deleting at once: one goes, the other is told to hand it over")
+    void theLastTwoAdminsDeletingAtOnceLeaveOne() throws Exception {
+        String sara = "sara@" + domain;
+        String workspaceId = createWorkspace(verifiedUser("Sara Admin", sara), "Two Admins & Co");
+        String omar = "omar@" + domain;
+        inviteAndAccept(login(sara), "Omar Admin", omar, "ADMIN");
+        List<Session> sessions = List.of(signIn(sara), signIn(omar));
+
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(sessions.size());
+        List<MvcResult> answers = new ArrayList<>();
+        try {
+            List<Future<MvcResult>> pending = new ArrayList<>();
+            for (Session session : sessions) {
+                pending.add(pool.submit(() -> {
+                    start.await();
+                    return deleteAccount(session, Map.of("currentPassword", PASSWORD));
+                }));
+            }
+            start.countDown();
+            for (Future<MvcResult> answer : pending) {
+                answers.add(answer.get(30, TimeUnit.SECONDS));
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertThat(answers).extracting(answer -> answer.getResponse().getStatus())
+                .containsExactlyInAnyOrder(204, 409);
+        assertThat(answers).filteredOn(answer -> answer.getResponse().getStatus() == 409)
+                .singleElement().satisfies(refused -> {
+                    assertThat(codeOf(refused)).isEqualTo("ACCOUNT_HANDOVER_REQUIRED");
+                    assertThat(names(body(refused).get("soleAdminOf"))).containsExactly("Two Admins & Co");
+                });
+        assertThat(db.queryForObject("""
+                select count(*) from app_lm_workspace_member m
+                join app_lm_workspace_member_role mr on mr.member_id = m.id
+                join app_lm_role r on r.id = mr.role_id
+                where m.workspace_id = ?::uuid and m.status = 'ACTIVE' and r.name = 'ADMIN'""",
+                Long.class, workspaceId)).isOne();
     }
 
     @Test

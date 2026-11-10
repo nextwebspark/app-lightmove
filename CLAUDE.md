@@ -986,14 +986,18 @@ later, or fails one whose worker died.
 while they are the only admin of one or the only lead of a live position (read in that workspace's scope); `DELETE
 /auth/me` asks the password, and a code where two-factor is on, or for an account with none a sign-in within
 `lightmove.auth.mfa.recent-sign-in` (`ACCOUNT_SIGN_IN_AGAIN`; the dialog offers the provider's popup). In one
-transaction every membership ends through `MemberService`'s removal (audited `MEMBER_REMOVED`, reason
-`ACCOUNT_DELETED`; keys, AI apps and seats with it), each workspace in `WorkspaceScope.runInJoinedTransaction` and
+transaction — each workspace's roster lock taken first, in id order, so a workspace's last two admins (or a
+position's last two leads) deleting at once cannot both pass the handover — every membership ends through
+`MemberService`'s removal (audited `MEMBER_REMOVED`, reason `MemberRemovalReason.ACCOUNT_DELETED`; keys, AI apps and
+seats with it), each workspace in `WorkspaceScope.runInJoinedTransaction` and
 flushed there; each `AccountDeletionContributor` — declared in `account`, implemented where the rows live — deletes the
 person's own rows in every workspace they ever joined (the bell, its settings and digests, working hours, a mailbox
-connect in flight, assistant chats); `AccountCredentialErasure` deletes sessions, sign-ins, links, the second factor and the stored photo;
+connect in flight, assistant chats); `AccountCredentialErasure` deletes sessions, sign-ins, links, the second factor, the stored photo and its signature
+copies (`app_lm_email_image`, their files queued for `StorageDeletionSweeper`);
 and the `app_lm_user` row is anonymised in place ("Former member", `deleted-<id>@deleted.invalid`, `deleted_at`), so
-what they did stays the workspace's and still resolves. Once it commits, mailboxes and Zoom accounts are let go at the
-provider in transactions of their own. **Download my data** (`GET /auth/me/export`, audited `ACCOUNT_DATA_EXPORTED`) is
+what they did stays the workspace's and still resolves. Once it commits, the confirmation goes to the former address and
+mailboxes and Zoom accounts are let go at the provider in transactions of their own; the access token that outlives it
+reads 404 on the deletion preview, the export, a second deletion and the profile write. **Download my data** (`GET /auth/me/export`, audited `ACCOUNT_DATA_EXPORTED`) is
 the account as JSON — profile, consents, sign-in methods, two-factor, every membership with its personal keys and AI
 apps, sessions and a year of sign-ins, each workspace read in its own scope; what they added inside a workspace is its
 admin's to export.

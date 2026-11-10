@@ -10,8 +10,6 @@ import app.lightmove.api.account.model.AccountHandover;
 import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.email.service.EmailSender;
-import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.mfa.MfaCodeVerifier;
@@ -39,9 +37,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -79,15 +79,14 @@ public class AccountDeletionService {
     private final List<AccountDeletionContributor> contributors;
     private final EntityManager entityManager;
     private final AuditService audit;
-    private final EmailSender emailSender;
-    private final EmailTemplates templates;
     private final ApplicationEventPublisher events;
     private final LightMoveProperties properties;
     private final Clock clock;
 
     @Transactional(readOnly = true)
     public AccountDeletionPreviewResponse preview(UUID userId, String presentedRefreshToken) {
-        User user = users.findById(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
+        User user = users.findById(userId).filter(found -> !found.isDeleted())
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         List<WorkspaceMember> active = members.findAllByUserIdAndStatusOrderByJoinedAtAsc(userId, MemberStatus.ACTIVE);
         Map<UUID, String> names = namesOf(active);
         AccountHandover handover = handoverOf(active, names);
@@ -106,10 +105,12 @@ public class AccountDeletionService {
     @Transactional
     public void delete(UUID userId, DeleteAccountRequest request, String presentedRefreshToken,
                        HttpServletRequest httpRequest) {
-        User user = users.lockToDelete(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
+        // A deleted account's access token outlives it by up to its fifteen minutes; it must not name the row again.
+        User user = users.lockToDelete(userId).filter(found -> !found.isDeleted())
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         requireOwner(user, request, presentedRefreshToken, httpRequest);
 
-        List<WorkspaceMember> active = members.findAllByUserIdAndStatusOrderByJoinedAtAsc(userId, MemberStatus.ACTIVE);
+        List<WorkspaceMember> active = lockRostersOf(userId);
         AccountHandover handover = handoverOf(active, namesOf(active));
         if (handover.isRequired()) {
             throw ApiException.withProperties(ErrorCode.ACCOUNT_HANDOVER_REQUIRED, handover.asProperties());
@@ -145,8 +146,30 @@ public class AccountDeletionService {
         audit.event(AuthEventType.ACCOUNT_DELETED).actor(userId).from(httpRequest)
                 .detail("workspacesLeft", active.size())
                 .record();
-        emailSender.send(templates.buildAccountDeletedEmail(formerEmail, formerName));
-        events.publishEvent(new AccountDeleted(userId, everyWorkspace));
+        events.publishEvent(new AccountDeleted(userId, everyWorkspace, formerEmail, formerName));
+    }
+
+    /**
+     * Takes each workspace's roster lock — the one a removal or a demotion takes before its last-admin count — before
+     * the handover is read, so two of a workspace's last admins, or a position's last leads, deleting at once queue and
+     * the second is refused. Locked in id order, so two deletions sharing workspaces never wait on each other in a ring;
+     * read again until nothing new appears, since an invitation accepted meanwhile takes no lock on the account.
+     */
+    private List<WorkspaceMember> lockRostersOf(UUID userId) {
+        Set<UUID> locked = new HashSet<>();
+        while (true) {
+            List<WorkspaceMember> active =
+                    members.findAllByUserIdAndStatusOrderByJoinedAtAsc(userId, MemberStatus.ACTIVE);
+            List<UUID> unlocked = active.stream().map(WorkspaceMember::getWorkspaceId)
+                    .filter(workspaceId -> !locked.contains(workspaceId)).distinct().sorted().toList();
+            if (unlocked.isEmpty()) {
+                return active;
+            }
+            unlocked.forEach(workspaceId -> {
+                workspaces.lockForRosterChange(workspaceId);
+                locked.add(workspaceId);
+            });
+        }
     }
 
     private void requireOwner(User user, DeleteAccountRequest request, String presentedRefreshToken,

@@ -12,6 +12,7 @@ import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.workspace.constant.InvitationWithdrawal;
+import app.lightmove.api.workspace.constant.MemberRemovalReason;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.MemberAccessNarrowed;
 import app.lightmove.api.workspace.model.WorkspaceMember;
@@ -37,9 +38,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Slf4j
 public class MemberService {
-
-    /** The removal's audit reason when the member deleted their account. */
-    public static final String ACCOUNT_DELETED = "ACCOUNT_DELETED";
 
     private final WorkspaceMemberRepository members;
     private final WorkspaceRepository workspaces;
@@ -124,7 +122,7 @@ public class MemberService {
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void leaveOnAccountDeletion(WorkspaceMember member, HttpServletRequest request) {
-        end(member.getUserId(), member, ACCOUNT_DELETED, request);
+        end(member.getUserId(), member, MemberRemovalReason.ACCOUNT_DELETED, request);
     }
 
     /** Whether removing this admin would leave the workspace with none. */
@@ -133,7 +131,7 @@ public class MemberService {
                 && members.countByRoleName(member.getWorkspaceId(), WorkspaceRole.ADMIN.name(), MemberStatus.ACTIVE) <= 1;
     }
 
-    private void end(UUID actorId, WorkspaceMember member, String reason, HttpServletRequest request) {
+    private void end(UUID actorId, WorkspaceMember member, MemberRemovalReason reason, HttpServletRequest request) {
         UUID workspaceId = member.getWorkspaceId();
         UUID memberId = member.getId();
         member.remove();
@@ -151,7 +149,7 @@ public class MemberService {
         audit.event(WorkspaceEventType.MEMBER_REMOVED)
                 .actor(actorId).workspace(workspaceId).target("member", memberId).from(request)
                 .detail("removedUserId", member.getUserId().toString())
-                .detailIfPresent("reason", reason)
+                .detailIfPresent("reason", reason == null ? null : reason.name())
                 .record();
     }
 
