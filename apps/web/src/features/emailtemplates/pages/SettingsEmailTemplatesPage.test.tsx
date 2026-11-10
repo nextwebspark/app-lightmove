@@ -55,7 +55,7 @@ const OMARS = aTemplate({
 });
 
 function listing(templates: EmailTemplate[]): EmailTemplates {
-  return { templates, limit: 100, bookingLinkOffered: false };
+  return { templates, limit: 100, bookingLinkOffered: false, recentlyUsed: [] };
 }
 
 function renderPage() {

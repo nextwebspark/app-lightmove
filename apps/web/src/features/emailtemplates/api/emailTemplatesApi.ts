@@ -36,6 +36,8 @@ export interface EmailTemplates {
   /** How many one person may keep. */
   limit: number;
   bookingLinkOffered: boolean;
+  /** The five the caller's own emails came from most recently, newest first. */
+  recentlyUsed: string[];
 }
 
 export interface EmailTemplateContent {

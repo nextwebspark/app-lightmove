@@ -142,14 +142,11 @@ export default function RichNoteEditor({
 
   useEffect(() => {
     if (!editorRef) return;
+    const at = () => editor?.chain().focus(wasFocused.current ? undefined : "end");
     editorRef.current = editor
       ? {
-          insertText: (text) =>
-            editor
-              .chain()
-              .focus(wasFocused.current ? undefined : "end")
-              .insertContent({ type: "text", text })
-              .run(),
+          insertText: (text) => at()?.insertContent({ type: "text", text }).run(),
+          insertDoc: (doc) => at()?.insertContent(doc.content ?? []).run(),
         }
       : null;
     return () => {

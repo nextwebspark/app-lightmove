@@ -99,4 +99,13 @@ describe("sequence tokens", () => {
         .filter((token) => token !== "{{opener}}"),
     );
   });
+
+  it("marks a blank with no fallback as its own empty part, so a preview can show where it falls", () => {
+    expect(renderParts("In {{location}}, {{location|here}}", { ...TOKENS, location: null }, null)).toEqual([
+      { text: "In ", isOpener: false },
+      { text: "", isOpener: false, isBlank: true, token: "location" },
+      { text: ", here", isOpener: false },
+    ]);
+    expect(render("In {{location}}.", { ...TOKENS, location: null }, null)).toBe("In .");
+  });
 });

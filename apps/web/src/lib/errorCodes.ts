@@ -62,6 +62,7 @@ export type ApiErrorCode =
   | "EMAIL_TEMPLATE_NOT_YOURS"
   | "EMAIL_TEMPLATE_LIMIT_REACHED"
   | "EMAIL_TEMPLATE_STALE"
+  | "OUTREACH_TOKENS_UNFILLED"
   | "CANDIDATE_TAG_EXISTS"
   | "CANDIDATE_TAG_RETIRED"
   | "CANDIDATE_ASSESSMENT_STALE"
@@ -269,6 +270,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   EMAIL_TEMPLATE_NOT_YOURS: "Only its owner or an admin can change this template. Duplicate it to make your own.",
   EMAIL_TEMPLATE_LIMIT_REACHED: "You can keep up to 100 email templates. Delete one to make another.",
   EMAIL_TEMPLATE_STALE: "Someone changed this template after you opened it. Reload to see their version.",
+  OUTREACH_TOKENS_UNFILLED:
+    "Some variables have nothing to fill them for this executive. Fill them in, give them a fallback or remove them.",
   TASK_ASSIGNEE_NOT_ON_TEAM: "They aren't on this position's team. Add them in Team & access, or pick someone who is.",
   TASK_NOT_YOURS: "Only whoever set this task, whoever it's assigned to, the position's lead or an admin can change it.",
   CANDIDATE_TAG_EXISTS: "Your team already has that tag.",

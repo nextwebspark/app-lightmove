@@ -115,6 +115,9 @@ export interface RenderedPart {
   isOpener: boolean;
   /** The sender's booking link, drawn as a link in the preview. */
   isLink?: boolean;
+  /** A variable with nothing on file and no fallback: its text is empty, as the server sends it; `token` names it. */
+  isBlank?: boolean;
+  token?: string;
 }
 
 /** The template filled in, split so the opener can be highlighted where it landed. */
@@ -136,8 +139,12 @@ export function renderParts(template: string, tokens: RecipientTokens, opener: s
       if (plain) parts.push({ text: plain, isOpener: false });
       plain = "";
       parts.push({ text: tokens.bookingLink?.trim() ?? "", isOpener: false, isLink: true });
+    } else if (Object.hasOwn(values, name) && !values[name] && !fallback) {
+      if (plain) parts.push({ text: plain, isOpener: false });
+      plain = "";
+      parts.push({ text: "", isOpener: false, isBlank: true, token: name });
     } else if (Object.hasOwn(values, name)) {
-      plain += values[name] || fallback || "";
+      plain += values[name] || fallback;
     } else {
       plain += match[0];
     }
