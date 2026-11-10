@@ -375,8 +375,9 @@ Asked for, and the honest answer is that some of these are more urgent than the 
    not a quota" — and with `max-instances 3` the real login ceiling is 30/minute, wiped by every cold
    start. For a login endpoint on the public internet that is thin. It needs a shared store, and
    Postgres is already there.
-4. **Confirm Cloud SQL backups and point-in-time recovery are on.** `bright-gcc` is a `db-f1-micro`
-   shared with the Bright Data ETL. Do not find out during the incident.
+4. **Turn on Cloud SQL backups and point-in-time recovery.** Read on 2026-11-10, `bright-gcc` (a `db-g1-small`
+   shared with the Bright Data ETL) had **neither**: one on-demand backup from 2026-10-01 is all there is.
+   `docs/gdpr/security-of-processing.md` (#927) has the commands, the window and the restore drill.
 5. **Nothing alerts anyone.** The minimum set: 5xx rate over a threshold, p95 latency, readiness
    failing, Hikari pool exhaustion, JVM old-gen trending up, Cloud Run pinned at max-instances.
    An alert that pages a human is what makes all the above worth building.
