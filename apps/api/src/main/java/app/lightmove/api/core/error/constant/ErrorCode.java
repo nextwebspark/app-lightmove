@@ -264,6 +264,14 @@ public enum ErrorCode {
     CANDIDATE_ASSESSMENT_STALE(HttpStatus.CONFLICT,
             "Someone saved this assessment after you opened it. Reload to see their changes"),
 
+    /** A teammate saved the position's ranking scenario after it was opened here. */
+    RANKING_SCENARIO_STALE(HttpStatus.CONFLICT,
+            "Someone saved this scenario after you opened it. Reload to see their changes"),
+
+    /** The brief's competencies changed after the ranking was opened, so the scenario names the wrong ones. */
+    RANKING_BRIEF_CHANGED(HttpStatus.CONFLICT,
+            "The brief's competencies changed since you opened this. Reload to see them"),
+
     /** The AI has nothing to score an executive against until the brief names its competencies. */
     CANDIDATE_ASSESSMENT_NO_CRITERIA(HttpStatus.CONFLICT,
             "The brief has no competencies to assess against yet. Add them in the position's Assessment Criteria step"),

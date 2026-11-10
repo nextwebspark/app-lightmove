@@ -442,7 +442,18 @@ people ranked. Every executive counts for whoever filed it (`added_by`, read thr
 `CandidateService.addedByOf`, never put on `CandidateResponse`, which a client seat also reads) and a
 company for whoever filed its first executive. The mock's confidence score, conversion funnel and
 per-company target have no row behind them, so they are not drawn: the drawers show a status *mix*,
-and quality is what is on file (a contact, a verified one, a base salary). A projects-list row opens
+and quality is what is on file (a contact, a verified one, a base salary). A fifth chapter, **Ranking**
+(the `reports` page's `chRank`), is staff-only too — `GET /projects/{id}/report/ranking`, `WORK_EXECUTE`, read
+through `CandidateScorecardService.rankingInputsOf`: every executive with a score against a current competency, draft
+or reviewed, at the brief's own weighting (the drawer's totals, an unscored competency earning nothing), the rest counted
+as not assessed, capped by `lightmove.report.max-ranked`. Beside it the position keeps **one shared scenario** (V204,
+`RankingService`, `PUT …/report/ranking/scenario`): a technical share and competency weights the team tries out, with
+a rationale, version-locked (`RANKING_SCENARIO_STALE`), refused once the brief's competencies move under it
+(`RANKING_BRIEF_CHANGED`), and cleared by saving the brief's own weighting. It never writes the brief, and v1 draws no
+per-competency minimum, since the brief records none. The order, the shifts and every sentence about them are the
+screen's, computed from those numbers — no model is asked (`features/reports/lib/ranking.ts`, `rankingWording.ts`; the
+leader's flip points are found exactly, a total being a line in the technical share), and the chapter is offered to
+staff alone, by link as by menu (`STAFF_ONLY_CHAPTERS`). A projects-list row opens
 the **position side panel** (`Workspace.dc.html`'s Position drawer): mapping progress as universe
 companies with an executive mapped (`mappedCompanies` of `companies` on `GET /projects`), key
 metrics, stage gates, the team and hiring managers, and **recent activity** — `GET
@@ -1592,6 +1603,10 @@ in the same migration.
 V196 seeds `PERSON_ERASE` to ADMIN alone and adds `app_lm_storage_deletion` (a bucket key per row, its attempts and
 next attempt; global by design, so outside row-level security), drained by `StorageDeletionSweeper`
 (`lightmove.storage.deletion-sweep-interval`) with a back-off to a day, never giving up.
+V204 adds `app_lm_ranking_scenario` — a position's one ranking scenario (unique per project, composite key to the
+project's): `technical_share`, `weights` (competency match key → weight), `saved_against` (the brief's weighting at the
+save) and an optional `rationale`; no row, or one cleared back to the brief's weighting (kept so its version keeps
+climbing), is the brief's own weighting, and what a scenario left at the brief's weight or share follows later brief edits. Forced row-level security in the same migration.
 V197 adds `app_lm_recall_bot_erasure` — an erased or restricted person's Recall bots (bot id, whether to call it back, whether its
 media is still held), global for V196's reason, drained by `RecallBotErasureSweeper`
 (`lightmove.recall.bot-erasure-sweep-interval`) with a back-off to an hour, given up only past Recall's 7-day retention.

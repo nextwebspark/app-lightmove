@@ -21,13 +21,15 @@ export interface RailNavItem {
  * spending it here made a menu row read as a chip.
  *
  * <p>Items are links, not buttons: the choice lives in the URL under `param`, so a colleague can be
- * sent straight to one and the back button walks between them. A column at `lg`, a strip below it.
+ * sent straight to one and the back button walks between them. A column at `lg`, a strip below it;
+ * `collapsed` folds the column to its icons, each still named by its title.
  */
 export function UncavaRailNav({
   label,
   param,
   items,
   activeKey,
+  collapsed = false,
 }: {
   /** Names the menu for a screen reader. */
   label: string;
@@ -35,6 +37,7 @@ export function UncavaRailNav({
   param: string;
   items: readonly RailNavItem[];
   activeKey: string;
+  collapsed?: boolean;
 }) {
   return (
     <nav aria-label={label} className="flex gap-0.5 overflow-x-auto lg:flex-col lg:overflow-visible">
@@ -45,17 +48,25 @@ export function UncavaRailNav({
             key={item.key}
             to={{ search: `?${param}=${item.key}` }}
             aria-current={isActive ? "page" : undefined}
+            aria-label={collapsed ? item.label : undefined}
+            title={collapsed ? item.label : undefined}
             className={cn(
               "flex flex-none items-center gap-2.5 whitespace-nowrap rounded-[7px] px-2.5 py-2 text-body transition",
               isActive
                 ? "bg-u-sunken font-medium text-u-text [&_svg]:text-u-accent"
                 : "text-u-text2 hover:bg-u-raised hover:text-u-text",
+              collapsed && "lg:justify-center",
             )}
           >
             <Icon d={item.icon} className="flex-none" />
-            <span className="flex-1">{item.label}</span>
+            <span className={cn("flex-1", collapsed && "lg:hidden")}>{item.label}</span>
             {item.badge && (
-              <span className="flex-none rounded-full bg-u-inferred-tint px-1.5 py-0.5 text-eyebrow font-semibold text-u-inferred">
+              <span
+                className={cn(
+                  "flex-none rounded-full bg-u-inferred-tint px-1.5 py-0.5 text-eyebrow font-semibold text-u-inferred",
+                  collapsed && "lg:hidden",
+                )}
+              >
                 {item.badge}
               </span>
             )}

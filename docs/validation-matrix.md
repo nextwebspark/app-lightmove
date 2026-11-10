@@ -165,6 +165,10 @@ is held back rather than sent (the step does not save until it is named) and the
 | Assessment report section | `maxLength` 4000 | `@Size(4000)` each | toast |
 | Assessment save | sends the version it opened | `CANDIDATE_ASSESSMENT_STALE` (409) on any other | banner, Reload, keeping mine |
 | Assess with AI | disabled while changes are unsaved or nothing is left open | `CANDIDATE_ASSESSMENT_NO_CRITERIA`, `CANDIDATE_ASSESSMENT_NOTHING_OPEN` (409); `AI_UNAVAILABLE` (502); a blocked prompt `VALIDATION_FAILED` | toast |
+| Ranking technical share | slider 0–100, steps of 5 (the brief's own share kept exactly) | `@Min(0) @Max(100)` | — |
+| Ranking competency weight | slider 0–100 per competency; a changed group must total 100% | `@Min(0) @Max(100)` each; a changed group off 100 is `VALIDATION_FAILED` on `weights` | inline under the group, Save held |
+| Ranking scenario rationale | `maxLength` 1000 | `@Size(1000)`, blank kept as none | toast |
+| Ranking scenario save | sends the version it opened and every competency of the brief | `RANKING_SCENARIO_STALE` (409) on another version; `RANKING_BRIEF_CHANGED` (409) when the competencies differ | banner, Reload, keeping mine / reload and re-seed |
 
 ### Import, export, outreach, assistant
 | Field | Client | Server | Shown as |

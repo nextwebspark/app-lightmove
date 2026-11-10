@@ -10,7 +10,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ProblemDetail;
 import org.springframework.mock.web.MockHttpServletRequest;
 
-/** Two first saves of one assessment race the unique row: the loser hears the stale refusal, not a 500. */
+/** Two first saves of one assessment, or of one ranking scenario, race the unique row: the loser hears stale. */
 class AssessmentRaceMappingTest {
 
     @Test
@@ -25,5 +25,19 @@ class AssessmentRaceMappingTest {
 
         assertThat(problem.getStatus()).isEqualTo(409);
         assertThat(problem.getProperties()).containsEntry("code", "CANDIDATE_ASSESSMENT_STALE");
+    }
+
+    @Test
+    @DisplayName("the ranking scenario's one-per-position constraint answers RANKING_SCENARIO_STALE")
+    void firstScenarioSaveRaceIsStale() {
+        DataIntegrityViolationException raced = new DataIntegrityViolationException("duplicate key",
+                new ConstraintViolationException("duplicate key", new SQLException("duplicate key", "23505"),
+                        "app_lm_ranking_scenario_project_uk"));
+
+        ProblemDetail problem = new GlobalExceptionHandler()
+                .handleDataIntegrity(raced, new MockHttpServletRequest("PUT", "/api/v1/projects/p/report/ranking/scenario"));
+
+        assertThat(problem.getStatus()).isEqualTo(409);
+        assertThat(problem.getProperties()).containsEntry("code", "RANKING_SCENARIO_STALE");
     }
 }

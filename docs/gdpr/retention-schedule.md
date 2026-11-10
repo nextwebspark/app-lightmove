@@ -67,6 +67,7 @@ a name it typed into someone's note, or an @mention, stays in that note. Audit-t
 | `app_lm_candidate_contact` | frozen V54 copy of contacts | none: frozen for #606 | with the mapping | erasure, #606 cleanup | cascade |
 | `app_lm_candidate_photo` | frozen photo copy | none: frozen for #606 | with the mapping | erasure, #606 cleanup | cascade |
 | `app_lm_candidate_scorecard` | assessment of the executive | the consultant's scorecard | with the mapping | erasure, unmapping | cascade |
+| `app_lm_ranking_scenario` | who saved it, the team's rationale | the position's ranking scenario (no person) | with the position | position or workspace deleted | cascade |
 | `app_lm_interview_plan` | person, questions for a call | the interview copilot | with the person | erasure | cascade |
 | `app_lm_meeting_recording` | person, transcript | the Notetaker | with the person; transcript per `lightmove.recall.transcript-retention` | erasure, retention | `NotetakerTranscriptPurge` |
 | `app_lm_meeting_live_line` | spoken lines | the live copilot | until the call ends | call end | `NotetakerService` |
