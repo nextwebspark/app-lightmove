@@ -31,6 +31,14 @@ class SequenceTokensTest {
     }
 
     @Test
+    void leavesTheSignatureForTheEmailOrSignsOffWithTheFirstName() {
+        assertThat(tokens.render("Thanks,\n{{ signature }}")).isEqualTo("Thanks,\n{{ signature }}");
+        assertThat(SequenceTokens.uses("Thanks,\n{{ signature }}", SequenceTokens.SIGNATURE)).isTrue();
+        assertThat(SequenceTokens.signedOffBy("Thanks,\n{{signature}}", "Yara$")).isEqualTo("Thanks,\nYara$");
+        assertThat(SequenceTokens.signedOffBy("Thanks,\n{{signature}}", null)).isEqualTo("Thanks,\n");
+    }
+
+    @Test
     void aMissingValueRendersEmptyAndADollarSignSurvives() {
         SequenceTokens sparse = new SequenceTokens(null, null, null, null, null, null, "Grew revenue to $40m", null);
         assertThat(sparse.render("[{{firstName}}] {{opener}}")).isEqualTo("[] Grew revenue to $40m");

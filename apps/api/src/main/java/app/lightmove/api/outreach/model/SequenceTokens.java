@@ -14,6 +14,14 @@ public record SequenceTokens(String firstName, String currentTitle, String curre
 
     public static final String BOOKING_LINK = "bookingLink";
 
+    /**
+     * The sender's default signature. {@link #render} leaves it as typed: the signature is HTML, drawn into the email by
+     * {@link OutreachEmailBody}, never into the text.
+     */
+    public static final String SIGNATURE = "signature";
+
+    public static final Pattern SIGNATURE_TOKEN = Pattern.compile("\\{\\{\\s*signature\\s*}}");
+
     private static final Pattern TOKEN = Pattern.compile("\\{\\{\\s*([A-Za-z]+)\\s*}}");
 
     /** What can open markup inline — a link, an image, an autolink, emphasis, a heading — and nothing a name needs. */
@@ -75,6 +83,12 @@ public record SequenceTokens(String firstName, String currentTitle, String curre
             }
         }
         return false;
+    }
+
+    /** Every signature token as the sender's first name: a run with no signature still signs off. */
+    public static String signedOffBy(String template, String senderFirstName) {
+        return template == null ? "" : SIGNATURE_TOKEN.matcher(template)
+                .replaceAll(Matcher.quoteReplacement(senderFirstName == null ? "" : senderFirstName));
     }
 
     private static String orBlank(String value) {

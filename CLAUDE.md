@@ -873,9 +873,10 @@ cached for good and never logged (`RequestLogFilter` skips it; `ops/gcp/bootstra
 request log), counted or rate-limited per address (mail clients' image proxies fetch for everyone from a few). An image
 row outlives the avatar it was copied from, since a sent email names it. The composer's **Include signature** ticks the
 sender's default (a picker where they keep more than one; replies alike) and `SendMessageRequest.signatureId` draws it
-when the email is written, into the stored `body` only — `body_text` stays the consultant's words; Add to sequence's
-review picks one for the run (`StartSequenceRequest.signatureId`), drawn once at Start and frozen on each enrollment
-(V194 `signature_html`), so every step, follow-ups included, closes alike. Either way a signature showing Book a call
+when the email is written, into the stored `body` only — `body_text` stays the consultant's words; a sequence's every
+email carries the sender's default, drawn once at Start, where nothing is picked, and frozen on each enrollment (V194
+`signature_html`): where a step places `{{signature}}` (new sequences end every step in it), else closing the email, and
+a sender keeping none signs off with their first name at the token. Either way a signature showing Book a call
 has its page made before anything is written. The mailbox's test email carries the default, leaving Book a call out
 where its page cannot be made, since the test proves the mailbox and nothing else.
 

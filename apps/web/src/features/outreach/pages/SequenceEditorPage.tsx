@@ -46,7 +46,7 @@ I'm leading a confidential search for a {{positionTitle}}. Given your time as {{
 
 Would a short call next week work?
 
-{{senderFirstName}}`;
+{{signature}}`;
 
 const DEFAULT_STEPS: SequenceStep[] = [
   {
@@ -57,12 +57,12 @@ const DEFAULT_STEPS: SequenceStep[] = [
   {
     delayWorkingDays: 3,
     subject: null,
-    body: "Hi {{firstName}},\n\nFollowing up on my note below, in case it slipped past. Happy to work around your diary.\n\n{{senderFirstName}}",
+    body: "Hi {{firstName}},\n\nFollowing up on my note below, in case it slipped past. Happy to work around your diary.\n\n{{signature}}",
   },
   {
     delayWorkingDays: 5,
     subject: null,
-    body: "Hi {{firstName}},\n\nI'll leave it here for now. If the timing is ever better, I'd be glad to hear from you.\n\n{{senderFirstName}}",
+    body: "Hi {{firstName}},\n\nI'll leave it here for now. If the timing is ever better, I'd be glad to hear from you.\n\n{{signature}}",
   },
 ];
 
@@ -203,8 +203,8 @@ function SequenceEditor({
   };
 
   /** Into whichever field the caret was last in: the first email's subject, or the selected step's body. */
-  const insertToken = (token: string) => {
-    const intoSubject = editingField === "subject" && selectedStep === 0;
+  const insertToken = (token: string, isBodyOnly = false) => {
+    const intoSubject = !isBodyOnly && editingField === "subject" && selectedStep === 0;
     const field = intoSubject ? subjectRef.current : bodyRefs.current[selectedStep];
     const text = (intoSubject ? steps[0].subject : steps[selectedStep].body) ?? "";
     const start = field?.selectionStart ?? text.length;
@@ -273,7 +273,7 @@ function SequenceEditor({
                 key={option.token}
                 type="button"
                 title={option.tip}
-                onClick={() => insertToken(option.token)}
+                onClick={() => insertToken(option.token, option.isBodyOnly)}
                 className={cn(
                   "rounded-full border px-2 py-[3px] font-mono text-[11.5px]",
                   option.isAi
@@ -674,7 +674,9 @@ function SequencePreview({
         </div>
         <div className="whitespace-pre-wrap pt-3.5 text-[13.5px]/[1.6] text-u-text">
           {renderParts(step?.body ?? "", tokens, PREVIEW_OPENER).map((part, index) =>
-            part.isLink ? (
+            part.isSignature ? (
+              !signature.included && <span key={index}>{tokens.senderFirstName}</span>
+            ) : part.isLink ? (
               <span key={index} className="text-u-accent underline">
                 {part.text}
               </span>
