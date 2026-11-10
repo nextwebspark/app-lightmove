@@ -27,6 +27,10 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Email signature** | what closes an email a consultant sends from Uncava, one of their own kept in Settings → Email signature, the default ticked in the composer | footer, sign-off |
 | **Daily email limit** | the most one mailbox sends through Uncava in a day | quota |
 | **Synced email** | a reply read back from the consultant's own mailbox, as the history tags it | imported, fetched |
+| **Ranking** | the Dashboard's staff-only chapter ordering a position's assessed candidates by their assessment total | leaderboard, score table |
+| **Agreed baseline** | the brief's own technical share and competency weights, which the ranking starts from | default weights |
+| **Exploration scenario** | the one shared what-if weighting a position keeps beside the baseline; it never changes the brief | simulation, model |
+| **Not assessed** | a candidate on the position with no score against a current competency | unranked, zero |
 | **Archive** / **Restore** | putting a position or a business unit away, hidden from every list and picker, and bringing it back; nothing is deleted | delete, close |
 | **Uncava support** | who switches on a feature a workspace cannot | "this deployment" |
 | **Audit log** | the workspace's record of sign-ins, member and access changes, exports and downloads, settings, API keys and AI apps, and outreach, in Settings → Security for an admin | activity log, events |

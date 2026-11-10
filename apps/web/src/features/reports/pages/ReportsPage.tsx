@@ -3,6 +3,7 @@ import { useOutletContext, useSearchParams } from "react-router-dom";
 import { ICONS } from "../../../components/layout/Icon";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Spinner } from "../../../components/ui";
+import { cn } from "../../../lib/cn";
 import { formatRelativeTime } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
 import type { Project } from "../../projects/api/types";
@@ -14,6 +15,7 @@ import { ReportNav } from "../components/ReportNav";
 import { DiversitySection } from "../sections/DiversitySection";
 import { MarketSection } from "../sections/MarketSection";
 import { ProgressSection } from "../sections/ProgressSection";
+import { RankingSection } from "../sections/RankingSection";
 import { RemunerationSection } from "../sections/RemunerationSection";
 
 const CHAPTER_PARAM = "chapter";
@@ -23,9 +25,13 @@ const CHAPTERS = [
   { key: "market", label: "Shape of the market", icon: ICONS.globe },
   { key: "comp", label: "Remuneration", icon: ICONS.currency },
   { key: "dei", label: "Diversity & DEI", icon: ICONS.team },
+  { key: "ranking", label: "Ranking", icon: ICONS.ranking },
 ] as const;
 
 type ChapterKey = (typeof CHAPTERS)[number]["key"];
+
+/** Ranks people on their assessments, which a client seat never reads: offered to staff alone, by link as by menu. */
+const STAFF_ONLY_CHAPTERS: readonly ChapterKey[] = ["ranking"];
 
 const GROUND = "flex flex-1 bg-u-bg text-u-text";
 
@@ -70,14 +76,17 @@ export function ReportsPage() {
 }
 
 function ReportBody({ project, report }: { project: Project; report: Report }) {
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
+  const isStaff = canExecuteProjectWork(project, user?.id, user?.workspace?.roles);
+  const chapters = CHAPTERS.filter((chapter) => isStaff || !STAFF_ONLY_CHAPTERS.includes(chapter.key));
   const requested = searchParams.get(CHAPTER_PARAM);
-  const active = CHAPTERS[Math.max(CHAPTERS.findIndex((chapter) => chapter.key === requested), 0)];
+  const active = chapters[Math.max(chapters.findIndex((chapter) => chapter.key === requested), 0)];
 
   return (
     <div className={`${GROUND} flex-col lg:flex-row`}>
       <ReportNav
-        chapters={CHAPTERS}
+        chapters={chapters}
         activeKey={active.key}
         footer={
           <>
@@ -88,7 +97,12 @@ function ReportBody({ project, report }: { project: Project; report: Report }) {
         }
       />
       <div className="min-w-0 flex-1">
-        <div className="max-w-[900px] px-4 pb-[100px] pt-[34px] sm:px-10">
+        <div
+          className={cn(
+            "px-4 pb-[100px] pt-[34px] sm:px-10",
+            active.key === "ranking" ? "max-w-[1200px]" : "max-w-[900px]",
+          )}
+        >
           <Chapter chapterKey={active.key} project={project} report={report} />
         </div>
       </div>
@@ -129,5 +143,7 @@ function Chapter({
       return <RemunerationSection project={project} remuneration={report.remuneration} />;
     case "dei":
       return <DiversitySection diversity={report.diversity} />;
+    case "ranking":
+      return <RankingSection project={project} />;
   }
 }

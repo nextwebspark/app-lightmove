@@ -50,7 +50,7 @@ export function ReportCard({
     <ReportPanel>
       <div className="mb-1 flex flex-wrap items-start justify-between gap-3.5">
         <div>
-          <div className="text-[15px] font-bold">{title}</div>
+          <h2 className="text-[15px] font-bold">{title}</h2>
           {caption && <div className="mt-[3px] text-xs text-u-text3">{caption}</div>}
         </div>
         {action && <div className="flex flex-wrap items-center gap-2.5">{action}</div>}

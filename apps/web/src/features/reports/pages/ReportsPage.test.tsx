@@ -17,6 +17,7 @@ vi.mock("../api/reportApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/reportApi")>()),
   getReport: vi.fn(),
   getTeamPerformance: vi.fn(),
+  getRanking: vi.fn(),
 }));
 
 vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
@@ -181,6 +182,31 @@ describe("ReportsPage", () => {
 
     renderPage("appendix");
     expect(await screen.findByRole("heading", { level: 1, name: "Are we going to hit the deadline?" })).toBeInTheDocument();
+  });
+
+  it("offers the Ranking chapter to staff alone, and lands a client's link to it on the first chapter", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+    vi.mocked(reportApi.getRanking).mockResolvedValue({
+      criteria: [],
+      baselineTechnicalShare: 50,
+      candidates: [],
+      notAssessedCount: 0,
+      mappedCount: 0,
+      truncated: false,
+      scenario: null,
+    });
+
+    const asClient = renderPage("ranking");
+    expect(await screen.findByRole("heading", { level: 1, name: "Are we going to hit the deadline?" })).toBeInTheDocument();
+    expect(within(screen.getByRole("navigation", { name: "Report chapters" })).queryByRole("link", { name: /Ranking/ }))
+      .not.toBeInTheDocument();
+    expect(reportApi.getRanking).not.toHaveBeenCalled();
+    asClient.unmount();
+
+    viewerRoles = ["ADMIN"];
+    renderPage("ranking");
+    expect(await screen.findByRole("heading", { level: 1, name: "Candidate ranking" })).toBeInTheDocument();
+    expect(await screen.findByText("The brief names no competencies yet")).toBeInTheDocument();
   });
 
   it("re-projects when the reader switches to the full-mandate average", async () => {

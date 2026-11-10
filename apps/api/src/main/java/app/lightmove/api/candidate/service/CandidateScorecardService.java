@@ -3,6 +3,7 @@ package app.lightmove.api.candidate.service;
 import app.lightmove.api.candidate.constant.AiRunScope;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.ScorecardStatus;
+import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidateScorecardResponse;
 import app.lightmove.api.candidate.dto.CriterionScoreRequest;
 import app.lightmove.api.candidate.dto.SaveScorecardRequest;
@@ -10,8 +11,11 @@ import app.lightmove.api.candidate.model.AiScorecardDraft;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateScorecard;
 import app.lightmove.api.candidate.model.CriterionScore;
+import app.lightmove.api.candidate.model.ProjectScorecards;
 import app.lightmove.api.candidate.model.ScorecardCriterion;
+import app.lightmove.api.candidate.model.ScorecardStanding;
 import app.lightmove.api.candidate.model.ScorecardTally;
+import app.lightmove.api.candidate.model.ScoringBrief;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.CandidateScorecardRepository;
 import app.lightmove.api.common.constant.ApiValueEnum;
@@ -30,11 +34,15 @@ import app.lightmove.api.project.repository.ProjectRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -53,6 +61,7 @@ public class CandidateScorecardService {
     private final ProjectRepository projects;
     private final CandidateRepository candidates;
     private final CandidateScorecardRepository scorecards;
+    private final CandidateResponseMapper responses;
     private final PositionService positions;
     private final UserRepository users;
     private final PersonActivityRecorder activity;
@@ -68,6 +77,53 @@ public class CandidateScorecardService {
         return respond(scorecard, briefOf(workspaceId, projectId));
     }
 
+    /**
+     * Every assessment of the position tallied against its brief, best first and cut at {@code cap}: the Ranking
+     * chapter's read. One holding no score against a competency the brief has today ranks nobody, so it is left out
+     * and counted as unassessed.
+     */
+    @Transactional(readOnly = true)
+    public ProjectScorecards rankingInputsOf(UUID workspaceId, UUID projectId, int cap) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        ScoringBrief brief = briefOf(workspaceId, projectId);
+        record Tallied(CandidateScorecard scorecard, ScorecardTally tally) {}
+        List<Tallied> assessed = scorecards.findByProjectIdAndWorkspaceId(projectId, workspaceId).stream()
+                .map(scorecard -> new Tallied(scorecard,
+                        ScorecardScoring.tally(brief.criteria(), brief.technicalShare(), scorecard.getScores())))
+                .filter(tallied -> tallied.tally().scoredCount() > 0)
+                .sorted(Comparator.comparingDouble((Tallied tallied) -> tallied.tally().overall()).reversed()
+                        .thenComparing(tallied -> tallied.scorecard().getCandidateId()))
+                .toList();
+        List<Tallied> kept = assessed.stream().limit(cap).toList();
+
+        List<UUID> keptIds = kept.stream().map(tallied -> tallied.scorecard().getCandidateId()).toList();
+        Map<UUID, Candidate> rowOf = keptIds.isEmpty() ? Map.of()
+                : candidates.findByProjectIdAndIdIn(projectId, keptIds).stream()
+                        .collect(Collectors.toMap(Candidate::getId, Function.identity()));
+        List<Tallied> mapped = kept.stream()
+                .filter(tallied -> rowOf.containsKey(tallied.scorecard().getCandidateId()))
+                .toList();
+        List<CandidateResponse> dtos = responses.toDtos(mapped.stream()
+                .map(tallied -> rowOf.get(tallied.scorecard().getCandidateId()))
+                .toList());
+        Map<UUID, String> nameOf = namesOf(mapped.stream()
+                .map(tallied -> tallied.scorecard().getReviewedBy())
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet()));
+
+        List<ScorecardStanding> standings = new ArrayList<>();
+        for (int index = 0; index < mapped.size(); index++) {
+            CandidateScorecard scorecard = mapped.get(index).scorecard();
+            standings.add(new ScorecardStanding(dtos.get(index), scorecard.getStatus(), scorecard.getUpdatedAt(),
+                    scorecard.getReviewedAt(),
+                    scorecard.getReviewedBy() == null ? null : nameOf.get(scorecard.getReviewedBy()),
+                    mapped.get(index).tally(),
+                    rowOf.get(scorecard.getCandidateId()).getPerson().isProcessingRestricted()));
+        }
+        return new ProjectScorecards(brief.criteria(), brief.technicalShare(), standings, assessed.size(),
+                candidates.countByProjectId(projectId));
+    }
+
     @Transactional
     public CandidateScorecardResponse save(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                                            SaveScorecardRequest request, HttpServletRequest httpRequest) {
@@ -79,7 +135,7 @@ public class CandidateScorecardService {
         if (!Objects.equals(heldVersion, request.version())) {
             throw ApiException.of(ErrorCode.CANDIDATE_ASSESSMENT_STALE);
         }
-        BriefScoring brief = briefOf(workspaceId, projectId);
+        ScoringBrief brief = briefOf(workspaceId, projectId);
         boolean wasReviewed = scorecard != null && scorecard.getStatus() == ScorecardStatus.REVIEWED;
         if (scorecard == null) {
             scorecard = CandidateScorecard.startFor(candidate, workspaceId);
@@ -113,7 +169,7 @@ public class CandidateScorecardService {
                                                    UUID requestedBy, AiScorecardDraft draft) {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
-        BriefScoring brief = briefOf(workspaceId, projectId);
+        ScoringBrief brief = briefOf(workspaceId, projectId);
         CandidateScorecard scorecard = scorecards.findByCandidateIdAndWorkspaceId(candidate.getId(), workspaceId)
                 .orElseGet(() -> CandidateScorecard.startFor(candidate, workspaceId));
         scorecard.applyAiDraft(alignedToBrief(draft.scores(), brief.criteria()), draft.report(), Instant.now());
@@ -196,16 +252,23 @@ public class CandidateScorecardService {
         return new ArrayList<>(kept.values());
     }
 
-    private BriefScoring briefOf(UUID workspaceId, UUID projectId) {
+    /** The brief's competencies as an assessment is scored against them: what a ranking scenario reweighs. */
+    @Transactional(readOnly = true)
+    public ScoringBrief scoringBriefOf(UUID workspaceId, UUID projectId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return briefOf(workspaceId, projectId);
+    }
+
+    private ScoringBrief briefOf(UUID workspaceId, UUID projectId) {
         BriefCompetencies brief = positions.competenciesOf(workspaceId, projectId);
         List<ScorecardCriterion> criteria = brief.competencies().stream()
                 .map(competency -> new ScorecardCriterion(competency.panel(), competency.name(),
                         competency.description(), competency.weight()))
                 .toList();
-        return new BriefScoring(criteria, brief.technicalShare());
+        return new ScoringBrief(criteria, brief.technicalShare());
     }
 
-    private CandidateScorecardResponse respond(CandidateScorecard scorecard, BriefScoring brief) {
+    private CandidateScorecardResponse respond(CandidateScorecard scorecard, ScoringBrief brief) {
         List<CriterionScore> held = scorecard == null ? List.of() : scorecard.getScores();
         ScorecardTally tally = ScorecardScoring.tally(brief.criteria(), brief.technicalShare(), held);
         return CandidateScorecardResponse.of(scorecard, tally,
@@ -213,9 +276,16 @@ public class CandidateScorecardService {
                 scorecard == null ? null : nameOf(scorecard.getReviewedBy()));
     }
 
+    private Map<UUID, String> namesOf(Set<UUID> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        return users.findAllById(userIds).stream()
+                .filter(user -> user.getFullName() != null)
+                .collect(Collectors.toMap(User::getId, User::getFullName));
+    }
+
     private String nameOf(UUID userId) {
         return userId == null ? null : users.findById(userId).map(User::getFullName).orElse(null);
     }
-
-    private record BriefScoring(List<ScorecardCriterion> criteria, int technicalShare) {}
 }

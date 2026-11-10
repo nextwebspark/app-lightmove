@@ -661,6 +661,8 @@ lightmove:
     max-nationalities: ${REPORT_MAX_NATIONALITIES:11}
     max-employers-per-hub: ${REPORT_MAX_EMPLOYERS_PER_HUB:3}
     max-executives-per-slice: ${REPORT_MAX_EXECUTIVES_PER_SLICE:12}
+    # The Ranking chapter lists the assessed executives of one position; past this the best-scored stand.
+    max-ranked: ${REPORT_MAX_RANKED:250}
 
   # Outreach email goes from each consultant's own Gmail or Outlook, connected through Nylas's hosted
   # sign-in. A blank key or client id leaves outreach unoffered. The Nylas application must list
