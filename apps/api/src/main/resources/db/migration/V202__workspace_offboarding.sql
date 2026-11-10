@@ -7,7 +7,8 @@
 -- finds the due workspaces with a plain query and then works inside each one's WorkspaceScope.
 --
 -- purge_notice_email is who the certificate goes to, captured at deletion because nobody can sign in to the workspace
--- by the time the purge runs; it is cleared once the certificate is sent. purge_started_at is when the purge first
+-- by the time the purge runs. The tombstone keeps it, with the firm's name the email gives in purge_notice_name, only
+-- until the mail service accepts the certificate's email; both are cleared then, or once WorkspacePurge gives up. purge_started_at is when the purge first
 -- began (from then on a restore is refused), purge_claimed_until the lease of the instance working on it now, so a
 -- purge whose instance died is resumed by the next.
 
@@ -16,6 +17,7 @@ ALTER TABLE app_lm_workspace
     ADD COLUMN deleted_by         uuid REFERENCES app_lm_user (id) ON DELETE SET NULL,
     ADD COLUMN purge_after        timestamptz,
     ADD COLUMN purge_notice_email varchar(320),
+    ADD COLUMN purge_notice_name  varchar(160),
     ADD COLUMN purge_started_at   timestamptz,
     ADD COLUMN purge_claimed_until timestamptz,
     ADD COLUMN purged_at          timestamptz;

@@ -37,7 +37,7 @@ until its purge starts. Audit-trail retention waits for a delete-capable mainten
 | `app_lm_mfa_challenge` | user, challenge hash | a sign-in waiting on its code | 1 day past expiry ⚖️ | expiry | `RetentionSweeper` |
 | `app_lm_verification_token` | user, token hash | email verification, password reset | 30 days past expiry ⚖️ | expiry | `RetentionSweeper` |
 | `app_lm_refresh_token` | user, IP address, browser line | sessions, stolen-token detection | 30 days past the family's last expiry ⚖️ | expiry | `RetentionSweeper` |
-| `app_lm_workspace` | the firm's email domain, company snapshot, the deleting admin's email | the tenant | while the workspace lives; once deleted, 30 days ⚖️, then a tombstone of ids | deletion, then the purge | `WorkspacePurge` |
+| `app_lm_workspace` | the firm's email domain, company snapshot, the deleting admin's email | the tenant | while the workspace lives; once deleted, 30 days ⚖️, then a tombstone of ids — the admin's email and the firm's name kept on it only until the certificate's email is accepted, a week at most | deletion, then the purge | `WorkspacePurge` |
 | `app_lm_workspace_export` | who asked; the zip is a copy of everything | an admin's export of the whole workspace | 7 days after it is built ⚖️ | expiry, workspace purge | `WorkspaceExportExpiry`, `StorageDeletionSweeper` |
 | `app_lm_workspace_purge_certificate` | the deleting admin's id, counts only | proof a workspace's data was deleted | kept with the tombstone ⚖️ | — | — |
 | `app_lm_workspace_member` | user | membership | while a member; the removed row is kept for a rejoin | workspace purge, account deletion | — |

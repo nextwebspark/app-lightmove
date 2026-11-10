@@ -956,17 +956,21 @@ against a racing archive), and its name stays held (`CLIENT_NAME_ARCHIVED`, kept
 ends access at once — every membership ended (`ended_with_workspace`), invitations revoked, API keys and AI apps
 revoked, live runs stopped `WORKSPACE_DELETED` and waiting emails cancelled in the same transaction
 (`WorkspaceDeleted` → `WorkspaceDeletionOutreach`), every Notetaker bot called off and queued for
-`RecallBotErasureSweeper` there too, and once it commits every mailbox and Zoom account let go at its provider and a Stripe subscription set to cancel at the period's end
+`RecallBotErasureSweeper` there too, and once it commits every mailbox and Zoom account let go at its provider — its row kept, `ERROR`, until the provider
+answers the revoke, since it is the only copy of the grant — and a Stripe subscription set to cancel at the period's end
 (`WorkspaceBillingClosure`; no month's credits are granted to a deleted workspace). It stamps `purge_after`
 (`lightmove.retention.deleted-workspaces-after`, 30 days ⚖️) and the deleting admin's address, captured because nobody
 can sign in by the purge. `WorkspacePurge` claims a due workspace on `app_lm_workspace` (no policy) with a committed
-lease, and inside its `WorkspaceScope` empties every table carrying `workspace_id` but `WorkspacePurgeTables.RETAINED`
+lease renewed every batch, and inside its `WorkspaceScope` empties every table carrying `workspace_id` but `WorkspacePurgeTables.RETAINED`
 (the audit trail, the credit ledger and billing records, kept by id) — read off the schema, children first by the
 foreign keys, so a new tenant table is purged without anyone listing it — after each `WorkspacePurgeContributor`
-(Recall's media, a grant the deletion could not revoke); deletes every file under `ws/{id}/`
+(Recall's media, a grant the deletion could not revoke) — one still holding something fails the attempt, retried
+after the lease, until `WorkspacePurge.RELEASE_PATIENCE` (7 days) from the purge's start; deletes every file under `ws/{id}/`
 (`DocumentStore.deletePrefix`); refuses to finish while any row is left; scrubs the row into a tombstone (ids kept,
 every word naming the firm gone); and completes `app_lm_workspace_purge_certificate` — counts per table taken at its
-first attempt, files, times, no name, and the SHA-256 of its body — audits `WORKSPACE_PURGED` and emails it. A platform
+first attempt, files, times, no name, and the SHA-256 of its body — audits `WORKSPACE_PURGED` and emails it — owed,
+the address and the firm's name kept on the tombstone (`purge_notice_name`), until the mail service accepts it or a week
+has passed. An export finishing after its row went is queued for deletion. A platform
 admin (`WORKSPACE_LIFECYCLE_MANAGE`) restores a workspace and the memberships its deletion ended until the purge
 starts (`POST /platform/workspaces/{id}/restore`; mailboxes, keys and invitations stay gone) and reads the certificate
 (`GET …/purge-certificate`), resolve-then-scope. **Export workspace data** (Settings → Data & retention, so only where
@@ -1571,7 +1575,7 @@ V197 adds `app_lm_recall_bot_erasure` — an erased or restricted person's Recal
 media is still held), global for V196's reason, drained by `RecallBotErasureSweeper`
 (`lightmove.recall.bot-erasure-sweep-interval`) with a back-off to an hour, given up only past Recall's 7-day retention.
 V202 gives `app_lm_workspace` its deletion and purge columns (`deleted_at`/`deleted_by`, `purge_after`,
-`purge_notice_email`, `purge_started_at`, the claim's `purge_claimed_until`, `purged_at`; a workspace deleted before it
+`purge_notice_email` with the `purge_notice_name` its certificate email gives, `purge_started_at`, the claim's `purge_claimed_until`, `purged_at`; a workspace deleted before it
 was given 30 days from the deploy), `app_lm_workspace_member.ended_with_workspace`, `WORKSPACE_DELETED` among the
 enrollment's stop reasons, `app_lm_workspace_export` and `app_lm_workspace_purge_certificate` (both under forced
 row-level security; the certificate is never purged), the resolver `app_lm_resolve_workspace_exports_to_close`, and the

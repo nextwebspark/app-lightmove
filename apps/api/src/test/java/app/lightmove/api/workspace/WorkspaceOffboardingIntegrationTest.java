@@ -16,6 +16,9 @@ import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.RecordingPaymentGateway;
 import app.lightmove.api.RecordingRecallBotApi;
+import app.lightmove.api.core.resilience.constant.VendorFailureKind;
+import app.lightmove.api.core.resilience.model.VendorCall;
+import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.core.storage.service.DocumentStore;
 import app.lightmove.api.dataexport.service.WorkspaceExportExpiry;
@@ -134,12 +137,13 @@ class WorkspaceOffboardingIntegrationTest extends FlowTestSupport {
         assertThatThrownBy(() -> store.open(seeded.exportKey()).close()).isInstanceOf(IOException.class);
 
         Map<String, Object> tombstone = db.queryForMap("""
-                select name, slug, email_domain, apollo_account_id, purge_notice_email, purged_at
+                select name, slug, email_domain, apollo_account_id, purge_notice_email, purge_notice_name, purged_at
                 from app_lm_workspace where id = ?::uuid""", doomed.workspaceId());
         assertThat(tombstone.get("name")).isEqualTo("Deleted workspace");
         assertThat(tombstone.get("slug")).isEqualTo("deleted-" + doomed.workspaceId());
         assertThat(tombstone.get("email_domain")).isEqualTo("deleted.invalid");
         assertThat(tombstone.get("purge_notice_email")).isNull();
+        assertThat(tombstone.get("purge_notice_name")).as("cleared once the certificate's email went").isNull();
         assertThat(tombstone.get("purged_at")).isNotNull();
 
         Map<String, Object> certificate = db.queryForMap("""
@@ -270,7 +274,100 @@ class WorkspaceOffboardingIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isNotFound()).andReturn())).isEqualTo("WORKSPACE_EXPORT_UNAVAILABLE");
     }
 
+    @Test
+    @DisplayName("a grant whose provider cannot be reached keeps its row and holds the purge back until it is revoked")
+    void unrevokedGrantHoldsThePurge() throws Exception {
+        Firm firm = firm("Unreachable Firm");
+        String grant = connectMailbox(firm);
+        mailboxes.failRevokesWith(new VendorException(VendorCall.of("nylas", "revoke"), VendorFailureKind.UNAVAILABLE,
+                null));
+        deleteWorkspace(firm, "Unreachable Firm").andExpect(status().isNoContent());
+
+        assertThat(mailboxStatusOf(firm)).as("kept, and never read or sent through").isEqualTo("ERROR");
+
+        Instant firstAttempt = Instant.now().plus(PAST_GRACE);
+        purge.purgeDueAt(firstAttempt);
+        assertThat(purgedAt(firm)).as("held back while the grant is unrevoked").isNull();
+        assertThat(mailboxStatusOf(firm)).isEqualTo("ERROR");
+
+        mailboxes.failRevokesWith(null);
+        purge.purgeDueAt(firstAttempt.plus(Duration.ofHours(2)));
+        assertThat(mailboxes.revoked()).contains(grant);
+        assertThat(purgedAt(firm)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("a provider still unreachable a week after the purge began no longer holds it back")
+    void purgeStopsWaitingOnAProvider() throws Exception {
+        Firm firm = firm("Gone Dark Firm");
+        String grant = connectMailbox(firm);
+        mailboxes.failRevokesWith(new VendorException(VendorCall.of("nylas", "revoke"), VendorFailureKind.TIMEOUT,
+                null));
+        deleteWorkspace(firm, "Gone Dark Firm").andExpect(status().isNoContent());
+
+        Instant firstAttempt = Instant.now().plus(PAST_GRACE);
+        purge.purgeDueAt(firstAttempt);
+        assertThat(purgedAt(firm)).isNull();
+
+        purge.purgeDueAt(firstAttempt.plus(WorkspacePurge.RELEASE_PATIENCE).plus(Duration.ofHours(1)));
+        assertThat(purgedAt(firm)).isNotNull();
+        assertThat(mailboxes.revoked()).doesNotContain(grant);
+        assertThat(WorkspacePurgeTablesView.rows(db, firm.workspaceId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a certificate email the mail service refused stays owed, address and name, until it is accepted")
+    void refusedCertificateEmailIsSentAgain() throws Exception {
+        Firm firm = firm("Refused Notice Firm");
+        deleteWorkspace(firm, "Refused Notice Firm").andExpect(status().isNoContent());
+        email.refuseDeliveryTo(firm.email());
+
+        Instant purgedOn = Instant.now().plus(PAST_GRACE);
+        assertThat(purge.purgeDueAt(purgedOn)).isPositive();
+        Map<String, Object> owed = db.queryForMap("""
+                select name, purge_notice_email, purge_notice_name from app_lm_workspace where id = ?::uuid""",
+                firm.workspaceId());
+        assertThat(owed.get("name")).isEqualTo("Deleted workspace");
+        assertThat(owed.get("purge_notice_email")).isEqualTo(firm.email());
+        assertThat(owed.get("purge_notice_name")).isEqualTo("Refused Notice Firm");
+
+        email.clear();
+        purge.purgeDueAt(purgedOn.plus(Duration.ofMinutes(30)));
+        assertThat(email.subjectsFor(firm.email())).as("not before the lease runs out").isEmpty();
+
+        purge.purgeDueAt(purgedOn.plus(Duration.ofHours(2)));
+        assertThat(email.subjectsFor(firm.email())).containsExactly("Refused Notice Firm has been permanently deleted");
+        Map<String, Object> sent = db.queryForMap("""
+                select purge_notice_email, purge_notice_name from app_lm_workspace where id = ?::uuid""",
+                firm.workspaceId());
+        assertThat(sent.get("purge_notice_email")).isNull();
+        assertThat(sent.get("purge_notice_name")).isNull();
+
+        purge.purgeDueAt(purgedOn.plus(Duration.ofHours(4)));
+        assertThat(email.subjectsFor(firm.email())).as("sent once").hasSize(1);
+    }
+
     // ── fixture ──────────────────────────────────────────────────────────────
+
+    private String connectMailbox(Firm firm) {
+        String grant = "nylas-" + UUID.randomUUID();
+        db.update("""
+                insert into app_lm_mailbox_connection (workspace_id, user_id, provider, address, grant_id, status,
+                    daily_cap, connected_at, gateway)
+                values (?::uuid, ?::uuid, 'google', ?, ?, 'ACTIVE', 50, now(), 'NYLAS')""",
+                firm.workspaceId(), firm.adminId(), "mailbox-" + UUID.randomUUID() + "@mailbox.example", grant);
+        return grant;
+    }
+
+    private String mailboxStatusOf(Firm firm) {
+        return db.queryForObject("select status from app_lm_mailbox_connection where workspace_id = ?::uuid",
+                String.class, firm.workspaceId());
+    }
+
+    private Object purgedAt(Firm firm) {
+        return db.queryForObject("select purged_at from app_lm_workspace where id = ?::uuid", Object.class,
+                firm.workspaceId());
+    }
 
     private record Firm(String token, String email, String adminId, String workspaceId) {}
 

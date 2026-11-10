@@ -7,7 +7,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * The deletion lets every mailbox and Zoom account go once it commits; one whose provider could not be reached then is
- * let go again here, before its row — the only copy of the grant to revoke — is purged.
+ * still a row — the only copy of the grant to revoke — and is let go again here. One still unreachable holds the purge
+ * back, so its row is never deleted with the grant unrevoked.
  */
 @Component
 @RequiredArgsConstructor
@@ -18,7 +19,11 @@ class WorkspacePurgeOutreach implements WorkspacePurgeContributor {
 
     @Override
     public void beforePurge(UUID workspaceId) {
-        mailboxes.disconnectAllOf(workspaceId, null);
-        zoom.disconnectAllOf(workspaceId, null);
+        int mailboxesHeld = mailboxes.disconnectAllOf(workspaceId, null);
+        int zoomHeld = zoom.disconnectAllOf(workspaceId, null);
+        if (mailboxesHeld + zoomHeld > 0) {
+            throw new IllegalStateException(mailboxesHeld + " mailbox and " + zoomHeld
+                    + " Zoom grants of deleted workspace " + workspaceId + " could not be revoked yet");
+        }
     }
 }
