@@ -35,6 +35,8 @@ const MAX_STEPS = 3;
 const DELAY_CHOICES = [2, 3, 4, 5, 7];
 const STEP_LABELS = ["First email", "Follow-up", "Last follow-up"];
 const PREVIEW_OPENER = "Their opener is drafted for each person when you add them, and you review it then.";
+const SIGNATURE_PREVIEW_LINE =
+  "Your signature goes here. You choose it when you add people, and it closes every email, follow-ups too.";
 
 const FIRST_STEP_BODY = `Hi {{firstName}},
 
@@ -42,9 +44,7 @@ const FIRST_STEP_BODY = `Hi {{firstName}},
 
 I'm leading a confidential search for a {{positionTitle}}. Given your time as {{currentTitle}} at {{currentCompany}}, I'd value twenty minutes of your view, whether or not the role is right for you.
 
-Would a short call next week work?
-
-{{senderFirstName}}`;
+Would a short call next week work?`;
 
 const DEFAULT_STEPS: SequenceStep[] = [
   {
@@ -55,12 +55,12 @@ const DEFAULT_STEPS: SequenceStep[] = [
   {
     delayWorkingDays: 3,
     subject: null,
-    body: "Hi {{firstName}},\n\nFollowing up on my note below, in case it slipped past. Happy to work around your diary.\n\n{{senderFirstName}}",
+    body: "Hi {{firstName}},\n\nFollowing up on my note below, in case it slipped past. Happy to work around your diary.",
   },
   {
     delayWorkingDays: 5,
     subject: null,
-    body: "Hi {{firstName}},\n\nI'll leave it here for now. If the timing is ever better, I'd be glad to hear from you.\n\n{{senderFirstName}}",
+    body: "Hi {{firstName}},\n\nI'll leave it here for now. If the timing is ever better, I'd be glad to hear from you.",
   },
 ];
 
@@ -687,6 +687,9 @@ function SequencePreview({
             ),
           )}
         </div>
+        <p className="mt-3.5 border-t border-dashed border-u-border pt-2.5 text-note text-u-text3">
+          {SIGNATURE_PREVIEW_LINE}
+        </p>
         {selectedStep > 0 && (
           <div className="mt-3.5 border-s-2 border-u-border ps-2.5 text-[12px]/[1.5] text-u-text3">
             Your earlier email to {tokens.firstName ?? "them"} is quoted below, as in any reply.

@@ -72,6 +72,22 @@ describe("SequenceEditorPage", () => {
     await waitFor(() => expect(screen.getByLabelText("Location")).toHaveTextContent(/^\/projects\/p1\/outreach$/));
   });
 
+  it("starts with steps that leave the sign-off to the signature, which the preview says closes every email", async () => {
+    renderEditor();
+
+    const bodies = await screen.findAllByRole("textbox", { name: "Email body" });
+    expect(bodies).toHaveLength(3);
+    for (const body of bodies) {
+      expect((body as HTMLTextAreaElement).value).not.toContain("{{senderFirstName}}");
+    }
+    expect((bodies[0] as HTMLTextAreaElement).value).toMatch(/Would a short call next week work\?$/);
+    expect(screen.getByText(/Your signature goes here/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Step 2" }));
+
+    expect(screen.getByText(/Your signature goes here/)).toBeInTheDocument();
+  });
+
   it("goes back to the list from the header's Sequences", async () => {
     renderEditor();
 
