@@ -241,8 +241,7 @@ public class InvitationService {
     private AuditService.Builder recordInvited(Invitation invitation, UUID inviterId, HttpServletRequest request) {
         return audit.event(WorkspaceEventType.MEMBER_INVITED)
                 .actor(inviterId).workspace(invitation.getWorkspaceId())
-                .target("invitation", invitation.getId()).from(request)
-                .detail("email", invitation.getEmail());
+                .target("invitation", invitation.getId()).from(request);
     }
 
     /**
@@ -356,7 +355,6 @@ public class InvitationService {
 
         audit.event(WorkspaceEventType.INVITATION_REVOKED)
                 .actor(userId).workspace(workspaceId).target("invitation", invitationId).from(request)
-                .detail("email", invitation.getEmail())
                 .record();
     }
 
@@ -414,7 +412,7 @@ public class InvitationService {
         audit.event(WorkspaceEventType.INVITATION_REVOKED)
                 .actor(actorId).workspace(invitation.getWorkspaceId()).target("invitation", invitation.getId())
                 .from(request)
-                .detail("email", invitation.getEmail()).detail("reason", withdrawal.auditKey())
+                .detail("reason", withdrawal.auditKey())
                 .record();
         if (invitation.getClientId() != null) {
             events.publishEvent(new ClientInvitationWithdrawn(

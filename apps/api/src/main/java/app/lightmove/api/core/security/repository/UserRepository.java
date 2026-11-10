@@ -13,8 +13,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     /** Case-insensitive by virtue of the citext column — no LOWER() needed, and none should be added. */
     Optional<User> findByEmail(String email);
 
-    boolean existsByEmail(String email);
-
     /**
      * Password login's read: attempts on one account wait their turn, or concurrent ones lost each other's failure
      * count and answered 409 — which only an existing account could, so the conflict told guessers it existed.

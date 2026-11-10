@@ -63,7 +63,6 @@ public class UserProfileService {
 
         audit.event(AuthEventType.PROFILE_UPDATED)
                 .actor(actorId).workspace(workspaceId).from(request)
-                .detail("fullName", user.getFullName())
                 .detailIfPresent("timezoneFrom", isMoved ? previousTimezone : null)
                 .detailIfPresent("timezoneTo", isMoved ? user.getTimezone() : null)
                 .record();

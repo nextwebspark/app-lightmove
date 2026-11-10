@@ -136,7 +136,7 @@ readable and editable, and nothing uses it until someone lifts the restriction.
 | Keep a restricted person out of what a **client seat** reads (Companies grid, talent map, report, export, public API and MCP universe) | Needs counsel to say whether showing an already-mapped person to the hiring company counts as processing | Follow-up issue to file (asked for in the #1180 review) |
 | The assistant's executive **list** still sends names and titles to the model | Only the profile tool is held back so far | #1180, "Not in this PR" |
 | **Cross-workspace** suppression for an objection sent to Uncava as controller (vendor-sourced data) | Needs a decision from #920 | #920 checklist; not built |
-| **Names in older audit lines.** `CANDIDATE_REMOVED` still stores `fullName`, the audit trail is append-only (`harden.sql`), and the erasure leaves earlier lines as they are | Needs a decision from #918 (keep as a legal-obligation/security log, recorded in the RoPA, or stop writing names) | #918 notes, and the logs issue |
+| **Names in older audit lines.** `CANDIDATE_REMOVED` stored `fullName` until #927 | Resolved by #927: audit details are ids only, and `ops/cloudsql/scrub-audit-pii.sql` removed the names earlier lines held | #927 |
 | **Backups** keep erased data until they age out | By design: an erasure never rewrites backups | Document the retention window in the privacy notice |
 | `CandidateReadsGoldenIntegrationTest` and `OutreachReplyMigrationTest` fail locally | They fail the same on `main` (a session-time-zone assumption and a golden recording); this work doesn't cause them | CI decides |
 
