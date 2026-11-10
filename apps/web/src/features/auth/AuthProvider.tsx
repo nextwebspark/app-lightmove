@@ -52,6 +52,8 @@ interface AuthContextValue {
    */
   resetPassword: (token: string, password: string) => Promise<User | MfaChallenge>;
   signOut: () => Promise<void>;
+  /** Forgets a session the server has already ended — the account was deleted — without asking it again. */
+  forgetDeletedAccount: () => void;
 
   /** Re-reads the user from the server. Call after anything that changes their workspace or role. */
   reload: () => Promise<User | null>;
@@ -273,6 +275,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [adoptAnswer],
   );
 
+  const forgetDeletedAccount = useCallback(() => {
+    setAccessToken(null);
+    startFreshSession();
+    setUser(null);
+  }, [startFreshSession]);
+
   const signOut = useCallback(async () => {
     try {
       await authApi.logout();
@@ -376,6 +384,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyEmail,
       resetPassword,
       signOut,
+      forgetDeletedAccount,
       reload,
       switchWorkspace,
       acceptAndSwitch,
@@ -392,6 +401,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyEmail,
       resetPassword,
       signOut,
+      forgetDeletedAccount,
       reload,
       switchWorkspace,
       acceptAndSwitch,

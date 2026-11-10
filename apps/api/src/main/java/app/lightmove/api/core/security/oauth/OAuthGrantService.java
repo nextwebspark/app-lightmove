@@ -140,10 +140,17 @@ public class OAuthGrantService {
      */
     @Transactional
     public void revokeAllOfUser(UUID actorId, UUID userId, HttpServletRequest httpRequest) {
-        // Each in its own workspace, still inside the password's transaction: the caller is in one workspace at most.
+        revokeAllOfUser(actorId, userId, OAuthGrantRevokeReason.PASSWORD_CHANGED, httpRequest);
+    }
+
+    /** Every grant the account holds, consented or waiting for it, in whichever workspace each is. */
+    @Transactional
+    public void revokeAllOfUser(UUID actorId, UUID userId, OAuthGrantRevokeReason reason,
+                                HttpServletRequest httpRequest) {
+        // Each in its own workspace, still inside the caller's transaction: the caller is in one workspace at most.
         for (ResolvedRow grant : resolvers.oauthAuthorizationsOfUser(userId)) {
             Runnable end = () -> delete(actorId, List.of(new GrantRef(grant.id(), userId, grant.workspaceId())),
-                    OAuthGrantRevokeReason.PASSWORD_CHANGED, httpRequest);
+                    reason, httpRequest);
             if (grant.workspaceId() == null) {
                 SharedRows.run(end);
             } else {

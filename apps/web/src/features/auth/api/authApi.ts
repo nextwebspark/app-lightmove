@@ -1,11 +1,14 @@
-import { request, setAccessToken } from "../../../lib/apiClient";
+import { request, requestBlob, setAccessToken } from "../../../lib/apiClient";
+import { saveBlob } from "../../../lib/saveBlob";
 import type { CompanySuggestion } from "../../strategy/api/types";
 import type {
+  AccountDeletionPreview,
   ActiveSession,
   AuthProviders,
   AuthResponse,
   ChangePasswordRequest,
   CreateWorkspaceRequest,
+  DeleteAccountRequest,
   InvitationPreview,
   LoginRequest,
   MfaChangeRequest,
@@ -203,6 +206,26 @@ export function revokeOtherSessions(): Promise<{ revoked: number }> {
     method: "POST",
     withCsrf: true,
   });
+}
+
+// ── The account itself ──────────────────────────────────────────────────────
+
+export const ACCOUNT_DELETION_KEY = ["auth", "account-deletion"] as const;
+
+export function accountDeletionPreview(): Promise<AccountDeletionPreview> {
+  return request<AccountDeletionPreview>("/auth/me/deletion-preview");
+}
+
+/** Ends every session, this one's included: the server expires the refresh cookie and this forgets the token. */
+export async function deleteAccount(payload: DeleteAccountRequest): Promise<void> {
+  await request<void>("/auth/me", { method: "DELETE", body: payload, withCsrf: true });
+  setAccessToken(null);
+}
+
+/** Download my data: the account as a JSON file, saved straight to disk and never held in a query cache. */
+export async function saveAccountData(): Promise<void> {
+  const blob = await requestBlob("/auth/me/export");
+  saveBlob(blob, `uncava-account-${new Date().toISOString().slice(0, 10)}.json`);
 }
 
 // ── Onboarding ──────────────────────────────────────────────────────────────
