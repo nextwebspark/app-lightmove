@@ -77,6 +77,20 @@ public class EmailTemplates {
                         + "now and tell your workspace admin.")));
     }
 
+    /**
+     * The last email the address gets from Uncava as this account: sent as the account is deleted, to the address it
+     * had, since the row keeps none afterwards. No link — there is nothing left to sign in to.
+     */
+    public EmailMessage buildAccountDeletedEmail(String recipient, String recipientName) {
+        return renderer.render(recipient, "Your Uncava account was deleted", EmailContent.of(
+                "Your account was deleted",
+                EmailParagraph.of("Hi %s — your Uncava account was deleted. You left every workspace you were in, "
+                        + "and your sign-in, sessions, API keys and connected AI apps are gone.",
+                        plain(firstName(recipientName))),
+                EmailNote.of("What you added inside a workspace stays with that workspace. If you didn't delete "
+                        + "your account, tell your workspace admin.")));
+    }
+
     /** To the mailbox, as a password change is: a stolen session that turned it on would lock the owner out. */
     public EmailMessage buildTwoFactorEnabledEmail(String recipient, String recipientName, String securityLink) {
         return renderer.render(recipient, "Two-factor authentication is on for your Uncava account", EmailContent.of(

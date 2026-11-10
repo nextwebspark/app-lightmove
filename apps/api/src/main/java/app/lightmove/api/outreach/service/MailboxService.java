@@ -203,6 +203,20 @@ public class MailboxService {
     }
 
     /**
+     * A deleted account's mailbox here, if it had one, let go as its own Disconnect would. In transactions of its
+     * own: this may run on the deleting thread once it has committed, where a joined transaction writes nothing.
+     */
+    public void disconnectIfConnected(UUID userId, UUID workspaceId) {
+        TransactionTemplate own = new TransactionTemplate(transactions.getTransactionManager());
+        own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        boolean connected = Boolean.TRUE.equals(own.execute(status ->
+                connections.findByWorkspaceIdAndUserId(workspaceId, userId).isPresent()));
+        if (connected) {
+            release(userId, workspaceId, userId, null, own);
+        }
+    }
+
+    /**
      * A deleted workspace's mailboxes, each let go as its consultant's own Disconnect would — the Recall calendar
      * released, the grant revoked at the provider — in a transaction of its own, since the deletion's has already
      * committed. Unlike a Disconnect, the row goes only once the provider has answered: it is the only copy of the grant
