@@ -6,5 +6,5 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 
-/** The people ticked under Due for deletion, to keep or to delete. */
+/** The people ticked under Due for deletion, to keep. */
 public record RetentionPeopleRequest(@NotEmpty @Size(max = 200) List<@NotNull UUID> personIds) {}

@@ -7,6 +7,7 @@ import type { ProjectOutletContext } from "../../../components/layout/ProjectLay
 import { Spinner, useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { messageFor } from "../../../lib/errorCodes";
+import { useSerialQueue } from "../../../lib/useSerialQueue";
 import { useAutosave, type SaveStatus } from "../../../lib/useAutosave";
 import { useAuth } from "../../auth/AuthProvider";
 import * as projectsApi from "../../projects/api/projectsApi";
@@ -65,6 +66,28 @@ const SECTION_NAMES: Record<ExtractionSection, string> = {
   reporting: "the reporting line",
   assessment: "the assessment",
 };
+
+type HeldSection = "details" | "compensation" | "criteria" | "competencies";
+
+/** What keeps each section from saving, said where the consultant would look for why. */
+const HELD_BACK_REASONS: Record<HeldSection, string> = {
+  details: "Give the role a title. The Role Brief can't be saved without one.",
+  compensation: "Name every benefit, or remove the empty one. The package can't be saved until then.",
+  criteria: "Fill in or remove the empty criterion. The criteria can't be saved until then.",
+  competencies: "Name every competency, or remove the empty one. The weighting can't be saved until then.",
+};
+
+/** A save refused here, before anything was sent, because a section is held back. */
+class HeldBackEditError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = "HeldBackEditError";
+  }
+}
+
+function saveMessageFor(error: unknown): string {
+  return error instanceof HeldBackEditError ? error.message : messageFor(error);
+}
 
 /** The Position tab: loads the brief, then hands the editor a snapshot to draft against. */
 export function PositionPage() {
@@ -189,11 +212,20 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     staleTime: 5 * 60 * 1000,
   });
 
+  /**
+   * Every write to the brief goes out one at a time. Each section is its own autosave channel, but they all
+   * rewrite one `@Version` row (and the details write renames the project the target date is on), so two
+   * channels' saves overlapping was an optimistic-lock 409 that no channel resends: picking a reason for
+   * hire and then a notice period left the brief "Not saved". An unmount's flush still chains behind the
+   * writes in flight.
+   */
+  const serially = useSerialQueue();
+
   /** Shared persistence shape: cache the returned snapshot. A refusal is the autosave's to report. */
   const persist =
     <T,>(call: (payload: T) => Promise<Position>, onSaved?: () => void) =>
     async (payload: T) => {
-      queryClient.setQueryData(key, await call(payload));
+      queryClient.setQueryData(key, await serially(() => call(payload)));
       onSaved?.();
     };
   const autosaveOptions = { onError: (error: unknown) => toast.error(messageFor(error)) };
@@ -228,16 +260,32 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     autosaveOptions,
   );
 
+  /**
+   * A section whose draft the server would refuse (a blank title, an unnamed benefit, criterion or competency)
+   * is held back rather than sent — and so it must read as unsaved. It once read as nothing at all: Save draft
+   * said "Draft saved", Publish published the old copy, and leaving dropped every edit made since.
+   */
+  const [heldBack, setHeldBack] = useState<Partial<Record<HeldSection, string>>>({});
+  const holdBack = (section: HeldSection) =>
+    setHeldBack((current) => (current[section] ? current : { ...current, [section]: HELD_BACK_REASONS[section] }));
+  const release = (section: HeldSection) =>
+    setHeldBack((current) => {
+      if (!current[section]) return current;
+      const { [section]: _released, ...rest } = current;
+      return rest;
+    });
+  const heldBackReason = Object.values(heldBack)[0] ?? null;
+
   const channels = [detailsSave, contextSave, reportingSave, compensationSave, criteriaSave, competenciesSave];
   const statuses = channels.map((channel) => channel.status);
-  const saveStatus: SaveStatus = statuses.includes("error")
+  const saveStatus: SaveStatus = statuses.includes("error") || heldBackReason !== null
     ? "error"
     : statuses.includes("saving")
       ? "saving"
       : statuses.includes("saved")
         ? "saved"
         : "idle";
-  const hasUnsavedChanges = channels.some((channel) => channel.hasUnsavedChanges);
+  const hasUnsavedChanges = heldBackReason !== null || channels.some((channel) => channel.hasUnsavedChanges);
 
   /**
    * Drains every channel, one after another. `BaseEntity` carries `@Version` and every section PUT
@@ -257,8 +305,15 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     if (refusal !== null) throw refusal;
   };
 
-  const flushAll = () => drainInOrder((channel) => channel.flush());
-  const retryAll = () => void drainInOrder((channel) => channel.retry()).catch(() => {});
+  /** Saves everything that can be saved, then refuses while a section is held back, naming what holds it. */
+  const flushAll = async () => {
+    await drainInOrder((channel) => channel.flush());
+    if (heldBackReason !== null) throw new HeldBackEditError(heldBackReason);
+  };
+  const retryAll = () => {
+    if (heldBackReason !== null) toast.error(heldBackReason);
+    void drainInOrder((channel) => channel.retry()).catch(() => {});
+  };
 
   /**
    * The narrower drain a document fill uses: only the channels the screens `fillBrief` actually
@@ -291,7 +346,11 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     };
     setDetails(next);
     // The mandate cannot be untitled, so a blank title is held back rather than sent and refused.
-    if (!next.roleTitle.trim()) return;
+    if (!next.roleTitle.trim()) {
+      holdBack("details");
+      return;
+    }
+    release("details");
     detailsSave.schedule(next);
     if (immediate) detailsSave.saveNow();
   };
@@ -319,13 +378,21 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     const next = { ...compensation, ...patch };
     setCompensation(next);
     // A benefit cleared to retype is held back like a blank title: the server refuses an unnamed line.
-    if (next.benefits.some((benefit) => !benefit.name.trim())) return;
+    if (next.benefits.some((benefit) => !benefit.name.trim())) {
+      holdBack("compensation");
+      return;
+    }
+    release("compensation");
     compensationSave.schedule(next);
     if (immediate) compensationSave.saveNow();
   };
   const changeCriteria = (next: Criterion[]) => {
     setCriteria(next);
-    if (next.some((criterion) => !criterion.text.trim())) return;
+    if (next.some((criterion) => !criterion.text.trim())) {
+      holdBack("criteria");
+      return;
+    }
+    release("criteria");
     criteriaSave.schedule(next);
   };
 
@@ -344,7 +411,11 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     setTechnical(nextTechnical);
     setBehavioural(nextBehavioural);
     setTechnicalShare(nextShare);
-    if ([...nextTechnical, ...nextBehavioural].some((row) => !row.name.trim())) return;
+    if ([...nextTechnical, ...nextBehavioural].some((row) => !row.name.trim())) {
+      holdBack("competencies");
+      return;
+    }
+    release("competencies");
     competenciesSave.schedule({
       technical: forWire(nextTechnical),
       behavioural: forWire(nextBehavioural),
@@ -376,6 +447,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     setBehavioural(identify(brief.assessment.behavioural));
     setTechnicalShare(brief.assessment.technicalShare);
     setLockedCompetencies(new Set());
+    setHeldBack({});
   };
 
   // -----------------------------------------------------------------------------------------------
@@ -454,8 +526,9 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
    */
   const applyTemplate = useMutation({
     mutationFn: async (template: PositionTemplate) => {
-      await flushAll();
-      const drafted = await positionApi.applyTemplate(projectId, template.id);
+      // Not flushAll: a blank title is how somebody starts picking one, and the redraft replaces what is held.
+      await drainInOrder((channel) => channel.flush());
+      const drafted = await serially(() => positionApi.applyTemplate(projectId, template.id));
       const titled = { ...drafted.details, roleTitle: template.title };
       return { brief: { ...drafted, details: titled }, titled };
     },
@@ -472,19 +545,30 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   const publish = useMutation({
     mutationFn: async () => {
       await flushAll();
-      return positionApi.publish(projectId);
+      return serially(() => positionApi.publish(projectId));
     },
     onSuccess: (saved) => {
       queryClient.setQueryData(key, saved);
       setReopened(false);
       toast("Position profile published");
     },
-    onError: (error) => toast.error(messageFor(error)),
+    onError: (error) => toast.error(saveMessageFor(error)),
   });
+
+  /**
+   * A template picked over a brief somebody has worked on waits for a yes: the redraft replaces the
+   * responsibilities, org chart, competencies and benefits, and has no Undo. An untouched brief redrafts at once.
+   */
+  const [templateToConfirm, setTemplateToConfirm] = useState<PositionTemplate | null>(null);
+  const pickTemplate = (template: PositionTemplate) => {
+    if (applyTemplate.isPending) return;
+    if (isUntouched(drafted)) applyTemplate.mutate(template);
+    else setTemplateToConfirm(template);
+  };
 
   const [isConfirmingWithdraw, setIsConfirmingWithdraw] = useState(false);
   const withdraw = useMutation({
-    mutationFn: () => positionApi.withdrawPublication(projectId),
+    mutationFn: () => serially(() => positionApi.withdrawPublication(projectId)),
     onSuccess: (saved) => {
       setIsConfirmingWithdraw(false);
       queryClient.setQueryData(key, saved);
@@ -506,7 +590,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     try {
       await flushAll();
     } catch (error) {
-      toast.error(messageFor(error));
+      toast.error(saveMessageFor(error));
       return;
     }
     setReopened(false);
@@ -517,7 +601,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     try {
       await flushAll();
     } catch (error) {
-      toast.error(messageFor(error));
+      toast.error(saveMessageFor(error));
       return;
     }
     toast("Draft saved");
@@ -551,7 +635,10 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       if (suggested && isUntouched(draftedRef.current)) {
         try {
           await flushAll();
-          redrafted = { brief: await positionApi.applyTemplate(projectId, suggested.id), template: suggested };
+          redrafted = {
+            brief: await serially(() => positionApi.applyTemplate(projectId, suggested.id)),
+            template: suggested,
+          };
         } catch {
           // The template is a bonus on top of the reading; failing to apply it must not lose the reading.
         }
@@ -659,7 +746,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   };
 
   const attachDocument = useMutation({
-    mutationFn: (file: File) => positionApi.attachDocument(projectId, file),
+    mutationFn: (file: File) => serially(() => positionApi.attachDocument(projectId, file)),
     onSuccess: (saved) => {
       queryClient.setQueryData(key, saved);
       // A new document is a different reading — nothing the last one left behind still applies.
@@ -671,7 +758,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     onError: (error) => toast.error(messageFor(error)),
   });
   const removeDocument = useMutation({
-    mutationFn: () => positionApi.removeDocument(projectId),
+    mutationFn: () => serially(() => positionApi.removeDocument(projectId)),
     onSuccess: (saved) => {
       queryClient.setQueryData(key, saved);
       setReceipts({});
@@ -691,7 +778,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
    * reporting PUT strips it on the way out, and this is the one write that carries it.
    */
   const updateTargetDate = useMutation({
-    mutationFn: (targetDate: string) => projectsApi.updateProject(projectId, { targetDate }),
+    mutationFn: (targetDate: string) => serially(() => projectsApi.updateProject(projectId, { targetDate })),
     onSuccess: (saved) => {
       setReporting((current) => ({ ...current, targetStart: saved.targetDate }));
       queryClient.setQueryData<Position>(key, (current) =>
@@ -782,7 +869,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
               onChangeContext={changeContext}
               onChangeReporting={changeReporting}
               onChangeTargetDate={(isoDate) => updateTargetDate.mutate(isoDate)}
-              onPickTemplate={(template) => applyTemplate.mutate(template)}
+              onPickTemplate={pickTemplate}
               onAttachDocument={(file) => {
                 if (file.size > BRIEF_LIMITS.documentBytes) {
                   toast.error("That file is too large. Attach one under 10 MB.");
@@ -838,6 +925,23 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
           {step.key === "review" && (
             <ReviewStep position={drafted} readBack={readBack} onWithdraw={() => setIsConfirmingWithdraw(true)} />
           )}
+          <ConfirmDialog
+            open={templateToConfirm !== null}
+            title={`Redraft the brief as ${templateToConfirm?.title ?? "this role"}?`}
+            confirmLabel="Redraft the brief"
+            pending={applyTemplate.isPending}
+            onConfirm={() => {
+              if (templateToConfirm) applyTemplate.mutate(templateToConfirm);
+              setTemplateToConfirm(null);
+            }}
+            onClose={() => setTemplateToConfirm(null)}
+          >
+            <p>
+              The template&rsquo;s responsibilities, reporting line, competencies and benefits replace the
+              brief&rsquo;s, and every field it fills in is overwritten. What it leaves blank, your own criteria and
+              priorities, and the salary band stay as they are.
+            </p>
+          </ConfirmDialog>
           <ConfirmDialog
             open={isConfirmingWithdraw}
             title="Withdraw publication?"

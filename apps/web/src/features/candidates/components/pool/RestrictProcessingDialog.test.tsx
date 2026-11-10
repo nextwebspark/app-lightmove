@@ -70,6 +70,7 @@ describe("RestrictProcessingDialog", () => {
         restrictedByUserId: "u1",
         restrictedByName: "Alok Kumar",
         restrictedAt: "2026-11-02T09:00:00Z",
+        mayLift: true,
       },
     });
   });

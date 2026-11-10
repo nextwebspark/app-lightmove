@@ -62,14 +62,22 @@ public final class WorkspaceScope {
             throw new IllegalStateException("A workspace scope must be entered before its transaction begins");
         }
         setOn(joined, workspaceId);
+        T result;
         try {
-            return callBound(workspaceId, task);
-        } finally {
-            setOn(joined, outer);
+            result = callBound(workspaceId, task);
+        } catch (RuntimeException | Error failed) {
+            try {
+                setOn(joined, outer);
+            } catch (RuntimeException restoreFailed) {
+                failed.addSuppressed(restoreFailed);
+            }
+            throw failed;
         }
+        setOn(joined, outer);
+        return result;
     }
 
-    private static @Nullable Connection boundConnection() {
+    static @Nullable Connection boundConnection() {
         for (Object resource : TransactionSynchronizationManager.getResourceMap().values()) {
             if (resource instanceof ConnectionHolder holder && holder.getConnectionHandle() != null) {
                 return holder.getConnection();

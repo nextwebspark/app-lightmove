@@ -19,6 +19,7 @@ public enum WorkspaceEventType implements AuditEventType {
     MEMBER_INVITED,
     INVITATION_ACCEPTED,
     INVITATION_REVOKED,
+    INVITATION_EMAIL_FAILED,
 
     MEMBER_ROLE_CHANGED,
     MEMBER_REMOVED,

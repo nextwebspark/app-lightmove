@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Queues bucket keys for {@link StorageDeletionSweeper} in the transaction deleting the rows that named them (V175):
+ * Queues bucket keys for {@link StorageDeletionSweeper} in the transaction deleting the rows that named them (V196):
  * rolled back, nothing is queued; committed, the files go even if the instance dies before the bucket is called.
  */
 @Component

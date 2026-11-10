@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Modal } from "./Modal";
 import { Popover } from "./Popover";
 
 const stubTriggerRect = (left: number, top = 0) =>
@@ -24,6 +25,26 @@ const stubViewportHeight = (height: number) =>
 
 describe("Popover", () => {
   afterEach(() => vi.restoreAllMocks());
+
+  it("closes on Escape alone when opened inside a dialog, leaving the dialog open", async () => {
+    const onClose = vi.fn();
+    render(
+      <Modal open onClose={onClose} title="Log call">
+        <Popover label="When it happened" trigger={() => "Today"}>
+          {() => <div>quick times</div>}
+        </Popover>
+      </Modal>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "When it happened" }));
+    expect(screen.getByText("quick times")).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByText("quick times")).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledOnce();
+  });
 
   it("keeps a left-aligned panel on screen even when the trigger sits near a narrow viewport's left edge", async () => {
     // Narrower than width (190) + EDGE_GAP (12): the panel's own width no longer fits between the
@@ -106,5 +127,60 @@ describe("Popover", () => {
     const panel = screen.getByText("content").parentElement as HTMLElement;
     expect(panel.style.bottom).toBe("");
     expect(panel.style.top).toBe("130px");
+  });
+
+  it("holds a panel below its trigger to the room left above the window's foot", async () => {
+    stubViewportWidth(1440);
+    stubViewportHeight(800);
+    stubTriggerRect(100, 400);
+    render(
+      <Popover label="menu" trigger={() => "open"}>
+        {() => <div>content</div>}
+      </Popover>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "menu" }));
+
+    const panel = screen.getByText("content").parentElement as HTMLElement;
+    expect(panel.style.top).toBe("430px");
+    expect(panel.style.maxHeight).toBe("358px");
+  });
+
+  it("opens a long auto list above a low trigger where it fits better than beneath", async () => {
+    // The status picker on a row low in the Companies grid: 400px beneath it, a list of 700px, more above.
+    stubViewportWidth(1440);
+    stubViewportHeight(1000);
+    stubTriggerRect(100, 580);
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(700);
+    render(
+      <Popover label="menu" placement="auto" trigger={() => "open"}>
+        {() => <div>content</div>}
+      </Popover>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "menu" }));
+
+    const panel = screen.getByText("content").parentElement as HTMLElement;
+    expect(panel.style.top).toBe("");
+    expect(panel.style.bottom).toBe("426px");
+    expect(panel.style.maxHeight).toBe("562px");
+  });
+
+  it("keeps a short auto list below a low trigger when it fits there", async () => {
+    stubViewportWidth(1440);
+    stubViewportHeight(1000);
+    stubTriggerRect(100, 580);
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(200);
+    render(
+      <Popover label="menu" placement="auto" trigger={() => "open"}>
+        {() => <div>content</div>}
+      </Popover>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "menu" }));
+
+    const panel = screen.getByText("content").parentElement as HTMLElement;
+    expect(panel.style.bottom).toBe("");
+    expect(panel.style.top).toBe("610px");
   });
 });

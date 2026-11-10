@@ -51,7 +51,7 @@ describe("Modal — footer", () => {
     );
 
     const body = screen.getByText("form").parentElement!;
-    expect(body).toHaveClass("overflow-y-auto", "[scrollbar-width:thin]");
+    expect(body).toHaveClass("overflow-y-auto", "[scrollbar-gutter:stable]");
     expect(body).not.toContainElement(screen.getByRole("button", { name: "Create" }));
   });
 });

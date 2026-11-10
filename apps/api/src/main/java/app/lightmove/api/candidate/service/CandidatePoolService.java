@@ -2,7 +2,6 @@ package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
-import app.lightmove.api.candidate.constant.SuppressionReason;
 import app.lightmove.api.candidate.dto.BulkPeopleChangeResponse;
 import app.lightmove.api.candidate.dto.CandidatePoolResponse;
 import app.lightmove.api.candidate.dto.CandidatePoolRowResponse;
@@ -10,12 +9,10 @@ import app.lightmove.api.candidate.dto.CandidatePoolViewCountsResponse;
 import app.lightmove.api.candidate.dto.MapPeopleToPositionResponse;
 import app.lightmove.api.candidate.dto.PersonPositionResponse;
 import app.lightmove.api.candidate.dto.PersonRecordResponse;
-import app.lightmove.api.candidate.dto.ProcessingRestrictionRequest;
 import app.lightmove.api.candidate.dto.PersonTimelineEntryResponse;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateTag;
 import app.lightmove.api.candidate.model.Person;
-import app.lightmove.api.candidate.model.PersonProcessingRestricted;
 import app.lightmove.api.candidate.model.PersonEmployer;
 import app.lightmove.api.candidate.model.PoolCriteria;
 import app.lightmove.api.candidate.model.PoolPersonExport;
@@ -46,7 +43,6 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -79,8 +75,6 @@ public class CandidatePoolService {
     private final PersonTimelineService timeline;
     private final PersonActivityRecorder activity;
     private final AuditService audit;
-    private final PersonSuppressionService suppression;
-    private final ApplicationEventPublisher events;
 
     @Transactional(readOnly = true)
     public CandidatePoolResponse list(UUID userId, UUID workspaceId, PoolCriteria criteria, Integer page,
@@ -177,40 +171,6 @@ public class CandidatePoolService {
                             : ProjectEventType.PERSON_DO_NOT_CONTACT_CLEARED)
                     .actor(userId).workspace(workspaceId).target(PERSON_TARGET, personId).from(httpRequest)
                     .record();
-        }
-        return records.toRecord(userId, person);
-    }
-
-    /**
-     * Restricts processing of a person (GDPR Art. 18) or lifts it. Restricting needs a reason, and may also put the
-     * person on the suppression list as an objection; lifting leaves any such entry where it is, since an objection is
-     * its own decision.
-     */
-    @Transactional
-    public PersonRecordResponse restrictProcessing(UUID userId, UUID workspaceId, UUID personId,
-                                                   ProcessingRestrictionRequest request,
-                                                   HttpServletRequest httpRequest) {
-        Person person = people.requireInWorkspace(personId, workspaceId);
-        boolean restricting = request.restricted();
-        String reason = request.reason() == null || request.reason().isBlank() ? null : request.reason().strip();
-        if (restricting && reason == null) {
-            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "reason", "Say why processing is restricted");
-        }
-        boolean changed = restricting ? person.restrictProcessing(reason, userId)
-                : person.liftProcessingRestriction();
-        int suppressed = restricting && Boolean.TRUE.equals(request.suppress())
-                ? suppression.suppressPerson(person, userId, SuppressionReason.OBJECTED) : 0;
-        if (changed) {
-            activity.record(person, null, userId, restricting ? PersonActivityKind.PROCESSING_RESTRICTED
-                    : PersonActivityKind.PROCESSING_RESTRICTION_LIFTED, PersonActivityDetails.none());
-            audit.event(restricting ? ProjectEventType.PERSON_PROCESSING_RESTRICTED
-                            : ProjectEventType.PERSON_PROCESSING_RESTRICTION_LIFTED)
-                    .actor(userId).workspace(workspaceId).target(PERSON_TARGET, personId).from(httpRequest)
-                    .detailIfPresent("suppressionEntries", restricting ? suppressed : null)
-                    .record();
-            if (restricting) {
-                events.publishEvent(new PersonProcessingRestricted(workspaceId, personId, userId));
-            }
         }
         return records.toRecord(userId, person);
     }

@@ -14,6 +14,8 @@ public record PersonRecordResponse(
         String fullName,
         String title,
         String companyName,
+        /** The employer's logo, as the Candidates list draws it; null for none. */
+        String companyLogoUrl,
         /** A {@code Seniority} wire token. */
         String seniority,
         String linkedinUrl,

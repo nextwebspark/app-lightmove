@@ -37,7 +37,7 @@ export function AppShell({
    */
   notice?: ReactNode;
   contentClassName?: string;
-  /** Which mandate the assistant is asking about here. A workspace screen has none. */
+  /** Which mandate the assistant is asking about here. Only a position's Strategy screen has one. */
   assistantContext?: string;
   assistantProjectId?: string | null;
   /** The phone's bottom bar below `lg`. */
@@ -78,7 +78,7 @@ export function AppShell({
             draws it this way because the grid has to stay tickable while the assistant is open. The
             dock is the slot rather than the panel, so main narrows on the same curve the panel
             arrives on instead of losing its width a frame ahead of it. */}
-          {/* Inside a project only, and opened from Strategy's AI Research: no screen floats its own way in. */}
+          {/* Beside a position's Strategy only, and opened from its AI Research: no screen floats its own way in. */}
           {assistantProjectId && (
             <AssistantDock
               contextLabel={assistantContext}

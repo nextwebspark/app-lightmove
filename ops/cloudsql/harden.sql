@@ -59,11 +59,12 @@ BEGIN
     END IF;
 END $$;
 
--- 2c. Row-level security on the two tables this file owns (V173, #1085). Where they were already postgres's when V173
+-- 2c. Row-level security on the two tables this file owns (V190, #1085). Where they were already postgres's when V190
 --     ran, it skipped them with a warning; where they were still lm_app's it applied the same policies, which the
---     ownership change keeps. Either way this leaves both forced with their policies, and the API's posture check
---     refuses to boot until it has. The audit trail is never refused a line, and is read in its own workspace, or the
---     account's; the ledger is a plain tenant table.
+--     ownership change keeps. Either way this leaves both forced with their policies; until it has, every API boot
+--     logs that they wait on it (TenantTableGuard.HARDEN_OWNED) rather than refusing, since the deploy has already
+--     migrated. The audit trail is never refused a line, and is read in its own workspace, or the account's; the
+--     ledger is a plain tenant table.
 DO $$
 BEGIN
     ALTER TABLE app_lm_audit_event ENABLE ROW LEVEL SECURITY;

@@ -7,7 +7,8 @@ import java.util.UUID;
 
 /**
  * One Notetaker bot as the drawer's Meetings section draws it. {@code meetingId} is the row it was sent for; a
- * calendar's re-read gives the same call a new row, so {@code startsAt} and {@code title} match it too.
+ * calendar's re-read gives the same call a new row, so {@code startsAt} and {@code title} match it too, and a bot whose
+ * call has left every calendar is drawn as its own row from {@code title}, {@code startsAt} and {@code endsAt}.
  * {@code failureReason} is Recall's sub-code or our own word, explained on screen. {@code suggestionsAsked},
  * {@code pendingSuggestions}, {@code appliedSuggestions} and {@code foundSuggestions} word the row's changes, or what
  * the review made of them, and {@code suggesting} that the model is reading the transcript for them now;
@@ -18,7 +19,7 @@ import java.util.UUID;
  * null once it is gone or before the call ended, and {@code mayDownloadRecording} that the caller, being the bot's
  * sender, may still fetch it.
  */
-public record NotetakerRecordingResponse(UUID id, UUID meetingId, Instant startsAt, String title,
+public record NotetakerRecordingResponse(UUID id, UUID meetingId, Instant startsAt, Instant endsAt, String title,
                                          NotetakerStatus status, String failureReason, boolean hasTranscript,
                                          boolean retryable, UUID noteId, boolean suggestionsAsked,
                                          int pendingSuggestions, int appliedSuggestions, int foundSuggestions,

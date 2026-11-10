@@ -8,10 +8,9 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * The bell's copies of a person's name. A row about them goes by cascade, but a folded row keeps the names of
- * everyone it gathered ({@code details.names}) under whoever came last, so an erased name is taken out of every row
- * of the workspace that still lists it. Matched on the name itself, since the list keeps nothing else: a namesake's
- * entry may go with it, which costs a line of the bell and never a record.
+ * The bell's copies of a person's name: a folded row lists everyone it gathered ({@code details.names}), so the name
+ * is matched as text, the only thing the list keeps: a namesake's entry may go with it, costing a line, never a
+ * record.
  */
 @Component
 @RequiredArgsConstructor

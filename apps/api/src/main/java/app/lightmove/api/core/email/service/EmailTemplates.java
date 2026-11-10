@@ -11,6 +11,7 @@ import app.lightmove.api.core.email.render.EmailContent;
 import app.lightmove.api.core.email.render.EmailNote;
 import app.lightmove.api.core.email.render.EmailParagraph;
 import app.lightmove.api.core.email.render.EmailRenderer;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -24,9 +25,11 @@ import org.springframework.stereotype.Component;
 public class EmailTemplates {
 
     private final EmailRenderer renderer;
+    private final Duration invitationTtl;
 
     public EmailTemplates(LightMoveProperties properties) {
         this.renderer = new EmailRenderer(properties.web().baseUrl());
+        this.invitationTtl = properties.auth().invitationTtl();
     }
 
     public EmailMessage buildVerificationEmail(String recipient, String recipientName, String verifyLink) {
@@ -101,10 +104,10 @@ public class EmailTemplates {
                 "%s invited you to %s on Uncava".formatted(inviterName, workspaceName),
                 EmailContent.of(
                         "%s invited you to %s".formatted(inviterName, workspaceName),
-                        EmailParagraph.of("You've been invited to join the %s workspace on Uncava as a %s.",
-                                strong(workspaceName), plain(role.toLowerCase())),
+                        EmailParagraph.of("You've been invited to join the %s workspace on Uncava as %s.",
+                                strong(workspaceName), plain(withArticle(role.toLowerCase()))),
                         new EmailAction("Accept invitation", acceptLink),
-                        EmailNote.of("This invitation expires in 7 days.")));
+                        EmailNote.of("This invitation expires in %s.".formatted(invitationLifetime()))));
     }
 
     /** Framed around the client they represent: a read-only guest, not staff. */
@@ -119,7 +122,7 @@ public class EmailTemplates {
                                         + "your portal.",
                                 plain(workspaceName), strong(clientName)),
                         new EmailAction("Open your portal", acceptLink),
-                        EmailNote.of("This invitation expires in 7 days.")));
+                        EmailNote.of("This invitation expires in %s.".formatted(invitationLifetime()))));
     }
 
     /** A notice to an existing member; an external contact gets {@link #buildInvitationEmail} instead. */
@@ -159,9 +162,9 @@ public class EmailTemplates {
                 "You were added to the %s search on Uncava".formatted(positionTitle),
                 EmailContent.of(
                         "You were added to a search",
-                        EmailParagraph.of("Hi %s — %s added you to the %s search for %s as a %s.",
+                        EmailParagraph.of("Hi %s — %s added you to the %s search for %s as %s.",
                                 plain(firstName(recipientName)), plain(adderName), strong(positionTitle),
-                                strong(clientName), plain(role.toLowerCase())),
+                                strong(clientName), plain(withArticle(role.toLowerCase()))),
                         new EmailAction("Open the search", projectLink),
                         EmailNote.of("You'll also find it under your projects next time you sign in.")));
     }
@@ -174,9 +177,9 @@ public class EmailTemplates {
                 EmailContent.of(
                         "Your role on a search changed",
                         EmailParagraph.of("Hi %s — %s changed your role on the %s search for %s. "
-                                        + "You are now a %s on it.",
+                                        + "You are now %s %s on it.",
                                 plain(firstName(recipientName)), plain(actorName), strong(positionTitle),
-                                strong(clientName), strong(role.toLowerCase())),
+                                strong(clientName), plain(articleFor(role)), strong(role.toLowerCase())),
                         new EmailAction("Open the search", projectLink)));
     }
 
@@ -379,6 +382,25 @@ public class EmailTemplates {
 
     private static String creditsLeftOf(long credits) {
         return credits == 1 ? "1 credit" : String.format(Locale.ENGLISH, "%,d credits", credits);
+    }
+
+    /** "an admin", "a member": the role name alone decides, so a role added later reads right too. */
+    private static String withArticle(String noun) {
+        return articleFor(noun) + " " + noun;
+    }
+
+    private static String articleFor(String noun) {
+        return !noun.isEmpty() && "aeiou".indexOf(Character.toLowerCase(noun.charAt(0))) >= 0 ? "an" : "a";
+    }
+
+    /** The configured lifetime, so an email never promises seven days a deployment does not keep. */
+    private String invitationLifetime() {
+        long days = invitationTtl.toDays();
+        if (days >= 1) {
+            return days + (days == 1 ? " day" : " days");
+        }
+        long hours = Math.max(1, invitationTtl.toHours());
+        return hours + (hours == 1 ? " hour" : " hours");
     }
 
     private static String firstName(String fullName) {

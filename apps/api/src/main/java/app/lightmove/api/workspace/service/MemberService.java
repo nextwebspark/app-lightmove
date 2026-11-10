@@ -11,11 +11,14 @@ import app.lightmove.api.core.security.rbac.RbacService;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
+import app.lightmove.api.workspace.constant.InvitationWithdrawal;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.MemberAccessNarrowed;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
+import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -35,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MemberService {
 
     private final WorkspaceMemberRepository members;
+    private final WorkspaceRepository workspaces;
     private final WorkspaceAccess access;
     private final RbacService rbac;
     private final MemberDetachment detachment;
@@ -43,11 +47,16 @@ public class MemberService {
     private final SeatAllowance seats;
     private final AuditService audit;
     private final ApplicationEventPublisher events;
+    private final InvitationService invitations;
 
-    /** Replace-set semantics; self-demotion is allowed under the same last-admin rule. */
+    /**
+     * Replaces the member's staff roles; a CLIENT role they hold as a client contact is kept, since the roster can
+     * neither grant nor take it. Self-demotion is allowed under the same last-admin rule.
+     */
     @Transactional
     public WorkspaceMember changeRoles(UUID actorId, UUID workspaceId, UUID memberId,
                                        Set<WorkspaceRole> newRoles, HttpServletRequest request) {
+        lockRoster(workspaceId);
         WorkspaceMember member = access.requireActiveMemberRow(memberId, workspaceId);
 
         // CLIENT comes from a project invitation, never the roster.
@@ -57,7 +66,8 @@ public class MemberService {
         }
 
         boolean isAdmin = holds(member, WorkspaceRole.ADMIN);
-        if (isAdmin && !newRoles.contains(WorkspaceRole.ADMIN)) {
+        boolean dropsAdmin = isAdmin && !newRoles.contains(WorkspaceRole.ADMIN);
+        if (dropsAdmin) {
             requireAnotherAdmin(workspaceId);
         }
         boolean wasStaff = member.holdsStaffRole();
@@ -67,16 +77,24 @@ public class MemberService {
         }
 
         String previous = roleNames(member);
-        member.changeRoles(rbac.workspaceRoles(newRoles));
+        // A replaced set dropped the CLIENT role of someone both staff and a client contact.
+        Set<Role> next = new HashSet<>(rbac.workspaceRoles(newRoles));
+        member.getRoles().stream().filter(role -> role.is(WorkspaceRole.CLIENT)).forEach(next::add);
+        member.changeRoles(next);
         if (staffAfter != wasStaff) {
             seats.onStaffSeatsChanged(workspaceId);
         }
-        events.publishEvent(new MemberAccessNarrowed(workspaceId, member.getUserId(), actorId));
+        if (dropsAdmin) {
+            events.publishEvent(new MemberAccessNarrowed(workspaceId, member.getUserId(), actorId));
+            // Their staff invitations were an admin's approval, which no longer stands.
+            invitations.withdrawSentBy(actorId, workspaceId, member.getUserId(), InvitationWithdrawal.INVITER_DEMOTED,
+                    request);
+        }
 
         audit.event(WorkspaceEventType.MEMBER_ROLE_CHANGED)
                 .actor(actorId).workspace(workspaceId).target("member", memberId).from(request)
                 .detail("from", previous)
-                .detail("to", newRoles.stream().map(Enum::name).sorted().collect(Collectors.joining(",")))
+                .detail("to", roleNames(member))
                 .record();
 
         return member;
@@ -85,6 +103,7 @@ public class MemberService {
     /** Self-removal is how someone leaves; their session moves to another workspace at its next refresh. */
     @Transactional
     public void remove(UUID actorId, UUID workspaceId, UUID memberId, HttpServletRequest request) {
+        lockRoster(workspaceId);
         WorkspaceMember member = access.requireActiveMemberRow(memberId, workspaceId);
 
         if (holds(member, WorkspaceRole.ADMIN)) {
@@ -99,6 +118,8 @@ public class MemberService {
             seats.onStaffSeatsChanged(workspaceId);
         }
         apiKeys.revokeOnMembershipEnd(actorId, workspaceId, member.getUserId(), request);
+        invitations.withdrawSentBy(actorId, workspaceId, member.getUserId(), InvitationWithdrawal.INVITER_REMOVED,
+                request);
         oauthGrants.revokeOnMembershipEnd(actorId, workspaceId, member.getUserId(), request);
 
         log.info("User {} removed member {} from workspace {}", actorId, memberId, workspaceId);
@@ -106,6 +127,15 @@ public class MemberService {
                 .actor(actorId).workspace(workspaceId).target("member", memberId).from(request)
                 .detail("removedUserId", member.getUserId().toString())
                 .record();
+    }
+
+    /**
+     * Taken before the member row is read: the last-admin count is a read, and two admins demoting or removing each
+     * other at once each counted the other and left the workspace with no admin.
+     */
+    private void lockRoster(UUID workspaceId) {
+        workspaces.lockForRosterChange(workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
     }
 
     private boolean holds(WorkspaceMember member, WorkspaceRole role) {

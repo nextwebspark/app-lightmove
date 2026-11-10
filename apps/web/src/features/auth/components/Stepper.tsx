@@ -17,7 +17,6 @@ export const SIGNUP_STEPS: Step[] = [
   { n: 1, label: "Account" },
   { n: 2, label: "Verify" },
   { n: 3, label: "Organization" },
-  { n: 4, label: "Invite team" },
 ];
 
 export function Stepper({

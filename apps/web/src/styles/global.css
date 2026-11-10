@@ -12,11 +12,15 @@ body,
 }
 
 body {
-  background: var(--color-u-bg);
+  background: var(--color-u-canvas);
   color: var(--color-u-text);
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.45;
+}
+
+/* Dark only: on macOS it thins dark text on a light ground, which read as washed out in light mode. */
+body.dark {
   -webkit-font-smoothing: antialiased;
 }
 
@@ -61,20 +65,68 @@ body {
   }
 }
 
-/* Dark theme: the browser's own scrollbars are light unless told otherwise. The viewport's is styled from the root
-   element, not body, hence `html:has`; `scrollbar-width` does not inherit, hence `.dark *`. In `@layer base` so a
-   call site's `[scrollbar-width:none]` still hides its bar. */
 html:has(> body.dark),
 .dark {
   color-scheme: dark;
 }
 
+/* Scrollbars: one slim, arrowless, rounded thumb on a transparent track everywhere — white on the dark theme,
+   slate on the light. The colours are set on the root as well as on `.dark` because the viewport's bar belongs to
+   <html>, outside body.dark. Chromium and Safari draw the `::-webkit-scrollbar` rules, Firefox the standard pair.
+   The standard pair stays behind `@supports` because Chromium 121+ ignores every `::-webkit-scrollbar` rule on an
+   element that sets `scrollbar-width` or `scrollbar-color`, and falls back to its thick Windows bar with arrow
+   buttons — which is what the app showed while `.dark *` set them. So never set those two at a call site:
+   `[scrollbar-width:none]` to hide a bar is the one exception. In `@layer base` so a call site still wins. */
+:root {
+  --scrollbar-thumb: rgba(3, 7, 18, 0.24);
+  --scrollbar-thumb-hover: rgba(3, 7, 18, 0.45);
+}
+
+html:has(> body.dark),
+.dark {
+  --scrollbar-thumb: rgba(255, 255, 255, 0.8);
+  --scrollbar-thumb-hover: #ffffff;
+}
+
 @layer base {
-  html:has(> body.dark),
-  .dark,
-  .dark * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-u-border-strong) transparent;
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    min-width: 32px;
+    min-height: 32px;
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background-color: var(--scrollbar-thumb);
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover,
+  ::-webkit-scrollbar-thumb:active {
+    border-width: 2px;
+    background-color: var(--scrollbar-thumb-hover);
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    html,
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) transparent;
+    }
   }
 }
 

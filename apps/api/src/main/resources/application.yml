@@ -69,7 +69,7 @@ spring:
     # A baseline of 0 records "nothing has been applied yet" and runs the whole chain from V1.
     baseline-version: 0
     # A backfill must reach every workspace's rows, and until #256 Flyway runs as the very owner row-level
-    # security is forced on (V171), so its own session turns the policies' maintenance arm on. Naming the user
+    # security is forced on (V184), so its own session turns the policies' maintenance arm on. Naming the user
     # gives Flyway a DataSource of its own: on a borrowed pooled connection the flag would outlive the migration
     # and serve the application, which RowLevelSecurityPosture refuses to boot over.
     user: ${spring.datasource.username}
@@ -299,6 +299,8 @@ lightmove:
       booking-page-bookings-per-hour: ${AUTH_BOOKING_PAGE_BOOKINGS_PER_HOUR:5}
       avatar-changes-per-hour: ${AUTH_AVATAR_CHANGES_PER_HOUR:20}
       avatar-changes-per-hour-per-ip: ${AUTH_AVATAR_CHANGES_PER_HOUR_PER_IP:300}
+      invitations-per-hour-per-workspace: ${AUTH_INVITATIONS_PER_HOUR_PER_WORKSPACE:100}
+      invitations-per-hour-per-recipient: ${AUTH_INVITATIONS_PER_HOUR_PER_RECIPIENT:5}
       avatar-reads-per-minute: ${AUTH_AVATAR_READS_PER_MINUTE:1200}
 
   # The demo LLM endpoints (/api/v1/llm/*) call billed Vertex AI usage with only authentication as
@@ -736,6 +738,12 @@ lightmove:
   # and rotate by adding a key and promoting it: what was written under the old one still decrypts.
   crypto:
     keyset: ${CREDENTIAL_KEYSET:}
+    # The suppression list's HMAC-SHA-256 keyset, mounted from lightmove-suppression-keyset: every entry is a hash
+    # under it, so a copy of the table cannot be tested against a guessed email or slug. Blank, no workspace can add
+    # to its list, and one already holding entries is refused at every door rather than let through. Make one with
+    #   tinkey create-keyset --key-template HMAC_SHA256_PRF --out-format json
+    # and rotate by adding a key and promoting it, keeping the old one while any entry is written under it.
+    suppression-keyset: ${SUPPRESSION_KEYSET:}
 
   # Recall.ai's Calendar API: one platform account, never one per workspace. The region is the base URL (each
   # region is its own account and key; EU is https://eu-central-1.recall.ai). Blank, calendars are read directly
@@ -748,6 +756,8 @@ lightmove:
     base-url: ${RECALL_BASE_URL:https://us-east-1.recall.ai}
     # Read by @Scheduled, which never sees a binding default, so it is spelled out here.
     bot-reconcile-interval: ${RECALL_BOT_RECONCILE_INTERVAL:PT10M}
+    # How often an erased person's Recall bots still refused are tried again; read by @Scheduled, so spelled out.
+    bot-erasure-sweep-interval: ${RECALL_BOT_ERASURE_SWEEP_INTERVAL:PT1M}
     # Blank keeps every Notetaker transcript; a duration (e.g. 90d) clears one whose note is gone, or that never filed
     # one, once it has sat untouched that long.
     transcript-retention: ${NOTETAKER_TRANSCRIPT_RETENTION:}
@@ -786,8 +796,10 @@ lightmove:
     purge-interval: ${NOTES_PURGE_INTERVAL:PT1H}
 
   # How long system rows holding personal data are kept (#921): one value per row of
-  # docs/privacy/retention-schedule.md, swept every sweep-interval by RetentionSweeper. Defaults await counsel.
+  # docs/gdpr/retention-schedule.md, swept every sweep-interval by RetentionSweeper. Defaults await counsel.
+  # Off until counsel signs the periods off: no sweeper is made, and nothing is deleted.
   retention:
+    enabled: ${RETENTION_ENABLED:false}
     sweep-interval: ${RETENTION_SWEEP_INTERVAL:PT1H}
     refresh-tokens-after: ${RETENTION_REFRESH_TOKENS_AFTER:30d}
     verification-tokens-after: ${RETENTION_VERIFICATION_TOKENS_AFTER:30d}
@@ -805,7 +817,7 @@ lightmove:
     workspace-exports-after: ${RETENTION_WORKSPACE_EXPORTS_AFTER:7d}
     workspace-export-deadline: ${RETENTION_WORKSPACE_EXPORT_DEADLINE:2h}
 
-  # Forced row-level security on the tenant tables (V171). On, a database that would not enforce it — a superuser or
+  # Forced row-level security on the tenant tables (V184). On, a database that would not enforce it — a superuser or
   # BYPASSRLS runtime role, an unforced table — fails the boot; off, it is only a warning.
   row-level-security:
     require-enforced: ${RLS_REQUIRE_ENFORCED:true}
