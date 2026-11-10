@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
 import { SegmentedControl } from "./SegmentedControl";
@@ -6,9 +7,21 @@ import { SegmentedControl } from "./SegmentedControl";
  * The toolbar row Strategy, In universe and Outreach share (`Strategy.dc.html`, `Position.dc.html`,
  * `Outreach.dc.html`): the page's view switch, the search, the page's own controls beside it, its actions pushed
  * right.
+ *
+ * <p>One line down to a phone: the search and the view switch shrink first, then the buttons give up their words
+ * ({@link ToolbarLabel}, by the row's own width, since a sidebar or a drawer takes some of the screen). Only below
+ * `sm` does the row wrap. It is a size container so its buttons can ask how wide it is.
  */
 export const TOOLBAR_ROW =
-  "flex flex-none flex-wrap items-center gap-x-3 gap-y-2 border-b border-u-border bg-u-surface px-4 py-2.5";
+  "@container flex flex-none flex-nowrap items-center gap-x-3 gap-y-2 border-b border-u-border bg-u-surface px-4 py-2.5 max-sm:flex-wrap";
+
+/** Below this row width a button shows its icon alone; the words stay for a screen reader. */
+const TOOLBAR_LABEL = "@max-[62rem]:sr-only";
+
+/** A toolbar button's words, which give way to its icon when the row is narrow. */
+export function ToolbarLabel({ children }: { children: ReactNode }) {
+  return <span className={TOOLBAR_LABEL}>{children}</span>;
+}
 
 const TOOLBAR_CONTROL =
   "inline-flex h-[34px] flex-none items-center gap-[7px] whitespace-nowrap rounded-u-control font-sans text-body transition";
@@ -45,8 +58,11 @@ export function ToolbarDivider({ className }: { className?: string }) {
   return <span aria-hidden="true" className={cn("h-5 w-px flex-none bg-u-border", className)} />;
 }
 
-/** Conversations | Sequences, the longest pair, with room to spare; below `sm` the switch takes a line of its own. */
-const VIEW_SWITCH_WIDTH = "w-full sm:w-[240px]";
+/**
+ * Conversations | Sequences, the longest pair, gets 240px when the row has it and gives way to 180px before the
+ * search does; below `sm` the switch takes a line of its own.
+ */
+const VIEW_SWITCH_WIDTH = "min-w-[180px] flex-[0_1_240px] max-sm:w-full max-sm:flex-none";
 
 /**
  * Where the rule between a page's views and its search is drawn: from `sm`, from `lg` beside a search shown only
@@ -67,7 +83,7 @@ export interface ToolbarView<TValue extends string> {
 
 /**
  * A page's views, first in its toolbar. One width on every page, whether it holds two views or three, so the search
- * after it starts at the same place on Strategy, In universe and Outreach.
+ * after it starts at the same place on Strategy, In universe and Outreach — until the row is too narrow for both.
  */
 export function ToolbarViewSwitch<TValue extends string>({
   label,
@@ -122,7 +138,7 @@ export function ToolbarSearch({
   return (
     <label
       className={cn(
-        "flex min-w-[180px] flex-[1_1_240px] items-center gap-2 rounded-u-control border border-u-border-strong bg-u-surface py-2 pl-3 pr-2.5 sm:max-w-[280px]",
+        "flex min-w-[120px] flex-[1_1_240px] items-center gap-2 rounded-u-control border border-u-border-strong bg-u-surface py-2 pl-3 pr-2.5 sm:max-w-[280px]",
         className,
       )}
     >

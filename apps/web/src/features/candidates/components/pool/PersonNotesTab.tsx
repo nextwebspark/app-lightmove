@@ -15,7 +15,7 @@ import { usePositionTeam } from "../../../tasks/lib/usePositionTeam";
 
 /**
  * The Notes tab: a plain note about a position or about the person, and the team's plain notes, pinned first. Calls,
- * LinkedIn messages and meeting notes are each position's Outreach, and the Activity tab's. Pinning is anyone's;
+ * LinkedIn and WhatsApp messages and meeting notes are each position's Outreach, and the Activity tab's. Pinning is anyone's;
  * changing or deleting a note is its author's or an admin's.
  */
 export function PersonNotesTab({
@@ -66,7 +66,7 @@ export function PersonNotesTab({
   const canSave = body.length > 0 && !tooLong && !saving.isPending;
   const save = () => canSave && saving.mutate({ nextActionOn: null });
   const list = (notes.data ?? []).filter((note) => !isContactNote(note.kind));
-  // Logged calls, meetings and LinkedIn messages stay readable here whatever positions the person is on: one about a
+  // Logged calls, meetings and LinkedIn or WhatsApp messages stay readable here whatever positions the person is on: one about a
   // position they have left, or written before Notes became plain, shows on no position's Outreach.
   const contactLog = (notes.data ?? []).filter((note) => isContactNote(note.kind));
 
@@ -131,7 +131,7 @@ export function PersonNotesTab({
       </div>
       <p className="text-[12px] text-u-text3">
         Shared with your whole team, on every position this person is in. Client contacts never see notes. A call,
-        meeting or LinkedIn message is logged from a position&rsquo;s Outreach, and listed here too.
+        meeting, LinkedIn or WhatsApp message is logged from a position&rsquo;s Outreach, and listed here too.
       </p>
 
       {notes.isError ? (
@@ -150,8 +150,8 @@ export function PersonNotesTab({
         </ul>
       )}
       {contactLog.length > 0 && (
-        <section aria-label="Calls, meetings and LinkedIn" className="flex flex-col gap-2 border-t border-u-border pt-3">
-          <h3 className="type-micro-label text-u-text3">Calls, meetings and LinkedIn</h3>
+        <section aria-label="Calls, meetings and messages" className="flex flex-col gap-2 border-t border-u-border pt-3">
+          <h3 className="type-micro-label text-u-text3">Calls, meetings and messages</h3>
           <ul className="flex flex-col gap-2">
             {contactLog.map((note) => (
               <PoolNoteCard key={note.id} personId={person.personId} note={note} />

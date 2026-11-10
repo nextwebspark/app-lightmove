@@ -103,6 +103,21 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a WhatsApp exchange is filed as its own kind, and its timeline line says so")
+    void aWhatsAppNoteKeepsItsKind() throws Exception {
+        firm("WhatsApp Notes Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, FATIMA).get("id").asText();
+
+        write(admin, cfo, candidateId, "whatsapp", "Sent the role outline; she will read it tonight.");
+
+        assertThat(notes(admin, cfo, candidateId).get(0).get("kind").asText()).isEqualTo("whatsapp");
+        JsonNode line = timeline(cfo, candidateId, "notes").get("entries").get(0);
+        assertThat(line.get("kind").asText()).isEqualTo("NOTE_ADDED");
+        assertThat(line.get("details").get("kind").asText()).isEqualTo("WHATSAPP");
+    }
+
+    @Test
     @DisplayName("an email is never logged by hand: a new one is refused, an old one keeps its kind, and no kind is a plain note")
     void anEmailIsNeverLoggedByHand() throws Exception {
         firm("Email Notes Firm");

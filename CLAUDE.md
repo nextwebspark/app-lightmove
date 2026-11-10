@@ -74,11 +74,51 @@ name different profiles; never by phone (a switchboard is on everyone) and never
 match is **mapped, not duplicated**: what the new mandate brings only fills what nobody recorded, an
 edit through one mandate is what every other reads, and removing someone from a mandate keeps the
 person. A profile is one person's: an edit that would give a second person of the workspace the same
-LinkedIn profile is refused (`PERSON_PROFILE_HELD`). A plugin capture of someone already researched spends no second vendor call, and is filed under the employer their latest position recorded (`PersonEmployerResolver.knownEmployerOf`, that position's company row's LinkedIn page and all). Every change to a
+LinkedIn profile is refused (`PERSON_PROFILE_HELD`). The people controls below (the suppression list, erasure,
+restriction and the candidate retention review) are offered only where `lightmove.data-protection.enabled`
+(`DATA_PROTECTION_ENABLED`, off by default, read by the SPA from `GET /data-protection/config`; the four controllers are `@ConditionalOnProperty` on it)
+is on: off, their routes answer 404 and no screen offers them, while the doors' checks stay. **A workspace's suppression list (V195, #920)** names the people no door may file again — by an HMAC of
+their profile slug or email under `lightmove.crypto.suppression-keyset` (`SuppressionKey`, `KeyedHasher`), never the key
+itself: the add form, the plugin and a spreadsheet are refused `PERSON_SUPPRESSED` (an edit only for a key it adds; a
+known person by their own keys), while Find executives, People Search and Add to position leave them out, counted as
+`suppressed` (`SuppressionGate`; an admin's `/workspace/suppressions`, `SuppressionListService`, `WORKSPACE_MANAGE`). A
+workspace holding entries the keyset cannot read is refused `SUPPRESSION_UNAVAILABLE` at every door, never let through. **An admin erases a person
+for good (#918, `PERSON_ERASE`)**: `POST /candidates/{personId}/erase` with the name typed back, after
+`…/erase-preview` counts what goes; one transaction deletes the person (every cascade from `app_lm_person`) and, through
+each `PersonErasureContributor` — declared in `candidate`, implemented where the rows live — refuses while an email is
+mid-send, queues their Recall bots in `app_lm_recall_bot_erasure` (global, bot ids only) for `RecallBotErasureSweeper` to
+call back and strip of media until Recall answers, forgets the vendor cache's copy of the profile and scrubs the name from the bell
+and Find executives' runs; their files are queued in `app_lm_storage_deletion` (global, keys only) for
+`StorageDeletionSweeper`, and their profile and addresses suppressed unless the admin unticks it. Audited by id and
+counts, never the name. **Anyone on the team restricts processing of a person (#920, V198, GDPR Art. 18)** from the
+Candidates drawer's ⋯, with a reason and optionally the suppression list as an objection (`PUT
+/candidates/{personId}/processing-restriction`, `CANDIDATE_POOL_MANAGE`, `ProcessingRestrictionService`), lifted only
+by whoever restricted them or a `WORKSPACE_MANAGE` holder (`PERSON_PROCESSING_RESTRICTION_NOT_YOURS`; the read's
+`mayLift`); an objection added to someone already restricted is audited on its own: the record stays readable and
+editable, and nothing uses it until it is lifted — `CandidateService.dossierOf`, every model run's one read, refuses
+`PERSON_PROCESSING_RESTRICTED` (Suggest with AI, Assess with AI, the openers, the interview plan and copilot; the
+automatic background run and the assistant's profile tool skip them); a contact lookup, an own email, Book a call and
+a Notetaker are refused; Add to sequence skips them and a run or a waiting email stops at its next send
+(`PROCESSING_RESTRICTED`); no door maps them onto a further position (Find executives and People Search count a skip,
+Add to position counts them `restricted`); their waiting or recording bots are called off in the restriction's own
+transaction and queued for `RecallBotErasureSweeper` (V197's table) to call back and strip until Recall answers, and a
+transcript arriving later is never summarised. Client-facing reads (the grid, talent map, report, export) still show
+them — that exclusion waits on counsel. **What is kept, and for how long, is `docs/gdpr/retention-schedule.md`** (#921): one row per
+table holding a person, an account or an address, which `RetentionScheduleCoverageTest` holds the schema to.
+`RetentionSweeper` (hourly, `lightmove.retention.*`, defaults awaiting counsel; off unless `RETENTION_ENABLED=true`) deletes expired refresh-token families,
+verification links and two-factor challenges, the vendor caches past their TTL, closed invitations, read
+notifications, sent digests, idle assistant chats and aged metered uses — the tenant tables only in the workspaces
+V199's `app_lm_resolve_workspaces_with_retention_due` names, each in its own `WorkspaceScope`. **Candidate retention (#921, V200) never deletes on its own**: a
+workspace's period (`app_lm_workspace_retention`, 12/24/36/60 months or never; no row is
+`lightmove.retention.candidate-months`) makes due whoever is untouched that long — no timeline line, admin's keep
+(`app_lm_person.retention_kept_at`) or founding since — on no live position and not restricted, and Settings → Data &
+retention (`CandidateRetentionService`, `WORKSPACE_MANAGE`; deleting `PERSON_ERASE`) lists them for an admin to keep for
+another period or delete through `PersonErasureService.eraseUnderRetention` — each in its own transaction, asked again
+once their row is held, never suppressed, audited `reason: retention`; the same page carries the suppression list. A plugin capture of someone already researched spends no second vendor call, and is filed under the employer their latest position recorded (`PersonEmployerResolver.knownEmployerOf`, that position's company row's LinkedIn page and all). Every change to a
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
-**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn — V164, drawn with the network's own mark by `NoteKindMark`) — the Notes tabs write and list plain notes alone, a call, a LinkedIn message or a meeting written up without the Notetaker is logged from Outreach (`NoteComposerModal`, of the kind its button named, with no switch to another) with when it happened — now unless changed, never in the
+**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email, LinkedIn, WhatsApp — V164 and V201, each network drawn with its own mark by `NoteKindMark`) — the Notes tabs write and list plain notes alone, a call, a LinkedIn or WhatsApp message or a meeting written up without the Notetaker is logged from Outreach (`NoteComposerModal`, of the kind its button named, with no switch to another) with when it happened — now unless changed, never in the
 future — and an optional title (V185 `occurred_at`, `title`), a meeting's tied to the past Uncava meeting it was about
 — its calendar meeting (`meeting_id`, bare; `PastMeetingLookup`, answered by `outreach`) or, once the calendar has let
 the meeting go, its Notetaker recording (V188 `recording_id`; `PastRecordingLookup`, answered by `notetaker`, from that
@@ -109,7 +149,7 @@ status picker and that pencil, the primary email and phone with "+N" and the con
 one line with a +N chip, and do not contact) and one tab order, `Position.dc.html`'s, grouped by what the consultant
 is doing: **Profile · Notes · Assessment · Outreach · Activity** — Profile's folds Summary, Experience, Education,
 Background, Compensation, Documents and Your columns, Summary alone open on arrival (`useProfileSections`); Outreach
-the conversation — the action row first (Write email, Log call, Log meeting, Log LinkedIn, Book a meeting, Add to sequence, held
+the conversation — the action row first (Write email, Log call, Log meeting, Log LinkedIn, Log WhatsApp, Book a meeting, Add to sequence, held
 while a run is live), then the run where there is one, the calls to come, then one timeline (its latest five, See more for
 the rest) (`DrawerOutreachTimeline`, over the conversation read and
 `MeetingsSection`'s past calls with their ⋯: emails, replies, logged calls and LinkedIn messages, each past
@@ -162,8 +202,8 @@ private GCS bucket behind `core/storage`'s `DocumentStore` (`lightmove.storage.*
 for `npm run dev` and tests), streamed by the API, never by a signed URL. The SPA draws them in
 `components/documents`: both drawers' Documents fold (on Profile) and a preview sheet (a PDF or image fetched as a blob, never a link); the
 upload tray says what each file will become before sending, and a duplicate is the server's 409.
-`CandidateResponse.linkedinUrlLocked` is the server's own lock, which the Contact section reads rather
-than guessing from this mandate's door.
+`CandidateResponse.linkedinUrlLocked` says the plugin read the held URL off its page; it fences nothing —
+a person's URL is always editable, and an edit that changes it clears the flag.
 **The workspace's Candidates page** (`/candidates`, `RequireStaff`, `Candidates.dc.html`, Phase 4) reads
 those routes: a People list the server searches (name, title, employer, an email; a plain scan per
 workspace, V33's reasoning), pages, sorts and narrows — quick views (owned by me, in an active position,
@@ -201,8 +241,8 @@ listed first everywhere — the grid's Email and Phone columns, the export, ever
 sequence, Book a call), each still changeable at the send. None chosen, the first of the ledger's order stands in:
 personal before work before untagged (an approach to someone at their current employer goes to a personal inbox),
 verified first, what a person supplied before what a lookup found, oldest first (`Person.listed`). A person the plugin
-captured keeps their LinkedIn URL locked (`CANDIDATE_PROFILE_URL_LOCKED`): it is the page they were
-read off and everything keys on it. `lightmove.enrichment.contactout` sits **beside**
+captured keeps their LinkedIn URL editable, since people change their address (`PERSON_PROFILE_HELD` still refuses
+a second person's profile). `lightmove.enrichment.contactout` sits **beside**
 `…enrichment.provider` and is never selected by it: contact lookup is its own account with its own bill,
 so `provider: off` leaves the buttons working, and an unconfigured deployment simply does not offer them.
 The **spreadsheet import** is that fourth door and carries both halves at once: a CSV or Excel file
@@ -238,10 +278,14 @@ rule in every read (`search` on the triage list, its
 people reads, the export and the talent map, the pipeline's `q`): a company by name, place or industry, an executive
 by name, title, place or employer, and — only for a `WORK_EXECUTE` holder, decided server-side — the company's and
 the person's live notes readable from this position and the person's tags; a matching company keeps all its people.
-In universe reads as **Table | Map | Pipeline** (`?view=`), Strategy as Companies | People and Outreach as
+In universe reads as **Table | Pipeline** (`?view=`; **Map is switched off on screen for now**, `MAP_OFFERED` in
+`triageStages.ts`: the globe, its reads and a stored choice stay, and a link or remembered choice of it lands on the table),
+Strategy as Companies | People and Outreach as
 Conversations | Sequences — each the page's own `ToolbarViewSwitch`, first in its toolbar at every width and in full
-screen, one fixed width whether it holds two views or three so the search starts at the same place on all three; the
-rail is one row per page and nests nothing. `useCompaniesViews` decides what In universe offers. A view someone
+screen, one width whether it holds two views or three so the search starts at the same place on all three. **The row stays
+on one line** from a phone up (`TOOLBAR_ROW`, `components/ui/Toolbar`): the search and the switch shrink first, then the
+buttons give up their words for their icons by the row's own width (`ToolbarLabel`, a container query), and only below
+`sm` does it wrap. The rail is one row per page and nests nothing. `useCompaniesViews` decides what In universe offers. A view someone
 *chose* in the switch is remembered per mandate; a link that only names one, a
 notification's `?view=pipeline`, is a visit. **Pipeline** is the position's
 board by pipeline stage — the retired CRM Pipeline page, board only, every executive on the position whatever their
@@ -1492,6 +1536,15 @@ overrides; one default per person per workspace by partial unique index), both u
 a photo row, account data with no workspace, read wherever its person signs in — and `app_lm_resolve_email_image`, the
 public picture route's resolver.
 V194 adds `app_lm_outreach_enrollment.signature_html` — the signature Start drew for the run; null sends none.
+V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
+kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
+in the same migration.
+V196 seeds `PERSON_ERASE` to ADMIN alone and adds `app_lm_storage_deletion` (a bucket key per row, its attempts and
+next attempt; global by design, so outside row-level security), drained by `StorageDeletionSweeper`
+(`lightmove.storage.deletion-sweep-interval`) with a back-off to a day, never giving up.
+V197 adds `app_lm_recall_bot_erasure` — an erased or restricted person's Recall bots (bot id, whether to call it back, whether its
+media is still held), global for V196's reason, drained by `RecallBotErasureSweeper`
+(`lightmove.recall.bot-erasure-sweep-interval`) with a back-off to an hour, given up only past Recall's 7-day retention.
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a

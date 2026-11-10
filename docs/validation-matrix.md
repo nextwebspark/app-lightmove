@@ -59,6 +59,10 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Email signatures kept | New signature and Duplicate off at 10 | at most 10 per person per workspace (`EMAIL_SIGNATURE_LIMIT_REACHED`) | toast |
 | Candidate tag label | trimmed, ≤ 40 | `@NotBlank @Size(40)` | toast |
 | API key name | trimmed, ≤ 80 | `@NotBlank @Size(80)` | banner |
+| Suppression list entry: LinkedIn profile, email (Settings → Data & retention) | at least one (Add to list disabled until then); the link names a member profile (`linkedin.com/in/…`, scheme optional), ≤ 500; email ≤ 320 | at least one (`VALIDATION_FAILED` on `linkedinUrl`); the link must name a member profile, a missing `https://` forgiven (`VALIDATION_FAILED` on `linkedinUrl`); email normalised, `@Email @Size(320)`; `@Size(500)` on the link; refused with no suppression keyset (`SUPPRESSION_UNAVAILABLE`) | field (banner for the keyset) |
+| Suppression list entry: reason, note | reason Added by an admin (default) or Objected; note ≤ 500, counted | reason `manual` (default) or `objected`, never `erased` (`VALIDATION_FAILED` on `reason`); note trimmed, `@Size(500)` | field |
+| Candidate retention period (Settings → Data & retention) | one of 12, 24, 36, 60 months or Never delete, from a select | one of 12, 24, 36, 60, or null for never (`VALIDATION_FAILED` on `months`); the column holds 12–120 by CHECK | toast |
+| Due for deletion: page, people to keep or delete (Settings → Data & retention) | the list draws 200 at a time; Delete sends the ticked people 25 to a request | `limit` 1–500, `offset` ≥ 0 (`VALIDATION_FAILED` on `limit` / `offset`); at least one person, ≤ 200 to keep and ≤ 50 to delete (`VALIDATION_FAILED` on `personIds`) | toast |
 | Two-factor: current password | required where the account has a password; not drawn for one that has none | required where the account has one (`VALIDATION_FAILED` on `currentPassword` when blank); must match (`CURRENT_PASSWORD_INVALID` on `currentPassword`); an account with none turns it on only within `lightmove.auth.mfa.recent-sign-in` (10 min) of signing in (`MFA_SIGN_IN_AGAIN`), and off or new codes with the code alone | field (banner for `MFA_SIGN_IN_AGAIN`) |
 | Two-factor: code to turn on | six digits, spaces dropped | `@NotBlank @Size(32)`; the app's code for the new secret (`MFA_CODE_INVALID` on `code`) | field |
 | Two-factor: code to turn off or get new recovery codes | six digits or a recovery code | `@NotBlank @Size(32)`; the app's code or an unused recovery code (`MFA_CODE_INVALID` on `code`) | field |
@@ -106,7 +110,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | Notice period | five options | 0–999 | toast + rail |
 | Target start | date picker | 2000–2100 (`@PlausibleDate`) | toast |
 | Salary, incentive | ≤ 15 digits | ≥ 0 | toast + rail |
-| Bonus | % or months: two decimals, ≤ 100 % / 24 months; fixed: ≤ 15 digits | same, by `BonusBasis.admits` | toast + rail |
+| Bonus | % or months: two decimals, ≤ 100 % / 24 months; fixed: ≤ 15 digits; a basis change clears a figure the new basis cannot read (money ↔ share, or past its ceiling) | same, by `BonusBasis.admits` (a template's too) | toast + rail |
 | Currency | picker | ISO 4217 (`@CurrencyCode`) | toast + rail |
 | Benefits | ≤ 20 × 120, blank held | ≤ 20 × 120, `@NotBlank` | toast + rail |
 | Competency name / description | ≤ 120 / 300, blank name held | same | toast + rail |
@@ -130,6 +134,9 @@ is held back rather than sent (the step does not save until it is named) and the
 | ☐ Custom field values | no length | TEXT unbounded, DATE unchecked, NUMBER accepts NaN | toast |
 | ☐ Custom column label | no `maxLength` | ≤ 60 | toast |
 | Executive name | trimmed, ≤ 200 | `@NotBlank @Size(200)` | banner |
+| Restrict processing: reason | Restrict wakes only with a non-blank reason; 500 characters, counted | `@Size(500)`; required when restricting (`VALIDATION_FAILED` on `reason`); a restricted person is refused at every use (`PERSON_PROCESSING_RESTRICTED`) | banner; the refusal as a toast where it is met |
+| Delete person permanently: full name typed back | the button wakes only on a match (case, spacing and dashes forgiven, `confirmationNameMatches`) | `@NotBlank @Size(200)`; `ConfirmationName.matches` the person's name (`VALIDATION_FAILED` on `confirmName`); refused while an email to them is sending (`PERSON_ERASE_SEND_IN_FLIGHT`) | banner (an alert for the email) |
+| Executive LinkedIn profile and emails, on every door | — | not on the workspace's suppression list (`PERSON_SUPPRESSED`): the add form, the plugin and a spreadsheet row are refused, and so is mapping someone the workspace already knows whose own profile or address is listed; an edit only for a profile or address it adds; Find executives, People Search and the Candidates page's Add to position leave the person out unfiled; a workspace holding entries the keyset cannot read is refused at every door (`SUPPRESSION_UNAVAILABLE`) | banner (row error on import; toast on Add to position) |
 | ☐ Executive currency | picker | `@Size(3)` | banner |
 | ☐ Languages | one string ≤ 1200 | ≤ 20 × 60 | banner |
 | ☐ Phone | none | a digit | banner |
@@ -140,8 +147,8 @@ is held back rather than sent (the step does not save until it is named) and the
 | Next action detail | trimmed, ≤ 500 | `@Size(500)` | banner |
 | Note body | the note editor's Markdown, trimmed, mentions written as tokens, ≤ 10000 stored (held under the box) | `@NotBlank @Size(10000)`; V142's CHECK | toast |
 | Note format | `markdown` from the editor | `ApiValueEnum`, plain when absent (a door's note is always plain): 400 "That is not a valid note format" | toast |
-| Note kind | none on the Notes tabs (plain); Call, LinkedIn or Meeting in Log call / Log LinkedIn / Log meeting; the extension's chips leave out Email | `ApiValueEnum`, plain when absent: 400 "That is not a valid note kind"; `email` on a new note, or onto a note that was not one, 400 on `kind` | toast |
-| Log's when (call, LinkedIn, meeting) | date and time, now unless changed; never past today in the picker, and a time later than now flagged under When with Save held | `occurredAt` no later than now + 5 min, never on a plain note: 400 on `occurredAt` / `kind` | toast |
+| Note kind | none on the Notes tabs (plain); Call, LinkedIn, WhatsApp or Meeting in Log call / Log LinkedIn / Log WhatsApp / Log meeting; the extension's chips leave out Email | `ApiValueEnum`, plain when absent: 400 "That is not a valid note kind"; `email` on a new note, or onto a note that was not one, 400 on `kind` | toast |
+| Log's when (call, LinkedIn, WhatsApp, meeting) | date and time, now unless changed; never past today in the picker, and a time later than now flagged under When with Save held | `occurredAt` no later than now + 5 min, never on a plain note: 400 on `occurredAt` / `kind` | toast |
 | Log's title | optional, one line, ≤ 200 (line breaks become spaces) | `@Size(200)`, no line break: 400 on `title` | toast |
 | Log meeting's "Which meeting" | the person's Uncava meetings already begun — calendar meetings and calls known only from their recording — newest first, or Outside Uncava; a logged call (a phone call) is asked none | `meetingId` or `recordingId`, never both, on a meeting note only, this person's, already begun; a recording only on a note about its own position: 400 on `meetingId` | toast |
 | Note scope, a position's drawer | This position (default) or All positions, sent as `allPositions` | `allPositions: true` files it about no position; `projectId` not read; neither read on an edit; both together 400 | toast |

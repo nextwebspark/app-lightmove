@@ -165,6 +165,31 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a person whose processing is restricted is refused before anything is spent")
+    void restrictionTurnsLookupsOff() throws Exception {
+        String projectId = mandate("Restricted Firm");
+        String candidateId = executive(projectId, "Sample Person", "sample-profile");
+        String personId = body(mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn()).get("personId").asText();
+        mvc.perform(put("/api/v1/candidates/" + personId + "/processing-restriction")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"restricted":true,"reason":"Contests what we hold about them."}"""))
+                .andExpect(status().isOk());
+        finder.answerEmailsWith(EMAILS);
+
+        assertThat(codeOf(mvc.perform(post(lookupUrl(projectId, candidateId, "email"))
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isConflict())
+                .andReturn()))
+                .isEqualTo("PERSON_PROCESSING_RESTRICTED");
+        assertThat(finder.askedUrls()).isEmpty();
+    }
+
+    @Test
     @DisplayName("an executive with no LinkedIn profile is refused before anything is spent")
     void noProfileIsRefusedBeforeSpending() throws Exception {
         String projectId = mandate("No Profile Firm");

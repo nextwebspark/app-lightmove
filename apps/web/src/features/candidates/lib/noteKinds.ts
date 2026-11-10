@@ -8,10 +8,11 @@ export const NOTE_KINDS: { value: PersonNoteKind; label: string; placeholder: st
   { value: "meeting", label: "Meeting", placeholder: "Where you met, what came out of it…" },
   { value: "email", label: "Email", placeholder: "What was sent or received, and the reply…" },
   { value: "linkedin", label: "LinkedIn", placeholder: "What was said on LinkedIn: the message, the request, the reply…" },
+  { value: "whatsapp", label: "WhatsApp", placeholder: "What was said on WhatsApp: the message, the voice note, the reply…" },
 ];
 
-/** The stroke glyph of each kind but LinkedIn, whose mark is the network's own (`NoteKindMark`). */
-export const NOTE_GLYPHS: Record<Exclude<PersonNoteKind, "linkedin">, string> = {
+/** The stroke glyph of each kind but LinkedIn and WhatsApp, whose marks are the networks' own (`NoteKindMark`). */
+export const NOTE_GLYPHS: Record<Exclude<PersonNoteKind, BrandMarkKind>, string> = {
   general: ICONS.fileText,
   call: ICONS.phoneCall,
   meeting: ICONS.video,
@@ -21,11 +22,14 @@ export const NOTE_GLYPHS: Record<Exclude<PersonNoteKind, "linkedin">, string> = 
 /** A plain note, the Notes tab's one kind: what the team should know, not something that passed with the person. */
 export const PLAIN_NOTE_KIND: PersonNoteKind = "general";
 
+/** The kinds drawn by their network's own mark. */
+export type BrandMarkKind = "linkedin" | "whatsapp";
+
 /**
- * What can be logged by hand in Outreach: a call, a LinkedIn message, or a meeting written up without the Notetaker.
+ * What can be logged by hand in Outreach: a call, a LinkedIn or WhatsApp message, or a meeting written up without the Notetaker.
  * An email is the mailbox's, never logged.
  */
-export const LOGGED_CONTACT_KINDS: readonly PersonNoteKind[] = ["call", "linkedin", "meeting"];
+export const LOGGED_CONTACT_KINDS: readonly PersonNoteKind[] = ["call", "linkedin", "whatsapp", "meeting"];
 
 /** A note of something that passed with the person — the Outreach timeline's; `email` survives only on old notes. */
 export function isContactNote(kind: PersonNoteKind): boolean {
@@ -41,8 +45,8 @@ export function noteKindLabel(kind: PersonNoteKind): string {
 }
 
 /** A kind drawn by a network's own mark, which is never set in a disc or tinted (`NetworkMark`'s rules). */
-export function isBrandMark(kind: PersonNoteKind): kind is "linkedin" {
-  return kind === "linkedin";
+export function isBrandMark(kind: PersonNoteKind): kind is BrandMarkKind {
+  return kind === "linkedin" || kind === "whatsapp";
 }
 
 /** A note's kind as a note carries it (`call`) or as a timeline line does (`CALL`); an unknown one is a general note. */

@@ -72,9 +72,19 @@ public enum ProjectEventType implements AuditEventType {
     PERSON_UNTAGGED,
     PERSON_DO_NOT_CONTACT_SET,
     PERSON_DO_NOT_CONTACT_CLEARED,
+    /** Restriction of processing set or lifted. Recorded by id; the reason stays on the person. */
+    PERSON_PROCESSING_RESTRICTED,
+    PERSON_PROCESSING_RESTRICTION_LIFTED,
     PEOPLE_MAPPED_FROM_POOL,
     CANDIDATE_TAG_CREATED,
     CANDIDATE_TAG_UPDATED,
+    /** The suppression list: a key no door may file again, added or lifted. Never names the key. */
+    PERSON_SUPPRESSION_ADDED,
+    PERSON_SUPPRESSION_REMOVED,
+    /** A person and everything held about them, deleted for good. Recorded by id and counts, never a name. */
+    PERSON_ERASED,
+    /** Candidate retention: an admin kept someone due for deletion for another period. Recorded by id. */
+    PERSON_RETENTION_KEPT,
 
     /** The Pipeline page's three working facts: the team's manual order, the next action, client visibility. */
     CANDIDATE_PIPELINE_REORDERED,

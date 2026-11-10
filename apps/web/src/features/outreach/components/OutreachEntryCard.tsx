@@ -95,15 +95,15 @@ export function EntryActor({
   );
 }
 
-/** A kind's tile, tinted as its tone reads elsewhere — LinkedIn's being the network's own mark, never tinted. */
+/** A kind's tile, tinted as its tone reads elsewhere — LinkedIn's and WhatsApp's being the network's own mark, never tinted. */
 export function EntryLeadMark({ tile }: { tile: EntryTile }) {
-  if (tile === "linkedin") {
+  if (tile === "linkedin" || tile === "whatsapp") {
     return (
       <span
         aria-hidden="true"
         className="grid size-8 flex-none place-items-center rounded-u-chip border border-u-border bg-u-bg"
       >
-        <NetworkMark network="linkedin" size={15} />
+        <NetworkMark network={tile} size={15} />
       </span>
     );
   }
@@ -115,7 +115,7 @@ export function EntryLeadMark({ tile }: { tile: EntryTile }) {
   );
 }
 
-const TILES: Record<Exclude<EntryTile, "linkedin">, { icon: string; tone: string }> = {
+const TILES: Record<Exclude<EntryTile, "linkedin" | "whatsapp">, { icon: string; tone: string }> = {
   email: { icon: ICONS.mail, tone: "bg-u-accent-tint text-u-accent" },
   scheduled: { icon: ICONS.clock, tone: "bg-u-signal-tint text-u-signal" },
   reply: { icon: ICONS.reply, tone: "bg-u-direct-tint text-u-direct" },

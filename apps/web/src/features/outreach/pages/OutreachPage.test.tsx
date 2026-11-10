@@ -14,6 +14,7 @@ import type { Mailbox } from "../api/mailboxApi";
 import * as sequenceApi from "../api/sequenceApi";
 import * as pipelineApi from "../../pipeline/api/pipelineApi";
 import * as personCrmApi from "../../candidates/api/personCrmApi";
+import * as poolApi from "../../candidates/api/poolApi";
 import * as projectsApi from "../../projects/api/projectsApi";
 import { OutreachPage } from "./OutreachPage";
 
@@ -62,6 +63,11 @@ vi.mock("../../pipeline/api/pipelineApi", async (importOriginal) => ({
 vi.mock("../../candidates/api/personCrmApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../candidates/api/personCrmApi")>()),
   getPersonPositions: vi.fn(),
+}));
+
+vi.mock("../../candidates/api/poolApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../candidates/api/poolApi")>()),
+  getPerson: vi.fn(),
 }));
 
 vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({
@@ -783,6 +789,26 @@ describe("OutreachPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Log LinkedIn" }));
     const dialog = await screen.findByRole("dialog", { name: "Log a LinkedIn message with Fatima Al Mazrouei" });
     expect(within(dialog).queryByRole("radiogroup", { name: "What you are logging" })).not.toBeInTheDocument();
+  });
+
+  it("offers Book a meeting beside Write email while the mailbox can send, and explains a refusal", async () => {
+    vi.mocked(poolApi.getPerson).mockResolvedValue({ doNotContact: true, contacts: { emails: [] } } as never);
+    renderPage(OPEN);
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Book a meeting with Fatima Al Mazrouei" });
+    expect(within(dialog).getByText("Fatima Al Mazrouei is marked do not contact.")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Open contact details" })).not.toBeInTheDocument();
+  });
+
+  it("leaves Book a meeting out of the dock while no mailbox can send", async () => {
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue(nothingConnected);
+    renderPage(OPEN);
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+
+    expect(screen.queryByRole("button", { name: "Book a meeting" })).not.toBeInTheDocument();
   });
 
   it("holds a note being written against Escape, as it does an email", async () => {

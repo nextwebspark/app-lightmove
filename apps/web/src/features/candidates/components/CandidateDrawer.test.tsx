@@ -226,6 +226,7 @@ const yasminRecord = {
   positions: [],
   tagIds: ["t1"],
   doNotContact: null,
+  processingRestriction: null,
 } as unknown as PersonRecord;
 
 const liveCall = (overrides: Partial<NotetakerRecording> = {}): NotetakerRecording => ({
@@ -1140,38 +1141,21 @@ describe("CandidateDrawer", () => {
     expect(link).toHaveAttribute("aria-invalid", "true");
   });
 
-  it("says why a link locked since the form opened was refused, though no field is drawn for it", async () => {
-    vi.mocked(candidatesApi.updateCandidate).mockRejectedValue(
-      new ApiRequestError({ code: "CANDIDATE_PROFILE_URL_LOCKED", detail: "locked", status: 409, correlationId: "x" }),
-    );
+  it("lets the profile link of a person the plugin captured be corrected, since people move their address", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
     renderDrawer({
       candidate: { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin", linkedinUrlLocked: true },
       company: null,
     });
 
     await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
+    const link = screen.getByRole("textbox", { name: "LinkedIn" });
+    await userEvent.clear(link);
+    await userEvent.type(link, "linkedin.com/in/yasmin-new");
     await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
 
-    expect(await screen.findByRole("alert")).not.toBeEmptyDOMElement();
-  });
-
-  it("locks the profile link in the details for a person the plugin captured, on the server's word", async () => {
-    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
-    const captured = { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin", linkedinUrlLocked: true };
-    const { unmount } = renderDrawer({ candidate: captured, company: null });
-
-    await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
-    expect(screen.queryByRole("textbox", { name: "LinkedIn" })).not.toBeInTheDocument();
-    expect(screen.getByText(/Captured from this profile page/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
     await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
-    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].linkedinUrl).toBe("https://linkedin.com/in/yasmin");
-    unmount();
-
-    // Captured on this position, but the plugin read another page than the URL now held.
-    renderDrawer({ candidate: { ...captured, source: "extension", linkedinUrlLocked: false }, company: null });
-    await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
-    expect(screen.getByRole("textbox", { name: "LinkedIn" })).toBeInTheDocument();
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].linkedinUrl).toContain("linkedin.com/in/yasmin-new");
   });
 
   it("keeps status live while reading, without replacing the profile", async () => {

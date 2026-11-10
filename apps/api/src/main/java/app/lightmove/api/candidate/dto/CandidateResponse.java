@@ -51,7 +51,7 @@ public record CandidateResponse(
         CandidateContactsDto contacts,
         /** The workspace's person this row maps — one id across every mandate that holds them (V91). */
         UUID personId,
-        /** The plugin read this person off that page, so the URL cannot be retyped (CANDIDATE_PROFILE_URL_LOCKED). */
+        /** The plugin read this person off that page; a person who changed their URL since can still have it corrected. */
         boolean linkedinUrlLocked,
         /** {@code status}'s label and colour in the workspace's catalog, drawn as held even once it is retired. */
         String statusLabel,

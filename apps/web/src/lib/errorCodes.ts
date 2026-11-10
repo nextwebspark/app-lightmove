@@ -73,6 +73,11 @@ export type ApiErrorCode =
   | "PIPELINE_ORDER_INVALID"
   | "PERSON_OWNER_NOT_STAFF"
   | "PERSON_DO_NOT_CONTACT"
+  | "PERSON_SUPPRESSED"
+  | "PERSON_PROCESSING_RESTRICTED"
+  | "PERSON_PROCESSING_RESTRICTION_NOT_YOURS"
+  | "PERSON_ERASE_SEND_IN_FLIGHT"
+  | "SUPPRESSION_UNAVAILABLE"
   | "TASK_ASSIGNEE_NOT_ON_TEAM"
   | "TASK_NOT_YOURS"
   | "STRATEGY_SEARCH_NAME_TAKEN"
@@ -101,7 +106,6 @@ export type ApiErrorCode =
   | "BILLING_PACK_UNKNOWN"
   | "SUBSCRIPTION_BILLED_BY_STRIPE"
   | "SEAT_LIMIT_REACHED"
-  | "CANDIDATE_PROFILE_URL_LOCKED"
   | "EXECUTIVE_SOURCING_UNAVAILABLE"
   | "EXECUTIVE_SOURCING_TOO_MANY_COMPANIES"
   | "EXECUTIVE_SOURCING_IN_PROGRESS"
@@ -276,6 +280,12 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PIPELINE_ORDER_INVALID: "The pipeline changed meanwhile. Reload and try again.",
   PERSON_OWNER_NOT_STAFF: "The owner must be someone on your team.",
   PERSON_DO_NOT_CONTACT: "This person is marked do not contact, so contact lookups are off.",
+  PERSON_SUPPRESSED: "This person is on your workspace's suppression list, so they can't be added.",
+  PERSON_PROCESSING_RESTRICTED:
+    "Processing is restricted for this person, so this can't be done until the restriction is lifted.",
+  PERSON_PROCESSING_RESTRICTION_NOT_YOURS: "Only the person who restricted processing, or an admin, can lift it.",
+  PERSON_ERASE_SEND_IN_FLIGHT: "An email to this person is sending right now. Try again in a minute.",
+  SUPPRESSION_UNAVAILABLE: "Your workspace's suppression list can't be checked right now, so nobody can be added. Contact Uncava support.",
   // Two uploads raise this — the spreadsheet import and the position description — so the wording
   // stays neutral. Naming one screen's file types here misdescribes the other's refusal, and each
   // dropzone already states what it takes.
@@ -298,8 +308,6 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   BILLING_PACK_UNKNOWN: "That credit pack is no longer sold. Choose another.",
   SUBSCRIPTION_BILLED_BY_STRIPE: "This workspace already pays through Stripe — change the plan from Invoices & card.",
   SEAT_LIMIT_REACHED: "Every seat your workspace pays for is taken. An admin can add seats through Contact Uncava in Settings → Billing.",
-  CANDIDATE_PROFILE_URL_LOCKED:
-    "This profile was captured from LinkedIn, so its URL is not editable.",
   EXECUTIVE_SOURCING_UNAVAILABLE: "Find executives isn't switched on for your workspace. Contact Uncava support to turn it on.",
   EXECUTIVE_SOURCING_TOO_MANY_COMPANIES: "Too many companies ticked. Find executives takes a limited batch — untick some and try again.",
   EXECUTIVE_SOURCING_IN_PROGRESS: "A Find executives run is already in progress for this position.",

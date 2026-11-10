@@ -16,6 +16,7 @@ export type RunStatus = "SCHEDULED" | "ACTIVE" | "REPLIED" | "BOUNCED" | "STOPPE
 export type StopReason =
   | "MANUAL"
   | "DO_NOT_CONTACT"
+  | "PROCESSING_RESTRICTED"
   | "LEFT_THE_RUNNING"
   | "UNMAPPED"
   | "ADDRESS_REMOVED"

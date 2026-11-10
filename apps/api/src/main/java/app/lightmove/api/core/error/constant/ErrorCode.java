@@ -225,10 +225,6 @@ public enum ErrorCode {
     CONTACT_LIMIT_REACHED(HttpStatus.CONFLICT,
             "A profile holds ten email addresses and ten phone numbers at most"),
 
-    /** A plugin capture's URL is the page it was read off, and research and contact lookup key on it. */
-    CANDIDATE_PROFILE_URL_LOCKED(HttpStatus.CONFLICT,
-            "This profile was captured from LinkedIn; its URL is not editable"),
-
     /** Another person in the workspace is that LinkedIn profile; the mandate may map them instead. */
     PERSON_PROFILE_HELD(HttpStatus.CONFLICT,
             "Another candidate in this workspace already has that LinkedIn profile"),
@@ -303,6 +299,28 @@ public enum ErrorCode {
 
     /** Contact lookups are off for a person marked do not contact; nothing was spent. */
     PERSON_DO_NOT_CONTACT(HttpStatus.CONFLICT, "This person is marked do not contact, so contact lookups are off"),
+
+    /**
+     * Processing of this person is restricted (GDPR Art. 18): no AI run, contact lookup, email, invite, recording or
+     * new position until someone lifts it. Nothing was spent.
+     */
+    PERSON_PROCESSING_RESTRICTED(HttpStatus.CONFLICT,
+            "Processing is restricted for this person, so this can't be done until the restriction is lifted"),
+    PERSON_PROCESSING_RESTRICTION_NOT_YOURS(HttpStatus.FORBIDDEN,
+            "Only the person who restricted processing, or an admin, can lift it"),
+
+    /** A LinkedIn profile or email the workspace's suppression list holds: nobody may file that person again. */
+    PERSON_SUPPRESSED(HttpStatus.CONFLICT,
+            "This person is on your workspace's suppression list, so they can't be added"),
+
+    /** An email to the person is on its way to the mail service; erasing them now would race it. Nothing changed. */
+    PERSON_ERASE_SEND_IN_FLIGHT(HttpStatus.CONFLICT, "An email to this person is sending right now. Try again in a minute"),
+    /**
+     * The deployment has no suppression keyset, or none holding the key a workspace's entries were written under.
+     * Refused rather than read as an empty list, which would let every suppressed person back in.
+     */
+    SUPPRESSION_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
+            "Your workspace's suppression list can't be checked right now, so nobody can be added. Contact Uncava support"),
 
     /** Nothing was saved. Never sent for a stream that ran out of time: see {@link #ASSISTANT_STILL_ANSWERING}. */
     ASSISTANT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,

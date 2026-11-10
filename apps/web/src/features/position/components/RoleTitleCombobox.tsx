@@ -72,6 +72,7 @@ export function RoleTitleCombobox({
         <ul
           id="role-title-suggestions"
           role="listbox"
+          onMouseLeave={() => list.setActive(-1)}
           aria-label="Role templates"
           className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-[10px] border border-u-border-strong bg-u-surface py-1 shadow-u-e3"
         >

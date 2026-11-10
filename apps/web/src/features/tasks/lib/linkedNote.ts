@@ -7,6 +7,7 @@ const NOTE_WORDS: Record<TaskNoteKind, string> = {
   meeting: "a meeting note",
   email: "an email note",
   linkedin: "a LinkedIn note",
+  whatsapp: "a WhatsApp note",
 };
 
 /** "a call note": how a task or a bell row names the note it came from. */

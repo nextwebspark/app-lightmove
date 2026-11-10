@@ -1,5 +1,5 @@
 import { formatNumber } from "../../../lib/format";
-import type { Compensation } from "../api/types";
+import type { BonusBasis, Compensation } from "../api/types";
 
 /**
  * The package maths behind step four: what the base, bonus, incentive and allowances add up to over
@@ -116,4 +116,29 @@ export function bandReadings(compensation: Compensation): {
 /** "SAR 566,200" — a figure with the currency it is quoted in, rounded to the unit. */
 export function formatAmount(currency: string, amount: number): string {
   return `${currency} ${formatNumber(Math.round(amount))}`;
+}
+
+/** The largest figure each basis reads as true, as the server's `BonusBasis` holds it; none for money. */
+const BONUS_CEILINGS: Record<BonusBasis, number | null> = {
+  PERCENT_OF_BASE: 100,
+  PERCENT_OF_TOTAL_FIXED: 100,
+  MONTHS_OF_BASE: 24,
+  FIXED_AMOUNT: null,
+};
+
+/**
+ * The bonus figure once its basis changes. Money and a proportion are different numbers, so moving between
+ * a fixed amount and a basis that reads a share clears it, as does a figure past the new basis's ceiling: a
+ * 150,000 kept under "% of base" was refused by the server, and that refusal held back every later save of
+ * the package.
+ */
+export function bonusValueAfterBasisChange(
+  value: number | null,
+  from: BonusBasis | null,
+  to: BonusBasis | null,
+): number | null {
+  if (value === null || to === null || from === to) return value;
+  if (from !== null && (from === "FIXED_AMOUNT") !== (to === "FIXED_AMOUNT")) return null;
+  const ceiling = BONUS_CEILINGS[to];
+  return ceiling !== null && value > ceiling ? null : value;
 }

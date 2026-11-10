@@ -221,6 +221,33 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("someone on the suppression list is left off the page as it is read, and ticking them files nobody")
+    void suppressedPeopleAreLeftOffAndNeverFiled() throws Exception {
+        String projectId = mandate("Suppressing Firm");
+        saveFilter(projectId, CFO_FILTER);
+        search(projectId, 1);
+        assertThat(results(projectId).get("pages").get(0).get("people"))
+                .extracting(person -> person.get("linkedinSlug").asText()).contains("sample-cfo-12ab");
+
+        mvc.perform(post("/api/v1/workspace/suppressions")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"linkedinUrl\":\"https://www.linkedin.com/in/Sample-CFO-12ab/\",\"reason\":\"objected\"}"))
+                .andExpect(status().isCreated());
+
+        assertThat(results(projectId).get("pages").get(0).get("people"))
+                .extracting(person -> person.get("linkedinSlug").asText()).doesNotContain("sample-cfo-12ab");
+        mvc.perform(post(peopleUrl(projectId) + "/add").header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"linkedinSlugs\":[\"sample-cfo-12ab\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.added").value(0))
+                .andExpect(jsonPath("$.skipped").value(1));
+        assertThat(db.queryForObject("select count(*) from app_lm_project_candidate where project_id = ?::uuid",
+                Long.class, projectId)).isZero();
+    }
+
+    @Test
     @DisplayName("a person filed to the shortlist takes their employer there, unless the mandate already holds it elsewhere")
     void filesTheEmployerAtTheChosenStage() throws Exception {
         String projectId = mandate("Staging Firm");

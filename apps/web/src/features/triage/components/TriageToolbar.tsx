@@ -5,6 +5,7 @@ import {
   TOOLBAR_PRIMARY,
   TOOLBAR_ROW,
   ToolbarDivider,
+  ToolbarLabel,
   ToolbarSearch,
   ToolbarViewSwitch,
 } from "../../../components/ui/Toolbar";
@@ -144,7 +145,7 @@ export function TriageToolbar({
       )}
       <ToolbarSearch value={search} onChange={onSearch} label={searchPlaceholder} placeholder={searchPlaceholder} />
 
-      <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+      <div className="flex flex-none items-center gap-2 max-sm:flex-wrap sm:ml-auto">
         {groups.map((group, index) => (
           <Fragment key={group.key}>
             {index > 0 && <ToolbarDivider />}
@@ -182,12 +183,12 @@ function ToolbarAction({
       // aria-disabled rather than disabled, so the greyed button still takes focus and its title is read.
       aria-disabled={inert || undefined}
       aria-busy={busy || undefined}
-      title={unavailable?.reason ?? title}
+      title={unavailable?.reason ?? title ?? (typeof children === "string" ? children : undefined)}
       onClick={inert ? undefined : onClick}
       className={className}
     >
       <Icon d={icon} size={15} className={cn("flex-none", pulsing && "animate-pulse")} />
-      {children}
+      <ToolbarLabel>{children}</ToolbarLabel>
     </button>
   );
 }

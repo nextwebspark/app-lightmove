@@ -56,6 +56,7 @@ export function PersonHeaderLayout({
   employer,
   location,
   children,
+  hasCornerMenu = false,
 }: {
   avatar: ReactNode;
   fullName: string;
@@ -73,12 +74,14 @@ export function PersonHeaderLayout({
   employer: HeaderEmployer;
   location: string;
   children: ReactNode;
+  /** A ⋯ beside the close button, whose room the name keeps clear of. */
+  hasCornerMenu?: boolean;
 }) {
   return (
     <div className="group flex items-start gap-3">
       <div className="flex flex-none">{avatar}</div>
       <div className="min-w-0 flex-1">
-        <div className="pe-8">
+        <div className={hasCornerMenu ? "pe-20" : "pe-8"}>
           <span className="flex min-w-0 items-center gap-1.5">
             <h2 className="truncate font-sans text-base font-semibold text-u-text">{fullName}</h2>
             <HeaderProfileLink linkedinUrl={linkedinUrl} />

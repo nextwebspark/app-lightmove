@@ -3,6 +3,7 @@ import { ICONS } from "../../../components/layout/Icon";
 import * as talentMapApi from "../../talentmap/api/talentMapApi";
 import type { CompaniesView } from "../../talentmap/lib/useTalentMapPreferences";
 import type { TriageCompanyStatus } from "../api/types";
+import { MAP_OFFERED } from "./triageStages";
 
 /** How each view is named and drawn in the page's view switch. */
 export const COMPANIES_VIEW_LABELS: Record<CompaniesView, { label: string; icon: string }> = {
@@ -20,7 +21,7 @@ export function useCompaniesViews(stage: TriageCompanyStatus, canWrite: boolean)
     staleTime: Infinity,
   });
   if (stage !== "inUniverse") return { views: ["table"] as CompaniesView[], mapConfig };
-  const mapOffered = mapConfig.data?.enabled === true && !!mapConfig.data.publicToken;
+  const mapOffered = MAP_OFFERED && mapConfig.data?.enabled === true && !!mapConfig.data.publicToken;
   // The pipeline is the position's WORK_EXECUTE, so a client seat reads the table and the map alone.
   const views: CompaniesView[] = [
     "table",
