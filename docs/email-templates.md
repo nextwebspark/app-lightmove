@@ -1,6 +1,8 @@
 # Email templates: design and build plan
 
-Status: **planned** (epic #1247, decisions taken with the product owner on 2026-11-06). Nothing below exists yet.
+Status: **Phases 0 and 1 built** (epic #1247, decisions taken with the product owner on 2026-11-06, decision 16 on
+2026-11-10): the design, the mockups, the table, the token engine and Settings → Email templates. Phases 2 (the
+composer) and 3 (sequence steps) are not built yet.
 Each phase is one PR into `feature/email-templates`, and each is stacked on the one before. The branch merges to
 `main` once all four are in. Until a phase ships, the tables, routes and entities it names do not exist. Phase 0 is
 this document and the mockups that Phases 1–3 are built from: `claude-design/Outreach.dc.html` (the composer and the
@@ -134,13 +136,23 @@ Sources (vendor help centres, read November 2026):
 15. **Audit.** Sharing, unsharing, and any edit or delete of a shared template are events in the customer audit log
     (Outreach). A personal template is unaudited, like a signature. *Why:* a shared template is firm-wide content
     that any member applies; a personal one is a person's own drafts.
+16. **Variables look and work exactly as in a sequence** (product owner, 2026-11-10). The template editor carries the
+    sequence editor's own Insert bar (`TokenInsertBar`, shared by both screens): the same chips, in the same order
+    (`templateTokenOptions` is `tokenOptions` less the opener), each inserted as typed — `{{firstName}}` — into
+    whichever of the subject or the email the cursor was last in. The email shows a variable as that text, as a
+    sequence step does, never as a pill with a label. On screen it is a **variable** (`docs/glossary.md`), the word
+    the refusals use too. *Why:* a consultant writes both, and two ways of writing the same `{{firstName}}` would
+    have them wondering which one is right. This replaces §F's pill in Settings, so Phase 1 adds no token node to the
+    editor: the notes editor already keeps `{{firstName|there}}` as text (it writes the pipe as `\|`, which the
+    grammar reads). Whether the composer (Phase 2) draws its preview as pills over this text, as decision 9 says, is
+    to be settled before Phase 2 is built, under this decision.
 
 ## B. Model and ownership
 
 Templates are owned by **`outreach`**, beside signatures: `app_lm_email_template`, `/me/email-templates…`,
 `EmailTemplateService`. It reads the user (name and face) and `WorkspaceAccess`. Nothing depends back on it.
 
-**`app_lm_email_template`** (Phase 1, V195):
+**`app_lm_email_template`** (Phase 1, V202):
 
 | Column | |
 |---|---|
@@ -170,7 +182,7 @@ Templates are owned by **`outreach`**, beside signatures: `app_lm_email_template
   `EMAIL_TEMPLATE_STALE`, following `CandidateScorecardService`'s explicit check. Two people may now edit one shared
   row, which a signature never faced.
 
-**`app_lm_outreach_message.template_id`** (V195): `REFERENCES app_lm_email_template ON DELETE SET NULL`, nullable,
+**`app_lm_outreach_message.template_id`** (V202): `REFERENCES app_lm_email_template ON DELETE SET NULL`, nullable,
 with a partial index `WHERE template_id IS NOT NULL`. It is written from Phase 2. It is resolved by id, workspace
 **and** whether the sender may see the template; anything else is stored as null, never refused. Under RLS a foreign
 key alone does not check the workspace, since the reference check runs as the table owner.
@@ -285,6 +297,11 @@ signature lives only in the stored HTML `body` and never in the editor.
 
 ## F. The editor
 
+*Phase 1 as built (decision 16):* the template editor is the notes editor with `editorRef` (`NoteEditorHandle
+.insertText`, the text at the cursor, or at the end where it was never focused) under the shared `TokenInsertBar`.
+No token node and no `schema="email"` were built: a variable is plain text, as in a sequence step. The bullets below
+are the Phase 0 plan, kept for Phase 2's decision.
+
 - **A token node** in `features/notes/lib/noteMarkdown.ts` is an inline atom with its own Markdown tokenizer and raw
   serializer, as `NoteMentionNode` has. So `{{firstName|there}}` round-trips untouched, though the text serializer
   escapes every `|`. Input and paste rules turn a typed `{{…}}` into a pill.
@@ -359,6 +376,11 @@ target is the template, and the line names the template only):
 
 A personal template's create, edit and delete are unaudited.
 
+As built, a line names its template only while that template is still shared (`SharedEmailTemplateNames`, answered by
+`outreach` for `AuditEntryDescriber`): an admin never reads the name of a template its owner has made personal again,
+and a deleted one has no row to name. Those lines read "Stopped sharing an email template" and "Deleted a shared email
+template".
+
 ## J. Phases
 
 0. **Design (#1248).** This document and the mockups: `Outreach.dc.html` (the composer's Templates picker, Insert,
@@ -366,7 +388,7 @@ A personal template's create, edit and delete are unaudited.
    and Save as template) and `Settings.dc.html` (Email templates: list, editor, delete confirmations). The stale
    lines in `docs/outreach-conversations.md` and `docs/email-signatures.md` are corrected on the way.
 1. **Templates, the token engine, Settings (#1249).**
-   - V195 (both columns of §B).
+   - V202 (both columns of §B).
    - The engine (§C) on both twins.
    - The CRUD routes, codes and audit.
    - The email schema's token node and `schema="email"` / `editorRef`.
