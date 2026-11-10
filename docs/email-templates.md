@@ -155,7 +155,7 @@ Sources (vendor help centres, read November 2026):
 Templates are owned by **`outreach`**, beside signatures: `app_lm_email_template`, `/me/email-templates…`,
 `EmailTemplateService`. It reads the user (name and face) and `WorkspaceAccess`. Nothing depends back on it.
 
-**`app_lm_email_template`** (Phase 1, V202):
+**`app_lm_email_template`** (Phase 1, V204):
 
 | Column | |
 |---|---|
@@ -185,7 +185,7 @@ Templates are owned by **`outreach`**, beside signatures: `app_lm_email_template
   `EMAIL_TEMPLATE_STALE`, following `CandidateScorecardService`'s explicit check. Two people may now edit one shared
   row, which a signature never faced.
 
-**`app_lm_outreach_message.template_id`** (V202): `REFERENCES app_lm_email_template ON DELETE SET NULL`, nullable,
+**`app_lm_outreach_message.template_id`** (V204): `REFERENCES app_lm_email_template ON DELETE SET NULL`, nullable,
 with a partial index `WHERE template_id IS NOT NULL`. It is written from Phase 2. It is resolved by id, workspace
 **and** whether the sender may see the template; anything else is stored as null, never refused. Under RLS a foreign
 key alone does not check the workspace, since the reference check runs as the table owner.
@@ -400,7 +400,7 @@ template".
    and Save as template) and `Settings.dc.html` (Email templates: list, editor, delete confirmations). The stale
    lines in `docs/outreach-conversations.md` and `docs/email-signatures.md` are corrected on the way.
 1. **Templates, the token engine, Settings (#1249).**
-   - V202 (both columns of §B).
+   - V204 (both columns of §B; renumbered twice as main took V195–V203).
    - The engine (§C) on both twins.
    - The CRUD routes, codes and audit.
    - The email schema's token node and `schema="email"` / `editorRef`.

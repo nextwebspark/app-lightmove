@@ -868,7 +868,7 @@ review picks one for the run (`StartSequenceRequest.signatureId`), drawn once at
 has its page made before anything is written. The mailbox's test email carries the default, leaving Book a call out
 where its page cannot be made, since the test proves the mailbox and nothing else.
 
-**Email templates (V202, epic #1247, `docs/email-templates.md`; Phases 1 and 2 built)** are a consultant's saved emails and
+**Email templates (V204, epic #1247, `docs/email-templates.md`; Phases 1 and 2 built)** are a consultant's saved emails and
 replies, per workspace, in Settings → Email templates (`/me/email-templates`, staff only, `EmailTemplateService`):
 personal, or shared with the workspace, where every staff member applies or duplicates one and only its owner or a
 `WORKSPACE_MANAGE` holder edits, unshares or deletes it (`EMAIL_TEMPLATE_NOT_YOURS`); another's personal one reads as
@@ -1611,7 +1611,7 @@ overrides; one default per person per workspace by partial unique index), both u
 a photo row, account data with no workspace, read wherever its person signs in — and `app_lm_resolve_email_image`, the
 public picture route's resolver.
 V194 adds `app_lm_outreach_enrollment.signature_html` — the signature Start drew for the run; null sends none.
-V202 adds `app_lm_email_template` (owner and workspace, both cascading; `shared_at` null is personal; `updated_by` the
+V204 adds `app_lm_email_template` (owner and workspace, both cascading; `shared_at` null is personal; `updated_by` the
 last editor; one-line subject and non-blank body by CHECK) under forced row-level security, its owner and shared
 indexes, and `app_lm_outreach_message.template_id` (SET NULL, partial index) — the template an own email came from.
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
