@@ -868,7 +868,7 @@ review picks one for the run (`StartSequenceRequest.signatureId`), drawn once at
 has its page made before anything is written. The mailbox's test email carries the default, leaving Book a call out
 where its page cannot be made, since the test proves the mailbox and nothing else.
 
-**Email templates (V202, epic #1247, `docs/email-templates.md`; Phase 1 built)** are a consultant's saved emails and
+**Email templates (V202, epic #1247, `docs/email-templates.md`; Phases 1 and 2 built)** are a consultant's saved emails and
 replies, per workspace, in Settings → Email templates (`/me/email-templates`, staff only, `EmailTemplateService`):
 personal, or shared with the workspace, where every staff member applies or duplicates one and only its owner or a
 `WORKSPACE_MANAGE` holder edits, unshares or deletes it (`EMAIL_TEMPLATE_NOT_YOURS`); another's personal one reads as
@@ -882,8 +882,16 @@ in the same order, less the opener) and a variable is written and shown as typed
 pipe included, since the notes editor writes one. A template holds only the six and `bookingLink` (where booking pages
 are offered): `{{opener}}`, `{{signature}}`, an unknown name or a fallback on the link is `VALIDATION_FAILED` on its
 field. Sharing, unsharing and any edit or delete of a shared one are Outreach audit events named only while the
-template is still shared (`SharedEmailTemplateNames`); a personal one is unaudited. `app_lm_outreach_message
-.template_id` (SET NULL) is in place for the composer (Phase 2) to write; nothing writes it yet.
+template is still shared (`SharedEmailTemplateNames`); a personal one is unaudited. **The composer** (`ReplyComposer`,
+so Write email, the Outreach reply and New email alike) carries the same Insert bar, a **Templates** picker beside
+Attach (`TemplatePicker`: search, Recently used — the caller's five, from `app_lm_outreach_message.template_id` — Mine,
+Shared with the owner's face, and a preview with this executive's values) whose foot saves the words as a template
+(`SaveAsTemplateDialog`, never the signature). A template goes into an empty editor as the body and into words at the
+cursor (`NoteEditorHandle.insertDoc`); a first email takes its subject only while its own is empty, a reply never;
+Include signature is left alone. The conversation read's `composer.tokens` is the executive's values: a variable with
+none and no fallback, or one no email fills, is named under the editor and holds Send, and the server refuses the same
+with `OUTREACH_TOKENS_UNFILLED` (409, `tokens`), a first email's subject filled on one line (`renderLine`). The email
+records the template it came from (`templateId`), only one the sender may see in this workspace, else null.
 
 **The Notetaker (V151, `docs/notetaker.md`, `notetaker`)** is a Recall.ai bot a consultant sends into a kept call from
 the executive drawer's Meetings section (`WORK_EXECUTE`, only on a call on the caller's own calendar or booked by them,

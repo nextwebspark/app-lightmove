@@ -1,8 +1,8 @@
 # Email templates: design and build plan
 
-Status: **Phases 0 and 1 built** (epic #1247, decisions taken with the product owner on 2026-11-06, decision 16 on
-2026-11-10): the design, the mockups, the table, the token engine and Settings → Email templates. Phases 2 (the
-composer) and 3 (sequence steps) are not built yet.
+Status: **Phases 0, 1 and 2 built** (epic #1247, decisions taken with the product owner on 2026-11-06, decision 16 on
+2026-11-10 and extended to the composer the same day): the design, the mockups, the table, the token engine, Settings →
+Email templates and the composer. Phase 3 (sequence steps) is not built yet.
 Each phase is one PR into `feature/email-templates`, and each is stacked on the one before. The branch merges to
 `main` once all four are in. Until a phase ships, the tables, routes and entities it names do not exist. Phase 0 is
 this document and the mockups that Phases 1–3 are built from: `claude-design/Outreach.dc.html` (the composer and the
@@ -144,8 +144,11 @@ Sources (vendor help centres, read November 2026):
     the refusals use too. *Why:* a consultant writes both, and two ways of writing the same `{{firstName}}` would
     have them wondering which one is right. This replaces §F's pill in Settings, so Phase 1 adds no token node to the
     editor: the notes editor already keeps `{{firstName|there}}` as text (it writes the pipe as `\|`, which the
-    grammar reads). Whether the composer (Phase 2) draws its preview as pills over this text, as decision 9 says, is
-    to be settled before Phase 2 is built, under this decision.
+    grammar reads). **The composer follows it too** (product owner, 2026-11-10): it carries the same Insert bar and
+    shows `{{firstName}}` as typed. This replaces decision 9's pills and §E's red pill and its popover. A variable with
+    nothing on file and no fallback is named instead in one line under the editor ("Fill in or remove 1 variable to
+    send: {{location}} has nothing on file"), and Send waits; the Templates picker's preview reads a template with the
+    executive's values.
 
 ## B. Model and ownership
 
@@ -256,6 +259,10 @@ If the count is not zero, read the steps with their owners before the deploy.
 
 ## D. Applying a template
 
+*Phase 2 as built:* `TemplatePicker` (`features/emailtemplates`) beside Attach, `SaveAsTemplateDialog` at its foot, and
+`NoteEditorHandle.insertDoc` placing a template's Markdown (`parseNoteMarkdown`) or Insert follow-up's plain step
+(`plainNoteDoc`) at the cursor. The email records the template applied last (`templateId`).
+
 In `ReplyComposer`, which draws Write email (`EmailComposerDialog`), the Outreach reply and New email:
 
 - **Into an empty editor** the template replaces the body. **Into text** it goes in at the cursor, or at the end where
@@ -279,6 +286,11 @@ tokens (the pills serialised back to `{{…}}`), plus the subject for a new emai
 signature lives only in the stored HTML `body` and never in the editor.
 
 ## E. The send guard
+
+*Phase 2 as built (decision 16):* no pills. `composer.tokens` (the server's own values, `SequenceTokensResponse`) feeds
+the line under the editor and the picker's preview; the line names each variable no email fills and each with nothing
+on file and no fallback, and Send now and Schedule wait. The server's `OUTREACH_TOKENS_UNFILLED` makes the composer read
+the conversation again, so the line names what went blank meanwhile. The bullets below are the Phase 0 plan.
 
 - **Pills.** The conversation read's `composer` carries this executive's values (`tokens`, from
   `OutreachPersonalisation.tokensOf` in `ConversationService.composerOf`; the booking link read only through `linkOf`,
