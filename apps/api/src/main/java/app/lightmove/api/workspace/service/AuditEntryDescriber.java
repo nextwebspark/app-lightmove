@@ -43,6 +43,7 @@ class AuditEntryDescriber {
     private static final String MEMBER_TARGET = "member";
     private static final String INVITATION_TARGET = "invitation";
     private static final String CLIENT_TARGET = "client";
+    private static final String EMAIL_TEMPLATE_TARGET = "emailTemplate";
     /** The one metadata key read for anything but phrasing: the membership a team change names, resolved by id. */
     private static final String TEAM_MEMBER_KEY = "memberId";
 
@@ -54,6 +55,7 @@ class AuditEntryDescriber {
 
     private final AuditLogPhrasing phrasing;
     private final AuditTargetLabels targetLabels;
+    private final SharedEmailTemplateNames emailTemplateNames;
     private final WorkspaceRepository workspaces;
     private final WorkspaceMemberRepository members;
     private final InvitationRepository invitations;
@@ -85,11 +87,13 @@ class AuditEntryDescriber {
         Map<UUID, String> clientNames = targetLabels.clientNames(workspaceId, idsOf(rows, CLIENT_TARGET));
         Map<UUID, String> positionTitles = targetLabels.positionTitles(workspaceId,
                 idsOf(rows, AuditService.PROJECT_TARGET));
+        Map<UUID, String> templateNames = emailTemplateNames.namesOf(workspaceId, idsOf(rows, EMAIL_TEMPLATE_TARGET));
 
         return rows.stream().map(row -> {
             String targetName = switch (String.valueOf(row.getTargetType())) {
                 case INVITATION_TARGET -> invitationEmails.get(uuidOrNull(row.getTargetId()));
                 case CLIENT_TARGET -> clientNames.get(uuidOrNull(row.getTargetId()));
+                case EMAIL_TEMPLATE_TARGET -> templateNames.get(uuidOrNull(row.getTargetId()));
                 default -> {
                     WorkspaceMember member = memberById.get(memberTargetOf(row));
                     User named = member == null ? null : userById.get(member.getUserId());

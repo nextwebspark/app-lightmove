@@ -668,6 +668,19 @@ public enum ErrorCode {
 
     EMAIL_SIGNATURE_LIMIT_REACHED(HttpStatus.CONFLICT, "You can keep up to 10 signatures"),
 
+    /** Another person's personal email template reads the same as one that never existed. */
+    EMAIL_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "That email template does not exist"),
+
+    /** A shared email template changed by someone who is neither its owner nor a workspace admin. */
+    EMAIL_TEMPLATE_NOT_YOURS(HttpStatus.FORBIDDEN,
+            "Only its owner or a workspace admin can change this template. Duplicate it to make your own"),
+
+    EMAIL_TEMPLATE_LIMIT_REACHED(HttpStatus.CONFLICT, "You can keep up to 100 email templates"),
+
+    /** The version sent is not the row's: someone saved or shared the template since it was read. */
+    EMAIL_TEMPLATE_STALE(HttpStatus.CONFLICT,
+            "Someone changed this template after you opened it. Reload to see their version"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

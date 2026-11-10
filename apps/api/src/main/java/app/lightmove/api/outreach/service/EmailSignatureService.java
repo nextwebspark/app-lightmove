@@ -154,7 +154,7 @@ public class EmailSignatureService {
      * only the default their snapshot saw, and the second meets the first's new one on the one-default index.
      */
     private void lockSignaturesOf(UUID userId) {
-        users.lockForSignatureChange(userId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        users.lockForOwnContentChange(userId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
     private EmailSignature owned(UUID userId, UUID workspaceId, UUID signatureId) {

@@ -33,8 +33,11 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("select u from User u where u.id = :id")
     Optional<User> lockForAvatarChange(UUID id);
 
-    /** A signature's write: a double-clicked save, two Make defaults or two tabs at the limit decide one after another. */
+    /**
+     * A signature's or an email template's write: a double-clicked save, two Make defaults or two tabs at a limit decide
+     * one after another.
+     */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.id = :id")
-    Optional<User> lockForSignatureChange(UUID id);
+    Optional<User> lockForOwnContentChange(UUID id);
 }
