@@ -254,7 +254,7 @@ dataexport/                # the Companies grid as a CSV — composes the same s
   service/(CompaniesCsvWriter, ProjectExportService)  controller/(ProjectExportController)
 
 report/                    # the mandate's talent mapping report — four chapters over one read, plus Ranking;
-                           # owns one table, the position's ranking scenario (V203), and never writes the brief
+                           # owns one table, the position's ranking scenario (V204), and never writes the brief
   model/(ReportSources, ExecutiveRow, ReportCalendar, RankingScenario, BriefWeighting)
   dto/(ReportResponse + one record per chapter and per row of it; RankingResponse, SaveRankingScenarioRequest)
   repository/(RankingScenarioRepository)
