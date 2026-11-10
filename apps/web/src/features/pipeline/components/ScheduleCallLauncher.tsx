@@ -18,7 +18,8 @@ export function ScheduleCallLauncher({
   projectId: string;
   row: PipelineRow;
   onClose: () => void;
-  onOpenContact: (row: PipelineRow) => void;
+  /** Offered beside a refusal that the contact details can fix; absent where there is no such window. */
+  onOpenContact?: (row: PipelineRow) => void;
 }) {
   const record = useQuery({
     queryKey: poolApi.PERSON_RECORD_KEY(row.personId),
@@ -32,7 +33,7 @@ export function ScheduleCallLauncher({
     : record.data.doNotContact
       ? `${row.fullName} is marked do not contact.`
       : emails.length === 0
-        ? `There is no email on file to send ${row.fullName} the invite.`
+        ? `There is no email on file to send ${row.fullName} the invite.${onOpenContact ? "" : " Add one to their profile first."}`
         : null;
 
   if (refusal === null) {
@@ -52,10 +53,11 @@ export function ScheduleCallLauncher({
     <Modal
       open
       onClose={onClose}
-      title={`Book a call with ${row.fullName}`}
+      title={`Book a meeting with ${row.fullName}`}
       closeButton
       footer={
-        !record.isError && (
+        !record.isError &&
+        onOpenContact && (
           <Button
             size="sm"
             variant="secondary"
@@ -64,7 +66,7 @@ export function ScheduleCallLauncher({
               onOpenContact(row);
             }}
           >
-            Open Contact
+            Open contact details
           </Button>
         )
       }

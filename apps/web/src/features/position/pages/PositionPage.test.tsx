@@ -408,6 +408,60 @@ describe("PositionPage", () => {
     });
   });
 
+  describe("two sections saved together", () => {
+    it("sends one section's save only after the other's has landed, never both at once", async () => {
+      let landContext: (saved: Position) => void = () => {};
+      vi.mocked(positionApi.putContext).mockImplementationOnce(
+        () => new Promise<Position>((resolve) => (landContext = resolve)),
+      );
+      vi.mocked(positionApi.putReporting).mockResolvedValue(seeded);
+      renderPage();
+      const person = userEvent.setup();
+
+      // Two decisions on one screen, each its own section's immediate save: both rewrite the brief's one row.
+      await person.click(await screen.findByRole("radio", { name: "Succession plan" }));
+      await person.click(screen.getByRole("radio", { name: "3 months" }));
+
+      await waitFor(() => expect(positionApi.putContext).toHaveBeenCalledTimes(1));
+      expect(positionApi.putReporting).not.toHaveBeenCalled();
+
+      landContext(seeded);
+      await waitFor(() => expect(positionApi.putReporting).toHaveBeenCalledTimes(1));
+      expect(await within(rail()).findByText("Saved")).toBeInTheDocument();
+    });
+  });
+
+  describe("an edit held back because the server would refuse it", () => {
+    it("reads as unsaved, and Save draft says what holds it rather than Draft saved", async () => {
+      vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+      renderPage();
+      const person = userEvent.setup();
+
+      await person.clear(await screen.findByRole("combobox", { name: "Role title" }));
+      const city = screen.getByRole("textbox", { name: "City" });
+      await person.clear(city);
+      await person.type(city, "Riyadh");
+
+      expect(await within(rail()).findByRole("button", { name: "Not saved — Retry" })).toBeInTheDocument();
+      await person.click(within(rail()).getByRole("button", { name: "Save draft" }));
+
+      expect(await screen.findByText(/can't be saved without one/)).toBeInTheDocument();
+      expect(screen.queryByText("Draft saved")).not.toBeInTheDocument();
+      expect(positionApi.putDetails).not.toHaveBeenCalled();
+    });
+
+    it("does not publish while an edit is held back", async () => {
+      renderPage();
+      const person = userEvent.setup();
+
+      await person.clear(await screen.findByRole("combobox", { name: "Role title" }));
+      await person.click(within(rail()).getByRole("button", { name: "Publish profile" }));
+
+      expect(await screen.findByText(/can't be saved without one/)).toBeInTheDocument();
+      expect(positionApi.publish).not.toHaveBeenCalled();
+    });
+  });
+
   describe("a section the server refuses", () => {
     const unavailable = () =>
       new ApiRequestError({ code: "INTERNAL_ERROR", detail: "Service unavailable", status: 503, correlationId: "c1" });
@@ -470,12 +524,45 @@ describe("PositionPage", () => {
       await person.type(title, "compl");
       await person.click(screen.getByRole("option", { name: /Chief Compliance Officer/ }));
 
+      // The brief holds a typed responsibility, so the redraft, which has no Undo, waits for a yes.
+      const confirm = await screen.findByRole("dialog", { name: /Redraft the brief as Chief Compliance Officer/ });
+      expect(positionApi.applyTemplate).not.toHaveBeenCalled();
+      await person.click(within(confirm).getByRole("button", { name: "Redraft the brief" }));
+
       await waitFor(() => expect(positionApi.applyTemplate).toHaveBeenCalledWith("p1", "t-cco"));
       // The title is the mandate's and travels through the ordinary details write, not the template.
       await waitFor(() =>
         expect(lastCall(positionApi.putDetails)[1]).toMatchObject({ roleTitle: "Chief Compliance Officer" }),
       );
       expect(screen.getByText("Group compliance framework")).toBeInTheDocument();
+    });
+
+    it("redrafts nothing when the redraft is declined", async () => {
+      renderPage();
+      const person = userEvent.setup();
+
+      const title = await screen.findByRole("combobox", { name: "Role title" });
+      await person.clear(title);
+      await person.type(title, "compl");
+      await person.click(screen.getByRole("option", { name: /Chief Compliance Officer/ }));
+      const confirm = await screen.findByRole("dialog", { name: /Redraft the brief/ });
+      await person.click(within(confirm).getByRole("button", { name: "Cancel" }));
+
+      expect(positionApi.applyTemplate).not.toHaveBeenCalled();
+    });
+
+    it("never commits a suggestion the pointer only passed over once the list is closed", async () => {
+      renderPage();
+      const person = userEvent.setup();
+
+      const title = await screen.findByRole("combobox", { name: "Role title" });
+      await person.clear(title);
+      await person.type(title, "compl");
+      await person.hover(screen.getByRole("option", { name: /Chief Compliance Officer/ }));
+      await person.keyboard("{Escape}{Enter}");
+
+      expect(screen.queryByRole("dialog", { name: /Redraft the brief/ })).not.toBeInTheDocument();
+      expect(positionApi.applyTemplate).not.toHaveBeenCalled();
     });
 
     it("stays a free-text title when the catalog cannot be read", async () => {

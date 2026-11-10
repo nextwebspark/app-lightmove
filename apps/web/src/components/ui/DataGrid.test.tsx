@@ -74,8 +74,10 @@ function Harness({
   groupBy,
   menuOnHeaderClick,
   onDeleteColumn,
+  clearFiltersColumnId,
 }: {
   menuOnHeaderClick?: boolean;
+  clearFiltersColumnId?: string;
   onDeleteColumn?: (columnId: string) => void;
   onLayout?: (layout: GridLayout) => void;
   columnFilters?: Record<string, DataGridColumnFilter>;
@@ -113,6 +115,7 @@ function Harness({
         onLayout?.(next);
       }}
       columnFilters={columnFilters}
+      clearFiltersColumnId={clearFiltersColumnId}
       onEditColumn={onEditColumn}
       onDeleteColumn={onDeleteColumn}
       groupBy={groupBy}
@@ -486,6 +489,76 @@ describe("DataGrid header menu — a checkbox filter", () => {
       />,
     );
     expect(screen.getByRole("button", { name: "Sector column menu" })).toHaveClass("text-u-accent");
+  });
+});
+
+describe("DataGrid header menu — clearing filters", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  const SECTOR_OPTIONS = [
+    { value: "energy", label: "Energy" },
+    { value: "tech", label: "Technology" },
+  ];
+
+  it("draws a ✕ in a text filter only while it holds text, and clears it with the caret kept in the box", async () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <Harness columnFilters={{ sector: { value: "", onChange, "aria-label": "Filter by sector" } }} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    expect(screen.queryByRole("button", { name: "Clear filter" })).not.toBeInTheDocument();
+
+    rerender(<Harness columnFilters={{ sector: { value: "Ener", onChange, "aria-label": "Filter by sector" } }} />);
+    await userEvent.click(screen.getByRole("button", { name: "Clear filter" }));
+
+    expect(onChange).toHaveBeenCalledWith("");
+    expect(screen.getByRole("textbox", { name: "Filter by sector" })).toHaveFocus();
+  });
+
+  it("offers Clear on a checkbox filter only once something is ticked", async () => {
+    const onChange = vi.fn();
+    const filter = (selected: string[]): DataGridColumnFilter => ({
+      kind: "check",
+      options: SECTOR_OPTIONS,
+      selected,
+      onChange,
+      "aria-label": "Filter by sector",
+    });
+    const { rerender } = render(<Harness columnFilters={{ sector: filter([]) }} />);
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    expect(screen.queryByRole("button", { name: "Clear selection" })).not.toBeInTheDocument();
+
+    rerender(<Harness columnFilters={{ sector: filter(["energy"]) }} />);
+    await userEvent.click(screen.getByRole("button", { name: "Clear selection" }));
+
+    expect(onChange).toHaveBeenCalledWith([]);
+  });
+
+  it("shows Clear all filters only while a filter is in force, and resets every filter with it", async () => {
+    const onText = vi.fn();
+    const onCheck = vi.fn();
+    const filters = (text: string, selected: string[]): Record<string, DataGridColumnFilter> => ({
+      name: { value: text, onChange: onText, "aria-label": "Filter by name" },
+      sector: { kind: "check", options: SECTOR_OPTIONS, selected, onChange: onCheck, "aria-label": "Filter by sector" },
+    });
+    const { rerender } = render(<Harness columnFilters={filters("", [])} />);
+    expect(screen.queryByRole("button", { name: "Clear all filters" })).not.toBeInTheDocument();
+
+    rerender(<Harness columnFilters={filters("Aca", ["tech"])} />);
+    await userEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
+
+    expect(onText).toHaveBeenCalledWith("");
+    expect(onCheck).toHaveBeenCalledWith([]);
+  });
+
+  it("puts Clear all filters in the header of the column it is given", () => {
+    const filters: Record<string, DataGridColumnFilter> = {
+      name: { value: "Aca", onChange: vi.fn(), "aria-label": "Filter by name" },
+    };
+    render(<Harness columnFilters={filters} clearFiltersColumnId="sector" menuOnHeaderClick />);
+
+    expect(within(cellFor("sector")).getByRole("button", { name: "Clear all filters" })).toBeInTheDocument();
+    expect(within(cellFor("revenue")).queryByRole("button", { name: "Clear all filters" })).not.toBeInTheDocument();
   });
 });
 

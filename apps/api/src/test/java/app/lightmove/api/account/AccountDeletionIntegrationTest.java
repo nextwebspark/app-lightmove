@@ -80,6 +80,10 @@ class AccountDeletionIntegrationTest extends FlowTestSupport {
         db.update("insert into app_lm_notification_preference (user_id, workspace_id, kind, in_app, email) "
                 + "values (?, ?::uuid, 'MENTIONED', true, false)", omarId, beta);
         db.update("insert into app_lm_member_availability (workspace_id, user_id) values (?::uuid, ?)", alpha, omarId);
+        db.update("insert into app_lm_email_signature (workspace_id, user_id, name, layout, is_default) "
+                + "values (?::uuid, ?, 'Work', 'CLASSIC', true)", alpha, omarId);
+        db.update("update app_lm_user set phone = '+971 50 123 4567', linkedin_url = 'https://www.linkedin.com/in/omar' "
+                + "where id = ?", omarId);
         String grant = "nylas-" + UUID.randomUUID();
         db.update("""
                 insert into app_lm_mailbox_connection (workspace_id, user_id, provider, address, grant_id, status,
@@ -108,9 +112,12 @@ class AccountDeletionIntegrationTest extends FlowTestSupport {
         assertThat(deleted.getResponse().getStatus()).as(deleted.getResponse().getContentAsString()).isEqualTo(204);
         assertThat(deleted.getResponse().getHeader("Set-Cookie")).contains("lm_refresh=").contains("Max-Age=0");
         Map<String, Object> account = db.queryForMap(
-                "select email, full_name, title, password_hash, status, deleted_at from app_lm_user where id = ?", omarId);
+                "select email, full_name, title, phone, linkedin_url, password_hash, status, deleted_at from app_lm_user "
+                        + "where id = ?", omarId);
         assertThat(account.get("email")).isEqualTo("deleted-" + omarId + "@deleted.invalid");
         assertThat(account.get("full_name")).isEqualTo("Former member");
+        assertThat(account.get("phone")).isNull();
+        assertThat(account.get("linkedin_url")).isNull();
         assertThat(account.get("password_hash")).isNull();
         assertThat(account.get("status")).isEqualTo("DELETED");
         assertThat(account.get("deleted_at")).isNotNull();
@@ -124,7 +131,8 @@ class AccountDeletionIntegrationTest extends FlowTestSupport {
         assertThat(db.queryForObject("select revoked_reason from app_lm_api_key where id = ?::uuid", String.class, keyId))
                 .isEqualTo("MEMBER_REMOVED");
         for (String table : List.of("app_lm_refresh_token", "app_lm_user_identity", "app_lm_verification_token",
-                "app_lm_user_avatar", "app_lm_notification_preference", "app_lm_member_availability")) {
+                "app_lm_user_avatar", "app_lm_notification_preference", "app_lm_member_availability",
+                "app_lm_email_signature")) {
             assertThat(countOf(table, omarId)).as(table).isZero();
         }
         // Let go at the provider once the deletion has committed, off the request.

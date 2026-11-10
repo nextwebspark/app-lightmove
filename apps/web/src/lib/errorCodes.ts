@@ -38,6 +38,7 @@ export type ApiErrorCode =
   | "FORBIDDEN"
   | "INVITATION_INVALID"
   | "INVITATION_EXPIRED"
+  | "INVITATION_EMAIL_NOT_SENT"
   | "LAST_ADMIN"
   | "MEMBER_LEADS_PROJECTS"
   | "CLIENT_ALREADY_EXISTS"
@@ -55,6 +56,10 @@ export type ApiErrorCode =
   | "PERSON_DOCUMENT_DUPLICATE"
   | "PERSON_DOCUMENT_NOT_YOURS"
   | "PERSON_DOCUMENT_LIMIT"
+  | "EMAIL_IMAGE_UNREADABLE"
+  | "EMAIL_IMAGE_TOO_LARGE"
+  | "EMAIL_SIGNATURE_NOT_FOUND"
+  | "EMAIL_SIGNATURE_LIMIT_REACHED"
   | "CANDIDATE_TAG_EXISTS"
   | "CANDIDATE_TAG_RETIRED"
   | "CANDIDATE_ASSESSMENT_STALE"
@@ -72,7 +77,9 @@ export type ApiErrorCode =
   | "PERSON_DO_NOT_CONTACT"
   | "PERSON_SUPPRESSED"
   | "PERSON_PROCESSING_RESTRICTED"
+  | "PERSON_PROCESSING_RESTRICTION_NOT_YOURS"
   | "PERSON_ERASE_SEND_IN_FLIGHT"
+  | "SUPPRESSION_UNAVAILABLE"
   | "TASK_ASSIGNEE_NOT_ON_TEAM"
   | "TASK_NOT_YOURS"
   | "STRATEGY_SEARCH_NAME_TAKEN"
@@ -101,7 +108,6 @@ export type ApiErrorCode =
   | "BILLING_PACK_UNKNOWN"
   | "SUBSCRIPTION_BILLED_BY_STRIPE"
   | "SEAT_LIMIT_REACHED"
-  | "CANDIDATE_PROFILE_URL_LOCKED"
   | "EXECUTIVE_SOURCING_UNAVAILABLE"
   | "EXECUTIVE_SOURCING_TOO_MANY_COMPANIES"
   | "EXECUTIVE_SOURCING_IN_PROGRESS"
@@ -214,6 +220,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
     "The fallback template can't be archived or hidden — a title nothing else matches is drafted from it.",
   TEMPLATE_IMPORT_INVALID: "Some templates in the file are invalid, so none were imported.",
   LAST_ADMIN: "A workspace must keep at least one admin.",
+  INVITATION_EMAIL_NOT_SENT: "The invitation is saved, but its email didn't go out. Try resending it in a few minutes.",
   MEMBER_LEADS_PROJECTS: "They are the only lead on active positions — hand those over first.",
   CLIENT_ALREADY_EXISTS: "That name is already taken.",
   PROJECT_LAST_LEAD: "A position must keep at least one lead.",
@@ -258,6 +265,10 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PERSON_DOCUMENT_DUPLICATE: "That file is already on this candidate.",
   PERSON_DOCUMENT_NOT_YOURS: "Only the person who uploaded this, or an admin, can remove it.",
   PERSON_DOCUMENT_LIMIT: "This candidate has reached the limit for documents.",
+  EMAIL_IMAGE_UNREADABLE: "That picture could not be read. Use a JPEG or PNG.",
+  EMAIL_IMAGE_TOO_LARGE: "That picture is too large. Use one under 5 MB.",
+  EMAIL_SIGNATURE_NOT_FOUND: "That signature no longer exists. Pick another, or send without one.",
+  EMAIL_SIGNATURE_LIMIT_REACHED: "You can keep up to 10 signatures. Delete one to make another.",
   TASK_ASSIGNEE_NOT_ON_TEAM: "They aren't on this position's team. Add them in Team & access, or pick someone who is.",
   TASK_NOT_YOURS: "Only whoever set this task, whoever it's assigned to, the position's lead or an admin can change it.",
   CANDIDATE_TAG_EXISTS: "Your team already has that tag.",
@@ -280,7 +291,9 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PERSON_SUPPRESSED: "This person is on your workspace's suppression list, so they can't be added.",
   PERSON_PROCESSING_RESTRICTED:
     "Processing is restricted for this person, so this can't be done until the restriction is lifted.",
+  PERSON_PROCESSING_RESTRICTION_NOT_YOURS: "Only the person who restricted processing, or an admin, can lift it.",
   PERSON_ERASE_SEND_IN_FLIGHT: "An email to this person is sending right now. Try again in a minute.",
+  SUPPRESSION_UNAVAILABLE: "Your workspace's suppression list can't be checked right now, so nobody can be added. Contact Uncava support.",
   // Two uploads raise this — the spreadsheet import and the position description — so the wording
   // stays neutral. Naming one screen's file types here misdescribes the other's refusal, and each
   // dropzone already states what it takes.
@@ -303,8 +316,6 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   BILLING_PACK_UNKNOWN: "That credit pack is no longer sold. Choose another.",
   SUBSCRIPTION_BILLED_BY_STRIPE: "This workspace already pays through Stripe — change the plan from Invoices & card.",
   SEAT_LIMIT_REACHED: "Every seat your workspace pays for is taken. An admin can add seats through Contact Uncava in Settings → Billing.",
-  CANDIDATE_PROFILE_URL_LOCKED:
-    "This profile was captured from LinkedIn, so its URL is not editable.",
   EXECUTIVE_SOURCING_UNAVAILABLE: "Find executives isn't switched on for your workspace. Contact Uncava support to turn it on.",
   EXECUTIVE_SOURCING_TOO_MANY_COMPANIES: "Too many companies ticked. Find executives takes a limited batch — untick some and try again.",
   EXECUTIVE_SOURCING_IN_PROGRESS: "A Find executives run is already in progress for this position.",

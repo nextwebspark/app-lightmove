@@ -18,6 +18,7 @@ const PLACEHOLDERS: Record<CompanyNoteKind, string> = {
   meeting: "Where you met, what came out of it…",
   email: "What was sent or received, and the reply…",
   linkedin: "What was exchanged with the company on LinkedIn…",
+  whatsapp: "What was exchanged with the company on WhatsApp…",
 };
 
 /**

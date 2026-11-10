@@ -8,10 +8,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * A feature holding something about a person that their erasure must reach: declared here and implemented where the
- * rows live, so {@code candidate} never depends on outreach, the notetaker, tasks, the bell or the vendor caches —
- * the {@code ProjectCandidateCounter} shape. Most of a person's rows go by cascade with theirs; a contributor handles
- * what a cascade cannot: a send in flight, a file in the bucket, a call at Recall, a copy of their name elsewhere.
+ * What a person's erasure must reach that no cascade does — a send in flight, a file, a call at Recall, a copy of
+ * their name — declared here and implemented where the rows live, so {@code candidate} depends on none of them.
  */
 public interface PersonErasureContributor {
 

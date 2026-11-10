@@ -177,6 +177,10 @@ export function SectionEditor<S extends ProfileFormSection>({
         form.setError("fullName", { message: messageFor(error) });
         return;
       }
+      if (section === "identity" && codeOf(error) === "PERSON_PROFILE_HELD") {
+        form.setError("linkedinUrl", { message: messageFor(error) });
+        return;
+      }
       setSubmitError(messageFor(error));
     },
   });

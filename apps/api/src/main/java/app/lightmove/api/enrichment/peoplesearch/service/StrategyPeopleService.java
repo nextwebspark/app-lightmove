@@ -1,7 +1,7 @@
 package app.lightmove.api.enrichment.peoplesearch.service;
 
 import app.lightmove.api.candidate.service.CandidateService;
-import app.lightmove.api.candidate.service.PersonSuppressionService;
+import app.lightmove.api.candidate.service.SuppressionGate;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.ContactOutSettings;
@@ -60,7 +60,7 @@ public class StrategyPeopleService {
     private final StrategyService strategy;
     private final TriageCompanyReadService triage;
     private final CandidateService candidates;
-    private final PersonSuppressionService suppression;
+    private final SuppressionGate suppression;
     private final RateLimiter limiter;
     private final PeoplePageMeter meter;
     private final AuditService audit;
@@ -69,7 +69,7 @@ public class StrategyPeopleService {
 
     public StrategyPeopleService(CachedContactOutPeopleQuery contactOut, StrategyService strategy,
                                  TriageCompanyReadService triage, CandidateService candidates,
-                                 PersonSuppressionService suppression, RateLimiter limiter,
+                                 SuppressionGate suppression, RateLimiter limiter,
                                  PeoplePageMeter meter, AuditService audit, LightMoveProperties properties,
                                  ObjectMapper json) {
         this.contactOut = contactOut;

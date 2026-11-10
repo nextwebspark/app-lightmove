@@ -13,6 +13,7 @@ import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.retention.service.CandidateRetentionService;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +55,15 @@ class CandidateRetentionIntegrationTest extends FlowTestSupport {
         JsonNode due = body(due().andExpect(status().isOk()).andReturn());
         assertThat(due.get("total").asLong()).isZero();
         assertThat(due.get("cutoff").isNull()).isTrue();
+        for (String page : List.of("limit=0", "limit=501", "offset=-1")) {
+            assertThat(codeOf(mvc.perform(get("/api/v1/workspace/retention/due?" + page)
+                            .header("Authorization", "Bearer " + admin))
+                    .andExpect(status().isBadRequest()).andReturn())).as(page).isEqualTo("VALIDATION_FAILED");
+        }
+        String[] tooMany = Stream.generate(() -> UUID.randomUUID().toString()).limit(51)
+                .toArray(String[]::new);
+        assertThat(codeOf(people("erase", tooMany).andExpect(status().isBadRequest()).andReturn()))
+                .as("a delete is sent in batches").isEqualTo("VALIDATION_FAILED");
 
         String member = "keeper-member@" + domain;
         inviteAndAccept(admin, "Mira Member", member, "MEMBER");

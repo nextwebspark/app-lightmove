@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,17 +35,25 @@ import tools.jackson.databind.ObjectMapper;
  * its id but the audit trail and billing records ({@link WorkspacePurgeTables}), then every file under {@code ws/{id}/},
  * leaving the workspace row a tombstone and a deletion certificate, audited and emailed to whoever deleted it.
  *
- * <p>A workspace is claimed on {@code app_lm_workspace}, which carries no policy, by a lease committed before any work,
- * so two instances never purge one and a purge whose instance died is resumed after the lease by the next. All the
- * work runs inside the workspace's {@code WorkspaceScope} and in batches of their own transactions; the certificate's
- * counts are taken at the first attempt and checked against an empty workspace at the last, so a purge that left a row
- * behind fails rather than certifying it.
+ * <p>A workspace is claimed on {@code app_lm_workspace}, which carries no policy, by a lease committed before any work
+ * and renewed with every batch, so two instances never purge one and a purge whose instance died is resumed after the
+ * lease by the next. All the work runs inside the workspace's {@code WorkspaceScope} and in batches of their own
+ * transactions; the certificate's counts are taken at the first attempt and checked against an empty workspace at the
+ * last, so a purge that left a row behind fails rather than certifying it.
+ *
+ * <p>A contributor that could not yet release what it holds outside the database fails the attempt, keeping the rows
+ * that are its only way back for the next, up to {@link #RELEASE_PATIENCE} after the purge first began. The
+ * certificate's email is owed until the mail service accepts it, and asked again every pass for
+ * {@link #NOTICE_PATIENCE}.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class WorkspacePurge {
 
+    /** How long a purge waits on a provider before deleting the rows that were its only way back. */
+    public static final Duration RELEASE_PATIENCE = Duration.ofDays(7);
+    static final Duration NOTICE_PATIENCE = Duration.ofDays(7);
     private static final Duration LEASE = Duration.ofHours(1);
     private static final String TOMBSTONE_NAME = "Deleted workspace";
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("d MMMM yyyy").withZone(ZoneOffset.UTC);
@@ -73,6 +82,7 @@ public class WorkspacePurge {
 
     /** Answers how many workspaces were purged. One that fails is left claimed until its lease runs out. */
     public int purgeDueAt(Instant now) {
+        sendOwedNoticesAt(now);
         int purged = 0;
         Optional<ClaimedPurge> claimed;
         while ((claimed = claimNext(now)).isPresent()) {
@@ -106,27 +116,24 @@ public class WorkspacePurge {
 
     private void purge(ClaimedPurge purge, Instant now) {
         UUID workspaceId = purge.workspaceId();
-        for (WorkspacePurgeContributor contributor : contributors) {
-            try {
-                contributor.beforePurge(workspaceId);
-            } catch (RuntimeException failed) {
-                log.warn("{} could not release what deleted workspace {} held outside the database",
-                        contributor.getClass().getSimpleName(), workspaceId, failed);
-            }
-        }
+        releaseHoldings(purge, now);
+        renewLease(workspaceId);
 
         List<String> order = tables.purgeOrder();
-        WorkspacePurgeCertificate certificate = transaction.execute(status -> certificates.begin(workspaceId,
+        WorkspacePurgeCertificate begun = transaction.execute(status -> certificates.begin(workspaceId,
                 purge.deletedAt(), purge.deletedBy(), purge.startedAt(), tables.rowsOf(workspaceId, order),
                 tables.rowsOf(workspaceId, retainedCounted())));
 
         for (String table : order) {
             int deleted;
             do {
-                deleted = transaction.execute(status -> tables.deleteBatch(table, workspaceId));
+                deleted = transaction.execute(status -> {
+                    renewLease(workspaceId);
+                    return tables.deleteBatch(table, workspaceId);
+                });
             } while (deleted > 0);
         }
-        certificates.addDeletedFiles(certificate.id(), deleteFiles(workspaceId));
+        certificates.addDeletedFiles(begun.id(), deleteFiles(workspaceId));
 
         Map<String, Long> left = tables.rowsOf(workspaceId, order).entrySet().stream()
                 .filter(entry -> entry.getValue() > 0)
@@ -135,24 +142,50 @@ public class WorkspacePurge {
             throw new IllegalStateException("rows of deleted workspace " + workspaceId + " survived the purge: " + left);
         }
 
-        PurgeNotice notice = transaction.execute(status -> {
+        WorkspacePurgeCertificate certificate = transaction.execute(status -> {
             WorkspacePurgeCertificate completed = certificates.complete(workspaceId, now);
-            PurgeNotice owed = tombstone(workspaceId, now, completed);
+            tombstone(workspaceId, now);
             audit.event(WorkspaceEventType.WORKSPACE_PURGED).workspace(workspaceId)
                     .target("workspace_purge_certificate", completed.id())
                     .detail("rows", completed.deletedRows())
                     .detail("files", completed.objectCount())
                     .detail("tables", completed.rowCounts().size())
                     .record();
-            return owed;
+            return completed;
         });
         log.info("Purged deleted workspace {}: {} rows, {} files; certificate {}", workspaceId,
-                notice.certificate().deletedRows(), notice.certificate().objectCount(), notice.certificate().id());
-        if (notice.email() != null) {
-            emails.send(templates.buildWorkspacePurgedEmail(notice.email(), notice.workspaceName(),
-                    DAY.format(now), notice.certificate().id().toString(), notice.certificate().deletedRows(),
-                    notice.certificate().objectCount(), notice.certificate().bodySha256()));
+                certificate.deletedRows(), certificate.objectCount(), certificate.id());
+        sendNotice(workspaceId, now);
+    }
+
+    /** Every contributor is asked on every attempt; any one still holding something holds the purge back. */
+    private void releaseHoldings(ClaimedPurge purge, Instant now) {
+        List<String> holding = new ArrayList<>();
+        for (WorkspacePurgeContributor contributor : contributors) {
+            try {
+                contributor.beforePurge(purge.workspaceId());
+            } catch (RuntimeException failed) {
+                holding.add(contributor.getClass().getSimpleName());
+                log.warn("{} could not yet release what deleted workspace {} held outside the database",
+                        contributor.getClass().getSimpleName(), purge.workspaceId(), failed);
+            }
         }
+        if (holding.isEmpty()) {
+            return;
+        }
+        if (now.isBefore(purge.startedAt().plus(RELEASE_PATIENCE))) {
+            throw new IllegalStateException(holding + " still hold what deleted workspace " + purge.workspaceId()
+                    + " kept outside the database");
+        }
+        log.error("{} still could not release what deleted workspace {} held outside the database {} after its purge"
+                + " began; purging regardless", holding, purge.workspaceId(), RELEASE_PATIENCE);
+    }
+
+    /** Never shortens a lease: a pass run for an arranged moment claims ahead of the clock. */
+    private void renewLease(UUID workspaceId) {
+        jdbc.update("""
+                UPDATE app_lm_workspace SET purge_claimed_until = greatest(purge_claimed_until, ?)
+                 WHERE id = ? AND purged_at IS NULL""", Timestamp.from(clock.instant().plus(LEASE)), workspaceId);
     }
 
     private long deleteFiles(UUID workspaceId) {
@@ -172,23 +205,84 @@ public class WorkspacePurge {
                 .toList();
     }
 
-    /** Ids stay — the audit trail and billing rows reference them — and every word that named the firm goes. */
-    private PurgeNotice tombstone(UUID workspaceId, Instant purgedAt, WorkspacePurgeCertificate certificate) {
-        Map<String, Object> before = jdbc.queryForMap(
-                "SELECT name, purge_notice_email FROM app_lm_workspace WHERE id = ? FOR UPDATE", workspaceId);
+    /**
+     * Ids stay — the audit trail and billing rows reference them — and every word that named the firm goes, but the
+     * name the certificate's email gives, kept beside its address only until that email is accepted.
+     */
+    private void tombstone(UUID workspaceId, Instant purgedAt) {
         jdbc.update("""
                 UPDATE app_lm_workspace
-                   SET name = ?, slug = 'deleted-' || id::text, email_domain = 'deleted.invalid', logo_mark = NULL,
+                   SET purge_notice_name = CASE WHEN purge_notice_email IS NULL THEN NULL ELSE name END,
+                       name = ?, slug = 'deleted-' || id::text, email_domain = 'deleted.invalid', logo_mark = NULL,
                        company_size = NULL, primary_region = NULL, team_focus = NULL, apollo_account_id = NULL,
                        company_industry = NULL, company_city = NULL, company_country = NULL, company_website = NULL,
-                       company_linkedin_url = NULL, logo_url = NULL, persona = ?::jsonb, purge_notice_email = NULL,
+                       company_linkedin_url = NULL, logo_url = NULL, persona = ?::jsonb,
                        purge_claimed_until = NULL, purged_at = ?, version = version + 1
                  WHERE id = ?""",
                 TOMBSTONE_NAME, json.writeValueAsString(HiringPersona.empty()), Timestamp.from(purgedAt), workspaceId);
-        return new PurgeNotice((String) before.get("purge_notice_email"), (String) before.get("name"), certificate);
+    }
+
+    private void sendOwedNoticesAt(Instant now) {
+        List<UUID> owed = jdbc.queryForList("""
+                SELECT id FROM app_lm_workspace
+                 WHERE purged_at IS NOT NULL AND purge_notice_email IS NOT NULL
+                   AND (purge_claimed_until IS NULL OR purge_claimed_until <= ?)""", UUID.class, Timestamp.from(now));
+        for (UUID workspaceId : owed) {
+            try {
+                WorkspaceScope.run(workspaceId, () -> sendNotice(workspaceId, now));
+            } catch (RuntimeException failed) {
+                log.error("Sending the purge certificate of workspace {} failed; it is tried again after {}",
+                        workspaceId, LEASE, failed);
+            }
+        }
+    }
+
+    /**
+     * Claimed on the tombstone's lease, so of two instances one sends. The address and the name go once the mail
+     * service accepts it, or once {@link #NOTICE_PATIENCE} has passed; a refused one waits out the lease.
+     */
+    private void sendNotice(UUID workspaceId, Instant now) {
+        List<OwedNotice> claimed = transaction.execute(status -> jdbc.query("""
+                UPDATE app_lm_workspace SET purge_claimed_until = ?
+                 WHERE id = ? AND purged_at IS NOT NULL AND purge_notice_email IS NOT NULL
+                   AND (purge_claimed_until IS NULL OR purge_claimed_until <= ?)
+                RETURNING purge_notice_email, purge_notice_name, purged_at""",
+                (row, index) -> new OwedNotice(row.getString("purge_notice_email"), row.getString("purge_notice_name"),
+                        row.getTimestamp("purged_at").toInstant()),
+                Timestamp.from(now.plus(LEASE)), workspaceId, Timestamp.from(now)));
+        if (claimed == null || claimed.isEmpty()) {
+            return;
+        }
+        OwedNotice notice = claimed.getFirst();
+        Optional<WorkspacePurgeCertificate> certificate = transaction.execute(status -> certificates.of(workspaceId));
+        boolean accepted = certificate != null && certificate.isPresent() && accepted(notice, certificate.get());
+        if (!accepted && now.isBefore(notice.purgedAt().plus(NOTICE_PATIENCE))) {
+            log.warn("The mail service did not accept the purge certificate of workspace {}; tried again after {}",
+                    workspaceId, LEASE);
+            return;
+        }
+        if (!accepted) {
+            log.error("Gave up emailing the purge certificate of workspace {} after {}; a platform admin can read it",
+                    workspaceId, NOTICE_PATIENCE);
+        }
+        jdbc.update("""
+                UPDATE app_lm_workspace
+                   SET purge_notice_email = NULL, purge_notice_name = NULL, purge_claimed_until = NULL
+                 WHERE id = ?""", workspaceId);
+    }
+
+    private boolean accepted(OwedNotice notice, WorkspacePurgeCertificate certificate) {
+        try {
+            return emails.trySend(templates.buildWorkspacePurgedEmail(notice.email(), notice.workspaceName(),
+                    DAY.format(notice.purgedAt()), certificate.id().toString(), certificate.deletedRows(),
+                    certificate.objectCount(), certificate.bodySha256()));
+        } catch (RuntimeException failed) {
+            log.warn("Could not send the purge certificate of a deleted workspace", failed);
+            return false;
+        }
     }
 
     private record ClaimedPurge(UUID workspaceId, Instant deletedAt, UUID deletedBy, Instant startedAt) {}
 
-    private record PurgeNotice(String email, String workspaceName, WorkspacePurgeCertificate certificate) {}
+    private record OwedNotice(String email, String workspaceName, Instant purgedAt) {}
 }

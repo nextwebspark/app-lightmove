@@ -91,7 +91,7 @@
     "arbitraryText": 4
   },
   "features/candidates/components/CandidateFieldGroups.tsx": {
-    "arbitraryText": 26,
+    "arbitraryText": 25,
     "arbitraryRadius": 8
   },
   "features/candidates/components/CandidateProfile.tsx": {
@@ -120,10 +120,6 @@
   "features/candidates/components/documents/DocumentsPanel.tsx": {
     "arbitraryRadius": 7,
     "arbitraryText": 18
-  },
-  "features/candidates/components/documents/PrimaryCvChip.tsx": {
-    "arbitraryRadius": 1,
-    "arbitraryText": 2
   },
   "features/candidates/components/NoteParts.tsx": {
     "arbitraryText": 8,
@@ -159,7 +155,7 @@
     "arbitraryText": 3
   },
   "features/candidates/components/pool/PersonProfileTab.tsx": {
-    "arbitraryText": 2
+    "arbitraryText": 1
   },
   "features/candidates/components/pool/PoolFilterRail.tsx": {
     "arbitraryRadius": 2
@@ -223,7 +219,7 @@
     "arbitraryText": 4
   },
   "features/contactlookup/components/ContactPanel.tsx": {
-    "arbitraryText": 8
+    "arbitraryText": 7
   },
   "features/customcolumns/components/CustomFieldsFieldset.tsx": {
     "arbitraryText": 1
@@ -267,10 +263,6 @@
   "features/outreach/components/MeetingsSection.tsx": {
     "arbitraryText": 11,
     "arbitraryRadius": 4
-  },
-  "features/outreach/components/OutreachSection.tsx": {
-    "arbitraryRadius": 4,
-    "arbitraryText": 6
   },
   "features/outreach/components/PeopleInOutreach.tsx": {
     "arbitraryText": 18,
@@ -357,7 +349,7 @@
     "arbitraryText": 3
   },
   "features/projects/components/NewProjectModal.tsx": {
-    "arbitraryText": 6
+    "arbitraryText": 3
   },
   "features/projects/components/ProjectDrawer.tsx": {
     "arbitraryRadius": 2,

@@ -13,6 +13,6 @@ public interface MemberDetachment {
     /** The positions {@link #assertRemovable} refuses over, named for a person deleting their account. */
     List<LedAlonePosition> positionsLedAloneBy(UUID memberId);
 
-    /** Releases every reference to the membership row (team seats, assignments). */
+    /** Releases every reference to the membership row (team seats, assignments, client contacts). */
     void detach(UUID memberId);
 }

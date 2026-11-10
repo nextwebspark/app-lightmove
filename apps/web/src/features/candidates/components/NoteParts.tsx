@@ -7,7 +7,7 @@ import { useRadioGroupKeys } from "../../../components/ui/useRadioGroupKeys";
 import { cn } from "../../../lib/cn";
 import type { PersonNote, PersonNoteKind } from "../api/types";
 import { shortWhen } from "../lib/candidateActivity";
-import { NOTE_KINDS, noteKindLabel } from "../lib/noteKinds";
+import { happenedAtOf, isContactNote, NOTE_KINDS, noteKindLabel } from "../lib/noteKinds";
 import { NoteEditor } from "../../notes/components/NoteEditor";
 import { NoteKindMark } from "./NoteKindMark";
 import { ClampedNoteText } from "../../notes/components/ClampedNoteText";
@@ -18,10 +18,20 @@ import type { TeammateOption } from "../../tasks/lib/team";
 /** Who reads a note written inside a position: that position's team, or every position's. */
 export type NoteScope = "position" | "everywhere";
 
-export function NoteKindPicker({ value, onChange }: { value: PersonNoteKind; onChange: (kind: PersonNoteKind) => void }) {
-  return (
-    <NoteChoiceChips label="Kind of note" options={KIND_OPTIONS} value={value} onChange={onChange} className="mb-2" />
-  );
+export function NoteKindPicker({
+  value,
+  onChange,
+  kinds,
+  label = "Kind of note",
+}: {
+  value: PersonNoteKind;
+  onChange: (kind: PersonNoteKind) => void;
+  /** The kinds offered, in the composer's order; every kind when left out. */
+  kinds?: readonly PersonNoteKind[];
+  label?: string;
+}) {
+  const options = kinds ? KIND_OPTIONS.filter((option) => kinds.includes(option.value)) : KIND_OPTIONS;
+  return <NoteChoiceChips label={label} options={options} value={value} onChange={onChange} className="mb-2" />;
 }
 
 const KIND_OPTIONS = NOTE_KINDS.map((option) => ({
@@ -128,11 +138,20 @@ export interface NoteCardActions {
  * actions it offers Pin to anyone and Edit and Delete to whoever may change it; Delete asks first, a stray click
  * on a note being too easy, and is still taken back with the toast's Undo.
  */
+/** A timeline's head for a note: the kind's mark leading, the note's heading, and its author beneath. */
+export interface NoteCardLead {
+  mark: ReactNode;
+  heading: string;
+}
+
 export function NoteCard({
   note,
   actions,
   teammates = null,
   flashAt = null,
+  showsKindMark = true,
+  lead = null,
+  namesPosition = true,
 }: {
   note: NoteCardNote;
   actions?: NoteCardActions;
@@ -143,6 +162,11 @@ export function NoteCard({
    * wash is its own element so the card keeps its identity, and with it the keyboard focus it was given.
    */
   flashAt?: number | null;
+  /** Off on a timeline whose spine already draws the kind's mark: the card keeps the kind's word alone. */
+  showsKindMark?: boolean;
+  lead?: NoteCardLead | null;
+  /** Off inside a position, where "About" would only repeat the position being read. */
+  namesPosition?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
@@ -163,6 +187,27 @@ export function NoteCard({
     setEditing(false);
   };
 
+  const pinnedMark = note.pinned && (
+    <span className="flex items-center gap-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-u-accent">
+      <Icon d={ICONS.pin} size={10} />
+      Pinned
+    </span>
+  );
+  // A log is dated by when it happened; the hover says when it was written, where that differs.
+  const when = (
+    <time
+      dateTime={happenedAtOf(note)}
+      title={
+        happenedAtOf(note) === note.createdAt
+          ? new Date(note.createdAt).toLocaleString()
+          : `Happened ${new Date(happenedAtOf(note)).toLocaleString()} · logged ${new Date(note.createdAt).toLocaleString()}`
+      }
+      className="ms-auto flex-none font-mono text-[11px] text-u-text3"
+    >
+      {isContactNote(note.kind) ? whenWithClock(happenedAtOf(note)) : shortWhen(note.createdAt)}
+    </time>
+  );
+
   return (
     <li
       id={noteAnchorOf(note.id)}
@@ -179,29 +224,38 @@ export function NoteCard({
           className="animate-note-flash pointer-events-none absolute -inset-px rounded-[inherit] border border-transparent"
         />
       )}
-      <div className="flex items-center gap-2">
-        <Avatar id={note.authorUserId} name={authorName} src={note.authorAvatarUrl} size="sm" />
-        <span className="text-[12.5px] font-semibold">{authorName}</span>
-        <span className="flex items-center gap-1 text-u-text3">
-          <NoteKindMark kind={note.kind} size={12} />
-          <span className="rounded-[4px] bg-u-raised px-1.5 py-px font-mono text-[9.5px] font-semibold uppercase tracking-[0.06em]">
-            {noteKindLabel(note.kind)}
-          </span>
-        </span>
-        {note.pinned && (
-          <span className="flex items-center gap-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-u-accent">
-            <Icon d={ICONS.pin} size={10} />
-            Pinned
-          </span>
-        )}
-        <time
-          dateTime={note.createdAt}
-          title={new Date(note.createdAt).toLocaleString()}
-          className="ms-auto flex-none font-mono text-[11px] text-u-text3"
-        >
-          {shortWhen(note.createdAt)}
-        </time>
-      </div>
+      {lead ? (
+        <div className="flex items-start gap-2.5">
+          {lead.mark}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-2">
+              <span className="min-w-0 flex-1 text-body font-semibold text-u-text">{lead.heading}</span>
+              {pinnedMark}
+              <span className="ms-auto flex flex-none items-center gap-1.5 self-center">
+                <Avatar id={note.authorUserId} name={authorName} src={note.authorAvatarUrl} size="xs" title={authorName} />
+                <span className="sr-only">{authorName}</span>
+                {when}
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Avatar id={note.authorUserId} name={authorName} src={note.authorAvatarUrl} size="sm" />
+          <span className="text-[12.5px] font-semibold">{authorName}</span>
+          {/* A plain note is the Notes tab's only kind, so it carries no tag; a call or a LinkedIn or WhatsApp message does. */}
+          {note.kind !== "general" && (
+            <span className="flex items-center gap-1 text-u-text3">
+              {showsKindMark && <NoteKindMark kind={note.kind} size={12} />}
+              <span className="rounded-[4px] bg-u-raised px-1.5 py-px font-mono text-[9.5px] font-semibold uppercase tracking-[0.06em]">
+                {noteKindLabel(note.kind)}
+              </span>
+            </span>
+          )}
+          {pinnedMark}
+          {when}
+        </div>
+      )}
       {editing && actions ? (
         // Not a form: the editor's link row is one, and a nested form's submit would save the note with it.
         <div className="mt-2 rounded-u-control border border-u-border p-2">
@@ -241,6 +295,8 @@ export function NoteCard({
           />
         </div>
       ) : (
+        <>
+        {note.title && !lead && <p className="mt-1.5 text-body font-semibold text-u-text">{note.title}</p>}
         <ClampedNoteText
           body={note.body}
           format={note.format}
@@ -248,9 +304,10 @@ export function NoteCard({
           onOpen={() => setReading(true)}
           defaultExpanded={flashAt !== null}
         />
+        </>
       )}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-u-text3">
-        {note.projectTitle ? (
+        {note.projectTitle && namesPosition ? (
           <span>About {note.projectTitle}</span>
         ) : (
           note.projectId === null && <span>All positions</span>
@@ -293,7 +350,11 @@ export function NoteCard({
         title={note.kind === "general" ? "Note" : `${noteKindLabel(note.kind)} note`}
         details={[
           authorName,
-          note.projectTitle ? `About ${note.projectTitle}` : note.projectId === null ? "All positions" : null,
+          note.projectTitle && namesPosition
+            ? `About ${note.projectTitle}`
+            : note.projectId === null
+              ? "All positions"
+              : null,
         ]}
         writtenAt={note.createdAt}
         body={note.body}
@@ -356,4 +417,12 @@ function NoteActionButton({
       <Icon d={icon} size={14} />
     </button>
   );
+}
+
+/** "3 Nov · 15:20": a logged call or meeting is read by the hour it happened, not only the day. */
+function whenWithClock(isoInstant: string): string {
+  const at = new Date(isoInstant);
+  if (Number.isNaN(at.getTime())) return "—";
+  const day = shortWhen(isoInstant);
+  return day.startsWith("Today") ? day : `${day} · ${at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
 }

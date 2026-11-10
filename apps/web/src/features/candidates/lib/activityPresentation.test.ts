@@ -77,6 +77,8 @@ describe("activity presentation", () => {
     expect(noteKindOfEntry(line(1, "NOTE_REMOVED", { details: { kind: "LINKEDIN" } }))).toBeNull();
     expect(noteKindOfEntry(line(1, "STATUS_CHANGED"))).toBeNull();
     expect(verbOf(line(1, "NOTE_ADDED", { details: { kind: "LINKEDIN" } }))).toBe("logged a LinkedIn message");
+    expect(noteKindOfEntry(line(1, "NOTE_ADDED", { details: { kind: "WHATSAPP" } }))).toBe("whatsapp");
+    expect(verbOf(line(1, "NOTE_ADDED", { details: { kind: "WHATSAPP" } }))).toBe("logged a WhatsApp message");
   });
 
   it("draws a kind a newer server writes as a quiet record line rather than failing", () => {

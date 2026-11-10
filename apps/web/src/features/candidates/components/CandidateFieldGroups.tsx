@@ -3,6 +3,7 @@ import {
   Controller,
   useFieldArray,
   useFormContext,
+  useWatch,
   type Control,
   type FieldErrors,
   type FieldValues,
@@ -18,7 +19,6 @@ import { cn } from "../../../lib/cn";
 import { CURRENCIES, currencyOptionLabel, DEFAULT_CURRENCY } from "../../../lib/currencies";
 import { formatNumber } from "../../../lib/format";
 import { NOTICE_PERIODS } from "../../../lib/noticePeriod";
-import { toReadableUrl } from "../../../lib/url";
 import type { CandidateBackgroundField } from "../api/types";
 import {
   allowanceTotalOf,
@@ -32,7 +32,12 @@ import {
   type BaseCadence,
   type BonusBasis,
 } from "../lib/compensation";
-import { EMPTY_CONTACT_LINE, type CandidateForm, type ContactEntryForm } from "../lib/candidateForm";
+import {
+  CONTACTS_PER_CHANNEL,
+  EMPTY_CONTACT_LINE,
+  type CandidateForm,
+  type ContactEntryForm,
+} from "../lib/candidateForm";
 import { CANDIDATE_GENDERS, CANDIDATE_NATIONALITIES, CANDIDATE_SENIORITIES } from "../lib/candidateVocabulary";
 import { AiInferredBadge } from "./AiInferredBadge";
 import { StatusPicker } from "./StatusPicker";
@@ -738,32 +743,17 @@ export function BackgroundFields({
   );
 }
 
-/**
- * The profile link. Locked for a person the plugin captured: the URL is the page it read them off,
- * and research and contact lookup both key on it, so retyping it can only break them. Reads the
- * enclosing form through context, like the contact lines, because two differently shaped forms
- * hold it.
- */
-export function ContactFields({ lockedUrl = null }: { lockedUrl?: string | null }) {
-  const { register, formState } = useFormContext<{ linkedinUrl: string }>();
-  const errors = formState.errors;
-  if (lockedUrl) {
-    return (
-      <Field label="LinkedIn" hint="Captured from this profile page — not editable">
-        <div className="flex items-center gap-2 rounded-lg border border-u-border bg-u-raised px-3 py-2 font-mono text-[13px] text-u-text2">
-          <Icon d={ICONS.lock} size={13} className="flex-none text-u-text3" />
-          <span className="min-w-0 truncate">{toReadableUrl(lockedUrl)}</span>
-        </div>
-      </Field>
-    );
-  }
+/** The profile link, editable even for a person the plugin captured: people move their LinkedIn address. */
+export function LinkedInUrlField({
+  register,
+  error,
+}: {
+  register: UseFormRegister<CandidateForm>;
+  error: string | undefined;
+}) {
   return (
-    <Field label="LinkedIn" error={errors.linkedinUrl?.message}>
-      <Input
-        {...register("linkedinUrl")}
-        placeholder="linkedin.com/in/…"
-        invalid={Boolean(errors.linkedinUrl)}
-      />
+    <Field label="LinkedIn" error={error}>
+      <Input {...register("linkedinUrl")} placeholder="linkedin.com/in/…" invalid={Boolean(error)} />
     </Field>
   );
 }
@@ -778,12 +768,20 @@ export interface ContactEntriesForm {
  * One channel's lines, editable: the value, its kind, whether the person vouches for it, and a
  * remove. Shared by the Add form and the Contact section's edit mode, so adding a person by hand
  * and correcting one later look identical. Reads the enclosing form through context, because the
- * two forms that hold these lines have different shapes around them.
+ * two forms that hold these lines have different shapes around them. The Contact section alone
+ * offers the primary star: one line per channel, marked by moving the mark.
  */
-export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }) {
+export function ContactEntriesFields({
+  channel,
+  offerPrimary = false,
+}: {
+  channel: "email" | "phone";
+  offerPrimary?: boolean;
+}) {
   const { control, register, formState } = useFormContext<ContactEntriesForm>();
   const name = channel === "email" ? "emails" : "phones";
   const lines = useFieldArray({ control, name });
+  const primary = useStandingPrimary(name);
   const errors = formState.errors[name];
   const noun = channel === "email" ? "email" : "phone";
   return (
@@ -792,6 +790,13 @@ export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }
         {lines.fields.map((line, index) => (
           <li key={line.id}>
             <div className="flex flex-wrap items-center gap-2">
+              {offerPrimary && (
+                <PrimaryStar
+                  noun={noun}
+                  primary={primary.isPrimary(index)}
+                  onMakePrimary={() => primary.makePrimary(index)}
+                />
+              )}
               <Input
                 {...register(`${name}.${index}.value`)}
                 inputMode={channel === "email" ? "email" : "tel"}
@@ -850,7 +855,7 @@ export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }
       <button
         type="button"
         onClick={() => lines.append({ ...EMPTY_CONTACT_LINE })}
-        disabled={lines.fields.length >= 10}
+        disabled={lines.fields.length >= CONTACTS_PER_CHANNEL}
         className="mt-2 inline-flex items-center gap-1.5 rounded-[6px] border border-dashed border-u-border-strong px-3 py-1.5 font-sans text-[12.5px] text-u-text2 transition hover:border-u-text3 hover:text-u-text disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Icon d={ICONS.plus} size={13} />
@@ -866,6 +871,61 @@ export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }
 }
 
 const capitalised = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);
+
+/**
+ * Which line of a channel wears the star: the one chosen, else the first, standing in as the server's order
+ * has it. Only a press of Make primary stores a choice, so a save never turns the stand-in into one.
+ */
+export function useStandingPrimary(name: "emails" | "phones") {
+  const { control, getValues, setValue } = useFormContext<ContactEntriesForm>();
+  const chosen = (useWatch({ control, name }) ?? []).findIndex((line) => line.primary);
+  return {
+    isPrimary: (index: number) => (chosen === -1 ? index === 0 : index === chosen),
+    makePrimary: (index: number) =>
+      getValues(name).forEach((_, other) =>
+        setValue(`${name}.${other}.primary`, other === index, { shouldDirty: true }),
+      ),
+  };
+}
+
+/**
+ * The primary mark, the primary CV's star: filled on the one to reach them on, an outline offering to move it
+ * on the rest. Without `onMakePrimary` it only marks.
+ */
+export function PrimaryStar({
+  noun,
+  primary,
+  onMakePrimary,
+  disabled = false,
+}: {
+  noun: "email" | "phone";
+  primary: boolean;
+  onMakePrimary?: () => void;
+  disabled?: boolean;
+}) {
+  const star = <Icon d={ICONS.star} size={14} filled={primary} />;
+  if (!onMakePrimary || primary) {
+    return primary ? (
+      <span role="img" aria-label={`Primary ${noun}`} title={`Primary ${noun}`} className="flex flex-none p-1 text-u-accent">
+        {star}
+      </span>
+    ) : (
+      <span aria-hidden="true" className="size-[22px] flex-none" />
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onMakePrimary}
+      disabled={disabled}
+      aria-label={`Make primary ${noun}`}
+      title={`Make primary ${noun}`}
+      className="flex flex-none rounded-md p-1 text-u-text3 transition hover:bg-u-raised hover:text-u-accent disabled:opacity-50"
+    >
+      {star}
+    </button>
+  );
+}
 
 export function NoteFields({ register, errors }: FieldGroupProps) {
   return (

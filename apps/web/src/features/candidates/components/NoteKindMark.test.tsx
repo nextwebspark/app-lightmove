@@ -21,4 +21,13 @@ describe("NoteKindMark", () => {
       "/brand/linkedin-in-bug-white.png",
     ]);
   });
+
+  it("draws WhatsApp as the network's own mark, never a stroke glyph", () => {
+    const { container } = render(<NoteKindMark kind="whatsapp" size={14} />);
+    expect(container.querySelector("svg")).toBeNull();
+    expect([...container.querySelectorAll("img")].map((img) => img.getAttribute("src"))).toEqual([
+      "/brand/whatsapp-glyph-black.svg",
+      "/brand/whatsapp-glyph-white.svg",
+    ]);
+  });
 });

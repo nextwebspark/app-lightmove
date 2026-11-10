@@ -37,7 +37,8 @@ export function RoleTitleField({
     autoHighlightFirst: false,
     onCommit: (index) => {
       const choice = matches[index];
-      if (choice) onPick(choice);
+      // One redraft at a time: a second Enter while the first applies would redraft twice.
+      if (choice && !busy) onPick(choice);
     },
   });
 
@@ -69,6 +70,7 @@ export function RoleTitleField({
         <ul
           id={LIST_ID}
           role="listbox"
+          onMouseLeave={() => list.setActive(-1)}
           aria-label="Role templates"
           className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-[10px] border border-u-border bg-u-bg py-1 shadow-u-e3"
         >

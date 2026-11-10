@@ -8,6 +8,7 @@ import app.lightmove.api.core.security.dto.OAuthGrantResponse;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.SharedRows;
 import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import jakarta.servlet.http.HttpServletRequest;
@@ -151,7 +152,7 @@ public class OAuthGrantService {
             Runnable end = () -> delete(actorId, List.of(new GrantRef(grant.id(), userId, grant.workspaceId())),
                     reason, httpRequest);
             if (grant.workspaceId() == null) {
-                end.run();
+                SharedRows.run(end);
             } else {
                 WorkspaceScope.runInJoinedTransaction(grant.workspaceId(), end);
             }

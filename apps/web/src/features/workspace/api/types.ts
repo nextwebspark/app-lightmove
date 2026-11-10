@@ -54,6 +54,8 @@ export interface Invitation {
   invitedByName: string | null;
   createdAt: string;
   expiresAt: string;
+  /** The last email for it could not be sent; a resend that goes through clears it. */
+  emailFailed: boolean;
 }
 
 /** The swatches a pipeline stage or status is drawn in: the tag palette's six roles, plus signal and red. */

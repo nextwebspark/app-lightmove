@@ -93,6 +93,7 @@ public enum ErrorCode {
 
     INVITATION_INVALID(HttpStatus.BAD_REQUEST, "This invitation is not valid"),
     INVITATION_EXPIRED(HttpStatus.BAD_REQUEST, "This invitation has expired"),
+    INVITATION_EMAIL_NOT_SENT(HttpStatus.BAD_GATEWAY, "The invitation email could not be sent"),
 
     LAST_ADMIN(HttpStatus.CONFLICT, "A workspace must keep at least one admin"),
 
@@ -234,10 +235,6 @@ public enum ErrorCode {
     CONTACT_LIMIT_REACHED(HttpStatus.CONFLICT,
             "A profile holds ten email addresses and ten phone numbers at most"),
 
-    /** A plugin capture's URL is the page it was read off, and research and contact lookup key on it. */
-    CANDIDATE_PROFILE_URL_LOCKED(HttpStatus.CONFLICT,
-            "This profile was captured from LinkedIn; its URL is not editable"),
-
     /** Another person in the workspace is that LinkedIn profile; the mandate may map them instead. */
     PERSON_PROFILE_HELD(HttpStatus.CONFLICT,
             "Another candidate in this workspace already has that LinkedIn profile"),
@@ -319,6 +316,8 @@ public enum ErrorCode {
      */
     PERSON_PROCESSING_RESTRICTED(HttpStatus.CONFLICT,
             "Processing is restricted for this person, so this can't be done until the restriction is lifted"),
+    PERSON_PROCESSING_RESTRICTION_NOT_YOURS(HttpStatus.FORBIDDEN,
+            "Only the person who restricted processing, or an admin, can lift it"),
 
     /** A LinkedIn profile or email the workspace's suppression list holds: nobody may file that person again. */
     PERSON_SUPPRESSED(HttpStatus.CONFLICT,
@@ -326,6 +325,12 @@ public enum ErrorCode {
 
     /** An email to the person is on its way to the mail service; erasing them now would race it. Nothing changed. */
     PERSON_ERASE_SEND_IN_FLIGHT(HttpStatus.CONFLICT, "An email to this person is sending right now. Try again in a minute"),
+    /**
+     * The deployment has no suppression keyset, or none holding the key a workspace's entries were written under.
+     * Refused rather than read as an empty list, which would let every suppressed person back in.
+     */
+    SUPPRESSION_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
+            "Your workspace's suppression list can't be checked right now, so nobody can be added. Contact Uncava support"),
 
     /** A whole-workspace export is already being built; its card shows it. Nothing new was started. */
     WORKSPACE_EXPORT_RUNNING(HttpStatus.CONFLICT, "An export is already being built. It will be ready soon"),
@@ -671,6 +676,16 @@ public enum ErrorCode {
 
     /** A Stripe webhook whose signature does not verify, or any delivery while no webhook secret is configured. */
     BILLING_WEBHOOK_REJECTED(HttpStatus.BAD_REQUEST, "Bad Request"),
+
+    /** A photo that is not a JPEG or PNG this server can read, or claims a raster too large to decode. */
+    EMAIL_IMAGE_UNREADABLE(HttpStatus.BAD_REQUEST, "That picture could not be read. Use a JPEG or PNG"),
+
+    EMAIL_IMAGE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "That picture is too large. Use one under 5 MB"),
+
+    /** Another person's signature reads the same as one that never existed. */
+    EMAIL_SIGNATURE_NOT_FOUND(HttpStatus.NOT_FOUND, "That signature does not exist"),
+
+    EMAIL_SIGNATURE_LIMIT_REACHED(HttpStatus.CONFLICT, "You can keep up to 10 signatures"),
 
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 

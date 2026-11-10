@@ -152,11 +152,61 @@ class PersonProcessingRestrictionIntegrationTest extends FlowTestSupport {
         assertThat(read.get("fullName").asText()).isEqualTo("Noor Haddad");
     }
 
+    @Test
+    @DisplayName("a restriction is lifted only by whoever set it or an admin, and the read says who may")
+    void onlyTheRestrictorOrAnAdminLifts() throws Exception {
+        String saraAddress = "sara@" + domain;
+        inviteAndAccept(admin, "Sara Al-Mansour", saraAddress, "MEMBER");
+        String sara = login(saraAddress);
+        String omarAddress = "omar@" + domain;
+        inviteAndAccept(admin, "Omar Said", omarAddress, "MEMBER");
+        String omar = login(omarAddress);
+
+        assertThat(body(restrict(sara, """
+                {"restricted":true,"reason":"Asked what we hold about them."}""")
+                .andExpect(status().isOk()).andReturn()).at("/processingRestriction/mayLift").asBoolean()).isTrue();
+        assertThat(body(mvc.perform(get("/api/v1/candidates/" + person).header("Authorization", "Bearer " + omar))
+                .andExpect(status().isOk()).andReturn()).at("/processingRestriction/mayLift").asBoolean()).isFalse();
+
+        assertThat(codeOf(restrict(omar, """
+                {"restricted":false}""").andExpect(status().isForbidden()).andReturn()))
+                .isEqualTo("PERSON_PROCESSING_RESTRICTION_NOT_YOURS");
+        assertThat(db.queryForObject("select processing_restricted from app_lm_person where id = ?::uuid",
+                Boolean.class, person)).isTrue();
+
+        assertThat(body(restrict(admin, """
+                {"restricted":false}""").andExpect(status().isOk()).andReturn())
+                .get("processingRestriction").isNull()).isTrue();
+    }
+
+    @Test
+    @DisplayName("an objection added to someone already restricted is audited on its own")
+    void suppressingSomeoneAlreadyRestrictedIsAudited() throws Exception {
+        restrict("""
+                {"restricted":true,"reason":"Asked what we hold about them."}""").andExpect(status().isOk());
+        restrict("""
+                {"restricted":true,"reason":"Now objects to being approached.","suppress":true}""")
+                .andExpect(status().isOk());
+
+        assertThat(db.queryForObject("select count(*) from app_lm_workspace_suppression s join app_lm_person p"
+                + " on p.workspace_id = s.workspace_id where p.id = ?::uuid", Long.class, person)).isEqualTo(2);
+        assertThat(db.queryForList("select event_type from app_lm_audit_event where target_id = ?"
+                + " and event_type like 'PERSON_%' order by id", String.class, person))
+                .containsExactly("PERSON_PROCESSING_RESTRICTED", "PERSON_SUPPRESSION_ADDED");
+        assertThat(db.queryForObject("select metadata ->> 'added' from app_lm_audit_event where target_id = ?"
+                + " and event_type = 'PERSON_SUPPRESSION_ADDED'", String.class, person)).isEqualTo("2");
+        assertThat(kinds()).containsOnlyOnce("PROCESSING_RESTRICTED");
+    }
+
     // ── fixture ──────────────────────────────────────────────────────────────
 
     private ResultActions restrict(String json) throws Exception {
+        return restrict(admin, json);
+    }
+
+    private ResultActions restrict(String bearer, String json) throws Exception {
         return mvc.perform(put("/api/v1/candidates/" + person + "/processing-restriction")
-                .header("Authorization", "Bearer " + admin)
+                .header("Authorization", "Bearer " + bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json));
     }

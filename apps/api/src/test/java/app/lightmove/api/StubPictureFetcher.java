@@ -43,6 +43,11 @@ public class StubPictureFetcher implements PictureFetcher {
         answers.put(url, pictureOf(original));
     }
 
+    /** The link answers these bytes, as a published logo would. */
+    public void answer(String url, byte[] content) {
+        answers.put(url, new PictureFetch.Fetched(content));
+    }
+
     public List<String> fetched() {
         return List.copyOf(fetched);
     }

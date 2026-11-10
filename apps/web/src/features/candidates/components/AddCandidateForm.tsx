@@ -28,7 +28,7 @@ import {
   CareerFields,
   CompensationFields,
   ContactEntriesFields,
-  ContactFields,
+  LinkedInUrlField,
   IdentityFields,
   NoteFields,
   StatusField,
@@ -194,7 +194,7 @@ export function AddCandidateForm({
                 <ContactEntriesFields channel="phone" />
               </div>
             </div>
-            <ContactFields />
+            <LinkedInUrlField register={register} error={formState.errors.linkedinUrl?.message} />
           </Section>
 
           <Section title="Background">

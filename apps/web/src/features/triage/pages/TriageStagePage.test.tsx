@@ -156,6 +156,8 @@ const lead = {
   title: null,
   avatarUrl: null,
   avatarEditable: true,
+  phone: null,
+  linkedinUrl: null,
   emailVerified: true,
   hasPassword: true,
   timezone: "Asia/Dubai",
@@ -714,6 +716,31 @@ describe("TriageStagePage", () => {
     expect(screen.getByText("Alok Kumar")).toBeInTheDocument();
     // Alok's row is the company's only remaining line, not one of three alongside the others.
     expect(screen.getAllByText("ACWA Power")).toHaveLength(1);
+  });
+
+  it("clears the executive filter from the ✕ in its box, and every column filter from the Actions header", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin, { ...yasmin, id: "c3", fullName: "Alok Kumar" }]),
+    );
+    renderStage();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    await screen.findByText("Yasmin El-Sayed");
+    expect(screen.queryByRole("button", { name: "Clear all filters" })).not.toBeInTheDocument();
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Executive column menu" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter by executive name" }), "Alok");
+    await waitFor(() => expect(screen.queryByText("Yasmin El-Sayed")).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: "Clear filter" }));
+    expect(screen.getByRole("textbox", { name: "Filter by executive name" })).toHaveValue("");
+    await waitFor(() => expect(screen.getByText("Yasmin El-Sayed")).toBeInTheDocument());
+
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter by executive name" }), "Alok");
+    await waitFor(() => expect(screen.queryByText("Yasmin El-Sayed")).not.toBeInTheDocument());
+    await userEvent.click(within(grid).getByRole("button", { name: "Clear all filters" }));
+
+    await waitFor(() => expect(screen.getByText("Yasmin El-Sayed")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Clear all filters" })).not.toBeInTheDocument();
   });
 
   it("offers no Status checkbox at all when the grid holds at most one status", async () => {
@@ -1355,25 +1382,115 @@ describe("TriageStagePage", () => {
     expect(screen.queryByRole("button", { name: /Remove ACWA Power from this mandate/i })).not.toBeInTheDocument();
   });
 
-  it("declines one executive at a company and leaves the company and their colleagues alone", async () => {
-    const omar = { ...yasmin, id: "c2", fullName: "Omar Haddad", title: "CFO" };
+  it("offers no Decline on an executive's line: a company is declined whole, from its drawer", async () => {
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
-      peopleOf(scope.unmapped ? [] : [yasmin, omar]),
+      peopleOf(scope.unmapped ? [] : [yasmin]),
     );
-    vi.mocked(candidatesApi.moveCandidateToStage).mockResolvedValue({ ...omar, triageStatus: "declined" });
     renderStage();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Decline: Omar Haddad" }));
+    await screen.findByRole("button", { name: /Remove Yasmin El-Sayed from this mandate/i });
+    expect(screen.queryByRole("button", { name: /^Decline:/ })).not.toBeInTheDocument();
+  });
 
-    await waitFor(() => expect(candidatesApi.moveCandidateToStage).toHaveBeenCalledWith("p1", "c2", "declined"));
-    expect(candidatesApi.moveCandidateToStage).toHaveBeenCalledTimes(1);
-    expect(triageApi.updateTriageCompany).not.toHaveBeenCalled();
-    expect(await screen.findByText("Omar Haddad moved to declined")).toBeInTheDocument();
+  it("declines a company nobody is mapped at straight from its drawer", async () => {
+    vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, status: "declined" });
+    renderStage();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await userEvent.click(await screen.findByRole("button", { name: /Open ACWA Power/i }));
+    const panel = await screen.findByRole("dialog", { name: /ACWA Power/i });
+    await userEvent.click(within(panel).getByRole("button", { name: "Decline" }));
+
     await waitFor(() =>
-      expect(candidatesApi.moveCandidateToStage).toHaveBeenLastCalledWith("p1", "c2", "inUniverse"),
+      expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", { status: "declined", executiveIds: [] }),
     );
+    expect(screen.queryByRole("dialog", { name: /Decline ACWA Power/ })).not.toBeInTheDocument();
+    expect(await screen.findByText("ACWA Power moved to declined")).toBeInTheDocument();
+  });
+
+  it("asks before declining a company with executives, and declines everyone at it, whatever their stage", async () => {
+    const omar = { ...yasmin, id: "c2", fullName: "Omar Haddad", title: "CFO", triageStatus: "shortlisted" as const };
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : scope.triageStatus ? [yasmin] : [yasmin, omar]),
+    );
+    vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, status: "declined" });
+    renderStage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Open ACWA Power/i }));
+    const panel = await screen.findByRole("dialog", { name: /ACWA Power/i });
+    await userEvent.click(within(panel).getByRole("button", { name: "Decline" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Decline ACWA Power?" });
+    expect(within(dialog).getByText(/ACWA Power has 2 executives/)).toBeInTheDocument();
+    expect(triageApi.updateTriageCompany).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Decline company" }));
+
+    await waitFor(() =>
+      expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", {
+        status: "declined",
+        executiveIds: ["c1", "c2"],
+      }),
+    );
+    expect(await screen.findByText("ACWA Power and 2 executives moved to declined")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Decline ACWA Power?" })).not.toBeInTheDocument());
+  });
+
+  it("declines nothing when the dialog is cancelled", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin]),
+    );
+    renderStage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Open ACWA Power/i }));
+    const panel = await screen.findByRole("dialog", { name: /ACWA Power/i });
+    await userEvent.click(within(panel).getByRole("button", { name: "Decline" }));
+    const dialog = await screen.findByRole("dialog", { name: "Decline ACWA Power?" });
+    expect(within(dialog).getByText(/ACWA Power has 1 executive\./)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog", { name: "Decline ACWA Power?" })).not.toBeInTheDocument();
+    expect(triageApi.updateTriageCompany).not.toHaveBeenCalled();
+  });
+
+  describe("the Declined page", () => {
+    const declinedAcwa = { ...acwa, status: "declined" as const };
+    const declinedYasmin = { ...yasmin, triageStatus: "declined" as const };
+
+    beforeEach(() => {
+      vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(pageOf({ companies: [declinedAcwa] }));
+      vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+        peopleOf(scope.unmapped ? [] : [declinedYasmin]),
+      );
+    });
+
+    it("brings the company back with everyone at it from any of its lines", async () => {
+      vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, status: "inUniverse" });
+      renderStage("declined");
+
+      await userEvent.click(await screen.findByRole("button", { name: "Back to universe: ACWA Power" }));
+
+      await waitFor(() =>
+        expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", {
+          status: "inUniverse",
+          executiveIds: ["c1"],
+        }),
+      );
+      expect(candidatesApi.moveCandidateToStage).not.toHaveBeenCalled();
+    });
+
+    it("lists what was ruled out and offers nothing but Back to universe", async () => {
+      renderStage("declined");
+
+      await screen.findByRole("button", { name: "Back to universe: ACWA Power" });
+      expect(screen.queryByRole("button", { name: /Remove .* from this mandate/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Create/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("combobox", { name: /Status for Yasmin/ })).not.toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: /Open ACWA Power/i }));
+      const panel = await screen.findByRole("dialog", { name: /ACWA Power/i });
+      expect(within(panel).getByRole("button", { name: "Back to universe" })).toBeInTheDocument();
+      expect(within(panel).queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
+      expect(within(panel).queryByRole("button", { name: /Add an executive/ })).not.toBeInTheDocument();
+    });
   });
 
   it("removes one executive from their line, never their company", async () => {

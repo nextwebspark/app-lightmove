@@ -60,7 +60,7 @@ public class WorkspaceMember extends BaseEntity {
     @Column(name = "decided_at")
     private Instant decidedAt;
 
-    /** The workspace's deletion ended this membership, so restoring the workspace brings it back (V179). */
+    /** The workspace's deletion ended this membership, so restoring the workspace brings it back (V202). */
     @Column(name = "ended_with_workspace", nullable = false)
     private boolean endedWithWorkspace;
 
@@ -83,6 +83,15 @@ public class WorkspaceMember extends BaseEntity {
     /** Staff: holds a role besides CLIENT. {@link WorkspaceRole#isStaff} is the same rule over role names. */
     public boolean holdsStaffRole() {
         return roles.stream().anyMatch(role -> !role.is(WorkspaceRole.CLIENT));
+    }
+
+    /**
+     * Whether accepting an invitation to {@code invited} would give this member nothing: they hold it already, or it
+     * is a staff role and they are staff (a second staff role is the roster's to change, never an invitation's).
+     */
+    public boolean alreadyCovers(Role invited) {
+        return roles.stream().anyMatch(held -> held.getId().equals(invited.getId()))
+                || (!invited.is(WorkspaceRole.CLIENT) && holdsStaffRole());
     }
 
     /** Replace-set semantics: the caller states the full set the member should hold afterwards. */

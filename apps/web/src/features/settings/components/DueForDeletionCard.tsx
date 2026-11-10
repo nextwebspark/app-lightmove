@@ -60,7 +60,12 @@ export function DueForDeletionCard({ savedMonths }: { savedMonths: number | null
       void queryClient.invalidateQueries({ queryKey: POOL_KEY });
       toast(erasedToast(result));
     },
-    onError: (error) => toast.error(messageFor(error)),
+    onError: (error) => {
+      setConfirming(false);
+      settle();
+      void queryClient.invalidateQueries({ queryKey: POOL_KEY });
+      toast.error(messageFor(error));
+    },
   });
 
   const toggle = (personId: string) =>

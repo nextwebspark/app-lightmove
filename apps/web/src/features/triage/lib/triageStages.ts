@@ -50,7 +50,7 @@ export const TRIAGE_STAGES: TriageStage[] = [
     label: "Declined",
     icon: ICONS.close,
     emptyMessage:
-      "Nothing declined. Companies you rule out land here, and stay ruled out the next time someone adds in bulk.",
+      "Nothing declined. A company you rule out lands here with everyone mapped at it, and Back to universe brings them all back.",
   },
 ];
 
@@ -59,14 +59,29 @@ export function stageBySlug(slug: string): TriageStage | undefined {
 }
 
 /**
- * Shortlisted and Declined are switched off for now: the API and the rows already filed there keep them, while
- * every screen offers In universe alone and nothing moves a company or an executive anywhere else.
+ * Shortlisted is switched off for now: the API and the rows already filed there keep it, while every screen offers
+ * In universe and Declined alone.
  */
-export const SHORTLIST_AND_DECLINE_OFFERED: boolean = false;
+export const SHORTLIST_OFFERED: boolean = false;
+
+/** Declined is a company's stage: a company is declined with everyone mapped at it, and comes back the same way. */
+export const DECLINE_OFFERED: boolean = true;
+
+/** The map is switched off for now: the globe, its reads and the stored choice stay, while no screen offers the view. */
+export const MAP_OFFERED: boolean = false;
+
+function isStageSwitchedOn(status: TriageCompanyStatus): boolean {
+  if (status === "shortlisted") return SHORTLIST_OFFERED;
+  if (status === "declined") return DECLINE_OFFERED;
+  return true;
+}
 
 /** The stages a screen may show or file at — the rail, the stage route and every "add at" button read this. */
-export const OFFERED_TRIAGE_STAGES: TriageStage[] = TRIAGE_STAGES.filter(
-  (stage) => SHORTLIST_AND_DECLINE_OFFERED || stage.status === "inUniverse",
+export const OFFERED_TRIAGE_STAGES: TriageStage[] = TRIAGE_STAGES.filter((stage) => isStageSwitchedOn(stage.status));
+
+/** The stages a person may be filed at: never Declined, which only a company is. */
+export const PERSON_FILING_STAGES: TriageStage[] = OFFERED_TRIAGE_STAGES.filter(
+  (stage) => stage.status !== "declined",
 );
 
 export function offeredStageBySlug(slug: string): TriageStage | undefined {

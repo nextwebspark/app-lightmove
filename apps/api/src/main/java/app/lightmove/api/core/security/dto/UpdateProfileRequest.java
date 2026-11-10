@@ -25,5 +25,13 @@ public record UpdateProfileRequest(
 
         @NotBlank(message = "Pick a language")
         @Size(max = 16, message = "That is not a language")
-        String locale
+        String locale,
+
+        /** Optional: null leaves it as it is, blank clears it. Shown in the person's email signature. */
+        @Size(max = 40, message = "That phone number is too long")
+        String phone,
+
+        /** Optional, as {@code phone}: their own LinkedIn profile address. */
+        @Size(max = 255, message = "That address is too long")
+        String linkedinUrl
 ) {}

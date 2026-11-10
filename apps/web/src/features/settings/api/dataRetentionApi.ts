@@ -85,8 +85,22 @@ export function keepDue(personIds: string[]): Promise<{ kept: number }> {
   return request<{ kept: number }>("/workspace/retention/due/keep", { method: "POST", body: { personIds } });
 }
 
-export function eraseDue(personIds: string[]): Promise<RetentionErased> {
-  return request<RetentionErased>("/workspace/retention/due/erase", { method: "POST", body: { personIds } });
+/** The most people one delete request carries: each is a whole erasure, so a long selection goes in batches. */
+export const ERASE_BATCH_SIZE = 25;
+
+/** Batch by batch, each already committed when the next is sent; a failure part-way leaves the earlier ones gone. */
+export async function eraseDue(personIds: string[]): Promise<RetentionErased> {
+  const result: RetentionErased = { erased: 0, noLongerDue: 0, sendInFlight: 0 };
+  for (let start = 0; start < personIds.length; start += ERASE_BATCH_SIZE) {
+    const batch = await request<RetentionErased>("/workspace/retention/due/erase", {
+      method: "POST",
+      body: { personIds: personIds.slice(start, start + ERASE_BATCH_SIZE) },
+    });
+    result.erased += batch.erased;
+    result.noLongerDue += batch.noLongerDue;
+    result.sendInFlight += batch.sendInFlight;
+  }
+  return result;
 }
 
 export function getSuppressions(signal?: AbortSignal): Promise<Suppression[]> {

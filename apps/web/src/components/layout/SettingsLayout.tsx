@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { isPureClient } from "../../features/auth/roles";
+import { useDataProtection } from "../../features/candidates/lib/useDataProtection";
+import { cn } from "../../lib/cn";
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
 import { workspaceTabs } from "./mobile/mobileTabs";
@@ -26,10 +28,11 @@ const GRID_PAGES = new Set(["/settings/templates", "/settings/template-library"]
 export function SettingsLayout() {
   const { pathname } = useLocation();
   const { user } = useAuth();
+  const { offered: dataProtection } = useDataProtection();
 
-  useEffect(() => rememberSettingsSection(user, pathname), [user, pathname]);
+  useEffect(() => rememberSettingsSection(user, pathname, { dataProtection }), [user, pathname, dataProtection]);
 
-  const visible = visibleSettingsSections(user);
+  const visible = visibleSettingsSections(user, { dataProtection });
   const groups: SidebarGroup[] = GROUP_ORDER.map((group) => ({
     label: group,
     items: visible
@@ -49,7 +52,10 @@ export function SettingsLayout() {
       contentClassName={
         GRID_PAGES.has(pathname)
           ? "flex h-full w-full flex-col"
-          : "mx-auto max-w-[760px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7"
+          : cn(
+              "mx-auto px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7",
+              WIDE_PAGES.has(pathname) ? "max-w-[1080px]" : "max-w-[760px]",
+            )
       }
     >
       <Outlet />
@@ -57,10 +63,16 @@ export function SettingsLayout() {
   );
 }
 
+/** Pages that draw a form beside its preview, which the narrow column would stack. */
+const WIDE_PAGES = new Set(["/settings/signature"]);
+
 const GROUP_ORDER: SettingsGroupLabel[] = ["Your account", "Workspace", "Platform"];
 
 /** `/settings` itself: the section this person last had open, or the one their role most likely came for. */
 export function SettingsLanding() {
   const { user } = useAuth();
-  return <Navigate to={settingsLandingOf(user)} replace />;
+  const dataProtection = useDataProtection();
+  // A remembered Data & retention is only reachable once the deployment says it is offered.
+  if (dataProtection.isPending) return null;
+  return <Navigate to={settingsLandingOf(user, { dataProtection: dataProtection.offered })} replace />;
 }

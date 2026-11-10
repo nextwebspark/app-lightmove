@@ -1,69 +1,49 @@
 package app.lightmove.api.notetaker.service;
 
+import static app.lightmove.api.candidate.service.PersonErasureQueries.count;
+import static app.lightmove.api.candidate.service.PersonErasureQueries.scopeOf;
+
 import app.lightmove.api.candidate.constant.ErasedHolding;
 import app.lightmove.api.candidate.model.ErasedPerson;
 import app.lightmove.api.candidate.service.PersonErasureContributor;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * A person's recorded calls, as their erasure finds them. The recordings, transcripts and live lines go by cascade;
- * Recall's own copy does not, so once the erasure commits every bot of theirs is called back, out of a call still
- * running, and its media deleted — the 7-day retention would otherwise keep their voice that long.
+ * A person's recorded calls. The rows go by cascade; Recall's copy does not, so each bot is queued for
+ * {@link RecallBotErasureSweeper} in the erasure's transaction and tried once it commits.
  */
 @Component
 @RequiredArgsConstructor
 class PersonErasureNotetaker implements PersonErasureContributor {
 
     private final NamedParameterJdbcTemplate jdbc;
-    private final NotetakerService notetaker;
+    private final RecallBotErasureSweeper sweeper;
 
     @Override
     public Map<ErasedHolding, Long> holdingsOf(UUID workspaceId, UUID personId) {
-        Long recordings = jdbc.queryForObject("""
-                SELECT count(*) FROM app_lm_meeting_recording WHERE person_id = :personId AND workspace_id = :workspaceId
-                """, parameters(workspaceId, personId), Long.class);
-        return Map.of(ErasedHolding.RECORDINGS, recordings == null ? 0 : recordings);
+        return Map.of(ErasedHolding.RECORDINGS, count(jdbc, """
+                SELECT count(*) FROM app_lm_meeting_recording
+                WHERE person_id = :personId AND workspace_id = :workspaceId
+                """, scopeOf(workspaceId, personId)));
     }
 
     @Override
     public void erase(ErasedPerson erased) {
-        List<RecallBot> bots = jdbc.query("""
-                SELECT recall_bot_id, status IN ('SCHEDULED', 'JOINING', 'RECORDING', 'PROCESSING') AS live,
-                       NOT media_deleted AS media_held
+        int queued = jdbc.update("""
+                INSERT INTO app_lm_recall_bot_erasure (recall_bot_id, call_back, delete_media)
+                SELECT recall_bot_id, status IN ('SCHEDULED', 'JOINING', 'RECORDING', 'PROCESSING'), NOT media_deleted
                 FROM app_lm_meeting_recording
                 WHERE person_id = :personId AND workspace_id = :workspaceId AND recall_bot_id IS NOT NULL
-                """, parameters(erased.workspaceId(), erased.personId()),
-                (row, index) -> new RecallBot(row.getString("recall_bot_id"), row.getBoolean("live"),
-                        row.getBoolean("media_held")));
-        if (bots.isEmpty()) {
+                  AND (status IN ('SCHEDULED', 'JOINING', 'RECORDING', 'PROCESSING') OR NOT media_deleted)
+                ON CONFLICT (recall_bot_id) DO NOTHING
+                """, scopeOf(erased.workspaceId(), erased.personId()));
+        if (queued == 0) {
             return;
         }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                bots.forEach(bot -> {
-                    if (bot.live()) {
-                        notetaker.removeQuietly(bot.botId());
-                    }
-                    if (bot.mediaHeld()) {
-                        notetaker.deleteMediaQuietly(bot.botId());
-                    }
-                });
-            }
-        });
+        sweeper.sweepAfterCommit();
     }
-
-    private static MapSqlParameterSource parameters(UUID workspaceId, UUID personId) {
-        return new MapSqlParameterSource("personId", personId).addValue("workspaceId", workspaceId);
-    }
-
-    private record RecallBot(String botId, boolean live, boolean mediaHeld) {}
 }
