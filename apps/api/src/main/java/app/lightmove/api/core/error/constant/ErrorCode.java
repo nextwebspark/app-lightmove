@@ -70,6 +70,16 @@ public enum ErrorCode {
     /** A person with no password proves it is them by having signed in moments ago. */
     MFA_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign out and back in, then turn on two-factor authentication within 10 minutes"),
 
+    /** Account deletion, by a person with no password: the proof is a sign-in moments ago, as for two-factor. */
+    ACCOUNT_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign in again, then delete your account within 10 minutes"),
+
+    /**
+     * Carries {@code soleAdminOf} (workspaces, id and name) and {@code soleLeadOf} (live positions, with their
+     * workspace): what the person must hand over before their account can go, since nobody else could.
+     */
+    ACCOUNT_HANDOVER_REQUIRED(HttpStatus.CONFLICT,
+            "Hand over the workspaces you are the only admin of, and the positions you are the only lead of, first"),
+
     /** Also served for a session belonging to somebody else — a 403 would confirm the id names a real one. */
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "That session is no longer active"),
 
@@ -321,6 +331,15 @@ public enum ErrorCode {
      */
     SUPPRESSION_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
             "Your workspace's suppression list can't be checked right now, so nobody can be added. Contact Uncava support"),
+
+    /** A whole-workspace export is already being built; its card shows it. Nothing new was started. */
+    WORKSPACE_EXPORT_RUNNING(HttpStatus.CONFLICT, "An export is already being built. It will be ready soon"),
+
+    /** Past its expiry, failed or still building: there is no file to download. */
+    WORKSPACE_EXPORT_UNAVAILABLE(HttpStatus.NOT_FOUND, "This export is no longer available. Start a new one"),
+
+    /** A platform admin's restore of a workspace that is not deleted, or whose purge has begun. Nothing changed. */
+    WORKSPACE_NOT_RESTORABLE(HttpStatus.CONFLICT, "This workspace can't be restored"),
 
     /** Nothing was saved. Never sent for a stream that ran out of time: see {@link #ASSISTANT_STILL_ANSWERING}. */
     ASSISTANT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,

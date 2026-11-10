@@ -28,6 +28,8 @@ export type ApiErrorCode =
   | "MFA_SETUP_NOT_STARTED"
   | "MFA_UNAVAILABLE"
   | "MFA_SIGN_IN_AGAIN"
+  | "ACCOUNT_SIGN_IN_AGAIN"
+  | "ACCOUNT_HANDOVER_REQUIRED"
   | "SESSION_NOT_FOUND"
   | "CURRENT_SESSION_NOT_REVOCABLE"
   | "WORKSPACE_NOT_FOUND"
@@ -186,6 +188,8 @@ export type ApiErrorCode =
   | "NOTETAKER_RECORDING_UNAVAILABLE"
   | "INTERVIEW_PLAN_DRAFTING"
   | "WORKSPACE_NAME_MISMATCH"
+  | "WORKSPACE_EXPORT_RUNNING"
+  | "WORKSPACE_EXPORT_UNAVAILABLE"
   | "ARCHIVE_NAME_MISMATCH"
   | "CLIENT_HAS_LIVE_POSITIONS"
   | "CLIENT_ARCHIVED"
@@ -226,6 +230,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CLIENT_ALREADY_EXISTS: "That name is already taken.",
   PROJECT_LAST_LEAD: "A position must keep at least one lead.",
   WORKSPACE_NAME_MISMATCH: "Type the workspace name exactly to confirm.",
+  WORKSPACE_EXPORT_RUNNING: "An export is already being built. It will be ready soon.",
+  WORKSPACE_EXPORT_UNAVAILABLE: "This export is no longer available. Start a new one.",
   ARCHIVE_NAME_MISMATCH: "Type the name exactly as shown to confirm.",
   PROJECT_ARCHIVED: "This position is archived. Restore it to start outreach.",
   CLIENT_HAS_LIVE_POSITIONS: "Some of its positions are still open. Their leads archive them first.",
@@ -250,6 +256,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   MFA_SETUP_NOT_STARTED: "That setup has ended. Start again to get a new QR code.",
   MFA_UNAVAILABLE: "Two-factor authentication is not available yet.",
   MFA_SIGN_IN_AGAIN: "Sign out and back in, then turn on two-factor authentication within 10 minutes.",
+  ACCOUNT_SIGN_IN_AGAIN: "Sign in again to show it's you, then delete your account within 10 minutes.",
+  ACCOUNT_HANDOVER_REQUIRED: "Hand over the workspaces and positions only you run first.",
   SESSION_NOT_FOUND: "That session has already ended.",
   CURRENT_SESSION_NOT_REVOCABLE: "Use sign out to end the session you are using.",
   STRATEGY_SEARCH_NAME_TAKEN: "A search with that name is already saved here.",

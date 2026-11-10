@@ -52,7 +52,13 @@ public enum AuthEventType implements AuditEventType {
      * credential leaving the browser for an extension's storage, and the only record of when a
      * consultant's account gained one.
      */
-    EXTENSION_PAIRED;
+    EXTENSION_PAIRED,
+
+    /** The person downloaded their own account as a file. Written with no workspace: it is the account's. */
+    ACCOUNT_DATA_EXPORTED,
+
+    /** The person deleted their account: every membership ended, every credential gone, the row anonymised. */
+    ACCOUNT_DELETED;
 
     @Override
     public String code() {

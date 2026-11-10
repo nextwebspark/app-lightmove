@@ -331,6 +331,7 @@ describe("routes — the settings gates", () => {
       createdAt: "2026-03-14T09:00:00Z",
       persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
       company: null,
+      deletionGraceDays: 30,
     });
 
     renderAt("/settings/general");

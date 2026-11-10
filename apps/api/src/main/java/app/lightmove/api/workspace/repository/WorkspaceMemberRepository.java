@@ -42,8 +42,13 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
     @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByWorkspaceIdAndUserId(UUID workspaceId, UUID userId);
 
+    /** Every membership row the person holds, whatever its status, oldest first. */
+    List<WorkspaceMember> findAllByUserIdOrderByJoinedAtAsc(UUID userId);
+
     @EntityGraph(attributePaths = "roles")
     List<WorkspaceMember> findByWorkspaceIdAndStatus(UUID workspaceId, MemberStatus status);
+
+    List<WorkspaceMember> findByWorkspaceIdAndEndedWithWorkspaceTrue(UUID workspaceId);
 
     /** The staff roster: everyone but a <b>pure</b> client (CLIENT alongside a staff role is staff). */
     @EntityGraph(attributePaths = "roles")

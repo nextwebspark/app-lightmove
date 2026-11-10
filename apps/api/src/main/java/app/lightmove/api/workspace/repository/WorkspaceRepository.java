@@ -16,4 +16,9 @@ public interface WorkspaceRepository extends JpaRepository<Workspace, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select w from Workspace w where w.id = :id")
     Optional<Workspace> lockForRosterChange(UUID id);
+
+    /** Held against the purge's claim, which takes the same row {@code FOR UPDATE}: a restore and a purge never race. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT w FROM Workspace w WHERE w.id = :id")
+    Optional<Workspace> lockById(UUID id);
 }
