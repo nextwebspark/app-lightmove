@@ -514,6 +514,16 @@ describe("routes — changing a mistyped address on the verify step", () => {
 
     await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/signup"));
   });
+
+  it("takes this tab's unsaved scorecards with the session", async () => {
+    vi.mocked(authApi.logout).mockRejectedValue(new Error("503"));
+    sessionStorage.setItem("lm.scorecard-draft.c-1", "{}");
+    renderAt("/signup/verify-email");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Change email" }));
+
+    await waitFor(() => expect(sessionStorage.getItem("lm.scorecard-draft.c-1")).toBeNull());
+  });
 });
 
 /** The way back out of a position goes to the list it was opened from, and says so. */
