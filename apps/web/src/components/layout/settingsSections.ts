@@ -29,13 +29,12 @@ export interface SettingsSection {
 }
 
 /** What this deployment offers, beside who the caller is. */
-/** What the deployment offers; a section it does not name is held back. */
 export interface SettingsOffers {
-  dataProtection?: boolean;
-  billing?: boolean;
+  dataProtection: boolean;
+  billing: boolean;
 }
 
-const NOTHING_OFFERED: SettingsOffers = {};
+const NOTHING_OFFERED: SettingsOffers = { dataProtection: false, billing: false };
 
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { to: "/settings/profile", label: "Profile", icon: ICONS.profile, group: "Your account" },

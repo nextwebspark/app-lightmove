@@ -42,12 +42,12 @@ describe("the /settings landing and Data & retention", () => {
     vi.resetAllMocks();
     localStorage.clear();
     vi.mocked(billingApi.getBilling).mockResolvedValue(aBilling());
-    rememberSettingsSection(admin, "/settings/data", { dataProtection: true });
+    rememberSettingsSection(admin, "/settings/data", { dataProtection: true, billing: true });
   });
 
   it("lands on a remembered Data & retention only while the deployment offers it", () => {
-    expect(settingsLandingOf(admin, { dataProtection: true })).toBe("/settings/data");
-    expect(settingsLandingOf(admin, { dataProtection: false })).toBe("/settings/general");
+    expect(settingsLandingOf(admin, { dataProtection: true, billing: true })).toBe("/settings/data");
+    expect(settingsLandingOf(admin, { dataProtection: false, billing: true })).toBe("/settings/general");
     expect(settingsLandingOf(admin)).toBe("/settings/general");
   });
 
@@ -71,11 +71,18 @@ describe("the /settings landing and Billing", () => {
     vi.resetAllMocks();
     localStorage.clear();
     vi.mocked(dataProtectionApi.getDataProtectionConfig).mockResolvedValue({ enabled: false });
-    rememberSettingsSection(admin, "/settings/billing", { billing: true });
+    rememberSettingsSection(admin, "/settings/billing", { dataProtection: false, billing: true });
   });
 
   it("lands on a remembered Billing while the deployment bills", async () => {
     vi.mocked(billingApi.getBilling).mockResolvedValue(aBilling());
+    renderLanding();
+
+    expect(await screen.findByText("Billing page")).toBeInTheDocument();
+  });
+
+  it("still lands on Billing when the read fails, the page saying why", async () => {
+    vi.mocked(billingApi.getBilling).mockRejectedValue(new Error("offline"));
     renderLanding();
 
     expect(await screen.findByText("Billing page")).toBeInTheDocument();
