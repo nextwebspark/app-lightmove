@@ -7,11 +7,11 @@ documents backups, recovery and encryption at rest.
 
 None of it is behind `DATA_PROTECTION_ENABLED`. It is hygiene, not a feature.
 
-| Piece | PR | Branch | Base | Status |
-|---|---|---|---|---|
-| Audit details hold ids only | #1276 | `feature/927-audit-ids-only` | `main` | open, not reviewed |
-| Mask personal data in deployed logs | #1279 | `feature/927-log-masking` | #1276 (stacked) | open, not reviewed |
-| Backups, PITR, encryption, log retention (docs only) | #1280 | `docs/927-backups` | `main` | open, not reviewed |
+| Piece | PR | Branch | Base |
+|---|---|---|---|
+| Audit details hold ids only | #1276 | `feature/927-audit-ids-only` | `main` |
+| Mask personal data in deployed logs | #1279 | `feature/927-log-masking` | #1276 (stacked) |
+| Backups, PITR, encryption, log retention (docs only) | #1280 | `docs/927-backups` | `main` |
 
 **Merge order:** #1276 first. #1279 then retargets to `main`. #1280 is independent and can merge at any time.
 
@@ -140,13 +140,14 @@ It also updates:
 
 ### Code and review
 
-- [ ] Review #1276, #1279 and #1280 (fable or codex). None has a review yet.
+- [ ] Review #1276, #1279 and #1280 (fable or codex).
 - [ ] Merge #1276, retarget #1279 to `main` and merge it, then merge #1280.
 - [ ] Run the e2e matrix after #1279 (`cd e2e && PROFILE=e2e ./run-all.sh`). It reads the local log.
 
 ### Ops steps after merge (by hand, in production)
 
-- [ ] **Scrub old audit rows**, once, as `postgres`:
+- [ ] **Scrub old audit rows**, once, as `postgres`, **after #1276 is deployed**. Run before it, the old revision
+  keeps writing names into new rows in the meantime:
   ```bash
   gcloud sql connect bright-gcc --user=postgres --database=lightmove < ops/cloudsql/scrub-audit-pii.sql
   ```
