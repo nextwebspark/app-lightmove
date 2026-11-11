@@ -376,7 +376,7 @@ mapping report (`GET /projects/{id}/report`): four chapters — mapping
 progress, shape of the market, remuneration, diversity — aggregated live by `report` from the same
 rows, so nothing is stored and nothing goes stale. It reads one chapter at a time behind a numbered
 step rail, the chapter kept in the URL (`?chapter=`), and its mockup is the `reports` page of
-`claude-design/Position.dc.html` — drawn in the UNCAVA palette (`--color-u-*`) — the only palette
+`uncava-design/Position.dc.html` — drawn in the UNCAVA palette (`--color-u-*`) — the only palette
 the code has: the old app names (`panel`, `amber`, `sky`, …) are gone from both apps, and an unset
 theme opens dark. It states only what the rows carry: a candidate's
 status but no pipeline outcome, and a package in another currency is counted rather than converted.
@@ -463,7 +463,7 @@ companies with an executive mapped (`mappedCompanies` of `companies` on `GET /pr
 metrics, stage gates, the team and hiring managers, and **recent activity** — `GET
 /projects/{id}/activity`, a cursor-paged, allowlisted read of the audit trail, `WORK_EXECUTE` so a
 client seat never sees it, phrased and merged into lines by `lib/activity.ts`. The **Position**
-screen is the mandate's brief, drawn in `claude-design/Position.dc.html` (issue #442) in the UNCAVA
+screen is the mandate's brief, drawn in `uncava-design/Position.dc.html` (issue #442) in the UNCAVA
 palette like every screen — as five steps behind a rail (Role Brief,
 Reporting, Compensation, Assessment Criteria, Review & Publish), the step kept in the URL (`?step=`)
 and each section autosaving through its own write. It opens drafted rather than
@@ -547,7 +547,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 | `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `task` and `notification` (epic #862, `docs/tasks-notifications.md`), `notetaker` (Recall.ai bots, `docs/notetaker.md`), `account` (a person's own account: its export and deletion, #926) |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
-| `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
+| `../uncava-design/` (separate repo) | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
 | `ops/cloudsql/` | Database bootstrap and hardening scripts |
 
 `position` is the mandate's **brief** — what the role is, why it exists, what it pays and what a
