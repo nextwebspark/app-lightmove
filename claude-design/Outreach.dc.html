@@ -558,26 +558,10 @@
                 <textarea value="{{ rv.opener }}" onChange="{{ onOpener }}" rows="3" aria-label="Opener" style="width:100%;resize:vertical;border:none;background:transparent;outline:none;font:400 13.5px/1.6 var(--sans);color:var(--text);padding:0"></textarea>
               </div>
               <div style="font:400 13.5px/1.6 var(--sans);color:var(--text2);white-space:pre-wrap">{{ rv.rest }}</div>
-              <!-- The signature every email of this run carries, follow-ups too: chosen here, frozen at Start. -->
+              <!-- The sender's default, on every email of the run: nothing is picked here; drawn and frozen at Start. -->
               <div data-screen-label="Sequence signature" style="margin-top:14px;border-top:1px solid var(--line-soft);padding-top:10px">
-                <!-- The composer's picker, by the same count: several, one (it or none), or none kept at all. -->
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font:400 12px var(--mono);color:var(--text3)">
-                  <span>Signature</span>
-                  <sc-if value="{{ sg.enSeveral }}" hint-placeholder-val="{{ false }}">
-                    <select value="{{ sg.enChoice }}" onChange="{{ sgEnPick }}" aria-label="Signature" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--sans);color:var(--text)">
-                      <option value="formal">Formal (default)</option>
-                      <option value="short">Short reply</option>
-                      <option value="none">No signature</option>
-                    </select>
-                  </sc-if>
-                  <sc-if value="{{ sg.enOne }}" hint-placeholder-val="{{ true }}">
-                    <select value="{{ sg.enChoice }}" onChange="{{ sgEnPick }}" aria-label="Signature" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--sans);color:var(--text)">
-                      <option value="formal">Formal (default)</option>
-                      <option value="none">No signature</option>
-                    </select>
-                  </sc-if>
-                  <sc-if value="{{ sg.hasAny }}" hint-placeholder-val="{{ true }}"><span>On every email of the sequence, follow-ups too</span></sc-if>
-                  <sc-if value="{{ sg.none }}" hint-placeholder-val="{{ false }}"><span style="font-family:var(--sans)">No signature yet · <a href="Settings.dc.html?section=signatures" style="color:var(--sky)">Add one in Settings</a></span></sc-if>
+                  <span>Signature · your default, on every email of the sequence</span>
                 </div>
                 <sc-if value="{{ sg.enOn }}" hint-placeholder-val="{{ true }}">
                   <div style="margin-top:8px;padding:2px 0 2px 12px;border-left:2px solid var(--line);opacity:.6;font:400 12.5px/1.45 var(--sans);color:var(--text2)">
@@ -936,9 +920,9 @@ const PEOPLE = {
 };
 
 const STEP_BODIES = [
-  "Hi {{firstName}},\n\n{{opener}}\n\nI'm leading a confidential search for a {{positionTitle}} at a Gulf group: a seat with group-wide remit over finance, treasury and an international portfolio. Given your time as {{currentTitle}} at {{currentCompany}}, I'd value twenty minutes of your view, whether or not the timing is right for you.\n\nWould a short call next week work? If it's easier, pick a time that suits you: {{bookingLink}}\n\n{{senderFirstName}}",
-  "Hi {{firstName}},\n\nA short follow-up on my note below. I'm happy to share the brief in confidence before any call.\n\n{{senderFirstName}}",
-  "Hi {{firstName}},\n\nI'll close the loop here. If the timing changes, or someone in your network comes to mind for this seat, I'd be glad to hear from you.\n\n{{senderFirstName}}"
+  "Hi {{firstName}},\n\n{{opener}}\n\nI'm leading a confidential search for a {{positionTitle}} at a Gulf group: a seat with group-wide remit over finance, treasury and an international portfolio. Given your time as {{currentTitle}} at {{currentCompany}}, I'd value twenty minutes of your view, whether or not the timing is right for you.\n\nWould a short call next week work? If it's easier, pick a time that suits you: {{bookingLink}}\n\n{{signature}}",
+  "Hi {{firstName}},\n\nA short follow-up on my note below. I'm happy to share the brief in confidence before any call.\n\n{{signature}}",
+  "Hi {{firstName}},\n\nI'll close the loop here. If the timing changes, or someone in your network comes to mind for this seat, I'd be glad to hear from you.\n\n{{signature}}"
 ];
 const SUBJECT = "Confidential: {{positionTitle}}";
 
@@ -978,7 +962,7 @@ function render(text, id) {
   const p = PEOPLE[id];
   return text.replace(/\{\{firstName\}\}/g, firstOf(p.name)).replace(/\{\{currentTitle\}\}/g, p.title).replace(/\{\{currentCompany\}\}/g, p.company)
     .replace(/\{\{positionTitle\}\}/g, "Chief Financial Officer").replace(/\{\{senderFirstName\}\}/g, "Yara")
-    .replace(/\{\{bookingLink\}\}/g, BOOKING_URL);
+    .replace(/\{\{bookingLink\}\}/g, BOOKING_URL).replace(/\n*\{\{signature\}\}/g, "");
 }
 
 const isClosed = (st) => st === "replied" || st === "booked" || st === "bounced" || st === "stopped";
@@ -1313,7 +1297,7 @@ class Component extends DCLogic {
     ];
 
     const tokenStyle = (ai) => `border-radius:999px;padding:3px 9px;font:500 11.5px var(--mono);cursor:pointer;${ai ? "background:var(--ai-soft);border:1px solid color-mix(in srgb,var(--ai) 45%,transparent);color:var(--ai)" : "background:var(--panel);border:1px solid var(--line);color:var(--text2)"}`;
-    const tokens = [["firstName", "Their first name"], ["currentTitle", "Their current title"], ["currentCompany", "Their current employer"], ["positionTitle", "This position's role title"], ["location", "Their city"], ["senderFirstName", "Your first name"], ["bookingLink", "Your booking page: they pick a free slot on your calendar, and their sequence stops"], ["opener", "One or two sentences AI drafts for each person from their profile. You review every one."]]
+    const tokens = [["firstName", "Their first name"], ["currentTitle", "Their current title"], ["currentCompany", "Their current employer"], ["positionTitle", "This position's role title"], ["location", "Their city"], ["senderFirstName", "Your first name"], ["signature", "Your default signature, or your first name until you add one"], ["bookingLink", "Your booking page: they pick a free slot on your calendar, and their sequence stops"], ["opener", "One or two sentences AI drafts for each person from their profile. You review every one."]]
       .map(([k, tip]) => ({ label: k === "opener" ? "✦ opener" : k === "bookingLink" ? "▦ booking link" : `{{${k}}}`, tip, style: tokenStyle(k === "opener") }));
     const delays = [null, 3, 5];
     const stepCards = s.bodies.map((body, i) => ({

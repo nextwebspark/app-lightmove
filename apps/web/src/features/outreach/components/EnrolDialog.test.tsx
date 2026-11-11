@@ -164,12 +164,12 @@ describe("EnrolDialog", () => {
     expect(screen.getByText("1 to add · 4 skipped")).toBeInTheDocument();
   });
 
-  it("signs every email of the run with the default, another, or none, as chosen in the review", async () => {
+  it("draws the default, the token taken out of the words, and starts without choosing a signature", async () => {
+    vi.mocked(sequenceApi.getSequences).mockResolvedValue([
+      { ...SEQUENCE, steps: [{ ...SEQUENCE.steps[0], body: "Hi {{firstName}},\n\n{{opener}}\n\nBye\n{{signature}}" }] },
+    ]);
     vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
-      signatures: [
-        { ...SIGNATURE, id: "sig-short", name: "Short reply", isDefault: false },
-        { ...SIGNATURE, id: "sig-formal", name: "Formal", isDefault: true },
-      ],
+      signatures: [{ ...SIGNATURE, id: "sig-formal", name: "Formal", isDefault: true }],
       sources: SIGNATURE_SOURCES,
       limit: 10,
     });
@@ -177,28 +177,38 @@ describe("EnrolDialog", () => {
     renderDialog();
     await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
 
-    const picker = await screen.findByRole("combobox", { name: "Signature" });
-    expect(picker).toHaveValue("sig-formal");
-    expect(screen.getByText("On every email of the sequence, follow-ups too")).toBeInTheDocument();
-    await userEvent.selectOptions(picker, "none");
-    expect(screen.queryByTitle("Signature")).not.toBeInTheDocument();
-    await userEvent.selectOptions(picker, "sig-short");
-    expect(screen.getByTitle("Signature")).toBeInTheDocument();
+    expect(await screen.findAllByTitle("Signature")).toHaveLength(1);
+    expect(screen.queryByText("{{signature}}", { exact: false })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Signature" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Next" }));
     await userEvent.click(await screen.findByRole("button", { name: "Start sequence" }));
 
     await waitFor(() =>
-      expect(sequenceApi.startSequence).toHaveBeenCalledWith("p1", "s1", expect.any(Array), expect.any(Object), "sig-short"),
+      expect(sequenceApi.startSequence).toHaveBeenCalledWith("p1", "s1", expect.any(Array), expect.any(Object)),
     );
   });
 
-  it("says a run goes unsigned when the signatures cannot be read, and waits for them while they load", async () => {
+  it("signs off with the sender's first name where they keep no signature", async () => {
+    vi.mocked(sequenceApi.getSequences).mockResolvedValue([
+      { ...SEQUENCE, steps: [{ ...SEQUENCE.steps[0], body: "Hi {{firstName}},\n\n{{opener}}\n\nBye\n{{signature}}" }] },
+    ]);
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
+    renderDialog();
+    await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
+
+    expect(await screen.findByText(/^Bye\s+Yara$/)).toBeInTheDocument();
+    expect(screen.queryByTitle("Signature")).not.toBeInTheDocument();
+  });
+
+  it("says the default still signs the run when the signatures cannot be read here", async () => {
     vi.mocked(signaturesApi.listSignatures).mockRejectedValue(new Error("offline"));
     vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
     renderDialog();
     await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
 
-    expect(await screen.findByText("Your signatures could not be read, so this sequence goes without one.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Your signatures could not be read here. Your default signature still signs these emails."),
+    ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByRole("button", { name: "Start sequence" })).toBeEnabled();
   });
@@ -236,7 +246,7 @@ describe("EnrolDialog", () => {
       expect(sequenceApi.startSequence).toHaveBeenCalledWith("p1", "s1", [
         { candidateId: "a", toAddress: "a@target.example", opener: "Your move into treasury stood out.", openerEdited: true },
         { candidateId: "b", toAddress: "b@target.example", opener: "Drafted for b.", openerEdited: false },
-      ], { startMode: "NOW", startAt: null }, null),
+      ], { startMode: "NOW", startAt: null }),
     );
     expect(sequenceApi.draftOpeners).toHaveBeenCalledTimes(1);
     expect(sequenceApi.draftOpeners).toHaveBeenCalledWith("p1", ["a", "b"]);
@@ -262,7 +272,7 @@ describe("EnrolDialog", () => {
       expect(sequenceApi.startSequence).toHaveBeenCalledWith("p1", "s1", expect.any(Array), {
         startMode: "AT",
         startAt: new Date(`${day}T19:30:00+04:00`).toISOString(),
-      }, null),
+      }),
     );
   });
 

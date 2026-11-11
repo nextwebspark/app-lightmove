@@ -126,15 +126,16 @@ describe("SequenceEditorPage", () => {
     expect(screen.getByTitle("Signature")).toBeInTheDocument();
   });
 
-  it("keeps the defaults' sign-off, so an email sent with no signature still names its sender", async () => {
+  it("signs the defaults off with the signature, which is the sender's first name while they keep none", async () => {
     renderEditor();
 
     const bodies = await screen.findAllByRole("textbox", { name: "Email body" });
     expect(bodies).toHaveLength(3);
     for (const body of bodies) {
-      expect((body as HTMLTextAreaElement).value).toMatch(/\{\{senderFirstName\}\}$/);
+      expect((body as HTMLTextAreaElement).value).toMatch(/\{\{signature\}\}$/);
+      expect((body as HTMLTextAreaElement).value).not.toContain("{{senderFirstName}}");
     }
-    await waitFor(() => expect(signaturesApi.listSignatures).toHaveBeenCalled());
+    expect(await screen.findByText("Yara")).toBeInTheDocument();
     expect(screen.queryByTitle("Signature")).not.toBeInTheDocument();
   });
 

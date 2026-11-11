@@ -117,10 +117,9 @@ public class OutreachEnrollmentService {
             // Before anything is written: a page the mail service will not make is the consultant's to see now.
             bookingPages.prepare(userId, workspaceId);
         }
-        // Drawn once, outside any transaction (a logo's first copy is a call to another host), and frozen on each run;
-        // a signature showing Book a call has its page made first, as a body using the link does.
-        String signatureHtml = request.signatureId() == null ? null
-                : signatures.requireRenderedForSending(userId, workspaceId, request.signatureId()).html();
+        // The default, drawn once outside any transaction (a logo's first copy is a call to another host) and frozen on
+        // each run; a signature showing Book a call has its page made first, as a body using the link does.
+        String signatureHtml = signatures.renderDefaultForSending(userId, workspaceId).orElse(null);
         // A racing Start that lost on the live index is answered OUTREACH_ALREADY_ENROLLED by
         // GlobalExceptionHandler, by constraint name; every other violation keeps its own answer.
         List<OutreachEnrollment> created =
@@ -198,7 +197,9 @@ public class OutreachEnrollmentService {
                     String opener = blankToNull(person.opener());
                     SequenceTokens tokens = OutreachPersonalisation.tokensOf(recipient, sender, opener);
                     ReviewedFirstEmail email = new ReviewedFirstEmail(tokens.render(first.getSubject()),
-                            tokens.render(first.getBody()), opener, person.openerEdited());
+                            SequenceTokens.signedOff(tokens.render(first.getBody()), signatureHtml,
+                                    sender.senderFirstName()),
+                            opener, person.openerEdited());
                     return OutreachEnrollment.scheduled(sequence, recipient.candidateId(), recipient.personId(),
                             userId, ledgerSpellingOf(recipient, person.toAddress()), email, now,
                             firstDue, offsets.get(index), pinned, signatureHtml);

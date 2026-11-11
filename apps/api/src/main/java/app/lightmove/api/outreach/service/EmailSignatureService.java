@@ -124,6 +124,12 @@ public class EmailSignatureService {
         return renderedForSending(userId, workspaceId, owned(userId, workspaceId, signatureId));
     }
 
+    /** The caller's default for a sequence's {@code {{signature}}}, drawn as for sending; empty where they keep none. */
+    public Optional<String> renderDefaultForSending(UUID userId, UUID workspaceId) {
+        return signatures.findByWorkspaceIdAndUserIdAndIsDefaultTrue(workspaceId, userId)
+                .map(signature -> renderedForSending(userId, workspaceId, signature).html());
+    }
+
     /**
      * The default for the mailbox's test email. The test proves the mailbox sends, so a booking page that cannot be made
      * leaves the Book a call line out rather than failing it; a mailbox the page found withdrawn still fails it.
