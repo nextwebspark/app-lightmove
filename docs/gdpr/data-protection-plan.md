@@ -43,7 +43,7 @@ access by us).
 | G7 | No DB-level isolation (Postgres RLS). | no `CREATE POLICY` anywhere | Defence in depth on questionnaires. |
 | G8 | PII encrypted only by Google default at rest; no CMEK/BYOK. | — | Enterprise "own keys" ask. |
 | G9 | No DPA, subprocessor list, security overview, incident/breach policy, certification, pen test. | — | Procurement blocker. |
-| G10 | Backups / PITR / restore drill not documented. | instance predates scripts | "What is your RPO/RTO?" |
+| G10 | Backups / PITR / restore drill not documented. **Read 2026-11-10: automated backups and PITR are off**, and the one on-demand backup never expires. | `docs/gdpr/security-of-processing.md` | "What is your RPO/RTO?" |
 | G11 | No customer-visible audit log or support-access control. | — | "Show us who accessed our data." |
 
 ## 3. Phase 1 — now (~2 weeks): paperwork and lockdown
@@ -55,7 +55,7 @@ Mostly non-code. Unblocks client conversations immediately.
 | 1.1 **Lock down production DB access.** Remove existing human grants; production access only by break-glass: named person, reason, time-boxed IAM grant (IAM Conditions with expiry), second-person approval, logged (Cloud Audit Logs + a written access log). Restrict `grant-db-user.sh` to the company Google Workspace domain and to the dev DB; debug on anonymised copies. | G1 | `gcloud projects get-iam-policy` shows no standing `cloudsql.instanceUser` humans on prod. |
 | 1.2 **Enable Data Access audit logs** for Cloud SQL, GCS, Secret Manager; alert on any human principal. | G1 | Alert fires on a test access. |
 | 1.3 **Pin Vertex AI to a region** (`GOOGLE_CLOUD_LOCATION`, e.g. `us-central1` now, matching hosting). | G2 | Config deployed; noted in the security overview. |
-| 1.4 **Confirm backups + PITR**, retention (e.g. 7–30 days), run one restore drill; write RPO/RTO. | G10 | Drill recorded with timings. |
+| 1.4 **Turn on backups + PITR** (21 daily backups, 7 days of logs), delete the on-demand backup, run one restore drill; write RPO/RTO. Commands in `security-of-processing.md` (#927). | G10 | Drill recorded with timings there. |
 | 1.5 **DPA** (Uncava = processor, customer = controller): purpose, confidentiality, 72h breach notice, subprocessors, deletion/return within 30 days of termination, audit rights, SCCs/transfer terms. | G9 | Lawyer-reviewed template. |
 | 1.6 **Subprocessor list** with what each receives: Google Cloud (hosting, Vertex AI), Bright Data, ContactOut, Mapbox, Nylas, Recall.ai, Stripe, Resend, Cloudflare; Google/Microsoft/Zoom (customer's own mail/calendar). | G9 | Published page or PDF. |
 | 1.7 **Security overview** (2 pages) from §2 strengths. | G9 | Sent to first client. |

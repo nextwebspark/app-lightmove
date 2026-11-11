@@ -8,7 +8,8 @@ written down here.
 
 ⚖️ marks a period that is a default awaiting counsel's sign-off (#930). Every period the sweep applies is an
 environment override under `lightmove.retention.*` (`RetentionSettings`), so a deployment can change it without a
-release. Backups and point-in-time recovery keep a deleted row until they age out; nothing rewrites them.
+release. Backups and point-in-time recovery keep a deleted row until they age out (21 days and 7 days once turned on;
+`security-of-processing.md`); nothing rewrites them. Logs are kept 30 days.
 
 **Jobs.** `RetentionSweeper` (hourly, `lightmove.retention.sweep-interval`) deletes the system rows below. It is off
 until counsel signs the periods off: only a deployment with `RETENTION_ENABLED=true` (`lightmove.retention.enabled`,
