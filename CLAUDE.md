@@ -90,7 +90,7 @@ mid-send, queues their Recall bots in `app_lm_recall_bot_erasure` (global, bot i
 call back and strip of media until Recall answers, forgets the vendor cache's copy of the profile and scrubs the name from the bell
 and Find executives' runs; their files are queued in `app_lm_storage_deletion` (global, keys only) for
 `StorageDeletionSweeper`, and their profile and addresses suppressed unless the admin unticks it. Audited by id and
-counts, never the name. **An admin exports everything held on a person (#919, `PERSON_SUBJECT_ACCESS`, V207, GDPR
+counts, never the name. **An admin exports everything held on a person (#919, `PERSON_SUBJECT_ACCESS`, V209, GDPR
 Art. 15 and 20)** from the same ⋯ (`GET /candidates/{personId}/subject-access-export`, `PersonSubjectAccessService`): one
 zip of `person.json`, `person.html` (escaped, no script) and the latest file of each document, every row read whole
 (`core/export`'s `RowSnapshotReader`, only machinery withheld) through each `SubjectAccessContributor` — declared in
@@ -881,10 +881,13 @@ cached for good and never logged (`RequestLogFilter` skips it; `ops/gcp/bootstra
 request log), counted or rate-limited per address (mail clients' image proxies fetch for everyone from a few). An image
 row outlives the avatar it was copied from, since a sent email names it. The composer's **Include signature** ticks the
 sender's default (a picker where they keep more than one; replies alike) and `SendMessageRequest.signatureId` draws it
-when the email is written, into the stored `body` only — `body_text` stays the consultant's words; a sequence's every
-email carries the sender's default, drawn once at Start, where nothing is picked, and frozen on each enrollment (V194
-`signature_html`): only where a step places `{{signature}}` (new sequences end every step in it) — a step placing none is unsigned,
-and Start draws none for a sequence placing none — and a sender keeping none signs off with their first name at the token. Either way a signature showing Book a call
+when the email is written, into the stored `body` only — `body_text` stays the consultant's words. **A signature is
+never part of an email's words** (revised 2026-11-11, after the market: Outreach, Gong, HubSpot, Apollo and Gem all add
+it at send): Add to sequence's review carries the same Include signature, `StartSequenceRequest.signatureId` resolved by
+the one `EmailSignatureService.htmlForSending` an own email uses, drawn once at Start and frozen on each enrollment (V194
+`signature_html`), closing every email of the run after its words; unticked, or none kept, the run goes unsigned. A
+template and a sequence step both refuse `{{signature}}` on its field (`SignatureTokenRefusal`), and V207 and V208 took
+#1277's step token out of every stored step and frozen first email, subjects included. Either way a signature showing Book a call
 has its page made before anything is written. The mailbox's test email carries the default, leaving Book a call out
 where its page cannot be made, since the test proves the mailbox and nothing else.
 
@@ -915,10 +918,9 @@ records the template it came from (`templateId`), only one the sender may see in
 **A sequence step** (`SequenceEditorPage`) takes one by **From template** (`StepTemplatePicker`): a copy, never a link,
 of its `plainBody` — the words as plain text, paragraphs apart (`NoteText.plainEmailTextOf`), since a step has no
 formatting — its subject into the first email alone, asked first where the step holds words, refused past a step's
-5,000, and closing in exactly one `{{signature}}` wherever the sequence signs a step (`sequenceSigns`), since a step
-placing none goes unsigned — a template's own is dropped, by the one token grammar (`withoutToken`). **Save as
-template** on a step saves its words with their variables as Markdown (`plainEmailDoc`), the first email's subject too,
-its `{{signature}}` left out; a step using `{{opener}}` is refused, saying why. The editor's preview and Add to
+5,000; the run's signature closes it, never its words. **Save as
+template** on a step saves its words with their variables as Markdown (`plainEmailDoc`), the first email's subject too;
+a step using `{{opener}}` is refused, saying why. The editor's preview and Add to
 sequence's review mark, per person, a variable with nothing on file red and a fallback standing in underlined
 (`FilledVariable`); the review names both under the email and flags the person "N blank", and Start is not held.
 
@@ -1643,13 +1645,17 @@ source's SHA-256, by CHECK; one copy per avatar per person and per logo per work
 overrides; one default per person per workspace by partial unique index), both under forced row-level security —
 a photo row, account data with no workspace, read wherever its person signs in — and `app_lm_resolve_email_image`, the
 public picture route's resolver.
-V194 adds `app_lm_outreach_enrollment.signature_html` — the signature Start drew for the run; null sends none.
+V194 adds `app_lm_outreach_enrollment.signature_html` — the signature Include signature chose at Start, closing every
+email of the run; null sends none.
 V205 adds `app_lm_email_template` (owner and workspace, both cascading; `shared_at` null is personal; `updated_by` the
 last editor; one-line subject and non-blank body by CHECK) under forced row-level security, its owner and shared
 indexes, and `app_lm_outreach_message.template_id` (SET NULL, partial index) — the template an own email came from;
 account deletion deletes a person's templates explicitly (`AccountDeletionOutreach`), since V203 never deletes the user
 row. V206 indexes a sender's emails that came from a template, for Recently used.
-V207 seeds `PERSON_SUBJECT_ACCESS` to ADMIN alone: the subject access export (#919).
+V207 takes the `{{signature}}` token (#1277) out of every `app_lm_outreach_sequence_step.body` and
+`app_lm_outreach_enrollment.first_body`, its gap closed to one blank line; no schema change, `signature_html` kept.
+V208 does the same to the step's `subject` and the frozen `first_subject` (a step subject left empty is null).
+V209 seeds `PERSON_SUBJECT_ACCESS` to ADMIN alone: the subject access export (#919).
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.

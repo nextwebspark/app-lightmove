@@ -41,7 +41,8 @@ import {
 import { FilledVariable } from "./FilledVariable";
 import { TokenGapChip, TokenGapLine } from "./TokenGapNotes";
 import { useMailbox } from "../lib/useMailbox";
-import { SignatureUnderEmail } from "../../signatures/components/SignatureChooser";
+import { SignatureChooser, SignatureUnderEmail } from "../../signatures/components/SignatureChooser";
+import * as signaturesApi from "../../signatures/api/signaturesApi";
 import { useSignatureChoice, type SignatureChoice } from "../../signatures/lib/useSignatureChoice";
 
 type EnrolStep = "choose" | "review" | "start";
@@ -230,6 +231,7 @@ export function EnrolDialog({
           startMode: startChoice.mode,
           startAt: startChoice.mode === "AT" && chosenStart ? chosenStart.toISOString() : null,
         },
+        signature.signatureId,
       ),
     onSuccess: (started) => {
       void queryClient.invalidateQueries({
@@ -249,6 +251,9 @@ export function EnrolDialog({
         setStep("choose");
       } else if (code === "OUTREACH_ADDRESS_NOT_ON_FILE") {
         void people.refetch();
+        setStep("review");
+      } else if (code === "EMAIL_SIGNATURE_NOT_FOUND") {
+        void queryClient.invalidateQueries({ queryKey: signaturesApi.SIGNATURES_KEY });
         setStep("review");
       }
     },
@@ -591,14 +596,12 @@ function ReviewStep({
   const email = reviewed[reviewing.candidateId];
   const first = sequence.steps[0];
   const firstName = reviewing.tokens.firstName ?? reviewing.fullName;
-  const signOff = signature.included || signature.isError ? "" : (reviewing.tokens.senderFirstName ?? "");
   // Read once per sequence and people, not on every keystroke in the opener.
   const gapsById = useMemo(
     () => new Map(chosen.map((person) => [person.candidateId, tokenGapsIn(sequenceTextsOf(sequence), person.tokens)])),
     [chosen, sequence],
   );
   const parts = renderParts(first.body, withBookingLink(reviewing.tokens, bookingLink), null);
-  const signed = parts.some((part) => part.isSignature);
   const openerAt = parts.findIndex((part) => part.isOpener);
   const before = openerAt < 0 ? parts : parts.slice(0, openerAt);
   const after = openerAt < 0 ? [] : parts.slice(openerAt + 1);
@@ -652,12 +655,12 @@ function ReviewStep({
           </select>
           <span className="text-u-text3">Subject</span>
           <span className="font-medium text-u-text">
-            {drawn(renderParts(first.subject ?? "", withBookingLink(reviewing.tokens, bookingLink), null), null, firstName)}
+            {drawn(renderParts(first.subject ?? "", withBookingLink(reviewing.tokens, bookingLink), null), firstName)}
           </span>
         </div>
         <div className="whitespace-pre-wrap pt-3 text-[13.5px]/[1.6] text-u-text">
           {/* The opener sits in its own box, so the blank lines around it in the template would double up. */}
-          {drawn(before, signOff, firstName, "end")}
+          {drawn(before, firstName, "end")}
         </div>
         {openerAt >= 0 ? (
           <div className="my-1 rounded-[8px] bg-u-inferred-tint p-2.5">
@@ -687,15 +690,19 @@ function ReviewStep({
           <p className="my-1 font-mono text-[11.5px] text-u-text3">This sequence's first email has no opener.</p>
         )}
         <div className="whitespace-pre-wrap text-[13.5px]/[1.6] text-u-text">
-          {drawn(after, signOff, firstName, "start")}
+          {drawn(after, firstName, "start")}
         </div>
-        {signed && <SignatureUnderEmail choice={signature} />}
+        <div className="mt-3 border-t border-u-border pt-2.5">
+          <div className="flex flex-wrap items-center gap-2 font-mono text-meta text-u-text3">
+            <SignatureChooser
+              choice={signature}
+              unreadableNote="Your signatures could not be read, so every email of this sequence goes without one."
+            />
+            {signature.included && <span>on every email of the sequence</span>}
+          </div>
+          <SignatureUnderEmail choice={signature} />
+        </div>
         <TokenGapLine gaps={gapsById.get(reviewing.candidateId) ?? NO_GAPS} firstName={firstName} />
-        {signed && signature.isError && (
-          <p className="mt-3 border-t border-u-border pt-2.5 font-mono text-meta text-u-text3">
-            Your signatures could not be read here. Your default signature still signs these emails.
-          </p>
-        )}
         {sequence.steps.length > 1 && (
           <p className="mt-3 border-t border-u-border pt-2.5 font-mono text-[11.5px] text-u-text3">
             {followUpLine(sequence)}, each only if {firstName} hasn't replied.
@@ -872,12 +879,9 @@ function sequenceTextsOf(sequence: Sequence): (string | null | undefined)[] {
   return [sequence.steps[0]?.subject, ...sequence.steps.map((step) => step.body)];
 }
 
-/**
- * The parts as read: the signature as its sign-off in a body (null leaves it as typed, as a subject sends it), and the
- * blank lines at one edge dropped across parts — past a sign-off drawn as nothing — as one joined text would trim them.
- */
-function drawn(parts: RenderedPart[], signOff: string | null, firstName: string, trim?: "start" | "end") {
-  const texts = parts.map((part) => (part.isSignature && signOff !== null ? signOff : part.text));
+/** The parts as read, the blank lines at one edge dropped across parts as one joined text would trim them. */
+function drawn(parts: RenderedPart[], firstName: string, trim?: "start" | "end") {
+  const texts = parts.map((part) => part.text);
   if (trim) {
     const order = trim === "end" ? [...texts.keys()].reverse() : [...texts.keys()];
     for (const at of order) {

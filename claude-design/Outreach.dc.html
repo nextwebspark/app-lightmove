@@ -562,7 +562,7 @@
                   <span style="color:var(--text3)">Subject</span><span style="color:var(--text);font-weight:500">{{ pv.subject }}</span>
                 </div>
                 <div style="padding-top:14px;font:400 13.5px/1.6 var(--sans);color:var(--text);white-space:pre-wrap"><sc-for list="{{ pv.parts }}" as="pt" hint-placeholder-count="3"><span style="{{ pt.style }}">{{ pt.t }}</span></sc-for></div>
-                <!-- The sender's default signature, greyed as Add to sequence's review draws it; none kept, none drawn. -->
+                <!-- The sender's default signature, greyed under every step: Include signature at Start adds it; a step never holds one. -->
                 <sc-if value="{{ sg.hasAny }}" hint-placeholder-val="{{ true }}">
                   <div data-screen-label="Sequence preview signature" style="margin-top:8px;padding:2px 0 2px 12px;border-left:2px solid var(--line);opacity:.6;font:400 12.5px/1.45 var(--sans);color:var(--text2)">
                     <div style="display:flex;align-items:center;gap:10px">
@@ -692,10 +692,24 @@
                 <textarea value="{{ rv.opener }}" onChange="{{ onOpener }}" rows="3" aria-label="Opener" style="width:100%;resize:vertical;border:none;background:transparent;outline:none;font:400 13.5px/1.6 var(--sans);color:var(--text);padding:0"></textarea>
               </div>
               <div style="font:400 13.5px/1.6 var(--sans);color:var(--text2);white-space:pre-wrap">{{ rv.rest }}</div>
-              <!-- The sender's default, on every email of the run: nothing is picked here; drawn and frozen at Start. -->
+              <!-- The composer's own Include signature: chosen here, drawn and frozen at Start, closing every email of the run.
+                   A step never holds a signature in its words. -->
               <div data-screen-label="Sequence signature" style="margin-top:14px;border-top:1px solid var(--line-soft);padding-top:10px">
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font:400 12px var(--mono);color:var(--text3)">
-                  <span>Signature · your default, on every email of the sequence</span>
+                  <sc-if value="{{ sg.hasAny }}" hint-placeholder-val="{{ true }}">
+                    <button role="checkbox" aria-checked="{{ sg.enChecked }}" onClick="{{ sgEnToggleInclude }}" style="display:inline-flex;align-items:center;gap:7px;border:none;background:none;padding:0;font:400 12px var(--sans);color:var(--text2);cursor:pointer">
+                      <span style="{{ sg.enBoxStyle }}"><sc-if value="{{ sg.enOn }}" hint-placeholder-val="{{ true }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if></span>Include signature</button>
+                    <sc-if value="{{ sg.enShowPicker }}" hint-placeholder-val="{{ false }}">
+                      <select value="{{ sg.enChoice }}" onChange="{{ sgEnPick }}" aria-label="Signature" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--sans);color:var(--text)">
+                        <option value="formal">Formal (default)</option>
+                        <option value="short">Short reply</option>
+                      </select>
+                    </sc-if>
+                    <sc-if value="{{ sg.enOn }}" hint-placeholder-val="{{ true }}"><span>on every email of the sequence</span></sc-if>
+                  </sc-if>
+                  <sc-if value="{{ sg.none }}" hint-placeholder-val="{{ false }}">
+                    <span style="font:400 12px var(--sans);color:var(--text3)">No signature yet · <a href="Settings.dc.html?section=signatures" style="color:var(--sky)">Add one in Settings</a></span>
+                  </sc-if>
                 </div>
                 <sc-if value="{{ sg.enOn }}" hint-placeholder-val="{{ true }}">
                   <div style="margin-top:8px;padding:2px 0 2px 12px;border-left:2px solid var(--line);opacity:.6;font:400 12.5px/1.45 var(--sans);color:var(--text2)">
@@ -1054,9 +1068,9 @@ const PEOPLE = {
 };
 
 const STEP_BODIES = [
-  "Hi {{firstName}},\n\n{{opener}}\n\nI'm leading a confidential search for a {{positionTitle}} at a Gulf group: a seat with group-wide remit over finance, treasury and an international portfolio. Given your time as {{currentTitle}} at {{currentCompany}}, I'd value twenty minutes of your view, whether or not the timing is right for you.\n\nWould a short call next week work? If it's easier, pick a time that suits you: {{bookingLink}}\n\n{{signature}}",
-  "Hi {{firstName}},\n\nA short follow-up on my note below. I'm happy to share the brief in confidence before any call.\n\n{{signature}}",
-  "Hi {{firstName}},\n\nI'll close the loop here. If the timing changes, or someone in your network comes to mind for this seat, I'd be glad to hear from you.\n\n{{signature}}"
+  "Hi {{firstName}},\n\n{{opener}}\n\nI'm leading a confidential search for a {{positionTitle}} at a Gulf group: a seat with group-wide remit over finance, treasury and an international portfolio. Given your time as {{currentTitle}} at {{currentCompany}}, I'd value twenty minutes of your view, whether or not the timing is right for you.\n\nWould a short call next week work? If it's easier, pick a time that suits you: {{bookingLink}}",
+  "Hi {{firstName}},\n\nA short follow-up on my note below. I'm happy to share the brief in confidence before any call.",
+  "Hi {{firstName}},\n\nI'll close the loop here. If the timing changes, or someone in your network comes to mind for this seat, I'd be glad to hear from you."
 ];
 const SUBJECT = "Confidential: {{positionTitle}}";
 
@@ -1096,7 +1110,7 @@ function render(text, id) {
   const p = PEOPLE[id];
   const v = { firstName: firstOf(p.name), currentTitle: p.title, currentCompany: p.company, positionTitle: "Chief Financial Officer", location: p.city || "Dubai", senderFirstName: "Yara", bookingLink: BOOKING_URL };
   // {{name}} or {{name|fallback}} (docs/email-templates.md §C); opener and anything unknown stay as typed.
-  return text.replace(/\n*\{\{signature\}\}/g, "").replace(/\{\{\s*([A-Za-z]+)\s*(?:\\?\|([^{}|\n]{1,60}))?\s*\}\}/g, (m, n, fb) => (n in v ? v[n] || (fb || "").trim() : m));
+  return text.replace(/\{\{\s*([A-Za-z]+)\s*(?:\\?\|([^{}|\n]{1,60}))?\s*\}\}/g, (m, n, fb) => (n in v ? v[n] || (fb || "").trim() : m));
 }
 
 const isClosed = (st) => st === "replied" || st === "booked" || st === "bounced" || st === "stopped";
@@ -1231,7 +1245,7 @@ class Component extends DCLogic {
       stoppedIds: {}, statusOf: {}, dark: true, toast: null,
       bookLength: 30, bookSlot: "Mon 6 Oct|13:00", bookDay: "Mon 6 Oct",
       signature: pick("signature", "default"), composerOpen: flag("composer", false) || q.get("signature") !== null,
-      sigIncluded: pick("signature", "default") !== "unticked", sigChoice: "formal", enSigChoice: "formal"
+      sigIncluded: pick("signature", "default") !== "unticked", sigChoice: "formal", enSigChoice: "formal", enSigIncluded: true
     };
     const templates = pick("templates", "closed"), tokenState = pick("tokenState", "filled"), stepTemplate = pick("stepTemplate", "none");
     const blankDemo = tokenState !== "filled";
@@ -1375,16 +1389,18 @@ class Component extends DCLogic {
     const included = kept > 0 && s.sigIncluded;
     const box = (on) => "width:14px;height:14px;flex:none;display:grid;place-items:center;border-radius:3px;border:1px solid " + (on ? "var(--amber-btn)" : "var(--line)") + ";background:" + (on ? "var(--amber-btn)" : "transparent") + ";color:var(--on-amber)";
     const enChoice = kept === 1 && s.enSigChoice === "short" ? "formal" : s.enSigChoice;
-    const enOn = kept > 0 && enChoice !== "none";
+    const enOn = kept > 0 && s.enSigIncluded;
     return {
       sg: { composerOpen: s.composerOpen, hasAny: kept > 0, none: kept === 0, showPicker: kept > 1 && included, choice: s.sigChoice,
         included, checked: String(included), boxStyle: box(included), previewOn: included,
         isFull: s.sigChoice === "formal", isMinimal: s.sigChoice === "short",
-        enChoice, enOn, enFull: enChoice === "formal", enMinimal: enChoice === "short", enSeveral: kept > 1, enOne: kept === 1 },
+        enChoice, enOn, enFull: enChoice === "formal", enMinimal: enChoice === "short", enSeveral: kept > 1, enOne: kept === 1,
+        enChecked: String(enOn), enBoxStyle: box(enOn), enShowPicker: kept > 1 && enOn },
       sgOpenComposer: () => set({ composerOpen: true }),
       sgCloseComposer: () => set({ composerOpen: false }),
       sgToggleInclude: () => set({ sigIncluded: !s.sigIncluded }),
       sgPick: (e) => set({ sigChoice: e.target.value }),
+      sgEnToggleInclude: () => set({ enSigIncluded: !s.enSigIncluded }),
       sgEnPick: (e) => set({ enSigChoice: e.target.value })
     };
   }
@@ -1574,7 +1590,7 @@ class Component extends DCLogic {
       pickerOpen: s.stepPicker && s.step === i + 1, replaceOpen: !!s.stepReplace && s.step === i + 1,
       pickerNote: i === 0 ? "The template's subject comes into the first email too. A copy: editing the template later changes no step." : "Follow-ups reply in the thread, so a template's subject is left out. A copy: editing the template later changes no step.",
       replaceName: s.stepReplace ? EMAIL_TEMPLATES.find((t) => t.id === s.stepReplace).name : "",
-      replaceNote: "What this step says now is replaced" + (i === 0 ? ", and its subject too where the template has one." : ".") + " The signature chosen at Start still closes it.",
+      replaceNote: "What this step says now is replaced" + (i === 0 ? ", and its subject too where the template has one." : "."),
       cardStyle: `border-radius:10px;border:1px solid ${s.step === i + 1 ? "var(--amber)" : "var(--line)"};background:var(--panel);padding:14px 16px;cursor:default`
     }));
     const stepTemplates = EMAIL_TEMPLATES.map((t) => ({ id: t.id, name: t.name, shared: !!t.owner, owner: t.owner || "", initials: t.owner ? initials(t.owner) : "", faceStyle: faceOf(t.owner || "you"),

@@ -32,24 +32,6 @@ class SequenceTokensTest {
     }
 
     @Test
-    void leavesTheSignatureForTheEmailOrSignsOffWithTheFirstName() {
-        assertThat(tokens.render("Thanks,\n{{ signature }}")).isEqualTo("Thanks,\n{{ signature }}");
-        assertThat(SequenceTokens.uses("Thanks,\n{{ signature }}", SequenceTokens.SIGNATURE)).isTrue();
-        assertThat(SequenceTokens.signedOff("Thanks,\n{{signature}}", "<table/>", "Yara"))
-                .isEqualTo("Thanks,\n{{signature}}");
-        assertThat(SequenceTokens.signedOff("Thanks,\n{{signature}}", null, "Yara$")).isEqualTo("Thanks,\nYara$");
-        assertThat(SequenceTokens.signedOff("Thanks,\n{{signature}}", null, null)).isEqualTo("Thanks,\n");
-    }
-
-    @Test
-    void aValueCanNeverPlaceTheSignature() {
-        SequenceTokens planted = new SequenceTokens("Priya", "{{signature}} CFO", null, null, null, "Yara",
-                "Ask {{ signature }} now.", null);
-
-        assertThat(planted.render("{{currentTitle}}. {{opener}}")).isEqualTo("CFO. Ask  now.");
-    }
-
-    @Test
     void aMissingValueRendersEmptyAndADollarSignSurvives() {
         SequenceTokens sparse = new SequenceTokens(null, null, null, null, null, null, "Grew revenue to $40m", null);
         assertThat(sparse.render("[{{firstName}}] {{opener}}")).isEqualTo("[] Grew revenue to $40m");
@@ -101,7 +83,7 @@ class SequenceTokensTest {
         assertThat(noLink.render("Book: {{bookingLink|reply to this email}}")).isEqualTo("Book: reply to this email");
         assertThat(SequenceTokens.emailVocabulary(false)).doesNotContain(SequenceTokens.BOOKING_LINK);
         assertThat(SequenceTokens.emailVocabulary(true)).containsAll(SequenceTokens.PROFILE_TOKENS)
-                .contains(SequenceTokens.BOOKING_LINK).doesNotContain(SequenceTokens.OPENER, SequenceTokens.SIGNATURE);
+                .contains(SequenceTokens.BOOKING_LINK).doesNotContain(SequenceTokens.OPENER);
     }
 
     @Test

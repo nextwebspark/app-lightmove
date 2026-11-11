@@ -117,17 +117,13 @@ public class EmailSignatureService {
     }
 
     /**
-     * The caller's signature for an email about to go, its booking page made first where it shows the link;
-     * {@code EMAIL_SIGNATURE_NOT_FOUND} for one that is not theirs, in this workspace.
+     * The HTML of the signature the caller chose for an email, or a sequence run, about to go — its booking page made
+     * first where it shows the link. Empty where none was chosen; {@code EMAIL_SIGNATURE_NOT_FOUND} for one that is not
+     * theirs, in this workspace.
      */
-    public RenderedSignature requireRenderedForSending(UUID userId, UUID workspaceId, UUID signatureId) {
-        return renderedForSending(userId, workspaceId, owned(userId, workspaceId, signatureId));
-    }
-
-    /** The caller's default for a sequence's {@code {{signature}}}, drawn as for sending; empty where they keep none. */
-    public Optional<String> renderDefaultForSending(UUID userId, UUID workspaceId) {
-        return signatures.findByWorkspaceIdAndUserIdAndIsDefaultTrue(workspaceId, userId)
-                .map(signature -> renderedForSending(userId, workspaceId, signature).html());
+    public Optional<String> htmlForSending(UUID userId, UUID workspaceId, UUID signatureId) {
+        return Optional.ofNullable(signatureId)
+                .map(chosen -> renderedForSending(userId, workspaceId, owned(userId, workspaceId, chosen)).html());
     }
 
     /**

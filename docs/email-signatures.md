@@ -2,7 +2,7 @@
 
 Status: **built** (#1157, all four phases, merged to `main` in #1245; decisions taken 2026-11-01, revised on
 2026-11-05 after review and #1172's avatars). What follows is the plan as it was built: V193 and V194, Settings → Email
-signature, the composer's Include signature and Start's picker. Email templates (#1247, `docs/email-templates.md`)
+signature, and Include signature in the composer and in Add to sequence. Email templates (#1247, `docs/email-templates.md`)
 build on it and never hold a signature.
 
 ## Context
@@ -23,10 +23,16 @@ How comparable tools do it (vendor-stated, from web research):
 | Gem | Appends the Gmail signature by default; off for all sequences in settings or per sequence. Outlook cannot be read, so Outlook users build one in Gem. |
 | Bullhorn | A default signature plus others to switch between; advises building it in the app, since pasted HTML breaks. |
 | Emelia / Lemlist | A `{{signature}}` token placed in each step, follow-ups included. |
+| Gong Engage | A personal signature added to every flow email; a manual email's composer carries Include signature. |
+| Apollo, Salesloft, Ashby | The sender's (mailbox or profile) signature added to every email they send, sequences included. |
+| Instantly, Smartlead | A token per step (`{{accountSignature}}`, `%signature%`), filled per sending inbox — built for inbox rotation. |
 | Exclaimer / WiseStamp | Prefer hosted images over CID-embedded: embedded ones are dropped on reply/forward by iOS Mail and Outlook for Windows and not shown by Outlook on the web. |
 
 So: we store and append signatures ourselves; images are hosted by us, never embedded; a signature is built from
-fields, never pasted HTML; several per person with one default; switchable per email.
+fields, never pasted HTML; several per person with one default; switchable per email. And (revised 2026-11-11, after a
+second look at the market) the sales-engagement tools a consultant's own mailbox resembles — Outreach, Gong, HubSpot,
+Apollo, Gem — all keep the signature **out of the words**, added at send; the token is the cold-email tools' answer to
+rotating inboxes, and Outreach and Gong warn that a signature written into content goes out twice.
 
 ## Decisions taken with the product owner (2026-11-01)
 
@@ -35,9 +41,10 @@ fields, never pasted HTML; several per person with one default; switchable per e
 2. **Several signatures, one default** per person per workspace. The composer offers the default, ticked; the
    person may untick it or choose another.
 3. **Replies use the same default** as a new email — no separate reply signature.
-4. **Sequences carry the sender's default on every step**, follow-ups included, drawn at Start and frozen for the run;
-   a step places it with `{{signature}}` (revised 2026-11-10: there is no picker at Start), and a step placing none
-   is unsigned (revised 2026-11-11).
+4. **A signature is never part of an email's words** (revised 2026-11-11, replacing #1277's `{{signature}}` token).
+   The moment of sending decides it: the composer's Include signature for an own email, and the same tick and picker
+   in Add to sequence for a run, whose chosen signature closes every email of it, follow-ups included, drawn at Start
+   and frozen. A template and a sequence step both refuse `{{signature}}`.
 5. **The profile gains a photo upload, a phone number and a LinkedIn URL**, which every signature can show. The
    photo upload is #1172's avatar; this plan adds the phone and LinkedIn.
 
@@ -182,17 +189,24 @@ previewed, and editing the signature later changes nothing already written. `bod
 alone, so search, the conversation pane's text and the AI never read a signature. With no mailbox or no default, the
 box is unticked and says why.
 
-**A sequence (revised 2026-11-10):** every email of a run carries the sender's **default** — the one starred in
-Settings — and there is no picker at Start. It is drawn there, outside any transaction, and **frozen on the enrollment**
-(`signature_html`) beside `first_body`, so a later edit or a new default reaches no run already started. A step's body
-may place it with **`{{signature}}`** (new sequences end every step in it; the Insert bar offers it, into the body only,
-and a subject leaves it as typed): `OutreachEmailBody.htmlOf` puts it between paragraphs there, and a body
-placing none is unsigned (revised 2026-11-11: the token decides, so taking it out takes the signature out); a sequence
-placing it nowhere has no signature drawn at Start, and so claims no booking page for one. The conversation's `body_text` drops the token. A sender keeping no signature signs off
-with their first name where the token stands. A value filled in from a profile or the opener can never place it: the
-token is taken out of every value first. A sequence saved before the token keeps its steps as written, and so goes unsigned until its
-author places `{{signature}}`. Nothing is stored on the sequence itself: a sequence is the position's, a
-signature its sender's.
+**A sequence (revised 2026-11-11):** Add to sequence's review carries the composer's own **Include signature** — ticked
+for the sender's default, a picker where they keep more than one, Add one in Settings where they keep none — and
+`StartSequenceRequest.signatureId` (null: none) is resolved by the same `EmailSignatureService.htmlForSending` an own
+email's is. It is drawn there, outside any transaction, and **frozen on the enrollment** (`signature_html`) beside
+`first_body`, so a later edit or a new default reaches no run already started; every email of the run is its words
+(`OutreachEmailBody.htmlOf`) and then that signature. `body_text` stays the words alone. A step never holds one: its
+save refuses `{{signature}}` on its field (`SignatureTokenRefusal`, which templates share), the editor previews the
+sender's default greyed under each step as the template editor does, and V207 and V208 took #1277's token out of every
+stored step and frozen first email, subjects included. A run Start leaves unsigned goes unsigned — no first-name
+stand-in, as an own email. Nothing is
+stored on the sequence itself: a sequence is the position's, a signature its sender's.
+
+Two consequences were accepted with the change (2026-11-11). **A run already started unsigned** — its sender kept no
+signature, so the token stood in for their first name — sends its remaining follow-ups with no name. And **the deploy's
+window** is left unguarded: Flyway runs V207 before the new revision takes traffic, so for those minutes the old
+revision's dispatcher may send a signed run's follow-up without its signature (the old code placed it only at the
+token), and a Start it serves freezes that run unsigned. Few runs send inside a few minutes, so one release was
+preferred to splitting the change in two.
 
 **Gateways are untouched**: the signature is part of `OutgoingEmail.htmlBody`. The test email from Settings carries
 the default signature, which doubles as a "see it in your own inbox" check. Where the booking page cannot be made, it
@@ -207,21 +221,22 @@ On-screen words go to `docs/glossary.md`; each new field gets its `docs/validati
 ## G. Phases
 
 0. **Mockups** — `Settings.dc.html`: Email signature page (list, gallery, form, preview) and Profile's phone and
-   LinkedIn; `Outreach.dc.html`: the composer's Include signature row and picker, and Start's review.
+   LinkedIn; `Outreach.dc.html`: the composer's Include signature row and picker, and the same in Add to sequence's
+   review.
 1. **Signatures** — its migration, profile phone and LinkedIn, the email-image store and route (photo from the avatar,
    logo through the guarded fetcher), the renderer with its tests, the CRUD and preview routes, Settings → Email
    signature.
 2. **Own emails** — the composer's tick box, picker and preview; `signatureId` on the send; booking prepared and the
    HTML appended at write.
-3. **Sequences** — its migration, Start's picker, booking prepared and `signature_html` frozen at Start, every step
-   appended.
+3. **Sequences** — its migration, Include signature at Start, booking prepared and `signature_html` frozen at Start,
+   every step appended (V207 retired the step token).
 
 Later, not planned:
 - admin firm templates (locked logo and disclaimer);
 - a separate reply signature;
 - importing a Gmail signature (`users.settings.sendAs`, which needs the `gmail.settings.basic` scope and so a
   reconnect; Outlook offers no equivalent);
-- a signature by name in a sequence (`{{signature:Name}}`), and choosing another than the default at Start;
+- a step that goes unsigned in a signed run (no market tool offers one);
 - a purge of email pictures no email names any more. That needs a reference to count first: a sent body holds the
   HTML, so the image ids a message or enrollment carries would be recorded at write time (a link table, or a
   `last_referenced_at` stamped on the row). The same follow-up deletes the bucket objects of rows an account or

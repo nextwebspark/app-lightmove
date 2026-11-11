@@ -7,7 +7,7 @@ for that data in a form they can take elsewhere (Art. 20). Part of epic #917.
 
 - An admin opens the person on **Candidates**, then ⋯ → **Export personal data…** → **Download**. The menu item is
   offered only where `DATA_PROTECTION_ENABLED` is on, like the other people controls.
-- The route is `GET /api/v1/candidates/{personId}/subject-access-export`, gated `PERSON_SUBJECT_ACCESS` (V207, ADMIN
+- The route is `GET /api/v1/candidates/{personId}/subject-access-export`, gated `PERSON_SUBJECT_ACCESS` (V209, ADMIN
   alone). With the switch off it answers 404.
 - Every export is audited `PERSON_SUBJECT_ACCESS_EXPORTED` (Settings → Security → Audit log, *Exports & downloads*),
   by person id and counts, never a name.
