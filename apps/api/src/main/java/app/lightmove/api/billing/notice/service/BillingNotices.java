@@ -94,9 +94,6 @@ public class BillingNotices {
 
     @Scheduled(cron = "${lightmove.billing.jobs.purchased-credit-expiry}", zone = "UTC")
     public void scheduledExpiryWarnings() {
-        if (!properties.billing().enforce()) {
-            return;
-        }
         warnOfExpiringCreditsAt(clock.instant());
     }
 
@@ -105,6 +102,9 @@ public class BillingNotices {
      * the claims are under row-level security.
      */
     public int warnOfExpiringCreditsAt(Instant now) {
+        if (!properties.billing().enforce()) {
+            return 0;
+        }
         return everyWorkspace.sum(workspaceId -> {
             int warned = 0;
             for (CreditGrant grant : grants.findPurchasedExpiring(now, now.plus(EXPIRY_WARNING))) {
@@ -132,9 +132,6 @@ public class BillingNotices {
 
     @Scheduled(cron = "${lightmove.billing.jobs.trial-notices}", zone = "UTC")
     public void scheduledTrialNotices() {
-        if (!properties.billing().enforce()) {
-            return;
-        }
         noticeTrialsAt(clock.instant());
     }
 
@@ -143,6 +140,9 @@ public class BillingNotices {
      * at a time, for the expiry warnings' reason.
      */
     public int noticeTrialsAt(Instant now) {
+        if (!properties.billing().enforce()) {
+            return 0;
+        }
         return everyWorkspace.sum(workspaceId -> {
             int sent = 0;
             for (WorkspaceSubscription trial : subscriptions.findAppTrialsEndingBetween(now,

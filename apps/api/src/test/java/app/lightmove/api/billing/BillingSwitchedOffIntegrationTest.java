@@ -8,19 +8,25 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.billing.credit.constant.CreditGrantSource;
+import app.lightmove.api.billing.notice.service.BillingNotices;
 import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.service.FairUseGuard;
+import java.sql.Timestamp;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
 import tools.jackson.databind.JsonNode;
 
 /** Billing switched off for the deployment, as the demo runs it: nothing refused, nothing emailed, the read says so. */
 @IntegrationTest
+@TestPropertySource(properties = {"lightmove.billing.enforce=false", "lightmove.billing.trial.enabled=true"})
 class BillingSwitchedOffIntegrationTest extends BillingFlowSupport {
 
+    @Autowired private BillingNotices notices;
     private FairUseGuard fairUse;
 
     @Autowired
@@ -55,5 +61,20 @@ class BillingSwitchedOffIntegrationTest extends BillingFlowSupport {
         JsonNode billing = body(mvc.perform(get("/api/v1/billing").header("Authorization", "Bearer " + login(owner)))
                 .andExpect(status().isOk()).andReturn());
         assertThat(billing.get("enforced").asBoolean()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a trial about to end and bought credits about to lapse email nobody")
+    void trialAndExpiryNoticesEmailNobody() throws Exception {
+        String owner = "owner-trial-off@" + domain;
+        UUID workspaceId = UUID.fromString(createWorkspace(verifiedUser("Yara Haddad", owner), "Trial Demo Firm"));
+        db.update("UPDATE app_lm_workspace_subscription SET trial_ends_at = ? WHERE workspace_id = ?",
+                Timestamp.from(Instant.now().plus(Duration.ofDays(2))), workspaceId);
+        grant(workspaceId, CreditGrantSource.PURCHASED, 100, Duration.ofDays(3));
+        int emailsBefore = email.subjectsFor(owner).size();
+
+        assertThat(notices.noticeTrialsAt(Instant.now())).isZero();
+        assertThat(notices.warnOfExpiringCreditsAt(Instant.now())).isZero();
+        assertThat(email.subjectsFor(owner)).hasSize(emailsBefore);
     }
 }
