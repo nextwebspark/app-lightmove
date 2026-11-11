@@ -13,6 +13,7 @@ import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubChatModel;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataExperience;
 import app.lightmove.api.enrichment.sourcing.model.ExecutiveSourcingRequested;
@@ -269,20 +270,21 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         UUID workspaceId = db.queryForObject("select workspace_id from app_lm_project where id = ?::uuid", UUID.class,
                 projectId);
         UUID userId = db.queryForObject("select id from app_lm_user where email = ?", UUID.class, adminEmail);
-        UUID runId = new TransactionTemplate(transactions).execute(status -> {
+        UUID runId = WorkspaceScope.call(workspaceId, () -> new TransactionTemplate(transactions).execute(status -> {
             ExecutiveSourcingRun queued = runs.save(ExecutiveSourcingRun.requested(workspaceId,
                     UUID.fromString(projectId), userId, List.of(new SourcingCompany(UUID.fromString(dpWorld),
                             "DP World", "dp-world", null, null, null)),
                     new SearchCriteria(SearchWords.defaultFor("Group CFO", null), List.of(), 3)));
             return queued.getId();
-        });
+        }));
 
         mvc.perform(post(sourcingUrl(projectId) + "/" + runId + "/stop")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.stopRequested").value(true));
-        new TransactionTemplate(transactions).executeWithoutResult(status -> events.publishEvent(
-                new ExecutiveSourcingRequested(runId, UUID.fromString(projectId), workspaceId, userId)));
+        WorkspaceScope.run(workspaceId, () -> new TransactionTemplate(transactions).executeWithoutResult(status ->
+                events.publishEvent(new ExecutiveSourcingRequested(runId, UUID.fromString(projectId), workspaceId,
+                        userId))));
 
         JsonNode run = runOf(projectId, runId.toString());
         assertThat(run.get("status").asText()).isEqualTo("STOPPED");

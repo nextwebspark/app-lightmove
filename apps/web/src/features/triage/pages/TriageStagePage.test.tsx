@@ -583,7 +583,7 @@ describe("TriageStagePage", () => {
       expect(screen.queryByRole("checkbox", { name: /Select ACWA Power/i })).not.toBeInTheDocument();
     });
 
-    it("opens the panel on the ticked companies, drafts the search on its first open, and searches only on Search", async () => {
+    it("opens the panel on the ticked companies, drafts the search on its first open, and searches them at once", async () => {
       offered();
       vi.mocked(sourcingApi.startSearch).mockResolvedValue(runOf({ status: "QUEUED" }));
       renderStage();
@@ -600,12 +600,10 @@ describe("TriageStagePage", () => {
 
       const panel = await screen.findByRole("dialog", { name: "Find executives" });
       await waitFor(() => expect(sourcingApi.suggestCriteria).toHaveBeenCalledWith("p1", ["u1"]));
-      expect(await within(panel).findByText("Finance")).toBeInTheDocument();
-      expect(await within(panel).findByText(/≈ 4 match · 3 to buy · 1 already on file/)).toBeInTheDocument();
-      expect(sourcingApi.startSearch).not.toHaveBeenCalled();
-
-      await userEvent.click(within(panel).getByRole("button", { name: /^Search 1 company$/i }));
+      await waitFor(() => expect(sourcingApi.countSearch).toHaveBeenCalled());
       await waitFor(() => expect(sourcingApi.startSearch).toHaveBeenCalledWith("p1", ["u1"]));
+      expect(sourcingApi.startSearch).toHaveBeenCalledTimes(1);
+      expect(panel).toBeInTheDocument();
     });
 
     it("counts the companies the ticked rows name, and says so past the cap", async () => {
@@ -639,7 +637,8 @@ describe("TriageStagePage", () => {
       offered();
       renderStage();
 
-      await userEvent.click(await screen.findByRole("button", { name: /Add an executive at ACWA Power/i }));
+      await screen.findByRole("button", { name: /^Find executives/ });
+      await userEvent.click(screen.getByRole("button", { name: /Add an executive at ACWA Power/i }));
       await userEvent.click(screen.getByRole("menuitem", { name: /Find with Uncava/ }));
       expect(await screen.findByRole("dialog", { name: "Find executives" })).toBeInTheDocument();
       await waitFor(() => expect(sourcingApi.countSearch).toHaveBeenCalledWith("p1", ["u1"], expect.anything(), expect.anything()));
