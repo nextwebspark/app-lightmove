@@ -189,7 +189,7 @@ project route's `projectId` (#243) — ids only, never an email or a name. Each 
 `trace_sampled`, so it nests under Cloud Run's own request entry (#245).
 
 The `message` and `stack_trace` of every deployed line are masked (#927, `PersonalDataLogMasker`): an email address
-reads `[email removed]`, a LinkedIn profile link `[profile removed]` and a phone written with its `+` `[phone removed]`,
+reads `[email removed]`, a LinkedIn profile link (written out or percent-encoded, `/in/` or `/pub/`) `[profile removed]` and a phone written with its `+` `[phone removed]`,
 so a vendor's error quoting its request cannot keep a person's contact in the log. A phone without a `+` is left, since
 the looser rule the model calls use reads a UUID's last group as one. Searching the logs for a person's address
 therefore finds nothing; search by their id.

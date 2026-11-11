@@ -12,7 +12,12 @@ public final class ContactRedaction {
     public static final String EMAIL_REMOVED = "[email removed]";
     public static final String PHONE_REMOVED = "[phone removed]";
 
-    public static final Pattern EMAIL = Pattern.compile("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
+    /**
+     * The lookbehind starts a match only where a local part does, so it matches the same addresses: without it a long
+     * run with no {@code @} — base64, a vendor's body — is retried from every position in it.
+     */
+    public static final Pattern EMAIL =
+            Pattern.compile("(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
 
     /**
      * At least eight characters of digits, dashes, spaces, tabs or parentheses — never a dot, too easily a decimal or

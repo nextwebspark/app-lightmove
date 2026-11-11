@@ -1,6 +1,7 @@
 package app.lightmove.api.core.logging.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -12,6 +13,7 @@ import ch.qos.logback.core.ConsoleAppender;
 import java.lang.reflect.Constructor;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Map;
 import net.logstash.logback.composite.loggingevent.LoggingEventJsonProviders;
 import net.logstash.logback.composite.loggingevent.LoggingEventPatternJsonProvider;
@@ -36,6 +38,33 @@ class PersonalDataLogMaskerTest {
         assertThat(PersonalDataLogMasker.redact(
                 "Resend refused jane.doe@firm.com; profile https://www.linkedin.com/in/jane-doe-12ab/ mobile +971 50 123 4567"))
                 .isEqualTo("Resend refused [email removed]; profile [profile removed] mobile [phone removed]");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"mobile +971 50 123 4567 2026 retries", "call +971501234567 12345 retries"})
+    @DisplayName("a dialled phone followed by a year or a count is still taken out")
+    void masksPhoneFollowedByNumber(String line) {
+        assertThat(PersonalDataLogMasker.redact(line)).doesNotContain("971").contains("[phone removed]");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "GET /people?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fjane-doe&page=1",
+            "next=%2Fae.linkedin.com%2Fin%2Fjane-doe",
+            "legacy http://linkedin.com/pub/jane-doe/12/345/678",
+            "seen at LINKEDIN.COM/IN/Jane-Doe"})
+    @DisplayName("a percent-encoded, legacy or upper-case profile link is taken out")
+    void masksOtherProfileLinkForms(String line) {
+        assertThat(PersonalDataLogMasker.redact(line)).doesNotContainIgnoringCase("jane-doe").contains("[profile removed]");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"@", "linkedin.com/", "+"})
+    @DisplayName("a long run of word characters is read in linear time")
+    void longRunIsLinear(String trailer) {
+        String line = "a".repeat(50_000) + " " + "b".repeat(50_000) + trailer;
+
+        assertTimeoutPreemptively(Duration.ofSeconds(1), () -> PersonalDataLogMasker.redact(line));
     }
 
     @ParameterizedTest
