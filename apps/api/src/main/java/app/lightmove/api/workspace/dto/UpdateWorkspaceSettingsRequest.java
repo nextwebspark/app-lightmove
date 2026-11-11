@@ -1,5 +1,6 @@
 package app.lightmove.api.workspace.dto;
 
+import app.lightmove.api.core.validation.CurrencyCode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -18,5 +19,7 @@ public record UpdateWorkspaceSettingsRequest(
         String apolloAccountId,
 
         String defaultRegion,
+
+        @CurrencyCode(message = "Choose a currency from the list")
         String defaultCurrency
 ) {}

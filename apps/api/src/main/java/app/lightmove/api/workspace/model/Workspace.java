@@ -1,6 +1,7 @@
 package app.lightmove.api.workspace.model;
 
 import app.lightmove.api.common.constant.DefaultCurrency;
+import app.lightmove.api.common.location.service.Currencies;
 import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.common.persona.model.PersonaSeed;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -137,6 +138,7 @@ public class Workspace extends BaseEntity {
         workspace.logoMark = deriveLogoMark(name);
         workspace.identifyAs(company);
         workspace.persona = HiringPersona.seededFrom(seedOf(company));
+        workspace.defaultCurrency = Currencies.startingCurrencyFor(company == null ? null : company.country());
         return workspace;
     }
 

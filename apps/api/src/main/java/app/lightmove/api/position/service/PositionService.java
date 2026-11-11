@@ -80,7 +80,7 @@ public class PositionService {
     @Transactional(readOnly = true)
     public CompensationDto compensationOf(UUID workspaceId, UUID projectId) {
         Position position = briefs.find(workspaceId, projectId)
-                .orElseGet(() -> Position.forProject(projectId, null));
+                .orElseGet(() -> briefs.blank(workspaceId, projectId));
         return assembler.compensationOf(position);
     }
 
@@ -92,7 +92,7 @@ public class PositionService {
     @Transactional(readOnly = true)
     public BriefCompetencies competenciesOf(UUID workspaceId, UUID projectId) {
         return competenciesOf(briefs.find(workspaceId, projectId)
-                .orElseGet(() -> Position.forProject(projectId, null)));
+                .orElseGet(() -> Position.forProject(projectId, null, null)));
     }
 
     /** The brief as the AI assessment reads it, through the same narrow seam; it never drafts a brief either. */

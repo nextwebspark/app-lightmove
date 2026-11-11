@@ -508,6 +508,13 @@ V77 makes AED the default currency (`DefaultCurrency` / the SPA's `DEFAULT_CURRE
 briefs and templates start in it, and it moved the shared library, never-saved briefs (`version = 0`)
 and workspace defaults off USD — a saved brief and a firm's own template keep what somebody chose.
 Revenue in the universe and the Strategy filter stays USD: that is what the data is in.
+**The workspace's currency is the one every new figure starts in** (#1291): a workspace founded from a picked
+firm starts in its country's (`Currencies.startingCurrencyFor`, the JDK's ISO 3166 → 4217 table; AED with no
+country), an admin changes it in Settings → General (`@CurrencyCode`, audited), and a brief drafts in it
+(`PositionBriefLoader`, through `WorkspaceSettingsService.defaultCurrencyOf`) — the shared library's currency
+never replaces it, a firm's own template's does — so a package follows the brief. A change relabels and
+converts nothing already recorded. `Currencies.isKnownCode` is the one accepted set (historic codes included);
+every picker offers `GET /currencies` (every currency a country uses today) through `CurrencyOptions`.
 `app_lm_position_template` (V42) is the role-template library — the identity a picker lists as columns,
 the drafted brief as one `jsonb` body (V30's idiom, not V39's child tables: a template is a
 heterogeneous document read and written whole), and the match keywords as a child table because they

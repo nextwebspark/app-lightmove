@@ -614,6 +614,29 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.reporting.orgChart[1].title").value("Board of Directors"));
     }
 
+    @Test
+    @DisplayName("a brief starts in the workspace's currency, which the shared library's template never replaces")
+    void briefStartsInTheWorkspaceCurrency() throws Exception {
+        String admin = adminOf("Riyadh Search");
+        mvc.perform(patch("/api/v1/workspace")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Riyadh Search","apolloAccountId":"","defaultCurrency":"SAR"}"""))
+                .andExpect(status().isOk());
+
+        String drafted = createProject(admin, createClient(admin, "Meridian Energy", "UAE"), "Chief Financial Officer");
+        mvc.perform(get(positionUrl(drafted)).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.compensation.currency").value("SAR"));
+
+        String undrafted = createProject(admin, createClient(admin, "Fine Hygienic", "Jordan"), "CEO");
+        positionRows.findByProjectId(UUID.fromString(undrafted)).ifPresent(positionRows::delete);
+        mvc.perform(get(positionUrl(undrafted) + "/compensation").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currency").value("SAR"));
+    }
+
     // helpers
 
     private static String positionUrl(String projectId) {

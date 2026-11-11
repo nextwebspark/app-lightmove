@@ -1,5 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { DEFAULT_CURRENCY } from "../../../lib/currencies";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
@@ -11,6 +10,7 @@ import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
+import { useWorkspaceCurrency } from "../../workspace/lib/useWorkspaceCurrency";
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate, SaveCandidatePayload } from "../api/types";
@@ -76,6 +76,7 @@ export function AddCandidateForm({
   onMarkNoExecutiveFound?: () => void;
 }) {
   const toast = useToast();
+  const { currency: workspaceCurrency } = useWorkspaceCurrency();
   const [submitError, setSubmitError] = useState<string | null>(null);
   // Outside react-hook-form: its schema is a fixed shape and these keys are the project's, decided at
   // runtime. They still travel in the same submit, so a save is one request and one audit event.
@@ -86,7 +87,7 @@ export function AddCandidateForm({
     defaultValues: {
       ...EMPTY_FORM,
       employerName: company?.companyName ?? "",
-      currency: defaultCurrency ?? DEFAULT_CURRENCY,
+      currency: defaultCurrency ?? workspaceCurrency,
     },
   });
   const { register, formState } = form;

@@ -290,6 +290,12 @@ const activityLine = (
 /** The parts of the Profile tab that were tabs of their own, and the folds beside them. */
 const PROFILE_FOLDS = ["Summary", "Experience", "Education", "Background", "Compensation", "Documents"];
 
+/** Opens the currency picker and picks one, as a consultant does. */
+const pickCurrency = async (option: string) => {
+  await userEvent.click(screen.getByLabelText(/^Currency$/i));
+  await userEvent.click(screen.getByRole("option", { name: option }));
+};
+
 /** A tab, or a fold of the Profile tab: the tab chosen (where there is a bar) and the fold opened. */
 const openTab = async (name: string) => {
   if (!PROFILE_FOLDS.includes(name)) {
@@ -434,7 +440,7 @@ describe("CandidateDrawer", () => {
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
 
     // The section's fields, as stored, with the figures in the shape they are read in.
-    expect(screen.getByLabelText(/^Currency$/i)).toHaveValue("AED");
+    expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("AED UAE Dirham");
     expect(screen.getByLabelText(/^Base$/i)).toHaveValue("420,000");
     // This is not the old whole-record form.
     expect(screen.queryByLabelText(/Full name/i)).not.toBeInTheDocument();
@@ -490,9 +496,11 @@ describe("CandidateDrawer", () => {
 
     // A select whose value matched no option would post blank and clear a fact nobody touched.
     const currency = screen.getByLabelText(/^Currency$/i);
-    expect(currency).toHaveValue("INR");
-    expect(within(currency).getByRole("option", { name: "AED - UAE Dirham" })).toBeInTheDocument();
-    expect(within(currency).getByRole("option", { name: "Not set" })).toBeInTheDocument();
+    expect(currency).toHaveTextContent("INR");
+    await userEvent.click(currency);
+    expect(screen.getByRole("option", { name: "INR" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "AED - UAE Dirham" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Not set" })).toBeInTheDocument();
   });
 
   it("follows the brief's currency until it is overridden, and can go back to it", async () => {
@@ -504,17 +512,17 @@ describe("CandidateDrawer", () => {
 
     await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
-    expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR - Saudi Riyal");
+    expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR Saudi Riyal");
     expect(screen.getByText(/^From brief$/i)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /^Override$/i }));
     const currency = screen.getByLabelText(/^Currency$/i);
-    expect(currency).toHaveValue("SAR");
-    await userEvent.selectOptions(currency, "USD");
+    expect(currency).toHaveTextContent("SAR");
+    await pickCurrency("USD - US Dollar");
     expect(screen.queryByText(/^From brief$/i)).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /^Reset to brief$/i }));
-    expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR - Saudi Riyal");
+    expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR Saudi Riyal");
   });
 
   it("opens a package with no currency on file and no brief in AED", async () => {
@@ -526,7 +534,7 @@ describe("CandidateDrawer", () => {
     await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
 
-    expect(screen.getByLabelText(/^Currency$/i)).toHaveValue("AED");
+    expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("AED UAE Dirham");
     expect(screen.queryByText(/^From brief$/i)).not.toBeInTheDocument();
   });
 
@@ -536,7 +544,7 @@ describe("CandidateDrawer", () => {
     await openTab("Compensation");
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
 
-    expect(screen.getByLabelText(/^Currency$/i)).toHaveValue("AED");
+    expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("AED UAE Dirham");
     expect(screen.getByRole("button", { name: /^Reset to brief$/i })).toBeInTheDocument();
   });
 
@@ -676,20 +684,20 @@ describe("CandidateDrawer", () => {
 
     const currency = () => screen.getByLabelText(/^Currency$/i);
     // No brief read yet: the package starts in the default currency, not "Not set".
-    expect(currency()).toHaveValue("AED");
+    expect(currency()).toHaveTextContent("AED");
 
-    await userEvent.selectOptions(currency(), "QAR");
+    await pickCurrency("QAR - Qatari Riyal");
     await userEvent.click(screen.getByRole("button", { name: /brief read/i }));
 
     // A consultant who already picked one is stating this package is quoted in another.
-    expect(currency()).toHaveValue("QAR");
+    expect(currency()).toHaveTextContent("QAR");
     expect(screen.getByRole("button", { name: /^Reset to brief$/i })).toBeInTheDocument();
   });
 
   it("opens a new executive on the mandate's currency when the brief is already read", async () => {
     renderDrawer({ defaultCurrency: "SAR" });
 
-    expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR - Saudi Riyal");
+    expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR Saudi Riyal");
     expect(screen.getByText(/^From brief$/i)).toBeInTheDocument();
   });
 

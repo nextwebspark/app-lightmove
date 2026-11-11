@@ -96,7 +96,7 @@ export function draftOf(detail: TemplateDetail): TemplateDraft {
   };
 }
 
-export function blankDraft(): TemplateDraft {
+export function blankDraft(currency: string = DEFAULT_CURRENCY): TemplateDraft {
   return {
     title: "",
     discipline: "EXECUTIVE",
@@ -112,7 +112,7 @@ export function blankDraft(): TemplateDraft {
     directReports: [],
     noticeValue: 3,
     noticeUnit: "MONTHS",
-    currency: DEFAULT_CURRENCY,
+    currency,
     baseSalaryMode: "ANNUAL",
     bonusValue: null,
     bonusBasis: null,

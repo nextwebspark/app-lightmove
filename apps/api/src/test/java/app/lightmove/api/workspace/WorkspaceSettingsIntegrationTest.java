@@ -58,6 +58,22 @@ class WorkspaceSettingsIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a default currency nobody issues is refused on its field")
+    void unknownCurrencyIsRefused() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Currency Firm");
+        String admin = login(alok);
+
+        mvc.perform(patch("/api/v1/workspace")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Currency Firm","apolloAccountId":"","defaultCurrency":"XYZ"}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.defaultCurrency").exists());
+    }
+
+    @Test
     @DisplayName("an admin saves the firm persona, tidied, and every staff read carries it")
     void adminSavesPersona() throws Exception {
         String alok = "alok@" + domain;

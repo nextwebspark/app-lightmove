@@ -85,6 +85,18 @@ class CountryVocabularyIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.markets.length()").value(2));
     }
 
+    @Test
+    @DisplayName("the currency vocabulary is every currency a country uses today, by code")
+    void currenciesAreServed() throws Exception {
+        String admin = adminOf("Currency Vocabulary Firm");
+
+        mvc.perform(get("/api/v1/currencies").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currencies[0].code").value("AED"))
+                .andExpect(jsonPath("$.currencies[?(@.code == 'SAR')].name").value("Saudi Riyal"))
+                .andExpect(jsonPath("$.currencies[?(@.code == 'ATS')]").isEmpty());
+    }
+
     private String adminOf(String workspaceName) throws Exception {
         createWorkspace(verifiedUser("Alok Kumar", "alok@" + domain), workspaceName);
         return login("alok@" + domain);
