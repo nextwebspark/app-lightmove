@@ -46,4 +46,12 @@ class NoteTextTest {
 
         assertThat(NoteText.forPrompt(body)).isEqualTo("**Wants** Dubai, says @Omar Khalil");
     }
+
+    @Test
+    void writesAnEmailsParagraphsApartWithItsVariables() {
+        String body = "Hi {{firstName\\|there}},\n\nThanks for **your time**.\nSpeak soon\n\n- One\n- Two";
+
+        assertThat(NoteText.plainEmailTextOf(body))
+                .isEqualTo("Hi {{firstName|there}},\n\nThanks for your time.\nSpeak soon\n\n- One\n- Two");
+    }
 }

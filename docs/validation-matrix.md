@@ -184,6 +184,8 @@ is held back rather than sent (the step does not save until it is named) and the
 | Export cells | — | formula starters defused | — |
 | ☐ Import template headers | — | not defused | — |
 | Sequence steps | ≤ 3 | 1–3, delays, window ordering | field |
+| Sequence step from template | a template past 5,000 characters as plain text (the step's `{{signature}}` counted) is offered disabled, saying so; replacing words asks first | — (a copy: the step's own `@Size(5000)` holds) | inline |
+| Sequence step saved as template | a step using `{{opener}}`, or with no words but its signature, is refused in the dialog, saying why | the template's own rows above (`{{signature}}` is left out before it is sent) | dialog |
 | ☐ Sequence subject | — | CR/LF accepted | fails at send |
 | Own email: to | one of the person's addresses, offered as a list (one is shown as text); the composer locks with none on file or do not contact | ≤ 320; on the person's record (`OUTREACH_ADDRESS_NOT_ON_FILE`), not do not contact (`OUTREACH_DO_NOT_CONTACT`) | sentence |
 | Own email: subject | a first email's Send now and Schedule stay disabled until it has one; a reply shows its thread's, read-only | required for a first email, ≤ 200, one line; a reply keeps its thread's; a first email's variables filled on one line (`renderLine`), and refused if that leaves it empty | field |

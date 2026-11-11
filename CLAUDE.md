@@ -880,7 +880,7 @@ and Start draws none for a sequence placing none — and a sender keeping none s
 has its page made before anything is written. The mailbox's test email carries the default, leaving Book a call out
 where its page cannot be made, since the test proves the mailbox and nothing else.
 
-**Email templates (V205, epic #1247, `docs/email-templates.md`; Phases 1 and 2 built)** are a consultant's saved emails and
+**Email templates (V205, epic #1247, `docs/email-templates.md`; Phases 1–3 built)** are a consultant's saved emails and
 replies, per workspace, in Settings → Email templates (`/me/email-templates`, staff only, `EmailTemplateService`):
 personal, or shared with the workspace, where every staff member applies or duplicates one and only its owner or a
 `WORKSPACE_MANAGE` holder edits, unshares or deletes it (`EMAIL_TEMPLATE_NOT_YOURS`); another's personal one reads as
@@ -904,6 +904,14 @@ Include signature is left alone. The conversation read's `composer.tokens` is th
 none and no fallback, or one no email fills, is named under the editor and holds Send, and the server refuses the same
 with `OUTREACH_TOKENS_UNFILLED` (409, `tokens`), a first email's subject filled on one line (`renderLine`). The email
 records the template it came from (`templateId`), only one the sender may see in this workspace, else null.
+**A sequence step** (`SequenceEditorPage`) takes one by **From template** (`StepTemplatePicker`): a copy, never a link,
+of its `plainBody` — the words as plain text, paragraphs apart (`NoteText.plainEmailTextOf`), since a step has no
+formatting — its subject into the first email alone, asked first where the step holds words, refused past a step's
+5,000, and keeping the step's `{{signature}}` where it placed one, since a step placing none goes unsigned. **Save as
+template** on a step saves its words with their variables as Markdown (`plainEmailDoc`), the first email's subject too,
+its `{{signature}}` left out; a step using `{{opener}}` is refused, saying why. The editor's preview and Add to
+sequence's review mark, per person, a variable with nothing on file red and a fallback standing in underlined
+(`FilledVariable`); the review names both under the email and flags the person "N blank", and Start is not held.
 
 **The Notetaker (V151, `docs/notetaker.md`, `notetaker`)** is a Recall.ai bot a consultant sends into a kept call from
 the executive drawer's Meetings section (`WORK_EXECUTE`, only on a call on the caller's own calendar or booked by them,

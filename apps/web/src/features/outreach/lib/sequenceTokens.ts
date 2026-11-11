@@ -93,6 +93,18 @@ export function unfilledIn(text: string | null | undefined, tokens: RecipientTok
   ];
 }
 
+/** The known tokens the text uses with no value for this person, where a fallback stands in, in order of first use. */
+export function fallbacksIn(text: string | null | undefined, tokens: RecipientTokens): string[] {
+  const values = valuesOf(tokens);
+  return [
+    ...new Set(
+      tokenUsesIn(text)
+        .filter((use) => Object.hasOwn(values, use.name) && values[use.name] === "" && use.fallback !== null)
+        .map((use) => use.name),
+    ),
+  ];
+}
+
 /** A subject: every value on one line, as the server writes it. */
 export function renderLine(template: string, tokens: RecipientTokens): string {
   return render(template, tokens, null).replace(/\s+/g, " ").trim();
@@ -124,6 +136,8 @@ export interface RenderedPart {
   isLink?: boolean;
   /** A variable with nothing on file and no fallback: its text is empty, as the server sends it; `token` names it. */
   isBlank?: boolean;
+  /** A variable with nothing on file whose fallback stands in: its text is the fallback; `token` names it. */
+  isFallback?: boolean;
   token?: string;
   /** Where the sender's default signature goes; its text is the token as typed. */
   isSignature?: boolean;
@@ -156,8 +170,12 @@ export function renderParts(template: string, tokens: RecipientTokens, opener: s
       if (plain) parts.push({ text: plain, isOpener: false });
       plain = "";
       parts.push({ text: "", isOpener: false, isBlank: true, token: name });
+    } else if (Object.hasOwn(values, name) && !values[name]) {
+      if (plain) parts.push({ text: plain, isOpener: false });
+      plain = "";
+      parts.push({ text: fallback ?? "", isOpener: false, isFallback: true, token: name });
     } else if (Object.hasOwn(values, name)) {
-      plain += values[name] || fallback;
+      plain += values[name];
     } else {
       plain += match[0];
     }

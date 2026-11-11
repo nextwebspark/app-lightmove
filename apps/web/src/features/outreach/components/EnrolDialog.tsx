@@ -31,7 +31,14 @@ import {
   whenLabelOf,
   zoneCityOf,
 } from "../lib/sendSchedule";
-import { BOOKING_LINK_PLACEHOLDER, render, renderParts } from "../lib/sequenceTokens";
+import {
+  BOOKING_LINK_PLACEHOLDER,
+  fallbacksIn,
+  renderParts,
+  unfilledIn,
+  type RenderedPart,
+} from "../lib/sequenceTokens";
+import { FilledVariable } from "./FilledVariable";
 import { useMailbox } from "../lib/useMailbox";
 import { SignatureUnderEmail } from "../../signatures/components/SignatureChooser";
 import { useSignatureChoice, type SignatureChoice } from "../../signatures/lib/useSignatureChoice";
@@ -611,6 +618,7 @@ function ReviewStep({
                   Edited
                 </span>
               )}
+              <GapChip gaps={gapsOf(sequence, person.tokens)} />
             </button>
           </li>
         ))}
@@ -636,15 +644,12 @@ function ReviewStep({
           </select>
           <span className="text-u-text3">Subject</span>
           <span className="font-medium text-u-text">
-            {render(first.subject ?? "", withBookingLink(reviewing.tokens, bookingLink), null)}
+            {drawn(renderParts(first.subject ?? "", withBookingLink(reviewing.tokens, bookingLink), null), "", firstName)}
           </span>
         </div>
         <div className="whitespace-pre-wrap pt-3 text-[13.5px]/[1.6] text-u-text">
           {/* The opener sits in its own box, so the blank lines around it in the template would double up. */}
-          {before
-            .map((part) => (part.isSignature ? signOff : part.text))
-            .join("")
-            .replace(/\n+$/, "")}
+          {drawn(before, signOff, firstName, "end")}
         </div>
         {openerAt >= 0 ? (
           <div className="my-1 rounded-[8px] bg-u-inferred-tint p-2.5">
@@ -674,12 +679,10 @@ function ReviewStep({
           <p className="my-1 font-mono text-[11.5px] text-u-text3">This sequence's first email has no opener.</p>
         )}
         <div className="whitespace-pre-wrap text-[13.5px]/[1.6] text-u-text">
-          {after
-            .map((part) => (part.isSignature ? signOff : part.text))
-            .join("")
-            .replace(/^\n+/, "")}
+          {drawn(after, signOff, firstName, "start")}
         </div>
         {signed && <SignatureUnderEmail choice={signature} />}
+        <GapLine gaps={gapsOf(sequence, reviewing.tokens)} firstName={firstName} />
         {signed && signature.isError && (
           <p className="mt-3 border-t border-u-border pt-2.5 font-mono text-meta text-u-text3">
             Your signatures could not be read here. Your default signature still signs these emails.
@@ -857,6 +860,72 @@ function startedToastOf(started: StartedSequence, mode: StartMode, timeZone: str
 }
 
 /** Typing is never blocked on the model: whatever is typed first wins over a draft that lands later. */
+interface TokenGaps {
+  /** Nothing on file and no fallback: it goes out blank. */
+  blanks: string[];
+  /** Nothing on file, and a fallback stands in. */
+  fallbacks: string[];
+}
+
+/** What this person has nothing on file for, anywhere in the sequence: its first subject and every step. */
+function gapsOf(sequence: Sequence, tokens: RecipientTokens): TokenGaps {
+  const texts = [sequence.steps[0]?.subject, ...sequence.steps.map((step) => step.body)];
+  const blanks = [...new Set(texts.flatMap((text) => unfilledIn(text, tokens)))];
+  const fallbacks = [...new Set(texts.flatMap((text) => fallbacksIn(text, tokens)))].filter(
+    (name) => !blanks.includes(name),
+  );
+  return { blanks, fallbacks };
+}
+
+/** The review marks a gap; it does not hold Start, since a run is many people at once (decision 8). */
+function GapChip({ gaps }: { gaps: TokenGaps }) {
+  if (gaps.blanks.length > 0) {
+    return (
+      <span className="flex-none rounded-full bg-u-offlimits-tint px-1.5 py-px font-mono text-eyebrow text-u-offlimits">
+        {gaps.blanks.length} blank
+      </span>
+    );
+  }
+  if (gaps.fallbacks.length > 0) {
+    return (
+      <span className="flex-none rounded-full bg-u-raised px-1.5 py-px font-mono text-eyebrow text-u-text3">Fallback</span>
+    );
+  }
+  return null;
+}
+
+function GapLine({ gaps, firstName }: { gaps: TokenGaps; firstName: string }) {
+  if (gaps.blanks.length === 0 && gaps.fallbacks.length === 0) return null;
+  const listed = (names: string[]) => names.map((name) => `{{${name}}}`).join(", ");
+  return (
+    <p className="mt-3 border-t border-u-border pt-2.5 font-mono text-meta text-u-text3">
+      {gaps.blanks.length > 0 && (
+        <span className="text-u-offlimits">
+          Nothing on file for {firstName}: {listed(gaps.blanks)} {gaps.blanks.length === 1 ? "goes" : "go"} out blank in
+          this sequence. Give {gaps.blanks.length === 1 ? "it" : "them"} a fallback in the sequence, or fill in their
+          profile.{" "}
+        </span>
+      )}
+      {gaps.fallbacks.length > 0 &&
+        `${gaps.blanks.length > 0 ? "The" : `Nothing on file for ${firstName}: the`} fallback stands in for ${listed(gaps.fallbacks)}.`}
+    </p>
+  );
+}
+
+/** The parts as read, the signature as its sign-off, with the blank lines at one edge dropped. */
+function drawn(parts: RenderedPart[], signOff: string, firstName: string, trim?: "start" | "end") {
+  return parts.map((part, index) => {
+    const text = part.isSignature ? signOff : part.text;
+    const edge =
+      trim === "end" && index === parts.length - 1
+        ? text.replace(/\n+$/, "")
+        : trim === "start" && index === 0
+          ? text.replace(/^\n+/, "")
+          : text;
+    return <FilledVariable key={index} part={{ ...part, text: edge }} forWhom={firstName} />;
+  });
+}
+
 /** Until the sender's first Start makes their real link, the review says where it will go. */
 function withBookingLink(tokens: RecipientTokens, bookingLink: string | null): RecipientTokens {
   return { ...tokens, bookingLink: tokens.bookingLink ?? bookingLink ?? BOOKING_LINK_PLACEHOLDER };

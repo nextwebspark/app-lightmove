@@ -8,6 +8,7 @@ import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import type { RecipientTokens } from "../../outreach/api/sequenceApi";
 import { BOOKING_LINK_PLACEHOLDER, renderParts } from "../../outreach/lib/sequenceTokens";
+import { FilledVariable } from "../../outreach/components/FilledVariable";
 import * as emailTemplatesApi from "../api/emailTemplatesApi";
 import type { EmailTemplate } from "../api/emailTemplatesApi";
 
@@ -195,15 +196,9 @@ function TemplatePreview({ template, tokens }: { template: EmailTemplate; tokens
 function FilledText({ text, values }: { text: string; values: RecipientTokens }) {
   return (
     <>
-      {renderParts(text, values, null).map((part, index) =>
-        part.isBlank ? (
-          <span key={index} title="Nothing on file for this executive" className="font-mono text-u-offlimits">
-            {`{{${part.token}}}`}
-          </span>
-        ) : (
-          <span key={index}>{part.text}</span>
-        ),
-      )}
+      {renderParts(text, values, null).map((part, index) => (
+        <FilledVariable key={index} part={part} forWhom={values.firstName} />
+      ))}
     </>
   );
 }
