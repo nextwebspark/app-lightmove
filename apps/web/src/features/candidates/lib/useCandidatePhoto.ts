@@ -4,16 +4,9 @@ import { ApiRequestError, requestBlob } from "../../../lib/apiClient";
 import type { Candidate } from "../api/types";
 
 /**
- * The stored profile photo as an object URL, or null — no photo and "still being researched" look
- * the same, and the Avatar's initials cover both.
- *
- * <p>Fetched rather than pointed at: the endpoint needs the bearer token, which lives in memory
- * inside apiClient, so a plain `<img src>` would 401. The query key carries `enrichedAt` so the
- * avatar appears on the poll that delivers the research, without anyone reloading.
- *
- * <p>The query caches the Blob and the object URL is minted in an effect, because an object URL is
- * a registration rather than a value: one created per fetch and never revoked pins its Blob for the
- * life of the tab, and this hook runs once per avatar on a grid that refetches all day.
+ * The stored photo as an object URL, or null. Fetched, not `<img src>`, because the endpoint needs the in-memory
+ * bearer; `enrichedAt` in the key shows it on the research poll. The object URL is minted and revoked in an effect —
+ * one per fetch never revoked pins its Blob for the tab's life.
  */
 export function useCandidatePhoto(
   projectId: string,

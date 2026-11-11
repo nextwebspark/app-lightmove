@@ -2,12 +2,8 @@ import type { ReactNode } from "react";
 import { cn } from "../../lib/cn";
 
 /**
- * The read-only half of a detail drawer, in the shape the mockups' two panels share: an uppercase
- * mono section heading, and beneath it either prose or a two-column grid of label/value tiles.
- *
- * <p>Shared rather than written twice because the company panel and the executive panel are the same
- * furniture around different facts — and a panel that laid its labels out slightly differently from
- * the one beside it would read as a different product.
+ * The read-only half of a detail drawer: a mono section heading, then prose or a two-column label/value grid,
+ * shared by the company and executive panels.
  */
 
 export function DrawerSection({

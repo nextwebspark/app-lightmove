@@ -2,13 +2,8 @@ import { deleteCookie, readCookie, writeCookie } from "../../../lib/cookies";
 import { codeOf } from "../../../lib/errorCodes";
 
 /**
- * Connecting a mailbox in a popup, both ends of it — `features/auth/oauthPopup.ts`'s shape, for its
- * reasons, with one difference: the consent screen's address comes from the server (it carries a
- * state the server minted), so the popup is opened blank in the click and pointed there once the
- * address arrives. Anything awaited before `window.open` would get the popup blocked.
- *
- * Only an outcome crosses between the windows. The server has already redeemed the code and stored
- * the mailbox by the time the popup lands, so the opener simply reads its mailbox again.
+ * Connecting a mailbox in a popup, `oauthPopup.ts`'s shape: opened blank in the click and pointed at the server's
+ * address once it arrives (awaiting first gets it blocked). Only an outcome crosses windows.
  */
 
 const OUTCOME_MESSAGE = "lightmove.mailbox.outcome";

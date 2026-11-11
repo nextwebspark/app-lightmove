@@ -13,18 +13,8 @@ export interface TreemapTile<T extends TreemapRow = TreemapRow> {
 }
 
 /**
- * Squarified treemap: the rows tile the whole box, each one taking the share of the area its value
- * is of the total, laid out in rows or columns chosen to keep every tile as near square as it can
- * be. Bruls, Huizing and van Wijk's algorithm.
- *
- * <p>Percentages rather than pixels, because the block is fluid — the caller gives it a CSS aspect
- * ratio and the tiles follow the width it happens to get. `aspect` is what a percentage of width and
- * a percentage of height are worth against each other; without it the squarifying would call a tile
- * square that is drawn twice as wide as it is tall.
- *
- * <p>Rows are laid largest first, so the leader lands top-left where the eye starts. A row with no
- * value takes no area and is dropped: a zero-area tile is a hairline that reads as a rendering
- * fault, and its label would have nowhere to sit.
+ * Squarified treemap (Bruls, Huizing and van Wijk), in percentages for a fluid box; `aspect` weighs a width percent
+ * against a height percent so tiles are truly square. Largest first; zero-value rows are dropped (a hairline tile).
  */
 export function squarify<T extends TreemapRow>(rows: readonly T[], aspect = 1): TreemapTile<T>[] {
   const ordered = rows.filter((row) => row.value > 0).sort((a, b) => b.value - a.value);

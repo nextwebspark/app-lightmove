@@ -9,12 +9,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * Which tables hold a tenant's data, read off the schema rather than a list someone keeps: every {@code app_lm_}
- * table with a {@code workspace_id}, and every table holding a foreign key into one of those, however many hops
- * down. Each must have row-level security enabled, forced and given a policy, unless it is on {@link #EXCLUDED}
- * with its reason — so a migration cannot add an unprotected tenant table without someone writing down why.
- * {@code app_lm_workspace} is the tenant, not a tenant's row: it has no {@code workspace_id}, so the walk never starts
- * from it, and {@link EveryWorkspace} reads it whole.
+ * Tenant tables read off the schema: every {@code app_lm_} table with a {@code workspace_id} and every table keyed into
+ * one, any depth. Each needs forced row-level security and a policy unless on {@link #EXCLUDED} with its reason.
+ * {@code app_lm_workspace} is the tenant itself, never a start of the walk; {@link EveryWorkspace} reads it whole.
  */
 @Component
 @RequiredArgsConstructor

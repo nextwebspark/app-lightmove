@@ -5,15 +5,7 @@ export type Theme = "light" | "dark";
 const STORAGE_KEY = "lm-theme";
 
 /**
- * Light or dark, remembered.
- *
- * <p>The dark palette has existed since the first commit — `tokens.css` overrides every token under
- * `.dark`, lifted from the mockups. Nothing ever added the class, so all of it was unreachable.
- *
- * <p>The class goes on `<body>`, not on `<html>`, because that is where the mockups put it and the
- * tokens are written to match (`@custom-variant dark (&:where(.dark, .dark *))`).
- *
- * <p>An unset preference is dark: UNCAVA is dark-first, and light is the theme someone chooses.
+ * Light or dark, remembered. The class goes on `<body>` to match the tokens' `dark` variant; unset is dark.
  */
 export function useTheme(): { theme: Theme; toggle: () => void } {
   const [theme, setTheme] = useState<Theme>(preferred);

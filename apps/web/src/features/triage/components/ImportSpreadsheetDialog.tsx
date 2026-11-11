@@ -60,14 +60,8 @@ const UNRETRYABLE_CODES = ["FORBIDDEN", "NOT_FOUND", "CUSTOM_COLUMN_NAME_TAKEN",
 type FailedRequest = "preview" | "commit" | "template";
 
 /**
- * Import a spreadsheet into this mandate's Companies grid.
- *
- * <p>Three steps in one dialog: choose the file, confirm what each of its columns means, read what
- * happened. The middle one is the whole point — a file's headers will not match ours, and a mapping
- * applied without being shown would write a consultant's data into the wrong fields silently.
- *
- * <p>The chosen `File` is held here across both requests. Preview and commit each carry it, so
- * nothing is held open server-side and there is no import that can expire between the two steps.
+ * Import a spreadsheet into this mandate's Companies grid: choose, confirm each column's meaning (never applied unseen),
+ * read the result. The `File` is held here and sent with both preview and commit, so nothing server-side can expire.
  */
 export function ImportSpreadsheetDialog({
   open,

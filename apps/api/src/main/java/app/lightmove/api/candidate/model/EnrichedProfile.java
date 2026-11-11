@@ -7,16 +7,9 @@ import app.lightmove.api.common.location.service.Countries;
 import java.util.List;
 
 /**
- * What research on a live profile came back with — the provider's answer already translated into this
- * feature's own vocabulary, plus the {@code vendor} that gave it. Nothing branches on that vendor; it
- * is carried so the row can record who answered, which is what makes the dataset's share of the work
- * measurable. It also means the fallback needs no plumbing of its own — whichever provider answered,
- * the answer says so itself.
- *
- * <p>{@code title} is the person's <i>current position</i>, never the profile headline — a headline
- * is a self-marketing sentence ("11+ years of… | MSc | SAFe"), not a job title. The employer triplet
- * ({@code employerName}, {@code employerLinkedinUrl}, {@code employerLogoUrl}) is what the enrichment
- * writer files into the mandate's universe when the candidate arrived unmapped.
+ * A live profile's research, in this feature's vocabulary, with the {@code vendor} that answered (recorded, never
+ * branched on). {@code title} is the current position, never the headline; the employer triplet is what gets filed
+ * into the universe for an unmapped candidate.
  */
 public record EnrichedProfile(String title, String about, String employerName,
                               String employerLinkedinUrl, String employerLogoUrl,

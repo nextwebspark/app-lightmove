@@ -1,22 +1,9 @@
 import type { Receipts } from "./documentFill";
 
 /**
- * Keeps a document reading's receipts for the tab.
- *
- * <p>What a reading leaves behind — the confidence, the snippet, the Undo, the strip's count and the
- * rail's `N filled` badge — is session state that nothing persists server-side: only the `source`
- * stamp reaches the database. Held in component state alone, all of it was lost on reload, so the
- * same sparkle answered with a snippet and an Undo one moment and a bare line the next. That read as
- * a broken popover rather than as a deliberate forgetting.
- *
- * <p>`sessionStorage`, not `localStorage`: a reading belongs to the sitting somebody is in, it holds
- * quoted lines of a client's position description, and a closed tab should take it with it. Every
- * access is guarded — a private window, blocked site data or a full quota all throw rather than
- * answering — and a failure is never worth surfacing, since the brief itself is unaffected.
- *
- * <p>Keyed by project and stamped with the attached document's name, so a receipt is read back only
- * against the document it was read from: replace the file and the stored receipt is a description of
- * a document nobody is looking at any more.
+ * Keeps a document reading's receipts (confidence, snippet, Undo, counts) for the tab; only `source` reaches the server.
+ * `sessionStorage` because it quotes a client's description and should die with the tab; every access is guarded and
+ * failures ignored. Keyed by project and stamped with the document's name, so a replaced file's receipts are not read.
  */
 
 const KEY_PREFIX = "lightmove.position.receipts.";

@@ -15,15 +15,8 @@ import org.springframework.data.jpa.repository.Query;
 public interface AuditEventRepository extends JpaRepository<AuditEvent, Long> {
 
     /**
-     * One target's successful events, newest first, older than {@code beforeId} — a cursor on the
-     * identity rather than an offset, so a page loaded later does not repeat rows written meanwhile.
-     *
-     * <p>{@code eventTypes} are kept whatever they carry; {@code statusEventTypes} only when their
-     * metadata names a {@code status}, which is how a stage or status move is told apart from the
-     * note edits and profile saves recorded under the same type.
-     *
-     * <p>The workspace is part of the filter even though the caller has already proved the target is
-     * its own: a target id is only unique inside its type, never across tenants by construction.
+     * One target's successful events, newest first, before the {@code beforeId} cursor; {@code statusEventTypes} count
+     * only when their metadata names a {@code status}. The workspace filter stays: a target id is unique only per type.
      */
     @Query(
             value = "select * from app_lm_audit_event e "

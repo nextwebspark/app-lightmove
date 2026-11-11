@@ -27,12 +27,8 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
 /**
- * Wires JWT signing and verification onto Spring Security's own Nimbus support.
- *
- * <p>Native, as asked: no jjwt, no java-jwt. {@code spring-security-oauth2-jose} already ships Nimbus,
- * already validates signature, expiry and issuer, and is maintained by the same team as the filter
- * chain that consumes it. Adding a third-party JWT library here would mean owning a second, unaudited
- * parser on the most security-critical path in the application, to do the same job.
+ * Wires JWT signing and verification onto Spring Security's own Nimbus support — no third-party JWT library, so no
+ * second unaudited parser on the most security-critical path.
  */
 @Configuration
 public class JwtConfig {

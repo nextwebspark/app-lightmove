@@ -32,14 +32,8 @@ const SERIES = [
 const PAST_SERIES = "bg-u-text3";
 
 /**
- * Companies by sector, as area. A bar list ranks sectors; this says what share of the universe each
- * one <i>is</i>, which is the question the chapter asks.
- *
- * <p>Area carries the count; colour only tells the tiles apart, one UNCAVA hue per tile in rank order.
- *
- * <p>It carries its own header rather than taking {@code ReportCard}'s: the universe it counts is
- * named beside the title, where a caption would bury it. The surface underneath is still the
- * report's own.
+ * Companies by sector, as area: the share of the universe each sector is. Area carries the count, colour only separates
+ * tiles; it has its own header so the universe counted sits beside the title.
  */
 export function SectorTreemap({ rows, universeCount }: { rows: Breakdown[]; universeCount: number }) {
   const tiles = squarify(

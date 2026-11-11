@@ -36,12 +36,8 @@ interface TrayItem {
 let trayKeys = 0;
 
 /**
- * A person's documents as `Candidates.dc.html` draws its Documents tab, and the executive drawer's
- * section as a compact copy: the whole panel takes dropped files, a tray says what each file will
- * become before anything is sent, and the cards are grouped by category, CV first.
- *
- * <p>The tray's outcome is worked out here from the names already on the person — the server decides
- * the same way — but a duplicate is only known by its bytes, so that one is the server's 409.
+ * A person's documents (`Candidates.dc.html`'s tab, compact in the executive drawer): drop anywhere, a tray predicts
+ * each file's outcome from names on the person, cards grouped CV first. A duplicate is known by bytes — the server's 409.
  */
 export function DocumentsPanel({
   scope,

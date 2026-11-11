@@ -5,14 +5,8 @@ import { Input } from "./index";
 import { DataGridCell } from "./DataGrid";
 
 /**
- * A grid cell that reads first and edits second, in place — click to open, Save/Cancel (or blur/
- * Ctrl-⌘-Enter/Escape, unchanged) to close. A single-line input rather than the drawer's multi-line
- * textarea: rows in this grid are a fixed 52px, and the truncated text a reader clicked was already
- * one line.
- *
- * <p>Save and Cancel are explicit buttons, not just the blur/Escape they duplicate — this is the only
- * place in the grid a value can be cleared to empty, and a silent commit-on-blur reads as "there is no
- * way to delete this" rather than as "already done".
+ * A grid cell that reads first and edits in place, single-line to fit the fixed 52px row. Explicit Save and Cancel
+ * beside blur/Escape: this is the grid's only way to clear a value, and a silent commit-on-blur hid that.
  */
 export function InlineEditCell({
   value,

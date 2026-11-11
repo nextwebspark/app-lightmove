@@ -2,13 +2,8 @@ import { pageKeyOf } from "./linkedInUrls";
 import type { PageSubject } from "./readPageSubject";
 
 /**
- * Whether a read describes the page whose address it was taken at.
- *
- * <b>This is the fix for the panel showing the previous profile.</b> LinkedIn navigates with
- * `pushState`, so the address bar and `document.location` flip to the new profile at the same instant
- * while the DOM and the tab title still describe the previous one. Comparing one address to another —
- * which is all the reader used to do — can never catch that, because the address is not what lags.
- * This asks a different question: is there anything about the *content* saying it belongs elsewhere?
+ * Whether a read describes the page whose address it was taken at — the fix for the panel showing the previous
+ * profile: LinkedIn's `pushState` flips the address before the DOM and title, so this checks the content, not the URL.
  */
 export type SettleEvidence = "settled" | "waiting" | "displaced";
 

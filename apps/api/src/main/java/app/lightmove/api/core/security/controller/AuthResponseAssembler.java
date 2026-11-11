@@ -96,19 +96,9 @@ public class AuthResponseAssembler {
     }
 
     /**
-     * The caller's own outstanding invitations, so routing can be derived from the server instead of a
-     * tab's sessionStorage — an invitee who verifies in a fresh tab must land on "join {workspace}",
-     * not on create-your-own — or to a second workspace. One to a workspace they are already in is hidden only
-     * when accepting it would add nothing ({@link WorkspaceMember#alreadyCovers}): a pure client invited as staff,
-     * or staff named a client contact there, still sees it.
-     *
-     * <p>Carries <b>no token</b>. The emailed token only ever proved control of the invited mailbox,
-     * and an authenticated user whose verified address matches the invitation has proven exactly that
-     * — the accept-by-id endpoint applies the same guards. (The anonymous preview endpoint already
-     * exposes the same fields to any token holder; this is strictly less.)
-     *
-     * <p>None for an unverified account: anyone may sign up on an address they do not hold, and the list would
-     * tell them which firms invited it, and who. Once the address is proven the list appears.
+     * The caller's outstanding invitations, so routing comes from the server, not sessionStorage; one to a current
+     * workspace is hidden only when {@link WorkspaceMember#alreadyCovers} it. Carries no token (a verified address
+     * proves the same mailbox). None for an unverified account, which would leak which firms invited the address.
      */
     private List<PendingInvitationSummary> pendingInvitations(User user, List<WorkspaceMember> memberships) {
         if (!user.isEmailVerified()) {
@@ -164,12 +154,8 @@ public class AuthResponseAssembler {
     }
 
     /**
-     * The workspace as its caller may see it.
-     *
-     * <p>A pure client is an outside contact at the hiring company, not a colleague: they get the
-     * brand — name, slug, mark — and not {@code emailDomain}, which describes the firm's own people.
-     * The roles are already in hand here, so this asks {@link WorkspaceRole#isStaff} rather than
-     * re-reading the membership through {@code WorkspaceAccess}.
+     * The workspace as its caller may see it: a pure client gets the brand (name, slug, mark), never
+     * {@code emailDomain}, which describes the firm's own people.
      */
     private static WorkspaceSummary toSummary(Workspace workspace, WorkspaceMember membership) {
         List<WorkspaceRole> roles = membership.getRoles().stream()

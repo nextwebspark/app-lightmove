@@ -11,18 +11,8 @@ import { TWO_FACTOR_SIGN_IN_PATH } from "../pages/TwoFactorChallengePage";
 import { landingAfterSignIn, takeReturnTo } from "../returnTo";
 
 /**
- * The "Continue with …" buttons, one per identity provider the server has configured.
- *
- * The mockup's "Continue with SSO" button sat behind a `showSso` prop. Here the list comes from the
- * server's answer to "which providers are actually wired?" — a button that leads nowhere is worse
- * than no button — and it is a list of registration ids rather than a fixed set of flags, so wiring
- * up another provider stays a yml block on the API. An id this file has no mark for still gets a
- * working button, just a generic one.
- *
- * Sign-in runs in a popup, so this page stays exactly where it is while the provider's consent
- * screen is up — and a user who backs out of that screen returns to it untouched, with no error and
- * nothing lost. See `oauthPopup` for the mechanism, including the redirect it falls back to when a
- * browser blocks the popup.
+ * The "Continue with …" buttons, one per provider the server reports as wired (registration ids, so a new provider
+ * stays a yml block; an unknown id gets a generic mark). Sign-in runs in a popup — see `oauthPopup`.
  */
 const PROVIDER_MARKS: Record<string, { label: string; mark: (props: { size?: number }) => ReactElement }> = {
   google: { label: "Google", mark: GoogleMark },

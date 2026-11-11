@@ -9,23 +9,9 @@ import { TWO_FACTOR_SIGN_IN_PATH } from "./TwoFactorChallengePage";
 import { landingAfterSignIn, takeReturnTo } from "../returnTo";
 
 /**
- * Where an identity provider sends the browser back to — for both outcomes, and for both ways of
- * running the flow.
- *
- * **In a popup** this page is a bridge and nothing else: it reports the outcome to the tab that
- * opened it and closes itself. It deliberately does not establish the session — the opener does
- * that, because the opener is the tab that stays.
- *
- * **In a full-page redirect** it does what it always has. The server has already minted our tokens
- * by this point: the refresh token arrived as an httpOnly cookie, and the access token is in the URL
- * **fragment**. The fragment matters. A query string is sent to the server, lands in access logs,
- * leaks through the Referer header, and syncs into browser history. A fragment does none of that —
- * it never leaves the browser. We read it, put it in memory, and scrub it from the address bar
- * immediately.
- *
- * A refusal arrives here as `?error=` rather than at `/login`, so that this one route owns both
- * outcomes: a failure sent straight to the login screen would render it inside a 500×640 popup.
- * Outside a popup this page forwards to `/login?error=` and the user sees what they always saw.
+ * The provider's return page. In a popup it only reports the outcome and closes (the opener makes the session); in a
+ * redirect it reads the access token from the URL fragment (never a query: logs, Referer, history) and scrubs it.
+ * A refusal lands here as `?error=` so a popup never renders the login screen; outside one it forwards to `/login?error=`.
  */
 export function OAuthCallbackPage() {
   const navigate = useNavigate();

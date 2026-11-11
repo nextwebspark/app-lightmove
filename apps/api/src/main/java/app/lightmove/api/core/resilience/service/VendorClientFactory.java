@@ -26,12 +26,9 @@ import org.springframework.web.util.UriUtils;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Builds every paid-API client: timeouts on both ends, the key, the correlation id, and every non-2xx
- * classified before the adapter sees it.
- *
- * <p>The status handler covers <i>every</i> error status as a privacy control: Spring's own handler puts
- * the body — which echoes the query, a researched person's name — into the exception message. The
- * builder is a parameter because it mutates in place and would carry one vendor's key into the next.
+ * Builds every paid-API client: timeouts, key, correlation id, every non-2xx classified. Every error status is handled
+ * as a privacy control (Spring's handler puts the body, a researched name, in the message). The builder is a
+ * parameter because it mutates in place and would carry one vendor's key into the next.
  */
 @Component
 public class VendorClientFactory {

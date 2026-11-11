@@ -11,12 +11,8 @@ import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import { STATUS_TONES, statusTone, type StagedStatus } from "../lib/statusTone";
 
 /**
- * The drill-in panel every chapter opens: anchored to the edge of the screen and full height, where
- * the app's drawer floats inset from it.
- *
- * <p>Portalled to the body: a chapter's `animate-fade-up` leaves a transform on its `<section>`, which
- * makes it the containing block for `position: fixed`, so a drawer opened from a scrolled chapter
- * was pinned to the top of the chapter — above the viewport — and clipped to its column.
+ * The chapters' full-height drill-in panel, portalled to the body: `animate-fade-up` leaves a transform that made
+ * the section the containing block for `position: fixed`, pinning the drawer above the viewport.
  */
 export function ReportDrawer({
   open,

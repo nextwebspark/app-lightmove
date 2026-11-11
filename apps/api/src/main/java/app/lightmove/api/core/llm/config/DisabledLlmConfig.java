@@ -9,13 +9,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Boots the application with no model behind it, for a runtime holding no GCP credentials — the e2e
- * matrix, whose boot died on Application Default Credentials for four weeks of nightly runs.
- *
- * <p>Pairs with {@code spring.ai.model.chat: none} and {@code embedding.text: none}, which take the
- * Google auto-configuration away; this puts back the two beans every AI feature is constructed with.
- * Its own switch rather than keying on {@code chat: none}, because the test profile sets that too and
- * supplies its own stubs.
+ * Boots with no model, for a runtime with no GCP credentials (the e2e matrix's boot died on ADC for four weeks). Pairs
+ * with {@code chat: none} and {@code embedding.text: none}, restoring the two beans every AI feature needs; its own
+ * switch, since the test profile sets {@code chat: none} with stubs of its own.
  */
 @Configuration
 @ConditionalOnProperty(name = "lightmove.llm.enabled", havingValue = "false")

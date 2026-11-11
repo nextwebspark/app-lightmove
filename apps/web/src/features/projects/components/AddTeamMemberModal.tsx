@@ -8,12 +8,8 @@ import { STAFF_ROLES, type Project, type StaffRole } from "../api/types";
 import { ROLE_STYLES } from "./ProjectRoleChips";
 
 /**
- * The "Add team member" modal (Project.dc.html): the firm directory, minus whoever already staffs this
- * mandate, each row carrying the role they would join as. Adding is per row and leaves the list open —
- * staffing a search is usually more than one person.
- *
- * The directory is the staff roster, so a pure client never appears in it. A dual-role colleague who
- * also represents the client does, and seating them keeps their CLIENT seat — the server preserves it.
+ * The "Add team member" modal: the staff roster minus this mandate's team, added per row with the list left open. A
+ * dual-role colleague keeps their CLIENT seat when seated.
  */
 export function AddTeamMemberModal({ project, onClose }: { project: Project; onClose: () => void }) {
   const queryClient = useQueryClient();

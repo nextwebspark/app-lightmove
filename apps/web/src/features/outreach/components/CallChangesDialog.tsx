@@ -20,12 +20,9 @@ import { SuggestionRow } from "./callChanges/SuggestionRow";
 type Phase = "loading" | "failed" | "empty" | "review" | "reviewed";
 
 /**
- * Suggest changes on a recorded call (`Position.dc.html`'s "Changes from the call"): the transcript read against the
- * person's record, every change it found on one list — what the record holds now, what the call suggests, the words it
- * rests on — each ticked to keep, editable in place, and saved together by one Apply. Nothing is written before it and
- * nothing is undone after it: from then on the record is where a change is made, and the dialog reads back what each
- * change replaced and who applied it. The changes are found once the notes are filed; opening it on a call never read
- * for them reads the transcript, once.
+ * Suggest changes on a recorded call: every change the transcript suggests against the record on one list, each ticked
+ * and editable, saved by one Apply — nothing written before, nothing undone after. Opening a call never read for
+ * changes reads the transcript once.
  */
 export function CallChangesDialog({
   projectId,

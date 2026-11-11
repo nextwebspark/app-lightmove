@@ -3,19 +3,8 @@ import type { TriageCompany } from "../api/types";
 import { DECLINE_OFFERED } from "../lib/triageStages";
 
 /**
- * Confirms removing a company from the mandate.
- *
- * <p>The copy does the work here. "Delete" beside a company name reads as deleting the company, and
- * this deletes a decision: the row that says what *this* mandate thought of it. The company stays in
- * the market, stays on Strategy, and stays untouched for every other mandate — so the dialog says
- * that rather than asking "are you sure?", which tells a hesitating reader nothing they did not
- * already know.
- *
- * <p>It also names the one thing that is genuinely lost, because the decision is not remembered:
- * a later bulk add from Strategy may take the company back in. Declining is how a company is ruled
- * out durably, and someone reaching for delete may have meant that instead.
- *
- * <p>Everyone mapped at the company, on any stage, leaves with it, so Remove waits for that count and sends it.
+ * Confirms removing a company from the mandate. The copy says this deletes a decision, not the company, that a
+ * later bulk add may take it back (Decline rules it out durably), and Remove sends the count of everyone mapped there.
  */
 export function RemoveCompanyDialog({
   company,

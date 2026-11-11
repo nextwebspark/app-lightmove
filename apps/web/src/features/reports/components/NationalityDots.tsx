@@ -5,12 +5,8 @@ const STAGGER_MS = 12;
 const MAX_DELAY_MS = 300;
 
 /**
- * One square per qualifying executive, grouped by level. Countable rather than abstract: "23 of 51
- * at C-Suite" becomes twenty-three squares a reader can see, not a bar they have to measure. Levels
- * outside the chosen scope are drawn but recede.
- *
- * <p>Every row here holds somebody, so an empty one means the requirement excluded them all rather
- * than that the level is unmapped — {@link feasibility} leaves an unmapped level out entirely.
+ * One square per qualifying executive, grouped by level; out-of-scope levels recede. An empty row means the
+ * requirement excluded everyone — {@link feasibility} leaves unmapped levels out.
  */
 export function NationalityDots({ feasibility }: { feasibility: Feasibility }) {
   return (

@@ -1,18 +1,9 @@
 import type { Competency } from "../api/types";
 
 /**
- * Sets one competency's weight and absorbs the difference into the others, so a panel that already
- * totals 100 stays there.
- *
- * <p>Locked rows are excluded from that absorption: a consultant who has settled one weight can then
- * tune the rest without watching the settled one drift. Everything else redistributes in proportion to
- * its current weight, or equally when those are all zero.
- *
- * <p>A row raises itself out of the panel's headroom first and only takes from the others once the
- * total would pass 100; releasing weight below 100 lowers the total rather than inflating rows nobody
- * touched. Redistribution is what holds a *balanced* panel balanced — a half-built one is left to be
- * built. A panel over 100 is brought down the same way: a lowered row gives up the excess first, and
- * the others grow only by what it releases beyond that.
+ * Sets one competency's weight and absorbs the difference into the unlocked others (proportionally, or equally when all
+ * zero). A row takes the panel's headroom first, the others giving only once the total passes 100; releasing below 100
+ * lowers the total. A panel over 100 sheds the lowered row's excess first.
  */
 export function rebalance<T extends Competency>(
   rows: T[],

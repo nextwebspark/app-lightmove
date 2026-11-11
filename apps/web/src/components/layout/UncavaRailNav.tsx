@@ -11,18 +11,8 @@ export interface RailNavItem {
 }
 
 /**
- * The menu the UNCAVA screens hang beside their content — the report's chapters, the brief's steps.
- * One line per item, an icon and a label, drawn the way the app's own `Sidebar` draws its links so a
- * screen on this palette reads as part of the product rather than as a second navigation idiom.
- *
- * <p>The selected row takes the jobs the palette states rather than a colour that merely looks
- * chosen: sunken ground (its "selected row"), primary ink (its "active nav") and the accent on the
- * icon alone (its "links, icons"). Accent tint is the palette's chip and selected-card fill, and
- * spending it here made a menu row read as a chip.
- *
- * <p>Items are links, not buttons: the choice lives in the URL under `param`, so a colleague can be
- * sent straight to one and the back button walks between them. A column at `lg`, a strip below it;
- * `collapsed` folds the column to its icons, each still named by its title.
+ * The UNCAVA screens' side menu (report chapters, brief steps), drawn like `Sidebar`. Selected: sunken ground,
+ * primary ink, accent on the icon only (accent tint read as a chip). Items are links under `param`.
  */
 export function UncavaRailNav({
   label,

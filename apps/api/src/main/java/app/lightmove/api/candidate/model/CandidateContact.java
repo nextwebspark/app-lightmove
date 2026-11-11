@@ -14,16 +14,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * One email or phone a mandate knows for an executive, with the door it came through — a row of
- * V54's ledger, owned by {@link Candidate} the way a position owns its lists.
- *
- * <p>{@code valueKey} is the identity: the lower-cased address, or the digits of the number, because
- * providers spell one phone three ways and a researcher types an address in any case. The spelling
- * that arrived first is what {@code value} keeps.
- *
- * <p>{@code kind}, {@code verified} and {@code status} are claims, and {@code status} says whose:
- * a provider's own word ({@code "Verified"}) or {@code "Verified by researcher"} for a person's.
- * {@code primary} is the team's choice of the one to reach them on, held to one per channel by {@link Person}.
+ * One email or phone known for an executive, with the door it came through (V54's ledger). {@code valueKey} (lower-cased
+ * address, digits of a number) is the identity; {@code status} says whose claim a verification is; {@code primary} is
+ * held to one per channel by {@link Person}.
  */
 @Embeddable
 @Getter

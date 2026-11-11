@@ -1,12 +1,8 @@
 package app.lightmove.api.candidate.constant;
 
 /**
- * Which paid provider answered the research behind a profile — recorded so the split between the
- * dataset and the live scrape behind it is a query rather than a guess, and never branched on.
- *
- * <p>Distinct from {@link CandidateSource}, which is the door the row itself came through: a plugin
- * capture is the only source that is researched, and the vendor that answered is the vendor of the
- * minute, not a property of the capture.
+ * Which paid provider answered a profile's research — recorded for querying, never branched on. Not
+ * {@link CandidateSource}, the door the row came through.
  */
 public enum EnrichmentVendor {
 

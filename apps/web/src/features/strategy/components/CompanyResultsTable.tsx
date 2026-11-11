@@ -11,20 +11,8 @@ import type { CompanyResult, CompanySort, CompanySortField } from "../api/types"
 import { COLUMN_PINNING, companyColumns, companyTableFeatures } from "../lib/companyColumns";
 
 /**
- * Strategy's half of the company grid: the market's columns over the shared {@link DataGrid}.
- * Everything about how the grid *looks* — the sticky header, the pinned Company column, the scroll
- * behaviour — lives there, so the Companies screens render identically without either side owning a
- * copy.
- *
- * <p>Every row carries a tick box in front of its name, and the header a select-all over the page —
- * both handed to {@link DataGrid} as its leading slot, so they ride the pinned column and stay on
- * screen when the row scrolls sideways. The selection itself is the table's `rowSelectionFeature`:
- * keyed by company id, so it survives the page turn that replaces every row object, and carrying the
- * shift-click anchor so a range does not have to be tracked here.
- *
- * <p>Sorting and paging are the server's: this holds one page out of tens of thousands, so a
- * header click changes the query rather than the array. That is what leaving `pagination` off
- * {@link useDataGridTable} says.
+ * Strategy's company grid over the shared {@link DataGrid}. Tick boxes ride the pinned column; selection is keyed by
+ * company id so it survives a page turn. Sorting and paging are the server's, hence no `pagination` on the table.
  */
 export function CompanyResultsTable({
   companies,

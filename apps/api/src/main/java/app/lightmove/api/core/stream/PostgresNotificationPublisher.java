@@ -9,12 +9,8 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * The one place in the application that fires {@code pg_notify}.
- *
- * <p>{@code MANDATORY} is the correctness argument, not a convenience: Postgres holds a notification
- * issued inside a transaction and delivers it <i>at commit</i>, so the event rides the same commit as
- * the data it announces — no listener can act on it early, and a rollback silently swallows it. A
- * publish outside a transaction would deliver immediately and lose exactly that.
+ * The one place that fires {@code pg_notify}. {@code MANDATORY} is the correctness argument: a notification inside a
+ * transaction is delivered at commit, so no listener acts early and a rollback swallows it.
  */
 @Component
 @RequiredArgsConstructor

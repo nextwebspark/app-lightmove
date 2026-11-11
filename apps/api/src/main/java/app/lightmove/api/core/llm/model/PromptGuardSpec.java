@@ -5,13 +5,9 @@ import java.util.List;
 import org.springframework.core.io.Resource;
 
 /**
- * How one prompt is guarded and its answer checked.
- *
- * @param promptId                   names the feature in the shared client's log line
- * @param answerSchema               JSON Schema the reply must fit (re-asked once), or null for prose
- * @param blockedAnswer              the guard's reply; with a schema it must <b>bind</b> to the reply
- *                                   type, or a block reads as the provider being down
- * @param additionalInjectionPhrases refused on top of the configured baseline
+ * How one prompt is guarded and its answer checked: {@code promptId} names the feature in the log, {@code answerSchema}
+ * the JSON Schema the reply must fit (re-asked once; null for prose), and {@code blockedAnswer} the guard's reply, which
+ * with a schema must <b>bind</b> to the reply type or a block reads as the provider down.
  */
 public record PromptGuardSpec(
         String promptId,

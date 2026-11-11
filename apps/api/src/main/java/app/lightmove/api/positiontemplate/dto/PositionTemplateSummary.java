@@ -6,12 +6,8 @@ import app.lightmove.api.positiontemplate.model.PositionTemplate;
 import java.util.UUID;
 
 /**
- * One option in the template picker. The content is deliberately absent: choosing a template applies
- * it and answers with the whole brief, so there is nothing for the screen to hold in the meantime and
- * no second copy of the brief's shape to keep in step with the first.
- *
- * <p>{@code shared} says where the template came from — the LightMove library, or this workspace's own
- * — which is the only distinction the picker has to draw before a firm can edit either.
+ * One template picker option, content absent (applying one answers the whole brief). {@code shared}: the library's or
+ * this workspace's own.
  */
 public record PositionTemplateSummary(
         UUID id,

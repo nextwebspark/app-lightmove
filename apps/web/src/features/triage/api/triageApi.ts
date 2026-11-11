@@ -15,13 +15,7 @@ import type {
 } from "./types";
 
 /**
- * A mandate's triaged companies — what Strategy's "Add to Universe" wrote, plus the companies the
- * mandate supplied itself.
- *
- * <p>This queries no market at all. The screen it replaced ran the mandate's criteria against 54k
- * warehouse rows and presented the matches, which made it a second, slower discovery screen;
- * discovery lives in Strategy now, and what is left here is the standing record of what the team
- * decided about each company.
+ * A mandate's triaged companies — what Strategy added plus its own; queries no market (discovery lives in Strategy).
  */
 
 export const TRIAGE_KEY_PREFIX = (projectId: string) => ["triage", projectId] as const;
@@ -114,12 +108,8 @@ export const TRIAGE_COUNTS_KEY = (projectId: string) =>
   [...TRIAGE_KEY_PREFIX(projectId), "counts"] as const;
 
 /**
- * The three stage counts on their own, for the sidebar — which carries them on every tab of a
- * mandate, not just the Companies grids.
- *
- * <p>It asks the list endpoint for a single row rather than a counts route of its own: the counts
- * already travel with every page because the sidebar's badges are always on screen, and the key
- * sits under {@link TRIAGE_KEY_PREFIX} so a move invalidates the rail's numbers with the grid's.
+ * The three stage counts for the sidebar, read as a one-row list page; the key sits under {@link TRIAGE_KEY_PREFIX} so a
+ * move invalidates the rail's numbers with the grid's.
  */
 export function getTriageCounts(projectId: string, signal?: AbortSignal): Promise<TriageCounts> {
   return getTriageCompanies(
@@ -209,15 +199,8 @@ export function captureCompany(
 }
 
 /**
- * Takes one company out of the market into this mandate — Strategy's per-row "Add to Universe", and
- * the Companies screen's own picker over the same universe.
- *
- * <p>Only the identity travels: the server resolves the snapshot from the market, so the row carries
- * the export's figures and its Source badge means what it says. What the caller may add is where the
- * company lands and the first note about it, neither of which the market can answer.
- *
- * <p>Already held answers with the existing row rather than an error — and with <i>its</i> stage, not
- * the one asked for, so re-adding never walks a declined company back into the universe.
+ * Takes one market company into the mandate by id; the server resolves the snapshot. Already held answers the existing
+ * row at <i>its</i> stage, so re-adding never walks a declined company back into the universe.
  */
 export function addMarketCompany(
   projectId: string,
@@ -231,15 +214,8 @@ export function addMarketCompany(
 }
 
 /**
- * The companies ticked on Strategy, taken in together at one stage — the selection bar's three
- * buttons.
- *
- * <p>Ids only, as {@link addMarketCompany}: the server resolves every snapshot from the market. One
- * request rather than a loop over that one, because forty POSTs would be forty audit events, forty
- * chances for a partial failure nobody can describe, and a toast that could only guess at its number.
- *
- * <p>Companies the mandate already holds keep the stage they are at and count as skipped — declining
- * a selection that happens to include an already-shortlisted company does not move it.
+ * Files Strategy's ticked companies at one stage in one request (ids only; one audit event, no partial failure). Already
+ * held companies keep their stage and count as skipped.
  */
 export function addSelectedCompanies(
   projectId: string,

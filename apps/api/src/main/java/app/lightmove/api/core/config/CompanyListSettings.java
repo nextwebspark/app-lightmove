@@ -23,12 +23,8 @@ public record CompanyListSettings(
 ) {
 
     /**
-     * The ceiling on {@link #bulkAddLimit}, enforced at startup rather than discovered in production.
-     *
-     * <p>{@code TriageCompanyWriter} binds nine parameters per row in one statement, and Postgres caps
-     * a statement at 65,535 of them — a hard failure somewhere above 7,200 rows. This sits far below
-     * that, because the product answer to "let me add more" is a narrower filter rather than a bigger
-     * batch.
+     * Startup-enforced ceiling on {@link #bulkAddLimit}: {@code TriageCompanyWriter} binds nine parameters per row and
+     * Postgres caps a statement at 65,535 (failing above ~7,200 rows).
      */
     public static final int MAX_BULK_ADD_LIMIT = 1_000;
 

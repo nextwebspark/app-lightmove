@@ -1,17 +1,9 @@
 import { cn } from "../../lib/cn";
 
 /**
- * A network's own mark — LinkedIn, X, Facebook or WhatsApp — drawn wherever we link out to a profile or page.
- *
- * <p>The files under `public/brand/` are each network's downloadable assets, used as its guidelines
- * allow: unaltered, with clear space, in a colourway it publishes. Never recolour one through
- * `currentColor`, never put one in a grey disc, never redraw one as a stroke glyph. Each network
- * names one file for the light theme and one for the dark, swapped through the `dark` variant.
- * LinkedIn and X publish solid black and white; Meta publishes no black "f", so Facebook is its
- * primary blue on the light theme and its white secondary on the dark. WhatsApp's glyph is its one-colour speech
- * bubble and handset, in black on the light theme and white on the dark, set without its green tile as LinkedIn's is. LinkedIn's stated floor is
- * 21px, which the Contact row keeps; beside a name in a drawer header and in a grid's Links cell a
- * mark is drawn at 14–16px by the product's own call, so it weighs the same as the glyphs around it.
+ * A network's own mark, drawn wherever we link out. The `public/brand/` files are each network's assets, used as its
+ * guidelines allow: never recoloured via `currentColor`, put in a disc or redrawn; light and dark files swap via `dark`.
+ * Facebook is its blue on light and white on dark (Meta publishes no black "f").
  */
 export function NetworkMark({
   network,

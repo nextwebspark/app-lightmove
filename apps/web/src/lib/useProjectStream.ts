@@ -39,17 +39,9 @@ const EVERY_KIND: ProjectStreamKind[] = [
 ];
 
 /**
- * Holds the mandate's live stream open while the tab is visible, calling `onChange` with the kinds
- * that arrived whenever the server says something under the project moved. A frame carries its kind
- * and no content, so the handler still refetches through the ordinary guarded reads.
- *
- * A hidden tab holds no stream (it would pin a Cloud Run request slot to a screen nobody is
- * watching); coming back fires one catch-up `onChange` naming every kind, because whatever happened
- * meanwhile was missed by design.
- *
- * <p>Answers whether the stream is currently live, so a caller can poll only while it is not. That
- * stays true across the server's ordinary 55s close, which reconnects at once — it turns false only
- * when an attempt ends without the server having been heard from and the retry starts backing off.
+ * Holds the mandate's stream open while the tab is visible, calling `onChange` with the kinds that arrived (no content).
+ * A hidden tab holds none (it would pin a Cloud Run slot); a return fires one catch-up for every kind. Answers whether
+ * it is live, staying true across the server's 55s close and false only once retries back off.
  */
 export function useProjectStream(
   projectId: string,

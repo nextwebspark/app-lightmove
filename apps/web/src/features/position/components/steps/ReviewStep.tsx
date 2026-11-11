@@ -12,12 +12,8 @@ import { ReadinessBar } from "../ReadinessBar";
 import { ReviewCard, type ReviewField } from "../ReviewCard";
 
 /**
- * Step five: the brief read back before it is called ready. The checks report; they gate nothing —
- * V38 retired the readiness gate along with the lock, so publishing stays available whatever they
- * say, and an unfinished brief can still be declared ready by someone who means it.
- *
- * <p>Publishing is the rail's act on every step and walking is `StepFooter`'s, so this step draws
- * neither. Repeating the rail's two buttons here bought nothing but a second place to look.
+ * Step five: the brief read back. The checks report and gate nothing (V38 retired the gate); publishing is the rail's
+ * and walking `StepFooter`'s, so this step draws neither.
  */
 export function ReviewStep({
   position,

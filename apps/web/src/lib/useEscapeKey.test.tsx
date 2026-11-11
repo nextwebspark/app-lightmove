@@ -5,11 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { useEscapeKey } from "./useEscapeKey";
 
 /**
- * That Escape reaches the topmost overlay and only that one.
- *
- * <p>Every overlay used to listen on `document` itself, which was invisible while they were modal
- * and mutually exclusive. The assistant panel is neither — it docks beside the page so a drawer can
- * be opened from the grid while it is open — which turned "one press closes two things" into the
+ * That Escape reaches the topmost overlay only: the docked assistant panel made one press closing two layers the
  * ordinary case.
  */
 function Layer({ name, onClose }: { name: string; onClose: () => void }) {

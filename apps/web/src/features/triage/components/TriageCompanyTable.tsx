@@ -21,15 +21,8 @@ import {
 import { triageRowId, type TriageCompanyRow } from "../lib/triageRows";
 
 /**
- * The Companies half of the company grid: the mandate's own columns and its triage actions, over the
- * shared {@link DataGrid}. Everything about how the grid looks lives there, so this stage and
- * Strategy render identically without either owning a copy.
- *
- * <p>A row is a person at a company rather than a company — see {@link TriageCompanyRow} — so the page
- * hands this the expanded lines and the grid never has to know how they were paired up.
- *
- * <p>Sorting and paging are the server's, which orders the whole stage's lines; a header opens the column's
- * menu, and a sort there changes the query rather than the array.
+ * The Companies grid over the shared {@link DataGrid}: rows are a person at a company ({@link TriageCompanyRow});
+ * sorting and paging are the server's.
  */
 export function TriageCompanyTable({
   rows,

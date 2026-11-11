@@ -1,9 +1,6 @@
 /**
- * <b>Contact lookup</b> — the Find email / Find phone buttons, one channel per press. Answers on the
- * request thread so a paid press can report its own failure ("no credits left"), and writes through
- * {@code CandidateService.applyFoundEmails} / {@code applyFoundPhones}. {@code lightmove.enrichment.contactout}
- * sits beside {@code lightmove.enrichment.provider} and is never selected by it: its own account and bill.
- * A press is charged to the workspace's contact credits through {@code billing}'s {@code CreditLedger}, and only
- * for what was found.
+ * <b>Contact lookup</b> — Find email / Find phone, one channel per press, answered on the request thread so a paid press
+ * reports its own failure. {@code lightmove.enrichment.contactout} is its own account and bill, never selected by
+ * {@code lightmove.enrichment.provider}; a press is charged through {@code CreditLedger}, and only for what was found.
  */
 package app.lightmove.api.enrichment.contact;

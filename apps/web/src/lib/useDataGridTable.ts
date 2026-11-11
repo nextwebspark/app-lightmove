@@ -57,19 +57,9 @@ export interface DataGridTableOptions<
 }
 
 /**
- * The wiring every {@link DataGrid} needs, in one place: the sort adapter, the column-order adapter,
- * the pinned first column, and the single-column non-clearable sorting all five grids share.
- *
- * <p>Two shapes of table come out of it. Without `pagination` the sort and the page are the server's,
- * so no row model is computed here and a header click only changes the query. With it, the caller
- * handed over every row it has and the table sorts and pages them — which is what the workspace lists
- * do, where one query answers with the firm's whole roster.
- *
- * <p>A grid that passes `rowSelection` also gets shift-click range selection, defined here so the
- * gesture is the same wherever selection is offered.
- *
- * <p>Sorting is single-column and non-clearable either way: the paged APIs take one field and one
- * direction, and a third click that sent no ORDER BY at all would page over an undefined order.
+ * The wiring every {@link DataGrid} needs. Without `pagination` sort and page are the server's; with it the table sorts
+ * and pages the rows it was given. Sorting is single-column and non-clearable: the paged APIs take one field, and no
+ * ORDER BY would page over an undefined order.
  */
 export function useDataGridTable<
   TFeatures extends TableFeatures,

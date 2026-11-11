@@ -27,12 +27,8 @@ import { TalentMapTree } from "./TalentMapTree";
 const TalentMapGlobe = lazy(() => import("./TalentMapGlobe"));
 
 /**
- * The Companies screen read as a globe: the mapping panel on the left, the globe beside it, and the
- * existing drawers on demand — opened from a row or a pin exactly as the grid opens them.
- *
- * <p>Selection and hover live here and are handed to both halves, so a row and its pin are one
- * thing touched two ways. The tree is built from the page, which the server has already narrowed by the
- * toolbar's search; the globe draws whatever the tree holds.
+ * The Companies screen as a globe: mapping panel, globe and the existing drawers. Selection and hover live here so
+ * a row and its pin are one thing; the tree is the server-searched page.
  */
 export function TalentMapView({
   projectId,

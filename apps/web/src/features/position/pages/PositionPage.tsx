@@ -140,15 +140,8 @@ export function PositionPage() {
 }
 
 /**
- * The brief editor (uncava-design/position): five steps behind a rail, the step kept in the URL.
- *
- * There is no Save button. Each section's draft autosaves as a snapshot PUT of that section alone, and
- * the write answers with the whole brief, so the cache always holds a complete document rather than
- * something stitched together client-side. "Save draft" flushes whatever is pending — a way to stop
- * waiting out the debounce, not a second way to save.
- *
- * Six channels for five screens: the Role Brief edits the details, the mandate context and the
- * notice period at once, each through its own write, so one screen never rewrites another's row.
+ * The brief editor: five steps behind a rail, the step in the URL. No Save button — each section autosaves its
+ * own PUT and gets the whole brief back; "Save draft" flushes. The Role Brief writes through three channels.
  */
 function PositionBrief({ projectId, position }: { projectId: string; position: Position }) {
   const queryClient = useQueryClient();
@@ -611,16 +604,9 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   const goToStrategy = () => navigate(`/projects/${projectId}/strategy`);
 
   /**
-   * "Read from document": the four section reads, fanned out and settled independently — one section
-   * failing must leave the other three filled, per epic #393 — then folded into the brief in one pass
-   * by `fillBrief`. `mutate`'s variable is the file name a receipt is stamped with, not read back off
-   * `position`/`drafted`: the prop is a stale closure at the moment an attach's `onSuccess` fires this.
-   *
-   * <p>When the reading names a template and nobody has typed into the brief, the template is applied
-   * first and the same reading is then folded over the redrafted brief — so the document's values still
-   * win over what the template seeded, without paying for the four reads twice. The check reads the
-   * latest draft through a ref, not this closure: the reads take seconds, and somebody may type meanwhile.
-   * The title comes from the document when it states one, not from the template.
+   * "Read from document": four section reads settled independently (one failing leaves the rest, epic #393),
+   * folded by `fillBrief`. The file name is the mutation variable since `position` is stale in `onSuccess`;
+   * an untouched brief gets the template first (checked via a ref, the reads take seconds), the document's title wins.
    */
   const readDocument = useMutation({
     mutationFn: async (fileName: string) => {
@@ -986,12 +972,8 @@ function StepHeader({ step, action }: { step: PositionStep; action?: ReactNode }
 }
 
 /**
- * The line a reading leaves when it went wrong, or null when it worked. A rejected section is an
- * HTTP failure — an unreadable file carries its own specific sentence in `detail`. A model the server
- * could not reach is not: it answers 200 with nothing proposed (`"none"`, or `"documentHeadings"` for
- * the details step's heuristic fallback), which is told apart from a document that says nothing only
- * by every model-read section coming back that way. A reading that proposed values a person had
- * already typed over is not a problem — it read fine and had nothing new.
+ * The line a failed reading leaves, or null. A rejected section is an HTTP failure; an unreachable model
+ * answers 200 with nothing (`"none"`/`"documentHeadings"`), told apart only by every model-read section doing so.
  */
 function readProblemOf(
   settled: Record<ExtractionSection, PromiseSettledResult<PositionExtraction>>,

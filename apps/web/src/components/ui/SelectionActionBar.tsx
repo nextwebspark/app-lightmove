@@ -3,12 +3,8 @@ import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
 
 /**
- * The pop-up a multi-select grid raises once something is ticked: the count, the actions and a way out,
- * at the bottom centre of the screen over a light scrim.
- *
- * <p>Fixed in place rather than portalled, so it stays inside a full-screen grid's panel. It sits just
- * under the drawer layer (90/95), so an opened row covers it, and clears the toast at the bottom. The
- * scrim only dims: it takes no pointer, so the rows under it can still be ticked.
+ * The bar a multi-select grid raises once something is ticked. Fixed, not portalled, so it stays inside a full-screen
+ * grid; just under the drawer layer (90/95); its scrim takes no pointer, so rows beneath can still be ticked.
  */
 export function SelectionActionBar({
   count,

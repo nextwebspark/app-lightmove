@@ -62,12 +62,8 @@ class CandidateRequestReader {
     }
 
     /**
-     * Where a candidate sits. A named company is resolved through {@code triagecompany}'s public seam,
-     * which proves it belongs to this mandate — so one cannot be filed against another project's — and
-     * clears that company's {@code noExecutiveFound} flag as a side effect of the resolution, but only
-     * when {@code previousTriageCompanyId} shows this call is newly making that mapping: an executive
-     * being mapped here is what disproves the flag, but a save that merely still names the company they
-     * were already mapped to is an unrelated edit and must not revive it.
+     * Where a candidate sits, resolved through {@code triagecompany}'s seam (so it belongs to this mandate). Clears the
+     * company's {@code noExecutiveFound} only when {@code previousTriageCompanyId} shows the mapping is new.
      */
     CandidateDetails detailsOf(UUID projectId, SaveCandidateRequest request, UUID previousTriageCompanyId) {
         CandidateDetails details = new CandidateDetails(

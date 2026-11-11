@@ -182,12 +182,8 @@ export interface SaveContactsPayload {
 }
 
 /**
- * Every email and phone known for the person, in the order the drawer lists them — the first of each the
- * primary, chosen or standing in — and when each channel was last looked up.
- *
- * <p>The timestamps decide what the Contact section offers, not the lists: null means the button is
- * still worth pressing, and a timestamp with no row from `source` means the provider had nothing and
- * asking again would only buy the same answer.
+ * Every email and phone known for the person, the first of each the primary, and when each channel was last looked up.
+ * The timestamps decide what is offered: null is worth pressing; set with no row means asking again buys the same.
  */
 export interface CandidateContacts {
   emails: CandidateEmail[];

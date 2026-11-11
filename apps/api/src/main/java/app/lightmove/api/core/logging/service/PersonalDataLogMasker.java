@@ -8,14 +8,9 @@ import java.util.regex.Pattern;
 import net.logstash.logback.mask.ValueMasker;
 
 /**
- * Takes email addresses, LinkedIn profile links and dialled phone numbers out of every deployed log line's message and
- * stack trace (#927): a vendor's error quoting its request, or an exception naming what it failed on, would otherwise
- * keep a person's contact in Cloud Logging for as long as the log is kept.
- *
- * <p>Wired into the deployed JSON encoder by {@code logback-spring.xml}, so it is built by Logback, never by Spring.
- * Only those two fields are read: the MDC's ids and the request line's numbers are left alone. A phone is masked only
- * with its leading {@code +}, unlike {@link ContactRedaction#redact}, whose looser rule reads a UUID's last group or an
- * epoch timestamp as a number someone dialled — and every log line carries both.
+ * Masks emails, LinkedIn profile links and dialled phones in every deployed log line's message and stack trace (#927).
+ * Built by Logback via {@code logback-spring.xml}, not Spring. A phone needs its leading {@code +}, unlike
+ * {@link ContactRedaction#redact}, whose looser rule would mask every line's UUIDs and epoch timestamps.
  */
 public class PersonalDataLogMasker implements ValueMasker {
 

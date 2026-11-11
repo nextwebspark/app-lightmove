@@ -62,14 +62,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Suggest changes on a recorded call: one press asks the model to read the transcript against the person's record,
- * and a researcher then reviews what it kept in one go — each suggestion applied as chosen or skipped. Nothing reaches
- * the record unless someone applies it, and every apply writes through the field's own owner — the person, the
- * assessment, the tag catalogue, the task list — so scope, validation and the timeline stay where they live. Once
- * reviewed a change is the record's: a later correction is made there, never by undoing it here.
- *
- * <p>The model call holds no transaction and no connection; a claim on the recording keeps two presses to one call,
- * and nothing is stored or charged unless an answer was stored.
+ * Suggest changes on a recorded call: the model reads the transcript against the record and a researcher reviews it
+ * in one go; each applied change writes through its field's owner, and there is no undo once reviewed. The model call
+ * holds no transaction; a claim on the recording keeps two presses to one call.
  */
 @Service
 @RequiredArgsConstructor
@@ -139,12 +134,9 @@ public class CallSuggestionService {
     }
 
     /**
-     * Suggest changes with no press, once a call's notes are filed, under the claim the filing took: the transcript is
-     * read in the name of whoever sent the bot and on their meters. A meter that refuses, a model with nothing usable,
-     * a person no longer on the position or one whose processing is restricted leaves the call to a press, which says
-     * why. Every write is a transaction
-     * of its own: the notes' worker calls this from an after-commit listener, whose finished transaction a joined write
-     * would silently vanish with.
+     * Suggest changes with no press once a call's notes are filed, under the filing's claim, as the bot's sender. Any
+     * refusal leaves it to a press. Each write is its own transaction: called from an after-commit listener, where a
+     * joined write would silently vanish.
      */
     public void suggestOnceFiled(UUID recordingId) {
         TransactionTemplate own = new TransactionTemplate(Objects.requireNonNull(transactions.getTransactionManager()));
