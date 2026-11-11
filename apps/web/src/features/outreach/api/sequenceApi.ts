@@ -183,11 +183,9 @@ export function startSequence(
   sequenceId: string,
   people: EnrollPerson[],
   timing: StartTiming,
-  /** One of the sender's own signatures, on every email of the run; null sends none. */
-  signatureId: string | null = null,
 ): Promise<StartedSequence> {
   return request<StartedSequence>(`/projects/${projectId}/outreach/sequences/${sequenceId}/enrollments`, {
     method: "POST",
-    body: { people, ...timing, signatureId },
+    body: { people, ...timing },
   });
 }

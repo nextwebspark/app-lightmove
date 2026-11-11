@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 /** Chapter two past its caps: two sectors, two hubs, one employer per hub and one executive per slice. */
 class MarketShapeReporterTest {
 
-    private static final ReportSettings TIGHT = new ReportSettings(2000, 5000, 2, 2, 9, 1, 1);
+    private static final ReportSettings TIGHT = new ReportSettings(2000, 5000, 2, 2, 9, 1, 1, 250);
 
     private final TriageCompanyResponse retailer = company("Retail Co", "retail");
     private final TriageCompanyResponse secondRetailer = company("Second Retail Co", "retail");

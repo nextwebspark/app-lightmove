@@ -9,11 +9,13 @@ import { cn } from "../../../lib/cn";
 export function ReportPanel({
   as: Tag = "div",
   dashed,
+  className,
   children,
 }: {
   /** `figure` where the card is one chart with its own caption, so the pairing is in the markup. */
   as?: "div" | "figure";
   dashed?: boolean;
+  className?: string;
   children: ReactNode;
 }) {
   return (
@@ -21,6 +23,7 @@ export function ReportPanel({
       className={cn(
         "mt-4 rounded-[11px] bg-u-surface px-4 py-[18px] shadow-u-e1 sm:px-6 sm:py-[22px]",
         dashed && "border border-dashed border-u-border",
+        className,
       )}
     >
       {children}
@@ -50,7 +53,7 @@ export function ReportCard({
     <ReportPanel>
       <div className="mb-1 flex flex-wrap items-start justify-between gap-3.5">
         <div>
-          <div className="text-[15px] font-bold">{title}</div>
+          <h2 className="text-[15px] font-bold">{title}</h2>
           {caption && <div className="mt-[3px] text-xs text-u-text3">{caption}</div>}
         </div>
         {action && <div className="flex flex-wrap items-center gap-2.5">{action}</div>}

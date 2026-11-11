@@ -155,7 +155,7 @@ Sources (vendor help centres, read November 2026):
 Templates are owned by **`outreach`**, beside signatures: `app_lm_email_template`, `/me/email-templates…`,
 `EmailTemplateService`. It reads the user (name and face) and `WorkspaceAccess`. Nothing depends back on it.
 
-**`app_lm_email_template`** (Phase 1, V204):
+**`app_lm_email_template`** (Phase 1, V205):
 
 | Column | |
 |---|---|
@@ -185,7 +185,7 @@ Templates are owned by **`outreach`**, beside signatures: `app_lm_email_template
   `EMAIL_TEMPLATE_STALE`, following `CandidateScorecardService`'s explicit check. Two people may now edit one shared
   row, which a signature never faced.
 
-**`app_lm_outreach_message.template_id`** (V204): `REFERENCES app_lm_email_template ON DELETE SET NULL`, nullable,
+**`app_lm_outreach_message.template_id`** (V205): `REFERENCES app_lm_email_template ON DELETE SET NULL`, nullable,
 with a partial index `WHERE template_id IS NOT NULL`. It is written from Phase 2. It is resolved by id, workspace
 **and** whether the sender may see the template; anything else is stored as null, never refused. Under RLS a foreign
 key alone does not check the workspace, since the reference check runs as the table owner.
@@ -326,6 +326,11 @@ are the Phase 0 plan, kept for Phase 2's decision.
 
 ## G. With email signatures (#1157)
 
+*Since #1277 (on `main`, merged into this branch):* a **sequence step** may carry `{{signature}}`, which places the run's
+signature there (`SequenceTokens.SIGNATURE`). A template and an own email still refuse it, as below: their signature is
+Include signature's, placed after the words. So the template and composer Insert bar is the sequence bar less the opener
+and the signature (`templateTokenOptions`), and Phase 3's From template never brings one into a step.
+
 - **A template never holds a signature.** The signature stays the composer's Include signature choice, appended after
   the body when the email is written, exactly as today (`SendMessageRequest.signatureId` →
   `signatures.requireRenderedForSending`). Applying a template never changes that choice or the picked signature.
@@ -400,7 +405,7 @@ template".
    and Save as template) and `Settings.dc.html` (Email templates: list, editor, delete confirmations). The stale
    lines in `docs/outreach-conversations.md` and `docs/email-signatures.md` are corrected on the way.
 1. **Templates, the token engine, Settings (#1249).**
-   - V204 (both columns of §B; renumbered twice as main took V195–V203).
+   - V205 (both columns of §B; renumbered as main took V195–V204).
    - The engine (§C) on both twins.
    - The CRUD routes, codes and audit.
    - The email schema's token node and `schema="email"` / `editorRef`.

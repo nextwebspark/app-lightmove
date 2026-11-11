@@ -11,7 +11,8 @@ export function TokenInsertBar({
   className,
 }: {
   options: readonly SequenceTokenOption[];
-  onInsert: (token: string) => void;
+  /** `isBodyOnly`: a token a subject never takes (the signature), so it goes into the body whatever had the caret. */
+  onInsert: (token: string, isBodyOnly?: boolean) => void;
   className?: string;
 }) {
   return (
@@ -31,7 +32,7 @@ export function TokenInsertBar({
           title={option.tip}
           // Pressing a chip must not take the caret out of the field it inserts into.
           onMouseDown={(event) => event.preventDefault()}
-          onClick={() => onInsert(option.token)}
+          onClick={() => onInsert(option.token, option.isBodyOnly)}
           className={cn(
             "rounded-full border px-2 py-[3px] font-mono text-meta",
             option.isAi

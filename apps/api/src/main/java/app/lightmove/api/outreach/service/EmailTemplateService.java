@@ -50,8 +50,6 @@ public class EmailTemplateService {
 
     static final String TARGET = "emailTemplate";
 
-    private static final String SIGNATURE_TOKEN = "signature";
-
     private final EmailTemplateRepository templates;
     private final UserRepository users;
     private final WorkspaceAccess access;
@@ -229,7 +227,7 @@ public class EmailTemplateService {
             vocabulary.add(SequenceTokens.BOOKING_LINK);
         }
         for (TokenUse use : SequenceTokens.usesIn(text)) {
-            if (SIGNATURE_TOKEN.equals(use.name())) {
+            if (SequenceTokens.SIGNATURE.equals(use.name())) {
                 throw ApiException.withField(ErrorCode.VALIDATION_FAILED, field,
                         "Leave {{signature}} out: Include signature adds yours when you send");
             }

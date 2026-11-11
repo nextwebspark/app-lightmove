@@ -33,7 +33,7 @@ import {
 } from "../lib/sendSchedule";
 import { BOOKING_LINK_PLACEHOLDER, render, renderParts } from "../lib/sequenceTokens";
 import { useMailbox } from "../lib/useMailbox";
-import { RunSignaturePicker } from "../../signatures/components/SignatureChooser";
+import { SignatureUnderEmail } from "../../signatures/components/SignatureChooser";
 import { useSignatureChoice, type SignatureChoice } from "../../signatures/lib/useSignatureChoice";
 
 type EnrolStep = "choose" | "review" | "start";
@@ -220,7 +220,6 @@ export function EnrolDialog({
           startMode: startChoice.mode,
           startAt: startChoice.mode === "AT" && chosenStart ? chosenStart.toISOString() : null,
         },
-        signature.signatureId,
       ),
     onSuccess: (started) => {
       void queryClient.invalidateQueries({
@@ -582,6 +581,7 @@ function ReviewStep({
   const email = reviewed[reviewing.candidateId];
   const first = sequence.steps[0];
   const firstName = reviewing.tokens.firstName ?? reviewing.fullName;
+  const signOff = signature.included || signature.isError ? "" : (reviewing.tokens.senderFirstName ?? "");
   const parts = renderParts(first.body, withBookingLink(reviewing.tokens, bookingLink), null);
   const openerAt = parts.findIndex((part) => part.isOpener);
   const before = openerAt < 0 ? parts : parts.slice(0, openerAt);
@@ -641,7 +641,7 @@ function ReviewStep({
         <div className="whitespace-pre-wrap pt-3 text-[13.5px]/[1.6] text-u-text">
           {/* The opener sits in its own box, so the blank lines around it in the template would double up. */}
           {before
-            .map((part) => part.text)
+            .map((part) => (part.isSignature ? signOff : part.text))
             .join("")
             .replace(/\n+$/, "")}
         </div>
@@ -674,11 +674,16 @@ function ReviewStep({
         )}
         <div className="whitespace-pre-wrap text-[13.5px]/[1.6] text-u-text">
           {after
-            .map((part) => part.text)
+            .map((part) => (part.isSignature ? signOff : part.text))
             .join("")
             .replace(/^\n+/, "")}
         </div>
-        <RunSignaturePicker choice={signature} />
+        <SignatureUnderEmail choice={signature} />
+        {signature.isError && (
+          <p className="mt-3 border-t border-u-border pt-2.5 font-mono text-meta text-u-text3">
+            Your signatures could not be read here. Your default signature still signs these emails.
+          </p>
+        )}
         {sequence.steps.length > 1 && (
           <p className="mt-3 border-t border-u-border pt-2.5 font-mono text-[11.5px] text-u-text3">
             {followUpLine(sequence)}, each only if {firstName} hasn't replied.

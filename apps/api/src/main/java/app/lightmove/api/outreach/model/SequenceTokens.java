@@ -22,6 +22,14 @@ public record SequenceTokens(String firstName, String currentTitle, String curre
     public static final String BOOKING_LINK = "bookingLink";
     public static final String OPENER = "opener";
 
+    /**
+     * The sender's default signature. {@link #render} leaves it as typed: the signature is HTML, drawn into the email by
+     * {@link OutreachEmailBody}, never into the text.
+     */
+    public static final String SIGNATURE = "signature";
+
+    public static final Pattern SIGNATURE_TOKEN = Pattern.compile("\\{\\{\\s*" + SIGNATURE + "\\s*}}");
+
     /** The six an email to any executive can take, in the order the Insert bar offers them. */
     public static final List<String> PROFILE_TOKENS = List.of(
             "firstName", "currentTitle", "currentCompany", "positionTitle", "location", "senderFirstName");
@@ -148,8 +156,21 @@ public record SequenceTokens(String firstName, String currentTitle, String curre
         return value.replaceAll("\\s+", " ").strip();
     }
 
+    /**
+     * {@code text} for a run signed with {@code signatureHtml}; for one with none, each signature token becomes the
+     * sender's first name, so the email still signs off.
+     */
+    public static String signedOff(String text, String signatureHtml, String senderFirstName) {
+        if (text == null || signatureHtml != null) {
+            return text == null ? "" : text;
+        }
+        return SIGNATURE_TOKEN.matcher(text)
+                .replaceAll(Matcher.quoteReplacement(senderFirstName == null ? "" : senderFirstName));
+    }
+
+    /** A value came from a profile or a model, so it can never place a signature: only the consultant's words do. */
     private static String orBlank(String value) {
-        return value == null ? "" : value.trim();
+        return value == null ? "" : SIGNATURE_TOKEN.matcher(value).replaceAll("").trim();
     }
 
     /** The first word of a full name, which is what a greeting uses. */

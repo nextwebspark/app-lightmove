@@ -70,6 +70,8 @@ export type ApiErrorCode =
   | "CANDIDATE_ASSESSMENT_STALE"
   | "CANDIDATE_ASSESSMENT_NO_CRITERIA"
   | "CANDIDATE_ASSESSMENT_NOTHING_OPEN"
+  | "RANKING_SCENARIO_STALE"
+  | "RANKING_BRIEF_CHANGED"
   | "AI_UNAVAILABLE"
   | "PIPELINE_STAGE_NOT_EMPTY"
   | "PIPELINE_STAGE_REQUIRED"
@@ -285,6 +287,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CANDIDATE_TAG_EXISTS: "Your team already has that tag.",
   CANDIDATE_TAG_RETIRED: "That tag is retired. Restore it in Settings to use it again.",
   CANDIDATE_ASSESSMENT_STALE: "Someone saved this assessment after you opened it. Reload to keep your changes over theirs.",
+  RANKING_SCENARIO_STALE: "Someone saved this scenario after you opened it. Reload to keep your changes over theirs.",
+  RANKING_BRIEF_CHANGED: "The brief's competencies changed since you opened this. Reload to see them.",
   CANDIDATE_ASSESSMENT_NO_CRITERIA:
     "The brief has no competencies to assess against yet. Add them in the position's Assessment Criteria step.",
   CANDIDATE_ASSESSMENT_NOTHING_OPEN:
