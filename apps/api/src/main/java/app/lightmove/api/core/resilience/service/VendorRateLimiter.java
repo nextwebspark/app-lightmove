@@ -9,12 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Outbound pacing, one bucket per vendor.
- *
- * <p>The inbound limiter refuses a caller who is over budget; this one makes a caller wait, because
- * the budget here is a vendor's published cap and the right answer to reaching it is to go slower
- * rather than to drop the work. Vendors are a fixed, tiny set named at startup, so unlike the inbound
- * limiter's attacker-supplied keys this map needs no eviction.
+ * Outbound pacing, one bucket per vendor: waits rather than refuses, since the cap is the vendor's. Vendors are a fixed
+ * set named at startup, so the map needs no eviction.
  */
 @Component
 @Slf4j

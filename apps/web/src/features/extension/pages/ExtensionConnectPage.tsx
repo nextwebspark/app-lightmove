@@ -4,13 +4,8 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import * as extensionApi from "../api/extensionApi";
 
 /**
- * The extension this page hands the session to.
- *
- * Resolved at build time from the EXTENSION_ID build arg, falling back to the development id — see
- * `vite.config.ts`, which owns that fallback along with the other build parameters.
- *
- * It must stay in step with the API's `lightmove.web.cors-allowed-origins`, which allow-lists the
- * matching `chrome-extension://` origin. Two places, one value; the extension README says how.
+ * The extension this page hands the session to: the EXTENSION_ID build arg (fallback in `vite.config.ts`). Must
+ * match the API's `lightmove.web.cors-allowed-origins` `chrome-extension://` origin — see the extension README.
  */
 const EXTENSION_ID = __EXTENSION_ID__;
 

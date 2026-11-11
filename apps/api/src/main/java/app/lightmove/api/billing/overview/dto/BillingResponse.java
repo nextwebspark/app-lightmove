@@ -6,12 +6,9 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * Settings → Billing and the credit chip in one read. The plan's fields are null for a workspace with no
- * subscription, and {@code seatPriceFils} on a plan priced per workspace. {@code plans} and {@code packs} are what an
- * admin may buy, both empty where Stripe is not offered and for anyone without {@code BILLING_MANAGE}.
- * {@code trialEndsAt} is set only on the app's own trial, still unpaid, and its {@code seats} are the staff.
- * {@code contactEmail} is where a workspace writes to Uncava about billing. {@code enforced} false is billing switched
- * off for the deployment: nothing is refused and the SPA shows none of it.
+ * Settings → Billing and the credit chip in one read. Plan fields null without a subscription; {@code seatPriceFils}
+ * null on a per-workspace plan; {@code plans} and {@code packs} empty without Stripe or {@code BILLING_MANAGE};
+ * {@code trialEndsAt} only on an unpaid app trial (its {@code seats} are the staff); {@code enforced} false shows none.
  */
 public record BillingResponse(BillingPlanSummary plan, BillingInterval interval, int seats, Long seatPriceFils,
                               SubscriptionStatus status, Instant renewsAt, ContactCreditsResponse credits,

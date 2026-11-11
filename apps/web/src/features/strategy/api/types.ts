@@ -23,12 +23,8 @@ export interface SectorGroup {
 }
 
 /**
- * Everything the filter sidebar counts, in one read. Counts are over the whole universe rather than
- * the current selection, so this is the same for every mandate and no chip click invalidates it.
- *
- * <p>Location is not here: its vocabulary is served by `/countries`, which also counts the markets
- * the universe actually holds — so the chips never offer a market the pipeline has not loaded, and
- * this read does not grow a GROUP BY over the whole universe to draw them.
+ * Everything the filter sidebar counts, over the whole universe (same for every mandate). Location comes from
+ * `/countries` instead.
  */
 export interface Facets {
   sectorGroups: SectorGroup[];

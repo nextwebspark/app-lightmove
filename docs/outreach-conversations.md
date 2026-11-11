@@ -3,7 +3,7 @@
 Status: **built** — all six phases (approved 2026-10-21): the ledger and its reads, replies, own sends, the screen,
 attachments, and live refresh with the drawer's link back. Section H records, phase by phase, where what shipped
 differs from the plan above it.
-This is the design the Outreach workspace in `claude-design/Outreach.dc.html` is built from; each phase is one PR.
+This is the design the Outreach workspace in `uncava-design/Outreach.dc.html` is built from; each phase is one PR.
 Until a phase ships, the tables, routes and entities it names do not exist.
 
 
@@ -12,7 +12,7 @@ Until a phase ships, the tables, routes and entities it names do not exist.
 The Outreach screen today is count tiles, sequence cards and a "People in outreach" table; everything about one
 person is spread over the executive drawer (Outreach fold, Meetings section, Notes tab, Activity tab), and a
 reply is only ever *noticed* — "Only who wrote and where is ever read — never what" (`OutreachInboxService`).
-The new mockup (`claude-design/Outreach.dc.html`) turns the
+The new mockup (`uncava-design/Outreach.dc.html`) turns the
 page into a three-pane **conversation workspace**: an action queue on the left, one executive's communication
 history and a reply composer in the middle, that executive's details on the right. The goal is one place where a
 consultant sees everything that happened with a person on this position in time order — emails sent, replies,
@@ -421,7 +421,7 @@ unknown kind refetches everything).
 - Log call → `NoteComposerModal` wrapping `NotesSection`'s composer with new `initialKind` / `onSaved` props
   (`PersonSections.tsx`); Add note → `general`. Mark handled → `useTaskCompletion` on `openTask.taskId`, disabled
   with a tooltip when none.
-- Mockup: copy the uploaded file over `claude-design/Outreach.dc.html`; update `claude-design/README.md`'s row
+- Mockup: copy the uploaded file over `uncava-design/Outreach.dc.html`; update `uncava-design/README.md`'s row
   (the workspace's panes, the `?view=` knob, what is not drawn: formatting icons beyond the editor's, Saved
   template). `docs/glossary.md`: add Conversation, Action queue, Needs reply, Synced email (the mockup's words).
 

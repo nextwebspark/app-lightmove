@@ -1,12 +1,8 @@
 import type { MappingTree, TreeCompany, TreeExecutive } from "./talentMapTree";
 
 /**
- * The tree as GeoJSON: what the globe draws.
- *
- * <p>Every place is a city or a country centroid, so every company in Dubai is the same point and
- * would draw as one pin. `spreadPoints` lays the ones that share a coordinate out on a sunflower
- * spiral — deterministic by id, so the same company sits in the same spot on every read — and seats
- * an executive without a place of their own on a small ring around their company's pin.
+ * The tree as GeoJSON for the globe. Places are centroids, so `spreadPoints` fans shared points on a sunflower spiral
+ * (deterministic by id) and rings unplaced executives around their company's pin.
  */
 
 export type PinKind = "company" | "executive";

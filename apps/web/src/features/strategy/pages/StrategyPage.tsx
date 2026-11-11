@@ -90,12 +90,8 @@ export function StrategyPage() {
 }
 
 /**
- * The search screen: filter rail on the left, the universe it selects on the right.
- *
- * <p>The filter autosaves — there is no Save button, matching every other editing surface in the
- * product. Every write invalidates the reads that depend on the scope, and cancels them first: a read
- * left running would resolve after the invalidation and reinstate the pre-edit companies as fresh for
- * the whole staleTime.
+ * The search screen: filter rail on the left, the universe it selects on the right. The filter autosaves; each write
+ * cancels then invalidates its dependent reads, since a read left running would reinstate the pre-edit companies.
  */
 function StrategyEditor({ toggle }: { toggle: ReactNode }) {
   const { project } = useOutletContext<ProjectOutletContext>();
@@ -165,15 +161,9 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
   }, [strategy.data]);
 
   /*
-   * Any change to what is being asked returns to the first page and drops the selection: page 4 of a
-   * filter that now matches two companies is an empty table over a non-empty result, and a tick made
-   * under the last scope would act on companies this one no longer contains and the user can no
-   * longer see. A tick does survive a page turn — picking twelve companies across three pages is the
-   * case the bulk bar exists for — so this fires on the scope, never on the page.
-   *
-   * <p>Adopting the stored filter is deliberately not such a change, which is why this no longer
-   * keys off `filter`: the server has been scoping the results by that filter all along, so its
-   * arrival must not stomp a page turned, or a row ticked, while /strategy was still in flight.
+   * A scope change returns to page one and drops the selection (a tick survives a page turn, never a scope change).
+   * Adopting the stored filter is not a scope change: the server already scoped by it, so its arrival must not stomp a
+   * page turned or a row ticked while /strategy was in flight.
    */
   const resetScope = useCallback(() => {
     setPage(0);
@@ -270,15 +260,9 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
   });
 
   /**
-   * The one way the off-limits list is written, whoever asked. It takes what the list should become
-   * from what it currently *is* — read from the cache here rather than trusted from a caller's render
-   * — because the endpoint replaces the list wholesale, so an edit built on a stale copy silently
-   * unbars everything that arrived after it.
-   *
-   * <p>It writes immediately rather than through the autosave timer: barring a company is a decision,
-   * not a draft. The flush is still needed because the response is the whole Strategy and goes
-   * straight into the cache, so a filter edit still sitting in the timer would be overwritten by the
-   * copy the server had before it.
+   * The one way the off-limits list is written: the next list is built from the cache, not a caller's render, since the
+   * endpoint replaces it wholesale. Written at once, but the autosave is flushed first — the response is the whole
+   * Strategy and would overwrite a filter edit still in the timer.
    */
   const writeOffLimits = async (next: (barred: string[]) => string[]) => {
     await autosave.flush();

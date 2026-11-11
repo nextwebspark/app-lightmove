@@ -6,13 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
 /**
- * An executive's gender, for the report's diversity chapter.
- *
- * <p>Recorded by a researcher, or proposed from a researched profile by {@code CandidateBackgroundProposer}
- * and flagged in {@code Candidate.aiInferredFields} until a researcher's edit changes it.
- *
- * <p>Absent is not {@link #OTHER}: a null column means nobody said or confirmed one, {@code OTHER}
- * means somebody did. The two are counted separately for that reason.
+ * An executive's gender for the diversity chapter, recorded or AI-proposed (flagged in {@code aiInferredFields}).
+ * Null is "nobody said", not {@link #OTHER}; they are counted apart.
  */
 @Getter
 @Accessors(fluent = true)

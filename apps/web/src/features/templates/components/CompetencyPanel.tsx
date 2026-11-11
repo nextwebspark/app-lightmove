@@ -37,14 +37,8 @@ const ROW_GRID =
 const STACKS_BELOW_MD = "col-start-2 col-span-4 md:col-span-1 md:row-auto";
 
 /**
- * One weighting panel (technical in the accent, behavioural in the signal), rendered as a full-width table.
- *
- * <p>Three things a consultant does here. A slider rebalances the others so the total holds; the
- * number input sets a weight exactly; and a lock holds one row still while the rest absorb the
- * change — without it, the weight you had just decided is the one that keeps drifting.
- *
- * <p>Order is the ranking, so rows drag to reorder. The handle is the only draggable part: the row
- * also carries two text inputs and a slider, and a whole-row drag would fight all three.
+ * One weighting panel as a table: sliders rebalance the others, a number sets a weight exactly, a lock holds a row.
+ * Rows reorder by their handle alone, since the row also holds inputs and a slider.
  */
 export function CompetencyPanel({
   title,

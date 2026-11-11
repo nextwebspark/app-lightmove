@@ -1,13 +1,8 @@
 import type { CustomColumnTarget, CustomColumnType } from "../../customcolumns/api/types";
 
 /**
- * What one uploaded column becomes — the server's proposal, and what the mapping step sends back
- * once a person has confirmed or corrected it. One shape both ways, so the dialog has nothing to
- * translate.
- *
- * Exactly one outcome applies, read in this order: a `targetField` maps onto a built-in field;
- * otherwise a `customFieldKey` fills a custom column the mandate already has; otherwise a
- * `customLabel` defines a new one; otherwise the column is ignored.
+ * What one uploaded column becomes — the server's proposal and the confirmed mapping, one shape both ways. First that
+ * applies wins: `targetField`, then `customFieldKey`, then `customLabel` (a new column), else ignored.
  */
 export interface ProposedColumnMapping {
   index: number;

@@ -33,15 +33,9 @@ const PROJECT_TEAM_LAYOUT_COLUMNS = layoutColumnsOf(projectTeamColumns);
 const DEFAULT_PROJECT_TEAM_SORT = { field: "roles", direction: "asc" } as const;
 
 /**
- * The Team & access tab (Project.dc.html): who staffs this mandate and what they may do, then the
- * client organisation and the people we report to on their side.
- *
- * The two halves are separate on purpose. Staff hold one project role apiece and it is editable here;
- * client contacts hold the read-only CLIENT seat, which is granted by attaching a representative and
- * never by the team table — so they render below with a lifecycle status, not a role.
- *
- * Contacts render from the project itself, so a pure client sees their own colleagues without ever
- * touching the staff-only client registry — which is why the registry query is gated off for them.
+ * The Team & access tab: staff (one editable project role each), then the client and its contacts, who hold the
+ * read-only CLIENT seat granted by attaching a representative. Contacts render from the project, so the staff-only
+ * registry query is gated off for a pure client.
  */
 export function TeamAccessPage() {
   const { project } = useOutletContext<ProjectOutletContext>();

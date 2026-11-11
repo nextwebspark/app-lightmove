@@ -1,16 +1,8 @@
 import { useState } from "react";
 
 /**
- * A company's logo with an initial-letter fallback. The logo URL is an ETL snapshot that can rot,
- * so a broken image quietly degrades to the initial rather than a broken-image glyph.
- *
- * <p><b>A tile, not a bare image.</b> Corporate marks are overwhelmingly white or transparent PNGs,
- * which on a light row are invisible — a column of blanks that reads as missing data rather than as
- * a logo you cannot see. The muted ground and the hairline ring give every mark an edge, whatever
- * its own background.
- *
- * <p>`object-contain` rather than `cover`: a wordmark is wider than it is tall, and cropping it to a
- * square keeps a couple of letters and throws away the part that identifies the company.
+ * A company's logo, falling back to its initial when the snapshot URL rots. A tile, so white or transparent marks keep
+ * an edge; `object-contain`, so a wordmark is not cropped to a couple of letters.
  */
 export function CompanyLogo({ name, logo, size }: { name: string; logo: string | null; size: number }) {
   const [failed, setFailed] = useState(false);

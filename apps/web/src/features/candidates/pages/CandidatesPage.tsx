@@ -19,13 +19,8 @@ const VIEWS = [
 ] as const;
 
 /**
- * The workspace's Candidates: everyone the team has mapped on any position, laid out as Strategy is — a
- * toolbar, a filter rail hidden until asked for, and the grid filling the rest — as the People list and
- * the Activity feed, each opening a person's drawer. Staff-only: the route is behind RequireStaff and
- * every read behind CANDIDATE_POOL_MANAGE.
- *
- * <p>The view, the open person and their tab live in the URL, so a link to someone's timeline is a
- * link; the filters are the page's own and reset with it.
+ * The workspace's Candidates: the People list and Activity feed, staff-only (RequireStaff, CANDIDATE_POOL_MANAGE).
+ * The view, open person and tab live in the URL; the filters reset with the page.
  */
 export function CandidatesPage() {
   const toast = useToast();

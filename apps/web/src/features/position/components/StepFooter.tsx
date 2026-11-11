@@ -4,13 +4,8 @@ import { POSITION_STEPS, STEP_PARAM, stepIndexOf, type StepKey } from "../lib/st
 import { BriefButton, OUTLINE_LINK_CLASS } from "./BriefFields";
 
 /**
- * The way through the brief at the foot of every step: the step before on one side, the step after
- * on the other. The last step has no step after it, so once the brief is published it offers the
- * mandate's market instead — which is what is left to do.
- *
- * <p>Walking is all this row does. Declaring the brief ready is the rail's act, offered on every
- * step, so nothing here publishes and nothing here is filled: the palette keeps the solid accent for
- * the one button a screen is actually asking for.
+ * The step before and after at the foot of every step; once published, the last offers the market instead. It only
+ * walks — publishing is the rail's — so nothing here is filled.
  */
 export function StepFooter({
   activeKey,

@@ -70,10 +70,7 @@ public class TokenService {
 
     /**
      * Redeems a refresh token and burns it; a rotated-away token reappearing revokes the whole family.
-     *
-     * <p><b>{@code noRollbackFor = ApiException.class} makes the revocation stick:</b> otherwise
-     * {@link #handleReuse} throws and the revocation rolls back, leaving every stolen token working.
-     *
+     * {@code noRollbackFor}: else {@link #handleReuse}'s throw rolls the revocation back, leaving stolen tokens working.
      * @param membershipLookup re-read at every refresh, so a role change takes effect then
      */
     @Transactional(noRollbackFor = ApiException.class)

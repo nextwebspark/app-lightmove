@@ -21,12 +21,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Tells an assignee when an open task falls due within the hour and again once it is overdue — each once per due
- * date, claimed in one statement ({@code SKIP LOCKED}) so two instances never both announce a task. A task long
- * past its date is not news: only one that went overdue within the lookback is announced. An archived position's
- * tasks are not claimed, so one restored within the lookback is still announced. Claimed a workspace at a time: the
- * archived positions are read under row-level security, and read for no workspace they would be none, so every
- * archived position's tasks would fall due.
+ * Announces an open task due within the hour and again once overdue, each once per due date, claimed with
+ * {@code SKIP LOCKED}; only tasks gone overdue within the lookback count. Claimed a workspace at a time: archived
+ * positions are read under RLS, and read for no workspace every archived position's tasks would fall due.
  */
 @Component
 @RequiredArgsConstructor

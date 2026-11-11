@@ -5,12 +5,8 @@ import { useComboboxList } from "../../lib/useComboboxList";
 import { rankedFor, type ComboboxOption } from "./FacetCombobox";
 
 /**
- * A short list typed as chips: Enter or a comma adds what is typed, × removes a chip, and Backspace in
- * an empty box takes the last one back. A repeat of an existing chip (any case) is not added twice.
- *
- * <p>Given `options`, typing also drops a list of them and a pick adds its label. Free text still
- * goes in: Enter takes a suggestion only when its label starts with what was typed or it was arrowed
- * to, so "Retail banking" is not swallowed by the "Banking" it happens to contain.
+ * Chips typed in a box: Enter or comma adds, × removes, Backspace on empty takes the last back; no repeats in any case.
+ * With `options`, Enter takes a suggestion only when it starts with the text or was arrowed to.
  */
 export function TagListInput({
   values,

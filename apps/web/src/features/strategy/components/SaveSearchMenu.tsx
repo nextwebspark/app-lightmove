@@ -11,18 +11,8 @@ type TabId = "mine" | "shared";
 const CHIP = "inline-flex items-center gap-1 rounded-[6px] px-2 py-[5px] font-sans transition";
 
 /**
- * "Save Search" — the dropdown that names a filter, lists the ones already named, and loads one back.
- *
- * <p>The mockup gives the button and nothing else — no list, no naming — so this designs the rest to
- * the toolbar's own idiom, over the same {@link Popover} the Columns menu uses.
- *
- * <p>Loading a search is a client-side apply followed by the ordinary autosave, not its own endpoint:
- * that way loading a search and clicking a chip are one code path with one set of invalidations,
- * rather than two that can drift.
- *
- * <p>The two lists overlap deliberately. <b>Mine</b> is everything the viewer saved, whichever tier;
- * <b>Shared</b> is everything the mandate can see, whoever saved it. A viewer's own shared search
- * belongs in both — a "Mine" that hid the work you shared would be the confusing one.
+ * "Save Search": names a filter, lists saved ones, loads one back — a client-side apply plus the ordinary autosave, so
+ * loading and clicking a chip share one path. Mine and Shared overlap on purpose: your own shared search is in both.
  */
 export function SaveSearchMenu({
   searches,

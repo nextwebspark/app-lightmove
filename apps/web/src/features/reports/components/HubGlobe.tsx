@@ -18,17 +18,8 @@ interface HubPalette {
 }
 
 /**
- * The market chapter's hub map: one circle per country, its area scaled to the executives there.
- *
- * <p><b>Its own component, not the Companies screen's globe.</b> That one is built around a mandate's
- * companies and people — globe projection, a fixed Gulf centre, navigation controls, an executives
- * toggle — and bending it to draw eight circles would put report concerns inside the screen the
- * grid depends on. This draws hubs, fits to them, and does nothing else.
- *
- * <p>Circles are sized by the square root of the count so that <i>area</i> tracks headcount. Scaling
- * the radius instead makes a hub of forty look four times a hub of ten rather than twice it. Their
- * fill is the same five-stop sequential ramp the heat matrix uses, so "more" is one colour scale
- * across the chapter.
+ * The market chapter's hub map, its own component rather than the Companies globe. Radius is the square root of
+ * the count so area tracks headcount; the fill is the heat matrix's sequential ramp.
  */
 export default function HubGlobe({
   accessToken,

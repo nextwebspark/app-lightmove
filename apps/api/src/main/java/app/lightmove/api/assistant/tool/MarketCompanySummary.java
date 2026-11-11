@@ -3,13 +3,8 @@ package app.lightmove.api.assistant.tool;
 import app.lightmove.api.strategy.model.CompanyRow;
 
 /**
- * One company of the market, as much of it as the model is worth showing.
- *
- * <p>Narrower than {@code CompanyRow} on purpose. Every field handed back is spent twice — once in
- * the model's context window and again in the bill — and the twenty-seven a universe row carries
- * are a grid's worth, not an answer's. The account id is here because it is the key a later
- * proposal has to name in order to be filed through the door that already exists. {@code mandateStage}
- * is the stage this mandate already filed it at, null when it has not.
+ * One market company as the model sees it — narrower than {@code CompanyRow}, since every field costs context and money.
+ * The account id is the key a later proposal files by; {@code mandateStage} is null when this mandate has not filed it.
  */
 public record MarketCompanySummary(String apolloAccountId, String companyName, String industry,
                                    String country, String city, Integer employees,

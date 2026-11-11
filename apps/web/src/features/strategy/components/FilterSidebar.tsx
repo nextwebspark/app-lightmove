@@ -22,25 +22,9 @@ const RANGE_TAG = "__range__";
 const KEYWORD_TAG = "keyword:";
 
 /**
- * The filter rail: a share of the results row, floored at 264px and capped at 312px. `shrink-0`
- * because below the floor the accordion labels wrap.
- *
- * <p>Single-open, like the wireframe: opening one closes the last, and clicking an open header closes
- * it. That is a real constraint rather than a stylistic one — Industry alone is twenty groups over
- * 148 labels, so two open panels would put the second below the fold.
- *
- * <p><b>Each axis gets the control its values deserve, which is the wireframe's point.</b> Location
- * is a short fixed country list and reads as pills, where the shape of the set is the information — a
- * vocabulary and no counts, so it is the one panel that draws before the facets read. Employees,
- * Revenue and Market Segments are ordered or long, so they are checkbox lists — wrapped pills lose
- * the order of an ordered axis and turn a long one into a wall. Industry and its keywords are
- * vocabularies too long to browse at all, so both are tag boxes — and they share one accordion,
- * because keywords narrow within the industries rather than standing beside them.
- *
- * <p><b>There is no Ownership accordion.</b> The wireframe has one; the universe carries no ownership
- * column, and nothing derivable from {@code latest_funding} (2,123 rows of 71,822) or
- * {@code parent_company} (1,811) is honest at that coverage. An accordion whose every row counts zero
- * is worse than one that is not there — it reads as broken rather than as absent.
+ * The filter rail (264–312px), single-open since two open panels push the second below the fold. Each axis gets
+ * its own control: Location pills, ordered/long axes as checkboxes, Industry and keywords as tag boxes in one panel.
+ * No Ownership accordion: the universe has no column honest enough at its coverage.
  */
 export function FilterSidebar({
   facets,

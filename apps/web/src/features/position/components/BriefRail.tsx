@@ -5,15 +5,8 @@ import { POSITION_STEPS, STEP_PARAM, type StepKey } from "../lib/steps";
 import { BriefButton } from "./BriefFields";
 
 /**
- * The rail beside the brief: the five steps as the report draws its chapters — one line each — and
- * at the foot the two acts, declaring the brief ready or putting the work down half-done.
- *
- * <p>The column is given the viewport's height so the buttons sit at its foot whatever the step
- * beside them measures; an auto-height box would leave Publish at the page bottom on a long step.
- * Below `lg` the steps are a strip above the step and the buttons a row under it.
- *
- * <p>A published brief that nobody has reopened offers <b>Edit position</b> instead, and no draft to
- * save: the brief on screen is the published one, so saving it again would record nothing.
+ * The rail beside the brief: the five steps, then the two acts at a viewport-height foot (a strip and a row below `lg`).
+ * A published brief nobody reopened offers Edit position instead, and no draft to save.
  */
 export function BriefRail({
   position,

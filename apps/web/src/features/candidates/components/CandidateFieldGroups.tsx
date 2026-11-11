@@ -248,17 +248,9 @@ const FIGURE_INPUT = "border-u-border py-[9px] text-[14px] font-bold";
 type CurrencyMode = "auto" | "override" | "brief";
 
 /**
- * A package, as it is quoted (claude-design/Position.dc.html, the drawer's Compensation editor): the
- * currency the brief is quoted in unless somebody overrides it, the base and bonus typed the way they
- * were said — per month, as a share of base — the allowances line by line, the instruments an LTIP is
- * paid in, and the total worked out as it is typed. What is stored is always the annual amounts; the
- * two toggles are how a figure was spoken, and the patch converts them.
- *
- * <p>A currency the list does not carry — one stored before the picker existed, or by an import —
- * stays offered as an option: a select whose value matches no option posts blank, and that would
- * clear a fact nobody touched. The notice period, which was a text box until the five became the
- * vocabulary, is kept the same way; "Not established" is the blank every sibling picker carries, and
- * is not "None" — see lib/noticePeriod.ts.
+ * A package as quoted (uncava-design/Position.dc.html's Compensation editor). Stored annual; the per-month and
+ * %-of-base toggles are only how a figure was typed. An unlisted currency or notice period stays offered — a select
+ * matching no option posts blank and would clear it; "Not established" is the blank, not "None" (lib/noticePeriod.ts).
  */
 export function CompensationFields<TTransformed extends FieldValues>({
   register,

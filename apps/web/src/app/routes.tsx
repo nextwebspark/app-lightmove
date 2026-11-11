@@ -65,13 +65,8 @@ import { NotFoundPage } from "./NotFoundPage";
 import { PublicNotFoundPage } from "./PublicNotFoundPage";
 
 /**
- * Routing follows the user's actual state, not a step counter.
- *
- * A signup wizard held in component state cannot survive a closed tab, and the account created at step
- * 1 is real and permanent. So each guard asks the server-derived user what is true right now — do they
- * exist, are they verified, do they have a workspace — and routes on the answer. Someone who signs up,
- * closes the browser, and signs back in a week later lands exactly where they left off, without the
- * app having to remember anything.
+ * Routing follows the user's server-derived state (exists, verified, has a workspace), not a step counter, so a
+ * signup abandoned mid-way resumes where it left off.
  */
 export function AppRoutes() {
   return (
@@ -307,12 +302,8 @@ function RequireWorkspace({ children }: { children: ReactNode }) {
 }
 
 /**
- * Keeps portal guests out of the firm's internal screens. UX only — the server re-reads the roles on
- * every call, and refused every request these pages make even while they rendered.
- *
- * <p>The nav already hides them, so this closes the one way left in: typing the URL. Note the
- * predicate is "holds CLIENT and <b>no</b> staff role" — a member who holds CLIENT alongside MEMBER is
- * staff and must keep both pages.
+ * Keeps portal guests out of the internal screens — UX only; the server re-reads roles on every call. The
+ * predicate is "holds CLIENT and <b>no</b> staff role": CLIENT alongside MEMBER is staff.
  */
 function RequireStaff({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();

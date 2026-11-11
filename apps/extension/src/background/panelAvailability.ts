@@ -2,16 +2,8 @@ import { SIDE_PANEL_PATH } from "../buildTargets";
 import { isLinkedInPageUrl } from "../content/pageReader/linkedInUrls";
 
 /**
- * Where UNCAVA Capture offers itself at all.
- *
- * The panel is hidden and the toolbar icon greyed on every tab that is not LinkedIn, rather than
- * opening to explain that it reads LinkedIn only. Chrome hides a disabled panel on tab switch and
- * <b>brings it back by itself</b> when the consultant returns to a tab where it was open, so this
- * costs nothing of the panel following them from profile to profile.
- *
- * It changes no permission and guards nothing: `host_permissions` already covers LinkedIn and the
- * workspace and nothing else, so the extension could never read another site. This is what the
- * toolbar says about that.
+ * Where UNCAVA Capture offers itself: panel hidden and icon greyed on every non-LinkedIn tab (Chrome restores a
+ * disabled panel on return by itself). UX only — `host_permissions` is what limits what the extension can read.
  */
 export interface PanelAvailabilityDeps {
   queryTabs: (query: chrome.tabs.QueryInfo) => Promise<chrome.tabs.Tab[]>;
@@ -25,15 +17,9 @@ const AVAILABLE_TITLE = "UNCAVA Capture";
 const UNAVAILABLE_TITLE = "UNCAVA Capture — open a LinkedIn profile or company page";
 
 /**
- * Applies the rule to one tab.
- *
- * A tab still initialising has no URL to judge, and a new tab is not LinkedIn — so unknown is
- * unavailable. Skipping it instead would leave the manifest's global default standing, which is
- * enabled, and the panel would show on a page it has no business on.
- *
- * Disabling the panel for the tab it is *currently* open in hides it, so following an outbound link
- * away from LinkedIn takes the form with it. That is the same page change that clears the form
- * anyway; there is nothing on screen worth keeping once the consultant has left LinkedIn.
+ * Applies the rule to one tab. A tab with no URL yet counts as unavailable — skipping it would leave the
+ * manifest's enabled default standing. Leaving LinkedIn in the open tab hides the panel, which that page change
+ * clears anyway.
  */
 export async function applyPanelAvailability(
   deps: PanelAvailabilityDeps,

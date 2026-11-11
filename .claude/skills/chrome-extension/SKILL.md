@@ -10,7 +10,7 @@ the consultant moves between profiles, and follows the active tab) that reads wh
 consultant is standing on is about — a company or a person — and writes it into a mandate. A company
 lands in its universe; a person lands in its people, mapped to one
 of its triaged companies when the mandate already holds their employer under that name.
-`claude-design/Extension.dc.html` is the design source of truth — read the
+`../uncava-design/Extension.dc.html` (separate repo) is the design source of truth — read the
 relevant state before building a screen, the same rule the web app follows.
 
 It is a **client of the existing API**, not a second backend. It adds no table, no RBAC action and no

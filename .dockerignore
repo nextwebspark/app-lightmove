@@ -17,7 +17,6 @@ apps/web/dist/
 .git/
 .github/
 .claude/
-claude-design/
 docs/
 ops/
 **/*.md

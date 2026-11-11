@@ -49,15 +49,9 @@ export interface CandidateCompanyContext {
 }
 
 /**
- * A new executive, as one form: there is nothing to read yet, so every section is open at once.
- *
- * <p>Where the panel was opened from a company's row the employer is that company and the field is
- * read-only: the mapping and the name must not be able to disagree, and the server ignores a typed
- * employer in that case anyway. Opened from the toolbar there is no company, the field is free text,
- * and the row lands unmapped — the executive whose employer is not in the mandate's universe.
- *
- * <p>Mounted fresh each time the panel opens, so a reopen never shows the half-typed profile that
- * was abandoned last time.
+ * A new executive, as one form with every section open. Opened from a company's row the employer is that company,
+ * read-only (the server ignores a typed one); from the toolbar it is free text and the row lands unmapped. Mounted fresh
+ * on each open.
  */
 export function AddCandidateForm({
   projectId,

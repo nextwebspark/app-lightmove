@@ -29,12 +29,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Writes a template's content onto a brief, for both seeding and a later re-pick, so both end up with
- * the same brief. What the template carries replaces the brief's own and is stamped {@code TEMPLATE};
- * what it leaves blank keeps the brief's value and that value's provenance, so a re-pick never wipes a
- * typed department or bonus, nor turns a typed field back into one a document reading may overwrite.
- * Figures keep the currency and period they were typed in, and every merged list stays within what the
- * brief's own write accepts, or the step could never be saved again.
+ * Writes a template onto a brief, for seeding and a re-pick alike: what it carries replaces and is stamped
+ * {@code TEMPLATE}; what it leaves blank keeps the brief's value and provenance. Merged lists stay within what the
+ * step's write accepts, or the step could never be saved again.
  */
 final class PositionTemplateApplier {
 

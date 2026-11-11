@@ -1,27 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * What a screen pins itself to while full screen. Its own background and no corners, because full
- * screen has no edges and `main`'s rounded panel is no longer behind it.
- *
- * <p>96 clears the mobile nav rail. That rail is a sibling rendered by AppShell rather than a
- * descendant, so it does not order inside this stacking context — at anything below 95 a keyboard
- * user who tabbed past the nav scrim left it floating over "full screen".
+ * What a screen pins itself to while full screen. z-96 clears the mobile nav rail, a sibling outside this stacking
+ * context — below 95 a keyboard user who tabbed past the nav scrim left it floating over full screen.
  */
 export const FULLSCREEN_PANEL = "fixed inset-0 z-[96] bg-u-surface";
 
 /**
- * A screen that fills the window, and asks the browser to drop its own chrome as well.
- *
- * <p>Two mechanisms behind one switch. The boolean is what a caller pins to `fixed inset-0` — that is
- * the half that hides the app shell, and it works everywhere. Native fullscreen is asked for on top
- * and is allowed to fail: iOS Safari has no element fullscreen at all, and a request from outside a
- * user gesture or inside an unpermitted iframe is refused. A refusal costs the browser's toolbar,
- * not the feature.
- *
- * <p>The request goes to `documentElement` rather than to a panel, so everything portalled to
- * `document.body` — the toast, the grid's truncation tooltips — is inside the fullscreen element and
- * still paints.
+ * A screen that fills the window: the boolean pins `fixed inset-0` (works everywhere); native fullscreen is asked on top
+ * and may fail (iOS Safari, no gesture, iframes). Requested on `documentElement` so body-portalled toasts and tooltips
+ * still paint.
  */
 export function useFullscreen() {
   const [isFullscreen, setFullscreen] = useState(false);

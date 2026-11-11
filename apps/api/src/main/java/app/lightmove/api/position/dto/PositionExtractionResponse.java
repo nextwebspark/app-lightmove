@@ -4,8 +4,7 @@ import app.lightmove.api.positiontemplate.dto.PositionTemplateSummary;
 import java.util.List;
 
 /**
- * A reading of the attached document's fields for one step. Writes nothing: acceptance goes through
- * the step's ordinary PUT.
+ * A reading of the attached document's fields for one step; writes nothing (acceptance is the step's PUT).
  *
  * @param extractionSource   an {@code ExtractionSource} wire token
  * @param suggestedTemplate  step one only; null when only the generic fallback would match

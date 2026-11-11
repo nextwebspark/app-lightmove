@@ -57,7 +57,7 @@ const TIMELINE_HEADING =
   "mb-4 mt-5 border-t border-u-border pt-4 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3";
 
 /**
- * The New-position modal (`claude-design/Workspace.dc.html`). Opened from a business unit's drawer,
+ * The New-position modal (`uncava-design/Workspace.dc.html`). Opened from a business unit's drawer,
  * `lockedClientId` — not state — is what gets submitted, so the position cannot land on another unit.
  */
 export function NewProjectModal({

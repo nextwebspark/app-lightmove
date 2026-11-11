@@ -3,18 +3,8 @@ import { Button, Modal } from "../../../components/ui";
 import type { Candidate } from "../api/types";
 
 /**
- * Confirms removing an executive from the mandate.
- *
- * <p>The copy does the work, as it does for a company. What goes is this mandate's research on a
- * person — the status, the note, the package that was established — and nothing else: another mandate
- * researching the same executive holds its own row, and that row is untouched.
- *
- * <p>It also says what a status could have said instead, because someone reaching for Remove often
- * means "not for this brief" rather than "never happened": that is Out of scope, and it keeps the
- * mapping the research paid for.
- *
- * <p>When they are the only one at their company, a tick box (unticked) offers to remove the company too; left
- * alone, the company stays in universe with nobody at it, as a company may.
+ * Confirms removing an executive from the mandate: only this mandate's row goes, Out of scope is offered as the
+ * alternative, and when they are alone at their company an unticked box offers to remove the company too.
  */
 export function RemoveCandidateDialog({
   candidate,

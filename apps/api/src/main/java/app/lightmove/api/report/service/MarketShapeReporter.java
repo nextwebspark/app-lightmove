@@ -31,12 +31,8 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
- * Chapter two. Sector comes from the universe company an executive is mapped at, seniority from the
- * executive; the matrix crosses the two.
- *
- * <p><b>A hub is a country.</b> It was a city until it turned out most researched rows carry a
- * country and no city — grouping by city dropped those rows onto "unlocated" and reported a market
- * as empty when it was merely imprecise. Country is the axis nearly every row can actually answer.
+ * Chapter two: sector (from the company) × seniority (from the executive). <b>A hub is a country</b> — most rows
+ * carry no city, and grouping by city reported imprecise markets as empty.
  */
 @Component
 class MarketShapeReporter {

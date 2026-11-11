@@ -2,17 +2,8 @@ import type { AddedBy, Candidate } from "../../candidates/api/types";
 import type { TriageCompany } from "../api/types";
 
 /**
- * One line of the Companies grid.
- *
- * <p>A grid line is a <i>person at a company</i>, not a company: a company with three executives
- * mapped is three lines with the company repeated, which is how a consultant reads a mapping and how
- * the mockup's own candidate table is built. A company with nobody mapped keeps one line carrying the
- * "Add executive" slot, because a company nobody has looked at yet is the most important thing the
- * screen has to show.
- *
- * <p>Exactly one side may be null, and the type says so: `candidate: null` is that empty slot;
- * `company: null` is an executive whose employer is not in the mandate's universe at all, which their
- * stage shows after the companies rather than hiding.
+ * One line of the Companies grid: a person at a company. A company with nobody mapped keeps one line with
+ * `candidate: null` (the "Add executive" slot); `company: null` is an executive whose employer is not in the universe.
  */
 export type TriageCompanyRow = (
   | { company: TriageCompany; candidate: Candidate | null }

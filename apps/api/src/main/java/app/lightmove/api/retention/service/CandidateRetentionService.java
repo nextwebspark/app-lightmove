@@ -28,13 +28,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Candidate retention (#921): how long a workspace keeps someone nobody is working with, and the review of who has
- * passed it. Nothing here deletes on its own — an admin sees each person due and deletes them, through
- * {@link PersonErasureService} as any erasure, or keeps them for another period.
- *
- * <p>Due is: their last touch (latest timeline line, an admin's keep, or their founding) older than the period, no
- * live position mapping them, and no processing restriction pending. Every read runs in the caller's workspace scope:
- * read without one, row-level security shows no person and nobody is due, never everybody.
+ * Candidate retention (#921): never deletes on its own; an admin deletes each due person through
+ * {@link PersonErasureService} or keeps them. Due: last touch older than the period, no live position, no restriction.
+ * Reads run in the workspace scope; without one, row-level security shows nobody due.
  */
 @Service
 public class CandidateRetentionService {

@@ -9,13 +9,8 @@ const MIN_QUERY_LENGTH = 2;
 const RADII = [25, 50, 100, 300, 500] as const;
 
 /**
- * The People rail's Location box. Suggestions start at two letters: countries first, then LinkedIn's
- * own spellings of where people on file live, then Mapbox for anywhere else. A typed place nobody
- * suggested is still taken — ContactOut matches free text — by picking the "Use …" row.
- *
- * <p>A radius means something only around one city or area, so it is offered only then; the kind of
- * each picked place is remembered for the session, and a place picked in an earlier one reads as a
- * city when it names more than a country.
+ * The People rail's Location box: from two letters, countries, then on-file LinkedIn spellings, then Mapbox; a "Use …"
+ * row takes free text. A radius is offered only around a city or area.
  */
 export function LocationFilter({
   locations,

@@ -34,13 +34,9 @@ export interface AutosaveOptions {
 }
 
 /**
- * Debounced autosave: call `schedule(payload)` on every edit; the latest payload is flushed after
- * the delay, on unmount, and immediately via `flush()`. Concurrent schedules collapse to one save —
- * the screens that use it have no Save button, so this is the only write path for their section.
- *
- * <p>A refused save keeps its payload and reads `"error"` until a save lands: a failed trip is resent after
- * each of {@link AUTOSAVE_RETRY_DELAYS_MS} (a refusal of the payload is not — it would only be refused again), and `flush()` rejects rather than letting a caller act as
- * if the edit were stored — a "Draft saved" over a dropped edit is what lost people's typing.
+ * Debounced autosave (flushed after the delay, on unmount and by `flush()`), the only write path for its section.
+ * A failed trip keeps its payload and is resent after each of {@link AUTOSAVE_RETRY_DELAYS_MS}; `flush()` rejects
+ * rather than letting a caller act as if stored — a "Draft saved" over a dropped edit is what lost people's typing.
  */
 export function useAutosave<T>(save: (payload: T) => Promise<unknown>, options: AutosaveOptions = {}) {
   const { delayMs = 700 } = options;

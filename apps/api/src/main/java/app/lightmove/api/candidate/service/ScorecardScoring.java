@@ -14,14 +14,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * An assessment's arithmetic, out of 100: each panel carries its share of the brief ({@code technicalShare}, the
- * behavioural panel the rest), each criterion its weight's part of its panel, and a score of 10 earns all of it.
- * The SPA's {@code lib/scorecardScoring.ts} draws the same numbers while a stepper moves, so the two change
- * together.
- *
- * <p>Weights are normalised within a panel, because nothing makes a brief's add up to 100; a panel with no
- * criteria gives its share to the other, so a brief scoring one panel still reads out of 100. An unscored
- * criterion earns nothing and is counted as unscored — missing evidence is an open question, not a zero.
+ * An assessment's arithmetic out of 100, mirrored by the SPA's {@code lib/scorecardScoring.ts}. Weights are normalised
+ * per panel; an empty panel gives its share to the other; an unscored criterion earns nothing (an open question, not a zero).
  */
 final class ScorecardScoring {
 

@@ -15,13 +15,8 @@ export interface TabOption<TValue extends string> {
 }
 
 /**
- * A row of tabs as assistive tech expects them: one tab stop on the chosen tab, the arrows move the
- * choice, and each tab names the panel it controls. The panel is the caller's — give it
- * `tabPanelProps` with the same `idPrefix` and value.
- *
- * <p>A row wider than its box scrolls sideways rather than wrapping — a second line of tabs moves the
- * panel under it every time the drawer is narrower — with the clipped edge faded and the chosen tab
- * kept in view.
+ * An accessible tab row (one tab stop, arrow keys, `tabPanelProps` with the same `idPrefix`). It scrolls sideways
+ * rather than wrapping, so the panel under it never moves.
  */
 export function TabList<TValue extends string>({
   label,

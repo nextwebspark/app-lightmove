@@ -12,14 +12,7 @@ export interface HideableColumn {
 }
 
 /**
- * A grid toolbar's Columns menu.
- *
- * <p>It takes the hideable columns rather than reading a table instance, because the menu lives in
- * the toolbar and the table lives beside the results — and because the two grids that use it hold
- * different columns. Each derives its own list from its column definitions with
- * {@link hideableColumnsOf}, so a column added there is offered here automatically.
- *
- * <p>The list scrolls: there are enough columns to run off the bottom of the screen.
+ * A grid toolbar's Columns menu, given the hideable columns ({@link hideableColumnsOf}) since the table lives elsewhere.
  */
 export function ColumnPicker({
   columns,

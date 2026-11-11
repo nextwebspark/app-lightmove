@@ -20,13 +20,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * Refuses an unpriced action that would take a workspace past its month's ceiling — seats × the kind's
- * {@code *-per-seat} — before any vendor or model is asked. Counted without a lock, and a use is recorded only once
- * its work succeeds, so presses racing past the line each pass: the overshoot is up to their number × their units,
- * which a ceiling this generous absorbs. With enforcement off nothing is refused, though every use is still recorded.
- *
- * <p>The first refusal per workspace, kind and period on each instance is audited and logged; the retries after it
- * are only answered, so a client retrying a 429 cannot flood the audit trail.
+ * Refuses an unpriced action that would pass the month's ceiling (seats × {@code *-per-seat}) before any vendor or
+ * model is asked. Lock-free, so racing presses may overshoot a little; enforcement off refuses nothing. Only the first
+ * refusal per workspace, kind and period per instance is audited, so 429 retries cannot flood the trail.
  */
 @Slf4j
 @Service

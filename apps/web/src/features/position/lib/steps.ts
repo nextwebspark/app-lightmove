@@ -3,12 +3,8 @@ import type { Position } from "../api/types";
 import { directReportsOf, labelOfNode, managerOf } from "./orgChart";
 
 /**
- * The five screens of the brief, in one array.
- *
- * Everything that knows about steps reads from here — the rail, the review cards, the readiness bar
- * and the step in the URL — so a step's name, its lede, the rule for calling it done and the words
- * for why it is not are each stated exactly once. Duplicating any of them is how a rail and a review
- * card come to disagree about whether the same section is finished.
+ * The brief's five screens. The rail, review cards, readiness bar and URL all read from here, so a step's name, lede,
+ * done rule and why-not words are stated once and cannot disagree.
  */
 
 export type StepKey = "brief" | "reporting" | "compensation" | "assessment" | "review";
