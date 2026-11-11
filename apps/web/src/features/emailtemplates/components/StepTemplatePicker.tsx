@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Avatar } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
-import type { SequenceStep } from "../../outreach/api/sequenceApi";
 import * as emailTemplatesApi from "../api/emailTemplatesApi";
 import type { EmailTemplate } from "../api/emailTemplatesApi";
 import { stepRefusalOf } from "../lib/stepTemplates";
@@ -15,16 +14,11 @@ import { matchesTemplateSearch, mineFirst } from "../lib/templateSearch";
  * shared ones, picked to be copied into the step. The copy is the editor's to make, and to ask about first.
  */
 export function StepTemplatePicker({
-  step,
   isFirstStep,
-  signs,
   onPick,
   onClose,
 }: {
-  step: SequenceStep;
   isFirstStep: boolean;
-  /** Whether the sequence signs, so a copy closes with the signature. */
-  signs: boolean;
   onPick: (template: EmailTemplate) => void;
   onClose: () => void;
 }) {
@@ -91,7 +85,7 @@ export function StepTemplatePicker({
         ) : (
           <ul aria-label="Email templates">
             {shown.map((template) => {
-              const refusal = stepRefusalOf(template, step, signs);
+              const refusal = stepRefusalOf(template);
               return (
                 <li key={template.id}>
                   <button

@@ -74,7 +74,7 @@ public class OutreachEnrollment extends BaseEntity {
     @Column(name = "first_body", nullable = false)
     private String firstBody;
 
-    /** The sender's default, drawn at Start: where a step places {@code {{signature}}}, else closing it; null for none. */
+    /** The signature Include signature chose at Start, closing every email of the run; null sends none. */
     @Column(name = "signature_html", updatable = false)
     private String signatureHtml;
 
@@ -131,7 +131,7 @@ public class OutreachEnrollment extends BaseEntity {
 
     /**
      * The first email is due {@code offset} after {@code firstDue}; the dispatcher holds it to the sender's
-     * daily cap, and to the sequence's window unless {@code pinned}. {@code signatureHtml} is the default Start drew to
+     * daily cap, and to the sequence's window unless {@code pinned}. {@code signatureHtml} is the one chosen at Start to
      * sign every email of the run, or null for none.
      */
     public static OutreachEnrollment scheduled(OutreachSequence sequence, UUID candidateId, UUID personId,

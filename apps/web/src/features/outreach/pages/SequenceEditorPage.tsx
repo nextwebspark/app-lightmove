@@ -23,7 +23,14 @@ import {
   WEEKDAYS,
   zoneCityOf,
 } from "../lib/sendSchedule";
-import { BOOKING_LINK_PLACEHOLDER, firstNameOf, renderParts, tokenOptions } from "../lib/sequenceTokens";
+import {
+  BOOKING_LINK_PLACEHOLDER,
+  firstNameOf,
+  holdsSignature,
+  renderParts,
+  SIGNATURE_NOT_IN_WORDS,
+  tokenOptions,
+} from "../lib/sequenceTokens";
 import { mailboxStateOf } from "../lib/mailboxState";
 import { useMailbox } from "../lib/useMailbox";
 import { useMailboxConnect } from "../lib/useMailboxConnect";
@@ -37,11 +44,9 @@ import type { EmailTemplate } from "../../emailtemplates/api/emailTemplatesApi";
 import { SaveAsTemplateDialog } from "../../emailtemplates/components/SaveAsTemplateDialog";
 import { StepTemplatePicker } from "../../emailtemplates/components/StepTemplatePicker";
 import {
-  sequenceSigns,
   stepFromTemplate,
   stepHasText,
   templateRefusalOf,
-  templateWordsOfStep,
 } from "../../emailtemplates/lib/stepTemplates";
 
 const NEW_SEQUENCE = "new";
@@ -60,9 +65,7 @@ const FIRST_STEP_BODY = `Hi {{firstName}},
 
 I'm leading a confidential search for a {{positionTitle}}. Given your time as {{currentTitle}} at {{currentCompany}}, I'd value twenty minutes of your view, whether or not the role is right for you.
 
-Would a short call next week work?
-
-{{signature}}`;
+Would a short call next week work?`;
 
 const DEFAULT_STEPS: SequenceStep[] = [
   {
@@ -73,12 +76,12 @@ const DEFAULT_STEPS: SequenceStep[] = [
   {
     delayWorkingDays: 3,
     subject: null,
-    body: "Hi {{firstName}},\n\nFollowing up on my note below, in case it slipped past. Happy to work around your diary.\n\n{{signature}}",
+    body: "Hi {{firstName}},\n\nFollowing up on my note below, in case it slipped past. Happy to work around your diary.",
   },
   {
     delayWorkingDays: 5,
     subject: null,
-    body: "Hi {{firstName}},\n\nI'll leave it here for now. If the timing is ever better, I'd be glad to hear from you.\n\n{{signature}}",
+    body: "Hi {{firstName}},\n\nI'll leave it here for now. If the timing is ever better, I'd be glad to hear from you.",
   },
 ];
 
@@ -221,8 +224,8 @@ function SequenceEditor({
   };
 
   /** Into whichever field the caret was last in: the first email's subject, or the selected step's body. */
-  const insertToken = (token: string, isBodyOnly = false) => {
-    const intoSubject = !isBodyOnly && editingField === "subject" && selectedStep === 0;
+  const insertToken = (token: string) => {
+    const intoSubject = editingField === "subject" && selectedStep === 0;
     const field = intoSubject ? subjectRef.current : bodyRefs.current[selectedStep];
     const text = (intoSubject ? steps[0].subject : steps[selectedStep].body) ?? "";
     const start = field?.selectionStart ?? text.length;
@@ -237,7 +240,7 @@ function SequenceEditor({
 
   /** A copy, never a link: a later edit to the template changes no step. */
   const copyTemplate = (index: number, template: EmailTemplate) => {
-    changeStep(index, stepFromTemplate(template, steps[index], index === 0, sequenceSigns(steps)));
+    changeStep(index, stepFromTemplate(template, steps[index], index === 0));
     setChoosingTemplate(null);
     toast(`Step ${index + 1} now reads “${template.name}”. Save the sequence to keep it.`);
   };
@@ -249,6 +252,9 @@ function SequenceEditor({
 
   const isLive = (saved?.enrolledCount ?? 0) > 0;
   const isScheduleUsable = schedule.days.length > 0 && schedule.windowStart < schedule.windowEnd;
+  const holdsSignatureInWords = steps.some(
+    (step, index) => holdsSignature(step.body) || (index === 0 && holdsSignature(step.subject)),
+  );
   const stepTimeOutsideWindow = steps.some(
     (step, index) =>
       index > 0 &&
@@ -287,7 +293,7 @@ function SequenceEditor({
         <Button
           className={cn("px-3.5 py-[7px] text-[13px] font-semibold", !saved && "ms-auto")}
           loading={save.isPending}
-          disabled={!name.trim() || !isScheduleUsable || stepTimeOutsideWindow}
+          disabled={!name.trim() || !isScheduleUsable || stepTimeOutsideWindow || holdsSignatureInWords}
           onClick={() => save.mutate()}
         >
           Save sequence
@@ -362,9 +368,7 @@ function SequenceEditor({
               </div>
               {choosingTemplate?.index === index && choosingTemplate.stage === "picking" && (
                 <StepTemplatePicker
-                  step={step}
                   isFirstStep={index === 0}
-                  signs={sequenceSigns(steps)}
                   onPick={(template) => pickTemplate(index, template)}
                   onClose={() => setChoosingTemplate(null)}
                 />
@@ -382,8 +386,7 @@ function SequenceEditor({
                     </span>
                     <span className="mt-0.5 block text-meta text-u-text2">
                       What this step says now is replaced
-                      {index === 0 ? ", and its subject too where the template has one." : "."} The signature chosen at
-                      Start still closes it.
+                      {index === 0 ? ", and its subject too where the template has one." : "."}
                     </span>
                   </span>
                   <Button variant="secondary" size="xs" onClick={() => setChoosingTemplate(null)}>
@@ -468,6 +471,11 @@ function SequenceEditor({
                 onChange={(event) => changeStep(index, { body: event.target.value })}
                 className="w-full resize-y rounded-[6px] border border-u-border bg-u-raised p-2.5 text-[13px]/[1.55] text-u-text outline-none"
               />
+              {(holdsSignature(step.body) || (index === 0 && holdsSignature(step.subject))) && (
+                <p role="alert" className="mt-1.5 font-mono text-meta text-u-offlimits">
+                  {SIGNATURE_NOT_IN_WORDS}
+                </p>
+              )}
             </div>
           ))}
           <div className="flex flex-wrap items-center gap-2.5 font-mono text-[12px] text-u-text3">
@@ -508,7 +516,7 @@ function SequenceEditor({
           subject={savingStep === 0 ? (steps[0].subject ?? null) : null}
           buildBody={async () => {
             const { plainEmailDoc, serializeNoteDoc } = await import("../../notes/lib/noteMarkdown");
-            return serializeNoteDoc(plainEmailDoc(templateWordsOfStep(steps[savingStep])));
+            return serializeNoteDoc(plainEmailDoc(steps[savingStep].body.trim()));
           }}
           onClose={() => setSavingStep(null)}
         />
@@ -764,13 +772,7 @@ function SequencePreview({
         </div>
         <div className="whitespace-pre-wrap pt-3.5 text-[13.5px]/[1.6] text-u-text">
           {renderParts(step?.body ?? "", tokens, PREVIEW_OPENER).map((part, index) =>
-            part.isSignature ? (
-              signature.included ? (
-                <SignatureUnderEmail key={index} choice={signature} />
-              ) : (
-                <span key={index}>{tokens.senderFirstName}</span>
-              )
-            ) : part.isLink ? (
+            part.isLink ? (
               <span key={index} className="text-u-accent underline">
                 {part.text}
               </span>
@@ -786,6 +788,13 @@ function SequencePreview({
             ),
           )}
         </div>
+        <SignatureUnderEmail choice={signature} />
+        {signature.included && (
+          <p className="mt-1 font-mono text-meta text-u-text3">
+            Your default signature. Include signature adds the sender's own when the sequence starts; a step never holds
+            one.
+          </p>
+        )}
         {selectedStep > 0 && (
           <div className="mt-3.5 border-s-2 border-u-border ps-2.5 text-[12px]/[1.5] text-u-text3">
             Your earlier email to {tokens.firstName ?? "them"} is quoted below, as in any reply.

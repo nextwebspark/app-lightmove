@@ -220,11 +220,8 @@ public class EmailTemplateService {
 
     private void refuseTokensIn(String field, String text) {
         List<String> vocabulary = SequenceTokens.emailVocabulary(bookingPages.isOffered());
+        SignatureTokenRefusal.refuseIn(field, text);
         for (TokenUse use : SequenceTokens.usesIn(text)) {
-            if (SequenceTokens.SIGNATURE.equals(use.name())) {
-                throw ApiException.withField(ErrorCode.VALIDATION_FAILED, field,
-                        "Leave {{signature}} out: Include signature adds yours when you send");
-            }
             if (SequenceTokens.OPENER.equals(use.name())) {
                 throw ApiException.withField(ErrorCode.VALIDATION_FAILED, field,
                         "{{opener}} is written for each person in a sequence, so a template cannot use it");

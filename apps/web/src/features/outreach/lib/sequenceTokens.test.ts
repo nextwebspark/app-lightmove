@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   fallbacksIn,
   firstNameOf,
+  holdsSignature,
   render,
   renderLine,
   renderParts,
@@ -11,7 +12,6 @@ import {
   tokenUsesIn,
   unfilledIn,
   unknownIn,
-  withoutToken,
 } from "./sequenceTokens";
 
 const TOKENS = {
@@ -95,12 +95,13 @@ describe("sequence tokens", () => {
     expect(unfilledIn("{{location|here}}", { ...TOKENS, location: null })).toEqual([]);
   });
 
-  it("offers a template the sequence bar's tokens in its order, less the opener and the signature", () => {
+  it("offers a template the sequence bar's tokens in its order, less the opener, and neither bar a signature", () => {
     expect(templateTokenOptions(true).map((option) => option.token)).toEqual(
       tokenOptions(true)
         .map((option) => option.token)
-        .filter((token) => token !== "{{opener}}" && token !== "{{signature}}"),
+        .filter((token) => token !== "{{opener}}"),
     );
+    expect(tokenOptions(true).map((option) => option.token)).not.toContain("{{signature}}");
   });
 
   it("marks a blank and a fallback standing in as their own parts, so a preview can show where each falls", () => {
@@ -121,12 +122,10 @@ describe("sequence tokens", () => {
     expect(unfilledIn(text, tokens)).toEqual(["currentTitle"]);
   });
 
-  it("marks where the signature goes, leaving its token as typed in the words", () => {
-    expect(renderParts("Thanks,\n{{ signature }}", TOKENS, null)).toEqual([
-      { text: "Thanks,\n", isOpener: false },
-      { text: "{{ signature }}", isOpener: false, isSignature: true },
-    ]);
-    expect(render("Re: {{signature}}", TOKENS, null)).toBe("Re: {{signature}}");
+  it("knows a signature written into the words, however it is spaced, so the editor can refuse it", () => {
+    expect(holdsSignature("Thanks,\n{{ signature|Best }}")).toBe(true);
+    expect(holdsSignature("Thanks, {{senderFirstName}}")).toBe(false);
+    expect(holdsSignature(null)).toBe(false);
   });
 
   it("reads a fallback saved from the notes editor without its Markdown escapes", () => {
@@ -142,13 +141,6 @@ describe("sequence tokens", () => {
       fallbacks: ["firstName"],
     });
     expect(tokenGapsIn(texts, TOKENS)).toEqual({ blanks: [], fallbacks: [] });
-  });
-
-  it("takes a token out by the one grammar, a fallback included, with the blank lines before a sign-off", () => {
-    expect(withoutToken("Thanks,\n\n{{signature}}", "signature")).toBe("Thanks,");
-    expect(withoutToken("Thanks,\n\n{{ signature|Best }}\n\nP.S. Soon", "signature")).toBe("Thanks,\n\nP.S. Soon");
-    expect(withoutToken("Hi {{firstName}}, {{signature}} again", "signature")).toBe("Hi {{firstName}},  again");
-    expect(withoutToken("Hi {{firstName}}", "signature")).toBe("Hi {{firstName}}");
   });
 
   it("reads a booking link's fallback where there is no link, as the server sends it", () => {

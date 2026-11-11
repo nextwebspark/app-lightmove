@@ -41,6 +41,7 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -97,13 +98,11 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the default drawn at Start goes where each step places it, as it was drawn then, follow-ups included")
-    void theDefaultSignatureGoesWhereTheStepsPlaceIt() throws Exception {
+    @DisplayName("the signature chosen at Start closes every email of the run, as it was drawn then")
+    void theChosenSignatureClosesEveryEmail() throws Exception {
         String signatureId = signature("Formal", "Partner");
-        String sequenceId = createSequence("Signed approach",
-                "Hi {{firstName}},\\n{{signature}}\\nP.S. Happy to talk.", "Following up, {{firstName}}.\\n{{ signature }}");
         String priya = executive("Priya Raman", "priya@" + domain);
-        start(sequenceId, priya, "priya@" + domain, null);
+        startSigned(createSequence("Signed approach"), priya, "priya@" + domain, signatureId);
         as(consultant, put("/api/v1/me/signatures/" + signatureId).contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"name":"Formal","layout":"MINIMAL","fields":{"title":"Changed since"}}"""))
@@ -116,51 +115,63 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         assertThat(sent).hasSize(2);
         assertThat(sent).allSatisfy(record -> assertThat(record.email().htmlBody())
                 .contains("<strong>Yara Haddad</strong> · Partner").doesNotContain("Changed since"));
-        assertThat(sent.get(0).email().htmlBody()).startsWith("<p>Hi Priya,</p>").endsWith("<p>P.S. Happy to talk.</p>");
-        assertThat(sent.get(1).email().htmlBody()).startsWith("<p>Following up, Priya.</p>");
+        assertThat(sent.get(0).email().htmlBody()).startsWith("<p>Hi Priya,</p>")
+                .containsSubsequence("<p>We are hiring a Group CFO.</p>", "Partner");
+        assertThat(sent.get(1).email().htmlBody()).startsWith("<p>Following up, Priya.</p>")
+                .containsSubsequence("<p>Following up, Priya.</p>", "Partner");
         assertThat(jdbc.queryForList("""
                 select m.body_text from app_lm_outreach_message m join app_lm_outreach_enrollment e on e.id = m.enrollment_id
                 where e.candidate_id = ?::uuid""", String.class, priya))
-                .hasSize(2).allSatisfy(text -> assertThat(text).doesNotContain("{{").doesNotContain("Partner"));
+                .hasSize(2).allSatisfy(text -> assertThat(text).doesNotContain("Partner"));
     }
 
     @Test
-    @DisplayName("a sequence placing no signature is unsigned, and with none on file the token is the first name")
-    void anUnplacedOrMissingSignature() throws Exception {
-        String signatureId = signature("Formal", "Partner");
+    @DisplayName("a run started with no signature goes unsigned, and one naming a signature not the sender's writes nothing")
+    void anUnsignedRunAndAForeignSignature() throws Exception {
+        signature("Formal", "Partner");
         String priya = executive("Priya Raman", "priya@" + domain);
-        start(createSequence("Placing none"), priya, "priya@" + domain, null);
+        start(createSequence("Unsigned"), priya, "priya@" + domain, null);
         assertThat(enrollmentOf(priya).get("signature_html")).isNull();
         dispatcher.dispatchAt(monday);
-        assertThat(sentTo("priya@" + domain).getFirst().email().htmlBody()).doesNotContain("Partner");
+        assertThat(sentTo("priya@" + domain).getFirst().email().htmlBody())
+                .isEqualTo("<p>Hi Priya,</p><p>We are hiring a Group CFO.</p>");
 
-        as(consultant, delete("/api/v1/me/signatures/" + signatureId)).andExpect(status().isNoContent());
         String rajesh = executive("Rajesh Iyer", "rajesh@" + domain);
-        String signedSequence = createSequence("Signed, with nothing on file", "Hi {{firstName}},\\n{{signature}}",
-                "Following up.\\n{{signature}}");
-        start(signedSequence, rajesh, "rajesh@" + domain, null);
-        dispatcher.dispatchAt(monday.plus(Duration.ofDays(1)));
-        dispatcher.dispatchAt(monday.plus(Duration.ofDays(4)));
-
-        List<SentRecord> unsigned = sentTo("rajesh@" + domain);
-        assertThat(unsigned.get(0).email().htmlBody()).isEqualTo("<p>Hi Rajesh,<br>Yara</p>");
-        assertThat(unsigned.get(1).email().htmlBody()).isEqualTo("<p>Following up.<br>Yara</p>");
+        MvcResult refused = startTimed(createSequence("Foreign"), List.of(person(rajesh, "rajesh@" + domain, null)),
+                ",\"signatureId\":\"" + UUID.randomUUID() + "\"")
+                .andExpect(status().isNotFound()).andReturn();
+        assertThat(codeOf(refused)).isEqualTo("EMAIL_SIGNATURE_NOT_FOUND");
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_outreach_enrollment where candidate_id = ?::uuid",
+                Integer.class, rajesh)).isZero();
     }
 
     @Test
-    @DisplayName("a default showing Book a call has its page made at Start where a step places it, though none uses the link")
+    @DisplayName("a step holding {{signature}} is refused on its field: Include signature adds it at Start")
+    void aStepCannotHoldTheSignature() throws Exception {
+        MvcResult refused = as(consultant, post(outreach("/sequences")).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"Token","steps":[{"delayWorkingDays":0,"subject":"Hello","body":"Hi."},
+                         {"delayWorkingDays":3,"body":"Following up.\\n\\n{{ signature }}"}]}"""))
+                .andExpect(status().isBadRequest()).andReturn();
+
+        assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
+        assertThat(body(refused).get("fieldErrors").has("steps[1].body")).isTrue();
+    }
+
+    @Test
+    @DisplayName("a signature showing Book a call has its page made at Start, though no step uses the link")
     void aBookingSignatureMakesThePageAtStart() throws Exception {
-        as(consultant, post("/api/v1/me/signatures").contentType(MediaType.APPLICATION_JSON)
+        String bookingSignatureId = body(as(consultant, post("/api/v1/me/signatures")
+                .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"name":"With booking","layout":"CLASSIC","showBookingLink":true}"""))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
         String rajesh = executive("Rajesh Iyer", "rajesh@" + domain);
-        start(createSequence("Placing no signature"), rajesh, "rajesh@" + domain, null);
+        start(createSequence("Unsigned"), rajesh, "rajesh@" + domain, null);
         assertThat(gateway.bookingPages()).isEmpty();
 
-        String sequenceId = createSequence("Booking by signature", "Hi {{firstName}},\\n{{signature}}");
         String priya = executive("Priya Raman", "priya@" + domain);
-        start(sequenceId, priya, "priya@" + domain, null);
+        startSigned(createSequence("Booking by signature"), priya, "priya@" + domain, bookingSignatureId);
 
         assertThat(gateway.bookingPages()).hasSize(1);
         String slug = jdbc.queryForObject("""
@@ -169,6 +180,12 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         dispatcher.dispatchAt(monday);
         assertThat(sentTo("priya@" + domain).getFirst().email().htmlBody()).contains("/book/" + slug)
                 .doesNotContain("/book/your-link");
+    }
+
+    private void startSigned(String sequenceId, String candidateId, String address, String signatureId)
+            throws Exception {
+        startTimed(sequenceId, List.of(person(candidateId, address, null)),
+                ",\"signatureId\":\"" + signatureId + "\"").andExpect(status().isCreated());
     }
 
     private String signature(String name, String title) throws Exception {

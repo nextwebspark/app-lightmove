@@ -12,13 +12,10 @@ export interface SequenceTokenOption {
   tip: string;
   isAi?: boolean;
   isLink?: boolean;
-  /** Goes into the body only: a subject leaves it as typed. */
-  isBodyOnly?: boolean;
 }
 
 export const OPENER_TOKEN = "{{opener}}";
 export const BOOKING_LINK_TOKEN = "{{bookingLink}}";
-export const SIGNATURE_TOKEN = "{{signature}}";
 
 /**
  * `{{name}}` or `{{name|fallback}}`, the server's grammar. The pipe may arrive escaped (`\|`): the notes editor's
@@ -33,7 +30,6 @@ export const SEQUENCE_TOKENS: SequenceTokenOption[] = [
   { token: "{{positionTitle}}", tip: "This position's role title" },
   { token: "{{location}}", tip: "Their city" },
   { token: "{{senderFirstName}}", tip: "Your first name" },
-  { token: SIGNATURE_TOKEN, tip: "Your default signature, or your first name until you add one", isBodyOnly: true },
   {
     token: BOOKING_LINK_TOKEN,
     tip: "Your booking page: they pick a free slot on your calendar, and their sequence stops",
@@ -51,12 +47,16 @@ export function tokenOptions(bookingLinkOffered: boolean): SequenceTokenOption[]
   return SEQUENCE_TOKENS.filter((option) => bookingLinkOffered || !option.isLink);
 }
 
-/**
- * An email template's and the composer's bar: a sequence's, in the same order, less the opener a sequence run writes per
- * person and the signature a sequence places — an email's comes from Include signature.
- */
+/** An email template's and the composer's bar: a sequence's, in the same order, less the opener a run writes per person. */
 export function templateTokenOptions(bookingLinkOffered: boolean): SequenceTokenOption[] {
-  return tokenOptions(bookingLinkOffered).filter((option) => !option.isAi && option.token !== SIGNATURE_TOKEN);
+  return tokenOptions(bookingLinkOffered).filter((option) => !option.isAi);
+}
+
+/** No email holds a signature in its words: Include signature adds the sender's own when it goes, or when a run starts. */
+export const SIGNATURE_NOT_IN_WORDS = "Leave {{signature}} out: Include signature adds yours when you send.";
+
+export function holdsSignature(text: string | null | undefined): boolean {
+  return tokenUsesIn(text ?? "").some((use) => use.name === "signature");
 }
 
 /** The names a token option inserts, `{{firstName}}` → `firstName`. */
@@ -118,18 +118,6 @@ export function tokenGapsIn(texts: readonly (string | null | undefined)[], token
   return { blanks, fallbacks };
 }
 
-/**
- * The text without the named token, read by the same grammar as every other use (a fallback included); a token alone at
- * the end of its line takes the blank lines before it too, so a sign-off leaves no gap behind.
- */
-export function withoutToken(text: string, name: string): string {
-  const MARK = "\u0000";
-  return text
-    .replace(TOKEN, (found: string, tokenName: string) => (tokenName === name ? MARK : found))
-    .replace(/\s*\u0000[ \t]*(?=\n|$)/g, "")
-    .replaceAll(MARK, "");
-}
-
 /** A subject: every value on one line, as the server writes it. */
 export function renderLine(template: string, tokens: RecipientTokens): string {
   return render(template, tokens, null).replace(/\s+/g, " ").trim();
@@ -167,11 +155,9 @@ export interface RenderedPart {
   /** A variable with nothing on file whose fallback stands in: its text is the fallback; `token` names it. */
   isFallback?: boolean;
   token?: string;
-  /** Where the sender's default signature goes; its text is the token as typed. */
-  isSignature?: boolean;
 }
 
-/** The template filled in, split so the opener, the link and the signature can be drawn where they landed. */
+/** The template filled in, split so the opener and the link can be drawn where they landed. */
 export function renderParts(template: string, tokens: RecipientTokens, opener: string | null): RenderedPart[] {
   const values = valuesOf(tokens);
   const parts: RenderedPart[] = [];
@@ -186,10 +172,6 @@ export function renderParts(template: string, tokens: RecipientTokens, opener: s
       if (plain) parts.push({ text: plain, isOpener: false });
       plain = "";
       parts.push({ text: opener?.trim() || fallback || "", isOpener: true });
-    } else if (name === "signature") {
-      if (plain) parts.push({ text: plain, isOpener: false });
-      plain = "";
-      parts.push({ text: match[0], isOpener: false, isSignature: true });
     } else if (name === "bookingLink" && tokens.bookingLink !== undefined) {
       if (plain) parts.push({ text: plain, isOpener: false });
       plain = "";

@@ -137,7 +137,7 @@ describe("SequenceEditorPage", () => {
     await waitFor(() => expect(screen.getByLabelText("Location")).toHaveTextContent(/^\/projects\/p1\/outreach$/));
   });
 
-  it("previews the sender's default signature under each step", async () => {
+  it("previews the sender's default signature under each step, added at Start", async () => {
     vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
       signatures: [DEFAULT_SIGNATURE],
       sources: SIGNATURE_SOURCES,
@@ -146,38 +146,36 @@ describe("SequenceEditorPage", () => {
     renderEditor();
 
     expect(await screen.findByTitle("Signature")).toBeInTheDocument();
+    expect(screen.getByText(/Include signature adds the sender's own when the sequence starts/)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("tab", { name: "Step 2" }));
 
     expect(screen.getByTitle("Signature")).toBeInTheDocument();
   });
 
-  it("previews no signature once a step's token is taken out", async () => {
-    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
-      signatures: [DEFAULT_SIGNATURE],
-      sources: SIGNATURE_SOURCES,
-      limit: 10,
-    });
+  it("refuses a {{signature}} written into a step, holding Save: Include signature adds it at Start", async () => {
+    const user = userEvent.setup();
     renderEditor();
-    expect(await screen.findByTitle("Signature")).toBeInTheDocument();
 
-    const [first] = screen.getAllByRole("textbox", { name: "Email body" });
-    await userEvent.clear(first);
-    await userEvent.type(first, "Hi there");
+    const [first] = await screen.findAllByRole("textbox", { name: "Email body" });
+    await user.click(first);
+    await user.paste("\n\n{{ signature }}");
 
-    expect(screen.queryByTitle("Signature")).not.toBeInTheDocument();
+    expect(screen.getByText(/Leave \{\{signature\}\} out: Include signature adds yours/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save sequence" })).toBeDisabled();
   });
 
-  it("signs the defaults off with the signature, which is the sender's first name while they keep none", async () => {
+  it("offers no signature variable, and its default steps hold none while the sender keeps no signature", async () => {
     renderEditor();
 
     const bodies = await screen.findAllByRole("textbox", { name: "Email body" });
     expect(bodies).toHaveLength(3);
     for (const body of bodies) {
-      expect((body as HTMLTextAreaElement).value).toMatch(/\{\{signature\}\}$/);
+      expect((body as HTMLTextAreaElement).value).not.toContain("{{signature}}");
       expect((body as HTMLTextAreaElement).value).not.toContain("{{senderFirstName}}");
     }
-    expect(await screen.findByText("Yara")).toBeInTheDocument();
+    const bar = screen.getByRole("toolbar", { name: "Insert a variable" });
+    expect(within(bar).queryByRole("button", { name: "{{signature}}" })).not.toBeInTheDocument();
     expect(screen.queryByTitle("Signature")).not.toBeInTheDocument();
   });
 
@@ -192,7 +190,7 @@ describe("SequenceEditorPage", () => {
     );
   });
 
-  it("copies a shared template into the first email as plain text, its subject too, once asked, keeping the signature", async () => {
+  it("copies a shared template into the first email as plain text, its subject too, once asked", async () => {
     const user = userEvent.setup();
     vi.mocked(emailTemplatesApi.listEmailTemplates).mockResolvedValue({
       templates: [aTemplate({}), aTemplate({ id: "t2", name: "Too long", plainBody: "x".repeat(5001), mine: true })],
@@ -208,20 +206,19 @@ describe("SequenceEditorPage", () => {
     expect(within(picker).getByText(/bold, lists and links come in as plain words/)).toBeInTheDocument();
     expect(within(picker).getByText(/subject comes into the first email too/)).toBeInTheDocument();
     expect(within(picker).getByRole("button", { name: /Too long/ })).toBeDisabled();
-    expect(within(picker).getByText(/5,016 characters as plain text: a sequence email holds 5,000/)).toBeInTheDocument();
+    expect(within(picker).getByText(/5,001 characters as plain text: a sequence email holds 5,000/)).toBeInTheDocument();
 
     await user.click(within(picker).getByRole("button", { name: /Warm intro/ }));
     const ask = screen.getByRole("alertdialog", { name: "Replace this step's text?" });
-    expect(within(ask).getByText(/The signature chosen at Start still closes it/)).toBeInTheDocument();
     await user.click(within(ask).getByRole("button", { name: "Replace" }));
 
     const [firstBody] = screen.getAllByRole("textbox", { name: "Email body" });
-    expect(firstBody).toHaveValue("Hi {{firstName|there}},\n\nA short note.\n\n{{signature}}");
+    expect(firstBody).toHaveValue("Hi {{firstName|there}},\n\nA short note.");
     expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("A thought for {{firstName}}");
     expect(await screen.findByText(/Step 1 now reads “Warm intro”/)).toBeInTheDocument();
   });
 
-  it("copies a template into a cleared follow-up without its subject or a question, still signed", async () => {
+  it("copies a template into a cleared follow-up without its subject or a question", async () => {
     const user = userEvent.setup();
     vi.mocked(emailTemplatesApi.listEmailTemplates).mockResolvedValue({
       templates: [aTemplate({})],
@@ -240,12 +237,12 @@ describe("SequenceEditorPage", () => {
 
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(screen.getAllByRole("textbox", { name: "Email body" })[1]).toHaveValue(
-      "Hi {{firstName|there}},\n\nA short note.\n\n{{signature}}",
+      "Hi {{firstName|there}},\n\nA short note.",
     );
     expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("Confidential: {{positionTitle}}");
   });
 
-  it("saves a step as a template, its variables kept and its signature left out, and refuses one using the opener", async () => {
+  it("saves a step as a template, its variables kept, and refuses one using the opener", async () => {
     const user = userEvent.setup();
     vi.mocked(emailTemplatesApi.createEmailTemplate).mockResolvedValue(aTemplate({ name: "Nudge", mine: true }));
     renderEditor();
