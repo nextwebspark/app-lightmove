@@ -6,12 +6,8 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 /**
- * Who the request came from — a security boundary: it keys the per-IP rate limit and the audit log.
- *
- * <p>{@code X-Forwarded-For} is appended to by each proxy, so a client controls its prefix; only the
- * right-hand entries our proxies appended are trustworthy. The <b>leftmost</b> entry (once read here)
- * is attacker-chosen: a fresh rate-limit bucket per request. With no proxy configured the header is
- * ignored and the socket peer is used.
+ * The request's client IP — a security boundary (per-IP rate limit, audit). Only the right-hand {@code X-Forwarded-For}
+ * entries our proxies appended are trusted; the leftmost is attacker-chosen. No proxy configured: the socket peer.
  */
 @Component
 public class ClientIpResolver {

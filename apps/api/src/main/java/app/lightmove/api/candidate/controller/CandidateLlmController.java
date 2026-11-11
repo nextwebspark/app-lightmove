@@ -19,13 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Proves the Google GenAI integration end to end: a chat call scoped by the recruiter system
- * prompt, and a raw embedding call. Stateless — no workspace data is read or written, so unlike
- * every other controller here this needs no {@code @PreAuthorize} action; being authenticated
- * (already the default for everything under {@code /api/v1}) is the whole gate. Both calls are
- * billed Vertex AI usage, so each is additionally capped per user by {@link LlmBudgetGuard} — a
- * coarse brake against an authenticated caller looping either endpoint and running up the GCP bill.
- * Budgets are {@link LlmRateLimitSettings}.
+ * Proves the Google GenAI integration (a chat and an embedding call). Reads no workspace data, so authentication alone
+ * gates it; both are billed, so each is capped per user by {@link LlmBudgetGuard} ({@link LlmRateLimitSettings}).
  */
 @RestController
 @RequestMapping("/api/v1/llm")

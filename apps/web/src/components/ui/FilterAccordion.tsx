@@ -9,15 +9,8 @@ export interface SelectedTag {
 }
 
 /**
- * One accordion in the filter sidebar: a 52px header, and the panel's own controls beneath when open.
- *
- * <p>Open state changes the label's weight and nothing else. The row must not change height or
- * reflow when a panel opens, and an icon appearing beside the label shifts the text of every open
- * panel by its own width.
- *
- * <p>The pills summarise a <b>closed</b> panel, and sit on their own rows below the header: inside
- * it they had to be capped at two then `+N`, because three long industry names push the chevron off
- * a 300px rail.
+ * One filter accordion: a 52px header. Opening changes only the label's weight (no reflow); a closed panel's
+ * pills sit on rows below the header, since inside it they pushed the chevron off the rail.
  */
 export function FilterAccordion({
   label,

@@ -34,12 +34,8 @@ import { lineMoves, removeTooltip, SOURCE_STYLES } from "./triageVocabulary";
 import type { TriageCompanyRow } from "./triageRows";
 
 /**
- * Where a grid line is, for the Country and City columns.
- *
- * <p>A line is a person at a company and the person is what it is about, so the executive's own
- * location wins and the company's HQ is what an empty "Add executive" slot falls back to. Taken as a
- * unit rather than field by field: a profile that recorded only a city must not borrow its employer's
- * country and read as somewhere neither of them is.
+ * A line's Country and City: the executive's own location, else the company HQ — taken as a unit, so a
+ * profile with only a city never borrows its employer's country.
  */
 function rowLocation(row: TriageCompanyRow): { country: string | null; city: string | null } {
   const { candidate, company } = row;
@@ -109,16 +105,8 @@ const PILL =
 const ACTIONS_MIN_WIDTH = SHORTLIST_OFFERED ? 92 : 62;
 
 /**
- * The Companies grid's columns — the same widths and shapes as Strategy's, so moving between the market and what a
- * mandate took from it does not feel like moving between two products.
- *
- * <p>Each sortable column's id is its wire sort token, the same string `TriageSortField` allowlists. A row is a person
- * at a company, and the server orders the stage's lines, so Executive or Title sorts the people themselves.
- *
- * <p>Two columns Strategy has are deliberately absent: `Fit`, which has no score to show, and the
- * Facebook and X links, which the snapshot does not carry. One is added — `Source`, last in the order
- * and off by default, because a headcount from Apollo and one typed in by hand are not equally
- * trustworthy and a reader questioning a figure should be able to tell which they are looking at.
+ * The Companies grid's built-in columns, shaped like Strategy's. A sortable column's id is its wire sort token
+ * (`TriageSortField`); no `Fit` or social links, plus `Source` (off by default) to tell Apollo figures from typed ones.
  */
 const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => row.company?.companyName ?? row.candidate?.companyName ?? null, {
@@ -530,17 +518,8 @@ const CUSTOM_SORT_KINDS: Record<CustomColumnType, DataGridSortKind | undefined> 
 };
 
 /**
- * The grid's columns for one mandate: the built-ins above, then a column per custom column the
- * project has defined.
- *
- * <p>A factory rather than a constant, because the column set is per project — a mandate that
- * imported a file carrying Ethnicity has a column the mandate next door does not. A parallel column
- * list for the custom ones would have to re-implement widths, pinning, ordering and the picker; one
- * list of TanStack columns gets all of that for free, and a custom column behaves exactly like a
- * built-in because it is one.
- *
- * <p>Ids are prefixed `custom:` so a project's "Note" or "Country" column can never collide with the
- * built-in of that name, whose id is the server's own sort token.
+ * One mandate's columns: the built-ins, then one per custom column, so a custom column behaves as a built-in.
+ * Ids are prefixed `custom:` so they never collide with a built-in's sort-token id.
  */
 export function createTriageCompanyColumns(customColumns: readonly CustomColumn[], { staff = true } = {}) {
   const custom = customColumns

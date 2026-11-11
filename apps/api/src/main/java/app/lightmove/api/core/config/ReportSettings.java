@@ -3,12 +3,8 @@ package app.lightmove.api.core.config;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * How much one read of a mandate's report may carry — {@code lightmove.report.*}.
- *
- * <p>The report aggregates every company and executive of a mandate in one read, so the two row caps
- * are what a pager would otherwise be; the response says when it hit one. The remaining caps bound
- * how many categories a chapter names before folding the tail into "Other", which is a readability
- * limit rather than a cost one. {@code maxRanked} caps the Ranking chapter's assessed executives.
+ * How much one read of a mandate's report may carry ({@code lightmove.report.*}): two row caps stand in for a pager and
+ * the response says when one hit; the rest fold a chapter's tail into "Other"; {@code maxRanked} caps the Ranking chapter.
  */
 public record ReportSettings(
         @DefaultValue("2000") int maxCompanies,

@@ -2,12 +2,8 @@ import { z } from "zod";
 import { LANGUAGE_OPTIONS, REGION_ZONE } from "./profileOptions";
 
 /**
- * Settings → Profile validation, mirroring `UpdateProfileRequest`'s Bean Validation rules — the
- * client validates to answer instantly, the server because a client can be bypassed with one curl.
- *
- * The two selects are checked against the server's own rules rather than as free strings, so a stale tab
- * offering a value the server has since stopped accepting fails here with the field named, instead of
- * as a banner after a round-trip.
+ * Settings → Profile validation, mirroring `UpdateProfileRequest`; the selects are checked against the server's
+ * rules so a stale tab fails here with the field named.
  */
 
 const languageValues = LANGUAGE_OPTIONS.map((option) => option.value);

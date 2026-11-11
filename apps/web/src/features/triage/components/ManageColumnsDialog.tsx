@@ -31,16 +31,8 @@ const ROW_BUTTON =
   "rounded-[7px] border border-u-border-strong px-2 py-[5px] text-[11.5px] font-medium transition disabled:opacity-50";
 
 /**
- * The columns this mandate has added to its own grid: rename one, change what it holds, move it,
- * hide it, or remove it.
- *
- * <p>Adding a column here as well as through an import matters more than it looks: a consultant who
- * wants somewhere to record a fact should not have to invent a spreadsheet to get a column for it.
- *
- * <p>Hide and Remove are deliberately both offered and worded differently. Hiding takes a column off
- * the grid and keeps every value in it; removing takes the definition and leaves the values on the
- * rows, so defining it again under the same name brings the data back. Neither destroys anything,
- * which is why neither asks for confirmation.
+ * The mandate's own grid columns: rename, retype, move, hide or remove. Hide keeps values; remove drops the
+ * definition but leaves the values, so re-adding the name restores them — hence no confirmation.
  */
 export function ManageColumnsDialog({
   open,

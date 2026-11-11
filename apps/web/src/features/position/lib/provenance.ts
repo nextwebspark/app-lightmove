@@ -50,13 +50,8 @@ export function markManualFrom(
 }
 
 /**
- * Whether nothing on the brief is a person's own writing — the one condition under which a template
- * may be applied without asking, since applying one replaces responsibilities, the org chart, the
- * competencies and the benefits wholesale, typed rows included. An absent `fieldSources` key is
- * unclaimed rather than edited; a row with no `source` counts as typed, as `documentFill` reads it.
- *
- * <p>Blind to what carries no provenance at all: the role title (never renamed by the automatic path)
- * and compensation's scalars.
+ * Whether nothing on the brief is a person's writing — the one case a template applies unasked. An absent
+ * `fieldSources` key is unclaimed; a row without `source` counts as typed. Blind to the role title and compensation.
  */
 export function isUntouched(brief: Position): boolean {
   const maps = [brief.details.fieldSources, brief.context.fieldSources, brief.reporting.fieldSources];

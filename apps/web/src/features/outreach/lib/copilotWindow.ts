@@ -51,12 +51,8 @@ export function closeCopilotWindow(recordingId: string): void {
 }
 
 /**
- * Opens a call's copilot in a small window the consultant drags beside the call. Call it straight from the click: both
- * kinds of window need the user's gesture, and the floating one must be the first thing awaited.
- *
- * <p>The floating window shares this page — its session, its token, its module state — so it needs no sign-in of its
- * own; the popup is a page of its own that boots its session the ordinary way. `onShowInUncava` is the floating
- * window's way back into the drawer.
+ * Opens a call's copilot in a small window. Call it straight from the click: both window kinds need the gesture, and the
+ * floating one must be the first thing awaited. The floating window shares this page's session; the popup boots its own.
  */
 export async function openCopilotWindow(target: CopilotTarget, onShowInUncava?: () => void): Promise<CopilotOpened> {
   const floating = (window as Window & { documentPictureInPicture?: DocumentPictureInPicture })

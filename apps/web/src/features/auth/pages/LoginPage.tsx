@@ -15,7 +15,7 @@ import { loginSchema, type LoginValues } from "../schemas";
 import { takeAccountDeleted } from "../accountDeletedNotice";
 import { TWO_FACTOR_SIGN_IN_PATH } from "./TwoFactorChallengePage";
 
-/** Sign in. A port of claude-design/Login.dc.html. */
+/** Sign in. A port of uncava-design/Login.dc.html. */
 export function LoginPage() {
   const { signIn } = useAuth();
   const navigate = useNavigate();

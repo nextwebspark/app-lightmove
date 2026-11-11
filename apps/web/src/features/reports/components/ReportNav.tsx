@@ -7,13 +7,8 @@ import { useReportNavCollapsed } from "../lib/useReportNavCollapsed";
 export type ReportChapterLink = RailNavItem;
 
 /**
- * The report's chapter menu, and who the report is for. A column beside the chapter at `lg`
- * — folded to its icons by the Collapse row at its foot, as the app's own sidebar folds — and a strip
- * above it below that, because the menu is the only way between chapters and cannot be hidden on a phone.
- * The menu itself is `UncavaRailNav`, which the brief's rail shares.
- *
- * <p>No Export or Share buttons: neither is built, and a button that cannot work is worse than no
- * button — the reader takes it as a capability the product has.
+ * The report's chapter menu (`UncavaRailNav`): a column at `lg`, a strip below, never hidden. No Export or Share:
+ * neither is built, and a button that cannot work reads as a capability.
  */
 export function ReportNav({
   chapters,

@@ -36,12 +36,8 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
- * Chapter one's researcher breakdown, attributed by {@code added_by}. It states only what the rows
- * carry: a status is where someone stands now, never a conversion step, and quality is what is on
- * file — there is no confidence score and no per-company target to report against.
- *
- * <p>A company's coverage is credited to whoever filed its <i>first</i> executive, the same moment
- * the coverage line counts it mapped, so the donut's slices add up to the chapter's own figure.
+ * Chapter one's researcher breakdown by {@code added_by}, stating only what rows carry. A company is credited to
+ * whoever filed its first executive, so the donut adds up to the coverage figure.
  */
 @Component
 class TeamPerformanceReporter {

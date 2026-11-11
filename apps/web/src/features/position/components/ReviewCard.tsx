@@ -10,12 +10,8 @@ export interface ReviewField {
 }
 
 /**
- * One section of the brief read back: its name, whether it is complete, a few of its facts, and the
- * way in. A section that is not done says why in its own words, in the copper UNCAVA keeps for a
- * warning, and wears that colour on its frame so the eye finds it before reading.
- *
- * <p>A published brief reads back with no way in at all until Edit position is pressed: offering a
- * link into a section the rail is calling settled would be the card contradicting the rail.
+ * One section of the brief read back; an incomplete one says why in copper, frame included. A published brief
+ * offers no way in until Edit position, or the card would contradict the rail.
  */
 export function ReviewCard({
   step,

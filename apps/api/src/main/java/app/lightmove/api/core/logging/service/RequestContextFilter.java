@@ -12,13 +12,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Puts the caller's user and workspace ids in the MDC, so Cloud Logging can answer "what did this
- * user / tenant do". Sits inside the security chain right after the bearer token is read — the
- * correlation filter runs before anything is authenticated — and ahead of authorisation, so a
- * refusal carries whose it was.
- *
- * <p>Never a {@code @Component}: Boot would register it as a servlet filter too. Clears nothing;
- * {@link CorrelationIdFilter} owns the MDC.
+ * Puts the caller's user and workspace ids in the MDC, inside the security chain after the bearer is read and before
+ * authorisation. Never a {@code @Component} (Boot would register it as a servlet filter too); {@link CorrelationIdFilter} owns the MDC.
  */
 public class RequestContextFilter extends OncePerRequestFilter {
 

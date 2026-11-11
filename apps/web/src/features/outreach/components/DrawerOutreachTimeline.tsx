@@ -45,12 +45,8 @@ const FIRST_SHOWN = 5;
 const MORE_SHOWN = 10;
 
 /**
- * The executive drawer's Outreach timeline (`Position.dc.html`'s Outreach): everything that passed between the team
- * and the executive on this position, newest first — emails and replies from the conversation read, the calls and
- * LinkedIn and WhatsApp messages logged by hand, and each call that is over with the Meeting note the Notetaker filed
- * from it.
- * Plain notes are the Notes tab's and never drawn here. Each is a card led by its kind's mark and the face of whoever
- * did it; status and run changes are the Activity tab's.
+ * The executive drawer's Outreach timeline: emails and replies, logged calls and messages, and past calls with their
+ * Meeting note, newest first. Plain notes are the Notes tab's; status and run changes the Activity tab's.
  */
 export function DrawerOutreachTimeline({
   projectId,

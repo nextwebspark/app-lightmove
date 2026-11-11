@@ -19,12 +19,8 @@ import { formatMoney, joined } from "../../../lib/format";
 import type { CompanyResult, CompanySortField } from "../api/types";
 
 /**
- * No pagination, filtering or sorted row model registered: all three are the server's, and a client
- * row model would re-sort the one page of rows this holds as though they were the whole result.
- *
- * <p>Row selection <i>is</i> registered, because it is the one piece of this that genuinely belongs to
- * the table: it keys selection by row id rather than by index, so a tick survives the page turn that
- * replaces every row object, and it owns the shift-click anchor.
+ * No pagination, filtering or sorted row model: all three are the server's. Row selection is registered — keyed by
+ * row id so a tick survives a page turn, and it owns the shift-click anchor.
  */
 export const companyTableFeatures = tableFeatures({
   columnOrderingFeature,

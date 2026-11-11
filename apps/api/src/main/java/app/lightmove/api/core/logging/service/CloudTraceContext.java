@@ -5,10 +5,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The trace Cloud Run hands the container, read from {@code traceparent} or {@code X-Cloud-Trace-Context}.
- *
- * <p>Both headers are caller-suppliable, so anything not exactly the documented shape is dropped: a
- * caller choosing their own trace id may at most nest their own lines, never write into the JSON.
+ * Cloud Run's trace from {@code traceparent} or {@code X-Cloud-Trace-Context}. Both are caller-suppliable, so
+ * anything off the documented shape is dropped — a caller may nest their own lines, never write into the JSON.
  *
  * @param spanIdHex 16 lowercase hex chars — the only spelling {@code logging.googleapis.com/spanId} matches
  */

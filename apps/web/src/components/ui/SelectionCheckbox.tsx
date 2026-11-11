@@ -2,24 +2,9 @@ import { useEffect, useRef, type ChangeEvent } from "react";
 import { CheckBox } from "./FilterCheckRow";
 
 /**
- * The tick box a selectable grid puts in front of every row, and the select-all in front of its
- * header.
- *
- * <p>A real `<input type="checkbox">`, transparent and stretched over the square the filter rail
- * already uses. Native rather than a styled `role="checkbox"` button for two reasons: it comes with
- * the semantics free — announced as a checkbox, toggled by Space — and TanStack's
- * `getToggleSelectedHandler` reads `event.target.checked` off the event it is handed, which a button
- * does not have.
- *
- * <p><b>The input sits on top and takes the click itself; it is never merely `sr-only` behind the
- * square.</b> Hidden behind it, every click lands on the wrapper and reaches the control only by
- * label forwarding — and a label-forwarded click does not carry the modifier keys, so shift-range
- * silently collapsed to a single toggle in the browser while passing in jsdom, which forwards
- * differently. Transparent-on-top means the shift-click the user makes is the event the handler
- * reads.
- *
- * <p>`onChange` rather than `onClick`, because React's synthetic change event carries the original
- * click as `nativeEvent` — so the modifiers survive, and the input stays controlled.
+ * A grid's row and select-all tick box: a native checkbox (TanStack's handler reads `event.target.checked`),
+ * transparent and on top of the square — a label-forwarded click drops modifier keys, which silently broke
+ * shift-range in the browser while passing in jsdom. `onChange` keeps the modifiers via `nativeEvent`.
  */
 export function SelectionCheckbox({
   checked,

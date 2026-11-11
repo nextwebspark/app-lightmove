@@ -22,12 +22,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The browser extension's session, deliberately not the web app's: its origin cannot be given the
- * {@code SameSite=Strict} refresh cookie, so the signed-in web app <b>pairs</b> it with its own token.
- *
- * <p>{@code /tokens} pairs the principal's account, never one the request names. {@code /refresh} and
- * {@code /logout} carry the token in the body (hence CSRF-exempt), and all three refuse a family
- * opened for another client, so a cookie credential cannot be laundered into a body-carried one.
+ * The browser extension's session, not the web app's: its origin cannot get the {@code SameSite=Strict} cookie, so the
+ * web app <b>pairs</b> it. {@code /refresh} and {@code /logout} carry the token in the body (CSRF-exempt); all refuse a
+ * family opened for another client, so a cookie credential cannot be laundered into a body-carried one.
  */
 @RestController
 @RequestMapping("/api/v1/auth/extension")

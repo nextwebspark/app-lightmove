@@ -79,14 +79,8 @@ export const NO_PEOPLE_FILTER: PeopleFilter = {
 };
 
 /**
- * Strategy's People mode: the ContactOut filter rail on the left, the people a search returned on the
- * right. The filter autosaves and the count follows it; a search is a deliberate press, because every
- * page not already fetched is bought from ContactOut and counts toward the workspace's fair use. The first
- * press brings the top 25, and Load more the next 25 — ContactOut's own order, the only one it offers.
- *
- * <p>A page is answered from the server's people cache when anybody has asked the same question in the
- * last month, so paging back, reloading or a colleague repeating the search costs nothing — and the
- * screen opens on whatever was already bought for the stored filter, without a press.
+ * Strategy's People mode: filter rail and results. The filter autosaves; Search is a press because unfetched pages are
+ * bought from ContactOut (top 25, Load more the next). Pages come from the shared cache when anyone asked the same.
  */
 export function PeopleStrategyEditor({
   projectId,

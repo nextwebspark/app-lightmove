@@ -27,12 +27,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * A mandate's custom grid columns. Gated the same way the triage and candidate writes are: reading is
- * WORK_VIEW, so a client representative sees the same headers the team does, and every change is
- * WORK_EXECUTE — the shape of a mandate's grid is the team's to decide.
- *
- * <p>Only definitions live here. A column's <i>values</i> travel on the row that holds them, saved in
- * the same request as every built-in field beside them, because that is where a user edits them.
+ * A mandate's custom grid column definitions: read is WORK_VIEW, every change WORK_EXECUTE. Values travel on their rows.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/custom-columns")

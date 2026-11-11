@@ -87,13 +87,8 @@ public class CustomColumnService {
     }
 
     /**
-     * Defines a column if the project has not got one by that name, and answers the existing one if
-     * it has. The import's entry point, and the reason importing the same file twice does not mint a
-     * second Ethnicity column: matching is on the <i>label</i>, case-insensitively.
-     *
-     * <p>{@code @Transactional} in its own right, unlike the rest of this class's writes, because the
-     * import that calls it deliberately runs without an outer transaction — see
-     * {@code ProjectImportService}. A column has to be committed before the row loop writes under it.
+     * Defines a column unless one with that label (case-insensitive) exists, so a re-import mints no duplicate.
+     * {@code @Transactional} itself: the import runs without an outer transaction and the column must commit first.
      */
     @Transactional
     public CustomColumnDto defineIfAbsent(UUID projectId, UUID userId, CustomColumnTarget target,
@@ -137,12 +132,8 @@ public class CustomColumnService {
     }
 
     /**
-     * Applies a whole new order. Every id must belong to this project and to one grid, and the list
-     * must be that grid's <b>whole</b> set, each column once.
-     *
-     * <p>Only the ids sent are renumbered, so a short list leaves the columns it omitted on their old
-     * positions, now colliding with the ones it moved. {@code display_order} is not unique, so nothing
-     * in the schema catches that; it is refused here instead.
+     * Applies a whole new order: the list must be one grid's whole set, each once, since a partial list would collide
+     * with the omitted columns and {@code display_order} is not unique.
      */
     @Transactional
     public CustomColumnsResponse reorder(UUID userId, UUID workspaceId, UUID projectId,
@@ -194,20 +185,8 @@ public class CustomColumnService {
     }
 
     /**
-     * What a row may store, given what it already stores and what a caller has just sent.
-     *
-     * <p>Three rules, and each of them is load-bearing:
-     *
-     * <ul>
-     *   <li><b>A null map changes nothing.</b> A client that does not know about custom columns — an
-     *       older SPA, the extension, a script — must be able to save a row without wiping the
-     *       columns it never rendered.
-     *   <li><b>Only defined keys survive.</b> The bag is open, so this is the only thing standing
-     *       between it and arbitrary caller-chosen keys.
-     *   <li><b>A blank value clears that column, an absent key leaves it alone.</b> The same
-     *       distinction {@code UpdateTriageCompanyRequest} draws between an empty note and a null one,
-     *       for the same reason: emptying a cell has to be expressible.
-     * </ul>
+     * What a row may store: a null map changes nothing (older clients must not wipe unseen columns), only defined keys
+     * survive (the bag is open), and a blank value clears a column while an absent key leaves it alone.
      */
     public CustomFieldValues applyTo(UUID projectId, CustomColumnTarget target,
                                      CustomFieldValues existing, Map<String, String> incoming) {

@@ -2,12 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "../../../lib/cn";
 
 /**
- * One chapter of the report: the question it answers, a line of explanation, the computed finding,
- * then the chapter's own tiles and charts.
- *
- * <p>The question is fixed and the <i>finding</i> is computed, so they are two elements rather than
- * one — the reader sees what was asked before what the rows answered, and a mandate with nothing to
- * report still has a heading.
+ * One report chapter: the fixed question, a line of explanation, the computed finding, then its tiles and charts.
  */
 export function ReportSection({
   question,

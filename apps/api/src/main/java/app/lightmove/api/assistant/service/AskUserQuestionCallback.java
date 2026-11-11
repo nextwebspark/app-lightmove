@@ -14,12 +14,8 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * The library's {@code AskUserQuestionTool}, made to end the answer rather than wait for one. An ask is one
- * request that closes at 50 seconds and may be answered on another instance, so the questions are recorded for
- * the panel's card and the model is told to stop; the consultant's choices are the thread's next question.
- *
- * <p>Not {@code returnDirect}: Spring AI reads that before the call, so a question this tool turns away would
- * have become the answer. Ending through the model costs one short round and lets it be refused.
+ * {@code AskUserQuestionTool} made to end the answer: the ask is one 50s request, so questions are recorded and the
+ * model told to stop. Not {@code returnDirect}: Spring AI reads it before the call, so a refused question would become the answer.
  */
 @Slf4j
 final class AskUserQuestionCallback implements ToolCallback {

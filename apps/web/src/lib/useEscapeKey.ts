@@ -1,16 +1,9 @@
 import { useEffect, useRef, type RefObject } from "react";
 
 /**
- * Dismisses a panel on Escape while it is open — and only the topmost one.
- *
- * <p><b>The stack is the point.</b> Every overlay in the app listened on `document` directly, so a
- * modal opened over a drawer fired both handlers and one Escape closed two things. That was
- * invisible while overlays were modal and mutually exclusive; the assistant panel is neither — it
- * docks beside the page precisely so a drawer can be opened from the grid while it is open, which
- * made "Escape closes the drawer *and* the panel behind it" the ordinary case.
- *
- * <p>Last opened wins, because that is what "on top" means. A layer keeps its place while its handler
- * changes: re-registering on every new callback once lifted a drawer above the sheet opened over it.
+ * Dismisses only the topmost open panel on Escape: the docked assistant panel made one Escape closing two layers the
+ * ordinary case. Last opened wins; a layer keeps its place when its handler changes (re-registering once lifted a
+ * drawer above the sheet opened over it).
  */
 const handlers: Array<RefObject<() => void>> = [];
 

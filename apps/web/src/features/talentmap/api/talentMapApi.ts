@@ -3,12 +3,8 @@ import type { TriageCompanyStatus } from "../../triage/api/types";
 import type { TalentMapConfig, TalentMapLocations, TalentMapPage } from "./types";
 
 /**
- * The map view's three reads: one stage as points, that stage's points on their own, and whether the
- * map is offered at all.
- *
- * <p>The stage read is unpaged — a globe with a page two is no globe — and the server caps it
- * instead, stating the totals so a mandate past the cap is told rather than shown a map that looks
- * complete and is not.
+ * The map view's three reads. The stage read is unpaged and server-capped, stating totals so a mandate past the cap
+ * is told.
  */
 
 export const TALENT_MAP_KEY_PREFIX = (projectId: string) => ["talentMap", projectId] as const;

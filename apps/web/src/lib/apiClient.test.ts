@@ -69,13 +69,8 @@ describe("apiClient", () => {
   });
 
   /**
-   * The single most important behaviour in this file.
-   *
-   * Refresh tokens rotate, and presenting one that has already been rotated away is exactly what a
-   * *stolen* token looks like — the server responds by revoking the entire session. So if five
-   * requests all hit a 401 at once and each fires its own refresh, four of them present a token the
-   * first has already spent. The server, correctly, concludes the token was stolen and logs the user
-   * out. The app would destroy its own session by being eager.
+   * Refresh tokens rotate, and presenting a rotated one reads as theft and revokes the session — so five concurrent
+   * 401s each refreshing would log the user out. This is the most important behaviour in the file.
    */
   it("coalesces concurrent 401s into a single refresh", async () => {
     setAccessToken("expired");
@@ -97,17 +92,8 @@ describe("apiClient", () => {
   });
 
   /**
-   * The same failure, one scope wider — and it is not hypothetical: it signed a real session out during
-   * local testing.
-   *
-   * The in-module guard above dedupes refreshes within one page. A second *tab* is a second JS context
-   * with its own module state and the same cookie jar, so both tabs boot, both read the same refresh
-   * cookie, and both refresh. One wins; the other presents a token that was rotated away a few
-   * milliseconds earlier, the server reads that as a stolen token being replayed, and revokes the whole
-   * family. Opening a second tab logged you out of both.
-   *
-   * Web Locks are cross-tab, which is the scope that matters. This asserts the refresh actually goes
-   * through one — a lock nobody takes is decoration.
+   * The same failure across tabs (it signed a real session out): each tab has its own module state but one cookie jar,
+   * so two tabs refreshing at boot tripped theft detection. Asserts the refresh really goes through a Web Lock.
    */
   it("takes a cross-tab lock before refreshing, so a second tab cannot trip theft detection", async () => {
     const held: string[] = [];

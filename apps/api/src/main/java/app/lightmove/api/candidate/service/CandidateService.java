@@ -91,18 +91,9 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * A mandate's mapped executives: adding one, replacing one whole, reading them back, removing one.
- *
- * <p>Every executive is a workspace {@link Person} before they are anybody's candidate. Adding one
- * first asks whether the workspace already knows them ({@link PersonMatcher}); if it does, the mandate
- * maps that person and what it brings only fills in what nobody recorded, so a second mandate never
- * starts a second history. Every change leaves a line in the person's timeline, in the same
- * transaction ({@link PersonActivityRecorder}).
- *
- * <p>The one other decision here that is not bookkeeping is where a candidate sits. Naming one of the
- * mandate's triaged companies maps the person to it <i>and</i> snapshots that company's name, and the
- * caller's {@code employerName} is ignored — two fields that could disagree about the same company
- * would drift the moment either changed.
+ * A mandate's mapped executives. Every executive is a workspace {@link Person} first: a match ({@link PersonMatcher})
+ * is mapped, not duplicated. Naming a triaged company snapshots its name and ignores {@code employerName}, so the two
+ * never drift.
  */
 @Service
 @Slf4j
@@ -172,13 +163,9 @@ public class CandidateService {
     }
 
     /**
-     * One page of people. {@code triageCompanyIds} is how the Companies grid reads, and an empty list
-     * is answered without a query — a page with no companies on it, not a request for everyone.
-     *
-     * <p><b>A caller naming no size but a company filter gets the ceiling, not the default.</b> The
-     * SPA used to name a size computed as a multiple of its page size, which landed exactly on
-     * {@code maxPageSize}, so lowering that knob would have 400'd the people read on every Companies
-     * page. An <i>explicit</i> oversized size is still refused.
+     * One page of people; an empty {@code triageCompanyIds} is answered without a query. A company filter with no size
+     * gets the ceiling, not the default (the SPA once sent exactly {@code maxPageSize}, so lowering it would 400 every
+     * Companies page); an explicit oversized size is refused.
      */
     @Transactional(readOnly = true)
     public CandidatesResponse list(UUID workspaceId, UUID projectId, CandidateListCriteria criteria,
@@ -302,12 +289,8 @@ public class CandidateService {
     }
 
     /**
-     * Every executive the mandate has mapped, unpaged — the seam {@code talentmap} reads people
-     * through. Takes a cap the caller states and states it back in {@code totalCount}, so a mandate
-     * past it is told rather than shown a map that looks complete and is not.
-     *
-     * <p>Sorted rather than unsorted, so the cut at the cap is deterministic and a mandate past it
-     * sees the same people on every read.
+     * Every mapped executive, unpaged, for {@code talentmap}: capped at the caller's limit with {@code totalCount} saying
+     * so, and sorted so the cut at the cap is deterministic.
      */
     @Transactional(readOnly = true)
     public CandidatesResponse listAllOfProject(UUID workspaceId, UUID projectId, int cap,
@@ -357,12 +340,8 @@ public class CandidateService {
     }
 
     /**
-     * The person this mandate already has for a spreadsheet row, so a second import updates profiles
-     * rather than colliding on every row.
-     *
-     * <p>Email first, name second: a name only identifies someone <i>within</i> a company, which is
-     * the scope V36's unique indexes draw, so matching on it across the mandate would merge two people
-     * who share one. Oldest first when more than one answers — nothing makes either column unique.
+     * The person this mandate already has for a spreadsheet row. Email first, then name — a name identifies someone only
+     * within a company (V36's index scope); oldest first when several answer.
      */
     @Transactional(readOnly = true)
     public Optional<CandidateResponse> findCandidateOfProject(UUID projectId, UUID triageCompanyId,
@@ -555,12 +534,8 @@ public class CandidateService {
     }
 
     /**
-     * The short transactional tail of an enrichment.
-     *
-     * <p>{@code REQUIRES_NEW} because the enrichment worker calls this from an {@code AFTER_COMMIT}
-     * callback, where the completed transaction's resources are still bound to the thread and joining
-     * them writes nothing. A racing drawer edit wins by {@code @Version}: the save throws an
-     * optimistic-locking failure into the worker's catch and the researcher's version stands.
+     * The short transactional tail of an enrichment. {@code REQUIRES_NEW} because it runs from an {@code AFTER_COMMIT}
+     * callback, where joining the finished transaction writes nothing; a racing drawer edit wins by {@code @Version}.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void applyResearch(UUID projectId, UUID candidateId, EnrichedProfile enriched) {
@@ -590,16 +565,9 @@ public class CandidateService {
     }
 
     /**
-     * A vendor search hit, filed and researched in one write — a Find executives pick or a People search
-     * tick: the hit is the profile, so there is no vendor call to wait for and no
-     * {@code CandidateCapturedEvent}. The automatic AI run is queued only where {@code filing} asks.
-     *
-     * <p>The employer a filing names is captured in the same transaction, so a person refused by the
-     * duplicate guards — {@code CANDIDATE_ALREADY_MAPPED}, which the caller counts as a skip — or failing
-     * any other way leaves no company behind at the stage it was filed for.
-     *
-     * <p>{@code REQUIRES_NEW} for {@link #applyResearch}'s reason: the run's worker calls this per person
-     * from an {@code AFTER_COMMIT} callback.
+     * A vendor search hit filed and researched in one write (no vendor call, no {@code CandidateCapturedEvent}); the
+     * employer is captured in the same transaction so a refused person leaves no company behind. {@code REQUIRES_NEW}
+     * for {@link #applyResearch}'s reason: called from an {@code AFTER_COMMIT} callback.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public ResearchedCandidate addResearched(UUID userId, UUID workspaceId, UUID projectId,
@@ -819,12 +787,8 @@ public class CandidateService {
     }
 
     /**
-     * The short transactional tail of an email lookup, {@code applyResearch}'s shape without its
-     * {@code REQUIRES_NEW}: this is called from a request thread with no transaction bound.
-     *
-     * <p>The guard is re-checked here rather than only before the vendor call, so two presses racing
-     * each other leave the first answer standing instead of a second write of the same values. The
-     * lookup is the person's, so an answer bought through one mandate is held on every other.
+     * The transactional tail of an email lookup (no {@code REQUIRES_NEW}: called from a request thread). The guard is
+     * re-checked here so two racing presses leave the first answer standing.
      */
     @Transactional
     public CandidateResponse applyFoundEmails(UUID userId, UUID projectId, UUID candidateId, FoundEmails found) {
@@ -978,14 +942,9 @@ public class CandidateService {
     }
 
     /**
-     * Refuses a name the mandate already maps, in the two scopes V36's partial unique indexes drew:
-     * at the company where there is one, across the mandate where there is not. Since V91 the name is
-     * the person's, so this is the only place the rule is held.
-     * {@code selfId} excludes the row being edited so a save without a rename does not collide.
-     *
-     * <p>Both finders carry the project id, including the one that already names a company. Scoping by
-     * the company alone would be safe only by the order of the statements above, and a reorder would
-     * turn this 409 into an oracle confirming another workspace's company id and a name mapped at it.
+     * Refuses a name the mandate already maps, in V36's two scopes (the company, else the mandate); {@code selfId} is the
+     * row being edited. Both finders carry the project id: scoping by company alone would make this 409 an oracle for
+     * another workspace's company ids.
      */
     private void refuseDuplicate(UUID projectId, UUID triageCompanyId, String fullName, UUID selfId) {
         List<Candidate> sameName = triageCompanyId == null
@@ -1000,19 +959,9 @@ public class CandidateService {
     }
 
     /**
-     * Refuses a LinkedIn profile the mandate already maps, wherever that row currently sits. The name
-     * rule above cannot answer this one: a second capture arrives with no company, so it is checked
-     * against the unmapped scope only, while the first has since been researched and mapped to its
-     * employer and sits in the company scope. The two look past each other, the row is created, and
-     * {@link #mapToEmployer} then finds the name held at that company and leaves the duplicate
-     * unmapped — a second line reading "Not in universe" that nobody asked for.
-     *
-     * <p>The slug rather than the stored URL, because {@link LinkedInUrls} already rules that
-     * {@code /in/John-Smith} and {@code /in/john-smith} are one profile. The finder only narrows, so
-     * identity is settled here.
-     *
-     * <p>{@code selfId} is the row being edited, excluded so that saving someone without changing
-     * their URL does not collide with themselves.
+     * Refuses a LinkedIn profile slug the mandate already maps, wherever that row sits — the name rule misses a second
+     * capture (no company) against a first since mapped to its employer, leaving a duplicate "Not in universe" line.
+     * {@code selfId} is the row being edited.
      */
     private AddedByResponse adderOf(UUID projectId, UUID candidateId) {
         return candidates.findAttributionByProjectIdAndIdIn(projectId, List.of(candidateId)).stream()

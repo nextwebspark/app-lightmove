@@ -32,17 +32,9 @@ export function layoutColumnsOf(
 const storageKey = (namespace: string) => `lm.${namespace}.layout`;
 
 /**
- * How a user has dragged a grid's columns about, remembered in `localStorage`.
- *
- * <p>Per user rather than per project, unlike the visibility and sort beside it: a column layout is a
- * working habit, not a property of one mandate, so the key carries no project id. The `namespace`
- * still separates the grids — Strategy is looking at the market and Companies at what the mandate
- * took from it, and they do not hold the same columns.
- *
- * <p>A column missing from a stored order is spliced back at the index its author declared it at.
- * TanStack appends what it is not told about to the *end*, and a drop persists the whole column
- * list — so without this a column shipped in a later release would land off the right edge of the
- * grid for every user who had ever moved one.
+ * A grid's dragged column order in `localStorage`, per user and `namespace` (not per project). A column missing from
+ * the stored order is spliced back at its declared index — TanStack appends unknowns at the end, so a newly shipped
+ * column would otherwise land off the right edge.
  */
 export function useGridLayout(namespace: string, columns: readonly GridLayoutColumn[]) {
   const [layout, setLayout] = useState<GridLayout>(() => read(namespace, columns));

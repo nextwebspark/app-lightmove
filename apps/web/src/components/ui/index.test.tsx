@@ -3,12 +3,8 @@ import { describe, expect, it } from "vitest";
 import { Button, Input, Select } from "./index";
 
 /**
- * A caller's className must beat the component's default.
- *
- * This shipped broken: the controls hardcoded `w-full` and appended the caller's classes, so the
- * invite row's `w-[130px]` role select rendered full-width and mangled the layout. Tailwind picks the
- * winner by stylesheet order, not by the order of names in the attribute — so the bug was invisible in
- * the JSX, which read exactly as intended.
+ * A caller's className must beat the component's default. Shipped broken: controls hardcoded `w-full` and appended the
+ * caller's classes, and Tailwind picks by stylesheet order, so the invite row's `w-[130px]` select rendered full-width.
  */
 describe("ui primitives merge classes in the caller's favour", () => {
   it("lets a caller override the control's default width", () => {

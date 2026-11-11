@@ -48,12 +48,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Imports a spreadsheet into a mandate's Companies grid. <b>Writes nothing itself</b>: it builds the
- * drawer's own {@link CaptureCompanyRequest}, {@link EditTriageCompanyRequest} and
- * {@link SaveCandidateRequest} for {@link TriageCompanyService} and {@link CandidateService}.
- *
- * <p><b>Deliberately not {@code @Transactional}:</b> the first refused row would mark it rollback-only
- * and lose every row; each service call runs in its own transaction. (Preview also calls Vertex.)
+ * Imports a spreadsheet into a mandate's Companies grid, writing nothing itself: it builds the drawer's own
+ * {@link CaptureCompanyRequest}, {@link EditTriageCompanyRequest} and {@link SaveCandidateRequest} for the services.
+ * Not {@code @Transactional}: one refused row would roll back every row; each service call runs in its own.
  */
 @Service
 @RequiredArgsConstructor

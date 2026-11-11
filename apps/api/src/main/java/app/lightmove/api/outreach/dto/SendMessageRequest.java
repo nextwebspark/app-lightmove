@@ -7,13 +7,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * An email a consultant writes to one executive. {@code body} is the composer's Markdown and may carry the
- * sequence tokens. {@code replyInThread} answers the thread their mailbox last wrote to this person in, under its own
- * subject; otherwise {@code subject} starts a thread of its own. {@code sendAt} null is now.
- * {@code documentVersionIds} are versions of the person's own documents the email carries, beside any files uploaded
- * with it. {@code signatureId} is one of the sender's own signatures, added under the words; null sends none.
- * {@code templateId} is the email template it was written from, recorded where the sender may see it and dropped
- * otherwise, never refused.
+ * An email to one executive: {@code body} is Markdown with sequence tokens; {@code replyInThread} answers the thread
+ * their mailbox last wrote in, else {@code subject} starts one; {@code sendAt} null is now; {@code signatureId} null
+ * sends none; a {@code templateId} the sender may not see is dropped, never refused.
  */
 public record SendMessageRequest(
         @NotBlank @Size(max = 320) String toAddress,

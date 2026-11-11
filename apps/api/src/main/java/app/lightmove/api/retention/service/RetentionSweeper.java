@@ -24,16 +24,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Deletes the system rows {@code docs/gdpr/retention-schedule.md} holds no longer (#921): expired sign-in tokens
- * and challenges, the vendor caches past their TTL, closed invitations, read notifications, sent digests, old
- * assistant chats and aged metered uses. Every delete is batched and harmless run twice, so instances need no claim:
- * a batch skips the rows another instance has locked rather than waiting on them. Each table, in each workspace, is
- * swept on its own, so one that fails is logged and retried next hour without holding back the rest.
- * Made only where {@code lightmove.retention.enabled} is true ({@code RETENTION_ENABLED}, off by default).
- *
- * <p>The tenant tables are under forced row-level security: read with no workspace they answer nothing, and a sweep
- * would find nothing due. So the resolver names the workspaces holding a due row, and each is swept inside its own
- * {@link WorkspaceScope} — never every workspace, and never unscoped.
+ * Deletes the system rows {@code docs/gdpr/retention-schedule.md} no longer holds (#921), in batches safe to run twice
+ * (locked rows skipped, so no claim), each table per workspace on its own. Tenant tables are under forced RLS, so only
+ * the resolver's workspaces are swept, each in its own {@link WorkspaceScope}. Only where {@code RETENTION_ENABLED}.
  */
 @Slf4j
 @Component

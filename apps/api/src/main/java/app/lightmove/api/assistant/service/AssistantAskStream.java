@@ -23,13 +23,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
- * Answers a question on a background thread while streaming {@code step}, {@code proposal}, then
- * {@code done} or {@code failed} events, after a {@code started} event naming the chat. A closed tab
- * only stops the sending; the answer is still saved.
- *
- * <p>An answer outliving the stream is reported as still answering, never failed — asking again would
- * pay twice. The slots are the only concurrency cap, and {@link AssistantThreads} holds a thread for each.
- * The stream has its own, longer limit than {@code SseStreams}: it is one answer, not a feed that reconnects.
+ * Answers a question on a background thread, streaming {@code started}, {@code step}, {@code proposal}, then
+ * {@code done} or {@code failed}; a closed tab only stops sending. An answer outliving the stream reads as still
+ * answering, never failed — asking again would pay twice.
  */
 @Slf4j
 @Service

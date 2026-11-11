@@ -10,16 +10,8 @@ import { CandidateProfile } from "./CandidateProfile";
 export type { CandidateCompanyContext } from "./AddCandidateForm";
 
 /**
- * The right-hand panel over the Companies grid: one executive's profile, or the form that adds one.
- *
- * <p>The panel does not close on a save. Every write answers with the profile as the server now
- * holds it and the caller shows that — a reader who corrected a salary is still reading, and the
- * next thing they do is usually write the note. An add lands on the profile it created for the same
- * reason.
- *
- * <p>The person shown is read through their own query, seeded with the row the caller opened: the
- * stream's refresh after a background enrichment re-reads it, so a drawer left open picks up what
- * the research and the AI enrichment filled in without being reopened.
+ * The right-hand panel over the Companies grid: one executive's profile, or the add form. It stays open on a save and
+ * shows what the server answered; the person is read through their own query, so a background enrichment shows unasked.
  */
 export function CandidateDrawer({
   open,

@@ -2,7 +2,7 @@
 
 /*
  * The panel's design tokens: the UNCAVA palette, under the same `u-*` names as apps/web's tokens.css,
- * which lifted them from claude-design/uncava-tokens.css.
+ * which lifted them from uncava-design/uncava-tokens.css.
  *
  * A copy rather than an import, and deliberately: the extension is a separate app with a separate build
  * and shares no module graph with the web app. A shared package for a few dozen custom properties

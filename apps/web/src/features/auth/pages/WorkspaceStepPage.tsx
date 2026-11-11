@@ -6,12 +6,8 @@ import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import * as authApi from "../api/authApi";
 
 /**
- * Signup step 3, the last — creating your workspace. Inviting the team is left to the app (Team), where an
- * admin does it when they are ready; the wizard asks nothing it does not need.
- *
- * Signing up *is* creating a workspace; membership of an existing one is invitation-only, so there is
- * no domain lookup and no join fork here. A colleague whose firm is already on LightMove asks their
- * admin for an invitation — the admin reaching out is the decision that admits them.
+ * Signup step 3, the last: creating your workspace. Membership of an existing one is invitation-only, so there is
+ * no domain lookup or join fork here.
  */
 export function WorkspaceStepPage() {
   const { user, reload } = useAuth();

@@ -13,16 +13,8 @@ export interface ComboboxOption {
 }
 
 /**
- * One value out of a facet's vocabulary — the single-value sibling of {@link TagCombobox}, sharing its
- * open/active/blur mechanics so the two lists cannot close on different beats.
- *
- * <p>A picker rather than a `<select>` because these vocabularies are long: the universe names 148
- * industries, and finding one in a native dropdown means scrolling a list nobody can search. Typing
- * filters, which is how the Strategy filter offers the very same values.
- *
- * <p>A value the vocabulary does not carry is still shown and still kept. The plugin captures whatever
- * a page publishes, so a company can hold a sector Apollo never named — clearing it silently because
- * this list has no row for it would lose a fact nobody touched.
+ * One value from a long facet vocabulary, searchable — {@link TagCombobox}'s single-value sibling, sharing its mechanics.
+ * A value the vocabulary lacks is still shown and kept: the plugin captures sectors Apollo never named.
  */
 /** `uncava` is the brief's skin: the same bordered, filled box every other field in the brief wears,
  *  over UNCAVA tokens, with the list on the UNCAVA ground. */

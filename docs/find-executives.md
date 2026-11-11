@@ -4,7 +4,7 @@ Status: **built** — P0 this design and its mockup (#1195), P1 the search engin
 (V209, `features/sourcing`). Where the build differs from the plan below, CLAUDE.md's Find executives paragraph is
 current: a search's sources are not run side by side but in turn (the live index tiered, then the profile index's
 untitled people checked free against it), and the copy guard's vendor names are a follow-up. The screens are
-`claude-design/FindExecutives.dc.html` (`?screen=canvas` shows every board).
+`uncava-design/FindExecutives.dc.html` (`?screen=canvas` shows every board).
 
 
 ## Context
@@ -269,7 +269,7 @@ saved search ─► ContactOut People Search ─┐  side by side; each through 
 
 | PR | Content | Users see |
 |---|---|---|
-| P0 | this design and `claude-design/FindExecutives.dc.html` | nothing |
+| P0 | this design and `uncava-design/FindExecutives.dc.html` | nothing |
 | P1 | the search engine: the new word prompt; Business Search's role-group search with free name-narrowed title checks; ContactOut bought in tiers (the dataset leaves Find executives); the location rule; the fixes above; `SourcingEval` replaying the proof of concept | better people under today's flow |
 | P2 | the panel end to end: the migration, the criteria, counts, suggestions and add, scoring, fair use, audit and stream; `features/sourcing` (button, panel, drawer button); the strip, the old flow and their dead code removed; help article, glossary, CLAUDE.md | the new panel |
 

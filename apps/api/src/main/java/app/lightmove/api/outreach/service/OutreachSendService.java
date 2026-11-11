@@ -42,12 +42,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Sends one claimed enrollment's next email: re-checks the person and the mailbox, holds the email to
- * the sequence's window (unless the consultant pinned the first one's time) and the sender's daily cap,
- * sends it, and records it. Three short transactions with the mail
- * service called between them, never inside one — and never twice: a send that failed, or whose outcome
- * is unknown, stops the run rather than trying again. Each pass is in one workspace's scope, which the
- * dispatcher's walk opens: the runs, and the people and positions a send reads, are under row-level security.
+ * Sends one claimed enrollment's next email, re-checking person and mailbox, the window (unless pinned) and the cap.
+ * The mail service is called between three short transactions, never inside one, and never twice: a failed or unknown
+ * send stops the run. Runs in the workspace scope the dispatcher's walk opens (row-level security).
  */
 @Service
 @RequiredArgsConstructor

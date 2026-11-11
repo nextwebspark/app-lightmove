@@ -2,12 +2,8 @@ import { z } from "zod";
 import { WORKSPACE_MODES } from "./api/types";
 
 /**
- * Client-side validation, mirroring the server's Bean Validation rules.
- *
- * The duplication is deliberate and is not a redundancy to be refactored away. The client validates to
- * answer the user instantly, without a round-trip. The server validates because the client can be
- * bypassed with a single curl command. Neither can be dropped, and the messages are kept identical so
- * a rule that only the server catches does not suddenly sound like a different product.
+ * Client-side validation mirroring the server's Bean Validation — deliberate duplication: instant feedback here, the
+ * server because a client can be bypassed. Messages are kept identical.
  */
 
 /**

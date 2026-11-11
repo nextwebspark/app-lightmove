@@ -20,10 +20,8 @@ import org.springframework.context.annotation.Configuration;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Find executives' two sources, each its stand-in where it is not configured: ContactOut's People Search
- * as the live index wherever a ContactOut key is set, and Bright Data's Business Search as the profile
- * index wherever a Bright Data key is — whatever {@code enrichment.provider} says, which picks how a
- * captured profile is researched, not where executives are found.
+ * Find executives' two sources, each its stand-in where unconfigured: ContactOut's People Search as the live index
+ * wherever a ContactOut key is set, Bright Data's Business Search as the profile index wherever a Bright Data key is.
  */
 @Configuration
 @Slf4j

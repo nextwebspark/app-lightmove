@@ -1,12 +1,8 @@
 import type { CandidateCareerEntry } from "../api/types";
 
 /**
- * Reading a career history the way a consultant does, out of the free text a source published.
- *
- * <p>A period is stored as text on purpose (see the server's `CandidateCareerEntry`), so everything
- * here is a best effort over the shapes enrichment and researchers actually write — and every
- * function answers null rather than guessing when the text is not one of them. The raw text is
- * always shown; what these add is only ever beside it.
+ * Best-effort readings of a free-text career history; every function answers null rather than guessing, and the raw
+ * text is always shown.
  */
 
 export interface PeriodPoint {

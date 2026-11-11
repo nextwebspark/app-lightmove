@@ -10,15 +10,8 @@ const WIDTHS = {
 } as const;
 
 /**
- * A screen's filter rail: a static column beside the results from `lg`, and below it an overlay over
- * them with a scrim, because a ~300px rail beside a table does not fit a phone.
- *
- * <p>As an overlay it behaves as one: opening moves focus to its close button, closing hands focus
- * back to whatever opened it, and Escape inside it closes the rail alone — stopped here, so the grid's
- * selection bar, which also answers Escape, keeps its selection.
- *
- * <p>`open={false}` hides the rail without unmounting it, so the sections a caller keeps open and
- * whatever was typed into them survive a close.
+ * A filter rail: a column from `lg`, below it an overlay with a scrim that takes focus and returns it, stopping Escape
+ * here so the grid's selection bar keeps its selection. `open={false}` hides without unmounting.
  */
 export function FilterRail({
   label,

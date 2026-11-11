@@ -58,12 +58,8 @@ const NOTICE_OPTIONS: ChipOption<string>[] = NOTICE_PERIODS.filter((period) => p
 );
 
 /**
- * Step one: what the role is and why it exists — the document, the title, where it sits, how it is
- * engaged, why the mandate opened, how visible it is, when it starts, and what it does.
- *
- * <p>Three of its fields are not the details record's: the reason and the confidentiality are the
- * mandate context's, the notice period is the reporting structure's, and the target date is the
- * project's own. Each writes through its own channel, so the screen is one page over four writes.
+ * Step one: what the role is and why it exists. The reason and confidentiality are the mandate context's, notice the
+ * reporting structure's and the target date the project's, so the screen is one page over four writes.
  */
 const CONFIDENTIALITY_OPTIONS: readonly ChoiceCardOption<"standard" | "confidential">[] = [
   { value: "standard", title: "Standard", body: "Visible to the whole workspace" },
