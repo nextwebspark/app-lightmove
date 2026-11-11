@@ -675,7 +675,11 @@ function SequencePreview({
         <div className="whitespace-pre-wrap pt-3.5 text-[13.5px]/[1.6] text-u-text">
           {renderParts(step?.body ?? "", tokens, PREVIEW_OPENER).map((part, index) =>
             part.isSignature ? (
-              !signature.included && <span key={index}>{tokens.senderFirstName}</span>
+              signature.included ? (
+                <SignatureUnderEmail key={index} choice={signature} />
+              ) : (
+                <span key={index}>{tokens.senderFirstName}</span>
+              )
             ) : part.isLink ? (
               <span key={index} className="text-u-accent underline">
                 {part.text}
@@ -692,7 +696,6 @@ function SequencePreview({
             ),
           )}
         </div>
-        <SignatureUnderEmail choice={signature} />
         {selectedStep > 0 && (
           <div className="mt-3.5 border-s-2 border-u-border ps-2.5 text-[12px]/[1.5] text-u-text3">
             Your earlier email to {tokens.firstName ?? "them"} is quoted below, as in any reply.
