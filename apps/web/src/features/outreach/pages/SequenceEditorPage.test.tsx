@@ -221,7 +221,7 @@ describe("SequenceEditorPage", () => {
     expect(await screen.findByText(/Step 1 now reads “Warm intro”/)).toBeInTheDocument();
   });
 
-  it("copies a template into a follow-up without its subject, and without asking where the step is empty", async () => {
+  it("copies a template into a cleared follow-up without its subject or a question, still signed", async () => {
     const user = userEvent.setup();
     vi.mocked(emailTemplatesApi.listEmailTemplates).mockResolvedValue({
       templates: [aTemplate({})],
@@ -239,7 +239,9 @@ describe("SequenceEditorPage", () => {
     await user.click(within(picker).getByRole("button", { name: /Warm intro/ }));
 
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("textbox", { name: "Email body" })[1]).toHaveValue("Hi {{firstName|there}},\n\nA short note.");
+    expect(screen.getAllByRole("textbox", { name: "Email body" })[1]).toHaveValue(
+      "Hi {{firstName|there}},\n\nA short note.\n\n{{signature}}",
+    );
     expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("Confidential: {{positionTitle}}");
   });
 
@@ -255,8 +257,16 @@ describe("SequenceEditorPage", () => {
     expect(within(refused).queryByRole("button", { name: "Save template" })).not.toBeInTheDocument();
     await user.click(within(refused).getByRole("button", { name: "Close" }));
 
+    await user.click(saveButtons[2]);
+    const cancelled = screen.getByRole("dialog", { name: "Save step as template" });
+    await user.type(within(cancelled).getByRole("textbox", { name: "Name" }), "Not this one");
+    await user.click(within(cancelled).getByRole("switch", { name: "Share with workspace" }));
+    await user.click(within(cancelled).getByRole("button", { name: "Cancel" }));
+
     await user.click(saveButtons[1]);
     const dialog = screen.getByRole("dialog", { name: "Save step as template" });
+    expect(within(dialog).getByRole("textbox", { name: "Name" })).toHaveValue("");
+    expect(within(dialog).getByRole("switch", { name: "Share with workspace" })).not.toBeChecked();
     await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "Nudge");
     await user.click(within(dialog).getByRole("button", { name: "Save template" }));
 

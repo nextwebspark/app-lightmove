@@ -219,6 +219,27 @@ describe("EnrolDialog", () => {
     expect(await screen.findByRole("button", { name: "Start sequence" })).toBeEnabled();
   });
 
+  it("leaves no blank lines above the signature of a first email with no opener, and a subject as the server sends it", async () => {
+    vi.mocked(sequenceApi.getSequences).mockResolvedValue([
+      {
+        ...SEQUENCE,
+        steps: [{ ...SEQUENCE.steps[0], subject: "Quick note {{signature}}", body: "Hi {{firstName}},\n\nBye\n\n{{signature}}" }],
+      },
+    ]);
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
+      signatures: [{ ...SIGNATURE, id: "sig-formal", name: "Formal", isDefault: true }],
+      sources: SIGNATURE_SOURCES,
+      limit: 10,
+    });
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
+    renderDialog();
+    await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
+
+    expect(await screen.findByTitle("Signature")).toBeInTheDocument();
+    expect(screen.getByText("Hi Priya,\n\nBye", { normalizer: (text) => text })).toBeInTheDocument();
+    expect(screen.getByText("Quick note {{signature}}")).toBeInTheDocument();
+  });
+
   it("signs off with the sender's first name where they keep no signature", async () => {
     vi.mocked(sequenceApi.getSequences).mockResolvedValue([
       { ...SEQUENCE, steps: [{ ...SEQUENCE.steps[0], body: "Hi {{firstName}},\n\n{{opener}}\n\nBye\n{{signature}}" }] },

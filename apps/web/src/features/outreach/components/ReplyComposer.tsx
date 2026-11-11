@@ -411,7 +411,7 @@ function OpenComposer({
       <SaveAsTemplateDialog
         open={isSavingTemplate}
         subject={isReply ? null : subject}
-        body={body}
+        buildBody={() => body}
         onClose={() => setIsSavingTemplate(false)}
       />
     </section>

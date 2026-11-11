@@ -14,7 +14,7 @@ const NAME_MAX_LENGTH = 80;
 export function SaveAsTemplateDialog({
   open,
   subject,
-  body,
+  buildBody,
   title = "Save as template",
   subtitle = "The words as written, variables included. Your signature is never part of a template.",
   refusal = null,
@@ -23,8 +23,8 @@ export function SaveAsTemplateDialog({
   open: boolean;
   /** Null for a reply, which keeps its thread's subject. */
   subject: string | null;
-  /** The template's Markdown, or how to make it when saved (a step's plain text is converted then). */
-  body: string | (() => Promise<string>);
+  /** The template's Markdown, made when it is saved: a step's plain text is converted then, off the editor's chunk. */
+  buildBody: () => string | Promise<string>;
   title?: string;
   subtitle?: string;
   /** Why this cannot be saved: said in place of the form. */
@@ -35,21 +35,25 @@ export function SaveAsTemplateDialog({
   const toast = useToast();
   const [name, setName] = useState("");
   const [shared, setShared] = useState(false);
+  // One dialog serves every step of a sequence: a name typed and cancelled for one must not come back for the next.
+  const close = () => {
+    setName("");
+    setShared(false);
+    onClose();
+  };
 
   const save = useMutation({
     mutationFn: async () =>
       emailTemplatesApi.createEmailTemplate({
         name: name.trim(),
         subject: subject?.trim() || null,
-        body: typeof body === "string" ? body : await body(),
+        body: await buildBody(),
         shared,
       }),
     onSuccess: (template) => {
       void queryClient.invalidateQueries({ queryKey: emailTemplatesApi.EMAIL_TEMPLATES_KEY });
       toast(`Saved as ${template.name}`);
-      setName("");
-      setShared(false);
-      onClose();
+      close();
     },
     onError: (error) => toast.error(messageFor(error)),
   });
@@ -57,12 +61,12 @@ export function SaveAsTemplateDialog({
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={close}
       title={title}
       subtitle={subtitle}
       footer={
         <>
-          <Button variant="secondary" size="md" onClick={onClose}>
+          <Button variant="secondary" size="md" onClick={close}>
             {refusal ? "Close" : "Cancel"}
           </Button>
           {!refusal && (

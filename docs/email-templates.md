@@ -435,8 +435,11 @@ template".
 3. **Sequence steps (#1251).** *As built:* `StepTemplatePicker` inline in the step (the mockup's panel), the replace
    question only where the step holds words, `stepTemplates.ts` (`stepFromTemplate`, `stepRefusalOf`,
    `templateRefusalOf`), and `plainBody` now written paragraphs apart (`NoteText.plainEmailTextOf`, a blank line between
-   blocks) so a step reads as the template did. A step that placed `{{signature}}` keeps it at its end: since #1277 a
-   step placing none goes unsigned, so a copy dropping it would unsign the step. Save as template leaves the step's
+   blocks) so a step reads as the template did. The copy closes in exactly one `{{signature}}` wherever the sequence
+   signs any step (`sequenceSigns`), a step cleared before the copy included: since #1277/#1281 a step placing none goes
+   unsigned, so a copy without it would unsign the step; a signature in the template's own words is dropped first
+   (`withoutToken`, the engine's one grammar). A fallback is read without the Markdown escapes the notes editor's
+   serializer adds (`{{currentTitle\|a \*senior\* leader}}` fills "a *senior* leader"), on both twins. Save as template leaves the step's
    `{{signature}}` out and writes the plain text through `plainEmailDoc` (a paragraph per blank line, a hard break per
    line). `renderParts` gained an `isFallback` part; `FilledVariable` draws a blank red and a fallback underlined in the
    template picker, the sequence preview and the review, which also flags each person "N blank" or "Fallback" across

@@ -83,26 +83,51 @@ export function unknownIn(text: string | null | undefined, vocabulary: readonly 
 
 /** The known tokens the text uses with no value for this person and no fallback, in order of first use. */
 export function unfilledIn(text: string | null | undefined, tokens: RecipientTokens): string[] {
+  return emptyTokensIn(text, tokens, false);
+}
+
+/** The known tokens the text uses with no value for this person, where a fallback stands in, in order of first use. */
+export function fallbacksIn(text: string | null | undefined, tokens: RecipientTokens): string[] {
+  return emptyTokensIn(text, tokens, true);
+}
+
+function emptyTokensIn(text: string | null | undefined, tokens: RecipientTokens, withFallback: boolean): string[] {
   const values = valuesOf(tokens);
   return [
     ...new Set(
       tokenUsesIn(text)
-        .filter((use) => Object.hasOwn(values, use.name) && values[use.name] === "" && use.fallback === null)
+        .filter((use) => values[use.name] === "" && (use.fallback !== null) === withFallback)
         .map((use) => use.name),
     ),
   ];
 }
 
-/** The known tokens the text uses with no value for this person, where a fallback stands in, in order of first use. */
-export function fallbacksIn(text: string | null | undefined, tokens: RecipientTokens): string[] {
-  const values = valuesOf(tokens);
-  return [
-    ...new Set(
-      tokenUsesIn(text)
-        .filter((use) => Object.hasOwn(values, use.name) && values[use.name] === "" && use.fallback !== null)
-        .map((use) => use.name),
-    ),
-  ];
+export interface TokenGaps {
+  /** Nothing on file and no fallback: it goes out blank. */
+  blanks: string[];
+  /** Nothing on file, and a fallback stands in everywhere it is used. */
+  fallbacks: string[];
+}
+
+/** What this person has nothing on file for across several texts, such as a sequence's subject and every step. */
+export function tokenGapsIn(texts: readonly (string | null | undefined)[], tokens: RecipientTokens): TokenGaps {
+  const blanks = [...new Set(texts.flatMap((text) => unfilledIn(text, tokens)))];
+  const fallbacks = [...new Set(texts.flatMap((text) => fallbacksIn(text, tokens)))].filter(
+    (name) => !blanks.includes(name),
+  );
+  return { blanks, fallbacks };
+}
+
+/**
+ * The text without the named token, read by the same grammar as every other use (a fallback included); a token alone at
+ * the end of its line takes the blank lines before it too, so a sign-off leaves no gap behind.
+ */
+export function withoutToken(text: string, name: string): string {
+  const MARK = "\u0000";
+  return text
+    .replace(TOKEN, (found: string, tokenName: string) => (tokenName === name ? MARK : found))
+    .replace(/\s*\u0000[ \t]*(?=\n|$)/g, "")
+    .replaceAll(MARK, "");
 }
 
 /** A subject: every value on one line, as the server writes it. */
@@ -110,8 +135,11 @@ export function renderLine(template: string, tokens: RecipientTokens): string {
   return render(template, tokens, null).replace(/\s+/g, " ").trim();
 }
 
+/** The notes editor's serializer escapes ASCII punctuation in text, a fallback's included; read back as typed. */
+const MARKDOWN_ESCAPE = /\\([!-/:-@[-`{-~])/g;
+
 function fallbackOf(typed: string | undefined): string | null {
-  const fallback = typed?.replace(/\s+/g, " ").trim() ?? "";
+  const fallback = typed?.replace(MARKDOWN_ESCAPE, "$1").replace(/\s+/g, " ").trim() ?? "";
   return fallback === "" ? null : fallback;
 }
 
@@ -166,14 +194,14 @@ export function renderParts(template: string, tokens: RecipientTokens, opener: s
       if (plain) parts.push({ text: plain, isOpener: false });
       plain = "";
       parts.push({ text: tokens.bookingLink?.trim() ?? "", isOpener: false, isLink: true });
-    } else if (Object.hasOwn(values, name) && !values[name] && !fallback) {
-      if (plain) parts.push({ text: plain, isOpener: false });
-      plain = "";
-      parts.push({ text: "", isOpener: false, isBlank: true, token: name });
     } else if (Object.hasOwn(values, name) && !values[name]) {
       if (plain) parts.push({ text: plain, isOpener: false });
       plain = "";
-      parts.push({ text: fallback ?? "", isOpener: false, isFallback: true, token: name });
+      parts.push(
+        fallback
+          ? { text: fallback, isOpener: false, isFallback: true, token: name }
+          : { text: "", isOpener: false, isBlank: true, token: name },
+      );
     } else if (Object.hasOwn(values, name)) {
       plain += values[name];
     } else {

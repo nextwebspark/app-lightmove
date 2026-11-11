@@ -8,6 +8,7 @@ import type { SequenceStep } from "../../outreach/api/sequenceApi";
 import * as emailTemplatesApi from "../api/emailTemplatesApi";
 import type { EmailTemplate } from "../api/emailTemplatesApi";
 import { stepRefusalOf } from "../lib/stepTemplates";
+import { matchesTemplateSearch, mineFirst } from "../lib/templateSearch";
 
 /**
  * From template on a sequence step (`Outreach.dc.html?page=sequence`): a search over the caller's templates and the
@@ -16,11 +17,14 @@ import { stepRefusalOf } from "../lib/stepTemplates";
 export function StepTemplatePicker({
   step,
   isFirstStep,
+  signs,
   onPick,
   onClose,
 }: {
   step: SequenceStep;
   isFirstStep: boolean;
+  /** Whether the sequence signs, so a copy closes with the signature. */
+  signs: boolean;
   onPick: (template: EmailTemplate) => void;
   onClose: () => void;
 }) {
@@ -29,17 +33,10 @@ export function StepTemplatePicker({
     queryKey: emailTemplatesApi.EMAIL_TEMPLATES_KEY,
     queryFn: ({ signal }) => emailTemplatesApi.listEmailTemplates(signal),
   });
-  const needle = query.trim().toLowerCase();
-  const shown = [...(templates.data?.templates ?? [])]
-    .sort((a, b) => Number(b.mine) - Number(a.mine))
-    .filter(
-      (template) =>
-        !needle ||
-        [template.name, template.subject ?? "", template.plainBody, template.owner.fullName ?? ""]
-          .join(" ")
-          .toLowerCase()
-          .includes(needle),
-    );
+  const needle = query.trim();
+  const shown = mineFirst(templates.data?.templates ?? []).filter((template) =>
+    matchesTemplateSearch(template, query),
+  );
 
   return (
     <div
@@ -94,7 +91,7 @@ export function StepTemplatePicker({
         ) : (
           <ul aria-label="Email templates">
             {shown.map((template) => {
-              const refusal = stepRefusalOf(template, step);
+              const refusal = stepRefusalOf(template, step, signs);
               return (
                 <li key={template.id}>
                   <button

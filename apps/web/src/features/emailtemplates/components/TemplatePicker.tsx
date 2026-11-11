@@ -11,6 +11,7 @@ import { BOOKING_LINK_PLACEHOLDER, renderParts } from "../../outreach/lib/sequen
 import { FilledVariable } from "../../outreach/components/FilledVariable";
 import * as emailTemplatesApi from "../api/emailTemplatesApi";
 import type { EmailTemplate } from "../api/emailTemplatesApi";
+import { matchesTemplateSearch } from "../lib/templateSearch";
 
 interface TemplateGroup {
   label: string;
@@ -206,13 +207,7 @@ function FilledText({ text, values }: { text: string; values: RecipientTokens })
 /** Recently used first, then Mine and Shared, each narrowed by the search. */
 function groupsOf(data: emailTemplatesApi.EmailTemplates | undefined, query: string): TemplateGroup[] {
   if (!data) return [];
-  const needle = query.trim().toLowerCase();
-  const matches = (template: EmailTemplate) =>
-    !needle ||
-    [template.name, template.subject ?? "", template.plainBody, template.owner.fullName ?? ""]
-      .join(" ")
-      .toLowerCase()
-      .includes(needle);
+  const matches = (template: EmailTemplate) => matchesTemplateSearch(template, query);
   const byId = new Map(data.templates.map((template) => [template.id, template]));
   const recent = data.recentlyUsed.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])).filter(matches);
   return [

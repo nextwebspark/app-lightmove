@@ -907,7 +907,8 @@ records the template it came from (`templateId`), only one the sender may see in
 **A sequence step** (`SequenceEditorPage`) takes one by **From template** (`StepTemplatePicker`): a copy, never a link,
 of its `plainBody` — the words as plain text, paragraphs apart (`NoteText.plainEmailTextOf`), since a step has no
 formatting — its subject into the first email alone, asked first where the step holds words, refused past a step's
-5,000, and keeping the step's `{{signature}}` where it placed one, since a step placing none goes unsigned. **Save as
+5,000, and closing in exactly one `{{signature}}` wherever the sequence signs a step (`sequenceSigns`), since a step
+placing none goes unsigned — a template's own is dropped, by the one token grammar (`withoutToken`). **Save as
 template** on a step saves its words with their variables as Markdown (`plainEmailDoc`), the first email's subject too,
 its `{{signature}}` left out; a step using `{{opener}}` is refused, saying why. The editor's preview and Add to
 sequence's review mark, per person, a variable with nothing on file red and a fallback standing in underlined

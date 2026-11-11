@@ -37,6 +37,7 @@ import type { EmailTemplate } from "../../emailtemplates/api/emailTemplatesApi";
 import { SaveAsTemplateDialog } from "../../emailtemplates/components/SaveAsTemplateDialog";
 import { StepTemplatePicker } from "../../emailtemplates/components/StepTemplatePicker";
 import {
+  sequenceSigns,
   stepFromTemplate,
   stepHasText,
   templateRefusalOf,
@@ -49,7 +50,9 @@ const DELAY_CHOICES = [2, 3, 4, 5, 7];
 const STEP_LABELS = ["First email", "Follow-up", "Last follow-up"];
 const PREVIEW_OPENER = "Their opener is drafted for each person when you add them, and you review it then.";
 
-type StepTemplateChoice = { index: number; replacing: EmailTemplate | null };
+type StepTemplateChoice =
+  | { index: number; stage: "picking" }
+  | { index: number; stage: "confirming"; template: EmailTemplate };
 
 const FIRST_STEP_BODY = `Hi {{firstName}},
 
@@ -234,14 +237,14 @@ function SequenceEditor({
 
   /** A copy, never a link: a later edit to the template changes no step. */
   const copyTemplate = (index: number, template: EmailTemplate) => {
-    changeStep(index, stepFromTemplate(template, steps[index], index === 0));
+    changeStep(index, stepFromTemplate(template, steps[index], index === 0, sequenceSigns(steps)));
     setChoosingTemplate(null);
     toast(`Step ${index + 1} now reads “${template.name}”. Save the sequence to keep it.`);
   };
 
   const pickTemplate = (index: number, template: EmailTemplate) =>
     stepHasText(steps[index], index === 0)
-      ? setChoosingTemplate({ index, replacing: template })
+      ? setChoosingTemplate({ index, stage: "confirming", template })
       : copyTemplate(index, template);
 
   const isLive = (saved?.enrolledCount ?? 0) > 0;
@@ -319,11 +322,11 @@ function SequenceEditor({
                 <span className="ms-auto flex items-center gap-0.5">
                   <button
                     type="button"
-                    aria-expanded={choosingTemplate?.index === index && choosingTemplate.replacing === null}
+                    aria-expanded={choosingTemplate?.index === index && choosingTemplate.stage === "picking"}
                     onClick={(event) => {
                       event.stopPropagation();
                       setSelectedStep(index);
-                      setChoosingTemplate({ index, replacing: null });
+                      setChoosingTemplate({ index, stage: "picking" });
                     }}
                     className="rounded-u-control px-2 py-1 text-meta font-medium text-u-text3 hover:bg-u-raised hover:text-u-text"
                   >
@@ -357,15 +360,16 @@ function SequenceEditor({
                   )}
                 </span>
               </div>
-              {choosingTemplate?.index === index && choosingTemplate.replacing === null && (
+              {choosingTemplate?.index === index && choosingTemplate.stage === "picking" && (
                 <StepTemplatePicker
                   step={step}
                   isFirstStep={index === 0}
+                  signs={sequenceSigns(steps)}
                   onPick={(template) => pickTemplate(index, template)}
                   onClose={() => setChoosingTemplate(null)}
                 />
               )}
-              {choosingTemplate?.index === index && choosingTemplate.replacing && (
+              {choosingTemplate?.index === index && choosingTemplate.stage === "confirming" && (
                 <div
                   role="alertdialog"
                   aria-label="Replace this step's text?"
@@ -374,7 +378,7 @@ function SequenceEditor({
                 >
                   <span className="min-w-60 flex-1">
                     <span className="block text-note font-medium text-u-text">
-                      Replace this step's text with “{choosingTemplate.replacing.name}”?
+                      Replace this step's text with “{choosingTemplate.template.name}”?
                     </span>
                     <span className="mt-0.5 block text-meta text-u-text2">
                       What this step says now is replaced
@@ -385,7 +389,7 @@ function SequenceEditor({
                   <Button variant="secondary" size="xs" onClick={() => setChoosingTemplate(null)}>
                     Cancel
                   </Button>
-                  <Button size="xs" onClick={() => copyTemplate(index, choosingTemplate.replacing!)}>
+                  <Button size="xs" onClick={() => copyTemplate(index, choosingTemplate.template)}>
                     Replace
                   </Button>
                 </div>
@@ -495,18 +499,20 @@ function SequenceEditor({
           onSelectStep={setSelectedStep}
         />
       </div>
-      <SaveAsTemplateDialog
-        open={savingStep !== null}
-        title="Save step as template"
-        subtitle={`Saves this step's ${savingStep === 0 ? "subject and " : ""}words, variables kept, as one of your email templates. It is a copy: editing the template later changes no step.`}
-        refusal={savingStep === null ? null : templateRefusalOf(steps[savingStep])}
-        subject={savingStep === 0 ? (steps[0].subject ?? null) : null}
-        body={async () => {
-          const { plainEmailDoc, serializeNoteDoc } = await import("../../notes/lib/noteMarkdown");
-          return serializeNoteDoc(plainEmailDoc(templateWordsOfStep(steps[savingStep ?? 0])));
-        }}
-        onClose={() => setSavingStep(null)}
-      />
+      {savingStep !== null && (
+        <SaveAsTemplateDialog
+          open
+          title="Save step as template"
+          subtitle={`Saves this step's ${savingStep === 0 && steps[0].subject?.trim() ? "subject and " : ""}words, variables kept, as one of your email templates. It is a copy: editing the template later changes no step.`}
+          refusal={templateRefusalOf(steps[savingStep])}
+          subject={savingStep === 0 ? (steps[0].subject ?? null) : null}
+          buildBody={async () => {
+            const { plainEmailDoc, serializeNoteDoc } = await import("../../notes/lib/noteMarkdown");
+            return serializeNoteDoc(plainEmailDoc(templateWordsOfStep(steps[savingStep])));
+          }}
+          onClose={() => setSavingStep(null)}
+        />
+      )}
       <Modal
         open={isConfirmingDelete}
         onClose={() => setIsConfirmingDelete(false)}

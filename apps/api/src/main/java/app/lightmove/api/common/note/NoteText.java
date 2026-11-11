@@ -45,18 +45,20 @@ public final class NoteText {
         if (body == null) {
             return null;
         }
-        String words = NoteMentionTokens.plainTextOf(body);
-        return format == NoteFormat.MARKDOWN ? RENDERER.render(PARSER.parse(words)).strip() : words;
+        return format == NoteFormat.MARKDOWN ? wordsOf(body, RENDERER) : NoteMentionTokens.plainTextOf(body);
     }
 
     /** As {@link #plainTextOf}, paragraphs apart by a blank line, as a plain-text email writes them. */
     public static String plainEmailTextOf(String markdown) {
-        return markdown == null ? null
-                : EMAIL_RENDERER.render(PARSER.parse(NoteMentionTokens.plainTextOf(markdown))).strip();
+        return markdown == null ? null : wordsOf(markdown, EMAIL_RENDERER);
     }
 
     public static String forPrompt(String body) {
         return body == null ? null : NoteMentionTokens.plainTextOf(body);
+    }
+
+    private static String wordsOf(String markdown, TextContentRenderer renderer) {
+        return renderer.render(PARSER.parse(NoteMentionTokens.plainTextOf(markdown))).strip();
     }
 
     /**

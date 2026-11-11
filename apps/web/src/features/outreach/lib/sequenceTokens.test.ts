@@ -7,9 +7,11 @@ import {
   renderParts,
   templateTokenOptions,
   tokenOptions,
+  tokenGapsIn,
   tokenUsesIn,
   unfilledIn,
   unknownIn,
+  withoutToken,
 } from "./sequenceTokens";
 
 const TOKENS = {
@@ -125,5 +127,27 @@ describe("sequence tokens", () => {
       { text: "{{ signature }}", isOpener: false, isSignature: true },
     ]);
     expect(render("Re: {{signature}}", TOKENS, null)).toBe("Re: {{signature}}");
+  });
+
+  it("reads a fallback saved from the notes editor without its Markdown escapes", () => {
+    const saved = "Dear {{currentTitle\\|a \\*senior\\* leader}}";
+    expect(tokenUsesIn(saved)).toEqual([{ name: "currentTitle", fallback: "a *senior* leader" }]);
+    expect(render(saved, { ...TOKENS, currentTitle: null }, null)).toBe("Dear a *senior* leader");
+  });
+
+  it("names each person's blanks and fallbacks across a sequence's texts, a blank anywhere winning", () => {
+    const texts = ["For {{location|you}}", "In {{location}}?", "Hi {{firstName|there}}", null];
+    expect(tokenGapsIn(texts, { ...TOKENS, location: null, firstName: null })).toEqual({
+      blanks: ["location"],
+      fallbacks: ["firstName"],
+    });
+    expect(tokenGapsIn(texts, TOKENS)).toEqual({ blanks: [], fallbacks: [] });
+  });
+
+  it("takes a token out by the one grammar, a fallback included, with the blank lines before a sign-off", () => {
+    expect(withoutToken("Thanks,\n\n{{signature}}", "signature")).toBe("Thanks,");
+    expect(withoutToken("Thanks,\n\n{{ signature|Best }}\n\nP.S. Soon", "signature")).toBe("Thanks,\n\nP.S. Soon");
+    expect(withoutToken("Hi {{firstName}}, {{signature}} again", "signature")).toBe("Hi {{firstName}},  again");
+    expect(withoutToken("Hi {{firstName}}", "signature")).toBe("Hi {{firstName}}");
   });
 });
