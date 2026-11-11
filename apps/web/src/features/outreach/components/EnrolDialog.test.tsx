@@ -164,10 +164,7 @@ describe("EnrolDialog", () => {
     expect(screen.getByText("1 to add · 4 skipped")).toBeInTheDocument();
   });
 
-  it("draws the default, the token taken out of the words, and starts without choosing a signature", async () => {
-    vi.mocked(sequenceApi.getSequences).mockResolvedValue([
-      { ...SEQUENCE, steps: [{ ...SEQUENCE.steps[0], body: "Hi {{firstName}},\n\n{{opener}}\n\nBye\n{{signature}}" }] },
-    ]);
+  it("ticks the sender's default under the email, on every email of the run, and starts with it", async () => {
     vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
       signatures: [{ ...SIGNATURE, id: "sig-formal", name: "Formal", isDefault: true }],
       sources: SIGNATURE_SOURCES,
@@ -177,14 +174,65 @@ describe("EnrolDialog", () => {
     renderDialog();
     await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
 
-    expect(await screen.findAllByTitle("Signature")).toHaveLength(1);
-    expect(screen.queryByText("{{signature}}", { exact: false })).not.toBeInTheDocument();
+    expect(await screen.findByRole("checkbox", { name: "Include signature" })).toBeChecked();
+    expect(screen.getByText("on every email of the sequence")).toBeInTheDocument();
+    expect(screen.getByTitle("Signature")).toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "Signature" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Next" }));
     await userEvent.click(await screen.findByRole("button", { name: "Start sequence" }));
 
     await waitFor(() =>
-      expect(sequenceApi.startSequence).toHaveBeenCalledWith("p1", "s1", expect.any(Array), expect.any(Object)),
+      expect(sequenceApi.startSequence).toHaveBeenCalledWith(
+        "p1",
+        "s1",
+        expect.any(Array),
+        expect.any(Object),
+        "sig-formal",
+      ),
+    );
+  });
+
+  it("starts the run unsigned once Include signature is unticked", async () => {
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
+      signatures: [{ ...SIGNATURE, id: "sig-formal", name: "Formal", isDefault: true }],
+      sources: SIGNATURE_SOURCES,
+      limit: 10,
+    });
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
+    renderDialog();
+    await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
+    await userEvent.click(await screen.findByRole("checkbox", { name: "Include signature" }));
+
+    expect(screen.queryByTitle("Signature")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Start sequence" }));
+
+    await waitFor(() =>
+      expect(sequenceApi.startSequence).toHaveBeenCalledWith("p1", "s1", expect.any(Array), expect.any(Object), null),
+    );
+  });
+
+  it("starts the run with another signature where the sender keeps more than one", async () => {
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
+      signatures: [{ ...SIGNATURE, id: "sig-formal", name: "Formal", isDefault: true }, { ...SIGNATURE, id: "sig-short", name: "Short" }],
+      sources: SIGNATURE_SOURCES,
+      limit: 10,
+    });
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
+    renderDialog();
+    await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
+    await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Signature" }), "sig-short");
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Start sequence" }));
+
+    await waitFor(() =>
+      expect(sequenceApi.startSequence).toHaveBeenCalledWith(
+        "p1",
+        "s1",
+        expect.any(Array),
+        expect.any(Object),
+        "sig-short",
+      ),
     );
   });
 
@@ -219,64 +267,40 @@ describe("EnrolDialog", () => {
     expect(await screen.findByRole("button", { name: "Start sequence" })).toBeEnabled();
   });
 
-  it("leaves no blank lines above the signature of a first email with no opener, and a subject as the server sends it", async () => {
+  it("leaves no blank lines at the end of a first email with no opener", async () => {
     vi.mocked(sequenceApi.getSequences).mockResolvedValue([
-      {
-        ...SEQUENCE,
-        steps: [{ ...SEQUENCE.steps[0], subject: "Quick note {{signature}}", body: "Hi {{firstName}},\n\nBye\n\n{{signature}}" }],
-      },
+      { ...SEQUENCE, steps: [{ ...SEQUENCE.steps[0], body: "Hi {{firstName}},\n\nBye\n\n" }] },
     ]);
-    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
-      signatures: [{ ...SIGNATURE, id: "sig-formal", name: "Formal", isDefault: true }],
-      sources: SIGNATURE_SOURCES,
-      limit: 10,
-    });
     vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
     renderDialog();
     await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
 
-    expect(await screen.findByTitle("Signature")).toBeInTheDocument();
-    expect(screen.getByText("Hi Priya,\n\nBye", { normalizer: (text) => text })).toBeInTheDocument();
-    expect(screen.getByText("Quick note {{signature}}")).toBeInTheDocument();
+    expect(await screen.findByText("Hi Priya,\n\nBye", { normalizer: (text) => text })).toBeInTheDocument();
   });
 
-  it("signs off with the sender's first name where they keep no signature", async () => {
-    vi.mocked(sequenceApi.getSequences).mockResolvedValue([
-      { ...SEQUENCE, steps: [{ ...SEQUENCE.steps[0], body: "Hi {{firstName}},\n\n{{opener}}\n\nBye\n{{signature}}" }] },
-    ]);
+  it("offers Settings where the sender keeps no signature, and starts the run unsigned", async () => {
     vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
     renderDialog();
     await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
 
-    expect(await screen.findByText(/^Bye\s+Yara$/)).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Add one in Settings" })).toBeInTheDocument();
     expect(screen.queryByTitle("Signature")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Start sequence" }));
+
+    await waitFor(() =>
+      expect(sequenceApi.startSequence).toHaveBeenCalledWith("p1", "s1", expect.any(Array), expect.any(Object), null),
+    );
   });
 
-  it("draws no signature where the first email places none", async () => {
-    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
-      signatures: [{ ...SIGNATURE, id: "sig-formal", name: "Formal", isDefault: true }],
-      sources: SIGNATURE_SOURCES,
-      limit: 10,
-    });
-    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
-    renderDialog();
-    await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
-
-    expect(await screen.findByText("Bye")).toBeInTheDocument();
-    expect(screen.queryByTitle("Signature")).not.toBeInTheDocument();
-  });
-
-  it("says the default still signs the run when the signatures cannot be read here", async () => {
-    vi.mocked(sequenceApi.getSequences).mockResolvedValue([
-      { ...SEQUENCE, steps: [{ ...SEQUENCE.steps[0], body: "Hi {{firstName}},\n\n{{opener}}\n\nBye\n{{signature}}" }] },
-    ]);
+  it("says the run goes unsigned where the signatures cannot be read, and still lets it start", async () => {
     vi.mocked(signaturesApi.listSignatures).mockRejectedValue(new Error("offline"));
     vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
     renderDialog();
     await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
 
     expect(
-      await screen.findByText("Your signatures could not be read here. Your default signature still signs these emails."),
+      await screen.findByText("Your signatures could not be read, so every email of this sequence goes without one."),
     ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByRole("button", { name: "Start sequence" })).toBeEnabled();
@@ -315,7 +339,7 @@ describe("EnrolDialog", () => {
       expect(sequenceApi.startSequence).toHaveBeenCalledWith("p1", "s1", [
         { candidateId: "a", toAddress: "a@target.example", opener: "Your move into treasury stood out.", openerEdited: true },
         { candidateId: "b", toAddress: "b@target.example", opener: "Drafted for b.", openerEdited: false },
-      ], { startMode: "NOW", startAt: null }),
+      ], { startMode: "NOW", startAt: null }, null),
     );
     expect(sequenceApi.draftOpeners).toHaveBeenCalledTimes(1);
     expect(sequenceApi.draftOpeners).toHaveBeenCalledWith("p1", ["a", "b"]);
@@ -341,7 +365,7 @@ describe("EnrolDialog", () => {
       expect(sequenceApi.startSequence).toHaveBeenCalledWith("p1", "s1", expect.any(Array), {
         startMode: "AT",
         startAt: new Date(`${day}T19:30:00+04:00`).toISOString(),
-      }),
+      }, null),
     );
   });
 

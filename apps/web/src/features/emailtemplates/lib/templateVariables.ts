@@ -1,4 +1,9 @@
-import { templateTokenOptions, tokenNameOf, tokenUsesIn } from "../../outreach/lib/sequenceTokens";
+import {
+  SIGNATURE_NOT_IN_WORDS,
+  templateTokenOptions,
+  tokenNameOf,
+  tokenUsesIn,
+} from "../../outreach/lib/sequenceTokens";
 
 /** The variables a template may hold here: the sequence bar's, less the opener. */
 export function templateVocabulary(bookingLinkOffered: boolean): string[] {
@@ -11,7 +16,7 @@ export function templateVocabulary(bookingLinkOffered: boolean): string[] {
  */
 export function variableProblemOf(text: string, vocabulary: readonly string[]): string | null {
   for (const use of tokenUsesIn(text)) {
-    if (use.name === "signature") return "Leave {{signature}} out: Include signature adds yours when you send.";
+    if (use.name === "signature") return SIGNATURE_NOT_IN_WORDS;
     if (use.name === "opener") return "{{opener}} is written for each person in a sequence, so a template cannot use it.";
     if (!vocabulary.includes(use.name)) {
       return `{{${use.name}}} isn't a variable Uncava can fill. Insert one from the Insert bar.`;

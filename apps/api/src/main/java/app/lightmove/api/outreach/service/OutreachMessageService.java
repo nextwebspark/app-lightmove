@@ -87,8 +87,7 @@ public class OutreachMessageService {
         // Drawn now, outside any transaction (a logo's first copy is a call to another host), and kept with the email:
         // what is scheduled goes as it was previewed, whatever becomes of the signature later. A signature showing Book a
         // call has its page made first, as a body using the link does.
-        String signatureHtml = request.signatureId() == null ? ""
-                : signatures.requireRenderedForSending(userId, workspaceId, request.signatureId()).html();
+        String signatureHtml = signatures.htmlForSending(userId, workspaceId, request.signatureId()).orElse("");
         List<StagedAttachment> staged = attachments.stage(workspaceId, projectId, candidateId, files,
                 request.documentVersionIds());
         OutreachMessage scheduled;

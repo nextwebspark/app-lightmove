@@ -332,20 +332,22 @@ are the Phase 0 plan, superseded: Phase 2 kept variables as typed in the compose
 
 ## G. With email signatures (#1157)
 
-*Since #1277 (on `main`, merged into this branch):* a **sequence step** may carry `{{signature}}`, which places the run's
-signature there (`SequenceTokens.SIGNATURE`). A template and an own email still refuse it, as below: their signature is
-Include signature's, placed after the words. So the template and composer Insert bar is the sequence bar less the opener
-and the signature (`templateTokenOptions`), and Phase 3's From template never brings one into a step.
+*Revised 2026-11-11:* no email holds a signature in its words — not a template, not an own email, not a sequence step.
+#1277's step token is retired (V207 took it out of every stored step), and Add to sequence carries the composer's own
+Include signature, so the run's chosen signature closes every email of it (`docs/email-signatures.md`, decision 4). The
+template and composer Insert bar is the sequence bar less the opener (`templateTokenOptions`), and neither offers a
+signature.
 
 - **A template never holds a signature.** The signature stays the composer's Include signature choice, appended after
   the body when the email is written, exactly as today (`SendMessageRequest.signatureId` →
-  `signatures.requireRenderedForSending`). Applying a template never changes that choice or the picked signature.
-- **`{{signature}}` is refused at save**, with a field error saying Include signature adds it. #1157 kept that token
-  "later, not planned".
+  `EmailSignatureService.htmlForSending`). Applying a template never changes that choice or the picked signature.
+- **`{{signature}}` is refused at save**, with a field error saying Include signature adds it (`SignatureTokenRefusal`, which
+  a sequence step's save shares).
 - **A shared template closes with the signature of whoever sends it.** No template names a signature.
 - **The template editor draws the author's default signature greyed under the body** (`SignatureUnderEmail`), so the
   author sees the email as it will go out and leaves the sign-off to the signature.
-- **Sequences:** a step copied from a template still closes with the signature chosen at Start (`signature_html`).
+- **Sequences:** a step copied from a template is its words alone; the signature Include signature chose at Start closes
+  it (`signature_html`).
 
 ## H. Settings → Email templates
 
@@ -441,12 +443,9 @@ template".
 3. **Sequence steps (#1251).** *As built:* `StepTemplatePicker` inline in the step (the mockup's panel), the replace
    question only where the step holds words, `stepTemplates.ts` (`stepFromTemplate`, `stepRefusalOf`,
    `templateRefusalOf`), and `plainBody` now written paragraphs apart (`NoteText.plainEmailTextOf`, a blank line between
-   blocks) so a step reads as the template did. The copy closes in exactly one `{{signature}}` wherever the sequence
-   signs any step (`sequenceSigns`), a step cleared before the copy included: since #1277/#1281 a step placing none goes
-   unsigned, so a copy without it would unsign the step; a signature in the template's own words is dropped first
-   (`withoutToken`, the engine's one grammar). A fallback is read without the Markdown escapes the notes editor's
-   serializer adds (`{{currentTitle\|a \*senior\* leader}}` fills "a *senior* leader"), on both twins. Save as template leaves the step's
-   `{{signature}}` out and writes the plain text through `plainEmailDoc` (a paragraph per blank line, a hard break per
+   blocks) so a step reads as the template did. The copy is the template's words alone (revised 2026-11-11: the
+   `{{signature}}` it once closed with, `sequenceSigns` and `withoutToken` went with the step token). A fallback is read without the Markdown escapes the notes editor's
+   serializer adds (`{{currentTitle\|a \*senior\* leader}}` fills "a *senior* leader"), on both twins. Save as template writes the plain text through `plainEmailDoc` (a paragraph per blank line, a hard break per
    line). `renderParts` gained an `isFallback` part; `FilledVariable` draws a blank red and a fallback underlined in the
    template picker, the sequence preview and the review, which also flags each person "N blank" or "Fallback" across
    every step and says which under the email.
