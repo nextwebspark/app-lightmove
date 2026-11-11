@@ -1388,7 +1388,10 @@ then bought; soonest expiry first), `app_lm_credit_hold` (one per paid action, u
 workspace), `app_lm_credit_entry` (append-only by trigger, and by `harden.sql` like the audit trail) and
 `app_lm_credit_balance`, the per-workspace sum of the entries whose row every ledger write locks first.
 `CreditLedger` is the only door; `lightmove.billing.enforce` (on since #741; the test profile turns it off) refuses a
-spend the credits cannot cover with 402 `INSUFFICIENT_CREDITS`, and off records it as an overdraft. Every ledger write expires the workspace's lapsed grants first (an `EXPIRE` line,
+spend the credits cannot cover with 402 `INSUFFICIENT_CREDITS`, and off records it as an overdraft. Off is billing
+switched off for every workspace (`BILLING_ENFORCE`, prod's demo setting): no credit, trial, seat or fair-use refusal,
+no billing email but a failed payment, and `GET /billing`'s `enforced` hides the chip, prices, seat cost and
+Settings → Billing; finds still drain the month's credits and claim its low-credit warnings. Every ledger write expires the workspace's lapsed grants first (an `EXPIRE` line,
 never a delete), and `CreditLedgerSweeper` (`lightmove.billing.sweep-interval`) does the same for idle workspaces and
 releases holds nobody settled within `hold-ttl`. Billing's foreign keys to the workspace do not cascade: a financial record outlives it.
 A Find email or Find phone press (#737) holds its price before ContactOut is asked — keyed on the person, the channel

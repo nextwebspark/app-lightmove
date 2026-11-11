@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Avatar, Button, CardsSkeleton, LinesSkeleton, useToast } from "../../../components/ui";
@@ -45,7 +45,7 @@ const CARD_STALE_MS = 60_000;
 /**
  * Settings → Billing (`Billing.dc.html`): the plan, this month's contact credits, who spent them, and how the
  * workspace pays. Every staff member reads it; only an admin is offered seats or more credits. Quiet until 80% of
- * the month's credits are used.
+ * the month's credits are used. Where the deployment has switched billing off it leads back to Settings.
  */
 export function SettingsBillingPage() {
   const isAdmin = useIsWorkspaceAdmin();
@@ -57,6 +57,8 @@ export function SettingsBillingPage() {
     queryKey: billingApi.BILLING_USAGE_KEY,
     queryFn: ({ signal }) => billingApi.getBillingUsage(signal),
   });
+
+  if (billing.data && !billing.data.enforced) return <Navigate to="/settings" replace />;
 
   return (
     <>

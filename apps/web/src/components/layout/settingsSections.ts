@@ -24,14 +24,17 @@ export interface SettingsSection {
   leavesShell?: string;
   /** Only where the deployment offers the people controls (`/data-protection/config`). */
   dataProtection?: boolean;
+  /** Offered only while the deployment bills (`GET /billing`'s `enforced`). */
+  billing?: boolean;
 }
 
 /** What this deployment offers, beside who the caller is. */
 export interface SettingsOffers {
   dataProtection: boolean;
+  billing: boolean;
 }
 
-const NOTHING_OFFERED: SettingsOffers = { dataProtection: false };
+const NOTHING_OFFERED: SettingsOffers = { dataProtection: false, billing: false };
 
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { to: "/settings/profile", label: "Profile", icon: ICONS.profile, group: "Your account" },
@@ -62,7 +65,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     everyStaff: true,
   },
   { to: "/settings/integrations", label: "Integrations", icon: ICONS.plug, group: "Workspace" },
-  { to: "/settings/billing", label: "Billing", icon: ICONS.card, group: "Workspace", everyStaff: true },
+  { to: "/settings/billing", label: "Billing", icon: ICONS.card, group: "Workspace", everyStaff: true, billing: true },
   { to: "/settings/templates", label: "Templates", icon: ICONS.file, group: "Workspace" },
   { to: "/settings/data", label: "Data & retention", icon: ICONS.database, group: "Workspace", dataProtection: true },
   { to: "/settings/template-library", label: "Template library", icon: ICONS.position, group: "Platform" },
@@ -84,6 +87,7 @@ export function visibleSettingsSections(
   const isLibraryEditor = user?.platformActions.includes("TEMPLATE_LIBRARY_MANAGE") ?? false;
   return SETTINGS_SECTIONS.filter((section) => {
     if (section.dataProtection && !offers.dataProtection) return false;
+    if (section.billing && !offers.billing) return false;
     if (section.group === "Platform") return isLibraryEditor;
     if (section.group === "Workspace") return !isClient && (isAdmin || !!section.everyStaff);
     return !(isClient && section.staffOnly);

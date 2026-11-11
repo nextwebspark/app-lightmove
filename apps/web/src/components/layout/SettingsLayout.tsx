@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { isPureClient } from "../../features/auth/roles";
+import { useBillingOffered } from "../../features/billing/lib/useBilling";
 import { useDataProtection } from "../../features/candidates/lib/useDataProtection";
 import { cn } from "../../lib/cn";
 import { AppShell } from "./AppShell";
@@ -29,10 +30,14 @@ export function SettingsLayout() {
   const { pathname } = useLocation();
   const { user } = useAuth();
   const { offered: dataProtection } = useDataProtection();
+  const { offered: billing } = useBillingOffered();
 
-  useEffect(() => rememberSettingsSection(user, pathname, { dataProtection }), [user, pathname, dataProtection]);
+  useEffect(
+    () => rememberSettingsSection(user, pathname, { dataProtection, billing }),
+    [user, pathname, dataProtection, billing],
+  );
 
-  const visible = visibleSettingsSections(user, { dataProtection });
+  const visible = visibleSettingsSections(user, { dataProtection, billing });
   const groups: SidebarGroup[] = GROUP_ORDER.map((group) => ({
     label: group,
     items: visible
@@ -72,7 +77,13 @@ const GROUP_ORDER: SettingsGroupLabel[] = ["Your account", "Workspace", "Platfor
 export function SettingsLanding() {
   const { user } = useAuth();
   const dataProtection = useDataProtection();
-  // A remembered Data & retention is only reachable once the deployment says it is offered.
-  if (dataProtection.isPending) return null;
-  return <Navigate to={settingsLandingOf(user, { dataProtection: dataProtection.offered })} replace />;
+  const billing = useBillingOffered();
+  // A remembered Data & retention or Billing is only reachable once the deployment says it is offered.
+  if (dataProtection.isPending || billing.isLoading) return null;
+  return (
+    <Navigate
+      to={settingsLandingOf(user, { dataProtection: dataProtection.offered, billing: billing.offered })}
+      replace
+    />
+  );
 }
