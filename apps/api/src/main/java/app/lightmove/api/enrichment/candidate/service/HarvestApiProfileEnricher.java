@@ -68,8 +68,7 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
         }
 
         if (envelope == null || envelope.element() == null) {
-            log.debug("HarvestAPI answered without a profile for {}: {}", linkedinUrl,
-                    envelope == null ? null : envelope.error());
+            log.debug("HarvestAPI answered without a profile: {}", envelope == null ? null : envelope.error());
             return Optional.empty();
         }
         EnrichedProfile enriched = toEnrichedProfile(envelope.element());

@@ -10,10 +10,11 @@ None of it is behind `DATA_PROTECTION_ENABLED`. It is hygiene, not a feature.
 | Piece | PR | Branch | Base |
 |---|---|---|---|
 | Audit details hold ids only | #1276 | `feature/927-audit-ids-only` | `main` |
-| Mask personal data in deployed logs | #1279 | `feature/927-log-masking` | #1276 (stacked) |
+| Mask personal data in deployed logs | #1279 | `feature/927-log-masking` | `main` |
 | Backups, PITR, encryption, log retention (docs only) | #1280 | `docs/927-backups` | `main` |
 
-**Merge order:** #1276 first. #1279 then retargets to `main`. #1280 is independent and can merge at any time.
+**Merge order:** #1276 first, then #1279, which was built on it and has since been merged with `main`. #1280 is
+independent and can merge at any time.
 
 ---
 
@@ -91,19 +92,30 @@ They are kept on a workspace switch, so a draft survives it.
   through `MaskingJsonGeneratorDecorator` in `logback-spring.xml`, and reads only the `message` and `stack_trace`
   fields:
   - emails become `[email removed]`;
-  - `linkedin.com/in/…` links become `[profile removed]`;
-  - phones written with a leading `+` become `[phone removed]`.
+  - LinkedIn profile links become `[profile removed]`: under `/in/` or the older `/pub/`, any subdomain, any case, and
+    percent-encoded as a query value (`linkedin.com%2Fin%2F…`, as a vendor's request line quotes it);
+  - phones written with a leading `+` and at least 8 digits become `[phone removed]`. There is no upper bound, so a
+    phone followed by a year or a count (`+971 50 123 4567 2026`) is masked with it rather than handed back.
+- **It costs next to nothing on an ordinary line.** Each pass runs only when the line holds `linkedin`, `@` or `+`.
+  The email and profile patterns start a match only where an address or a host name does
+  (`ContactRedaction.EMAIL`'s lookbehind matches the same addresses as before), so a long run of word characters, such
+  as base64 in a stack trace, is read in linear time rather than retried from every position.
 - **What it leaves alone:** the MDC fields (`correlationId`, `userId`, `workspaceId`, `projectId`) and the request
   line's numbers. A phone without a `+` is left too, because the looser rule reads a UUID's last group, or an epoch
   timestamp, as a phone number.
 - **The `local`, `test` and `e2e` profiles keep the plain console log, unmasked.** e2e reads emailed links out of it.
 - **The call sites stop logging contacts:**
-  - `ResendEmailSender` logs the subject and the recipient's domain, never the address;
+  - `ResendEmailSender` logs the recipient's domain alone (`EmailAddressValidator.domainOf`), never the address, and
+    no subject, since an invitation's or a mention's names a colleague;
   - the auto-verify warning in `AuthenticationService` logs the user id;
   - `HarvestApiProfileEnricher`, `BrightDataProfileEnricher` and `LogProfileEnricher` log no profile URL or slug.
 - `docs/production-observability.md` says what is masked, and that a person is found in the logs by their id.
 - **Tests** (`PersonalDataLogMaskerTest`):
   - it masks an address, a profile link and a `+971` number;
+  - it masks a `+` number followed by a year or a count;
+  - it masks a percent-encoded, a `/pub/` and an upper-case profile link;
+  - a 100,000-character line ending in `@`, `linkedin.com/` or `+` is masked within 1 s (`assertTimeoutPreemptively`).
+    This test was checked to fail against the old, unanchored email pattern;
   - it leaves a UUID, an epoch timestamp, `AED 1,200,000`, a company slug and a Stripe request id alone;
   - an encoder built like the deployed one masks the message and an exception's message, and leaves the MDC id;
   - `logback-spring.xml` itself, loaded with no profile active (the deployed case), masks through its `JSON` appender.
@@ -141,7 +153,7 @@ It also updates:
 ### Code and review
 
 - [ ] Review #1276, #1279 and #1280 (fable or codex).
-- [ ] Merge #1276, retarget #1279 to `main` and merge it, then merge #1280.
+- [ ] Merge #1276, then #1279, then #1280.
 - [ ] Run the e2e matrix after #1279 (`cd e2e && PROFILE=e2e ./run-all.sh`). It reads the local log.
 
 ### Ops steps after merge (by hand, in production)
@@ -223,7 +235,7 @@ request log Cloud Run writes, so the logs are only partly clean.
 ## 3. How to test it locally
 
 The steps below assume the branch under test is checked out: `feature/927-log-masking` holds both code PRs, since it is
-stacked on #1276.
+merged with `main`, which holds #1276.
 
 ### Automated tests
 

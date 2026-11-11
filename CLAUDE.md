@@ -1211,6 +1211,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **No token passthrough:** an MCP tool calls our services in-process as its `McpCaller`; a caller's token is never forwarded to another service, ours or a provider's.
 - **An API key reaches only `/api/v1/public/**`**, and `/api/v1/mcp` once it holds `mcp:use`; read-only, and never more than its scopes ∩ its owner's live permissions — re-read every call; a session token opens neither.
 - **Auth errors are deliberately vague** — one sentence, one timing, for every password-login failure.
+- **A log line names a person by id, never by address** — the deployed JSON encoder masks emails, LinkedIn profile links and `+`-dialled phones in every message and stack trace (`PersonalDataLogMasker`, #927), since Cloud Logging outlives an erasure; local, test and e2e keep the plain console, which e2e reads emailed links from (`docs/production-observability.md`).
 - **Two-factor is the person's, and every sign-in door asks `SignInCompletion`** — a right password, reset link or provider sign-in (the OAuth callback answers `?challenge=two-factor`, no token) from a factor holder earns the `lm_mfa_challenge` cookie, never a session; only the right code clears the lock.
 
 ## Database
