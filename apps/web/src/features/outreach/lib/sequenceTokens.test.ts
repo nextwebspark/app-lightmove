@@ -92,11 +92,28 @@ describe("sequence tokens", () => {
     expect(unfilledIn("{{location|here}}", { ...TOKENS, location: null })).toEqual([]);
   });
 
-  it("offers a template the sequence bar's tokens in its order, less the opener", () => {
+  it("offers a template the sequence bar's tokens in its order, less the opener and the signature", () => {
     expect(templateTokenOptions(true).map((option) => option.token)).toEqual(
       tokenOptions(true)
         .map((option) => option.token)
-        .filter((token) => token !== "{{opener}}"),
+        .filter((token) => token !== "{{opener}}" && token !== "{{signature}}"),
     );
+  });
+
+  it("marks a blank with no fallback as its own empty part, so a preview can show where it falls", () => {
+    expect(renderParts("In {{location}}, {{location|here}}", { ...TOKENS, location: null }, null)).toEqual([
+      { text: "In ", isOpener: false },
+      { text: "", isOpener: false, isBlank: true, token: "location" },
+      { text: ", here", isOpener: false },
+    ]);
+    expect(render("In {{location}}.", { ...TOKENS, location: null }, null)).toBe("In .");
+  });
+
+  it("marks where the signature goes, leaving its token as typed in the words", () => {
+    expect(renderParts("Thanks,\n{{ signature }}", TOKENS, null)).toEqual([
+      { text: "Thanks,\n", isOpener: false },
+      { text: "{{ signature }}", isOpener: false, isSignature: true },
+    ]);
+    expect(render("Re: {{signature}}", TOKENS, null)).toBe("Re: {{signature}}");
   });
 });

@@ -442,7 +442,18 @@ people ranked. Every executive counts for whoever filed it (`added_by`, read thr
 `CandidateService.addedByOf`, never put on `CandidateResponse`, which a client seat also reads) and a
 company for whoever filed its first executive. The mock's confidence score, conversion funnel and
 per-company target have no row behind them, so they are not drawn: the drawers show a status *mix*,
-and quality is what is on file (a contact, a verified one, a base salary). A projects-list row opens
+and quality is what is on file (a contact, a verified one, a base salary). A fifth chapter, **Ranking**
+(the `reports` page's `chRank`), is staff-only too — `GET /projects/{id}/report/ranking`, `WORK_EXECUTE`, read
+through `CandidateScorecardService.rankingInputsOf`: every executive with a score against a current competency, draft
+or reviewed, at the brief's own weighting (the drawer's totals, an unscored competency earning nothing), the rest counted
+as not assessed, capped by `lightmove.report.max-ranked`. Beside it the position keeps **one shared scenario** (V204,
+`RankingService`, `PUT …/report/ranking/scenario`): a technical share and competency weights the team tries out, with
+a rationale, version-locked (`RANKING_SCENARIO_STALE`), refused once the brief's competencies move under it
+(`RANKING_BRIEF_CHANGED`), and cleared by saving the brief's own weighting. It never writes the brief, and v1 draws no
+per-competency minimum, since the brief records none. The order, the shifts and every sentence about them are the
+screen's, computed from those numbers — no model is asked (`features/reports/lib/ranking.ts`, `rankingWording.ts`; the
+leader's flip points are found exactly, a total being a line in the technical share), and the chapter is offered to
+staff alone, by link as by menu (`STAFF_ONLY_CHAPTERS`). A projects-list row opens
 the **position side panel** (`Workspace.dc.html`'s Position drawer): mapping progress as universe
 companies with an executive mapped (`mappedCompanies` of `companies` on `GET /projects`), key
 metrics, stage gates, the team and hiring managers, and **recent activity** — `GET
@@ -528,7 +539,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `task` and `notification` (epic #862, `docs/tasks-notifications.md`), `notetaker` (Recall.ai bots, `docs/notetaker.md`) |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `task` and `notification` (epic #862, `docs/tasks-notifications.md`), `notetaker` (Recall.ai bots, `docs/notetaker.md`), `account` (a person's own account: its export and deletion, #926) |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -862,13 +873,14 @@ cached for good and never logged (`RequestLogFilter` skips it; `ops/gcp/bootstra
 request log), counted or rate-limited per address (mail clients' image proxies fetch for everyone from a few). An image
 row outlives the avatar it was copied from, since a sent email names it. The composer's **Include signature** ticks the
 sender's default (a picker where they keep more than one; replies alike) and `SendMessageRequest.signatureId` draws it
-when the email is written, into the stored `body` only — `body_text` stays the consultant's words; Add to sequence's
-review picks one for the run (`StartSequenceRequest.signatureId`), drawn once at Start and frozen on each enrollment
-(V194 `signature_html`), so every step, follow-ups included, closes alike. Either way a signature showing Book a call
+when the email is written, into the stored `body` only — `body_text` stays the consultant's words; a sequence's every
+email carries the sender's default, drawn once at Start, where nothing is picked, and frozen on each enrollment (V194
+`signature_html`): where a step places `{{signature}}` (new sequences end every step in it), else closing the email, and
+a sender keeping none signs off with their first name at the token. Either way a signature showing Book a call
 has its page made before anything is written. The mailbox's test email carries the default, leaving Book a call out
 where its page cannot be made, since the test proves the mailbox and nothing else.
 
-**Email templates (V202, epic #1247, `docs/email-templates.md`; Phase 1 built)** are a consultant's saved emails and
+**Email templates (V205, epic #1247, `docs/email-templates.md`; Phases 1 and 2 built)** are a consultant's saved emails and
 replies, per workspace, in Settings → Email templates (`/me/email-templates`, staff only, `EmailTemplateService`):
 personal, or shared with the workspace, where every staff member applies or duplicates one and only its owner or a
 `WORKSPACE_MANAGE` holder edits, unshares or deletes it (`EMAIL_TEMPLATE_NOT_YOURS`); another's personal one reads as
@@ -882,8 +894,16 @@ in the same order, less the opener) and a variable is written and shown as typed
 pipe included, since the notes editor writes one. A template holds only the six and `bookingLink` (where booking pages
 are offered): `{{opener}}`, `{{signature}}`, an unknown name or a fallback on the link is `VALIDATION_FAILED` on its
 field. Sharing, unsharing and any edit or delete of a shared one are Outreach audit events named only while the
-template is still shared (`SharedEmailTemplateNames`); a personal one is unaudited. `app_lm_outreach_message
-.template_id` (SET NULL) is in place for the composer (Phase 2) to write; nothing writes it yet.
+template is still shared (`SharedEmailTemplateNames`); a personal one is unaudited. **The composer** (`ReplyComposer`,
+so Write email, the Outreach reply and New email alike) carries the same Insert bar, a **Templates** picker beside
+Attach (`TemplatePicker`: search, Recently used — the caller's five, from `app_lm_outreach_message.template_id` — Mine,
+Shared with the owner's face, and a preview with this executive's values) whose foot saves the words as a template
+(`SaveAsTemplateDialog`, never the signature). A template goes into an empty editor as the body and into words at the
+cursor (`NoteEditorHandle.insertDoc`); a first email takes its subject only while its own is empty, a reply never;
+Include signature is left alone. The conversation read's `composer.tokens` is the executive's values: a variable with
+none and no fallback, or one no email fills, is named under the editor and holds Send, and the server refuses the same
+with `OUTREACH_TOKENS_UNFILLED` (409, `tokens`), a first email's subject filled on one line (`renderLine`). The email
+records the template it came from (`templateId`), only one the sender may see in this workspace, else null.
 
 **The Notetaker (V151, `docs/notetaker.md`, `notetaker`)** is a Recall.ai bot a consultant sends into a kept call from
 the executive drawer's Meetings section (`WORK_EXECUTE`, only on a call on the caller's own calendar or booked by them,
@@ -968,6 +988,56 @@ since archiving those is their leads' call. It leaves the registry's list (`GET 
 and the New position picker; nothing is opened or restored under it (`CLIENT_ARCHIVED`, the record row locked
 against a racing archive), and its name stays held (`CLIENT_NAME_ARCHIVED`, kept apart from
 `CLIENT_ALREADY_EXISTS`, whose caller reuses the record it names).
+
+**A workspace is deleted with a grace period, then purged (#926, V202).** `DELETE /workspace` (the name typed back)
+ends access at once — every membership ended (`ended_with_workspace`), invitations revoked, API keys and AI apps
+revoked, live runs stopped `WORKSPACE_DELETED` and waiting emails cancelled in the same transaction
+(`WorkspaceDeleted` → `WorkspaceDeletionOutreach`), every Notetaker bot called off and queued for
+`RecallBotErasureSweeper` there too, and once it commits every mailbox and Zoom account let go at its provider — its row kept, `ERROR`, until the provider
+answers the revoke, since it is the only copy of the grant — and a Stripe subscription set to cancel at the period's end
+(`WorkspaceBillingClosure`; no month's credits are granted to a deleted workspace). It stamps `purge_after`
+(`lightmove.retention.deleted-workspaces-after`, 30 days ⚖️) and the deleting admin's address, captured because nobody
+can sign in by the purge. `WorkspacePurge` claims a due workspace on `app_lm_workspace` (no policy) with a committed
+lease renewed every batch, and inside its `WorkspaceScope` empties every table carrying `workspace_id` but `WorkspacePurgeTables.RETAINED`
+(the audit trail, the credit ledger and billing records, kept by id) — read off the schema, children first by the
+foreign keys, so a new tenant table is purged without anyone listing it — after each `WorkspacePurgeContributor`
+(Recall's media, a grant the deletion could not revoke) — one still holding something fails the attempt, retried
+after the lease, until `WorkspacePurge.RELEASE_PATIENCE` (7 days) from the purge's start; deletes every file under `ws/{id}/`
+(`DocumentStore.deletePrefix`); refuses to finish while any row is left; scrubs the row into a tombstone (ids kept,
+every word naming the firm gone); and completes `app_lm_workspace_purge_certificate` — counts per table taken at its
+first attempt, files, times, no name, and the SHA-256 of its body — audits `WORKSPACE_PURGED` and emails it — owed,
+the address and the firm's name kept on the tombstone (`purge_notice_name`), until the mail service accepts it or a week
+has passed. An export finishing after its row went is queued for deletion. A platform
+admin (`WORKSPACE_LIFECYCLE_MANAGE`) restores a workspace and the memberships its deletion ended until the purge
+starts (`POST /platform/workspaces/{id}/restore`; mailboxes, keys and invitations stay gone) and reads the certificate
+(`GET …/purge-certificate`), resolve-then-scope. **Export workspace data** (Settings → Data & retention, so only where
+`DATA_PROTECTION_ENABLED` offers that page; `WORKSPACE_MANAGE`, audited start and download) builds one zip at a time off the request
+(`WorkspaceExportWorker` → `WorkspaceArchiveWriter`, streamed into the store through `core/export`'s
+`ZipArchiveWriter`, which #919 reuses): every position with its brief and its three Companies stages as the staff grid
+exports them, the Candidates CSV, each person's notes and the latest file of each document, and the whole audit log;
+the admin is emailed, and `WorkspaceExportExpiry` (V202's resolver) deletes it `workspace-exports-after` (7 days ⚖️)
+later, or fails one whose worker died.
+
+**A person deletes their own account (#926, V203)** from Settings → Profile (`account`): `GET
+/auth/me/deletion-preview` names the workspaces they leave and refuses — `ACCOUNT_HANDOVER_REQUIRED`, naming them —
+while they are the only admin of one or the only lead of a live position (read in that workspace's scope); `DELETE
+/auth/me` asks the password, and a code where two-factor is on, or for an account with none a sign-in within
+`lightmove.auth.mfa.recent-sign-in` (`ACCOUNT_SIGN_IN_AGAIN`; the dialog offers the provider's popup). In one
+transaction — each workspace's roster lock taken first, in id order, so a workspace's last two admins (or a
+position's last two leads) deleting at once cannot both pass the handover — every membership ends through
+`MemberService`'s removal (audited `MEMBER_REMOVED`, reason `MemberRemovalReason.ACCOUNT_DELETED`; keys, AI apps and
+seats with it), each workspace in `WorkspaceScope.runInJoinedTransaction` and
+flushed there; each `AccountDeletionContributor` — declared in `account`, implemented where the rows live — deletes the
+person's own rows in every workspace they ever joined (the bell, its settings and digests, working hours, a mailbox
+connect in flight, assistant chats); `AccountCredentialErasure` deletes sessions, sign-ins, links, the second factor, the stored photo and its signature
+copies (`app_lm_email_image`, their files queued for `StorageDeletionSweeper`);
+and the `app_lm_user` row is anonymised in place ("Former member", `deleted-<id>@deleted.invalid`, `deleted_at`), so
+what they did stays the workspace's and still resolves. Once it commits, the confirmation goes to the former address and
+mailboxes and Zoom accounts are let go at the provider in transactions of their own; the access token that outlives it
+reads 404 on the deletion preview, the export, a second deletion and the profile write. **Download my data** (`GET /auth/me/export`, audited `ACCOUNT_DATA_EXPORTED`) is
+the account as JSON — profile, consents, sign-in methods, two-factor, every membership with its personal keys and AI
+apps, sessions and a year of sign-ins, each workspace read in its own scope; what they added inside a workspace is its
+admin's to export.
 
 **The customer audit log (#1083)** is Settings → Security's Audit log tab, an admin's alone: `GET
 /workspace/audit-events` (cursor-paged; actor, Category, outcome and a date range), `…/people` (everyone the workspace
@@ -1553,7 +1623,7 @@ overrides; one default per person per workspace by partial unique index), both u
 a photo row, account data with no workspace, read wherever its person signs in — and `app_lm_resolve_email_image`, the
 public picture route's resolver.
 V194 adds `app_lm_outreach_enrollment.signature_html` — the signature Start drew for the run; null sends none.
-V202 adds `app_lm_email_template` (owner and workspace, both cascading; `shared_at` null is personal; `updated_by` the
+V205 adds `app_lm_email_template` (owner and workspace, both cascading; `shared_at` null is personal; `updated_by` the
 last editor; one-line subject and non-blank body by CHECK) under forced row-level security, its owner and shared
 indexes, and `app_lm_outreach_message.template_id` (SET NULL, partial index) — the template an own email came from.
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
@@ -1562,9 +1632,21 @@ in the same migration.
 V196 seeds `PERSON_ERASE` to ADMIN alone and adds `app_lm_storage_deletion` (a bucket key per row, its attempts and
 next attempt; global by design, so outside row-level security), drained by `StorageDeletionSweeper`
 (`lightmove.storage.deletion-sweep-interval`) with a back-off to a day, never giving up.
+V204 adds `app_lm_ranking_scenario` — a position's one ranking scenario (unique per project, composite key to the
+project's): `technical_share`, `weights` (competency match key → weight), `saved_against` (the brief's weighting at the
+save) and an optional `rationale`; no row, or one cleared back to the brief's weighting (kept so its version keeps
+climbing), is the brief's own weighting, and what a scenario left at the brief's weight or share follows later brief edits. Forced row-level security in the same migration.
 V197 adds `app_lm_recall_bot_erasure` — an erased or restricted person's Recall bots (bot id, whether to call it back, whether its
 media is still held), global for V196's reason, drained by `RecallBotErasureSweeper`
 (`lightmove.recall.bot-erasure-sweep-interval`) with a back-off to an hour, given up only past Recall's 7-day retention.
+V202 gives `app_lm_workspace` its deletion and purge columns (`deleted_at`/`deleted_by`, `purge_after`,
+`purge_notice_email` with the `purge_notice_name` its certificate email gives, `purge_started_at`, the claim's `purge_claimed_until`, `purged_at`; a workspace deleted before it
+was given 30 days from the deploy), `app_lm_workspace_member.ended_with_workspace`, `WORKSPACE_DELETED` among the
+enrollment's stop reasons, `app_lm_workspace_export` and `app_lm_workspace_purge_certificate` (both under forced
+row-level security; the certificate is never purged), the resolver `app_lm_resolve_workspace_exports_to_close`, and the
+platform action `WORKSPACE_LIFECYCLE_MANAGE`.
+V203 gives `app_lm_user` `deleted_at` (set only on a `DELETED` account, by CHECK): account deletion anonymises the row
+rather than deleting it.
 V168 adds `app_client_id` to `app_lm_mailbox_connection` and `app_lm_zoom_connection` — the OAuth client a direct
 mailbox or a Zoom account was connected through; null for a Nylas mailbox and for every row before it (no backfill
 could tell which app it was), recorded by the first refresh an app answers — and clears a secret expiry left on a

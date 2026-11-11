@@ -45,6 +45,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
     private final List<String> redeemedCodes = new CopyOnWriteArrayList<>();
     private volatile GrantedMailbox granted = new GrantedMailbox("grant-1", "consultant@firm.example", "google");
     private volatile RuntimeException sendFailure;
+    private volatile RuntimeException revokeFailure;
     private volatile Runnable whileSending;
     private volatile boolean offered = true;
     private final AtomicInteger sequence = new AtomicInteger();
@@ -328,7 +329,15 @@ public class RecordingMailboxGateway implements MailboxGateway {
 
     @Override
     public void revoke(ReleasedGrant released) {
+        if (revokeFailure != null) {
+            throw revokeFailure;
+        }
         revoked.add(released.grantId());
+    }
+
+    /** Every revoke fails with this from here on; null lets them through again. */
+    public void failRevokesWith(RuntimeException failure) {
+        this.revokeFailure = failure;
     }
 
     public void grant(GrantedMailbox mailbox) {
@@ -366,6 +375,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
         redeemedCodes.clear();
         granted = new GrantedMailbox("grant-1", "consultant@firm.example", "google");
         sendFailure = null;
+        revokeFailure = null;
         whileSending = null;
         offered = true;
         threadOfMessage.clear();

@@ -60,13 +60,16 @@ public interface CreditGrantRepository extends JpaRepository<CreditGrant, UUID> 
     /**
      * Workspaces past {@code after} on a live plan with credits to grant and no month's grant in force now. A
      * subscription past due since before {@code graceStart} is not live until Stripe is paid, and the app's own trial
-     * gets its credits once, when it starts.
+     * gets its credits once, when it starts. A deleted workspace is granted nothing more: nobody can spend it, and its
+     * Stripe subscription ends with the period.
      */
     @Query(nativeQuery = true, value = """
             SELECT s.workspace_id
             FROM app_lm_workspace_subscription s
             JOIN app_lm_billing_plan p ON p.code = s.plan_code
+            JOIN app_lm_workspace w ON w.id = s.workspace_id
             WHERE s.workspace_id > :after
+              AND w.deleted_at IS NULL
               AND (s.status IN ('ACTIVE', 'TRIALING', 'INVOICED')
                    OR (s.status = 'PAST_DUE' AND s.past_due_since > :graceStart))
               AND NOT (s.status = 'TRIALING' AND s.stripe_subscription_id IS NULL)

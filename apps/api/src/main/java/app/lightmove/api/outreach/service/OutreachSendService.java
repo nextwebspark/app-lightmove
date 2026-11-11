@@ -221,9 +221,9 @@ public class OutreachSendService {
         int step = enrollment.getNextStep();
         if (step == 0) {
             return new RenderedEmail(new OutgoingEmail(enrollment.getToAddress(), enrollment.getFirstSubject(),
-                    OutreachEmailBody.htmlOf(enrollment.getFirstBody(), bookingPages.linkOf(mailbox))
-                            + enrollment.signatureHtmlOrEmpty()),
-                    enrollment.getFirstBody());
+                    OutreachEmailBody.htmlOf(enrollment.getFirstBody(), bookingPages.linkOf(mailbox),
+                            enrollment.getSignatureHtml())),
+                    OutreachEmailBody.withoutSignatures(enrollment.getFirstBody()));
         }
         SequenceStep followUp = sequence.getSteps().get(step);
         SenderContext sender = personalisation.senderContextOf(enrollment.getSenderUserId(),
@@ -233,12 +233,12 @@ public class OutreachSendService {
             sender = new SenderContext(sender.positionTitle(), sender.senderFirstName(),
                     bookingPages.claimLink(mailbox));
         }
-        String body = OutreachPersonalisation.tokensOf(recipient, sender, enrollment.getOpener())
-                .render(followUp.getBody());
+        String body = SequenceTokens.signedOff(OutreachPersonalisation.tokensOf(recipient, sender,
+                enrollment.getOpener()).render(followUp.getBody()), enrollment.getSignatureHtml(), sender.senderFirstName());
         return new RenderedEmail(new OutgoingEmail(enrollment.getToAddress(),
                 replySubjectOf(enrollment.getFirstSubject()),
-                OutreachEmailBody.htmlOf(body, sender.bookingLink()) + enrollment.signatureHtmlOrEmpty(),
-                enrollment.getLastMessageId()), body);
+                OutreachEmailBody.htmlOf(body, sender.bookingLink(), enrollment.getSignatureHtml()),
+                enrollment.getLastMessageId()), OutreachEmailBody.withoutSignatures(body));
     }
 
     private void recordSent(PreparedSend prepared, SentEmail sent, Instant now) {

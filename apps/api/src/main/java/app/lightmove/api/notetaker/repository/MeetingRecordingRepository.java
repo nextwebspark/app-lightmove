@@ -35,6 +35,10 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
     List<MeetingRecording> lockByWorkspaceIdAndPersonIdAndStatusIn(UUID workspaceId, UUID personId,
                                                                    Collection<NotetakerStatus> statuses);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from MeetingRecording r where r.workspaceId = :workspaceId and r.status in :statuses")
+    List<MeetingRecording> lockByWorkspaceIdAndStatusIn(UUID workspaceId, Collection<NotetakerStatus> statuses);
+
     List<MeetingRecording> findByStatusAndJoinAtAfter(NotetakerStatus status, Instant after);
 
     Optional<MeetingRecording> findByFinalTranscriptId(String finalTranscriptId);

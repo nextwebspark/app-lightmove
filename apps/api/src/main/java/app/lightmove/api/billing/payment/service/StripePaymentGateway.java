@@ -176,6 +176,17 @@ public class StripePaymentGateway implements PaymentGateway {
         }
     }
 
+    @Override
+    public void cancelAtPeriodEnd(String subscriptionId, boolean cancel) {
+        try {
+            client.v1().subscriptions().update(subscriptionId, SubscriptionUpdateParams.builder()
+                    .setCancelAtPeriodEnd(cancel)
+                    .build());
+        } catch (StripeException failure) {
+            throw unavailable(cancel ? "cancel the subscription" : "resume the subscription", failure);
+        }
+    }
+
     /**
      * Quiet on any failure: the page then says "Paid by card", which is still true. A legacy {@code default_source}
      * card is not read and reads the same way.

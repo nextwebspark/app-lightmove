@@ -49,6 +49,10 @@ public class OutreachMessage extends BaseEntity {
     @Column(name = "candidate_id", updatable = false)
     private UUID candidateId;
 
+    /** The email template it was written from, where the sender may still see it; set at write, never after. */
+    @Column(name = "template_id", updatable = false)
+    private UUID templateId;
+
     @Column(name = "enrollment_id", updatable = false)
     private UUID enrollmentId;
 
@@ -164,8 +168,10 @@ public class OutreachMessage extends BaseEntity {
      */
     public static OutreachMessage scheduled(UUID workspaceId, UUID projectId, UUID personId, UUID candidateId,
                                             UUID senderUserId, String fromAddress, String toAddress, String subject,
-                                            String html, String markdown, ThreadReply reply, Instant sendAt) {
+                                            String html, String markdown, ThreadReply reply, Instant sendAt,
+                                            UUID templateId) {
         OutreachMessage message = new OutreachMessage();
+        message.templateId = templateId;
         message.workspaceId = workspaceId;
         message.projectId = projectId;
         message.personId = personId;

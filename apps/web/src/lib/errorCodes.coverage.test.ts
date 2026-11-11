@@ -15,6 +15,7 @@ const HANDLED_ELSEWHERE: Record<string, string> = {
   MCP_CREDENTIAL_INVALID: "MCP server only",
   MCP_SCOPE_INSUFFICIENT: "MCP server only",
   MCP_REQUEST_TOO_LARGE: "MCP server only",
+  WORKSPACE_NOT_RESTORABLE: "a platform admin's restore, which has no screen: API only",
   MAILBOX_WEBHOOK_REJECTED: "the mail provider's webhook, never a browser",
   BILLING_WEBHOOK_REJECTED: "Stripe's webhook, never a browser",
   NOTETAKER_WEBHOOK_REJECTED: "Recall's bot webhook, never a browser",

@@ -14,6 +14,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
@@ -103,6 +105,27 @@ public class Workspace extends BaseEntity {
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
+    @Column(name = "deleted_by")
+    private UUID deletedBy;
+
+    /** When {@code WorkspacePurge} may delete everything; Uncava can restore the workspace until it starts. */
+    @Column(name = "purge_after")
+    private Instant purgeAfter;
+
+    /** Who the deletion certificate goes to; cleared by the purge once it is sent. */
+    @Column(name = "purge_notice_email")
+    private String purgeNoticeEmail;
+
+    /** Written by the purge's own SQL alone, so a save of this entity never puts back what it claimed. */
+    @Column(name = "purge_started_at", insertable = false, updatable = false)
+    private Instant purgeStartedAt;
+
+    @Column(name = "purged_at", insertable = false, updatable = false)
+    private Instant purgedAt;
+
     public static Workspace create(String name, String slug, String emailDomain, UUID createdBy,
                                    WorkspaceMode mode, WorkspaceCompany company) {
         Workspace workspace = new Workspace();
@@ -173,12 +196,36 @@ public class Workspace extends BaseEntity {
         }
     }
 
-    /** Soft delete — the row stays for the audit trail; the ACTIVE-filtered indexes stop seeing it. */
-    public void delete() {
+    /**
+     * Access ends now and everything goes after the grace period. The row stays for good: the audit trail and the
+     * billing records reference it, so the purge leaves it a tombstone rather than deleting it.
+     */
+    public void delete(UUID actorId, Instant now, Duration grace, String noticeEmail) {
         if (status == WorkspaceStatus.DELETED) {
             throw new ApiException(ErrorCode.CONFLICT, "Workspace is already deleted");
         }
         this.status = WorkspaceStatus.DELETED;
+        this.deletedAt = now;
+        this.deletedBy = actorId;
+        this.purgeAfter = now.plus(grace);
+        this.purgeNoticeEmail = noticeEmail;
+    }
+
+    /** Only within the grace period: once the purge has begun some of it is already gone. */
+    public void restore() {
+        if (status != WorkspaceStatus.DELETED || purgeStartedAt != null) {
+            throw new ApiException(ErrorCode.WORKSPACE_NOT_RESTORABLE,
+                    "Workspace " + getId() + " is " + status + ", purge started " + purgeStartedAt);
+        }
+        this.status = WorkspaceStatus.ACTIVE;
+        this.deletedAt = null;
+        this.deletedBy = null;
+        this.purgeAfter = null;
+        this.purgeNoticeEmail = null;
+    }
+
+    public boolean isDeleted() {
+        return status == WorkspaceStatus.DELETED;
     }
 
     private static PersonaSeed seedOf(WorkspaceCompany company) {

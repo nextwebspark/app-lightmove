@@ -253,11 +253,14 @@ dataexport/                # the Companies grid as a CSV — composes the same s
   constant/(ExportColumn)  model/(ExportRow)
   service/(CompaniesCsvWriter, ProjectExportService)  controller/(ProjectExportController)
 
-report/                    # the mandate's talent mapping report — four chapters over one read; owns nothing
-  model/(ReportSources, ExecutiveRow, ReportCalendar)
-  dto/(ReportResponse + one record per chapter and per row of it)
+report/                    # the mandate's talent mapping report — four chapters over one read, plus Ranking;
+                           # owns one table, the position's ranking scenario (V204), and never writes the brief
+  model/(ReportSources, ExecutiveRow, ReportCalendar, RankingScenario, BriefWeighting)
+  dto/(ReportResponse + one record per chapter and per row of it; RankingResponse, SaveRankingScenarioRequest)
+  repository/(RankingScenarioRepository)
   service/(ReportService, ReportSourceLoader, MappingProgressReporter, MarketShapeReporter,
-           RemunerationReporter, DiversityReporter, NationalityCatalog, Tally)  controller/
+           RemunerationReporter, DiversityReporter, NationalityCatalog, Tally,
+           RankingService, RankingScenarioRules)  controller/(ReportController, RankingController)
 ```
 
 **`enrichment/` is the one feature with a subject split above the type split.** People and companies
@@ -397,6 +400,9 @@ method plus the records it returns — never another feature's internals:
   and `project`'s repository for the mandate's dates. Every figure is aggregated at read time; there
   is no report table. It states what the rows carry and nothing more — no inferred gender, no
   pipeline outcome, no currency conversion — so a chapter never reports a guess as a finding.
+  The Ranking chapter reads `CandidateScorecardService.rankingInputsOf` (every assessment of the position
+  tallied by `ScorecardScoring`, which stays package-private in `candidate`) and `scoringBriefOf`, so its baseline
+  totals are the drawer's own.
   Nationality is the one thing it folds: `NationalityCatalog` counts a row's free-text value under
   one of eleven groups at read time — a country it resolves but no other group claims is Other
   expat — and never rewrites what is stored.

@@ -1,3 +1,4 @@
+import type { JSONContent } from "@tiptap/core";
 import { lazy, Suspense, type MutableRefObject, type ReactNode } from "react";
 import { cn } from "../../../lib/cn";
 import type { TeammateOption } from "../../tasks/lib/team";
@@ -9,6 +10,8 @@ const RichNoteEditor = lazy(() => import("./RichNoteEditor"));
 export interface NoteEditorHandle {
   /** Puts text at the cursor as typed, or at the end where the editor was never focused. */
   insertText: (text: string) => void;
+  /** Puts a document's blocks (`parseNoteMarkdown`, `plainNoteDoc`) at the cursor, the same way. */
+  insertDoc: (doc: JSONContent) => void;
 }
 
 export interface NoteEditorProps {

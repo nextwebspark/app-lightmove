@@ -9,6 +9,12 @@ public enum WorkspaceEventType implements AuditEventType {
     WORKSPACE_CREATED,
     WORKSPACE_UPDATED,
     WORKSPACE_DELETED,
+    /** Everything a deleted workspace held is gone, past its grace period; the certificate names counts, no one. */
+    WORKSPACE_PURGED,
+    /** A platform admin brought a deleted workspace back within its grace period. */
+    WORKSPACE_RESTORED,
+    WORKSPACE_EXPORT_STARTED,
+    WORKSPACE_EXPORT_DOWNLOADED,
 
     MEMBER_INVITED,
     INVITATION_ACCEPTED,

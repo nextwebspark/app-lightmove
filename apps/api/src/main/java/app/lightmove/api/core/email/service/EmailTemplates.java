@@ -77,6 +77,20 @@ public class EmailTemplates {
                         + "now and tell your workspace admin.")));
     }
 
+    /**
+     * The last email the address gets from Uncava as this account: sent as the account is deleted, to the address it
+     * had, since the row keeps none afterwards. No link — there is nothing left to sign in to.
+     */
+    public EmailMessage buildAccountDeletedEmail(String recipient, String recipientName) {
+        return renderer.render(recipient, "Your Uncava account was deleted", EmailContent.of(
+                "Your account was deleted",
+                EmailParagraph.of("Hi %s — your Uncava account was deleted. You left every workspace you were in, "
+                        + "and your sign-in, sessions, API keys and connected AI apps are gone.",
+                        plain(firstName(recipientName))),
+                EmailNote.of("What you added inside a workspace stays with that workspace. If you didn't delete "
+                        + "your account, tell your workspace admin.")));
+    }
+
     /** To the mailbox, as a password change is: a stolen session that turned it on would lock the owner out. */
     public EmailMessage buildTwoFactorEnabledEmail(String recipient, String recipientName, String securityLink) {
         return renderer.render(recipient, "Two-factor authentication is on for your Uncava account", EmailContent.of(
@@ -297,6 +311,40 @@ public class EmailTemplates {
                         plain(firstName(recipientName)), strong(workspaceName)),
                 new EmailAction("Choose a plan", billingLink),
                 EmailNote.of("You get this because you manage billing for the workspace.")));
+    }
+
+    /** To whoever started a whole-workspace export, once its zip is built. */
+    public EmailMessage buildWorkspaceExportReadyEmail(String recipient, String recipientName, String workspaceName,
+                                                       String expiresOn, String dataLink) {
+        return renderer.render(recipient, "Your Uncava export is ready", EmailContent.of(
+                "Your export is ready",
+                EmailParagraph.of("Hi %s — the export of everything in %s is ready. Download it from Settings → Data "
+                                + "& retention before %s, when it is deleted.",
+                        plain(firstName(recipientName)), strong(workspaceName), strong(expiresOn)),
+                new EmailAction("Open Data & retention", dataLink),
+                EmailNote.of("Only an admin can download it, and every download is recorded in the audit log.")));
+    }
+
+    /**
+     * To whoever deleted the workspace, once its grace period is over and everything is gone. Nobody can sign in to it
+     * by then, so the certificate's id and hash travel here rather than behind a link.
+     */
+    public EmailMessage buildWorkspacePurgedEmail(String recipient, String workspaceName, String purgedOn,
+                                                  String certificateId, long rows, long files, String sha256) {
+        return renderer.render(recipient, "%s has been permanently deleted".formatted(workspaceName),
+                EmailContent.of(
+                        "Your workspace is deleted for good",
+                        EmailParagraph.of("Everything %s held in Uncava was permanently deleted on %s: "
+                                        + "%s and %s, including positions, candidates, notes, documents and "
+                                        + "recordings.",
+                                strong(workspaceName), strong(purgedOn),
+                                plain(String.format(Locale.ENGLISH, rows == 1 ? "%,d record" : "%,d records", rows)),
+                                plain(String.format(Locale.ENGLISH, files == 1 ? "%,d file" : "%,d files", files))),
+                        EmailParagraph.of("Deletion certificate %s, SHA-256 %s. Uncava keeps the certificate, so "
+                                        + "this one can be checked against it.",
+                                plain(certificateId), plain(sha256)),
+                        EmailNote.of("The audit trail and billing records are kept by id and name no one. Copies "
+                                + "in Uncava's backups age out on their usual schedule.")));
     }
 
     /** A task someone else put on the recipient, still unread in the bell after the email delay. */

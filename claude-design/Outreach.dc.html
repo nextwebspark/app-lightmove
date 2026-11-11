@@ -227,46 +227,24 @@
                     <span aria-label="Subject" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)"><sc-for list="{{ tp.subjectParts }}" as="sp" hint-placeholder-count="1"><span title="{{ sp.title }}" style="{{ sp.style }}">{{ sp.text }}</span></sc-for></span>
                     <button onClick="{{ sgCloseComposer }}" aria-label="Close" style="margin-left:auto;border:none;background:none;padding:0 2px;font:400 16px/1 var(--sans);color:var(--text3);cursor:pointer">×</button>
                   </div>
-                  <!-- The notes editor with the email schema (docs/email-templates.md §F): a token is a pill showing this
-                       executive's value, blue when filled, in italics when its fallback stands in, red when blank. -->
+                  <!-- The notes editor under the sequence editor's own Insert bar (docs/email-templates.md, decision 16): a
+                       variable is written and shown as typed, {firstName} in double braces, exactly as in a sequence step.
+                       One with nothing on file and no fallback is named in the line under the editor, and Send waits. -->
+                  <div role="toolbar" aria-label="Insert a variable" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px">
+                    <span style="margin-right:4px;font:500 11px var(--mono);color:var(--text3)">Insert</span>
+                    <sc-for list="{{ tp.insertItems }}" as="ti" hint-placeholder-count="7">
+                      <button onClick="{{ tpInsert }}" data-id="{{ ti.token }}" title="{{ ti.tip }}" style="border-radius:999px;border:1px solid var(--line);background:var(--panel);padding:3px 8px;font:400 11.5px var(--mono);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">{{ ti.label }}</button>
+                    </sc-for>
+                  </div>
                   <div data-screen-label="Email editor" style="position:relative;border-radius:6px;border:1px solid var(--line);background:var(--panel2)">
                     <div role="toolbar" aria-label="Formatting" style="display:flex;align-items:center;gap:1px;padding:3px 6px;border-bottom:1px solid var(--line-soft)">
                       <sc-for list="{{ tp.fmt }}" as="f" hint-placeholder-count="10"><button title="{{ f.tip }}" aria-label="{{ f.tip }}" style="{{ f.style }}" style-hover="background:var(--panel);color:var(--text)">{{ f.glyph }}</button></sc-for>
-                      <span style="flex:1"></span>
-                      <button onClick="{{ tpToggleInsert }}" aria-haspopup="menu" aria-expanded="{{ tp.insertExpanded }}" style="{{ tp.insertBtnStyle }}" style-hover="color:var(--text)"><span style="font:600 11px var(--mono)">{ }</span>Insert<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"></path></svg></button>
                     </div>
-                    <sc-if value="{{ tp.insertOpen }}" hint-placeholder-val="{{ false }}">
-                      <div role="menu" aria-label="Insert a token" data-screen-label="Insert token menu" style="position:absolute;right:6px;top:32px;z-index:30;width:320px;border-radius:8px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:6px">
-                        <div style="padding:4px 8px 6px;font:500 10.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--text3)">Insert at the cursor</div>
-                        <sc-for list="{{ tp.insertItems }}" as="ti" hint-placeholder-count="7">
-                          <button role="menuitem" onClick="{{ tpInsert }}" data-id="{{ ti.token }}" title="{{ ti.tip }}" style="display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;border:none;background:none;border-radius:6px;padding:6px 8px;cursor:pointer;font-family:inherit" style-hover="background:var(--panel2)">
-                            <span style="flex:none;width:112px;font:500 12px var(--sans);color:var(--text)">{{ ti.label }}</span>
-                            <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px var(--sans);color:{{ ti.valueColor }}">{{ ti.value }}</span>
-                          </button>
-                        </sc-for>
-                        <div style="margin-top:4px;border-top:1px solid var(--line-soft);padding:7px 8px 3px;font:400 11px/1.45 var(--sans);color:var(--text3)">Values are {{ tp.first }}'s. A token with no value holds Send until it has a fallback, text in its place, or is removed.</div>
-                      </div>
-                    </sc-if>
                     <div aria-label="Email" style="min-height:96px;padding:10px 12px 4px;font:400 13.5px/1.6 var(--sans);color:var(--text)">
                       <sc-for list="{{ tp.paragraphs }}" as="pg" hint-placeholder-count="2">
-                        <p style="margin:0 0 8px"><sc-for list="{{ pg.parts }}" as="pt" hint-placeholder-count="3"><span onClick="{{ tpPill }}" data-id="{{ pt.token }}" title="{{ pt.title }}" style="{{ pt.style }}">{{ pt.text }}</span></sc-for></p>
+                        <p style="margin:0 0 8px"><sc-for list="{{ pg.parts }}" as="pt" hint-placeholder-count="3"><span title="{{ pt.title }}" style="{{ pt.style }}">{{ pt.text }}</span></sc-for></p>
                       </sc-for>
                     </div>
-                    <sc-if value="{{ tp.popoverOpen }}" hint-placeholder-val="{{ false }}">
-                      <div role="dialog" aria-label="{{ tp.blankTitle }}" data-screen-label="Blank token" style="position:absolute;left:12px;bottom:6px;transform:translateY(100%);z-index:30;width:320px;border-radius:8px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:12px">
-                        <div style="font:500 12.5px var(--sans);color:var(--text)">{{ tp.blankTitle }}</div>
-                        <div style="margin-top:3px;font:400 11.5px/1.45 var(--sans);color:var(--text3)">Send waits until this is filled. Add it to {{ tp.first }}'s profile, or for this email:</div>
-                        <label style="display:block;margin-top:10px;font:500 11px var(--sans);color:var(--text2)">Fallback
-                          <input value="{{ tp.fallbackDraft }}" onChange="{{ tpOnFallback }}" maxlength="60" placeholder="the UAE" aria-label="Fallback" style="display:block;margin-top:4px;width:100%;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:6px 8px;font:400 12.5px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--ring)">
-                        </label>
-                        <div style="margin-top:4px;font:400 10.5px/1.4 var(--mono);color:var(--text3)">Kept as {{ tp.fallbackToken }}: anyone else with no {{ tp.blankLower }} reads it too.</div>
-                        <div style="margin-top:10px;display:flex;align-items:center;gap:6px">
-                          <button onClick="{{ tpUseFallback }}" style="height:26px;padding:0 10px;border-radius:6px;border:1px solid var(--amber-btn);background:var(--amber-btn);font:500 11.5px/1 var(--sans);color:var(--on-amber);cursor:pointer">Add fallback</button>
-                          <button onClick="{{ tpReplaceText }}" style="height:26px;padding:0 10px;border-radius:6px;border:none;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line);font:500 11.5px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">Replace with text</button>
-                          <button onClick="{{ tpRemoveToken }}" style="margin-left:auto;height:26px;padding:0 6px;border:none;background:none;font:500 11.5px/1 var(--sans);color:var(--red);cursor:pointer">Remove</button>
-                        </div>
-                      </div>
-                    </sc-if>
                   </div>
                   <sc-if value="{{ sg.previewOn }}" hint-placeholder-val="{{ true }}">
                     <div aria-label="Signature preview" style="padding:2px 0 2px 12px;border-left:2px solid var(--line);opacity:.6;font:400 12.5px/1.45 var(--sans);color:var(--text2)">
@@ -584,6 +562,16 @@
                   <span style="color:var(--text3)">Subject</span><span style="color:var(--text);font-weight:500">{{ pv.subject }}</span>
                 </div>
                 <div style="padding-top:14px;font:400 13.5px/1.6 var(--sans);color:var(--text);white-space:pre-wrap"><sc-for list="{{ pv.parts }}" as="pt" hint-placeholder-count="3"><span style="{{ pt.style }}">{{ pt.t }}</span></sc-for></div>
+                <!-- The sender's default signature, greyed as Add to sequence's review draws it; none kept, none drawn. -->
+                <sc-if value="{{ sg.hasAny }}" hint-placeholder-val="{{ true }}">
+                  <div data-screen-label="Sequence preview signature" style="margin-top:8px;padding:2px 0 2px 12px;border-left:2px solid var(--line);opacity:.6;font:400 12.5px/1.45 var(--sans);color:var(--text2)">
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <span style="width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 11px var(--mono)">YH</span>
+                      <span style="min-width:0"><b style="color:var(--text)">Yara Haddad</b><br>Head of Talent Acquisition, Al-Futtaim<br>+971 50 123 4567 · yara.haddad@alfuttaim.com<br>alfuttaim.com · LinkedIn<br>Festival Tower, Dubai Festival City</span>
+                      <img src="assets/al-futtaim-logo.png" alt="" style="height:28px;width:auto;flex:none;margin-left:6px;padding-left:10px;border-left:1px solid var(--line)">
+                    </div>
+                  </div>
+                </sc-if>
                 <sc-if value="{{ pv.quoted }}" hint-placeholder-val="{{ false }}">
                   <div style="margin-top:14px;border-left:2px solid var(--line);padding-left:10px;font:400 12px/1.5 var(--sans);color:var(--text3)">On Mon 29 Sep, Yara Haddad wrote:<br>Hi {{ pv.first }}, your move from audit into running group finance…</div>
                 </sc-if>
@@ -704,26 +692,10 @@
                 <textarea value="{{ rv.opener }}" onChange="{{ onOpener }}" rows="3" aria-label="Opener" style="width:100%;resize:vertical;border:none;background:transparent;outline:none;font:400 13.5px/1.6 var(--sans);color:var(--text);padding:0"></textarea>
               </div>
               <div style="font:400 13.5px/1.6 var(--sans);color:var(--text2);white-space:pre-wrap">{{ rv.rest }}</div>
-              <!-- The signature every email of this run carries, follow-ups too: chosen here, frozen at Start. -->
+              <!-- The sender's default, on every email of the run: nothing is picked here; drawn and frozen at Start. -->
               <div data-screen-label="Sequence signature" style="margin-top:14px;border-top:1px solid var(--line-soft);padding-top:10px">
-                <!-- The composer's picker, by the same count: several, one (it or none), or none kept at all. -->
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font:400 12px var(--mono);color:var(--text3)">
-                  <span>Signature</span>
-                  <sc-if value="{{ sg.enSeveral }}" hint-placeholder-val="{{ false }}">
-                    <select value="{{ sg.enChoice }}" onChange="{{ sgEnPick }}" aria-label="Signature" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--sans);color:var(--text)">
-                      <option value="formal">Formal (default)</option>
-                      <option value="short">Short reply</option>
-                      <option value="none">No signature</option>
-                    </select>
-                  </sc-if>
-                  <sc-if value="{{ sg.enOne }}" hint-placeholder-val="{{ true }}">
-                    <select value="{{ sg.enChoice }}" onChange="{{ sgEnPick }}" aria-label="Signature" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--sans);color:var(--text)">
-                      <option value="formal">Formal (default)</option>
-                      <option value="none">No signature</option>
-                    </select>
-                  </sc-if>
-                  <sc-if value="{{ sg.hasAny }}" hint-placeholder-val="{{ true }}"><span>On every email of the sequence, follow-ups too</span></sc-if>
-                  <sc-if value="{{ sg.none }}" hint-placeholder-val="{{ false }}"><span style="font-family:var(--sans)">No signature yet · <a href="Settings.dc.html?section=signatures" style="color:var(--sky)">Add one in Settings</a></span></sc-if>
+                  <span>Signature · your default, on every email of the sequence</span>
                 </div>
                 <sc-if value="{{ sg.enOn }}" hint-placeholder-val="{{ true }}">
                   <div style="margin-top:8px;padding:2px 0 2px 12px;border-left:2px solid var(--line);opacity:.6;font:400 12.5px/1.45 var(--sans);color:var(--text2)">
@@ -1082,9 +1054,9 @@ const PEOPLE = {
 };
 
 const STEP_BODIES = [
-  "Hi {{firstName}},\n\n{{opener}}\n\nI'm leading a confidential search for a {{positionTitle}} at a Gulf group: a seat with group-wide remit over finance, treasury and an international portfolio. Given your time as {{currentTitle}} at {{currentCompany}}, I'd value twenty minutes of your view, whether or not the timing is right for you.\n\nWould a short call next week work? If it's easier, pick a time that suits you: {{bookingLink}}\n\n{{senderFirstName}}",
-  "Hi {{firstName}},\n\nA short follow-up on my note below. I'm happy to share the brief in confidence before any call.\n\n{{senderFirstName}}",
-  "Hi {{firstName}},\n\nI'll close the loop here. If the timing changes, or someone in your network comes to mind for this seat, I'd be glad to hear from you.\n\n{{senderFirstName}}"
+  "Hi {{firstName}},\n\n{{opener}}\n\nI'm leading a confidential search for a {{positionTitle}} at a Gulf group: a seat with group-wide remit over finance, treasury and an international portfolio. Given your time as {{currentTitle}} at {{currentCompany}}, I'd value twenty minutes of your view, whether or not the timing is right for you.\n\nWould a short call next week work? If it's easier, pick a time that suits you: {{bookingLink}}\n\n{{signature}}",
+  "Hi {{firstName}},\n\nA short follow-up on my note below. I'm happy to share the brief in confidence before any call.\n\n{{signature}}",
+  "Hi {{firstName}},\n\nI'll close the loop here. If the timing changes, or someone in your network comes to mind for this seat, I'd be glad to hear from you.\n\n{{signature}}"
 ];
 const SUBJECT = "Confidential: {{positionTitle}}";
 
@@ -1124,7 +1096,7 @@ function render(text, id) {
   const p = PEOPLE[id];
   const v = { firstName: firstOf(p.name), currentTitle: p.title, currentCompany: p.company, positionTitle: "Chief Financial Officer", location: p.city || "Dubai", senderFirstName: "Yara", bookingLink: BOOKING_URL };
   // {{name}} or {{name|fallback}} (docs/email-templates.md §C); opener and anything unknown stay as typed.
-  return text.replace(/\{\{\s*([A-Za-z]+)\s*(?:\\?\|([^{}|\n]{1,60}))?\s*\}\}/g, (m, n, fb) => (n in v ? v[n] || (fb || "").trim() : m));
+  return text.replace(/\n*\{\{signature\}\}/g, "").replace(/\{\{\s*([A-Za-z]+)\s*(?:\\?\|([^{}|\n]{1,60}))?\s*\}\}/g, (m, n, fb) => (n in v ? v[n] || (fb || "").trim() : m));
 }
 
 const isClosed = (st) => st === "replied" || st === "booked" || st === "bounced" || st === "stopped";
@@ -1211,16 +1183,14 @@ const TOKEN_LABELS = { firstName: "First name", currentTitle: "Current title", c
 const TOKEN_TIPS = { firstName: "Their first name", currentTitle: "Their current title", currentCompany: "Their current employer", positionTitle: "This position's role title", location: "Their city", senderFirstName: "Your first name, whoever sends it", bookingLink: "Your booking page: they pick a free slot on your calendar" };
 const TOKEN_ORDER = ["firstName", "currentTitle", "currentCompany", "positionTitle", "location", "senderFirstName", "bookingLink"];
 const TOKEN_RE = /\{\{\s*([A-Za-z]+)\s*(?:\\?\|([^{}|\n]{1,60}))?\s*\}\}/g;
-const TOKEN_PILL = "display:inline;white-space:nowrap;padding:1px 6px;border-radius:4px;font-weight:500;background:var(--sky-dim);color:var(--sky);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--sky) 30%,transparent)";
-const TOKEN_PILL_FALLBACK = TOKEN_PILL + ";font-style:italic";
-const TOKEN_PILL_BLANK = "display:inline;white-space:nowrap;padding:1px 6px;border-radius:4px;font-weight:500;background:var(--red-dim);color:var(--red);box-shadow:inset 0 0 0 1px var(--red);cursor:pointer";
 function tokenValuesOf(p) {
   const bits = p.role.split(" · ");
   const loc = (p.contact.find(([k]) => k === "Location") || [])[1] || "";
   return { firstName: p.name.split(" ")[0], currentTitle: bits[0], currentCompany: bits[bits.length - 1], positionTitle: "Group CFO",
     location: loc === "Not on file" ? "" : loc.split(",")[0], senderFirstName: "Yara", bookingLink: BOOKING_URL };
 }
-function tokenParts(text, values, fixes) {
+/** As typed, as a sequence step shows it; `filled` reads it with the executive's values, for the picker's preview. */
+function tokenParts(text, values, fixes, filled) {
   const parts = []; let last = 0; let m; const re = new RegExp(TOKEN_RE.source, "g");
   while ((m = re.exec(text))) {
     if (m.index > last) parts.push({ text: text.slice(last, m.index), style: "", token: "", title: "" });
@@ -1229,15 +1199,15 @@ function tokenParts(text, values, fixes) {
     const raw = "{{" + name + (fallback ? "|" + fallback : "") + "}}";
     if (fix.removed) { /* the pill is gone */ }
     else if (fix.replaced) parts.push({ text: fix.replaced, style: "", token: "", title: "" });
-    else if (value) parts.push({ text: value, style: TOKEN_PILL, token: name, title: label + " · " + raw });
-    else if (fallback) parts.push({ text: fallback, style: TOKEN_PILL_FALLBACK, token: name, title: "No " + label.toLowerCase() + " on file: the fallback stands in · " + raw });
-    else parts.push({ text: label, style: TOKEN_PILL_BLANK, token: name, blank: true, title: "No " + label.toLowerCase() + " on file. Click to fill it in." });
+    else if (value) parts.push({ text: filled ? value : raw, style: "", token: name, title: label });
+    else if (fallback) parts.push({ text: filled ? fallback : raw, style: "", token: name, title: "No " + label.toLowerCase() + " on file: the fallback stands in" });
+    else parts.push({ text: filled ? "" : raw, style: "", token: name, blank: true, title: "No " + label.toLowerCase() + " on file" });
     last = re.lastIndex;
   }
   if (last < text.length) parts.push({ text: text.slice(last), style: "", token: "", title: "" });
   return parts;
 }
-const paragraphsOf = (text, values, fixes) => text.split(/\n\n/).map((t) => ({ parts: tokenParts(t, values, fixes) }));
+const paragraphsOf = (text, values, fixes, filled) => text.split(/\n\n/).map((t) => ({ parts: tokenParts(t, values, fixes, filled) }));
 const faceOf = (name, size) => avatar(name, size || 22) + ";font-size:9px";
 const OQ_GROUPS = [["reply", "Needs reply", "Since yesterday 16:00"], ["follow", "Follow-ups", "2 due today"], ["prep", "Preparation", ""], ["attn", "Attention", ""]];
 const OQ_TONE = { accent: "var(--amber)", green: "var(--green)", red: "var(--red)", signal: "var(--u-signal)", neutral: "var(--text3)" };
@@ -1449,22 +1419,18 @@ class Component extends DCLogic {
       .filter(([, list]) => list.length).map(([label, list]) => ({ label, items: list.map(row) }));
     const bodyEmpty = body.replace(TOKEN_RE, "x").trim() === "";
     const pv = { name: hl.name, ownerLine: hl.owner ? "Shared by " + hl.owner + " · updated " + hl.updated : "Yours · updated " + hl.updated,
-      hasSubject: !isReply && !!hl.subject, subjectParts: tokenParts(hl.subject || "", values, {}),
+      hasSubject: !isReply && !!hl.subject, subjectParts: tokenParts(hl.subject || "", values, {}, true),
       subjectNote: isReply ? (hl.subject ? "A reply keeps its subject: " + p.subject : "") : hl.subject ? "" : "No subject: yours stays as it is.",
-      paragraphs: paragraphsOf(hl.body, values, {}),
+      paragraphs: paragraphsOf(hl.body, values, {}, true),
       applyNote: (bodyEmpty ? "Replaces the empty email." : "Goes in at your cursor.") + (isReply ? " The reply keeps its subject." : hl.subject && subject.trim() ? " Your subject stays." : "") + " Include signature stays as it is." };
     const step = s.tplSave === "step"; const stepN = s.step; const stepUsesOpener = step && /\{\{\s*opener\s*\}\}/.test(s.bodies[stepN - 1] || "");
     const sw = s.tplShare;
     return {
       tp: {
         first, fmt, paragraphs, subjectParts, blocked, notBlocked: !blocked, blockedStr: String(blocked),
-        blockedLine: blocked ? "Fill in or remove " + blanks.length + " token" + (blanks.length > 1 ? "s" : "") + " to send: " + blanks.map((b) => TOKEN_LABELS[b] || b).join(", ") : "",
+        blockedLine: blocked ? "Fill in or remove " + blanks.length + " variable" + (blanks.length > 1 ? "s" : "") + " to send: " + blanks.map((b) => "{{" + b + "}} has nothing on file").join("; ") + ". Give one a fallback for anyone with none, like {{" + blanks[0] + "|your city}}." : "",
         sendStyle: "height:30px;padding:0 14px;border-radius:6px;border:1px solid var(--amber-btn);background:var(--amber-btn);font:500 12px/1 var(--sans);color:var(--on-amber);cursor:" + (blocked ? "not-allowed;opacity:.45" : "pointer"),
-        insertOpen: !!s.tplInsert, insertExpanded: String(!!s.tplInsert),
-        insertBtnStyle: "display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 7px;border-radius:4px;border:none;background:" + (s.tplInsert ? "var(--panel)" : "none") + ";font:500 12px/1 var(--sans);color:var(--text2);cursor:pointer",
-        insertItems: TOKEN_ORDER.map((token) => ({ token, label: TOKEN_LABELS[token], tip: TOKEN_TIPS[token], value: values[token] || "Not on file", valueColor: values[token] ? "var(--text3)" : "var(--red)" })),
-        popoverOpen: !!s.tplPopover && blocked, blankTitle: first + " has no " + blankLabel.toLowerCase() + " on file", blankLower: blankLabel.toLowerCase(),
-        fallbackDraft: s.tplFallbackDraft || "", fallbackToken: "{{" + blankName + "|" + (s.tplFallbackDraft || "the UAE") + "}}",
+        insertItems: TOKEN_ORDER.map((token) => ({ token, label: token === "bookingLink" ? "▦ booking link" : "{{" + token + "}}", tip: TOKEN_TIPS[token] })),
         ghostBtn: ghost, templatesBtnStyle: ghost + ";background:" + (s.tplPicker ? "var(--panel2)" : "none"),
         pickerOpen: !!s.tplPicker, pickerExpanded: String(!!s.tplPicker), query: s.tplQuery || "", groups, noMatch: groups.length === 0, pv,
         saveOpen: !!s.tplSave, saveTitle: step ? "Save step as template" : "Save as template",
@@ -1478,13 +1444,7 @@ class Component extends DCLogic {
         switchStyle: "position:relative;flex:none;margin-top:1px;width:30px;height:18px;border-radius:99px;border:none;padding:0;cursor:pointer;background:" + (sw ? "var(--amber-btn)" : "var(--line)"),
         knobStyle: "position:absolute;top:2px;left:" + (sw ? 14 : 2) + "px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s"
       },
-      tpToggleInsert: () => set({ tplInsert: !s.tplInsert, tplPicker: false, tplPopover: false }),
       tpInsert: (e) => { const t = e.currentTarget.dataset.id; set({ tplInsert: false, tplBody: { ...(s.tplBody || {}), [sel]: body + " {{" + t + "}}" } }); },
-      tpPill: (e) => { const t = e.currentTarget.dataset.id; if (t && blanks.includes(t)) set({ tplPopover: !s.tplPopover, tplInsert: false, tplPicker: false }); },
-      tpOnFallback: (e) => set({ tplFallbackDraft: e.target.value }),
-      tpUseFallback: () => { const fb = (s.tplFallbackDraft || "the UAE").trim(); set({ tplPopover: false, tplFix: { ...(s.tplFix || {}), [sel]: { ...fixes, [blankName]: { fallback: fb } } } }); this.showToast("Fallback added: anyone with no " + blankLabel.toLowerCase() + " reads “" + fb + "”."); },
-      tpReplaceText: () => set({ tplPopover: false, tplFix: { ...(s.tplFix || {}), [sel]: { ...fixes, [blankName]: { replaced: (s.tplFallbackDraft || "Dubai").trim() } } } }),
-      tpRemoveToken: () => set({ tplPopover: false, tplFix: { ...(s.tplFix || {}), [sel]: { ...fixes, [blankName]: { removed: true } } } }),
       tpAttach: () => this.showToast("Attach: one of " + first + "'s documents, or a file from your computer."),
       tpTogglePicker: () => set({ tplPicker: !s.tplPicker, tplInsert: false, tplPopover: false }),
       tpOnQuery: (e) => set({ tplQuery: e.target.value }),
@@ -1603,7 +1563,7 @@ class Component extends DCLogic {
     ];
 
     const tokenStyle = (ai) => `border-radius:999px;padding:3px 9px;font:500 11.5px var(--mono);cursor:pointer;${ai ? "background:var(--ai-soft);border:1px solid color-mix(in srgb,var(--ai) 45%,transparent);color:var(--ai)" : "background:var(--panel);border:1px solid var(--line);color:var(--text2)"}`;
-    const tokens = [["firstName", "Their first name"], ["currentTitle", "Their current title"], ["currentCompany", "Their current employer"], ["positionTitle", "This position's role title"], ["location", "Their city"], ["senderFirstName", "Your first name"], ["bookingLink", "Your booking page: they pick a free slot on your calendar, and their sequence stops"], ["opener", "One or two sentences AI drafts for each person from their profile. You review every one."]]
+    const tokens = [["firstName", "Their first name"], ["currentTitle", "Their current title"], ["currentCompany", "Their current employer"], ["positionTitle", "This position's role title"], ["location", "Their city"], ["senderFirstName", "Your first name"], ["signature", "Your default signature, or your first name until you add one"], ["bookingLink", "Your booking page: they pick a free slot on your calendar, and their sequence stops"], ["opener", "One or two sentences AI drafts for each person from their profile. You review every one."]]
       .map(([k, tip]) => ({ label: k === "opener" ? "✦ opener" : k === "bookingLink" ? "▦ booking link" : `{{${k}}}`, tip, style: tokenStyle(k === "opener") }));
     const delays = [null, 3, 5];
     const stepCards = s.bodies.map((body, i) => ({

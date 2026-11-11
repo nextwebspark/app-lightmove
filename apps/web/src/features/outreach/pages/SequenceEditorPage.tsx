@@ -10,6 +10,8 @@ import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate } from "../../candidates/api/types";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
+import { SignatureUnderEmail } from "../../signatures/components/SignatureChooser";
+import { useSignatureChoice } from "../../signatures/lib/useSignatureChoice";
 import * as sequenceApi from "../api/sequenceApi";
 import type { RecipientTokens, Sequence, SequenceSchedule, SequenceStep, Weekday } from "../api/sequenceApi";
 import {
@@ -45,7 +47,7 @@ I'm leading a confidential search for a {{positionTitle}}. Given your time as {{
 
 Would a short call next week work?
 
-{{senderFirstName}}`;
+{{signature}}`;
 
 const DEFAULT_STEPS: SequenceStep[] = [
   {
@@ -56,12 +58,12 @@ const DEFAULT_STEPS: SequenceStep[] = [
   {
     delayWorkingDays: 3,
     subject: null,
-    body: "Hi {{firstName}},\n\nFollowing up on my note below, in case it slipped past. Happy to work around your diary.\n\n{{senderFirstName}}",
+    body: "Hi {{firstName}},\n\nFollowing up on my note below, in case it slipped past. Happy to work around your diary.\n\n{{signature}}",
   },
   {
     delayWorkingDays: 5,
     subject: null,
-    body: "Hi {{firstName}},\n\nI'll leave it here for now. If the timing is ever better, I'd be glad to hear from you.\n\n{{senderFirstName}}",
+    body: "Hi {{firstName}},\n\nI'll leave it here for now. If the timing is ever better, I'd be glad to hear from you.\n\n{{signature}}",
   },
 ];
 
@@ -202,8 +204,8 @@ function SequenceEditor({
   };
 
   /** Into whichever field the caret was last in: the first email's subject, or the selected step's body. */
-  const insertToken = (token: string) => {
-    const intoSubject = editingField === "subject" && selectedStep === 0;
+  const insertToken = (token: string, isBodyOnly = false) => {
+    const intoSubject = !isBodyOnly && editingField === "subject" && selectedStep === 0;
     const field = intoSubject ? subjectRef.current : bodyRefs.current[selectedStep];
     const text = (intoSubject ? steps[0].subject : steps[selectedStep].body) ?? "";
     const start = field?.selectionStart ?? text.length;
@@ -589,6 +591,7 @@ function SequencePreview({
     queryFn: ({ signal }) => candidatesApi.getCandidates(projectId, {}, signal),
   });
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const signature = useSignatureChoice();
   const candidates = people.data?.candidates ?? [];
   const person = candidates.find((candidate) => candidate.id === previewId) ?? candidates[0] ?? null;
   const step = steps[Math.min(selectedStep, steps.length - 1)];
@@ -654,7 +657,9 @@ function SequencePreview({
         </div>
         <div className="whitespace-pre-wrap pt-3.5 text-[13.5px]/[1.6] text-u-text">
           {renderParts(step?.body ?? "", tokens, PREVIEW_OPENER).map((part, index) =>
-            part.isLink ? (
+            part.isSignature ? (
+              !signature.included && <span key={index}>{tokens.senderFirstName}</span>
+            ) : part.isLink ? (
               <span key={index} className="text-u-accent underline">
                 {part.text}
               </span>
@@ -670,6 +675,7 @@ function SequencePreview({
             ),
           )}
         </div>
+        <SignatureUnderEmail choice={signature} />
         {selectedStep > 0 && (
           <div className="mt-3.5 border-s-2 border-u-border ps-2.5 text-[12px]/[1.5] text-u-text3">
             Your earlier email to {tokens.firstName ?? "them"} is quoted below, as in any reply.

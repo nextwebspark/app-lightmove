@@ -21,6 +21,8 @@ public interface MailboxConnectionRepository extends JpaRepository<MailboxConnec
     /** One person's mailbox in the workspace in scope; their profile's clock reaches each workspace's in its own. */
     List<MailboxConnection> findByUserId(UUID userId);
 
+    List<MailboxConnection> findByWorkspaceId(UUID workspaceId);
+
     /**
      * A grant's mailbox in the workspace in scope: a mail service's webhook names a grant and nothing else, so its
      * workspace is resolved first ({@code TenantResolvers}). A list, because one mailbox connected in two workspaces

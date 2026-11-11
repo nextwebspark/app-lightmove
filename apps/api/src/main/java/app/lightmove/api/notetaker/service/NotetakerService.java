@@ -312,18 +312,32 @@ public class NotetakerService {
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void callBackForRestriction(UUID workspaceId, UUID personId, UUID restrictedBy) {
+        callBack(recordings.lockByWorkspaceIdAndPersonIdAndStatusIn(workspaceId, personId, CANCELLABLE), workspaceId,
+                restrictedBy, "PROCESSING_RESTRICTED");
+    }
+
+    /**
+     * The workspace was deleted: every bot still to join a call, or in one now, is called off and queued for
+     * {@link RecallBotErasureSweeper} the same way, in the deletion's own transaction.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void callBackForWorkspaceDeletion(UUID workspaceId, UUID deletedBy) {
+        callBack(recordings.lockByWorkspaceIdAndStatusIn(workspaceId, CANCELLABLE), workspaceId, deletedBy,
+                "WORKSPACE_DELETED");
+    }
+
+    private void callBack(List<MeetingRecording> live, UUID workspaceId, UUID actorId, String reason) {
         List<String> botIds = new ArrayList<>();
-        for (MeetingRecording held : recordings.lockByWorkspaceIdAndPersonIdAndStatusIn(workspaceId, personId,
-                CANCELLABLE)) {
+        for (MeetingRecording held : live) {
             if (held.isEnding()) {
                 continue;
             }
             callOff(held);
-            audit.event(ProjectEventType.NOTETAKER_CANCELLED).actor(restrictedBy).workspace(workspaceId)
+            audit.event(ProjectEventType.NOTETAKER_CANCELLED).actor(actorId).workspace(workspaceId)
                     .target(AuditService.PROJECT_TARGET, held.getProjectId())
                     .detail("candidateId", String.valueOf(held.getCandidateId()))
                     .detail("recordingId", held.getId().toString())
-                    .detail("reason", "PROCESSING_RESTRICTED")
+                    .detail("reason", reason)
                     .record();
             if (held.getRecallBotId() != null) {
                 botIds.add(held.getRecallBotId());

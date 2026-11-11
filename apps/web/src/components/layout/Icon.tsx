@@ -60,6 +60,7 @@ export const ICONS = {
   importInto: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
   /** The same tray with the arrow rising out of it — Export, the mandate leaving as a file. */
   exportOut: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
+  download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
   /** A page with its corner turned — the attached position description. */
   file: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6",
   /** A paperclip — a file an email carries. */
@@ -169,6 +170,9 @@ export const ICONS = {
   externalLink: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3",
   /** A line climbing to an arrowhead — the report's mapping progress. */
   trendingUp: "m3 17 6-6 4 4 8-8M15 7h6v6",
+  ranking: "M12 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12ZM8.2 13.9 7 22l5-3 5 3-1.2-8.1",
+  /** A circle turning back on itself — put a scenario back to where it started. */
+  reset: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5",
   /** The same line falling — a project that is off track. */
   trendingDown: "m3 7 6 6 4-4 8 8M15 17h6v-6",
   /** A struck S — the report's remuneration chapter. */

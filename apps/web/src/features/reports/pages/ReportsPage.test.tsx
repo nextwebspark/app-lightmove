@@ -17,6 +17,7 @@ vi.mock("../api/reportApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/reportApi")>()),
   getReport: vi.fn(),
   getTeamPerformance: vi.fn(),
+  getRanking: vi.fn(),
 }));
 
 vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
@@ -181,6 +182,31 @@ describe("ReportsPage", () => {
 
     renderPage("appendix");
     expect(await screen.findByRole("heading", { level: 1, name: "Are we going to hit the deadline?" })).toBeInTheDocument();
+  });
+
+  it("offers the Ranking chapter to staff alone, and lands a client's link to it on the first chapter", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+    vi.mocked(reportApi.getRanking).mockResolvedValue({
+      criteria: [],
+      baselineTechnicalShare: 50,
+      candidates: [],
+      notAssessedCount: 0,
+      mappedCount: 0,
+      truncated: false,
+      scenario: null,
+    });
+
+    const asClient = renderPage("ranking");
+    expect(await screen.findByRole("heading", { level: 1, name: "Are we going to hit the deadline?" })).toBeInTheDocument();
+    expect(within(screen.getByRole("navigation", { name: "Report chapters" })).queryByRole("link", { name: /Ranking/ }))
+      .not.toBeInTheDocument();
+    expect(reportApi.getRanking).not.toHaveBeenCalled();
+    asClient.unmount();
+
+    viewerRoles = ["ADMIN"];
+    renderPage("ranking");
+    expect(await screen.findByRole("heading", { level: 1, name: "Candidate ranking" })).toBeInTheDocument();
+    expect(await screen.findByText("The brief names no competencies yet")).toBeInTheDocument();
   });
 
   it("re-projects when the reader switches to the full-mandate average", async () => {
@@ -504,6 +530,23 @@ describe("ReportsPage", () => {
     expect(coloured).toHaveLength(7);
     expect(new Set(coloured).size).toBe(7);
     expect(hues.slice(7)).toEqual(["bg-u-text3", "bg-u-text3"]);
+  });
+
+  it("folds the chapter menu to its icons, keeps each chapter named, and remembers the choice", async () => {
+    localStorage.removeItem("lm-report-nav-collapsed");
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+    const user = userEvent.setup();
+
+    const first = renderPage();
+    await screen.findByText("36 days");
+    await user.click(screen.getByRole("button", { name: "Collapse chapters" }));
+    expect(screen.getByRole("link", { name: "Remuneration" })).toHaveAttribute("title", "Remuneration");
+    first.unmount();
+
+    renderPage();
+    await screen.findByText("36 days");
+    expect(screen.getByRole("button", { name: "Expand chapters" })).toBeInTheDocument();
+    localStorage.removeItem("lm-report-nav-collapsed");
   });
 
   it("heads a chapter with its question alone, not with a screen counter", async () => {

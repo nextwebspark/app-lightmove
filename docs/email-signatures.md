@@ -35,8 +35,8 @@ fields, never pasted HTML; several per person with one default; switchable per e
 2. **Several signatures, one default** per person per workspace. The composer offers the default, ticked; the
    person may untick it or choose another.
 3. **Replies use the same default** as a new email — no separate reply signature.
-4. **Sequences carry the signature on every step**, follow-ups included; the sender may choose which at Start, and
-   that choice is frozen for the run.
+4. **Sequences carry the sender's default on every step**, follow-ups included, drawn at Start and frozen for the run;
+   a step places it with `{{signature}}` (revised 2026-11-10: there is no picker at Start).
 5. **The profile gains a photo upload, a phone number and a LinkedIn URL**, which every signature can show. The
    photo upload is #1172's avatar; this plan adds the phone and LinkedIn.
 
@@ -181,11 +181,16 @@ previewed, and editing the signature later changes nothing already written. `bod
 alone, so search, the conversation pane's text and the AI never read a signature. With no mailbox or no default, the
 box is unticked and says why.
 
-**A sequence:** Start's review shows the sender's signature with the same picker (default first, or none).
-`StartSequenceRequest.signatureId` carries the choice. The rendered HTML is **frozen on the enrollment**
-(`signature_html`, phase 3's migration) beside `first_body`, and `OutreachSendService.emailOf` appends it to the first
-email and every follow-up. Nothing is stored on the sequence itself: a sequence is the position's, a signature its
-sender's.
+**A sequence (revised 2026-11-10):** every email of a run carries the sender's **default** — the one starred in
+Settings — and there is no picker at Start. It is drawn there, outside any transaction, and **frozen on the enrollment**
+(`signature_html`) beside `first_body`, so a later edit or a new default reaches no run already started. A step's body
+may place it with **`{{signature}}`** (new sequences end every step in it; the Insert bar offers it, into the body only,
+and a subject leaves it as typed): `OutreachEmailBody.htmlOf` puts it between paragraphs there, and closes a body
+placing none with it, as before. The conversation's `body_text` drops the token. A sender keeping no signature signs off
+with their first name where the token stands. A value filled in from a profile or the opener can never place it: the
+token is taken out of every value first. A sequence saved before the token keeps its steps as written: one still ending in
+`{{senderFirstName}}` reads the first name above the signature until its author changes that line to `{{signature}}`. Nothing is stored on the sequence itself: a sequence is the position's, a
+signature its sender's.
 
 **Gateways are untouched**: the signature is part of `OutgoingEmail.htmlBody`. The test email from Settings carries
 the default signature, which doubles as a "see it in your own inbox" check. Where the booking page cannot be made, it
@@ -214,7 +219,7 @@ Later, not planned:
 - a separate reply signature;
 - importing a Gmail signature (`users.settings.sendAs`, which needs the `gmail.settings.basic` scope and so a
   reconnect; Outlook offers no equivalent);
-- a `{{signature}}` token for placing it elsewhere than the end;
+- a signature by name in a sequence (`{{signature:Name}}`), and choosing another than the default at Start;
 - a purge of email pictures no email names any more. That needs a reference to count first: a sent body holds the
   HTML, so the image ids a message or enrollment carries would be recorded at write time (a link table, or a
   `last_referenced_at` stamped on the row). The same follow-up deletes the bucket objects of rows an account or

@@ -6,7 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import * as dataProtectionApi from "../../candidates/api/dataProtectionApi";
 import * as dataRetentionApi from "../api/dataRetentionApi";
-import type { CandidateRetention, RetentionDue } from "../api/dataRetentionApi";
+import type { CandidateRetention, RetentionDue, WorkspaceExport } from "../api/dataRetentionApi";
+import { saveBlob } from "../../../lib/saveBlob";
 import { SettingsDataRetentionPage } from "./SettingsDataRetentionPage";
 
 vi.mock("../../candidates/api/dataProtectionApi", async (importOriginal) => ({
@@ -23,7 +24,12 @@ vi.mock("../api/dataRetentionApi", async (importOriginal) => ({
   getSuppressions: vi.fn(),
   addSuppression: vi.fn(),
   removeSuppression: vi.fn(),
+  getLatestWorkspaceExport: vi.fn(),
+  startWorkspaceExport: vi.fn(),
+  downloadWorkspaceExport: vi.fn(),
 }));
+vi.mock("../../auth/AuthProvider", () => ({ useAuth: () => ({ user: { workspace: { name: "Al-Futtaim Search" } } }) }));
+vi.mock("../../../lib/saveBlob", () => ({ saveBlob: vi.fn() }));
 
 const TWO_YEARS: CandidateRetention = { months: 24, chosen: false, defaultMonths: 24, options: [12, 24, 36, 60] };
 
@@ -74,6 +80,7 @@ describe("SettingsDataRetentionPage", () => {
     vi.mocked(dataRetentionApi.getCandidateRetention).mockResolvedValue(TWO_YEARS);
     vi.mocked(dataRetentionApi.getRetentionDue).mockResolvedValue(DUE);
     vi.mocked(dataRetentionApi.getSuppressions).mockResolvedValue([]);
+    vi.mocked(dataRetentionApi.getLatestWorkspaceExport).mockResolvedValue(null);
   });
 
   it("reads nothing and draws nothing where the deployment holds the controls back", async () => {
@@ -176,5 +183,76 @@ describe("SettingsDataRetentionPage", () => {
     expect(within(dialog).getByText(/came from a permanent deletion/)).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
     await waitFor(() => expect(dataRetentionApi.removeSuppression).toHaveBeenCalledWith("s1"));
+  });
+
+  describe("export workspace data", () => {
+    const BUILDING: WorkspaceExport = {
+      id: "e1",
+      status: "RUNNING",
+      fileName: "al-futtaim-search-export-2026-11-02.zip",
+      sizeBytes: null,
+      people: null,
+      documents: null,
+      positions: null,
+      requestedAt: "2026-11-02T10:02:00Z",
+      requestedByName: "Yara Haddad",
+      completedAt: null,
+      expiresAt: null,
+    };
+    const READY: WorkspaceExport = {
+      ...BUILDING,
+      status: "READY",
+      sizeBytes: 1_503_238_554,
+      people: 2140,
+      documents: 318,
+      positions: 12,
+      completedAt: "2026-11-02T10:09:00Z",
+      expiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+    };
+
+    it("starts an export and says it is building", async () => {
+      vi.mocked(dataRetentionApi.startWorkspaceExport).mockResolvedValue(BUILDING);
+      renderPage();
+
+      const card = await screen.findByRole("region", { name: "Export workspace data" });
+      expect(within(card).getByText(/A zip of everything in Al-Futtaim Search/)).toBeInTheDocument();
+      vi.mocked(dataRetentionApi.getLatestWorkspaceExport).mockResolvedValue(BUILDING);
+      await userEvent.click(await within(card).findByRole("button", { name: "Start export" }));
+
+      expect(dataRetentionApi.startWorkspaceExport).toHaveBeenCalled();
+      expect(await within(card).findByText("Building your export…")).toBeInTheDocument();
+      expect(within(card).getByText(/Started by Yara Haddad/)).toBeInTheDocument();
+      expect(within(card).getByRole("button", { name: /Exporting/ })).toBeDisabled();
+    });
+
+    it("offers a ready export for download with its size and expiry", async () => {
+      vi.mocked(dataRetentionApi.getLatestWorkspaceExport).mockResolvedValue(READY);
+      const zip = new Blob(["PK"]);
+      vi.mocked(dataRetentionApi.downloadWorkspaceExport).mockResolvedValue(zip);
+      renderPage();
+
+      const card = await screen.findByRole("region", { name: "Export workspace data" });
+      expect(await within(card).findByText("al-futtaim-search-export-2026-11-02.zip")).toBeInTheDocument();
+      expect(within(card).getByText(/1\.4 GB · built .* by Yara Haddad/)).toBeInTheDocument();
+      expect(within(card).getByText("expires in 7 days")).toBeInTheDocument();
+      expect(within(card).queryByRole("button", { name: "Start export" })).not.toBeInTheDocument();
+
+      await userEvent.click(within(card).getByRole("button", { name: "Download" }));
+      await waitFor(() => expect(saveBlob).toHaveBeenCalledWith(zip, "al-futtaim-search-export-2026-11-02.zip"));
+      expect(within(card).getByRole("button", { name: "Start a new export" })).toBeEnabled();
+    });
+
+    it("says when the last export expired, and offers a new one", async () => {
+      vi.mocked(dataRetentionApi.getLatestWorkspaceExport).mockResolvedValue({
+        ...READY,
+        status: "EXPIRED",
+        expiresAt: "2026-10-12T10:09:00Z",
+      });
+      renderPage();
+
+      const card = await screen.findByRole("region", { name: "Export workspace data" });
+      expect(await within(card).findByText("The last export expired on 12 Oct 2026 and was deleted.")).toBeInTheDocument();
+      expect(within(card).getByRole("button", { name: "Start export" })).toBeEnabled();
+    });
   });
 });
