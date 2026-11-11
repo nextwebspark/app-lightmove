@@ -17,26 +17,15 @@ export function CurrencyOptions({
   const { suggested, others } = currencyGroupsOf(held, served);
   const servedNames = new Map(served.map((currency) => [currency.code, currency.name]));
   const labelOf = (code: string) => (codesOnly ? code : currencyOptionLabel(code, servedNames.get(code)));
-  if (others.length === 0) {
-    return (
-      <>
-        {suggested.map((code) => (
-          <option key={code} value={code}>
-            {labelOf(code)}
-          </option>
-        ))}
-      </>
-    );
-  }
+  const suggestedOptions = suggested.map((code) => (
+    <option key={code} value={code}>
+      {labelOf(code)}
+    </option>
+  ));
+  if (others.length === 0) return <>{suggestedOptions}</>;
   return (
     <>
-      <optgroup label="Suggested">
-        {suggested.map((code) => (
-          <option key={code} value={code}>
-            {labelOf(code)}
-          </option>
-        ))}
-      </optgroup>
+      <optgroup label="Suggested">{suggestedOptions}</optgroup>
       <optgroup label="All currencies">
         {others.map((currency) => (
           <option key={currency.code} value={currency.code}>

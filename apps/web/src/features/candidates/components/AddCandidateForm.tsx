@@ -82,7 +82,7 @@ export function AddCandidateForm({
   onMarkNoExecutiveFound?: () => void;
 }) {
   const toast = useToast();
-  const workspaceCurrency = useWorkspaceCurrency();
+  const { currency: workspaceCurrency } = useWorkspaceCurrency();
   const [submitError, setSubmitError] = useState<string | null>(null);
   // Outside react-hook-form: its schema is a fixed shape and these keys are the project's, decided at
   // runtime. They still travel in the same submit, so a save is one request and one audit event.

@@ -102,12 +102,12 @@ final class PositionTemplateApplier {
      */
     private static CompensationPackage compensationOf(Position position, PositionTemplate template) {
         PositionTemplateBody body = template.getBody();
-        boolean keepsCurrency = holdsMoney(position) || template.isSharedLibrary();
+        boolean briefKeepsCurrency = holdsMoney(position) || template.isSharedLibrary();
         boolean bandTyped = position.getSalaryMin() != null || position.getSalaryMax() != null;
         boolean templateStatesBonus = body.bonusValue() != null || body.bonusBasis() != null;
         boolean incentiveTyped = position.getIncentiveAmount() != null;
         return new CompensationPackage(
-                keepsCurrency ? position.getCurrency() : body.currency(),
+                briefKeepsCurrency ? position.getCurrency() : body.currency(),
                 position.getSalaryMin(), position.getSalaryMax(),
                 bandTyped ? position.getBaseSalaryMode() : body.baseSalaryMode(),
                 templateStatesBonus ? body.bonusValue() : position.getBonusValue(),

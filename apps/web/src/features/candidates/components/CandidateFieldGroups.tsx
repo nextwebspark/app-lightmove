@@ -280,7 +280,7 @@ export function CompensationFields<TTransformed extends FieldValues>({
   storedNoticePeriod?: string | null;
 }) {
   const [currencyMode, setCurrencyMode] = useState<CurrencyMode>("auto");
-  const workspaceCurrency = useWorkspaceCurrency();
+  const { currency: workspaceCurrency } = useWorkspaceCurrency();
   const allowances = useFieldArray({ control, name: "allowanceLines" });
   const [currency, base, baseCadence, bonus, bonusBasis, allowanceLines, longTermIncentive, incentiveTypes] =
     watch([
@@ -300,12 +300,12 @@ export function CompensationFields<TTransformed extends FieldValues>({
       (currencyMode === "auto" && (!storedCurrency || storedCurrency === briefCurrency)));
 
   // The brief is read beside the grid and can land after the form opened; while the package follows
-  // it, it takes it. With no brief and nothing on file, the package starts in the workspace's currency.
-  // Once overridden, nothing here touches the pick.
+  // it, it takes it. With no brief and nothing on file it follows the workspace's currency the same way,
+  // which can land after the form opened too. Once overridden, nothing here touches the pick.
   useEffect(() => {
     if (followsBrief && briefCurrency && currency !== briefCurrency) {
       setValue("currency", briefCurrency, { shouldDirty: true });
-    } else if (!briefCurrency && !storedCurrency && currencyMode === "auto" && !currency) {
+    } else if (!briefCurrency && !storedCurrency && currencyMode === "auto" && currency !== workspaceCurrency) {
       setValue("currency", workspaceCurrency, { shouldDirty: true });
     }
   }, [followsBrief, briefCurrency, storedCurrency, currencyMode, currency, workspaceCurrency, setValue]);

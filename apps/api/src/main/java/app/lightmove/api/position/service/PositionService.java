@@ -92,7 +92,7 @@ public class PositionService {
     @Transactional(readOnly = true)
     public BriefCompetencies competenciesOf(UUID workspaceId, UUID projectId) {
         return competenciesOf(briefs.find(workspaceId, projectId)
-                .orElseGet(() -> briefs.blank(workspaceId, projectId)));
+                .orElseGet(() -> Position.forProject(projectId, null, null)));
     }
 
     /** The brief as the AI assessment reads it, through the same narrow seam; it never drafts a brief either. */

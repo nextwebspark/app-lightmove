@@ -94,7 +94,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
   const detail = detailQuery.data ?? null;
 
   const workspaceCurrency = useWorkspaceCurrency();
-  const [draft, setDraft] = useState<TemplateDraft | null>(code === null ? blankDraft(workspaceCurrency) : null);
+  const [draft, setDraft] = useState<TemplateDraft | null>(null);
   const [dirty, setDirty] = useState(false);
   const [lockedTechnical, setLockedTechnical] = useState<ReadonlySet<string>>(new Set());
   const [lockedBehavioural, setLockedBehavioural] = useState<ReadonlySet<string>>(new Set());
@@ -105,6 +105,13 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
   useEffect(() => {
     if (detail && draft === null) setDraft(draftOf(detail));
   }, [detail, draft]);
+
+  // A new template waits for the workspace's currency: seeded on a cold cache, it kept the fallback for good.
+  useEffect(() => {
+    if (code === null && draft === null && workspaceCurrency.isSettled) {
+      setDraft(blankDraft(workspaceCurrency.currency));
+    }
+  }, [code, draft, workspaceCurrency.isSettled, workspaceCurrency.currency]);
 
   useEffect(() => {
     if (!dirty) return;

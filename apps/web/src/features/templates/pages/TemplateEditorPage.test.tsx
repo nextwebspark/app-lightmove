@@ -5,6 +5,8 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
+import * as workspaceApi from "../../workspace/api/workspaceApi";
+import type { WorkspaceDetail } from "../../workspace/api/types";
 import * as templateApi from "../api/templateAdminApi";
 import type { TemplateDetail } from "../api/types";
 import { TemplateEditorPage } from "./TemplateEditorPage";
@@ -17,6 +19,11 @@ vi.mock("../api/templateAdminApi", async (importOriginal) => ({
   removeTemplate: vi.fn(),
   setTemplateHidden: vi.fn(),
   setTemplateActive: vi.fn(),
+}));
+
+vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../workspace/api/workspaceApi")>()),
+  workspace: vi.fn(),
 }));
 
 const cfo = (overrides: Partial<TemplateDetail> = {}): TemplateDetail => ({
@@ -152,5 +159,31 @@ describe("TemplateEditorPage — a firm editing a template", () => {
     expect(await screen.findByText(/has updated the library version since you customised it/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Reset to library" }).length).toBeGreaterThan(0);
     expect(screen.getByText(/last saved by Yara Haddad/)).toBeInTheDocument();
+  });
+});
+
+describe("TemplateEditorPage — a firm starting a new template", () => {
+  it("starts in the workspace's currency even when that read lands after the page opened", async () => {
+    let answer: (detail: WorkspaceDetail) => void = () => {};
+    vi.mocked(workspaceApi.workspace).mockReturnValue(
+      new Promise<WorkspaceDetail>((resolve) => {
+        answer = resolve;
+      }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/settings/templates/new"]}>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <ToastProvider>
+            <Routes>
+              <Route path="/settings/templates/new" element={<TemplateEditorPage scope="workspace" />} />
+            </Routes>
+          </ToastProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+    answer({ defaultCurrency: "SAR" } as WorkspaceDetail);
+
+    expect(await screen.findByDisplayValue("SAR - Saudi Riyal")).toBeInTheDocument();
   });
 });

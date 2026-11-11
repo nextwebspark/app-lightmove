@@ -36,4 +36,15 @@ class CurrenciesTest {
                 .isSorted();
         assertThat(Currencies.offered()).allSatisfy(currency -> assertThat(currency.name()).isNotBlank());
     }
+
+    @Test
+    @DisplayName("a code is known when ISO issues it, a retired one included, and never in lower case or as a metal")
+    void knowsTheIsoCodes() {
+        assertThat(Currencies.isKnownCode("SAR")).isTrue();
+        assertThat(Currencies.isKnownCode("ATS")).isTrue();
+        assertThat(Currencies.isKnownCode("sar")).isFalse();
+        assertThat(Currencies.isKnownCode("XAU")).isFalse();
+        assertThat(Currencies.isKnownCode("ZZZ")).isFalse();
+        assertThat(Currencies.isKnownCode(null)).isFalse();
+    }
 }

@@ -4,7 +4,7 @@ import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.common.constant.NoticePeriod;
 import app.lightmove.api.common.constant.NoticeUnit;
 import app.lightmove.api.common.constant.Seniority;
-import app.lightmove.api.core.validation.CurrencyCodeValidator;
+import app.lightmove.api.common.location.service.Currencies;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -65,7 +65,7 @@ final class RowValues {
             return null;
         }
         String code = trimmed.replaceAll("[^A-Za-z]", "").toUpperCase(Locale.ROOT);
-        return CurrencyCodeValidator.isCurrencyCode(code) ? code : null;
+        return Currencies.isKnownCode(code) ? code : null;
     }
 
     /** Matches the wire token, the enum name and the spellings files carry ("N minus 1", "CSuite"). */

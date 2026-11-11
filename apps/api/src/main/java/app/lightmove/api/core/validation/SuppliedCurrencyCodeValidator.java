@@ -1,10 +1,11 @@
 package app.lightmove.api.core.validation;
 
+import app.lightmove.api.common.location.service.Currencies;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 import java.util.Locale;
 
-/** {@link CurrencyCodeValidator}'s table, read after a trim and an upper-casing; a blank value passes. */
+/** {@link Currencies#isKnownCode}, asked after a trim and an upper-casing; a blank value passes. */
 public class SuppliedCurrencyCodeValidator implements ConstraintValidator<SuppliedCurrencyCode, String> {
 
     @Override
@@ -12,6 +13,6 @@ public class SuppliedCurrencyCodeValidator implements ConstraintValidator<Suppli
         if (value == null || value.isBlank()) {
             return true;
         }
-        return CurrencyCodeValidator.isCurrencyCode(value.trim().toUpperCase(Locale.ROOT));
+        return Currencies.isKnownCode(value.trim().toUpperCase(Locale.ROOT));
     }
 }
