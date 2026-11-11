@@ -25,14 +25,8 @@ export interface SidebarGroup {
 }
 
 /**
- * The mockups' left rail: the way back pinned to the top, the grouped nav links scrolling between, and the collapse
- * row pinned to the bottom; 210px wide or 56px collapsed (labels, group headers and counts disappear). On desktop it
- * is a bare column on the page ground, not a card — the main panel is the only card the mockups draw.
- *
- * <p>It is drawn from `lg` only: below it the bottom bar's More opens the same screens in a panel.
- *
- * <p>`assistantOpen` collapses it without touching the stored preference, so shutting the assistant
- * restores whatever the user had chosen.
+ * The left rail (210px, 56px collapsed), drawn from `lg` only. `assistantOpen` collapses it without touching
+ * the stored preference.
  */
 export function Sidebar({
   groups,

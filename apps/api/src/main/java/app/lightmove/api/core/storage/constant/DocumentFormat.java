@@ -9,13 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
 /**
- * The file formats a document library accepts, each recognised by its <b>bytes</b> and its extension
- * together. The multipart part's content type is the sender's claim and decides nothing: an executable
- * renamed {@code cv.pdf} has neither a PDF's signature nor a reason to be stored.
- *
- * <p>DOCX and ODT are both zip archives, so the signature tells them from everything else and the
- * extension tells them from each other. Plain text has no signature; it is text if its opening bytes
- * hold no NUL.
+ * The file formats a document library accepts, each recognised by its <b>bytes</b> and its extension together; the
+ * part's content type decides nothing. DOCX and ODT are zips told apart by extension; plain text is text with no NUL.
  */
 @Getter
 @Accessors(fluent = true)

@@ -38,12 +38,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * A mandate's mapped executives. Gated per method exactly as the companies are: reading is WORK_VIEW,
- * held by every seated role including CLIENT, while every write is WORK_EXECUTE.
- *
- * <p>Editing is a PUT rather than a PATCH because the drawer holds and submits every field: a partial
- * merge would make "cleared" and "not sent" the same request, and clearing a compensation figure is
- * exactly the edit that must not silently do nothing.
+ * A mandate's mapped executives: reading is WORK_VIEW (CLIENT included), every write WORK_EXECUTE. Editing is a PUT, so
+ * "cleared" and "not sent" differ — clearing a compensation figure must not silently do nothing.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/candidates")

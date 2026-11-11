@@ -1,22 +1,7 @@
 /**
- * How long a mandate plans to wait for somebody — one vocabulary, both halves of a search.
- *
- * The brief states a period it can plan for; an executive's profile states the one they must serve.
- * Those are the same five choices, so one list answers both, and the screens offer nothing else.
- *
- * The two contracts store it differently, which is why the conversions live here: the position brief
- * keeps a count and a unit (`noticeValue` + `noticeUnit`, wide enough to hold ninety days), and a
- * candidate keeps the option's own label in a free-text column. Neither column is narrowed to these
- * five — a brief written before the picker existed, an externally authored template and a spreadsheet
- * all state what they state, and a write that refused them would clear a fact nobody touched. A value
- * outside the vocabulary stays offered, as recorded, wherever it is already stored.
- *
- * `None` is a claim — this person can start now — and is not the blank a profile carries before
- * anybody asked, so every picker keeps a blank option above these five.
- *
- * Deviation from the mockups, deliberate: Position.dc.html, Settings.dc.html and
- * CandidateProfile.handoff.md all draw a free number, a unit select or a text box. A mandate plans in
- * whole months, and three screens spelling one period four ways is what made it uncountable.
+ * The five notice periods, one vocabulary for the brief (`noticeValue` + `noticeUnit`) and a candidate (the label).
+ * Neither column is narrowed to them: a value outside stays offered as recorded. `None` is a claim (starts now), not
+ * a blank, so every picker keeps a blank above the five. Deliberate deviation from the mockups' free number/unit.
  */
 
 export type NoticeUnit = "DAYS" | "WEEKS" | "MONTHS";

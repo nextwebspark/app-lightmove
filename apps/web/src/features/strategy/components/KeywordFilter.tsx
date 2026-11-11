@@ -10,12 +10,8 @@ const LIST_ID = "keyword-suggestions";
 const MIN_QUERY_LENGTH = 2;
 
 /**
- * The keyword half of the Industry panel. Unticked is no constraint at all — every company the
- * industries reach comes back — and that is why nothing but the keywords themselves is stored: an
- * empty list is the unticked state, so there is no flag that could disagree with the box beneath it.
- *
- * <p>Keywords are picked from the universe's own vocabulary, never typed. A keyword the pipeline does
- * not carry would narrow the search to nothing while looking like it narrowed it to something.
+ * The keyword half of the Industry panel. Only the keywords are stored — an empty list is the unticked state, so no flag
+ * can disagree. Picked from the universe's vocabulary, never typed: an unknown keyword would silently narrow to nothing.
  */
 export function KeywordFilter({
   selected,

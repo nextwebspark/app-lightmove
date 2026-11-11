@@ -17,13 +17,8 @@ import { mergeReportingProposals, type ChartMergeBlock } from "./orgChart";
 import type { StepKey } from "./steps";
 
 /**
- * Folds a "Read from document" reading silently into the brief: what the old review-then-accept panel
- * did one click at a time, this does in one pass, marking what it filled instead of asking somebody to
- * approve each row. See epic #393 for the product reasoning and #396 for this library's contract.
- *
- * Every function here is pure — a snapshot in, a snapshot out — so the wiring (#397) can call it from
- * whatever autosave shape the page happens to hold, and so the merge, weight and undo rules can be
- * proven with plain data rather than a rendered page.
+ * Folds a "Read from document" reading silently into the brief, marking what it filled (epic #393, contract
+ * #396). Every function is pure — snapshot in, snapshot out.
  */
 
 const EMPLOYMENT_TYPES: readonly string[] = Object.keys(EMPLOYMENT_TYPE_LABELS);
@@ -376,12 +371,8 @@ const TEAM_SIZE_LENS: ScalarLens<ReportingStructure, string | null> = {
 };
 
 /**
- * The reporting section's one composite scalar: a `noticePeriod` proposal is always one of the five
- * vocabulary labels (`PositionReportingProposer` folds the model's count and unit into one before this
- * ever sees it), so `pairOfNoticePeriod` should never fail here — but this is a pure function fed
- * whatever a caller hands it, so an unrecognised label or a pair that resolves to a non-finite or
- * negative count is dropped rather than written. `Number(value)` with no such guard is the fold that
- * shipped the NaN bug this replaces.
+ * The reporting notice period: an unrecognised label, or a pair resolving to a non-finite or negative count, is
+ * dropped rather than written — an unguarded `Number(value)` shipped the NaN bug this replaces.
  */
 function fillNoticePeriod(
   reporting: ReportingStructure,
@@ -685,13 +676,8 @@ function fillContext(
 // ---------------------------------------------------------------------------------------------------
 
 /**
- * Restores one scalar to what it held before the fill, but only while it still reads `DOCUMENT`: an
- * edit made since turned it `MANUAL`, and a person's own typing always wins over an undo of a reading
- * they have already moved past.
- *
- * A screen's receipt can span more than one draft object — the Role Brief's covers details, context
- * and the reporting notice pair — so `step` here is whichever one owns `fieldKey`; the caller (#397)
- * is the one that knows which object that is.
+ * Restores one scalar to its pre-fill value only while it still reads `DOCUMENT` (an edit since made it
+ * `MANUAL`, and typing wins). `step` is whichever draft object owns `fieldKey`; the caller (#397) knows which.
  */
 export function undoScalar<D extends { fieldSources: Record<string, FieldSource> }>(
   step: D,

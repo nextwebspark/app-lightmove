@@ -11,15 +11,8 @@ vi.mock("../auth/AuthProvider", () => ({
 }));
 
 /**
- * That the assistant opens, closes, and never takes the page hostage while it is open.
- *
- * <p>The non-modal part is the one worth a test: the whole point of docking it is that a consultant
- * keeps ticking rows in the grid beside it, and `Drawer`'s `aria-modal` would tell a screen reader
- * the rest of the page is gone.
- *
- * <p>Mounted through {@link AssistantDock}, which is what a screen renders. A shut panel is behind
- * `aria-hidden` rather than absent — it stays in the tree long enough to animate out — so the
- * queries below say the same thing they always did.
+ * That the assistant opens, closes and stays non-modal (no `aria-modal`), so the grid beside it stays usable.
+ * Mounted through {@link AssistantDock}; a shut panel is `aria-hidden` rather than absent while it animates out.
  */
 /** Strategy's AI Research button is the only way in, and it does no more than this. */
 function AiResearchButton() {

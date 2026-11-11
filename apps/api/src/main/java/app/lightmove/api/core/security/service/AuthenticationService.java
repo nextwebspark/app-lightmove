@@ -150,12 +150,8 @@ public class AuthenticationService {
     }
 
     /**
-     * Every failure — including the lockout, whose own 423 confirmed the account exists — answers
-     * {@link ErrorCode#INVALID_CREDENTIALS} and pays one BCrypt comparison
-     * ({@link PasswordPolicy#equaliseFailureCost}); a locked-out owner is told by email.
-     *
-     * <p><b>{@code noRollbackFor = ApiException.class}:</b> otherwise the failed-attempt increment rolls
-     * back with the thrown exception and account lockout silently does not exist.
+     * Every failure, lockout included, answers {@link ErrorCode#INVALID_CREDENTIALS} at one BCrypt cost
+     * ({@link PasswordPolicy#equaliseFailureCost}). {@code noRollbackFor}: else the failed-attempt count rolls back and lockout never happens.
      */
     @Transactional(noRollbackFor = ApiException.class)
     public SignInOutcome login(String rawEmail, String password, HttpServletRequest request) {

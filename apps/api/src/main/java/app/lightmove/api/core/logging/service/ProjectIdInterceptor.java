@@ -9,12 +9,8 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
 
 /**
- * Puts a project route's {@code {projectId}} in the MDC. An interceptor rather than a filter because
- * the path variables exist only once a handler has matched, and setting it before the controller runs
- * puts it on every line the request writes, not only the closing one.
- *
- * <p>Only a well-formed UUID is put: the path is the caller's, and a junk segment has no place in the
- * JSON. Clears nothing; {@link CorrelationIdFilter} owns the MDC.
+ * Puts a project route's {@code {projectId}} in the MDC — an interceptor, as path variables exist only once a handler
+ * matched. Only a well-formed UUID is put; {@link CorrelationIdFilter} owns clearing the MDC.
  */
 public class ProjectIdInterceptor implements HandlerInterceptor {
 

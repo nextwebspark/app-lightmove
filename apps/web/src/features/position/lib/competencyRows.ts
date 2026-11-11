@@ -1,15 +1,8 @@
 import type { Competency } from "../api/types";
 
 /**
- * A competency while the wizard is editing it, carrying an id the API knows nothing about.
- *
- * <p>Both new affordances on step five need to name a row: a lock has to survive the row moving, and
- * a sortable list needs a stable key per item. An array index is neither — reordering and removing
- * both shift it, so a lock would silently jump to whichever competency inherited the slot, and dnd-kit
- * mis-drops when items are keyed by position.
- *
- * <p>So the id is minted here, lives only in component state, and is stripped before the array is
- * sent. The wire shape is unchanged, and no lock ever needs remapping.
+ * A competency being edited, with a client-only id (stripped before sending): an array index shifts on reorder or
+ * remove, so a lock would jump rows and dnd-kit mis-drops.
  */
 export interface IdentifiedCompetency extends Competency {
   id: string;

@@ -13,13 +13,8 @@ public record EmailValidationSettings(
         @DefaultValue("true") boolean mxCheckEnabled,
 
         /**
-         * Reject consumer email providers (gmail, outlook, …), so signup requires a work address.
-         *
-         * <p>Off by default: we currently accept any domain at signup. The consequence worth
-         * knowing is that the domain no longer reliably groups colleagues — {@code gmail.com}
-         * groups the entire world — so a consumer signup simply creates its own fresh workspace.
-         * Set to {@code true} (or the {@code EMAIL_BLOCK_PUBLIC_DOMAINS} env var) to require work
-         * addresses again.
+         * Reject consumer email providers (gmail, outlook, …) at signup. Off by default, so a consumer signup founds
+         * its own workspace ({@code gmail.com} groups no colleagues); {@code EMAIL_BLOCK_PUBLIC_DOMAINS} turns it on.
          */
         @DefaultValue("false") boolean blockPublicDomains,
 

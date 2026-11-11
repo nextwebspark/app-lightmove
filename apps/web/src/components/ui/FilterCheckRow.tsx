@@ -1,18 +1,8 @@
 import { cn } from "../../lib/cn";
 
 /**
- * One checkbox row in a filter panel — the wireframe's shape for every axis with more than a handful
- * of values: Employees, Revenue, Market Segments.
- *
- * <p><b>Only the box changes when it is checked.</b> The label keeps the same weight, size and colour
- * either way, and the count stays muted. That is deliberate and it is what the wireframe does: a list
- * where selected rows also turn the accent reads as two different kinds of row, and the eye has to
- * re-scan to find the checked ones. Leaving the text alone means the checkmarks are the only signal,
- * which is the one you actually want to follow down a column of eleven bands.
- *
- * <p>The count is over the whole universe rather than the current selection, so it answers "how big
- * is this slice of the market" rather than "how many are left", and does not move under the hand as
- * you tick boxes.
+ * One checkbox row in a filter panel. Only the box changes when checked, so the checkmarks are the one signal;
+ * the count is over the whole universe and does not move as boxes are ticked.
  */
 export function FilterCheckRow({
   label,

@@ -30,12 +30,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * A direct mailbox's booking page, Uncava's own where a Nylas one is Nylas's scheduler: the consultant's free
- * half-hours inside their working hours ({@link FreeSlots}), and a booking that invites whoever picked one.
- * Nobody is signed in, so the link is the only credential, every call is rate-limited per IP and link, and a
- * booking counts towards a person only where that consultant emailed the address ({@link LinkBookings}). Nothing
- * the caller types reaches the invite but the address it goes to. Two bookers racing for one slot can both be
- * invited — the calendar holds no lock to take — which the consultant sees and moves, as with any double booking.
+ * A direct mailbox's booking page: free half-hours ({@link FreeSlots}) and a booking that invites the picker. The
+ * link is the only credential (rate-limited per IP and link); a booking counts only for an address the consultant
+ * emailed ({@link LinkBookings}), and only the address reaches the invite. Racing bookers may both be invited (no lock).
  */
 @Service
 @RequiredArgsConstructor

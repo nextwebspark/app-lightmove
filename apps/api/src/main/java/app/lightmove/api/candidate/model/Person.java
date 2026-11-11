@@ -39,12 +39,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * One executive, owned by the workspace and shared by every mandate that maps them (V91). Everything
- * true of the human lives here — profile, background, package, contacts, research — while each
- * mandate's decision about them stays on its {@link Candidate} row.
- *
- * <p>Batched as a class so a page of candidates loads its people in one query rather than one each;
- * the talent map reads a whole mandate unpaged.
+ * One executive, owned by the workspace and shared by every mandate that maps them (V91); each mandate's decision stays
+ * on its {@link Candidate}. Batched so a page loads its people in one query.
  */
 @Entity
 @Table(name = "app_lm_person")

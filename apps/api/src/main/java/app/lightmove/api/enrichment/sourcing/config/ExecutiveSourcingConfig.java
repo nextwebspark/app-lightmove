@@ -21,12 +21,9 @@ import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Picks the {@link PeopleSearch} {@code sourcing.people-source} names: ContactOut's People Search when
- * a ContactOut key is set, or Bright Data's dataset when the enrichment provider is Bright Data (the
- * same key and dataset); the no-vendor stand-in when neither is configured. With ContactOut first and
- * Bright Data configured, the {@link PeopleSearchChain} asks Bright Data wherever ContactOut finds
- * nobody or fails. Each adapter is its own {@code @Bean} for {@code CandidateEnrichmentConfig}'s
- * reason — built inside another factory method its {@code @Retryable} would never fire.
+ * Picks the {@link PeopleSearch} {@code sourcing.people-source} names (ContactOut, Bright Data, or the no-vendor
+ * stand-in), chained by {@link PeopleSearchChain} where both exist. Each adapter is its own {@code @Bean}: built inside
+ * another factory method, its {@code @Retryable} would never fire.
  */
 @Configuration
 @Slf4j

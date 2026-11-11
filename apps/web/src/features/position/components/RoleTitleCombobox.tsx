@@ -5,16 +5,8 @@ import { suggestionsFor } from "../lib/roleTitleSuggestions";
 import { CheckedInput } from "./CheckedInput";
 
 /**
- * The role title: a free-text field that suggests the templates the brief can be drafted from.
- *
- * Free text is the point. A mandate is titled "Group CFO – Energy Division" as often as it is titled
- * "Chief Financial Officer", and the title is what the whole workspace calls this search — so the
- * seventeen templates are offered, never imposed. Nothing is highlighted until somebody arrows into
- * the list or hovers it, which is what keeps Enter on a typed title from committing the suggestion
- * sitting underneath it.
- *
- * Picking one does two things, and they are separate on purpose: the title becomes the template's,
- * through the ordinary details write, and the brief is redrafted from that template.
+ * The role title: free text that suggests the seventeen templates, never imposes one. Nothing is highlighted until
+ * arrowed or hovered, so Enter keeps a typed title. Picking one sets the title and, separately, redrafts the brief.
  */
 export function RoleTitleCombobox({
   value,

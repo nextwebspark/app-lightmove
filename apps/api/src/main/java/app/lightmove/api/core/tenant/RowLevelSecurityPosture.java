@@ -10,15 +10,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * Refuses to boot where row-level security would be inert — a runtime role that is a superuser or holds
- * BYPASSRLS skips every policy, an owner skips a table that is not forced, a tenant table nobody protected
- * ({@link TenantTableGuard}) has no fence at all, and Flyway's maintenance flag left on a
- * pooled connection lets that connection read every workspace. A deploy that fails here keeps the old revision
- * serving, which beats a new one quietly unprotected.
- *
- * <p>Checked once every singleton exists — Flyway's migration included — and before the context's refresh starts the
- * web server and the scheduler, so an unprotected revision never serves a request or runs a job. An
- * {@code ApplicationRunner} would run only after both had started.
+ * Refuses to boot where row-level security would be inert: a superuser/BYPASSRLS role, an unforced owned table, an
+ * unprotected tenant table ({@link TenantTableGuard}) or a pooled connection left in Flyway's maintenance flag.
+ * Runs before the web server and scheduler start (an {@code ApplicationRunner} would be too late).
  */
 @Slf4j
 @Component

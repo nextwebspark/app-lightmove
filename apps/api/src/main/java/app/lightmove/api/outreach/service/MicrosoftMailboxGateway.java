@@ -48,12 +48,9 @@ import org.springframework.web.util.UriUtils;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Outlook and Microsoft 365 mail through Microsoft Graph, connected through the OAuth app the workspace chose:
- * Uncava's multi-tenant app at {@code /organizations}, or the customer's single-tenant one at its own directory.
- *
- * <p>Every email is a draft and then a send, never {@code sendMail}: only a draft answers with the message's id and
- * conversation id, which a follow-up replies to and the reply poll reads. Ids are requested immutable, so they
- * survive the message moving to Sent Items. A send is never retried — see {@link MailboxGateway}.
+ * Microsoft Graph mail through the workspace's app ({@code /organizations} shared, or the customer's tenant). Draft
+ * then send, never {@code sendMail}: only a draft returns the immutable message and conversation ids threading needs.
+ * A send is never retried — see {@link MailboxGateway}.
  */
 public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
 

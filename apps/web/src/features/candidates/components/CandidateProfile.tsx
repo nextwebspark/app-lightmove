@@ -110,31 +110,9 @@ const PROFILE_TAB_FOLDS: readonly ProfileSection[] = [
 const TAB_ID_PREFIX = "executive-drawer";
 
 /**
- * One executive, read first and corrected a section at a time.
- *
- * <p><b>Clicking a name opens a profile, not a form.</b> A consultant looking someone up is reading,
- * and a form that opens over the grid on every click is a form you dismiss without looking at. The
- * pencil on each section is the deliberate second step, and it edits that section in place: the rest
- * of the profile stays readable, a save puts the section back as it now reads, and the panel stays
- * open — the reader had not finished, and the next thing they do is usually write the note.
- *
- * <p><b>Every save is still a full replace on the wire.</b> The server takes the whole profile, so a
- * section's save is the stored profile with that section written over it, and nothing outside the
- * section can change. That is what lets six small forms be safer than one big one: a form that has
- * been open for a while can only overwrite the fields it was opened for.
- *
- * <p><b>Status stays live beside the name</b>, with a write of its own — it is the field that changes
- * most often and the one a researcher came to flick while reading.
- *
- * <p>Tabs follow `Position.dc.html` — Profile, Notes, Assessment, Outreach and Activity, grouped by what the
- * consultant is doing; Profile holds the background, the package and the documents as folds, Summary alone open on
- * arrival. The contacts are the header's, on every tab. A client seat gets Profile alone, and no tab bar. Every panel
- * stays mounted while hidden, so a half-typed note
- * survives a look at another tab. The next action is not a tab's: it is the header's bar, on view
- * whichever tab is open, since the moment to set one is while writing the note or the email.
- *
- * <p>Keyed by the caller on the candidate's id: the open section is state about this person, while
- * the tab is the viewer's — the next profile opens on the tab this one was left on.
+ * One executive, read first and edited a section at a time; each save is still a full replace, so a section can only
+ * overwrite its own fields. Status stays live beside the name. Tabs follow `Position.dc.html` (a client seat: Profile
+ * alone); every panel stays mounted so a half-typed note survives. Keyed on the candidate id; the tab is the viewer's.
  */
 export function CandidateProfile({
   projectId,

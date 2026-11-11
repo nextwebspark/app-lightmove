@@ -18,12 +18,8 @@ import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 
 /**
- * Redacts a position description before its text reaches the model.
- *
- * <p>Pseudonymisation, not de-identification: the client's known name and domain are substituted, and
- * contact cards are stripped whole. No other name is detected — a name detector would redact the Title
- * Case headings being extracted — so <b>an unnamed third party's name in prose will reach Vertex</b>, a
- * deliberate trade.
+ * Redacts a position description before the model: the client's name and domain substituted, contact cards stripped.
+ * No name detector (it would redact the headings), so <b>an unnamed third party's name in prose reaches Vertex</b>.
  */
 @Service
 public class PositionDocumentRedactor {

@@ -31,25 +31,9 @@ const CORNER_BUTTON =
   "rounded-md p-1.5 transition hover:bg-u-raised disabled:opacity-40 disabled:hover:bg-transparent";
 
 /**
- * One company, in the mandate's own terms — the panel the mockup's `coDrawer` describes, finally
- * built, and the form that adds a new one.
- *
- * <p><b>It opens read-only.</b> A consultant clicking a company name is reading, not typing, and a
- * form that opens over the grid on every click is a form you dismiss without looking at. Edit is a
- * deliberate second step.
- *
- * <p><b>A company taken from Strategy has no Edit button at all.</b> Its fields are the market
- * export's snapshot, refreshed by the export, and a mandate rewriting them would make the Source badge
- * a claim the figures no longer support. The server refuses the write too — the missing button is the
- * courtesy, not the control.
- *
- * <p>The <b>Notes</b> tab is the exception, and stays the team's on every company including those. Notes are the
- * mandate's own remarks rather than facts about the company, which is exactly why the export cannot own them —
- * and the reason a consultant opens this panel rather than Strategy's. Staff-only, so a client seat gets no tabs.
- *
- * <p><b>Add executive sits in the header</b> rather than only on the grid row, because by the time
- * this panel is open the company is the thing being read and "map somebody here" is the next move —
- * and on the map view the row that carried the action is not on screen at all.
+ * One company in the mandate's terms (the mockup's `coDrawer`), and the form that adds one. Opens read-only; a
+ * company from Strategy has no Edit (the server refuses the write too — the button is courtesy, not control), but its
+ * staff-only Notes tab stays the team's. Add executive sits in the header for the map view, which has no row.
  */
 export function CompanyDrawer({
   open,

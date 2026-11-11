@@ -3,12 +3,8 @@ import { describe, expect, it } from "vitest";
 import baseline from "./styleRatchet.baseline.json";
 
 /**
- * The visual system's ratchet: outside `components/ui`, no file may gain an arbitrary type size, an
- * arbitrary radius or an `!important` override of a primitive. The scale's steps (`text-note`,
- * `text-body`, …) and `Button`'s `size` are the way in; a mockup size the scale truly lacks belongs in
- * `components/ui` or `styles/tokens.css`.
- *
- * Counts only go down. When a file loses some, the baseline is rewritten to match:
+ * The visual system's ratchet: outside `components/ui`, no file may gain an arbitrary type size, radius or `!important`
+ * override. Counts only go down; rewrite the baseline with
  *   UPDATE_STYLE_BASELINE=1 npx vitest run src/lib/styleRatchet.test.ts
  */
 const KINDS = {

@@ -52,19 +52,9 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The authorization server's grants (V115), with every token held as its SHA-256 only — the state, the code, the access
- * token and the refresh token alike.
- *
- * <p>A token read back carries {@code sha256:<hash>} as its value: nothing the framework does with a stored token needs
- * the secret, and a value already so marked is stored as it stands, so re-saving a grant never hashes a hash.
- *
- * <p>A refresh token rotated away is kept, as a hash, until the grant ends. Presented again it is the theft signature:
- * the grant is deleted and the caller gets nothing, so the thief's copy and the client's newer one both stop working.
- *
- * <p>A grant is its workspace's row, and nobody signed in to that workspace is calling: the token endpoint has no
- * principal, and the consent screen's session may be in another workspace. So each method names the grant's workspace
- * — from the stored request, or from its hash or id ({@link TenantResolvers}) — and opens its own transaction there. A
- * grant still waiting for its consent belongs to none, and only a {@link SharedRows} scope reaches it.
+ * The authorization server's grants (V115), every token held as SHA-256 (a {@code sha256:} value is never re-hashed); a
+ * rotated-away refresh token replayed deletes the grant. Each method resolves the grant's workspace
+ * ({@link TenantResolvers}) and opens its own transaction; one awaiting consent is reachable only from {@link SharedRows}.
  */
 @Slf4j
 @Component

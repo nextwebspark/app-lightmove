@@ -53,14 +53,8 @@ const CONTROL_BUTTON =
   "shadow-u-e3 transition hover:text-u-text";
 
 /**
- * The globe itself — the one component that imports `mapbox-gl`, and loaded lazily for it, so the
- * table view never downloads a map library.
- *
- * <p>Everything drawn comes from one GeoJSON source the parent computes; this component owns only
- * the Mapbox map, the layers over that source, the popup anchored to the selection, and the
- * theme, which it follows off `body.dark` because the style has to be swapped rather than restyled.
- * Selection and hover are the parent's state, mirrored here and in the panel, so the two views
- * never disagree about which row is which.
+ * The globe — the one component importing `mapbox-gl`, loaded lazily. Draws one parent-computed GeoJSON source;
+ * selection and hover are the parent's; the theme follows `body.dark` by swapping the style.
  */
 export default function TalentMapGlobe({
   accessToken,

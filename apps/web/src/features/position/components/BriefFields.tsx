@@ -319,12 +319,8 @@ export function StatusBadge({
 }
 
 /**
- * A number in the numeral face: money grouped as it is typed, so a seven-figure salary can be
- * checked by eye, or a plain count. A blank field is null.
- *
- * <p>One size, wherever a figure is typed — a base salary, a bonus, a share of the assessment. The
- * headline figures a screen only reads back (the package total, the team size) are the larger face;
- * a field the hand goes to is this one.
+ * A number in the numeral face — money grouped as typed, or a plain count; blank is null. One size for every typed
+ * figure; read-back headline figures use the larger face.
  */
 /** Past fifteen digits a JavaScript number stops holding the figure typed, and Java's `long` soon refuses it. */
 const MAX_FIGURE_DIGITS = 15;

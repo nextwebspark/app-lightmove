@@ -25,14 +25,8 @@ import {
 import { useContactLookup } from "../lib/useContactLookup";
 
 /**
- * The Contact section: one row per channel — email and phone — listing everything the mandate
- * knows, with the button that goes and finds more sitting on the row it acts on.
- *
- * <p>Read, or edited in the same place: the pencil turns every line into its inputs, Save writes
- * the whole section at once, Cancel discards. Read mode has no editing affordance at all, so a
- * stray click cannot change a contact. A channel is offered, spent, or answered; a spent channel
- * with nothing from the provider says so with its date rather than offering the same purchase
- * again, and says so to every reader, not only to someone who could press the button.
+ * The Contact section: one row per channel with its Find button. The pencil edits every line in place and Save writes
+ * the section whole. A channel already looked up with nothing found says so with its date, to every reader.
  */
 export function ContactPanel({
   projectId,

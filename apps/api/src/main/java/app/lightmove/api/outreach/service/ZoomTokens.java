@@ -20,12 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Access tokens for consultants' Zoom accounts, from each connection's stored refresh token and the workspace's Zoom
- * app. Held in memory only, until shortly before they expire, one refresh per connection at a time: Zoom rotates the
- * refresh token on every use, so two racing would each keep a different one and the loser's would be dead.
- *
- * <p>A refresh Zoom refuses marks the connection withdrawn and answers {@code ZOOM_RECONNECT_NEEDED}; a refused
- * app answers {@code ZOOM_UNAVAILABLE} and leaves the connection as it is, since an admin fixing the app fixes it.
+ * Zoom access tokens, in memory only, one refresh per connection at a time: Zoom rotates the refresh token, so racing
+ * refreshes kill the loser's. Refused refresh: {@code ZOOM_RECONNECT_NEEDED}; refused app: {@code ZOOM_UNAVAILABLE}, connection kept.
  */
 @Service
 @Slf4j

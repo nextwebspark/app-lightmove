@@ -4,19 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 
 /**
- * The list-shaped half of a profile, stored as the {@code profile} jsonb column. A career history is
- * read whole and written whole and no query will ask "which candidates held a title in 2019" — V30's
- * argument for the strategy filter, and why neither becomes a child table.
- *
- * <p>{@code education}, {@code skills}, {@code enrichedAt} and {@code employer} are enrichment's, carried across a
- * drawer edit by {@link #keepingEnrichmentOf} because the drawer resubmits only what it renders.
- * {@code enrichedAt} is an ISO-8601 string rather than an {@code Instant} — the jsonb mapper is a bare
- * Jackson 2 {@code ObjectMapper} with no time module, and a type it cannot read back would make every
- * enriched profile unreadable.
- *
- * <p>Null-tolerant on the way in, and {@code @JsonIgnoreProperties} for {@code StrategyFilter}'s
- * reason: a profile must never become unreadable because a field was retired — which is also how a
- * profile written before V54 moved contacts out of this document still reads.
+ * The list-shaped half of a profile, the {@code profile} jsonb column (read and written whole, V30's reasoning).
+ * {@link #keepingEnrichmentOf} carries enrichment's fields across a drawer edit; {@code enrichedAt} is a string
+ * because the jsonb mapper has no time module. Ignores unknown properties so a retired field (pre-V54 contacts) still reads.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record CandidateProfile(List<CandidateCareerEntry> career, List<String> languages,

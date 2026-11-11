@@ -2,13 +2,8 @@ import { formatNumber } from "../../../lib/format";
 import type { BonusBasis, Compensation } from "../api/types";
 
 /**
- * The package maths behind step four: what the base, bonus, incentive and allowances add up to over
- * a year, and how that total divides.
- *
- * Every figure on the brief carries the unit it is quoted in — the base its period, the bonus its
- * basis, each allowance its frequency — so annualising is arithmetic rather than guesswork. The
- * mockup's own script applies "% of base" to every bonus regardless of the basis its select offers;
- * the three bases are honoured here, because a bonus quoted in months is not a percentage.
+ * The package maths behind step four: the annual total and how it divides. Every figure carries its unit, and all three
+ * bonus bases are honoured — the mockup applied "% of base" to every bonus, but one quoted in months is not a percentage.
  */
 
 export interface PackageTotal {

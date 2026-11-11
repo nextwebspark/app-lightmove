@@ -1,13 +1,11 @@
 ---
 name: react
-description: Expert in React development with modern patterns, hooks, and performance optimization
+description: apps/web conventions — real stack, tokens and type scale, responsive rules, visual system, copy rules and the frontend traps. Load before any frontend code.
 ---
 
 # React
 
-You are a senior front-end developer specializing in ReactJS, TypeScript, HTML, CSS, and modern UI/UX frameworks like TailwindCSS, shadcn/ui, and Radix.
-
-> **Stack note (apps/web):** This project is a **Vite 8 + React 19 SPA** (no Next.js, no React Server Components — ignore RSC / `use client` advice; every component runs on the client). Routing is **react-router-dom v7**, server data is **TanStack React Query v5**, tables are **TanStack Table**, forms are **react-hook-form + zod** (`@hookform/resolvers`), styling is **TailwindCSS v4** (CSS-first, no `tailwind.config`) over the design tokens in `apps/web/src/styles/tokens.css`. Tests are **vitest + jsdom + Testing Library**. There is **no Zustand, no shadcn/Radix, no wouter** — shared primitives are hand-rolled in `src/components/ui/`. The HTML mockups in `claude-design/` are the source of truth for all UI: read the relevant `*.dc.html` before building a screen, and change colours in tokens.css, never inline. There is one palette and its names are `u-*` (`bg-u-surface`, `text-u-text3`, `text-u-accent`, `bg-u-signal-tint`): the old `panel` / `amber` / `sky` names no longer exist and compile to nothing, so a mockup helmet's `var(--panel)` or `var(--amber)` is written `u-surface` / `u-accent` in the code.
+> **Stack note (apps/web):** This project is a **Vite 8 + React 19 SPA** (no Next.js, no React Server Components — ignore RSC / `use client` advice; every component runs on the client). Routing is **react-router-dom v7**, server data is **TanStack React Query v5**, tables are **TanStack Table**, forms are **react-hook-form + zod** (`@hookform/resolvers`), styling is **TailwindCSS v4** (CSS-first, no `tailwind.config`) over the design tokens in `apps/web/src/styles/tokens.css`. Tests are **vitest + jsdom + Testing Library**. There is **no Zustand, no shadcn/Radix, no wouter** — shared primitives are hand-rolled in `src/components/ui/`. The HTML mockups in `../uncava-design/` (separate repo) are the source of truth for all UI: read the relevant `*.dc.html` before building a screen, and change colours in tokens.css, never inline. There is one palette and its names are `u-*` (`bg-u-surface`, `text-u-text3`, `text-u-accent`, `bg-u-signal-tint`): the old `panel` / `amber` / `sky` names no longer exist and compile to nothing, so a mockup helmet's `var(--panel)` or `var(--amber)` is written `u-surface` / `u-accent` in the code.
 > Type sizes come from the same file: the eight-step scale (`text-eyebrow` · `text-meta` · `text-note` ·
 > `text-body` · `text-lead` · `text-subhead` · `text-title` · `text-figure`), each carrying its own
 > leading. Reach for `text-[Npx]` only where a mockup asks for a size the scale has no step for — a size
@@ -18,30 +16,13 @@ You are a senior front-end developer specializing in ReactJS, TypeScript, HTML, 
 > leading token must also be registered in `lib/cn.ts`: unregistered, `twMerge` reads `text-note` as a
 > colour and drops it the moment a real colour follows.
 
-## Code Implementation Guidelines
+## Code conventions
 
-- Use early returns whenever possible to make the code more readable
-- Apply Tailwind classes for styling; compose conditional classes with `cn()` (`clsx` + `tailwind-merge`) instead of string concatenation
-- Employ descriptive naming conventions with `handle` prefixes for event handlers (`handleSubmit`, `handleClick`)
-- Implement accessibility features on all interactive elements (prefer Radix/shadcn primitives, which are accessible by default)
-
-## Component Development
-
-- Define components with the `function` keyword; use `const` arrow functions for local helpers/handlers
-- Structure files: exported component first, then subcomponents, helpers, static content, and types
-- **File naming** (match the repo): component files are **PascalCase** (`UniversePage.tsx`, `TopBar.tsx`); shadcn primitives in `src/components/ui/` are **kebab-case** (`dropdown-menu.tsx`). Feature dirs are lowercase (`features/universe/`).
-- **Exports** (match the repo): page/route components use **default** exports (`export default function UniversePage()`); sub-components, helpers, and primitives use **named** exports
-- Co-locate feature code under `src/features/<feature>/`; shared UI primitives live in `src/components/ui/` (shadcn, new-york style)
-
-## Naming Conventions
-
-- **Components / types / interfaces**: `PascalCase` (`SearchPanel`, `CompanyDto`)
-- **Hooks**: `useX` camelCase (`useSearchStream`, `useAppStore`)
-- **Event handlers**: `handleX` (`handleRowClick`); props that receive them: `onX` (`onSelect`)
-- **Booleans**: `is`/`has`/`can` prefix (`isLoading`, `hasResults`)
-- **Component files**: PascalCase (`UniversePage.tsx`); **shadcn ui primitives**: kebab-case (`dropdown-menu.tsx`); **dirs**: lowercase (`features/universe/`)
-- **Constants**: `UPPER_SNAKE_CASE`
-- **Zustand store**: expose via a `useXStore` selector hook, not the raw store
+- Compose conditional classes with `cn()` (`clsx` + `tailwind-merge`), never string concatenation.
+- Components with `function`; handlers `handleX`, props receiving them `onX`; booleans `is`/`has`/`can`.
+- Component files PascalCase, feature dirs lowercase; feature code under `src/features/<feature>/`,
+  shared hand-rolled primitives in `src/components/ui/`.
+- Page/route components are **default** exports; everything else **named**.
 
 ## State & Data
 
@@ -54,18 +35,8 @@ You are a senior front-end developer specializing in ReactJS, TypeScript, HTML, 
 - All requests go through `src/lib/apiClient.ts` against a relative `/api/v1` — don't re-add base URLs
   or auth headers at call sites; Vite proxies `/api` in dev.
 
-## Performance
+## Checks
 
-- `useCallback` for callbacks passed to memoized children or effect deps
-- `useMemo` for genuinely expensive computations — don't memoize cheap values
-- `React.memo` only where re-renders are measured and costly
-- Stable keys in lists (never array index for dynamic lists)
-- Avoid new object/array/function literals in props on hot paths — they break memoization
-
-## Best Practices
-
-- Follow functional and declarative programming patterns
-- Avoid unnecessary complexity and code duplication
 - The real typecheck is `npm run build` — `tsc --noEmit` checks nothing in apps/web
 - User-friendly error handling: the API answers RFC 9457 problems; switch on `code`, never on `detail`
 - Full keyboard navigation and ARIA attributes for accessibility (`Field` wraps a `<label>`,
@@ -75,13 +46,10 @@ You are a senior front-end developer specializing in ReactJS, TypeScript, HTML, 
 
 - Build forms with **react-hook-form**; validate with **zod** via `@hookform/resolvers`
 - Derive TypeScript types from zod schemas (`z.infer`), single source of truth
-- Use shadcn `Form` components for accessible label/error wiring
 
 ## TypeScript Integration
 
-- Use TypeScript for all code; prefer `interface` for object shapes, `type` for unions/utility types
-- Avoid enums; use `as const` maps / union literals instead
-- Type props with an explicit `interface`; avoid `any` — use `unknown` + narrowing
+- No enums (`as const` maps / union literals); no `any` (`unknown` + narrowing)
 - API payload types live per feature in `src/features/<feature>/api/types.ts`
 
 ## Testing

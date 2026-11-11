@@ -3,14 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Button, Modal } from "../ui";
 
 /**
- * Keeps a screen with unsaved edits from being left by accident: closing or reloading the tab asks
- * the browser's own question, and following a link to another page first saves, then goes — asking
- * only when that save is refused.
- *
- * <p>Links are caught on the document in the capture phase, before the router's own handler, because
- * the app runs on `<BrowserRouter>` and react-router's `useBlocker` needs a data router. The browser's
- * Back button is therefore not caught; the autosave's flush on unmount is the last attempt there.
- * A link within the same page (the brief's steps, Strategy's mode) is left alone: nothing unmounts.
+ * Guards unsaved edits: a tab close asks the browser's question, a link saves first and asks only if refused. Links are
+ * caught in the capture phase (`useBlocker` needs a data router), so Back is not; same-page links are left alone.
  */
 export function LeaveGuard({
   hasUnsavedChanges,

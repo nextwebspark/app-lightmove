@@ -23,16 +23,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * A {@link Person} on one mandate — the other half of a talent map, beside the companies
- * {@code triagecompany} holds.
- *
- * <p><b>The person is the workspace's; this row is the mandate's.</b> Status, note, the mandate's own
- * custom-column values and the AI assessment against its brief live here, so two mandates can disagree
- * about one executive while sharing everything true of them (V91).
- *
- * <p>{@code companyName} is a write-time snapshot: the employer of someone at no company of the mandate's, and the
- * company's name for someone at one. Removing a company takes the people mapped at it after a warning
- * ({@code CompanyRemovalFollower}), so V36's {@code ON DELETE SET NULL} no longer strands anyone.
+ * A {@link Person} on one mandate. The person is the workspace's; status, note, custom-column values and the brief's
+ * AI assessment are this row's (V91). {@code companyName} is a write-time snapshot of the employer or company name.
  */
 @Entity
 @Table(name = "app_lm_project_candidate")

@@ -23,14 +23,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Access tokens for our own gateway's mailboxes, from each connection's stored refresh token and the OAuth app its
- * workspace connects through. An access token is held in memory only, until shortly before it expires, and one
- * refresh runs per grant at a time — Microsoft rotates the refresh token, so two racing would each keep a different
- * one. Neither token is ever logged.
- *
- * <p>A refresh the provider refuses is what Nylas's {@code grant.expired} was: the mailbox is marked for
- * reconnecting, its Recall calendar released, and the caller gets the {@code CREDENTIALS} failure every sender
- * already reads as "reconnect needed". A refused <em>app</em> is {@link ProviderAppUnavailable}, never that.
+ * Access tokens for our own gateway's mailboxes, held in memory only; one refresh per grant at a time, since Microsoft
+ * rotates refresh tokens. Neither token is logged. A refused refresh marks the mailbox for reconnecting
+ * ({@code CREDENTIALS}); a refused <em>app</em> is {@link ProviderAppUnavailable}, never that.
  */
 @Service
 @Slf4j

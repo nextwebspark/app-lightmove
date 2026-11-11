@@ -1,10 +1,6 @@
 /**
- * What reading a page yields — a company as the page described it, before anyone edits it.
- *
- * V1 captures what a LinkedIn page states reliably: the company's name and its LinkedIn page.
- * Everything richer (industry, headcount, location, website) is enrichment, done server-side
- * later. Every field is a guess, which is why the popup renders the name as an editable input, and
- * every extractor returns a `Partial` of this so the guesses merge field by field.
+ * A company as the page described it, before anyone edits it: name and LinkedIn page; the rest is enrichment server-side.
+ * Every field is a guess, so extractors return a `Partial` that merges field by field.
  */
 export interface ExtractedCompany {
   companyName: string | null;

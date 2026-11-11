@@ -4,22 +4,9 @@ import java.util.List;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * The Nylas application consultants connect their own mailbox through —
- * {@code lightmove.outreach.nylas.*}. A blank key or client id is a deployment without outreach email:
- * nothing is offered, and the boot does not fail.
- *
- * <p>{@code providers} is what Nylas calls the mailbox's host ({@code google}, {@code microsoft}), passed
- * through to its hosted sign-in as configured; nothing branches on one.
- *
- * <p>{@code webhookSecret} is the signing secret Nylas issued for the webhook pointed at
- * {@code /api/v1/outreach/webhooks/mailbox}. Blank, every delivery is refused and replies are found by
- * the poll alone.
- *
- * <p>{@code schedulerEnabled} says the Nylas plan carries Scheduler (Essentials and up): only then is the
- * {@code {{bookingLink}}} token offered.
- *
- * <p>{@code readsReplies} says the Nylas app's own provider scopes reach a message's body, which no grant reports:
- * only then are the words of a reply kept. Off, a reply is still recorded and still stops its run.
+ * {@code lightmove.outreach.nylas.*}; a blank key or client id offers no outreach email. A blank {@code webhookSecret}
+ * refuses every delivery (the poll finds replies); {@code schedulerEnabled} gates {@code {{bookingLink}}};
+ * {@code readsReplies} keeps a reply's words, since no grant reports whether the app's scopes reach a body.
  */
 public record NylasSettings(
         String apiKey,

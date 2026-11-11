@@ -42,13 +42,9 @@ export interface PastCalls {
 }
 
 /**
- * The executive drawer's Meetings section (`Outreach.dc.html?drawer=`): calls with them on the team's
- * connected calendars, and Book a call from the consultant's own. Always open, unlike the folds below
- * it. Staff-only; Book a call is never offered for someone marked do not contact. A call's row is the call and
- * its Join link; everything else is behind its ⋯ — Notetaker & questions, what came of the call once its notes are
- * filed, and Reschedule and Cancel for a call booked in Uncava on the consultant's own calendar (`editable`, the
- * server's say). A call the Notetaker has left is past: the same calendar row, quieter, the latest few shown and the
- * rest behind "Show N earlier calls" — never one whose ⋯ waits on the consultant.
+ * The executive drawer's Meetings section: calls on the team's calendars and Book a call (never for do not contact).
+ * A row is the call and its Join link; the rest is behind its ⋯. Past calls show the latest few, the rest behind
+ * "Show N earlier calls" — never one whose ⋯ waits on the consultant.
  */
 export function MeetingsSection({
   projectId,

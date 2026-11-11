@@ -3,12 +3,7 @@ import { Icon, ICONS } from "../layout/Icon";
 import { PAGE_SIZE_OPTIONS } from "../../lib/paging";
 
 /**
- * The mockup's pagination row, wired for real: its own buttons were decorative because every row
- * fitted on one page of seeded data. The universe is 71,822 companies, so they have to work.
- *
- * <p>An undefined {@code totalCount} means "not known yet" and is not the same as zero: rendering
- * "0 results" against a page that is still loading states as fact that nothing matched, next to a
- * table that is showing a skeleton.
+ * The mockup's pagination row, wired. An undefined {@code totalCount} is "not known yet", never "0 results".
  */
 export function PaginationBar({
   page,
