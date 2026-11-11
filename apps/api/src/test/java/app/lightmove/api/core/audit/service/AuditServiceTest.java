@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.model.AuditEvent;
 import app.lightmove.api.core.security.service.ClientIpResolver;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,27 @@ class AuditServiceTest {
         assertThat(recorded().getMetadata())
                 .containsEntry("reason", "bounced for [email removed]")
                 .containsEntry("seats", 3);
+    }
+
+    @Test
+    @DisplayName("a reason goes through the same backstop as every other detail")
+    void redactsAnAddressInAReason() {
+        audit.event(AuthEventType.LOGIN_FAILED).reason("invalid_client for jane.doe@example.com").record();
+
+        assertThat(recorded().getMetadata()).containsEntry("reason", "invalid_client for [email removed]");
+    }
+
+    @Test
+    @DisplayName("an address inside a list or a map is recorded without it")
+    void redactsAnAddressInsideCollections() {
+        audit.event(AuthEventType.PROFILE_UPDATED)
+                .detail("skipped", List.of("jane.doe@example.com", "3f1c"))
+                .detail("counts", Map.of("sent to a@b.example", 2))
+                .record();
+
+        assertThat(recorded().getMetadata())
+                .containsEntry("skipped", List.of("[email removed]", "3f1c"))
+                .containsEntry("counts", Map.of("sent to [email removed]", 2));
     }
 
     @Test
