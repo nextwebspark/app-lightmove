@@ -172,6 +172,7 @@ can also be set as an environment variable.
 | `DB_POOL_MAX` | Hikari pool size, **per instance**. `bright-gcc` is a `db-f1-micro` (~25 connections) and the `brightdata` ETL shares it |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Billing's payments. Blank (the default) takes none: every workspace is invoiced. Locally, `stripe listen --forward-to localhost:8080/api/v1/billing/webhooks/stripe` prints the webhook secret to use |
 | `BILLING_CONTACT_EMAIL` | Where billing emails and the app's Contact Uncava links send a workspace (default `billing@uncava.com`). In production, the repo variable of that name (`deploy.yml`) |
+| `BILLING_ENFORCE` | `false` switches billing off for every workspace, existing ones included: no credit, trial, seat or fair-use refusal, no billing email but a failed payment, and no chip, prices, seat cost or Settings → Billing on screen (default `true`). Uses are still recorded and no row changes, so `true` restores it as it was. In production, the repo variable of that name (`deploy.yml`) |
 | `STRIPE_PRICE_*` | The Stripe price ids of the Core and Pro seat (`_CORE_MONTHLY`, `_CORE_ANNUAL`, `_PRO_MONTHLY`, `_PRO_ANNUAL`) and of the two credit packs (`_PACK_100`, `_PACK_500`), from the same mode as the key. In production, `BILLING_ENABLED=true` plus repo variables of these names (`deploy.yml`) |
 
 **Precedence.** An env var like `EMAIL_PROVIDER` only feeds a `${...}` placeholder in `application.yml`.
