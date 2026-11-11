@@ -29,6 +29,14 @@ mailboxes and Zoom accounts are let go at the provider, and the `app_lm_user` ro
 the notes, tasks and audit lines that name its id still resolve. What it did for a workspace stays the workspace's;
 a name it typed into someone's note, or an @mention, stays in that note. Audit-trail retention waits for a delete-capable maintenance role (#256).
 
+**Audit details hold ids, never a person's name or contact (#927).** The trail is append-only, so a name written there
+would outlive the person's erasure. An event records the person's, user's or invitation's id and a reader takes the
+name from the live row — the position panel's Recent activity through `ActivityPersonNames`, the customer audit log
+through its target labels — so an erased person reads as "an executive". `AuditService.Builder` refuses the keys that
+would name someone (`email`, `fullName`, `phone`, `linkedinUrl`, …) and strips an address under any other key;
+`AuditDetailKeysTest` holds every key that sounds personal to a reviewed list. Rows written before #927 were scrubbed
+once by `ops/cloudsql/scrub-audit-pii.sql`.
+
 | Table | Personal data | Purpose | Retention | Trigger | Job |
 |---|---|---|---|---|---|
 | `app_lm_user` | name, work email, sign-in facts | the account | while the account lives; once deleted, a row of no name or address ("Former member"), kept so what it did still resolves | account deletion (#926) | `AccountDeletionService` |
@@ -87,7 +95,7 @@ a name it typed into someone's note, or an @mention, stays in that note. Audit-t
 | `app_lm_usage_event` | user | fair use and billing usage | 400 days ⚖️ | age | `RetentionSweeper` |
 | `app_lm_credit_hold` | user, person | a paid find in flight | with the ledger | — | — |
 | `app_lm_credit_entry` | user, person | the contact-credit ledger, append-only | statutory ⚖️; financial record | — | none: append-only (#256) |
-| `app_lm_audit_event` | actor, ids, some names in older details | the security audit trail | statutory ⚖️; floor set by counsel | — | none until #256 |
+| `app_lm_audit_event` | actor, ids; never a name or contact in its details (#927) | the security audit trail | statutory ⚖️; floor set by counsel | — | none until #256 |
 | `app_lm_workspace_suppression` | one-way hashes only | who no door may file again | until an admin removes the entry | removal | — |
 | `app_lm_vendor_person` | an executive's vendor record | the people cache, shared by every workspace | `lightmove.enrichment.people-cache-ttl` (30 days) | age, erasure | `RetentionSweeper` |
 | `app_lm_vendor_people_search` | profile slugs a search returned | the people cache | `lightmove.enrichment.people-cache-ttl` (30 days) | age, erasure | `RetentionSweeper` |

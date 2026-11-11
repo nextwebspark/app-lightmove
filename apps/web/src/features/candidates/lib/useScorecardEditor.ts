@@ -6,6 +6,7 @@ import { isBillingRefusal } from "../../billing/lib/billingView";
 import { PERSON_TIMELINE_KEY } from "../api/personCrmApi";
 import * as scorecardApi from "../api/scorecardApi";
 import type { CandidateScorecard, ScorecardCriterion, ScorecardReport } from "../api/scorecardTypes";
+import { scorecardDraftKey } from "./scorecardDrafts";
 import { criterionKey, tallyOf, type LiveTally } from "./scorecardScoring";
 
 export type ReportSection = keyof ScorecardReport;
@@ -36,8 +37,6 @@ interface ScorecardDraft extends ScorecardValues {
   baseVersion: number | null;
   base: ScorecardValues;
 }
-
-const DRAFT_KEY = (candidateId: string) => `lm.scorecard-draft.${candidateId}`;
 
 /**
  * The Assessment tab's state: the saved assessment, and the consultant's unsaved changes over it. Unsaved
@@ -247,7 +246,7 @@ function rebased(mine: ScorecardDraft, fresh: CandidateScorecard): ScorecardDraf
 /** A draft kept before `base` was recorded cannot tell its changes from what it was handed, so it is let go. */
 function readStoredDraft(candidateId: string): ScorecardDraft | null {
   try {
-    const stored = sessionStorage.getItem(DRAFT_KEY(candidateId));
+    const stored = sessionStorage.getItem(scorecardDraftKey(candidateId));
     const parsed = stored ? (JSON.parse(stored) as Partial<ScorecardDraft>) : null;
     return parsed?.base ? (parsed as ScorecardDraft) : null;
   } catch {
@@ -257,8 +256,8 @@ function readStoredDraft(candidateId: string): ScorecardDraft | null {
 
 function storeDraft(candidateId: string, draft: ScorecardDraft | null) {
   try {
-    if (draft) sessionStorage.setItem(DRAFT_KEY(candidateId), JSON.stringify(draft));
-    else sessionStorage.removeItem(DRAFT_KEY(candidateId));
+    if (draft) sessionStorage.setItem(scorecardDraftKey(candidateId), JSON.stringify(draft));
+    else sessionStorage.removeItem(scorecardDraftKey(candidateId));
   } catch {
     // Storage refused (a private window): the draft lives as long as the drawer, as it would have anyway.
   }

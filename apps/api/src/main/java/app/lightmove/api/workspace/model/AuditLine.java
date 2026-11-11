@@ -6,8 +6,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * One audit row as a phrase may read it. Metadata holds emails and names on some rows (#927), so {@link #text} answers
- * only {@link #READABLE_KEYS}: a key not listed cannot reach a line, however a phrase is written.
+ * One audit row as a phrase may read it. {@link #text} answers only {@link #READABLE_KEYS}, so a key not listed cannot
+ * reach a line, however a phrase is written: details hold ids since #927, and names come from live rows.
  */
 public record AuditLine(String code, AuditOutcome outcome, Map<String, Object> metadata, String targetName,
                         WorkspaceMode mode) {

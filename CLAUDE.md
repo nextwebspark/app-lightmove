@@ -413,7 +413,7 @@ position recorded (`MeetingTranscriptLookup`, answered by `notetaker`), newest f
 note is live, redacted and held to 150k characters a call (start and end kept) and 250k in all, a staff member's voice
 marked "(your team)" in code; a claim the executive makes about themselves with no example behind it scores as
 indirect evidence, and a transcript the prompt guard stops is dropped and the assessment asked again without it. **The model never sees a candidate's contacts, compensation
-fields or custom fields**: the profile is the `CandidateDossier` allowlist, and `core/llm`'s `ContactRedaction` —
+fields or custom fields**: the profile is the `CandidateDossier` allowlist, and `core/text`'s `ContactRedaction` —
 the one copy of the email and phone patterns, which `PositionDocumentRedactor` uses too — takes every address
 and number out of the About, the notes, the transcripts and
 the documents first, sparing dates, ranges and money; a figure a note or a CV states is sent as written. The assessment ranks a person and the nationality reading reasons about their origin, so both are
