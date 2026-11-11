@@ -40,6 +40,12 @@ public record SequenceTokens(String firstName, String currentTitle, String curre
      */
     private static final Pattern TOKEN = Pattern.compile("\\{\\{\\s*([A-Za-z]+)\\s*(?:\\\\?\\|([^{}|\\n]{1,60}))?\\s*}}");
 
+    /**
+     * A backslash escape the notes editor's serializer writes before any ASCII punctuation, so a fallback saved from a
+     * template is its author's words again before it is filled anywhere.
+     */
+    private static final Pattern MARKDOWN_ESCAPE = Pattern.compile("\\\\(\\p{Punct})");
+
     /** What can open markup inline — a link, an image, an autolink, emphasis, a heading — and nothing a name needs. */
     private static final Pattern MARKDOWN_PUNCTUATION = Pattern.compile("[\\\\`*_\\[\\]<>~#+!]");
 
@@ -144,7 +150,7 @@ public record SequenceTokens(String firstName, String currentTitle, String curre
         if (typed == null) {
             return null;
         }
-        String fallback = collapsed(typed);
+        String fallback = collapsed(MARKDOWN_ESCAPE.matcher(typed).replaceAll("$1"));
         return fallback.isEmpty() ? null : fallback;
     }
 

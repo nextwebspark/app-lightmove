@@ -87,6 +87,15 @@ class SequenceTokensTest {
     }
 
     @Test
+    void aFallbackSavedFromTheEditorLosesItsMarkdownEscapes() {
+        SequenceTokens sparse = new SequenceTokens(null, null, null, null, null, null, null, null);
+        String saved = "Dear {{currentTitle\\|a \\*senior\\* leader}}";
+        assertThat(sparse.render(saved)).isEqualTo("Dear a *senior* leader");
+        assertThat(sparse.renderMarkdown(saved)).isEqualTo("Dear a \\*senior\\* leader");
+        assertThat(SequenceTokens.usesIn(saved)).containsExactly(new TokenUse("currentTitle", "a *senior* leader"));
+    }
+
+    @Test
     void aLineKeepsEveryValueOnOneLine() {
         SequenceTokens multiline = new SequenceTokens("Priya", "Chief\nFinancial   Officer", null, null, null, null,
                 null, null);

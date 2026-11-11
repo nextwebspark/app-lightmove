@@ -1,6 +1,5 @@
 package app.lightmove.api.outreach.service;
 
-import app.lightmove.api.common.constant.NoteFormat;
 import app.lightmove.api.common.note.NoteText;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
@@ -203,7 +202,7 @@ public class EmailTemplateService {
         boolean mine = template.isOwnedBy(userId);
         User owner = owners.get(template.getOwnerUserId());
         return new EmailTemplateResponse(template.getId(), template.getName(), template.getSubject(),
-                template.getBody(), NoteText.plainTextOf(template.getBody(), NoteFormat.MARKDOWN),
+                template.getBody(), NoteText.plainEmailTextOf(template.getBody()),
                 template.isShared(), mine, mine || template.isShared() && isAdmin,
                 new EmailTemplateOwnerDto(template.getOwnerUserId(), owner == null ? null : owner.getFullName(),
                         owner == null ? null : owner.getAvatarUrl()),

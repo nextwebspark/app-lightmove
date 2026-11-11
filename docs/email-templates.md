@@ -1,8 +1,8 @@
 # Email templates: design and build plan
 
-Status: **Phases 0, 1 and 2 built** (epic #1247, decisions taken with the product owner on 2026-11-06, decision 16 on
+Status: **Phases 0–3 built** (epic #1247, decisions taken with the product owner on 2026-11-06, decision 16 on
 2026-11-10 and extended to the composer the same day): the design, the mockups, the table, the token engine, Settings →
-Email templates and the composer. Phase 3 (sequence steps) is not built yet.
+Email templates, the composer and sequence steps.
 Each phase is one PR into `feature/email-templates`, and each is stacked on the one before. The branch merges to
 `main` once all four are in. Until a phase ships, the tables, routes and entities it names do not exist. Phase 0 is
 this document and the mockups that Phases 1–3 are built from: `claude-design/Outreach.dc.html` (the composer and the
@@ -361,7 +361,7 @@ and the signature (`templateTokenOptions`), and Phase 3's From template never br
 
 | Route | |
 |---|---|
-| `GET /me/email-templates` | the caller's own and the workspace's shared ones. Each carries `canEdit`, `owner` (`{userId, fullName, avatarUrl}`), `shared`, `version` and `plainBody` (`NoteText.plainTextOf`, for sequence steps). From Phase 2 it also carries `recentlyUsed` (ids) |
+| `GET /me/email-templates` | the caller's own and the workspace's shared ones. Each carries `canEdit`, `owner` (`{userId, fullName, avatarUrl}`), `shared`, `version` and `plainBody` (`NoteText.plainEmailTextOf`, paragraphs apart, for sequence steps). From Phase 2 it also carries `recentlyUsed` (ids) |
 | `POST /me/email-templates` | `{name, subject?, body, shared}` |
 | `PUT /me/email-templates/{id}` | `{name, subject?, body, version}` |
 | `DELETE /me/email-templates/{id}?version=` | |
@@ -432,7 +432,18 @@ template".
        reply's body only; the signature unchanged; a red pill holds Send; Save as template keeps the tokens.
    - `docs/validation-matrix.md` (tokens in an own email's subject, unfilled tokens) and
      `docs/outreach-conversations.md`.
-3. **Sequence steps (#1251).**
+3. **Sequence steps (#1251).** *As built:* `StepTemplatePicker` inline in the step (the mockup's panel), the replace
+   question only where the step holds words, `stepTemplates.ts` (`stepFromTemplate`, `stepRefusalOf`,
+   `templateRefusalOf`), and `plainBody` now written paragraphs apart (`NoteText.plainEmailTextOf`, a blank line between
+   blocks) so a step reads as the template did. The copy closes in exactly one `{{signature}}` wherever the sequence
+   signs any step (`sequenceSigns`), a step cleared before the copy included: since #1277/#1281 a step placing none goes
+   unsigned, so a copy without it would unsign the step; a signature in the template's own words is dropped first
+   (`withoutToken`, the engine's one grammar). A fallback is read without the Markdown escapes the notes editor's
+   serializer adds (`{{currentTitle\|a \*senior\* leader}}` fills "a *senior* leader"), on both twins. Save as template leaves the step's
+   `{{signature}}` out and writes the plain text through `plainEmailDoc` (a paragraph per blank line, a hard break per
+   line). `renderParts` gained an `isFallback` part; `FilledVariable` draws a blank red and a fallback underlined in the
+   template picker, the sequence preview and the review, which also flags each person "N blank" or "Fallback" across
+   every step and says which under the email.
    - **From template** on each step: the template's `plainBody` (steps are plain text, so formatting is dropped, and
      the picker says so); the subject into step 1 only; it asks before replacing a step that has text; a body over a
      step's 5,000 characters is refused before it lands; it is a copy.

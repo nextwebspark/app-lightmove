@@ -10,6 +10,7 @@ import { formatInstantDate } from "../../../lib/format";
 import * as emailTemplatesApi from "../api/emailTemplatesApi";
 import type { EmailTemplate, EmailTemplates } from "../api/emailTemplatesApi";
 import { EmailTemplateEditor } from "../components/EmailTemplateEditor";
+import { matchesTemplateSearch } from "../lib/templateSearch";
 
 type Tab = "all" | "mine" | "shared";
 type View = { kind: "list" } | { kind: "editor"; templateId: string | null };
@@ -167,17 +168,10 @@ function TemplateList({
 
   const inTab = (template: EmailTemplate, which: Tab) =>
     which === "all" || (which === "mine" ? template.mine : template.shared && !template.mine);
-  const needle = query.trim().toLowerCase();
+  const needle = query.trim();
   const rows = data.templates
     .filter((template) => inTab(template, tab))
-    .filter(
-      (template) =>
-        !needle ||
-        [template.name, template.subject ?? "", template.plainBody, template.owner.fullName ?? ""]
-          .join(" ")
-          .toLowerCase()
-          .includes(needle),
-    );
+    .filter((template) => matchesTemplateSearch(template, query));
   const countOf = (which: Tab) => data.templates.filter((template) => inTab(template, which)).length;
 
   return (
