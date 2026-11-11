@@ -37,7 +37,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 /**
  * Emails a workspace's billing managers — never its other members — as its contact credits run low, when a payment
  * fails, a week before bought credits lapse, and as a trial ends unpaid. Each is claimed once before any email goes:
- * the thresholds by the ledger (V124), the rest here (V127), so two deliveries or two instances send once.
+ * the thresholds by the ledger (V124), the rest here (V127), so two deliveries or two instances send once. With
+ * enforcement off only a failed payment is emailed: nothing else asks a workspace to pay.
  */
 @Slf4j
 @Component
@@ -66,6 +67,9 @@ public class BillingNotices {
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onThresholdCrossed(ContactCreditThresholdCrossed crossed) {
+        if (!properties.billing().enforce()) {
+            return;
+        }
         String resetsOn = DATE.format(crossed.resetsAt());
         EmailAction moreCredits = moreCreditsFor(crossed.workspaceId());
         String workspaceName = workspaces.nameOf(crossed.workspaceId());
@@ -90,6 +94,9 @@ public class BillingNotices {
 
     @Scheduled(cron = "${lightmove.billing.jobs.purchased-credit-expiry}", zone = "UTC")
     public void scheduledExpiryWarnings() {
+        if (!properties.billing().enforce()) {
+            return;
+        }
         warnOfExpiringCreditsAt(clock.instant());
     }
 
@@ -125,6 +132,9 @@ public class BillingNotices {
 
     @Scheduled(cron = "${lightmove.billing.jobs.trial-notices}", zone = "UTC")
     public void scheduledTrialNotices() {
+        if (!properties.billing().enforce()) {
+            return;
+        }
         noticeTrialsAt(clock.instant());
     }
 
