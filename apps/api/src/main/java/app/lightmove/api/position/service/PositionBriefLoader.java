@@ -7,6 +7,7 @@ import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ClientRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.workspace.service.WorkspaceSettingsService;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ class PositionBriefLoader {
     private final ProjectRepository projects;
     private final ClientRepository clients;
     private final PositionTemplateService templates;
+    private final WorkspaceSettingsService workspaces;
 
     PositionBrief require(UUID workspaceId, UUID projectId) {
         Project project = projects.requireInWorkspace(projectId, workspaceId);
@@ -44,16 +46,21 @@ class PositionBriefLoader {
     PositionBrief read(UUID workspaceId, UUID projectId) {
         Project project = projects.requireInWorkspace(projectId, workspaceId);
         Position position = positions.findByProjectId(project.getId())
-                .orElseGet(() -> Position.forProject(project.getId(), null));
+                .orElseGet(() -> blank(workspaceId, project.getId()));
         return new PositionBrief(project, position);
     }
 
     /** The matched template's brief, at the client's home country; an empty catalog drafts a blank brief. */
     Position draft(UUID workspaceId, UUID projectId, String positionTitle, String hqCountry) {
-        Position position = Position.forProject(projectId, hqCountry);
+        Position position = Position.forProject(projectId, hqCountry, workspaces.defaultCurrencyOf(workspaceId));
         templates.matching(workspaceId, positionTitle)
                 .ifPresent(template -> PositionTemplateApplier.applyTo(position, template));
         return positions.save(position);
+    }
+
+    /** What an undrafted brief reads as, unsaved: blank, in the workspace's currency. */
+    Position blank(UUID workspaceId, UUID projectId) {
+        return Position.forProject(projectId, null, workspaces.defaultCurrencyOf(workspaceId));
     }
 
     private String hqCountryOf(UUID clientId, UUID workspaceId) {

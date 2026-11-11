@@ -9,6 +9,16 @@ import org.junit.jupiter.api.Test;
 class RowValuesTest {
 
     @Test
+    @DisplayName("a currency is read off the cell's letters, and written only where ISO issues it")
+    void currencyIsAnIsoCodeOrNothing() {
+        assertThat(RowValues.currency("AED 450,000")).isEqualTo("AED");
+        assertThat(RowValues.currency(" sar ")).isEqualTo("SAR");
+        assertThat(RowValues.currency("ZZZ")).isNull();
+        assertThat(RowValues.currency("Dirham")).isNull();
+        assertThat(RowValues.currency("  ")).isNull();
+    }
+
+    @Test
     @DisplayName("a gender is read from the spellings files carry, whatever their case or punctuation")
     void genderSpellingsFold() {
         assertThat(RowValues.gender("Female")).isEqualTo("female");

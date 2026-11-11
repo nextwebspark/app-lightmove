@@ -46,7 +46,8 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 ### Settings
 | Field | Client | Server | Shown as |
 |---|---|---|---|
-| ☐ Default region / currency | select | unchecked | toast |
+| ☐ Default region | select | unchecked | toast |
+| Default currency | select over the served list (`GET /currencies`); a stored code stays offered | ISO 4217 (`@CurrencyCode`) | toast |
 | ☐ Persona chips | ≤ 20 items, no item length | ≤ 20 × 96/160/64 | toast |
 | Profile timezone | a region's zone or UTC, from the grouped list; the saved value passes unchanged (kept in the list if the browser lists none) | `@NotBlank @Size(64)`; a new choice must be a region's own zone or `UTC` the JDK knows, never a legacy alias like `EST` (`VALIDATION_FAILED` on `timezone`) — a zone saved before V148 saves unchanged | field |
 | Profile phone | optional; trimmed, ≤ 40; digits, spaces and `+ ( ) - .` only, a plus only first, six digits at least | `@Size(40)`; left out is unchanged, blank clears it; the same character rule (`VALIDATION_FAILED` on `phone`) | field |
@@ -146,7 +147,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | Restrict processing: reason | Restrict wakes only with a non-blank reason; 500 characters, counted | `@Size(500)`; required when restricting (`VALIDATION_FAILED` on `reason`); a restricted person is refused at every use (`PERSON_PROCESSING_RESTRICTED`) | banner; the refusal as a toast where it is met |
 | Delete person permanently: full name typed back | the button wakes only on a match (case, spacing and dashes forgiven, `confirmationNameMatches`) | `@NotBlank @Size(200)`; `ConfirmationName.matches` the person's name (`VALIDATION_FAILED` on `confirmName`); refused while an email to them is sending (`PERSON_ERASE_SEND_IN_FLIGHT`) | banner (an alert for the email) |
 | Executive LinkedIn profile and emails, on every door | — | not on the workspace's suppression list (`PERSON_SUPPRESSED`): the add form, the plugin and a spreadsheet row are refused, and so is mapping someone the workspace already knows whose own profile or address is listed; an edit only for a profile or address it adds; Find executives, People Search and the Candidates page's Add to position leave the person out unfiled; a workspace holding entries the keyset cannot read is refused at every door (`SUPPRESSION_UNAVAILABLE`) | banner (row error on import; toast on Add to position) |
-| ☐ Executive currency | picker | `@Size(3)` | banner |
+| Executive currency | picker over the served list; a stored code stays offered | ISO 4217, blank and case forgiven (`@SuppliedCurrencyCode`) | banner |
 | ☐ Languages | one string ≤ 1200 | ≤ 20 × 60 | banner |
 | ☐ Phone | none | a digit | banner |
 | Contact primary (per channel) | one star per channel; moving it clears the others | at most one `primary` per channel (`VALIDATION_FAILED` "Only one email can be primary"); none listed leaves the first of the ledger's order standing in | toast |
@@ -191,7 +192,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | Field | Client | Server | Shown as |
 |---|---|---|---|
 | Import file | — | ≤ 10 MB, ≤ 5000 rows, type by bytes | sentence |
-| ☐ Import cells | — | bypass the drawer's rules; dropped silently | row list (leaks internal text) |
+| ☐ Import cells | — | bypass the drawer's rules; dropped silently (a currency no ISO code reads as is not written) | row list (leaks internal text) |
 | Export cells | — | formula starters defused | — |
 | ☐ Import template headers | — | not defused | — |
 | Sequence steps | ≤ 3 | 1–3, delays, window ordering | field |
