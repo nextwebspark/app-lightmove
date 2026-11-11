@@ -188,6 +188,12 @@ project route's `projectId` (#243) — ids only, never an email or a name. Each 
 (#244). Where Cloud Run passed a trace, every line carries `logging.googleapis.com/trace`, `spanId` and
 `trace_sampled`, so it nests under Cloud Run's own request entry (#245).
 
+The `message` and `stack_trace` of every deployed line are masked (#927, `PersonalDataLogMasker`): an email address
+reads `[email removed]`, a LinkedIn profile link (written out or percent-encoded, `/in/` or `/pub/`) `[profile removed]` and a phone written with its `+` `[phone removed]`,
+so a vendor's error quoting its request cannot keep a person's contact in the log. A phone without a `+` is left, since
+the looser rule the model calls use reads a UUID's last group as one. Searching the logs for a person's address
+therefore finds nothing; search by their id.
+
 The trace is read from `traceparent` / `X-Cloud-Trace-Context`, which Cloud Run's front end sets — but
 both are request headers, so a caller reaching the container any other way chooses its own. The parser
 accepts only the documented shapes, which bounds the damage to that caller's lines nesting under a trace

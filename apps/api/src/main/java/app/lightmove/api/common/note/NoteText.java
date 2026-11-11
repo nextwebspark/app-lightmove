@@ -14,6 +14,7 @@ import org.commonmark.node.Link;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.NodeRenderer;
+import org.commonmark.renderer.text.LineBreakRendering;
 import org.commonmark.renderer.text.TextContentNodeRendererContext;
 import org.commonmark.renderer.text.TextContentRenderer;
 
@@ -32,6 +33,11 @@ public final class NoteText {
             .nodeRendererFactory(PlainWords::new)
             .extensions(EXTENSIONS)
             .build();
+    private static final TextContentRenderer EMAIL_RENDERER = TextContentRenderer.builder()
+            .nodeRendererFactory(PlainWords::new)
+            .extensions(EXTENSIONS)
+            .lineBreakRendering(LineBreakRendering.SEPARATE_BLOCKS)
+            .build();
 
     private NoteText() {}
 
@@ -39,12 +45,20 @@ public final class NoteText {
         if (body == null) {
             return null;
         }
-        String words = NoteMentionTokens.plainTextOf(body);
-        return format == NoteFormat.MARKDOWN ? RENDERER.render(PARSER.parse(words)).strip() : words;
+        return format == NoteFormat.MARKDOWN ? wordsOf(body, RENDERER) : NoteMentionTokens.plainTextOf(body);
+    }
+
+    /** As {@link #plainTextOf}, paragraphs apart by a blank line, as a plain-text email writes them. */
+    public static String plainEmailTextOf(String markdown) {
+        return markdown == null ? null : wordsOf(markdown, EMAIL_RENDERER);
     }
 
     public static String forPrompt(String body) {
         return body == null ? null : NoteMentionTokens.plainTextOf(body);
+    }
+
+    private static String wordsOf(String markdown, TextContentRenderer renderer) {
+        return renderer.render(PARSER.parse(NoteMentionTokens.plainTextOf(markdown))).strip();
     }
 
     /**

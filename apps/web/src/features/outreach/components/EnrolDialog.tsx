@@ -31,9 +31,17 @@ import {
   whenLabelOf,
   zoneCityOf,
 } from "../lib/sendSchedule";
-import { BOOKING_LINK_PLACEHOLDER, render, renderParts } from "../lib/sequenceTokens";
+import {
+  BOOKING_LINK_PLACEHOLDER,
+  renderParts,
+  tokenGapsIn,
+  type RenderedPart,
+  type TokenGaps,
+} from "../lib/sequenceTokens";
+import { FilledVariable } from "./FilledVariable";
+import { TokenGapChip, TokenGapLine } from "./TokenGapNotes";
 import { useMailbox } from "../lib/useMailbox";
-import { RunSignaturePicker } from "../../signatures/components/SignatureChooser";
+import { SignatureUnderEmail } from "../../signatures/components/SignatureChooser";
 import { useSignatureChoice, type SignatureChoice } from "../../signatures/lib/useSignatureChoice";
 
 type EnrolStep = "choose" | "review" | "start";
@@ -43,6 +51,8 @@ const STEPS: { id: EnrolStep; label: string }[] = [
   { id: "review", label: "Review" },
   { id: "start", label: "Start" },
 ];
+
+const NO_GAPS: TokenGaps = { blanks: [], fallbacks: [] };
 
 /** One person's first email as the review leaves it. Kept per person, so an edit reaches nobody else. */
 interface ReviewedEmail {
@@ -220,7 +230,6 @@ export function EnrolDialog({
           startMode: startChoice.mode,
           startAt: startChoice.mode === "AT" && chosenStart ? chosenStart.toISOString() : null,
         },
-        signature.signatureId,
       ),
     onSuccess: (started) => {
       void queryClient.invalidateQueries({
@@ -582,7 +591,14 @@ function ReviewStep({
   const email = reviewed[reviewing.candidateId];
   const first = sequence.steps[0];
   const firstName = reviewing.tokens.firstName ?? reviewing.fullName;
+  const signOff = signature.included || signature.isError ? "" : (reviewing.tokens.senderFirstName ?? "");
+  // Read once per sequence and people, not on every keystroke in the opener.
+  const gapsById = useMemo(
+    () => new Map(chosen.map((person) => [person.candidateId, tokenGapsIn(sequenceTextsOf(sequence), person.tokens)])),
+    [chosen, sequence],
+  );
   const parts = renderParts(first.body, withBookingLink(reviewing.tokens, bookingLink), null);
+  const signed = parts.some((part) => part.isSignature);
   const openerAt = parts.findIndex((part) => part.isOpener);
   const before = openerAt < 0 ? parts : parts.slice(0, openerAt);
   const after = openerAt < 0 ? [] : parts.slice(openerAt + 1);
@@ -610,6 +626,7 @@ function ReviewStep({
                   Edited
                 </span>
               )}
+              <TokenGapChip gaps={gapsById.get(person.candidateId) ?? NO_GAPS} />
             </button>
           </li>
         ))}
@@ -635,15 +652,12 @@ function ReviewStep({
           </select>
           <span className="text-u-text3">Subject</span>
           <span className="font-medium text-u-text">
-            {render(first.subject ?? "", withBookingLink(reviewing.tokens, bookingLink), null)}
+            {drawn(renderParts(first.subject ?? "", withBookingLink(reviewing.tokens, bookingLink), null), null, firstName)}
           </span>
         </div>
         <div className="whitespace-pre-wrap pt-3 text-[13.5px]/[1.6] text-u-text">
           {/* The opener sits in its own box, so the blank lines around it in the template would double up. */}
-          {before
-            .map((part) => part.text)
-            .join("")
-            .replace(/\n+$/, "")}
+          {drawn(before, signOff, firstName, "end")}
         </div>
         {openerAt >= 0 ? (
           <div className="my-1 rounded-[8px] bg-u-inferred-tint p-2.5">
@@ -673,12 +687,15 @@ function ReviewStep({
           <p className="my-1 font-mono text-[11.5px] text-u-text3">This sequence's first email has no opener.</p>
         )}
         <div className="whitespace-pre-wrap text-[13.5px]/[1.6] text-u-text">
-          {after
-            .map((part) => part.text)
-            .join("")
-            .replace(/^\n+/, "")}
+          {drawn(after, signOff, firstName, "start")}
         </div>
-        <RunSignaturePicker choice={signature} />
+        {signed && <SignatureUnderEmail choice={signature} />}
+        <TokenGapLine gaps={gapsById.get(reviewing.candidateId) ?? NO_GAPS} firstName={firstName} />
+        {signed && signature.isError && (
+          <p className="mt-3 border-t border-u-border pt-2.5 font-mono text-meta text-u-text3">
+            Your signatures could not be read here. Your default signature still signs these emails.
+          </p>
+        )}
         {sequence.steps.length > 1 && (
           <p className="mt-3 border-t border-u-border pt-2.5 font-mono text-[11.5px] text-u-text3">
             {followUpLine(sequence)}, each only if {firstName} hasn't replied.
@@ -850,7 +867,30 @@ function startedToastOf(started: StartedSequence, mode: StartMode, timeZone: str
   return `Started. ${started.enrolled} ${emails} from ${when} ${zoneCityOf(timeZone)} time.`;
 }
 
-/** Typing is never blocked on the model: whatever is typed first wins over a draft that lands later. */
+/** The texts a sequence fills for each person: its subject and every step. */
+function sequenceTextsOf(sequence: Sequence): (string | null | undefined)[] {
+  return [sequence.steps[0]?.subject, ...sequence.steps.map((step) => step.body)];
+}
+
+/**
+ * The parts as read: the signature as its sign-off in a body (null leaves it as typed, as a subject sends it), and the
+ * blank lines at one edge dropped across parts — past a sign-off drawn as nothing — as one joined text would trim them.
+ */
+function drawn(parts: RenderedPart[], signOff: string | null, firstName: string, trim?: "start" | "end") {
+  const texts = parts.map((part) => (part.isSignature && signOff !== null ? signOff : part.text));
+  if (trim) {
+    const order = trim === "end" ? [...texts.keys()].reverse() : [...texts.keys()];
+    for (const at of order) {
+      if (parts[at].isBlank) break;
+      texts[at] = trim === "end" ? texts[at].replace(/\n+$/, "") : texts[at].replace(/^\n+/, "");
+      if (texts[at] !== "") break;
+    }
+  }
+  return parts.map((part, index) => (
+    <FilledVariable key={index} part={{ ...part, text: texts[index] }} forWhom={firstName} />
+  ));
+}
+
 /** Until the sender's first Start makes their real link, the review says where it will go. */
 function withBookingLink(tokens: RecipientTokens, bookingLink: string | null): RecipientTokens {
   return { ...tokens, bookingLink: tokens.bookingLink ?? bookingLink ?? BOOKING_LINK_PLACEHOLDER };

@@ -81,7 +81,7 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
                         .body(JsonNode.class)), json);
 
         if (result.hits().isEmpty()) {
-            log.debug("Bright Data dataset holds no record for {}", slug);
+            log.debug("Bright Data dataset holds no record for that profile");
             return Optional.empty();
         }
         people.purgeFetchedBefore(Instant.now().minus(peopleCacheTtl));

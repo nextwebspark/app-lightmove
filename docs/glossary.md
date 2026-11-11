@@ -25,6 +25,9 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **To do** | the Outreach page's filter of the people waiting on someone; its groups are Needs reply, Follow-ups, Before first email and Delivery problems | Action queue, Needs action, inbox |
 | **Working hours** | the days and hours a consultant works, which a booking link offers times inside (Outlook's own, theirs, or the workspace's) | availability window, office hours |
 | **Email signature** | what closes an email a consultant sends from Uncava, one of their own kept in Settings → Email signature, the default ticked in the composer | footer, sign-off |
+| **Email template** | a saved email or reply a consultant applies in the composer, kept in Settings → Email templates, personal or shared with the workspace — never Settings → Templates, which is the position brief library | snippet, canned reply, saved reply, role template |
+| **Variable** | a `{{firstName}}` in a sequence step or an email template, filled in for each executive when the email is written, inserted from the same Insert bar in both | token, merge field, placeholder |
+| **Fallback** | what a variable says for an executive with no value, written after a bar: `{{firstName\|there}}` | default value |
 | **Daily email limit** | the most one mailbox sends through Uncava in a day | quota |
 | **Synced email** | a reply read back from the consultant's own mailbox, as the history tags it | imported, fetched |
 | **Ranking** | the Dashboard's staff-only chapter ordering a position's assessed candidates by their assessment total | leaderboard, score table |

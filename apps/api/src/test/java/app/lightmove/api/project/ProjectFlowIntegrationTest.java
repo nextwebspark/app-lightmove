@@ -572,6 +572,40 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    @DisplayName("a removed executive is named in the activity from their live record, never from the audit trail")
+    void removedExecutiveIsNamedFromTheLiveRecord() throws Exception {
+        String admin = adminOf("Removal Activity Firm");
+        String projectId = createProject(admin, createClient(admin, "Agthia Group"), "Group CFO");
+        mapExecutive(admin, projectId, null, "Yasmin El-Sayed", null);
+        var mapping = db.queryForMap("select id, person_id from app_lm_project_candidate where project_id = ?",
+                UUID.fromString(projectId));
+
+        mvc.perform(delete("/api/v1/projects/" + projectId + "/candidates/" + mapping.get("id"))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+        db.update("update app_lm_person set full_name = 'Yasmin Saleh' where id = ?", mapping.get("person_id"));
+
+        String metadata = db.queryForObject("""
+                select metadata::text from app_lm_audit_event
+                where event_type = 'CANDIDATE_REMOVED' and target_id = ?""", String.class, projectId);
+        assertThat(metadata).contains(mapping.get("person_id").toString()).doesNotContain("Yasmin");
+
+        JsonNode removed = body(mvc.perform(get("/api/v1/projects/" + projectId + "/activity")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn()).get("entries").get(0);
+        assertThat(removed.get("type").asText()).isEqualTo("CANDIDATE_REMOVED");
+        assertThat(removed.get("details").get("fullName").asText()).isEqualTo("Yasmin Saleh");
+
+        db.update("delete from app_lm_person where id = ?", mapping.get("person_id"));
+        JsonNode erased = body(mvc.perform(get("/api/v1/projects/" + projectId + "/activity")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn()).get("entries").get(0);
+        assertThat(erased.get("details").has("fullName")).isFalse();
+    }
+
     private static JsonNode projectIn(JsonNode projects, String projectId) {
         for (JsonNode project : projects) {
             if (project.get("id").asText().equals(projectId)) {

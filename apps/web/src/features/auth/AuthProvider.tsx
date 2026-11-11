@@ -18,6 +18,7 @@ import {
   switchWorkspaceSession,
 } from "../../lib/apiClient";
 import { forgetOpenAssistant } from "../assistant/assistantStorage";
+import { forgetScorecardDrafts } from "../candidates/lib/scorecardDrafts";
 import { isReturningMailboxPopup } from "../outreach/lib/mailboxPopup";
 import * as authApi from "./api/authApi";
 import { isReturningSignInPopup } from "./oauthPopup";
@@ -157,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     onSessionExpired(() => {
       startFreshSession();
+      forgetScorecardDrafts();
       setUser(null);
     });
   }, [startFreshSession]);
@@ -278,6 +280,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const forgetDeletedAccount = useCallback(() => {
     setAccessToken(null);
     startFreshSession();
+    forgetScorecardDrafts();
     setUser(null);
   }, [startFreshSession]);
 
@@ -289,6 +292,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // means a network blip cannot leave someone stuck looking at a page they meant to leave.
       setAccessToken(null);
       startFreshSession();
+      forgetScorecardDrafts();
       setUser(null);
     }
   }, [startFreshSession]);

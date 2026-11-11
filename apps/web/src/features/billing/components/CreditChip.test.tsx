@@ -83,6 +83,14 @@ describe("CreditChip", () => {
     ).toBeInTheDocument();
   });
 
+  it("is absent where billing is switched off, an ended trial included", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aTrialBilling("2020-01-01T00:00:00Z", { enforced: false }));
+    renderChip();
+
+    await vi.waitFor(() => expect(client.getQueryState(billingApi.BILLING_KEY)?.status).toBe("success"));
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
   it("never asks for a pure client, who is answered 404", () => {
     currentUser = aUser({ workspace: aWorkspace({ roles: ["CLIENT"] }) });
     renderChip();

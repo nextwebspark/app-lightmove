@@ -2,7 +2,7 @@
 
 How long Uncava keeps each table that holds personal data, why, and what deletes it (#921, epic #917). One row per
 `app_lm_*` table. `RetentionScheduleCoverageTest` reads this file: every table with a `person_id`, `user_id`,
-`actor_user_id`, `recipient_user_id`, `full_name`, `linkedin_url`, `to_address`, `from_address` or email column must
+`actor_user_id`, `recipient_user_id`, `owner_user_id`, `full_name`, `linkedin_url`, `to_address`, `from_address` or email column must
 have a row, and every row must name a table that exists. A new table of that kind fails the build until it is
 written down here.
 
@@ -30,12 +30,21 @@ mailboxes and Zoom accounts are let go at the provider, and the `app_lm_user` ro
 the notes, tasks and audit lines that name its id still resolve. What it did for a workspace stays the workspace's;
 a name it typed into someone's note, or an @mention, stays in that note. Audit-trail retention waits for a delete-capable maintenance role (#256).
 
+**Audit details hold ids, never a person's name or contact (#927).** The trail is append-only, so a name written there
+would outlive the person's erasure. An event records the person's, user's or invitation's id and a reader takes the
+name from the live row — the position panel's Recent activity through `ActivityPersonNames`, the customer audit log
+through its target labels — so an erased person reads as "an executive". `AuditService.Builder` refuses the keys that
+would name someone (`email`, `fullName`, `phone`, `linkedinUrl`, …) and strips an address under any other key;
+`AuditDetailKeysTest` holds every key that sounds personal to a reviewed list. Rows written before #927 were scrubbed
+once by `ops/cloudsql/scrub-audit-pii.sql`.
+
 | Table | Personal data | Purpose | Retention | Trigger | Job |
 |---|---|---|---|---|---|
 | `app_lm_user` | name, work email, sign-in facts | the account | while the account lives; once deleted, a row of no name or address ("Former member"), kept so what it did still resolves | account deletion (#926) | `AccountDeletionService` |
 | `app_lm_user_avatar` | profile photo | the person's picture beside their name | while the account lives | a new picture, removal, account deletion (#926) | — |
 | `app_lm_email_image` | a copy of the person's profile photo | the picture a sent email's signature shows | kept: an email already sent names it | account deletion (#926) | — |
 | `app_lm_email_signature` | user, the profile details a signature shows | a consultant's email signatures | while a member, until removed | removed, workspace purge, account deletion | — |
+| `app_lm_email_template` | owner and last editor, the words they saved | a consultant's saved emails, personal or shared | while the workspace lasts: a removed member's stay (shared ones still used, personal ones back on a rejoin) | deleted by its owner or an admin, workspace purge, account deletion (shared ones too) | — |
 | `app_lm_user_identity` | provider email and subject | Google / LinkedIn sign-in | while the account lives | account deletion, unlink | — |
 | `app_lm_user_mfa_factor` | sealed authenticator secret | two-factor | while two-factor is on | turned off, account deletion | — |
 | `app_lm_user_mfa_recovery_code` | hashed codes | two-factor recovery | while two-factor is on | regenerated, turned off, account deletion | — |
@@ -88,7 +97,7 @@ a name it typed into someone's note, or an @mention, stays in that note. Audit-t
 | `app_lm_usage_event` | user | fair use and billing usage | 400 days ⚖️ | age | `RetentionSweeper` |
 | `app_lm_credit_hold` | user, person | a paid find in flight | with the ledger | — | — |
 | `app_lm_credit_entry` | user, person | the contact-credit ledger, append-only | statutory ⚖️; financial record | — | none: append-only (#256) |
-| `app_lm_audit_event` | actor, ids, some names in older details | the security audit trail | statutory ⚖️; floor set by counsel | — | none until #256 |
+| `app_lm_audit_event` | actor, ids; never a name or contact in its details (#927) | the security audit trail | statutory ⚖️; floor set by counsel | — | none until #256 |
 | `app_lm_workspace_suppression` | one-way hashes only | who no door may file again | until an admin removes the entry | removal | — |
 | `app_lm_vendor_person` | an executive's vendor record | the people cache, shared by every workspace | `lightmove.enrichment.people-cache-ttl` (30 days) | age, erasure | `RetentionSweeper` |
 | `app_lm_vendor_people_search` | profile slugs a search returned | the people cache | `lightmove.enrichment.people-cache-ttl` (30 days) | age, erasure | `RetentionSweeper` |

@@ -413,7 +413,7 @@ position recorded (`MeetingTranscriptLookup`, answered by `notetaker`), newest f
 note is live, redacted and held to 150k characters a call (start and end kept) and 250k in all, a staff member's voice
 marked "(your team)" in code; a claim the executive makes about themselves with no example behind it scores as
 indirect evidence, and a transcript the prompt guard stops is dropped and the assessment asked again without it. **The model never sees a candidate's contacts, compensation
-fields or custom fields**: the profile is the `CandidateDossier` allowlist, and `core/llm`'s `ContactRedaction` —
+fields or custom fields**: the profile is the `CandidateDossier` allowlist, and `core/text`'s `ContactRedaction` —
 the one copy of the email and phone patterns, which `PositionDocumentRedactor` uses too — takes every address
 and number out of the About, the notes, the transcripts and
 the documents first, sparing dates, ranges and money; a figure a note or a CV states is sent as written. The assessment ranks a person and the nationality reading reasons about their origin, so both are
@@ -873,11 +873,46 @@ cached for good and never logged (`RequestLogFilter` skips it; `ops/gcp/bootstra
 request log), counted or rate-limited per address (mail clients' image proxies fetch for everyone from a few). An image
 row outlives the avatar it was copied from, since a sent email names it. The composer's **Include signature** ticks the
 sender's default (a picker where they keep more than one; replies alike) and `SendMessageRequest.signatureId` draws it
-when the email is written, into the stored `body` only — `body_text` stays the consultant's words; Add to sequence's
-review picks one for the run (`StartSequenceRequest.signatureId`), drawn once at Start and frozen on each enrollment
-(V194 `signature_html`), so every step, follow-ups included, closes alike. Either way a signature showing Book a call
+when the email is written, into the stored `body` only — `body_text` stays the consultant's words; a sequence's every
+email carries the sender's default, drawn once at Start, where nothing is picked, and frozen on each enrollment (V194
+`signature_html`): only where a step places `{{signature}}` (new sequences end every step in it) — a step placing none is unsigned,
+and Start draws none for a sequence placing none — and a sender keeping none signs off with their first name at the token. Either way a signature showing Book a call
 has its page made before anything is written. The mailbox's test email carries the default, leaving Book a call out
 where its page cannot be made, since the test proves the mailbox and nothing else.
+
+**Email templates (V205, epic #1247, `docs/email-templates.md`; Phases 1–3 built)** are a consultant's saved emails and
+replies, per workspace, in Settings → Email templates (`/me/email-templates`, staff only, `EmailTemplateService`):
+personal, or shared with the workspace, where every staff member applies or duplicates one and only its owner or a
+`WORKSPACE_MANAGE` holder edits, unshares or deletes it (`EMAIL_TEMPLATE_NOT_YOURS`); another's personal one reads as
+missing, an admin's included (`EMAIL_TEMPLATE_NOT_FOUND`), and every write carries the `version` it read
+(`EMAIL_TEMPLATE_STALE`, the row locked). A name, an optional one-line subject and a Markdown body; at most 100 per
+person, counted under `UserRepository.lockForOwnContentChange`, the lock signatures share. Never a signature: Include
+signature adds the sender's own, so the editor draws the author's default greyed beneath. **Variables are a
+sequence's** (decision 16): the editor carries the sequence editor's own Insert bar (`TokenInsertBar`, the same chips
+in the same order, less the opener) and a variable is written and shown as typed, `{{firstName}}`, with
+`{{firstName|there}}` the fallback `SequenceTokens` (and its web twin) now read everywhere a token renders — an escaped
+pipe included, since the notes editor writes one. A template holds only the six and `bookingLink` (where booking pages
+are offered): `{{opener}}`, `{{signature}}`, an unknown name or a fallback on the link is `VALIDATION_FAILED` on its
+field. Sharing, unsharing and any edit or delete of a shared one are Outreach audit events named only while the
+template is still shared (`SharedEmailTemplateNames`); a personal one is unaudited. **The composer** (`ReplyComposer`,
+so Write email, the Outreach reply and New email alike) carries the same Insert bar, a **Templates** picker beside
+Attach (`TemplatePicker`: search, Recently used — the caller's five, from `app_lm_outreach_message.template_id` — Mine,
+Shared with the owner's face, and a preview with this executive's values) whose foot saves the words as a template
+(`SaveAsTemplateDialog`, never the signature). A template goes into an empty editor as the body and into words at the
+cursor (`NoteEditorHandle.insertDoc`); a first email takes its subject only while its own is empty, a reply never;
+Include signature is left alone. The conversation read's `composer.tokens` is the executive's values: a variable with
+none and no fallback, or one no email fills, is named under the editor and holds Send, and the server refuses the same
+with `OUTREACH_TOKENS_UNFILLED` (409, `tokens`), a first email's subject filled on one line (`renderLine`). The email
+records the template it came from (`templateId`), only one the sender may see in this workspace, else null.
+**A sequence step** (`SequenceEditorPage`) takes one by **From template** (`StepTemplatePicker`): a copy, never a link,
+of its `plainBody` — the words as plain text, paragraphs apart (`NoteText.plainEmailTextOf`), since a step has no
+formatting — its subject into the first email alone, asked first where the step holds words, refused past a step's
+5,000, and closing in exactly one `{{signature}}` wherever the sequence signs a step (`sequenceSigns`), since a step
+placing none goes unsigned — a template's own is dropped, by the one token grammar (`withoutToken`). **Save as
+template** on a step saves its words with their variables as Markdown (`plainEmailDoc`), the first email's subject too,
+its `{{signature}}` left out; a step using `{{opener}}` is refused, saying why. The editor's preview and Add to
+sequence's review mark, per person, a variable with nothing on file red and a fallback standing in underlined
+(`FilledVariable`); the review names both under the email and flags the person "N blank", and Start is not held.
 
 **The Notetaker (V151, `docs/notetaker.md`, `notetaker`)** is a Recall.ai bot a consultant sends into a kept call from
 the executive drawer's Meetings section (`WORK_EXECUTE`, only on a call on the caller's own calendar or booked by them,
@@ -1176,6 +1211,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **No token passthrough:** an MCP tool calls our services in-process as its `McpCaller`; a caller's token is never forwarded to another service, ours or a provider's.
 - **An API key reaches only `/api/v1/public/**`**, and `/api/v1/mcp` once it holds `mcp:use`; read-only, and never more than its scopes ∩ its owner's live permissions — re-read every call; a session token opens neither.
 - **Auth errors are deliberately vague** — one sentence, one timing, for every password-login failure.
+- **A log line names a person by id, never by address** — the deployed JSON encoder masks emails, LinkedIn profile links and `+`-dialled phones in every message and stack trace (`PersonalDataLogMasker`, #927), since Cloud Logging outlives an erasure; local, test and e2e keep the plain console, which e2e reads emailed links from (`docs/production-observability.md`).
 - **Two-factor is the person's, and every sign-in door asks `SignInCompletion`** — a right password, reset link or provider sign-in (the OAuth callback answers `?challenge=two-factor`, no token) from a factor holder earns the `lm_mfa_challenge` cookie, never a session; only the right code clears the lock.
 
 ## Database
@@ -1387,7 +1423,10 @@ then bought; soonest expiry first), `app_lm_credit_hold` (one per paid action, u
 workspace), `app_lm_credit_entry` (append-only by trigger, and by `harden.sql` like the audit trail) and
 `app_lm_credit_balance`, the per-workspace sum of the entries whose row every ledger write locks first.
 `CreditLedger` is the only door; `lightmove.billing.enforce` (on since #741; the test profile turns it off) refuses a
-spend the credits cannot cover with 402 `INSUFFICIENT_CREDITS`, and off records it as an overdraft. Every ledger write expires the workspace's lapsed grants first (an `EXPIRE` line,
+spend the credits cannot cover with 402 `INSUFFICIENT_CREDITS`, and off records it as an overdraft. Off is billing
+switched off for every workspace (`BILLING_ENFORCE`, prod's demo setting): no credit, trial, seat or fair-use refusal,
+no billing email but a failed payment, and `GET /billing`'s `enforced` hides the chip, prices, seat cost and
+Settings → Billing; finds still drain the month's credits and claim its low-credit warnings. Every ledger write expires the workspace's lapsed grants first (an `EXPIRE` line,
 never a delete), and `CreditLedgerSweeper` (`lightmove.billing.sweep-interval`) does the same for idle workspaces and
 releases holds nobody settled within `hold-ttl`. Billing's foreign keys to the workspace do not cascade: a financial record outlives it.
 A Find email or Find phone press (#737) holds its price before ContactOut is asked — keyed on the person, the channel
@@ -1597,6 +1636,11 @@ overrides; one default per person per workspace by partial unique index), both u
 a photo row, account data with no workspace, read wherever its person signs in — and `app_lm_resolve_email_image`, the
 public picture route's resolver.
 V194 adds `app_lm_outreach_enrollment.signature_html` — the signature Start drew for the run; null sends none.
+V205 adds `app_lm_email_template` (owner and workspace, both cascading; `shared_at` null is personal; `updated_by` the
+last editor; one-line subject and non-blank body by CHECK) under forced row-level security, its owner and shared
+indexes, and `app_lm_outreach_message.template_id` (SET NULL, partial index) — the template an own email came from;
+account deletion deletes a person's templates explicitly (`AccountDeletionOutreach`), since V203 never deletes the user
+row. V206 indexes a sender's emails that came from a template, for Recently used.
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.

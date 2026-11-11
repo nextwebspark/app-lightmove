@@ -159,6 +159,22 @@ export function plainNoteDoc(body: string): JSONContent {
   return { type: "doc", content: paragraphs };
 }
 
+/**
+ * A plain-text email as a document, nothing read as markup: a paragraph wherever a blank line parts the words, a line
+ * break where one line follows another. So a sequence step saved as a template keeps its spacing, and its "*" stays "*".
+ */
+export function plainEmailDoc(text: string): JSONContent {
+  const blocks = text.replace(/\r\n?/g, "\n").trim().split(/\n[ \t]*\n\s*/);
+  const paragraphs = blocks.map((block): JSONContent => {
+    const content = block.split("\n").flatMap((line, index): JSONContent[] => [
+      ...(index > 0 ? [{ type: "hardBreak" }] : []),
+      ...(line ? [{ type: "text", text: line }] : []),
+    ]);
+    return content.length > 0 ? { type: "paragraph", content } : { type: "paragraph" };
+  });
+  return { type: "doc", content: paragraphs };
+}
+
 export function noteDocOf(body: string, format: NoteFormat): JSONContent {
   return format === "markdown" ? parseNoteMarkdown(body) : plainNoteDoc(body);
 }

@@ -834,6 +834,9 @@ lightmove:
 
   # Contact credits (epic #734). On, a find the credits cannot cover is refused (402); off, it is recorded as an overdraft.
   billing:
+    # Off switches billing off for every workspace at once: no credit, trial, seat or fair-use refusal, no billing
+    # email but a failed payment, and the SPA shows none of it. Finds still drain the month's credits (the shortfall an
+    # overdraft) and claim its 80/90/used-up warnings, so turn it back on at a billing month's start or grant first.
     enforce: ${BILLING_ENFORCE:true}
     hold-ttl: ${BILLING_HOLD_TTL:15m}
     # How often lapsed grants are expired and unsettled holds released. Spelled out: @Scheduled reads it.

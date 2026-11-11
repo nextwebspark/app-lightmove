@@ -3,7 +3,7 @@ package app.lightmove.api.enrichment.candidate.service;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.CandidateEducationEntry;
-import app.lightmove.api.core.llm.service.ContactRedaction;
+import app.lightmove.api.core.text.service.ContactRedaction;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;

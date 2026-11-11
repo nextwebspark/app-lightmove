@@ -5,6 +5,9 @@ import { MemoryRouter, Outlet, Route, Routes, useLocation } from "react-router-d
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
+import type { CandidatesPage } from "../../candidates/api/types";
+import * as emailTemplatesApi from "../../emailtemplates/api/emailTemplatesApi";
+import type { EmailTemplate } from "../../emailtemplates/api/emailTemplatesApi";
 import * as signaturesApi from "../../signatures/api/signaturesApi";
 import * as mailboxApi from "../api/mailboxApi";
 import { SequenceEditorPage } from "./SequenceEditorPage";
@@ -21,6 +24,12 @@ vi.mock("../api/mailboxApi", async (importOriginal) => ({
 vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../candidates/api/candidatesApi")>()),
   getCandidates: vi.fn(),
+}));
+
+vi.mock("../../emailtemplates/api/emailTemplatesApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../emailtemplates/api/emailTemplatesApi")>()),
+  listEmailTemplates: vi.fn(),
+  createEmailTemplate: vi.fn(),
 }));
 
 vi.mock("../../signatures/api/signaturesApi", async (importOriginal) => ({
@@ -57,6 +66,23 @@ const DEFAULT_SIGNATURE: signaturesApi.EmailSignature = {
   updatedAt: "2026-11-01T10:00:00Z",
   html: "<div>Yara Haddad</div>",
 };
+
+function aTemplate(overrides: Partial<EmailTemplate>): EmailTemplate {
+  return {
+    id: "t1",
+    name: "Warm intro",
+    subject: "A thought for {{firstName}}",
+    body: "Hi {{firstName|there}},\n\nA **short** note.",
+    plainBody: "Hi {{firstName|there}},\n\nA short note.",
+    shared: true,
+    mine: false,
+    canEdit: false,
+    owner: { userId: "u2", fullName: "Omar Saleh", avatarUrl: null },
+    updatedAt: "2026-11-01T10:00:00Z",
+    version: 0,
+    ...overrides,
+  };
+}
 
 function Where() {
   return <output aria-label="Location">{useLocation().pathname}</output>;
@@ -126,15 +152,32 @@ describe("SequenceEditorPage", () => {
     expect(screen.getByTitle("Signature")).toBeInTheDocument();
   });
 
-  it("keeps the defaults' sign-off, so an email sent with no signature still names its sender", async () => {
+  it("previews no signature once a step's token is taken out", async () => {
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
+      signatures: [DEFAULT_SIGNATURE],
+      sources: SIGNATURE_SOURCES,
+      limit: 10,
+    });
+    renderEditor();
+    expect(await screen.findByTitle("Signature")).toBeInTheDocument();
+
+    const [first] = screen.getAllByRole("textbox", { name: "Email body" });
+    await userEvent.clear(first);
+    await userEvent.type(first, "Hi there");
+
+    expect(screen.queryByTitle("Signature")).not.toBeInTheDocument();
+  });
+
+  it("signs the defaults off with the signature, which is the sender's first name while they keep none", async () => {
     renderEditor();
 
     const bodies = await screen.findAllByRole("textbox", { name: "Email body" });
     expect(bodies).toHaveLength(3);
     for (const body of bodies) {
-      expect((body as HTMLTextAreaElement).value).toMatch(/\{\{senderFirstName\}\}$/);
+      expect((body as HTMLTextAreaElement).value).toMatch(/\{\{signature\}\}$/);
+      expect((body as HTMLTextAreaElement).value).not.toContain("{{senderFirstName}}");
     }
-    await waitFor(() => expect(signaturesApi.listSignatures).toHaveBeenCalled());
+    expect(await screen.findByText("Yara")).toBeInTheDocument();
     expect(screen.queryByTitle("Signature")).not.toBeInTheDocument();
   });
 
@@ -147,5 +190,120 @@ describe("SequenceEditorPage", () => {
     await waitFor(() =>
       expect(screen.getByLabelText("Location")).toHaveTextContent(/^\/projects\/p1\/outreach\/sequences$/),
     );
+  });
+
+  it("copies a shared template into the first email as plain text, its subject too, once asked, keeping the signature", async () => {
+    const user = userEvent.setup();
+    vi.mocked(emailTemplatesApi.listEmailTemplates).mockResolvedValue({
+      templates: [aTemplate({}), aTemplate({ id: "t2", name: "Too long", plainBody: "x".repeat(5001), mine: true })],
+      limit: 100,
+      bookingLinkOffered: false,
+      recentlyUsed: [],
+    });
+    renderEditor();
+
+    const [fromTemplate] = await screen.findAllByRole("button", { name: "From template" });
+    await user.click(fromTemplate);
+    const picker = await screen.findByRole("dialog", { name: "From template" });
+    expect(within(picker).getByText(/bold, lists and links come in as plain words/)).toBeInTheDocument();
+    expect(within(picker).getByText(/subject comes into the first email too/)).toBeInTheDocument();
+    expect(within(picker).getByRole("button", { name: /Too long/ })).toBeDisabled();
+    expect(within(picker).getByText(/5,016 characters as plain text: a sequence email holds 5,000/)).toBeInTheDocument();
+
+    await user.click(within(picker).getByRole("button", { name: /Warm intro/ }));
+    const ask = screen.getByRole("alertdialog", { name: "Replace this step's text?" });
+    expect(within(ask).getByText(/The signature chosen at Start still closes it/)).toBeInTheDocument();
+    await user.click(within(ask).getByRole("button", { name: "Replace" }));
+
+    const [firstBody] = screen.getAllByRole("textbox", { name: "Email body" });
+    expect(firstBody).toHaveValue("Hi {{firstName|there}},\n\nA short note.\n\n{{signature}}");
+    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("A thought for {{firstName}}");
+    expect(await screen.findByText(/Step 1 now reads “Warm intro”/)).toBeInTheDocument();
+  });
+
+  it("copies a template into a cleared follow-up without its subject or a question, still signed", async () => {
+    const user = userEvent.setup();
+    vi.mocked(emailTemplatesApi.listEmailTemplates).mockResolvedValue({
+      templates: [aTemplate({})],
+      limit: 100,
+      bookingLinkOffered: false,
+      recentlyUsed: [],
+    });
+    renderEditor();
+
+    const bodies = await screen.findAllByRole("textbox", { name: "Email body" });
+    await user.clear(bodies[1]);
+    await user.click(screen.getAllByRole("button", { name: "From template" })[1]);
+    const picker = await screen.findByRole("dialog", { name: "From template" });
+    expect(within(picker).getByText(/a template's subject is left out/)).toBeInTheDocument();
+    await user.click(within(picker).getByRole("button", { name: /Warm intro/ }));
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("textbox", { name: "Email body" })[1]).toHaveValue(
+      "Hi {{firstName|there}},\n\nA short note.\n\n{{signature}}",
+    );
+    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("Confidential: {{positionTitle}}");
+  });
+
+  it("saves a step as a template, its variables kept and its signature left out, and refuses one using the opener", async () => {
+    const user = userEvent.setup();
+    vi.mocked(emailTemplatesApi.createEmailTemplate).mockResolvedValue(aTemplate({ name: "Nudge", mine: true }));
+    renderEditor();
+
+    const saveButtons = await screen.findAllByRole("button", { name: "Save as template" });
+    await user.click(saveButtons[0]);
+    const refused = screen.getByRole("dialog", { name: "Save step as template" });
+    expect(within(refused).getByRole("alert")).toHaveTextContent(/This step uses \{\{opener\}\}/);
+    expect(within(refused).queryByRole("button", { name: "Save template" })).not.toBeInTheDocument();
+    await user.click(within(refused).getByRole("button", { name: "Close" }));
+
+    await user.click(saveButtons[2]);
+    const cancelled = screen.getByRole("dialog", { name: "Save step as template" });
+    await user.type(within(cancelled).getByRole("textbox", { name: "Name" }), "Not this one");
+    await user.click(within(cancelled).getByRole("switch", { name: "Share with workspace" }));
+    await user.click(within(cancelled).getByRole("button", { name: "Cancel" }));
+
+    await user.click(saveButtons[1]);
+    const dialog = screen.getByRole("dialog", { name: "Save step as template" });
+    expect(within(dialog).getByRole("textbox", { name: "Name" })).toHaveValue("");
+    expect(within(dialog).getByRole("switch", { name: "Share with workspace" })).not.toBeChecked();
+    await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "Nudge");
+    await user.click(within(dialog).getByRole("button", { name: "Save template" }));
+
+    await waitFor(() =>
+      expect(emailTemplatesApi.createEmailTemplate).toHaveBeenCalledWith({
+        name: "Nudge",
+        subject: null,
+        body: "Hi {{firstName}},\n\nFollowing up on my note below, in case it slipped past. Happy to work around your diary.",
+        shared: false,
+      }),
+    );
+  });
+
+  it("marks in the preview a variable this person has nothing on file for, and a fallback standing in", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockResolvedValue({
+      candidates: [
+        {
+          id: "c1",
+          fullName: "Priya Raman",
+          title: null,
+          companyName: "Target Group",
+          locationCity: null,
+          locationCountry: null,
+          contacts: { emails: [], phones: [] },
+        },
+      ],
+      totalCount: 1,
+      page: 0,
+    } as unknown as CandidatesPage);
+    renderEditor();
+
+    const [firstBody] = await screen.findAllByRole("textbox", { name: "Email body" });
+    await userEvent.clear(firstBody);
+    await userEvent.type(firstBody, "In {{{{location}} as {{{{currentTitle|a leader}}");
+
+    const blank = await screen.findByTitle("Nothing on file for Priya Raman: it goes out blank");
+    expect(blank).toHaveTextContent("{{location}}");
+    expect(screen.getByTitle(/the fallback stands in for \{\{currentTitle\}\}/)).toHaveTextContent("a leader");
   });
 });

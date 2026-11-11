@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestPropertySource;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -36,6 +37,7 @@ import tools.jackson.databind.JsonNode;
  * finding nobody stops after one search unless a test scripts the rewording.
  */
 @IntegrationTest
+@TestPropertySource(properties = "lightmove.billing.enforce=true")
 class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
 
     private static final String EVERY_ANSWER = """

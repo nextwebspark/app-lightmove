@@ -64,6 +64,8 @@ public enum AuditLogGroup implements ApiValueEnum {
     OUTREACH("outreach", "Outreach",
             WorkspaceEventType.MAILBOX_CONNECTED, WorkspaceEventType.MAILBOX_DISCONNECTED,
             WorkspaceEventType.ZOOM_CONNECTED, WorkspaceEventType.ZOOM_DISCONNECTED,
+            WorkspaceEventType.EMAIL_TEMPLATE_SHARED, WorkspaceEventType.EMAIL_TEMPLATE_UNSHARED,
+            WorkspaceEventType.EMAIL_TEMPLATE_UPDATED, WorkspaceEventType.EMAIL_TEMPLATE_DELETED,
             ProjectEventType.OUTREACH_SEQUENCE_CREATED, ProjectEventType.OUTREACH_SEQUENCE_UPDATED,
             ProjectEventType.OUTREACH_SEQUENCE_DELETED, ProjectEventType.OUTREACH_ENROLLED,
             ProjectEventType.OUTREACH_EMAIL_SENT, ProjectEventType.OUTREACH_REPLIED,
