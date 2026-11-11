@@ -178,11 +178,15 @@ public class Position extends BaseEntity {
     @Column(name = "published_by")
     private UUID publishedBy;
 
-    /** A blank brief at the client's home country, which applying a role template must leave alone. */
-    public static Position forProject(UUID projectId, String country) {
+    /**
+     * A blank brief at the client's home country, in the workspace's currency, both of which applying a library
+     * template must leave alone.
+     */
+    public static Position forProject(UUID projectId, String country, String currency) {
         Position position = new Position();
         position.projectId = projectId;
         position.locationCountry = country;
+        position.currency = currency;
         return position;
     }
 

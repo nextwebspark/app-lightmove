@@ -1,5 +1,6 @@
 package app.lightmove.api.candidate.dto;
 
+import app.lightmove.api.core.validation.SuppliedCurrencyCode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
@@ -16,7 +17,7 @@ import java.util.List;
  * <p>The two lists itemise {@code allowances} and {@code longTermIncentive}; omitted is empty.
  */
 public record CandidateCompensationDto(
-        @Size(max = 3, message = "Use a three-letter currency code")
+        @SuppliedCurrencyCode
         String currency,
 
         @PositiveOrZero(message = "A base salary cannot be negative")

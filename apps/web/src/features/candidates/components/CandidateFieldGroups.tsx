@@ -16,7 +16,9 @@ import { Field, Input, Select, TextArea } from "../../../components/ui";
 import { CountryField } from "../../../components/ui/CountryField";
 import { SegmentedControl, type SegmentedOption } from "../../../components/ui/SegmentedControl";
 import { cn } from "../../../lib/cn";
-import { CURRENCIES, currencyOptionLabel, DEFAULT_CURRENCY } from "../../../lib/currencies";
+import { CurrencyOptions } from "../../../components/ui/CurrencyOptions";
+import { currencyOptionLabel } from "../../../lib/currencies";
+import { useWorkspaceCurrency } from "../../workspace/lib/useWorkspaceCurrency";
 import { formatNumber } from "../../../lib/format";
 import { NOTICE_PERIODS } from "../../../lib/noticePeriod";
 import type { CandidateBackgroundField } from "../api/types";
@@ -278,6 +280,7 @@ export function CompensationFields<TTransformed extends FieldValues>({
   storedNoticePeriod?: string | null;
 }) {
   const [currencyMode, setCurrencyMode] = useState<CurrencyMode>("auto");
+  const workspaceCurrency = useWorkspaceCurrency();
   const allowances = useFieldArray({ control, name: "allowanceLines" });
   const [currency, base, baseCadence, bonus, bonusBasis, allowanceLines, longTermIncentive, incentiveTypes] =
     watch([
@@ -297,22 +300,18 @@ export function CompensationFields<TTransformed extends FieldValues>({
       (currencyMode === "auto" && (!storedCurrency || storedCurrency === briefCurrency)));
 
   // The brief is read beside the grid and can land after the form opened; while the package follows
-  // it, it takes it. With no brief and nothing on file, the package starts in the default currency.
+  // it, it takes it. With no brief and nothing on file, the package starts in the workspace's currency.
   // Once overridden, nothing here touches the pick.
   useEffect(() => {
     if (followsBrief && briefCurrency && currency !== briefCurrency) {
       setValue("currency", briefCurrency, { shouldDirty: true });
     } else if (!briefCurrency && !storedCurrency && currencyMode === "auto" && !currency) {
-      setValue("currency", DEFAULT_CURRENCY, { shouldDirty: true });
+      setValue("currency", workspaceCurrency, { shouldDirty: true });
     }
-  }, [followsBrief, briefCurrency, storedCurrency, currencyMode, currency, setValue]);
+  }, [followsBrief, briefCurrency, storedCurrency, currencyMode, currency, workspaceCurrency, setValue]);
 
   const currencyField = register("currency");
   const bonusPercentField = register("bonus");
-  const currencies: string[] = [...CURRENCIES];
-  for (const held of [storedCurrency, briefCurrency]) {
-    if (held && !currencies.includes(held)) currencies.unshift(held);
-  }
   const offVocabularyNotice =
     storedNoticePeriod && !NOTICE_PERIODS.some((period) => period.label === storedNoticePeriod)
       ? storedNoticePeriod
@@ -362,11 +361,7 @@ export function CompensationFields<TTransformed extends FieldValues>({
             className="min-w-0 flex-1 border-u-border py-[9px] font-semibold"
           >
             <option value="">Not set</option>
-            {currencies.map((code) => (
-              <option key={code} value={code}>
-                {currencyOptionLabel(code)}
-              </option>
-            ))}
+            <CurrencyOptions held={[storedCurrency, briefCurrency, workspaceCurrency]} />
           </Select>
         )}
         {followsBrief && (

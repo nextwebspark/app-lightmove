@@ -19,6 +19,10 @@ public class CurrencyCodeValidator implements ConstraintValidator<CurrencyCode, 
 
     @Override
     public boolean isValid(String value, ConstraintValidatorContext context) {
-        return value == null || ISO_CODES.contains(value);
+        return value == null || isCurrencyCode(value);
+    }
+
+    public static boolean isCurrencyCode(String code) {
+        return code != null && ISO_CODES.contains(code);
     }
 }

@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Field, FormError, Input, Select, TextArea, useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import { CurrencyOptions } from "../../../components/ui/CurrencyOptions";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
@@ -16,6 +17,7 @@ import {
 } from "../../../lib/noticePeriod";
 import { SENIORITY_LABELS, SENIORITY_TIERS } from "../../../lib/seniority";
 import { POSITION_TEMPLATES_KEY } from "../../position/api/positionApi";
+import { useWorkspaceCurrency } from "../../workspace/lib/useWorkspaceCurrency";
 import type {
   BaseSalaryMode,
   BonusBasis,
@@ -31,7 +33,6 @@ import { moveRow, toggle } from "../../position/lib/competencyRows";
 import {
   BASE_SALARY_MODE_LABELS,
   BONUS_BASIS_LABELS,
-  CURRENCIES,
   EMPLOYMENT_TYPE_LABELS,
   INCENTIVE_TYPE_LABELS,
 } from "../../position/lib/labels";
@@ -92,7 +93,8 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
   });
   const detail = detailQuery.data ?? null;
 
-  const [draft, setDraft] = useState<TemplateDraft | null>(code === null ? blankDraft() : null);
+  const workspaceCurrency = useWorkspaceCurrency();
+  const [draft, setDraft] = useState<TemplateDraft | null>(code === null ? blankDraft(workspaceCurrency) : null);
   const [dirty, setDirty] = useState(false);
   const [lockedTechnical, setLockedTechnical] = useState<ReadonlySet<string>>(new Set());
   const [lockedBehavioural, setLockedBehavioural] = useState<ReadonlySet<string>>(new Set());
@@ -423,9 +425,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
         <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
           <Field label="Currency">
             <Select value={draft.currency} onChange={(e) => update({ currency: e.target.value })} className="!bg-u-surface">
-              {[...new Set([draft.currency, ...CURRENCIES])].map((currency) => (
-                <option key={currency}>{currency}</option>
-              ))}
+              <CurrencyOptions held={[draft.currency]} />
             </Select>
           </Field>
           <div className="mb-4">

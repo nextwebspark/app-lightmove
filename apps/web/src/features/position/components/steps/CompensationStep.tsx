@@ -1,10 +1,10 @@
+import { CurrencyOptions } from "../../../../components/ui/CurrencyOptions";
 import { SegmentedControl, type SegmentedOption } from "../../../../components/ui/SegmentedControl";
 import type { BaseSalaryMode, BonusBasis, Compensation, IncentiveType } from "../../api/types";
 import { bonusValueAfterBasisChange, formatAmount, packageTotal } from "../../lib/compensation";
 import {
   BASE_SALARY_MODE_LABELS,
   BONUS_BASIS_LABELS,
-  CURRENCIES,
   INCENTIVE_TYPE_LABELS,
   OFFERED_BONUS_BASES,
   OFFERED_INCENTIVE_TYPES,
@@ -77,11 +77,7 @@ export function CompensationStep({
             onChange={(event) => onChange({ currency: event.target.value }, true)}
             className="rounded-[8px] border border-u-border bg-u-sunken px-3 py-1.5 text-body font-semibold text-u-text outline-none"
           >
-            {CURRENCIES.map((code) => (
-              <option key={code} value={code}>
-                {code}
-              </option>
-            ))}
+            <CurrencyOptions held={[currency]} codesOnly />
           </select>
           <FigureInput
             grouped

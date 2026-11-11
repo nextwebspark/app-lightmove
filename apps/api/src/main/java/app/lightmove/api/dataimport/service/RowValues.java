@@ -4,6 +4,7 @@ import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.common.constant.NoticePeriod;
 import app.lightmove.api.common.constant.NoticeUnit;
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.core.validation.CurrencyCodeValidator;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -57,14 +58,14 @@ final class RowValues {
         }
     }
 
-    /** A three-letter currency code, or null; "AED 450,000" still means AED. */
+    /** An ISO 4217 code, or null rather than a guess; "AED 450,000" still means AED. */
     static String currency(String value) {
         String trimmed = text(value);
         if (trimmed == null) {
             return null;
         }
-        String letters = trimmed.replaceAll("[^A-Za-z]", "");
-        return letters.length() == 3 ? letters.toUpperCase(Locale.ROOT) : null;
+        String code = trimmed.replaceAll("[^A-Za-z]", "").toUpperCase(Locale.ROOT);
+        return CurrencyCodeValidator.isCurrencyCode(code) ? code : null;
     }
 
     /** Matches the wire token, the enum name and the spellings files carry ("N minus 1", "CSuite"). */
