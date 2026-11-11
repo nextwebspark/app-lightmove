@@ -125,14 +125,14 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a step placing no signature is closed by the default, and with none on file the token is the first name")
+    @DisplayName("a sequence placing no signature is unsigned, and with none on file the token is the first name")
     void anUnplacedOrMissingSignature() throws Exception {
         String signatureId = signature("Formal", "Partner");
         String priya = executive("Priya Raman", "priya@" + domain);
-        start(createSequence("Closed by the default"), priya, "priya@" + domain, null);
+        start(createSequence("Placing none"), priya, "priya@" + domain, null);
+        assertThat(enrollmentOf(priya).get("signature_html")).isNull();
         dispatcher.dispatchAt(monday);
-        String closed = sentTo("priya@" + domain).getFirst().email().htmlBody();
-        assertThat(closed.indexOf("Partner")).isGreaterThan(closed.indexOf("We are hiring a"));
+        assertThat(sentTo("priya@" + domain).getFirst().email().htmlBody()).doesNotContain("Partner");
 
         as(consultant, delete("/api/v1/me/signatures/" + signatureId)).andExpect(status().isNoContent());
         String rajesh = executive("Rajesh Iyer", "rajesh@" + domain);
@@ -148,16 +148,18 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a default showing Book a call has its page made at Start, though no step uses the link")
+    @DisplayName("a default showing Book a call has its page made at Start where a step places it, though none uses the link")
     void aBookingSignatureMakesThePageAtStart() throws Exception {
         as(consultant, post("/api/v1/me/signatures").contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"name":"With booking","layout":"CLASSIC","showBookingLink":true}"""))
                 .andExpect(status().isCreated());
-        String sequenceId = createSequence("Booking by signature");
-        String priya = executive("Priya Raman", "priya@" + domain);
+        String rajesh = executive("Rajesh Iyer", "rajesh@" + domain);
+        start(createSequence("Placing no signature"), rajesh, "rajesh@" + domain, null);
         assertThat(gateway.bookingPages()).isEmpty();
 
+        String sequenceId = createSequence("Booking by signature", "Hi {{firstName}},\\n{{signature}}");
+        String priya = executive("Priya Raman", "priya@" + domain);
         start(sequenceId, priya, "priya@" + domain, null);
 
         assertThat(gateway.bookingPages()).hasSize(1);

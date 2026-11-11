@@ -126,6 +126,22 @@ describe("SequenceEditorPage", () => {
     expect(screen.getByTitle("Signature")).toBeInTheDocument();
   });
 
+  it("previews no signature once a step's token is taken out", async () => {
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
+      signatures: [DEFAULT_SIGNATURE],
+      sources: SIGNATURE_SOURCES,
+      limit: 10,
+    });
+    renderEditor();
+    expect(await screen.findByTitle("Signature")).toBeInTheDocument();
+
+    const [first] = screen.getAllByRole("textbox", { name: "Email body" });
+    await userEvent.clear(first);
+    await userEvent.type(first, "Hi there");
+
+    expect(screen.queryByTitle("Signature")).not.toBeInTheDocument();
+  });
+
   it("signs the defaults off with the signature, which is the sender's first name while they keep none", async () => {
     renderEditor();
 
