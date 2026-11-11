@@ -2,7 +2,7 @@
 
 How long Uncava keeps each table that holds personal data, why, and what deletes it (#921, epic #917). One row per
 `app_lm_*` table. `RetentionScheduleCoverageTest` reads this file: every table with a `person_id`, `user_id`,
-`actor_user_id`, `recipient_user_id`, `full_name`, `linkedin_url`, `to_address`, `from_address` or email column must
+`actor_user_id`, `recipient_user_id`, `owner_user_id`, `full_name`, `linkedin_url`, `to_address`, `from_address` or email column must
 have a row, and every row must name a table that exists. A new table of that kind fails the build until it is
 written down here.
 
@@ -43,6 +43,7 @@ once by `ops/cloudsql/scrub-audit-pii.sql`.
 | `app_lm_user_avatar` | profile photo | the person's picture beside their name | while the account lives | a new picture, removal, account deletion (#926) | — |
 | `app_lm_email_image` | a copy of the person's profile photo | the picture a sent email's signature shows | kept: an email already sent names it | account deletion (#926) | — |
 | `app_lm_email_signature` | user, the profile details a signature shows | a consultant's email signatures | while a member, until removed | removed, workspace purge, account deletion | — |
+| `app_lm_email_template` | owner and last editor, the words they saved | a consultant's saved emails, personal or shared | while the workspace lasts: a removed member's stay (shared ones still used, personal ones back on a rejoin) | deleted by its owner or an admin, workspace purge, account deletion (shared ones too) | — |
 | `app_lm_user_identity` | provider email and subject | Google / LinkedIn sign-in | while the account lives | account deletion, unlink | — |
 | `app_lm_user_mfa_factor` | sealed authenticator secret | two-factor | while two-factor is on | turned off, account deletion | — |
 | `app_lm_user_mfa_recovery_code` | hashed codes | two-factor recovery | while two-factor is on | regenerated, turned off, account deletion | — |

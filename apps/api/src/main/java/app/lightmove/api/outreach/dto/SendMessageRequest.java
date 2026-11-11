@@ -12,6 +12,8 @@ import java.util.UUID;
  * subject; otherwise {@code subject} starts a thread of its own. {@code sendAt} null is now.
  * {@code documentVersionIds} are versions of the person's own documents the email carries, beside any files uploaded
  * with it. {@code signatureId} is one of the sender's own signatures, added under the words; null sends none.
+ * {@code templateId} is the email template it was written from, recorded where the sender may see it and dropped
+ * otherwise, never refused.
  */
 public record SendMessageRequest(
         @NotBlank @Size(max = 320) String toAddress,
@@ -20,4 +22,5 @@ public record SendMessageRequest(
         Instant sendAt,
         boolean replyInThread,
         List<UUID> documentVersionIds,
-        UUID signatureId) {}
+        UUID signatureId,
+        UUID templateId) {}

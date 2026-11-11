@@ -59,6 +59,12 @@ public enum WorkspaceEventType implements AuditEventType {
     SEAT_ADDED,
     SEAT_REMOVED,
 
+    /** A shared email template's changes; a personal one is unaudited, like a signature. */
+    EMAIL_TEMPLATE_SHARED,
+    EMAIL_TEMPLATE_UNSHARED,
+    EMAIL_TEMPLATE_UPDATED,
+    EMAIL_TEMPLATE_DELETED,
+
     /** An admin took the workspace's audit log as a file: the read that is itself an export. */
     AUDIT_LOG_EXPORTED;
 

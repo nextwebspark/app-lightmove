@@ -685,6 +685,142 @@
           </div>
         </sc-if>
 
+        <!-- EMAIL TEMPLATES — a consultant's saved emails and replies (docs/email-templates.md). Personal, or shared with
+             the workspace; a shared one is changed only by its owner or an admin, and that change is audited. Never a
+             signature: Include signature adds the sender's own when the email goes. Every staff member's; a pure client
+             sends no email. Not the position brief's Templates, which is the Workspace group's. -->
+        <sc-if value="{{ isEmailTemplates }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Email templates">
+            <div style="margin-bottom:18px;display:flex;align-items:flex-start;gap:12px">
+              <div style="flex:1;min-width:0">
+                <sc-if value="{{ etIsEditor }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ etBack }}" style="margin-bottom:8px;display:inline-flex;align-items:center;gap:6px;border:none;background:none;padding:0;font:500 12px var(--sans);color:var(--text3);cursor:pointer" style-hover="color:var(--text)">← Email templates</button>
+                </sc-if>
+                <div style="font:600 19px/1.25 var(--sans)">{{ etTitle }}</div>
+                <div style="margin-top:4px;max-width:620px;font:400 12px/1.5 var(--mono);color:var(--text3)">{{ etSubtitle }}</div>
+              </div>
+              <sc-if value="{{ etIsList }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ etNew }}" style="{{ etPrimary }}">New template</button>
+              </sc-if>
+            </div>
+
+            <!-- The list: All · Mine · Shared, a search, and one row per template. -->
+            <sc-if value="{{ etIsList }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px">
+                <div role="tablist" aria-label="Which templates" style="display:inline-flex;gap:2px;border-radius:7px;border:1px solid var(--line-soft);background:var(--panel2);padding:2px">
+                  <sc-for list="{{ etTabs }}" as="t" hint-placeholder-count="3">
+                    <button role="tab" aria-selected="{{ t.onStr }}" onClick="{{ etSetTab }}" data-id="{{ t.key }}" style="{{ t.style }}">{{ t.label }} <span style="font:400 11px var(--u-num);color:var(--text3)">{{ t.count }}</span></button>
+                  </sc-for>
+                </div>
+                <input value="{{ etQuery }}" onChange="{{ etOnQuery }}" placeholder="Search templates" aria-label="Search templates" style="flex:1 1 200px;min-width:0;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:7px 10px;font:400 13px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                <span style="font:400 11px var(--mono);color:var(--text3)">{{ etCountNote }}</span>
+              </div>
+              <div role="table" aria-label="Email templates" style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2)">
+                <div role="row" style="display:grid;grid-template-columns:minmax(0,1fr) 170px 110px 32px;gap:12px;padding:9px 14px;border-bottom:1px solid var(--line-soft);font:500 10.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--text3)">
+                  <span role="columnheader">Template</span><span role="columnheader">Owner</span><span role="columnheader">Updated</span><span></span>
+                </div>
+                <sc-for list="{{ etRows }}" as="r" hint-placeholder-count="5">
+                  <div role="row" data-screen-label="Email template row" style="position:relative;display:grid;grid-template-columns:minmax(0,1fr) 170px 110px 32px;gap:12px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--line-soft)">
+                    <button onClick="{{ etOpen }}" data-id="{{ r.id }}" style="min-width:0;text-align:left;border:none;background:none;padding:0;cursor:pointer;font-family:inherit">
+                      <span style="display:flex;align-items:center;gap:8px;min-width:0">
+                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13.5px var(--sans);color:var(--text)">{{ r.name }}</span>
+                        <sc-if value="{{ r.shared }}" hint-placeholder-val="{{ false }}"><span style="flex:none;border-radius:4px;padding:2px 6px;font:500 10px var(--mono);letter-spacing:.04em;text-transform:uppercase;background:var(--u-accent-tint);color:var(--u-accent)">Shared</span></sc-if>
+                      </span>
+                      <span style="display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 12px var(--sans);color:var(--text3)">{{ r.line }}</span>
+                    </button>
+                    <span style="display:flex;align-items:center;gap:7px;min-width:0"><span aria-hidden="true" style="{{ r.faceStyle }}">{{ r.initials }}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 12.5px var(--sans);color:var(--text2)">{{ r.owner }}</span></span>
+                    <span style="font:400 12px var(--mono);color:var(--text3)">{{ r.updated }}</span>
+                    <button onClick="{{ etToggleMenu }}" data-id="{{ r.id }}" aria-label="Actions for {{ r.name }}" aria-haspopup="menu" style="width:28px;height:28px;border-radius:6px;border:none;background:none;color:var(--text3);cursor:pointer;font:600 15px/1 var(--sans)" style-hover="background:var(--panel);color:var(--text)">⋯</button>
+                    <sc-if value="{{ r.menuOpen }}" hint-placeholder-val="{{ false }}">
+                      <div role="menu" style="position:absolute;right:14px;top:42px;z-index:20;min-width:170px;border-radius:8px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:4px">
+                        <sc-if value="{{ r.canEdit }}" hint-placeholder-val="{{ true }}"><button role="menuitem" onClick="{{ etOpen }}" data-id="{{ r.id }}" style="{{ etMenuItem }}" style-hover="background:var(--panel2)">Edit</button></sc-if>
+                        <button role="menuitem" onClick="{{ etDuplicate }}" data-id="{{ r.id }}" style="{{ etMenuItem }}" style-hover="background:var(--panel2)">Duplicate</button>
+                        <sc-if value="{{ r.canEdit }}" hint-placeholder-val="{{ true }}"><button role="menuitem" onClick="{{ etAskDelete }}" data-id="{{ r.id }}" style="{{ etMenuItemRed }}" style-hover="background:var(--panel2)">Delete</button></sc-if>
+                        <sc-if value="{{ r.readOnly }}" hint-placeholder-val="{{ false }}"><div style="padding:6px 10px 4px;font:400 11px/1.4 var(--sans);color:var(--text3)">{{ r.owner }}'s. Duplicate it to make a copy of your own.</div></sc-if>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ etNoMatch }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:22px 14px;font:400 12.5px var(--sans);color:var(--text3)">No template matches “{{ etQuery }}”.</div>
+                </sc-if>
+              </div>
+            </sc-if>
+
+            <!-- No template yet: what one is, and the way to make one. -->
+            <sc-if value="{{ etIsEmpty }}" hint-placeholder-val="{{ false }}">
+              <div data-screen-label="Email templates — empty" style="border-radius:10px;border:1px dashed var(--line);background:var(--panel2);padding:32px 24px;text-align:center">
+                <div style="font:500 14px var(--sans);color:var(--text)">No email templates yet</div>
+                <div style="margin:6px auto 0;max-width:460px;font:400 12.5px/1.55 var(--sans);color:var(--text3)">Save the emails and replies you send again and again. Variables such as First name fill in for each executive, as in a sequence, and a template shared with the workspace works for whoever sends it.</div>
+                <button onClick="{{ etNew }}" style="margin-top:16px;{{ etPrimaryInline }}">New template</button>
+              </div>
+            </sc-if>
+
+            <!-- The editor: name, subject, the body in the notes editor with Insert, Share with workspace, and the author's
+                 default signature greyed beneath, since Include signature adds it when the email goes. -->
+            <sc-if value="{{ etIsEditor }}" hint-placeholder-val="{{ false }}">
+              <div data-screen-label="Email template editor" style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
+                <sc-if value="{{ etEditingShared }}" hint-placeholder-val="{{ false }}">
+                  <div role="status" style="margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 12.5px/1.5 var(--sans);color:var(--text2)">
+                    <span style="flex:none;margin-top:5px;width:6px;height:6px;border-radius:50%;background:var(--sky)"></span>
+                    <span>{{ etSharedNote }}</span>
+                  </div>
+                </sc-if>
+                <label style="display:block;font:500 12px var(--sans);color:var(--text2)">Name
+                  <input value="{{ etD.name }}" onChange="{{ etField }}" data-field="name" maxlength="80" placeholder="Thanks — let's find a time" style="{{ etInput }}" style-focus="border-color:var(--sky)">
+                </label>
+                <!-- The sequence editor's own Insert bar: the same variables in the same order, each inserted as typed, as a
+                     sequence step shows it, into whichever of the subject or the email the cursor was last in. -->
+                <div role="toolbar" aria-label="Insert a variable" style="margin-top:14px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:8px 10px">
+                  <span style="margin-right:4px;font:500 11px var(--mono);color:var(--text3)">Insert</span>
+                  <sc-for list="{{ etTokens }}" as="tk" hint-placeholder-count="7">
+                    <button title="{{ tk.tip }}" onClick="{{ etInsert }}" data-id="{{ tk.token }}" style="border-radius:999px;border:1px solid var(--line);background:var(--panel2);padding:3px 8px;font:400 11.5px var(--mono);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">{{ tk.label }}</button>
+                  </sc-for>
+                  <span style="flex-basis:100%;margin-top:2px;font:400 11px/1.45 var(--sans);color:var(--text3)">{{ etFallbackHint }}</span>
+                </div>
+                <label style="display:block;margin-top:14px;font:500 12px var(--sans);color:var(--text2)">Subject <span style="font-weight:400;color:var(--text3)">· optional, used only by a new email; a reply keeps its own</span>
+                  <span style="display:block;margin-top:6px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:9px 12px;min-height:18px;font:400 13px var(--sans);color:var(--text)"><sc-for list="{{ etSubjectParts }}" as="sp" hint-placeholder-count="2"><span title="{{ sp.title }}" style="{{ sp.style }}">{{ sp.text }}</span></sc-for></span>
+                </label>
+                <div style="margin-top:14px;font:500 12px var(--sans);color:var(--text2)">Email</div>
+                <div style="position:relative;margin-top:6px;border-radius:6px;border:1px solid {{ etBodyBorder }};background:var(--panel)">
+                  <div role="toolbar" aria-label="Formatting" style="display:flex;align-items:center;gap:1px;padding:3px 6px;border-bottom:1px solid var(--line-soft)">
+                    <sc-for list="{{ etFmt }}" as="f" hint-placeholder-count="10"><button title="{{ f.tip }}" aria-label="{{ f.tip }}" style="{{ f.style }}" style-hover="background:var(--panel2);color:var(--text)">{{ f.glyph }}</button></sc-for>
+                  </div>
+                  <div aria-label="Email" style="min-height:150px;padding:12px 14px 6px;font:400 13.5px/1.65 var(--sans);color:var(--text)">
+                    <sc-for list="{{ etParagraphs }}" as="pg" hint-placeholder-count="3">
+                      <p style="margin:0 0 9px"><sc-for list="{{ pg.parts }}" as="pt" hint-placeholder-count="3"><span title="{{ pt.title }}" style="{{ pt.style }}">{{ pt.text }}</span></sc-for></p>
+                    </sc-for>
+                  </div>
+                </div>
+                <sc-if value="{{ etBodyInvalid }}" hint-placeholder-val="{{ false }}">
+                  <div role="alert" style="margin-top:6px;font:400 12px var(--sans);color:var(--red)">{{ etBodyError }}</div>
+                </sc-if>
+                <div aria-label="Your signature" style="margin-top:12px;padding:2px 0 2px 12px;border-left:2px solid var(--line);opacity:.6;font:400 12.5px/1.45 var(--sans);color:var(--text2)">
+                  <!-- SignatureUnderEmail: Yara's default ("Formal"), as the composer draws it. -->
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <span style="width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 11px var(--mono)">YH</span>
+                    <span style="min-width:0"><b style="color:var(--text)">Yara Haddad</b><br>Head of Talent Acquisition, Al-Futtaim<br>+971 50 123 4567 · yara@alfuttaim.com</span>
+                  </div>
+                  <div style="margin-top:6px;font:400 11px var(--mono);color:var(--text3)">Your default signature. Include signature adds the sender's own when the email goes; a template never holds one.</div>
+                </div>
+                <div style="margin-top:16px;display:flex;align-items:flex-start;gap:10px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel);padding:12px">
+                  <button role="switch" aria-checked="{{ etShareStr }}" aria-label="Share with workspace" onClick="{{ etToggleShare }}" style="{{ etShareSw.style }}"><span style="{{ etShareSw.knob }}"></span></button>
+                  <span><span style="display:block;font:500 13px var(--sans);color:var(--text)">Share with workspace</span><span style="display:block;margin-top:2px;font:400 12px/1.5 var(--sans);color:var(--text3)">Everyone on the team can use it, filled with their own name and booking link. Only you and admins can change or delete it.</span></span>
+                </div>
+                <div style="margin-top:18px;display:flex;align-items:center;gap:8px">
+                  <sc-if value="{{ etCanDelete }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ etAskDeleteEditing }}" style="border:none;background:none;padding:0;font:500 12.5px var(--sans);color:var(--red);cursor:pointer">Delete</button>
+                    <button onClick="{{ etDuplicateEditing }}" style="margin-left:12px;border:none;background:none;padding:0;font:500 12.5px var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">Duplicate</button>
+                  </sc-if>
+                  <span style="flex:1"></span>
+                  <button onClick="{{ etBack }}" style="border-radius:6px;padding:8px 14px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer">Cancel</button>
+                  <button onClick="{{ etSave }}" style="{{ etPrimary }}">Save template</button>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
         <!-- MEETINGS & EMAIL — the workspace's default working hours (a booking link offers times only inside them; a
              consultant booking a call themselves is never held to them) and the daily email cap per mailbox. Until an
              admin saves, the week is the one the firm's country keeps, and the card says so. Admin only. -->
@@ -2277,6 +2413,22 @@
   </sc-if>
 
   <!-- Delete workspace modal -->
+  <sc-if value="{{ etDeleteOpen }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Delete email template" onClick="{{ etCloseDelete }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="alertdialog" aria-modal="true" aria-label="Delete {{ etDeleteName }}?" onClick="{{ stop }}" style="width:440px;max-width:92vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:20px">
+        <div style="font:600 15px var(--sans);color:var(--text)">Delete “{{ etDeleteName }}”?</div>
+        <sc-if value="{{ etDeleteShared }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:12px;border-radius:8px;border:1px solid var(--red);background:var(--red-dim);padding:10px 12px;font:400 12.5px/1.5 var(--sans);color:var(--text)">{{ etDeleteSharedLine }}</div>
+        </sc-if>
+        <div style="margin-top:10px;font:400 12.5px/1.5 var(--sans);color:var(--text2)">Emails already sent from it keep their words, and sequence steps copied from it are unchanged. This can't be undone.</div>
+        <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ etCloseDelete }}" style="border-radius:6px;padding:8px 14px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer">Cancel</button>
+          <button onClick="{{ etConfirmDelete }}" style="border-radius:6px;padding:8px 14px;font:500 13px var(--sans);background:var(--red);border:1px solid var(--red);color:#fff;cursor:pointer">Delete template</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <sc-if value="{{ deleteOpen }}" hint-placeholder-val="{{ false }}">
     <div data-screen-label="Delete workspace" onClick="{{ closeDelete }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
       <div role="dialog" aria-modal="true" aria-label="Delete workspace" onClick="{{ stop }}" style="width:480px;max-width:94vw;max-height:90vh;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
@@ -2647,7 +2799,7 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">SE</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;signatures&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;availability&quot;,&quot;general&quot;,&quot;meetings&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;,&quot;data&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;photo&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;set&quot;,&quot;crop&quot;,&quot;managed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;integrationsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;own-new&quot;,&quot;own-saved&quot;,&quot;replacing&quot;,&quot;verify-failed&quot;,&quot;expiring&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;exportState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;idle&quot;,&quot;options&quot;:[&quot;idle&quot;,&quot;running&quot;,&quot;ready&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dueEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dataDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;delete-due&quot;,&quot;suppress-add&quot;,&quot;suppress-remove&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;accountDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;delete&quot;,&quot;blocked&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;signatureState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;list&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;empty&quot;,&quot;gallery&quot;,&quot;editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaceMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;COMPANY&quot;,&quot;options&quot;:[&quot;COMPANY&quot;,&quot;AGENCY&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaceLogo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;bookingLink&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;signatureProfile&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;full&quot;,&quot;options&quot;:[&quot;full&quot;,&quot;gaps&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;signatureMailbox&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;connected&quot;,&quot;options&quot;:[&quot;connected&quot;,&quot;none&quot;,&quot;error&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;signatures&quot;,&quot;email-templates&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;availability&quot;,&quot;general&quot;,&quot;meetings&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;,&quot;data&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;photo&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;set&quot;,&quot;crop&quot;,&quot;managed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;integrationsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;own-new&quot;,&quot;own-saved&quot;,&quot;replacing&quot;,&quot;verify-failed&quot;,&quot;expiring&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;exportState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;idle&quot;,&quot;options&quot;:[&quot;idle&quot;,&quot;running&quot;,&quot;ready&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dueEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dataDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;delete-due&quot;,&quot;suppress-add&quot;,&quot;suppress-remove&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;accountDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;delete&quot;,&quot;blocked&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;signatureState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;list&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;empty&quot;,&quot;gallery&quot;,&quot;editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaceMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;COMPANY&quot;,&quot;options&quot;:[&quot;COMPANY&quot;,&quot;AGENCY&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaceLogo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;bookingLink&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;signatureProfile&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;full&quot;,&quot;options&quot;:[&quot;full&quot;,&quot;gaps&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;signatureMailbox&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;connected&quot;,&quot;options&quot;:[&quot;connected&quot;,&quot;none&quot;,&quot;error&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;emailTemplateState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;list&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;empty&quot;,&quot;editor&quot;,&quot;editorShared&quot;,&quot;editorInvalid&quot;,&quot;delete&quot;,&quot;deleteShared&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;emailTemplatesView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;all&quot;,&quot;options&quot;:[&quot;all&quot;,&quot;mine&quot;,&quot;shared&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -2677,7 +2829,7 @@ class Component extends DCLogic {
     this.DISC_ORDER = Object.keys(this.DISC);
     this.SEN = { BOARD: 'Board', C_SUITE: 'C-Suite', N_MINUS_1: 'N-1', N_MINUS_2: 'N-2', N_MINUS_3: 'N-3' };
     this.SEN_ORDER = Object.keys(this.SEN);
-    this.LABELS = { 'api-keys': 'API keys', 'ai-apps': 'Connected AI apps', 'candidate-tags': 'Candidate tags', 'task-presets': 'Task presets', notifications: 'Notifications', 'pipeline-stages': 'Pipeline stages', integrations: 'Integrations', profile: 'Profile', signatures: 'Email signature', availability: 'Availability', meetings: 'Meetings & email', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library', data: 'Data & retention' };
+    this.LABELS = { 'api-keys': 'API keys', 'ai-apps': 'Connected AI apps', 'candidate-tags': 'Candidate tags', 'task-presets': 'Task presets', notifications: 'Notifications', 'pipeline-stages': 'Pipeline stages', integrations: 'Integrations', profile: 'Profile', signatures: 'Email signature', 'email-templates': 'Email templates', availability: 'Availability', meetings: 'Meetings & email', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library', data: 'Data & retention' };
 
     const t = (code, title, discipline, seniority, summary, keywords, extra) => Object.assign({ code, title, discipline, seniority, summary, keywords, fallback: false, copies: 0, revisedAt: '02 Sep 2026', revisedBy: null }, extra || {});
     this.library = [
@@ -2749,6 +2901,9 @@ class Component extends DCLogic {
     if (props.deleteOpen) section = 'general';
     const sgState = (() => { try { return new URLSearchParams(location.search).get('signatureState'); } catch (e) { return null; } })() || props.signatureState || null;
     if (sgState && sgState !== 'list') section = 'signatures';
+    const etState = (() => { try { return new URLSearchParams(location.search).get('emailTemplateState'); } catch (e) { return null; } })() || props.emailTemplateState || 'list';
+    const etTab = (() => { try { return new URLSearchParams(location.search).get('emailTemplatesView'); } catch (e) { return null; } })() || props.emailTemplatesView || 'all';
+    if (etState !== 'list' || etTab !== 'all') section = 'email-templates';
     const urlProp = (k) => { try { return new URLSearchParams(location.search).get(k); } catch (e) { return null; } };
     const akDialog = urlProp('apiKeyDialog') || props.apiKeyDialog || 'none';
     const akEmpty = (urlProp('apiKeysEmpty') || String(!!props.apiKeysEmpty)) === 'true';
@@ -2768,8 +2923,21 @@ class Component extends DCLogic {
     let collapsed = false;
     try { collapsed = localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) {}
 
+    const ET_SEED = [
+      ['t1', "Thanks — let's find a time", 'Yara Haddad', false, '2 days ago', '', "Thank you for coming back to me, {{firstName}}. I'd value 30 minutes this week: would Thursday afternoon suit?\n\nIf it is easier, pick a time that works for you: {{bookingLink}}"],
+      ['t7', 'Interview confirmation', 'Yara Haddad', true, '4 Nov 2026', 'Confirming our conversation: {{positionTitle}}', "{{firstName|Hello}},\n\nThank you for making time. I'm confirming our conversation about the {{positionTitle}} role. I'll send a short brief beforehand.\n\nBest,\n{{senderFirstName}}"],
+      ['t3', 'Not the right time', 'Yara Haddad', false, '3 weeks ago', '', "Thank you for letting me know, {{firstName}}. I'll keep you in mind for future roles and check in again in the new year."],
+      ['t4', 'CV before we speak', 'Yara Haddad', false, '1 month ago', '', 'Thank you, {{firstName}}. Before we speak, could you send me an up-to-date CV? It stays confidential to the search team.'],
+      ['t2', 'Follow-up after no reply', 'Sara Al-Mansour', true, 'last week', '{{positionTitle}}: following up', '{{firstName|Hello}}, I wanted to follow up on my note about the {{positionTitle}} role. Given your work as {{currentTitle}} at {{currentCompany}}, I think 20 minutes would be well spent.\n\nWould early next week suit?'],
+      ['t5', 'Confidential introduction', 'Omar Khalil', true, 'yesterday', 'Confidential: {{positionTitle}}', "{{firstName|Hello}},\n\nI'm leading a discreet search for a {{positionTitle}}, and your work as {{currentTitle}} at {{currentCompany}} stood out. Are you still based in {{location}}, and would you be open to a confidential conversation?\n\nIf it suits, pick a time here: {{bookingLink}}"],
+      ['t6', 'Declining politely', 'Sara Al-Mansour', true, '2 months ago', '', "Thank you for your time, {{firstName}}. The client has decided to move forward with other candidates, but I'd very much like to stay in touch."]
+    ].map(([id, name, owner, shared, updated, subject, body]) => ({ id, name, owner, shared, updated, subject, body }));
+    const etEditId = { editor: 't1', editorShared: 't7', editorInvalid: 't4' }[etState] || null;
     this.state = {
       section, dark: true, collapsed, toast: '', wsMenuOpen: false,
+      etTemplates: etState === 'empty' ? [] : ET_SEED, etTab, etQuery: '', etMenu: null, etInsert: false,
+      etEditId, etD: etEditId ? Object.assign({}, ET_SEED.find((t) => t.id === etEditId), etState === 'editorInvalid' ? { body: ET_SEED.find((t) => t.id === 't4').body + '\n\n{{signature}}' } : {}) : null,
+      etDelete: etState === 'delete' ? 't3' : etState === 'deleteShared' ? 't7' : null,
       igProviders: this.seedIntegrations(igView), igReturn: null,
       ctags: [['openWork', 'Open to work', 'green', 4], ['relocate', 'Open to relocate', 'accent', 4], ['passive', 'Passive', 'neutral', 2], ['referral', 'Referral', 'violet', 2], ['prior', 'Prior placement', 'adjacent', 1], ['interviewed', 'Interviewed before', 'inferred', 1], ['boardReady', 'Board-ready', 'neutral', 0, true]]
         .map(([id, label, colour, count, retired]) => ({ id, label, colour, count, retired: !!retired })),
@@ -2998,6 +3166,85 @@ class Component extends DCLogic {
         draft: { clientId: '', secret: '', tenantId: '', expires: '' } });
       this.showToast(scope === 'app' ? info.title + ' uses your own app. ' + info.short + ' accepted the keys' : 'Secret replaced. ' + info.short + ' accepted it');
     }, 900);
+  }
+
+  emailTemplateVals(inputStyle, primary, isAdmin) {
+    const st = this.state, set = (c) => this.setState(c);
+    const ME = 'Yara Haddad';
+    const LABELS = { firstName: 'First name', currentTitle: 'Current title', currentCompany: 'Current company', positionTitle: 'Position title', location: 'Location', senderFirstName: 'Your first name', bookingLink: 'Your booking link' };
+    const TIPS = { firstName: 'Their first name', currentTitle: 'Their current title', currentCompany: 'Their current employer', positionTitle: "The position's role title", location: 'Their city', senderFirstName: 'The first name of whoever sends it', bookingLink: "The sender's booking page" };
+    const RE = /\{\{\s*([A-Za-z]+)\s*(?:\\?\|([^{}|\n]{1,60}))?\s*\}\}/g;
+    const BAD = 'display:inline;white-space:nowrap;padding:1px 6px;border-radius:4px;font:500 12px var(--mono);background:var(--red-dim);color:var(--red);box-shadow:inset 0 0 0 1px var(--red)';
+    const partsOf = (text) => { const out = []; let last = 0; let m; const re = new RegExp(RE.source, 'g');
+      while ((m = re.exec(text))) { if (m.index > last) out.push({ text: text.slice(last, m.index), style: '', title: '' });
+        const known = LABELS[m[1]]; const fb = (m[2] || '').trim();
+        out.push(known ? { text: m[0], style: '', title: known + (fb ? ' or “' + fb + '”' : '') } : { text: m[0], style: BAD, title: m[1] === 'signature' ? 'Include signature adds your signature' : 'Not a variable Uncava knows' });
+        last = re.lastIndex; }
+      if (last < text.length) out.push({ text: text.slice(last), style: '', title: '' }); return out; };
+    const flat = (text) => text.replace(/\n+/g, ' ');
+    const all = st.etTemplates;
+    const canEdit = (t) => t.owner === ME || isAdmin;
+    const q = st.etQuery.trim().toLowerCase();
+    const inTab = (t) => st.etTab === 'all' || (st.etTab === 'mine' ? t.owner === ME : t.shared && t.owner !== ME);
+    const rows = all.filter(inTab).filter((t) => !q || (t.name + ' ' + t.subject + ' ' + t.body + ' ' + t.owner).toLowerCase().includes(q)).map((t) => ({
+      id: t.id, name: t.name, shared: t.shared, owner: t.owner === ME ? 'You' : t.owner, initials: t.owner.split(' ').map((w) => w[0]).slice(0, 2).join(''),
+      faceStyle: 'width:22px;height:22px;flex:none;border-radius:50%;display:grid;place-items:center;font:600 9px var(--mono);background:' + (t.owner === ME ? 'var(--sky-dim);color:var(--sky)' : 'var(--u-inferred-tint);color:var(--u-inferred)'),
+      updated: t.updated, line: (t.subject ? flat(t.subject) + ' — ' : '') + flat(t.body), menuOpen: st.etMenu === t.id, canEdit: canEdit(t), readOnly: !canEdit(t) }));
+    const count = (k) => all.filter((t) => k === 'all' || (k === 'mine' ? t.owner === ME : t.shared && t.owner !== ME)).length;
+    const tabs = [['all', 'All'], ['mine', 'Mine'], ['shared', 'Shared']].map(([key, label]) => { const on = st.etTab === key;
+      return { key, label, onStr: String(on), count: count(key), style: 'border:none;border-radius:5px;padding:5px 11px;cursor:pointer;font:' + (on ? 500 : 400) + ' 12.5px var(--sans);background:' + (on ? 'var(--panel)' : 'none') + ';color:' + (on ? 'var(--text)' : 'var(--text3)') + ';box-shadow:' + (on ? '0 1px 0 var(--line)' : 'none') }; });
+    const d = st.etD; const editing = d ? all.find((t) => t.id === st.etEditId) : null;
+    const invalid = d ? [...new Set([...(d.subject + '\n' + d.body).matchAll(RE)].map((x) => x[1]).filter((n) => !LABELS[n]))] : [];
+    const fmtBtn = 'min-width:24px;height:24px;padding:0 5px;border:none;border-radius:4px;background:none;color:var(--text3);cursor:pointer;';
+    const del = all.find((t) => t.id === st.etDelete) || null;
+    const mineCount = all.filter((t) => t.owner === ME).length;
+    const view = d ? 'editor' : all.length === 0 ? 'empty' : 'list';
+    return {
+      isEmailTemplates: this.state.section === 'email-templates',
+      etIsList: view === 'list', etIsEmpty: view === 'empty', etIsEditor: view === 'editor',
+      etTitle: view === 'editor' ? (editing ? editing.name : 'New template') : 'Email templates',
+      etSubtitle: view === 'editor' ? 'Variables fill in for each executive when you write the email, as in a sequence. Apply it from Templates in any email or reply.'
+        : 'Emails and replies you send again and again. Apply one from Templates in the composer, or copy one into a sequence step.',
+      etPrimary: primary(false), etPrimaryInline: 'border-radius:6px;padding:9px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer',
+      etTabs: tabs, etQuery: st.etQuery, etRows: rows, etNoMatch: view === 'list' && rows.length === 0,
+      etCountNote: mineCount + ' of your 100',
+      etMenuItem: 'display:block;width:100%;text-align:left;border:none;background:none;border-radius:6px;padding:7px 10px;font:400 13px var(--sans);color:var(--text);cursor:pointer',
+      etMenuItemRed: 'display:block;width:100%;text-align:left;border:none;background:none;border-radius:6px;padding:7px 10px;font:400 13px var(--sans);color:var(--red);cursor:pointer',
+      etD: d || { name: '', subject: '', body: '' }, etInput: inputStyle(false) + ';margin-top:6px;font-family:var(--sans)',
+      etSubjectParts: d && d.subject ? partsOf(d.subject) : [{ text: 'No subject', style: 'color:var(--text3)', title: '' }],
+      etParagraphs: d ? d.body.split(/\n\n/).map((t) => ({ parts: partsOf(t) })) : [],
+      etBodyInvalid: invalid.length > 0, etBodyBorder: invalid.length ? 'var(--red)' : 'var(--line)',
+      etBodyError: invalid.includes('signature') ? '{{signature}} isn’t a variable: Include signature adds your signature when the email goes. Remove it here.'
+        : invalid.length ? '{{' + invalid[0] + '}} isn’t a variable Uncava knows. Insert one from the Insert bar.' : '',
+      etFmt: [['B', 'Bold', 'font:700 12px var(--sans)'], ['I', 'Italic', 'font:italic 500 12px Georgia'], ['U', 'Underline', 'font:500 12px var(--sans);text-decoration:underline'], ['S', 'Strikethrough', 'font:500 12px var(--sans);text-decoration:line-through'], ['H', 'Heading', 'font:700 12px var(--sans)'], ['•', 'Bulleted list', 'font:700 13px var(--sans)'], ['1.', 'Numbered list', 'font:500 11px var(--mono)'], ['☐', 'Checklist', 'font:400 12px var(--sans)'], ['❝', 'Quote', 'font:400 13px var(--sans)'], ['↗', 'Link', 'font:500 12px var(--sans)']].map(([glyph, tip, f]) => ({ glyph, tip, style: fmtBtn + f })),
+      etFallbackHint: 'Each variable fills in for the executive when you write the email. Give one a fallback for anyone with none: {{firstName|there}}.',
+      etTokens: Object.keys(LABELS).map((token) => ({ token, label: token === 'bookingLink' ? '▦ booking link' : '{{' + token + '}}', tip: TIPS[token] })),
+      etEditingShared: !!(editing && editing.shared),
+      etSharedNote: editing && editing.owner !== ME ? editing.owner + "'s template, shared with the workspace. You can change it as an admin: everyone who uses it next gets your version, and the change is in the audit log."
+        : 'Shared with the workspace. A change reaches everyone who uses it next, and is recorded in the audit log.',
+      etShareStr: String(!!(d && d.shared)),
+      etShareSw: { style: 'position:relative;height:18px;width:32px;flex:none;margin-top:1px;border-radius:999px;border:none;padding:0;cursor:pointer;background:' + (d && d.shared ? 'var(--amber-btn)' : 'var(--line)'),
+        knob: 'position:absolute;top:2px;left:' + (d && d.shared ? 16 : 2) + 'px;width:14px;height:14px;border-radius:50%;transition:left .15s;background:#fff' },
+      etCanDelete: !!editing,
+      etDeleteOpen: !!del, etDeleteName: del ? del.name : '', etDeleteShared: !!(del && del.shared),
+      etDeleteSharedLine: del && del.shared ? 'It is shared with the workspace: everyone loses it, not only you.' + (del.owner !== ME ? ' It is ' + del.owner + "'s." : '') : '',
+      etSetTab: (e) => set({ etTab: e.currentTarget.dataset.id, etMenu: null }),
+      etOnQuery: (e) => set({ etQuery: e.target.value }),
+      etToggleMenu: (e) => { const id = e.currentTarget.dataset.id; set({ etMenu: st.etMenu === id ? null : id }); },
+      etOpen: (e) => { const t = all.find((x) => x.id === e.currentTarget.dataset.id); if (!canEdit(t)) { set({ etMenu: null }); this.showToast(t.owner + "'s template: duplicate it to change a copy of your own."); return; } set({ etEditId: t.id, etD: Object.assign({}, t), etMenu: null, etInsert: false }); },
+      etNew: () => set({ etEditId: null, etD: { name: '', subject: '', body: 'Thank you, {{firstName}}.', shared: false }, etMenu: null }),
+      etBack: () => set({ etD: null, etEditId: null, etInsert: false }),
+      etField: (e) => set({ etD: Object.assign({}, d, { [e.currentTarget.dataset.field]: e.target.value }) }),
+      etToggleShare: () => set({ etD: Object.assign({}, d, { shared: !d.shared }) }),
+      etInsert: (e) => set({ etD: Object.assign({}, d, { body: d.body + '{{' + e.currentTarget.dataset.id + '}}' }) }),
+      etSave: () => { if (invalid.length) { this.showToast('Fix the email first.'); return; } set({ etD: null, etEditId: null }); this.showToast('Template saved.'); },
+      etDuplicate: (e) => { const t = all.find((x) => x.id === e.currentTarget.dataset.id); set({ etMenu: null, etTemplates: [Object.assign({}, t, { id: 'c' + Date.now(), name: ('Copy of ' + t.name).slice(0, 80), owner: ME, shared: false, updated: 'just now' })].concat(all) }); this.showToast('Duplicated as a personal template.'); },
+      etDuplicateEditing: () => { set({ etD: null, etEditId: null, etTemplates: [Object.assign({}, editing, { id: 'c' + Date.now(), name: ('Copy of ' + editing.name).slice(0, 80), owner: ME, shared: false, updated: 'just now' })].concat(all) }); this.showToast('Duplicated as a personal template.'); },
+      etAskDelete: (e) => set({ etDelete: e.currentTarget.dataset.id, etMenu: null }),
+      etAskDeleteEditing: () => set({ etDelete: st.etEditId }),
+      etCloseDelete: () => set({ etDelete: null }),
+      etConfirmDelete: () => { set({ etDelete: null, etD: null, etEditId: null, etTemplates: all.filter((t) => t.id !== st.etDelete) }); this.showToast('Template deleted.'); }
+    };
   }
 
   integrationVals(inputStyle, primary) {
@@ -3418,7 +3665,7 @@ class Component extends DCLogic {
       return { key, label, icon, iconColor: on ? 'var(--amber)' : 'currentColor',
         style: 'display:flex;width:100%;align-items:center;justify-content:' + (c ? 'center' : 'flex-start') + ';gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);border:none;cursor:pointer;background:' + (on ? 'var(--panel2)' : 'transparent') + ';color:' + (on ? 'var(--text)' : 'var(--text2)') };
     };
-    const navGroups = [{ label: 'Account', items: [item('profile', 'Profile', I.profile), item('signatures', 'Email signature', 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z'), item('notifications', 'Notifications', 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0'), item('availability', 'Availability', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z'), item('security', 'Security', I.lock), item('workspaces', 'Workspaces', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'), item('api-keys', 'API keys', I.key), item('ai-apps', 'Connected AI apps', I.sparkle)] }];
+    const navGroups = [{ label: 'Account', items: [item('profile', 'Profile', I.profile), item('signatures', 'Email signature', 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z'), item('email-templates', 'Email templates', 'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7ZM14 2v4a2 2 0 0 0 2 2h4M16 13H8M16 17H8M10 9H8'), item('notifications', 'Notifications', 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0'), item('availability', 'Availability', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z'), item('security', 'Security', I.lock), item('workspaces', 'Workspaces', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'), item('api-keys', 'API keys', I.key), item('ai-apps', 'Connected AI apps', I.sparkle)] }];
     if (isAdmin) navGroups.push({ label: 'Workspace', items: [item('general', 'General', I.settings), item('meetings', 'Meetings & email', 'M12 6v6l4 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z'), item('members', 'Members', I.members), item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('candidate-tags', 'Candidate tags', 'M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4ZM7.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z'), item('task-presets', 'Task presets', 'M3 5l2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8'), item('pipeline-stages', 'Pipeline stages', I.columns), item('integrations', 'Integrations', 'M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8ZM12 18v4'), item('templates', 'Templates', I.file), item('data', 'Data & retention', I.database)] });
     else navGroups.push({ label: 'Workspace', items: [item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('pipeline-stages', 'Pipeline stages', I.columns)] });
     if (superAdmin) navGroups.push({ label: 'Platform', items: [item('library', 'Template library', I.position)] });
@@ -3676,7 +3923,7 @@ class Component extends DCLogic {
       sectionLabel: this.LABELS[sec] || 'Settings',
       isProfile: sec === 'profile', isSecurity: sec === 'security', isGeneral: sec === 'general', isMeetings: sec === 'meetings', isAvailability: sec === 'availability', isMembers: sec === 'members', isTplList, isEditor,
       isWorkspaces: sec === 'workspaces', isIntegrations: sec === 'integrations', ...this.integrationVals(inputStyle, primary),
-      isSignatures: sec === 'signatures', ...this.signatureVals(inputStyle),
+      isSignatures: sec === 'signatures', ...this.signatureVals(inputStyle), ...this.emailTemplateVals(inputStyle, primary, isAdmin),
       isCandidateTags: sec === 'candidate-tags', ctNew: st.ctNew, ctDraft: st.ctDraft, ctAddOpacity: st.ctNew.trim() ? 1 : 0.5,
       ctRows: st.ctags.map((t) => {
         const COLOURS = { green: ['var(--u-direct)', 'var(--u-direct-tint)'], accent: ['var(--u-accent)', 'var(--u-accent-tint)'], neutral: ['var(--text2)', 'var(--panel)'], violet: ['var(--u-chart-5)', 'color-mix(in srgb, var(--u-chart-5) 16%, transparent)'], adjacent: ['var(--u-adjacent)', 'var(--u-adjacent-tint)'], inferred: ['var(--u-inferred)', 'var(--u-inferred-tint)'] };

@@ -224,6 +224,13 @@ public class AuditLogPhrasing {
         on(WorkspaceEventType.MAILBOX_DISCONNECTED, line -> "Disconnected their mailbox");
         on(WorkspaceEventType.ZOOM_CONNECTED, line -> "Connected Zoom");
         on(WorkspaceEventType.ZOOM_DISCONNECTED, line -> "Disconnected Zoom");
+        on(WorkspaceEventType.EMAIL_TEMPLATE_SHARED, line -> line.targetName() == null
+                ? "Shared an email template" : "Shared the email template \"" + line.targetName() + "\"");
+        on(WorkspaceEventType.EMAIL_TEMPLATE_UNSHARED, line -> "Stopped sharing an email template");
+        on(WorkspaceEventType.EMAIL_TEMPLATE_UPDATED, line -> line.targetName() == null
+                ? "Edited a shared email template"
+                : "Edited the shared email template \"" + line.targetName() + "\"");
+        on(WorkspaceEventType.EMAIL_TEMPLATE_DELETED, line -> "Deleted a shared email template");
         on(ProjectEventType.OUTREACH_SEQUENCE_CREATED, line -> "Created a sequence");
         on(ProjectEventType.OUTREACH_SEQUENCE_UPDATED, line -> "Edited a sequence");
         on(ProjectEventType.OUTREACH_SEQUENCE_DELETED, line -> "Deleted a sequence");

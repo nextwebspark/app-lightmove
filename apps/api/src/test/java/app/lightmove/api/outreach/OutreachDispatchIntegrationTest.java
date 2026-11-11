@@ -219,6 +219,26 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a follow-up reads a fallback where the person has nothing on file, and a blank stays blank")
+    void aFollowUpsFallback() throws Exception {
+        String sequenceId = createSequence("With fallbacks", "Hi {{firstName}},\\n\\n{{opener}}",
+                "Following up from {{location|the Gulf}}, {{firstName|there}}. Still in {{location}}?");
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(sequenceId, priya, "priya@" + domain, "Your treasury work stood out.");
+
+        dispatcher.dispatchAt(monday);
+        dispatcher.dispatchAt(monday.plus(Duration.ofDays(3)));
+
+        List<SentRecord> sent = sentTo("priya@" + domain);
+        assertThat(sent).hasSize(2);
+        assertThat(sent.get(1).email().htmlBody()).isEqualTo("<p>Following up from the Gulf, Priya. Still in ?</p>");
+        assertThat(jdbc.queryForObject("""
+                select m.body_text from app_lm_outreach_message m join app_lm_outreach_enrollment e on e.id = m.enrollment_id
+                where e.candidate_id = ?::uuid order by m.step desc limit 1""", String.class, priya))
+                .isEqualTo("Following up from the Gulf, Priya. Still in ?");
+    }
+
+    @Test
     @DisplayName("a reconnect off Nylas stops a run at its next send, never replying into the old thread")
     void reconnectingOffNylasStopsTheRunAtItsNextSend() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);

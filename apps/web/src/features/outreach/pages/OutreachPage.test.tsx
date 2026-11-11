@@ -197,7 +197,7 @@ function conversation(overrides: Partial<Conversation> = {}): Conversation {
       locationCountry: "United Arab Emirates",
       doNotContact: false,
     },
-    composer: { replySubject: "Re: A confidential conversation", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 } },
+    composer: { replySubject: "Re: A confidential conversation", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null },
     events: [
       {
         type: "MESSAGE",
@@ -555,6 +555,7 @@ describe("OutreachPage", () => {
         replyInThread: true,
         documentVersionIds: [],
         signatureId: null,
+        templateId: null,
       }, []),
     );
     expect(await screen.findByText("Goes to Fatima within a minute.")).toBeInTheDocument();
@@ -562,7 +563,7 @@ describe("OutreachPage", () => {
 
   it("writes a first email, with a subject of its own, where there is no thread to reply in", async () => {
     vi.mocked(conversationApi.getConversation).mockResolvedValue(
-      conversation({ composer: { replySubject: null, replyStopsRun: false, emailSentMovesTo: { statusKey: "contacted", label: "Contacted", colour: "accent" }, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 } } }),
+      conversation({ composer: { replySubject: null, replyStopsRun: false, emailSentMovesTo: { statusKey: "contacted", label: "Contacted", colour: "accent" }, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null } }),
     );
     vi.mocked(conversationApi.sendMessage).mockResolvedValue({
       id: "m9",

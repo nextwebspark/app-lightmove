@@ -37,8 +37,8 @@ class RetentionScheduleCoverageTest {
                 SELECT DISTINCT c.table_name FROM information_schema.columns c
                 JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name
                 WHERE c.table_schema = 'public' AND c.table_name LIKE 'app\\_lm\\_%' AND t.table_type = 'BASE TABLE'
-                  AND (c.column_name IN ('person_id', 'user_id', 'actor_user_id', 'recipient_user_id', 'full_name',
-                                         'linkedin_url', 'to_address', 'from_address', 'email')
+                  AND (c.column_name IN ('person_id', 'user_id', 'actor_user_id', 'recipient_user_id', 'owner_user_id',
+                                         'full_name', 'linkedin_url', 'to_address', 'from_address', 'email')
                        OR c.column_name LIKE '%\\_email' OR c.column_name LIKE 'email\\_%')
                 """, String.class);
         Set<String> existing = new HashSet<>(db.queryForList("""

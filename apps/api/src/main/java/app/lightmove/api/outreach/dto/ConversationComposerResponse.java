@@ -10,7 +10,10 @@ import app.lightmove.api.candidate.dto.CandidateStatusTargetDto;
  * @param replyStopsRun    whether that reply would stop a run of the caller's still live in its thread
  * @param emailSentMovesTo the status an email now would move the person to; null where they would stay
  * @param attachmentLimits what one email may carry
+ * @param tokens           what this executive's variables fill with when the caller writes to them; the booking link
+ *                         only where one exists, read and never claimed
  */
 public record ConversationComposerResponse(String replySubject, boolean replyStopsRun,
                                            CandidateStatusTargetDto emailSentMovesTo,
-                                           AttachmentLimitsResponse attachmentLimits) {}
+                                           AttachmentLimitsResponse attachmentLimits,
+                                           SequenceTokensResponse tokens) {}

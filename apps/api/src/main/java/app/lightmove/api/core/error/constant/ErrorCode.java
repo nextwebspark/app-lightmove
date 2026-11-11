@@ -581,6 +581,13 @@ public enum ErrorCode {
     OUTREACH_DO_NOT_CONTACT(HttpStatus.CONFLICT, "This person is marked do not contact"),
 
     /** A reply needs a thread the caller's mailbox started and can still read; a first email needs none. */
+    /**
+     * An own email holding a variable this executive has no value for and no fallback, or one no email can fill
+     * ({@code {{opener}}} included); the body's {@code tokens} names them.
+     */
+    OUTREACH_TOKENS_UNFILLED(HttpStatus.CONFLICT,
+            "Some variables in this email have nothing to fill them. Fill them in, give them a fallback or remove them"),
+
     OUTREACH_THREAD_UNAVAILABLE(HttpStatus.CONFLICT,
             "There is no email thread from your mailbox to reply in. Send a new email instead"),
 
@@ -694,6 +701,19 @@ public enum ErrorCode {
     EMAIL_SIGNATURE_NOT_FOUND(HttpStatus.NOT_FOUND, "That signature does not exist"),
 
     EMAIL_SIGNATURE_LIMIT_REACHED(HttpStatus.CONFLICT, "You can keep up to 10 signatures"),
+
+    /** Another person's personal email template reads the same as one that never existed. */
+    EMAIL_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "That email template does not exist"),
+
+    /** A shared email template changed by someone who is neither its owner nor a workspace admin. */
+    EMAIL_TEMPLATE_NOT_YOURS(HttpStatus.FORBIDDEN,
+            "Only its owner or a workspace admin can change this template. Duplicate it to make your own"),
+
+    EMAIL_TEMPLATE_LIMIT_REACHED(HttpStatus.CONFLICT, "You can keep up to 100 email templates"),
+
+    /** The version sent is not the row's: someone saved or shared the template since it was read. */
+    EMAIL_TEMPLATE_STALE(HttpStatus.CONFLICT,
+            "Someone changed this template after you opened it. Reload to see their version"),
 
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 

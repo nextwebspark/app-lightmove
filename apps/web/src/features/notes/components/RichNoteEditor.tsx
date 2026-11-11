@@ -47,6 +47,7 @@ export default function RichNoteEditor({
   footer,
   fillsDialog = false,
   onExpandChange,
+  editorRef,
 }: NoteEditorProps) {
   const [picker, setPicker] = useState<Picker | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -58,6 +59,7 @@ export default function RichNoteEditor({
   const onSubmitRef = useRef(onSubmit);
   const canSubmitRef = useRef(canSubmit);
   const lastEmitted = useRef(value);
+  const wasFocused = useRef(false);
   useEffect(() => {
     teammatesRef.current = teammates;
     onChangeRef.current = onChange;
@@ -133,7 +135,24 @@ export default function RichNoteEditor({
       lastEmitted.current = body;
       onChangeRef.current(body);
     },
+    onFocus: () => {
+      wasFocused.current = true;
+    },
   });
+
+  useEffect(() => {
+    if (!editorRef) return;
+    const at = () => editor?.chain().focus(wasFocused.current ? undefined : "end");
+    editorRef.current = editor
+      ? {
+          insertText: (text) => at()?.insertContent({ type: "text", text }).run(),
+          insertDoc: (doc) => at()?.insertContent(doc.content ?? []).run(),
+        }
+      : null;
+    return () => {
+      editorRef.current = null;
+    };
+  }, [editor, editorRef]);
 
   useEffect(() => {
     if (!editor || value === lastEmitted.current) return;

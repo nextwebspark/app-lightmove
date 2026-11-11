@@ -1,9 +1,18 @@
-import { lazy, Suspense, type ReactNode } from "react";
+import type { JSONContent } from "@tiptap/core";
+import { lazy, Suspense, type MutableRefObject, type ReactNode } from "react";
 import { cn } from "../../../lib/cn";
 import type { TeammateOption } from "../../tasks/lib/team";
 import type { NoteFormat } from "../lib/noteFormat";
 
 const RichNoteEditor = lazy(() => import("./RichNoteEditor"));
+
+/** What a control outside the editor may do to it. */
+export interface NoteEditorHandle {
+  /** Puts text at the cursor as typed, or at the end where the editor was never focused. */
+  insertText: (text: string) => void;
+  /** Puts a document's blocks (`parseNoteMarkdown`, `plainNoteDoc`) at the cursor, the same way. */
+  insertDoc: (doc: JSONContent) => void;
+}
 
 export interface NoteEditorProps {
   /** The stored body; the editor writes Markdown back through `onChange`. */
@@ -35,6 +44,8 @@ export interface NoteEditorProps {
    */
   fillsDialog?: boolean;
   onExpandChange?: (expanded: boolean) => void;
+  /** Set while the editor is loaded, for a bar outside it — the Insert variables — that types into it. */
+  editorRef?: MutableRefObject<NoteEditorHandle | null>;
 }
 
 /** The note editor, loaded on first use so a page that never writes a note never downloads it. */

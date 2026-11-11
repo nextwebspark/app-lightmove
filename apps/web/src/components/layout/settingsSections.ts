@@ -39,6 +39,13 @@ const NOTHING_OFFERED: SettingsOffers = { dataProtection: false, billing: false 
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { to: "/settings/profile", label: "Profile", icon: ICONS.profile, group: "Your account" },
   { to: "/settings/signature", label: "Email signature", icon: ICONS.pencil, group: "Your account", staffOnly: true },
+  {
+    to: "/settings/email-templates",
+    label: "Email templates",
+    icon: ICONS.fileText,
+    group: "Your account",
+    staffOnly: true,
+  },
   { to: "/settings/notifications", label: "Notifications", icon: ICONS.bell, group: "Your account", staffOnly: true },
   { to: "/settings/availability", label: "Availability", icon: ICONS.calendar, group: "Your account", staffOnly: true },
   { to: "/settings/security", label: "Security", icon: ICONS.lock, group: "Your account" },
@@ -73,7 +80,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
 
 /**
  * The sections this caller reaches. Your account is everyone's — a portal guest has a name and a timezone like
- * anyone else — except Email signature, Notifications, Availability, API keys and Connected AI apps, which are staff's. Workspace is admin-only
+ * anyone else — except Email signature, Email templates, Notifications, Availability, API keys and Connected AI apps, which are staff's. Workspace is admin-only
  * but for Team, Pipeline stages and Billing, which every staff member reads, and Platform is Uncava staff's.
  * Hiding them is presentation; the route guards are the gate.
  */

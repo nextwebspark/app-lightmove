@@ -2,6 +2,7 @@ package app.lightmove.api.outreach.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class SequenceTokensTest {
@@ -58,5 +59,70 @@ class SequenceTokensTest {
     void theFirstNameIsTheFirstWord() {
         assertThat(SequenceTokens.firstNameOf("  Priya   Raman ")).isEqualTo("Priya");
         assertThat(SequenceTokens.firstNameOf(" ")).isNull();
+    }
+
+    @Test
+    void aFallbackStandsInOnlyWhereThePersonHasNoValue() {
+        SequenceTokens sparse = new SequenceTokens(null, "CFO", null, null, null, "Yara", null, null);
+        assertThat(sparse.render("Hi {{firstName|there}}, as {{ currentTitle | our lead }}"))
+                .isEqualTo("Hi there, as CFO");
+        assertThat(sparse.render("Hi {{firstName|  dear   reader }}")).isEqualTo("Hi dear reader");
+        assertThat(tokens.render("Hi {{firstName|there}}")).isEqualTo("Hi Priya");
+    }
+
+    @Test
+    void anEscapedPipeIsAFallbackAsWell() {
+        SequenceTokens sparse = new SequenceTokens(null, null, null, null, null, null, null, null);
+        assertThat(sparse.render("Hi {{firstName\\|there}}")).isEqualTo("Hi there");
+        assertThat(SequenceTokens.usesIn("{{firstName\\|there}}"))
+                .containsExactly(new TokenUse("firstName", "there"));
+    }
+
+    @Test
+    void aFallbackInMarkdownIsEscapedAsAValueIs() {
+        SequenceTokens sparse = new SequenceTokens(null, null, null, null, null, null, null, null);
+        assertThat(sparse.renderMarkdown("Hi {{firstName|*friend*}}")).isEqualTo("Hi \\*friend\\*");
+        assertThat(new SequenceTokens("[Priya](x)", null, null, null, null, null, null, null)
+                .renderMarkdown("Hi {{firstName|there}}")).isEqualTo("Hi \\[Priya\\](x)");
+    }
+
+    @Test
+    void aFallbackSavedFromTheEditorLosesItsMarkdownEscapes() {
+        SequenceTokens sparse = new SequenceTokens(null, null, null, null, null, null, null, null);
+        String saved = "Dear {{currentTitle\\|a \\*senior\\* leader}}";
+        assertThat(sparse.render(saved)).isEqualTo("Dear a *senior* leader");
+        assertThat(sparse.renderMarkdown(saved)).isEqualTo("Dear a \\*senior\\* leader");
+        assertThat(SequenceTokens.usesIn(saved)).containsExactly(new TokenUse("currentTitle", "a *senior* leader"));
+    }
+
+    @Test
+    void aBookingLinksFallbackStandsInWhereThereIsNoLink() {
+        SequenceTokens noLink = new SequenceTokens("Priya", null, null, null, null, null, null, null);
+        assertThat(noLink.render("Book: {{bookingLink|reply to this email}}")).isEqualTo("Book: reply to this email");
+        assertThat(SequenceTokens.emailVocabulary(false)).doesNotContain(SequenceTokens.BOOKING_LINK);
+        assertThat(SequenceTokens.emailVocabulary(true)).containsAll(SequenceTokens.PROFILE_TOKENS)
+                .contains(SequenceTokens.BOOKING_LINK).doesNotContain(SequenceTokens.OPENER, SequenceTokens.SIGNATURE);
+    }
+
+    @Test
+    void aLineKeepsEveryValueOnOneLine() {
+        SequenceTokens multiline = new SequenceTokens("Priya", "Chief\nFinancial   Officer", null, null, null, null,
+                null, null);
+        assertThat(multiline.renderLine("{{firstName}}: {{currentTitle}} at {{currentCompany|your firm}}"))
+                .isEqualTo("Priya: Chief Financial Officer at your firm");
+    }
+
+    @Test
+    void reportsUnknownAndUnfilledTokensInOrderOfFirstUse() {
+        String text = "Hi {{firstName}} {{fristName}} {{location}} {{location|here}} {{opener}} {{fristName}}";
+        assertThat(SequenceTokens.unknownIn(text, SequenceTokens.PROFILE_TOKENS)).containsExactly("fristName", "opener");
+        SequenceTokens sparse = new SequenceTokens("Priya", null, null, null, null, null, null, null);
+        assertThat(sparse.unfilledIn(text)).containsExactly("location", "opener");
+        assertThat(sparse.unfilledIn("{{location|here}}")).isEqualTo(List.of());
+    }
+
+    @Test
+    void aBraceOrAPipeInsideAFallbackIsNoToken() {
+        assertThat(tokens.render("{{firstName|a|b}} {{firstName|{x}}}")).isEqualTo("{{firstName|a|b}} {{firstName|{x}}}");
     }
 }
