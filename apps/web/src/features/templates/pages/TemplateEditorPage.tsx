@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Field, FormError, Input, Select, TextArea, useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
-import { CurrencyOptions } from "../../../components/ui/CurrencyOptions";
+import { CurrencySelect } from "../../../components/ui/CurrencySelect";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
@@ -431,9 +431,11 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
       >
         <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
           <Field label="Currency">
-            <Select value={draft.currency} onChange={(e) => update({ currency: e.target.value })} className="!bg-u-surface">
-              <CurrencyOptions held={[draft.currency]} />
-            </Select>
+            <CurrencySelect
+              value={draft.currency}
+              onChange={(code) => update({ currency: code })}
+              className="bg-u-surface"
+            />
           </Field>
           <div className="mb-4">
             <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">

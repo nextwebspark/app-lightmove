@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CURRENCIES, currencyGroupsOf, currencyOptionLabel } from "./currencies";
+import { CURRENCIES, currencyChoicesOf, currencyNameOf, currencyOptionLabel } from "./currencies";
 
 const SERVED = [
   { code: "AED", name: "United Arab Emirates Dirham" },
@@ -8,30 +8,38 @@ const SERVED = [
   { code: "ZAR", name: "South African Rand" },
 ];
 
-describe("currencyGroupsOf", () => {
-  it("lists the held codes first, then the suggested nine, each once", () => {
-    const { suggested } = currencyGroupsOf(["INR", null, "SAR"], SERVED);
+const codesOf = (groups: ReturnType<typeof currencyChoicesOf>) =>
+  groups.map((group) => [group.label, group.currencies.map((currency) => currency.code)]);
 
-    expect(suggested[0]).toBe("INR");
-    expect(suggested).toHaveLength(CURRENCIES.length + 1);
-    expect(new Set(suggested).size).toBe(suggested.length);
-  });
+describe("currencyChoicesOf", () => {
+  it("lists the held codes first, then the suggested nine, then every other served one, each once", () => {
+    const [suggested, others] = currencyChoicesOf(["INR", null, "SAR"], SERVED);
 
-  it("puts every other served currency below, never repeating a suggested one", () => {
-    const { others } = currencyGroupsOf(["INR"], SERVED);
-
-    expect(others.map((currency) => currency.code)).toEqual(["ZAR"]);
+    expect(suggested.label).toBe("Suggested");
+    expect(suggested.currencies[0].code).toBe("INR");
+    expect(suggested.currencies).toHaveLength(CURRENCIES.length + 1);
+    expect(others.currencies.map((currency) => currency.code)).toEqual(["ZAR"]);
   });
 
   it("keeps a held code the server no longer offers", () => {
-    expect(currencyGroupsOf(["ATS"], SERVED).suggested).toContain("ATS");
+    expect(currencyChoicesOf(["ATS"], SERVED)[0].currencies[0]).toEqual({ code: "ATS", name: "" });
+  });
+
+  it("finds a currency by code first, then by name, in either group", () => {
+    expect(codesOf(currencyChoicesOf([], SERVED, "sa"))).toEqual([["Suggested", ["SAR"]]]);
+    expect(codesOf(currencyChoicesOf([], SERVED, "rand"))).toEqual([["All currencies", ["ZAR"]]]);
+    expect(codesOf(currencyChoicesOf([], SERVED, "rupee"))).toEqual([["All currencies", ["INR"]]]);
+    expect(codesOf(currencyChoicesOf([], SERVED, "emirates"))).toEqual([["Suggested", ["AED"]]]);
+    expect(currencyChoicesOf([], SERVED, "zzz")).toEqual([]);
   });
 });
 
-describe("currencyOptionLabel", () => {
-  it("prefers the short name, then the served one, then the bare code", () => {
-    expect(currencyOptionLabel("AED", "United Arab Emirates Dirham")).toBe("AED - UAE Dirham");
-    expect(currencyOptionLabel("INR", "Indian Rupee")).toBe("INR - Indian Rupee");
+describe("currency names", () => {
+  it("prefers the short name, then the served one, then none", () => {
+    expect(currencyNameOf("AED", SERVED)).toBe("UAE Dirham");
+    expect(currencyNameOf("INR", SERVED)).toBe("Indian Rupee");
+    expect(currencyNameOf("XYZ", SERVED)).toBeNull();
+    expect(currencyOptionLabel("AED")).toBe("AED - UAE Dirham");
     expect(currencyOptionLabel("XYZ")).toBe("XYZ");
   });
 });

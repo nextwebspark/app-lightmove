@@ -16,8 +16,8 @@ import { Field, Input, Select, TextArea } from "../../../components/ui";
 import { CountryField } from "../../../components/ui/CountryField";
 import { SegmentedControl, type SegmentedOption } from "../../../components/ui/SegmentedControl";
 import { cn } from "../../../lib/cn";
-import { CurrencyOptions } from "../../../components/ui/CurrencyOptions";
-import { currencyOptionLabel } from "../../../lib/currencies";
+import { CurrencySelect } from "../../../components/ui/CurrencySelect";
+import { currencyNameOf, useCurrencies } from "../../../lib/currencies";
 import { useWorkspaceCurrency } from "../../workspace/lib/useWorkspaceCurrency";
 import { formatNumber } from "../../../lib/format";
 import { NOTICE_PERIODS } from "../../../lib/noticePeriod";
@@ -273,6 +273,7 @@ export function CompensationFields<TTransformed extends FieldValues>({
 }) {
   const [currencyMode, setCurrencyMode] = useState<CurrencyMode>("auto");
   const { currency: workspaceCurrency } = useWorkspaceCurrency();
+  const servedCurrencies = useCurrencies();
   const allowances = useFieldArray({ control, name: "allowanceLines" });
   const [currency, base, baseCadence, bonus, bonusBasis, allowanceLines, longTermIncentive, incentiveTypes] =
     watch([
@@ -302,7 +303,6 @@ export function CompensationFields<TTransformed extends FieldValues>({
     }
   }, [followsBrief, briefCurrency, storedCurrency, currencyMode, currency, workspaceCurrency, setValue]);
 
-  const currencyField = register("currency");
   const bonusPercentField = register("bonus");
   const offVocabularyNotice =
     storedNoticePeriod && !NOTICE_PERIODS.some((period) => period.label === storedNoticePeriod)
@@ -335,26 +335,30 @@ export function CompensationFields<TTransformed extends FieldValues>({
         {followsBrief ? (
           <div
             aria-label="Currency"
-            className="min-w-0 flex-1 truncate rounded-[6px] border border-u-border bg-u-raised px-3 py-[9px] font-mono text-[13px] font-semibold text-u-text"
+            className="min-w-0 flex-1 truncate rounded-[6px] border border-u-border bg-u-raised px-3 py-[9px] text-[13px] text-u-text"
           >
-            {currencyOptionLabel(currency)}
+            <span className="font-mono font-semibold">{currency}</span>
+            {currencyNameOf(currency, servedCurrencies) && (
+              <>
+                {" "}
+                <span className="ms-1 text-u-text3">{currencyNameOf(currency, servedCurrencies)}</span>
+              </>
+            )}
           </div>
         ) : (
-          <Select
-            {...currencyField}
+          <CurrencySelect
+            value={currency ?? ""}
+            held={[storedCurrency, briefCurrency, workspaceCurrency]}
+            allowNone
             // A pick is a statement that this package is quoted otherwise: a brief read after it must
             // not take it back.
-            onChange={(event) => {
+            onChange={(code) => {
               setCurrencyMode("override");
-              void currencyField.onChange(event);
+              setValue("currency", code, { shouldDirty: true, shouldValidate: true });
             }}
-            aria-label="Currency"
             invalid={Boolean(errors.currency)}
-            className="min-w-0 flex-1 border-u-border py-[9px] font-semibold"
-          >
-            <option value="">Not set</option>
-            <CurrencyOptions held={[storedCurrency, briefCurrency, workspaceCurrency]} />
-          </Select>
+            className="min-w-0 flex-1 border-u-border py-[9px]"
+          />
         )}
         {followsBrief && (
           <span className="flex-none rounded-[5px] bg-u-direct-tint px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.05em] text-u-direct">

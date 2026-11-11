@@ -1193,7 +1193,7 @@ describe("TriageStagePage", () => {
     await userEvent.click(screen.getByRole("menuitem", { name: "Add executive" }));
 
     expect(await screen.findByText(/^From brief$/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR - Saudi Riyal");
+    expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR Saudi Riyal");
   });
 
   it("never asks a client representative's page view for the brief", async () => {

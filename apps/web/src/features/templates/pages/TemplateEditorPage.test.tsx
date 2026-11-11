@@ -184,6 +184,6 @@ describe("TemplateEditorPage — a firm starting a new template", () => {
     );
     answer({ defaultCurrency: "SAR" } as WorkspaceDetail);
 
-    expect(await screen.findByDisplayValue("SAR - Saudi Riyal")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Currency" })).toHaveTextContent("SAR Saudi Riyal");
   });
 });

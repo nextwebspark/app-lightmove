@@ -5,7 +5,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Button, Field, FormError, Input, Modal, Select, useToast } from "../../../components/ui";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
-import { CurrencyOptions } from "../../../components/ui/CurrencyOptions";
+import { CurrencySelect } from "../../../components/ui/CurrencySelect";
 import { DEFAULT_CURRENCY } from "../../../lib/currencies";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
@@ -130,9 +130,7 @@ export function SettingsGeneralPage() {
             label="Default currency"
             hint="New positions, executives and templates start in this currency. Figures already recorded keep theirs."
           >
-            <Select value={currency} onChange={(event) => setCurrency(event.target.value)} className="!bg-u-surface">
-              <CurrencyOptions held={[currency]} />
-            </Select>
+            <CurrencySelect aria-label="Default currency" value={currency} onChange={setCurrency} className="bg-u-surface" />
           </Field>
         </div>
 

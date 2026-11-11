@@ -1,4 +1,4 @@
-import { CurrencyOptions } from "../../../../components/ui/CurrencyOptions";
+import { CurrencySelect } from "../../../../components/ui/CurrencySelect";
 import { SegmentedControl, type SegmentedOption } from "../../../../components/ui/SegmentedControl";
 import type { BaseSalaryMode, BonusBasis, Compensation, IncentiveType } from "../../api/types";
 import { bonusValueAfterBasisChange, formatAmount, packageTotal } from "../../lib/compensation";
@@ -71,14 +71,12 @@ export function CompensationStep({
           />
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-4">
-          <select
-            aria-label="Currency"
+          <CurrencySelect
+            variant="compact"
+            codesOnly
             value={currency}
-            onChange={(event) => onChange({ currency: event.target.value }, true)}
-            className="rounded-[8px] border border-u-border bg-u-sunken px-3 py-1.5 text-body font-semibold text-u-text outline-none"
-          >
-            <CurrencyOptions held={[currency]} codesOnly />
-          </select>
+            onChange={(code) => onChange({ currency: code }, true)}
+          />
           <FigureInput
             grouped
             value={compensation.salaryMin}
