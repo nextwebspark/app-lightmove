@@ -105,8 +105,8 @@ public class AuthenticationService {
         if (config.autoVerifyEmail()) {
             // Before the token is issued, so the session already carries emailVerified.
             user.markEmailVerified(now);
-            log.warn("lightmove.auth.auto-verify-email is ON — {} was verified without proving the address",
-                    email);
+            log.warn("lightmove.auth.auto-verify-email is ON — user {} was verified without proving the address",
+                    user.getId());
         } else {
             verification.sendVerificationEmail(user, request);
         }
