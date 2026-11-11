@@ -1,4 +1,4 @@
-package app.lightmove.api.core.llm.service;
+package app.lightmove.api.core.text.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

@@ -13,7 +13,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     /** Case-insensitive by virtue of the citext column — no LOWER() needed, and none should be added. */
     Optional<User> findByEmail(String email);
 
-    boolean existsByEmail(String email);
+    /** Signup's refusal of a registered address, which needs the account's id and nothing else of it. */
+    @Query("select u.id from User u where u.email = :email")
+    Optional<UUID> findIdByEmail(String email);
 
     /**
      * Password login's read: attempts on one account wait their turn, or concurrent ones lost each other's failure

@@ -11,6 +11,7 @@ import {
   planChoiceOf,
   planOptionOf,
   seatChargeOf,
+  shownPricesOf,
   trialOf,
   withVat,
 } from "./billingView";
@@ -295,5 +296,20 @@ describe("formatAed", () => {
     expect(formatAed(49_900)).toBe("AED 499");
     expect(formatAed(249_500 * 5)).toBe("AED 12,475");
     expect(formatAed(49_950)).toBe("AED 499.50");
+  });
+});
+
+describe("with billing switched off", () => {
+  const off = { enforced: false };
+
+  it("draws no chip, a trial's or a used-up month's included", () => {
+    expect(creditChipOf(aTrialBilling(AN_HOUR_AGO, off))).toBeNull();
+    expect(creditChipOf(aBilling({ ...off, credits: someCredits({ level: "OUT", left: 0 }) }))).toBeNull();
+  });
+
+  it("prices neither a seat nor a find", () => {
+    expect(seatChargeOf(aCardBilling(off))).toBeNull();
+    expect(shownPricesOf(aBilling(off))).toBeUndefined();
+    expect(shownPricesOf(aBilling())).toEqual({ email: 1, phone: 5 });
   });
 });

@@ -138,6 +138,23 @@ describe("InviteModal — what a staff seat costs", () => {
     expect(await screen.findByText(/Adds AED 499 a month, before VAT/)).toBeInTheDocument();
   });
 
+  it("says nothing of a seat's cost, and asks nothing, where billing is switched off", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aCardBilling({ enforced: false }));
+    vi.mocked(workspaceApi.invite).mockResolvedValue({ sent: 1, notDelivered: [] });
+    const user = userEvent.setup();
+    open();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send invite" })).toBeEnabled());
+
+    await user.type(screen.getByPlaceholderText("colleague@firm.com"), "sara@firm.com");
+    await user.click(screen.getByRole("button", { name: "Send invite" }));
+
+    await waitFor(() =>
+      expect(workspaceApi.invite).toHaveBeenCalledWith([{ email: "sara@firm.com", role: "MEMBER" }]),
+    );
+    expect(screen.queryByText(/Adds AED/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Add a paid seat?" })).not.toBeInTheDocument();
+  });
+
   it("asks before a staff invitation adds a paid seat, then sends it", async () => {
     vi.mocked(billingApi.getBilling).mockResolvedValue(aCardBilling());
     vi.mocked(workspaceApi.invite).mockResolvedValue({ sent: 1, notDelivered: [] });

@@ -1,4 +1,4 @@
-package app.lightmove.api.core.llm.service;
+package app.lightmove.api.core.text.service;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

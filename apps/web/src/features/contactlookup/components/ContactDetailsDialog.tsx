@@ -6,7 +6,7 @@ import { Button, FormError, Modal, useToast } from "../../../components/ui";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
-import { creditsLabel } from "../../billing/lib/billingView";
+import { creditsLabel, shownPricesOf } from "../../billing/lib/billingView";
 import { useBillingRead } from "../../billing/lib/useBilling";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate } from "../../candidates/api/types";
@@ -72,7 +72,7 @@ export function ContactDetailsDialog({
   };
   const email = useContactLookup("email", projectId, candidate.id, found, toast);
   const phone = useContactLookup("phone", projectId, candidate.id, found, toast);
-  const prices = useBillingRead(lookupOffered).data?.prices;
+  const prices = shownPricesOf(useBillingRead(lookupOffered).data);
   const contacts = candidate.contacts;
   const editing = form.formState.isDirty;
   const finding = email.isPending || phone.isPending;

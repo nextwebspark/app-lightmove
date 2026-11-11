@@ -36,6 +36,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class AuthenticationService {
 
+    private static final String USER_TARGET = "user";
+
     private final UserRepository users;
     private final UserIdentityRepository identities;
     private final WorkspaceSelection selection;
@@ -88,11 +90,7 @@ public class AuthenticationService {
 
         String domain = emailValidator.validateWorkEmail(email);
 
-        if (users.existsByEmail(email)) {
-            audit.event(AuthEventType.USER_SIGNED_UP).failed().from(request)
-                    .reason("email_already_registered").detail("email", email).record();
-            throw ApiException.of(ErrorCode.EMAIL_ALREADY_REGISTERED);
-        }
+        refuseRegisteredAddress(email, request);
 
         Instant now = Instant.now();
         User user = users.save(User.registerLocal(
@@ -135,11 +133,7 @@ public class AuthenticationService {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "password", passwordProblem);
         }
 
-        if (users.existsByEmail(email)) {
-            audit.event(AuthEventType.USER_SIGNED_UP).failed().from(request)
-                    .reason("email_already_registered").detail("email", email).record();
-            throw ApiException.of(ErrorCode.EMAIL_ALREADY_REGISTERED);
-        }
+        refuseRegisteredAddress(email, request);
 
         Instant now = Instant.now();
         User user = users.save(User.registerLocal(
@@ -171,7 +165,7 @@ public class AuthenticationService {
         Optional<User> found = users.findByEmailForSignIn(email);
         if (found.isEmpty()) {
             throw refuseLogin(password, audit.event(AuthEventType.LOGIN_FAILED).failed().from(request)
-                    .reason("no_such_user").detail("email", email));
+                    .reason("no_such_user").detailIfPresent("domain", typedDomainOrNull(email)));
         }
 
         User user = found.get();
@@ -204,6 +198,28 @@ public class AuthenticationService {
                     .from(request).record();
         }
         return outcome;
+    }
+
+    /** The account is the target, never the address: an address in the append-only trail outlives its account. */
+    private void refuseRegisteredAddress(String email, HttpServletRequest request) {
+        Optional<UUID> registered = users.findIdByEmail(email);
+        if (registered.isPresent()) {
+            audit.event(AuthEventType.USER_SIGNED_UP).failed().from(request)
+                    .target(USER_TARGET, registered.get()).reason("email_already_registered").record();
+            throw ApiException.of(ErrorCode.EMAIL_ALREADY_REGISTERED);
+        }
+    }
+
+    /**
+     * Only the domain of an address nobody holds: enough to see one firm targeted, and names nobody. Read after the
+     * last {@code @}, as {@code scrub-audit-pii.sql} reads older rows.
+     */
+    static String typedDomainOrNull(String email) {
+        if (email.indexOf('@') <= 0) {
+            return null;
+        }
+        String domain = EmailAddressValidator.domainOf(email);
+        return domain.isBlank() ? null : domain;
     }
 
     /** A refusal ahead of the password check: it pays the BCrypt cost it skips, records why, and says nothing. */
