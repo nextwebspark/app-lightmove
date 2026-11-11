@@ -26,6 +26,7 @@ import org.springframework.test.context.TestPropertySource;
 /** The fair-use meter: what a use records, the monthly ceiling per seat it is held to, and the margin report. */
 @IntegrationTest
 @TestPropertySource(properties = {
+        "lightmove.billing.enforce=true",
         "lightmove.billing.fair-use.ai-enrich-per-seat=3",
         "lightmove.billing.fair-use.ai-enrich-cost-fils=6",
         "lightmove.billing.fair-use.assistant-ask-per-seat=0"})

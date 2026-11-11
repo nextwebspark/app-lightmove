@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestPropertySource;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -34,6 +35,7 @@ import tools.jackson.databind.JsonNode;
  * is decided before anything is spent.
  */
 @IntegrationTest
+@TestPropertySource(properties = "lightmove.billing.enforce=true")
 class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
 
     private static final String CFO_FILTER = """

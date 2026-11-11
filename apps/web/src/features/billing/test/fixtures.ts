@@ -29,6 +29,7 @@ export function aBilling(overrides: Partial<Billing> = {}): Billing {
     packs: [],
     trialEndsAt: null,
     contactEmail: "billing@uncava.com",
+    enforced: true,
     ...overrides,
   };
 }
