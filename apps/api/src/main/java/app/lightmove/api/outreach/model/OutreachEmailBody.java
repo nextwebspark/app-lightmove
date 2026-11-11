@@ -20,7 +20,7 @@ public final class OutreachEmailBody {
     }
 
     /**
-     * The signature goes where {@code {{signature}}} stands, between paragraphs, or closes a text placing none. Where
+     * The signature goes where {@code {{signature}}} stands, between paragraphs; a text placing none is unsigned. Where
      * there is no signature, {@link SequenceTokens#signedOff} first.
      */
     public static String htmlOf(String plainText, String bookingLink, String signatureHtml) {
@@ -34,7 +34,7 @@ public final class OutreachEmailBody {
             from = token.end();
         }
         html.append(htmlOf(text.substring(from), bookingLink));
-        return from == 0 ? html.append(signature).toString() : html.toString();
+        return html.toString();
     }
 
     /**

@@ -875,8 +875,8 @@ row outlives the avatar it was copied from, since a sent email names it. The com
 sender's default (a picker where they keep more than one; replies alike) and `SendMessageRequest.signatureId` draws it
 when the email is written, into the stored `body` only — `body_text` stays the consultant's words; a sequence's every
 email carries the sender's default, drawn once at Start, where nothing is picked, and frozen on each enrollment (V194
-`signature_html`): where a step places `{{signature}}` (new sequences end every step in it), else closing the email, and
-a sender keeping none signs off with their first name at the token. Either way a signature showing Book a call
+`signature_html`): only where a step places `{{signature}}` (new sequences end every step in it) — a step placing none is unsigned,
+and Start draws none for a sequence placing none — and a sender keeping none signs off with their first name at the token. Either way a signature showing Book a call
 has its page made before anything is written. The mailbox's test email carries the default, leaving Book a call out
 where its page cannot be made, since the test proves the mailbox and nothing else.
 
