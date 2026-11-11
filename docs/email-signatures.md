@@ -35,7 +35,8 @@ fields, never pasted HTML; several per person with one default; switchable per e
    person may untick it or choose another.
 3. **Replies use the same default** as a new email — no separate reply signature.
 4. **Sequences carry the sender's default on every step**, follow-ups included, drawn at Start and frozen for the run;
-   a step places it with `{{signature}}` (revised 2026-11-10: there is no picker at Start).
+   a step places it with `{{signature}}` (revised 2026-11-10: there is no picker at Start), and a step placing none
+   is unsigned (revised 2026-11-11).
 5. **The profile gains a photo upload, a phone number and a LinkedIn URL**, which every signature can show. The
    photo upload is #1172's avatar; this plan adds the phone and LinkedIn.
 
@@ -184,11 +185,12 @@ box is unticked and says why.
 Settings — and there is no picker at Start. It is drawn there, outside any transaction, and **frozen on the enrollment**
 (`signature_html`) beside `first_body`, so a later edit or a new default reaches no run already started. A step's body
 may place it with **`{{signature}}`** (new sequences end every step in it; the Insert bar offers it, into the body only,
-and a subject leaves it as typed): `OutreachEmailBody.htmlOf` puts it between paragraphs there, and closes a body
-placing none with it, as before. The conversation's `body_text` drops the token. A sender keeping no signature signs off
+and a subject leaves it as typed): `OutreachEmailBody.htmlOf` puts it between paragraphs there, and a body
+placing none is unsigned (revised 2026-11-11: the token decides, so taking it out takes the signature out); a sequence
+placing it nowhere has no signature drawn at Start, and so claims no booking page for one. The conversation's `body_text` drops the token. A sender keeping no signature signs off
 with their first name where the token stands. A value filled in from a profile or the opener can never place it: the
-token is taken out of every value first. A sequence saved before the token keeps its steps as written: one still ending in
-`{{senderFirstName}}` reads the first name above the signature until its author changes that line to `{{signature}}`. Nothing is stored on the sequence itself: a sequence is the position's, a
+token is taken out of every value first. A sequence saved before the token keeps its steps as written, and so goes unsigned until its
+author places `{{signature}}`. Nothing is stored on the sequence itself: a sequence is the position's, a
 signature its sender's.
 
 **Gateways are untouched**: the signature is part of `OutgoingEmail.htmlBody`. The test email from Settings carries

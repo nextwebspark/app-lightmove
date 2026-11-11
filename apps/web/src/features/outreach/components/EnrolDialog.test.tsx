@@ -200,7 +200,24 @@ describe("EnrolDialog", () => {
     expect(screen.queryByTitle("Signature")).not.toBeInTheDocument();
   });
 
+  it("draws no signature where the first email places none", async () => {
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
+      signatures: [{ ...SIGNATURE, id: "sig-formal", name: "Formal", isDefault: true }],
+      sources: SIGNATURE_SOURCES,
+      limit: 10,
+    });
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
+    renderDialog();
+    await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
+
+    expect(await screen.findByText("Bye")).toBeInTheDocument();
+    expect(screen.queryByTitle("Signature")).not.toBeInTheDocument();
+  });
+
   it("says the default still signs the run when the signatures cannot be read here", async () => {
+    vi.mocked(sequenceApi.getSequences).mockResolvedValue([
+      { ...SEQUENCE, steps: [{ ...SEQUENCE.steps[0], body: "Hi {{firstName}},\n\n{{opener}}\n\nBye\n{{signature}}" }] },
+    ]);
     vi.mocked(signaturesApi.listSignatures).mockRejectedValue(new Error("offline"));
     vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
     renderDialog();

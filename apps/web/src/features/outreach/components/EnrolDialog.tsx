@@ -583,6 +583,7 @@ function ReviewStep({
   const firstName = reviewing.tokens.firstName ?? reviewing.fullName;
   const signOff = signature.included || signature.isError ? "" : (reviewing.tokens.senderFirstName ?? "");
   const parts = renderParts(first.body, withBookingLink(reviewing.tokens, bookingLink), null);
+  const signed = parts.some((part) => part.isSignature);
   const openerAt = parts.findIndex((part) => part.isOpener);
   const before = openerAt < 0 ? parts : parts.slice(0, openerAt);
   const after = openerAt < 0 ? [] : parts.slice(openerAt + 1);
@@ -678,8 +679,8 @@ function ReviewStep({
             .join("")
             .replace(/^\n+/, "")}
         </div>
-        <SignatureUnderEmail choice={signature} />
-        {signature.isError && (
+        {signed && <SignatureUnderEmail choice={signature} />}
+        {signed && signature.isError && (
           <p className="mt-3 border-t border-u-border pt-2.5 font-mono text-meta text-u-text3">
             Your signatures could not be read here. Your default signature still signs these emails.
           </p>
