@@ -7,7 +7,7 @@ Decided and approved 2026-09-30; phases carry a `> **Built**` callout as they la
 
 | Phase | State |
 |---|---|
-| 0 — Mockups | **Done**, merged (#600): `claude-design/Candidates.dc.html`, `Position.dc.html`, `Settings.dc.html` |
+| 0 — Mockups | **Done**, merged (#600): `uncava-design/Candidates.dc.html`, `Position.dc.html`, `Settings.dc.html` |
 | 1 — Person/mapping split, auto-map, activity log (V91) | **Built**, merged (#602) |
 | 2 — Stored profile slug (V95) + golden reads | **Built**, merged (#604) |
 | 3 — Notes, timeline reads, `CANDIDATE_POOL_MANAGE` (V96, V97) | **Built**, merged (#609) |
@@ -161,7 +161,7 @@ the mapping. Nothing a client seat reads ever carries another mandate, a note or
 - **Docs to update with the code**: CLAUDE.md (the people-half paragraph, the Database section, layout
   table), `java-spring-development` (the "three tiers" paragraph, l.290-309, currently says the note,
   status and compensation are mandate-specific), `lightmove-domain` (the new action), `docs/spreadsheet-import.md`
-  (matching now workspace-wide), `claude-design/README.md` (remove the stale `Project.dc.html` row, add
+  (matching now workspace-wide), `uncava-design/README.md` (remove the stale `Project.dc.html` row, add
   `Candidates.dc.html`).
 
 ---
@@ -308,7 +308,7 @@ spelled one way. So:
 
 ## Phases
 
-### Phase 0 — Mockups (`claude-design/`)
+### Phase 0 — Mockups (`uncava-design/`)
 
 > **Built** (PR #600): `Candidates.dc.html` draws the pool, the Activity tab, the person drawer (Profile, Notes,
 > Timeline) and the bulk, merge and tag dialogs. `Position.dc.html` draws the position's Candidates page, Add
@@ -329,7 +329,7 @@ spelled one way. So:
   possible-duplicate dialog for the drawer's add form.
 - `Workspace.dc.html`: Candidates item in the Workspace nav group. `Position.dc.html`: replace the
   candidates placeholder. Vocabulary: "Position" in labels, `project` in code.
-- `claude-design/README.md`: add the row, drop the stale `Project.dc.html` row.
+- `uncava-design/README.md`: add the row, drop the stale `Project.dc.html` row.
 
 ### Phase 1 — The pool: person/mapping split + auto-map (backend, V91)
 
@@ -815,7 +815,7 @@ Scripts that touch the tables directly: `ops/dev/seed-report.sql`, `ops/eval/exp
 `lib/projectRows.ts` (invalidate the pool keys too). Extension: `apps/extension/src/api/captureCandidateApi.ts`
 (handle the new 409 code by offering "map").
 
-**Mockups**: `claude-design/{Candidates,Workspace,Position}.dc.html`, `claude-design/README.md`.
+**Mockups**: `uncava-design/{Candidates,Workspace,Position}.dc.html`, `uncava-design/README.md`.
 
 ## Verification
 

@@ -140,7 +140,7 @@ export function PositionPage() {
 }
 
 /**
- * The brief editor (claude-design/position): five steps behind a rail, the step kept in the URL.
+ * The brief editor (uncava-design/position): five steps behind a rail, the step kept in the URL.
  *
  * There is no Save button. Each section's draft autosaves as a snapshot PUT of that section alone, and
  * the write answers with the whole brief, so the cache always holds a complete document rather than

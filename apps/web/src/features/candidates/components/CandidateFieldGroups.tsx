@@ -246,7 +246,7 @@ const FIGURE_INPUT = "border-u-border py-[9px] text-[14px] font-bold";
 type CurrencyMode = "auto" | "override" | "brief";
 
 /**
- * A package, as it is quoted (claude-design/Position.dc.html, the drawer's Compensation editor): the
+ * A package, as it is quoted (uncava-design/Position.dc.html, the drawer's Compensation editor): the
  * currency the brief is quoted in unless somebody overrides it, the base and bonus typed the way they
  * were said — per month, as a share of base — the allowances line by line, the instruments an LTIP is
  * paid in, and the total worked out as it is typed. What is stored is always the annual amounts; the

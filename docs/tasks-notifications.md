@@ -1,6 +1,6 @@
 # Tasks, @mentions and notifications
 
-Epic #862 (phases #863–#866; #867 is later). Mockups: `claude-design/Position.dc.html` (Next action modal,
+Epic #862 (phases #863–#866; #867 is later). Mockups: `uncava-design/Position.dc.html` (Next action modal,
 the drawer's Next actions, the card), `Notifications.dc.html` (the bell), `Workspace.dc.html` (My tasks) and
 `Settings.dc.html` (Task presets, Notifications).
 

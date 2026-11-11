@@ -47,4 +47,4 @@ the layout a screen opened with until it is opened again.
 - Push notifications for a reply, a booked call or a task due (the manifest is the first step).
 - The assistant on a phone (`AssistantDock` is `hidden lg:block` today).
 - An Outreach conversation laid out as a messaging thread.
-- A mockup in `claude-design/` for each of the above before it is built.
+- A mockup in `uncava-design/` for each of the above before it is built.
