@@ -394,7 +394,24 @@
     <aside role="dialog" aria-modal="true" aria-label="{{ dv.name }}" data-screen-label="Candidate drawer" style="position:fixed;right:10px;top:10px;bottom:10px;z-index:95;width:600px;max-width:94vw;display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .2s ease both">
       <div style="position:relative;flex:none;padding:16px 20px 0">
         <button onClick="{{ closeDrawer }}" aria-label="Close" style="position:absolute;right:14px;top:14px;border-radius:6px;padding:6px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.close }}"></path></svg></button>
-        <div style="display:flex;align-items:flex-start;gap:12px;padding-right:32px">
+        <!-- The person's own ⋯ (GDPR #918, #920): restricting is any staff member's; deleting for good is an admin's alone. -->
+        <button onClick="{{ togglePersonMenu }}" aria-haspopup="menu" aria-expanded="{{ personMenuExpanded }}" aria-label="More for {{ dv.name }}" title="More" style="{{ personMenuBtnStyle }}" style-hover="background:var(--panel2);color:var(--text)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="{{ ic.moreH }}"></path></svg></button>
+        <sc-if value="{{ personMenuOpen }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ closePersonMenu }}" style="position:fixed;inset:0;z-index:19"></div>
+          <div role="menu" data-screen-label="Person menu" style="position:absolute;right:14px;top:48px;z-index:20;width:256px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow);animation:fadeUp .15s ease both">
+            <sc-if value="{{ dv.notRestricted }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ openRestrict }}" role="menuitem" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:7px 8px;font:500 12.5px var(--sans);text-align:left;background:none;border:none;color:var(--text);cursor:pointer" style-hover="background:var(--panel2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.lock }}"></path></svg>Restrict processing…</button>
+            </sc-if>
+            <sc-if value="{{ dv.restricted }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ liftRestriction }}" role="menuitem" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:7px 8px;font:500 12.5px var(--sans);text-align:left;background:none;border:none;color:var(--text);cursor:pointer" style-hover="background:var(--panel2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.unlock }}"></path></svg>Lift restriction</button>
+            </sc-if>
+            <sc-if value="{{ canErase }}" hint-placeholder-val="{{ true }}">
+              <div style="margin:4px 0;border-top:1px solid var(--line-soft)"></div>
+              <button onClick="{{ openErase }}" role="menuitem" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:7px 8px;font:500 12.5px var(--sans);text-align:left;background:none;border:none;color:var(--red);cursor:pointer" style-hover="background:var(--red-dim)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.trash }}"></path></svg>Delete person permanently…</button>
+            </sc-if>
+          </div>
+        </sc-if>
+        <div style="display:flex;align-items:flex-start;gap:12px;padding-right:64px">
           <span style="{{ dv.avStyle }}">{{ dv.initials }}</span>
           <div style="min-width:0;flex:1">
             <span style="display:flex;align-items:center;gap:6px">
@@ -411,6 +428,7 @@
                 </select>
               </label>
               <button onClick="{{ toggleDnc }}" title="{{ dv.dncTitle }}" style="{{ dv.dncBtnStyle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.ban }}"></path></svg>{{ dv.dncBtnLabel }}</button>
+              <sc-if value="{{ dv.restricted }}" hint-placeholder-val="{{ false }}"><span title="No AI, research, outreach or new positions until the restriction is lifted" style="display:inline-flex;align-items:center;gap:5px;border-radius:6px;border:1px solid transparent;padding:3px 8px;font:500 11.5px var(--mono);background:var(--u-signal-tint);color:var(--u-signal)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.lock }}"></path></svg>Processing restricted</span></sc-if>
               <!-- The primary CV, one click away: opening it is the most common act on a person. -->
               <sc-if value="{{ dc.hasCv }}" hint-placeholder-val="{{ true }}">
                 <span data-screen-label="CV chip" style="display:inline-flex;align-items:stretch;border-radius:6px;border:1px solid color-mix(in srgb,var(--amber) 45%,transparent);background:var(--amber-dim);overflow:hidden">
@@ -430,6 +448,20 @@
               <div style="margin-top:2px;font:400 12px/1.5 var(--sans);color:var(--text2)">{{ dv.dncReason }}</div>
               <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ dv.dncBy }}</div>
             </div>
+          </div>
+        </sc-if>
+
+        <!-- Restriction of processing (GDPR #920): what is on file stays readable; nothing uses it until it is lifted. -->
+        <sc-if value="{{ dv.restricted }}" hint-placeholder-val="{{ false }}">
+          <div role="note" data-screen-label="Processing restricted" style="margin-top:12px;display:flex;align-items:flex-start;gap:10px;border-radius:8px;border:1px solid color-mix(in srgb,var(--u-signal) 35%,transparent);background:var(--u-signal-tint);padding:9px 12px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--u-signal)"><path d="{{ ic.lock }}"></path></svg>
+            <div style="min-width:0;flex:1">
+              <div style="font:600 12.5px var(--sans);color:var(--u-signal)">Processing restricted</div>
+              <div style="margin-top:2px;font:400 12px/1.5 var(--sans);color:var(--text2)">No AI, no research or contact lookups, no outreach and no new positions. What's on file stays readable.</div>
+              <div style="margin-top:2px;font:400 12px/1.5 var(--sans);color:var(--text2)">{{ dv.restrictReason }}</div>
+              <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ dv.restrictBy }}</div>
+            </div>
+            <button onClick="{{ liftRestriction }}" style="flex:none;border-radius:6px;padding:4px 8px;font:500 12px var(--sans);color:var(--u-signal);background:none;border:1px solid color-mix(in srgb,var(--u-signal) 45%,transparent);cursor:pointer" style-hover="background:color-mix(in srgb,var(--u-signal) 14%,transparent)">Lift restriction</button>
           </div>
         </sc-if>
 
@@ -907,6 +939,75 @@
     </div>
   </sc-if>
 
+  <!-- Restrict processing (GDPR #920): the person stays on file, read-only; the suppression list is optional here. -->
+  <sc-if value="{{ showRestrict }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDialog }}" style="position:fixed;inset:0;z-index:110;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="Restrict processing" data-screen-label="Restrict processing" onClick="{{ stop }}" style="width:480px;max-width:94vw;max-height:90vh;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="font:600 16px var(--sans)">Restrict processing for {{ dv.name }}</div>
+        <p style="margin:4px 0 14px;font-size:13px;line-height:1.5;color:var(--text2)">Uncava keeps what's on file but stops using it: no AI, no research or contact lookups, no outreach, and nobody can add them to a new position. Use it while a request from them is open. Anyone on the team can lift it.</p>
+        <label style="display:block">
+          <span style="display:flex;margin-bottom:6px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)"><span style="flex:1">Reason</span><span style="letter-spacing:0;text-transform:none;font-weight:400">{{ restrictCount }}</span></span>
+          <textarea value="{{ restrictReason }}" onChange="{{ onRestrictReason }}" rows="3" maxLength="500" aria-label="Reason" placeholder="e.g. Asked on 20 Sep what we hold about her; restricted until we reply" style="width:100%;resize:vertical;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px/1.55 var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
+          <span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--text3)">Shown on the drawer to everyone on the team, and kept in the audit log.</span>
+        </label>
+        <button onClick="{{ toggleRestrictSuppress }}" role="checkbox" aria-checked="{{ restrictSuppressChecked }}" style="margin-top:14px;display:flex;width:100%;align-items:flex-start;gap:10px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px;text-align:left;cursor:pointer" style-hover="border-color:var(--line)">
+          <span style="margin-top:1px;display:grid;width:16px;height:16px;flex:none;place-items:center;border-radius:4px;border:1px solid {{ restrictBox.boxColor }};background:{{ restrictBox.boxBg }};color:var(--on-amber)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="opacity:{{ restrictBox.tick }}"><path d="{{ ic.check }}"></path></svg></span>
+          <span style="min-width:0;flex:1">
+            <span style="display:block;font:500 13px var(--sans);color:var(--text)">Also add them to the suppression list, so no one can add them again</span>
+            <span style="margin-top:2px;display:block;font:400 11.5px/1.5 var(--mono);color:var(--text3)">{{ suppressLine }}</span>
+          </span>
+        </button>
+        <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closeDialog }}" style="border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ confirmRestrict }}" disabled="{{ restrictBlocked }}" style="border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ restrictOpacity }}" style-hover="filter:brightness(1.05)">Restrict</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Delete a person permanently (GDPR #918), an admin's: everything about them on every position, read off the server
+       before asking. Refused while one of their emails is mid-send, since the send would land after the delete. -->
+  <sc-if value="{{ showErase }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDialog }}" style="position:fixed;inset:0;z-index:110;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="Delete person permanently" data-screen-label="Delete person permanently" onClick="{{ stop }}" style="width:520px;max-width:94vw;max-height:92vh;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="font:600 16px var(--sans)">Delete {{ dv.name }} permanently?</div>
+        <p style="margin:4px 0 14px;font-size:13px;line-height:1.5;color:var(--text2)">Everything Uncava holds about them goes, on every position and for everyone in the workspace. This cannot be undone.</p>
+        <div style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">What goes</div>
+        <div data-screen-label="What goes" style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <sc-for list="{{ eraseCounts }}" as="ec" hint-placeholder-count="7">
+            <div style="display:flex;align-items:center;gap:8px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:8px 10px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ ec.icon }}"></path></svg>
+              <span style="min-width:0;font:400 12.5px var(--sans);color:var(--text2)"><b style="font-weight:600;color:var(--text)">{{ ec.n }}</b> {{ ec.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <p style="margin:8px 0 0;font:400 11.5px var(--mono);color:var(--text3)">With them: their profile, contacts, tags, timeline and AI readings.</p>
+        <button onClick="{{ toggleEraseSuppress }}" role="checkbox" aria-checked="{{ eraseSuppressChecked }}" style="margin-top:14px;display:flex;width:100%;align-items:flex-start;gap:10px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px;text-align:left;cursor:pointer" style-hover="border-color:var(--line)">
+          <span style="margin-top:1px;display:grid;width:16px;height:16px;flex:none;place-items:center;border-radius:4px;border:1px solid {{ eraseBox.boxColor }};background:{{ eraseBox.boxBg }};color:var(--on-amber)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="opacity:{{ eraseBox.tick }}"><path d="{{ ic.check }}"></path></svg></span>
+          <span style="min-width:0;flex:1">
+            <span style="display:block;font:500 13px var(--sans);color:var(--text)">Add to the suppression list so they're never added again</span>
+            <span style="margin-top:2px;display:block;font:400 11.5px/1.5 var(--mono);color:var(--text3)">{{ suppressLine }}</span>
+          </span>
+        </button>
+        <label style="margin-top:14px;display:block">
+          <span style="display:block;margin-bottom:6px;font:400 13px var(--sans);color:var(--text2)">Type <b style="font-weight:600;color:var(--text)">{{ dv.name }}</b> to confirm</span>
+          <input value="{{ eraseName }}" onChange="{{ onEraseName }}" placeholder="{{ dv.name }}" aria-label="Type the person's full name" autocomplete="off" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+        </label>
+        <sc-if value="{{ eraseSending }}" hint-placeholder-val="{{ false }}">
+          <div role="alert" data-screen-label="Delete person — email sending" style="margin-top:12px;display:flex;gap:10px;border-radius:8px;border:1px solid color-mix(in srgb,var(--red) 35%,transparent);background:var(--red-dim);padding:9px 12px;font:400 12.5px/1.5 var(--sans);color:var(--text2)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:2px;color:var(--red)"><path d="{{ ic.clock }}"></path></svg>
+            <span><b style="font-weight:600;color:var(--red)">An email to this person is sending right now. Try again in a minute.</b> Nothing was deleted.</span>
+          </div>
+        </sc-if>
+        <p style="margin:12px 0 0;font:400 11px/1.5 var(--mono);color:var(--text3)">The audit log records the deletion, never their name. Copies in Uncava's backups age out within 30 days.</p>
+        <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closeDialog }}" style="border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ confirmErase }}" disabled="{{ eraseDisabled }}" style="{{ eraseBtnStyle }}">Delete permanently</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- The file is fetched as a blob and shown sandboxed — never a public link. Word files download. -->
   <sc-if value="{{ showPreview }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closePreview }}" style="position:fixed;inset:0;z-index:115;background:rgba(15,20,30,.5)"></div>
@@ -959,7 +1060,7 @@
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="12" font-weight="700" letter-spacing="2" text-anchor="middle">PEOPLE</text></svg></template>
 
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;people&quot;,&quot;options&quot;:[&quot;people&quot;,&quot;activity&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;filtersOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;selectedCount&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;0&quot;,&quot;options&quot;:[&quot;0&quot;,&quot;3&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawerOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawerTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notes&quot;,&quot;documents&quot;,&quot;timeline&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;docsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;loaded&quot;,&quot;options&quot;:[&quot;loaded&quot;,&quot;empty&quot;,&quot;history&quot;,&quot;dropping&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;trayState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;newVersion&quot;,&quot;newDocument&quot;,&quot;duplicate&quot;,&quot;mixed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;tagPickerOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;addToPosition&quot;,&quot;tag&quot;,&quot;owner&quot;,&quot;merge&quot;,&quot;preview&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;loading&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;people&quot;,&quot;options&quot;:[&quot;people&quot;,&quot;activity&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;filtersOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;selectedCount&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;0&quot;,&quot;options&quot;:[&quot;0&quot;,&quot;3&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawerOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawerTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notes&quot;,&quot;documents&quot;,&quot;timeline&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;docsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;loaded&quot;,&quot;options&quot;:[&quot;loaded&quot;,&quot;empty&quot;,&quot;history&quot;,&quot;dropping&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;trayState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;newVersion&quot;,&quot;newDocument&quot;,&quot;duplicate&quot;,&quot;mixed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;tagPickerOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;addToPosition&quot;,&quot;tag&quot;,&quot;owner&quot;,&quot;merge&quot;,&quot;preview&quot;,&quot;restrict&quot;,&quot;erase&quot;,&quot;eraseBlocked&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;loading&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;restricted&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;personMenuOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
 const I = {
   profile: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
   settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z",
@@ -978,6 +1079,7 @@ const I = {
   importInto: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
   exportOut: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
   lock: "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 10 0v4",
+  unlock: "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 9.9-1",
   info: "M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z",
   phone: "M7 2h10v20H7zM11 19h2",
   trash: "M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6",
@@ -1063,6 +1165,9 @@ const TAG_SEED = [
 ];
 
 const DOORS = { manual: "Added by hand", extension: "Plugin", csv: "Import", ai_sourced: "Find executives" };
+
+// What a permanent deletion takes beyond what this page already holds (outreach, meetings, recordings, tasks live on positions).
+const ERASE_EXTRAS = { e01: { emails: 6, runs: 2, meetings: 1, recordings: 1, tasks: 3 } };
 
 const NOTE_KINDS = [
   { key: "general", label: "Note", icon: I.note, fg: "var(--text2)", bg: "var(--panel2)" },
@@ -1283,10 +1388,14 @@ class Component extends DCLogic {
     if (bulkDialog && selectedCount === 0) selectedCount = 3;
     const docsState = pick("docsState", "loaded");
     const trayState = pick("trayState", "none");
-    const drawerOpen = flag("drawerOpen", false) || dialog === "merge" || dialog === "preview" || docsState !== "loaded" || trayState !== "none";
+    const personDialog = ["restrict", "erase", "eraseBlocked"].includes(dialog);
+    const restricted = flag("restricted", false);
+    const personMenu = flag("personMenuOpen", false);
+    const drawerOpen = flag("drawerOpen", false) || dialog === "merge" || dialog === "preview" || personDialog || restricted || personMenu || docsState !== "loaded" || trayState !== "none";
     const docTabFirst = docsState !== "loaded" || trayState !== "none";
 
-    const people = PEOPLE.map((x) => Object.assign({}, x, { maps: x.maps.map((m) => Object.assign({}, m)), tags: [...x.tags], emails: x.emails.map((e) => [...e]) }));
+    const people = PEOPLE.map((x) => Object.assign({}, x, { maps: x.maps.map((m) => Object.assign({}, m)), tags: [...x.tags], emails: x.emails.map((e) => [...e]),
+      restricted: restricted && x.id === "e01" ? { by: "yh", at: "2026-09-21T11:20", reason: "Asked on 20 Sep what we hold about her. Restricted until we have answered." } : null }));
     const events = [];
     people.forEach((x) => {
       const entries = [...x.maps];
@@ -1314,6 +1423,8 @@ class Component extends DCLogic {
       noteKind: "call", notePos: "none", noteText: "",
       dialog, dialogTarget: "selection", bulkPos: "leasing", bulkTagMode: "add", bulkTagSel: { relocate: true }, bulkOwner: "yh",
       mergeQuery: "", mergePick: dialog === "merge" ? "e15" : null, mergeKeep: {},
+      isAdmin: flag("isAdmin", true), personMenu, restrictReason: "", restrictSuppress: false,
+      eraseName: dialog === "eraseBlocked" ? "Fatima Al Mazrouei" : "", eraseSuppress: true, eraseSending: dialog === "eraseBlocked",
       aActor: "all", aPos: "all", aRange: "30", aKind: "all", feedLimit: 24, tick: 0
     };
     if (selectedCount > 0) {
@@ -1488,7 +1599,9 @@ class Component extends DCLogic {
       name: x.name, initials: initials(x.name), avStyle: avatar(x.id, 44, "border-radius:10px;border:1px solid var(--line)"),
       hasLi: !!x.li, title: x.title || "—", context, hasLevel: !!x.level, level: x.level || "", owner: x.owner || "none",
       dnc: !!x.dnc, dncReason: x.dnc ? x.dnc.reason : "", dncBy: x.dnc ? `Set by ${MEMBERS[x.dnc.by].name} · ${exactOf(x.dnc.at)}` : "",
-      dncTitle: x.dnc ? "Clear do not contact" : "Mark do not contact — shown on every position and turns off contact lookups",
+      restricted: !!x.restricted, notRestricted: !x.restricted, restrictReason: x.restricted ? x.restricted.reason : "",
+      restrictBy: x.restricted ? `Restricted by ${MEMBERS[x.restricted.by].name} · ${exactOf(x.restricted.at)}` : "",
+      dncTitle: x.dnc ? "Clear do not contact" :"Mark do not contact — shown on every position and turns off contact lookups",
       dncBtnLabel: x.dnc ? "Do not contact" : "Do not contact",
       dncBtnStyle: `display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:3px 8px;font:500 11.5px var(--mono);cursor:pointer;${x.dnc ? "border:1px solid transparent;background:var(--red-dim);color:var(--red)" : "border:1px solid var(--line);background:none;color:var(--text3)"}`,
       tags: x.tags.map((id) => s.tags.find((t) => t.id === id)).filter(Boolean).map((t) => ({ id: t.id, label: t.label, style: tagStyle(t) })),
@@ -1812,6 +1925,37 @@ class Component extends DCLogic {
 
       showAddToPosition: s.dialog === "addToPosition" && targetPeople.length > 0, showTagDialog: s.dialog === "tag" && targetPeople.length > 0,
       showOwnerDialog: s.dialog === "owner" && targetPeople.length > 0, showMerge: s.dialog === "merge" && !!x, showPreview: pv.shown,
+      ...(() => {
+        const plural = (n, one, many) => `${n === 1 ? one : many}`;
+        const ex = (x && ERASE_EXTRAS[x.id]) || { emails: 0, runs: 0, meetings: 0, recordings: 0, tasks: 0 };
+        const noteN = x ? s.notes.filter((n) => n.person === x.id).length : 0;
+        const docs = x ? s.docs.filter((d) => d.person === x.id) : [];
+        const files = docs.reduce((t, d) => t + d.versions.length, 0);
+        const posN = x ? x.maps.length : 0;
+        const emailN = x ? x.emails.length : 0;
+        const keys = [x && x.li ? "LinkedIn profile" : null, emailN ? `${emailN} ${plural(emailN, "email address", "email addresses")}` : null].filter(Boolean);
+        const disabled = !x || s.eraseName.trim().toLowerCase() !== x.name.toLowerCase();
+        return {
+          personMenuOpen: s.personMenu && !!x, personMenuExpanded: s.personMenu ? "true" : "false", canErase: s.isAdmin,
+          personMenuBtnStyle: `position:absolute;right:46px;top:14px;border-radius:6px;padding:6px;color:var(--text3);cursor:pointer;border:1px solid ${s.personMenu ? "var(--line)" : "transparent"};background:${s.personMenu ? "var(--panel2)" : "none"}`,
+          showRestrict: s.dialog === "restrict" && !!x, showErase: (s.dialog === "erase" || s.dialog === "eraseBlocked") && !!x && s.isAdmin,
+          restrictReason: s.restrictReason, restrictCount: `${s.restrictReason.length} / 500`, restrictBlocked: !s.restrictReason.trim(), restrictOpacity: s.restrictReason.trim() ? 1 : 0.5,
+          restrictSuppressChecked: String(s.restrictSuppress), restrictBox: box(s.restrictSuppress),
+          suppressLine: keys.length ? `Their ${keys.join(" and ")} ${keys.length === 1 && !emailN ? "is" : "are"} kept as one-way hashes. Every way in checks them first, and an admin can remove the entry in Settings.` : "There is no LinkedIn profile or email on file to match them on.",
+          eraseCounts: [
+            [posN, plural(posN, "position", "positions"), I.position],
+            [noteN, plural(noteN, "note", "notes"), I.note],
+            [docs.length, `${plural(docs.length, "document", "documents")} (${files} ${plural(files, "file", "files")})`, I.fileText],
+            [ex.emails, `${plural(ex.emails, "email", "emails")} and ${ex.runs} outreach ${plural(ex.runs, "run", "runs")}`, I.mail],
+            [ex.meetings, plural(ex.meetings, "meeting", "meetings"), "M3 5h18v16H3zM16 3v4M8 3v4M3 10h18"],
+            [ex.recordings, plural(ex.recordings, "call recording", "call recordings"), "M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3ZM19 10v2a7 7 0 0 1-14 0v-2M12 19v3"],
+            [ex.tasks, plural(ex.tasks, "task", "tasks"), "M3 5l2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8"]
+          ].map(([n, label, icon]) => ({ n: String(n), label, icon })),
+          eraseName: s.eraseName, eraseDisabled: disabled, eraseSending: s.eraseSending,
+          eraseSuppressChecked: String(s.eraseSuppress), eraseBox: box(s.eraseSuppress),
+          eraseBtnStyle: `border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--red);border:1px solid var(--red);color:#fff;cursor:${disabled ? "not-allowed;opacity:.5" : "pointer"}`
+        };
+      })(),
       targetLabel,
       positionChoices: POSITIONS.map((p) => { const on = s.bulkPos === p.id; const n = alreadyIn(p.id); return { id: p.id, title: p.title, meta: `${p.unit} · ${p.stage}`, on,
         hasAlready: n > 0, already: targetPeople.length === 1 ? "Already in it" : `${n} already in it`, border: on ? "var(--amber)" : "var(--line-soft)", bg: on ? "var(--amber-dim)" : "var(--panel)", ring: on ? "4px" : "1.5px" }; }),
@@ -1855,7 +1999,30 @@ class Component extends DCLogic {
       exportView: () => this.showToast(`Exported ${rows.length} people as a CSV — recorded in the audit trail`),
       openRow: (e) => this.setState({ openId: e.currentTarget.dataset.id, drawerTab: "profile", summaryMore: false, careerAll: false, tagPickerOpen: false, notePos: "none", noteText: "" }),
       openFromFeed: (e) => this.setState({ openId: e.currentTarget.dataset.id, drawerTab: "timeline", summaryMore: false, careerAll: false, tagPickerOpen: false, notePos: "none", noteText: "" }),
-      closeDrawer: () => this.setState({ openId: null, tagPickerOpen: false }),
+      closeDrawer: () => this.setState({ openId: null, tagPickerOpen: false, personMenu: false }),
+      togglePersonMenu: () => this.setState({ personMenu: !s.personMenu }),
+      closePersonMenu: () => this.setState({ personMenu: false }),
+      openRestrict: () => this.setState({ personMenu: false, dialog: "restrict", restrictReason: "", restrictSuppress: false }),
+      onRestrictReason: (e) => this.setState({ restrictReason: e.target.value.slice(0, 500) }),
+      toggleRestrictSuppress: () => this.setState({ restrictSuppress: !s.restrictSuppress }),
+      confirmRestrict: () => {
+        const reason = s.restrictReason.trim(); if (!reason) return;
+        this.setState({ dialog: "none", people: this.updatePerson(x.id, (y) => Object.assign({}, y, { restricted: { by: ME, at: this.now(), reason } })) });
+        this.showToast(s.restrictSuppress ? "Processing restricted, and added to the suppression list" : "Processing restricted");
+      },
+      liftRestriction: () => {
+        this.setState({ personMenu: false, people: this.updatePerson(x.id, (y) => Object.assign({}, y, { restricted: null })) });
+        this.showToast("Restriction lifted");
+      },
+      openErase: () => this.setState({ personMenu: false, dialog: "erase", eraseName: "", eraseSuppress: true, eraseSending: false }),
+      onEraseName: (e) => this.setState({ eraseName: e.target.value }),
+      toggleEraseSuppress: () => this.setState({ eraseSuppress: !s.eraseSuppress }),
+      confirmErase: () => {
+        if (!x || s.eraseName.trim().toLowerCase() !== x.name.toLowerCase()) return;
+        this.setState({ dialog: "none", openId: null, personMenu: false, eraseName: "", sel: Object.assign({}, s.sel, { [x.id]: false }),
+          people: s.people.filter((y) => y.id !== x.id), notes: s.notes.filter((n) => n.person !== x.id), docs: s.docs.filter((d) => d.person !== x.id), events: s.events.filter((e) => e.person !== x.id) });
+        this.showToast(s.eraseSuppress ? `${x.name} deleted permanently and added to the suppression list` : `${x.name} deleted permanently`);
+      },
 
       setActivitySelect: (e) => this.setState({ [e.currentTarget.dataset.id]: e.target.value, feedLimit: 24 }),
       setActivityKind: (e) => this.setState({ aKind: e.currentTarget.dataset.id, feedLimit: 24 }),

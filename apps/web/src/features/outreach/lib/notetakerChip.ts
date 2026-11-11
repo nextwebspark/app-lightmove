@@ -10,6 +10,7 @@ const FAILURE_WORDS: Record<string, string> = {
   TRANSCRIPT_UNAVAILABLE: "the transcript couldn't be read",
   NOTHING_HEARD: "no speech was picked up on the call",
   SUMMARY_FAILED: "the notes couldn't be written",
+  PROCESSING_RESTRICTED: "processing of this person is restricted",
   TIMED_OUT: "the Notetaker lost contact with the call",
   FATAL: "the Notetaker stopped unexpectedly",
   RECORDING_PERMISSION_DENIED: "the host didn't allow recording",
@@ -105,6 +106,7 @@ export function callOfRecording(recording: NotetakerRecording): Meeting {
     endsAt: recording.endsAt,
     ownerUserId: "",
     ownerName: null,
+    ownerAvatarUrl: null,
     joinUrl: null,
     videoProvider: null,
     viaLink: false,
@@ -116,6 +118,11 @@ export function callOfRecording(recording: NotetakerRecording): Meeting {
 /** A row drawn from a bot rather than from a calendar: nothing on it is the calendar's to change. */
 export function isRecordingCall(meeting: Meeting): boolean {
   return meeting.id.startsWith(RECORDING_CALL_PREFIX);
+}
+
+/** The recording a row drawn from a bot was drawn from, by the row's id; null for a calendar's call. */
+export function recordingIdOfCall(callId: string): string | null {
+  return callId.startsWith(RECORDING_CALL_PREFIX) ? callId.slice(RECORDING_CALL_PREFIX.length) : null;
 }
 
 const RECORDING_CALL_PREFIX = "recording:";

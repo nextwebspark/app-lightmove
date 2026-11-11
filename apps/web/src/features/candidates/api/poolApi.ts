@@ -4,6 +4,7 @@ import type {
   CandidateTag,
   CandidateTagColour,
   MapToPositionResult,
+  PersonErasurePreview,
   PersonNote,
   PersonRecord,
   PersonTimelinePage,
@@ -102,6 +103,20 @@ export function setOwner(personId: string, ownerUserId: string | null): Promise<
   return request<PersonRecord>(`/candidates/${personId}/owner`, { method: "PUT", body: { ownerUserId } });
 }
 
+export const ERASE_PREVIEW_KEY = (personId: string) => [...POOL_KEY, "erase-preview", personId] as const;
+
+export function getErasePreview(personId: string, signal?: AbortSignal): Promise<PersonErasurePreview> {
+  return request<PersonErasurePreview>(`/candidates/${personId}/erase-preview`, { signal });
+}
+
+/** Deletes the person for good; `suppress` keeps every door from filing them again. */
+export function erasePerson(personId: string, confirmName: string, suppress: boolean): Promise<void> {
+  return request<void>(`/candidates/${personId}/erase`, {
+    method: "POST",
+    body: { confirmName, suppress },
+  });
+}
+
 export function setDoNotContact(
   personId: string,
   doNotContact: boolean,
@@ -110,6 +125,19 @@ export function setDoNotContact(
   return request<PersonRecord>(`/candidates/${personId}/do-not-contact`, {
     method: "PUT",
     body: { doNotContact, reason },
+  });
+}
+
+/** Restricts processing (a reason, and optionally the suppression list as an objection) or lifts it. */
+export function setProcessingRestriction(
+  personId: string,
+  restricted: boolean,
+  reason?: string,
+  suppress?: boolean,
+): Promise<PersonRecord> {
+  return request<PersonRecord>(`/candidates/${personId}/processing-restriction`, {
+    method: "PUT",
+    body: { restricted, reason, suppress },
   });
 }
 

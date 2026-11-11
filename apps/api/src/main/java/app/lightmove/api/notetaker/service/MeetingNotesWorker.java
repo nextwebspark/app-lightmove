@@ -3,11 +3,11 @@ package app.lightmove.api.notetaker.service;
 import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.model.MeteredUse;
 import app.lightmove.api.billing.usage.service.UsageRecorder;
+import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.candidate.service.PersonNoteService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.resilience.model.VendorException;
-import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.model.MeetingSummary;
@@ -53,12 +53,14 @@ class MeetingNotesWorker {
     private final AuditService audit;
     private final UsageRecorder usage;
     private final CallSuggestionService suggestions;
+    private final CandidateOutreachService people;
     private final Clock clock;
     private final TransactionTemplate transactions;
 
     MeetingNotesWorker(RecallBotApi recall, MeetingRecordingRepository recordings, MeetingSummariser summariser,
                        PositionService positions, PersonNoteService notes, AuditService audit, UsageRecorder usage,
-                       CallSuggestionService suggestions, Clock clock, PlatformTransactionManager transactionManager) {
+                       CallSuggestionService suggestions, CandidateOutreachService people, Clock clock,
+                       PlatformTransactionManager transactionManager) {
         this.recall = recall;
         this.recordings = recordings;
         this.summariser = summariser;
@@ -67,6 +69,7 @@ class MeetingNotesWorker {
         this.audit = audit;
         this.usage = usage;
         this.suggestions = suggestions;
+        this.people = people;
         this.clock = clock;
         // An after-commit listener run on the publishing thread would otherwise join the finished transaction, and
         // every write here would be silently dropped with it.
@@ -80,13 +83,8 @@ class MeetingNotesWorker {
         process(event.recordingId());
     }
 
-    /** In the recording's workspace: the webhook that handed the transcript over carried none. */
+    /** In the recording's workspace, which the webhook or the reconcile that handed the transcript over opened. */
     void process(UUID recordingId) {
-        recordings.findById(recordingId).ifPresent(recording ->
-                WorkspaceScope.run(recording.getWorkspaceId(), () -> processInScope(recordingId)));
-    }
-
-    private void processInScope(UUID recordingId) {
         Instant now = clock.instant();
         // One worker per transcript, however many times it was handed over: the second spends nothing.
         Integer claimed = transactions.execute(status ->
@@ -96,6 +94,13 @@ class MeetingNotesWorker {
         }
         MeetingRecording recording = transactions.execute(status -> recordings.findById(recordingId).orElse(null));
         if (recording == null) {
+            return;
+        }
+        // Restricted since the bot went in: the transcript stays at Recall, unread, until its retention takes it or
+        // a Try again after the restriction is lifted.
+        if (Boolean.TRUE.equals(transactions.execute(status ->
+                people.isProcessingRestricted(recording.getWorkspaceId(), recording.getPersonId())))) {
+            fail(recordingId, "PROCESSING_RESTRICTED");
             return;
         }
         List<TranscriptLine> lines = recording.getTranscript();

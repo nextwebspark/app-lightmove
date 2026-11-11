@@ -35,6 +35,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
@@ -48,6 +49,7 @@ import tools.jackson.databind.JsonNode;
  * the automatic AI run's background and nationality once someone is added.
  */
 @IntegrationTest
+@TestPropertySource(properties = "lightmove.billing.enforce=true")
 class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
 
     private static final String EVERY_ANSWER = """
@@ -325,6 +327,62 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         assertThat(index.searches()).isEmpty();
         assertThat(db.queryForObject("select count(*) from app_lm_executive_sourcing_run where project_id = ?::uuid",
                 Integer.class, projectId)).isZero();
+    }
+
+    @Test
+    @DisplayName("someone on the suppression list is left out of what a search found, and Add withholds anyone listed since")
+    void suppressedPeopleAreLeftOut() throws Exception {
+        String projectId = mandate("Suppressed Hit Firm");
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        suppress("linkedin.com/in/Asked-To-Leave");
+        live.answerWith("dp-world", List.of(
+                person("asked-to-leave", "Asked To Leave", "Chief Financial Officer"),
+                person("risalat-rehman", "Risalat Rehman", "Chief Financial Officer at DP World Jeddah")));
+
+        start(projectId, "[]");
+
+        assertThat(companyIn(suggestionsOf(projectId).get("companies"), dpWorld).get("people"))
+                .extracting(person -> person.get("linkedinSlug").asText())
+                .containsExactly("risalat-rehman");
+        suppress("linkedin.com/in/risalat-rehman");
+        JsonNode added = add(projectId, dpWorld, "risalat-rehman", "asked-to-leave");
+        assertThat(added.get("added").asInt()).isZero();
+        assertThat(added.get("withheld").asInt()).isEqualTo(1);
+        assertThat(added.get("notFound").asInt()).isEqualTo(1);
+        assertThat(candidatesOf(projectId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("someone whose processing is restricted is withheld from Add, and the rest are filed")
+    void restrictedPeopleAreWithheld() throws Exception {
+        String projectId = mandate("Restricted Run Firm");
+        String elsewhere = anotherPosition();
+        String personId = body(mvc.perform(post(candidatesUrl(elsewhere))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Asked To Wait","linkedinUrl":"https://www.linkedin.com/in/asked-to-wait/"}"""))
+                .andExpect(status().isCreated()).andReturn()).get("personId").asText();
+        mvc.perform(put("/api/v1/candidates/" + personId + "/processing-restriction")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"restricted":true,"reason":"Contests what we hold."}"""))
+                .andExpect(status().isOk());
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        live.answerWith("dp-world", List.of(
+                person("asked-to-wait", "Asked To Wait", "Chief Financial Officer"),
+                person("risalat-rehman", "Risalat Rehman", "Chief Financial Officer at DP World Jeddah")));
+        start(projectId, "[]");
+
+        JsonNode added = add(projectId, dpWorld, "asked-to-wait", "risalat-rehman");
+
+        assertThat(added.get("added").asInt()).isEqualTo(1);
+        assertThat(added.get("withheld").asInt()).isEqualTo(1);
+        assertThat(candidatesOf(projectId)).extracting(candidate -> candidate.get("fullName").asText())
+                .containsExactly("Risalat Rehman");
+        assertThat(db.queryForObject("select count(*) from app_lm_project_candidate where person_id = ?::uuid",
+                Long.class, personId)).isEqualTo(1);
     }
 
     @Test
@@ -647,6 +705,27 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
 
     private static String triageUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/triage";
+    }
+
+    private void suppress(String linkedinUrl) throws Exception {
+        mvc.perform(post("/api/v1/workspace/suppressions")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"linkedinUrl\":\"%s\"}".formatted(linkedinUrl)))
+                .andExpect(status().isCreated());
+    }
+
+    private String anotherPosition() throws Exception {
+        String clientId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"customName\":\"Second Client\"}"))
+                .andReturn()).get("id").asText();
+        return body(mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clientId\":\"%s\",\"positionTitle\":\"Group COO\"}".formatted(clientId)))
+                .andReturn()).get("id").asText();
     }
 
     /** Its own admin per firm, so one test can open two mandates in two workspaces. */

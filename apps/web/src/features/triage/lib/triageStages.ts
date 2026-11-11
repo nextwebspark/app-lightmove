@@ -67,6 +67,9 @@ export const SHORTLIST_OFFERED: boolean = false;
 /** Declined is a company's stage: a company is declined with everyone mapped at it, and comes back the same way. */
 export const DECLINE_OFFERED: boolean = true;
 
+/** The map is switched off for now: the globe, its reads and the stored choice stay, while no screen offers the view. */
+export const MAP_OFFERED: boolean = false;
+
 function isStageSwitchedOn(status: TriageCompanyStatus): boolean {
   if (status === "shortlisted") return SHORTLIST_OFFERED;
   if (status === "declined") return DECLINE_OFFERED;

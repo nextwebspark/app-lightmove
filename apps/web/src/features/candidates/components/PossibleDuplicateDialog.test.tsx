@@ -44,6 +44,7 @@ const layla = {
   ],
   ownerUserId: null,
   doNotContact: null,
+  processingRestriction: null,
   tagIds: [],
   source: "ai_sourced",
   addedAt: "2026-09-12T09:00:00Z",

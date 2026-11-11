@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * What each run found at each company (V184), written by the worker in its own short transactions and read back
+ * What each run found at each company (V209), written by the worker in its own short transactions and read back
  * by the panel. Every read carries the workspace and the project — suggestions are mandate content.
  */
 @Component
@@ -95,6 +95,13 @@ public class SuggestionStore {
                         """,
                 (rs, row) -> rs.getObject("run_id", UUID.class), workspaceId, projectId, triageCompanyId,
                 linkedinSlug, Timestamp.from(freshAfter)).stream().findFirst();
+    }
+
+    /** Forgets an erased person wherever a run of the workspace found them. Rides the erasure's transaction. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void forget(UUID workspaceId, String linkedinSlug) {
+        jdbc.update("DELETE FROM app_lm_executive_sourcing_suggestion"
+                + " WHERE workspace_id = ? AND lower(linkedin_slug) = lower(?)", workspaceId, linkedinSlug);
     }
 
     /** Lets go of what was found before {@code cutoff}: the people cache no longer holds who they were. */

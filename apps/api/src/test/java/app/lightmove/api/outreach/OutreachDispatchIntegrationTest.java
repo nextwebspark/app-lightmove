@@ -15,9 +15,11 @@ import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.RecordingMailboxGateway.SentRecord;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.service.ProviderAppUnavailable;
 import app.lightmove.api.outreach.model.DeliveryFailure;
 import app.lightmove.api.outreach.model.GrantedMailbox;
@@ -36,8 +38,10 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -94,6 +98,104 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the signature chosen at Start closes every email of the run, as it was drawn then")
+    void theChosenSignatureClosesEveryEmail() throws Exception {
+        String signatureId = signature("Formal", "Partner");
+        String priya = executive("Priya Raman", "priya@" + domain);
+        startSigned(createSequence("Signed approach"), priya, "priya@" + domain, signatureId);
+        as(consultant, put("/api/v1/me/signatures/" + signatureId).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"Formal","layout":"MINIMAL","fields":{"title":"Changed since"}}"""))
+                .andExpect(status().isOk());
+
+        dispatcher.dispatchAt(monday);
+        dispatcher.dispatchAt(monday.plus(Duration.ofDays(3)));
+
+        List<SentRecord> sent = sentTo("priya@" + domain);
+        assertThat(sent).hasSize(2);
+        assertThat(sent).allSatisfy(record -> assertThat(record.email().htmlBody())
+                .contains("<strong>Yara Haddad</strong> · Partner").doesNotContain("Changed since"));
+        assertThat(sent.get(0).email().htmlBody()).startsWith("<p>Hi Priya,</p>")
+                .containsSubsequence("<p>We are hiring a Group CFO.</p>", "Partner");
+        assertThat(sent.get(1).email().htmlBody()).startsWith("<p>Following up, Priya.</p>")
+                .containsSubsequence("<p>Following up, Priya.</p>", "Partner");
+        assertThat(jdbc.queryForList("""
+                select m.body_text from app_lm_outreach_message m join app_lm_outreach_enrollment e on e.id = m.enrollment_id
+                where e.candidate_id = ?::uuid""", String.class, priya))
+                .hasSize(2).allSatisfy(text -> assertThat(text).doesNotContain("Partner"));
+    }
+
+    @Test
+    @DisplayName("a run started with no signature goes unsigned, and one naming a signature not the sender's writes nothing")
+    void anUnsignedRunAndAForeignSignature() throws Exception {
+        signature("Formal", "Partner");
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("Unsigned"), priya, "priya@" + domain, null);
+        assertThat(enrollmentOf(priya).get("signature_html")).isNull();
+        dispatcher.dispatchAt(monday);
+        assertThat(sentTo("priya@" + domain).getFirst().email().htmlBody())
+                .isEqualTo("<p>Hi Priya,</p><p>We are hiring a Group CFO.</p>");
+
+        String rajesh = executive("Rajesh Iyer", "rajesh@" + domain);
+        MvcResult refused = startTimed(createSequence("Foreign"), List.of(person(rajesh, "rajesh@" + domain, null)),
+                ",\"signatureId\":\"" + UUID.randomUUID() + "\"")
+                .andExpect(status().isNotFound()).andReturn();
+        assertThat(codeOf(refused)).isEqualTo("EMAIL_SIGNATURE_NOT_FOUND");
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_outreach_enrollment where candidate_id = ?::uuid",
+                Integer.class, rajesh)).isZero();
+    }
+
+    @Test
+    @DisplayName("a step holding {{signature}} is refused on its field: Include signature adds it at Start")
+    void aStepCannotHoldTheSignature() throws Exception {
+        MvcResult refused = as(consultant, post(outreach("/sequences")).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"Token","steps":[{"delayWorkingDays":0,"subject":"Hello","body":"Hi."},
+                         {"delayWorkingDays":3,"body":"Following up.\\n\\n{{ signature }}"}]}"""))
+                .andExpect(status().isBadRequest()).andReturn();
+
+        assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
+        assertThat(body(refused).get("fieldErrors").has("steps[1].body")).isTrue();
+    }
+
+    @Test
+    @DisplayName("a signature showing Book a call has its page made at Start, though no step uses the link")
+    void aBookingSignatureMakesThePageAtStart() throws Exception {
+        String bookingSignatureId = body(as(consultant, post("/api/v1/me/signatures")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"With booking","layout":"CLASSIC","showBookingLink":true}"""))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+        String rajesh = executive("Rajesh Iyer", "rajesh@" + domain);
+        start(createSequence("Unsigned"), rajesh, "rajesh@" + domain, null);
+        assertThat(gateway.bookingPages()).isEmpty();
+
+        String priya = executive("Priya Raman", "priya@" + domain);
+        startSigned(createSequence("Booking by signature"), priya, "priya@" + domain, bookingSignatureId);
+
+        assertThat(gateway.bookingPages()).hasSize(1);
+        String slug = jdbc.queryForObject("""
+                select m.booking_slug from app_lm_mailbox_connection m join app_lm_user u on u.id = m.user_id
+                where u.email = ?""", String.class, "yara@" + domain);
+        dispatcher.dispatchAt(monday);
+        assertThat(sentTo("priya@" + domain).getFirst().email().htmlBody()).contains("/book/" + slug)
+                .doesNotContain("/book/your-link");
+    }
+
+    private void startSigned(String sequenceId, String candidateId, String address, String signatureId)
+            throws Exception {
+        startTimed(sequenceId, List.of(person(candidateId, address, null)),
+                ",\"signatureId\":\"" + signatureId + "\"").andExpect(status().isCreated());
+    }
+
+    private String signature(String name, String title) throws Exception {
+        return body(as(consultant, post("/api/v1/me/signatures").contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"%s","layout":"MINIMAL","fields":{"title":"%s"}}""".formatted(name, title)))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+    }
+
+    @Test
     @DisplayName("step 1 goes in the window, step 2 waits its working days and replies in the same thread")
     void followUpsThreadUnderTheFirstEmail() throws Exception {
         String sequenceId = createSequence("First approach");
@@ -131,6 +233,26 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         Integer stored = jdbc.queryForObject("select count(*) from app_lm_outreach_message where enrollment_id = ?::uuid",
                 Integer.class, afterFirst.get("id").toString());
         assertThat(stored).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("a follow-up reads a fallback where the person has nothing on file, and a blank stays blank")
+    void aFollowUpsFallback() throws Exception {
+        String sequenceId = createSequence("With fallbacks", "Hi {{firstName}},\\n\\n{{opener}}",
+                "Following up from {{location|the Gulf}}, {{firstName|there}}. Still in {{location}}?");
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(sequenceId, priya, "priya@" + domain, "Your treasury work stood out.");
+
+        dispatcher.dispatchAt(monday);
+        dispatcher.dispatchAt(monday.plus(Duration.ofDays(3)));
+
+        List<SentRecord> sent = sentTo("priya@" + domain);
+        assertThat(sent).hasSize(2);
+        assertThat(sent.get(1).email().htmlBody()).isEqualTo("<p>Following up from the Gulf, Priya. Still in ?</p>");
+        assertThat(jdbc.queryForObject("""
+                select m.body_text from app_lm_outreach_message m join app_lm_outreach_enrollment e on e.id = m.enrollment_id
+                where e.candidate_id = ?::uuid order by m.step desc limit 1""", String.class, priya))
+                .isEqualTo("Following up from the Gulf, Priya. Still in ?");
     }
 
     @Test
@@ -372,6 +494,21 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("processing restricted mid-sequence: nothing more goes, and the run stops with that reason")
+    void restrictionStopsTheRun() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("First approach"), priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+        restrictProcessing(priya);
+
+        dispatcher.dispatchAt(monday.plus(Duration.ofDays(3)));
+
+        assertThat(sentTo("priya@" + domain)).hasSize(1);
+        assertThat(enrollmentOf(priya)).containsEntry("status", "STOPPED")
+                .containsEntry("stop_reason", "PROCESSING_RESTRICTED");
+    }
+
+    @Test
     @DisplayName("out of the running or the address removed: the send-time re-check stops the run")
     void theReCheckStopsWhatStartWouldRefuse() throws Exception {
         String sequenceId = createSequence("First approach");
@@ -557,14 +694,16 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         start(createSequence("First approach"), priya, "priya@" + domain, null);
         dispatcher.dispatchAt(monday);
         Instant thursday = monday.plus(Duration.ofDays(3));
-        List<java.util.UUID> claimed = sends.claimDue(thursday);
+        // The dispatcher's two halves, called as its walk calls them: in the position's workspace.
+        java.util.UUID firm = TestWorkspaceScopes.workspaceOfProject(jdbc, java.util.UUID.fromString(projectId));
+        List<java.util.UUID> claimed = WorkspaceScope.call(firm, () -> sends.claimDue(thursday));
         java.util.UUID run = java.util.UUID.fromString(enrollmentOf(priya).get("id").toString());
         assertThat(claimed).contains(run);
 
         gateway.deliverNext(List.of(new InboundMessage("grant-1", (String) enrollmentOf(priya).get("thread_id"),
                 "priya@" + domain)));
         webhook();
-        sends.sendClaimed(run, thursday);
+        WorkspaceScope.run(firm, () -> sends.sendClaimed(run, thursday));
         dispatcher.dispatchAt(thursday.plus(Duration.ofMinutes(11)));
 
         assertThat(sentTo("priya@" + domain)).hasSize(1);
@@ -836,14 +975,19 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     private String createSequence(String name) throws Exception {
-        String steps = String.join(",", List.of(
-                """
-                {"delayWorkingDays":0,"subject":"Confidential: {{positionTitle}}","body":"%s"}"""
-                        .formatted(STEP_ONE_BODY.replace("\n", "\\n")),
-                """
-                {"delayWorkingDays":3,"body":"Following up, {{firstName}}."}""",
-                """
-                {"delayWorkingDays":2,"body":"One last note, {{firstName}}."}"""));
+        return createSequence(name, STEP_ONE_BODY.replace("\n", "\\n"), "Following up, {{firstName}}.",
+                "One last note, {{firstName}}.");
+    }
+
+    /** Each body as it goes into the JSON, its line breaks escaped. */
+    private String createSequence(String name, String firstBody, String... followUps) throws Exception {
+        List<String> stepJson = new ArrayList<>(List.of("""
+                {"delayWorkingDays":0,"subject":"Confidential: {{positionTitle}}","body":"%s"}""".formatted(firstBody)));
+        for (int index = 0; index < followUps.length; index++) {
+            stepJson.add("""
+                    {"delayWorkingDays":%d,"body":"%s"}""".formatted(index == 0 ? 3 : 2, followUps[index]));
+        }
+        String steps = String.join(",", stepJson);
         return body(as(consultant, post(outreach("/sequences")).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"%s\",\"steps\":[%s]}".formatted(name, steps)))
                 .andExpect(status().isCreated())
@@ -860,6 +1004,15 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
                         """.formatted(fullName, slug, emailAddress)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
+    }
+
+    private void restrictProcessing(String candidateId) throws Exception {
+        String personId = body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + candidateId))
+                .andReturn()).get("personId").asText();
+        as(consultant, put("/api/v1/candidates/" + personId + "/processing-restriction")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"restricted\":true,\"reason\":\"Asked what we hold about them.\"}"))
+                .andExpect(status().isOk());
     }
 
     private void markDoNotContact(String candidateId) throws Exception {

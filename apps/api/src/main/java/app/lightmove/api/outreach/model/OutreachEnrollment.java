@@ -74,6 +74,10 @@ public class OutreachEnrollment extends BaseEntity {
     @Column(name = "first_body", nullable = false)
     private String firstBody;
 
+    /** The signature Include signature chose at Start, closing every email of the run; null sends none. */
+    @Column(name = "signature_html", updatable = false)
+    private String signatureHtml;
+
     @Column(name = "enrolled_by", updatable = false)
     private UUID enrolledBy;
 
@@ -125,13 +129,20 @@ public class OutreachEnrollment extends BaseEntity {
     @Column(name = "booked_via_link", nullable = false)
     private boolean bookedViaLink;
 
+    /** What closes every email of the run: the frozen signature, or nothing. */
+    public String signatureOrEmpty() {
+        return signatureHtml == null ? "" : signatureHtml;
+    }
+
     /**
      * The first email is due {@code offset} after {@code firstDue}; the dispatcher holds it to the sender's
-     * daily cap, and to the sequence's window unless {@code pinned}.
+     * daily cap, and to the sequence's window unless {@code pinned}. {@code signatureHtml} is the one chosen at Start to
+     * sign every email of the run, or null for none.
      */
     public static OutreachEnrollment scheduled(OutreachSequence sequence, UUID candidateId, UUID personId,
                                                UUID sender, String toAddress, ReviewedFirstEmail email,
-                                               Instant now, Instant firstDue, Duration offset, boolean pinned) {
+                                               Instant now, Instant firstDue, Duration offset, boolean pinned,
+                                               String signatureHtml) {
         OutreachEnrollment enrollment = new OutreachEnrollment();
         enrollment.workspaceId = sequence.getWorkspaceId();
         enrollment.projectId = sequence.getProjectId();
@@ -151,6 +162,7 @@ public class OutreachEnrollment extends BaseEntity {
         enrollment.firstBody = email.body();
         enrollment.enrolledBy = sender;
         enrollment.enrolledAt = now;
+        enrollment.signatureHtml = signatureHtml;
         return enrollment;
     }
 

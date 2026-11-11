@@ -3,6 +3,7 @@ package app.lightmove.api.candidate.service;
 import app.lightmove.api.candidate.dto.DoNotContactResponse;
 import app.lightmove.api.candidate.dto.PersonPositionResponse;
 import app.lightmove.api.candidate.dto.PersonRecordResponse;
+import app.lightmove.api.candidate.dto.ProcessingRestrictionResponse;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonEmployer;
@@ -15,6 +16,8 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.WorkspaceAccess;
+import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
@@ -46,6 +49,7 @@ public class PersonRecordService {
     private final ProjectRepository projects;
     private final UserRepository users;
     private final ProjectAccess projectAccess;
+    private final WorkspaceAccess workspaceAccess;
     private final PersonEmployerResolver employers;
 
     /** The person a mandate's row maps, after checking the mandate is the caller's workspace's. */
@@ -75,7 +79,8 @@ public class PersonRecordService {
     /** The same read for a person the caller already holds, after a change made through this service's peers. */
     PersonRecordResponse toRecord(UUID userId, Person person) {
         List<Candidate> mapped = candidates.findPositionsOfPerson(person.getWorkspaceId(), person.getId());
-        Map<UUID, User> named = usersOf(Stream.concat(Stream.of(person.getCreatedBy(), person.getDoNotContactSetBy()),
+        Map<UUID, User> named = usersOf(Stream.concat(Stream.of(person.getCreatedBy(), person.getDoNotContactSetBy(),
+                        person.getProcessingRestrictedBy()),
                 mapped.stream().map(Candidate::getAddedBy)).toList());
         User filer = named.get(person.getCreatedBy());
         PersonEmployer employer = PersonEmployerResolver.employerOf(person, mapped);
@@ -90,7 +95,8 @@ public class PersonRecordService {
                 CandidateResponseMapper.compensationOf(person), CandidateResponseMapper.careerOf(person),
                 CandidateResponseMapper.contactsOf(person),
                 positionsOf(userId, person.getWorkspaceId(), mapped, null, named),
-                person.getOwnerUserId(), doNotContactOf(person, named), List.copyOf(person.getTagIds()),
+                person.getOwnerUserId(), doNotContactOf(person, named),
+                processingRestrictionOf(userId, person, named), List.copyOf(person.getTagIds()),
                 person.getSource().value(), person.getCreatedAt(), person.getCreatedBy(),
                 filer == null ? null : filer.getFullName());
     }
@@ -141,6 +147,21 @@ public class PersonRecordService {
         User setter = person.getDoNotContactSetBy() == null ? null : named.get(person.getDoNotContactSetBy());
         return new DoNotContactResponse(person.getDoNotContactReason(), person.getDoNotContactSetBy(),
                 setter == null ? null : setter.getFullName(), person.getDoNotContactSetAt());
+    }
+
+    /** {@code mayLift}: whoever restricted them, or a {@code WORKSPACE_MANAGE} holder, as the write checks. */
+    private ProcessingRestrictionResponse processingRestrictionOf(UUID userId, Person person,
+                                                                  Map<UUID, User> named) {
+        if (!person.isProcessingRestricted()) {
+            return null;
+        }
+        boolean mayLift = userId.equals(person.getProcessingRestrictedBy())
+                || workspaceAccess.holdsAction(userId, person.getWorkspaceId(), WorkspaceAction.WORKSPACE_MANAGE);
+        User restrictor = person.getProcessingRestrictedBy() == null ? null
+                : named.get(person.getProcessingRestrictedBy());
+        return new ProcessingRestrictionResponse(person.getProcessingRestrictedReason(),
+                person.getProcessingRestrictedBy(), restrictor == null ? null : restrictor.getFullName(),
+                person.getProcessingRestrictedAt(), mayLift);
     }
 
     private Map<UUID, User> usersOf(Collection<UUID> ids) {

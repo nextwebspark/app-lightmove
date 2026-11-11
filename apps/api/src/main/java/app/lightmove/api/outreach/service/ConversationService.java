@@ -39,6 +39,7 @@ import app.lightmove.api.outreach.dto.ConversationResponse;
 import app.lightmove.api.outreach.dto.ConversationRowResponse;
 import app.lightmove.api.outreach.dto.OutreachRunResponse;
 import app.lightmove.api.outreach.dto.PersonMeetingsResponse;
+import app.lightmove.api.outreach.dto.SequenceTokensResponse;
 import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.model.OutreachMessage;
 import app.lightmove.api.outreach.model.OutreachMessageAttachment;
@@ -117,6 +118,7 @@ public class ConversationService {
     private final PositionPipelineService pipeline;
     private final CandidateOutreachService people;
     private final OutreachMessageService ownMessages;
+    private final OutreachPersonalisation personalisation;
     private final NextActionLookup nextActions;
     private final PersonTimelineService timeline;
     private final PersonNoteService notes;
@@ -210,11 +212,17 @@ public class ConversationService {
     private ConversationComposerResponse composerOf(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                                                     UUID personId) {
         Optional<ReplyThreadPreview> reply = ownMessages.replyPreviewFor(userId, workspaceId, projectId, personId);
+        SequenceTokensResponse tokens = people.currentRecipient(workspaceId, projectId, candidateId)
+                .map(recipient -> OutreachPersonalisation.tokensOf(recipient,
+                        personalisation.senderContextOf(userId, workspaceId, projectId), null))
+                .map(SequenceTokensResponse::of)
+                .orElse(null);
         return new ConversationComposerResponse(reply.map(ReplyThreadPreview::subject).orElse(null),
                 reply.map(ReplyThreadPreview::stopsLiveRun).orElse(false),
                 people.emailSentMoveOf(workspaceId, projectId, candidateId).orElse(null),
                 new AttachmentLimitsResponse(attachments.limits().maxFiles(), attachments.limits().maxFileBytes(),
-                        attachments.limits().maxTotalBytes()));
+                        attachments.limits().maxTotalBytes()),
+                tokens);
     }
 
     private ConversationContactResponse contactOf(UUID workspaceId, UUID projectId, UUID candidateId) {
@@ -287,17 +295,18 @@ public class ConversationService {
         Map<UUID, OutreachSequence> sequencesById = sequences.findAllById(runs.stream()
                         .map(OutreachEnrollment::getSequenceId).distinct().toList()).stream()
                 .collect(Collectors.toMap(OutreachSequence::getId, Function.identity()));
-        Map<UUID, String> senderNames = users.findAllById(lines.stream().map(OutreachMessage::getSenderUserId)
+        Map<UUID, User> senders = users.findAllById(lines.stream().map(OutreachMessage::getSenderUserId)
                         .distinct().toList()).stream()
-                .filter(user -> user.getFullName() != null)
-                .collect(Collectors.toMap(User::getId, User::getFullName));
+                .collect(Collectors.toMap(User::getId, Function.identity()));
         return lines.stream().map(line -> {
             OutreachEnrollment run = line.getEnrollmentId() == null ? null : runsById.get(line.getEnrollmentId());
             OutreachSequence sequence = run == null ? null : sequencesById.get(run.getSequenceId());
+            User sender = senders.get(line.getSenderUserId());
             return new ConversationMessageResponse(line.getId(), line.getDirection(), line.getChannel(),
                     line.getKind(), line.getStatus(), line.getOccurredAt(), line.getSubject(), line.getBodyText(),
                     line.getBodyFormat(), line.getFromAddress(), line.getToAddress(), line.getSenderUserId(),
-                    senderNames.get(line.getSenderUserId()), line.getEnrollmentId(),
+                    sender == null ? null : sender.getFullName(), sender == null ? null : sender.getAvatarUrl(),
+                    line.getEnrollmentId(),
                     sequence == null ? null : sequence.getName(), line.getStep() == null ? null : line.getStep() + 1,
                     sequence == null ? null : Math.max(sequence.getSteps().size(), run.sentCount()),
                     line.getFailReason(),

@@ -38,5 +38,8 @@ public enum WorkspaceAction {
     API_KEY_MANAGE,
 
     /** Settings → Billing: the plan and seats, buying credits, the card and invoices. */
-    BILLING_MANAGE
+    BILLING_MANAGE,
+
+    /** Erase a person and everything held about them: the one irreversible act on a person, an admin's alone. */
+    PERSON_ERASE
 }

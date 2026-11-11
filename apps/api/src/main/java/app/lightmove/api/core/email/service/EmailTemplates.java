@@ -11,6 +11,7 @@ import app.lightmove.api.core.email.render.EmailContent;
 import app.lightmove.api.core.email.render.EmailNote;
 import app.lightmove.api.core.email.render.EmailParagraph;
 import app.lightmove.api.core.email.render.EmailRenderer;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -24,9 +25,11 @@ import org.springframework.stereotype.Component;
 public class EmailTemplates {
 
     private final EmailRenderer renderer;
+    private final Duration invitationTtl;
 
     public EmailTemplates(LightMoveProperties properties) {
         this.renderer = new EmailRenderer(properties.web().baseUrl());
+        this.invitationTtl = properties.auth().invitationTtl();
     }
 
     public EmailMessage buildVerificationEmail(String recipient, String recipientName, String verifyLink) {
@@ -74,6 +77,20 @@ public class EmailTemplates {
                         + "now and tell your workspace admin.")));
     }
 
+    /**
+     * The last email the address gets from Uncava as this account: sent as the account is deleted, to the address it
+     * had, since the row keeps none afterwards. No link — there is nothing left to sign in to.
+     */
+    public EmailMessage buildAccountDeletedEmail(String recipient, String recipientName) {
+        return renderer.render(recipient, "Your Uncava account was deleted", EmailContent.of(
+                "Your account was deleted",
+                EmailParagraph.of("Hi %s — your Uncava account was deleted. You left every workspace you were in, "
+                        + "and your sign-in, sessions, API keys and connected AI apps are gone.",
+                        plain(firstName(recipientName))),
+                EmailNote.of("What you added inside a workspace stays with that workspace. If you didn't delete "
+                        + "your account, tell your workspace admin.")));
+    }
+
     /** To the mailbox, as a password change is: a stolen session that turned it on would lock the owner out. */
     public EmailMessage buildTwoFactorEnabledEmail(String recipient, String recipientName, String securityLink) {
         return renderer.render(recipient, "Two-factor authentication is on for your Uncava account", EmailContent.of(
@@ -101,10 +118,10 @@ public class EmailTemplates {
                 "%s invited you to %s on Uncava".formatted(inviterName, workspaceName),
                 EmailContent.of(
                         "%s invited you to %s".formatted(inviterName, workspaceName),
-                        EmailParagraph.of("You've been invited to join the %s workspace on Uncava as a %s.",
-                                strong(workspaceName), plain(role.toLowerCase())),
+                        EmailParagraph.of("You've been invited to join the %s workspace on Uncava as %s.",
+                                strong(workspaceName), plain(withArticle(role.toLowerCase()))),
                         new EmailAction("Accept invitation", acceptLink),
-                        EmailNote.of("This invitation expires in 7 days.")));
+                        EmailNote.of("This invitation expires in %s.".formatted(invitationLifetime()))));
     }
 
     /** Framed around the client they represent: a read-only guest, not staff. */
@@ -119,7 +136,7 @@ public class EmailTemplates {
                                         + "your portal.",
                                 plain(workspaceName), strong(clientName)),
                         new EmailAction("Open your portal", acceptLink),
-                        EmailNote.of("This invitation expires in 7 days.")));
+                        EmailNote.of("This invitation expires in %s.".formatted(invitationLifetime()))));
     }
 
     /** A notice to an existing member; an external contact gets {@link #buildInvitationEmail} instead. */
@@ -159,9 +176,9 @@ public class EmailTemplates {
                 "You were added to the %s search on Uncava".formatted(positionTitle),
                 EmailContent.of(
                         "You were added to a search",
-                        EmailParagraph.of("Hi %s — %s added you to the %s search for %s as a %s.",
+                        EmailParagraph.of("Hi %s — %s added you to the %s search for %s as %s.",
                                 plain(firstName(recipientName)), plain(adderName), strong(positionTitle),
-                                strong(clientName), plain(role.toLowerCase())),
+                                strong(clientName), plain(withArticle(role.toLowerCase()))),
                         new EmailAction("Open the search", projectLink),
                         EmailNote.of("You'll also find it under your projects next time you sign in.")));
     }
@@ -174,9 +191,9 @@ public class EmailTemplates {
                 EmailContent.of(
                         "Your role on a search changed",
                         EmailParagraph.of("Hi %s — %s changed your role on the %s search for %s. "
-                                        + "You are now a %s on it.",
+                                        + "You are now %s %s on it.",
                                 plain(firstName(recipientName)), plain(actorName), strong(positionTitle),
-                                strong(clientName), strong(role.toLowerCase())),
+                                strong(clientName), plain(articleFor(role)), strong(role.toLowerCase())),
                         new EmailAction("Open the search", projectLink)));
     }
 
@@ -296,6 +313,40 @@ public class EmailTemplates {
                 EmailNote.of("You get this because you manage billing for the workspace.")));
     }
 
+    /** To whoever started a whole-workspace export, once its zip is built. */
+    public EmailMessage buildWorkspaceExportReadyEmail(String recipient, String recipientName, String workspaceName,
+                                                       String expiresOn, String dataLink) {
+        return renderer.render(recipient, "Your Uncava export is ready", EmailContent.of(
+                "Your export is ready",
+                EmailParagraph.of("Hi %s — the export of everything in %s is ready. Download it from Settings → Data "
+                                + "& retention before %s, when it is deleted.",
+                        plain(firstName(recipientName)), strong(workspaceName), strong(expiresOn)),
+                new EmailAction("Open Data & retention", dataLink),
+                EmailNote.of("Only an admin can download it, and every download is recorded in the audit log.")));
+    }
+
+    /**
+     * To whoever deleted the workspace, once its grace period is over and everything is gone. Nobody can sign in to it
+     * by then, so the certificate's id and hash travel here rather than behind a link.
+     */
+    public EmailMessage buildWorkspacePurgedEmail(String recipient, String workspaceName, String purgedOn,
+                                                  String certificateId, long rows, long files, String sha256) {
+        return renderer.render(recipient, "%s has been permanently deleted".formatted(workspaceName),
+                EmailContent.of(
+                        "Your workspace is deleted for good",
+                        EmailParagraph.of("Everything %s held in Uncava was permanently deleted on %s: "
+                                        + "%s and %s, including positions, candidates, notes, documents and "
+                                        + "recordings.",
+                                strong(workspaceName), strong(purgedOn),
+                                plain(String.format(Locale.ENGLISH, rows == 1 ? "%,d record" : "%,d records", rows)),
+                                plain(String.format(Locale.ENGLISH, files == 1 ? "%,d file" : "%,d files", files))),
+                        EmailParagraph.of("Deletion certificate %s, SHA-256 %s. Uncava keeps the certificate, so "
+                                        + "this one can be checked against it.",
+                                plain(certificateId), plain(sha256)),
+                        EmailNote.of("The audit trail and billing records are kept by id and name no one. Copies "
+                                + "in Uncava's backups age out on their usual schedule.")));
+    }
+
     /** A task someone else put on the recipient, still unread in the bell after the email delay. */
     public EmailMessage buildTaskAssignedEmail(String recipient, String recipientName, String actorName,
                                                String taskTitle, String executiveName, String positionTitle,
@@ -345,6 +396,25 @@ public class EmailTemplates {
 
     private static String creditsLeftOf(long credits) {
         return credits == 1 ? "1 credit" : String.format(Locale.ENGLISH, "%,d credits", credits);
+    }
+
+    /** "an admin", "a member": the role name alone decides, so a role added later reads right too. */
+    private static String withArticle(String noun) {
+        return articleFor(noun) + " " + noun;
+    }
+
+    private static String articleFor(String noun) {
+        return !noun.isEmpty() && "aeiou".indexOf(Character.toLowerCase(noun.charAt(0))) >= 0 ? "an" : "a";
+    }
+
+    /** The configured lifetime, so an email never promises seven days a deployment does not keep. */
+    private String invitationLifetime() {
+        long days = invitationTtl.toDays();
+        if (days >= 1) {
+            return days + (days == 1 ? " day" : " days");
+        }
+        long hours = Math.max(1, invitationTtl.toHours());
+        return hours + (hours == 1 ? " hour" : " hours");
     }
 
     private static String firstName(String fullName) {

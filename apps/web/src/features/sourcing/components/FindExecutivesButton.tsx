@@ -1,5 +1,6 @@
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { TOOLBAR_PRIMARY } from "../../../components/ui";
+import { ToolbarLabel } from "../../../components/ui/Toolbar";
 import { Popover } from "../../../components/ui/Popover";
 import { useToast } from "../../../components/ui/Toast";
 import { cn } from "../../../lib/cn";
@@ -59,7 +60,7 @@ export function FindExecutivesButton({
         ) : (
           <Icon d={ICONS.search} size={15} className="flex-none" />
         )}
-        {state.kind === "running" ? `Finding… ${state.progress}`.trimEnd() : "Find executives"}
+        <ToolbarLabel>{state.kind === "running" ? `Finding… ${state.progress}`.trimEnd() : "Find executives"}</ToolbarLabel>
         {state.kind === "ready" && (
           <span className="rounded-full bg-white px-[7px] py-px text-meta font-bold tabular-nums text-u-accent-solid">
             {state.count}

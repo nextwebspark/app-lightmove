@@ -226,6 +226,7 @@ const yasminRecord = {
   positions: [],
   tagIds: ["t1"],
   doNotContact: null,
+  processingRestriction: null,
 } as unknown as PersonRecord;
 
 const liveCall = (overrides: Partial<NotetakerRecording> = {}): NotetakerRecording => ({
@@ -785,7 +786,8 @@ describe("CandidateDrawer", () => {
     expect(candidatesApi.updateCandidate).not.toHaveBeenCalled();
     expect(await screen.findByText("Call in May")).toBeInTheDocument();
     expect(screen.getByText("Alok Kumar", { selector: "span" })).toBeInTheDocument();
-    expect(screen.getByText("About Chief Financial Officer")).toBeInTheDocument();
+    // Read from inside the position, a note never repeats which position it is about.
+    expect(screen.queryByText("About Chief Financial Officer")).not.toBeInTheDocument();
   });
 
   it("draws this position's activity as cards with who and when, and opens one read-only", async () => {
@@ -1139,38 +1141,21 @@ describe("CandidateDrawer", () => {
     expect(link).toHaveAttribute("aria-invalid", "true");
   });
 
-  it("says why a link locked since the form opened was refused, though no field is drawn for it", async () => {
-    vi.mocked(candidatesApi.updateCandidate).mockRejectedValue(
-      new ApiRequestError({ code: "CANDIDATE_PROFILE_URL_LOCKED", detail: "locked", status: 409, correlationId: "x" }),
-    );
+  it("lets the profile link of a person the plugin captured be corrected, since people move their address", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
     renderDrawer({
       candidate: { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin", linkedinUrlLocked: true },
       company: null,
     });
 
     await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
+    const link = screen.getByRole("textbox", { name: "LinkedIn" });
+    await userEvent.clear(link);
+    await userEvent.type(link, "linkedin.com/in/yasmin-new");
     await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
 
-    expect(await screen.findByRole("alert")).not.toBeEmptyDOMElement();
-  });
-
-  it("locks the profile link in the details for a person the plugin captured, on the server's word", async () => {
-    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
-    const captured = { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin", linkedinUrlLocked: true };
-    const { unmount } = renderDrawer({ candidate: captured, company: null });
-
-    await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
-    expect(screen.queryByRole("textbox", { name: "LinkedIn" })).not.toBeInTheDocument();
-    expect(screen.getByText(/Captured from this profile page/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
     await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
-    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].linkedinUrl).toBe("https://linkedin.com/in/yasmin");
-    unmount();
-
-    // Captured on this position, but the plugin read another page than the URL now held.
-    renderDrawer({ candidate: { ...captured, source: "extension", linkedinUrlLocked: false }, company: null });
-    await userEvent.click(screen.getByRole("button", { name: /Edit details/i }));
-    expect(screen.getByRole("textbox", { name: "LinkedIn" })).toBeInTheDocument();
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].linkedinUrl).toContain("linkedin.com/in/yasmin-new");
   });
 
   it("keeps status live while reading, without replacing the profile", async () => {
@@ -1216,7 +1201,7 @@ describe("CandidateDrawer", () => {
     expect(screen.queryByRole("button", { name: /Remove from mandate/i })).not.toBeInTheDocument();
     // Notes, history and other positions are staff-only: a client seat's drawer never asks.
     expect(screen.queryByText("Notes")).not.toBeInTheDocument();
-    expect(screen.queryByText("Timeline")).not.toBeInTheDocument();
+    expect(screen.queryByText("History")).not.toBeInTheDocument();
     expect(personCrmApi.getPersonNotes).not.toHaveBeenCalled();
     expect(personCrmApi.getPositionHistory).not.toHaveBeenCalled();
   });
@@ -1347,16 +1332,15 @@ describe("CandidateDrawer", () => {
     expect(within(panel).getByRole("button", { name: "Log call" })).toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: "Log LinkedIn" })).toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: "Log meeting" })).toBeInTheDocument();
-    expect(within(panel).getByRole("region", { name: "Timeline" })).toBeInTheDocument();
+    expect(within(panel).getByRole("region", { name: "History" })).toBeInTheDocument();
     const contact = within(panel).getByRole("region", { name: "Contact" });
     expect(within(contact).getByText("yasmin@example.com")).toBeInTheDocument();
 
     await userEvent.click(within(panel).getByRole("button", { name: "Log LinkedIn" }));
     const dialog = await screen.findByRole("dialog", { name: /Log a LinkedIn message with/ });
-    await userEvent.click(within(dialog).getByRole("radio", { name: "Call" }));
-    expect(screen.getByRole("dialog", { name: /Log a call with/ })).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole("radio", { name: "Meeting" }));
-    expect(screen.getByRole("dialog", { name: /Log a meeting with/ })).toBeInTheDocument();
+    // The button chose the kind: the dialog offers no switch to another.
+    expect(within(dialog).queryByRole("radiogroup", { name: "What you are logging" })).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
 
     await userEvent.click(within(contact).getByRole("button", { name: "Edit contact details" }));
     expect(await screen.findByRole("dialog", { name: /Contact details/ })).toBeInTheDocument();

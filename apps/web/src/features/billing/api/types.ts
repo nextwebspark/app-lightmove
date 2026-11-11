@@ -71,6 +71,8 @@ export interface Billing {
   trialEndsAt: string | null;
   /** Where a workspace writes to Uncava about billing. */
   contactEmail: string;
+  /** False where the deployment has switched billing off: nothing is refused, and nothing about it is shown. */
+  enforced: boolean;
 }
 
 /** `GET /billing/card`: the card Stripe charges, asked of Stripe on each read; both null where it cannot say. */

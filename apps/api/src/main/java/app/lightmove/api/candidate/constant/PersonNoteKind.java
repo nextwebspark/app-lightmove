@@ -15,7 +15,8 @@ public enum PersonNoteKind implements ApiValueEnum {
     CALL("call", "Call"),
     MEETING("meeting", "Meeting"),
     EMAIL("email", "Email"),
-    LINKEDIN("linkedin", "LinkedIn");
+    LINKEDIN("linkedin", "LinkedIn"),
+    WHATSAPP("whatsapp", "WhatsApp");
 
     private final String value;
     /** How a note's kind is named to the model. */

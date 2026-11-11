@@ -19,6 +19,18 @@ describe("createTriageCompanyColumns", () => {
   });
 });
 
+describe("the Actions column", () => {
+  const actions = createTriageCompanyColumns([], { staff: true }).find((column) => column.id === "actions");
+
+  it("takes its content's width rather than a share of the row", () => {
+    const meta = actions?.meta as { share: number; min: number; fixed?: boolean };
+
+    expect(meta.share).toBe(0);
+    expect(meta.fixed).toBe(true);
+    expect(meta.min).toBeLessThanOrEqual(64);
+  });
+});
+
 const YARA = { userId: "u-yara", name: "Yara Haddad", avatarUrl: null };
 const OMAR = { userId: "u-omar", name: "Omar Saleh", avatarUrl: null };
 const COMPANY = {

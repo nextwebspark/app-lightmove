@@ -18,6 +18,7 @@ import {
   switchWorkspaceSession,
 } from "../../lib/apiClient";
 import { forgetOpenAssistant } from "../assistant/assistantStorage";
+import { forgetScorecardDrafts } from "../candidates/lib/scorecardDrafts";
 import { isReturningMailboxPopup } from "../outreach/lib/mailboxPopup";
 import * as authApi from "./api/authApi";
 import { isReturningSignInPopup } from "./oauthPopup";
@@ -52,6 +53,8 @@ interface AuthContextValue {
    */
   resetPassword: (token: string, password: string) => Promise<User | MfaChallenge>;
   signOut: () => Promise<void>;
+  /** Forgets a session the server has already ended — the account was deleted — without asking it again. */
+  forgetDeletedAccount: () => void;
 
   /** Re-reads the user from the server. Call after anything that changes their workspace or role. */
   reload: () => Promise<User | null>;
@@ -155,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     onSessionExpired(() => {
       startFreshSession();
+      forgetScorecardDrafts();
       setUser(null);
     });
   }, [startFreshSession]);
@@ -273,6 +277,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [adoptAnswer],
   );
 
+  const forgetDeletedAccount = useCallback(() => {
+    setAccessToken(null);
+    startFreshSession();
+    forgetScorecardDrafts();
+    setUser(null);
+  }, [startFreshSession]);
+
   const signOut = useCallback(async () => {
     try {
       await authApi.logout();
@@ -281,6 +292,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // means a network blip cannot leave someone stuck looking at a page they meant to leave.
       setAccessToken(null);
       startFreshSession();
+      forgetScorecardDrafts();
       setUser(null);
     }
   }, [startFreshSession]);
@@ -376,6 +388,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyEmail,
       resetPassword,
       signOut,
+      forgetDeletedAccount,
       reload,
       switchWorkspace,
       acceptAndSwitch,
@@ -392,6 +405,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyEmail,
       resetPassword,
       signOut,
+      forgetDeletedAccount,
       reload,
       switchWorkspace,
       acceptAndSwitch,

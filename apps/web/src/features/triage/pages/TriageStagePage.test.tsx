@@ -163,6 +163,8 @@ const lead = {
   title: null,
   avatarUrl: null,
   avatarEditable: true,
+  phone: null,
+  linkedinUrl: null,
   emailVerified: true,
   hasPassword: true,
   timezone: "Asia/Dubai",
@@ -768,6 +770,31 @@ describe("TriageStagePage", () => {
     expect(screen.getByText("Alok Kumar")).toBeInTheDocument();
     // Alok's row is the company's only remaining line, not one of three alongside the others.
     expect(screen.getAllByText("ACWA Power")).toHaveLength(1);
+  });
+
+  it("clears the executive filter from the ✕ in its box, and every column filter from the Actions header", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin, { ...yasmin, id: "c3", fullName: "Alok Kumar" }]),
+    );
+    renderStage();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    await screen.findByText("Yasmin El-Sayed");
+    expect(screen.queryByRole("button", { name: "Clear all filters" })).not.toBeInTheDocument();
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Executive column menu" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter by executive name" }), "Alok");
+    await waitFor(() => expect(screen.queryByText("Yasmin El-Sayed")).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: "Clear filter" }));
+    expect(screen.getByRole("textbox", { name: "Filter by executive name" })).toHaveValue("");
+    await waitFor(() => expect(screen.getByText("Yasmin El-Sayed")).toBeInTheDocument());
+
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter by executive name" }), "Alok");
+    await waitFor(() => expect(screen.queryByText("Yasmin El-Sayed")).not.toBeInTheDocument());
+    await userEvent.click(within(grid).getByRole("button", { name: "Clear all filters" }));
+
+    await waitFor(() => expect(screen.getByText("Yasmin El-Sayed")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Clear all filters" })).not.toBeInTheDocument();
   });
 
   it("offers no Status checkbox at all when the grid holds at most one status", async () => {

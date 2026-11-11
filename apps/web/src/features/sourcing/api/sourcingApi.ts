@@ -131,6 +131,7 @@ export interface AddedPeople {
   alreadyOnPosition: number;
   expired: number;
   notFound: number;
+  withheld: number;
   filed: { linkedinSlug: string; triageCompanyId: string; candidateId: string }[];
 }
 

@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.model.ResearchedFiling;
 import app.lightmove.api.candidate.service.CandidateService;
+import app.lightmove.api.candidate.service.SuppressionGate;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.concurrent.service.ThreadContextPropagation;
@@ -43,7 +44,8 @@ import org.springframework.stereotype.Service;
  * Add: the people ticked in the panel become executives of the position, each at the company a search found them
  * at, filed from the profile the cache already holds — never a second vendor call. Only someone a search of this
  * position found may be added, so the cache shared by every workspace is never a door into anyone else's people.
- * Each filing is its own transaction, so one refused leaves the others filed.
+ * Someone on the suppression list, or whose processing is restricted, is withheld. Each filing is its own
+ * transaction, so one refused leaves the others filed.
  */
 @Service
 public class SuggestionFiling {
@@ -51,15 +53,18 @@ public class SuggestionFiling {
     private final SuggestionStore suggestions;
     private final CachedPeopleStore people;
     private final CandidateService candidates;
+    private final SuppressionGate suppression;
     private final ProfilePhotoDownloader photos;
     private final AuditService audit;
     private final Duration ttl;
 
     public SuggestionFiling(SuggestionStore suggestions, CachedPeopleStore people, CandidateService candidates,
-                            ProfilePhotoDownloader photos, AuditService audit, LightMoveProperties properties) {
+                            SuppressionGate suppression, ProfilePhotoDownloader photos, AuditService audit,
+                            LightMoveProperties properties) {
         this.suggestions = suggestions;
         this.people = people;
         this.candidates = candidates;
+        this.suppression = suppression;
         this.photos = photos;
         this.audit = audit;
         this.ttl = properties.enrichment().peopleCacheTtl();
@@ -92,6 +97,9 @@ public class SuggestionFiling {
             }
         }
 
+        Set<String> suppressed = suppression.suppressedProfileSlugsOf(workspaceId, picked.keySet());
+        int withheld = (int) picked.keySet().stream().filter(suppressed::contains).count();
+        picked.keySet().removeIf(suppressed::contains);
         Map<String, OnFile> read = people.peopleOf(picked.keySet(), freshAfter);
         Map<String, EnrichedProfile> research = researchOf(read);
         int expired = (int) picked.keySet().stream().filter(slug -> !read.containsKey(slug)).count();
@@ -99,13 +107,12 @@ public class SuggestionFiling {
         for (Map.Entry<String, OnFile> entry : read.entrySet()) {
             Picked target = picked.get(entry.getKey());
             BrightDataPerson person = entry.getValue().person();
-            Optional<UUID> candidateId = file(userId, workspaceId, projectId, target, person,
-                    research.get(entry.getKey()));
-            if (candidateId.isEmpty()) {
-                alreadyOnPosition++;
-            } else {
-                filed.add(new AddSuggestionsResponse.Added(person.linkedinId(), target.triageCompanyId(),
-                        candidateId.get()));
+            Filing filing = file(userId, workspaceId, projectId, target, person, research.get(entry.getKey()));
+            switch (filing.refusal()) {
+                case HELD -> alreadyOnPosition++;
+                case WITHHELD -> withheld++;
+                case NONE -> filed.add(new AddSuggestionsResponse.Added(person.linkedinId(), target.triageCompanyId(),
+                        filing.candidateId()));
             }
         }
         if (!filed.isEmpty()) {
@@ -115,28 +122,35 @@ public class SuggestionFiling {
                             .count())
                     .record();
         }
-        return new AddSuggestionsResponse(filed.size(), alreadyOnPosition, expired, notFound, filed);
+        return new AddSuggestionsResponse(filed.size(), alreadyOnPosition, expired, notFound, withheld, filed);
     }
 
-    /** Empty when the position already holds the person, found only now by the guards. */
-    private Optional<UUID> file(UUID userId, UUID workspaceId, UUID projectId, Picked target, BrightDataPerson person,
+    /**
+     * Refused as held when the position already maps the person, found only now by the guards; as withheld when the
+     * suppression list took them since the check above, or their processing is restricted.
+     */
+    private Filing file(UUID userId, UUID workspaceId, UUID projectId, Picked target, BrightDataPerson person,
                                 EnrichedProfile research) {
         SaveCandidateRequest filing = SaveCandidateRequest.ofFoundExecutive(target.triageCompanyId(),
                 SearchHitFiling.nameOf(person), research.title(), person.profileUrl(), research.locationCountry(),
                 research.locationCity());
         try {
-            return Optional.of(candidates.addResearched(userId, workspaceId, projectId, filing, research,
+            return Filing.of(candidates.addResearched(userId, workspaceId, projectId, filing, research,
                     ResearchedFiling.ofSourcingRun(target.runId())).candidate().id());
         } catch (ApiException refused) {
-            if (refused.getCode() != ErrorCode.CANDIDATE_ALREADY_MAPPED) {
-                throw refused;
+            if (refused.getCode() == ErrorCode.CANDIDATE_ALREADY_MAPPED) {
+                return Filing.refused(Refusal.HELD);
             }
-            return Optional.empty();
+            if (refused.getCode() == ErrorCode.PERSON_SUPPRESSED
+                    || refused.getCode() == ErrorCode.PERSON_PROCESSING_RESTRICTED) {
+                return Filing.refused(Refusal.WITHHELD);
+            }
+            throw refused;
         } catch (DataIntegrityViolationException raced) {
             if (!SearchHitFiling.isFilingRace(raced)) {
                 throw raced;
             }
-            return Optional.empty();
+            return Filing.refused(Refusal.HELD);
         }
     }
 
@@ -162,4 +176,17 @@ public class SuggestionFiling {
     }
 
     private record Picked(UUID triageCompanyId, UUID runId) {}
+
+    private enum Refusal { NONE, HELD, WITHHELD }
+
+    private record Filing(UUID candidateId, Refusal refusal) {
+
+        static Filing of(UUID candidateId) {
+            return new Filing(candidateId, Refusal.NONE);
+        }
+
+        static Filing refused(Refusal refusal) {
+            return new Filing(null, refusal);
+        }
+    }
 }

@@ -11,5 +11,6 @@ public record InvitationResponse(
         WorkspaceRole role,
         String invitedByName,
         Instant createdAt,
-        Instant expiresAt
+        Instant expiresAt,
+        boolean emailFailed
 ) {}

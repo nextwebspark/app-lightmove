@@ -512,8 +512,8 @@ person merge is built, message and attachment rows move with the enrollments.
      thread, which is the only run a send stops, and `emailSentMovesTo`, the forward-only status move), and
      `sentToday`/`scheduledEmails` on the mailbox read (`DailySendCount`).
    - The mockup draws no mailbox or empty states: `lib/mailboxState.ts` reads the mailbox once for the banner, the
-     chip and the composer, with the old page's copy. The composer has no token bar (tokens still work when typed;
-     Insert follow-up brings the next step's text), no Saved template and no Attach; the mockup's contact Time zone
+     chip and the composer, with the old page's copy. The composer carries the sequence editor's own Insert bar and the Templates picker, and holds Send while a variable has nothing to fill it (`docs/email-templates.md`, Phase 2); Attach
+     came with phase 5, below. The mockup's contact Time zone
      row, the group context lines and the details "⋯" are not drawn — nothing is behind them.
    - Log call and Add note open the drawer's own composer (`PositionNoteComposer`, pulled out of `NotesSection`) in a
      modal; Mark handled completes the next-action task and moves to the next person.

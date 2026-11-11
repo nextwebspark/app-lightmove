@@ -2,7 +2,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
-import { NoteKindMark } from "./NoteKindMark";
 import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/ActionMenu";
 import { DrawerFooter } from "../../../components/ui/Drawer";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
@@ -23,6 +22,7 @@ import { CandidateOutreachButtons } from "../../outreach/components/CandidateOut
 import { EmailComposerDialog } from "../../outreach/components/EmailComposerDialog";
 import { useMailbox } from "../../outreach/lib/useMailbox";
 import { OutreachSection } from "../../outreach/components/OutreachSection";
+import { LogContactRow } from "../../outreach/components/LogContactRow";
 import { CopilotTab } from "../../outreach/components/copilot/CopilotTab";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
 import { DrawerOutreachTimeline } from "../../outreach/components/DrawerOutreachTimeline";
@@ -44,6 +44,7 @@ import type {
   SaveCandidatePayload,
 } from "../api/types";
 import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
+import type { ActivityExecutive } from "../lib/activityPresentation";
 import { candidateGenderLabel } from "../lib/candidateVocabulary";
 import { statusStyle } from "../lib/pipelineStatus";
 import { careerSummary } from "../lib/careerTimeline";
@@ -81,6 +82,7 @@ import { CompensationSummary } from "./CompensationSummary";
 import { DocumentPreviewSheet, type PreviewTarget } from "./documents/DocumentPreviewSheet";
 import {
   DoNotContactStrip,
+  ProcessingRestrictedStrip,
   NotesSection,
   type NoteFocus,
 } from "./PersonSections";
@@ -394,6 +396,12 @@ export function CandidateProfile({
   const capturedFrom = toBrowsableUrl(candidate.sourceUrl);
   const visibleColumns = customColumns.filter((column) => !column.hidden);
   const firstName = candidate.fullName.trim().split(/\s+/)[0];
+  const executiveFace: ActivityExecutive = {
+    fullName: candidate.fullName,
+    face: (size, className) => (
+      <CandidateAvatar projectId={projectId} candidate={candidate} size={size} className={className} />
+    ),
+  };
   const panelProps = (value: DrawerTab) => ({ ...tabPanelProps(TAB_ID_PREFIX, value), hidden: tab !== value });
 
   return (
@@ -444,6 +452,7 @@ export function CandidateProfile({
         >
           {personRecord.data && <PersonTagsSection person={personRecord.data} className="mt-3" />}
           {canWrite && <DoNotContactStrip personId={candidate.personId} />}
+          {canWrite && <ProcessingRestrictedStrip personId={candidate.personId} />}
         </PersonHeaderLayout>
         {contactWindow === "details" && (
           <ContactDetailsDialog
@@ -507,7 +516,6 @@ export function CandidateProfile({
                     <LinkedInUrlField
                       register={form.register}
                       error={form.formState.errors.linkedinUrl?.message}
-                      lockedUrl={candidate.linkedinUrlLocked ? candidate.linkedinUrl : null}
                     />
                   </>
                 )}
@@ -786,27 +794,14 @@ export function CandidateProfile({
                       fullName={candidate.fullName}
                       sequenceHeldBy={sequenceHeldBy}
                       between={
-                        <>
-                          <Button variant="secondary" size="xs" onClick={() => setLog({ kind: "call", meetingId: null })}>
-                            <Icon d={ICONS.phoneCall} size={13} />
-                            Log call
+                        bookCall && (
+                          <Button variant="secondary" size="xs" onClick={bookCall}>
+                            <Icon d={ICONS.calendar} size={13} />
+                            Book a meeting
                           </Button>
-                          <Button variant="secondary" size="xs" onClick={() => setLog({ kind: "meeting", meetingId: null })}>
-                            <Icon d={ICONS.video} size={13} />
-                            Log meeting
-                          </Button>
-                          <Button variant="secondary" size="xs" onClick={() => setLog({ kind: "linkedin", meetingId: null })}>
-                            <NoteKindMark kind="linkedin" size={13} />
-                            Log LinkedIn
-                          </Button>
-                          {bookCall && (
-                            <Button variant="secondary" size="xs" onClick={bookCall}>
-                              <Icon d={ICONS.calendar} size={13} />
-                              Book a call
-                            </Button>
-                          )}
-                        </>
+                        )
                       }
+                      below={<LogContactRow onLog={(kind) => setLog({ kind, meetingId: null })} />}
                     />
                     <OutreachSection
                       projectId={projectId}
@@ -827,6 +822,7 @@ export function CandidateProfile({
                     projectId={projectId}
                     candidateId={candidate.id}
                     firstName={firstName}
+                    executive={executiveFace}
                     past={past}
                     focus={outreachNoteFocus}
                   />
@@ -887,12 +883,7 @@ export function CandidateProfile({
             <div {...panelProps("activity")} className="pb-4">
               <ActivityTimeline
                 scope={{ kind: "position", projectId, candidateId: candidate.id }}
-                executive={{
-                  fullName: candidate.fullName,
-                  face: (size, className) => (
-                    <CandidateAvatar projectId={projectId} candidate={candidate} size={size} className={className} />
-                  ),
-                }}
+                executive={executiveFace}
                 documents={documents.documents.data}
                 destinations={{
                   onShowNote: showNote,
@@ -1027,7 +1018,7 @@ function MoreActionsMenu({
             Set next action
           </MenuItem>
           <MenuItem icon={ICONS.phoneCall} onSelect={closingThen(close, onBookCall)}>
-            Book a call
+            Book a meeting
           </MenuItem>
           {onRemove && (
             <>

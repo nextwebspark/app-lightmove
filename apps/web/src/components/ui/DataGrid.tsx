@@ -37,6 +37,8 @@ import { DEFAULT_COLUMN_MIN, type GridLayout } from "../../lib/useGridLayout";
 export interface DataGridColumnLayout {
   share: number;
   min: number;
+  /** Always `min` wide: no resize handle, and a width stored before the column became fixed is ignored. */
+  fixed?: boolean;
   /** What the column holds, for the header menu's sort hints ("A → Z", "1 → 9"). Left out, no hint is drawn. */
   sortKind?: DataGridSortKind;
 }
@@ -100,6 +102,9 @@ export const LOCAL_ROW_MODELS = {
 
 /** `gap-3` in numbers, so the row's minimum width can be added up rather than guessed. */
 const ROW_GAP = 12;
+
+/** The header's "Clear all filters" button (`size-5`) and the gap before it; its `-my-1` keeps it from setting the header's height. */
+const CLEAR_ALL_ROOM = 24;
 
 /** Below this a pointer is still a click, so a header drag cannot steal the sort. */
 const DRAG_THRESHOLD = 4;
@@ -187,6 +192,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   onEditColumn,
   onDeleteColumn,
   columnFilters,
+  clearFiltersColumnId,
   groupBy,
   menuOnHeaderClick = false,
 }: {
@@ -243,6 +249,12 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
    * column with no entry gets no "Filter by" section on its menu.
    */
   columnFilters?: Record<string, DataGridColumnFilter>;
+  /**
+   * The column whose header carries "Clear all filters" while any of `columnFilters` is in force — the last
+   * visible column when this one is absent or hidden. The button's room is that header's own and is held
+   * whenever the grid offers filters, so the columns never shift as the button comes and goes.
+   */
+  clearFiltersColumnId?: string;
   /**
    * Partitions the grid's rows under full-width section headers ("AUTOMOTIVE · 2"), after the
    * table's own sort — the mockup's positions list. Only the grid branch: the card stack already
@@ -308,7 +320,22 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pinnedIds.join(","), layout.widths]);
 
-  const { cols, min } = templateOf(visibleColumns, layout.widths);
+  const filtersInForce = Object.values(columnFilters ?? {}).some(isFilterInForce);
+  const clearAllHost =
+    Object.keys(columnFilters ?? {}).length > 0
+      ? (visibleColumns.find((column) => column.id === clearFiltersColumnId) ?? visibleColumns[visibleColumns.length - 1])
+      : undefined;
+  const clearAllRoom = clearAllHost ? { id: clearAllHost.id, px: CLEAR_ALL_ROOM } : undefined;
+
+  const clearAllFilters = () => {
+    for (const filter of Object.values(columnFilters ?? {})) {
+      if (filter.kind === "check") filter.onChange([]);
+      else filter.onChange("");
+    }
+    setAnnouncement("All filters cleared");
+  };
+
+  const { cols, min } = templateOf(visibleColumns, layout.widths, clearAllRoom);
 
   const setWidth = (column: GridColumn<TData>, width: number) => {
     onLayoutChange({ ...layout, widths: { ...layout.widths, [column.id]: width } });
@@ -325,7 +352,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   const preview = (widths: Record<string, number>) => {
     const box = scrollRef.current;
     if (!box) return;
-    const next = templateOf(visibleColumns, widths);
+    const next = templateOf(visibleColumns, widths, clearAllRoom);
     box.style.setProperty("--dg-cols", next.cols);
     box.style.setProperty("--dg-min", `${next.min}px`);
   };
@@ -619,18 +646,20 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                       the boxes stay on screen when the row scrolls away from its own name. */}
                   <LeadingSlot lead={index === 0 && headerLead}>
                     {menuOnHeaderClick ? (
-                      <HeaderMenu
-                        column={column}
-                        visibleColumns={visibleColumns}
-                        frozen={layout.pinnedIds.includes(column.id)}
-                        filter={columnFilters?.[column.id]}
-                        onMove={moveByStep}
-                        onFreeze={setFrozen}
-                        onEditColumn={onEditColumn}
-                        onHide={hideColumn}
-                        onDeleteColumn={onDeleteColumn}
-                        headerLabel={label}
-                      />
+                      <WithClearAll host={clearAllHost?.id === column.id} show={filtersInForce} onClear={clearAllFilters}>
+                        <HeaderMenu
+                          column={column}
+                          visibleColumns={visibleColumns}
+                          frozen={layout.pinnedIds.includes(column.id)}
+                          filter={columnFilters?.[column.id]}
+                          onMove={moveByStep}
+                          onFreeze={setFrozen}
+                          onEditColumn={onEditColumn}
+                          onHide={hideColumn}
+                          onDeleteColumn={onDeleteColumn}
+                          headerLabel={label}
+                        />
+                      </WithClearAll>
                     ) : (
                       <span className="flex min-w-0 items-center gap-1">
                         <span className="min-w-0 flex-1">
@@ -662,10 +691,12 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                           onFreeze={setFrozen}
                           onEditColumn={onEditColumn}
                         />
+                        {filtersInForce && clearAllHost?.id === column.id && <ClearAllFiltersButton onClear={clearAllFilters} />}
                       </span>
                     )}
                   </LeadingSlot>
 
+                  {!column.columnDef.meta?.fixed && (
                   <span
                     role="separator"
                     aria-orientation="vertical"
@@ -690,6 +721,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                   >
                     <span className="mx-auto block h-full w-px bg-u-accent" />
                   </span>
+                  )}
                 </div>
               );
             })}
@@ -807,25 +839,27 @@ function groupsOf<TData extends RowData>(
 function templateOf<TData extends RowData>(
   columns: readonly GridColumn<TData>[],
   widths: Record<string, number>,
+  room?: { id: string; px: number },
 ): { cols: string; min: number } {
   const cols: string[] = [];
   let min = (columns.length - 1) * ROW_GAP;
   for (const column of columns) {
     const dragged = widths[column.id];
     const layout = column.columnDef.meta;
-    if (dragged !== undefined) {
+    if (dragged !== undefined && !layout?.fixed) {
       cols.push(`${dragged}px`);
       min += dragged;
       continue;
     }
+    const floor = (layout?.min ?? DEFAULT_COLUMN_MIN) + (room?.id === column.id ? room.px : 0);
     cols.push(
       !layout
         ? "1fr"
-        : layout.share > 0
-          ? `minmax(${layout.min}px, ${layout.share}fr)`
-          : `${layout.min}px`,
+        : layout.share > 0 && !layout.fixed
+          ? `minmax(${floor}px, ${layout.share}fr)`
+          : `${floor}px`,
     );
-    min += layout?.min ?? DEFAULT_COLUMN_MIN;
+    min += floor;
   }
   return { cols: cols.join(" "), min };
 }
@@ -842,6 +876,83 @@ function floorOf<TData extends RowData>(column: GridColumn<TData>): number {
 function titleOf<TData extends RowData>(column: GridColumn<TData>): string {
   const header = column.columnDef.header;
   return typeof header === "string" && header.length > 0 ? header : column.id;
+}
+
+function isFilterInForce(filter: DataGridColumnFilter): boolean {
+  return filter.kind === "check" ? filter.selected.length > 0 : filter.value.length > 0;
+}
+
+/** A text filter's box, with a ✕ inside it while it holds text; clearing keeps the caret in the box. */
+function TextFilterInput({ filter, onEnter }: { filter: DataGridTextFilter; onEnter: () => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="relative">
+      <input
+        ref={inputRef}
+        type="text"
+        value={filter.value}
+        onChange={(event) => filter.onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") onEnter();
+        }}
+        placeholder={filter.placeholder}
+        aria-label={filter["aria-label"]}
+        className={cn(
+          "h-7 w-full min-w-0 rounded-[4px] border border-u-border-strong bg-u-surface px-2 font-sans text-[12px] text-u-text outline-none placeholder:text-u-text3 focus:border-u-accent",
+          filter.value && "pe-7",
+        )}
+      />
+      {filter.value && (
+        <button
+          type="button"
+          onClick={() => {
+            filter.onChange("");
+            inputRef.current?.focus();
+          }}
+          aria-label="Clear filter"
+          className="absolute end-1 top-1/2 grid size-5 -translate-y-1/2 flex-none place-items-center rounded text-u-text3 hover:bg-u-raised hover:text-u-text"
+        >
+          <Icon d={ICONS.close} size={12} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ClearAllFiltersButton({ onClear }: { onClear: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClear}
+      // Pressing here must not start the header's column drag.
+      onPointerDown={(event) => event.stopPropagation()}
+      aria-label="Clear all filters"
+      title="Clear all filters"
+      className="-my-1 grid size-5 flex-none place-items-center rounded-[4px] text-u-accent transition hover:bg-u-surface"
+    >
+      <Icon d={ICONS.filterX} size={13} />
+    </button>
+  );
+}
+
+function WithClearAll({
+  host,
+  show,
+  onClear,
+  children,
+}: {
+  host: boolean;
+  show: boolean;
+  onClear: () => void;
+  children: ReactNode;
+}) {
+  if (!host) return children;
+  return (
+    <span className="flex min-w-0 items-center gap-1">
+      <span className="min-w-0 flex-1">{children}</span>
+      {show && <ClearAllFiltersButton onClear={onClear} />}
+    </span>
+  );
 }
 
 /**
@@ -941,9 +1052,19 @@ function HeaderMenu<TData extends RowData>({
           {filter && (
             <>
               <div className="px-2.5 py-1.5">
-                <label className="mb-1 block font-sans text-[11px] font-medium text-u-text3">
-                  Filter by
-                </label>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <label className="block font-sans text-[11px] font-medium text-u-text3">Filter by</label>
+                  {filter.kind === "check" && filter.selected.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => filter.onChange([])}
+                      aria-label="Clear selection"
+                      className="rounded px-1 font-sans text-[11px] font-medium text-u-accent hover:bg-u-raised"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
                 {filter.kind === "check" ? (
                   <div
                     role="group"
@@ -968,17 +1089,7 @@ function HeaderMenu<TData extends RowData>({
                     ))}
                   </div>
                 ) : (
-                  <input
-                    type="text"
-                    value={filter.value}
-                    onChange={(event) => filter.onChange(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") close();
-                    }}
-                    placeholder={filter.placeholder}
-                    aria-label={filter["aria-label"]}
-                    className="h-7 w-full min-w-0 rounded-[4px] border border-u-border-strong bg-u-surface px-2 font-sans text-[12px] text-u-text outline-none placeholder:text-u-text3 focus:border-u-accent"
-                  />
+                  <TextFilterInput filter={filter} onEnter={close} />
                 )}
               </div>
               {sections.some(Boolean) && <MenuDivider />}

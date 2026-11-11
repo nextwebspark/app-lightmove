@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestPropertySource;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -34,6 +35,7 @@ import tools.jackson.databind.JsonNode;
  * is decided before anything is spent.
  */
 @IntegrationTest
+@TestPropertySource(properties = "lightmove.billing.enforce=true")
 class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
 
     private static final String CFO_FILTER = """
@@ -218,6 +220,33 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
         assertThat(results(projectId).get("pages").get(0).get("people")).isEmpty();
         assertThat(search(projectId, 1).get("billed").asInt()).isZero();
         assertThat(contactOut.searches()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("someone on the suppression list is left off the page as it is read, and ticking them files nobody")
+    void suppressedPeopleAreLeftOffAndNeverFiled() throws Exception {
+        String projectId = mandate("Suppressing Firm");
+        saveFilter(projectId, CFO_FILTER);
+        search(projectId, 1);
+        assertThat(results(projectId).get("pages").get(0).get("people"))
+                .extracting(person -> person.get("linkedinSlug").asText()).contains("sample-cfo-12ab");
+
+        mvc.perform(post("/api/v1/workspace/suppressions")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"linkedinUrl\":\"https://www.linkedin.com/in/Sample-CFO-12ab/\",\"reason\":\"objected\"}"))
+                .andExpect(status().isCreated());
+
+        assertThat(results(projectId).get("pages").get(0).get("people"))
+                .extracting(person -> person.get("linkedinSlug").asText()).doesNotContain("sample-cfo-12ab");
+        mvc.perform(post(peopleUrl(projectId) + "/add").header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"linkedinSlugs\":[\"sample-cfo-12ab\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.added").value(0))
+                .andExpect(jsonPath("$.skipped").value(1));
+        assertThat(db.queryForObject("select count(*) from app_lm_project_candidate where project_id = ?::uuid",
+                Long.class, projectId)).isZero();
     }
 
     @Test

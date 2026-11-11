@@ -3,15 +3,19 @@ package app.lightmove.api.candidate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -20,11 +24,13 @@ import tools.jackson.databind.JsonNode;
  * <p>What must hold: the save makes each channel hold exactly what was listed, a value's door is
  * kept unless the person respells it, a duplicate in one save is refused rather than silently
  * merged, someone who may only read the mandate may not write, a profile URL the plugin captured
- * cannot be retyped through the profile's own PUT, and the profile's own writes are held to the same
- * cap and duplicate rule as the section's.
+ * can still be corrected through the profile's own PUT, and the profile's own writes are held to the
+ * same cap and duplicate rule as the section's.
  */
 @IntegrationTest
 class CandidateContactsIntegrationTest extends FlowTestSupport {
+
+    @Autowired @FixtureJdbc private JdbcTemplate db;
 
     private String adminToken;
 
@@ -174,8 +180,8 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a captured profile's LinkedIn URL cannot be retyped; a hand-added one can")
-    void aCapturedProfileUrlIsLocked() throws Exception {
+    @DisplayName("a captured profile's LinkedIn URL can be corrected when the person has moved it")
+    void aCapturedProfileUrlCanBeCorrected() throws Exception {
         String projectId = mandate("Locked Url Firm");
         String captured = executive(projectId, """
                 {"fullName":"Captured Person","source":"extension",
@@ -183,24 +189,24 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
         String typed = executive(projectId, """
                 {"fullName":"Typed Person","linkedinUrl":"https://www.linkedin.com/in/typed-person"}""");
 
-        assertThat(codeOf(mvc.perform(put(candidatesUrl(projectId) + "/" + captured)
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"fullName":"Captured Person","source":"extension",
-                                 "linkedinUrl":"https://www.linkedin.com/in/someone-else"}"""))
-                .andExpect(status().isConflict())
-                .andReturn()))
-                .isEqualTo("CANDIDATE_PROFILE_URL_LOCKED");
-
-        // Replaying the captured URL unchanged is how every other section saves; it must pass.
         mvc.perform(put(candidatesUrl(projectId) + "/" + captured)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fullName":"Captured Person","title":"CFO","source":"extension",
                                  "linkedinUrl":"https://www.linkedin.com/in/captured-person"}"""))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linkedinUrlLocked").value(true));
+
+        mvc.perform(put(candidatesUrl(projectId) + "/" + captured)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Captured Person","source":"extension",
+                                 "linkedinUrl":"https://www.linkedin.com/in/captured-person-new"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linkedinUrl").value("https://www.linkedin.com/in/captured-person-new"))
+                .andExpect(jsonPath("$.linkedinUrlLocked").value(false));
 
         mvc.perform(put(candidatesUrl(projectId) + "/" + typed)
                         .header("Authorization", "Bearer " + adminToken)
@@ -208,6 +214,41 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"fullName":"Typed Person","linkedinUrl":"https://www.linkedin.com/in/typed-person-2"}"""))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("a corrected LinkedIn URL lets the next lookup ask again, and a respelling of the same profile does not")
+    void aCorrectedProfileUrlForgetsTheRecordedMisses() throws Exception {
+        String projectId = mandate("Corrected Url Firm");
+        String candidate = executive(projectId, """
+                {"fullName":"Moved Person","linkedinUrl":"https://www.linkedin.com/in/moved-person"}""");
+        db.update("""
+                update app_lm_person set emails_looked_up_at = now(), phones_looked_up_at = now()
+                where id = (select person_id from app_lm_project_candidate where id = ?::uuid)""", candidate);
+
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidate)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Moved Person","linkedinUrl":"https://www.linkedin.com/in/moved-person/?trk=x"}"""))
+                .andExpect(status().isOk());
+        assertThat(lookupStampsOf(candidate)).isEqualTo(2);
+
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidate)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Moved Person","linkedinUrl":"https://www.linkedin.com/in/moved-person-new"}"""))
+                .andExpect(status().isOk());
+        assertThat(lookupStampsOf(candidate)).isZero();
+    }
+
+    private int lookupStampsOf(String candidateId) {
+        return db.queryForObject("""
+                select (emails_looked_up_at is not null)::int + (phones_looked_up_at is not null)::int
+                from app_lm_person
+                where id = (select person_id from app_lm_project_candidate where id = ?::uuid)""",
+                Integer.class, candidateId);
     }
 
     @Test

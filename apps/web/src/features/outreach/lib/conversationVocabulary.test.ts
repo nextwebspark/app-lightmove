@@ -2,7 +2,19 @@ import { describe, expect, it } from "vitest";
 import type { ConversationMessage, ConversationRow } from "../api/conversationApi";
 import type { PersonNote } from "../../candidates/api/types";
 import type { OutreachRun } from "../api/runApi";
-import { composerFootnoteOf, dueChipOf, eventFaceOf, glanceOf, queueTimeOf, sinceOf } from "./conversationVocabulary";
+import type { Meeting } from "../api/meetingApi";
+import {
+  actorOfEvent,
+  addressLineOf,
+  composerFootnoteOf,
+  dueChipOf,
+  eventFaceOf,
+  glanceOf,
+  queueTimeOf,
+  sinceOf,
+  tileOfEvent,
+  tileOfMeeting,
+} from "./conversationVocabulary";
 
 const NOW = new Date("2026-10-21T12:00:00Z");
 
@@ -21,6 +33,7 @@ function message(overrides: Partial<ConversationMessage>): ConversationMessage {
     toAddress: null,
     senderUserId: "u1",
     senderName: null,
+    senderAvatarUrl: null,
     enrollmentId: null,
     sequenceName: null,
     stepNumber: null,
@@ -116,6 +129,95 @@ describe("eventFaceOf", () => {
   });
 });
 
+describe("an entry's lead and face", () => {
+  const email = (overrides: Partial<ConversationMessage>) =>
+    ({ type: "MESSAGE", at: "2026-10-20T05:00:00Z", message: message(overrides) }) as const;
+  const note = (kind: PersonNote["kind"], overrides: Partial<PersonNote> = {}) =>
+    ({
+      type: "NOTE",
+      at: "2026-10-20T05:00:00Z",
+      note: {
+        id: "n1",
+        kind,
+        body: "Spoke briefly",
+        format: "plain",
+        pinned: false,
+        projectId: "p1",
+        projectTitle: "Group CFO",
+        authorUserId: "u1",
+        authorName: "Yara Haddad",
+        authorAvatarUrl: "/api/v1/avatars/yara",
+        createdAt: "2026-10-20T05:00:00Z",
+        editedAt: null,
+        editedByName: null,
+        editable: true,
+        ...overrides,
+      },
+    }) as const;
+  const meeting: Meeting = {
+    id: "mt1",
+    title: "First conversation",
+    startsAt: "2026-10-22T09:00:00Z",
+    endsAt: "2026-10-22T09:30:00Z",
+    ownerUserId: "u1",
+    ownerName: "Yara Haddad",
+    ownerAvatarUrl: null,
+    joinUrl: null,
+    videoProvider: null,
+    viaLink: false,
+    bookedInUncava: true,
+    editable: false,
+  };
+
+  it("leads each email with its own tile", () => {
+    expect(tileOfEvent(email({}))).toBe("email");
+    expect(tileOfEvent(email({ status: "SCHEDULED" }))).toBe("scheduled");
+    expect(tileOfEvent(email({ direction: "INBOUND", kind: "REPLY", status: "RECEIVED" }))).toBe("reply");
+    expect(tileOfEvent(email({ direction: "INBOUND", kind: "BOUNCE", status: "RECEIVED" }))).toBe("problem");
+    expect(tileOfEvent(email({ status: "FAILED" }))).toBe("problem");
+  });
+
+  it("leads a call, a LinkedIn message and a meeting with their own mark, a video call with the camera", () => {
+    expect(tileOfEvent(note("call"))).toBe("call");
+    expect(tileOfEvent(note("linkedin"))).toBe("linkedin");
+    expect(tileOfEvent(note("whatsapp"))).toBe("whatsapp");
+    expect(tileOfEvent(note("meeting"))).toBe("meeting");
+    expect(tileOfEvent({ type: "MEETING", at: meeting.startsAt, meeting })).toBe("meeting");
+    expect(tileOfMeeting({ ...meeting, videoProvider: "Google Meet" })).toBe("video");
+    expect(tileOfMeeting(meeting, true)).toBe("video");
+  });
+
+  it("names the sender, the author, the call's holder, the executive answering, and nobody on a bounce", () => {
+    expect(actorOfEvent(email({ senderName: "Yara Haddad", senderAvatarUrl: "/api/v1/avatars/yara" }))).toEqual({
+      kind: "user",
+      id: "u1",
+      name: "Yara Haddad",
+      avatarUrl: "/api/v1/avatars/yara",
+    });
+    expect(actorOfEvent(email({ direction: "INBOUND", kind: "REPLY", status: "RECEIVED" }))).toEqual({
+      kind: "executive",
+    });
+    expect(actorOfEvent(email({ direction: "INBOUND", kind: "BOUNCE", status: "RECEIVED" }))).toEqual({
+      kind: "automation",
+      triggeredBy: null,
+    });
+    expect(actorOfEvent(note("linkedin"))).toMatchObject({ kind: "user", avatarUrl: "/api/v1/avatars/yara" });
+    expect(actorOfEvent({ type: "MEETING", at: meeting.startsAt, meeting })).toMatchObject({
+      kind: "user",
+      name: "Yara Haddad",
+    });
+    expect(actorOfEvent(email({ senderName: null }))).toEqual({ kind: "unknown" });
+  });
+
+  it("says where an email went and where a reply came from", () => {
+    expect(addressLineOf(message({ toAddress: "fatima@gulfports.example" }))).toBe("→ fatima@gulfports.example");
+    expect(
+      addressLineOf(message({ direction: "INBOUND", kind: "REPLY", fromAddress: "fatima@gulfports.example" })),
+    ).toBe("fatima@gulfports.example");
+    expect(addressLineOf(message({ direction: "INBOUND", kind: "BOUNCE", fromAddress: "mailer-daemon@x" }))).toBeNull();
+  });
+});
+
 describe("queueTimeOf", () => {
   function row(overrides: Partial<ConversationRow>): ConversationRow {
     return {
@@ -206,7 +308,7 @@ describe("glanceOf", () => {
   const run = (status: OutreachRun["status"]) =>
     ({ status, sequenceName: "CFO — first approach", sentCount: 1, stepCount: 3 }) as OutreachRun;
 
-  it("counts LinkedIn notes apart from calls and other notes", () => {
+  it("counts LinkedIn and WhatsApp notes apart from calls and other notes", () => {
     const noteOf = (id: string, kind: PersonNote["kind"]) => ({
       type: "NOTE" as const,
       at: "2026-10-20T05:00:00Z",
@@ -227,8 +329,17 @@ describe("glanceOf", () => {
         editable: true,
       },
     });
-    const glance = glanceOf([noteOf("n1", "call"), noteOf("n2", "linkedin"), noteOf("n3", "general")], null, NOW);
-    expect(glance.facts.map((fact) => `${fact.count} ${fact.noun}`)).toEqual(["1 call", "1 LinkedIn", "1 note"]);
+    const glance = glanceOf(
+      [noteOf("n1", "call"), noteOf("n2", "linkedin"), noteOf("n4", "whatsapp"), noteOf("n3", "general")],
+      null,
+      NOW,
+    );
+    expect(glance.facts.map((fact) => `${fact.count} ${fact.noun}`)).toEqual([
+      "1 call",
+      "1 LinkedIn",
+      "1 WhatsApp",
+      "1 note",
+    ]);
   });
 
   it("counts only what happened, and dates the last touch by the latest of it", () => {

@@ -15,7 +15,7 @@ import { isContactNote, notePlaceholderOf, PLAIN_NOTE_KIND } from "../lib/noteKi
 import { useNoteCardActions } from "../lib/useNoteCardActions";
 import type { Meeting } from "../../outreach/api/meetingApi";
 import { isLogInFuture, LogDetailsFields, logDetailsNow, logPayloadOf, type LogDetails } from "./LogDetailsFields";
-import { NoteCard, NoteKindPicker, NoteScopePicker, noteAnchorOf, type NoteScope } from "./NoteParts";
+import { NoteCard, NoteKindPicker, NoteScopePicker, noteAnchorOf, type NoteCardLead, type NoteScope } from "./NoteParts";
 
 /**
  * The shared person in a position's drawer — where else they are mapped, the notes on them, and what
@@ -59,6 +59,25 @@ export function DoNotContactStrip({ personId }: { personId: string }) {
   );
 }
 
+/**
+ * Restriction of processing, shown on every position the person sits on, as do not contact is: nothing uses them —
+ * no AI, lookups or outreach — until someone lifts it from the Candidates drawer. Staff-only, read from the pool record.
+ */
+export function ProcessingRestrictedStrip({ personId }: { personId: string }) {
+  const record = useQuery({
+    queryKey: poolApi.PERSON_RECORD_KEY(personId),
+    queryFn: ({ signal }) => poolApi.getPerson(personId, signal),
+  });
+  const restriction = record.data?.processingRestriction;
+  if (!restriction) return null;
+  return (
+    <p role="note" className="mt-3 rounded-u-card border border-u-signal/35 bg-u-signal-tint px-3 py-2 text-note text-u-text2">
+      <b className="font-semibold text-u-signal">Processing restricted.</b> {restriction.reason} No AI, lookups or
+      outreach until it is lifted on the Candidates page.
+    </p>
+  );
+}
+
 /** A note to bring into view — the one a task was set from — stamped so asking again scrolls again. */
 export interface NoteFocus {
   noteId: string;
@@ -73,7 +92,7 @@ export function NotesSection({
   onShowContactNote,
 }: PersonSectionProps & {
   focus?: NoteFocus | null;
-  /** A link to a call, LinkedIn or meeting note: those are Outreach's, so the drawer shows it there. */
+  /** A link to a call, LinkedIn, WhatsApp or meeting note: those are Outreach's, so the drawer shows it there. */
   onShowContactNote?: (focus: NoteFocus) => void;
   /** Opens the Next action modal on the note just saved; without it the composer offers Save note alone. */
   onSetNextAction?: (note: TaskNote) => void;
@@ -110,7 +129,7 @@ export function NotesSection({
         ) : list.length === 0 ? (
           <p className="text-[13px]/[1.6] text-u-text3">
             No notes yet. A note saved here stays with this position; choose All positions to share it with
-            every position this person is in. Calls, LinkedIn messages and meeting notes are in Outreach.
+            every position this person is in. Calls, LinkedIn and WhatsApp messages and meeting notes are in Outreach.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -132,15 +151,14 @@ export function NotesSection({
 
 /**
  * A note on one executive, written from one position: its words, and whether it is about this position or all of
- * them. The drawer's Notes tab opens on a plain note; Log call and Log LinkedIn open it as a dialog, switching between
- * the two (`kindChoices`).
+ * them. The drawer's Notes tab opens on a plain note; Log call, Log meeting, Log LinkedIn and Log WhatsApp open it as a dialog on
+ * their own kind (`kindChoices`).
  */
 export function PositionNoteComposer({
   projectId,
   candidateId,
   initialKind = PLAIN_NOTE_KIND,
   kindChoices,
-  onKindChange,
   pastMeetings = [],
   presetMeetingId = null,
   title = "New note",
@@ -153,8 +171,7 @@ export function PositionNoteComposer({
   initialKind?: PersonNoteKind;
   /** The kinds the composer switches between; none drawn when it offers one. */
   kindChoices?: readonly PersonNoteKind[];
-  onKindChange?: (kind: PersonNoteKind) => void;
-  /** A log's meetings to choose from: this person's, already begun, newest first. */
+  /** A meeting log's Uncava meetings to choose from: this person's, already begun, newest first. */
   pastMeetings?: readonly Meeting[];
   /** The meeting a Log meeting notes on a call opens on. */
   presetMeetingId?: string | null;
@@ -178,10 +195,6 @@ export function PositionNoteComposer({
   const [kind, setKind] = useState<PersonNoteKind>(initialKind);
   const logs = kindChoices !== undefined && kindChoices.length > 0;
   const [details, setDetails] = useState<LogDetails>(() => logDetailsNow(presetMeetingId));
-  const chooseKind = (next: PersonNoteKind) => {
-    setKind(next);
-    onKindChange?.(next);
-  };
   const [scope, setScope] = useState<NoteScope>("position");
   const [draft, setDraft] = useState("");
   const forEveryPosition = scope === "everywhere";
@@ -254,7 +267,7 @@ export function PositionNoteComposer({
           logs ? (
             <>
               {kindChoices.length > 1 && (
-                <NoteKindPicker value={kind} onChange={chooseKind} kinds={kindChoices} label="What you are logging" />
+                <NoteKindPicker value={kind} onChange={setKind} kinds={kindChoices} label="What you are logging" />
               )}
               <LogDetailsFields kind={kind} pastMeetings={pastMeetings} value={details} onChange={setDetails} />
             </>
@@ -306,7 +319,13 @@ export function PositionNoteCard({
   note,
   flashAt,
   showsKindMark,
-}: PersonSectionProps & { note: PersonNote; flashAt: number | null; showsKindMark?: boolean }) {
+  lead = null,
+}: PersonSectionProps & {
+  note: PersonNote;
+  flashAt: number | null;
+  showsKindMark?: boolean;
+  lead?: NoteCardLead | null;
+}) {
   const queryClient = useQueryClient();
   const actions = useNoteCardActions(
     note,
@@ -335,6 +354,8 @@ export function PositionNoteCard({
       teammates={note.projectId ? team.teammates : null}
       flashAt={flashAt}
       showsKindMark={showsKindMark}
+      lead={lead}
+      namesPosition={false}
     />
   );
 }

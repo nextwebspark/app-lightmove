@@ -28,6 +28,8 @@ export type ApiErrorCode =
   | "MFA_SETUP_NOT_STARTED"
   | "MFA_UNAVAILABLE"
   | "MFA_SIGN_IN_AGAIN"
+  | "ACCOUNT_SIGN_IN_AGAIN"
+  | "ACCOUNT_HANDOVER_REQUIRED"
   | "SESSION_NOT_FOUND"
   | "CURRENT_SESSION_NOT_REVOCABLE"
   | "WORKSPACE_NOT_FOUND"
@@ -36,6 +38,7 @@ export type ApiErrorCode =
   | "FORBIDDEN"
   | "INVITATION_INVALID"
   | "INVITATION_EXPIRED"
+  | "INVITATION_EMAIL_NOT_SENT"
   | "LAST_ADMIN"
   | "MEMBER_LEADS_PROJECTS"
   | "CLIENT_ALREADY_EXISTS"
@@ -53,11 +56,22 @@ export type ApiErrorCode =
   | "PERSON_DOCUMENT_DUPLICATE"
   | "PERSON_DOCUMENT_NOT_YOURS"
   | "PERSON_DOCUMENT_LIMIT"
+  | "EMAIL_IMAGE_UNREADABLE"
+  | "EMAIL_IMAGE_TOO_LARGE"
+  | "EMAIL_SIGNATURE_NOT_FOUND"
+  | "EMAIL_SIGNATURE_LIMIT_REACHED"
+  | "EMAIL_TEMPLATE_NOT_FOUND"
+  | "EMAIL_TEMPLATE_NOT_YOURS"
+  | "EMAIL_TEMPLATE_LIMIT_REACHED"
+  | "EMAIL_TEMPLATE_STALE"
+  | "OUTREACH_TOKENS_UNFILLED"
   | "CANDIDATE_TAG_EXISTS"
   | "CANDIDATE_TAG_RETIRED"
   | "CANDIDATE_ASSESSMENT_STALE"
   | "CANDIDATE_ASSESSMENT_NO_CRITERIA"
   | "CANDIDATE_ASSESSMENT_NOTHING_OPEN"
+  | "RANKING_SCENARIO_STALE"
+  | "RANKING_BRIEF_CHANGED"
   | "AI_UNAVAILABLE"
   | "PIPELINE_STAGE_NOT_EMPTY"
   | "PIPELINE_STAGE_REQUIRED"
@@ -68,6 +82,11 @@ export type ApiErrorCode =
   | "PIPELINE_ORDER_INVALID"
   | "PERSON_OWNER_NOT_STAFF"
   | "PERSON_DO_NOT_CONTACT"
+  | "PERSON_SUPPRESSED"
+  | "PERSON_PROCESSING_RESTRICTED"
+  | "PERSON_PROCESSING_RESTRICTION_NOT_YOURS"
+  | "PERSON_ERASE_SEND_IN_FLIGHT"
+  | "SUPPRESSION_UNAVAILABLE"
   | "TASK_ASSIGNEE_NOT_ON_TEAM"
   | "TASK_NOT_YOURS"
   | "STRATEGY_SEARCH_NAME_TAKEN"
@@ -96,7 +115,6 @@ export type ApiErrorCode =
   | "BILLING_PACK_UNKNOWN"
   | "SUBSCRIPTION_BILLED_BY_STRIPE"
   | "SEAT_LIMIT_REACHED"
-  | "CANDIDATE_PROFILE_URL_LOCKED"
   | "EXECUTIVE_SOURCING_UNAVAILABLE"
   | "EXECUTIVE_SOURCING_TOO_MANY_COMPANIES"
   | "EXECUTIVE_SOURCING_IN_PROGRESS"
@@ -172,6 +190,8 @@ export type ApiErrorCode =
   | "NOTETAKER_RECORDING_UNAVAILABLE"
   | "INTERVIEW_PLAN_DRAFTING"
   | "WORKSPACE_NAME_MISMATCH"
+  | "WORKSPACE_EXPORT_RUNNING"
+  | "WORKSPACE_EXPORT_UNAVAILABLE"
   | "ARCHIVE_NAME_MISMATCH"
   | "CLIENT_HAS_LIVE_POSITIONS"
   | "CLIENT_ARCHIVED"
@@ -207,10 +227,13 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
     "The fallback template can't be archived or hidden — a title nothing else matches is drafted from it.",
   TEMPLATE_IMPORT_INVALID: "Some templates in the file are invalid, so none were imported.",
   LAST_ADMIN: "A workspace must keep at least one admin.",
+  INVITATION_EMAIL_NOT_SENT: "The invitation is saved, but its email didn't go out. Try resending it in a few minutes.",
   MEMBER_LEADS_PROJECTS: "They are the only lead on active positions — hand those over first.",
   CLIENT_ALREADY_EXISTS: "That name is already taken.",
   PROJECT_LAST_LEAD: "A position must keep at least one lead.",
   WORKSPACE_NAME_MISMATCH: "Type the workspace name exactly to confirm.",
+  WORKSPACE_EXPORT_RUNNING: "An export is already being built. It will be ready soon.",
+  WORKSPACE_EXPORT_UNAVAILABLE: "This export is no longer available. Start a new one.",
   ARCHIVE_NAME_MISMATCH: "Type the name exactly as shown to confirm.",
   PROJECT_ARCHIVED: "This position is archived. Restore it to start outreach.",
   CLIENT_HAS_LIVE_POSITIONS: "Some of its positions are still open. Their leads archive them first.",
@@ -235,6 +258,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   MFA_SETUP_NOT_STARTED: "That setup has ended. Start again to get a new QR code.",
   MFA_UNAVAILABLE: "Two-factor authentication is not available yet.",
   MFA_SIGN_IN_AGAIN: "Sign out and back in, then turn on two-factor authentication within 10 minutes.",
+  ACCOUNT_SIGN_IN_AGAIN: "Sign in again to show it's you, then delete your account within 10 minutes.",
+  ACCOUNT_HANDOVER_REQUIRED: "Hand over the workspaces and positions only you run first.",
   SESSION_NOT_FOUND: "That session has already ended.",
   CURRENT_SESSION_NOT_REVOCABLE: "Use sign out to end the session you are using.",
   STRATEGY_SEARCH_NAME_TAKEN: "A search with that name is already saved here.",
@@ -247,11 +272,23 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PERSON_DOCUMENT_DUPLICATE: "That file is already on this candidate.",
   PERSON_DOCUMENT_NOT_YOURS: "Only the person who uploaded this, or an admin, can remove it.",
   PERSON_DOCUMENT_LIMIT: "This candidate has reached the limit for documents.",
+  EMAIL_IMAGE_UNREADABLE: "That picture could not be read. Use a JPEG or PNG.",
+  EMAIL_IMAGE_TOO_LARGE: "That picture is too large. Use one under 5 MB.",
+  EMAIL_SIGNATURE_NOT_FOUND: "That signature no longer exists. Pick another, or send without one.",
+  EMAIL_SIGNATURE_LIMIT_REACHED: "You can keep up to 10 signatures. Delete one to make another.",
+  EMAIL_TEMPLATE_NOT_FOUND: "That template no longer exists, or is no longer shared with you.",
+  EMAIL_TEMPLATE_NOT_YOURS: "Only its owner or an admin can change this template. Duplicate it to make your own.",
+  EMAIL_TEMPLATE_LIMIT_REACHED: "You can keep up to 100 email templates. Delete one to make another.",
+  EMAIL_TEMPLATE_STALE: "Someone changed this template after you opened it. Reload to see their version.",
+  OUTREACH_TOKENS_UNFILLED:
+    "Some variables have nothing to fill them for this executive. Fill them in, give them a fallback or remove them.",
   TASK_ASSIGNEE_NOT_ON_TEAM: "They aren't on this position's team. Add them in Team & access, or pick someone who is.",
   TASK_NOT_YOURS: "Only whoever set this task, whoever it's assigned to, the position's lead or an admin can change it.",
   CANDIDATE_TAG_EXISTS: "Your team already has that tag.",
   CANDIDATE_TAG_RETIRED: "That tag is retired. Restore it in Settings to use it again.",
   CANDIDATE_ASSESSMENT_STALE: "Someone saved this assessment after you opened it. Reload to keep your changes over theirs.",
+  RANKING_SCENARIO_STALE: "Someone saved this scenario after you opened it. Reload to keep your changes over theirs.",
+  RANKING_BRIEF_CHANGED: "The brief's competencies changed since you opened this. Reload to see them.",
   CANDIDATE_ASSESSMENT_NO_CRITERIA:
     "The brief has no competencies to assess against yet. Add them in the position's Assessment Criteria step.",
   CANDIDATE_ASSESSMENT_NOTHING_OPEN:
@@ -266,6 +303,12 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PIPELINE_ORDER_INVALID: "The pipeline changed meanwhile. Reload and try again.",
   PERSON_OWNER_NOT_STAFF: "The owner must be someone on your team.",
   PERSON_DO_NOT_CONTACT: "This person is marked do not contact, so contact lookups are off.",
+  PERSON_SUPPRESSED: "This person is on your workspace's suppression list, so they can't be added.",
+  PERSON_PROCESSING_RESTRICTED:
+    "Processing is restricted for this person, so this can't be done until the restriction is lifted.",
+  PERSON_PROCESSING_RESTRICTION_NOT_YOURS: "Only the person who restricted processing, or an admin, can lift it.",
+  PERSON_ERASE_SEND_IN_FLIGHT: "An email to this person is sending right now. Try again in a minute.",
+  SUPPRESSION_UNAVAILABLE: "Your workspace's suppression list can't be checked right now, so nobody can be added. Contact Uncava support.",
   // Two uploads raise this — the spreadsheet import and the position description — so the wording
   // stays neutral. Naming one screen's file types here misdescribes the other's refusal, and each
   // dropzone already states what it takes.
@@ -288,8 +331,6 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   BILLING_PACK_UNKNOWN: "That credit pack is no longer sold. Choose another.",
   SUBSCRIPTION_BILLED_BY_STRIPE: "This workspace already pays through Stripe — change the plan from Invoices & card.",
   SEAT_LIMIT_REACHED: "Every seat your workspace pays for is taken. An admin can add seats through Contact Uncava in Settings → Billing.",
-  CANDIDATE_PROFILE_URL_LOCKED:
-    "This profile was captured from LinkedIn, so its URL is not editable.",
   EXECUTIVE_SOURCING_UNAVAILABLE: "Find executives isn't switched on for your workspace. Contact Uncava support to turn it on.",
   EXECUTIVE_SOURCING_TOO_MANY_COMPANIES: "Too many companies ticked. Find executives takes a limited batch — untick some and try again.",
   EXECUTIVE_SOURCING_IN_PROGRESS: "A Find executives run is already in progress for this position.",

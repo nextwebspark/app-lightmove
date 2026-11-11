@@ -114,6 +114,9 @@ public class CallSuggestionService {
     public CallSuggestionsResponse ask(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                                        UUID recordingId, HttpServletRequest httpRequest) {
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
+        if (recipient.processingRestricted()) {
+            throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
+        }
         MeetingRecording recording = transactions.execute(status ->
                 requireSuggestible(requireRecording(workspaceId, projectId, recipient, recordingId)));
         if (recording.hasPendingSuggestions()) {
@@ -137,8 +140,9 @@ public class CallSuggestionService {
 
     /**
      * Suggest changes with no press, once a call's notes are filed, under the claim the filing took: the transcript is
-     * read in the name of whoever sent the bot and on their meters. A meter that refuses, a model with nothing usable
-     * or a person no longer on the position leaves the call to a press, which says why. Every write is a transaction
+     * read in the name of whoever sent the bot and on their meters. A meter that refuses, a model with nothing usable,
+     * a person no longer on the position or one whose processing is restricted leaves the call to a press, which says
+     * why. Every write is a transaction
      * of its own: the notes' worker calls this from an after-commit listener, whose finished transaction a joined write
      * would silently vanish with.
      */
@@ -151,7 +155,9 @@ public class CallSuggestionService {
                 return;
             }
             OutreachRecipient recipient = people.currentRecipientOfPerson(recording.getWorkspaceId(),
-                    recording.getProjectId(), recording.getPersonId()).orElse(null);
+                            recording.getProjectId(), recording.getPersonId())
+                    .filter(found -> !found.processingRestricted())
+                    .orElse(null);
             if (recipient == null) {
                 return;
             }

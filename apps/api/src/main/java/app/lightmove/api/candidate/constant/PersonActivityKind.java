@@ -51,6 +51,10 @@ public enum PersonActivityKind {
     DO_NOT_CONTACT_SET,
     DO_NOT_CONTACT_CLEARED,
 
+    /** Restriction of processing (GDPR Art. 18), set with a reason or lifted; the line never quotes the reason. */
+    PROCESSING_RESTRICTED,
+    PROCESSING_RESTRICTION_LIFTED,
+
     /** Put on an outreach sequence; the line names the sequence. Nothing is sent by this alone. */
     OUTREACH_ENROLLED,
 

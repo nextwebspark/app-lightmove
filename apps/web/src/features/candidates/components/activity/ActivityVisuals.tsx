@@ -31,6 +31,9 @@ export function EntryKindTile({ entry, size, className }: { entry: PersonTimelin
 
 const GLYPH_SIZE: Record<TileSize, number> = { dot: 14, tile: 16, head: 20 };
 
+/** Uncava's mark a step inside the face it stands in for, so it weighs what a photo beside it does. */
+const MARK_HEIGHT: Record<"xs" | "sm" | "md" | "lg", string> = { xs: "h-4", sm: "h-5", md: "h-[22px]", lg: "h-[26px]" };
+
 function TileFrame({ size, className, children }: { size: TileSize; className?: string; children: ReactNode }) {
   const box = size === "dot" ? "size-[22px]" : size === "tile" ? "size-[30px]" : "size-9";
   return (
@@ -67,9 +70,10 @@ export function ActorFace({
     return (
       <span
         title={title ?? "Automation"}
-        className={cn("inline-grid flex-none place-items-center rounded-full bg-u-accent-tint", box)}
+        className={cn("inline-grid flex-none place-items-center", box)}
       >
-        <AppIcon className="h-[62%]" />
+        {/* A pixel height: a percentage of a grid cell sized by its content never resolves, and the mark drew at full size. */}
+        <AppIcon bold className={MARK_HEIGHT[size]} />
       </span>
     );
   }

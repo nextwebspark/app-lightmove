@@ -18,6 +18,8 @@ vi.mock("../api/clientsApi", async (importOriginal) => ({
   archiveClient: vi.fn(),
   restoreClient: vi.fn(),
   updateClientPersona: vi.fn(),
+  resendRepresentativeInvitation: vi.fn(),
+  cancelRepresentativeInvitation: vi.fn(),
 }));
 
 vi.mock("../../strategy/api/companiesApi", async (importOriginal) => ({
@@ -210,5 +212,61 @@ describe("ClientDrawer — the business unit persona", () => {
       }),
     );
     expect(await screen.findByText("Business unit persona saved")).toBeInTheDocument();
+  });
+});
+
+describe("ClientDrawer — an invited contact's invitation", () => {
+  const invited = {
+    id: "r1",
+    fullName: "Farah Nasser",
+    position: "Engineering Director",
+    email: "farah@example.ae",
+    status: "INVITED" as const,
+    invitationExpired: true,
+    emailFailed: false,
+  };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    currentUser = aUser({ workspace: aWorkspace({ mode: "COMPANY" }) });
+    vi.mocked(clientsApi.client).mockResolvedValue({ ...detail, representatives: [invited] });
+  });
+
+  it("says the link lapsed and sends a fresh one", async () => {
+    vi.mocked(clientsApi.resendRepresentativeInvitation).mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderDrawer();
+
+    expect(await screen.findByText("link expired, resend to renew")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Resend invite" }));
+
+    await waitFor(() => expect(clientsApi.resendRepresentativeInvitation).toHaveBeenCalledWith("c1", "r1"));
+    expect(await screen.findByText("Invitation re-sent to farah@example.ae")).toBeInTheDocument();
+  });
+
+  it("cancels a mistyped address's invitation once asked", async () => {
+    vi.mocked(clientsApi.cancelRepresentativeInvitation).mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderDrawer();
+
+    await user.click(await screen.findByRole("button", { name: "Cancel invite" }));
+    const dialog = screen.getByRole("dialog", { name: "Cancel this invitation?" });
+    expect(dialog).toHaveTextContent("The link sent to farah@example.ae stops working");
+    expect(clientsApi.cancelRepresentativeInvitation).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel invitation" }));
+
+    await waitFor(() => expect(clientsApi.cancelRepresentativeInvitation).toHaveBeenCalledWith("c1", "r1"));
+  });
+
+  it("offers neither to an active contact", async () => {
+    vi.mocked(clientsApi.client).mockResolvedValue({
+      ...detail,
+      representatives: [{ ...invited, status: "ACTIVE", invitationExpired: false }],
+    });
+    renderDrawer();
+
+    expect(await screen.findByText("Farah Nasser")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Resend invite" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel invite" })).not.toBeInTheDocument();
   });
 });

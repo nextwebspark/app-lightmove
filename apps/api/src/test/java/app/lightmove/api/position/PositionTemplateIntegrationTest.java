@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.positiontemplate.dto.PositionTemplateSummary;
 import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import java.util.ArrayList;
@@ -39,7 +40,13 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
             """;
 
     @Autowired @FixtureJdbc JdbcTemplate db;
-    @Autowired PositionTemplateService templateService;
+    /** Called directly, so each call in the workspace it names, as the request drafting a brief is. */
+    PositionTemplateService templateService;
+
+    @Autowired
+    void scopeTheTemplates(PositionTemplateService templates) {
+        templateService = TestWorkspaceScopes.scopedByArguments(templates);
+    }
 
     @Test
     @DisplayName("the picker lists the seeded library, and every template in it is readable")
@@ -154,7 +161,13 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
         assertThat(selectedNames(priorities)).containsExactlyInAnyOrder("Capital discipline",
                 "Lender confidence");
 
-        // The package's shape is the new template's, since that is the half a template speaks for.
+        // The figures keep the units they were typed in: read as annual, a monthly band is a twelfth of itself.
+        assertThat(brief.get("compensation").get("baseSalaryMode").asString()).isEqualTo("MONTHLY");
+        // And what somebody typed stays theirs, so a later document reading cannot overwrite it.
+        assertThat(brief.get("context").get("fieldSources").get("businessDriver").asString()).isEqualTo("MANUAL");
+        assertThat(brief.get("reporting").get("fieldSources").get("teamSize").asString()).isEqualTo("MANUAL");
+
+        // The rest of the package's shape is the new template's, since that is the half a template speaks for.
         assertThat(brief.get("compensation").get("currency").asString()).isEqualTo("AED");
         assertThat(brief.get("compensation").get("bonusValue").asInt()).isEqualTo(40);
         assertThat(brief.get("compensation").get("benefits").size()).isEqualTo(5);

@@ -204,7 +204,7 @@ export function MeetingsSection({
         offersNotetaker(meeting) && !hasCallEnded(recordingOf(meeting))
           ? { label: "Notetaker…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
           : undefined,
-      onLogNotes: onLogMeeting && !isRecordingCall(meeting) ? () => onLogMeeting(meeting) : undefined,
+      onLogNotes: onLogMeeting ? () => onLogMeeting(meeting) : undefined,
       quiet: true,
     });
   const dialogs = (
@@ -335,7 +335,7 @@ export function MeetingsSection({
             className="ms-auto inline-flex items-center gap-1.5 rounded-[6px] border border-u-accent-solid bg-u-accent-solid px-[11px] py-[5px] text-[12px] font-semibold text-white hover:bg-u-accent-solid-hover"
           >
             <Icon d={ICONS.plus} size={12} />
-            Book a call
+            Book a meeting
           </button>
         )}
       </div>

@@ -126,12 +126,20 @@ const sourcingWith = (overrides: Partial<SourcingRunState> = {}): SourcingRunSta
   ...overrides,
 });
 
-function renderPanel(sourcing: SourcingRunState) {
+function renderPanel(sourcing: SourcingRunState, autoSearch = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <ToastProvider>
-        <FindExecutivesPanel open onClose={vi.fn()} projectId="p1" subtitle="Group CFO" scope={["c1"]} sourcing={sourcing} />
+        <FindExecutivesPanel
+          open
+          onClose={vi.fn()}
+          projectId="p1"
+          subtitle="Group CFO"
+          scope={["c1"]}
+          autoSearch={autoSearch}
+          sourcing={sourcing}
+        />
       </ToastProvider>
     </QueryClientProvider>,
   );
@@ -155,6 +163,7 @@ describe("FindExecutivesPanel", () => {
       alreadyOnPosition: 0,
       expired: 0,
       notFound: 0,
+      withheld: 0,
       filed: [],
     });
   });
@@ -207,6 +216,37 @@ describe("FindExecutivesPanel", () => {
         { triageCompanyId: "c1", linkedinSlug: "treasury" },
       ]),
     );
+  });
+
+  it("opened to search, searches a company not searched yet at once, and only once", async () => {
+    vi.mocked(sourcingApi.getSuggestions).mockResolvedValue({ companies: [] });
+    const sourcing = sourcingWith();
+
+    renderPanel(sourcing, true);
+
+    await waitFor(() => expect(sourcing.start).toHaveBeenCalledWith(["c1"]));
+    expect(sourcing.start).toHaveBeenCalledTimes(1);
+  });
+
+  it("opened to search, shows a company searched before rather than searching it again", async () => {
+    vi.mocked(sourcingApi.getSuggestions).mockResolvedValue({ companies: [harbour([], 0)] });
+    const sourcing = sourcingWith();
+
+    renderPanel(sourcing, true);
+
+    expect((await screen.findAllByRole("button", { name: /search again/i })).length).toBeGreaterThan(0);
+    await waitFor(() => expect(sourcingApi.countSearch).toHaveBeenCalled());
+    expect(sourcing.start).not.toHaveBeenCalled();
+  });
+
+  it("opened only to look, waits for Search", async () => {
+    vi.mocked(sourcingApi.getSuggestions).mockResolvedValue({ companies: [] });
+    const sourcing = sourcingWith();
+
+    renderPanel(sourcing);
+
+    expect(await screen.findByRole("button", { name: /search 1 company/i })).toBeInTheDocument();
+    expect(sourcing.start).not.toHaveBeenCalled();
   });
 
   it("offers the suggested words with their counts where nobody fits, and retries those companies with the words picked", async () => {

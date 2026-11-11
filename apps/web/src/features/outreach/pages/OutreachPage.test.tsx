@@ -14,6 +14,7 @@ import type { Mailbox } from "../api/mailboxApi";
 import * as sequenceApi from "../api/sequenceApi";
 import * as pipelineApi from "../../pipeline/api/pipelineApi";
 import * as personCrmApi from "../../candidates/api/personCrmApi";
+import * as poolApi from "../../candidates/api/poolApi";
 import * as projectsApi from "../../projects/api/projectsApi";
 import { OutreachPage } from "./OutreachPage";
 
@@ -62,6 +63,11 @@ vi.mock("../../pipeline/api/pipelineApi", async (importOriginal) => ({
 vi.mock("../../candidates/api/personCrmApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../candidates/api/personCrmApi")>()),
   getPersonPositions: vi.fn(),
+}));
+
+vi.mock("../../candidates/api/poolApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../candidates/api/poolApi")>()),
+  getPerson: vi.fn(),
 }));
 
 vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({
@@ -191,7 +197,7 @@ function conversation(overrides: Partial<Conversation> = {}): Conversation {
       locationCountry: "United Arab Emirates",
       doNotContact: false,
     },
-    composer: { replySubject: "Re: A confidential conversation", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 } },
+    composer: { replySubject: "Re: A confidential conversation", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null },
     events: [
       {
         type: "MESSAGE",
@@ -224,6 +230,7 @@ function message(overrides: Partial<conversationApi.ConversationMessage>): conve
     toAddress: "fatima@gulfports.example",
     senderUserId: "u1",
     senderName: "Yara Haddad",
+    senderAvatarUrl: null,
     enrollmentId: null,
     sequenceName: null,
     stepNumber: null,
@@ -547,6 +554,8 @@ describe("OutreachPage", () => {
         sendAt: null,
         replyInThread: true,
         documentVersionIds: [],
+        signatureId: null,
+        templateId: null,
       }, []),
     );
     expect(await screen.findByText("Goes to Fatima within a minute.")).toBeInTheDocument();
@@ -554,7 +563,7 @@ describe("OutreachPage", () => {
 
   it("writes a first email, with a subject of its own, where there is no thread to reply in", async () => {
     vi.mocked(conversationApi.getConversation).mockResolvedValue(
-      conversation({ composer: { replySubject: null, replyStopsRun: false, emailSentMovesTo: { statusKey: "contacted", label: "Contacted", colour: "accent" }, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 } } }),
+      conversation({ composer: { replySubject: null, replyStopsRun: false, emailSentMovesTo: { statusKey: "contacted", label: "Contacted", colour: "accent" }, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null } }),
     );
     vi.mocked(conversationApi.sendMessage).mockResolvedValue({
       id: "m9",
@@ -762,12 +771,11 @@ describe("OutreachPage", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Log call" }));
     const dialog = await screen.findByRole("dialog", { name: "Log a call with Fatima Al Mazrouei" });
-    expect(within(dialog).getByRole("radio", { name: "Call" })).toHaveAttribute("aria-checked", "true");
     await within(dialog).findByRole("textbox", { name: "New note" });
     await userEvent.click(within(dialog).getByRole("button", { name: "Expand" }));
 
     expect(screen.getAllByRole("dialog")).toEqual([dialog]);
-    expect(within(dialog).getByRole("radiogroup", { name: "What you are logging" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("radiogroup", { name: "What you are logging" })).not.toBeInTheDocument();
     expect(within(dialog).getByRole("radiogroup", { name: "Who reads this note" })).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Save note" })).toBeInTheDocument();
     expect(within(dialog).queryByText("Editing in the larger view…")).not.toBeInTheDocument();
@@ -781,7 +789,27 @@ describe("OutreachPage", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Log LinkedIn" }));
     const dialog = await screen.findByRole("dialog", { name: "Log a LinkedIn message with Fatima Al Mazrouei" });
-    expect(within(dialog).getByRole("radio", { name: "LinkedIn" })).toHaveAttribute("aria-checked", "true");
+    expect(within(dialog).queryByRole("radiogroup", { name: "What you are logging" })).not.toBeInTheDocument();
+  });
+
+  it("offers Book a meeting beside Write email while the mailbox can send, and explains a refusal", async () => {
+    vi.mocked(poolApi.getPerson).mockResolvedValue({ doNotContact: true, contacts: { emails: [] } } as never);
+    renderPage(OPEN);
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Book a meeting with Fatima Al Mazrouei" });
+    expect(within(dialog).getByText("Fatima Al Mazrouei is marked do not contact.")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Open contact details" })).not.toBeInTheDocument();
+  });
+
+  it("leaves Book a meeting out of the dock while no mailbox can send", async () => {
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue(nothingConnected);
+    renderPage(OPEN);
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+
+    expect(screen.queryByRole("button", { name: "Book a meeting" })).not.toBeInTheDocument();
   });
 
   it("holds a note being written against Escape, as it does an email", async () => {

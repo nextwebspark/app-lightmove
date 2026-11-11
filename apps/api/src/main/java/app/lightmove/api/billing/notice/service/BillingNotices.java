@@ -16,6 +16,7 @@ import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.core.email.render.EmailAction;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
+import app.lightmove.api.core.tenant.EveryWorkspace;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -36,7 +37,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 /**
  * Emails a workspace's billing managers — never its other members — as its contact credits run low, when a payment
  * fails, a week before bought credits lapse, and as a trial ends unpaid. Each is claimed once before any email goes:
- * the thresholds by the ledger (V124), the rest here (V127), so two deliveries or two instances send once.
+ * the thresholds by the ledger (V124), the rest here (V127), so two deliveries or two instances send once. With
+ * enforcement off only a failed payment is emailed: nothing else asks a workspace to pay.
  */
 @Slf4j
 @Component
@@ -59,11 +61,15 @@ public class BillingNotices {
     private final EmailSender emailSender;
     private final BillingNoticeClaims claims;
     private final LightMoveProperties properties;
+    private final EveryWorkspace everyWorkspace;
     private final Clock clock;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onThresholdCrossed(ContactCreditThresholdCrossed crossed) {
+        if (!properties.billing().enforce()) {
+            return;
+        }
         String resetsOn = DATE.format(crossed.resetsAt());
         EmailAction moreCredits = moreCreditsFor(crossed.workspaceId());
         String workspaceName = workspaces.nameOf(crossed.workspaceId());
@@ -91,17 +97,25 @@ public class BillingNotices {
         warnOfExpiringCreditsAt(clock.instant());
     }
 
-    /** One pass; a grant that fails is logged and the ones after it still warned. */
+    /**
+     * One pass; a grant that fails is logged and the ones after it still warned. A workspace at a time: the grants and
+     * the claims are under row-level security.
+     */
     public int warnOfExpiringCreditsAt(Instant now) {
-        int warned = 0;
-        for (CreditGrant grant : grants.findPurchasedExpiring(now, now.plus(EXPIRY_WARNING))) {
-            try {
-                warned += warnOfExpiring(grant) ? 1 : 0;
-            } catch (RuntimeException failure) {
-                log.error("The expiry warning for credit grant {} failed", grant.getId(), failure);
-            }
+        if (!properties.billing().enforce()) {
+            return 0;
         }
-        return warned;
+        return everyWorkspace.sum(workspaceId -> {
+            int warned = 0;
+            for (CreditGrant grant : grants.findPurchasedExpiring(now, now.plus(EXPIRY_WARNING))) {
+                try {
+                    warned += warnOfExpiring(grant) ? 1 : 0;
+                } catch (RuntimeException failure) {
+                    log.error("The expiry warning for credit grant {} failed", grant.getId(), failure);
+                }
+            }
+            return warned;
+        });
     }
 
     private boolean warnOfExpiring(CreditGrant grant) {
@@ -121,17 +135,26 @@ public class BillingNotices {
         noticeTrialsAt(clock.instant());
     }
 
-    /** One pass: trials ending within three days, then those that have just ended, each announced once. */
+    /**
+     * One pass: trials ending within three days, then those that have just ended, each announced once. A workspace
+     * at a time, for the expiry warnings' reason.
+     */
     public int noticeTrialsAt(Instant now) {
-        int sent = 0;
-        for (WorkspaceSubscription trial : subscriptions.findAppTrialsEndingBetween(now, now.plus(TRIAL_WARNING))) {
-            sent += noticeTrial(trial, BillingNoticeKind.TRIAL_ENDING) ? 1 : 0;
+        if (!properties.billing().enforce()) {
+            return 0;
         }
-        for (WorkspaceSubscription trial : subscriptions.findAppTrialsEndingBetween(now.minus(TRIAL_ENDED_LOOKBACK),
-                now)) {
-            sent += noticeTrial(trial, BillingNoticeKind.TRIAL_ENDED) ? 1 : 0;
-        }
-        return sent;
+        return everyWorkspace.sum(workspaceId -> {
+            int sent = 0;
+            for (WorkspaceSubscription trial : subscriptions.findAppTrialsEndingBetween(now,
+                    now.plus(TRIAL_WARNING))) {
+                sent += noticeTrial(trial, BillingNoticeKind.TRIAL_ENDING) ? 1 : 0;
+            }
+            for (WorkspaceSubscription trial : subscriptions.findAppTrialsEndingBetween(
+                    now.minus(TRIAL_ENDED_LOOKBACK), now)) {
+                sent += noticeTrial(trial, BillingNoticeKind.TRIAL_ENDED) ? 1 : 0;
+            }
+            return sent;
+        });
     }
 
     private boolean noticeTrial(WorkspaceSubscription trial, BillingNoticeKind kind) {

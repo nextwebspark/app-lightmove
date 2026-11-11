@@ -1,7 +1,7 @@
 # Find executives — design and build plan
 
 Status: **built** — P0 this design and its mockup (#1195), P1 the search engine (#1201), P2 the panel end to end
-(V184, `features/sourcing`). Where the build differs from the plan below, CLAUDE.md's Find executives paragraph is
+(V209, `features/sourcing`). Where the build differs from the plan below, CLAUDE.md's Find executives paragraph is
 current: a search's sources are not run side by side but in turn (the live index tiered, then the profile index's
 untitled people checked free against it), and the copy guard's vendor names are a follow-up. The screens are
 `claude-design/FindExecutives.dc.html` (`?screen=canvas` shows every board).
@@ -36,6 +36,9 @@ that search, and its caret's **Open the last search** opens it whatever is ticke
 add-executive icon) asks **Find with Uncava** — the panel on that company alone — or **Add manually**. It also
 opens from a company drawer's **Find executives**, with that company alone. Either way it is the same panel and the
 same search.
+The toolbar press and Find with Uncava search straight away every company the panel has no results for, so one
+press shows people; a company searched before shows what it found, and Search again is the consultant's. The
+drawer's Find executives and Open the last search only open the panel.
 
 **The search bar** is drafted by the AI once per position. Every change is saved for the position, and **Reset**
 drafts it again. It opens folded to one line that says what it looks for, with the count line, **Edit search** and

@@ -92,6 +92,18 @@ class CompanyNotesIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a WhatsApp exchange with a company is filed as its own kind")
+    void aWhatsAppNoteKeepsItsKind() throws Exception {
+        firm("Company WhatsApp Note Firm");
+        String projectId = mandate("Head of Credit Risk");
+        String companyId = capture(projectId, "Harbour Ports", null);
+
+        write(admin, projectId, companyId, "whatsapp", "Their HR lead answered on the group chat", "plain");
+
+        assertThat(notes(admin, projectId, companyId).get(0).get("kind").asText()).isEqualTo("whatsapp");
+    }
+
+    @Test
     @DisplayName("only the author or an admin changes, removes or restores a note; anyone on the team pins it")
     void onlyTheAuthorOrAnAdminChangesANote() throws Exception {
         firm("Company Note Owners Firm");

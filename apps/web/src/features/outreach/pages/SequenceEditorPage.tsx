@@ -10,6 +10,8 @@ import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate } from "../../candidates/api/types";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
+import { SignatureUnderEmail } from "../../signatures/components/SignatureChooser";
+import { useSignatureChoice } from "../../signatures/lib/useSignatureChoice";
 import * as sequenceApi from "../api/sequenceApi";
 import type { RecipientTokens, Sequence, SequenceSchedule, SequenceStep, Weekday } from "../api/sequenceApi";
 import {
@@ -21,7 +23,14 @@ import {
   WEEKDAYS,
   zoneCityOf,
 } from "../lib/sendSchedule";
-import { BOOKING_LINK_PLACEHOLDER, firstNameOf, renderParts, tokenOptions } from "../lib/sequenceTokens";
+import {
+  BOOKING_LINK_PLACEHOLDER,
+  firstNameOf,
+  renderParts,
+  SIGNATURE_NOT_IN_WORDS,
+  stepHoldsSignature,
+  tokenOptions,
+} from "../lib/sequenceTokens";
 import { mailboxStateOf } from "../lib/mailboxState";
 import { useMailbox } from "../lib/useMailbox";
 import { useMailboxConnect } from "../lib/useMailboxConnect";
@@ -29,6 +38,16 @@ import { MailboxBanner } from "../components/MailboxBanner";
 import { MailboxChip, mailboxChipShows } from "../components/MailboxChip";
 import { OutreachHeader } from "../components/OutreachHeader";
 import { SequenceStatePill } from "../components/SequenceStatePill";
+import { TokenInsertBar } from "../components/TokenInsertBar";
+import { FilledVariable } from "../components/FilledVariable";
+import type { EmailTemplate } from "../../emailtemplates/api/emailTemplatesApi";
+import { SaveAsTemplateDialog } from "../../emailtemplates/components/SaveAsTemplateDialog";
+import { StepTemplatePicker } from "../../emailtemplates/components/StepTemplatePicker";
+import {
+  stepFromTemplate,
+  stepHasText,
+  templateRefusalOf,
+} from "../../emailtemplates/lib/stepTemplates";
 
 const NEW_SEQUENCE = "new";
 const MAX_STEPS = 3;
@@ -36,15 +55,17 @@ const DELAY_CHOICES = [2, 3, 4, 5, 7];
 const STEP_LABELS = ["First email", "Follow-up", "Last follow-up"];
 const PREVIEW_OPENER = "Their opener is drafted for each person when you add them, and you review it then.";
 
+type StepTemplateChoice =
+  | { index: number; stage: "picking" }
+  | { index: number; stage: "confirming"; template: EmailTemplate };
+
 const FIRST_STEP_BODY = `Hi {{firstName}},
 
 {{opener}}
 
 I'm leading a confidential search for a {{positionTitle}}. Given your time as {{currentTitle}} at {{currentCompany}}, I'd value twenty minutes of your view, whether or not the role is right for you.
 
-Would a short call next week work?
-
-{{senderFirstName}}`;
+Would a short call next week work?`;
 
 const DEFAULT_STEPS: SequenceStep[] = [
   {
@@ -55,12 +76,12 @@ const DEFAULT_STEPS: SequenceStep[] = [
   {
     delayWorkingDays: 3,
     subject: null,
-    body: "Hi {{firstName}},\n\nFollowing up on my note below, in case it slipped past. Happy to work around your diary.\n\n{{senderFirstName}}",
+    body: "Hi {{firstName}},\n\nFollowing up on my note below, in case it slipped past. Happy to work around your diary.",
   },
   {
     delayWorkingDays: 5,
     subject: null,
-    body: "Hi {{firstName}},\n\nI'll leave it here for now. If the timing is ever better, I'd be glad to hear from you.\n\n{{senderFirstName}}",
+    body: "Hi {{firstName}},\n\nI'll leave it here for now. If the timing is ever better, I'd be glad to hear from you.",
   },
 ];
 
@@ -140,6 +161,8 @@ function SequenceEditor({
   const subjectRef = useRef<HTMLInputElement | null>(null);
   const [editingField, setEditingField] = useState<"subject" | "body">("body");
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [choosingTemplate, setChoosingTemplate] = useState<StepTemplateChoice | null>(null);
+  const [savingStep, setSavingStep] = useState<number | null>(null);
   const mailbox = useMailbox();
   const backToSequences = () => navigate(`/projects/${projectId}/outreach/sequences`);
 
@@ -215,8 +238,21 @@ function SequenceEditor({
     });
   };
 
+  /** A copy, never a link: a later edit to the template changes no step. */
+  const copyTemplate = (index: number, template: EmailTemplate) => {
+    changeStep(index, stepFromTemplate(template, steps[index], index === 0));
+    setChoosingTemplate(null);
+    toast(`Step ${index + 1} now reads “${template.name}”. Save the sequence to keep it.`);
+  };
+
+  const pickTemplate = (index: number, template: EmailTemplate) =>
+    stepHasText(steps[index], index === 0)
+      ? setChoosingTemplate({ index, stage: "confirming", template })
+      : copyTemplate(index, template);
+
   const isLive = (saved?.enrolledCount ?? 0) > 0;
   const isScheduleUsable = schedule.days.length > 0 && schedule.windowStart < schedule.windowEnd;
+  const holdsSignatureInWords = steps.some(stepHoldsSignature);
   const stepTimeOutsideWindow = steps.some(
     (step, index) =>
       index > 0 &&
@@ -255,7 +291,7 @@ function SequenceEditor({
         <Button
           className={cn("px-3.5 py-[7px] text-[13px] font-semibold", !saved && "ms-auto")}
           loading={save.isPending}
-          disabled={!name.trim() || !isScheduleUsable || stepTimeOutsideWindow}
+          disabled={!name.trim() || !isScheduleUsable || stepTimeOutsideWindow || holdsSignatureInWords}
           onClick={() => save.mutate()}
         >
           Save sequence
@@ -264,25 +300,7 @@ function SequenceEditor({
 
       <div className="grid items-start gap-[22px] lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-1.5 rounded-[8px] border border-u-border bg-u-raised px-2.5 py-2">
-            <span className="me-1 font-mono text-[11px] font-medium text-u-text3">Insert</span>
-            {tokenOptions(mailbox.data?.bookingLinkOffered === true).map((option) => (
-              <button
-                key={option.token}
-                type="button"
-                title={option.tip}
-                onClick={() => insertToken(option.token)}
-                className={cn(
-                  "rounded-full border px-2 py-[3px] font-mono text-[11.5px]",
-                  option.isAi
-                    ? "border-transparent bg-u-inferred-tint text-u-inferred"
-                    : "border-u-border bg-u-surface text-u-text2 hover:text-u-text",
-                )}
-              >
-                {option.isAi ? "✦ opener" : option.isLink ? "▦ booking link" : option.token}
-              </button>
-            ))}
-          </div>
+          <TokenInsertBar options={tokenOptions(mailbox.data?.bookingLinkOffered === true)} onInsert={insertToken} />
 
           {steps.map((step, index) => (
             <div
@@ -305,21 +323,78 @@ function SequenceEditor({
                         step.sendTime ? ` at ${clockOf(step.sendTime)}` : ""
                       }`}
                 </span>
-                {index > 0 && (
+                <span className="ms-auto flex items-center gap-0.5">
                   <button
                     type="button"
-                    title="Remove this step"
-                    aria-label="Remove this step"
+                    aria-expanded={choosingTemplate?.index === index && choosingTemplate.stage === "picking"}
                     onClick={(event) => {
                       event.stopPropagation();
-                      removeStep(index);
+                      setSelectedStep(index);
+                      setChoosingTemplate({ index, stage: "picking" });
                     }}
-                    className="ms-auto rounded-[6px] p-[5px] text-u-text3 hover:bg-u-raised hover:text-u-offlimits"
+                    className="rounded-u-control px-2 py-1 text-meta font-medium text-u-text3 hover:bg-u-raised hover:text-u-text"
                   >
-                    <Icon d={ICONS.trash} size={13} />
+                    From template
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setSelectedStep(index);
+                      setChoosingTemplate(null);
+                      setSavingStep(index);
+                    }}
+                    className="rounded-u-control px-2 py-1 text-meta font-medium text-u-text3 hover:bg-u-raised hover:text-u-text"
+                  >
+                    Save as template
+                  </button>
+                  {index > 0 && (
+                    <button
+                      type="button"
+                      title="Remove this step"
+                      aria-label="Remove this step"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        removeStep(index);
+                      }}
+                      className="rounded-[6px] p-[5px] text-u-text3 hover:bg-u-raised hover:text-u-offlimits"
+                    >
+                      <Icon d={ICONS.trash} size={13} />
+                    </button>
+                  )}
+                </span>
               </div>
+              {choosingTemplate?.index === index && choosingTemplate.stage === "picking" && (
+                <StepTemplatePicker
+                  isFirstStep={index === 0}
+                  onPick={(template) => pickTemplate(index, template)}
+                  onClose={() => setChoosingTemplate(null)}
+                />
+              )}
+              {choosingTemplate?.index === index && choosingTemplate.stage === "confirming" && (
+                <div
+                  role="alertdialog"
+                  aria-label="Replace this step's text?"
+                  onClick={(event) => event.stopPropagation()}
+                  className="mb-2.5 flex flex-wrap items-center gap-2.5 rounded-u-card border border-u-accent bg-u-accent-tint px-3 py-2.5"
+                >
+                  <span className="min-w-60 flex-1">
+                    <span className="block text-note font-medium text-u-text">
+                      Replace this step's text with “{choosingTemplate.template.name}”?
+                    </span>
+                    <span className="mt-0.5 block text-meta text-u-text2">
+                      What this step says now is replaced
+                      {index === 0 ? ", and its subject too where the template has one." : "."}
+                    </span>
+                  </span>
+                  <Button variant="secondary" size="xs" onClick={() => setChoosingTemplate(null)}>
+                    Cancel
+                  </Button>
+                  <Button size="xs" onClick={() => copyTemplate(index, choosingTemplate.template)}>
+                    Replace
+                  </Button>
+                </div>
+              )}
               {index > 0 && (
                 <div className="mb-2 flex flex-wrap items-center gap-2 font-mono text-[12px] text-u-text2">
                   Send
@@ -394,6 +469,11 @@ function SequenceEditor({
                 onChange={(event) => changeStep(index, { body: event.target.value })}
                 className="w-full resize-y rounded-[6px] border border-u-border bg-u-raised p-2.5 text-[13px]/[1.55] text-u-text outline-none"
               />
+              {stepHoldsSignature(step, index) && (
+                <p role="alert" className="mt-1.5 font-mono text-meta text-u-offlimits">
+                  {SIGNATURE_NOT_IN_WORDS}
+                </p>
+              )}
             </div>
           ))}
           <div className="flex flex-wrap items-center gap-2.5 font-mono text-[12px] text-u-text3">
@@ -425,6 +505,20 @@ function SequenceEditor({
           onSelectStep={setSelectedStep}
         />
       </div>
+      {savingStep !== null && (
+        <SaveAsTemplateDialog
+          open
+          title="Save step as template"
+          subtitle={`Saves this step's ${savingStep === 0 && steps[0].subject?.trim() ? "subject and " : ""}words, variables kept, as one of your email templates. It is a copy: editing the template later changes no step.`}
+          refusal={templateRefusalOf(steps[savingStep])}
+          subject={savingStep === 0 ? (steps[0].subject ?? null) : null}
+          buildBody={async () => {
+            const { plainEmailDoc, serializeNoteDoc } = await import("../../notes/lib/noteMarkdown");
+            return serializeNoteDoc(plainEmailDoc(steps[savingStep].body.trim()));
+          }}
+          onClose={() => setSavingStep(null)}
+        />
+      )}
       <Modal
         open={isConfirmingDelete}
         onClose={() => setIsConfirmingDelete(false)}
@@ -606,6 +700,7 @@ function SequencePreview({
     queryFn: ({ signal }) => candidatesApi.getCandidates(projectId, {}, signal),
   });
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const signature = useSignatureChoice();
   const candidates = people.data?.candidates ?? [];
   const person = candidates.find((candidate) => candidate.id === previewId) ?? candidates[0] ?? null;
   const step = steps[Math.min(selectedStep, steps.length - 1)];
@@ -613,7 +708,6 @@ function SequencePreview({
     mailbox.data?.connection?.bookingLink ?? BOOKING_LINK_PLACEHOLDER);
   const firstSubject = steps[0]?.subject ?? "";
   const subjectParts = renderParts(firstSubject, tokens, null);
-  const subject = subjectParts.map((part) => part.text).join("");
   const sender = mailbox.data?.connection?.address;
 
   return (
@@ -667,7 +761,12 @@ function SequencePreview({
           <span className="text-u-text3">To</span>
           <span className="truncate">{person?.contacts.emails[0]?.address ?? "—"}</span>
           <span className="text-u-text3">Subject</span>
-          <span className="font-medium text-u-text">{selectedStep > 0 ? `Re: ${subject}` : subject}</span>
+          <span className="font-medium text-u-text">
+            {selectedStep > 0 && "Re: "}
+            {subjectParts.map((part, index) => (
+              <FilledVariable key={index} part={part} forWhom={person?.fullName} />
+            ))}
+          </span>
         </div>
         <div className="whitespace-pre-wrap pt-3.5 text-[13.5px]/[1.6] text-u-text">
           {renderParts(step?.body ?? "", tokens, PREVIEW_OPENER).map((part, index) =>
@@ -683,10 +782,16 @@ function SequencePreview({
                 {part.text}
               </span>
             ) : (
-              <span key={index}>{part.text}</span>
+              <FilledVariable key={index} part={part} forWhom={person?.fullName} />
             ),
           )}
         </div>
+        <SignatureUnderEmail choice={signature} />
+        {signature.included && (
+          <p className="mt-1 font-mono text-meta text-u-text3">
+            Your default signature, as Add to sequence adds it. You can choose another when you start.
+          </p>
+        )}
         {selectedStep > 0 && (
           <div className="mt-3.5 border-s-2 border-u-border ps-2.5 text-[12px]/[1.5] text-u-text3">
             Your earlier email to {tokens.firstName ?? "them"} is quoted below, as in any reply.

@@ -15,6 +15,7 @@ import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
@@ -101,11 +102,14 @@ class MeetingIntegrationTest extends FlowTestSupport {
         assertThat(meetingRows()).isZero();
 
         changed(event("call-1", "First conversation", start, MAILBOX, "Priya@" + domain));
+        jdbc.update("update app_lm_user set avatar_url = '/api/v1/avatars/yara-photo' where email = ?",
+                "yara@" + domain);
         JsonNode meetings = meetingsOf(priya);
         assertThat(meetings.get("upcoming")).hasSize(1);
         JsonNode upcoming = meetings.get("upcoming").get(0);
         assertThat(upcoming.get("title").asText()).isEqualTo("First conversation");
         assertThat(upcoming.get("ownerName").asText()).isEqualTo("Yara Haddad");
+        assertThat(upcoming.get("ownerAvatarUrl").asText()).isEqualTo("/api/v1/avatars/yara-photo");
         assertThat(upcoming.get("joinUrl").asText()).isEqualTo("https://meet.example/call-1");
         assertThat(upcoming.get("videoProvider").asText()).isEqualTo("Google Meet");
         assertThat(meetingsOf(rajesh).get("upcoming")).isEmpty();
@@ -132,12 +136,13 @@ class MeetingIntegrationTest extends FlowTestSupport {
                 workspaceId));
         Instant claimedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
-        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-            MailboxConnection readBeforeTheClaim = mailboxes.findById(mailboxId).orElseThrow();
-            jdbc.update("update app_lm_mailbox_connection set calendar_synced_at = ? where id = ?::uuid",
-                    Timestamp.from(claimedAt), mailboxId.toString());
-            readBeforeTheClaim.changeTimeZone(ZoneId.of("Europe/London"));
-        });
+        WorkspaceScope.run(UUID.fromString(workspaceId), () ->
+                new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+                    MailboxConnection readBeforeTheClaim = mailboxes.findById(mailboxId).orElseThrow();
+                    jdbc.update("update app_lm_mailbox_connection set calendar_synced_at = ? where id = ?::uuid",
+                            Timestamp.from(claimedAt), mailboxId.toString());
+                    readBeforeTheClaim.changeTimeZone(ZoneId.of("Europe/London"));
+                }));
 
         assertThat(jdbc.queryForObject("select calendar_synced_at from app_lm_mailbox_connection where id = ?::uuid",
                 Instant.class, mailboxId.toString())).isEqualTo(claimedAt);
@@ -284,6 +289,18 @@ class MeetingIntegrationTest extends FlowTestSupport {
         assertThat(Instant.parse(view.get("busy").get(0).get("end").asText())).isEqualTo(callEnds);
         assertThat(view.get("minMinutes").asInt()).isEqualTo(5);
         assertThat(view.get("maxMinutes").asInt()).isEqualTo(480);
+    }
+
+    @Test
+    @DisplayName("nothing is booked for someone whose processing is restricted")
+    void bookingRefusesARestrictedPerson() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        restrictProcessing(priya);
+
+        assertThat(codeOf(book(priya, tomorrowAt(10, 0), 30, "priya@" + domain).andExpect(status().isConflict())
+                .andReturn())).isEqualTo("PERSON_PROCESSING_RESTRICTED");
+        assertThat(gateway.created()).isEmpty();
     }
 
     @Test
@@ -706,6 +723,15 @@ class MeetingIntegrationTest extends FlowTestSupport {
         as(consultant, put("/api/v1/candidates/" + personId + "/do-not-contact")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"doNotContact\":true,\"reason\":\"Asked not to be approached.\"}"))
+                .andExpect(status().isOk());
+    }
+
+    private void restrictProcessing(String candidateId) throws Exception {
+        String personId = body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + candidateId))
+                .andReturn()).get("personId").asText();
+        as(consultant, put("/api/v1/candidates/" + personId + "/processing-restriction")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"restricted\":true,\"reason\":\"Asked what we hold about them.\"}"))
                 .andExpect(status().isOk());
     }
 

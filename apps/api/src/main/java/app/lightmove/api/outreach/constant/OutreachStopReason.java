@@ -9,6 +9,8 @@ public enum OutreachStopReason {
     /** A consultant pressed Stop. */
     MANUAL,
     DO_NOT_CONTACT,
+    /** Processing of the person was restricted since the run started (V176). */
+    PROCESSING_RESTRICTED,
 
     /** The person's status says they are out of the running. */
     LEFT_THE_RUNNING,
@@ -39,6 +41,9 @@ public enum OutreachStopReason {
 
     /** The position was archived; restoring it does not start the run again. */
     POSITION_ARCHIVED,
+
+    /** The workspace was deleted; nothing is sent from it again. */
+    WORKSPACE_DELETED,
 
     /** A consultant's own email waited past their access to the position: a seat or a membership that went. */
     SENDER_WITHOUT_ACCESS

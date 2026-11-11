@@ -18,18 +18,24 @@ public class AuditLogCsvWriter {
             "Position", "IP address");
 
     public String write(List<AuditLogEntryResponse> entries) {
-        StringBuilder csv = new StringBuilder(BYTE_ORDER_MARK).append(row(HEADERS));
-        for (AuditLogEntryResponse entry : entries) {
-            csv.append(row(List.of(
-                    DateTimeFormatter.ISO_INSTANT.format(entry.occurredAt()),
-                    text(entry.actorName()) + (entry.actorRemoved() ? " (removed)" : ""),
-                    text(entry.summary()),
-                    categoryOf(entry.group()),
-                    "FAILURE".equals(entry.outcome()) ? "Failed" : "Succeeded",
-                    text(entry.positionTitle()),
-                    text(entry.ipAddress()))));
-        }
+        StringBuilder csv = new StringBuilder(header());
+        entries.forEach(entry -> csv.append(line(entry)));
         return csv.toString();
+    }
+
+    String header() {
+        return BYTE_ORDER_MARK + row(HEADERS);
+    }
+
+    String line(AuditLogEntryResponse entry) {
+        return row(List.of(
+                DateTimeFormatter.ISO_INSTANT.format(entry.occurredAt()),
+                text(entry.actorName()) + (entry.actorRemoved() ? " (removed)" : ""),
+                text(entry.summary()),
+                categoryOf(entry.group()),
+                "FAILURE".equals(entry.outcome()) ? "Failed" : "Succeeded",
+                text(entry.positionTitle()),
+                text(entry.ipAddress())));
     }
 
     private static String categoryOf(String group) {

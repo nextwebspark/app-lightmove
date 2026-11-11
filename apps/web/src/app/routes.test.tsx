@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -43,9 +43,10 @@ vi.mock("../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../lib/apiClient")>()),
   restoreSession: vi.fn(),
   setAccessToken: vi.fn(),
+  onSessionExpired: vi.fn(),
 }));
 
-const { restoreSession } = await import("../lib/apiClient");
+const { restoreSession, onSessionExpired } = await import("../lib/apiClient");
 
 const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[], mode: "AGENCY" | "COMPANY" = "COMPANY") => ({
   id: "u1",
@@ -54,6 +55,8 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[], mode: "AGENCY" | "CO
   title: null,
   avatarUrl: null,
   avatarEditable: true,
+  phone: null,
+  linkedinUrl: null,
   emailVerified: true,
   hasPassword: true,
   timezone: "Asia/Dubai",
@@ -81,6 +84,8 @@ const unverifiedUser = () => ({
   title: null,
   avatarUrl: null,
   avatarEditable: true,
+  phone: null,
+  linkedinUrl: null,
   emailVerified: false,
   hasPassword: true,
   timezone: "Asia/Dubai",
@@ -327,6 +332,7 @@ describe("routes — the settings gates", () => {
       createdAt: "2026-03-14T09:00:00Z",
       persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
       company: null,
+      deletionGraceDays: 30,
     });
 
     renderAt("/settings/general");
@@ -508,6 +514,40 @@ describe("routes — changing a mistyped address on the verify step", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Change email" }));
 
     await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/signup"));
+  });
+});
+
+/** A consultant's unsaved scorecard is what they think of a candidate: it goes with the session (#927). */
+describe("routes — the session ending takes this tab's unsaved scorecards", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    sessionStorage.clear();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(authApi.me).mockResolvedValue(unverifiedUser());
+    sessionStorage.setItem("lm.scorecard-draft.c-1", "{}");
+    sessionStorage.setItem("lm.other", "kept");
+  });
+
+  it("on sign-out, even when the server refuses it", async () => {
+    vi.mocked(authApi.logout).mockRejectedValue(new Error("503"));
+    renderAt("/signup/verify-email");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Change email" }));
+
+    await waitFor(() => expect(sessionStorage.getItem("lm.scorecard-draft.c-1")).toBeNull());
+    expect(sessionStorage.getItem("lm.other")).toBe("kept");
+  });
+
+  it("when a refresh finds the session gone for good", async () => {
+    renderAt("/signup/verify-email");
+    await screen.findByRole("button", { name: "Change email" });
+
+    const sessionLost = vi.mocked(onSessionExpired).mock.calls.at(-1)?.[0];
+    expect(sessionLost).toBeDefined();
+    act(() => sessionLost?.());
+
+    expect(sessionStorage.getItem("lm.scorecard-draft.c-1")).toBeNull();
+    expect(sessionStorage.getItem("lm.other")).toBe("kept");
   });
 });
 

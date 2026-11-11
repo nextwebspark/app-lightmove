@@ -13,7 +13,7 @@ import java.util.UUID;
 /**
  * One conversation line in full. {@code text} is read as {@code format} says and drawn as text, never as HTML;
  * {@code stepNumber} and {@code sequenceName} are set on a sequence's email; {@code at} is a scheduled email's due
- * time, and {@code failReason} why a failed one never went; {@code attachments} the files it carries. Staff-only.
+ * time, and {@code failReason} why a failed one never went; {@code senderAvatarUrl} the sender's picture, where they have one; {@code attachments} the files it carries. Staff-only.
  */
 public record ConversationMessageResponse(
         UUID id,
@@ -29,6 +29,7 @@ public record ConversationMessageResponse(
         String toAddress,
         UUID senderUserId,
         String senderName,
+        String senderAvatarUrl,
         UUID enrollmentId,
         String sequenceName,
         Integer stepNumber,

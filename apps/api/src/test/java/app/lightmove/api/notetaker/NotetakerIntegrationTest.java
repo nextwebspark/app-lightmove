@@ -27,6 +27,7 @@ import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import app.lightmove.api.notetaker.service.NotetakerReconcile;
+import app.lightmove.api.notetaker.service.RecallBotErasureSweeper;
 import app.lightmove.api.notetaker.service.NotetakerService;
 import app.lightmove.api.notetaker.service.NotetakerTranscriptPurge;
 import app.lightmove.api.outreach.model.CalendarEvent;
@@ -91,6 +92,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     @Autowired private NotetakerReconcile reconcile;
     @Autowired private NotetakerService notetakers;
     @Autowired private NotetakerTranscriptPurge transcriptPurge;
+    @Autowired private RecallBotErasureSweeper recallCleanup;
     @Autowired @FixtureJdbc private JdbcTemplate jdbc;
     @Autowired private CandidateMaterialService material;
 
@@ -352,6 +354,44 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         as(consultant, delete(otherPath + "/" + recordingId)).andExpect(status().isNotFound());
         as(consultant, post(otherPath + "/" + recordingId + "/retry")).andExpect(status().isNotFound());
         assertThat(statusOf(recordingId)).isEqualTo("SCHEDULED");
+    }
+
+    @Test
+    @DisplayName("a researcher's own notes name a recorded call, from its position alone, once the call has begun")
+    void notesNameARecordedCall() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String notes = "/api/v1/projects/" + projectId + "/candidates/" + priya + "/notes";
+        String aboutIt = """
+                {"kind":"meeting","body":"She asked about the board.","recordingId":"%s"}""".formatted(recordingId);
+
+        as(consultant, post(notes).contentType(MediaType.APPLICATION_JSON).content(aboutIt))
+                .andExpect(status().isBadRequest());
+        Instant began = Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(Duration.ofHours(1));
+        jdbc.update("update app_lm_meeting_recording set starts_at = ? where id = ?::uuid",
+                Timestamp.from(began), recordingId);
+
+        JsonNode note = body(as(consultant, post(notes).contentType(MediaType.APPLICATION_JSON).content(aboutIt))
+                .andExpect(status().isCreated()).andReturn());
+        assertThat(note.get("recordingId").asText()).isEqualTo(recordingId);
+        assertThat(note.get("meetingId").isNull()).isTrue();
+        assertThat(note.get("title").asText()).isEqualTo("First conversation");
+        assertThat(Instant.parse(note.get("occurredAt").asText())).isEqualTo(began);
+
+        String otherProject = body(as(consultant, post("/api/v1/projects").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"clientId\":\"%s\",\"positionTitle\":\"Group COO\"}".formatted(clientId)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        String onOther = body(as(consultant, post("/api/v1/projects/" + otherProject + "/candidates")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"fullName":"Priya Raman","title":"Chief Financial Officer","employerName":"Target Group",
+                         "email":"priya@%s"}
+                        """.formatted(domain)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        as(consultant, post("/api/v1/projects/" + otherProject + "/candidates/" + onOther + "/notes")
+                .contentType(MediaType.APPLICATION_JSON).content(aboutIt))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -866,6 +906,72 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("restricting processing calls back a waiting bot, and no further bot goes until it is lifted")
+    void restrictionCallsBotsBackAndRefusesNew() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+
+        restrictProcessing(true);
+
+        assertThat(statusEventually(recordingId, "CANCELLED")).isEqualTo("CANCELLED");
+        assertThat(recall.removed()).contains(bot);
+        assertThat(recall.mediaDeleted()).contains(bot);
+        assertThat(auditedFor("NOTETAKER_CANCELLED", recordingId, 1)).isEqualTo(1);
+        schedule().andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PERSON_PROCESSING_RESTRICTED"));
+        assertThat(notetaker().get("recordableMeetingIds")).isEmpty();
+
+        restrictProcessing(false);
+        schedule().andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("a bot Recall refuses to strip when someone is restricted stays queued until Recall takes it")
+    void restrictionQueuesTheBotUntilRecallAnswers() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        recall.refuseMediaDeletes(VendorFailureKind.UNAVAILABLE);
+
+        restrictProcessing(true);
+
+        assertThat(statusOf(recordingId)).isEqualTo("CANCELLED");
+        assertThat(recall.removed()).contains(bot);
+        assertThat(jdbc.queryForObject("select call_back from app_lm_recall_bot_erasure where recall_bot_id = ?",
+                Boolean.class, bot)).isFalse();
+
+        recall.refuseMediaDeletes(null);
+        recallCleanup.sweepAt(Instant.now().plus(Duration.ofHours(2)));
+        assertThat(recall.mediaDeleted()).contains(bot);
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_recall_bot_erasure where recall_bot_id = ?",
+                Long.class, bot)).isZero();
+    }
+
+    @Test
+    @DisplayName("a transcript arriving for someone restricted since is neither summarised nor read for changes")
+    void restrictedTranscriptIsNotSummarised() throws Exception {
+        chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        recall.holdsTranscript("t-1", List.of(new TranscriptLine(start, "Priya Raman", "Hello.", true)));
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        deliver(bot, """
+                {"event":"bot.done","data":{"bot":{"id":"%s"},"data":{"code":"done","sub_code":null}}}""");
+        restrictProcessing(true);
+
+        deliver(bot, """
+                {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
+
+        JsonNode failed = notetaker().get("recordings").get(0);
+        assertThat(failed.get("status").asText()).isEqualTo("FAILED");
+        assertThat(failed.get("failureReason").asText()).isEqualTo("PROCESSING_RESTRICTED");
+        assertThat(transcriptHeld(recordingId)).isFalse();
+        assertThat(chat.prompts()).isEmpty();
+        as(consultant, post(suggestionsPath(recordingId))).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PERSON_PROCESSING_RESTRICTED"));
+    }
+
+    @Test
     @DisplayName("Suggest changes reads the transcript once; one review applies what was kept through each field's owner")
     void oneReviewAppliesWhatWasKept() throws Exception {
         String recordingId = filedRecording();
@@ -1306,6 +1412,25 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"doNotContact\":true,\"reason\":\"Asked not to be approached.\"}"))
                 .andExpect(status().isOk());
+    }
+
+    private void restrictProcessing(boolean restricted) throws Exception {
+        String personId = body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + priya))
+                .andReturn()).get("personId").asText();
+        as(consultant, put("/api/v1/candidates/" + personId + "/processing-restriction")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"restricted\":%s,\"reason\":\"Asked what we hold about them.\"}".formatted(restricted)))
+                .andExpect(status().isOk());
+    }
+
+    /** The call-back runs after the restriction commits, off the request. */
+    private String statusEventually(String recordingId, String expected) throws InterruptedException {
+        String status = statusOf(recordingId);
+        for (int attempt = 0; attempt < 100 && !expected.equals(status); attempt++) {
+            Thread.sleep(50);
+            status = statusOf(recordingId);
+        }
+        return status;
     }
 
     private String mandate() throws Exception {

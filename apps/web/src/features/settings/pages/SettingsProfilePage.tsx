@@ -4,6 +4,7 @@ import { useToast } from "../../../components/ui";
 import { useAuth } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
 import * as mailboxApi from "../../outreach/api/mailboxApi";
+import { AccountDataCards } from "../components/AccountDataCards";
 import { ProfileForm } from "../components/ProfileForm";
 import { ProfileIdentityRow } from "../components/ProfileIdentityRow";
 import type { ProfileValues } from "../lib/profileSchema";
@@ -24,6 +25,8 @@ export function SettingsProfilePage() {
       title: values.title === "" ? null : values.title,
       timezone: values.timezone,
       locale: values.locale,
+      phone: values.phone,
+      linkedinUrl: values.linkedinUrl,
     });
     // The topbar avatar and the roster read the same name, and reload() re-mints the token first.
     await reload();
@@ -81,10 +84,14 @@ export function SettingsProfilePage() {
             title: user.title ?? "",
             timezone: user.timezone,
             locale: user.locale,
+            phone: user.phone ?? "",
+            linkedinUrl: user.linkedinUrl ?? "",
           }}
           onSave={handleSave}
         />
       </div>
+
+      <AccountDataCards />
     </>
   );
 }

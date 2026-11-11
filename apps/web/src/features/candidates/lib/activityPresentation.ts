@@ -65,6 +65,8 @@ const FAMILY_OF: Record<PersonActivityKind, ActivityFamily> = {
   CONTACT_FOUND: "contact",
   DO_NOT_CONTACT_SET: "contact",
   DO_NOT_CONTACT_CLEARED: "contact",
+  PROCESSING_RESTRICTED: "profile",
+  PROCESSING_RESTRICTION_LIFTED: "profile",
   DOCUMENT_ADDED: "documents",
   DOCUMENT_VERSION_ADDED: "documents",
   DOCUMENT_REMOVED: "documents",
@@ -164,6 +166,10 @@ export function iconOf(entry: PersonTimelineEntry): string | null {
     case "DO_NOT_CONTACT_SET":
     case "DO_NOT_CONTACT_CLEARED":
       return ICONS.ban;
+    case "PROCESSING_RESTRICTED":
+      return ICONS.lock;
+    case "PROCESSING_RESTRICTION_LIFTED":
+      return ICONS.unlock;
     case "DOCUMENT_ADDED":
     case "DOCUMENT_VERSION_ADDED":
       return ICONS.file;
@@ -306,6 +312,10 @@ export function verbOf(entry: PersonTimelineEntry): string {
       return "marked them do not contact";
     case "DO_NOT_CONTACT_CLEARED":
       return "cleared do not contact";
+    case "PROCESSING_RESTRICTED":
+      return "restricted processing";
+    case "PROCESSING_RESTRICTION_LIFTED":
+      return "lifted the processing restriction";
     case "OUTREACH_ENROLLED":
       return "added them to a sequence";
     case "EMAIL_SENT":

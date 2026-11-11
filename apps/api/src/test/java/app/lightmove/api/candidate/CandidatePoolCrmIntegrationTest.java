@@ -316,9 +316,12 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
         assertThat(added.get("companyName").asText()).isEqualTo("Aldar Properties");
         assertThat(added.get("triageCompanyId").isNull()).isFalse();
         assertThat(kindsOf(timeline(fatima, "positions"))).containsExactly("MAPPED", "ADDED_TO_POOL");
+        // The suite shares one database: read this firm's line alone, or another test's makes three.
         assertThat(db.queryForObject("""
                 select metadata ->> 'personIds' from app_lm_audit_event
-                where event_type = 'PEOPLE_MAPPED_FROM_POOL'""", String.class)).contains(fatima).doesNotContain(rajesh);
+                where event_type = 'PEOPLE_MAPPED_FROM_POOL'
+                  and workspace_id = (select workspace_id from app_lm_project where id = ?::uuid)""",
+                String.class, credit)).contains(fatima).doesNotContain(rajesh);
 
         JsonNode record = body(mvc.perform(get("/api/v1/candidates/" + fatima).header("Authorization", "Bearer " + sara))
                 .andExpect(status().isOk())

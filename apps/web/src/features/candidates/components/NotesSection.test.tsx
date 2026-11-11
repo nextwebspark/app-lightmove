@@ -189,15 +189,16 @@ describe("the note composer", () => {
     expect(await screen.findByText("Note saved — your team sees it on every position")).toBeInTheDocument();
   });
 
-  it("names the position a note is about, and says when one is for all positions", async () => {
+  it("never repeats the position it is read from, and says when a note is for all positions", async () => {
     vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([
       aNote("Wants Dubai"),
       { ...aNote("Prefers a listed company"), id: "n2", projectId: null, projectTitle: null },
     ]);
     renderNotes();
 
-    expect(await screen.findByText("About Chief Financial Officer")).toBeInTheDocument();
-    expect(screen.getByText("All positions", { selector: "span" })).toBeInTheDocument();
+    expect(await screen.findByText("All positions", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("Wants Dubai")).toBeInTheDocument();
+    expect(screen.queryByText("About Chief Financial Officer")).not.toBeInTheDocument();
   });
 
   it("draws a saved note's mentions as chips, never the token", async () => {
@@ -401,6 +402,7 @@ describe("a log: a call, a LinkedIn message or a meeting", () => {
     endsAt: "2026-09-28T07:00:00Z",
     ownerUserId: "u1",
     ownerName: "Yara Haddad",
+    ownerAvatarUrl: null,
     joinUrl: null,
     videoProvider: null,
     viaLink: false,
@@ -441,6 +443,7 @@ describe("a log: a call, a LinkedIn message or a meeting", () => {
     renderLog({ initialKind: "call" });
     await screen.findByRole("button", { name: "Mention a teammate" });
 
+    await userEvent.click(screen.getByRole("button", { name: "When it happened: Today, 10:00" }));
     expect(screen.getByLabelText("Time it happened")).toHaveValue("10:00");
     await userEvent.type(screen.getByRole("textbox", { name: "Title (optional)" }), "First call");
     await typeInto(composer(), "Open to a move.");
@@ -454,6 +457,7 @@ describe("a log: a call, a LinkedIn message or a meeting", () => {
         occurredAt: new Date(2026, 9, 3, 10, 0).toISOString(),
         title: "First call",
         meetingId: null,
+        recordingId: null,
       }),
     );
   });
@@ -462,8 +466,8 @@ describe("a log: a call, a LinkedIn message or a meeting", () => {
     renderLog({ initialKind: "meeting", pastMeetings: [coffee], presetMeetingId: "mt1" });
     await screen.findByRole("button", { name: "Mention a teammate" });
 
-    expect(screen.getByRole("combobox", { name: "Which meeting" })).toHaveValue("mt1");
-    expect(screen.queryByLabelText("Time it happened")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Which meeting: Coffee at DIFC" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^When it happened/ })).not.toBeInTheDocument();
     await typeInto(composer(), "Wants a listed group.");
     await userEvent.click(screen.getByRole("button", { name: "Save note" }));
 
@@ -473,9 +477,27 @@ describe("a log: a call, a LinkedIn message or a meeting", () => {
         body: "Wants a listed group.",
         format: "markdown",
         meetingId: "mt1",
+        recordingId: null,
         title: null,
         occurredAt: null,
       }),
+    );
+  });
+
+  it("names the recording of a call the calendar no longer holds", async () => {
+    const recorded = { ...coffee, id: "recording:r1", ownerUserId: "", ownerName: null };
+    renderLog({ initialKind: "meeting", pastMeetings: [recorded], presetMeetingId: "recording:r1" });
+    await screen.findByRole("button", { name: "Mention a teammate" });
+
+    await typeInto(composer(), "She asked about the board.");
+    await userEvent.click(screen.getByRole("button", { name: "Save note" }));
+
+    await waitFor(() =>
+      expect(personCrmApi.writePersonNote).toHaveBeenCalledWith("p1", "c1", expect.objectContaining({
+        kind: "meeting",
+        meetingId: null,
+        recordingId: "r1",
+      })),
     );
   });
 
@@ -487,13 +509,16 @@ describe("a log: a call, a LinkedIn message or a meeting", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save note" }));
     await waitFor(() => expect(personCrmApi.writePersonNote).toHaveBeenCalled());
 
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "Which meeting" })).toHaveValue("mt1"));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Which meeting: Coffee at DIFC" })).toBeInTheDocument(),
+    );
   });
 
   it("says a time later today has not happened yet, and does not save it", async () => {
     renderLog({ initialKind: "call" });
     await screen.findByRole("button", { name: "Mention a teammate" });
 
+    await userEvent.click(screen.getByRole("button", { name: /^When it happened/ }));
     const time = screen.getByLabelText("Time it happened");
     await userEvent.clear(time);
     await userEvent.type(time, "18:00");
@@ -503,11 +528,45 @@ describe("a log: a call, a LinkedIn message or a meeting", () => {
     expect(screen.getByRole("button", { name: "Save note" })).toBeDisabled();
   });
 
+  it("asks a call when it happened, never which meeting it was", async () => {
+    renderLog({ initialKind: "call", pastMeetings: [coffee] });
+    await screen.findByRole("button", { name: "Mention a teammate" });
+
+    expect(screen.queryByRole("button", { name: /^Which meeting/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "When it happened: Today, 10:00" })).toBeInTheDocument();
+  });
+
   it("takes a date and time for a meeting held outside Uncava", async () => {
     renderLog({ initialKind: "meeting", pastMeetings: [coffee] });
     await screen.findByRole("button", { name: "Mention a teammate" });
 
-    expect(screen.getByRole("combobox", { name: "Which meeting" })).toHaveValue("");
-    expect(screen.getByLabelText("Time it happened")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Which meeting: Outside Uncava" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "When it happened: Today, 10:00" })).toBeInTheDocument();
+  });
+
+  it("picks a meeting from the calendar list, which then brings its own time", async () => {
+    renderLog({ initialKind: "meeting", pastMeetings: [coffee] });
+    await screen.findByRole("button", { name: "Mention a teammate" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Which meeting: Outside Uncava" }));
+    const list = screen.getByRole("listbox", { name: "Which meeting" });
+    expect(within(list).getByRole("option", { name: /Outside Uncava/ })).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(within(list).getByRole("option", { name: /Coffee at DIFC/ }));
+
+    expect(screen.getByRole("button", { name: "Which meeting: Coffee at DIFC" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^When it happened/ })).not.toBeInTheDocument();
+  });
+
+  it("stamps a quick time picked from the When chip", async () => {
+    renderLog({ initialKind: "call" });
+    await screen.findByRole("button", { name: "Mention a teammate" });
+
+    await userEvent.click(screen.getByRole("button", { name: "When it happened: Today, 10:00" }));
+    await userEvent.click(screen.getByRole("button", { name: "1 hour ago" }));
+    expect(screen.getByRole("button", { name: "When it happened: Today, 09:00" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "When it happened: Today, 09:00" }));
+    await userEvent.click(screen.getByRole("button", { name: "Yesterday, same time" }));
+    expect(screen.getByRole("button", { name: "When it happened: Yesterday, 10:00" })).toBeInTheDocument();
   });
 });

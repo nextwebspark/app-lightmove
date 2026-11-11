@@ -31,6 +31,14 @@
     <springProfile name="!local &amp; !test &amp; !e2e">
         <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
             <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <!--
+                  Emails, LinkedIn profile links and dialled phones out of every message and stack trace (#927):
+                  an address in Cloud Logging outlives its owner's erasure. Locally the reader is the developer,
+                  and e2e reads emailed links out of the log, so the masking is the deployed encoder's alone.
+                -->
+                <jsonGeneratorDecorator class="net.logstash.logback.mask.MaskingJsonGeneratorDecorator">
+                    <valueMasker class="app.lightmove.api.core.logging.service.PersonalDataLogMasker"/>
+                </jsonGeneratorDecorator>
                 <providers>
                     <timestamp>
                         <fieldName>time</fieldName>

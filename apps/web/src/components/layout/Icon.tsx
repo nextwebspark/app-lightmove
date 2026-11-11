@@ -60,6 +60,7 @@ export const ICONS = {
   importInto: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
   /** The same tray with the arrow rising out of it — Export, the mandate leaving as a file. */
   exportOut: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
+  download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
   /** A page with its corner turned — the attached position description. */
   file: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6",
   /** A paperclip — a file an email carries. */
@@ -70,6 +71,9 @@ export const ICONS = {
   lock: "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 10 0v4",
   /** The same padlock with its shackle swung open — the off state of a lock toggle. */
   unlock: "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 9.9-1",
+  /** A stack of discs — what a workspace holds, and how long. */
+  database:
+    "M12 8c4.97 0 9-1.34 9-3s-4.03-3-9-3-9 1.34-9 3 4.03 3 9 3ZM3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3",
   /** A box with its lid off — retire a pipeline stage or status; whoever holds it keeps it. */
   archive: "M21 8v13H3V8M1 3h22v5H1zM10 12h4",
   /** Three columns of falling height — a position's pipeline. */
@@ -90,6 +94,8 @@ export const ICONS = {
   searchX: "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3M13.5 8.5l-5 5M8.5 8.5l5 5",
   /** A funnel — a column's header menu has narrowed the grid by this one. */
   filter: "M22 3H2l8 9.46V19l4 2v-8.54L22 3Z",
+  /** A funnel struck through — clear every column filter at once. */
+  filterX: "M13 3H2l8 9.46V19l4 2v-8.54M22 3l-5 5M17 3l5 5",
   sliders: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
   globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.5 9h17M3.5 15h17M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z",
   // Stroked like every other glyph here rather than the filled brand mark, which would be the only
@@ -149,6 +155,8 @@ export const ICONS = {
   /** A handset — a call, as a note logs it. */
   phoneCall:
     "M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z",
+  /** A curling-back arrow — an email answered. */
+  reply: "M9 17 4 12l5-5M20 18v-2a4 4 0 0 0-4-4H4",
   /** An envelope — the Contact section's email channel. */
   mail: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm18 2-10 7L2 6",
   card: "M2 5h20v14H2zM2 10h20M6 15h4",
@@ -162,6 +170,9 @@ export const ICONS = {
   externalLink: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3",
   /** A line climbing to an arrowhead — the report's mapping progress. */
   trendingUp: "m3 17 6-6 4 4 8-8M15 7h6v6",
+  ranking: "M12 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12ZM8.2 13.9 7 22l5-3 5 3-1.2-8.1",
+  /** A circle turning back on itself — put a scenario back to where it started. */
+  reset: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5",
   /** The same line falling — a project that is off track. */
   trendingDown: "m3 7 6 6 4-4 8 8M15 17h6v-6",
   /** A struck S — the report's remuneration chapter. */

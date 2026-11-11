@@ -6,6 +6,8 @@ import app.lightmove.api.core.audit.constant.PlatformEventType;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.constant.SecurityEventType;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
+import app.lightmove.api.workspace.constant.InvitationWithdrawal;
+import app.lightmove.api.workspace.constant.MemberRemovalReason;
 import app.lightmove.api.workspace.model.AuditLine;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -93,12 +95,17 @@ public class AuditLogPhrasing {
         on(WorkspaceEventType.INVITATION_ACCEPTED, line -> line.failed()
                 ? "An invitation was refused: it was sent to another address"
                 : "Joined the workspace as " + roleWord(line, line.text("role")));
-        on(WorkspaceEventType.INVITATION_REVOKED, line -> "Withdrew the invitation to " + nameOr(line, "someone"));
+        on(WorkspaceEventType.INVITATION_REVOKED, line -> "Withdrew the invitation to " + nameOr(line, "someone")
+                + withdrawalSuffix(InvitationWithdrawal.fromAuditKey(line.text("reason"))));
+        on(WorkspaceEventType.INVITATION_EMAIL_FAILED,
+                line -> "The invitation email to " + nameOr(line, "someone") + " could not be sent");
         on(WorkspaceEventType.MEMBER_ROLE_CHANGED, line -> line.text("addedRole") != null
                 ? "Made " + nameOr(line, "a member") + " " + article(contactWord(line)) + " as well"
                 : "Changed " + possessive(nameOr(line, "a member")) + " roles from " + rolesWord(line, line.text("from"))
                         + " to " + rolesWord(line, line.text("to")));
-        on(WorkspaceEventType.MEMBER_REMOVED, line -> "Removed " + nameOr(line, "a member") + " from the workspace");
+        on(WorkspaceEventType.MEMBER_REMOVED, line -> line.is("reason", MemberRemovalReason.ACCOUNT_DELETED.name())
+                ? "Deleted their account and left the workspace"
+                : "Removed " + nameOr(line, "a member") + " from the workspace");
         on(ProjectEventType.PROJECT_TEAM_CHANGED, line -> switch (String.valueOf(line.text("action"))) {
             case "add" -> "Added " + nameOr(line, "a member") + " to the position";
             case "roles" -> "Changed " + possessive(nameOr(line, "a member")) + " role on the position";
@@ -131,6 +138,8 @@ public class AuditLogPhrasing {
         on(ProjectEventType.NOTETAKER_RECORDING_DOWNLOADED, line -> "Downloaded a call recording");
         on(WorkspaceEventType.AUDIT_LOG_EXPORTED, line -> "Exported the audit log ("
                 + count(line.text("rows"), "event", "events") + ")");
+        on(WorkspaceEventType.WORKSPACE_EXPORT_STARTED, line -> "Started an export of the whole workspace");
+        on(WorkspaceEventType.WORKSPACE_EXPORT_DOWNLOADED, line -> "Downloaded the export of the whole workspace");
     }
 
     private void settings() {
@@ -144,9 +153,12 @@ public class AuditLogPhrasing {
                     : "Changed the " + providerName(line.text("provider")) + " app in Integrations";
             case "availability" -> "Changed working hours or the daily email limit";
             case "pipeline" -> "Changed the pipeline stages";
+            case "retention" -> "Changed how long candidates are kept";
             default -> "Updated the workspace's details";
         });
         on(WorkspaceEventType.WORKSPACE_DELETED, line -> "Deleted the workspace");
+        on(WorkspaceEventType.WORKSPACE_RESTORED, line -> "Restored the workspace");
+        on(WorkspaceEventType.WORKSPACE_PURGED, line -> "Permanently deleted everything the workspace held");
         on(WorkspaceEventType.POSITION_TEMPLATE_CREATED, line -> "Added a role template");
         on(WorkspaceEventType.POSITION_TEMPLATE_CUSTOMISED, line -> "Customised a role template");
         on(WorkspaceEventType.POSITION_TEMPLATE_UPDATED, line -> "Edited a role template");
@@ -157,6 +169,13 @@ public class AuditLogPhrasing {
         on(WorkspaceEventType.POSITION_TEMPLATES_IMPORTED, line -> "Imported role templates");
         on(ProjectEventType.CANDIDATE_TAG_CREATED, line -> "Added a candidate tag");
         on(ProjectEventType.CANDIDATE_TAG_UPDATED, line -> "Changed a candidate tag");
+        on(ProjectEventType.PERSON_SUPPRESSION_ADDED, line -> "Added someone to the suppression list");
+        on(ProjectEventType.PERSON_SUPPRESSION_REMOVED, line -> "Removed someone from the suppression list");
+        on(ProjectEventType.PERSON_PROCESSING_RESTRICTED, line -> "Restricted processing of a candidate");
+        on(ProjectEventType.PERSON_PROCESSING_RESTRICTION_LIFTED, line -> "Lifted a candidate's processing restriction");
+        on(ProjectEventType.PERSON_ERASED, line -> line.is("reason", "retention")
+                ? "Permanently deleted a candidate past the retention period" : "Permanently deleted a candidate");
+        on(ProjectEventType.PERSON_RETENTION_KEPT, line -> "Kept a candidate due for deletion");
         on(ProjectEventType.CANDIDATE_PIPELINE_REORDERED, line -> "Reordered the pipeline");
         on(ProjectEventType.TASK_PRESET_CREATED, line -> "Added a task preset");
         on(ProjectEventType.TASK_PRESET_UPDATED, line -> "Changed a task preset");
@@ -191,6 +210,7 @@ public class AuditLogPhrasing {
             case "REFRESH_REUSE" -> "An AI app was disconnected after its access was used twice";
             case "MEMBER_REMOVED" -> "An AI app was disconnected when its owner left the workspace";
             case "PASSWORD_CHANGED" -> "An AI app was disconnected by a password change";
+            case "ACCOUNT_DELETED" -> "An AI app was disconnected when its owner deleted their account";
             case "WORKSPACE_DELETED" -> "An AI app was disconnected with the workspace";
             default -> "Disconnected an AI app";
         });
@@ -204,6 +224,13 @@ public class AuditLogPhrasing {
         on(WorkspaceEventType.MAILBOX_DISCONNECTED, line -> "Disconnected their mailbox");
         on(WorkspaceEventType.ZOOM_CONNECTED, line -> "Connected Zoom");
         on(WorkspaceEventType.ZOOM_DISCONNECTED, line -> "Disconnected Zoom");
+        on(WorkspaceEventType.EMAIL_TEMPLATE_SHARED, line -> line.targetName() == null
+                ? "Shared an email template" : "Shared the email template \"" + line.targetName() + "\"");
+        on(WorkspaceEventType.EMAIL_TEMPLATE_UNSHARED, line -> "Stopped sharing an email template");
+        on(WorkspaceEventType.EMAIL_TEMPLATE_UPDATED, line -> line.targetName() == null
+                ? "Edited a shared email template"
+                : "Edited the shared email template \"" + line.targetName() + "\"");
+        on(WorkspaceEventType.EMAIL_TEMPLATE_DELETED, line -> "Deleted a shared email template");
         on(ProjectEventType.OUTREACH_SEQUENCE_CREATED, line -> "Created a sequence");
         on(ProjectEventType.OUTREACH_SEQUENCE_UPDATED, line -> "Edited a sequence");
         on(ProjectEventType.OUTREACH_SEQUENCE_DELETED, line -> "Deleted a sequence");
@@ -371,5 +398,16 @@ public class AuditLogPhrasing {
         }
         String lower = word.toLowerCase(Locale.ROOT).replace('_', ' ');
         return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
+    }
+
+    private static String withdrawalSuffix(InvitationWithdrawal withdrawal) {
+        if (withdrawal == null) {
+            return "";
+        }
+        return switch (withdrawal) {
+            case CANCELLED -> "";
+            case INVITER_REMOVED -> " when its sender left the workspace";
+            case INVITER_DEMOTED -> " when its sender stopped being an admin";
+        };
     }
 }

@@ -2,7 +2,7 @@ package app.lightmove.api.enrichment.sourcing.constant;
 
 import java.util.Set;
 
-/** Where a Find executives run stands. Stored by name, matching V184's CHECK. */
+/** Where a Find executives run stands. Stored by name, matching V209's CHECK. */
 public enum SourcingRunStatus {
     QUEUED,
     RUNNING,

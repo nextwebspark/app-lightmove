@@ -188,6 +188,12 @@ project route's `projectId` (#243) — ids only, never an email or a name. Each 
 (#244). Where Cloud Run passed a trace, every line carries `logging.googleapis.com/trace`, `spanId` and
 `trace_sampled`, so it nests under Cloud Run's own request entry (#245).
 
+The `message` and `stack_trace` of every deployed line are masked (#927, `PersonalDataLogMasker`): an email address
+reads `[email removed]`, a LinkedIn profile link (written out or percent-encoded, `/in/` or `/pub/`) `[profile removed]` and a phone written with its `+` `[phone removed]`,
+so a vendor's error quoting its request cannot keep a person's contact in the log. A phone without a `+` is left, since
+the looser rule the model calls use reads a UUID's last group as one. Searching the logs for a person's address
+therefore finds nothing; search by their id.
+
 The trace is read from `traceparent` / `X-Cloud-Trace-Context`, which Cloud Run's front end sets — but
 both are request headers, so a caller reaching the container any other way chooses its own. The parser
 accepts only the documented shapes, which bounds the damage to that caller's lines nesting under a trace
@@ -202,6 +208,12 @@ id of their choosing; never treat a line's trace as proof of which request it be
 | One user's session, in order | `jsonPayload.message="request" AND jsonPayload.userId="<uuid>"` |
 | Slow calls on a route | `jsonPayload.message="request" AND jsonPayload.route="/api/v1/projects/{projectId}/strategy/companies" AND jsonPayload.durationMs>1000` |
 | Lost audit rows | `jsonPayload.message=~"^Failed to write audit event"` |
+
+**Email pictures are never logged.** A signature's photo and logo (`/api/v1/email-images/{token}`) are fetched each time
+a recipient opens an email, so a line per fetch would record who read what when. `RequestLogFilter` writes none, and
+`ops/gcp/bootstrap.sh` adds an `email-images` exclusion to the `_Default` sink so Cloud Run's own request entry for
+them is never stored either. Each token names one stored picture shared by every email that shows it — never a
+message or a recipient — so even a fetch seen elsewhere identifies nobody.
 
 Add `workspaceId` and `userId` as **summary fields** (a per-viewer Logs Explorer setting) so they show on
 the collapsed line. None of these ids may ever be a log-based-metric label: every distinct value is its
@@ -369,11 +381,18 @@ Asked for, and the honest answer is that some of these are more urgent than the 
    not a quota" — and with `max-instances 3` the real login ceiling is 30/minute, wiped by every cold
    start. For a login endpoint on the public internet that is thin. It needs a shared store, and
    Postgres is already there.
-4. **Confirm Cloud SQL backups and point-in-time recovery are on.** `bright-gcc` is a `db-f1-micro`
-   shared with the Bright Data ETL. Do not find out during the incident.
+4. **Turn on Cloud SQL backups and point-in-time recovery.** Read on 2026-11-10, `bright-gcc` (a `db-g1-small`
+   shared with the Bright Data ETL) had **neither**: one on-demand backup from 2026-10-01 is all there is.
+   `docs/gdpr/security-of-processing.md` (#927) has the commands, the window and the restore drill.
 5. **Nothing alerts anyone.** The minimum set: 5xx rate over a threshold, p95 latency, readiness
    failing, Hikari pool exhaustion, JVM old-gen trending up, Cloud Run pinned at max-instances.
    An alert that pages a human is what makes all the above worth building.
+
+   **Partly done (Nov 2026).** `ops/gcp/monitoring.sh` creates log metrics for app ERRORs and 5xx,
+   email channels, alert policies at 5 or more in 10 minutes, and an external uptime check on
+   `/actuator/health` with its own policy. `ops/gcp/log-digest.sh` adds a daily 08:00 Dubai email
+   (Cloud Run Job + Scheduler) that lists the day's errors, or says all is OK. Still open: p95 latency,
+   Hikari exhaustion, JVM memory, max-instances, and an alert on the digest job failing.
 
 **Soon**
 

@@ -186,7 +186,7 @@ function TriageStage() {
   const [importing, setImporting] = useState(false);
   const lineSelection = useLineSelection(TICKED_LINES_CAP);
   /** The companies Find executives opened on; null while its panel is closed. */
-  const [findingAt, setFindingAt] = useState<readonly string[] | null>(null);
+  const [findingAt, setFindingAt] = useState<{ scope: readonly string[]; search: boolean } | null>(null);
   const [enrolment, setEnrolment] = useState<Enrolment | null>(null);
   const [pipelineSelection, setPipelineSelection] = useState<ReadonlySet<string>>(() => new Set());
   const [managingColumns, setManagingColumns] = useState(false);
@@ -439,7 +439,7 @@ function TriageStage() {
   };
   const handleFindExecutives = () => {
     const fits = tickedCompanies.length > 0 && tickedCompanies.length <= findExecutivesCap;
-    setFindingAt(fits ? tickedCompanies : []);
+    setFindingAt({ scope: fits ? tickedCompanies : [], search: true });
   };
 
   /**
@@ -911,7 +911,7 @@ function TriageStage() {
                 state: sourcing.button,
                 unavailable: findExecutivesUnavailable(),
                 companies: tickedCompanies.length,
-                last: sourcing.run ? { summary: lastSearchSummary(sourcing.run), onOpen: () => setFindingAt([]) } : undefined,
+                last: sourcing.run ? { summary: lastSearchSummary(sourcing.run), onOpen: () => setFindingAt({ scope: [], search: false }) } : undefined,
               }
             : undefined
         }
@@ -929,7 +929,8 @@ function TriageStage() {
           onClose={() => setFindingAt(null)}
           projectId={project.id}
           subtitle={project.positionTitle}
-          scope={findingAt ?? []}
+          scope={findingAt?.scope ?? []}
+          autoSearch={findingAt?.search ?? false}
           sourcing={sourcing}
         />
       )}
@@ -986,7 +987,7 @@ function TriageStage() {
       /* `min-h-0`: a `flex-1` child of a flex *column* keeps `min-height: auto` and refuses to
          shrink, so without it the grid grows to the height of every row it holds and the whole
          screen scrolls — header and pager included — rather than the rows scrolling under them. */
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-2">
         <TriageCompanyTable
           rows={rows}
           projectId={project.id}
@@ -1067,7 +1068,9 @@ function TriageStage() {
             moveCandidate.mutate({ candidate, status });
           }}
           onOpenCompany={(company) => setOpenCompany({ company })}
-          onFindExecutives={findExecutivesOffered ? (company) => setFindingAt([company.id]) : undefined}
+          onFindExecutives={
+            findExecutivesOffered ? (company) => setFindingAt({ scope: [company.id], search: true }) : undefined
+          }
           busyIds={busyIds}
           canWrite={canWrite}
           stageReadOnly={declinedStage}
@@ -1139,7 +1142,7 @@ function TriageStage() {
           findExecutivesOffered
             ? (company) => {
                 setOpenCompany(null);
-                setFindingAt([company.id]);
+                setFindingAt({ scope: [company.id], search: false });
               }
             : undefined
         }

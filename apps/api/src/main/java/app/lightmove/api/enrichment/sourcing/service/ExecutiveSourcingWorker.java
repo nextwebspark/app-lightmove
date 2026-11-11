@@ -3,6 +3,7 @@ package app.lightmove.api.enrichment.sourcing.service;
 import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.model.MeteredUse;
 import app.lightmove.api.billing.usage.service.UsageRecorder;
+import app.lightmove.api.candidate.service.SuppressionGate;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.ExecutiveSourcingSettings;
@@ -26,7 +27,9 @@ import java.time.Instant;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.locks.ReentrantLock;
@@ -40,9 +43,10 @@ import org.springframework.transaction.event.TransactionalEventListener;
 /**
  * Runs a Find executives search after it commits, off its thread: the companies a few at a time, each one
  * {@link CompanySearch}, its confirmed people's live profiles bought while the company's budget lasts, everyone
- * judged and ranked ({@link SuggestionJudge}) and stored for the panel — nobody is filed. Each company is recorded
- * as it finishes, and a stop asked for is honoured before the next. No model is called. Not {@code @Transactional}:
- * every vendor call is made with no connection held, and the writes are each their own short transaction.
+ * judged and ranked ({@link SuggestionJudge}) and stored for the panel, the suppression list left out — nobody is
+ * filed. Each company is recorded as it finishes, and a stop asked for is honoured before the next. No model is
+ * called. Not {@code @Transactional}: every vendor call is made with no connection held, and the writes are each
+ * their own short transaction.
  */
 @Component
 @Slf4j
@@ -54,6 +58,7 @@ class ExecutiveSourcingWorker {
     private final LiveProfiles live;
     private final PeopleCache cache;
     private final SourcingCriteriaService criteria;
+    private final SuppressionGate suppression;
     private final PositionService positions;
     private final AuditService audit;
     private final UsageRecorder usage;
@@ -63,7 +68,7 @@ class ExecutiveSourcingWorker {
 
     ExecutiveSourcingWorker(SourcingRunStore store, SuggestionStore suggestions, CompanySearch companySearch,
                             LiveProfiles live, PeopleCache cache, SourcingCriteriaService criteria,
-                            PositionService positions, AuditService audit, UsageRecorder usage, Clock clock,
+                            SuppressionGate suppression, PositionService positions, AuditService audit, UsageRecorder usage, Clock clock,
                             LightMoveProperties properties) {
         this.store = store;
         this.suggestions = suggestions;
@@ -71,6 +76,7 @@ class ExecutiveSourcingWorker {
         this.live = live;
         this.cache = cache;
         this.criteria = criteria;
+        this.suppression = suppression;
         this.positions = positions;
         this.audit = audit;
         this.usage = usage;
@@ -184,13 +190,25 @@ class ExecutiveSourcingWorker {
 
         private CompanyOutcome search(SourcingCompany company) {
             List<String> countries = searched.countriesFor(company);
-            FoundPeople found = withConfirmedProfiles(company, companySearch.search(company.employer(),
-                    searched.words(), brief.seniority(), countries, searched.perCompany()));
+            FoundPeople found = withConfirmedProfiles(company, withoutSuppressed(companySearch.search(
+                    company.employer(), searched.words(), brief.seniority(), countries, searched.perCompany())));
             List<Suggestion> judged = SuggestionJudge.of(brief, searched.words(), countries, YearMonth.now(clock))
                     .judge(found.people());
             suggestions.save(request.workspaceId(), request.projectId(), request.runId(), company.triageCompanyId(),
                     judged);
             return CompanyOutcome.searched(company, found, judged);
+        }
+
+        /** The workspace's suppression list is asked before a profile is bought for anyone or anyone is stored. */
+        private FoundPeople withoutSuppressed(FoundPeople found) {
+            Set<String> suppressed = suppression.suppressedProfileSlugsOf(request.workspaceId(),
+                    found.people().stream().map(FoundPerson::slug).filter(Objects::nonNull).toList());
+            if (suppressed.isEmpty()) {
+                return found;
+            }
+            return found.withPeople(found.people().stream()
+                    .filter(person -> !suppressed.contains(person.slug()))
+                    .toList(), 0, 0);
         }
 
         /**

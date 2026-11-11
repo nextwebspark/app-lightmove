@@ -1,6 +1,6 @@
 package app.lightmove.api.enrichment.sourcing.constant;
 
-/** Who last wrote a position's search: the role title's own words, the AI's draft, or a person. Stored by name (V184). */
+/** Who last wrote a position's search: the role title's own words, the AI's draft, or a person. Stored by name (V209). */
 public enum CriteriaSource {
     DEFAULT,
     AI,

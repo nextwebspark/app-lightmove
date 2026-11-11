@@ -10,16 +10,16 @@ import java.time.LocalDate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** The rule the New position modal previews; the SPA's `lib/timeline.ts` must agree with it. */
+/** The rule the New position modal checks; the SPA's `lib/timeline.ts` must agree with it. */
 class ProjectTimelineTest {
 
     private static final LocalDate START = LocalDate.of(2026, 9, 24);
 
     @Test
-    @DisplayName("a search with no mapping target is given one at 60% of the window, rounded to the day")
-    void searchDefaultsMappingTarget() {
+    @DisplayName("a search with no mapping target is given none")
+    void searchLeavesMappingTargetBlank() {
         ProjectTimeline timeline = ProjectTimeline.resolve(ProjectType.SEARCH, START, START.plusDays(45), null);
-        assertThat(timeline.mappingTargetDate()).isEqualTo(START.plusDays(27));
+        assertThat(timeline.mappingTargetDate()).isNull();
     }
 
     @Test
@@ -31,7 +31,7 @@ class ProjectTimelineTest {
     }
 
     @Test
-    @DisplayName("without both ends of the window there is nothing to default from")
+    @DisplayName("without a mapping target sent, a search or a mapping project keeps none")
     void openWindowLeavesMappingTargetEmpty() {
         assertThat(ProjectTimeline.resolve(ProjectType.SEARCH, START, null, null).mappingTargetDate()).isNull();
         assertThat(ProjectTimeline.resolve(ProjectType.MAPPING, START, START.plusDays(10), null)

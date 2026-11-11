@@ -41,6 +41,8 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
             + "where c.projectId = :projectId and c.id in :ids")
     List<CandidateAttribution> findAttributionByProjectIdAndIdIn(UUID projectId, Collection<UUID> ids);
 
+    long countByProjectId(UUID projectId);
+
     /** Named rows of one mandate. */
     List<Candidate> findByProjectIdAndIdIn(UUID projectId, Collection<UUID> ids);
 

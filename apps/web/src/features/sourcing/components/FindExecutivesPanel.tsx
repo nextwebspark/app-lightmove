@@ -5,7 +5,13 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { cn } from "../../../lib/cn";
 import { useCountries } from "../../../lib/countries";
 import { useFullscreen } from "../../../lib/useFullscreen";
-import type { CompanyCount, CompanySuggestions, SourcingRun, SuggestedPerson } from "../api/sourcingApi";
+import type {
+  CompanyCount,
+  CompanySuggestions,
+  SearchCriteria,
+  SourcingRun,
+  SuggestedPerson,
+} from "../api/sourcingApi";
 import { LEVEL_TABS } from "../lib/searchLevels";
 import { companiesOf, peopleOf } from "../lib/sourcingSummary";
 import { titleLevelOf } from "../lib/suggestionReasons";
@@ -32,7 +38,8 @@ const keyOf = (triageCompanyId: string, linkedinSlug: string) => `${triageCompan
  * Find executives: the position's search, drafted from the brief and changed in place with free counts; the
  * search over the companies, company by company, with Stop; what each found, ranked with its reasons; and Add,
  * which files the people ticked. Opened from the toolbar with the ticked companies (or the first ones with nobody
- * mapped) and from a company's drawer with that company alone.
+ * mapped) and from a company's drawer with that company alone. Opened to search, it searches at once every company
+ * the panel holds no results for, so one press shows people; a company already searched shows what it found.
  */
 export function FindExecutivesPanel({
   open,
@@ -40,6 +47,7 @@ export function FindExecutivesPanel({
   projectId,
   subtitle,
   scope,
+  autoSearch = false,
   sourcing,
 }: {
   open: boolean;
@@ -49,6 +57,8 @@ export function FindExecutivesPanel({
   subtitle: string;
   /** The companies the panel opened on; empty for the search's own default. */
   scope: readonly string[];
+  /** Search the companies not searched yet as soon as the search and its counts are ready, once per opening. */
+  autoSearch?: boolean;
   sourcing: SourcingRunState;
 }) {
   const [fullscreen, toggleFullscreen] = useFullscreen();
@@ -147,6 +157,28 @@ export function FindExecutivesPanel({
     await criteria.saveNow();
     sourcing.start(ids);
   };
+
+  const autoSearched = useRef(false);
+  const ready =
+    criteria.criteria !== null &&
+    !criteria.drafting &&
+    !suggestions.loading &&
+    (!hasWords(criteria.criteria) || (counts !== null && !counting));
+  const unsearched = shown
+    .filter((entry) => entry.status === "unsearched" && isIncluded(entry.company.triageCompanyId))
+    .map((entry) => entry.company.triageCompanyId)
+    .join(",");
+  useEffect(() => {
+    if (!open) {
+      autoSearched.current = false;
+      return;
+    }
+    if (!autoSearch || autoSearched.current || !ready) return;
+    autoSearched.current = true;
+    if (sourcing.isRunning || !hasWords(criteria.criteria) || unsearched === "") return;
+    void search(unsearched.split(","));
+  });
+
   const addWord = (word: string) => {
     if (!criteria.criteria) return;
     criteria.update({
@@ -177,9 +209,7 @@ export function FindExecutivesPanel({
     });
   };
 
-  const searchable =
-    criteria.criteria !== null &&
-    (criteria.criteria.functionTerms.length > 0 || criteria.criteria.standaloneTitles.length > 0);
+  const searchable = hasWords(criteria.criteria);
   const searchLabel = sourcing.isRunning
     ? "Searching…"
     : hasResults
@@ -367,6 +397,11 @@ export function FindExecutivesPanel({
 }
 
 /** The statuses under which a company's stored results are its own and are drawn. */
+/** A search names at least one title word to look for. */
+function hasWords(criteria: SearchCriteria | null): boolean {
+  return criteria !== null && (criteria.functionTerms.length > 0 || criteria.standaloneTitles.length > 0);
+}
+
 const SHOWS_RESULTS: ReadonlySet<CompanyStatus> = new Set(["searched"]);
 
 /** Outcomes that leave results behind, as the server's suggestions read keeps them. */

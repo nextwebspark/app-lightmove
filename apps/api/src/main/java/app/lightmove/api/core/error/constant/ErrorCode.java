@@ -70,6 +70,16 @@ public enum ErrorCode {
     /** A person with no password proves it is them by having signed in moments ago. */
     MFA_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign out and back in, then turn on two-factor authentication within 10 minutes"),
 
+    /** Account deletion, by a person with no password: the proof is a sign-in moments ago, as for two-factor. */
+    ACCOUNT_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign in again, then delete your account within 10 minutes"),
+
+    /**
+     * Carries {@code soleAdminOf} (workspaces, id and name) and {@code soleLeadOf} (live positions, with their
+     * workspace): what the person must hand over before their account can go, since nobody else could.
+     */
+    ACCOUNT_HANDOVER_REQUIRED(HttpStatus.CONFLICT,
+            "Hand over the workspaces you are the only admin of, and the positions you are the only lead of, first"),
+
     /** Also served for a session belonging to somebody else — a 403 would confirm the id names a real one. */
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "That session is no longer active"),
 
@@ -83,6 +93,7 @@ public enum ErrorCode {
 
     INVITATION_INVALID(HttpStatus.BAD_REQUEST, "This invitation is not valid"),
     INVITATION_EXPIRED(HttpStatus.BAD_REQUEST, "This invitation has expired"),
+    INVITATION_EMAIL_NOT_SENT(HttpStatus.BAD_GATEWAY, "The invitation email could not be sent"),
 
     LAST_ADMIN(HttpStatus.CONFLICT, "A workspace must keep at least one admin"),
 
@@ -224,10 +235,6 @@ public enum ErrorCode {
     CONTACT_LIMIT_REACHED(HttpStatus.CONFLICT,
             "A profile holds ten email addresses and ten phone numbers at most"),
 
-    /** A plugin capture's URL is the page it was read off, and research and contact lookup key on it. */
-    CANDIDATE_PROFILE_URL_LOCKED(HttpStatus.CONFLICT,
-            "This profile was captured from LinkedIn; its URL is not editable"),
-
     /** Another person in the workspace is that LinkedIn profile; the mandate may map them instead. */
     PERSON_PROFILE_HELD(HttpStatus.CONFLICT,
             "Another candidate in this workspace already has that LinkedIn profile"),
@@ -256,6 +263,14 @@ public enum ErrorCode {
     /** A teammate, or an AI draft, saved this assessment after it was opened here. */
     CANDIDATE_ASSESSMENT_STALE(HttpStatus.CONFLICT,
             "Someone saved this assessment after you opened it. Reload to see their changes"),
+
+    /** A teammate saved the position's ranking scenario after it was opened here. */
+    RANKING_SCENARIO_STALE(HttpStatus.CONFLICT,
+            "Someone saved this scenario after you opened it. Reload to see their changes"),
+
+    /** The brief's competencies changed after the ranking was opened, so the scenario names the wrong ones. */
+    RANKING_BRIEF_CHANGED(HttpStatus.CONFLICT,
+            "The brief's competencies changed since you opened this. Reload to see them"),
 
     /** The AI has nothing to score an executive against until the brief names its competencies. */
     CANDIDATE_ASSESSMENT_NO_CRITERIA(HttpStatus.CONFLICT,
@@ -302,6 +317,37 @@ public enum ErrorCode {
 
     /** Contact lookups are off for a person marked do not contact; nothing was spent. */
     PERSON_DO_NOT_CONTACT(HttpStatus.CONFLICT, "This person is marked do not contact, so contact lookups are off"),
+
+    /**
+     * Processing of this person is restricted (GDPR Art. 18): no AI run, contact lookup, email, invite, recording or
+     * new position until someone lifts it. Nothing was spent.
+     */
+    PERSON_PROCESSING_RESTRICTED(HttpStatus.CONFLICT,
+            "Processing is restricted for this person, so this can't be done until the restriction is lifted"),
+    PERSON_PROCESSING_RESTRICTION_NOT_YOURS(HttpStatus.FORBIDDEN,
+            "Only the person who restricted processing, or an admin, can lift it"),
+
+    /** A LinkedIn profile or email the workspace's suppression list holds: nobody may file that person again. */
+    PERSON_SUPPRESSED(HttpStatus.CONFLICT,
+            "This person is on your workspace's suppression list, so they can't be added"),
+
+    /** An email to the person is on its way to the mail service; erasing them now would race it. Nothing changed. */
+    PERSON_ERASE_SEND_IN_FLIGHT(HttpStatus.CONFLICT, "An email to this person is sending right now. Try again in a minute"),
+    /**
+     * The deployment has no suppression keyset, or none holding the key a workspace's entries were written under.
+     * Refused rather than read as an empty list, which would let every suppressed person back in.
+     */
+    SUPPRESSION_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
+            "Your workspace's suppression list can't be checked right now, so nobody can be added. Contact Uncava support"),
+
+    /** A whole-workspace export is already being built; its card shows it. Nothing new was started. */
+    WORKSPACE_EXPORT_RUNNING(HttpStatus.CONFLICT, "An export is already being built. It will be ready soon"),
+
+    /** Past its expiry, failed or still building: there is no file to download. */
+    WORKSPACE_EXPORT_UNAVAILABLE(HttpStatus.NOT_FOUND, "This export is no longer available. Start a new one"),
+
+    /** A platform admin's restore of a workspace that is not deleted, or whose purge has begun. Nothing changed. */
+    WORKSPACE_NOT_RESTORABLE(HttpStatus.CONFLICT, "This workspace can't be restored"),
 
     /** Nothing was saved. Never sent for a stream that ran out of time: see {@link #ASSISTANT_STILL_ANSWERING}. */
     ASSISTANT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
@@ -535,6 +581,13 @@ public enum ErrorCode {
     OUTREACH_DO_NOT_CONTACT(HttpStatus.CONFLICT, "This person is marked do not contact"),
 
     /** A reply needs a thread the caller's mailbox started and can still read; a first email needs none. */
+    /**
+     * An own email holding a variable this executive has no value for and no fallback, or one no email can fill
+     * ({@code {{opener}}} included); the body's {@code tokens} names them.
+     */
+    OUTREACH_TOKENS_UNFILLED(HttpStatus.CONFLICT,
+            "Some variables in this email have nothing to fill them. Fill them in, give them a fallback or remove them"),
+
     OUTREACH_THREAD_UNAVAILABLE(HttpStatus.CONFLICT,
             "There is no email thread from your mailbox to reply in. Send a new email instead"),
 
@@ -638,6 +691,29 @@ public enum ErrorCode {
 
     /** A Stripe webhook whose signature does not verify, or any delivery while no webhook secret is configured. */
     BILLING_WEBHOOK_REJECTED(HttpStatus.BAD_REQUEST, "Bad Request"),
+
+    /** A photo that is not a JPEG or PNG this server can read, or claims a raster too large to decode. */
+    EMAIL_IMAGE_UNREADABLE(HttpStatus.BAD_REQUEST, "That picture could not be read. Use a JPEG or PNG"),
+
+    EMAIL_IMAGE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "That picture is too large. Use one under 5 MB"),
+
+    /** Another person's signature reads the same as one that never existed. */
+    EMAIL_SIGNATURE_NOT_FOUND(HttpStatus.NOT_FOUND, "That signature does not exist"),
+
+    EMAIL_SIGNATURE_LIMIT_REACHED(HttpStatus.CONFLICT, "You can keep up to 10 signatures"),
+
+    /** Another person's personal email template reads the same as one that never existed. */
+    EMAIL_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "That email template does not exist"),
+
+    /** A shared email template changed by someone who is neither its owner nor a workspace admin. */
+    EMAIL_TEMPLATE_NOT_YOURS(HttpStatus.FORBIDDEN,
+            "Only its owner or a workspace admin can change this template. Duplicate it to make your own"),
+
+    EMAIL_TEMPLATE_LIMIT_REACHED(HttpStatus.CONFLICT, "You can keep up to 100 email templates"),
+
+    /** The version sent is not the row's: someone saved or shared the template since it was read. */
+    EMAIL_TEMPLATE_STALE(HttpStatus.CONFLICT,
+            "Someone changed this template after you opened it. Reload to see their version"),
 
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 

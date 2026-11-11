@@ -66,7 +66,12 @@ export interface SaveSequence {
   schedule: SequenceSchedule;
 }
 
-export type OutreachSkipReason = "NO_EMAIL" | "DO_NOT_CONTACT" | "LEFT_THE_RUNNING" | "ALREADY_IN_SEQUENCE";
+export type OutreachSkipReason =
+  | "NO_EMAIL"
+  | "DO_NOT_CONTACT"
+  | "PROCESSING_RESTRICTED"
+  | "LEFT_THE_RUNNING"
+  | "ALREADY_IN_SEQUENCE";
 
 export interface RecipientEmail {
   address: string;
@@ -178,9 +183,11 @@ export function startSequence(
   sequenceId: string,
   people: EnrollPerson[],
   timing: StartTiming,
+  /** One of the sender's own signatures, closing every email of the run; null sends none. */
+  signatureId: string | null,
 ): Promise<StartedSequence> {
   return request<StartedSequence>(`/projects/${projectId}/outreach/sequences/${sequenceId}/enrollments`, {
     method: "POST",
-    body: { people, ...timing },
+    body: { people, ...timing, signatureId },
   });
 }

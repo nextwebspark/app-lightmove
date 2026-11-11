@@ -31,6 +31,12 @@ public interface PaymentGateway {
     /** Sets the subscription's seat quantity: an added seat is invoiced now, a removed one simply bills no more. */
     SeatQuantityChange updateSeats(String subscriptionId, long seats);
 
+    /**
+     * Whether the subscription ends when the period paid for runs out: a deleted workspace's is, a restored one's
+     * no longer. Nothing is refunded and nothing more is charged.
+     */
+    void cancelAtPeriodEnd(String subscriptionId, boolean cancel);
+
     /** The subscription's own card, else its customer's default; empty where there is none or Stripe cannot say. */
     Optional<PaymentCard> cardOf(String subscriptionId);
 

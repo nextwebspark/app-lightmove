@@ -15,6 +15,7 @@ import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.RecordingProviderTokenClient;
 import app.lightmove.api.RecordingRecallCalendarApi;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.model.RecallCalendarEvent;
@@ -29,6 +30,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -413,7 +415,8 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
         mailboxTokens.forget(grantId);
         tokenEndpoint.clear();
 
-        assertThatThrownBy(() -> mailboxTokens.accessToken(grantId)).isInstanceOf(VendorException.class);
+        assertThatThrownBy(() -> WorkspaceScope.call(UUID.fromString(workspaceId),
+                () -> mailboxTokens.accessToken(grantId))).isInstanceOf(VendorException.class);
 
         assertThat(connectionRow().get("status")).isEqualTo("ERROR");
         assertThat(recallCalendarId()).isNull();
@@ -431,7 +434,7 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
                 workspaceId);
         mailboxTokens.forget(grantId);
 
-        mailboxTokens.accessToken(grantId);
+        WorkspaceScope.call(UUID.fromString(workspaceId), () -> mailboxTokens.accessToken(grantId));
 
         assertThat(appClientIdOnRow()).isEqualTo("uncava-google-client");
     }

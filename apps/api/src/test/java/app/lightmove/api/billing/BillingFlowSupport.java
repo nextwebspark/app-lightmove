@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.billing.credit.constant.CreditAction;
 import app.lightmove.api.billing.credit.constant.CreditGrantSource;
 import app.lightmove.api.billing.credit.model.CreditBalanceSummary;
@@ -24,8 +25,14 @@ public abstract class BillingFlowSupport extends FlowTestSupport {
 
     private static final AtomicInteger OWNER = new AtomicInteger();
 
-    @Autowired protected CreditLedger ledger;
+    /** Called directly, so each call runs in the workspace it names, as the request or job making it would. */
+    protected CreditLedger ledger;
     @Autowired @FixtureJdbc protected JdbcTemplate db;
+
+    @Autowired
+    void scopeTheLedger(CreditLedger bean) {
+        ledger = TestWorkspaceScopes.scopedByArguments(bean);
+    }
 
     protected UUID newWorkspace() throws Exception {
         String owner = "owner" + OWNER.incrementAndGet() + "@" + domain;

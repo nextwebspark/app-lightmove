@@ -3,6 +3,7 @@ package app.lightmove.api.project.repository;
 import app.lightmove.api.project.constant.ProjectStage;
 import app.lightmove.api.project.model.ProjectMember;
 import app.lightmove.api.workspace.constant.MemberStatus;
+import app.lightmove.api.workspace.model.LedAlonePosition;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -63,6 +64,20 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, UU
             """)
     long countSoleLeadSeatsExcludingStages(@Param("memberId") UUID memberId,
                                            @Param("doneStages") Collection<ProjectStage> doneStages);
+
+    /** The positions {@link #countSoleLeadSeatsExcludingStages} counts, title first. */
+    @Query("""
+            select distinct new app.lightmove.api.workspace.model.LedAlonePosition(p.id, p.positionTitle)
+            from ProjectMember pm join pm.roles r, Project p
+            where p.id = pm.projectId and pm.memberId = :memberId
+              and r.name = 'LEAD' and p.stage not in :doneStages and p.archivedAt is null
+              and not exists (
+                  select 1 from ProjectMember other join other.roles r2
+                  where other.projectId = pm.projectId and other.id <> pm.id and r2.name = 'LEAD')
+            order by p.positionTitle
+            """)
+    List<LedAlonePosition> findSoleLeadPositionsExcludingStages(@Param("memberId") UUID memberId,
+                                                                @Param("doneStages") Collection<ProjectStage> doneStages);
 
     /** The users seated on the project whose seat holds the action, active members only. */
     @Query("""

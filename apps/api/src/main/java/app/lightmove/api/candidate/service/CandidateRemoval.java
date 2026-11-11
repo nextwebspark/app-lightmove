@@ -36,10 +36,10 @@ class CandidateRemoval {
     }
 
     static void recordRemoved(AuditService.Builder event, Candidate candidate) {
-        // The name is recorded because the row carrying it is about to stop existing, and an audit
-        // entry naming only an unresolvable id answers no question later.
+        // The person's id, never their name: the trail is append-only, so a name written here would outlive their
+        // erasure (#927). The person outlives the mapping, so readers resolve the name from the live row.
         event.detail("candidateId", candidate.getId().toString())
-                .detail("fullName", candidate.getPerson().getFullName())
+                .detail("personId", candidate.getPerson().getId().toString())
                 .record();
     }
 }

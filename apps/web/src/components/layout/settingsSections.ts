@@ -22,10 +22,30 @@ export interface SettingsSection {
   everyStaff?: boolean;
   /** Leads out of Settings; said beside the item. */
   leavesShell?: string;
+  /** Only where the deployment offers the people controls (`/data-protection/config`). */
+  dataProtection?: boolean;
+  /** Offered only while the deployment bills (`GET /billing`'s `enforced`). */
+  billing?: boolean;
 }
+
+/** What this deployment offers, beside who the caller is. */
+export interface SettingsOffers {
+  dataProtection: boolean;
+  billing: boolean;
+}
+
+const NOTHING_OFFERED: SettingsOffers = { dataProtection: false, billing: false };
 
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { to: "/settings/profile", label: "Profile", icon: ICONS.profile, group: "Your account" },
+  { to: "/settings/signature", label: "Email signature", icon: ICONS.pencil, group: "Your account", staffOnly: true },
+  {
+    to: "/settings/email-templates",
+    label: "Email templates",
+    icon: ICONS.fileText,
+    group: "Your account",
+    staffOnly: true,
+  },
   { to: "/settings/notifications", label: "Notifications", icon: ICONS.bell, group: "Your account", staffOnly: true },
   { to: "/settings/availability", label: "Availability", icon: ICONS.calendar, group: "Your account", staffOnly: true },
   { to: "/settings/security", label: "Security", icon: ICONS.lock, group: "Your account" },
@@ -52,23 +72,29 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     everyStaff: true,
   },
   { to: "/settings/integrations", label: "Integrations", icon: ICONS.plug, group: "Workspace" },
-  { to: "/settings/billing", label: "Billing", icon: ICONS.card, group: "Workspace", everyStaff: true },
+  { to: "/settings/billing", label: "Billing", icon: ICONS.card, group: "Workspace", everyStaff: true, billing: true },
   { to: "/settings/templates", label: "Templates", icon: ICONS.file, group: "Workspace" },
+  { to: "/settings/data", label: "Data & retention", icon: ICONS.database, group: "Workspace", dataProtection: true },
   { to: "/settings/template-library", label: "Template library", icon: ICONS.position, group: "Platform" },
 ];
 
 /**
  * The sections this caller reaches. Your account is everyone's — a portal guest has a name and a timezone like
- * anyone else — except Notifications, Availability, API keys and Connected AI apps, which are staff's. Workspace is admin-only
+ * anyone else — except Email signature, Email templates, Notifications, Availability, API keys and Connected AI apps, which are staff's. Workspace is admin-only
  * but for Team, Pipeline stages and Billing, which every staff member reads, and Platform is Uncava staff's.
  * Hiding them is presentation; the route guards are the gate.
  */
-export function visibleSettingsSections(user: User | null): SettingsSection[] {
+export function visibleSettingsSections(
+  user: User | null,
+  offers: SettingsOffers = NOTHING_OFFERED,
+): SettingsSection[] {
   const roles = user?.workspace?.roles ?? [];
   const isAdmin = roles.includes("ADMIN");
   const isClient = isPureClient(roles);
   const isLibraryEditor = user?.platformActions.includes("TEMPLATE_LIBRARY_MANAGE") ?? false;
   return SETTINGS_SECTIONS.filter((section) => {
+    if (section.dataProtection && !offers.dataProtection) return false;
+    if (section.billing && !offers.billing) return false;
     if (section.group === "Platform") return isLibraryEditor;
     if (section.group === "Workspace") return !isClient && (isAdmin || !!section.everyStaff);
     return !(isClient && section.staffOnly);
@@ -85,10 +111,10 @@ export function settingsSectionOf(pathname: string): SettingsSection | undefined
 
 const lastSectionKey = (user: User) => `lightmove.settings.lastSection.${user.id}`;
 
-export function rememberSettingsSection(user: User | null, pathname: string): void {
+export function rememberSettingsSection(user: User | null, pathname: string, offers?: SettingsOffers): void {
   const section = settingsSectionOf(pathname);
   // A section typed in that the guard is about to bounce is not one to come back to.
-  if (!user || !section || !visibleSettingsSections(user).includes(section)) return;
+  if (!user || !section || !visibleSettingsSections(user, offers).includes(section)) return;
   try {
     localStorage.setItem(lastSectionKey(user), section.to);
   } catch {
@@ -100,8 +126,8 @@ export function rememberSettingsSection(user: User | null, pathname: string): vo
  * Where `/settings` opens: the section last visited, while the caller can still reach it; otherwise General for an
  * admin, whose reason to open Settings is usually the workspace, and Profile for everyone else.
  */
-export function settingsLandingOf(user: User | null): string {
-  const visible = visibleSettingsSections(user);
+export function settingsLandingOf(user: User | null, offers?: SettingsOffers): string {
+  const visible = visibleSettingsSections(user, offers);
   let remembered: string | null = null;
   try {
     remembered = user ? localStorage.getItem(lastSectionKey(user)) : null;

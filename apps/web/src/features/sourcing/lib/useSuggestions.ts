@@ -27,6 +27,7 @@ export function useSuggestions(projectId: string, open: boolean) {
       const parts = [added.added > 0 ? `Added ${peopleOf(added.added)} to In universe` : "Nobody was added"];
       if (added.alreadyOnPosition > 0) parts.push(`${added.alreadyOnPosition} already on this position`);
       if (added.expired > 0) parts.push(`${added.expired} expired — search again`);
+      if (added.withheld > 0) parts.push(`${added.withheld} on the suppression list or restricted`);
       if (added.added > 0) toast.success(parts.join(" · "));
       else toast(parts.join(" · "));
     },

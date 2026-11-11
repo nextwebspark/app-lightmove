@@ -124,7 +124,9 @@ public class OutreachSequenceService {
         List<SequenceStep> steps = new ArrayList<>();
         for (int index = 0; index < requested.size(); index++) {
             SequenceStepRequest step = requested.get(index);
+            SignatureTokenRefusal.refuseIn("steps[" + index + "].body", step.body());
             if (index == 0) {
+                SignatureTokenRefusal.refuseIn("steps[0].subject", step.subject());
                 if (step.subject() == null || step.subject().isBlank()) {
                     throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "steps[0].subject",
                             "Write a subject for the first email");

@@ -17,6 +17,7 @@ import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.service.UserTimezones;
 import app.lightmove.api.core.security.token.Tokens;
+import app.lightmove.api.core.tenant.EveryWorkspace;
 import app.lightmove.api.notetaker.constant.CallSuggestionStatus;
 import app.lightmove.api.notetaker.constant.NotetakerJoin;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
@@ -42,6 +43,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -52,6 +55,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -83,6 +87,10 @@ public class NotetakerService {
     /** What Recall says of a bot that has left its call; a leave refused for one of these has already happened. */
     private static final Set<String> LEFT_THE_CALL = Set.of("call_ended", "done", "fatal");
 
+    /** A bot that may still be called back: waiting for its call, joining, or recording. */
+    private static final Set<NotetakerStatus> CANCELLABLE = EnumSet.of(NotetakerStatus.SCHEDULED,
+            NotetakerStatus.JOINING, NotetakerStatus.RECORDING);
+
     private final RecallBotApi recall;
     private final LightMoveProperties properties;
     private final LlmBudgetGuard llmBudget;
@@ -90,11 +98,13 @@ public class NotetakerService {
     private final MeetingRecordingRepository recordings;
     private final MeetingLiveLineRepository liveLines;
     private final CopilotStreamPublisher copilotStream;
+    private final RecallBotErasureSweeper recallCleanup;
     private final KeptMeetings meetings;
     private final CandidateOutreachService people;
     private final UserRepository users;
     private final UserTimezones timezones;
     private final AuditService audit;
+    private final EveryWorkspace workspaces;
     private final TransactionTemplate transactions;
     private final ApplicationEventPublisher events;
     private final Clock clock;
@@ -108,7 +118,7 @@ public class NotetakerService {
                         recipient.personId()).stream()
                 .map(recording -> responseOf(recording, userId, now))
                 .toList();
-        if (!recall.isOffered() || recipient.doNotContact()) {
+        if (!recall.isOffered() || recipient.doNotContact() || recipient.processingRestricted()) {
             return new CandidateNotetakerResponse(recall.isOffered(), rows, List.of(), List.of());
         }
         ZoneId zone = timezones.zoneOf(userId);
@@ -133,6 +143,9 @@ public class NotetakerService {
             throw ApiException.of(ErrorCode.NOTETAKER_NOT_OFFERED);
         }
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
+        if (recipient.processingRestricted()) {
+            throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
+        }
         if (recipient.doNotContact()) {
             throw ApiException.of(ErrorCode.MEETING_DO_NOT_CONTACT);
         }
@@ -232,9 +245,14 @@ public class NotetakerService {
     /**
      * A bot waits for its call by the time it was sent for. Once that call has moved, taken another link, or gone
      * from every calendar, the bot would walk into the room at the old time — on a reused link, into somebody else's
-     * call — so it is called back, and the consultant switches Join at start on again for the new time.
+     * call — so it is called back, and the consultant switches Join at start on again for the new time. A workspace at
+     * a time: read with no workspace, every calendar would look empty and every waiting bot would be called back.
      */
     public int callBackMovedCalls(Instant now) {
+        return workspaces.sum(workspaceId -> callBackMovedCallsInScope(now));
+    }
+
+    private int callBackMovedCallsInScope(Instant now) {
         List<MeetingRecording> waiting = transactions.execute(status ->
                 recordings.findByStatusAndJoinAtAfter(NotetakerStatus.SCHEDULED, now));
         int calledBack = 0;
@@ -286,6 +304,48 @@ public class NotetakerService {
                 });
     }
 
+    /**
+     * Processing of the person was restricted: every bot of theirs still to join, or recording now, is called off and
+     * queued for {@link RecallBotErasureSweeper} to call back and strip of media, in every position. In the
+     * restriction's own transaction, so nothing is left scheduled at Recall if the instance dies after the commit. A bot
+     * already asked to leave is filing its notes, which the notes' worker refuses for a restricted person.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void callBackForRestriction(UUID workspaceId, UUID personId, UUID restrictedBy) {
+        callBack(recordings.lockByWorkspaceIdAndPersonIdAndStatusIn(workspaceId, personId, CANCELLABLE), workspaceId,
+                restrictedBy, "PROCESSING_RESTRICTED");
+    }
+
+    /**
+     * The workspace was deleted: every bot still to join a call, or in one now, is called off and queued for
+     * {@link RecallBotErasureSweeper} the same way, in the deletion's own transaction.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void callBackForWorkspaceDeletion(UUID workspaceId, UUID deletedBy) {
+        callBack(recordings.lockByWorkspaceIdAndStatusIn(workspaceId, CANCELLABLE), workspaceId, deletedBy,
+                "WORKSPACE_DELETED");
+    }
+
+    private void callBack(List<MeetingRecording> live, UUID workspaceId, UUID actorId, String reason) {
+        List<String> botIds = new ArrayList<>();
+        for (MeetingRecording held : live) {
+            if (held.isEnding()) {
+                continue;
+            }
+            callOff(held);
+            audit.event(ProjectEventType.NOTETAKER_CANCELLED).actor(actorId).workspace(workspaceId)
+                    .target(AuditService.PROJECT_TARGET, held.getProjectId())
+                    .detail("candidateId", String.valueOf(held.getCandidateId()))
+                    .detail("recordingId", held.getId().toString())
+                    .detail("reason", reason)
+                    .record();
+            if (held.getRecallBotId() != null) {
+                botIds.add(held.getRecallBotId());
+            }
+        }
+        recallCleanup.queue(botIds);
+    }
+
     private void callOff(MeetingRecording held) {
         held.cancelled();
         if (held.isLiveCopilot()) {
@@ -301,6 +361,9 @@ public class NotetakerService {
     public NotetakerRecordingResponse joinNow(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                                               UUID recordingId, HttpServletRequest httpRequest) {
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
+        if (recipient.processingRestricted()) {
+            throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
+        }
         if (recipient.doNotContact()) {
             throw ApiException.of(ErrorCode.MEETING_DO_NOT_CONTACT);
         }
@@ -603,9 +666,7 @@ public class NotetakerService {
 
     /** A recording whose bot was asked to leave is filing its notes: discarding it now would race that. */
     private static void requireCancellable(MeetingRecording recording) {
-        if (recording.isEnding() || (recording.getStatus() != NotetakerStatus.SCHEDULED
-                && recording.getStatus() != NotetakerStatus.JOINING
-                && recording.getStatus() != NotetakerStatus.RECORDING)) {
+        if (recording.isEnding() || !CANCELLABLE.contains(recording.getStatus())) {
             throw ApiException.of(ErrorCode.NOTETAKER_NOT_CHANGEABLE);
         }
     }

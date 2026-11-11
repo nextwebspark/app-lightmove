@@ -45,6 +45,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -89,10 +90,9 @@ public class MeetingService {
         backfill.refreshUnpushed(workspaceId);
         List<PersonMeeting> rows = distinctMeetings(
                 meetings.findByWorkspaceIdAndPersonIdOrderByStartsAtAsc(workspaceId, recipient.personId()));
-        Map<UUID, String> owners = users.findAllById(rows.stream().map(PersonMeeting::getUserId).distinct().toList())
+        Map<UUID, User> owners = users.findAllById(rows.stream().map(PersonMeeting::getUserId).distinct().toList())
                 .stream()
-                .filter(user -> user.getFullName() != null)
-                .collect(Collectors.toMap(User::getId, User::getFullName));
+                .collect(Collectors.toMap(User::getId, Function.identity()));
         Instant now = clock.instant();
         List<MeetingResponse> upcoming = rows.stream()
                 .filter(row -> row.getEndsAt().isAfter(now))
@@ -156,6 +156,9 @@ public class MeetingService {
                                       BookMeetingRequest request, HttpServletRequest httpRequest) {
         Duration length = requireLength(request.minutes());
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
+        if (recipient.processingRestricted()) {
+            throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
+        }
         if (recipient.doNotContact()) {
             throw ApiException.of(ErrorCode.MEETING_DO_NOT_CONTACT);
         }
@@ -249,6 +252,9 @@ public class MeetingService {
         Duration length = requireLength(request.minutes());
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
         PersonMeeting meeting = requireChangeable(userId, workspaceId, recipient, meetingId);
+        if (recipient.processingRestricted()) {
+            throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
+        }
         if (recipient.doNotContact()) {
             throw ApiException.of(ErrorCode.MEETING_DO_NOT_CONTACT);
         }
@@ -416,10 +422,12 @@ public class MeetingService {
         return new ArrayList<>(byCall.values());
     }
 
-    private static MeetingResponse responseOf(PersonMeeting row, Map<UUID, String> owners, boolean upcoming,
+    private static MeetingResponse responseOf(PersonMeeting row, Map<UUID, User> owners, boolean upcoming,
                                               boolean editable) {
+        User owner = owners.get(row.getUserId());
         return new MeetingResponse(row.getId(), row.getTitle(), row.getStartsAt(), row.getEndsAt(), row.getUserId(),
-                owners.get(row.getUserId()), upcoming ? row.getJoinUrl() : null, row.getConferencingProvider(),
+                owner == null ? null : owner.getFullName(), owner == null ? null : owner.getAvatarUrl(),
+                upcoming ? row.getJoinUrl() : null, row.getConferencingProvider(),
                 row.isBookedViaLink(), row.getBookedByUserId() != null, editable);
     }
 

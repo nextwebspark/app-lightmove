@@ -23,6 +23,9 @@ import lombok.Setter;
 @NoArgsConstructor(access = AccessLevel.PROTECTED) // for JPA only
 public class User extends BaseEntity {
 
+    /** What a deleted account is called wherever its old rows are drawn. */
+    public static final String FORMER_MEMBER_NAME = "Former member";
+
     /** V25's reserved source: the person's own photo, or their removal of one. No registration id may take it. */
     public static final String UPLOADED_AVATAR_SOURCE = "USER";
 
@@ -41,6 +44,16 @@ public class User extends BaseEntity {
     @Setter
     @Column(length = 120)
     private String title;
+
+    /** Shown in the person's email signature. */
+    @Setter
+    @Column(name = "phone", length = 40)
+    private String phone;
+
+    /** Their own LinkedIn profile, canonical {@code https://www.linkedin.com/in/<slug>}. */
+    @Setter
+    @Column(name = "linkedin_url", length = 255)
+    private String linkedinUrl;
 
     @Column(name = "avatar_url")
     private String avatarUrl;
@@ -82,6 +95,9 @@ public class User extends BaseEntity {
     /** Where the next sign-in opens; set on explicit choices only, never by a background refresh. */
     @Column(name = "last_workspace_id")
     private UUID lastWorkspaceId;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 
     /**
      * Whether a provider's sign-in may supply the picture. Only the current picture's source may replace it; anyone
@@ -194,6 +210,32 @@ public class User extends BaseEntity {
 
     public void discardPassword() {
         this.passwordHash = null;
+    }
+
+    /**
+     * Account deletion: the row stays, so whatever names its id still resolves, but nothing on it identifies the
+     * person any more. The address becomes one no mailbox answers, unique by the id, so the real one can sign up
+     * afresh.
+     */
+    public void anonymise(Instant now) {
+        this.email = "deleted-" + getId() + "@deleted.invalid";
+        this.passwordHash = null;
+        this.fullName = FORMER_MEMBER_NAME;
+        this.title = null;
+        this.phone = null;
+        this.linkedinUrl = null;
+        this.avatarUrl = null;
+        this.avatarSource = null;
+        this.status = UserStatus.DELETED;
+        this.failedLoginAttempts = 0;
+        this.lockedUntil = null;
+        this.lastLoginAt = null;
+        this.lastWorkspaceId = null;
+        this.deletedAt = now;
+    }
+
+    public boolean isDeleted() {
+        return status == UserStatus.DELETED;
     }
 
     public void attachLocalPassword(String passwordHash) {

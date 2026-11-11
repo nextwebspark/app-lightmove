@@ -42,7 +42,9 @@ public class UserProfileService {
     @Transactional
     public User update(UUID actorId, UUID workspaceId, ProfileUpdateCommand command,
                        HttpServletRequest request) {
+        // A deleted account's access token outlives it by up to its fifteen minutes; it must not name the row again.
         User user = users.findById(actorId)
+                .filter(found -> !found.isDeleted())
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
         String previousTimezone = user.getTimezone();
@@ -52,10 +54,15 @@ public class UserProfileService {
         user.setTitle(normaliseTitle(command.title()));
         user.setTimezone(isMoved ? requireRegionZone(timezone) : timezone);
         user.setLocale(requireSupportedLocale(command.locale()));
+        if (command.phone() != null) {
+            user.setPhone(ContactDetails.phoneOrNull(command.phone()));
+        }
+        if (command.linkedinUrl() != null) {
+            user.setLinkedinUrl(ContactDetails.linkedinProfileOrNull(command.linkedinUrl()));
+        }
 
         audit.event(AuthEventType.PROFILE_UPDATED)
                 .actor(actorId).workspace(workspaceId).from(request)
-                .detail("fullName", user.getFullName())
                 .detailIfPresent("timezoneFrom", isMoved ? previousTimezone : null)
                 .detailIfPresent("timezoneTo", isMoved ? user.getTimezone() : null)
                 .record();
