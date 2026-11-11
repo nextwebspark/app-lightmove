@@ -33,6 +33,8 @@ public record SequenceTokens(String firstName, String currentTitle, String curre
     /** The six an email to any executive can take, in the order the Insert bar offers them. */
     public static final List<String> PROFILE_TOKENS = List.of(
             "firstName", "currentTitle", "currentCompany", "positionTitle", "location", "senderFirstName");
+    private static final List<String> PROFILE_TOKENS_AND_BOOKING_LINK = List.of(
+            "firstName", "currentTitle", "currentCompany", "positionTitle", "location", "senderFirstName", BOOKING_LINK);
 
     /**
      * {@code {{name}}} or {@code {{name|fallback}}}. The pipe may arrive escaped ({@code \|}): the notes editor's
@@ -48,6 +50,14 @@ public record SequenceTokens(String firstName, String currentTitle, String curre
 
     /** What can open markup inline — a link, an image, an autolink, emphasis, a heading — and nothing a name needs. */
     private static final Pattern MARKDOWN_PUNCTUATION = Pattern.compile("[\\\\`*_\\[\\]<>~#+!]");
+
+    /**
+     * What an email written by hand, or a template, may use: the six profile variables and the booking link, never the
+     * opener or the signature a sequence run places.
+     */
+    public static List<String> emailVocabulary(boolean withBookingLink) {
+        return withBookingLink ? PROFILE_TOKENS_AND_BOOKING_LINK : PROFILE_TOKENS;
+    }
 
     public String render(String template) {
         return renderWith(template, values(), UnaryOperator.identity());

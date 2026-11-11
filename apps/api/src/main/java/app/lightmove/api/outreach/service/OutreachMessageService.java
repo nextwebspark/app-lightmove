@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -54,9 +53,6 @@ public class OutreachMessageService {
     /** As far ahead as a sequence may be started. */
     private static final Duration SCHEDULE_HORIZON = Duration.ofDays(60);
 
-    /** The six and the booking link; never the opener, which only a sequence run writes. */
-    private static final List<String> OWN_EMAIL_VOCABULARY = Stream.concat(SequenceTokens.PROFILE_TOKENS.stream(),
-            Stream.of(SequenceTokens.BOOKING_LINK)).toList();
     private static final int MAX_NAMED_TOKENS = 10;
     private static final int MAX_TOKEN_NAME = 40;
 
@@ -249,7 +245,7 @@ public class OutreachMessageService {
      */
     private static void refuseUnfilled(SequenceTokens tokens, String subject, String body) {
         String text = (subject == null ? "" : subject + "\n") + body;
-        Set<String> refused = new LinkedHashSet<>(SequenceTokens.unknownIn(text, OWN_EMAIL_VOCABULARY));
+        Set<String> refused = new LinkedHashSet<>(SequenceTokens.unknownIn(text, SequenceTokens.emailVocabulary(true)));
         refused.addAll(tokens.unfilledIn(text));
         if (!refused.isEmpty()) {
             throw ApiException.withProperty(ErrorCode.OUTREACH_TOKENS_UNFILLED, "tokens",

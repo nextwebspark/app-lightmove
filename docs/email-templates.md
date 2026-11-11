@@ -47,7 +47,7 @@ What the code does today:
 | Ashby | personal / company-wide (admin) | — | highlighted, send blocked | per-template toggle | — |
 | Front | private / shared per inbox | `{{x \| 'there'}}` | fallback, else blank | separate | — |
 | lemlist, Gem | — | `{{firstName\|there}}` | review filter / blank | — | — |
-| **Uncava** | personal / shared; owner or admin edits | `{{firstName\|there}}` | red pill, Send blocked, server refuses | Include signature, never in the template | copied into a step |
+| **Uncava** | personal / shared; owner or admin edits | `{{firstName\|there}}` | a blank named under the editor, Send blocked, server refuses | Include signature, never in the template | copied into a step |
 
 Every product shares the same baseline: personal and shared templates, a picker with search in the composer, a token
 menu, and a preview. The pitfalls they document are each answered below:
@@ -105,17 +105,17 @@ Sources (vendor help centres, read November 2026):
 6. **Fallbacks.** `{{firstName|there}}`: the text after the pipe is used when the executive has no value. Fallbacks
    work everywhere tokens render, in own emails and in sequences. *Why:* this is the shortest form any product
    offers (lemlist, Gem, Front), and it covers the common case without a conditional language.
-7. **A missing value blocks the send.** In the composer, a token with no value and no fallback is a red pill, and
-   Send waits until it is filled, given a fallback or removed. The server refuses such an email too
-   (`OUTREACH_TOKENS_UNFILLED`, naming the tokens), and refuses an unknown token the same way. *Why:* "Hi ," and a
-   literal `{{currentTitle}}` must never go out. The pill is only a preview, so the server must decide again.
+7. **A missing value blocks the send.** In the composer, a variable with no value and no fallback is named in a line
+   under the editor (decision 16 replaced the red pill first planned here), and Send waits until it is filled, given a
+   fallback or removed. The server refuses such an email too (`OUTREACH_TOKENS_UNFILLED`, naming the variables), and
+   refuses an unknown one the same way. *Why:* "Hi ," and a literal `{{currentTitle}}` must never go out. The line is
+   only a preview, so the server must decide again.
 8. **Sequences honour fallbacks; blanks are only marked.** The review marks a blank token red for each person, but
    blocking a Start on blanks is later. *Why:* a run is many people at once, so a block needs its own per-person
    "fill in or skip" design.
-9. **Tokens show as pills.** In the composer each token is a pill showing this executive's value ("Duren"), red when
-   blank. It is still a token underneath, so Save as template keeps `{{firstName}}`. *Why:* the consultant sees the
-   email as it will arrive, without losing the token. The server fills the tokens when the email is written, and the
-   pill previews the same values but is never their source.
+9. ~~**Tokens show as pills.**~~ *Superseded by decision 16 (2026-11-10): variables are shown as typed,
+   `{{firstName}}`, in Settings and in the composer alike, and no pill was built.* The plan was a pill per token showing
+   this executive's value, red when blank, still a token underneath.
 10. **Applying a template:** into an empty editor it replaces the body, and into text it goes in at the cursor. A new
     email takes the template's subject only when its own subject is empty. A reply takes the body only and keeps the
     thread's `Re:` subject. *Why:* nothing typed is lost, and threading never breaks (Front's pitfall).
@@ -177,6 +177,9 @@ Templates are owned by **`outreach`**, beside signatures: `app_lm_email_template
 - **Privacy is the service's job.** RLS keeps a template in its workspace, but keeping a personal template private is
   `EmailTemplateService`'s: every personal read is keyed on the caller, so another person's personal template reads as
   missing (`EMAIL_TEMPLATE_NOT_FOUND`).
+- **Account deletion deletes them.** Since V203 an account is anonymised in place, never deleted, so the
+  `ON DELETE CASCADE` on `owner_user_id` never fires: `AccountDeletionOutreach` deletes the person's templates, shared
+  ones included, in every workspace, beside their signatures. `docs/gdpr/retention-schedule.md` has the row.
 - **A member's removal deletes nothing.** Their shared templates stay usable and an admin manages them; their personal
   ones come back if they rejoin, since V81 rejoins the same membership row.
 - **At most 100 per owner per workspace** (`EMAIL_TEMPLATE_LIMIT_REACHED`), counted under the owner's row lock.
@@ -186,7 +189,8 @@ Templates are owned by **`outreach`**, beside signatures: `app_lm_email_template
   row, which a signature never faced.
 
 **`app_lm_outreach_message.template_id`** (V205): `REFERENCES app_lm_email_template ON DELETE SET NULL`, nullable,
-with a partial index `WHERE template_id IS NOT NULL`. It is written from Phase 2. It is resolved by id, workspace
+with a partial index `WHERE template_id IS NOT NULL`, and V206's `(workspace_id, sender_user_id, created_at DESC)` over
+the same rows for Recently used. It is written from Phase 2. It is resolved by id, workspace
 **and** whether the sender may see the template; anything else is stored as null, never refused. Under RLS a foreign
 key alone does not check the workspace, since the reference check runs as the table owner.
 
@@ -282,7 +286,7 @@ In `ReplyComposer`, which draws Write email (`EmailComposerDialog`), the Outreac
 - **Save as template** and **Manage templates** (Settings) at its foot
 
 **Save as template** asks for a name and a Share with workspace switch. It saves the editor's Markdown with its
-tokens (the pills serialised back to `{{…}}`), plus the subject for a new email, and never the signature. The
+variables as typed (`{{…}}`), plus the subject for a new email, and never the signature. The
 signature lives only in the stored HTML `body` and never in the editor.
 
 ## E. The send guard
@@ -290,7 +294,9 @@ signature lives only in the stored HTML `body` and never in the editor.
 *Phase 2 as built (decision 16):* no pills. `composer.tokens` (the server's own values, `SequenceTokensResponse`) feeds
 the line under the editor and the picker's preview; the line names each variable no email fills and each with nothing
 on file and no fallback, and Send now and Schedule wait. The server's `OUTREACH_TOKENS_UNFILLED` makes the composer read
-the conversation again, so the line names what went blank meanwhile. The bullets below are the Phase 0 plan.
+the conversation again, so the line names what went blank meanwhile. The bullets below are the Phase 0 plan: what
+they say of pills and their popover is superseded and was not built; the server's checks they describe were built as
+written.
 
 - **Pills.** The conversation read's `composer` carries this executive's values (`tokens`, from
   `OutreachPersonalisation.tokensOf` in `ConversationService.composerOf`; the booking link read only through `linkOf`,
@@ -312,7 +318,7 @@ the conversation again, so the line names what went blank meanwhile. The bullets
 *Phase 1 as built (decision 16):* the template editor is the notes editor with `editorRef` (`NoteEditorHandle
 .insertText`, the text at the cursor, or at the end where it was never focused) under the shared `TokenInsertBar`.
 No token node and no `schema="email"` were built: a variable is plain text, as in a sequence step. The bullets below
-are the Phase 0 plan, kept for Phase 2's decision.
+are the Phase 0 plan, superseded: Phase 2 kept variables as typed in the composer too, so none of it was built.
 
 - **A token node** in `features/notes/lib/noteMarkdown.ts` is an inline atom with its own Markdown tokenizer and raw
   serializer, as `NoteMentionNode` has. So `{{firstName|there}}` round-trips untouched, though the text serializer

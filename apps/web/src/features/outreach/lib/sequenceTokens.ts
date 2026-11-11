@@ -193,7 +193,13 @@ export function renderParts(template: string, tokens: RecipientTokens, opener: s
     } else if (name === "bookingLink" && tokens.bookingLink !== undefined) {
       if (plain) parts.push({ text: plain, isOpener: false });
       plain = "";
-      parts.push({ text: tokens.bookingLink?.trim() ?? "", isOpener: false, isLink: true });
+      const link = tokens.bookingLink?.trim() ?? "";
+      // As the server sends it: with no link, a fallback stands in.
+      parts.push(
+        !link && fallback
+          ? { text: fallback, isOpener: false, isFallback: true, token: name }
+          : { text: link, isOpener: false, isLink: true },
+      );
     } else if (Object.hasOwn(values, name) && !values[name]) {
       if (plain) parts.push({ text: plain, isOpener: false });
       plain = "";

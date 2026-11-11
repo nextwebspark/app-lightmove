@@ -150,4 +150,14 @@ describe("sequence tokens", () => {
     expect(withoutToken("Hi {{firstName}}, {{signature}} again", "signature")).toBe("Hi {{firstName}},  again");
     expect(withoutToken("Hi {{firstName}}", "signature")).toBe("Hi {{firstName}}");
   });
+
+  it("reads a booking link's fallback where there is no link, as the server sends it", () => {
+    expect(renderParts("Book: {{bookingLink|reply to this email}}", { ...TOKENS, bookingLink: null }, null)).toEqual([
+      { text: "Book: ", isOpener: false },
+      { text: "reply to this email", isOpener: false, isFallback: true, token: "bookingLink" },
+    ]);
+    expect(render("Book: {{bookingLink|reply}}", { ...TOKENS, bookingLink: "beta.uncava.com/book/y" }, null)).toBe(
+      "Book: beta.uncava.com/book/y",
+    );
+  });
 });

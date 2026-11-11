@@ -96,6 +96,15 @@ class SequenceTokensTest {
     }
 
     @Test
+    void aBookingLinksFallbackStandsInWhereThereIsNoLink() {
+        SequenceTokens noLink = new SequenceTokens("Priya", null, null, null, null, null, null, null);
+        assertThat(noLink.render("Book: {{bookingLink|reply to this email}}")).isEqualTo("Book: reply to this email");
+        assertThat(SequenceTokens.emailVocabulary(false)).doesNotContain(SequenceTokens.BOOKING_LINK);
+        assertThat(SequenceTokens.emailVocabulary(true)).containsAll(SequenceTokens.PROFILE_TOKENS)
+                .contains(SequenceTokens.BOOKING_LINK).doesNotContain(SequenceTokens.OPENER, SequenceTokens.SIGNATURE);
+    }
+
+    @Test
     void aLineKeepsEveryValueOnOneLine() {
         SequenceTokens multiline = new SequenceTokens("Priya", "Chief\nFinancial   Officer", null, null, null, null,
                 null, null);

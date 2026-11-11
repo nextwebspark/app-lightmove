@@ -21,10 +21,8 @@ import app.lightmove.api.outreach.model.SequenceTokens;
 import app.lightmove.api.outreach.model.TokenUse;
 import app.lightmove.api.outreach.repository.EmailTemplateRepository;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -95,7 +93,7 @@ public class EmailTemplateService {
             }
             return template;
         });
-        return responseFor(saved, userId, workspaceId);
+        return responseFor(saved, userId);
     }
 
     public EmailTemplateResponse update(UUID userId, UUID workspaceId, UUID templateId,
@@ -110,7 +108,7 @@ public class EmailTemplateService {
             }
             return written;
         });
-        return responseFor(saved, userId, workspaceId);
+        return responseFor(saved, userId);
     }
 
     public EmailTemplateResponse setSharing(UUID userId, UUID workspaceId, UUID templateId,
@@ -127,7 +125,7 @@ public class EmailTemplateService {
                     written, userId, httpRequest);
             return written;
         });
-        return responseFor(saved, userId, workspaceId);
+        return responseFor(saved, userId);
     }
 
     public void delete(UUID userId, UUID workspaceId, UUID templateId, long version, HttpServletRequest httpRequest) {
@@ -149,7 +147,7 @@ public class EmailTemplateService {
             refuseOverLimit(userId, workspaceId);
             return templates.saveAndFlush(EmailTemplate.copyOf(source, userId));
         });
-        return responseFor(saved, userId, workspaceId);
+        return responseFor(saved, userId);
     }
 
     /**
@@ -186,9 +184,9 @@ public class EmailTemplateService {
                 .record();
     }
 
-    private EmailTemplateResponse responseFor(EmailTemplate template, UUID userId, UUID workspaceId) {
-        boolean isAdmin = access.holdsAction(userId, workspaceId, WorkspaceAction.WORKSPACE_MANAGE);
-        return responseOf(template, userId, isAdmin, ownersOf(List.of(template)));
+    /** After a write: a caller who is not the owner got through {@code editable} only as an admin. */
+    private EmailTemplateResponse responseFor(EmailTemplate template, UUID userId) {
+        return responseOf(template, userId, !template.isOwnedBy(userId), ownersOf(List.of(template)));
     }
 
     private Map<UUID, User> ownersOf(List<EmailTemplate> visible) {
@@ -221,10 +219,7 @@ public class EmailTemplateService {
     }
 
     private void refuseTokensIn(String field, String text) {
-        List<String> vocabulary = new ArrayList<>(SequenceTokens.PROFILE_TOKENS);
-        if (bookingPages.isOffered()) {
-            vocabulary.add(SequenceTokens.BOOKING_LINK);
-        }
+        List<String> vocabulary = SequenceTokens.emailVocabulary(bookingPages.isOffered());
         for (TokenUse use : SequenceTokens.usesIn(text)) {
             if (SequenceTokens.SIGNATURE.equals(use.name())) {
                 throw ApiException.withField(ErrorCode.VALIDATION_FAILED, field,
@@ -238,7 +233,7 @@ public class EmailTemplateService {
                 throw ApiException.withField(ErrorCode.VALIDATION_FAILED, field,
                         "This uses a variable Uncava cannot fill. Insert variables from the Insert bar");
             }
-            if (SequenceTokens.BOOKING_LINK.equals(use.name()) && Objects.nonNull(use.fallback())) {
+            if (SequenceTokens.BOOKING_LINK.equals(use.name()) && use.fallback() != null) {
                 throw ApiException.withField(ErrorCode.VALIDATION_FAILED, field,
                         "A booking link cannot have a fallback");
             }

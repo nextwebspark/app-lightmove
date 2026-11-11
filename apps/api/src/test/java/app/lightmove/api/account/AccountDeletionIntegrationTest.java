@@ -88,6 +88,10 @@ class AccountDeletionIntegrationTest extends FlowTestSupport {
         db.update("insert into app_lm_member_availability (workspace_id, user_id) values (?::uuid, ?)", alpha, omarId);
         db.update("insert into app_lm_email_signature (workspace_id, user_id, name, layout, is_default) "
                 + "values (?::uuid, ?, 'Work', 'CLASSIC', true)", alpha, omarId);
+        db.update("insert into app_lm_email_template (workspace_id, owner_user_id, name, body) "
+                + "values (?::uuid, ?, 'Mine', 'Hi {{firstName}}, Omar here')", alpha, omarId);
+        db.update("insert into app_lm_email_template (workspace_id, owner_user_id, name, body, shared_at) "
+                + "values (?::uuid, ?, 'Shared', 'Thanks {{firstName|there}}', now())", beta, omarId);
         db.update("update app_lm_user set phone = '+971 50 123 4567', linkedin_url = 'https://www.linkedin.com/in/omar' "
                 + "where id = ?", omarId);
         String grant = "nylas-" + UUID.randomUUID();
@@ -148,6 +152,8 @@ class AccountDeletionIntegrationTest extends FlowTestSupport {
             assertThat(countOf(table, omarId)).as(table).isZero();
         }
         assertThat(countOf("app_lm_email_image", omarId)).as("a sent signature's copy of the photo").isZero();
+        assertThat(db.queryForObject("select count(*) from app_lm_email_template where owner_user_id = ?", Long.class,
+                omarId)).as("their email templates, the shared one too, in every workspace").isZero();
         assertThat(db.queryForObject("select count(*) from app_lm_storage_deletion where storage_key = ?",
                 Long.class, photoKey)).as("its file queued for the bucket").isOne();
         // Let go at the provider once the deletion has committed, off the request.

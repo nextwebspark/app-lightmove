@@ -1637,7 +1637,9 @@ public picture route's resolver.
 V194 adds `app_lm_outreach_enrollment.signature_html` — the signature Start drew for the run; null sends none.
 V205 adds `app_lm_email_template` (owner and workspace, both cascading; `shared_at` null is personal; `updated_by` the
 last editor; one-line subject and non-blank body by CHECK) under forced row-level security, its owner and shared
-indexes, and `app_lm_outreach_message.template_id` (SET NULL, partial index) — the template an own email came from.
+indexes, and `app_lm_outreach_message.template_id` (SET NULL, partial index) — the template an own email came from;
+account deletion deletes a person's templates explicitly (`AccountDeletionOutreach`), since V203 never deletes the user
+row. V206 indexes a sender's emails that came from a template, for Recently used.
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.
