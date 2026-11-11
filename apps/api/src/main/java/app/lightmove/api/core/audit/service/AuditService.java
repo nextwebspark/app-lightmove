@@ -6,7 +6,9 @@ import app.lightmove.api.core.logging.service.CorrelationId;
 import app.lightmove.api.core.security.service.ClientIpResolver;
 import app.lightmove.api.core.text.service.ContactRedaction;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -90,8 +92,7 @@ public class AuditService {
 
         /** In the ledger only: the client is deliberately denied it, being an enumeration oracle. */
         public Builder reason(String reason) {
-            this.metadata.put("reason", reason);
-            return this;
+            return detail("reason", reason);
         }
 
         public Builder detail(String key, Object value) {
@@ -138,12 +139,18 @@ public class AuditService {
             return key;
         }
 
-        /** The backstop for an address that reaches a detail under an innocent key. */
+        /** The backstop for an address that reaches a detail under an innocent key, or inside a list or map. */
         private static Object withoutEmails(Object value) {
-            if (value instanceof String text && ContactRedaction.EMAIL.matcher(text).find()) {
-                return ContactRedaction.EMAIL.matcher(text).replaceAll(ContactRedaction.EMAIL_REMOVED);
-            }
-            return value;
+            return switch (value) {
+                case String text -> ContactRedaction.EMAIL.matcher(text).replaceAll(ContactRedaction.EMAIL_REMOVED);
+                case Collection<?> items -> items.stream().map(Builder::withoutEmails).toList();
+                case Map<?, ?> entries -> {
+                    Map<Object, Object> redacted = new LinkedHashMap<>();
+                    entries.forEach((key, item) -> redacted.put(withoutEmails(key), withoutEmails(item)));
+                    yield redacted;
+                }
+                case null, default -> value;
+            };
         }
 
         private static String truncate(String value, int max) {

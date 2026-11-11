@@ -44,6 +44,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -111,16 +112,20 @@ public class OutreachEnrollmentService {
         refuseUnusableStartAt(request);
         // Cheap and first: a Start refused for want of a mailbox claims no booking slug and copies no logo.
         transactions.executeWithoutResult(status -> requireSendingMailbox(userId, workspaceId));
-        boolean usesBookingLink = Boolean.TRUE.equals(transactions.execute(status -> sequences
-                .requireInProject(sequenceId, workspaceId, projectId).uses(SequenceTokens.BOOKING_LINK)));
-        if (usesBookingLink) {
+        List<String> placed = transactions.execute(status -> {
+            OutreachSequence sequence = sequences.requireInProject(sequenceId, workspaceId, projectId);
+            return Stream.of(SequenceTokens.BOOKING_LINK, SequenceTokens.SIGNATURE).filter(sequence::uses).toList();
+        });
+        if (placed.contains(SequenceTokens.BOOKING_LINK)) {
             // Before anything is written: a page the mail service will not make is the consultant's to see now.
             bookingPages.prepare(userId, workspaceId);
         }
-        // Drawn once, outside any transaction (a logo's first copy is a call to another host), and frozen on each run;
-        // a signature showing Book a call has its page made first, as a body using the link does.
-        String signatureHtml = request.signatureId() == null ? null
-                : signatures.requireRenderedForSending(userId, workspaceId, request.signatureId()).html();
+        // The default, drawn once outside any transaction (a logo's first copy is a call to another host) and frozen on
+        // each run; a signature showing Book a call has its page made first, as a body using the link does. A sequence
+        // placing no {{signature}} is unsigned, so it draws none.
+        String signatureHtml = placed.contains(SequenceTokens.SIGNATURE)
+                ? signatures.renderDefaultForSending(userId, workspaceId).orElse(null)
+                : null;
         // A racing Start that lost on the live index is answered OUTREACH_ALREADY_ENROLLED by
         // GlobalExceptionHandler, by constraint name; every other violation keeps its own answer.
         List<OutreachEnrollment> created =
@@ -198,7 +203,9 @@ public class OutreachEnrollmentService {
                     String opener = blankToNull(person.opener());
                     SequenceTokens tokens = OutreachPersonalisation.tokensOf(recipient, sender, opener);
                     ReviewedFirstEmail email = new ReviewedFirstEmail(tokens.render(first.getSubject()),
-                            tokens.render(first.getBody()), opener, person.openerEdited());
+                            SequenceTokens.signedOff(tokens.render(first.getBody()), signatureHtml,
+                                    sender.senderFirstName()),
+                            opener, person.openerEdited());
                     return OutreachEnrollment.scheduled(sequence, recipient.candidateId(), recipient.personId(),
                             userId, ledgerSpellingOf(recipient, person.toAddress()), email, now,
                             firstDue, offsets.get(index), pinned, signatureHtml);

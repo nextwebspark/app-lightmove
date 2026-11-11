@@ -18,11 +18,15 @@ import org.junit.jupiter.api.Test;
 /**
  * #927: the audit trail is append-only, so a person's name or address written there outlives their erasure. Every
  * literal detail key that sounds like one must be reviewed here, for the classes it was reviewed in — so a key that
- * is fine for a company (a {@code name}) cannot quietly be reused for a person in another class.
+ * is fine for a company (a {@code name}) cannot quietly be reused for a person in another class. A key passed as a
+ * constant or computed at runtime is invisible to that check, so each one is reviewed by its expression instead.
  */
 class AuditDetailKeysTest {
 
     private static final Pattern DETAIL_KEY = Pattern.compile("\\.detail(?:IfPresent)?\\(\\s*\"([^\"]+)\"");
+
+    /** A first argument that is not a string literal, up to the comma before the value. */
+    private static final Pattern NON_LITERAL_KEY = Pattern.compile("\\.detail(?:IfPresent)?\\(\\s*([^\"\\s),][^,]*),");
 
     private static final Pattern SOUNDS_PERSONAL = Pattern.compile(
             "(?i)email|name|phone|linkedin|slug|address|file|title|label|domain|url|contact|recipient|sender");
@@ -55,11 +59,38 @@ class AuditDetailKeysTest {
             // A pipeline status's label, the workspace's own vocabulary.
             Map.entry("statusLabel", Set.of("CandidateService")));
 
+    /** Each key passed as an expression, the classes passing it, and what it holds. */
+    private static final Map<String, Set<String>> REVIEWED_EXPRESSIONS = Map.ofEntries(
+            // "triageCompanyId".
+            Map.entry("COMPANY_TARGET", Set.of("CompanyNoteService")),
+            // "sequenceId".
+            Map.entry("TARGET_DETAIL", Set.of("OutreachSequenceService")),
+            // An ErasedHolding's name, lower-cased (notes, documents, ...): its value is a count.
+            Map.entry("holding.name().toLowerCase(Locale.ROOT)", Set.of("PersonErasureService")));
+
+    @Test
+    @DisplayName("every audit detail key passed as an expression has been reviewed for the class that writes it")
+    void nonLiteralKeysAreReviewed() throws IOException {
+        Map<String, Set<String>> unreviewed = new TreeMap<>();
+        Map<String, Set<String>> written = keysByClass(NON_LITERAL_KEY);
+        written.forEach((expression, classes) -> {
+            Set<String> allowed = REVIEWED_EXPRESSIONS.getOrDefault(expression, Set.of());
+            classes.stream().filter(owner -> !allowed.contains(owner))
+                    .forEach(owner -> unreviewed.computeIfAbsent(expression, ignored -> new TreeSet<>()).add(owner));
+        });
+
+        assertThat(written).as("the scan found the keys passed as expressions").containsKey("TARGET_DETAIL");
+        assertThat(unreviewed)
+                .as("audit detail keys passed as a constant or an expression: pass the key as a literal, or add the "
+                        + "expression and class to REVIEWED_EXPRESSIONS with what it holds")
+                .isEmpty();
+    }
+
     @Test
     @DisplayName("every audit detail key that sounds personal has been reviewed for the class that writes it")
     void personalSoundingKeysAreReviewed() throws IOException {
         Map<String, Set<String>> unreviewed = new TreeMap<>();
-        Map<String, Set<String>> written = detailKeysByClass();
+        Map<String, Set<String>> written = keysByClass(DETAIL_KEY);
         written.forEach((key, classes) -> {
             if (!SOUNDS_PERSONAL.matcher(key).find()) {
                 return;
@@ -76,14 +107,14 @@ class AuditDetailKeysTest {
                 .isEmpty();
     }
 
-    private static Map<String, Set<String>> detailKeysByClass() throws IOException {
+    private static Map<String, Set<String>> keysByClass(Pattern key) throws IOException {
         Map<String, Set<String>> keys = new TreeMap<>();
         try (Stream<Path> sources = Files.walk(mainSources())) {
             for (Path source : sources.filter(path -> path.toString().endsWith(".java")).toList()) {
                 String owner = source.getFileName().toString().replace(".java", "");
-                Matcher found = DETAIL_KEY.matcher(Files.readString(source));
+                Matcher found = key.matcher(Files.readString(source));
                 while (found.find()) {
-                    keys.computeIfAbsent(found.group(1), ignored -> new TreeSet<>()).add(owner);
+                    keys.computeIfAbsent(found.group(1).strip(), ignored -> new TreeSet<>()).add(owner);
                 }
             }
         }

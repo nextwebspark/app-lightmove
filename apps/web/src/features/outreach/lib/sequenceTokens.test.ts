@@ -52,4 +52,12 @@ describe("sequence tokens", () => {
     expect(tokenOptions(false).map((option) => option.token)).not.toContain("{{bookingLink}}");
     expect(tokenOptions(true).map((option) => option.token)).toContain("{{bookingLink}}");
   });
+
+  it("marks where the signature goes, leaving its token as typed in the words", () => {
+    expect(renderParts("Thanks,\n{{ signature }}", TOKENS, null)).toEqual([
+      { text: "Thanks,\n", isOpener: false },
+      { text: "{{ signature }}", isOpener: false, isSignature: true },
+    ]);
+    expect(render("Re: {{signature}}", TOKENS, null)).toBe("Re: {{signature}}");
+  });
 });

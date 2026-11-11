@@ -11,10 +11,13 @@ export interface SequenceTokenOption {
   tip: string;
   isAi?: boolean;
   isLink?: boolean;
+  /** Goes into the body only: a subject leaves it as typed. */
+  isBodyOnly?: boolean;
 }
 
 export const OPENER_TOKEN = "{{opener}}";
 export const BOOKING_LINK_TOKEN = "{{bookingLink}}";
+export const SIGNATURE_TOKEN = "{{signature}}";
 
 const TOKEN = /\{\{\s*([A-Za-z]+)\s*\}\}/g;
 
@@ -25,6 +28,7 @@ export const SEQUENCE_TOKENS: SequenceTokenOption[] = [
   { token: "{{positionTitle}}", tip: "This position's role title" },
   { token: "{{location}}", tip: "Their city" },
   { token: "{{senderFirstName}}", tip: "Your first name" },
+  { token: SIGNATURE_TOKEN, tip: "Your default signature, or your first name until you add one", isBodyOnly: true },
   {
     token: BOOKING_LINK_TOKEN,
     tip: "Your booking page: they pick a free slot on your calendar, and their sequence stops",
@@ -50,9 +54,11 @@ export interface RenderedPart {
   isOpener: boolean;
   /** The sender's booking link, drawn as a link in the preview. */
   isLink?: boolean;
+  /** Where the sender's default signature goes; its text is the token as typed. */
+  isSignature?: boolean;
 }
 
-/** The template filled in, split so the opener can be highlighted where it landed. */
+/** The template filled in, split so the opener, the link and the signature can be drawn where they landed. */
 export function renderParts(template: string, tokens: RecipientTokens, opener: string | null): RenderedPart[] {
   const values: Record<string, string> = {
     firstName: tokens.firstName?.trim() ?? "",
@@ -73,6 +79,10 @@ export function renderParts(template: string, tokens: RecipientTokens, opener: s
       if (plain) parts.push({ text: plain, isOpener: false });
       plain = "";
       parts.push({ text: opener?.trim() ?? "", isOpener: true });
+    } else if (name === "signature") {
+      if (plain) parts.push({ text: plain, isOpener: false });
+      plain = "";
+      parts.push({ text: match[0], isOpener: false, isSignature: true });
     } else if (name === "bookingLink" && tokens.bookingLink !== undefined) {
       if (plain) parts.push({ text: plain, isOpener: false });
       plain = "";

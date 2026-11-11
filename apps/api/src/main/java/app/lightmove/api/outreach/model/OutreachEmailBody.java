@@ -1,6 +1,7 @@
 package app.lightmove.api.outreach.model;
 
 import java.util.Arrays;
+import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import org.springframework.web.util.HtmlUtils;
 
@@ -16,6 +17,33 @@ public final class OutreachEmailBody {
 
     public static String htmlOf(String plainText) {
         return htmlOf(plainText, null);
+    }
+
+    /**
+     * The signature goes where {@code {{signature}}} stands, between paragraphs; a text placing none is unsigned. Where
+     * there is no signature, {@link SequenceTokens#signedOff} first.
+     */
+    public static String htmlOf(String plainText, String bookingLink, String signatureHtml) {
+        String text = plainText == null ? "" : plainText;
+        String signature = signatureHtml == null ? "" : signatureHtml;
+        Matcher token = SequenceTokens.SIGNATURE_TOKEN.matcher(text);
+        StringBuilder html = new StringBuilder();
+        int from = 0;
+        while (token.find()) {
+            html.append(htmlOf(text.substring(from, token.start()), bookingLink)).append(signature);
+            from = token.end();
+        }
+        html.append(htmlOf(text.substring(from), bookingLink));
+        return html.toString();
+    }
+
+    /**
+     * The words of a signed text as the conversation keeps them: the signature is HTML, and never words, and the gap it
+     * stood in closes to one blank line.
+     */
+    public static String withoutSignatures(String plainText) {
+        return plainText == null ? "" : SequenceTokens.SIGNATURE_TOKEN.matcher(plainText).replaceAll("")
+                .replaceAll("(\\r?\\n[ \\t]*){3,}", "\n\n").strip();
     }
 
     /**
