@@ -1,6 +1,7 @@
 -- Takes people's names and addresses out of audit rows written before #927 made audit details ids only.
 --
--- Run ONCE, as the audit table's owner (postgres once harden.sql has run), in a quiet moment:
+-- Run ONCE, AFTER the release that records ids only is deployed — run before it, the old revision keeps writing names
+-- into new rows in the meantime — as the audit table's owner (postgres once harden.sql has run), in a quiet moment:
 --
 --   gcloud sql connect bright-gcc --user=postgres --database=lightmove < ops/cloudsql/scrub-audit-pii.sql
 --   docker exec -i lm-dev-pg psql -U postgres -d lightmove < ops/cloudsql/scrub-audit-pii.sql   # npm run dev
@@ -11,8 +12,8 @@
 -- ALTER TABLE holds an exclusive lock for the transaction: audit writes wait for it (they are asynchronous).
 --
 -- What goes, and only that — no event changes what it says happened:
---   * `email` on every row; on a sign-in refused for an unknown address it becomes the address's `domain`, as
---     AuthenticationService now records it;
+--   * `email` on every row; on a sign-in refused for an unknown address it becomes the address's `domain` — read after
+--     the last @, and none where that is empty — as AuthenticationService now records it;
 --   * `fullName` on every row (CANDIDATE_REMOVED, PROFILE_UPDATED);
 --   * `fileName` on a person's document (PERSON_DOCUMENT_ADDED / _VERSION_ADDED), a CV's name being its person's.
 --     A position description's and a spreadsheet's keep theirs.
@@ -43,9 +44,10 @@ ALTER TABLE app_lm_audit_event DISABLE TRIGGER app_lm_audit_event_append_only;
 WITH changed AS (
     UPDATE app_lm_audit_event
        SET metadata = (metadata - 'email')
-               || jsonb_build_object('domain', lower(split_part(metadata ->> 'email', '@', 2)))
+               || jsonb_build_object('domain', lower(substring(metadata ->> 'email' from '[^@]*$')))
      WHERE event_type = 'LOGIN_FAILED' AND metadata ->> 'reason' = 'no_such_user'
        AND position('@' in metadata ->> 'email') > 1
+       AND substring(metadata ->> 'email' from '[^@]*$') <> ''
     RETURNING 1)
 INSERT INTO scrubbed SELECT 'email → domain on an unknown sign-in', count(*) FROM changed;
 
