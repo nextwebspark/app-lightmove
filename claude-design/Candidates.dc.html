@@ -405,6 +405,9 @@
             <sc-if value="{{ dv.restricted }}" hint-placeholder-val="{{ false }}">
               <button onClick="{{ liftRestriction }}" role="menuitem" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:7px 8px;font:500 12.5px var(--sans);text-align:left;background:none;border:none;color:var(--text);cursor:pointer" style-hover="background:var(--panel2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.unlock }}"></path></svg>Lift restriction</button>
             </sc-if>
+            <sc-if value="{{ canExport }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ openExport }}" role="menuitem" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:7px 8px;font:500 12.5px var(--sans);text-align:left;background:none;border:none;color:var(--text);cursor:pointer" style-hover="background:var(--panel2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.importInto }}"></path></svg>Export personal data…</button>
+            </sc-if>
             <sc-if value="{{ canErase }}" hint-placeholder-val="{{ true }}">
               <div style="margin:4px 0;border-top:1px solid var(--line-soft)"></div>
               <button onClick="{{ openErase }}" role="menuitem" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:7px 8px;font:500 12.5px var(--sans);text-align:left;background:none;border:none;color:var(--red);cursor:pointer" style-hover="background:var(--red-dim)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.trash }}"></path></svg>Delete person permanently…</button>
@@ -965,6 +968,34 @@
     </div>
   </sc-if>
 
+  <!-- Export personal data (GDPR #919, Art. 15 and 20), an admin's: one zip of everything held on the person, to answer
+       their subject access request. Nothing is written but the audit line; a restricted person can still be exported. -->
+  <sc-if value="{{ showExport }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDialog }}" style="position:fixed;inset:0;z-index:110;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="Export personal data" data-screen-label="Export personal data" onClick="{{ stop }}" style="width:500px;max-width:94vw;max-height:90vh;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="font:600 16px var(--sans)">Export everything held on {{ dv.name }}</div>
+        <p style="margin:4px 0 14px;font-size:13px;line-height:1.5;color:var(--text2)">One zip file to answer their request for a copy of their data: a readable page, the same data as JSON, and the latest file of each document.</p>
+        <div style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">What's in it</div>
+        <ul style="margin:8px 0 0;padding-left:18px;font:400 12.5px/1.7 var(--sans);color:var(--text2)">
+          <li>Their profile, contacts and where each one came from</li>
+          <li>Every position they are on, with its status, scorecard and tasks</li>
+          <li>Notes, including deleted ones not yet purged, and documents</li>
+          <li>Emails, meetings, call recordings' transcripts and the timeline</li>
+          <li>What the AI proposed about them, and how it works</li>
+        </ul>
+        <div role="note" style="margin-top:14px;display:flex;gap:10px;border-radius:8px;border:1px solid color-mix(in srgb,var(--amber) 35%,transparent);background:var(--amber-dim);padding:9px 12px;font:400 12.5px/1.5 var(--sans);color:var(--text2)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:2px;color:var(--amber)"><path d="{{ ic.info }}"></path></svg>
+          <span><b style="font-weight:600;color:var(--text)">Check it before you send it.</b> Notes and call transcripts can mention other people. Remove their details where they are not needed.</span>
+        </div>
+        <p style="margin:12px 0 0;font:400 11px/1.5 var(--mono);color:var(--text3)">Recorded in the audit log. Only admins can export a person's data.</p>
+        <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closeDialog }}" style="border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ confirmExport }}" style="display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.importInto }}"></path></svg>Download</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- Delete a person permanently (GDPR #918), an admin's: everything about them on every position, read off the server
        before asking. Refused while one of their emails is mid-send, since the send would land after the delete. -->
   <sc-if value="{{ showErase }}" hint-placeholder-val="{{ false }}">
@@ -1388,7 +1419,7 @@ class Component extends DCLogic {
     if (bulkDialog && selectedCount === 0) selectedCount = 3;
     const docsState = pick("docsState", "loaded");
     const trayState = pick("trayState", "none");
-    const personDialog = ["restrict", "erase", "eraseBlocked"].includes(dialog);
+    const personDialog = ["restrict", "export", "erase", "eraseBlocked"].includes(dialog);
     const restricted = flag("restricted", false);
     const personMenu = flag("personMenuOpen", false);
     const drawerOpen = flag("drawerOpen", false) || dialog === "merge" || dialog === "preview" || personDialog || restricted || personMenu || docsState !== "loaded" || trayState !== "none";
@@ -1936,9 +1967,9 @@ class Component extends DCLogic {
         const keys = [x && x.li ? "LinkedIn profile" : null, emailN ? `${emailN} ${plural(emailN, "email address", "email addresses")}` : null].filter(Boolean);
         const disabled = !x || s.eraseName.trim().toLowerCase() !== x.name.toLowerCase();
         return {
-          personMenuOpen: s.personMenu && !!x, personMenuExpanded: s.personMenu ? "true" : "false", canErase: s.isAdmin,
+          personMenuOpen: s.personMenu && !!x, personMenuExpanded: s.personMenu ? "true" : "false", canErase: s.isAdmin, canExport: s.isAdmin,
           personMenuBtnStyle: `position:absolute;right:46px;top:14px;border-radius:6px;padding:6px;color:var(--text3);cursor:pointer;border:1px solid ${s.personMenu ? "var(--line)" : "transparent"};background:${s.personMenu ? "var(--panel2)" : "none"}`,
-          showRestrict: s.dialog === "restrict" && !!x, showErase: (s.dialog === "erase" || s.dialog === "eraseBlocked") && !!x && s.isAdmin,
+          showRestrict: s.dialog === "restrict" && !!x, showExport: s.dialog === "export" && !!x && s.isAdmin, showErase: (s.dialog === "erase" || s.dialog === "eraseBlocked") && !!x && s.isAdmin,
           restrictReason: s.restrictReason, restrictCount: `${s.restrictReason.length} / 500`, restrictBlocked: !s.restrictReason.trim(), restrictOpacity: s.restrictReason.trim() ? 1 : 0.5,
           restrictSuppressChecked: String(s.restrictSuppress), restrictBox: box(s.restrictSuppress),
           suppressLine: keys.length ? `Their ${keys.join(" and ")} ${keys.length === 1 && !emailN ? "is" : "are"} kept as one-way hashes. Every way in checks them first, and an admin can remove the entry in Settings.` : "There is no LinkedIn profile or email on file to match them on.",
@@ -2013,6 +2044,12 @@ class Component extends DCLogic {
       liftRestriction: () => {
         this.setState({ personMenu: false, people: this.updatePerson(x.id, (y) => Object.assign({}, y, { restricted: null })) });
         this.showToast("Restriction lifted");
+      },
+      openExport: () => this.setState({ personMenu: false, dialog: "export" }),
+      confirmExport: () => {
+        if (!x) return;
+        this.setState({ dialog: "none" });
+        this.showToast(`Exported everything held on ${x.name} — recorded in the audit log`);
       },
       openErase: () => this.setState({ personMenu: false, dialog: "erase", eraseName: "", eraseSuppress: true, eraseSending: false }),
       onEraseName: (e) => this.setState({ eraseName: e.target.value }),
