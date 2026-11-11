@@ -8,9 +8,18 @@ import { SignaturePreviewFrame } from "./SignaturePreviewFrame";
  * they keep more than one, and a way to Settings where they keep none. Nothing is drawn until their signatures load, and
  * a list that could not be read says the email goes unsigned.
  */
-export function SignatureChooser({ choice, disabled = false }: { choice: SignatureChoice; disabled?: boolean }) {
+export function SignatureChooser({
+  choice,
+  disabled = false,
+  unreadableNote = "Your signatures could not be read, so this email goes without one.",
+}: {
+  choice: SignatureChoice;
+  disabled?: boolean;
+  /** What goes unsigned when the list cannot be read: this email in the composer, a whole run in Add to sequence. */
+  unreadableNote?: string;
+}) {
   if (choice.isError) {
-    return <span className="text-note text-u-text3">Your signatures could not be read, so this email goes without one.</span>;
+    return <span className="text-note text-u-text3">{unreadableNote}</span>;
   }
   if (!choice.isLoaded) return null;
   if (choice.signatures.length === 0) {

@@ -19,8 +19,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * V207: the {@code {{signature}}} token goes from every stored step and frozen first email, its gap closed, while a
- * run's chosen signature stays. Its own container, stopped at V206 to seed.
+ * V207 and V208: the {@code {{signature}}} token goes from every stored step and frozen first email, subjects included,
+ * its gap closed, while a run's chosen signature stays. Its own container, stopped at V206 to seed.
  */
 class SignatureTokenMigrationTest {
 
@@ -33,7 +33,7 @@ class SignatureTokenMigrationTest {
     private static final UUID RUN = UUID.fromString("00000000-0000-0000-0000-000000020701");
 
     @Test
-    @DisplayName("V207 takes {{signature}} out of every step and frozen first email, and keeps the run's signature")
+    @DisplayName("V207 and V208 take {{signature}} out of every step and frozen first email, and keep the run's signature")
     void takesTheTokenOutOfTheWords() throws Exception {
         try (PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"))) {
             postgres.start();
@@ -42,13 +42,19 @@ class SignatureTokenMigrationTest {
                 seed(connection);
             }
 
-            migrateTo(postgres, "207");
+            migrateTo(postgres, "208");
 
             try (Connection connection = connect(postgres)) {
                 assertThat(strings(connection, """
                         SELECT body FROM app_lm_outreach_sequence_step WHERE sequence_id = ? ORDER BY sort_order""",
                         SEQUENCE)).containsExactly("Hi {{firstName}},\n\nWould a call work?", "Hi,\n\nP.S. Soon",
                         "No token here.");
+                assertThat(strings(connection, """
+                        SELECT coalesce(subject, '-') FROM app_lm_outreach_sequence_step WHERE sequence_id = ?
+                        ORDER BY sort_order""", SEQUENCE)).containsExactly("Confidential note", "-", "-");
+                assertThat(strings(connection, """
+                        SELECT first_subject FROM app_lm_outreach_enrollment WHERE id = ?""", RUN))
+                        .containsExactly("Confidential note");
                 assertThat(strings(connection, """
                         SELECT first_body || '|' || signature_html FROM app_lm_outreach_enrollment WHERE id = ?""",
                         RUN)).containsExactly("Hi Priya,\n\nWould a call work?|<table>Yara</table>");
@@ -77,14 +83,14 @@ class SignatureTokenMigrationTest {
                 VALUES ('%s', '%s', '%s', 'First approach')""".formatted(SEQUENCE, WORKSPACE, PROJECT));
         execute(connection, """
                 INSERT INTO app_lm_outreach_sequence_step (sequence_id, sort_order, delay_working_days, subject, body)
-                VALUES ('%1$s', 0, 0, 'Confidential', E'Hi {{firstName}},\\n\\nWould a call work?\\n\\n{{signature}}'),
+                VALUES ('%1$s', 0, 0, 'Confidential {{signature}} note', E'Hi {{firstName}},\\n\\nWould a call work?\\n\\n{{signature}}'),
                        ('%1$s', 1, 3, NULL, E'Hi,\\n\\n{{ signature|Yara }}\\n\\nP.S. Soon'),
                        ('%1$s', 2, 2, NULL, 'No token here.')""".formatted(SEQUENCE));
         execute(connection, """
                 INSERT INTO app_lm_outreach_enrollment (id, workspace_id, project_id, sequence_id, person_id,
                                                         sender_user_id, to_address, status, first_subject,
                                                         first_body, enrolled_at, signature_html)
-                VALUES ('%s', '%s', '%s', '%s', '%s', '%s', 'priya@target.example', 'SCHEDULED', 'Confidential',
+                VALUES ('%s', '%s', '%s', '%s', '%s', '%s', 'priya@target.example', 'SCHEDULED', 'Confidential {{ signature }} note',
                         E'Hi Priya,\\n\\nWould a call work?\\n\\n{{signature}}\\n', now(), '<table>Yara</table>')"""
                 .formatted(RUN, WORKSPACE, PROJECT, SEQUENCE, PERSON, USER));
     }

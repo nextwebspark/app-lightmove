@@ -6,8 +6,8 @@ import app.lightmove.api.outreach.model.SequenceTokens;
 
 /**
  * A signature is never part of an email's words: Include signature adds the sender's own when the email goes, or when
- * a sequence starts. A template or a sequence step holding {@code {{signature}}} is refused, since an unknown token in
- * a step would otherwise reach an executive as typed.
+ * a sequence starts. {@code {{signature}}} is a retired token (#1277), refused by name in a template or a sequence step
+ * so a habit of placing it is answered rather than sent as typed; it is no {@link SequenceTokens} token.
  */
 final class SignatureTokenRefusal {
 

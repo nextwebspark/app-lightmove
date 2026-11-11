@@ -146,7 +146,7 @@ describe("SequenceEditorPage", () => {
     renderEditor();
 
     expect(await screen.findByTitle("Signature")).toBeInTheDocument();
-    expect(screen.getByText(/Include signature adds the sender's own when the sequence starts/)).toBeInTheDocument();
+    expect(screen.getByText(/as Add to sequence adds it\. You can choose another when you start/)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("tab", { name: "Step 2" }));
 

@@ -222,7 +222,7 @@ public class OutreachSendService {
         if (step == 0) {
             return new RenderedEmail(new OutgoingEmail(enrollment.getToAddress(), enrollment.getFirstSubject(),
                     OutreachEmailBody.htmlOf(enrollment.getFirstBody(), bookingPages.linkOf(mailbox))
-                            + signatureOf(enrollment)), enrollment.getFirstBody());
+                            + enrollment.signatureOrEmpty()), enrollment.getFirstBody());
         }
         SequenceStep followUp = sequence.getSteps().get(step);
         SenderContext sender = personalisation.senderContextOf(enrollment.getSenderUserId(),
@@ -236,12 +236,8 @@ public class OutreachSendService {
                 .render(followUp.getBody());
         return new RenderedEmail(new OutgoingEmail(enrollment.getToAddress(),
                 replySubjectOf(enrollment.getFirstSubject()),
-                OutreachEmailBody.htmlOf(body, sender.bookingLink()) + signatureOf(enrollment),
+                OutreachEmailBody.htmlOf(body, sender.bookingLink()) + enrollment.signatureOrEmpty(),
                 enrollment.getLastMessageId()), body);
-    }
-
-    private static String signatureOf(OutreachEnrollment enrollment) {
-        return enrollment.getSignatureHtml() == null ? "" : enrollment.getSignatureHtml();
     }
 
     private void recordSent(PreparedSend prepared, SentEmail sent, Instant now) {

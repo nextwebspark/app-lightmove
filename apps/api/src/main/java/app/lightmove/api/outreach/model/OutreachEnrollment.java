@@ -129,6 +129,11 @@ public class OutreachEnrollment extends BaseEntity {
     @Column(name = "booked_via_link", nullable = false)
     private boolean bookedViaLink;
 
+    /** What closes every email of the run: the frozen signature, or nothing. */
+    public String signatureOrEmpty() {
+        return signatureHtml == null ? "" : signatureHtml;
+    }
+
     /**
      * The first email is due {@code offset} after {@code firstDue}; the dispatcher holds it to the sender's
      * daily cap, and to the sequence's window unless {@code pinned}. {@code signatureHtml} is the one chosen at Start to

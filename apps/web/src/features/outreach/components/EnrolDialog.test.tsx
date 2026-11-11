@@ -299,7 +299,9 @@ describe("EnrolDialog", () => {
     renderDialog();
     await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
 
-    expect(await screen.findByText(/Your signatures could not be read/)).toBeInTheDocument();
+    expect(
+      await screen.findByText("Your signatures could not be read, so every email of this sequence goes without one."),
+    ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByRole("button", { name: "Start sequence" })).toBeEnabled();
   });

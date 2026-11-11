@@ -3,6 +3,7 @@ import {
   fallbacksIn,
   firstNameOf,
   holdsSignature,
+  stepHoldsSignature,
   render,
   renderLine,
   renderParts,
@@ -126,6 +127,9 @@ describe("sequence tokens", () => {
     expect(holdsSignature("Thanks,\n{{ signature|Best }}")).toBe(true);
     expect(holdsSignature("Thanks, {{senderFirstName}}")).toBe(false);
     expect(holdsSignature(null)).toBe(false);
+    expect(stepHoldsSignature({ subject: "Hi {{signature}}", body: "Hello" }, 0)).toBe(true);
+    expect(stepHoldsSignature({ subject: "Hi {{signature}}", body: "Hello" }, 1)).toBe(false);
+    expect(stepHoldsSignature({ subject: null, body: "Bye {{signature}}" }, 2)).toBe(true);
   });
 
   it("reads a fallback saved from the notes editor without its Markdown escapes", () => {

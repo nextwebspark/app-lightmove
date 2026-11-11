@@ -196,9 +196,17 @@ email's is. It is drawn there, outside any transaction, and **frozen on the enro
 `first_body`, so a later edit or a new default reaches no run already started; every email of the run is its words
 (`OutreachEmailBody.htmlOf`) and then that signature. `body_text` stays the words alone. A step never holds one: its
 save refuses `{{signature}}` on its field (`SignatureTokenRefusal`, which templates share), the editor previews the
-sender's default greyed under each step as the template editor does, and V207 took #1277's token out of every stored step
-and frozen first email. A run Start leaves unsigned goes unsigned — no first-name stand-in, as an own email. Nothing is
+sender's default greyed under each step as the template editor does, and V207 and V208 took #1277's token out of every
+stored step and frozen first email, subjects included. A run Start leaves unsigned goes unsigned — no first-name
+stand-in, as an own email. Nothing is
 stored on the sequence itself: a sequence is the position's, a signature its sender's.
+
+Two consequences were accepted with the change (2026-11-11). **A run already started unsigned** — its sender kept no
+signature, so the token stood in for their first name — sends its remaining follow-ups with no name. And **the deploy's
+window** is left unguarded: Flyway runs V207 before the new revision takes traffic, so for those minutes the old
+revision's dispatcher may send a signed run's follow-up without its signature (the old code placed it only at the
+token), and a Start it serves freezes that run unsigned. Few runs send inside a few minutes, so one release was
+preferred to splitting the change in two.
 
 **Gateways are untouched**: the signature is part of `OutgoingEmail.htmlBody`. The test email from Settings carries
 the default signature, which doubles as a "see it in your own inbox" check. Where the booking page cannot be made, it

@@ -59,6 +59,11 @@ export function holdsSignature(text: string | null | undefined): boolean {
   return tokenUsesIn(text ?? "").some((use) => use.name === "signature");
 }
 
+/** A step refused for one: its body, or the first email's subject, the two fields its save checks. */
+export function stepHoldsSignature(step: { subject?: string | null; body: string }, index: number): boolean {
+  return holdsSignature(step.body) || (index === 0 && holdsSignature(step.subject));
+}
+
 /** The names a token option inserts, `{{firstName}}` → `firstName`. */
 export function tokenNameOf(option: SequenceTokenOption): string {
   return option.token.slice(2, -2);

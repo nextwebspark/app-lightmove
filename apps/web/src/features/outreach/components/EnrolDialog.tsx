@@ -694,7 +694,10 @@ function ReviewStep({
         </div>
         <div className="mt-3 border-t border-u-border pt-2.5">
           <div className="flex flex-wrap items-center gap-2 font-mono text-meta text-u-text3">
-            <SignatureChooser choice={signature} />
+            <SignatureChooser
+              choice={signature}
+              unreadableNote="Your signatures could not be read, so every email of this sequence goes without one."
+            />
             {signature.included && <span>on every email of the sequence</span>}
           </div>
           <SignatureUnderEmail choice={signature} />

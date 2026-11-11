@@ -878,8 +878,8 @@ never part of an email's words** (revised 2026-11-11, after the market: Outreach
 it at send): Add to sequence's review carries the same Include signature, `StartSequenceRequest.signatureId` resolved by
 the one `EmailSignatureService.htmlForSending` an own email uses, drawn once at Start and frozen on each enrollment (V194
 `signature_html`), closing every email of the run after its words; unticked, or none kept, the run goes unsigned. A
-template and a sequence step both refuse `{{signature}}` on its field (`SignatureTokenRefusal`), and V207 took #1277's step
-token out of every stored step and frozen first email. Either way a signature showing Book a call
+template and a sequence step both refuse `{{signature}}` on its field (`SignatureTokenRefusal`), and V207 and V208 took
+#1277's step token out of every stored step and frozen first email, subjects included. Either way a signature showing Book a call
 has its page made before anything is written. The mailbox's test email carries the default, leaving Book a call out
 where its page cannot be made, since the test proves the mailbox and nothing else.
 
@@ -1646,6 +1646,7 @@ account deletion deletes a person's templates explicitly (`AccountDeletionOutrea
 row. V206 indexes a sender's emails that came from a template, for Recently used.
 V207 takes the `{{signature}}` token (#1277) out of every `app_lm_outreach_sequence_step.body` and
 `app_lm_outreach_enrollment.first_body`, its gap closed to one blank line; no schema change, `signature_html` kept.
+V208 does the same to the step's `subject` and the frozen `first_subject` (a step subject left empty is null).
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.

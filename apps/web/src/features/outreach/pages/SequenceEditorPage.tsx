@@ -26,9 +26,9 @@ import {
 import {
   BOOKING_LINK_PLACEHOLDER,
   firstNameOf,
-  holdsSignature,
   renderParts,
   SIGNATURE_NOT_IN_WORDS,
+  stepHoldsSignature,
   tokenOptions,
 } from "../lib/sequenceTokens";
 import { mailboxStateOf } from "../lib/mailboxState";
@@ -252,9 +252,7 @@ function SequenceEditor({
 
   const isLive = (saved?.enrolledCount ?? 0) > 0;
   const isScheduleUsable = schedule.days.length > 0 && schedule.windowStart < schedule.windowEnd;
-  const holdsSignatureInWords = steps.some(
-    (step, index) => holdsSignature(step.body) || (index === 0 && holdsSignature(step.subject)),
-  );
+  const holdsSignatureInWords = steps.some(stepHoldsSignature);
   const stepTimeOutsideWindow = steps.some(
     (step, index) =>
       index > 0 &&
@@ -471,7 +469,7 @@ function SequenceEditor({
                 onChange={(event) => changeStep(index, { body: event.target.value })}
                 className="w-full resize-y rounded-[6px] border border-u-border bg-u-raised p-2.5 text-[13px]/[1.55] text-u-text outline-none"
               />
-              {(holdsSignature(step.body) || (index === 0 && holdsSignature(step.subject))) && (
+              {stepHoldsSignature(step, index) && (
                 <p role="alert" className="mt-1.5 font-mono text-meta text-u-offlimits">
                   {SIGNATURE_NOT_IN_WORDS}
                 </p>
@@ -791,8 +789,7 @@ function SequencePreview({
         <SignatureUnderEmail choice={signature} />
         {signature.included && (
           <p className="mt-1 font-mono text-meta text-u-text3">
-            Your default signature. Include signature adds the sender's own when the sequence starts; a step never holds
-            one.
+            Your default signature, as Add to sequence adds it. You can choose another when you start.
           </p>
         )}
         {selectedStep > 0 && (
