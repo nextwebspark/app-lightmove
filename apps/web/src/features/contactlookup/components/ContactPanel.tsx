@@ -8,7 +8,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import { copyText } from "../../../lib/clipboard";
 import { messageFor } from "../../../lib/errorCodes";
-import { creditsLabel } from "../../billing/lib/billingView";
+import { creditsLabel, shownPricesOf } from "../../billing/lib/billingView";
 import { useBillingRead } from "../../billing/lib/useBilling";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate, CandidateContacts, CandidateEmail, CandidatePhone } from "../../candidates/api/types";
@@ -99,7 +99,7 @@ function ContactReadView({
 
   const email = useContactLookup("email", projectId, candidate.id, onSaved, toast);
   const phone = useContactLookup("phone", projectId, candidate.id, onSaved, toast);
-  const prices = useBillingRead(mayLookUp).data?.prices;
+  const prices = shownPricesOf(useBillingRead(mayLookUp).data);
   const makingPrimary = useMutation({
     mutationFn: ({ channel, value }: { channel: "email" | "phone"; value: string }) =>
       candidatesApi.replaceContacts(projectId, candidate.id, contactsWithPrimary(contacts, channel, value)),

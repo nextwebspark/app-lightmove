@@ -20,6 +20,15 @@ export function useBillingRead(enabled: boolean, refetchInterval: number | false
   });
 }
 
+/**
+ * Whether billing is shown to this caller: not while the read is in flight or refused, never to a pure client, and
+ * not where the deployment has switched it off.
+ */
+export function useBillingOffered(): { offered: boolean; isLoading: boolean } {
+  const billing = useBilling();
+  return { offered: billing.data?.enforced === true, isLoading: billing.isLoading };
+}
+
 /** Whether the caller is a workspace admin: the one who may change the plan or buy credits. */
 export function useIsWorkspaceAdmin(): boolean {
   const { user } = useAuth();
