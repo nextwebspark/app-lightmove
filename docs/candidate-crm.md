@@ -747,7 +747,7 @@ categories (today's seven `CandidateStatus` values stay).
 > deleted them anyway, the vendor cache forgets the profile (across workspaces, by design), the
 > bell and Find executives' runs lose the name. Their files go through `StorageDeletionQueue` in the same transaction,
 > and by default their profile and addresses go on the suppression list (#920). The audit trail and the credit ledger
-> keep the id, never the name; names already written into older audit details are #927's.
+> keep the id, never the name; since #927 no audit detail holds one, and the older lines were scrubbed.
 
 > **Built (#920, part 2): restriction of processing.** `Person.restrictProcessing` (V198, do not contact's shape: a
 > reason, who and when, kept only while set) is set by anyone holding `CANDIDATE_POOL_MANAGE` and lifted only by

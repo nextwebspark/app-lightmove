@@ -3,7 +3,7 @@ package app.lightmove.api.candidate.service;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateCompensation;
 import app.lightmove.api.candidate.model.Person;
-import app.lightmove.api.core.llm.service.ContactRedaction;
+import app.lightmove.api.core.text.service.ContactRedaction;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collection;

@@ -4,9 +4,13 @@ import app.lightmove.api.core.audit.constant.AuditOutcome;
 import app.lightmove.api.core.audit.model.AuditEvent;
 import app.lightmove.api.core.logging.service.CorrelationId;
 import app.lightmove.api.core.security.service.ClientIpResolver;
+import app.lightmove.api.core.text.service.ContactRedaction;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +26,13 @@ public class AuditService {
 
     /** The target type the project's activity feed reads by. */
     public static final String PROJECT_TARGET = "project";
+
+    /**
+     * Keys that would put a person's name or contact into the trail, which is append-only: erasure can never reach
+     * them there (#927). Record the person's id and let a reader resolve the name from the live row.
+     */
+    static final Set<String> PERSONAL_DATA_KEYS = Set.of(
+            "email", "fullName", "firstName", "lastName", "phone", "linkedinUrl", "profileSlug");
 
     private final AuditEventWriter writer;
     private final ClientIpResolver clientIpResolver;
@@ -81,19 +92,18 @@ public class AuditService {
 
         /** In the ledger only: the client is deliberately denied it, being an enumeration oracle. */
         public Builder reason(String reason) {
-            this.metadata.put("reason", reason);
-            return this;
+            return detail("reason", reason);
         }
 
         public Builder detail(String key, Object value) {
-            this.metadata.put(key, value);
+            this.metadata.put(requireIdsOnly(key), withoutEmails(value));
             return this;
         }
 
         /** For a nullable value: {@code record()} seals with {@code Map.copyOf}, which throws on a null {@link #detail}. */
         public Builder detailIfPresent(String key, Object value) {
             if (value != null) {
-                this.metadata.put(key, value);
+                detail(key, value);
             }
             return this;
         }
@@ -120,6 +130,27 @@ public class AuditService {
         public void record() {
             service.record(new AuditEvent(type, outcome, actorUserId, workspaceId, targetType, targetId,
                     ipAddress, userAgent, truncate(CorrelationId.current(), 64), Map.copyOf(metadata)));
+        }
+
+        private static String requireIdsOnly(String key) {
+            if (PERSONAL_DATA_KEYS.contains(key)) {
+                throw new IllegalArgumentException("Audit details hold ids, never " + key);
+            }
+            return key;
+        }
+
+        /** The backstop for an address that reaches a detail under an innocent key, or inside a list or map. */
+        private static Object withoutEmails(Object value) {
+            return switch (value) {
+                case String text -> ContactRedaction.EMAIL.matcher(text).replaceAll(ContactRedaction.EMAIL_REMOVED);
+                case Collection<?> items -> items.stream().map(Builder::withoutEmails).toList();
+                case Map<?, ?> entries -> {
+                    Map<Object, Object> redacted = new LinkedHashMap<>();
+                    entries.forEach((key, item) -> redacted.put(withoutEmails(key), withoutEmails(item)));
+                    yield redacted;
+                }
+                case null, default -> value;
+            };
         }
 
         private static String truncate(String value, int max) {

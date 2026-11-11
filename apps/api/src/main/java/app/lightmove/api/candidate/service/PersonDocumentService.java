@@ -125,7 +125,7 @@ public class PersonDocumentService {
         StagedDocumentFile staged = stage(workspaceId, personId, file);
         FiledPersonDocument filed = fileOrDiscard(staged,
                 () -> writer.file(userId, workspaceId, personId, projectId, staged, filedAs, asNewDocument));
-        return recorded(userId, workspaceId, personId, filed, staged, httpRequest);
+        return recorded(userId, workspaceId, personId, filed, httpRequest);
     }
 
     public PersonDocumentUploadResponse uploadVersion(UUID userId, UUID workspaceId, UUID personId,
@@ -135,7 +135,7 @@ public class PersonDocumentService {
         StagedDocumentFile staged = stage(workspaceId, personId, file);
         FiledPersonDocument filed = fileOrDiscard(staged,
                 () -> writer.addVersion(userId, workspaceId, personId, documentId, projectId, staged));
-        return recorded(userId, workspaceId, personId, filed, staged, httpRequest);
+        return recorded(userId, workspaceId, personId, filed, httpRequest);
     }
 
     /** Renaming, recategorising and the CV mark are anyone's who reaches the person, and no timeline line. */
@@ -217,8 +217,7 @@ public class PersonDocumentService {
     }
 
     private PersonDocumentUploadResponse recorded(UUID userId, UUID workspaceId, UUID personId,
-                                                  FiledPersonDocument filed, StagedDocumentFile staged,
-                                                  HttpServletRequest httpRequest) {
+                                                  FiledPersonDocument filed, HttpServletRequest httpRequest) {
         ProjectEventType event = switch (filed.outcome()) {
             case CREATED -> ProjectEventType.PERSON_DOCUMENT_ADDED;
             case NEW_VERSION -> ProjectEventType.PERSON_DOCUMENT_VERSION_ADDED;
@@ -226,7 +225,6 @@ public class PersonDocumentService {
         audit.event(event).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
                 .detail("documentId", filed.document().getId().toString())
-                .detail("fileName", staged.fileName())
                 .record();
         return new PersonDocumentUploadResponse(filed.outcome().value(),
                 cardOf(userId, workspaceId, documents.requireOnPerson(filed.document().getId(), workspaceId,

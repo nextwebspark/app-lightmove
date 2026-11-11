@@ -95,8 +95,8 @@ The request goes to the firm, because the firm is the controller. If it reaches 
 - **Emails already sent** remain in the consultant's own mailbox (Gmail or Outlook). Uncava deletes its own record of
   them, not the mailbox's.
 - **Backups** keep the data until they age out. Nothing rewrites a backup.
-- **Older audit lines.** Some earlier audit events stored a name. The audit trail cannot be changed, so these stay
-  (open question #918).
+- **Audit lines** name nobody: since #927 they hold ids, and the names earlier ones stored were scrubbed once
+  (`ops/cloudsql/scrub-audit-pii.sql`).
 - **Other workspaces** that hold the same person are separate controllers and are not affected.
 - **Data providers** (ContactOut, Bright Data) hold their own records, as controllers in their own right.
 
