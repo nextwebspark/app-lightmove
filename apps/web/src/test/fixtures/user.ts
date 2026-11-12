@@ -25,6 +25,7 @@ export function aWorkspace(overrides: Partial<WorkspaceSummary> = {}): Workspace
 export const FOLLOWING_DATE_TIME: UserDateTime = {
   effective: { timeZone: "Asia/Dubai", dateFormat: "DD_MMM_YYYY", timeFormat: "H24" },
   own: { timeZone: null, dateFormat: null, timeFormat: null },
+  deviceTimeZone: null,
   workspace: { timeZone: "Asia/Dubai", dateFormat: "DD_MMM_YYYY", timeFormat: "H24" },
 };
 
@@ -35,7 +36,7 @@ export const WORKSPACE_DATE_TIME: WorkspaceDateTime = {
   timeFormat: null,
   suggestedTimeZone: "Asia/Dubai",
   suggestedFrom: null,
-  membersFollowing: 1,
+  membersAutomatic: 1,
 };
 
 export function aUser(overrides: Partial<User> = {}): User {

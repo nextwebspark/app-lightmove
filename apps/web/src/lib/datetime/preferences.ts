@@ -62,9 +62,27 @@ export function useDateTimePreferences(): DateTimePreferences {
   return useSyncExternalStore(subscribe, getDateTimePreferences, getDateTimePreferences);
 }
 
+/**
+ * Who reads in which zone: a pinned zone stands; on Automatic it is this browser's zone, read here rather than waited
+ * for from the server, so a laptop opened in London reads London at once.
+ */
+export function automaticAware(effective: DateTimePreferences, pinnedTimeZone: string | null): DateTimePreferences {
+  if (pinnedTimeZone) return effective;
+  const device = browserZoneOrNull();
+  return device ? { ...effective, timeZone: device } : effective;
+}
+
 /** The zone this computer's clock is set to. */
 export function computerTimeZone(): string {
   return browserZone();
+}
+
+function browserZoneOrNull(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
 }
 
 function browserZone(): string {

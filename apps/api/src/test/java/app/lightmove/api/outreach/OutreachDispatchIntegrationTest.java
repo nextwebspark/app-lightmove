@@ -447,7 +447,7 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         JsonNode mailbox = body(as(consultant, get("/api/v1/outreach/mailbox")).andExpect(status().isOk()).andReturn());
         assertThat(mailbox.get("connection").get("timeZone").asText()).isEqualTo("Europe/London");
         assertThat(jdbc.queryForObject("select count(*) from app_lm_audit_event where event_type = "
-                + "'PROFILE_UPDATED' and metadata ->> 'timezoneFrom' = 'workspace' and metadata ->> 'timezoneTo' = "
+                + "'PROFILE_UPDATED' and metadata ->> 'timezoneFrom' = 'automatic' and metadata ->> 'timezoneTo' = "
                 + "'Europe/London' and workspace_id = (select workspace_id from app_lm_project where id = ?::uuid)",
                 Integer.class, projectId)).isEqualTo(1);
 
@@ -1088,6 +1088,12 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
                 .content("{\"fullName\":\"Yara Haddad\",\"title\":null,\"timezone\":null,\"locale\":\"en\"}"))
                 .andExpect(status().isOk());
         assertThat(mailboxZone()).isEqualTo("Asia/Tokyo");
+
+        // Automatic: the browser's zone outranks the workspace's from its first report, and moves the send window.
+        as(consultant, put("/api/v1/auth/me/device-time-zone").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"timeZone\":\"Europe/Madrid\"}"))
+                .andExpect(status().isNoContent());
+        assertThat(mailboxZone()).isEqualTo("Europe/Madrid");
     }
 
     private String mailboxZone() throws Exception {

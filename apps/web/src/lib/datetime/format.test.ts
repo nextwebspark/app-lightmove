@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   formatClock,
   formatDate,
@@ -9,7 +9,7 @@ import {
   formatShortDate,
   formatWeekdayDate,
 } from "./format";
-import { setDateTimePreferences, type DateFormatStyle } from "./preferences";
+import { automaticAware, setDateTimePreferences, type DateFormatStyle } from "./preferences";
 import { dayKeyOf } from "./zone";
 
 const MOMENT = "2026-12-04T10:30:00Z";
@@ -68,5 +68,18 @@ describe("every date the app draws, in the person's zone and formats", () => {
     expect(formatDate(null)).toBe("—");
     expect(formatInstantTime(undefined)).toBeNull();
     expect(formatShortDate("not a date")).toBeNull();
+  });
+});
+
+describe("which zone a person reads in", () => {
+  it("is this browser's while nothing is pinned, and the pinned zone otherwise", () => {
+    const computer = vi
+      .spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions")
+      .mockReturnValue({ timeZone: "Europe/London" } as Intl.ResolvedDateTimeFormatOptions);
+    const effective = { timeZone: "Asia/Dubai", dateFormat: "DD_MMM_YYYY", timeFormat: "H24" } as const;
+
+    expect(automaticAware(effective, null).timeZone).toBe("Europe/London");
+    expect(automaticAware(effective, "Asia/Dubai").timeZone).toBe("Asia/Dubai");
+    computer.mockRestore();
   });
 });

@@ -386,8 +386,9 @@ V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kin
 `MEETING_CANCELLED`.
 V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),
 the profile's old `Etc/GMT` becomes `UTC`, and every mailbox's `time_zone` is set to its user's — kept so from then by
-the profile write, and taken by a new connection Since V209 that clock is settled, not stored: the person's own, else
-their workspace's, else its country's (`DateTimePreferenceService`, the one place the order lives).
+the profile write, and taken by a new connection. Since V209/V210 that clock is settled, not stored: the zone the person
+pinned, else the one their device last reported (Automatic), else their workspace's, else its country's
+(`DateTimePreferenceService`, the one place the order lives).
 V209 is **Date & time** — the workspace's time zone, date format and time format on Settings → General
 (`PUT /workspace/date-time`, `WORKSPACE_MANAGE`, audited as a `dateTime` section), each a nullable column on
 `app_lm_workspace` (null: the country's zone through `CountryTimeZones`, the standard `DD_MMM_YYYY` / `H24`), and a
@@ -403,6 +404,17 @@ calendar — the lock email and the lines a call files) goes through `DateTimeFo
 stay ISO. In the SPA every date is `lib/datetime`'s, read in the effective preferences that `AuthProvider` sets and
 `DateTimeBoundary` redraws on; `lib/dateRatchet.test.ts` refuses a browser date formatter anywhere else, and time
 pickers are `TimeInput` (labelled in the person's clock), never a native time input.
+V210 makes a person's time zone **Automatic** by default — it follows their device, as Slack's, HubSpot's and Teams'
+do — and the workspace's zone a fallback, for a member whose browser has not yet reported and for workspace emails.
+`app_lm_user.device_time_zone` (and `_at`) is the zone the person's browser last sent (`PUT /auth/me/device-time-zone`,
+any region zone the JDK knows, the fixed list's or not; rate-limited, not audited, nothing written when unchanged); a
+null `timezone` is Automatic and a set one is pinned in Settings → Profile. A change publishes `TimezoneChanged` only
+while Automatic, so the mailbox's send window and the digest follow the person. The backfill moves nobody's clock: each
+person's device zone is seeded with the zone they read in, and a zone stays pinned only where the audit trail shows
+they chose it (`PROFILE_UPDATED` with `timezoneTo`, read in RLS maintenance). In the SPA an Automatic person reads in
+this browser's zone at once (`automaticAware`), `AuthProvider` reports it once per zone per tab
+(`features/auth/deviceTimeZone.ts`), and `TimeZoneMoveNotice` says a move aloud — *Keep London* or *Stay on Dubai time*,
+which pins the zone they came from.
 V162 adds two-factor authentication (#1081): `app_lm_user_mfa_factor` (one per user, the authenticator secret sealed by
 `core/crypto` under `EncryptionContext.ofUser`, `enabled_at` null while setup waits for a first code, `last_used_step` the
 replay guard), `app_lm_user_mfa_recovery_code` (SHA-256 per code, spent by a conditional update) and

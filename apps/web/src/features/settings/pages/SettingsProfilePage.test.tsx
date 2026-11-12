@@ -107,7 +107,8 @@ describe("SettingsProfilePage — your own profile", () => {
     expect(await screen.findByLabelText(/full name/i)).toHaveValue("Alok Kumar");
     expect(screen.getByLabelText(/^title$/i)).toHaveValue("Managing Partner");
     // A person who chose nothing follows the workspace, which the first option names.
-    expect(picker("Timezone")).toHaveTextContent("Workspace default(GMT+04:00) Dubai, Abu Dhabi");
+    // Nobody pinned a zone, so it is Automatic: the zone this device is in.
+    expect(picker("Timezone")).toHaveTextContent(/^Automatic\(GMT[+-]\d{2}:\d{2}\) .+ · this device$/);
     expect(picker("Date format")).toHaveTextContent(/^Workspace default/);
     expect(picker("Time format")).toHaveTextContent("Workspace default14:30 · 24-hour");
     expect(picker("Language")).toHaveTextContent("English");
@@ -145,31 +146,42 @@ describe("SettingsProfilePage — your own profile", () => {
     expect(await screen.findByText("Profile saved")).toBeInTheDocument();
   });
 
-  it("offers the fixed zones by offset and city, and the computer's own clock in one click", async () => {
+  it("opens on Automatic at this device's zone, offers the fixed zones to pin one, and goes back to Automatic", async () => {
     const computer = vi
       .spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions")
-      .mockReturnValue({ timeZone: "Europe/London" } as Intl.ResolvedDateTimeFormatOptions);
+      .mockReturnValue({ timeZone: "Europe/Madrid" } as Intl.ResolvedDateTimeFormatOptions);
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole("button", { name: "Timezone" }));
+    await screen.findByRole("button", { name: "Timezone" });
+    // A device zone off the fixed list still reads as itself.
+    expect(picker("Timezone")).toHaveTextContent(/^Automatic\(GMT\+0[12]:00\) Madrid · this device$/);
+    await user.click(screen.getByRole("button", { name: "Timezone" }));
     expect(screen.getByRole("option", { name: /^\(GMT-0[45]:00\) Eastern Time \(New York\)$/ })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "(GMT+00:00) Coordinated Universal Time" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: /Tashkent/ })).not.toBeInTheDocument();
     await user.keyboard("{Escape}");
     expect(screen.getByText("Sequences, scheduled emails and your daily digest follow this clock")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Use London" }));
-    expect(picker("Timezone")).toHaveTextContent("(GMT+00:00) London");
-    expect(screen.queryByRole("button", { name: "Use London" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /save changes/i }));
+    expect(screen.queryByRole("button", { name: /^Use / })).not.toBeInTheDocument();
 
+    await pick(user, "Timezone", /Dubai, Abu Dhabi/);
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
     await waitFor(() =>
-      expect(authApi.updateProfile).toHaveBeenCalledWith(expect.objectContaining({ timezone: "Europe/London" })),
+      expect(authApi.updateProfile).toHaveBeenCalledWith(expect.objectContaining({ timezone: "Asia/Dubai" })),
+    );
+
+    await pick(user, "Timezone", /^Automatic/);
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+    await waitFor(() =>
+      expect(authApi.updateProfile).toHaveBeenLastCalledWith(expect.objectContaining({ timezone: null })),
     );
     computer.mockRestore();
   });
 
   it("saves a format of their own, previewed as chosen, and Workspace default again as null", async () => {
+    const computer = vi
+      .spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions")
+      .mockReturnValue({ timeZone: "Asia/Dubai" } as Intl.ResolvedDateTimeFormatOptions);
     const user = userEvent.setup();
     renderPage();
 
@@ -189,6 +201,7 @@ describe("SettingsProfilePage — your own profile", () => {
     await waitFor(() =>
       expect(authApi.updateProfile).toHaveBeenLastCalledWith(expect.objectContaining({ timeFormat: null })),
     );
+    computer.mockRestore();
   });
 
   it("sends an emptied title as null, not as an empty string", async () => {

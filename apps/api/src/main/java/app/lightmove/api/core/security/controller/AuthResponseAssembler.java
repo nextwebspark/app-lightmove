@@ -82,6 +82,7 @@ public class AuthResponseAssembler {
                 new UserDateTimeResponse(
                         DateTimeChoiceResponse.of(effective),
                         new DateTimeChoiceResponse(user.getTimezone(), user.getDateFormat(), user.getTimeFormat()),
+                        user.getDeviceTimeZone(),
                         current == null ? null : DateTimeChoiceResponse.of(dateTimePreferences.forWorkspace(current))),
                 user.getLocale(),
                 currentSummary(membership, byId),

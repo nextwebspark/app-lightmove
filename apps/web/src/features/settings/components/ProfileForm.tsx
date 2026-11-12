@@ -7,7 +7,7 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { titleCase } from "../../../lib/format";
 import { messageFor } from "../../../lib/errorCodes";
 import type { WorkspaceRole } from "../../auth/api/types";
-import { fallbackPreferences, formatDate, zoneCityOf, type DateTimePreferences } from "../../../lib/datetime";
+import { computerTimeZone, fallbackPreferences, formatDate, type DateTimePreferences } from "../../../lib/datetime";
 import {
   dateFormatSelectOptions,
   timeFormatLabelOf,
@@ -15,7 +15,7 @@ import {
   timeZoneLabelOf,
   timeZoneSelectOptions,
 } from "../lib/dateTimeOptions";
-import { browserTimeZone, LANGUAGE_OPTIONS } from "../lib/profileOptions";
+import { LANGUAGE_OPTIONS } from "../lib/profileOptions";
 import { DateTimePreview } from "./DateTimePreview";
 import { profileSchemaFor, type ProfileValues } from "../lib/profileSchema";
 
@@ -49,15 +49,20 @@ export function ProfileForm({
     formState: { errors, isSubmitting },
   } = useForm<ProfileValues>({ resolver: zodResolver(profileSchemaFor(defaultValues.timezone)), defaultValues });
   const [timezone, dateFormat, timeFormat, locale] = watch(["timezone", "dateFormat", "timeFormat", "locale"]);
-  const computerZone = useMemo(browserTimeZone, []);
+  const deviceZone = useMemo(computerTimeZone, []);
   const fallback = workspace ?? fallbackPreferences();
   const followLabel = workspace ? "Workspace default" : "Standard";
   const timezones = useMemo<ListboxOption<string>[]>(
     () => [
-      { value: "", label: followLabel, detail: timeZoneLabelOf(fallback.timeZone), keywords: "workspace default" },
+      {
+        value: "",
+        label: "Automatic",
+        detail: `${timeZoneLabelOf(deviceZone)} · this device`,
+        keywords: "automatic device location",
+      },
       ...timeZoneSelectOptions(defaultValues.timezone || null),
     ],
-    [defaultValues.timezone, followLabel, fallback.timeZone],
+    [defaultValues.timezone, deviceZone],
   );
   const dateFormats = useMemo<ListboxOption<ProfileValues["dateFormat"]>[]>(
     () => [
@@ -77,7 +82,7 @@ export function ProfileForm({
     (value: ProfileValues[K]) =>
       setValue(field, value as never, { shouldDirty: true, shouldValidate: true });
   const effective: DateTimePreferences = {
-    timeZone: timezone || fallback.timeZone,
+    timeZone: timezone || deviceZone,
     dateFormat: dateFormat || fallback.dateFormat,
     timeFormat: timeFormat || fallback.timeFormat,
   };
@@ -173,9 +178,8 @@ export function ProfileForm({
           Date &amp; time
         </h3>
         <p className="mb-4 mt-0.5 font-mono text-meta text-u-text3">
-          {workspace
-            ? "Keep your workspace's, or choose your own. Your choice applies in every workspace you belong to."
-            : "Your choice applies in every workspace you belong to."}
+          Your time zone follows this device unless you pick one, and the formats are your workspace&apos;s unless you
+          choose your own. Your choice applies in every workspace you belong to.
         </p>
 
         <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
@@ -198,18 +202,6 @@ export function ProfileForm({
                 className="bg-u-surface"
               />
             </Field>
-            {computerZone && computerZone !== effective.timeZone && (
-              <p className="-mt-2.5 mb-4 text-meta text-u-text3">
-                Your computer is on {zoneCityOf(computerZone)} time.{" "}
-                <button
-                  type="button"
-                  onClick={() => setValue("timezone", computerZone, { shouldDirty: true, shouldValidate: true })}
-                  className="font-medium text-u-accent hover:underline"
-                >
-                  Use {zoneCityOf(computerZone)}
-                </button>
-              </p>
-            )}
           </div>
 
           <Field label="Date format" error={errors.dateFormat?.message}>

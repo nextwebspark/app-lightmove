@@ -85,10 +85,10 @@ describe("SettingsGeneralPage — the workspace's date and time", () => {
     renderPage();
 
     expect(await screen.findByRole("heading", { name: "Date & time" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Time zone" })).toHaveTextContent(/Dubai, Abu Dhabi/);
+    expect(screen.getByRole("button", { name: "Default time zone" })).toHaveTextContent(/Dubai, Abu Dhabi/);
     expect(screen.getByRole("button", { name: "Date format" })).toHaveTextContent(/DD MMM YYYY/);
     expect(screen.getByRole("radio", { name: "14:30 · 24-hour" })).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByText("Applies to everyone in the workspace")).toBeInTheDocument();
+    expect(screen.getByText("Every member's time zone follows their device")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reset to standard" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save date & time" })).toBeDisabled();
   });
@@ -97,8 +97,8 @@ describe("SettingsGeneralPage — the workspace's date and time", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole("button", { name: "Time zone" }));
-    await user.type(screen.getByRole("combobox", { name: "Search time zone" }), "london");
+    await user.click(await screen.findByRole("button", { name: "Default time zone" }));
+    await user.type(screen.getByRole("combobox", { name: "Search default time zone" }), "london");
     await user.click(screen.getByRole("option", { name: /London/ }));
     await user.click(screen.getByRole("button", { name: "Date format" }));
     await user.click(screen.getByRole("option", { name: /MMM D, YYYY/ }));
@@ -120,9 +120,9 @@ describe("SettingsGeneralPage — the workspace's date and time", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole("button", { name: "Time zone" }));
-    const search = screen.getByRole("combobox", { name: "Search time zone" });
-    const zones = () => within(screen.getByRole("listbox", { name: "Time zone" })).queryAllByRole("option");
+    await user.click(await screen.findByRole("button", { name: "Default time zone" }));
+    const search = screen.getByRole("combobox", { name: "Search default time zone" });
+    const zones = () => within(screen.getByRole("listbox", { name: "Default time zone" })).queryAllByRole("option");
     expect(zones()).toHaveLength(42);
 
     await user.type(search, "saudi");
@@ -147,22 +147,22 @@ describe("SettingsGeneralPage — the workspace's date and time", () => {
 
     await user.clear(search);
     await user.type(search, "uae{Enter}");
-    expect(screen.queryByRole("listbox", { name: "Time zone" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Time zone" })).toHaveTextContent(/Dubai, Abu Dhabi/);
+    expect(screen.queryByRole("listbox", { name: "Default time zone" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Default time zone" })).toHaveTextContent(/Dubai, Abu Dhabi/);
   });
 
   it("puts the standard back in one click, saved as not chosen so the country's still reaches it", async () => {
     vi.mocked(workspaceApi.workspace).mockResolvedValue({
       ...typedWorkspace,
       memberCount: 4,
-      dateTime: { ...WORKSPACE_DATE_TIME, timeZone: "Asia/Riyadh", dateFormat: "YYYY_MM_DD", membersFollowing: 3 },
+      dateTime: { ...WORKSPACE_DATE_TIME, timeZone: "Asia/Riyadh", dateFormat: "YYYY_MM_DD", membersAutomatic: 3 },
     });
     const user = userEvent.setup();
     renderPage();
 
-    expect(await screen.findByText("Applies to 3 of 4 members · 1 chose their own")).toBeInTheDocument();
+    expect(await screen.findByText("3 of 4 members follow their device · 1 chose a zone")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Reset to standard" }));
-    expect(screen.getByRole("button", { name: "Time zone" })).toHaveTextContent(/Dubai, Abu Dhabi/);
+    expect(screen.getByRole("button", { name: "Default time zone" })).toHaveTextContent(/Dubai, Abu Dhabi/);
     await user.click(screen.getByRole("button", { name: "Save date & time" }));
 
     await waitFor(() =>

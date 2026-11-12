@@ -57,7 +57,7 @@ export function WorkspaceDateTimeCard({
     timeZone === dateTime.suggestedTimeZone &&
     dateFormat === STANDARD_DATE_FORMAT &&
     timeFormat === STANDARD_TIME_FORMAT;
-  const ownChoices = memberCount - dateTime.membersFollowing;
+  const pinned = memberCount - dateTime.membersAutomatic;
 
   const save = useMutation({
     mutationFn: () =>
@@ -90,8 +90,8 @@ export function WorkspaceDateTimeCard({
             Date &amp; time
           </h2>
           <p className="mt-0.5 font-mono text-meta text-u-text3">
-            How dates and times read for everyone in {workspaceName}. Members can choose their own in Settings →
-            Profile.
+            How dates and times read in {workspaceName}. Each member&apos;s time zone follows their device unless they
+            pick one in Settings → Profile; the formats are everyone&apos;s unless they choose their own.
           </p>
         </div>
         {!isStandard && (
@@ -107,15 +107,15 @@ export function WorkspaceDateTimeCard({
 
       <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
         <Field
-          label="Time zone"
+          label="Default time zone"
           hint={
             timeZone === dateTime.suggestedTimeZone && dateTime.suggestedFrom
-              ? `From ${dateTime.suggestedFrom}`
-              : undefined
+              ? `From ${dateTime.suggestedFrom} · until a member's device is known`
+              : "Until a member's device is known, and for workspace emails"
           }
         >
           <ListboxSelect
-            aria-label="Time zone"
+            aria-label="Default time zone"
             value={timeZone}
             options={zoneOptions}
             onChange={setTimeZone}
@@ -146,15 +146,14 @@ export function WorkspaceDateTimeCard({
       <DateTimePreview
         preferences={{ timeZone, dateFormat, timeFormat }}
         note={
-          ownChoices > 0
-            ? `Applies to ${dateTime.membersFollowing} of ${memberCount} members · ${ownChoices} chose their own`
-            : "Applies to everyone in the workspace"
+          pinned > 0
+            ? `${dateTime.membersAutomatic} of ${memberCount} members follow their device · ${pinned} chose a zone`
+            : "Every member's time zone follows their device"
         }
       />
 
       <p className="mt-3 text-meta text-u-text3">
-        The time zone also sets when sequences send and when daily digests arrive for members who follow the
-        workspace.
+        A member&apos;s time zone also sets when their sequences send and when their daily digest arrives.
       </p>
 
       <div className="mt-5 flex justify-end">

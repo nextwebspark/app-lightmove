@@ -98,6 +98,11 @@ public class RateLimitGuard {
     }
 
     /** Keyed on the person, as an email keys the others: the request is signed in and carries none. */
+    public void checkDeviceTimeZoneReport(UUID userId, HttpServletRequest request) {
+        checkRateLimit("device-time-zone", userId.toString(), request, config.deviceTimeZoneReportsPerHour(),
+                config.deviceTimeZoneReportsPerHourPerIp(), Duration.ofHours(1));
+    }
+
     public void checkAvatarChange(UUID userId, HttpServletRequest request) {
         checkRateLimit("avatar-change", userId.toString(), request, config.avatarChangesPerHour(),
                 config.avatarChangesPerHourPerIp(), Duration.ofHours(1));

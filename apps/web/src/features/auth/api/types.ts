@@ -212,7 +212,7 @@ export interface LoginRequest {
 export interface UpdateProfileRequest {
   fullName: string;
   title: string | null;
-  /** Null keeps the workspace's, as do the two formats. */
+  /** Null is Automatic (the device's zone); a null format keeps the workspace's. */
   timezone: string | null;
   dateFormat: DateFormatStyle | null;
   timeFormat: TimeFormatStyle | null;
@@ -321,7 +321,10 @@ export interface DateTimeChoice {
 
 export interface UserDateTime {
   effective: DateTimePreferences;
+  /** A null zone is Automatic: it follows this person's device. A null format is the workspace's. */
   own: DateTimeChoice;
+  /** The zone this person's browser last reported; null until one has. */
+  deviceTimeZone: string | null;
   /** Null outside a workspace. */
   workspace: DateTimePreferences | null;
 }

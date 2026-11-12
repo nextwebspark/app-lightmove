@@ -17,9 +17,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * How dates and times read, settled one value at a time: the person's own choice, else the workspace's, else the
- * country's zone and the standard formats. The one place that order lives — a mailbox's send window, the digest's
- * hour and every email's dates all ask here.
+ * How dates and times read, settled one value at a time. The zone is the one the person pinned, else the one their
+ * device last reported (Automatic), else the workspace's, else its country's; each format the person's, else the
+ * workspace's, else the standard. The one place that order lives — a mailbox's send window, the digest's hour and every
+ * email's dates all ask here.
  */
 @Service
 @RequiredArgsConstructor
@@ -47,8 +48,9 @@ public class DateTimePreferenceService {
 
     /** @param workspace null outside any workspace, where only the person's own choices and the standard remain */
     public DateTimePreferences forPerson(User user, Workspace workspace) {
-        return DateTimePreferences.settle(user.getTimezone(), user.getDateFormat(), user.getTimeFormat(),
-                workspace == null ? DateTimePreferences.STANDARD : forWorkspace(workspace));
+        DateTimePreferences fallback = workspace == null ? DateTimePreferences.STANDARD : forWorkspace(workspace);
+        String zone = user.getTimezone() != null ? user.getTimezone() : user.getDeviceTimeZone();
+        return DateTimePreferences.settle(zone, user.getDateFormat(), user.getTimeFormat(), fallback);
     }
 
     public DateTimePreferences forWorkspace(Workspace workspace) {

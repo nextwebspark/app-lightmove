@@ -49,6 +49,11 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | ☐ Default region | select | unchecked | toast |
 | Default currency | select over the served list (`GET /currencies`); a stored code stays offered | ISO 4217 (`@CurrencyCode`) | toast |
 | ☐ Persona chips | ≤ 20 items, no item length | ≤ 20 × 96/160/64 | toast |
+| Profile timezone | Automatic (empty, sent as null) or one of the fixed 42 (`lib/datetime/timeZones.ts`); a zone saved before the list stays offered, marked "no longer offered" | `@Size(64)`, null is Automatic; a new choice must be on `data/time-zones.json` (`StandardTimeZones`, `VALIDATION_FAILED` on `timezone`); one saved before saves unchanged | field |
+| Profile date format / time format | Workspace default (null) or one of the 5 shapes / 2 clocks | `DateFormatStyle` / `TimeFormatStyle`, null keeps the workspace's; anything else a 400 | field |
+| Device time zone (sent by the browser) | this browser's zone, once per zone per tab | `@NotBlank @Size(64)`; any region zone the JDK knows or `UTC`, never an alias like `EST` (`VALIDATION_FAILED` on `timeZone`); rate-limited | not shown |
+| Workspace default time zone | one of the fixed 42, opening on the country's; equal to it sent as null | `@Size(64)`; a new choice must be listed (`VALIDATION_FAILED` on `timeZone`), null is the country's | toast |
+| Workspace date format / time format | one of the 5 / 2, opening on the standard; equal to it sent as null | the enums, null is the standard | toast |
 | Role title | ≤ 160; blank held, "Nothing on this step saves until it has one" | `@NotBlank @Size(160)` | field |
 | Department, city, ideal profile | ≤ 160 / 120 / 4000 | same | toast + rail |
 | Responsibilities | ≤ 20 × 200, no duplicates | ≤ 20 × 200 | toast + rail |

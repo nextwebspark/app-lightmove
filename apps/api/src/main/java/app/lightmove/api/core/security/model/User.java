@@ -62,10 +62,17 @@ public class User extends BaseEntity {
     @Column(name = "avatar_source", length = 32)
     private String avatarSource;
 
-    /** The person's own clock, or null to keep the workspace's (V209); read through {@code DateTimePreferenceService}. */
+    /** A zone the person pinned, or null for Automatic (V210); read through {@code DateTimePreferenceService}. */
     @Setter
     @Column(length = 64)
     private String timezone;
+
+    /** The zone this person's browser last reported: their clock while nothing is pinned. */
+    @Column(name = "device_time_zone", length = 64)
+    private String deviceTimeZone;
+
+    @Column(name = "device_time_zone_at")
+    private Instant deviceTimeZoneAt;
 
     /** Null keeps the workspace's. */
     @Setter
@@ -171,6 +178,20 @@ public class User extends BaseEntity {
         user.termsAcceptedAt = verifiedAt;
         user.privacyPolicyVersion = privacyPolicyVersion;
         return user;
+    }
+
+    /** @return whether the device moved to another zone, which only then is recorded */
+    public boolean reportDeviceTimeZone(String zone, Instant now) {
+        if (zone.equals(deviceTimeZone)) {
+            return false;
+        }
+        this.deviceTimeZone = zone;
+        this.deviceTimeZoneAt = now;
+        return true;
+    }
+
+    public boolean isTimeZoneAutomatic() {
+        return timezone == null;
     }
 
     public boolean hasPassword() {

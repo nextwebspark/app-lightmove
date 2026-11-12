@@ -5,6 +5,7 @@ import app.lightmove.api.common.time.model.OfferedTimeZone;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -29,6 +30,17 @@ public final class StandardTimeZones {
     }
 
     private StandardTimeZones() {}
+
+    private static final Pattern REGION_ZONE = Pattern.compile(
+            "UTC|(Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific)/[A-Za-z0-9_+\\-/]+");
+
+    /**
+     * A zone a device may report: any region's own or UTC the JDK knows, the list's or not (a Madrid laptop is Madrid),
+     * never a legacy alias like {@code EST}, whose meaning the JDK and the browser do not agree on.
+     */
+    public static boolean isRegionZone(String zone) {
+        return zone != null && REGION_ZONE.matcher(zone).matches() && ZoneId.getAvailableZoneIds().contains(zone);
+    }
 
     public static boolean isOffered(String zone) {
         return zone != null && IDS.contains(zone);

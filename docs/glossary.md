@@ -25,7 +25,9 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **To do** | the Outreach page's filter of the people waiting on someone; its groups are Needs reply, Follow-ups, Before first email and Delivery problems | Action queue, Needs action, inbox |
 | **Working hours** | the days and hours a consultant works, which a booking link offers times inside (Outlook's own, theirs, or the workspace's) | availability window, office hours |
 | **Time zone** / **Date format** / **Time format** | Settings → General's Date & time (the workspace's) and Settings → Profile's (a person's own) | timezone setting, locale, region |
-| **Workspace default** | a person's choice left to the workspace, the first option of each Profile select | inherit, follow, auto |
+| **Automatic** | a person's time zone following their device, the first option of Profile's Timezone picker | auto-detect, device default |
+| **Default time zone** | the workspace's zone on General: a member's until their device is known, and workspace emails' | workspace time zone, company zone |
+| **Workspace default** | a person's date or time format left to the workspace, the first option of those Profile pickers | inherit, follow, auto |
 | **Reset to standard** | putting the country's zone and the standard formats (04 Dec 2026, 24-hour) back on General | defaults, restore |
 | **Email signature** | what closes an email a consultant sends from Uncava, one of their own kept in Settings → Email signature, the default ticked in the composer | footer, sign-off |
 | **Email template** | a saved email or reply a consultant applies in the composer, kept in Settings → Email templates, personal or shared with the workspace — never Settings → Templates, which is the position brief library | snippet, canned reply, saved reply, role template |

@@ -83,7 +83,7 @@ class ProfileIntegrationTest extends FlowTestSupport {
                         {"timeZone":"Europe/London","dateFormat":"MMM_D_YYYY","timeFormat":"H12"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.dateTime.timeZone").value("Europe/London"))
-                .andExpect(jsonPath("$.dateTime.membersFollowing").value(2));
+                .andExpect(jsonPath("$.dateTime.membersAutomatic").value(2));
         mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + member))
                 .andExpect(jsonPath("$.timezone").value("Europe/London"))
                 .andExpect(jsonPath("$.dateTime.effective.dateFormat").value("MMM_D_YYYY"))
@@ -105,6 +105,46 @@ class ProfileIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.timezone").value("Europe/London"))
                 .andExpect(jsonPath("$.dateTime.own.timeZone").doesNotExist())
                 .andExpect(jsonPath("$.dateTime.effective.dateFormat").value("MMM_D_YYYY"));
+    }
+
+    @Test
+    @DisplayName("an Automatic clock follows the browser's reported zone, any region's, until a zone is pinned")
+    void anAutomaticClockFollowsTheDevice() throws Exception {
+        String token = adminOf("Alok Kumar", "Device Clock Firm");
+
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.dateTime.own.timeZone").doesNotExist())
+                .andExpect(jsonPath("$.dateTime.deviceTimeZone").doesNotExist())
+                .andExpect(jsonPath("$.timezone").value("Asia/Dubai"));
+
+        mvc.perform(putDeviceZone(token, "Europe/Madrid")).andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.dateTime.deviceTimeZone").value("Europe/Madrid"))
+                .andExpect(jsonPath("$.dateTime.effective.timeZone").value("Europe/Madrid"))
+                .andExpect(jsonPath("$.timezone").value("Europe/Madrid"));
+
+        mvc.perform(patchProfile(token, """
+                        {"fullName":"Alok Kumar","title":null,"timezone":"Asia/Riyadh","locale":"en"}"""))
+                .andExpect(jsonPath("$.timezone").value("Asia/Riyadh"));
+        mvc.perform(putDeviceZone(token, "Asia/Tokyo")).andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.dateTime.deviceTimeZone").value("Asia/Tokyo"))
+                .andExpect(jsonPath("$.timezone").value("Asia/Riyadh"));
+
+        mvc.perform(patchProfile(token, """
+                        {"fullName":"Alok Kumar","title":null,"timezone":null,"locale":"en"}"""))
+                .andExpect(jsonPath("$.timezone").value("Asia/Tokyo"));
+        assertThat(jdbc.queryForObject("""
+                select count(*) from app_lm_audit_event where event_type = 'PROFILE_UPDATED'
+                 and metadata ->> 'timezoneFrom' = 'Asia/Riyadh' and metadata ->> 'timezoneTo' = 'automatic'
+                 and actor_user_id = (select id from app_lm_user where email = ?)""", Integer.class, "alok@" + domain))
+                .isEqualTo(1);
+
+        for (String refusedZone : List.of("EST", "Mars/Olympus", "SystemV/AST4")) {
+            mvc.perform(putDeviceZone(token, refusedZone))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fieldErrors.timeZone").exists());
+        }
     }
 
     @Test
@@ -252,6 +292,14 @@ class ProfileIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fullName").value("Alok Kumar"))
                 .andExpect(jsonPath("$.timezone").value("Asia/Dubai"));
+    }
+
+    private MockHttpServletRequestBuilder putDeviceZone(String token, String zone) {
+        return put("/api/v1/auth/me/device-time-zone")
+                .with(csrf())
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"timeZone\":\"%s\"}".formatted(zone));
     }
 
     private MockHttpServletRequestBuilder putDateTime(String token, String body) {

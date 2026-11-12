@@ -239,11 +239,11 @@ public class WorkspaceSettingsService {
     private WorkspaceDetail detail(Workspace workspace) {
         long memberCount = members.countByWorkspaceIdAndStatus(workspace.getId(), MemberStatus.ACTIVE);
         return new WorkspaceDetail(workspace, memberCount, dateTimePreferences.suggestedFor(workspace),
-                members.countFollowingWorkspaceDateTime(workspace.getId()));
+                members.countWithAutomaticTimeZone(workspace.getId()));
     }
 
     /** @param suggestedDateTime what the workspace reads in where its admin has chosen nothing */
     public record WorkspaceDetail(Workspace workspace, long memberCount, DateTimePreferences suggestedDateTime,
-                                  long membersFollowingDateTime) {
+                                  long membersAutomaticTimeZone) {
     }
 }

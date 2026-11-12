@@ -12,6 +12,7 @@ import app.lightmove.api.core.security.model.TimezoneChanged;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -41,6 +42,7 @@ public class UserProfileService {
     private final UserRepository users;
     private final AuditService audit;
     private final ApplicationEventPublisher events;
+    private final Clock clock;
 
     @Transactional
     public User update(UUID actorId, UUID workspaceId, ProfileUpdateCommand command,
@@ -72,8 +74,8 @@ public class UserProfileService {
         boolean isTimeFormatMoved = previousTimeFormat != user.getTimeFormat();
         audit.event(AuthEventType.PROFILE_UPDATED)
                 .actor(actorId).workspace(workspaceId).from(request)
-                .detailIfPresent("timezoneFrom", isMoved ? orWorkspace(previousTimezone) : null)
-                .detailIfPresent("timezoneTo", isMoved ? orWorkspace(user.getTimezone()) : null)
+                .detailIfPresent("timezoneFrom", isMoved ? orAutomatic(previousTimezone) : null)
+                .detailIfPresent("timezoneTo", isMoved ? orAutomatic(user.getTimezone()) : null)
                 .detailIfPresent("dateFormatFrom", isDateFormatMoved ? orWorkspace(previousDateFormat) : null)
                 .detailIfPresent("dateFormatTo", isDateFormatMoved ? orWorkspace(user.getDateFormat()) : null)
                 .detailIfPresent("timeFormatFrom", isTimeFormatMoved ? orWorkspace(previousTimeFormat) : null)
@@ -94,6 +96,31 @@ public class UserProfileService {
         return title.trim();
     }
 
+    /**
+     * What this person's browser says its zone is, kept as their clock while they pin none. Unchanged, it writes
+     * nothing; a zone no browser can mean is refused. Not audited: it moves with every trip, and a pinned zone, which
+     * the profile save audits, is the only choice it stands for.
+     */
+    @Transactional
+    public User reportDeviceTimeZone(UUID actorId, String zone) {
+        User user = users.findById(actorId)
+                .filter(found -> !found.isDeleted())
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        String reported = zone == null ? null : zone.trim();
+        if (!StandardTimeZones.isRegionZone(reported)) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "timeZone", "That is not a time zone");
+        }
+        if (user.reportDeviceTimeZone(reported, clock.instant()) && user.isTimeZoneAutomatic()) {
+            events.publishEvent(new TimezoneChanged(actorId));
+        }
+        return user;
+    }
+
+    /** What the audit line says for a zone left to the device. */
+    private static String orAutomatic(Object choice) {
+        return choice == null ? "automatic" : choice.toString();
+    }
+
     /** What the audit line says for a choice left to the workspace. */
     private static String orWorkspace(Object choice) {
         return choice == null ? "workspace" : choice.toString();
@@ -102,7 +129,7 @@ public class UserProfileService {
     /**
      * Asked of a new choice only: a zone saved before the fixed list (one an older check took, like {@code US/Pacific}
      * or {@code Asia/Tashkent}) still saves unchanged with the rest of the profile, and still reads correctly. Going
-     * back to the workspace's is always allowed.
+     * back to Automatic is always allowed.
      */
     private static String requireOfferedZone(String timezone) {
         if (timezone != null && !StandardTimeZones.isOffered(timezone)) {

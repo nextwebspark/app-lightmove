@@ -28,6 +28,7 @@ export const USER = {
   dateTime: {
     effective: { timeZone: "Asia/Dubai", dateFormat: "DD_MMM_YYYY", timeFormat: "H24" },
     own: { timeZone: null, dateFormat: null, timeFormat: null },
+    deviceTimeZone: null,
     workspace: { timeZone: "Asia/Dubai", dateFormat: "DD_MMM_YYYY", timeFormat: "H24" },
   },
   locale: "en",
@@ -530,7 +531,7 @@ const WORKSPACE_DETAIL = {
     timeFormat: null,
     suggestedTimeZone: "Asia/Dubai",
     suggestedFrom: "United Arab Emirates",
-    membersFollowing: 3,
+    membersAutomatic: 3,
   },
 };
 

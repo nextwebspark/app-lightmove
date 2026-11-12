@@ -127,6 +127,6 @@ public class WorkspaceController {
         String suggestedZone = detail.suggestedDateTime().zone().getId();
         boolean isCountrys = CountryTimeZones.zoneOf(ws.getCompanyCountry()).isPresent();
         return new WorkspaceDateTimeResponse(ws.getTimeZone(), ws.getDateFormat(), ws.getTimeFormat(), suggestedZone,
-                isCountrys ? Countries.nameOf(ws.getCompanyCountry()) : null, detail.membersFollowingDateTime());
+                isCountrys ? Countries.nameOf(ws.getCompanyCountry()) : null, detail.membersAutomaticTimeZone());
     }
 }

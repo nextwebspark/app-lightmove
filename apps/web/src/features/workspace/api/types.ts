@@ -34,7 +34,7 @@ export interface WorkspaceDateTime {
   /** The country that zone is, by name; null where it is the standard. */
   suggestedFrom: string | null;
   /** Active members who chose none of the three for themselves. */
-  membersFollowing: number;
+  membersAutomatic: number;
 }
 
 /** How calendar events are read: pushed through Recall.ai, or read directly when a drawer opens. */

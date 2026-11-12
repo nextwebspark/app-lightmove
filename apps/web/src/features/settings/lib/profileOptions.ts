@@ -1,16 +1,8 @@
-import { computerTimeZone, isOfferedTimeZone } from "../../../lib/datetime";
-
 /** What the Profile pickers offer. Data, not markup, so the form stays a form. */
 
 export interface SelectOption {
   value: string;
   label: string;
-}
-
-/** The zone this computer's clock is set to, where it is one the list offers. */
-export function browserTimeZone(): string | null {
-  const zone = computerTimeZone();
-  return isOfferedTimeZone(zone) ? zone : null;
 }
 
 /**
