@@ -8,6 +8,7 @@ import { AuthProvider } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import type { AuthResponse, User } from "../api/types";
 import { VerifyEmailPage } from "./VerifyEmailPage";
+import { FOLLOWING_DATE_TIME } from "../../../test/fixtures/user";
 
 vi.mock("../api/authApi");
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
@@ -34,6 +35,7 @@ const verifiedUser: User = {
   emailVerified: true,
   hasPassword: true,
   timezone: "Asia/Dubai",
+  dateTime: FOLLOWING_DATE_TIME,
   locale: "en",
   platformActions: [],
   pendingInvitations: [],

@@ -17,6 +17,8 @@ import {
   setAccessToken,
   switchWorkspaceSession,
 } from "../../lib/apiClient";
+import { automaticAware, setDateTimePreferences } from "../../lib/datetime";
+import { reportDeviceTimeZone } from "./deviceTimeZone";
 import { forgetOpenAssistant } from "../assistant/assistantStorage";
 import { forgetScorecardDrafts } from "../candidates/lib/scorecardDrafts";
 import { isReturningMailboxPopup } from "../outreach/lib/mailboxPopup";
@@ -85,6 +87,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
+
+  // Before paint: every date reads in the signed-in person's zone and formats, and `DateTimeBoundary` redraws on a move.
+  useLayoutEffect(
+    () =>
+      setDateTimePreferences(
+        user?.dateTime ? automaticAware(user.dateTime.effective, user.dateTime.own.timeZone) : null,
+      ),
+    [user],
+  );
+  useEffect(() => {
+    if (user?.dateTime) reportDeviceTimeZone(user.dateTime, queryClient);
+  }, [user, queryClient]);
 
   /**
    * Server state belongs to whoever was signed in when it was fetched, so it dies with them. Otherwise

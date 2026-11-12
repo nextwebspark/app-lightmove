@@ -1,5 +1,6 @@
 import { statusLabelOf } from "../../candidates/lib/pipelineStatus";
 import type { ProjectActivityEntry } from "../api/types";
+import { formatDate } from "../../../lib/datetime";
 
 /** One line of the side panel's Recent activity: a run of the same act by the same person, merged. */
 export interface ActivityLine {
@@ -191,5 +192,5 @@ export function formatActivityTime(isoInstant: string, now: Date = new Date()): 
   const days = Math.floor(hours / 24);
   if (days === 1) return "Yesterday";
   if (days < 7) return `${days} days ago`;
-  return at.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return formatDate(at);
 }

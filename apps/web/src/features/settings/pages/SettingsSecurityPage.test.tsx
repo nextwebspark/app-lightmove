@@ -10,6 +10,7 @@ import * as authApi from "../../auth/api/authApi";
 import type { ActiveSession, MfaStatus, User } from "../../auth/api/types";
 import * as auditLogApi from "../api/auditLogApi";
 import { SettingsSecurityPage } from "./SettingsSecurityPage";
+import { FOLLOWING_DATE_TIME } from "../../../test/fixtures/user";
 
 vi.mock("../../auth/api/authApi");
 vi.mock("../api/auditLogApi", async (importOriginal) => ({
@@ -48,6 +49,7 @@ describe("SettingsSecurityPage", () => {
     emailVerified: true,
     hasPassword: true,
     timezone: "Asia/Dubai",
+    dateTime: FOLLOWING_DATE_TIME,
     locale: "en",
     platformActions: [],
     pendingInvitations: [],

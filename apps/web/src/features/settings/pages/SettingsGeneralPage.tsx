@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
-import { Button, Field, FormError, Input, Modal, Select, useToast } from "../../../components/ui";
+import { Button, Field, FormError, Input, Modal, useToast } from "../../../components/ui";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { CurrencySelect } from "../../../components/ui/CurrencySelect";
+import { ListboxSelect } from "../../../components/ui/ListboxSelect";
 import { DEFAULT_CURRENCY } from "../../../lib/currencies";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
@@ -17,10 +18,11 @@ import {
   type CompanyPick,
 } from "../../clients/lib/companyPick";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
+import { WorkspaceDateTimeCard } from "../components/WorkspaceDateTimeCard";
 import { WorkspaceModeCard } from "../components/WorkspaceModeCard";
 import { WorkspacePersonaCard } from "../components/WorkspacePersonaCard";
 
-const REGIONS = ["GCC", "MENA", "Europe", "Global"];
+const REGION_OPTIONS = ["GCC", "MENA", "Europe", "Global"].map((region) => ({ value: region, label: region }));
 
 /**
  * Settings → General: identity card, the firm (picked from the universe, as at signup) and defaults,
@@ -120,11 +122,13 @@ export function SettingsGeneralPage() {
             </div>
           </Field>
           <Field label="Default region">
-            <Select value={region} onChange={(event) => setRegion(event.target.value)} className="!bg-u-surface">
-              {REGIONS.map((r) => (
-                <option key={r}>{r}</option>
-              ))}
-            </Select>
+            <ListboxSelect
+              aria-label="Default region"
+              value={region}
+              options={REGION_OPTIONS}
+              onChange={setRegion}
+              className="bg-u-surface"
+            />
           </Field>
           <Field
             label="Default currency"
@@ -140,6 +144,14 @@ export function SettingsGeneralPage() {
           </Button>
         </div>
       </div>
+
+      {/* Keyed on what was saved, so a save or another tab's change starts the card from the stored choice. */}
+      <WorkspaceDateTimeCard
+        key={`${workspace.dateTime.timeZone}|${workspace.dateTime.dateFormat}|${workspace.dateTime.timeFormat}|${workspace.dateTime.suggestedTimeZone}`}
+        workspaceName={workspace.name}
+        memberCount={workspace.memberCount}
+        dateTime={workspace.dateTime}
+      />
 
       <WorkspaceModeCard mode={workspace.mode} />
 

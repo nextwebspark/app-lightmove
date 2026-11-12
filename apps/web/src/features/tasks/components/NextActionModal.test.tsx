@@ -171,7 +171,11 @@ describe("NextActionModal", () => {
     expect(screen.queryByRole("option", { name: /Old habit/ })).not.toBeInTheDocument();
 
     await userEvent.type(whatField(), "ref");
-    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
+    expect(
+      within(screen.getByRole("listbox", { name: "Presets" }))
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual([
       "Use “ref”Your own",
       "Reference checkTo-do · +5 days",
     ]);
