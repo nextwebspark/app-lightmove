@@ -11,6 +11,7 @@ export interface WorkspaceDetail {
   emailDomain: string;
   mode: WorkspaceMode;
   calendarSync: CalendarSync;
+  aiControls: AiControls;
   defaultRegion: string;
   defaultCurrency: string;
   plan: string;
@@ -24,6 +25,20 @@ export interface WorkspaceDetail {
 
 /** How calendar events are read: pushed through Recall.ai, or read directly when a drawer opens. */
 export type CalendarSync = "RECALL" | "DIRECT";
+
+/** What the AI may do with the workspace's people (#922). An admin's choice; every staff member reads it. */
+export interface AiControls {
+  inferGender: boolean;
+  inferNationality: boolean;
+  draftAssessments: boolean;
+  enrichAutomatically: boolean;
+}
+
+/** How many people turning each inference off would clear: the AI's values no consultant confirmed. */
+export interface InferredBackground {
+  genderValues: number;
+  nationalityValues: number;
+}
 
 /** What a hiring company is — the firm itself, or an agency's client — for the assistant to tailor research to. */
 export interface HiringPersona {

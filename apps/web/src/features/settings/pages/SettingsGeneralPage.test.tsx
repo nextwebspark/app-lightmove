@@ -46,6 +46,7 @@ const typedWorkspace = {
   logoMark: "T",
   mode: "COMPANY",
   calendarSync: "RECALL",
+  aiControls: { inferGender: false, inferNationality: false, draftAssessments: false, enrichAutomatically: false },
   emailDomain: "typed.example",
   defaultRegion: "GCC",
   defaultCurrency: "USD",

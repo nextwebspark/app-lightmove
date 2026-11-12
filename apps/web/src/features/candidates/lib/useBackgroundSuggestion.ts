@@ -2,13 +2,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { isBillingRefusal } from "../../billing/lib/billingView";
+import { useAiControls } from "../../workspace/lib/useAiControls";
 import * as candidatesApi from "../api/candidatesApi";
 import { PERSON_TIMELINE_KEY } from "../api/personCrmApi";
 import type { Candidate } from "../api/types";
 
 /**
  * The Background section's AI: the nationality classifier's last reading, and Suggest with AI — offered only while
- * something is still missing that the AI has not already read. Staff-only: neither is asked for without `canWrite`.
+ * something is still missing that the AI has not already read and the workspace lets it infer. Staff-only: neither is
+ * asked for without `canWrite`.
  */
 export function useBackgroundSuggestion(
   projectId: string,
@@ -38,13 +40,17 @@ export function useBackgroundSuggestion(
     },
   });
 
+  const controls = useAiControls();
   const nationalityReading = reading.data ?? null;
   const isOffered =
     canWrite &&
-    (candidate.gender === null ||
+    ((candidate.gender === null && controls?.inferGender !== false) ||
       candidate.yearsExperience === null ||
       candidate.seniority === null ||
-      (candidate.nationality === null && reading.isSuccess && nationalityReading === null));
+      (candidate.nationality === null &&
+        controls?.inferNationality !== false &&
+        reading.isSuccess &&
+        nationalityReading === null));
 
   return {
     nationalityReading,

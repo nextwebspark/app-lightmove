@@ -18,6 +18,13 @@ import type { Candidate, CandidateTag, PersonNote, PersonRecord, PersonTimelineE
 import { MemoryRouter } from "react-router-dom";
 import { CandidateDrawer } from "./CandidateDrawer";
 import { typeInto } from "../../../test/noteEditor";
+import type { WorkspaceDetail } from "../../workspace/api/types";
+import * as workspaceApi from "../../workspace/api/workspaceApi";
+
+vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof workspaceApi>();
+  return { ...actual, workspace: vi.fn(actual.workspace) };
+});
 
 vi.mock("../api/candidatesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof candidatesApi>()),
@@ -1690,6 +1697,18 @@ describe("CandidateDrawer", () => {
 
       expect(await screen.findByRole("button", { name: "Assess with AI" })).toBeDisabled();
       expect(screen.getByText(/nothing is left for the AI to draft/)).toBeInTheDocument();
+    });
+
+    it("offers no Assess with AI where the workspace has AI-drafted assessments off", async () => {
+      vi.mocked(workspaceApi.workspace).mockResolvedValue({
+        aiControls: { inferGender: true, inferNationality: true, draftAssessments: false, enrichAutomatically: true },
+      } as WorkspaceDetail);
+      vi.mocked(scorecardApi.getScorecard).mockResolvedValue(blank);
+      renderDrawer({ candidate: yasmin, company: null });
+      await openTab("Assessment");
+
+      expect(await screen.findByText(/AI-drafted assessments are off for this workspace/)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Assess with AI" })).not.toBeInTheDocument();
     });
 
     it("lays this tab's own changes over a teammate's newer save when reloaded", async () => {

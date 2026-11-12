@@ -70,6 +70,7 @@ export type ApiErrorCode =
   | "CANDIDATE_ASSESSMENT_STALE"
   | "CANDIDATE_ASSESSMENT_NO_CRITERIA"
   | "CANDIDATE_ASSESSMENT_NOTHING_OPEN"
+  | "AI_ASSESSMENT_DISABLED"
   | "RANKING_SCENARIO_STALE"
   | "RANKING_BRIEF_CHANGED"
   | "AI_UNAVAILABLE"
@@ -293,6 +294,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
     "The brief has no competencies to assess against yet. Add them in the position's Assessment Criteria step.",
   CANDIDATE_ASSESSMENT_NOTHING_OPEN:
     "Every score and section is already your team's. There is nothing left for the AI to draft.",
+  AI_ASSESSMENT_DISABLED: "This workspace has turned off AI-drafted assessments. An admin can turn them on in Settings.",
   AI_UNAVAILABLE: "The AI could not answer just now. Try again in a moment.",
   PIPELINE_STAGE_NOT_EMPTY: "This stage still has statuses. Retire them with the stage, or retire them first.",
   PIPELINE_STAGE_REQUIRED: "The pipeline keeps at least one stage.",

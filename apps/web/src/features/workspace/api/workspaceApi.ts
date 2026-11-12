@@ -6,13 +6,22 @@ import type {
   WorkspaceMode,
   WorkspaceRole,
 } from "../../auth/api/types";
-import type { CalendarSync, HiringPersona, Invitation, Member, WorkspaceDetail } from "./types";
+import type {
+  AiControls,
+  CalendarSync,
+  HiringPersona,
+  InferredBackground,
+  Invitation,
+  Member,
+  WorkspaceDetail,
+} from "./types";
 
 /** Every call workspace management makes (roster, invitations, settings), plus shared query keys. */
 
 export const WORKSPACE_KEY = ["workspace"] as const;
 export const MEMBERS_KEY = ["members"] as const;
 export const INVITATIONS_KEY = ["invitations"] as const;
+export const INFERRED_BACKGROUND_KEY = ["workspace", "inferredBackground"] as const;
 export const PENDING_INVITATIONS_COUNT_KEY = ["invitations", "pendingCount"] as const;
 
 export function workspace(): Promise<WorkspaceDetail> {
@@ -41,6 +50,15 @@ export function changeMode(mode: WorkspaceMode): Promise<WorkspaceDetail> {
 /** Recall shares the app's keys and each calendar's refresh token with Recall.ai; Direct keeps them here. */
 export function changeCalendarSync(calendarSync: CalendarSync): Promise<WorkspaceDetail> {
   return request<WorkspaceDetail>("/workspace/calendar-sync", { method: "PUT", body: { calendarSync } });
+}
+
+/** Turning gender or nationality off clears the AI's unconfirmed values for every person, in the same write. */
+export function changeAiControls(controls: AiControls): Promise<WorkspaceDetail> {
+  return request<WorkspaceDetail>("/workspace/ai-controls", { method: "PUT", body: controls });
+}
+
+export function inferredBackground(): Promise<InferredBackground> {
+  return request<InferredBackground>("/workspace/ai-controls/inferred-background");
 }
 
 export function deleteWorkspace(confirmName: string): Promise<void> {

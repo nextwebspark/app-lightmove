@@ -324,6 +324,7 @@ describe("routes — the settings gates", () => {
       logoMark: "M",
       mode: "COMPANY" as const,
       calendarSync: "RECALL" as const,
+      aiControls: { inferGender: false, inferNationality: false, draftAssessments: false, enrichAutomatically: false },
       emailDomain: "firm.example",
       defaultRegion: "GCC",
       defaultCurrency: "USD",

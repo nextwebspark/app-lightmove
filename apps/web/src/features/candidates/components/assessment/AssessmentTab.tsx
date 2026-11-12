@@ -6,6 +6,7 @@ import { SegmentedControl } from "../../../../components/ui/SegmentedControl";
 import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
 import { formatInstantDate } from "../../../../lib/format";
+import { useAiControls } from "../../../workspace/lib/useAiControls";
 import { useWorkspaceVocabulary } from "../../../workspace/lib/vocabulary";
 import { AiActionButton } from "../AiActionButton";
 import { AiInferredBadge } from "../AiInferredBadge";
@@ -41,6 +42,7 @@ const AI_LINE_ID = "assessment-ai-line";
 export function AssessmentTab({ projectId, editor }: { projectId: string; editor: ScorecardEditor }) {
   const [view, setView] = useState<AssessmentView>("scores");
   const { saved, tally } = editor;
+  const isDraftingOff = useAiControls()?.draftAssessments === false;
 
   if (saved.isError) return <p className="py-4 text-note text-u-text3">{messageFor(saved.error)}</p>;
   if (saved.isPending || !tally) {
@@ -92,15 +94,19 @@ export function AssessmentTab({ projectId, editor }: { projectId: string; editor
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
         <span id={AI_LINE_ID} className="text-meta text-u-text3">
-          {aiLineOf(editor, scorecard.aiDraftedAt)}
+          {isDraftingOff
+            ? "AI-drafted assessments are off for this workspace — an admin can turn them on in Settings"
+            : aiLineOf(editor, scorecard.aiDraftedAt)}
         </span>
-        <AiActionButton
-          label="Assess with AI"
-          isBusy={editor.isAssessing}
-          disabled={editor.isDirty || editor.isSaving || !editor.hasOpen}
-          describedBy={AI_LINE_ID}
-          onClick={editor.assessWithAi}
-        />
+        {!isDraftingOff && (
+          <AiActionButton
+            label="Assess with AI"
+            isBusy={editor.isAssessing}
+            disabled={editor.isDirty || editor.isSaving || !editor.hasOpen}
+            describedBy={AI_LINE_ID}
+            onClick={editor.assessWithAi}
+          />
+        )}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3 border-y border-u-border py-3.5">
