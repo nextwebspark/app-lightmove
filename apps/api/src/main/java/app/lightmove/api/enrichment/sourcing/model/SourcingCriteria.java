@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/** A position's Find executives search (V209): drafted once from the brief, then edited in place. */
+/** A position's Find executives search (V213): drafted once from the brief, then edited in place. */
 @Entity
 @Table(name = "app_lm_executive_sourcing_criteria")
 @Getter

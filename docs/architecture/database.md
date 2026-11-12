@@ -507,7 +507,7 @@ public, no redirect, a size cap, one deadline) — and `app_lm_user.avatar_url` 
 or a removal no provider replaces (`User.mayTakeAvatarFrom`), and once a workspace can enforce its identity provider's
 sign-in, `isAvatarEditable` is where its directory photo becomes final. It clears every provider link stored before it,
 which expired and, once dead, kept every other provider out: the next sign-in copies the picture.
-V209 is the Find executives panel: `app_lm_executive_sourcing_criteria` (one per position — the search as `criteria`
+V213 is the Find executives panel: `app_lm_executive_sourcing_criteria` (one per position — the search as `criteria`
 jsonb, `source` `DEFAULT | AI | EDITED`, the `brief_fingerprint` it was drafted from, unique on the project) and
 `app_lm_executive_sourcing_suggestion` (one row per person a run found at a company: the profile slug, `verdict`
 `FITS | NO_TITLE | NOT_FIT`, `score`, `rank`, `reasons text[]` — our codes and our search's words, never a name or a

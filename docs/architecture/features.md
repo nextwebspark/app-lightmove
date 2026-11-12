@@ -316,13 +316,13 @@ per executive and the same two drawers opened from a pin's popup or a panel row.
 coordinate, so `geocoding` resolves each distinct city + country once through Mapbox and keeps it in
 `app_lm_geocoded_place`; `talentmap` composes the stage's companies, people and points into one
 unpaged, capped read (`GET /projects/{id}/talent-map`), with `…/talent-map/locations` answering the
-same map as points alone for the poll that waits on places rather than on people. **Find executives** (`enrichment/sourcing`, V86, V209, `docs/find-executives.md`) is the fifth door: a
+same map as points alone for the poll that waits on places rather than on people. **Find executives** (`enrichment/sourcing`, V86, V213, `docs/find-executives.md`) is the fifth door: a
 panel (`features/sourcing`, `FindExecutivesPanel`, `uncava-design/FindExecutives.dc.html`) opened from the
 In-universe toolbar on the ticked companies — at most `max-companies-per-run` (5) — and from a
 company drawer's Find executives on that company alone, as from a company's empty slot, whose button asks Find
 with Uncava or Add manually (`AddExecutiveChoice`). The toolbar press and Find with Uncava search at once every
 company the panel holds no results for (`autoSearch`), so one press shows people; the drawer's and the caret's Open the
-last search only open it. **The search is the position's own** (V209
+last search only open it. **The search is the position's own** (V213
 `app_lm_executive_sourcing_criteria`): drafted once by one Gemini call (`SearchWordsDrafter` → `SearchWords`: the levels
 a firm maps for the role, `SearchLevel`'s bands from the role down; up to twelve function terms, core first, phrases
 allowed, in another language too only where the companies' titles are written in it — Turkish in Türkiye, none for the
@@ -351,7 +351,7 @@ leave-out word, below the levels searched, none of the title words, not the comp
 scored out of 100 by the design's fixed points — the role's own word in the title 40 or a searched word 30, the level
 against the role's, where they live, how their role was read, found by both indexes, time in role — Strong, Good or
 Possible, each point a reason code (`SuggestionReason`) the panel shows as a chip. **The run files nobody**: each company's
-people are stored ranked (V209 `app_lm_executive_sourcing_suggestion`, slugs and our judgement only; names and titles are
+people are stored ranked (V213 `app_lm_executive_sourcing_suggestion`, slugs and our judgement only; names and titles are
 read from the cache, so results last as long as it keeps them) and recorded as the company finishes, Stop
 (`POST …/{runId}/stop`) letting the companies in flight finish and the rest read STOPPED. The panel reads each company's
 latest results (`GET …/suggestions`) — who fits, best first, the top three pre-ticked; *Title not on record* (no check

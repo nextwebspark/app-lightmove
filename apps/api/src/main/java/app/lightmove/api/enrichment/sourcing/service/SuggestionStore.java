@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * What each run found at each company (V209), written by the worker in its own short transactions and read back
+ * What each run found at each company (V213), written by the worker in its own short transactions and read back
  * by the panel. Every read carries the workspace and the project — suggestions are mandate content.
  */
 @Component

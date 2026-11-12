@@ -92,7 +92,7 @@ once by `ops/cloudsql/scrub-audit-pii.sql`.
 | `app_lm_outreach_enrollment` | person, address | a sequence run | with the person | erasure | cascade |
 | `app_lm_outreach_message` | person, addresses, email text | the conversation ledger | with the person | erasure | cascade |
 | `app_lm_outreach_message_attachment` | file metadata | an email's files | with the message | erasure, cancel | cascade, `StorageDeletionSweeper` |
-| `app_lm_executive_sourcing_run` | counts only (V209 took the names off) | Find executives' record | with the position | — | — |
+| `app_lm_executive_sourcing_run` | counts only (V213 took the names off) | Find executives' record | with the position | — | — |
 | `app_lm_executive_sourcing_suggestion` | profile slug, our judgement | who a Find executives search found | the people cache's life (30 days) | the next run, erasure | `ExecutiveSourcingWorker`, `PersonErasureService` |
 | `app_lm_company_note` | staff's notes about a company | the team's record | with the company; a deleted note 30 days ⚖️ | delete | `CompanyNotePurge` |
 | `app_lm_assistant_thread` | user, questions asked | the assistant's chats | 180 days past the last turn ⚖️ | inactivity, account deletion | `RetentionSweeper` |
