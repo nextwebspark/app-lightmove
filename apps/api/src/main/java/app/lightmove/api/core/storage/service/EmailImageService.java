@@ -7,6 +7,7 @@ import app.lightmove.api.core.security.avatar.UserAvatar;
 import app.lightmove.api.core.security.avatar.UserAvatarRepository;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.core.storage.constant.EmailImageKind;
+import app.lightmove.api.core.storage.constant.PhotoShape;
 import app.lightmove.api.core.storage.model.EmailImage;
 import app.lightmove.api.core.storage.model.EncodedImage;
 import app.lightmove.api.core.storage.repository.EmailImageRepository;
@@ -62,21 +63,23 @@ public class EmailImageService {
     private final Map<String, Instant> failedLogos = new ConcurrentHashMap<>();
 
     /**
-     * The person's profile photo as an email draws it, copied once per photo; empty where they have none. A photo they
-     * replace or remove later stays in the emails that already carry it.
+     * The person's profile photo as an email draws it, copied once per photo and shape; empty where they have none. A
+     * photo they replace or remove later stays in the emails that already carry it.
      */
-    public Optional<EmailImage> photoOf(UUID userId) {
+    public Optional<EmailImage> photoOf(UUID userId, PhotoShape shape) {
         Optional<UserAvatar> avatar = avatars.findByUserId(userId);
         if (avatar.isEmpty()) {
             return Optional.empty();
         }
-        String sourceHash = avatar.get().getSha256();
+        // Square keeps the bare photo hash its copies were made under before shapes existed.
+        String sourceHash = shape == PhotoShape.SQUARE ? avatar.get().getSha256()
+                : Tokens.hash(avatar.get().getSha256() + ":" + shape.name());
         Supplier<Optional<EmailImage>> copied = () -> images.findByKindAndUserIdAndSourceSha256(EmailImageKind.PHOTO,
                 userId, sourceHash);
         if (copied.get().isPresent()) {
             return copied.get();
         }
-        return EmailImageEncoder.photo(avatar.get().getContent())
+        return EmailImageEncoder.photo(avatar.get().getContent(), shape)
                 .flatMap(photo -> save("users/" + userId + "/email-images/", photo, copied,
                         key -> EmailImage.photoOf(userId, sourceHash, Tokens.generate(), photo, key)));
     }

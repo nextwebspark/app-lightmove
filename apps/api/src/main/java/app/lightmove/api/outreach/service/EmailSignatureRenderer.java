@@ -1,5 +1,6 @@
 package app.lightmove.api.outreach.service;
 
+import app.lightmove.api.core.storage.constant.PhotoShape;
 import app.lightmove.api.core.storage.service.EmailImageService;
 import app.lightmove.api.outreach.constant.SignatureLayout;
 import app.lightmove.api.outreach.model.OutreachMarkdownEmail;
@@ -7,6 +8,7 @@ import app.lightmove.api.outreach.model.RenderedSignature;
 import app.lightmove.api.outreach.model.SignatureContent;
 import app.lightmove.api.outreach.model.SignatureFields;
 import app.lightmove.api.outreach.model.SignatureLogo;
+import app.lightmove.api.outreach.model.SignaturePicture;
 import app.lightmove.api.outreach.model.SignatureSender;
 import java.net.URI;
 import java.util.ArrayList;
@@ -18,7 +20,7 @@ import org.springframework.web.util.HtmlUtils;
 /**
  * Draws a signature the way mail clients agree on: nested tables with inline styles, a fixed size on every picture, no
  * class, no background image. Every value is escaped, a link goes only to http, https, mailto or tel, and the only
- * pictures are ones Uncava serves: the photo, the logo, and a Custom signature's own uploaded pictures. Text takes no
+ * pictures are ones Uncava serves: the photo, the logo, and the signer's own uploaded pictures. Text takes no
  * colour of its own but the muted lines', so a client's dark mode can turn it light.
  */
 public final class EmailSignatureRenderer {
@@ -29,6 +31,8 @@ public final class EmailSignatureRenderer {
     private static final int PHOTO_PX = 64;
     private static final int LOGO_MAX_WIDTH_PX = 200;
     private static final int LOGO_MAX_HEIGHT_PX = 48;
+    private static final int FOOTER_PICTURE_MAX_WIDTH_PX = 160;
+    private static final int FOOTER_PICTURE_MAX_HEIGHT_PX = 48;
     private static final String TABLE = "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" "
             + "style=\"border-collapse:collapse\">";
 
@@ -37,18 +41,25 @@ public final class EmailSignatureRenderer {
 
     public static RenderedSignature render(SignatureContent content, SignatureSender sender) {
         Details details = Details.of(content.fields(), sender);
-        boolean photo = content.layout().drawsPhoto() && content.showPhoto() && sender.photoUrl() != null;
+        String photoUrl = content.layout().drawsPhoto() && content.showPhoto()
+                ? sender.photoUrl(content.photoShape()) : null;
         SignatureLogo logo = content.layout().drawsLogo() && content.showLogo() ? sender.logo() : null;
         String booking = content.showBookingLink() ? sender.bookingLink() : null;
 
         String body = switch (content.layout()) {
             case CLASSIC -> stacked(details, null);
-            case PHOTO, PHOTO_LOGO -> beside(details, photo ? sender.photoUrl() : null, logo);
+            case PHOTO, PHOTO_LOGO -> beside(details, photoUrl, content.photoShape(), logo);
             case LOGO_BANNER -> stacked(details, logo);
             case MINIMAL -> minimal(details);
             case CUSTOM -> custom(content.customBody(), logo, sender);
         };
         StringBuilder html = new StringBuilder("<div style=\"margin-top:16px;").append(FONT).append("\">").append(body);
+        if (content.layout() != SignatureLayout.CUSTOM && hasText(content.customBody())) {
+            html.append("<div style=\"margin-top:8px\">")
+                    .append(OutreachMarkdownEmail.signatureHtmlOf(content.customBody(), sender.pictures()))
+                    .append("</div>");
+        }
+        html.append(footer(content.footerPictures(), sender));
         if (booking != null) {
             html.append("<div style=\"margin-top:8px;font-weight:bold\">")
                     .append(anchor(booking, "Book a call with me")).append("</div>");
@@ -74,14 +85,17 @@ public final class EmailSignatureRenderer {
         return html.append("</table>").toString();
     }
 
-    /** The photo, then the details, then the logo past a vertical rule. */
-    private static String beside(Details details, String photoUrl, SignatureLogo logo) {
+    /**
+     * The photo, then the details, then the logo past a vertical rule. The photo's shape is in its pixels; the radius is
+     * for a client that scales it, so its edge stays smooth.
+     */
+    private static String beside(Details details, String photoUrl, PhotoShape shape, SignatureLogo logo) {
         StringBuilder html = new StringBuilder(TABLE).append("<tr>");
         if (photoUrl != null) {
             html.append("<td style=\"vertical-align:middle;padding-right:14px\"><img src=\"").append(escape(photoUrl))
                     .append("\" width=\"").append(PHOTO_PX).append("\" height=\"").append(PHOTO_PX)
                     .append("\" alt=\"\" style=\"display:block;width:").append(PHOTO_PX).append("px;height:")
-                    .append(PHOTO_PX).append("px;border-radius:50%;border:0\"></td>");
+                    .append(PHOTO_PX).append("px;border-radius:").append(radiusOf(shape)).append(";border:0\"></td>");
         }
         html.append("<td style=\"vertical-align:middle;").append(FONT).append("\">")
                 .append(String.join("<br>", details.lines(true))).append("</td>");
@@ -91,6 +105,37 @@ public final class EmailSignatureRenderer {
                     .append(image(logo)).append("</div></td>");
         }
         return html.append("</tr></table>").toString();
+    }
+
+    private static String radiusOf(PhotoShape shape) {
+        return switch (shape) {
+            case CIRCLE -> "50%";
+            case ROUNDED -> "10px";
+            case SQUARE -> "0";
+        };
+    }
+
+    /** The signer's own pictures in one row, each fitted to a logo's box; a token not theirs draws nothing. */
+    private static String footer(List<String> tokens, SignatureSender sender) {
+        StringBuilder row = new StringBuilder();
+        for (String token : tokens) {
+            SignaturePicture picture = sender.pictures().get(token);
+            if (picture == null) {
+                continue;
+            }
+            double scale = Math.min(1.0, Math.min((double) FOOTER_PICTURE_MAX_WIDTH_PX / picture.width(),
+                    (double) FOOTER_PICTURE_MAX_HEIGHT_PX / picture.height()));
+            int width = Math.max(1, (int) Math.round(picture.width() * scale));
+            int height = Math.max(1, (int) Math.round(picture.height() * scale));
+            row.append("<td style=\"vertical-align:middle;padding-right:16px\"><img src=\"").append(escape(picture.url()))
+                    .append("\" width=\"").append(width).append("\" height=\"").append(height)
+                    .append("\" alt=\"\" style=\"display:block;width:").append(width).append("px;height:").append(height)
+                    .append("px;border:0\"></td>");
+        }
+        if (row.isEmpty()) {
+            return "";
+        }
+        return "<div style=\"margin-top:12px\">" + TABLE + "<tr>" + row + "</tr></table></div>";
     }
 
     private static String minimal(Details details) {
@@ -125,11 +170,12 @@ public final class EmailSignatureRenderer {
 
     /**
      * The signature as a Custom signature's Markdown, to go on editing in its place: the details it draws, its photo and
-     * logo as the signer's own pictures, a Custom one's own words kept. Values are escaped, so a name never becomes
+     * logo as the signer's own pictures, its own words kept. The footer's pictures are not in it: they stay the footer. Values are escaped, so a name never becomes
      * markup; a phone stays text, as a Custom signature keeps it.
      */
     public static String asMarkdown(SignatureContent content, SignatureSender sender) {
-        boolean photo = content.layout().drawsPhoto() && content.showPhoto() && sender.photoUrl() != null;
+        String photoUrl = content.layout().drawsPhoto() && content.showPhoto()
+                ? sender.photoUrl(content.photoShape()) : null;
         SignatureLogo logo = content.layout().drawsLogo() && content.showLogo() ? sender.logo() : null;
         List<String> blocks = new ArrayList<>();
         if (content.layout() == SignatureLayout.CUSTOM) {
@@ -137,11 +183,14 @@ public final class EmailSignatureRenderer {
                 blocks.add(content.customBody().strip());
             }
         } else {
-            if (photo) {
-                blocks.add(pictureMarkdown(sender.photoUrl()));
+            if (photoUrl != null) {
+                blocks.add(pictureMarkdown(photoUrl));
             }
             blocks.add(String.join("\\\n", Details.of(content.fields(), sender).markdownLines(
                     content.layout() == SignatureLayout.MINIMAL)));
+            if (hasText(content.customBody())) {
+                blocks.add(content.customBody().strip());
+            }
         }
         if (logo != null) {
             blocks.add(pictureMarkdown(logo.url()));
@@ -166,14 +215,14 @@ public final class EmailSignatureRenderer {
     }
 
     /** The signature's own value where it set one, its source's otherwise; blank is absent either way. */
-    private record Details(String name, String title, String company, String phone, String email, String website,
-                           String linkedinUrl, String address) {
+    private record Details(String name, String title, String company, String phone, String mobile, String email,
+                           String website, String linkedinUrl, String address) {
 
         static Details of(SignatureFields fields, SignatureSender sender) {
             SignatureFields own = fields == null ? SignatureFields.NONE : fields;
             return new Details(either(own.name(), sender.name()), either(own.title(), sender.title()),
                     either(own.company(), sender.company()), either(own.phone(), sender.phone()),
-                    either(sender.email(), null), either(own.website(), sender.website()),
+                    either(own.mobile(), null), either(sender.email(), null), either(own.website(), sender.website()),
                     either(own.linkedinUrl(), sender.linkedinUrl()), either(own.address(), null));
         }
 
@@ -200,8 +249,12 @@ public final class EmailSignatureRenderer {
                 lines.add(muted(escape(company)));
             }
             StringJoiner reach = new StringJoiner(" · ");
+            boolean both = phone != null && mobile != null;
             if (phone != null) {
-                reach.add(phoneAnchor(phone));
+                reach.add((both ? "T " : "") + phoneAnchor(phone));
+            }
+            if (mobile != null) {
+                reach.add((both ? "M " : "") + phoneAnchor(mobile));
             }
             if (email != null) {
                 reach.add(anchor("mailto:" + email, email));
@@ -250,8 +303,12 @@ public final class EmailSignatureRenderer {
                 lines.add(markdownEscaped(roleLine()));
             }
             StringJoiner reach = new StringJoiner(" · ");
+            boolean both = phone != null && mobile != null;
             if (phone != null) {
-                reach.add(markdownEscaped(phone));
+                reach.add((both ? "T " : "") + markdownEscaped(phone));
+            }
+            if (mobile != null) {
+                reach.add((both ? "M " : "") + markdownEscaped(mobile));
             }
             if (email != null) {
                 reach.add("[" + markdownEscaped(email) + "](<mailto:" + email + ">)");

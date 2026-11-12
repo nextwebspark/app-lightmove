@@ -88,7 +88,7 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the profile photo is copied once for email, served publicly by its own token, and kept after removal")
+    @DisplayName("the profile photo is cut round once for email, served publicly by its own token, and kept after removal")
     void photoFromAvatar() throws Exception {
         String photo = """
                 {"name":"With photo","layout":"PHOTO","showPhoto":true}""";
@@ -110,7 +110,7 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
                 first.indexOf("/api/v1/email-images/")));
         MvcResult served = mvc.perform(get(path))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type", "image/jpeg"))
+                .andExpect(header().string("Content-Type", "image/png"))
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andReturn();
         assertThat(served.getResponse().getHeader("Cache-Control")).contains("immutable", "public");
@@ -312,6 +312,52 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON).content(seven))
                 .andExpect(status().isBadRequest()).andReturn();
         assertThat(body(tooMany).get("fieldErrors").has("customBody")).isTrue();
+    }
+
+    @Test
+    @DisplayName("any layout takes a second number, its own words and a footer of the signer's pictures; a photo keeps its shape")
+    void fixedLayoutExtras() throws Exception {
+        mvc.perform(multipart(HttpMethod.PUT, "/api/v1/auth/me/avatar")
+                        .file(new MockMultipartFile("file", "me.png", "image/png", picture(400, 400)))
+                        .header("Authorization", "Bearer " + yara).with(csrf()))
+                .andExpect(status().isOk());
+        JsonNode group = uploadPicture(yara, picture(800, 400));
+        JsonNode aesc = uploadPicture(yara, picture(300, 100));
+
+        String signature = """
+                {"name":"Full","layout":"PHOTO","showPhoto":true,"photoShape":"ROUNDED",
+                 "fields":{"phone":"+971 4 111 2222","mobile":"+971 50 333 4444"},
+                 "customBody":"Festival Tower, **Dubai**","footerPictures":["%s","%s"]}"""
+                .formatted(group.get("token").asText(), aesc.get("token").asText());
+        JsonNode saved = create(yara, signature);
+        assertThat(saved.get("photoShape").asText()).isEqualTo("ROUNDED");
+        assertThat(saved.get("fields").get("mobile").asText()).isEqualTo("+971 50 333 4444");
+        assertThat(saved.get("footerPictures")).hasSize(2);
+        assertThat(saved.get("footerPictures").get(0).get("src").asText()).isEqualTo(group.get("src").asText());
+        String html = saved.get("html").asText();
+        assertThat(html).contains("M <a href=\"tel:+971503334444\"", "<strong>Dubai</strong>", "border-radius:10px",
+                "width=\"96\" height=\"48\"", "width=\"144\" height=\"48\"");
+
+        String photoSrc = html.substring(html.indexOf("src=\"") + 5, html.indexOf('"', html.indexOf("src=\"") + 5));
+        mvc.perform(get(photoSrc.substring(photoSrc.indexOf(EmailImageService.PATH)))).andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"));
+
+        inviteAndAccept(yara, "Omar Saleh", "omar@" + domain, "MEMBER");
+        String omar = login("omar@" + domain);
+        MvcResult borrowed = mvc.perform(post(SIGNATURES).header("Authorization", "Bearer " + omar)
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"name":"Borrowed","layout":"CLASSIC","footerPictures":["%s"]}"""
+                                .formatted(group.get("token").asText())))
+                .andExpect(status().isBadRequest()).andReturn();
+        assertThat(body(borrowed).get("fieldErrors").has("footerPictures")).isTrue();
+
+        MvcResult tooMany = mvc.perform(post(SIGNATURES).header("Authorization", "Bearer " + yara)
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"name":"Many","layout":"CLASSIC","customBody":"%s","footerPictures":["%s"]}"""
+                                .formatted(("![](" + aesc.get("src").asText() + ") ").repeat(6),
+                                        group.get("token").asText())))
+                .andExpect(status().isBadRequest()).andReturn();
+        assertThat(body(tooMany).get("fieldErrors").has("footerPictures")).isTrue();
     }
 
     @Test

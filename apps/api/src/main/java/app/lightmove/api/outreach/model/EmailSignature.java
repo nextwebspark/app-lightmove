@@ -1,12 +1,15 @@
 package app.lightmove.api.outreach.model;
 
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.core.storage.constant.PhotoShape;
 import app.lightmove.api.outreach.constant.SignatureLayout;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -41,6 +44,10 @@ public class EmailSignature extends BaseEntity {
     @Column(name = "show_photo", nullable = false)
     private boolean showPhoto;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "photo_shape", nullable = false, length = 8)
+    private PhotoShape photoShape = PhotoShape.CIRCLE;
+
     @Column(name = "show_logo", nullable = false)
     private boolean showLogo;
 
@@ -49,6 +56,10 @@ public class EmailSignature extends BaseEntity {
 
     @Column(name = "custom_body", length = 2000)
     private String customBody;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "footer_pictures", columnDefinition = "jsonb", nullable = false)
+    private List<String> footerPictures = new ArrayList<>();
 
     @Column(name = "disclaimer", length = 1000)
     private String disclaimer;
@@ -69,15 +80,17 @@ public class EmailSignature extends BaseEntity {
         this.layout = content.layout();
         this.fields = content.fields();
         this.showPhoto = content.showPhoto();
+        this.photoShape = content.photoShape();
         this.showLogo = content.showLogo();
         this.showBookingLink = content.showBookingLink();
-        this.customBody = content.layout() == SignatureLayout.CUSTOM ? content.customBody() : null;
+        this.customBody = content.customBody();
+        this.footerPictures = new ArrayList<>(content.footerPictures());
         this.disclaimer = content.disclaimer();
     }
 
     public SignatureContent content() {
-        return new SignatureContent(name, layout, fields == null ? SignatureFields.NONE : fields, showPhoto, showLogo,
-                showBookingLink, customBody, disclaimer);
+        return new SignatureContent(name, layout, fields == null ? SignatureFields.NONE : fields, showPhoto, photoShape,
+                showLogo, showBookingLink, customBody, footerPictures, disclaimer);
     }
 
     public void markDefault(boolean isDefault) {

@@ -2,6 +2,7 @@ package app.lightmove.api.core.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.core.storage.constant.PhotoShape;
 import app.lightmove.api.core.storage.model.EncodedImage;
 import app.lightmove.api.core.storage.service.EmailImageEncoder;
 import java.awt.Color;
@@ -32,13 +33,26 @@ class EmailImageEncoderTest {
     @Test
     @DisplayName("a photo is cropped square and kept at 192 pixels as JPEG")
     void photoIsSquare() throws Exception {
-        EncodedImage photo = EmailImageEncoder.photo(picture(1200, 800, "png")).orElseThrow();
+        EncodedImage photo = EmailImageEncoder.photo(picture(1200, 800, "png"), PhotoShape.SQUARE).orElseThrow();
 
         assertThat(photo.contentType()).isEqualTo("image/jpeg");
         assertThat(photo.width()).isEqualTo(192);
         assertThat(photo.height()).isEqualTo(192);
         BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(photo.content()));
         assertThat(decoded.getWidth()).isEqualTo(192);
+    }
+
+    @Test
+    @DisplayName("a circle or rounded photo is PNG with its corners cut away, its middle kept")
+    void shapedPhotoHasTransparentCorners() throws Exception {
+        for (PhotoShape shape : new PhotoShape[] {PhotoShape.CIRCLE, PhotoShape.ROUNDED}) {
+            EncodedImage photo = EmailImageEncoder.photo(picture(1200, 800, "jpeg"), shape).orElseThrow();
+
+            assertThat(photo.contentType()).isEqualTo("image/png");
+            BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(photo.content()));
+            assertThat(decoded.getRGB(0, 0) >>> 24).as(shape + " corner").isZero();
+            assertThat(decoded.getRGB(96, 96) >>> 24).as(shape + " middle").isEqualTo(255);
+        }
     }
 
     @Test
@@ -57,8 +71,9 @@ class EmailImageEncoderTest {
     @Test
     @DisplayName("anything but a JPEG or PNG is refused")
     void refusesTheRest() throws Exception {
-        assertThat(EmailImageEncoder.photo("<svg onload=alert(1)/>".getBytes(StandardCharsets.UTF_8))).isEmpty();
-        assertThat(EmailImageEncoder.photo(picture(20, 20, "gif"))).isEmpty();
+        assertThat(EmailImageEncoder.photo("<svg onload=alert(1)/>".getBytes(StandardCharsets.UTF_8),
+                PhotoShape.CIRCLE)).isEmpty();
+        assertThat(EmailImageEncoder.photo(picture(20, 20, "gif"), PhotoShape.CIRCLE)).isEmpty();
         assertThat(EmailImageEncoder.logo(new byte[0])).isEmpty();
     }
 
@@ -75,7 +90,8 @@ class EmailImageEncoderTest {
         withExif.write(exif);
         withExif.write(jpeg, 2, jpeg.length - 2);
         assertThat(contains(withExif.toByteArray(), secret)).isTrue();
-        assertThat(contains(EmailImageEncoder.photo(withExif.toByteArray()).orElseThrow().content(), secret)).isFalse();
+        assertThat(contains(EmailImageEncoder.photo(withExif.toByteArray(), PhotoShape.SQUARE).orElseThrow().content(),
+                secret)).isFalse();
 
         byte[] png = picture(300, 100, "png");
         byte[] withText = concat(java.util.Arrays.copyOfRange(png, 0, 33),
@@ -95,7 +111,7 @@ class EmailImageEncoderTest {
         java.nio.ByteBuffer.wrap(png, 29, 4).putInt((int) crc.getValue());
 
         assertThat(png.length).isLessThan(2_000);
-        assertThat(EmailImageEncoder.photo(png)).isEmpty();
+        assertThat(EmailImageEncoder.photo(png, PhotoShape.CIRCLE)).isEmpty();
         assertThat(EmailImageEncoder.logo(png)).isEmpty();
     }
 

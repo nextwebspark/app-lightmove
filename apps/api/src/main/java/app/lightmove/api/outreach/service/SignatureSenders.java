@@ -4,6 +4,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.storage.constant.PhotoShape;
 import app.lightmove.api.core.storage.model.EmailImage;
 import app.lightmove.api.core.storage.service.EmailImageService;
 import app.lightmove.api.outreach.dto.SignatureSourcesResponse;
@@ -14,6 +15,7 @@ import app.lightmove.api.outreach.model.SignatureSender;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -59,7 +61,9 @@ public class SignatureSenders {
     }
 
     private SignatureSender senderOf(UUID userId, UUID workspaceId, SignatureNeeds needs, boolean sending) {
-        String photoUrl = needs.photo() ? emailImages.photoOf(userId).map(emailImages::urlOf).orElse(null) : null;
+        Map<PhotoShape, String> photos = new EnumMap<>(PhotoShape.class);
+        needs.photoShapes().forEach(shape -> emailImages.photoOf(userId, shape)
+                .ifPresent(photo -> photos.put(shape, emailImages.urlOf(photo))));
         SignatureLogo logo = needs.logo() ? logoOf(workspaceId) : null;
         Map<String, SignaturePicture> pictures = picturesOf(userId, workspaceId, needs.pictureTokens());
         return transactions.execute(status -> {
@@ -70,7 +74,7 @@ public class SignatureSenders {
                     ? (sending ? bookingPages.linkOf(mailbox) : bookingPages.previewLinkOf(mailbox)) : null;
             return new SignatureSender(user.getFullName(), user.getTitle(), user.getPhone(), user.getLinkedinUrl(),
                     mailbox == null ? user.getEmail() : mailbox.getAddress(), workspace.getName(),
-                    workspace.getCompanyWebsite(), photoUrl, logo, bookingLink, pictures);
+                    workspace.getCompanyWebsite(), photos, logo, bookingLink, pictures);
         });
     }
 

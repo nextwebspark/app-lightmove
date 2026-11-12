@@ -8,8 +8,12 @@ import { request } from "../../../lib/apiClient";
 
 export const SIGNATURES_KEY = ["email-signatures"] as const;
 
-/** Every new signature is saved as CUSTOM; the fixed layouts are what older ones were saved in, and still send as. */
-export type SignatureLayout = "PHOTO_LOGO" | "PHOTO" | "CLASSIC" | "LOGO_BANNER" | "MINIMAL" | "CUSTOM";
+export const SIGNATURE_LAYOUTS = ["PHOTO_LOGO", "PHOTO", "CLASSIC", "LOGO_BANNER", "MINIMAL", "CUSTOM"] as const;
+export type SignatureLayout = (typeof SIGNATURE_LAYOUTS)[number];
+
+/** How the photo is cut; the server bakes the shape into the picture so Outlook draws it too. */
+export const PHOTO_SHAPES = ["CIRCLE", "ROUNDED", "SQUARE"] as const;
+export type PhotoShape = (typeof PHOTO_SHAPES)[number];
 
 /** What a signature says instead of its source; null or blank follows the source. */
 export interface SignatureFields {
@@ -20,6 +24,8 @@ export interface SignatureFields {
   company: string | null;
   website: string | null;
   address: string | null;
+  /** A second number; it has no source and is this signature's alone. */
+  mobile: string | null;
 }
 
 export interface SaveSignaturePayload {
@@ -27,15 +33,20 @@ export interface SaveSignaturePayload {
   layout: SignatureLayout;
   fields: SignatureFields;
   showPhoto: boolean;
+  photoShape: PhotoShape;
   showLogo: boolean;
   showBookingLink: boolean;
+  /** Custom's whole signature; under any other layout, the extra words drawn below the details. */
   customBody: string | null;
+  /** Tokens of uploaded pictures drawn in a row at the foot. */
+  footerPictures: string[];
   disclaimer: string | null;
   isDefault: boolean;
 }
 
-export interface EmailSignature extends SaveSignaturePayload {
+export interface EmailSignature extends Omit<SaveSignaturePayload, "footerPictures"> {
   id: string;
+  footerPictures: SignaturePicture[];
   updatedAt: string;
   /** How it draws today, as an email would carry it. */
   html: string;
@@ -89,7 +100,7 @@ export function previewSignature(payload: SaveSignaturePayload, signal?: AbortSi
   return request<RenderedSignature>("/me/signatures/preview", { method: "POST", body: payload, signal });
 }
 
-/** A picture for a Custom signature, kept and served by Uncava; `src` is what the editor writes into its Markdown. */
+/** A picture a signature shows, kept and served by Uncava; `src` is what the editor writes into its Markdown. */
 export interface SignaturePicture {
   token: string;
   src: string;
@@ -108,7 +119,7 @@ export function sendSignatureTest(payload: SaveSignaturePayload): Promise<{ sent
   return request<{ sentTo: string }>("/me/signatures/test", { method: "POST", body: payload });
 }
 
-/** A starting point, or a signature saved in an older layout, as the Markdown the editor goes on with. */
+/** The signature as a Custom signature's Markdown, for "Edit everything freely". */
 export function signatureStarter(payload: SaveSignaturePayload): Promise<{ customBody: string }> {
   return request<{ customBody: string }>("/me/signatures/starter", { method: "POST", body: payload });
 }

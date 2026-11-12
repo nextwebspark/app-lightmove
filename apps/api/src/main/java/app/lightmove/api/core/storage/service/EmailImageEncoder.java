@@ -1,9 +1,12 @@
 package app.lightmove.api.core.storage.service;
 
+import app.lightmove.api.core.storage.constant.PhotoShape;
 import app.lightmove.api.core.storage.model.EncodedImage;
+import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -45,16 +48,41 @@ public final class EmailImageEncoder {
     private EmailImageEncoder() {
     }
 
-    /** A square, centred crop, as JPEG on white: a photo has no transparency worth keeping. */
-    public static Optional<EncodedImage> photo(byte[] content) {
+    /**
+     * A square, centred crop. Square is JPEG on white; a circle or rounded square is PNG with its corners transparent,
+     * the shape in the pixels so every mail client draws it.
+     */
+    public static Optional<EncodedImage> photo(byte[] content, PhotoShape shape) {
         return decode(content, PHOTO_EDGE_PX).map(source -> {
             int edge = Math.min(source.getWidth(), source.getHeight());
             BufferedImage square = source.getSubimage((source.getWidth() - edge) / 2, (source.getHeight() - edge) / 2,
                     edge, edge);
             int target = Math.min(PHOTO_EDGE_PX, edge);
-            BufferedImage scaled = scaled(square, target, target, BufferedImage.TYPE_INT_RGB);
-            return new EncodedImage(jpeg(scaled), "image/jpeg", target, target);
+            if (shape == PhotoShape.SQUARE) {
+                BufferedImage scaled = scaled(square, target, target, BufferedImage.TYPE_INT_RGB);
+                return new EncodedImage(jpeg(scaled), "image/jpeg", target, target);
+            }
+            return new EncodedImage(png(cut(scaled(square, target, target, BufferedImage.TYPE_INT_ARGB), shape)),
+                    "image/png", target, target);
         });
+    }
+
+    /** Drawn through an antialiased mask, so the edge is smooth rather than stepped. */
+    private static BufferedImage cut(BufferedImage square, PhotoShape shape) {
+        int edge = square.getWidth();
+        double arc = edge * shape.cornerFraction() * 2;
+        BufferedImage shaped = new BufferedImage(edge, edge, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = shaped.createGraphics();
+        try {
+            graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            graphics.setColor(Color.WHITE);
+            graphics.fill(new RoundRectangle2D.Double(0, 0, edge, edge, arc, arc));
+            graphics.setComposite(AlphaComposite.SrcIn);
+            graphics.drawImage(square, 0, 0, null);
+        } finally {
+            graphics.dispose();
+        }
+        return shaped;
     }
 
     /** Fitted inside the logo box, never enlarged, as PNG so a transparent logo stays transparent. */

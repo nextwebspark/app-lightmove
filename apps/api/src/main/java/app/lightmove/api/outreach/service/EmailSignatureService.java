@@ -3,11 +3,11 @@ package app.lightmove.api.outreach.service;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.storage.constant.EmailImageKind;
 import app.lightmove.api.core.storage.model.EmailImage;
 import app.lightmove.api.core.storage.service.EmailImageService;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.core.text.service.PhoneNumbers;
-import app.lightmove.api.outreach.constant.SignatureLayout;
 import app.lightmove.api.outreach.dto.EmailSignatureResponse;
 import app.lightmove.api.outreach.dto.EmailSignaturesResponse;
 import app.lightmove.api.outreach.dto.RenderedSignatureResponse;
@@ -23,6 +23,8 @@ import app.lightmove.api.outreach.model.SignatureFields;
 import app.lightmove.api.outreach.model.SignaturePicture;
 import app.lightmove.api.outreach.model.SignatureSender;
 import app.lightmove.api.outreach.repository.EmailSignatureRepository;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -145,7 +147,7 @@ public class EmailSignatureService {
         SignatureContent content = contentOf(request);
         SignatureNeeds needs = SignatureNeeds.of(content);
         SignatureSender sender = senders.forPreview(userId, workspaceId,
-                new SignatureNeeds(needs.photo(), needs.logo(), false, List.of()));
+                new SignatureNeeds(needs.photoShapes(), needs.logo(), false, needs.pictureTokens()));
         return new SignatureStarterResponse(EmailSignatureRenderer.asMarkdown(content, sender));
     }
 
@@ -191,21 +193,26 @@ public class EmailSignatureService {
     }
 
     /**
-     * Every picture a saved Custom signature names is the caller's to show — an upload of theirs here, their photo, the
-     * workspace's logo — and there are at most six. A token copied out of a colleague's signature would draw nothing in
-     * an email, so it is refused here instead.
+     * Every picture a saved signature names, in its words or its footer, is the caller's to show — an upload of theirs
+     * here, their photo, the workspace's logo — and there are at most six in all. A token copied out of a colleague's
+     * signature would draw nothing in an email, so it is refused here instead.
      */
     private void requireOwnPictures(UUID userId, UUID workspaceId, SignatureContent content) {
-        if (content.layout() != SignatureLayout.CUSTOM || content.customBody() == null) {
-            return;
+        int inWords = OutreachMarkdownEmail.pictureCountIn(content.customBody());
+        if (inWords + content.footerPictures().size() > SignaturePicture.MAX_PER_SIGNATURE) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED,
+                    content.footerPictures().isEmpty() ? "customBody" : "footerPictures", "Keep it to 6 pictures");
         }
-        if (OutreachMarkdownEmail.pictureCountIn(content.customBody()) > SignaturePicture.MAX_PER_SIGNATURE) {
-            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "customBody", "Keep it to 6 pictures");
-        }
-        List<String> tokens = OutreachMarkdownEmail.pictureTokensIn(content.customBody());
-        if (emailImages.signaturePicturesOf(workspaceId, userId, tokens).size() != tokens.size()) {
+        List<String> inBody = OutreachMarkdownEmail.pictureTokensIn(content.customBody());
+        if (emailImages.signaturePicturesOf(workspaceId, userId, inBody).size() != inBody.size()) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "customBody",
                     "A picture in it could not be found. Remove it and insert it again");
+        }
+        List<String> uploaded = emailImages.signaturePicturesOf(workspaceId, userId, content.footerPictures()).stream()
+                .filter(image -> image.getKind() == EmailImageKind.SIGNATURE).map(EmailImage::getToken).toList();
+        if (!uploaded.containsAll(content.footerPictures())) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "footerPictures",
+                    "A picture could not be found. Remove it and add it again");
         }
     }
 
@@ -235,11 +242,17 @@ public class EmailSignatureService {
         SignatureContent content = signature.content();
         RenderedSignature rendered = EmailSignatureRenderer.render(content, sender);
         SignatureFields fields = content.fields();
+        List<SignaturePictureResponse> footer = content.footerPictures().stream()
+                .filter(token -> sender.pictures().containsKey(token))
+                .map(token -> new SignaturePictureResponse(token, EmailImageService.PATH + token,
+                        sender.pictures().get(token).width(), sender.pictures().get(token).height()))
+                .toList();
         return new EmailSignatureResponse(signature.getId(), content.name(), content.layout(),
                 new SignatureFieldsDto(fields.name(), fields.title(), fields.phone(), fields.linkedinUrl(),
-                        fields.company(), fields.website(), fields.address()),
-                content.showPhoto(), content.showLogo(), content.showBookingLink(), content.customBody(),
-                content.disclaimer(), signature.isDefault(), signature.getUpdatedAt(), rendered.html());
+                        fields.company(), fields.website(), fields.address(), fields.mobile()),
+                content.showPhoto(), content.photoShape(), content.showLogo(), content.showBookingLink(),
+                content.customBody(), footer, content.disclaimer(), signature.isDefault(), signature.getUpdatedAt(),
+                rendered.html());
     }
 
     /** Trimmed, blank as absent, and an address that is not what its field says refused by name. */
@@ -248,11 +261,14 @@ public class EmailSignatureService {
         SignatureFields fields = typed == null ? SignatureFields.NONE : new SignatureFields(
                 trimmed(typed.name()), trimmed(typed.title()), PhoneNumbers.typedOrNull(typed.phone(), "fields.phone"),
                 linkedinOrNull(typed.linkedinUrl()), trimmed(typed.company()), websiteOrNull(typed.website()),
-                trimmed(typed.address()));
-        String customBody = request.layout() == SignatureLayout.CUSTOM ? trimmed(request.customBody()) : null;
+                trimmed(typed.address()), PhoneNumbers.typedOrNull(typed.mobile(), "fields.mobile"));
+        List<String> footer = request.footerPictures() == null ? List.of()
+                : new ArrayList<>(new LinkedHashSet<>(request.footerPictures().stream()
+                        .filter(token -> token != null && !token.isBlank()).map(String::strip).toList()));
         return new SignatureContent(request.name().strip(), request.layout(), fields,
-                Boolean.TRUE.equals(request.showPhoto()), Boolean.TRUE.equals(request.showLogo()),
-                Boolean.TRUE.equals(request.showBookingLink()), customBody, trimmed(request.disclaimer()));
+                Boolean.TRUE.equals(request.showPhoto()), request.photoShape(), Boolean.TRUE.equals(request.showLogo()),
+                Boolean.TRUE.equals(request.showBookingLink()), trimmed(request.customBody()), footer,
+                trimmed(request.disclaimer()));
     }
 
     private static String linkedinOrNull(String value) {

@@ -2,6 +2,7 @@ package app.lightmove.api.outreach.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.core.storage.constant.PhotoShape;
 import app.lightmove.api.outreach.constant.SignatureLayout;
 import app.lightmove.api.outreach.model.RenderedSignature;
 import app.lightmove.api.outreach.model.SignatureContent;
@@ -9,6 +10,7 @@ import app.lightmove.api.outreach.model.SignatureFields;
 import app.lightmove.api.outreach.model.SignatureLogo;
 import app.lightmove.api.outreach.model.SignaturePicture;
 import app.lightmove.api.outreach.model.SignatureSender;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,7 +23,7 @@ class EmailSignatureRendererTest {
             480, 120);
     private static final SignatureSender YARA = new SignatureSender("Yara Haddad", "Head of Talent Acquisition",
             "+971 50 123 4567", "https://www.linkedin.com/in/yarahaddad", "yara@alfuttaim.com", "Al-Futtaim",
-            "alfuttaim.com", PHOTO, LOGO, "https://beta.uncava.com/book/yara-haddad-ab12cd34", Map.of());
+            "alfuttaim.com", Map.of(PhotoShape.CIRCLE, PHOTO, PhotoShape.ROUNDED, PHOTO + "-rounded"), LOGO, "https://beta.uncava.com/book/yara-haddad-ab12cd34", Map.of());
 
     private static SignatureContent content(SignatureLayout layout, SignatureFields fields, boolean photo, boolean logo,
                                             boolean booking) {
@@ -68,7 +70,7 @@ class EmailSignatureRendererTest {
         assertThat(classicAskedAnyway).doesNotContain("<img");
 
         SignatureSender noPictures = new SignatureSender("Yara Haddad", null, null, null, "yara@alfuttaim.com", null,
-                null, null, null, null, Map.of());
+                null, Map.of(), null, null, Map.of());
         String none = EmailSignatureRenderer.render(
                 content(SignatureLayout.PHOTO_LOGO, SignatureFields.NONE, true, true, true), noPictures).html();
         assertThat(none).doesNotContain("<img", "Book a call");
@@ -106,7 +108,7 @@ class EmailSignatureRendererTest {
         String own = "https://beta.uncava.com/api/v1/email-images/" + "a".repeat(43);
         String other = "/api/v1/email-images/" + "b".repeat(43);
         SignatureSender withPictures = new SignatureSender("Yara Haddad", null, null, null, "yara@alfuttaim.com", null,
-                null, null, null, null, Map.of("a".repeat(43), new SignaturePicture(own, 1200, 300)));
+                null, Map.of(), null, null, Map.of("a".repeat(43), new SignaturePicture(own, 1200, 300)));
         String markdown = "![Group](/api/v1/email-images/" + "a".repeat(43) + " \"large\") ![Not mine](" + other + ")";
         String html = EmailSignatureRenderer.render(new SignatureContent("Mine", SignatureLayout.CUSTOM,
                 SignatureFields.NONE, false, false, false, markdown, null), withPictures).html();
@@ -132,6 +134,33 @@ class EmailSignatureRendererTest {
         String drawn = EmailSignatureRenderer.render(new SignatureContent("Mine", SignatureLayout.CUSTOM,
                 SignatureFields.NONE, false, false, false, markdown, null), YARA).html();
         assertThat(drawn).contains("1. Partner, A &amp; B", "- Floor 3").doesNotContain("<ol", "<ul", "<h");
+    }
+
+    @Test
+    @DisplayName("the photo is drawn in the shape asked for")
+    void photoInItsShape() {
+        SignatureContent rounded = new SignatureContent("Formal", SignatureLayout.PHOTO, SignatureFields.NONE, true,
+                PhotoShape.ROUNDED, false, false, null, List.of(), null);
+        String html = EmailSignatureRenderer.render(rounded, YARA).html();
+
+        assertThat(html).contains("src=\"" + PHOTO + "-rounded\"", "border-radius:10px");
+    }
+
+    @Test
+    @DisplayName("a second number, extra words and footer pictures show in a fixed layout; a picture not theirs does not")
+    void extrasInAFixedLayout() {
+        String own = "https://beta.uncava.com/api/v1/email-images/" + "a".repeat(43);
+        SignatureSender withPictures = new SignatureSender("Yara Haddad", null, "+971 4 111 2222", null,
+                "yara@alfuttaim.com", null, null, Map.of(), null, null,
+                Map.of("a".repeat(43), new SignaturePicture(own, 480, 240)));
+        SignatureFields mobile = new SignatureFields(null, null, null, null, null, null, null, "+971 50 333 4444");
+        SignatureContent content = new SignatureContent("Formal", SignatureLayout.CLASSIC, mobile, false,
+                PhotoShape.CIRCLE, false, false, "Dubai · **Riyadh**", List.of("a".repeat(43), "b".repeat(43)), null);
+        String html = EmailSignatureRenderer.render(content, withPictures).html();
+
+        assertThat(html).contains("T <a href=\"tel:+97141112222\"", "M <a href=\"tel:+971503334444\"",
+                "<strong>Riyadh</strong>", "<img src=\"" + own + "\" width=\"96\" height=\"48\"");
+        assertThat(html).doesNotContain("b".repeat(43));
     }
 
     @Test

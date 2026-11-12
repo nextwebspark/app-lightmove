@@ -21,7 +21,6 @@ vi.mock("../api/signaturesApi", async (importOriginal) => ({
   deleteSignature: vi.fn(),
   previewSignature: vi.fn(),
   uploadSignaturePicture: vi.fn(),
-  signatureStarter: vi.fn(),
   sendSignatureTest: vi.fn(),
 }));
 
@@ -73,11 +72,13 @@ function aSignature(overrides: Partial<EmailSignature>): EmailSignature {
     id: "s1",
     name: "Formal",
     layout: "PHOTO_LOGO",
-    fields: { name: null, title: null, phone: null, linkedinUrl: null, company: null, website: null, address: null },
+    fields: { name: null, title: null, phone: null, linkedinUrl: null, company: null, website: null, address: null, mobile: null },
     showPhoto: true,
+    photoShape: "CIRCLE",
     showLogo: true,
     showBookingLink: false,
     customBody: null,
+    footerPictures: [],
     disclaimer: null,
     isDefault: false,
     updatedAt: "2026-11-01T10:00:00Z",
@@ -151,60 +152,107 @@ describe("SettingsSignaturesPage", () => {
     expect(await screen.findByText("Default signature changed")).toBeInTheDocument();
   });
 
-  it("starts from With logo filled in by the server, writes on in one editor, and saves it as Custom", async () => {
+  it("starts from a layout, fills nothing the profile already says, and saves the first one as the default", async () => {
     vi.mocked(signaturesApi.listSignatures).mockResolvedValue({ signatures: [], sources: SOURCES, limit: 10 });
-    vi.mocked(signaturesApi.signatureStarter).mockResolvedValue({ customBody: "**Alok Kumar**\\\nHead of Talent" });
     vi.mocked(signaturesApi.createSignature).mockResolvedValue(aSignature({ isDefault: true }));
     const user = userEvent.setup();
     renderPage();
 
     expect(await screen.findByText("No signature yet")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "New signature" }));
-    expect(screen.getAllByRole("listitem")).toHaveLength(3);
-    await user.click(screen.getByRole("button", { name: /With logo/ }));
+    await user.click(screen.getByRole("button", { name: /Classic/ }));
 
-    expect(signaturesApi.signatureStarter).toHaveBeenCalledWith(
-      expect.objectContaining({ layout: "LOGO_BANNER", showPhoto: true, showLogo: true }),
-    );
-    const editor = await screen.findByRole("textbox", { name: /^Signature$/ });
-    expect(editor).toHaveTextContent("Alok Kumar");
+    expect(screen.getByText("Head of Talent")).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Title" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("switch", { name: "Show the company logo" })).not.toBeInTheDocument();
+    expect(screen.getByText("Not in your profile")).toBeInTheDocument();
+    expect(screen.getByText("alok@nextwebspark.com")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Email" })).not.toBeInTheDocument();
+    await user.type(screen.getByRole("textbox", { name: "Address" }), "Festival Tower");
     await user.click(screen.getByRole("button", { name: "Save signature" }));
 
     await waitFor(() =>
       expect(signaturesApi.createSignature).toHaveBeenCalledWith(
         expect.objectContaining({
-          name: "With logo",
-          layout: "CUSTOM",
+          name: "Classic",
+          layout: "CLASSIC",
           isDefault: true,
-          showLogo: false,
-          customBody: expect.stringContaining("Alok Kumar"),
+          fields: expect.objectContaining({ title: null, address: "Festival Tower" }),
         }),
       ),
     );
     expect(await screen.findByText("Signature saved")).toBeInTheDocument();
   });
 
-  it("opens one saved in an older layout as editable words, and offers the booking link only with a mailbox", async () => {
+  it("offers the photo only once one is uploaded, and the booking link only with a mailbox", async () => {
     vi.mocked(signaturesApi.listSignatures).mockResolvedValue({ signatures: [aSignature({})], sources: SOURCES, limit: 10 });
-    vi.mocked(signaturesApi.signatureStarter).mockResolvedValue({ customBody: "**Alok Kumar**" });
     const user = userEvent.setup();
     renderPage();
 
     await user.click(await screen.findByRole("button", { name: "Edit" }));
 
-    expect(signaturesApi.signatureStarter).toHaveBeenCalledWith(expect.objectContaining({ layout: "PHOTO_LOGO" }));
-    expect(await screen.findByRole("textbox", { name: /^Signature$/ })).toHaveTextContent("Alok Kumar");
+    expect(screen.getByRole("switch", { name: "Show my photo" })).toBeDisabled();
+    expect(screen.getByText("Upload a photo in Profile to show it here.")).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: 'Add "Book a call with me"' })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Show the company logo" })).toBeEnabled();
     expect(await screen.findByTitle("Signature preview")).toBeInTheDocument();
+  });
+
+  it("shows the server's refusal of a bad address under its field", async () => {
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({ signatures: [aSignature({})], sources: SOURCES, limit: 10 });
+    const { ApiRequestError } = await import("../../../lib/apiClient");
+    vi.mocked(signaturesApi.updateSignature).mockRejectedValue(
+      new ApiRequestError({
+        code: "VALIDATION_FAILED",
+        detail: "One or more fields are invalid",
+        status: 400,
+        correlationId: "c1",
+        fieldErrors: { "fields.website": "Enter a website address, like yourcompany.com" },
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.click(screen.getByRole("button", { name: "Change website" }));
+    await user.type(screen.getByRole("textbox", { name: "Website" }), "not a site");
+    await user.click(screen.getByRole("button", { name: "Save signature" }));
+
+    expect(await screen.findByText("Enter a website address, like yourcompany.com")).toBeInTheDocument();
+  });
+
+  it("makes a profile value this signature's own on Change, and follows the profile again on Use profile's", async () => {
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({ signatures: [aSignature({})], sources: SOURCES, limit: 10 });
+    vi.mocked(signaturesApi.updateSignature).mockResolvedValue(aSignature({}));
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.click(screen.getByRole("button", { name: "Change title" }));
+    const title = screen.getByRole("textbox", { name: "Title" });
+    expect(title).toHaveAttribute("placeholder", "Head of Talent");
+    await user.type(title, "Partner");
+    expect(screen.getByText("Only on this signature")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Use profile's" }));
+    expect(screen.queryByRole("textbox", { name: "Title" })).not.toBeInTheDocument();
+    expect(screen.getByText("Head of Talent")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add linkedin" }));
+    await user.type(screen.getByRole("textbox", { name: "LinkedIn" }), "linkedin.com/in/alok");
+    await user.click(screen.getByRole("button", { name: "Save signature" }));
+    await waitFor(() =>
+      expect(signaturesApi.updateSignature).toHaveBeenCalledWith(
+        "s1",
+        expect.objectContaining({ fields: expect.objectContaining({ title: null, linkedinUrl: "linkedin.com/in/alok" }) }),
+      ),
+    );
   });
 
   it("holds a Custom signature to 2,000 characters, and says why the server refused one", async () => {
     vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
       signatures: [
-        aSignature({ id: "long", name: "Long", layout: "CUSTOM", showLogo: false, customBody: "x".repeat(2001) }),
-        aSignature({ id: "short", name: "Short", layout: "CUSTOM", showLogo: false, customBody: "Alok", isDefault: true }),
+        aSignature({ id: "long", name: "Long", layout: "CUSTOM", customBody: "x".repeat(2001) }),
+        aSignature({ id: "short", name: "Short", layout: "CUSTOM", customBody: "Alok", isDefault: true }),
       ],
       sources: SOURCES,
       limit: 10,
@@ -237,14 +285,14 @@ describe("SettingsSignaturesPage", () => {
   it("inserts an uploaded picture into a Custom signature, sizes it, and sends the draft as a test", async () => {
     const src = "/api/v1/email-images/AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde";
     vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
-      signatures: [aSignature({ id: "firm", name: "Firm", layout: "CUSTOM", showLogo: false, customBody: "Alok", isDefault: true })],
+      signatures: [aSignature({ id: "firm", name: "Firm", layout: "CUSTOM", customBody: "Alok", isDefault: true })],
       sources: SOURCES,
       limit: 10,
     });
     vi.mocked(signaturesApi.uploadSignaturePicture).mockResolvedValue({ token: "t", src, width: 600, height: 150 });
     vi.mocked(signaturesApi.sendSignatureTest).mockResolvedValue({ sentTo: "alok@nextwebspark.com" });
     vi.mocked(signaturesApi.updateSignature).mockImplementation(async (_id, payload) =>
-      aSignature({ ...payload, id: "firm" }),
+      aSignature({ ...payload, footerPictures: [], id: "firm" }),
     );
     const user = userEvent.setup();
     renderPage();
@@ -267,7 +315,7 @@ describe("SettingsSignaturesPage", () => {
     const src = "/api/v1/email-images/AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde";
     vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
       signatures: [
-        aSignature({ id: "full", name: "Full", layout: "CUSTOM", showLogo: false, customBody: `![](${src}) `.repeat(6).trim(), isDefault: true }),
+        aSignature({ id: "full", name: "Full", layout: "CUSTOM", customBody: `![](${src}) `.repeat(6).trim(), isDefault: true }),
       ],
       sources: SOURCES,
       limit: 10,
