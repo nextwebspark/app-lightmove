@@ -7,6 +7,7 @@ import type { Meeting } from "../../outreach/api/meetingApi";
 import { meetingWhenOf } from "../../outreach/lib/meetingTimes";
 import { recordingIdOfCall } from "../../outreach/lib/notetakerChip";
 import type { PersonNoteKind } from "../api/types";
+import { dayKeyOf, formatClock, formatInstantDate, formatShortDate, instantOf, shiftDay, wallClockOf } from "../../../lib/datetime";
 
 /** When a logged call, message or meeting happened, its title, and for a meeting which one it was. */
 export interface LogDetails {
@@ -39,7 +40,7 @@ export function logPayloadOf(details: LogDetails) {
       ? { meetingId: null, recordingId, title, occurredAt: null }
       : { meetingId: details.meetingId, recordingId: null, title, occurredAt: null };
   }
-  const at = new Date(`${details.date}T${details.time || "00:00"}`);
+  const at = instantOf(details.date, details.time || "00:00");
   const occurredAt = Number.isNaN(at.getTime()) ? null : at.toISOString();
   return { occurredAt, title, meetingId: null, recordingId: null };
 }
@@ -47,7 +48,7 @@ export function logPayloadOf(details: LogDetails) {
 /** A log dated later than now, which the server refuses: a meeting chosen from the calendar brings its own past time. */
 export function isLogInFuture(details: LogDetails, kind: PersonNoteKind): boolean {
   if (kind === "meeting" && details.meetingId) return false;
-  const at = new Date(`${details.date}T${details.time || "00:00"}`);
+  const at = instantOf(details.date, details.time || "00:00");
   return !Number.isNaN(at.getTime()) && at.getTime() > Date.now();
 }
 
@@ -275,35 +276,27 @@ function chipClassOf(invalid: boolean): string {
 
 /** "Today, 15:14", "Yesterday, 09:30", "3 Nov, 15:14", or with the year once it is not this one. */
 export function whenLabelOf(date: string, time: string, now: Date = new Date()): string {
-  const day = new Date(`${date}T00:00:00`);
-  if (Number.isNaN(day.getTime())) return time || "Pick a time";
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return time ? formatClock(time) : "Pick a time";
+  const today = dayKeyOf(now);
   const dayWords =
-    date === localDateOf(now)
+    date === today
       ? "Today"
-      : date === localDateOf(yesterday)
+      : date === shiftDay(today, -1)
         ? "Yesterday"
-        : day.toLocaleDateString("en-GB", {
-            day: "numeric",
-            month: "short",
-            ...(day.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
-          });
-  return time ? `${dayWords}, ${time}` : dayWords;
+        : date.slice(0, 4) === today.slice(0, 4)
+          ? formatShortDate(date)
+          : formatInstantDate(date);
+  return time ? `${dayWords}, ${formatClock(time)}` : (dayWords ?? "Pick a time");
 }
 
 function shortDayOf(isoInstant: string): string {
-  return new Date(isoInstant).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-}
-
-function pad(value: number): string {
-  return String(value).padStart(2, "0");
+  return formatShortDate(isoInstant) ?? "—";
 }
 
 function localDateOf(at: Date): string {
-  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+  return wallClockOf(at).date;
 }
 
 function localTimeOf(at: Date): string {
-  return `${pad(at.getHours())}:${pad(at.getMinutes())}`;
+  return wallClockOf(at).time;
 }

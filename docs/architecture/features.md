@@ -393,13 +393,13 @@ chapter divides by the executives who have one on file, not by the headcount, so
 recorded reads as unmeasured rather than as a pool of one gender. **The AI on an executive** is ungrounded
 Gemini calls at temperature 0 (no web search — grounding was too slow): the background (`CandidateAiEnricher` and
 the nationality classifier, asked side by side by `BackgroundProposer`) and the assessment draft (above).
-**What the AI may do is the workspace's choice (#922, V211):** Settings → Data & retention's AI on people holds four
+**What the AI may do is the workspace's choice (#922, V213):** Settings → Data & retention's AI on people holds four
 switches, `WORKSPACE_MANAGE` and audited (`WORKSPACE_UPDATED`, `section=aiControls`) — Infer gender, Infer nationality,
 Draft assessments with AI, AI-enrich on capture. A gender or nationality switched off is never listed to the model
 nor kept from its answer (`BackgroundNeeds`), the classifier is not asked and its reading answers 204, Assess with AI
 is `AI_ASSESSMENT_DISABLED`, and the worker below runs nothing; turning gender or nationality off clears the AI's
 unconfirmed values and every reading across the workspace in the same write (`InferredBackgroundEraser`, implemented
-in `candidate`). Workspaces founded since V211 start with all four off; see `docs/gdpr/ai-controls-922.md`.
+in `candidate`). Workspaces founded since V213 start with all four off; see `docs/gdpr/ai-controls-922.md`.
 `CandidateAiEnrichWorker` runs the background alone, unprompted and audited like a press, once a capture's research
 lands or Find executives files someone — asking nothing when nothing is missing, and nothing at all while the
 workspace's AI-enrich on capture is off (`CANDIDATE_AI_ENRICH_ON_CAPTURE` stays the platform's kill-switch above it)
@@ -767,7 +767,7 @@ instances never share a row, and a claim nobody released is stopped `SEND_UNCERT
 send re-checks what Start checked (do not contact, still mapped, still in the running, address still on the
 ledger, mailbox active) and stops the run with that reason rather than hooking `candidate`; it waits for
 the sequence's own sending days and hours (V113, `send_days`/`window_start`/`window_end`, Mon–Fri 08:00–18:00
-by default) in the mailbox's `time_zone` — the consultant's own time zone, set in Settings → Profile and copied to
+by default) in the mailbox's `time_zone` — the consultant's own time zone (Settings → Profile, else the workspace's, V211) copied to
 each of their mailboxes (V148, `TimezoneChanged`) — and under its daily cap. A follow-up waits its delay in those days and
 goes at its step's `send_time`, or the time of day the step before went. Start chooses when the first emails
 go (`startMode`): `NOW` or `AT` a chosen instant (≤ 60 days) pins it (`first_send_pinned`), so the window

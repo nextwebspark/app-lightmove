@@ -1,4 +1,5 @@
 import { request } from "../../../lib/apiClient";
+import type { DateFormatStyle, TimeFormatStyle } from "../../../lib/datetime";
 import type {
   CreateWorkspaceRequest,
   InviteRequest,
@@ -59,6 +60,15 @@ export function changeAiControls(controls: AiControls): Promise<WorkspaceDetail>
 
 export function inferredBackground(): Promise<InferredBackground> {
   return request<InferredBackground>("/workspace/ai-controls/inferred-background");
+}
+
+/** A null is "not chosen": the country's zone, the standard formats. */
+export function updateDateTime(choice: {
+  timeZone: string | null;
+  dateFormat: DateFormatStyle | null;
+  timeFormat: TimeFormatStyle | null;
+}): Promise<WorkspaceDetail> {
+  return request<WorkspaceDetail>("/workspace/date-time", { method: "PUT", body: choice });
 }
 
 export function deleteWorkspace(confirmName: string): Promise<void> {

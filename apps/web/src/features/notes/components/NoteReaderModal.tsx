@@ -2,8 +2,8 @@ import { Button } from "../../../components/ui";
 import { Modal } from "../../../components/ui/Modal";
 import type { NoteFormat } from "../lib/noteFormat";
 import { NoteText } from "./NoteText";
+import { formatInstantDateTime } from "../../../lib/datetime";
 
-const WRITTEN_AT = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
 /** A long note read whole, at a reading measure, in the middle of the screen; the card it came from stays as it was. */
 export function NoteReaderModal({
@@ -27,7 +27,7 @@ export function NoteReaderModal({
   /** Offered to whoever may change the note: closes the reader and edits it on its card. */
   onEdit?: () => void;
 }) {
-  const subtitle = [...details, WRITTEN_AT.format(new Date(writtenAt))].filter(Boolean).join(" · ");
+  const subtitle = [...details, formatInstantDateTime(writtenAt)].filter(Boolean).join(" · ");
   return (
     <Modal
       open={open}

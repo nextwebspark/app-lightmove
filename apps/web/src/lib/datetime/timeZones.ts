@@ -1,0 +1,88 @@
+import { offsetOf } from "./zone";
+
+/**
+ * The fixed list of time zones a workspace or a person chooses from — the API's `data/time-zones.json`, which
+ * refuses anything else (`timeZones.test.ts` holds the two equal).
+ */
+export interface OfferedTimeZone {
+  zone: string;
+  label: string;
+}
+
+export const OFFERED_TIME_ZONES: readonly OfferedTimeZone[] = [
+  { zone: "UTC", label: "Coordinated Universal Time" },
+  { zone: "Asia/Dubai", label: "Dubai, Abu Dhabi" },
+  { zone: "Asia/Muscat", label: "Muscat" },
+  { zone: "Asia/Riyadh", label: "Riyadh, Jeddah" },
+  { zone: "Asia/Qatar", label: "Doha" },
+  { zone: "Asia/Kuwait", label: "Kuwait City" },
+  { zone: "Asia/Bahrain", label: "Manama" },
+  { zone: "Africa/Cairo", label: "Cairo" },
+  { zone: "Asia/Amman", label: "Amman" },
+  { zone: "Asia/Beirut", label: "Beirut" },
+  { zone: "Asia/Baghdad", label: "Baghdad" },
+  { zone: "Asia/Tehran", label: "Tehran" },
+  { zone: "Europe/Istanbul", label: "Istanbul" },
+  { zone: "Africa/Casablanca", label: "Casablanca" },
+  { zone: "Africa/Lagos", label: "Lagos" },
+  { zone: "Africa/Nairobi", label: "Nairobi" },
+  { zone: "Africa/Johannesburg", label: "Johannesburg" },
+  { zone: "Europe/London", label: "London" },
+  { zone: "Europe/Paris", label: "Paris" },
+  { zone: "Europe/Berlin", label: "Berlin" },
+  { zone: "Europe/Athens", label: "Athens" },
+  { zone: "Europe/Moscow", label: "Moscow" },
+  { zone: "Asia/Karachi", label: "Karachi" },
+  { zone: "Asia/Kolkata", label: "Mumbai, New Delhi" },
+  { zone: "Asia/Dhaka", label: "Dhaka" },
+  { zone: "Asia/Bangkok", label: "Bangkok" },
+  { zone: "Asia/Singapore", label: "Singapore" },
+  { zone: "Asia/Hong_Kong", label: "Hong Kong" },
+  { zone: "Asia/Shanghai", label: "Beijing, Shanghai" },
+  { zone: "Asia/Tokyo", label: "Tokyo" },
+  { zone: "Asia/Seoul", label: "Seoul" },
+  { zone: "Australia/Perth", label: "Perth" },
+  { zone: "Australia/Sydney", label: "Sydney" },
+  { zone: "Pacific/Auckland", label: "Auckland" },
+  { zone: "Pacific/Honolulu", label: "Honolulu" },
+  { zone: "America/Anchorage", label: "Anchorage" },
+  { zone: "America/Los_Angeles", label: "Pacific Time (Los Angeles)" },
+  { zone: "America/Denver", label: "Mountain Time (Denver)" },
+  { zone: "America/Chicago", label: "Central Time (Chicago)" },
+  { zone: "America/New_York", label: "Eastern Time (New York)" },
+  { zone: "America/Mexico_City", label: "Mexico City" },
+  { zone: "America/Sao_Paulo", label: "São Paulo" },
+];
+
+/** "(GMT+04:00) Dubai, Abu Dhabi" — the offset as it stands at `now`, so daylight saving reads right. */
+export function timeZoneOptionLabel(offered: OfferedTimeZone, now: Date = new Date()): string {
+  return `(${paddedOffsetOf(now, offered.zone)}) ${offered.label}`;
+}
+
+/** The list as a picker draws it: west to east by today's offset, ties in the list's own order. */
+export function timeZonesByOffset(now: Date = new Date()): readonly OfferedTimeZone[] {
+  return [...OFFERED_TIME_ZONES].sort((left, right) => offsetOf(now, left.zone) - offsetOf(now, right.zone));
+}
+
+/** A zone the list does not offer, as a picker still shows the one someone saved before it: "Tashkent". */
+export function zoneCityLabel(zone: string): string {
+  return OFFERED_TIME_ZONES.find((offered) => offered.zone === zone)?.label
+    ?? (zone.split("/").pop() ?? zone).replace(/_/g, " ");
+}
+
+/** "Dubai" — the zone's own city, how a sentence names its clock ("Your computer is on Dubai time"). */
+export function zoneCityOf(zone: string): string {
+  return (zone.split("/").pop() ?? zone).replace(/_/g, " ");
+}
+
+function paddedOffsetOf(now: Date, zone: string): string {
+  const minutes = Math.round(offsetOf(now, zone) / 60_000);
+  const sign = minutes < 0 ? "-" : "+";
+  const hours = String(Math.floor(Math.abs(minutes) / 60)).padStart(2, "0");
+  const rest = String(Math.abs(minutes) % 60).padStart(2, "0");
+  return `GMT${sign}${hours}:${rest}`;
+}
+
+export function isOfferedTimeZone(zone: string | null | undefined): boolean {
+  return !!zone && OFFERED_TIME_ZONES.some((offered) => offered.zone === zone);
+}

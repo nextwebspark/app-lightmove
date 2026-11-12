@@ -5,8 +5,8 @@ with #930 (step 7).
 
 | Piece | Migration | Where |
 |---|---|---|
-| Four per-workspace AI switches | V211 | Settings → Data & retention → AI on people |
-| Gender and nationality behind their own API scope | V212 | `candidates.demographics:read` on API keys and AI apps |
+| Four per-workspace AI switches | V213 | Settings → Data & retention → AI on people |
+| Gender and nationality behind their own API scope | V214 | `candidates.demographics:read` on API keys and AI apps |
 
 ## The four switches
 
@@ -44,7 +44,7 @@ and every drafted value stays marked as the AI's.
 
 ### Defaults ⚖️
 
-- Every workspace that existed before V211 keeps all four switches **on**, so the release changes nothing for
+- Every workspace that existed before V213 keeps all four switches **on**, so the release changes nothing for
   existing customers.
 - Every workspace founded since starts with all four **off**.
 - The switches are **not** behind `DATA_PROTECTION_ENABLED`. They only reduce processing and depend on none of that
@@ -62,7 +62,7 @@ model proposed and nobody confirmed was already `null` on the API, and still is.
 
 Existing keys and AI-app connections do not hold the new scope, so they stop receiving both fields. An admin who needs
 them makes a key with the scope. The consent screen offers only the scopes an AI app registered with
-(`OAuthConsentService`), so an app registered before V212 must register again before the scope can be ticked.
+(`OAuthConsentService`), so an app registered before V214 must register again before the scope can be ticked.
 
 ## DSAR "logic involved" text
 

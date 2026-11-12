@@ -1,3 +1,4 @@
+import { dayKeyOf, formatDate, formatWeekdayDate, shiftDay } from "../../../lib/datetime";
 import type { PersonTimelineEntry, TimelineGroup } from "../api/types";
 
 /** The timeline's filter chips, in the mockup's order; "Everything" asks for no group. */
@@ -15,16 +16,11 @@ export const TIMELINE_GROUPS: { value: TimelineGroup | ""; label: string }[] = [
 function dayLabelOf(isoInstant: string, now: Date = new Date()): string {
   const at = new Date(isoInstant);
   if (Number.isNaN(at.getTime())) return "—";
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (at.toDateString() === now.toDateString()) return "Today";
-  if (at.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return at.toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    ...(at.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
-  });
+  const day = dayKeyOf(at);
+  const today = dayKeyOf(now);
+  if (day === today) return "Today";
+  if (day === shiftDay(today, -1)) return "Yesterday";
+  return day.slice(0, 4) === today.slice(0, 4) ? (formatWeekdayDate(at) ?? "—") : formatDate(at);
 }
 
 /** Lines in the order given, gathered under their day's label. */

@@ -2,6 +2,9 @@ package app.lightmove.api.workspace.service;
 
 import app.lightmove.api.billing.plan.service.WorkspaceBillingClosure;
 import app.lightmove.api.common.persona.model.HiringPersona;
+import app.lightmove.api.common.time.constant.DateFormatStyle;
+import app.lightmove.api.common.time.constant.TimeFormatStyle;
+import app.lightmove.api.common.time.service.StandardTimeZones;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -17,8 +20,10 @@ import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.constant.WorkspaceMode;
 import app.lightmove.api.workspace.model.CalendarSyncChanged;
 import app.lightmove.api.workspace.model.InferredBackgroundCounts;
+import app.lightmove.api.workspace.model.SuggestedDateTime;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceAiControls;
+import app.lightmove.api.workspace.model.WorkspaceDateTimeChanged;
 import app.lightmove.api.workspace.model.WorkspaceDeleted;
 import app.lightmove.api.workspace.repository.InvitationRepository;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
@@ -26,6 +31,8 @@ import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,6 +57,7 @@ public class WorkspaceSettingsService {
     private final ApplicationEventPublisher events;
     private final ApiKeyService apiKeys;
     private final OAuthGrantService oauthGrants;
+    private final DateTimePreferenceService dateTimePreferences;
     private final WorkspaceBillingClosure billing;
     private final UserRepository users;
     private final InferredBackgroundEraser inferredBackground;
@@ -67,7 +75,11 @@ public class WorkspaceSettingsService {
                                   HttpServletRequest request) {
         Workspace workspace = requireWorkspace(workspaceId);
         WorkspaceIdentity identity = companyResolver.resolve(name, apolloAccountId);
+        ZoneId previousZone = dateTimePreferences.forWorkspace(workspace).zone();
         workspace.applySettings(identity.name(), identity.company(), defaultRegion, defaultCurrency);
+        if (!previousZone.equals(dateTimePreferences.forWorkspace(workspace).zone())) {
+            events.publishEvent(new WorkspaceDateTimeChanged(workspaceId));
+        }
 
         audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
                 .actor(actorId).workspace(workspaceId).from(request)
@@ -128,6 +140,48 @@ public class WorkspaceSettingsService {
             events.publishEvent(new CalendarSyncChanged(workspaceId, calendarSync));
         }
         return detail(workspace);
+    }
+
+    /** A null is "not chosen", so a later country change still reaches it. */
+    @Transactional
+    public WorkspaceDetail changeDateTime(UUID actorId, UUID workspaceId, String timeZone,
+                                          DateFormatStyle dateFormat, TimeFormatStyle timeFormat,
+                                          HttpServletRequest request) {
+        Workspace workspace = requireWorkspace(workspaceId);
+        ZoneId previousSettledZone = dateTimePreferences.forWorkspace(workspace).zone();
+        String previousZone = workspace.getTimeZone();
+        DateFormatStyle previousDateFormat = workspace.getDateFormat();
+        TimeFormatStyle previousTimeFormat = workspace.getTimeFormat();
+        boolean isZoneMoved = !Objects.equals(previousZone, timeZone);
+        if (!isZoneMoved && previousDateFormat == dateFormat && previousTimeFormat == timeFormat) {
+            return detail(workspace);
+        }
+        if (isZoneMoved && timeZone != null && !StandardTimeZones.isOffered(timeZone)) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "timeZone", "Pick a time zone from the list");
+        }
+        workspace.changeDateTime(timeZone, dateFormat, timeFormat);
+        audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
+                .actor(actorId).workspace(workspaceId).from(request)
+                .detail("section", "dateTime")
+                .detail("timeZoneFrom", orCountry(previousZone))
+                .detail("timeZoneTo", orCountry(timeZone))
+                .detail("dateFormatFrom", orStandard(previousDateFormat))
+                .detail("dateFormatTo", orStandard(dateFormat))
+                .detail("timeFormatFrom", orStandard(previousTimeFormat))
+                .detail("timeFormatTo", orStandard(timeFormat))
+                .record();
+        if (!previousSettledZone.equals(dateTimePreferences.forWorkspace(workspace).zone())) {
+            events.publishEvent(new WorkspaceDateTimeChanged(workspaceId));
+        }
+        return detail(workspace);
+    }
+
+    private static String orCountry(String zone) {
+        return zone == null ? "country" : zone;
+    }
+
+    private static String orStandard(Enum<?> format) {
+        return format == null ? "standard" : format.name();
     }
 
     /** How the workspace's calendars are read; {@code outreach} asks before handing anything to Recall. */
@@ -236,9 +290,11 @@ public class WorkspaceSettingsService {
 
     private WorkspaceDetail detail(Workspace workspace) {
         long memberCount = members.countByWorkspaceIdAndStatus(workspace.getId(), MemberStatus.ACTIVE);
-        return new WorkspaceDetail(workspace, memberCount);
+        return new WorkspaceDetail(workspace, memberCount, dateTimePreferences.suggestionOf(workspace),
+                members.countWithAutomaticTimeZone(workspace.getId()));
     }
 
-    public record WorkspaceDetail(Workspace workspace, long memberCount) {
+    public record WorkspaceDetail(Workspace workspace, long memberCount, SuggestedDateTime suggestedDateTime,
+                                  long membersAutomaticTimeZone) {
     }
 }

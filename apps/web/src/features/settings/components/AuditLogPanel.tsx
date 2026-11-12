@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Avatar, Button, DateInput, Spinner, TableSkeleton, useToast } from "../../../components/ui";
 import { PillSelect } from "../../../components/ui/PillSelect";
+import { formatFull } from "../../../lib/datetime";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatActivityTime } from "../../projects/lib/activity";
 import * as auditLogApi from "../api/auditLogApi";
@@ -168,7 +169,7 @@ function AuditLogRow({ entry }: { entry: AuditLogEntry }) {
   return (
     <tr>
       <td className={`${TD} whitespace-nowrap font-mono text-meta text-u-text3`}>
-        <time dateTime={entry.occurredAt} title={new Date(entry.occurredAt).toLocaleString()}>
+        <time dateTime={entry.occurredAt} title={formatFull(entry.occurredAt) ?? undefined}>
           {formatActivityTime(entry.occurredAt)}
         </time>
       </td>

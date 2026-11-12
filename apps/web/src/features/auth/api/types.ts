@@ -6,6 +6,8 @@
  * OpenAPI document instead of maintaining it twice.
  */
 
+import type { DateFormatStyle, DateTimePreferences, TimeFormatStyle } from "../../../lib/datetime";
+
 export type WorkspaceRole = "ADMIN" | "MEMBER" | "CLIENT";
 
 /**
@@ -65,8 +67,11 @@ export interface User {
    */
   hasPassword: boolean;
 
-  /** IANA zone id, e.g. "Asia/Dubai" — the user's own choice in Settings → Profile. */
+  /** IANA zone id every date reads in: the user's own choice, else the workspace's (`dateTime.effective`). */
   timezone: string;
+
+  /** The zone and formats every date reads in, and the own and workspace choices they are settled from. */
+  dateTime: UserDateTime;
   /** Their language tag ("en" | "ar" | "fr"), stored ahead of the app being translated. */
   locale: string;
 
@@ -207,7 +212,10 @@ export interface LoginRequest {
 export interface UpdateProfileRequest {
   fullName: string;
   title: string | null;
-  timezone: string;
+  /** Null is Automatic (the device's zone); a null format keeps the workspace's. */
+  timezone: string | null;
+  dateFormat: DateFormatStyle | null;
+  timeFormat: TimeFormatStyle | null;
   locale: string;
   /** Left out: unchanged. Blank: cleared. */
   phone?: string;
@@ -302,4 +310,21 @@ export interface ApiError {
   soleAdminOf?: AccountWorkspace[];
   /** Present on ACCOUNT_HANDOVER_REQUIRED: the live positions the person is the only lead of. */
   soleLeadOf?: HandoverPosition[];
+}
+
+/** A zone and two formats; on `own` each is null where the person keeps the workspace's. */
+export interface DateTimeChoice {
+  timeZone: string | null;
+  dateFormat: DateFormatStyle | null;
+  timeFormat: TimeFormatStyle | null;
+}
+
+export interface UserDateTime {
+  effective: DateTimePreferences;
+  /** A null zone is Automatic: it follows this person's device. A null format is the workspace's. */
+  own: DateTimeChoice;
+  /** The zone this person's browser last reported; null until one has. */
+  deviceTimeZone: string | null;
+  /** Null outside a workspace. */
+  workspace: DateTimePreferences | null;
 }

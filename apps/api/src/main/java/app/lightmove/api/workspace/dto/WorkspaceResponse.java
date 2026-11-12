@@ -23,6 +23,7 @@ public record WorkspaceResponse(
         Instant createdAt,
         HiringPersona persona,
         WorkspaceCompanyResponse company,
+        WorkspaceDateTimeResponse dateTime,
         /** How long a deleted workspace is kept before everything goes, for the Delete workspace copy. */
         long deletionGraceDays
 ) {}

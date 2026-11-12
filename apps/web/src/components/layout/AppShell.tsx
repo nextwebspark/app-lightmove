@@ -4,6 +4,7 @@ import { cn } from "../../lib/cn";
 import { useAssistant } from "../../features/assistant/AssistantProvider";
 import { AssistantDock } from "../../features/assistant/components/AssistantDock";
 import { HelpProvider } from "../../features/help/HelpProvider";
+import { TimeZoneMoveNotice } from "../../features/settings/components/TimeZoneMoveNotice";
 import { MobileMoreSheet } from "./mobile/MobileMoreSheet";
 import { MobileTabBar, type MobileTab } from "./mobile/MobileTabBar";
 import { Sidebar, type SidebarGroup, type SidebarItem } from "./Sidebar";
@@ -59,6 +60,8 @@ export function AppShell({
       {/* Clear of the notch and the status bar: the home-screen app is drawn edge to edge (viewport-fit=cover). */}
       <div className="flex h-dvh flex-col overflow-hidden pt-[env(safe-area-inset-top)] ps-[env(safe-area-inset-left)] pe-[env(safe-area-inset-right)]">
         <Topbar breadcrumb={breadcrumb} actions={topbarActions} />
+
+        <TimeZoneMoveNotice />
 
         {notice && <div className="px-3.5 pb-2.5">{notice}</div>}
 

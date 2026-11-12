@@ -519,9 +519,7 @@ describe("a log: a call, a LinkedIn message or a meeting", () => {
     await screen.findByRole("button", { name: "Mention a teammate" });
 
     await userEvent.click(screen.getByRole("button", { name: /^When it happened/ }));
-    const time = screen.getByLabelText("Time it happened");
-    await userEvent.clear(time);
-    await userEvent.type(time, "18:00");
+    await userEvent.selectOptions(screen.getByLabelText("Time it happened"), "18:00");
     await typeInto(composer(), "Spoke later.");
 
     expect(screen.getByRole("alert")).toHaveTextContent("This time hasn’t happened yet.");

@@ -14,6 +14,7 @@ import app.lightmove.api.core.security.dto.SwitchWorkspaceRequest;
 import app.lightmove.api.core.security.dto.ResendVerificationRequest;
 import app.lightmove.api.core.security.dto.ResetPasswordRequest;
 import app.lightmove.api.core.security.dto.SignupRequest;
+import app.lightmove.api.core.security.dto.ReportDeviceTimeZoneRequest;
 import app.lightmove.api.core.security.dto.UpdateProfileRequest;
 import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.dto.VerifyEmailRequest;
@@ -218,10 +219,20 @@ public class AuthController {
                 principal.userId(),
                 principal.workspaceId(),
                 new ProfileUpdateCommand(
-                        request.fullName(), request.title(), request.timezone(), request.locale(),
-                        request.phone(), request.linkedinUrl()),
+                        request.fullName(), request.title(), request.timezone(), request.dateFormat(),
+                        request.timeFormat(), request.locale(), request.phone(), request.linkedinUrl()),
                 httpRequest);
         return assembler.userIn(principal.userId(), principal.workspaceId());
+    }
+
+    /** No body: the SPA already reads in the browser's zone, so nothing on screen waits for this. */
+    @PutMapping("/me/device-time-zone")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void reportDeviceTimeZone(@AuthenticationPrincipal AuthPrincipal principal,
+                                     @Valid @RequestBody ReportDeviceTimeZoneRequest request,
+                                     HttpServletRequest httpRequest) {
+        rateLimit.checkDeviceTimeZoneReport(principal.userId(), httpRequest);
+        userProfile.reportDeviceTimeZone(principal.userId(), request.timeZone());
     }
 
     /** The caller's own photo, from the principal; the cookie chain's CSRF check applies, as to {@code PATCH /me}. */
