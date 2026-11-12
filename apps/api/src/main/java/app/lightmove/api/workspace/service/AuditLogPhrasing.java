@@ -132,7 +132,7 @@ public class AuditLogPhrasing {
                 + stageSuffix(line.text("stage")));
         on(ProjectEventType.CANDIDATES_EXPORTED, line -> "Exported " + count(line.text("people"), "candidate",
                 "candidates") + (line.is("selected", "true") ? " (a selection)" : ""));
-        on(ProjectEventType.PERSON_SUBJECT_ACCESS_EXPORTED, line -> "Exported everything held on a candidate");
+        on(ProjectEventType.PERSON_SUBJECT_ACCESS_EXPORTED, line -> "Started an export of everything held on a candidate");
         on(ProjectEventType.PERSON_DOCUMENT_DOWNLOADED, line -> line.is("preview", "true")
                 ? "Previewed a candidate's document" : "Downloaded a candidate's document");
         on(ProjectEventType.OUTREACH_ATTACHMENT_DOWNLOADED, line -> "Downloaded an email attachment");

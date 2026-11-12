@@ -33,18 +33,30 @@ public class RowSnapshotReader {
     private final ObjectMapper json;
 
     public List<Map<String, Object>> rowsOf(String sql, Map<String, ?> parameters, Set<String> withheldColumns) {
-        ResultSetExtractor<List<Map<String, Object>>> extractor = rows -> read(rows, withheldColumns);
+        return rowsOf(sql, parameters, withheldColumns, Set.of(), (row, binaries) -> { });
+    }
+
+    /**
+     * As {@link #rowsOf(String, Map, Set)}, with {@code binaryColumns} kept out of each row and handed with it to
+     * {@code files}, so a row and the file it carries are read in one query.
+     */
+    public List<Map<String, Object>> rowsOf(String sql, Map<String, ?> parameters, Set<String> withheldColumns,
+                                            Set<String> binaryColumns, BinaryColumns files) {
+        ResultSetExtractor<List<Map<String, Object>>> extractor =
+                rows -> read(rows, withheldColumns, binaryColumns, files);
         List<Map<String, Object>> rows = jdbc.query(sql, parameters, extractor);
         return rows == null ? List.of() : rows;
     }
 
-    private List<Map<String, Object>> read(ResultSet rows, Set<String> withheldColumns) throws SQLException {
+    private List<Map<String, Object>> read(ResultSet rows, Set<String> withheldColumns, Set<String> binaryColumns,
+                                           BinaryColumns files) throws SQLException {
         ResultSetMetaData columns = rows.getMetaData();
         Set<String> returned = new HashSet<>();
         for (int column = 1; column <= columns.getColumnCount(); column++) {
             returned.add(columns.getColumnLabel(column));
         }
         Set<String> missing = new HashSet<>(withheldColumns);
+        missing.addAll(binaryColumns);
         missing.removeAll(returned);
         if (!missing.isEmpty()) {
             throw new IllegalStateException("withheld columns the query does not return: " + missing);
@@ -52,13 +64,19 @@ public class RowSnapshotReader {
         List<Map<String, Object>> answer = new ArrayList<>();
         while (rows.next()) {
             Map<String, Object> row = new LinkedHashMap<>();
+            Map<String, byte[]> binaries = new LinkedHashMap<>();
             for (int column = 1; column <= columns.getColumnCount(); column++) {
                 String name = columns.getColumnLabel(column);
-                if (!withheldColumns.contains(name)) {
+                if (binaryColumns.contains(name)) {
+                    binaries.put(name, rows.getBytes(column));
+                } else if (!withheldColumns.contains(name)) {
                     row.put(name, valueOf(rows, column, name, columns.getColumnTypeName(column)));
                 }
             }
             answer.add(row);
+            if (!binaryColumns.isEmpty()) {
+                files.accept(row, binaries);
+            }
         }
         return answer;
     }
@@ -94,5 +112,11 @@ public class RowSnapshotReader {
             elements.add(element == null ? null : plain(element));
         }
         return elements;
+    }
+
+    /** Takes a row's binary columns, by name, beside the row as it is answered; a null column is a null value. */
+    @FunctionalInterface
+    public interface BinaryColumns {
+        void accept(Map<String, Object> row, Map<String, byte[]> binaries);
     }
 }

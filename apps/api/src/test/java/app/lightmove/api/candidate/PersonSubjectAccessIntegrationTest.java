@@ -73,9 +73,13 @@ class PersonSubjectAccessIntegrationTest extends FlowTestSupport {
         upload(personId, "%PDF-1.7\nsecond".getBytes(StandardCharsets.US_ASCII));
         seedOutreachRecordingAndTask(cfo, personId, candidateId);
         db.update("""
-                update app_lm_person set ai_inferred_fields = '["gender"]', gender = 'FEMALE',
+                update app_lm_person set ai_inferred_fields = '[]', gender = 'FEMALE',
                     ai_nationality_reading = '{"category":"Unknown","confidence":"low"}'
                 where id = ?::uuid""", personId);
+        db.update("""
+                insert into app_lm_person_activity (workspace_id, person_id, project_id, actor_user_id, kind, details)
+                values (?::uuid, ?::uuid, ?::uuid, ?::uuid, 'AI_ASSESSED', '{"scope":"BACKGROUND"}')""",
+                workspaceId, personId, cfo, adminId);
         db.update("""
                 insert into app_lm_candidate_scorecard (workspace_id, project_id, candidate_id, status, scores, report,
                     updated_by, ai_drafted, ai_drafted_at)
@@ -120,6 +124,7 @@ class PersonSubjectAccessIntegrationTest extends FlowTestSupport {
         assertThat(data.get("scorecards")).hasSize(1);
         assertThat(data.get("timeline").size()).isGreaterThan(0);
         assertThat(person.get("aiLogic").valueStream().map(use -> use.get("use").asText()))
+                .as("a confirmed AI value is still explained by its run's timeline line")
                 .contains("NATIONALITY", "BACKGROUND", "ASSESSMENT_DRAFT", "CALL_CHANGES");
         assertThat(person.at("/aiLogic/0/logic").asText()).isNotBlank();
         assertThat(person.at("/aboutThisData/automatedDecisions").asText()).contains("No decision about you");

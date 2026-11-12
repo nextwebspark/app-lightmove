@@ -1,6 +1,8 @@
 package app.lightmove.api.candidate.service;
 
+import app.lightmove.api.candidate.constant.AiRunScope;
 import app.lightmove.api.candidate.constant.AiUse;
+import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.model.StoredDocumentFile;
 import app.lightmove.api.candidate.model.SubjectAccessContribution;
 import app.lightmove.api.candidate.model.SubjectAccessFile;
@@ -13,6 +15,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -55,9 +58,12 @@ class PersonSubjectAccessRecords implements SubjectAccessContributor {
                 SELECT t.label, t.retired_at FROM app_lm_person_tag pt
                 JOIN app_lm_workspace_candidate_tag t ON t.id = pt.tag_id
                 WHERE pt.person_id = :personId ORDER BY t.label""", parameters, Set.of())));
+        List<SubjectAccessFile> files = new ArrayList<>();
         sections.add(new SubjectAccessSection("photo", "Photo", rows.rowsOf("""
                 SELECT * FROM app_lm_person_photo WHERE person_id = :personId""",
-                parameters, Set.of("content", "version"))));
+                parameters, Set.of("version"), Set.of("content"), (row, binaries) ->
+                        files.add(SubjectAccessFile.ofBytes("photo" + extensionOf(row.get("content_type")),
+                                binaries.get("content"))))));
         sections.add(new SubjectAccessSection("notes", "Notes", rows.rowsOf("""
                 SELECT * FROM app_lm_person_note WHERE workspace_id = :workspaceId AND person_id = :personId
                 ORDER BY created_at, id""", parameters, Set.of("workspace_id", "version"))));
@@ -67,9 +73,10 @@ class PersonSubjectAccessRecords implements SubjectAccessContributor {
         sections.add(new SubjectAccessSection("documentVersions", "Document files", rows.rowsOf("""
                 SELECT * FROM app_lm_person_document_version WHERE person_id = :personId
                 ORDER BY document_id, version_no""", parameters, Set.of("storage_key"))));
-        sections.add(new SubjectAccessSection("timeline", "Timeline", rows.rowsOf("""
+        List<Map<String, Object>> timeline = rows.rowsOf("""
                 SELECT * FROM app_lm_person_activity WHERE workspace_id = :workspaceId AND person_id = :personId
-                ORDER BY occurred_at, id""", parameters, Set.of("workspace_id"))));
+                ORDER BY occurred_at, id""", parameters, Set.of("workspace_id"));
+        sections.add(new SubjectAccessSection("timeline", "Timeline", timeline));
         List<Map<String, Object>> positions = rows.rowsOf("""
                 SELECT * FROM app_lm_project_candidate WHERE workspace_id = :workspaceId AND person_id = :personId
                 ORDER BY created_at, id""", parameters, Set.of("workspace_id", "version"));
@@ -85,12 +92,15 @@ class PersonSubjectAccessRecords implements SubjectAccessContributor {
                         ORDER BY candidate_id, channel, found_at""", parameters, Set.of("value_key"))));
         sections.add(new SubjectAccessSection("earlierPhotos", "Earlier copy of your photo", rows.rowsOf("""
                 SELECT * FROM app_lm_candidate_photo WHERE candidate_id = ANY (:candidateIds) ORDER BY created_at""",
-                parameters, Set.of("content", "version"))));
-        return new SubjectAccessContribution(sections, aiUsesOf(person, positions, scorecards), filesOf(parameters));
+                parameters, Set.of("version"), Set.of("content"), (row, binaries) ->
+                        files.add(SubjectAccessFile.ofBytes("earlier-copies/photo"
+                                + extensionOf(row.get("content_type")), binaries.get("content"))))));
+        files.addAll(documentFilesOf(parameters));
+        return new SubjectAccessContribution(sections, aiUsesOf(person, positions, scorecards, timeline), files);
     }
 
     private static Set<AiUse> aiUsesOf(List<Map<String, Object>> person, List<Map<String, Object>> positions,
-                                       List<Map<String, Object>> scorecards) {
+                                       List<Map<String, Object>> scorecards, List<Map<String, Object>> timeline) {
         Set<AiUse> uses = EnumSet.noneOf(AiUse.class);
         for (Map<String, Object> row : concat(person, positions)) {
             if (row.get("ai_nationality_reading") != null || inferred(row).contains("nationality")) {
@@ -106,7 +116,21 @@ class PersonSubjectAccessRecords implements SubjectAccessContributor {
         if (scorecards.stream().anyMatch(row -> row.get("ai_drafted_at") != null)) {
             uses.add(AiUse.ASSESSMENT_DRAFT);
         }
+        if (timeline.stream().anyMatch(PersonSubjectAccessRecords::isBackgroundRun)) {
+            uses.add(AiUse.BACKGROUND);
+        }
         return uses;
+    }
+
+    /**
+     * The flag in {@code ai_inferred_fields} goes once a researcher confirms or changes the value, but the run's
+     * timeline line stays, so a value the model proposed is still explained after it was confirmed. The line is
+     * written for a nationality reading alone too: naming the background model then over-explains, never hides.
+     */
+    private static boolean isBackgroundRun(Map<String, Object> line) {
+        return PersonActivityKind.AI_ASSESSED.name().equals(line.get("kind"))
+                && line.get("details") instanceof JsonNode details
+                && AiRunScope.BACKGROUND.name().equals(details.path("scope").asString(null));
     }
 
     private static List<String> inferred(Map<String, Object> row) {
@@ -124,22 +148,10 @@ class PersonSubjectAccessRecords implements SubjectAccessContributor {
         return both;
     }
 
-    private List<SubjectAccessFile> filesOf(Map<String, Object> parameters) {
+    private List<SubjectAccessFile> documentFilesOf(Map<String, Object> parameters) {
         List<SubjectAccessFile> files = new ArrayList<>();
         jdbc.query("""
-                SELECT content, content_type FROM app_lm_person_photo WHERE person_id = :personId""", parameters,
-                row -> {
-                    files.add(SubjectAccessFile.ofBytes("photo" + extensionOf(row.getString("content_type")),
-                            row.getBytes("content")));
-                });
-        jdbc.query("""
-                SELECT p.content, p.content_type FROM app_lm_candidate_photo p
-                WHERE p.candidate_id = ANY (:candidateIds) ORDER BY p.created_at""", parameters, row -> {
-                    files.add(SubjectAccessFile.ofBytes("earlier-copies/photo"
-                            + extensionOf(row.getString("content_type")), row.getBytes("content")));
-                });
-        jdbc.query("""
-                SELECT DISTINCT ON (v.document_id) d.category, v.file_name, v.content_type, v.size_bytes,
+                SELECT DISTINCT ON (v.document_id) v.id, d.category, v.file_name, v.content_type, v.size_bytes,
                        v.storage_key
                 FROM app_lm_person_document d
                 JOIN app_lm_person_document_version v ON v.document_id = d.id
@@ -148,15 +160,15 @@ class PersonSubjectAccessRecords implements SubjectAccessContributor {
                     String fileName = row.getString("file_name");
                     files.add(SubjectAccessFile.ofStored("documents/"
                             + ZipArchiveWriter.slugOf(row.getString("category"), "document") + "-"
-                            + ZipArchiveWriter.fileNameOf(fileName, "document"),
+                            + ZipArchiveWriter.fileNameOf(fileName, "document"), row.getObject("id", UUID.class),
                             new StoredDocumentFile(fileName, row.getString("content_type"),
                                     row.getLong("size_bytes"), row.getString("storage_key"), false)));
                 });
         return files;
     }
 
-    private static String extensionOf(String contentType) {
-        return switch (contentType == null ? "" : contentType) {
+    private static String extensionOf(Object contentType) {
+        return switch (contentType == null ? "" : contentType.toString()) {
             case "image/png" -> ".png";
             case "image/webp" -> ".webp";
             case "image/gif" -> ".gif";

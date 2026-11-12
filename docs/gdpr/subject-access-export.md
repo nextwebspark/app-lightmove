@@ -9,8 +9,10 @@ for that data in a form they can take elsewhere (Art. 20). Part of epic #917.
   offered only where `DATA_PROTECTION_ENABLED` is on, like the other people controls.
 - The route is `GET /api/v1/candidates/{personId}/subject-access-export`, gated `PERSON_SUBJECT_ACCESS` (V209, ADMIN
   alone). With the switch off it answers 404.
-- Every export is audited `PERSON_SUBJECT_ACCESS_EXPORTED` (Settings → Security → Audit log, *Exports & downloads*),
-  by person id and counts, never a name.
+- Every export is audited `PERSON_SUBJECT_ACCESS_EXPORTED` (Settings → Security → Audit log, *Exports & downloads*,
+  "Started an export of everything held on a candidate"), by person id and counts, never a name. The line is written
+  once the data is read and assembled, before the zip streams, so it records that the export was made, **not that
+  the admin received it**: a download the browser drops still leaves the line. Delivery is the admin's to confirm.
 - A restricted person can still be exported: handing someone their own data is not a use of it.
 
 ## What the zip holds
@@ -21,15 +23,18 @@ for that data in a form they can take elsewhere (Art. 20). Part of epic #917.
 | `person.json` | Everything, machine-readable (`export.format` = `uncava-subject-access/1`). |
 | `person.html` | The same, to read in a browser. One page, style inline, no script, every value escaped. |
 | `documents/` | The latest file of each of the person's documents. Earlier versions are listed in `documentVersions`. |
+| `documents/NOT-INCLUDED.txt` | Only where a document's file could not be read from the bucket: each one left out, by name and version id. The rest of the export still goes, since a request has a deadline; the failure is logged by version id. |
 | `photo.*` | The photo on the record, where there is one. |
 | `earlier-copies/` | V91's frozen copy of the photo, held until #606 drops it. |
 
 `person.json` has five parts:
 - `export`: who the export is about, who holds the data, who exported it, and when;
 - `aboutThisData`: the fixed Art. 15(1) answers (purposes, recipients, retention, sources, rights, deleted notes,
-  automated decisions);
+  automated decisions), worded in `SubjectAccessStatements`. A position's hiring side is a recipient only while the
+  person is on it; an archived one, which no client seat reads (V137), is named as having read it while open;
 - `aiLogic`: one entry per AI use that left something on this person (`AiUse`), each with its fixed Art. 15(1)(h)
-  text;
+  text. Background proposals are found by their `AI_ASSESSED` timeline line (`scope: BACKGROUND`) as well as by
+  `ai_inferred_fields`, since confirming a value clears its flag but keeps the line;
 - `data`: one key per section, each a list of rows as stored;
 - `references`: what the ids in the rows name — colleagues, positions with who they are for, statuses and each
   position's own columns.

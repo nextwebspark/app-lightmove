@@ -20,7 +20,6 @@ import java.io.OutputStream;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -56,9 +55,6 @@ public class PersonSubjectAccessService {
             "scorecards", "notes", "documents", "documentVersions", "outreachRuns", "emails", "emailAttachments",
             "meetings", "recordings", "interviewPlans", "tasks", "timeline", "earlierContacts", "earlierPhotos");
 
-    /** Where a record, a contact or a lookup came from, by the value its column stores (case aside). */
-    private static final Map<String, String> SOURCES = sources();
-
     private final NamedParameterJdbcTemplate jdbc;
     private final List<SubjectAccessContributor> contributors;
     private final SubjectAccessArchiveWriter writer;
@@ -93,12 +89,13 @@ public class PersonSubjectAccessService {
         }
         sections.sort(Comparator.comparingInt(PersonSubjectAccessService::orderOf));
 
-        WorkspaceFacts workspace = workspaceOf(workspaceId);
+        SubjectAccessStatements.Firm firm = firmOf(workspaceId);
         SubjectAccessReferences references = referencesOf(workspaceId, sections);
         String exportedBy = Optional.ofNullable(references.colleagues().get(userId.toString()))
                 .orElseGet(() -> nameOfUser(userId));
-        SubjectAccessAbout about = aboutOf(workspace, references, mappedProjectIds(sections));
-        SubjectAccessArchive archive = new SubjectAccessArchive(personName, workspace.name(), exportedBy,
+        SubjectAccessAbout about = SubjectAccessStatements.aboutOf(firm, references.positions(),
+                mappedProjectIds(sections), properties.notes().purgeAfter().toDays());
+        SubjectAccessArchive archive = new SubjectAccessArchive(personName, firm.name(), exportedBy,
                 clock.instant(), about, List.copyOf(aiUses), sections, references, files);
 
         audit.event(ProjectEventType.PERSON_SUBJECT_ACCESS_EXPORTED)
@@ -128,7 +125,7 @@ public class PersonSubjectAccessService {
                 .mapToInt(section -> section.rows().size()).sum();
     }
 
-    private WorkspaceFacts workspaceOf(UUID workspaceId) {
+    private SubjectAccessStatements.Firm firmOf(UUID workspaceId) {
         return Objects.requireNonNull(jdbc.query("""
                 SELECT w.name, w.mode, r.workspace_id IS NOT NULL AS retention_chosen, r.candidate_retention_months
                 FROM app_lm_workspace w LEFT JOIN app_lm_workspace_retention r ON r.workspace_id = w.id
@@ -137,7 +134,7 @@ public class PersonSubjectAccessService {
                         throw ApiException.of(ErrorCode.NOT_FOUND);
                     }
                     Integer months = rows.getObject("candidate_retention_months", Integer.class);
-                    return new WorkspaceFacts(rows.getString("name"), "AGENCY".equals(rows.getString("mode")),
+                    return new SubjectAccessStatements.Firm(rows.getString("name"), "AGENCY".equals(rows.getString("mode")),
                             rows.getBoolean("retention_chosen") ? months : properties.retention().candidateMonths());
                 }));
     }
@@ -210,58 +207,4 @@ public class PersonSubjectAccessService {
                 .forEach(row -> projectIds.add(String.valueOf(row.get("project_id"))));
         return projectIds;
     }
-
-    private SubjectAccessAbout aboutOf(WorkspaceFacts workspace, SubjectAccessReferences references,
-                                       Set<String> mappedProjectIds) {
-        String firm = workspace.name();
-        String hiringSide = workspace.agency() ? "client" : "business unit";
-        List<String> recipients = new ArrayList<>();
-        recipients.add("The team at " + firm + ": the people who work on its candidates.");
-        references.positions().forEach((projectId, position) -> {
-            if (position.hiringFor() != null && mappedProjectIds.contains(projectId)) {
-                recipients.add("The " + hiringSide + " " + position.hiringFor() + ", for the position "
-                        + position.title() + ", through the people it has been given access to that position. They"
-                        + " read your profile on it, with its status and package, but never the team's notes,"
-                        + " assessments, emails or call records.");
-            }
-        });
-        recipients.add("Uncava, which provides the software the record is kept in, and the services it runs on, on "
-                + firm + "'s behalf.");
-        String retention = workspace.retentionMonths() == null
-                ? firm + " keeps records until they are deleted."
-                : firm + " reviews a record for deletion once nobody has worked on it for " + workspace.retentionMonths()
-                        + " months and it is on no live position.";
-        long purgeDays = properties.notes().purgeAfter().toDays();
-        return new SubjectAccessAbout(
-                firm + " holds this record and decides how it is used. Uncava provides the software it is kept in.",
-                firm + " uses this record for executive search: to find and assess people for the positions it is"
-                        + " asked to fill" + (workspace.agency() ? " for its clients" : "") + ", and to approach them"
-                        + " about those positions.",
-                recipients, retention, SOURCES,
-                "You can ask " + firm + " to correct anything here that is wrong, to delete your record, to restrict"
-                        + " or stop its use of it, or to stop contacting you. person.json in this file is a copy you"
-                        + " can take to another service. You can also complain to a data protection authority.",
-                "A note the team deleted is kept for " + purgeDays + " days in case it was deleted by mistake, then"
-                        + " deleted for good. Until then it is in this file, with the time it was deleted.",
-                "Colleagues at " + firm + " are named where they wrote, changed or did something on your record."
-                        + " Notes, emails and call transcripts are given as written.",
-                AiUse.NO_SOLELY_AUTOMATED_DECISION);
-    }
-
-    private static Map<String, String> sources() {
-        Map<String, String> sources = new LinkedHashMap<>();
-        sources.put("manual", "Typed in by someone on the team.");
-        sources.put("csv", "Imported from a spreadsheet the team uploaded.");
-        sources.put("extension", "Read from a public profile page, such as LinkedIn, by the team's browser plugin.");
-        sources.put("ai_sourced", "Found by Find executives, in a people-search provider's index of public"
-                + " professional profiles.");
-        sources.put("people_search", "Found through People Search, in a people-search provider's index of public"
-                + " professional profiles.");
-        sources.put("contactout", "ContactOut, a provider of professional profiles and contact details.");
-        sources.put("brightdata", "Bright Data, a provider of public professional profiles.");
-        sources.put("harvestapi", "HarvestAPI, which reads public professional profiles.");
-        return Collections.unmodifiableMap(sources);
-    }
-
-    private record WorkspaceFacts(String name, boolean agency, Integer retentionMonths) {}
 }
