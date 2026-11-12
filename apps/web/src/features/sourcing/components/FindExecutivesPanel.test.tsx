@@ -218,6 +218,32 @@ describe("FindExecutivesPanel", () => {
     );
   });
 
+  it("counts and adds only the ticked people on screen, never those pre-ticked at a company this panel does not show", async () => {
+    const elsewhere: CompanySuggestions = {
+      ...harbour(
+        [
+          fits(1, "other-cfo", "Layla Haddad", "Group CFO", []),
+          fits(2, "other-fd", "Yousef Nasser", "Finance Director", []),
+        ],
+        2,
+      ),
+      triageCompanyId: "c9",
+      companyName: "Cedar Holdings",
+    };
+    vi.mocked(sourcingApi.getSuggestions).mockResolvedValue({
+      companies: [harbour([fits(1, "the-cfo", "Fatima Al Mazrouei", "Group CFO", [])], 1), elsewhere],
+    });
+    renderPanel(sourcingWith({ run: run({ suggested: 3 }) }));
+
+    expect(await screen.findByRole("checkbox", { name: "Add Fatima Al Mazrouei" })).toBeChecked();
+    expect(screen.queryByText("Layla Haddad")).not.toBeInTheDocument();
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Add 1 to In universe" }));
+    await waitFor(() =>
+      expect(sourcingApi.addSuggested).toHaveBeenCalledWith("p1", [{ triageCompanyId: "c1", linkedinSlug: "the-cfo" }]),
+    );
+  });
+
   it("opened to search, searches a company not searched yet at once, and only once", async () => {
     vi.mocked(sourcingApi.getSuggestions).mockResolvedValue({ companies: [] });
     const sourcing = sourcingWith();

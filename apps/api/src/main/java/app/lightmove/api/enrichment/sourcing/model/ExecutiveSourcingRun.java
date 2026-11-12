@@ -112,17 +112,6 @@ public class ExecutiveSourcingRun extends BaseEntity {
         finishedAt = Instant.now();
     }
 
-    /** False when the run had already ended, so there was nothing to stop. */
-    public boolean requestStop() {
-        if (!SourcingRunStatus.IN_PROGRESS.contains(status)) {
-            return false;
-        }
-        if (stopRequestedAt == null) {
-            stopRequestedAt = Instant.now();
-        }
-        return true;
-    }
-
     public boolean isStopRequested() {
         return stopRequestedAt != null;
     }

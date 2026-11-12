@@ -148,10 +148,17 @@ export function FindExecutivesPanel({
     });
   const isTicked = (triageCompanyId: string, person: SuggestedPerson) =>
     person.candidateId === null && ticked.has(keyOf(triageCompanyId, person.linkedinSlug));
-  const pickedCount = [...ticked.values()].filter((picked) => {
-    const person = found.get(picked.triageCompanyId)?.people.find((one) => one.linkedinSlug === picked.linkedinSlug);
-    return person !== undefined && person.candidateId === null;
-  }).length;
+  // Shipped bug: the count and Add read every company with stored results, so ticks pre-set at companies this
+  // panel does not show (another opening's, an older search's) were counted and filed unseen.
+  const onScreen = new Set(
+    shown.flatMap((entry) =>
+      (entry.found?.people ?? [])
+        .filter((person) => person.candidateId === null)
+        .map((person) => keyOf(entry.company.triageCompanyId, person.linkedinSlug)),
+    ),
+  );
+  const picked = [...ticked.entries()].filter(([key]) => onScreen.has(key)).map(([, one]) => one);
+  const pickedCount = picked.length;
 
   const search = async (ids: readonly string[]) => {
     await criteria.saveNow();
@@ -198,12 +205,12 @@ export function FindExecutivesPanel({
     await search(nobodyFits.map((entry) => entry.company.triageCompanyId));
   };
   const add = () => {
-    const picked = [...ticked.values()].slice(0, MAX_ADD);
-    suggestions.add(picked, {
+    const adding = picked.slice(0, MAX_ADD);
+    suggestions.add(adding, {
       onSuccess: () =>
         setTicked((current) => {
           const next = new Map(current);
-          picked.forEach((one) => next.delete(keyOf(one.triageCompanyId, one.linkedinSlug)));
+          adding.forEach((one) => next.delete(keyOf(one.triageCompanyId, one.linkedinSlug)));
           return next;
         }),
     });
@@ -282,7 +289,7 @@ export function FindExecutivesPanel({
           searchDisabled={!searchable || sourcing.isRunning || criteria.drafting || searchIds.length === 0}
           onSearch={() => void search(searchIds)}
         />
-        {run && sourcing.isRunning && (
+        {run && sourcing.isRunning && !sourcing.isStarting && (
           <SearchProgress run={run} onStop={sourcing.stop} stopping={sourcing.isStopping} />
         )}
         {hasResults && (
