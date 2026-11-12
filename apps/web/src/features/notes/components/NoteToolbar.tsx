@@ -2,7 +2,16 @@ import type { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
 import { Icon } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
-import { PICTURE_SIZES, pictureSizeOf, type PictureSize } from "../lib/notePicture";
+import {
+  PICTURE_SHAPE_GLYPHS,
+  PICTURE_SHAPES,
+  PICTURE_SIZES,
+  pictureShapeOf,
+  pictureSizeOf,
+  pictureTitleOf,
+  type PictureShape,
+  type PictureSize,
+} from "../lib/notePicture";
 
 /** Lucide's strokes, drawn by the app's own Icon. */
 const GLYPHS = {
@@ -60,10 +69,17 @@ export function NoteToolbar({
       quote: current?.isActive("blockquote") ?? false,
       link: current?.isActive("link") ?? false,
       pictureSize: current?.isActive("image") ? pictureSizeOf(current.getAttributes("image").title) : null,
+      pictureShape: current?.isActive("image") ? pictureShapeOf(current.getAttributes("image").title) : null,
     }),
   });
   const run = (action: (chain: ReturnType<Editor["chain"]>) => ReturnType<Editor["chain"]>) => () => {
     if (editor) action(editor.chain().focus()).run();
+  };
+  // Kept selected, so another size or shape can be picked straight after.
+  const retitlePicture = (title: string | null) => () => {
+    if (!editor) return;
+    const at = editor.state.selection.from;
+    editor.chain().focus().updateAttributes("image", { title }).setNodeSelection(at).run();
   };
 
   return (
@@ -91,7 +107,17 @@ export function NoteToolbar({
               label={`${SIZE_LABELS[size]} picture`}
               text={SIZE_LABELS[size][0]}
               pressed={active.pictureSize === size}
-              onClick={run((c) => c.updateAttributes("image", { title: size === "medium" ? null : size }))}
+              onClick={retitlePicture(pictureTitleOf(size, active.pictureShape ?? "square"))}
+            />
+          ))}
+          <Divider />
+          {PICTURE_SHAPES.map((shape: PictureShape) => (
+            <ToolButton
+              key={shape}
+              label={`${SHAPE_LABELS[shape]} picture`}
+              glyph={PICTURE_SHAPE_GLYPHS[shape]}
+              pressed={active.pictureShape === shape}
+              onClick={retitlePicture(pictureTitleOf(active.pictureSize ?? "medium", shape))}
             />
           ))}
         </>
@@ -110,6 +136,7 @@ export function NoteToolbar({
 }
 
 const SIZE_LABELS: Record<PictureSize, string> = { small: "Small", medium: "Medium", large: "Large" };
+const SHAPE_LABELS: Record<PictureShape, string> = { square: "Square", rounded: "Rounded", circle: "Circle" };
 
 function ToolButton({
   label,

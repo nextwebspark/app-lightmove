@@ -899,7 +899,7 @@ from the header and decoded subsampled, re-encoded, kept in the bucket and serve
 `/api/v1/email-images/{token}`, a 256-bit token per picture (never per message or recipient) its only credential,
 cached for good and never logged (`RequestLogFilter` skips it; `ops/gcp/bootstrap.sh` excludes it from Cloud Run's
 request log), counted or rate-limited per address (mail clients' image proxies fetch for everyone from a few). An image
-row outlives the avatar it was copied from, since a sent email names it. A Custom signature also takes the person's own pictures (V210, a
+row outlives the avatar it was copied from, since a sent email names it. Every layout also takes a Mobile row, a photo cut Circle, Rounded or Square into the picture itself, and extra words with pictures, each picture cut to a shape too, under the details (V214, `email-signatures.md` §C3). A Custom signature also takes the person's own pictures (V210, a
 group's logo, a membership badge): Insert picture, paste or drop uploads one (`POST /me/signatures/pictures`, JPEG or
 PNG ≤ 5 MB, kept inside 1200 × 400), the editor writes `![alt](/api/v1/email-images/{token} "size")` into the
 Markdown, a save refuses more than six or one that is not the signer's own, and the renderer draws only the signer's
