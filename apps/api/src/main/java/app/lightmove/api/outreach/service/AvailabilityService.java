@@ -64,7 +64,7 @@ public class AvailabilityService {
     private final MailboxConnectionRepository mailboxes;
     private final MailboxGateway gateway;
     private final WorkspaceSettingsService workspaces;
-    private final DateTimePreferenceService timezones;
+    private final DateTimePreferenceService dateTimePreferences;
     private final AuditService audit;
     private final ApplicationEventPublisher events;
     private final LightMoveProperties properties;
@@ -148,7 +148,7 @@ public class AvailabilityService {
                 own.map(MemberAvailability::getDailyEmailCap).map(cap -> Math.min(cap, workspaceCap))
                         .orElse(null),
                 workspaceCap,
-                timezones.zoneOf(workspaceId, userId).getId(), calendarStatesHours);
+                dateTimePreferences.zoneOf(workspaceId, userId).getId(), calendarStatesHours);
     }
 
     /** Settings → Meetings & email. Recorded only where something changed, as every workspace setting is. */

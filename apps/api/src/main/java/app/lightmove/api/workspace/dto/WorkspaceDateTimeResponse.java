@@ -3,10 +3,7 @@ package app.lightmove.api.workspace.dto;
 import app.lightmove.api.common.time.constant.DateFormatStyle;
 import app.lightmove.api.common.time.constant.TimeFormatStyle;
 
-/**
- * The workspace's date and time settings as its admin chose them — each null where nothing was chosen — beside what
- * an unchosen one reads as. The zone is a fallback: a member on Automatic reads in their device's once it has reported.
- */
+/** The admin's choices, each null where none was made, beside what an unchosen one reads as. */
 public record WorkspaceDateTimeResponse(
         String timeZone,
         DateFormatStyle dateFormat,

@@ -35,6 +35,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -160,8 +161,8 @@ public class NotificationEmails {
                     position, link));
         }
         if (row.getKind() == NotificationKind.TASK_ASSIGNED && row.getTaskId() != null) {
-            DateTimeFormats formats = DateTimeFormats.of(dateTimePreferences.effectiveFor(row.getWorkspaceId(),
-                    to.getId()));
+            DateTimeFormats formats = DateTimeFormats.of(dateTimePreferences.forPerson(to,
+                    dateTimePreferences.workspaceDefaultsOf(row.getWorkspaceId())));
             return tasks.find(row.getWorkspaceId(), row.getTaskId())
                     .filter(task -> "open".equals(task.status())
                             && row.getRecipientUserId().equals(task.assignee().userId()))
@@ -190,6 +191,7 @@ public class NotificationEmails {
         });
         Map<UUID, User> people = users.findAllById(recipients.stream().map(TaskHolder::userId).distinct().toList())
                 .stream().collect(Collectors.toMap(User::getId, Function.identity()));
+        Map<UUID, DateTimePreferences> workspaceDefaults = new HashMap<>();
         int sent = 0;
         for (TaskHolder recipient : recipients) {
             User user = people.get(recipient.userId());
@@ -197,7 +199,11 @@ public class NotificationEmails {
                 continue;
             }
             try {
-                sent += WorkspaceScope.call(recipient.workspaceId(), () -> digestOne(recipient, user, now)) ? 1 : 0;
+                sent += WorkspaceScope.call(recipient.workspaceId(), () -> {
+                    DateTimePreferences defaults = workspaceDefaults.computeIfAbsent(recipient.workspaceId(),
+                            dateTimePreferences::workspaceDefaultsOf);
+                    return digestOne(recipient, user, dateTimePreferences.forPerson(user, defaults), now);
+                }) ? 1 : 0;
             } catch (RuntimeException failure) {
                 log.error("The digest for user {} in workspace {} could not be sent", recipient.userId(),
                         recipient.workspaceId(), failure);
@@ -206,10 +212,9 @@ public class NotificationEmails {
         return sent;
     }
 
-    private boolean digestOne(TaskHolder recipient, User user, Instant now) {
+    private boolean digestOne(TaskHolder recipient, User user, DateTimePreferences personal, Instant now) {
         UUID userId = recipient.userId();
         UUID workspaceId = recipient.workspaceId();
-        DateTimePreferences personal = dateTimePreferences.effectiveFor(workspaceId, userId);
         DateTimeFormats formats = DateTimeFormats.of(personal);
         ZoneId zone = personal.zone();
         ZonedDateTime local = now.atZone(zone);

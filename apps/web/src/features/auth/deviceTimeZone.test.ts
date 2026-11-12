@@ -1,8 +1,10 @@
 import { QueryClient } from "@tanstack/react-query";
+import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as authApi from "./api/authApi";
 import type { UserDateTime } from "./api/types";
 import { forgetReportedTimeZones, reportDeviceTimeZone } from "./deviceTimeZone";
+import { clearTimeZoneMove, useTimeZoneMove } from "./timeZoneMove";
 
 vi.mock("./api/authApi", () => ({ reportDeviceTimeZone: vi.fn() }));
 
@@ -17,6 +19,7 @@ let computer: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   forgetReportedTimeZones();
+  clearTimeZoneMove();
   vi.mocked(authApi.reportDeviceTimeZone).mockReset().mockResolvedValue(undefined);
   computer = vi
     .spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions")
@@ -58,10 +61,29 @@ describe("reporting this browser's zone", () => {
     vi.mocked(authApi.reportDeviceTimeZone).mockRejectedValueOnce(new Error("offline"));
 
     reportDeviceTimeZone(AUTOMATIC, new QueryClient());
-    await vi.waitFor(() => expect(authApi.reportDeviceTimeZone).toHaveBeenCalledTimes(1));
-    await Promise.resolve();
+    await vi.waitFor(() => {
+      reportDeviceTimeZone(AUTOMATIC, new QueryClient());
+      expect(authApi.reportDeviceTimeZone).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("holds the move an Automatic clock made until its person answers it", async () => {
+    const move = renderHook(() => useTimeZoneMove());
+
     reportDeviceTimeZone(AUTOMATIC, new QueryClient());
 
+    await vi.waitFor(() => expect(move.result.current).toEqual({ from: "Asia/Dubai", to: "Europe/London" }));
+  });
+
+  it("records no move for a pinned zone or a first report", async () => {
+    const move = renderHook(() => useTimeZoneMove());
+
+    reportDeviceTimeZone({ ...AUTOMATIC, own: { ...AUTOMATIC.own, timeZone: "Asia/Dubai" } }, new QueryClient());
+    forgetReportedTimeZones();
+    reportDeviceTimeZone({ ...AUTOMATIC, deviceTimeZone: null }, new QueryClient());
+
     await vi.waitFor(() => expect(authApi.reportDeviceTimeZone).toHaveBeenCalledTimes(2));
+    await Promise.resolve();
+    expect(move.result.current).toBeNull();
   });
 });

@@ -28,7 +28,7 @@ export interface DateTimePreferences {
 
 /** The computer's zone and the standard formats, until a session says otherwise (a public page, a test). */
 export function fallbackPreferences(): DateTimePreferences {
-  return { timeZone: browserZone(), dateFormat: STANDARD_DATE_FORMAT, timeFormat: STANDARD_TIME_FORMAT };
+  return { timeZone: deviceTimeZone() ?? "UTC", dateFormat: STANDARD_DATE_FORMAT, timeFormat: STANDARD_TIME_FORMAT };
 }
 
 let current: DateTimePreferences = fallbackPreferences();
@@ -68,27 +68,15 @@ export function useDateTimePreferences(): DateTimePreferences {
  */
 export function automaticAware(effective: DateTimePreferences, pinnedTimeZone: string | null): DateTimePreferences {
   if (pinnedTimeZone) return effective;
-  const device = browserZoneOrNull();
+  const device = deviceTimeZone();
   return device ? { ...effective, timeZone: device } : effective;
 }
 
-/** The zone this computer's clock is set to. */
-export function computerTimeZone(): string {
-  return browserZone();
-}
-
-function browserZoneOrNull(): string | null {
+/** The zone this browser's clock is set to, or null where it cannot say. */
+export function deviceTimeZone(): string | null {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
   } catch {
     return null;
-  }
-}
-
-function browserZone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  } catch {
-    return "UTC";
   }
 }

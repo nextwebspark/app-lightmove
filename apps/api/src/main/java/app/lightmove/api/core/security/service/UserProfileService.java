@@ -96,24 +96,19 @@ public class UserProfileService {
         return title.trim();
     }
 
-    /**
-     * What this person's browser says its zone is, kept as their clock while they pin none. Unchanged, it writes
-     * nothing; a zone no browser can mean is refused. Not audited: it moves with every trip, and a pinned zone, which
-     * the profile save audits, is the only choice it stands for.
-     */
+    /** Not audited, by design: it moves with every trip; only a pinned zone is a choice. */
     @Transactional
-    public User reportDeviceTimeZone(UUID actorId, String zone) {
+    public void reportDeviceTimeZone(UUID actorId, String zone) {
         User user = users.findById(actorId)
                 .filter(found -> !found.isDeleted())
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         String reported = zone == null ? null : zone.trim();
-        if (!StandardTimeZones.isRegionZone(reported)) {
+        if (!StandardTimeZones.isReportableDeviceZone(reported)) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "timeZone", "That is not a time zone");
         }
         if (user.reportDeviceTimeZone(reported, clock.instant()) && user.isTimeZoneAutomatic()) {
             events.publishEvent(new TimezoneChanged(actorId));
         }
-        return user;
     }
 
     /** What the audit line says for a zone left to the device. */

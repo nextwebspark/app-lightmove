@@ -2,7 +2,6 @@ package app.lightmove.api.workspace.controller;
 
 import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.common.persona.model.HiringPersona;
-import app.lightmove.api.common.time.service.CountryTimeZones;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
@@ -17,6 +16,7 @@ import app.lightmove.api.workspace.dto.UpdateWorkspaceSettingsRequest;
 import app.lightmove.api.workspace.dto.WorkspaceCompanyResponse;
 import app.lightmove.api.workspace.dto.WorkspaceDateTimeResponse;
 import app.lightmove.api.workspace.dto.WorkspaceResponse;
+import app.lightmove.api.workspace.model.SuggestedDateTime;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService.WorkspaceDetail;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService;
@@ -124,9 +124,9 @@ public class WorkspaceController {
 
     private static WorkspaceDateTimeResponse dateTimeOf(WorkspaceDetail detail) {
         Workspace ws = detail.workspace();
-        String suggestedZone = detail.suggestedDateTime().zone().getId();
-        boolean isCountrys = CountryTimeZones.zoneOf(ws.getCompanyCountry()).isPresent();
-        return new WorkspaceDateTimeResponse(ws.getTimeZone(), ws.getDateFormat(), ws.getTimeFormat(), suggestedZone,
-                isCountrys ? Countries.nameOf(ws.getCompanyCountry()) : null, detail.membersAutomaticTimeZone());
+        SuggestedDateTime suggested = detail.suggestedDateTime();
+        String suggestedFrom = suggested.countryCode() == null ? null : Countries.nameOf(suggested.countryCode());
+        return new WorkspaceDateTimeResponse(ws.getTimeZone(), ws.getDateFormat(), ws.getTimeFormat(),
+                suggested.preferences().zone().getId(), suggestedFrom, detail.membersAutomaticTimeZone());
     }
 }

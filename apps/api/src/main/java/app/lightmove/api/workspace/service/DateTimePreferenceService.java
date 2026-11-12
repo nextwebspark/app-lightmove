@@ -8,19 +8,19 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.workspace.model.SuggestedDateTime;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import java.time.ZoneId;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * How dates and times read, settled one value at a time. The zone is the one the person pinned, else the one their
- * device last reported (Automatic), else the workspace's, else its country's; each format the person's, else the
- * workspace's, else the standard. The one place that order lives — a mailbox's send window, the digest's hour and every
- * email's dates all ask here.
+ * The one place the order lives: the zone a person pinned, else their device's, else the workspace's, else its
+ * country's; each format the person's, else the workspace's, else the standard.
  */
 @Service
 @RequiredArgsConstructor
@@ -35,7 +35,6 @@ public class DateTimePreferenceService {
         return forPerson(user, requireWorkspace(workspaceId));
     }
 
-    /** A person's clock in one workspace: what their mailbox there sends by and their digest from it goes in. */
     @Transactional(readOnly = true)
     public ZoneId zoneOf(UUID workspaceId, UUID userId) {
         return effectiveFor(workspaceId, userId).zone();
@@ -48,21 +47,26 @@ public class DateTimePreferenceService {
 
     /** @param workspace null outside any workspace, where only the person's own choices and the standard remain */
     public DateTimePreferences forPerson(User user, Workspace workspace) {
-        DateTimePreferences fallback = workspace == null ? DateTimePreferences.STANDARD : forWorkspace(workspace);
+        return forPerson(user, workspace == null ? DateTimePreferences.STANDARD : forWorkspace(workspace));
+    }
+
+    /** For a caller settling many people of one workspace, which reads its defaults once. */
+    public DateTimePreferences forPerson(User user, DateTimePreferences workspaceDefaults) {
         String zone = user.getTimezone() != null ? user.getTimezone() : user.getDeviceTimeZone();
-        return DateTimePreferences.settle(zone, user.getDateFormat(), user.getTimeFormat(), fallback);
+        return DateTimePreferences.settle(zone, user.getDateFormat(), user.getTimeFormat(), workspaceDefaults);
     }
 
     public DateTimePreferences forWorkspace(Workspace workspace) {
         return DateTimePreferences.settle(workspace.getTimeZone(), workspace.getDateFormat(), workspace.getTimeFormat(),
-                suggestedFor(workspace));
+                suggestionOf(workspace).preferences());
     }
 
-    /** What a workspace reads in until an admin chooses: its country's zone and the one global standard formats. */
-    public DateTimePreferences suggestedFor(Workspace workspace) {
-        return new DateTimePreferences(
-                CountryTimeZones.zoneOf(workspace.getCompanyCountry()).orElse(DateTimePreferences.STANDARD.zone()),
-                DateFormatStyle.STANDARD, TimeFormatStyle.STANDARD);
+    public SuggestedDateTime suggestionOf(Workspace workspace) {
+        Optional<ZoneId> countryZone = CountryTimeZones.zoneOf(workspace.getCompanyCountry());
+        DateTimePreferences preferences = new DateTimePreferences(
+                countryZone.orElse(DateTimePreferences.STANDARD.zone()), DateFormatStyle.STANDARD,
+                TimeFormatStyle.STANDARD);
+        return new SuggestedDateTime(preferences, countryZone.isPresent() ? workspace.getCompanyCountry() : null);
     }
 
     private Workspace requireWorkspace(UUID workspaceId) {

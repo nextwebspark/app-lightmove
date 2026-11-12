@@ -411,10 +411,11 @@ any region zone the JDK knows, the fixed list's or not; rate-limited, not audite
 null `timezone` is Automatic and a set one is pinned in Settings → Profile. A change publishes `TimezoneChanged` only
 while Automatic, so the mailbox's send window and the digest follow the person. The backfill moves nobody's clock: each
 person's device zone is seeded with the zone they read in, and a zone stays pinned only where the audit trail shows
-they chose it (`PROFILE_UPDATED` with `timezoneTo`, read in RLS maintenance). In the SPA an Automatic person reads in
+they chose it (the latest `PROFILE_UPDATED` with a `timezoneTo` Postgres knows as a zone, read in RLS maintenance). In the SPA an Automatic person reads in
 this browser's zone at once (`automaticAware`), `AuthProvider` reports it once per zone per tab
-(`features/auth/deviceTimeZone.ts`), and `TimeZoneMoveNotice` says a move aloud — *Keep London* or *Stay on Dubai time*,
-which pins the zone they came from.
+(`features/auth/deviceTimeZone.ts`), and `TimeZoneMoveNotice` says a move aloud until answered (held in the browser,
+`features/auth/timeZoneMove.ts`) — *Keep London* or *Stay on Dubai time*, which pins the zone they came from and is
+offered only where that zone is on the fixed list.
 V162 adds two-factor authentication (#1081): `app_lm_user_mfa_factor` (one per user, the authenticator secret sealed by
 `core/crypto` under `EncryptionContext.ofUser`, `enabled_at` null while setup waits for a first code, `last_used_step` the
 replay guard), `app_lm_user_mfa_recovery_code` (SHA-256 per code, spent by a conditional update) and

@@ -1096,6 +1096,19 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         assertThat(mailboxZone()).isEqualTo("Europe/Madrid");
     }
 
+    @Test
+    @DisplayName("a format-only change to the workspace's date and time leaves every mailbox's zone alone")
+    void aFormatChangeDoesNotRereadMailboxZones() throws Exception {
+        as(consultant, workspaceZone("Europe/London")).andExpect(status().isOk());
+        jdbc.update("update app_lm_mailbox_connection set time_zone = 'Asia/Tokyo'");
+
+        as(consultant, put("/api/v1/workspace/date-time").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"timeZone\":\"Europe/London\",\"dateFormat\":\"YYYY_MM_DD\"}"))
+                .andExpect(status().isOk());
+
+        assertThat(mailboxZone()).isEqualTo("Asia/Tokyo");
+    }
+
     private String mailboxZone() throws Exception {
         return body(as(consultant, get("/api/v1/outreach/mailbox")).andExpect(status().isOk()).andReturn())
                 .get("connection").get("timeZone").asText();

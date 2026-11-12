@@ -62,10 +62,7 @@ public record RateLimitSettings(
          */
         @DefaultValue("1200") int avatarReadsPerMinute,
 
-        /**
-         * A browser reporting its time zone: once a sign-in, and again only when the zone moves, so a few an hour per
-         * person; a whole firm signs in from one office IP.
-         */
+        /** A browser reporting its zone: a few an hour per person, a whole firm from one office IP. */
         @DefaultValue("30") int deviceTimeZoneReportsPerHour,
         @DefaultValue("600") int deviceTimeZoneReportsPerHourPerIp
 ) {}

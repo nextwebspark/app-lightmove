@@ -10,14 +10,14 @@ import java.util.stream.Collectors;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * The fixed list of time zones a workspace or a person chooses from ({@code data/time-zones.json}, which the SPA's
- * {@code lib/datetime/timeZones.ts} copies). A zone saved before the list keeps working; only a new choice is held to
- * it. Static, like {@code Countries}.
- */
+/** The fixed zone list ({@code data/time-zones.json}, copied by the SPA); only a new choice is held to it. */
 public final class StandardTimeZones {
 
     private static final String RESOURCE = "data/time-zones.json";
+
+    private static final Pattern REGION_ZONE = Pattern.compile(
+            "UTC|(Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific)/[A-Za-z0-9_+\\-/]+");
+    private static final Set<String> JDK_ZONES = Set.copyOf(ZoneId.getAvailableZoneIds());
 
     private static final List<OfferedTimeZone> OFFERED;
     private static final Set<String> IDS;
@@ -31,15 +31,12 @@ public final class StandardTimeZones {
 
     private StandardTimeZones() {}
 
-    private static final Pattern REGION_ZONE = Pattern.compile(
-            "UTC|(Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific)/[A-Za-z0-9_+\\-/]+");
-
     /**
-     * A zone a device may report: any region's own or UTC the JDK knows, the list's or not (a Madrid laptop is Madrid),
-     * never a legacy alias like {@code EST}, whose meaning the JDK and the browser do not agree on.
+     * Any region's zone or UTC, listed or not (a Madrid laptop is Madrid), never an alias like {@code EST}, which the
+     * JDK and the browser read differently. A person or admin picks only from {@link #isOffered}.
      */
-    public static boolean isRegionZone(String zone) {
-        return zone != null && REGION_ZONE.matcher(zone).matches() && ZoneId.getAvailableZoneIds().contains(zone);
+    public static boolean isReportableDeviceZone(String zone) {
+        return zone != null && REGION_ZONE.matcher(zone).matches() && JDK_ZONES.contains(zone);
     }
 
     public static boolean isOffered(String zone) {

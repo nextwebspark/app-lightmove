@@ -225,10 +225,7 @@ public class AuthController {
         return assembler.userIn(principal.userId(), principal.workspaceId());
     }
 
-    /**
-     * The caller's browser zone, from the principal; it moves their clock only while they pin none. No body: the SPA
-     * already reads in the browser's zone, so nothing on screen waits for this.
-     */
+    /** No body: the SPA already reads in the browser's zone, so nothing on screen waits for this. */
     @PutMapping("/me/device-time-zone")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void reportDeviceTimeZone(@AuthenticationPrincipal AuthPrincipal principal,

@@ -9,9 +9,8 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * A country's time zone, for a workspace whose admin has chosen none: always one of {@link StandardTimeZones}, the
- * listed zone keeping the country's own offsets (Oman's own, Algeria's West Africa Time as Lagos). Derived from IANA's
- * {@code zone.tab}, a multi-zone country taking its capital's.
+ * A country's zone, always one of {@link StandardTimeZones} with the country's own offsets (Algeria's as Lagos); a
+ * multi-zone country takes its capital's.
  */
 public final class CountryTimeZones {
 

@@ -4,7 +4,6 @@ import app.lightmove.api.billing.plan.service.WorkspaceBillingClosure;
 import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.common.time.constant.DateFormatStyle;
 import app.lightmove.api.common.time.constant.TimeFormatStyle;
-import app.lightmove.api.common.time.model.DateTimePreferences;
 import app.lightmove.api.common.time.service.StandardTimeZones;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
@@ -20,6 +19,7 @@ import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.constant.WorkspaceMode;
 import app.lightmove.api.workspace.model.CalendarSyncChanged;
+import app.lightmove.api.workspace.model.SuggestedDateTime;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceDateTimeChanged;
 import app.lightmove.api.workspace.model.WorkspaceDeleted;
@@ -139,15 +139,13 @@ public class WorkspaceSettingsService {
         return detail(workspace);
     }
 
-    /**
-     * Settings → General's Date &amp; time: a null is "not chosen" — the country's zone, the standard formats — so a
-     * later country change still reaches it. A no-op save records nothing.
-     */
+    /** A null is "not chosen", so a later country change still reaches it. */
     @Transactional
     public WorkspaceDetail changeDateTime(UUID actorId, UUID workspaceId, String timeZone,
                                           DateFormatStyle dateFormat, TimeFormatStyle timeFormat,
                                           HttpServletRequest request) {
         Workspace workspace = requireWorkspace(workspaceId);
+        ZoneId previousSettledZone = dateTimePreferences.forWorkspace(workspace).zone();
         String previousZone = workspace.getTimeZone();
         DateFormatStyle previousDateFormat = workspace.getDateFormat();
         TimeFormatStyle previousTimeFormat = workspace.getTimeFormat();
@@ -169,7 +167,9 @@ public class WorkspaceSettingsService {
                 .detail("timeFormatFrom", orStandard(previousTimeFormat))
                 .detail("timeFormatTo", orStandard(timeFormat))
                 .record();
-        events.publishEvent(new WorkspaceDateTimeChanged(workspaceId));
+        if (!previousSettledZone.equals(dateTimePreferences.forWorkspace(workspace).zone())) {
+            events.publishEvent(new WorkspaceDateTimeChanged(workspaceId));
+        }
         return detail(workspace);
     }
 
@@ -238,12 +238,11 @@ public class WorkspaceSettingsService {
 
     private WorkspaceDetail detail(Workspace workspace) {
         long memberCount = members.countByWorkspaceIdAndStatus(workspace.getId(), MemberStatus.ACTIVE);
-        return new WorkspaceDetail(workspace, memberCount, dateTimePreferences.suggestedFor(workspace),
+        return new WorkspaceDetail(workspace, memberCount, dateTimePreferences.suggestionOf(workspace),
                 members.countWithAutomaticTimeZone(workspace.getId()));
     }
 
-    /** @param suggestedDateTime what the workspace reads in where its admin has chosen nothing */
-    public record WorkspaceDetail(Workspace workspace, long memberCount, DateTimePreferences suggestedDateTime,
+    public record WorkspaceDetail(Workspace workspace, long memberCount, SuggestedDateTime suggestedDateTime,
                                   long membersAutomaticTimeZone) {
     }
 }

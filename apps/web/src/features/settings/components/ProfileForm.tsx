@@ -7,7 +7,7 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { titleCase } from "../../../lib/format";
 import { messageFor } from "../../../lib/errorCodes";
 import type { WorkspaceRole } from "../../auth/api/types";
-import { computerTimeZone, fallbackPreferences, formatDate, type DateTimePreferences } from "../../../lib/datetime";
+import { deviceTimeZone, fallbackPreferences, formatDate, type DateTimePreferences } from "../../../lib/datetime";
 import {
   dateFormatSelectOptions,
   timeFormatLabelOf,
@@ -49,7 +49,7 @@ export function ProfileForm({
     formState: { errors, isSubmitting },
   } = useForm<ProfileValues>({ resolver: zodResolver(profileSchemaFor(defaultValues.timezone)), defaultValues });
   const [timezone, dateFormat, timeFormat, locale] = watch(["timezone", "dateFormat", "timeFormat", "locale"]);
-  const deviceZone = useMemo(computerTimeZone, []);
+  const deviceZone = useMemo(() => deviceTimeZone() ?? "UTC", []);
   const fallback = workspace ?? fallbackPreferences();
   const followLabel = workspace ? "Workspace default" : "Standard";
   const timezones = useMemo<ListboxOption<string>[]>(

@@ -29,7 +29,7 @@ public class NotificationPreferenceService {
             .collect(Collectors.toUnmodifiableSet());
 
     private final NotificationPreferences preferences;
-    private final DateTimePreferenceService timezones;
+    private final DateTimePreferenceService dateTimePreferences;
 
     @Transactional(readOnly = true)
     public NotificationPreferencesDto of(UUID userId, UUID workspaceId) {
@@ -37,7 +37,7 @@ public class NotificationPreferenceService {
         return new NotificationPreferencesDto(Arrays.stream(NotificationPreferenceKind.values())
                 .map(kind -> new NotificationKindPreferenceDto(kind.value(), chosen.get(kind).inApp(),
                         EMAILED.contains(kind) && chosen.get(kind).email()))
-                .toList(), preferences.digest(userId, workspaceId), timezones.zoneOf(workspaceId, userId).getId());
+                .toList(), preferences.digest(userId, workspaceId), dateTimePreferences.zoneOf(workspaceId, userId).getId());
     }
 
     @Transactional

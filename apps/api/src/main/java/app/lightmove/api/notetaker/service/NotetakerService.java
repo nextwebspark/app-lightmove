@@ -102,7 +102,7 @@ public class NotetakerService {
     private final KeptMeetings meetings;
     private final CandidateOutreachService people;
     private final UserRepository users;
-    private final DateTimePreferenceService timezones;
+    private final DateTimePreferenceService dateTimePreferences;
     private final AuditService audit;
     private final EveryWorkspace workspaces;
     private final TransactionTemplate transactions;
@@ -121,7 +121,7 @@ public class NotetakerService {
         if (!recall.isOffered() || recipient.doNotContact() || recipient.processingRestricted()) {
             return new CandidateNotetakerResponse(recall.isOffered(), rows, List.of(), List.of());
         }
-        ZoneId zone = timezones.zoneOf(workspaceId, userId);
+        ZoneId zone = dateTimePreferences.zoneOf(workspaceId, userId);
         List<KeptMeeting> calls = meetings.ofPerson(workspaceId, recipient.personId());
         List<KeptMeeting> recordable = calls.stream()
                 .filter(meeting -> joinableOrNull(meeting.joinUrl()) != null
