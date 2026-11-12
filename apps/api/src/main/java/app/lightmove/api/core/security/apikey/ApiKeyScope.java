@@ -6,7 +6,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * What a key may read, and {@link #MCP_USE}, where it may read it from. V117's CHECK lists the same tokens. All
+ * What a key may read, and {@link #MCP_USE}, where it may read it from. V217's CHECK lists the same tokens. All
  * read-only: no key writes anything.
  */
 public enum ApiKeyScope implements ApiValueEnum {
@@ -20,6 +20,12 @@ public enum ApiKeyScope implements ApiValueEnum {
 
     /** Executives' packages — personal data, so never implied by {@link #CANDIDATES_READ}. */
     CANDIDATE_COMPENSATION_READ("candidates.compensation:read"),
+
+    /**
+     * Executives' gender and nationality — nationality can reveal ethnic origin (Art. 9), so never implied by
+     * {@link #CANDIDATES_READ} (#922).
+     */
+    CANDIDATE_DEMOGRAPHICS_READ("candidates.demographics:read"),
 
     /**
      * Opens the MCP server to a key, opt-in, and reads nothing by itself. Never an OAuth scope: an MCP client's token is

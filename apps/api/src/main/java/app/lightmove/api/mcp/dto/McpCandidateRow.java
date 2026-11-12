@@ -25,8 +25,8 @@ public record McpCandidateRow(
         @Schema(description = "The key of the pipeline stage the status sits under, such as identified, contacted, "
                 + "interested or qualified", nullable = true)
         @Nullable String pipelineStage,
-        @Schema(description = "Every field of the executive; present only with response_format=detailed. Its contacts "
-                + "and compensation are filled only where the connection holds their scopes", nullable = true)
+        @Schema(description = "Every field of the executive; present only with response_format=detailed. Its contacts, "
+                + "compensation, gender and nationality are filled only where the connection holds their scopes", nullable = true)
         @Nullable PublicCandidate detail
 ) {
 

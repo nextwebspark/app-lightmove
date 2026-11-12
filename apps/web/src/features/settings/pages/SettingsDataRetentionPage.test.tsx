@@ -5,6 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import * as dataProtectionApi from "../../candidates/api/dataProtectionApi";
+import type { WorkspaceDetail } from "../../workspace/api/types";
+import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as dataRetentionApi from "../api/dataRetentionApi";
 import type { CandidateRetention, RetentionDue, WorkspaceExport } from "../api/dataRetentionApi";
 import { saveBlob } from "../../../lib/saveBlob";
@@ -13,6 +15,12 @@ import { SettingsDataRetentionPage } from "./SettingsDataRetentionPage";
 vi.mock("../../candidates/api/dataProtectionApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../candidates/api/dataProtectionApi")>()),
   getDataProtectionConfig: vi.fn(),
+}));
+vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../workspace/api/workspaceApi")>()),
+  workspace: vi.fn(),
+  changeAiControls: vi.fn(),
+  inferredBackground: vi.fn(),
 }));
 vi.mock("../api/dataRetentionApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/dataRetentionApi")>()),
@@ -30,6 +38,9 @@ vi.mock("../api/dataRetentionApi", async (importOriginal) => ({
 }));
 vi.mock("../../auth/AuthProvider", () => ({ useAuth: () => ({ user: { workspace: { name: "Al-Futtaim Search" } } }) }));
 vi.mock("../../../lib/saveBlob", () => ({ saveBlob: vi.fn() }));
+
+const AI_ON = { inferGender: true, inferNationality: true, draftAssessments: true, enrichAutomatically: true };
+const WORKSPACE = { id: "ws-1", name: "Al-Futtaim Search", aiControls: AI_ON } as WorkspaceDetail;
 
 const TWO_YEARS: CandidateRetention = { months: 24, chosen: false, defaultMonths: 24, options: [12, 24, 36, 60] };
 
@@ -81,16 +92,64 @@ describe("SettingsDataRetentionPage", () => {
     vi.mocked(dataRetentionApi.getRetentionDue).mockResolvedValue(DUE);
     vi.mocked(dataRetentionApi.getSuppressions).mockResolvedValue([]);
     vi.mocked(dataRetentionApi.getLatestWorkspaceExport).mockResolvedValue(null);
+    vi.mocked(workspaceApi.workspace).mockResolvedValue(WORKSPACE);
   });
 
-  it("reads nothing and draws nothing where the deployment holds the controls back", async () => {
+  it("draws only AI on people where the deployment holds the people controls back", async () => {
     vi.mocked(dataProtectionApi.getDataProtectionConfig).mockResolvedValue({ enabled: false });
     renderPage();
 
-    await waitFor(() => expect(dataProtectionApi.getDataProtectionConfig).toHaveBeenCalled());
-    await waitFor(() => expect(screen.queryByText("Data & retention")).not.toBeInTheDocument());
+    expect(await screen.findByRole("region", { name: "AI on people" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Candidate retention" })).not.toBeInTheDocument();
     expect(dataRetentionApi.getCandidateRetention).not.toHaveBeenCalled();
     expect(dataRetentionApi.getSuppressions).not.toHaveBeenCalled();
+  });
+
+  describe("AI on people", () => {
+    it("turns a switch on at once", async () => {
+      const off = { ...AI_ON, draftAssessments: false };
+      vi.mocked(workspaceApi.workspace).mockResolvedValue({ ...WORKSPACE, aiControls: off });
+      vi.mocked(workspaceApi.changeAiControls).mockResolvedValue({ ...WORKSPACE, aiControls: AI_ON });
+      renderPage();
+
+      await userEvent.click(await screen.findByRole("switch", { name: "Draft assessments with AI" }));
+
+      await waitFor(() => expect(workspaceApi.changeAiControls).toHaveBeenCalledWith(AI_ON));
+      expect(workspaceApi.inferredBackground).not.toHaveBeenCalled();
+    });
+
+    it("asks before turning nationality off, saying how many candidates it clears", async () => {
+      vi.mocked(workspaceApi.inferredBackground).mockResolvedValue({ genderValues: 4, nationalityValues: 7 });
+      vi.mocked(workspaceApi.changeAiControls).mockResolvedValue({
+        ...WORKSPACE,
+        aiControls: { ...AI_ON, inferNationality: false },
+      });
+      renderPage();
+
+      await userEvent.click(await screen.findByRole("switch", { name: "Infer nationality" }));
+      const dialog = await screen.findByRole("dialog", { name: "Turn off nationality inference?" });
+      expect(await within(dialog).findByText(/for 7 candidates/)).toBeInTheDocument();
+      expect(workspaceApi.changeAiControls).not.toHaveBeenCalled();
+
+      await userEvent.click(within(dialog).getByRole("button", { name: "Turn off and clear" }));
+
+      await waitFor(() =>
+        expect(workspaceApi.changeAiControls).toHaveBeenCalledWith({ ...AI_ON, inferNationality: false }),
+      );
+    });
+
+    it("leaves gender on when the question is cancelled", async () => {
+      vi.mocked(workspaceApi.inferredBackground).mockResolvedValue({ genderValues: 0, nationalityValues: 0 });
+      renderPage();
+
+      await userEvent.click(await screen.findByRole("switch", { name: "Infer gender" }));
+      const dialog = await screen.findByRole("dialog", { name: "Turn off gender inference?" });
+      expect(await within(dialog).findByText(/nothing is cleared/)).toBeInTheDocument();
+      await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+      expect(workspaceApi.changeAiControls).not.toHaveBeenCalled();
+      expect(screen.getByRole("switch", { name: "Infer gender" })).toHaveAttribute("aria-checked", "true");
+    });
   });
 
   it("lists who is due with when they were last touched, and saves a new period", async () => {

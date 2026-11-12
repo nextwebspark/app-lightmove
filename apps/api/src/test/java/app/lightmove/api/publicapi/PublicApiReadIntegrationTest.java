@@ -84,7 +84,7 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("contacts and compensation are null without their own scopes, a model's unconfirmed guess is null, and notes are never sent")
+    @DisplayName("contacts, compensation, gender and nationality are null without their own scopes, a model's unconfirmed guess is null, and notes are never sent")
     void personalDataNeedsItsOwnScope() throws Exception {
         String admin = adminOf(domain);
         String projectId = project(admin, "Chief Financial Officer");
@@ -112,14 +112,17 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
         assertThat(plain.get("companyId").asText()).isEqualTo(companyId);
         assertThat(plain.get("contacts").isNull()).isTrue();
         assertThat(plain.get("compensation").isNull()).isTrue();
-        assertThat(plain.get("gender").asText()).isEqualTo("female");
+        assertThat(plain.get("gender").isNull()).as("gender needs candidates.demographics:read").isTrue();
         assertThat(plain.get("nationality").isNull()).isTrue();
         assertThat(plain.has("customFields") || plain.has("aiInferredFields") || plain.has("note")).isFalse();
         assertThat(plainResult.getResponse().getContentAsString()).doesNotContain("Prefers a call");
 
         JsonNode full = read(secret(admin, """
-                {"name":"Full","scopes":["candidates:read","candidates.contacts:read","candidates.compensation:read"]}"""),
+                {"name":"Full","scopes":["candidates:read","candidates.contacts:read","candidates.compensation:read",
+                 "candidates.demographics:read"]}"""),
                 url, 200).at("/data/0");
+        assertThat(full.get("gender").asText()).isEqualTo("female");
+        assertThat(full.get("nationality").isNull()).as("still the model's unconfirmed guess").isTrue();
         assertThat(full.at("/contacts/emails/0/address").asText()).isEqualTo("layla@acwa.example");
         assertThat(full.at("/contacts/emails/0/kind").asText()).isEqualTo("work");
         assertThat(full.at("/contacts/phones/0/number").asText()).isEqualTo("+971 50 123 4567");

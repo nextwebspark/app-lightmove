@@ -10,4 +10,8 @@ import app.lightmove.api.common.constant.Seniority;
 public record InferredBackground(Gender gender, Integer yearsExperience, Seniority seniority) {
 
     public static final InferredBackground NONE = new InferredBackground(null, null, null);
+
+    public InferredBackground withoutGender() {
+        return new InferredBackground(null, yearsExperience, seniority);
+    }
 }

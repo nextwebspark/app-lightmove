@@ -216,7 +216,7 @@
             },
             "gender" : {
               "type" : [ "string", "null" ],
-              "description" : "Their gender, where recorded",
+              "description" : "Their gender, where recorded. Null unless the key holds candidates.demographics:read",
               "enum" : [ "female", "male", "other", null ]
             },
             "id" : {
@@ -237,7 +237,7 @@
             },
             "nationality" : {
               "type" : [ "string", "null" ],
-              "description" : "Their nationality group"
+              "description" : "Their nationality group. Null unless the key holds candidates.demographics:read"
             },
             "outOfProcess" : {
               "type" : "boolean",
@@ -302,9 +302,9 @@
             }
           },
           "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "outOfProcess", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
-          "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
+          "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them; nationality and gender are also null unless the key holds candidates.demographics:read"
         }, {
-          "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
+          "description" : "Every field of the executive; present only with response_format=detailed. Its contacts, compensation, gender and nationality are filled only where the connection holds their scopes"
         } ]
       },
       "fullName" : {
@@ -689,7 +689,7 @@
                   },
                   "gender" : {
                     "type" : [ "string", "null" ],
-                    "description" : "Their gender, where recorded",
+                    "description" : "Their gender, where recorded. Null unless the key holds candidates.demographics:read",
                     "enum" : [ "female", "male", "other", null ]
                   },
                   "id" : {
@@ -710,7 +710,7 @@
                   },
                   "nationality" : {
                     "type" : [ "string", "null" ],
-                    "description" : "Their nationality group"
+                    "description" : "Their nationality group. Null unless the key holds candidates.demographics:read"
                   },
                   "outOfProcess" : {
                     "type" : "boolean",
@@ -775,9 +775,9 @@
                   }
                 },
                 "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "outOfProcess", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
-                "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
+                "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them; nationality and gender are also null unless the key holds candidates.demographics:read"
               }, {
-                "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
+                "description" : "Every field of the executive; present only with response_format=detailed. Its contacts, compensation, gender and nationality are filled only where the connection holds their scopes"
               } ]
             },
             "fullName" : {
@@ -1367,7 +1367,7 @@
                 },
                 "gender" : {
                   "type" : [ "string", "null" ],
-                  "description" : "Their gender, where recorded",
+                  "description" : "Their gender, where recorded. Null unless the key holds candidates.demographics:read",
                   "enum" : [ "female", "male", "other", null ]
                 },
                 "id" : {
@@ -1388,7 +1388,7 @@
                 },
                 "nationality" : {
                   "type" : [ "string", "null" ],
-                  "description" : "Their nationality group"
+                  "description" : "Their nationality group. Null unless the key holds candidates.demographics:read"
                 },
                 "outOfProcess" : {
                   "type" : "boolean",
@@ -1453,9 +1453,9 @@
                 }
               },
               "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "outOfProcess", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
-              "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
+              "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them; nationality and gender are also null unless the key holds candidates.demographics:read"
             }, {
-              "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
+              "description" : "Every field of the executive; present only with response_format=detailed. Its contacts, compensation, gender and nationality are filled only where the connection holds their scopes"
             } ]
           },
           "fullName" : {
@@ -1892,7 +1892,7 @@
                   },
                   "gender" : {
                     "type" : [ "string", "null" ],
-                    "description" : "Their gender, where recorded",
+                    "description" : "Their gender, where recorded. Null unless the key holds candidates.demographics:read",
                     "enum" : [ "female", "male", "other", null ]
                   },
                   "id" : {
@@ -1913,7 +1913,7 @@
                   },
                   "nationality" : {
                     "type" : [ "string", "null" ],
-                    "description" : "Their nationality group"
+                    "description" : "Their nationality group. Null unless the key holds candidates.demographics:read"
                   },
                   "outOfProcess" : {
                     "type" : "boolean",
@@ -1978,9 +1978,9 @@
                   }
                 },
                 "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "outOfProcess", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
-                "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
+                "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them; nationality and gender are also null unless the key holds candidates.demographics:read"
               }, {
-                "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
+                "description" : "Every field of the executive; present only with response_format=detailed. Its contacts, compensation, gender and nationality are filled only where the connection holds their scopes"
               } ]
             },
             "fullName" : {
@@ -2452,7 +2452,7 @@
                   },
                   "gender" : {
                     "type" : [ "string", "null" ],
-                    "description" : "Their gender, where recorded",
+                    "description" : "Their gender, where recorded. Null unless the key holds candidates.demographics:read",
                     "enum" : [ "female", "male", "other", null ]
                   },
                   "id" : {
@@ -2473,7 +2473,7 @@
                   },
                   "nationality" : {
                     "type" : [ "string", "null" ],
-                    "description" : "Their nationality group"
+                    "description" : "Their nationality group. Null unless the key holds candidates.demographics:read"
                   },
                   "outOfProcess" : {
                     "type" : "boolean",
@@ -2538,9 +2538,9 @@
                   }
                 },
                 "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "outOfProcess", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
-                "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
+                "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them; nationality and gender are also null unless the key holds candidates.demographics:read"
               }, {
-                "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
+                "description" : "Every field of the executive; present only with response_format=detailed. Its contacts, compensation, gender and nationality are filled only where the connection holds their scopes"
               } ]
             },
             "fullName" : {

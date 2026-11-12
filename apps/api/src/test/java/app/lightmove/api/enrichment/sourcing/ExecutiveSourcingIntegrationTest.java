@@ -750,7 +750,7 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
     /** Its own admin per firm, so one test can open two mandates in two workspaces. */
     private String mandate(String firmName) throws Exception {
         adminEmail = firmName.toLowerCase().replaceAll("[^a-z]", "") + "@" + domain;
-        createWorkspace(verifiedUser("Alok Kumar", adminEmail), firmName);
+        switchOnPeopleAi(createWorkspace(verifiedUser("Alok Kumar", adminEmail), firmName));
         adminToken = login(adminEmail);
         String clientId = body(mvc.perform(post("/api/v1/clients")
                         .header("Authorization", "Bearer " + adminToken)

@@ -2,7 +2,6 @@ package app.lightmove.api.enrichment.candidate.controller;
 
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidateScorecardResponse;
-import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
@@ -30,7 +29,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class CandidateAiEnrichController {
 
     private final CandidateAiEnrichService aiEnrich;
-    private final CandidateService candidates;
 
     @PostMapping("/background/ai")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
@@ -58,7 +56,7 @@ public class CandidateAiEnrichController {
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable UUID projectId,
             @PathVariable UUID candidateId) {
-        return candidates.nationalityReadingOf(principal.requireWorkspaceId(), projectId, candidateId)
+        return aiEnrich.nationalityReadingOf(principal.requireWorkspaceId(), projectId, candidateId)
                 .map(NationalityReadingResponse::of)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.noContent().build());

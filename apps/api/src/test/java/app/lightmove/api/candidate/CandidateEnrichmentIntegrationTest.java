@@ -650,6 +650,65 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("with the workspace's AI switches off, neither gender nor nationality is proposed and Assess is refused")
+    void switchedOffInferencesAreNeitherAskedNorDrafted() throws Exception {
+        String projectId = mandateWithAiOff("Switched Off Firm");
+        competencies(projectId, COMPETENCIES);
+        model.answerWith(AI_ENRICHMENT);
+        String candidateId = handAdded(projectId);
+
+        JsonNode filled = body(mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/background/ai")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        assertThat(filled.get("gender").isNull()).isTrue();
+        assertThat(filled.get("nationality").isNull()).isTrue();
+        assertThat(filled.get("aiInferredFields")).extracting(JsonNode::asText)
+                .containsExactlyInAnyOrder("yearsExperience", "seniority");
+        assertThat(model.prompts()).as("the classifier is never asked").hasSize(1);
+        mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId + "/nationality-reading")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNoContent());
+
+        model.reset();
+        String refused = codeOf(mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/assessment/ai")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isConflict())
+                .andReturn());
+        assertThat(refused).isEqualTo("AI_ASSESSMENT_DISABLED");
+        assertThat(model.prompts()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("gender and nationality switched off while the model answers are not written back over the clear")
+    void aSwitchTurnedOffMidRunDropsWhatItCovered() throws Exception {
+        String projectId = mandate("Mid Run Firm");
+        model.answerWith(AI_ENRICHMENT);
+        String candidateId = handAdded(projectId);
+        model.whileNextPromptIsAnswered(() -> db.update("""
+                UPDATE app_lm_workspace SET ai_infer_gender = false, ai_infer_nationality = false
+                WHERE id = (SELECT workspace_id FROM app_lm_project WHERE id = ?::uuid)
+                """, projectId));
+
+        JsonNode filled = body(mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/background/ai")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        assertThat(model.prompts()).as("both were asked before the switches went off").hasSize(2);
+        assertThat(filled.get("gender").isNull()).isTrue();
+        assertThat(filled.get("nationality").isNull()).isTrue();
+        assertThat(filled.get("aiInferredFields")).extracting(JsonNode::asText)
+                .containsExactlyInAnyOrder("yearsExperience", "seniority");
+        assertThat(db.queryForObject("""
+                SELECT person.ai_nationality_reading IS NULL FROM app_lm_person person
+                JOIN app_lm_project_candidate mapping ON mapping.person_id = person.id
+                WHERE mapping.id = ?::uuid
+                """, Boolean.class, candidateId)).isTrue();
+    }
+
+    @Test
     @DisplayName("Assess with AI reads the notes and the CV, drafts what a consultant left open and keeps what they scored")
     void assessWithAiNeverOverwritesAConsultant() throws Exception {
         String projectId = mandate("Assessment Button Firm");
@@ -939,6 +998,13 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     private String mandate(String firmName) throws Exception {
+        String alok = "alok@" + domain;
+        switchOnPeopleAi(createWorkspace(verifiedUser("Alok Kumar", alok), firmName));
+        adminToken = login(alok);
+        return mandateInSameWorkspace("Head of Retail");
+    }
+
+    private String mandateWithAiOff(String firmName) throws Exception {
         String alok = "alok@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), firmName);
         adminToken = login(alok);
