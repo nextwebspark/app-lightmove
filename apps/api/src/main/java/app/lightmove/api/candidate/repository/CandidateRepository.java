@@ -7,6 +7,8 @@ import app.lightmove.api.candidate.model.CandidateCount;
 import app.lightmove.api.candidate.model.CandidateStatusCount;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
+import app.lightmove.api.core.text.model.SearchText;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import jakarta.persistence.LockModeType;
 import java.util.Collection;
@@ -22,13 +24,8 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
 /**
- * A mandate's mapped executives. Every finder carries the project id — a candidate is mandate content,
- * and an unscoped lookup on people the firm is researching must not exist. The project itself is
- * resolved against the caller's workspace one layer up. The person a row maps is reached through it,
- * so a name or a profile is only ever asked about within one mandate here.
- *
- * <p>The candidates list is {@link CandidateListFilter} through {@link JpaSpecificationExecutor}: its
- * filters are each optional, and a finder per combination would multiply with every one added.
+ * A mandate's mapped executives. Every finder carries the project id — an unscoped lookup on people the firm is
+ * researching must not exist; the project is resolved against the caller's workspace one layer up.
  */
 public interface CandidateRepository extends JpaRepository<Candidate, UUID>, JpaSpecificationExecutor<Candidate> {
 
@@ -39,11 +36,16 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
             + "where c.projectId = :projectId and c.id in :ids")
     List<CandidateAttribution> findAttributionByProjectIdAndIdIn(UUID projectId, Collection<UUID> ids);
 
+    long countByProjectId(UUID projectId);
+
     /** Named rows of one mandate. */
     List<Candidate> findByProjectIdAndIdIn(UUID projectId, Collection<UUID> ids);
 
     /** Everyone mapped at these of the mandate's companies, unpaged: outreach's ticked companies. */
     List<Candidate> findByProjectIdAndTriageCompanyIdIn(UUID projectId, Collection<UUID> triageCompanyIds);
+
+    /** Everyone mapped at one company, on every stage: what removing it would take. */
+    long countByProjectIdAndTriageCompanyId(UUID projectId, UUID triageCompanyId);
 
     /** The talent map's read: the whole mandate, with no search box above it to narrow. */
     Page<Candidate> findByProjectId(UUID projectId, Pageable pageable);
@@ -80,27 +82,27 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     /**
      * The projects list's "Candidates" number, for every mandate on the page at once so the list stays
      * one query rather than one per row. Grouped, so a mandate with nobody mapped is missing from the
-     * result rather than zero. Everyone at a status of the closed stage has left the running.
+     * result rather than zero. Everyone at an out-of-process status has left the running.
      */
     @Query("select c.projectId as projectId, count(c) as total "
             + "from Candidate c where c.projectId in :projectIds "
-            + "and c.status.stage.kind <> app.lightmove.api.candidate.constant.PipelineStageKind.CLOSED "
+            + "and c.status.outOfProcess = false "
             + "and (:clientVisibleOnly = false or c.clientVisible = true) "
             + "group by c.projectId")
     List<CandidateCount> countStillInTheRunningByProjectIdIn(Collection<UUID> projectIds,
                                                              boolean clientVisibleOnly);
 
     /**
-     * Engaged: the built-in Engaged status, and anyone at a running stage from the one the built-in
-     * Interested status sits under onwards — so a workspace's own later stages count without naming them,
-     * and the number every position showed before the catalog is the number it shows now.
+     * Engaged, of those still in process: the built-in Engaged status, and anyone at a stage from the one the
+     * built-in Interested status sits under onwards — so a workspace's own later stages count without naming
+     * them, and the number every position showed before the catalog is the number it shows now.
      * {@code interestedFrom} is that stage's position, the caller's one read of the catalog.
      */
     @Query("select c.projectId as projectId, count(c) as total "
             + "from Candidate c where c.projectId in :projectIds "
+            + "and c.status.outOfProcess = false "
             + "and (c.status.systemKey = app.lightmove.api.candidate.constant.CandidateSystemStatus.ENGAGED "
-            + "  or (c.status.stage.kind = app.lightmove.api.candidate.constant.PipelineStageKind.ACTIVE "
-            + "  and c.status.stage.position >= :interestedFrom)) "
+            + "  or c.status.stage.position >= :interestedFrom) "
             + "and (:clientVisibleOnly = false or c.clientVisible = true) "
             + "group by c.projectId")
     List<CandidateCount> countEngagedByProjectIdIn(Collection<UUID> projectIds, int interestedFrom,
@@ -170,17 +172,9 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     Optional<UUID> findClientVisiblePersonIdByIdAndProjectId(UUID id, UUID projectId);
 
     /**
-     * The duplicate guard for someone mapped at one of the mandate's companies, and its partner below
-     * for someone who is not — the two scopes V36's partial unique indexes drew until V91 moved the
-     * name onto the person.
-     *
-     * <p>The company-scoped one carries the project id too, though a company already belongs to
-     * exactly one project. Without it the guard is scoped only by whatever proved the company first,
-     * which is a property of the calling order rather than of this query.
-     *
-     * <p>Lists rather than {@code exists}, so an edit can exclude the row being edited. A list rather
-     * than {@code Optional} because nothing stops two rows sharing a name, and a single-result finder
-     * would turn the 409 this guard raises into a 500.
+     * Duplicate guard for someone mapped at one of the mandate's companies (its partner below: at none). Carries the
+     * project id so scope never depends on calling order; a list, not {@code Optional}, so two rows sharing a name stay a
+     * 409 rather than a 500, and an edit can exclude its own row.
      */
     List<Candidate> findByProjectIdAndTriageCompanyIdAndPersonFullNameIgnoreCase(
             UUID projectId, UUID triageCompanyId, String fullName);
@@ -223,14 +217,8 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     List<Candidate> findPositionsOfPeople(UUID workspaceId, Collection<UUID> personIds);
 
     /**
-     * The mandate's rows that might name one LinkedIn profile — the narrowing half of the duplicate
-     * guard the name finders above cannot answer. {@code like} rather than equality because the column
-     * holds whatever the plugin read off the page, and one profile is written several ways: a trailing
-     * slash, a locale prefix, {@code www} or not.
-     *
-     * <p>It narrows rather than decides. A slug that is a prefix of another matches here — {@code john}
-     * against {@code /in/johnny} — so the caller settles identity on the slug itself, which is the only
-     * spelling {@code LinkedInUrls} treats as the profile's name.
+     * Narrows the mandate's rows that might name one LinkedIn profile ({@code like}: one profile is written several
+     * ways). It never decides — {@code john} matches {@code /in/johnny} — so the caller settles identity on the slug.
      */
     @Query("select c from Candidate c where c.projectId = :projectId "
             + "and lower(c.person.linkedinUrl) like concat('%/in/', :slug, '%')")
@@ -261,6 +249,40 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     @Query("select distinct c.triageCompanyId from Candidate c "
             + "where c.projectId = :projectId and c.triageCompanyId is not null")
     Set<UUID> findTriageCompanyIdsByProjectId(UUID projectId);
+
+    /**
+     * The executive half of the mandate's one search rule: name, title, city, country or employer name, and — only
+     * for {@code includeStaffContent}, a reader holding {@code WORK_EXECUTE} — the person's live notes this position
+     * reads ({@code NoteViewpoint}: its own and the person-level ones, never another position's) and their tags.
+     * {@code pattern} is {@code SearchText.likePattern}; the company half is {@code triagecompany}'s. A null
+     * {@code triageStatus} (a stage's enum name) matches people listed at any stage.
+     */
+    @Query(value = "select c.id as \"id\", c.triage_company_id as \"triageCompanyId\" "
+            + "from app_lm_project_candidate c join app_lm_person p on p.id = c.person_id "
+            + "where c.project_id = :projectId and (:clientVisibleOnly = false or c.client_visible) "
+            + "and (cast(:triageStatus as varchar) is null or c.triage_status = :triageStatus) and ("
+            + "  lower(p.full_name) like :pattern escape '\\' "
+            + "  or lower(coalesce(p.title, '')) like :pattern escape '\\' "
+            + "  or lower(coalesce(p.location_city, '')) like :pattern escape '\\' "
+            + "  or lower(coalesce(p.location_country, '')) like :pattern escape '\\' "
+            + "  or lower(coalesce(c.company_name, '')) like :pattern escape '\\' "
+            + "  or (:includeStaffContent and exists ("
+            + "    select 1 from app_lm_person_note n where n.person_id = c.person_id and n.deleted_at is null "
+            + "    and (n.project_id = c.project_id or n.project_id is null) "
+            + "    and lower(n.body) like :pattern escape '\\')) "
+            + "  or (:includeStaffContent and exists ("
+            + "    select 1 from app_lm_person_tag pt join app_lm_workspace_candidate_tag tag on tag.id = pt.tag_id "
+            + "    where pt.person_id = c.person_id and lower(tag.label) like :pattern escape '\\')))",
+            nativeQuery = true)
+    List<SearchMatchedCandidate> findSearchMatches(UUID projectId, String pattern, boolean includeStaffContent,
+                                                   boolean clientVisibleOnly, String triageStatus);
+
+    /** The one place an audience becomes what the search may read: notes and tags for staff alone. */
+    default List<SearchMatchedCandidate> findSearchMatches(UUID projectId, TriageCompanyStatus stage, SearchText search,
+                                                           ProjectAudience audience) {
+        return findSearchMatches(projectId, search.likePattern(), audience == ProjectAudience.STAFF,
+                audience.clientVisibleOnly(), stage == null ? null : stage.name());
+    }
 
     /**
      * Ids of the mandate's triaged companies with a mapped executive at one of these status keys — the
@@ -301,27 +323,10 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
                                                              Collection<UUID> ids);
 
     /**
-     * A page of one project's stage, ranked by each triaged company's best mapped executive status —
-     * the join {@code triagecompany}'s own repository is not allowed to make itself, since reaching
-     * into {@code app_lm_project_candidate} from that side is exactly the reverse dependency the two
-     * packages document against. {@code candidate} may reference {@code app_lm_project_triage_company}
-     * directly — the one direction the dependency runs — so the query, and the join it needs, live
-     * here instead, behind {@code MappedExecutiveLookupAdapter}.
-     *
-     * <p>Selects the id alone, never a {@code TriageCompany} row: the boundary this exists to keep is
-     * narrower than "may reference the table", and returning entities of another module's aggregate
-     * from here would widen it further than the join itself needs to.
-     *
-     * <p>{@code ascending} folds the two directions this used to need as separate queries into the sign
-     * of the ranked value itself — {@code null} stays {@code null} under negation, so {@code nulls last}
-     * keeps an unranked company last regardless of which way the multiplier flips everyone else.
-     *
-     * <p>Ranked by the pipeline itself — each executive's stage position, then their status's position
-     * within it — so a workspace's own statuses rank where its admin put them. {@code clientVisibleOnly}
-     * is on the join as well as on both filters, so a hidden executive moves nobody's place. Native rather
-     * than JPQL:
-     * {@code group by t.id} relies on Postgres's rule that grouping by a primary key lets every other
-     * column of that row through ungrouped, which is a Postgres extension JPQL does not model.
+     * Ranks a stage's companies by their best mapped executive (stage, then status position). Lives here since
+     * {@code triagecompany} may not join {@code app_lm_project_candidate}; returns ids, never its entities.
+     * {@code ascending} is the rank's sign (nulls stay last); {@code withinIds} is an array as {@code in ()} is not SQL;
+     * {@code clientVisibleOnly} is on the join too. Native: {@code group by t.id} is Postgres's primary-key rule.
      */
     @Query(
             value = "select t.id from app_lm_project_triage_company t "
@@ -339,6 +344,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
                     + "  and (:clientVisibleOnly = false or x.client_visible) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
+                    + "and (cast(:withinIds as uuid[]) is null or t.id = any(cast(:withinIds as uuid[]))) "
                     + "group by t.id "
                     + "order by (case when :ascending then 1 else -1 end) * min(cg.position * 1000 + cs.position) "
                     + "asc nulls last, t.created_at desc",
@@ -352,10 +358,11 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
                     + "  where x.triage_company_id = t.id and x.triage_status = :status "
                     + "  and (:clientVisibleOnly = false or x.client_visible) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
-                    + "))",
+                    + ")) "
+                    + "and (cast(:withinIds as uuid[]) is null or t.id = any(cast(:withinIds as uuid[])))",
             nativeQuery = true)
     Page<UUID> findTriageCompanyIdsRankedByExecutiveStatus(
-            UUID projectId, String status, String companyName, String executiveName,
+            UUID projectId, String status, String companyName, String executiveName, UUID[] withinIds,
             boolean ascending, boolean clientVisibleOnly, Pageable pageable);
 
     /** {@link #findTriageCompanyIdsRankedByExecutiveStatus} narrowed to companies with at least one
@@ -379,6 +386,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
                     + "  and (:clientVisibleOnly = false or x.client_visible) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
+                    + "and (cast(:withinIds as uuid[]) is null or t.id = any(cast(:withinIds as uuid[]))) "
                     + "and exists ("
                     + "  select 1 from app_lm_project_candidate y "
                     + "  join app_lm_workspace_candidate_status ys on ys.id = y.status_id "
@@ -399,6 +407,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
                     + "  and (:clientVisibleOnly = false or x.client_visible) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
+                    + "and (cast(:withinIds as uuid[]) is null or t.id = any(cast(:withinIds as uuid[]))) "
                     + "and exists ("
                     + "  select 1 from app_lm_project_candidate y "
                     + "  join app_lm_workspace_candidate_status ys on ys.id = y.status_id "
@@ -408,6 +417,6 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
             nativeQuery = true)
     Page<UUID> findTriageCompanyIdsRankedByExecutiveStatusAndExecutiveStatuses(
             UUID projectId, String status, String companyName, String executiveName,
-            List<String> executiveStatuses, boolean ascending, boolean clientVisibleOnly,
-            Pageable pageable);
+            List<String> executiveStatuses, UUID[] withinIds,
+            boolean ascending, boolean clientVisibleOnly, Pageable pageable);
 }

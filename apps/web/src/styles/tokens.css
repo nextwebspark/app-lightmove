@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * The design system: UNCAVA, lifted verbatim from claude-design/uncava-tokens.css. There is one
+ * The design system: UNCAVA, lifted verbatim from uncava-design/uncava-tokens.css. There is one
  * palette and its names are `u-*`; the app's old names (panel, amber, sky, …) are gone, so a class
  * written against one of them compiles to nothing.
  *
@@ -62,7 +62,7 @@
   --radius-u-card: 12px;
   --radius-u-modal: 16px;
 
-  /* ── UNCAVA (the --u-* block in every claude-design/*.dc.html helmet) ───────────────────────────────────
+  /* ── UNCAVA (the --u-* block in every uncava-design/*.dc.html helmet) ───────────────────────────────────
    *
    * The one palette, and every screen reads these names directly.
    *
@@ -75,17 +75,20 @@
    * Uncava also ships `uncava-tailwind.config.js`, which is a Tailwind v3 config. This app is v4 and
    * has no config file: that file is a reference for the intended names, not something to wire in.
    */
+  /* The ground the topbar and the rail sit on; the work area beside them is white. Apart from `bg` because
+     `bg` is also every card, popover and input drawn white on top of the work area. */
+  --color-u-canvas: #f4f5f7;
   --color-u-bg: #ffffff;
-  --color-u-surface: #f7f8fa;
+  --color-u-surface: #ffffff;
   --color-u-raised: #eceff3;
   --color-u-sunken: #e4e8ee;
-  --color-u-border: rgba(3, 7, 18, 0.09);
-  --color-u-border-strong: rgba(3, 7, 18, 0.16);
+  --color-u-border: rgba(3, 7, 18, 0.12);
+  --color-u-border-strong: rgba(3, 7, 18, 0.22);
   --color-u-scrim: rgba(3, 7, 18, 0.4);
 
   --color-u-text: #0b0d12;
-  --color-u-text2: #4c5462;
-  --color-u-text3: #6b7382;
+  --color-u-text2: #343a46;
+  --color-u-text3: #525967;
 
   --color-u-accent: #4a56d6;
   --color-u-accent-hover: #3a46c4;
@@ -95,15 +98,15 @@
   --color-u-accent-ring: rgba(74, 86, 214, 0.4);
 
   /* Uncava's warning role. Named for what it does, not what it looks like. */
-  --color-u-signal: #a8602f;
+  --color-u-signal: #a05b2d;
   --color-u-signal-tint: rgba(168, 96, 47, 0.1);
-  --color-u-offlimits: #d93a45;
+  --color-u-offlimits: #c8353f;
   --color-u-offlimits-tint: rgba(217, 58, 69, 0.1);
 
   /* Uncava's names, kept so the palette stays a lift: here they read as good news and as in progress. */
-  --color-u-direct: #0f9d6b;
+  --color-u-direct: #0c7c55;
   --color-u-direct-tint: rgba(15, 157, 107, 0.1);
-  --color-u-adjacent: #1f72d4;
+  --color-u-adjacent: #1d6cc9;
   --color-u-adjacent-tint: rgba(31, 114, 212, 0.1);
 
   /* Machine-made: what a template drafted or a model read, never a person's own words. */
@@ -143,6 +146,7 @@
  */
 .dark {
   /* UNCAVA's own `:root` — its dark-first default. See the note above for why it lands here. */
+  --color-u-canvas: #08090b;
   --color-u-bg: #08090b;
   --color-u-surface: #0e1013;
   --color-u-raised: #15181d;
@@ -155,7 +159,7 @@
   --color-u-text2: #a6adbb;
   --color-u-text3: #7c8493;
 
-  --color-u-accent: #6e79f2;
+  --color-u-accent: #7782f4;
   --color-u-accent-hover: #8189f7;
   --color-u-accent-solid: #4a56d6;
   --color-u-accent-solid-hover: #5a66e6;
@@ -195,7 +199,7 @@
   --shadow-u-e3: 0 18px 44px -10px rgba(0, 0, 0, 0.8);
 }
 
-/* Type roles: each is one recurring text style of claude-design/Position.dc.html, colour left to the caller. */
+/* Type roles: each is one recurring text style of uncava-design/Position.dc.html, colour left to the caller. */
 @utility type-label {
   font-size: var(--text-note);
   line-height: var(--text-note--line-height);

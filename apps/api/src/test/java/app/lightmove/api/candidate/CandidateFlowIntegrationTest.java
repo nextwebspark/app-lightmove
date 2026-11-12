@@ -23,8 +23,8 @@ import tools.jackson.databind.JsonNode;
  *
  * <p>The cases that matter here are all about the optional company link: a candidate belongs to the
  * project unconditionally and to one of its companies only if their employer happens to be in the
- * universe. Everything else — the duplicate guard, the full-replace edit, what survives a company
- * being removed from the mandate — follows from that.
+ * universe. Everything else — the duplicate guard, the full-replace edit, what a company's removal takes
+ * with it — follows from that.
  */
 @IntegrationTest
 class CandidateFlowIntegrationTest extends FlowTestSupport {
@@ -496,25 +496,19 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("removing a company from the mandate unmaps its people rather than deleting them")
-    void removingACompanyLeavesItsPeopleUnmapped() throws Exception {
+    @DisplayName("removing a company from the mandate takes its people, never leaving them unmapped")
+    void removingACompanyLeavesNobodyUnmapped() throws Exception {
         String projectId = mandate("Company Removal Firm");
         String companyId = captureCompany(projectId, "Spinneys Group");
         mapTo(projectId, companyId, "Wei Ling Tan");
 
-        mvc.perform(delete("/api/v1/projects/" + projectId + "/triage/" + companyId)
+        mvc.perform(delete("/api/v1/projects/" + projectId + "/triage/" + companyId + "?expectedExecutives=1")
                         .header("Authorization", "Bearer " + admin()))
                 .andExpect(status().isNoContent());
 
-        JsonNode survivor = body(mvc.perform(get(candidatesUrl(projectId) + "?unmapped=true")
-                        .header("Authorization", "Bearer " + admin()))
+        mvc.perform(get(candidatesUrl(projectId) + "?unmapped=true").header("Authorization", "Bearer " + admin()))
                 .andExpect(status().isOk())
-                .andReturn()).get("candidates").get(0);
-
-        assertThat(survivor.get("fullName").asText()).isEqualTo("Wei Ling Tan");
-        assertThat(survivor.get("triageCompanyId").isNull()).isTrue();
-        // The snapshot is why the row still says where they worked.
-        assertThat(survivor.get("companyName").asText()).isEqualTo("Spinneys Group");
+                .andExpect(jsonPath("$.totalCount").value(0));
     }
 
     @Test

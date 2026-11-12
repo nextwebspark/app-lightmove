@@ -1,5 +1,6 @@
 package app.lightmove.api.outreach.service;
 
+import app.lightmove.api.core.tenant.EveryWorkspace;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MailboxStatus;
 import app.lightmove.api.outreach.model.CalendarEvent;
@@ -9,6 +10,7 @@ import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -54,6 +56,7 @@ public class MeetingBackfill {
     private final MailboxGateway gateway;
     private final MailboxConnectionRepository mailboxes;
     private final MeetingSync meetings;
+    private final EveryWorkspace workspaces;
     private final TransactionTemplate transactions;
     private final Clock clock;
 
@@ -62,10 +65,11 @@ public class MeetingBackfill {
      * bound to the thread, and joining it writes nothing.
      */
     MeetingBackfill(MailboxGateway gateway, MailboxConnectionRepository mailboxes, MeetingSync meetings,
-                    PlatformTransactionManager transactionManager, Clock clock) {
+                    EveryWorkspace workspaces, PlatformTransactionManager transactionManager, Clock clock) {
         this.gateway = gateway;
         this.mailboxes = mailboxes;
         this.meetings = meetings;
+        this.workspaces = workspaces;
         this.transactions = new TransactionTemplate(transactionManager);
         this.transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.clock = clock;
@@ -77,47 +81,63 @@ public class MeetingBackfill {
         syncCalendar(connected.mailboxConnectionId());
     }
 
+    /** A workspace at a time: the mailboxes, and the people an event is matched to, are under row-level security. */
     public void syncOwed() {
-        mailboxes.findCalendarsOwed(MailboxStatus.ACTIVE, MAX_ATTEMPTS, clock.instant(),
-                        PageRequest.of(0, MAX_OWED_PER_POLL))
-                .forEach(mailbox -> syncCalendar(mailbox.getId()));
+        workspaces.forEach(workspaceId -> mailboxes.findCalendarsOwed(MailboxStatus.ACTIVE, MAX_ATTEMPTS,
+                        clock.instant(), PageRequest.of(0, MAX_OWED_PER_POLL))
+                .forEach(mailbox -> syncCalendar(mailbox.getId())));
     }
 
     /**
      * The drawer's: every direct calendar of the workspace that nothing pushes changes from and that was last read
-     * more than {@link #FRESH_FOR} ago is read again, off the request thread. A read that fails changes nothing; the
-     * next opening tries again.
+     * more than {@link #FRESH_FOR} ago is read again, off the request thread, by whichever opening claims it first. A
+     * read that fails changes nothing and gives its claim back; the next opening tries again.
      */
     @Async
     public void refreshUnpushed(UUID workspaceId) {
-        Instant now = clock.instant();
+        Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
         mailboxes.findByWorkspaceIdAndGateway(workspaceId, MailboxGatewayKind.DIRECT).stream()
                 .filter(mailbox -> mailbox.canSend() && mailbox.getRecallCalendarId() == null
                         && mailbox.getCalendarSyncedAt() != null
                         && mailbox.getCalendarSyncedAt().isBefore(now.minus(FRESH_FOR)))
                 .limit(MAX_REFRESHED_PER_OPEN)
-                .forEach(mailbox -> refresh(mailbox.getId(), mailbox.getGrantId(), now));
+                .forEach(mailbox -> refresh(mailbox.getId(), mailbox.getGrantId(), mailbox.getCalendarSyncedAt(), now));
     }
 
-    private void refresh(UUID mailboxConnectionId, String grantId, Instant now) {
-        Instant from = now.minus(RECHECKED_PAST);
-        Instant to = now.plus(REACH);
-        List<CalendarEvent> events;
+    private void refresh(UUID mailboxConnectionId, String grantId, Instant syncedBefore, Instant now) {
+        boolean claimed = false;
         try {
-            events = gateway.calendarEvents(grantId, from, to);
+            Integer claims = transactions.execute(status ->
+                    mailboxes.claimCalendarRefresh(mailboxConnectionId, now, now.minus(FRESH_FOR)));
+            claimed = claims != null && claims > 0;
+            if (!claimed) {
+                return;
+            }
+            Instant from = now.minus(RECHECKED_PAST);
+            Instant to = now.plus(REACH);
+            List<CalendarEvent> events = gateway.calendarEvents(grantId, from, to);
+            transactions.executeWithoutResult(status -> mailboxes.findById(mailboxConnectionId)
+                    .filter(fresh -> grantId.equals(fresh.getGrantId()))
+                    .ifPresent(fresh -> meetings.replaceWindow(fresh, from, to, events)));
         } catch (RuntimeException failed) {
-            log.info("Could not read the calendar of mailbox {} again; the next opening tries", mailboxConnectionId,
+            log.info("Could not refresh the calendar of mailbox {}; the next opening tries", mailboxConnectionId,
                     failed);
-            return;
+            if (claimed) {
+                giveBack(mailboxConnectionId, now, syncedBefore);
+            }
         }
-        transactions.executeWithoutResult(status -> mailboxes.findById(mailboxConnectionId)
-                .filter(fresh -> grantId.equals(fresh.getGrantId()))
-                .ifPresent(fresh -> {
-                    meetings.replaceWindow(fresh, from, to, events);
-                    fresh.markCalendarSynced(now);
-                }));
     }
 
+    private void giveBack(UUID mailboxConnectionId, Instant claimedAt, Instant syncedBefore) {
+        try {
+            transactions.executeWithoutResult(status ->
+                    mailboxes.releaseCalendarRefresh(mailboxConnectionId, claimedAt, syncedBefore));
+        } catch (RuntimeException failed) {
+            log.warn("Mailbox {} keeps its refresh claim until it goes stale", mailboxConnectionId, failed);
+        }
+    }
+
+    /** In the mailbox's workspace, which the connect callback or the poll's walk opened. */
     void syncCalendar(UUID mailboxConnectionId) {
         MailboxConnection mailbox = mailboxes.findById(mailboxConnectionId)
                 .filter(MailboxConnection::canSend)

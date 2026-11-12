@@ -280,3 +280,81 @@ export interface TeamPerformance {
   companies: CompanyCoverage[];
   companiesTotal: number;
 }
+
+export type CompetencyPanel = "technical" | "behavioural";
+
+/** One competency of the brief. `key` is opaque: what a score and a scenario's weight are keyed on. */
+export interface RankingCriterion {
+  key: string;
+  panel: CompetencyPanel;
+  name: string;
+  description: string | null;
+  /** The brief's own weight — the agreed baseline. */
+  weight: number;
+}
+
+export interface RankedScore {
+  key: string;
+  /** 0–10, or null: unscored, which earns nothing. */
+  score: number | null;
+  hasEvidence: boolean;
+}
+
+export interface RankedAssessment {
+  status: "draft" | "reviewed";
+  updatedAt: string | null;
+  reviewedAt: string | null;
+  reviewedByName: string | null;
+  /** Out of 100 at the brief's weighting, rounded as the drawer's Assessment tab rounds it. */
+  baselineOverall: number;
+  scoredCount: number;
+  criteriaCount: number;
+  retiredCount: number;
+  scores: RankedScore[];
+}
+
+export interface RankedCandidate {
+  candidateId: string;
+  personId: string;
+  fullName: string;
+  title: string | null;
+  companyName: string | null;
+  companyLogoUrl: string | null;
+  enrichedAt: string | null;
+  statusLabel: string | null;
+  statusColour: string | null;
+  stageLabel: string | null;
+  outOfProcess: boolean;
+  processingRestricted: boolean;
+  assessment: RankedAssessment;
+}
+
+export interface RankingScenario {
+  version: number;
+  technicalShare: number;
+  /** Every competency of today's brief. */
+  weights: Record<string, number>;
+  rationale: string | null;
+  updatedAt: string;
+  updatedByName: string | null;
+  briefChangedSinceSaved: boolean;
+  droppedCriteria: string[];
+}
+
+/** The Ranking chapter's read — staff-only. The order is computed on screen, since it moves with the scenario. */
+export interface Ranking {
+  criteria: RankingCriterion[];
+  baselineTechnicalShare: number;
+  candidates: RankedCandidate[];
+  notAssessedCount: number;
+  mappedCount: number;
+  truncated: boolean;
+  scenario: RankingScenario | null;
+}
+
+export interface SaveRankingScenario {
+  version: number | null;
+  technicalShare: number;
+  weights: Record<string, number>;
+  rationale: string | null;
+}

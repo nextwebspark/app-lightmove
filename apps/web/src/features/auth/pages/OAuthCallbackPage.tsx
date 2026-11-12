@@ -5,26 +5,13 @@ import { setAccessToken } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import { type OAuthOutcome, reportOAuthOutcome, takeHandshakeId } from "../oauthPopup";
+import { TWO_FACTOR_SIGN_IN_PATH } from "./TwoFactorChallengePage";
 import { landingAfterSignIn, takeReturnTo } from "../returnTo";
 
 /**
- * Where an identity provider sends the browser back to — for both outcomes, and for both ways of
- * running the flow.
- *
- * **In a popup** this page is a bridge and nothing else: it reports the outcome to the tab that
- * opened it and closes itself. It deliberately does not establish the session — the opener does
- * that, because the opener is the tab that stays.
- *
- * **In a full-page redirect** it does what it always has. The server has already minted our tokens
- * by this point: the refresh token arrived as an httpOnly cookie, and the access token is in the URL
- * **fragment**. The fragment matters. A query string is sent to the server, lands in access logs,
- * leaks through the Referer header, and syncs into browser history. A fragment does none of that —
- * it never leaves the browser. We read it, put it in memory, and scrub it from the address bar
- * immediately.
- *
- * A refusal arrives here as `?error=` rather than at `/login`, so that this one route owns both
- * outcomes: a failure sent straight to the login screen would render it inside a 500×640 popup.
- * Outside a popup this page forwards to `/login?error=` and the user sees what they always saw.
+ * The provider's return page. In a popup it only reports the outcome and closes (the opener makes the session); in a
+ * redirect it reads the access token from the URL fragment (never a query: logs, Referer, history) and scrubs it.
+ * A refusal lands here as `?error=` so a popup never renders the login screen; outside one it forwards to `/login?error=`.
  */
 export function OAuthCallbackPage() {
   const navigate = useNavigate();
@@ -38,13 +25,22 @@ export function OAuthCallbackPage() {
     }
     handled.current = true;
 
-    const refusalCode = new URLSearchParams(window.location.search).get("error");
+    const query = new URLSearchParams(window.location.search);
+    const refusalCode = query.get("error");
+    const owesSecondFactor = query.get(SECOND_FACTOR_PARAM) === SECOND_FACTOR_VALUE;
     const accessToken = new URLSearchParams(window.location.hash.slice(1)).get("token");
     const handshakeId = takeHandshakeId();
 
     if (handshakeId) {
       setIsBridgingPopup(true);
-      bridgeToOpener(handshakeId, outcomeOf(refusalCode, accessToken));
+      bridgeToOpener(handshakeId, outcomeOf(refusalCode, owesSecondFactor, accessToken));
+      return;
+    }
+
+    // A person with two-factor on: the server set the challenge cookie and no session, so on to the code.
+    if (!refusalCode && owesSecondFactor) {
+      const returnTo = takeReturnTo();
+      navigate(TWO_FACTOR_SIGN_IN_PATH, { replace: true, state: returnTo ? { from: returnTo } : undefined });
       return;
     }
 
@@ -107,12 +103,19 @@ function bridgeToOpener(handshakeId: string, outcome: OAuthOutcome): void {
   window.setTimeout(() => window.close(), 0);
 }
 
-function outcomeOf(refusalCode: string | null, accessToken: string | null): OAuthOutcome {
+function outcomeOf(refusalCode: string | null, owesSecondFactor: boolean, accessToken: string | null): OAuthOutcome {
   if (refusalCode) {
     return { status: "error", code: refusalCode };
   }
+  if (owesSecondFactor) {
+    return { status: "secondFactor" };
+  }
   return accessToken ? { status: "success" } : { status: "error", code: "OAUTH_FAILED" };
 }
+
+/** The server's mark, in place of a token, that the provider's sign-in still owes the person's code. */
+const SECOND_FACTOR_PARAM = "challenge";
+const SECOND_FACTOR_VALUE = "two-factor";
 
 /** Drops the fragment and the query, leaving the path — history entry replaced, not added. */
 function scrubCredentialsFromUrl(): void {

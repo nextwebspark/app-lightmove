@@ -25,10 +25,21 @@ public enum AuthEventType implements AuditEventType {
 
     /** The user edited their own display fields. */
     PROFILE_UPDATED,
+    /** The user uploaded their own profile photo. */
+    AVATAR_UPLOADED,
+    /** The user removed their profile photo; no provider sign-in brings one back. */
+    AVATAR_REMOVED,
 
     PASSWORD_CHANGED,
     PASSWORD_RESET_REQUESTED,
     PASSWORD_RESET_COMPLETED,
+
+    MFA_ENABLED,
+    MFA_DISABLED,
+    /** A wrong code after a right password; the real reason is in metadata, as for {@link #LOGIN_FAILED}. */
+    MFA_CHALLENGE_FAILED,
+    MFA_RECOVERY_CODE_USED,
+    MFA_RECOVERY_CODES_REGENERATED,
 
     OAUTH_LOGIN_SUCCEEDED,
     OAUTH_ACCOUNT_LINKED,
@@ -41,7 +52,13 @@ public enum AuthEventType implements AuditEventType {
      * credential leaving the browser for an extension's storage, and the only record of when a
      * consultant's account gained one.
      */
-    EXTENSION_PAIRED;
+    EXTENSION_PAIRED,
+
+    /** The person downloaded their own account as a file. Written with no workspace: it is the account's. */
+    ACCOUNT_DATA_EXPORTED,
+
+    /** The person deleted their account: every membership ended, every credential gone, the row anonymised. */
+    ACCOUNT_DELETED;
 
     @Override
     public String code() {

@@ -5,10 +5,8 @@ import app.lightmove.api.common.location.service.Countries;
 import java.util.Optional;
 
 /**
- * One line of prose naming where a role sits, split into the brief's city and country (V66).
- *
- * <p>The catalog decides, never the comma, via {@link Countries#resolveSpelling} rather than
- * {@link Countries#resolve}: it refuses a bare alpha-2 code, so "Chicago, IL" stays a city, not Israel.
+ * One prose location split into the brief's city and country (V66) by {@link Countries#resolveSpelling}, never the
+ * comma; it refuses a bare alpha-2 code, so "Chicago, IL" stays a city, not Israel.
  *
  * @param country the catalog's own spelling, or null where none was recognised
  */

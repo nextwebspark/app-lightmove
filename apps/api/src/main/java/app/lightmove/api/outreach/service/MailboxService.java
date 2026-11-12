@@ -11,6 +11,9 @@ import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.model.TimezoneChanged;
 import app.lightmove.api.core.security.token.Tokens;
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MessageKind;
 import app.lightmove.api.outreach.constant.MessageStatus;
@@ -24,6 +27,7 @@ import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.RecallCalendarReleased;
 import app.lightmove.api.outreach.model.ReleasedGrant;
+import app.lightmove.api.outreach.model.RenderedSignature;
 import app.lightmove.api.outreach.repository.MailboxAuthorizationRepository;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
@@ -36,6 +40,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -43,8 +48,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -80,7 +88,9 @@ public class MailboxService {
     private final SecretCipher cipher;
     private final LightMoveProperties properties;
     private final DateTimePreferenceService timezones;
+    private final TenantResolvers resolvers;
     private final Clock clock;
+    private final EmailSignatureService signatures;
 
     @Transactional(readOnly = true)
     public MailboxResponse view(UUID userId, UUID workspaceId) {
@@ -106,14 +116,19 @@ public class MailboxService {
     }
 
     /**
-     * A person's clock is their own choice, else their workspace's (V148, V160): every mailbox they hold, one per
+     * A person's clock is their own choice, else their workspace's (V148, V209): every mailbox they hold, one per
      * workspace, sends and caps by it there. Sends already due keep their time; the window and the cap read the new
-     * zone from the next one.
+     * zone from the next one. Once the profile has committed, each workspace's mailbox in that workspace's scope and
+     * its own transaction: the profile's transaction is the caller's workspace, and under row-level security sees no
+     * other's.
      */
-    @EventListener
-    @Transactional(propagation = Propagation.MANDATORY)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onTimezoneChanged(TimezoneChanged changed) {
-        connections.findByUserId(changed.userId()).forEach(this::followClock);
+        TransactionTemplate own = new TransactionTemplate(transactions.getTransactionManager());
+        own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        resolvers.mailboxesOfUser(changed.userId()).stream().map(ResolvedRow::workspaceId).distinct()
+                .forEach(workspaceId -> WorkspaceScope.run(workspaceId, () -> own.executeWithoutResult(status ->
+                        connections.findByUserId(changed.userId()).forEach(this::followClock))));
     }
 
     /** The workspace's zone moved: every member's mailbox there reads its owner's clock again, a follower's moving. */
@@ -152,13 +167,21 @@ public class MailboxService {
      * Redeems the consent screen's answer. The callback carries no bearer token, so the stored state is
      * what says whose mailbox this is — and it counts only from the browser that started it, which holds
      * the same value in a cookie: a consent link handed to someone else would otherwise connect their
-     * mailbox to the account that minted it.
+     * mailbox to the account that minted it. Nobody is signed in, so the state also names the workspace the
+     * connection is made in.
      */
     public void complete(String state, String browserState, String code, HttpServletRequest request) {
         if (state == null || code == null || !sameValue(state, browserState)) {
             throw ApiException.of(ErrorCode.MAILBOX_CONNECT_EXPIRED);
         }
-        MailboxAuthorization started = authorizations.findByStateHash(Tokens.hash(state))
+        String stateHash = Tokens.hash(state);
+        ResolvedRow named = resolvers.mailboxAuthorization(stateHash)
+                .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_CONNECT_EXPIRED));
+        WorkspaceScope.run(named.workspaceId(), () -> completeInScope(stateHash, code, request));
+    }
+
+    private void completeInScope(String stateHash, String code, HttpServletRequest request) {
+        MailboxAuthorization started = authorizations.findByStateHash(stateHash)
                 .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_CONNECT_EXPIRED));
         // Redeemed before anything else, so a state that is refused below can never be tried again.
         if (authorizations.redeem(started.getId()) == 0 || started.hasExpired(clock.instant())
@@ -190,7 +213,97 @@ public class MailboxService {
     }
 
     public void disconnect(UUID userId, UUID workspaceId, HttpServletRequest request) {
-        ReleasedGrant released = transactions.execute(status -> {
+        release(userId, workspaceId, userId, request, transactions);
+    }
+
+    /**
+     * A deleted account's mailbox here, if it had one, let go as its own Disconnect would. In transactions of its
+     * own: this may run on the deleting thread once it has committed, where a joined transaction writes nothing.
+     */
+    public void disconnectIfConnected(UUID userId, UUID workspaceId) {
+        TransactionTemplate own = new TransactionTemplate(transactions.getTransactionManager());
+        own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        boolean connected = Boolean.TRUE.equals(own.execute(status ->
+                connections.findByWorkspaceIdAndUserId(workspaceId, userId).isPresent()));
+        if (connected) {
+            release(userId, workspaceId, userId, null, own);
+        }
+    }
+
+    /**
+     * A deleted workspace's mailboxes, each let go as its consultant's own Disconnect would — the Recall calendar
+     * released, the grant revoked at the provider — in a transaction of its own, since the deletion's has already
+     * committed. Unlike a Disconnect, the row goes only once the provider has answered: it is the only copy of the grant
+     * to revoke, so one the provider could not be reached for stays, marked {@code ERROR} so nothing reads or sends
+     * through it, for the purge to try again. Answers how many are still held.
+     */
+    public int disconnectAllOf(UUID workspaceId, UUID actorId) {
+        TransactionTemplate own = new TransactionTemplate(transactions.getTransactionManager());
+        own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        List<UUID> holders = own.execute(status -> connections.findByWorkspaceId(workspaceId).stream()
+                .map(MailboxConnection::getUserId).toList());
+        int held = 0;
+        for (UUID holder : holders) {
+            try {
+                if (!releaseOfDeletedWorkspace(holder, workspaceId, actorId, own)) {
+                    held++;
+                }
+            } catch (RuntimeException failed) {
+                held++;
+                log.warn("Could not disconnect a mailbox of deleted workspace {}", workspaceId, failed);
+            }
+        }
+        return held;
+    }
+
+    private boolean releaseOfDeletedWorkspace(UUID userId, UUID workspaceId, UUID actorId, TransactionTemplate own) {
+        ReleasedGrant grant = own.execute(status -> {
+            MailboxConnection connection = requireConnection(userId, workspaceId);
+            String recallCalendar = connection.releaseRecallCalendar();
+            if (recallCalendar != null) {
+                events.publishEvent(new RecallCalendarReleased(recallCalendar));
+            }
+            connection.markAccessWithdrawn();
+            return releasedGrantOf(connection);
+        });
+        if (!revokedOrSettled(grant)) {
+            return false;
+        }
+        own.executeWithoutResult(status -> connections.findByWorkspaceIdAndUserId(workspaceId, userId)
+                .ifPresent(connections::delete));
+        tokens.forget(grant.grantId());
+        audit.event(WorkspaceEventType.MAILBOX_DISCONNECTED)
+                .actor(actorId)
+                .workspace(workspaceId)
+                .target(TARGET, userId)
+                .record();
+        return true;
+    }
+
+    /** False only where trying again could help: the provider did not answer, or this deployment cannot reach it. */
+    private boolean revokedOrSettled(ReleasedGrant released) {
+        try {
+            gateway.revoke(released);
+            return true;
+        } catch (VendorException refused) {
+            if (refused.getKind().retryable()) {
+                log.warn("Could not reach the mail service to revoke a deleted workspace's grant; tried again later",
+                        refused);
+                return false;
+            }
+            // An answer, not an outage: a grant the provider no longer holds, or a token it will not take.
+            log.warn("The mail service refused to revoke a deleted workspace's grant ({}); letting it go",
+                    refused.getKind());
+            return true;
+        } catch (RuntimeException unreachable) {
+            log.warn("Could not revoke a deleted workspace's grant; tried again later", unreachable);
+            return false;
+        }
+    }
+
+    private void release(UUID userId, UUID workspaceId, UUID actorId, HttpServletRequest request,
+                         TransactionTemplate transaction) {
+        ReleasedGrant released = transaction.execute(status -> {
             MailboxConnection connection = requireConnection(userId, workspaceId);
             String recallCalendar = connection.releaseRecallCalendar();
             if (recallCalendar != null) {
@@ -202,7 +315,7 @@ public class MailboxService {
         });
         tokens.forget(released.grantId());
         audit.event(WorkspaceEventType.MAILBOX_DISCONNECTED)
-                .actor(userId)
+                .actor(actorId)
                 .workspace(workspaceId)
                 .target(TARGET, userId)
                 .from(request)
@@ -219,7 +332,10 @@ public class MailboxService {
             throw ApiException.of(ErrorCode.MAILBOX_RECONNECT_NEEDED);
         }
         try {
-            gateway.send(connection.getGrantId(), new OutgoingEmail(connection.getAddress(), TEST_SUBJECT, TEST_BODY));
+            // The default signature rides along, so the consultant sees it in their own inbox as an executive will.
+            String signature = signatures.renderDefaultForTest(userId, workspaceId).map(RenderedSignature::html).orElse("");
+            gateway.send(connection.getGrantId(),
+                    new OutgoingEmail(connection.getAddress(), TEST_SUBJECT, TEST_BODY + signature));
         } catch (VendorException failed) {
             if (isAccessWithdrawn(failed)) {
                 transactions.executeWithoutResult(status -> requireConnection(userId, workspaceId).markAccessWithdrawn());

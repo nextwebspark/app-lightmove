@@ -6,52 +6,57 @@ import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { saveBlob } from "../../../lib/saveBlob";
 import { formatBytes } from "../../candidates/lib/documents";
+import type { ActivityExecutive } from "../../candidates/lib/activityPresentation";
 import { ClampedNoteText } from "../../notes/components/ClampedNoteText";
 import { NoteReaderModal } from "../../notes/components/NoteReaderModal";
 import { NoteText } from "../../notes/components/NoteText";
 import * as conversationApi from "../api/conversationApi";
 import type { ConversationAttachment, ConversationEvent, ConversationMessage } from "../api/conversationApi";
-import { cardTimeOf, eventFaceOf, TONE_TEXT } from "../lib/conversationVocabulary";
+import { actorOfEvent, addressLineOf, eventFaceOf, tileOfEvent, TONE_TEXT } from "../lib/conversationVocabulary";
 import { sendTimeOf } from "../lib/runVocabulary";
+import { EntryActor, OutreachEntryCard } from "./OutreachEntryCard";
 
 /**
  * One line of an executive's communication history (`Outreach.dc.html`'s history cards): an email that went or is
- * waiting, a reply, a bounce, a run or status change, a team note, a meeting. A body is drawn as text or as a note's
- * Markdown — never as HTML, since a reply's words are the sender's.
+ * waiting, a reply, a bounce, a team note, a meeting — led by its kind's mark and the face of whoever it was. A body is
+ * drawn as text or as a note's Markdown — never as HTML, since a reply's words are the sender's.
  */
 export function ConversationEventCard({
   event,
   projectId,
   firstName,
+  executive,
   viewerUserId,
 }: {
   event: ConversationEvent;
   projectId: string;
   firstName: string;
+  executive: ActivityExecutive;
   viewerUserId: string | null;
 }) {
   const face = eventFaceOf(event, firstName, projectId);
+  const actor = actorOfEvent(event);
+  const address = event.type === "MESSAGE" ? addressLineOf(event.message) : null;
   return (
-    <li className="flex gap-3 rounded-u-chip border border-u-border bg-u-surface px-3.5 py-3">
-      <span
-        aria-hidden="true"
-        className={cn("grid size-6 flex-none place-items-center rounded-full bg-u-raised", TONE_TEXT[face.tone])}
+    <li>
+      <OutreachEntryCard
+        label={face.title}
+        tile={tileOfEvent(event)}
+        title={face.title}
+        at={event.at}
+        actor={
+          <EntryActor actor={actor} executive={executive} name={actor.kind === "automation" ? "Uncava" : undefined} />
+        }
+        byline={address && <span className="min-w-0 truncate text-u-text3">{address}</span>}
+        footer={
+          <>
+            <span className={cn("type-tag", TONE_TEXT[face.tone])}>{face.tag}</span>
+            {face.context && <span> · {face.context}</span>}
+          </>
+        }
       >
-        <Icon d={iconOf(event)} size={13} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-3">
-          <span className="min-w-0 flex-1 text-body font-medium text-u-text">{face.title}</span>
-          <time dateTime={event.at} className="flex-none font-mono text-eyebrow text-u-text3">
-            {cardTimeOf(event.at)}
-          </time>
-        </div>
-        <EventBody event={event} title={face.title} projectId={projectId} viewerUserId={viewerUserId} />
-        <div className="mt-1.5 text-eyebrow text-u-text3">
-          <span className={cn("type-tag", TONE_TEXT[face.tone])}>{face.tag}</span>
-          {face.context && <span> · {face.context}</span>}
-        </div>
-      </div>
+        <ConversationEventBody event={event} title={face.title} projectId={projectId} viewerUserId={viewerUserId} />
+      </OutreachEntryCard>
     </li>
   );
 }
@@ -79,7 +84,8 @@ function NoteEventBody({ note, title }: { note: Extract<ConversationEvent, { typ
   );
 }
 
-function EventBody({
+/** An event's words — an email's text and files, a note, a meeting's time — without the card around them. */
+export function ConversationEventBody({
   event,
   title,
   projectId,
@@ -98,8 +104,8 @@ function EventBody({
     case "MEETING":
       return (
         <p className="mt-1 text-body text-u-text2">
+          {event.meeting.videoProvider && <>{event.meeting.videoProvider} · </>}
           {sendTimeOf(event.meeting.startsAt)}
-          {event.meeting.ownerName && <> · with {event.meeting.ownerName}</>}
           {event.meeting.joinUrl && isWebLink(event.meeting.joinUrl) && (
             <>
               {" · "}
@@ -206,21 +212,6 @@ function ScheduledLine({
       )}
     </div>
   );
-}
-
-function iconOf(event: ConversationEvent): string {
-  switch (event.type) {
-    case "MESSAGE":
-      if (event.message.kind === "BOUNCE" || event.message.status === "FAILED") return ICONS.warning;
-      if (event.message.status === "SCHEDULED") return ICONS.clock;
-      return ICONS.mail;
-    case "NOTE":
-      return event.note.kind === "call" ? ICONS.phone : ICONS.fileText;
-    case "MEETING":
-      return ICONS.calendar;
-    case "ACTIVITY":
-      return ICONS.activity;
-  }
 }
 
 /** A calendar event's link is whoever made the event's to write: only a web address becomes a link. */

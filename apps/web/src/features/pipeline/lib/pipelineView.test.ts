@@ -1,44 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { aSeededCatalog } from "../../../test/fixtures/pipelineCatalog";
+import { aCurrentCatalog, aSeededCatalog, withRetiredStatus } from "../../../test/fixtures/pipelineCatalog";
 import { aPipelineRow } from "../../../test/fixtures/pipelineRows";
 import { findStatus } from "../../candidates/lib/pipelineStatus";
 import type { PipelineRow } from "../api/types";
-import {
-  boardPlacementOf,
-  daysInStage,
-  inactiveGroupsOf,
-  rankMoveOf,
-  type BoardTarget,
-} from "./pipelineView";
-
-const NOW = new Date(2026, 9, 4, 12, 0);
-
-describe("days in stage", () => {
-  it("counts whole days since the status changed, never below zero", () => {
-    expect(daysInStage(new Date(2026, 8, 30, 12, 0).toISOString(), NOW)).toBe(4);
-    expect(daysInStage(new Date(2026, 9, 5).toISOString(), NOW)).toBe(0);
-  });
-});
-
-describe("a drag in the list", () => {
-  const rows = [
-    aPipelineRow({ candidateId: "a", status: "identified" }),
-    aPipelineRow({ candidateId: "b", status: "identified" }),
-    aPipelineRow({ candidateId: "c", status: "identified" }),
-    aPipelineRow({ candidateId: "d", status: "contacted" }),
-  ];
-
-  it("lands the row between its new neighbours within its stage", () => {
-    expect(rankMoveOf(rows, "c", "a")?.move).toEqual({ afterCandidateId: null, beforeCandidateId: "a" });
-    expect(rankMoveOf(rows, "a", "b")?.move).toEqual({ afterCandidateId: "b", beforeCandidateId: "c" });
-    expect(rankMoveOf(rows, "a", "c")?.move).toEqual({ afterCandidateId: "c", beforeCandidateId: null });
-    expect(rankMoveOf(rows, "c", "a")?.rows.map((row) => row.candidateId)).toEqual(["c", "a", "b", "d"]);
-  });
-
-  it("never moves a row into another stage", () => {
-    expect(rankMoveOf(rows, "a", "d")).toBeNull();
-  });
-});
+import { boardPlacementOf, candidateStageOf, outOfProcessCellsOf, waysOutOf, type BoardTarget } from "./pipelineView";
 
 describe("a drop on the board", () => {
   const rows = [
@@ -52,8 +17,8 @@ describe("a drop on the board", () => {
   const order = (placed: PipelineRow[]) => placed.map((row) => row.candidateId);
   const targetIn = (statusKey: string, beforeId: string | null, keepStatus = false): BoardTarget => {
     const found = findStatus(aSeededCatalog(), statusKey)!;
-    const { key, label, colour, kind, position } = found.stage;
-    return { stage: { key, label, colour, kind, position }, status: keepStatus ? null : found.status, beforeId };
+    const { key, label, colour, position } = found.stage;
+    return { stage: { key, label, colour, position }, status: keepStatus ? null : found.status, beforeId };
   };
 
   it("reorders within a stage, sending only the new neighbours", () => {
@@ -103,20 +68,85 @@ describe("a drop on the board", () => {
   });
 });
 
-describe("the board's Inactive panel", () => {
-  it("groups the closed stage by status, in the catalog's order, only where someone holds it", () => {
+describe("the board's Out of process band", () => {
+  const columnsOf = (catalog: ReturnType<typeof aCurrentCatalog>) =>
+    catalog.stages
+      .filter((stage) => stage.statuses.some((status) => !status.outOfProcess))
+      .map(candidateStageOf);
+
+  it("puts everyone out of process in the cell under the stage their way out sits in", () => {
+    const catalog = aCurrentCatalog();
     const rows = [
-      aPipelineRow({ candidateId: "a", status: "offLimits" }),
-      aPipelineRow({ candidateId: "b", status: "notInterested" }),
-      aPipelineRow({ candidateId: "c", status: "contacted" }),
-      aPipelineRow({ candidateId: "d", status: "offLimits" }),
+      aPipelineRow({ candidateId: "a", status: "withdrew" }, catalog),
+      aPipelineRow({ candidateId: "b", status: "notInterested" }, catalog),
+      aPipelineRow({ candidateId: "c", status: "contacted" }, catalog),
+      aPipelineRow({ candidateId: "d", status: "outOfScope" }, catalog),
+      aPipelineRow({ candidateId: "e", status: "unresponsive" }, catalog),
     ];
 
     expect(
-      inactiveGroupsOf(rows, aSeededCatalog()).map((group) => [group.label, group.rows.map((row) => row.candidateId)]),
+      outOfProcessCellsOf(rows, columnsOf(catalog), catalog).map((cell) => [
+        cell.stage.label,
+        cell.underColumn,
+        cell.rows.map((row) => row.candidateId),
+      ]),
     ).toEqual([
-      ["Not interested", ["b"]],
-      ["Off-limits", ["a", "d"]],
+      ["Research", true, ["d"]],
+      ["Approach", true, ["b", "e"]],
+      ["Assessment", true, ["a"]],
+      ["Shortlist", true, []],
+      ["Offer", true, []],
     ]);
+  });
+
+  it("gives a stage of ways out alone, which has no column, a cell of its own after the rest", () => {
+    const catalog = aSeededCatalog();
+    const rows = [
+      aPipelineRow({ candidateId: "a", status: "offLimits" }),
+      aPipelineRow({ candidateId: "b", status: "contacted" }),
+    ];
+
+    const cells = outOfProcessCellsOf(rows, columnsOf(catalog), catalog);
+
+    expect(cells.map((cell) => [cell.stage.label, cell.underColumn])).toEqual([
+      ["Identified", true],
+      ["Contacted", true],
+      ["Interested", true],
+      ["Qualified", true],
+      ["Shortlisted", true],
+      ["Declined", false],
+    ]);
+    expect(cells[5].rows.map((row) => row.candidateId)).toEqual(["a"]);
+    expect(cells[0].waysOut).toEqual([]);
+  });
+
+  it("offers a cell only its own stage's live ways out", () => {
+    const keys = waysOutOf(aCurrentCatalog(), "contacted").map((status) => status.key);
+
+    expect(keys).toEqual(["notInterested", "unresponsive"]);
+    expect(waysOutOf(aCurrentCatalog(), "qualified").map((status) => status.key)).toEqual(["clientRejected"]);
+    expect(waysOutOf(aCurrentCatalog(), "nowhere")).toEqual([]);
+  });
+
+  it("offers no retired way out", () => {
+    const catalog = withRetiredStatus(aCurrentCatalog(), "unresponsive");
+
+    expect(waysOutOf(catalog, "contacted").map((status) => status.key)).toEqual(["notInterested"]);
+  });
+
+  it("marks a card given a way out within its own stage as out of process", () => {
+    const catalog = aCurrentCatalog();
+    const rows = [aPipelineRow({ candidateId: "a", status: "contacted" }, catalog)];
+    const found = findStatus(catalog, "notInterested")!;
+    const { key, label, colour, position } = found.stage;
+
+    const placement = boardPlacementOf(rows, "a", {
+      stage: { key, label, colour, position },
+      status: found.status,
+      beforeId: null,
+    })!;
+
+    expect(placement.status).toBe("notInterested");
+    expect(placement.rows[0]).toMatchObject({ outOfProcess: true, pipelineStage: { key: "contacted" } });
   });
 });

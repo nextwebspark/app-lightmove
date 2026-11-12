@@ -8,7 +8,7 @@ import { NoteEditor } from "../../notes/components/NoteEditor";
 import { NOTE_MAX_STORED, NOTE_TOO_LONG } from "../../tasks/lib/mentions";
 import * as companyNotesApi from "../api/companyNotesApi";
 import type { CompanyNote, CompanyNoteKind } from "../api/companyNotesApi";
-import { TRIAGE_KEY_PREFIX } from "../api/triageApi";
+import { STAGE_LINES_KEY_PREFIX, TRIAGE_KEY_PREFIX } from "../api/triageApi";
 import type { TriageCompany } from "../api/types";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 
@@ -17,6 +17,8 @@ const PLACEHOLDERS: Record<CompanyNoteKind, string> = {
   call: "Who you spoke to there, and what happens next…",
   meeting: "Where you met, what came out of it…",
   email: "What was sent or received, and the reply…",
+  linkedin: "What was exchanged with the company on LinkedIn…",
+  whatsapp: "What was exchanged with the company on WhatsApp…",
 };
 
 /**
@@ -130,5 +132,6 @@ function useCompanyNotesRefresh(projectId: string, companyId: string) {
   return () => {
     void queryClient.invalidateQueries({ queryKey: companyNotesApi.COMPANY_NOTES_KEY(projectId, companyId) });
     void queryClient.invalidateQueries({ queryKey: TRIAGE_KEY_PREFIX(projectId) });
+    void queryClient.invalidateQueries({ queryKey: STAGE_LINES_KEY_PREFIX(projectId) });
   };
 }

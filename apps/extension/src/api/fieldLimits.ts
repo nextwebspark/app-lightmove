@@ -9,6 +9,8 @@ export const FIELD_LIMITS = {
   companyLinkedinUrl: 500,
   sourceUrl: 1000,
   note: 2000,
+  /** A note written through the notes routes, as the web app's composer is held to. */
+  noteBody: 10000,
 
   fullName: 200,
   linkedinUrl: 500,

@@ -987,6 +987,11 @@
             "description" : "Their nationality group",
             "example" : "Emirati"
           },
+          "outOfProcess" : {
+            "type" : "boolean",
+            "description" : "Whether the status is a way out of the process: whoever holds one is no longer pursued on this position, whatever stage it sits under",
+            "example" : false
+          },
           "personId" : {
             "type" : "string",
             "format" : "uuid",
@@ -1353,12 +1358,6 @@
             "type" : "string",
             "description" : "The stage's key, stable across renames",
             "example" : "contacted"
-          },
-          "kind" : {
-            "type" : "string",
-            "description" : "Whether the stage keeps someone in the running; closed means they have left it",
-            "enum" : [ "active", "closed" ],
-            "example" : "active"
           },
           "label" : {
             "type" : "string",

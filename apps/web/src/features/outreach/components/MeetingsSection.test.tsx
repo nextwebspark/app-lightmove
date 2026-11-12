@@ -82,6 +82,7 @@ const MEETINGS: PersonMeetings = {
       endsAt: "2026-10-07T06:30:00Z",
       ownerUserId: "u1",
       ownerName: "Yara Haddad",
+      ownerAvatarUrl: null,
       joinUrl: "https://meet.google.com/abc",
       videoProvider: "Google Meet",
       viaLink: false,
@@ -97,6 +98,7 @@ const MEETINGS: PersonMeetings = {
       endsAt: "2026-09-22T06:30:00Z",
       ownerUserId: "u2",
       ownerName: "Sara Al-Mansour",
+      ownerAvatarUrl: null,
       joinUrl: null,
       videoProvider: null,
       viaLink: false,
@@ -104,6 +106,17 @@ const MEETINGS: PersonMeetings = {
       editable: false,
     },
   ],
+};
+
+/** The call's event as the calendar replaced it: a new row at the same start, renamed, with no link yet. */
+const REPLACEMENT = {
+  ...MEETINGS.upcoming[0],
+  id: "m9",
+  title: "New Teams link",
+  joinUrl: null,
+  videoProvider: null,
+  bookedInUncava: false,
+  editable: false,
 };
 
 /** The same call, on a day still to come. */
@@ -121,6 +134,7 @@ function renderSection({
   recordings = [],
   recordableMeetingIds = ["m1"],
   callDayMeetingIds = ["m1"],
+  onLogMeeting,
 }: {
   meetings?: PersonMeetings;
   doNotContact?: boolean;
@@ -130,6 +144,7 @@ function renderSection({
   recordings?: NotetakerRecording[];
   recordableMeetingIds?: string[];
   callDayMeetingIds?: string[];
+  onLogMeeting?: (meeting: Meeting) => void;
 } = {}) {
   vi.mocked(meetingApi.getMeetings).mockResolvedValue(meetings);
   vi.mocked(notetakerApi.getNotetaker).mockResolvedValue({
@@ -176,6 +191,7 @@ function renderSection({
           candidateStatus="contacted"
           emails={EMAILS}
           onShowCopilot={onShowCopilot}
+          onLogMeeting={onLogMeeting}
         />
       </ToastProvider>
     </QueryClientProvider>,
@@ -206,7 +222,7 @@ describe("MeetingsSection", () => {
     expect(screen.getByRole("link", { name: "Google Meet" })).toHaveAttribute("href", "https://meet.google.com/abc");
     expect(screen.getByText("Coffee")).toBeInTheDocument();
     expect(screen.getAllByRole("link")).toHaveLength(1);
-    expect(await screen.findByRole("button", { name: "Book a call" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Book a meeting" })).toBeInTheDocument();
   });
 
   it("draws a past call as a calendar row: its time and whose calendar, never a join link", async () => {
@@ -215,6 +231,18 @@ describe("MeetingsSection", () => {
     expect(await screen.findByText("Debrief")).toBeInTheDocument();
     expect(screen.getByText(/7 Oct · \d\d:\d\d–\d\d:\d\d · Yara Haddad/)).toBeInTheDocument();
     expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("offers Log meeting notes on a call that has happened", async () => {
+    const onLogMeeting = vi.fn();
+    const debrief = { ...MEETINGS.upcoming[0], id: "m3", title: "Debrief" };
+    renderSection({ meetings: { upcoming: [], past: [debrief] }, onLogMeeting });
+
+    await screen.findByText("Debrief");
+    await userEvent.click(await screen.findByRole("button", { name: /Call options/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Log meeting notes" }));
+
+    expect(onLogMeeting).toHaveBeenCalledWith(debrief);
   });
 
   it("shows the latest three past calls and the rest on asking", async () => {
@@ -267,7 +295,7 @@ describe("MeetingsSection", () => {
     await screen.findByText("Coffee");
     await waitFor(() => expect(mailboxApi.getMailbox).toHaveBeenCalled());
     await waitFor(() => expect(poolApi.getPerson).toHaveBeenCalled());
-    expect(screen.queryByRole("button", { name: "Book a call" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Book a meeting" })).not.toBeInTheDocument();
   });
 
   it("offers no Book a call for someone marked do not contact", async () => {
@@ -276,7 +304,7 @@ describe("MeetingsSection", () => {
     await screen.findByText("Coffee");
     await waitFor(() => expect(poolApi.getPerson).toHaveBeenCalled());
     await waitFor(() => expect(mailboxApi.getMailbox).toHaveBeenCalled());
-    expect(screen.queryByRole("button", { name: "Book a call" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Book a meeting" })).not.toBeInTheDocument();
   });
 
   it("books a time picked on the consultant's calendar", async () => {
@@ -288,7 +316,7 @@ describe("MeetingsSection", () => {
     ]);
     renderSection();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
     await waitFor(() => expect(pipelineApi.statusAutomations).toHaveBeenCalled());
     expect(await screen.findByRole("group", { name: "Your week" })).toBeInTheDocument();
     const send = screen.getByRole("button", { name: "Send invite" });
@@ -318,7 +346,7 @@ describe("MeetingsSection", () => {
     vi.mocked(meetingApi.bookMeeting).mockResolvedValue({ meetingId: "m9" });
     renderSection();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
     await screen.findByRole("group", { name: "Your week" });
     pickTime("19:40");
     fireEvent.change(screen.getByLabelText("Call ends"), { target: { value: "20:30" } });
@@ -343,7 +371,7 @@ describe("MeetingsSection", () => {
     );
     renderSection();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
     await screen.findByRole("group", { name: "Your week" });
     pickTime("10:45");
 
@@ -358,7 +386,7 @@ describe("MeetingsSection", () => {
     vi.mocked(meetingApi.bookMeeting).mockResolvedValue({ meetingId: "m9" });
     renderSection();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
     await screen.findByRole("group", { name: "Your week" });
     fireEvent.change(screen.getByLabelText("Call date"), { target: { value: "2099-10-10" } });
     pickTime("10:00");
@@ -444,7 +472,7 @@ describe("MeetingsSection", () => {
     vi.mocked(meetingApi.getMeetingCalendar).mockResolvedValue(aWeek());
     renderSection();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
     await screen.findByRole("group", { name: "Your week" });
     const video = screen.getByRole("combobox", { name: "Video link" });
     expect(Array.from(video.querySelectorAll("option"), (option) => option.textContent)).toEqual([
@@ -459,7 +487,7 @@ describe("MeetingsSection", () => {
     renderSection({ zoomStatus: "ACTIVE" });
 
     expect(await screen.findByText("Zoom connected")).toBeInTheDocument();
-    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
     await screen.findByRole("group", { name: "Your week" });
     pickTime("10:00");
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Video link" }), "ZOOM");
@@ -482,7 +510,7 @@ describe("MeetingsSection", () => {
     );
     renderSection();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
     expect(await screen.findByRole("button", { name: "Earlier days" })).toBeDisabled();
 
     await userEvent.click(screen.getByRole("button", { name: "Later days" }));
@@ -1000,6 +1028,58 @@ describe("MeetingsSection", () => {
     expect(screen.getByText("01:05")).toBeInTheDocument();
   });
 
+  it("keeps a call's transcript and changes within reach once the calendar replaced its event", async () => {
+    vi.mocked(notetakerApi.getTranscript).mockResolvedValue({
+      recordingId: "r1",
+      title: "Confidential: first conversation",
+      startsAt: "2026-10-07T06:00:00Z",
+      lines: [{ at: "2026-10-07T06:00:05Z", speaker: "Priya Raman", text: "My notice is six months." }],
+    });
+    renderSection({
+      meetings: { upcoming: [], past: [REPLACEMENT, MEETINGS.past[0]] },
+      notetakerOffered: true,
+      recordings: [
+        aRecording({
+          status: "DONE",
+          hasTranscript: true,
+          suggestionsAsked: true,
+          pendingSuggestions: 4,
+          foundSuggestions: 4,
+        }),
+      ],
+    });
+
+    await openCallMenu("Confidential: first conversation", "Call options · 4 changes to review");
+    expect(screen.getByRole("menuitem", { name: "Review 4 changes" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Transcript" }));
+
+    expect(await screen.findByText("My notice is six months.")).toBeInTheDocument();
+    expect(screen.getByText("New Teams link")).toBeInTheDocument();
+  });
+
+  it("ends a call being recorded from its own row once its event was replaced, with no questions", async () => {
+    vi.mocked(notetakerApi.endNotetaker).mockResolvedValue(aRecording({ status: "RECORDING", endRequested: true }));
+    renderSection({
+      meetings: { upcoming: [REPLACEMENT], past: [] },
+      notetakerOffered: true,
+      recordableMeetingIds: [],
+      recordings: [aRecording({ status: "RECORDING" })],
+    });
+
+    await openCallMenu("Confidential: first conversation", "Call options · recording");
+    await userEvent.click(screen.getByRole("menuitem", { name: "Notetaker & questions…" }));
+    const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
+    expect(panel.queryByRole("button", { name: /questions/i })).toBeNull();
+    await userEvent.click(panel.getByRole("button", { name: "End & file notes" }));
+    await userEvent.click(
+      within(screen.getByRole("dialog", { name: "End the recording and file the notes?" })).getByRole("button", {
+        name: "End & file notes",
+      }),
+    );
+
+    expect(notetakerApi.endNotetaker).toHaveBeenCalledWith("p1", "c1", "r1");
+  });
+
   it("offers neither the changes nor the transcript once the transcript is no longer kept", async () => {
     renderSection({
       notetakerOffered: true,
@@ -1075,7 +1155,7 @@ describe("MeetingsSection", () => {
     vi.mocked(meetingApi.bookMeeting).mockResolvedValue({ meetingId: "m9" });
     renderSection({ notetakerOffered: true });
 
-    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Book a meeting" }));
     await screen.findByRole("group", { name: "Your week" });
     expect(within(screen.getByRole("dialog")).queryByRole("switch")).toBeNull();
     pickTime("10:00");
@@ -1181,6 +1261,7 @@ function aRecording(overrides: Partial<NotetakerRecording> = {}): NotetakerRecor
     id: "r1",
     meetingId: "m1",
     startsAt: "2026-10-07T06:00:00Z",
+    endsAt: "2026-10-07T06:30:00Z",
     title: "Confidential: first conversation",
     status: "SCHEDULED",
     failureReason: null,

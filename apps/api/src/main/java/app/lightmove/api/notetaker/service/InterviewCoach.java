@@ -2,9 +2,9 @@ package app.lightmove.api.notetaker.service;
 
 import app.lightmove.api.common.transcript.CallTranscriptText;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
-import app.lightmove.api.core.llm.service.ContactRedaction;
 import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
+import app.lightmove.api.core.text.service.ContactRedaction;
 import app.lightmove.api.notetaker.constant.CoachState;
 import app.lightmove.api.notetaker.constant.CoverageState;
 import app.lightmove.api.notetaker.constant.RecordGap;

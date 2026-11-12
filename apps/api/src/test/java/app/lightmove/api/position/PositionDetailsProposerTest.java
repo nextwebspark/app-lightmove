@@ -8,6 +8,7 @@ import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.TestLlmCallPolicy;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.LlmRateLimitSettings;
 import app.lightmove.api.core.config.LlmSettings;
@@ -60,7 +61,14 @@ import org.springframework.util.StreamUtils;
 class PositionDetailsProposerTest extends FlowTestSupport {
 
     @Autowired HeuristicBriefReader heuristics;
-    @Autowired PositionDocumentRedactor redactor;
+    /** Scoped to the workspace each redaction names, as the request reading the document is. */
+    PositionDocumentRedactor redactor;
+
+    @Autowired
+    void scopeTheRedactor(PositionDocumentRedactor bean) {
+        redactor = TestWorkspaceScopes.scopedByArguments(bean);
+    }
+
     @Autowired ExtractedFieldReader fieldReader;
 
     private static final String DOCUMENT_TEXT = """
@@ -329,7 +337,7 @@ class PositionDetailsProposerTest extends FlowTestSupport {
         return new LlmBudgetGuard((key, limit, window) -> true,
                 new LightMoveProperties(null, null, null, null, null,
                         new LlmSettings(new LlmRateLimitSettings(true, 10, 20, 10), 20_000, 1, List.of()),
-                        null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+                        null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
     }
 
     private static Optional<ExtractedField> fieldNamed(ProposedPositionDetails proposed, String key) {

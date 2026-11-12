@@ -3,8 +3,10 @@ import type { PipelineRetirePreview } from "../../workspace/api/types";
 export const PIPELINE_NAME_LIMIT = 40;
 const PREVIEWED_STATUSES = 3;
 
-export function statusCountLabel(count: number): string {
-  return count === 1 ? "1 status" : `${count} statuses`;
+/** "6 statuses · 2 out of process", the second half only where any is out. */
+export function statusCountLabel(count: number, outOfProcess = 0): string {
+  const statuses = count === 1 ? "1 status" : `${count} statuses`;
+  return outOfProcess > 0 ? `${statuses} · ${outOfProcess} out of process` : statuses;
 }
 
 /** What a folded stage says in place of its statuses: the first few by name, and how many more. */

@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import java.util.ArrayList;
@@ -28,7 +29,7 @@ import tools.jackson.databind.JsonNode;
 @IntegrationTest
 class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     private String admin;
     private String adminId;
@@ -313,10 +314,14 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
         assertThat(added).isNotNull();
         assertThat(added.get("status").asText()).isEqualTo("identified");
         assertThat(added.get("companyName").asText()).isEqualTo("Aldar Properties");
+        assertThat(added.get("triageCompanyId").isNull()).isFalse();
         assertThat(kindsOf(timeline(fatima, "positions"))).containsExactly("MAPPED", "ADDED_TO_POOL");
+        // The suite shares one database: read this firm's line alone, or another test's makes three.
         assertThat(db.queryForObject("""
                 select metadata ->> 'personIds' from app_lm_audit_event
-                where event_type = 'PEOPLE_MAPPED_FROM_POOL'""", String.class)).contains(fatima).doesNotContain(rajesh);
+                where event_type = 'PEOPLE_MAPPED_FROM_POOL'
+                  and workspace_id = (select workspace_id from app_lm_project where id = ?::uuid)""",
+                String.class, credit)).contains(fatima).doesNotContain(rajesh);
 
         JsonNode record = body(mvc.perform(get("/api/v1/candidates/" + fatima).header("Authorization", "Bearer " + sara))
                 .andExpect(status().isOk())
@@ -325,6 +330,45 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
         assertThat(record.get("positions").get(0).get("positionTitle").asText()).isEqualTo("Head of Credit Risk");
         assertThat(record.get("positions").get(0).get("workable").asBoolean()).isFalse();
         assertThat(record.get("positions").get(1).get("workable").asBoolean()).isTrue();
+    }
+
+    @Test
+    @DisplayName("people added to a position land under their company there, one company however many share it")
+    void peopleAddedToAPositionLandUnderTheirCompany() throws Exception {
+        firm("Pool Employer Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String credit = mandate("Head of Credit Risk");
+        String aldar = body(mvc.perform(post("/api/v1/projects/" + cfo + "/triage/capture")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Aldar Properties","companyLinkedinUrl":"https://www.linkedin.com/company/aldar"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        String fatima = add(cfo, """
+                {"triageCompanyId":"%s","fullName":"Fatima Al Mazrouei"}""".formatted(aldar)).get("personId").asText();
+        String omar = add(cfo, """
+                {"triageCompanyId":"%s","fullName":"Omar Haddad"}""".formatted(aldar)).get("personId").asText();
+
+        mvc.perform(post("/api/v1/candidates/bulk/position")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"projectId":"%s","personIds":["%s","%s"]}""".formatted(credit, fatima, omar)))
+                .andExpect(status().isOk());
+
+        JsonNode onCredit = body(mvc.perform(get("/api/v1/projects/" + credit + "/candidates")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn()).get("candidates");
+        assertThat(onCredit).hasSize(2);
+        String creditsAldar = onCredit.get(0).get("triageCompanyId").asText();
+        assertThat(creditsAldar).isNotBlank().isNotEqualTo(aldar);
+        assertThat(onCredit.get(1).get("triageCompanyId").asText()).isEqualTo(creditsAldar);
+        assertThat(onCredit.get(0).get("companyName").asText()).isEqualTo("Aldar Properties");
+        assertThat(db.queryForObject("""
+                select count(*) from app_lm_project_triage_company where project_id = ?::uuid""",
+                Integer.class, credit)).isEqualTo(1);
     }
 
     @Test

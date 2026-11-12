@@ -18,6 +18,8 @@ function entry(overrides: Partial<PersonTimelineEntry>): PersonTimelineEntry {
     projectTitle: "Chief Financial Officer",
     details: {},
     noteExcerpt: null,
+    noteEditedAt: null,
+    noteEditedByName: null,
     ...overrides,
   };
 }
@@ -141,6 +143,20 @@ describe("timelineLines", () => {
       text: "deleted a note about this position",
       detail: null,
     });
+  });
+
+  it("says a note's line shows words edited since it was written, and no other line", () => {
+    expect(
+      lineOf({
+        kind: "NOTE_ADDED",
+        details: { kind: "GENERAL" },
+        noteExcerpt: "Not interested - location",
+        noteEditedAt: "2026-10-29T16:23:00Z",
+        noteEditedByName: "Aleksandra Mizinska",
+      }).isEdited,
+    ).toBe(true);
+    expect(lineOf({ kind: "NOTE_ADDED", details: { kind: "GENERAL" }, noteExcerpt: "As written" }).isEdited).toBe(false);
+    expect(lineOf({ kind: "STATUS_CHANGED", details: { to: "engaged" } }).isEdited).toBe(false);
   });
 
   it("tells a contact found from a lookup that found nothing", () => {

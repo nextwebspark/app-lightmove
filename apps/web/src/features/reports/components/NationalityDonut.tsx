@@ -28,12 +28,8 @@ const SERIES = [
 const TAIL = { stroke: "stroke-u-text3", swatch: "bg-u-text3" };
 
 /**
- * The nationality mix as one ring, with the largest group's share at its centre.
- *
- * <p>Built from `stroke-dasharray` and `stroke-dashoffset` on concentric circles rather than arc
- * paths — the same ring with none of the trigonometry, and it degrades to a legible circle if a
- * segment rounds to nothing. The list beside it names and counts every group, so the reading never
- * rests on colour alone.
+ * The nationality mix as one ring, the largest group's share at its centre — `stroke-dasharray` circles, not arc paths.
+ * The list beside it names and counts every group, so the reading never rests on colour alone.
  */
 export function NationalityDonut({
   rows,

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import * as companiesApi from "../../strategy/api/companiesApi";
@@ -56,14 +57,17 @@ const typedWorkspace = {
   persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
   company: null,
   dateTime: WORKSPACE_DATE_TIME,
+  deletionGraceDays: 30,
 } satisfies WorkspaceDetail;
 
 const renderPage = () =>
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <ToastProvider>
-        <SettingsGeneralPage />
-      </ToastProvider>
+      <MemoryRouter>
+        <ToastProvider>
+          <SettingsGeneralPage />
+        </ToastProvider>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 
@@ -199,5 +203,24 @@ describe("SettingsGeneralPage — who the workspace hires for", () => {
     await waitFor(() => expect(workspaceApi.changeMode).toHaveBeenCalledWith("AGENCY"));
     await waitFor(() => expect(reload).toHaveBeenCalled());
     expect(await screen.findByRole("radio", { name: /Search firm/ })).toHaveAttribute("aria-checked", "true");
+  });
+});
+
+describe("deleting the workspace", () => {
+  it("says access ends now, everything goes after the grace period, and offers the export first", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText(/Everything is permanently deleted after 30 days/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Delete…" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Delete Typed Firm?" });
+    expect(within(dialog).getByText(/Every member loses access/)).toBeInTheDocument();
+    expect(within(dialog).getByText("30d")).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "Export data" })).toHaveAttribute("href", "/settings/data");
+    const confirm = within(dialog).getByRole("button", { name: "Delete workspace" });
+    expect(confirm).toBeDisabled();
+    await user.type(within(dialog).getByLabelText("Workspace name"), "typed firm");
+    expect(confirm).toBeEnabled();
   });
 });

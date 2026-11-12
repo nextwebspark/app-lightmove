@@ -204,9 +204,9 @@ class CompaniesCsvWriterTest {
         return new PersonBuilder(new CandidateResponse(UUID.randomUUID(), null, null, name, null, null,
                 "identified", null, null, null, null, null, null, Set.of(), null, null,
                 List.of(), List.of(), List.of(), List.of(), "manual", null, Map.of(), null, null,
-                new CandidateContactsDto(List.of(), List.of(), null, null, null), null, false, "Identified", "neutral",
-                new CandidatePipelineStageDto("identified", "Identified", "neutral", "active", 1), null, true,
-                "inUniverse"));
+                new CandidateContactsDto(List.of(), List.of(), null, null, null), null, false, "Identified", "neutral", false,
+                new CandidatePipelineStageDto("identified", "Identified", "neutral", 1), null, true,
+                "inUniverse", null));
     }
 
     /**
@@ -302,7 +302,7 @@ class CompaniesCsvWriterTest {
 
         PersonBuilder withEmails(String... addresses) {
             List<CandidateEmailDto> emails = Arrays.stream(addresses)
-                    .map(address -> new CandidateEmailDto(address, null, false, null, "manual", null))
+                    .map(address -> new CandidateEmailDto(address, null, false, null, "manual", null, false))
                     .toList();
             return with(response.companyName(), response.status(), response.locationCountry(),
                     response.locationCity(), response.customFields(),
@@ -311,7 +311,7 @@ class CompaniesCsvWriterTest {
 
         PersonBuilder withPhones(String... numbers) {
             List<CandidatePhoneDto> phones = Arrays.stream(numbers)
-                    .map(number -> new CandidatePhoneDto(number, null, false, null, "manual", null))
+                    .map(number -> new CandidatePhoneDto(number, null, false, null, "manual", null, false))
                     .toList();
             return with(response.companyName(), response.status(), response.locationCountry(),
                     response.locationCity(), response.customFields(),
@@ -327,8 +327,10 @@ class CompaniesCsvWriterTest {
                     response.compensation(), response.career(), response.languages(),
                     response.education(), response.skills(), response.source(), response.sourceUrl(),
                     customFields, response.addedAt(), response.enrichedAt(), contacts, response.personId(),
-                    response.linkedinUrlLocked(), labelOf(status), response.statusColour(), response.pipelineStage(),
-                    response.statusChangedAt(), response.clientVisible(), response.triageStatus()));
+                    response.linkedinUrlLocked(), labelOf(status), response.statusColour(),
+                    response.statusOutOfProcess(), response.pipelineStage(),
+                    response.statusChangedAt(), response.clientVisible(), response.triageStatus(),
+                    response.companyLogoUrl()));
         }
 
         private static String labelOf(String status) {

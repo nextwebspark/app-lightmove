@@ -2,9 +2,9 @@ package app.lightmove.api.position.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.PositionExtractionSettings;
-import app.lightmove.api.core.llm.service.ContactRedaction;
-import app.lightmove.api.core.llm.service.TextPseudonymiser;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
+import app.lightmove.api.core.llm.service.TextPseudonymiser;
+import app.lightmove.api.core.text.service.ContactRedaction;
 import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.repository.ClientRepository;
 import java.util.ArrayList;
@@ -18,12 +18,8 @@ import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 
 /**
- * Redacts a position description before its text reaches the model.
- *
- * <p>Pseudonymisation, not de-identification: the client's known name and domain are substituted, and
- * contact cards are stripped whole. No other name is detected — a name detector would redact the Title
- * Case headings being extracted — so <b>an unnamed third party's name in prose will reach Vertex</b>, a
- * deliberate trade.
+ * Redacts a position description before the model: the client's name and domain substituted, contact cards stripped.
+ * No name detector (it would redact the headings), so <b>an unnamed third party's name in prose reaches Vertex</b>.
  */
 @Service
 public class PositionDocumentRedactor {
@@ -76,10 +72,18 @@ public class PositionDocumentRedactor {
         return pseudonymiser.redact(stripped, terms, patterns);
     }
 
+    /**
+     * A client the mandate names but this read cannot see — another workspace's, or any, read with no workspace under
+     * row-level security — is refused rather than read as nobody to redact: the document would go out naming them.
+     */
     private List<String> companyTermsOf(UUID clientId, UUID workspaceId) {
+        if (clientId == null) {
+            return List.of();
+        }
         return clients.findByIdAndWorkspaceId(clientId, workspaceId)
                 .map(PositionDocumentRedactor::variantsOf)
-                .orElse(List.of());
+                .orElseThrow(() -> new IllegalStateException(
+                        "Client " + clientId + " is not readable in workspace " + workspaceId + "; nothing is sent"));
     }
 
     private static List<String> variantsOf(Client client) {

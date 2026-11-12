@@ -11,10 +11,10 @@ import { landingAfterSignIn, safeReturnTo } from "../features/auth/returnTo";
 import { hasPendingSignupRestart } from "../features/auth/signupRestart";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
-import { InviteStepPage } from "../features/auth/pages/InviteStepPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
 import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
+import { TWO_FACTOR_SIGN_IN_PATH, TwoFactorChallengePage } from "../features/auth/pages/TwoFactorChallengePage";
 import { SignupPage } from "../features/auth/pages/SignupPage";
 import { SignupVerifyStepPage } from "../features/auth/pages/SignupVerifyStepPage";
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
@@ -34,7 +34,7 @@ import { MailboxCallbackPage } from "../features/outreach/pages/MailboxCallbackP
 import { OutreachPage } from "../features/outreach/pages/OutreachPage";
 import { SequenceEditorPage } from "../features/outreach/pages/SequenceEditorPage";
 import { SequencesPage } from "../features/outreach/pages/SequencesPage";
-import PipelinePage from "../features/pipeline/pages/PipelinePage";
+import PipelineRedirect from "../features/pipeline/pages/PipelineRedirect";
 import { PositionPage } from "../features/position/pages/PositionPage";
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
 import { ReportsPage } from "../features/reports/pages/ReportsPage";
@@ -48,9 +48,12 @@ import { SettingsNotificationsPage } from "../features/settings/pages/SettingsNo
 import { SettingsTaskPresetsPage } from "../features/settings/pages/SettingsTaskPresetsPage";
 import { PipelineStagesPage } from "../features/settings/pages/PipelineStagesPage";
 import { SettingsIntegrationsPage } from "../features/settings/pages/SettingsIntegrationsPage";
+import { SettingsDataRetentionPage } from "../features/settings/pages/SettingsDataRetentionPage";
 import { SettingsMeetingsPage } from "../features/settings/pages/SettingsMeetingsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
 import { SettingsProfilePage } from "../features/settings/pages/SettingsProfilePage";
+import { SettingsSignaturesPage } from "../features/signatures/pages/SettingsSignaturesPage";
+import { SettingsEmailTemplatesPage } from "../features/emailtemplates/pages/SettingsEmailTemplatesPage";
 import { SettingsSecurityPage } from "../features/settings/pages/SettingsSecurityPage";
 import { SettingsWorkspacesPage } from "../features/settings/pages/SettingsWorkspacesPage";
 import { TriageStagePage } from "../features/triage/pages/TriageStagePage";
@@ -62,18 +65,14 @@ import { NotFoundPage } from "./NotFoundPage";
 import { PublicNotFoundPage } from "./PublicNotFoundPage";
 
 /**
- * Routing follows the user's actual state, not a step counter.
- *
- * A signup wizard held in component state cannot survive a closed tab, and the account created at step
- * 1 is real and permanent. So each guard asks the server-derived user what is true right now — do they
- * exist, are they verified, do they have a workspace — and routes on the answer. Someone who signs up,
- * closes the browser, and signs back in a week later lands exactly where they left off, without the
- * app having to remember anything.
+ * Routing follows the user's server-derived state (exists, verified, has a workspace), not a step counter, so a
+ * signup abandoned mid-way resumes where it left off.
  */
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<AnonymousOnly><LoginPage /></AnonymousOnly>} />
+      <Route path={TWO_FACTOR_SIGN_IN_PATH} element={<AnonymousOnly><TwoFactorChallengePage /></AnonymousOnly>} />
       <Route path="/signup" element={<AnonymousOnly><SignupPage /></AnonymousOnly>} />
       <Route path="/forgot-password" element={<AnonymousOnly><ForgotPasswordPage /></AnonymousOnly>} />
 
@@ -103,10 +102,11 @@ export function AppRoutes() {
           and the API refuses /onboarding/** without one, so a bypass here would only earn a 403. */}
       <Route path="/signup/verify-email" element={<RequireAuth><SignupVerifyStepPage /></RequireAuth>} />
 
-      {/* Verified, but not yet in a workspace. Not RequireWorkspace: the workspace is what these two
-          steps create, so guarding on it would bounce the user out of their own signup. */}
+      {/* Verified, but not yet in a workspace. Not RequireWorkspace: the workspace is what this step
+          creates, so guarding on it would bounce the user out of their own signup. */}
       <Route path="/signup/workspace" element={<RequireVerified><WorkspaceStepPage /></RequireVerified>} />
-      <Route path="/signup/invite" element={<RequireVerified><InviteStepPage /></RequireVerified>} />
+      {/* The retired invite step: an open tab or bookmark lands in the app, where Team invites. */}
+      <Route path="/signup/invite" element={<RequireVerified><Navigate to="/" replace /></RequireVerified>} />
 
       {/* Where the browser extension is paired. RequireWorkspace, not RequireAuth: the extension's
           only job is to write into a mandate, so pairing an account that has no workspace would mint a
@@ -160,7 +160,7 @@ export function AppRoutes() {
           path="/projects/:projectId/candidates"
           element={<Navigate to="../companies/universe" replace relative="path" />}
         />
-        <Route path="/projects/:projectId/pipeline" element={<RequireStaff><PipelinePage /></RequireStaff>} />
+        <Route path="/projects/:projectId/pipeline" element={<PipelineRedirect />} />
         <Route path="/projects/:projectId/outreach" element={<RequireStaff><OutreachPage /></RequireStaff>} />
         <Route path="/projects/:projectId/outreach/sequences" element={<RequireStaff><SequencesPage /></RequireStaff>} />
         <Route
@@ -182,6 +182,8 @@ export function AppRoutes() {
       <Route element={<RequireWorkspace><SettingsLayout /></RequireWorkspace>}>
         <Route path="/settings" element={<SettingsLanding />} />
         <Route path="/settings/profile" element={<SettingsProfilePage />} />
+        <Route path="/settings/signature" element={<RequireStaff><SettingsSignaturesPage /></RequireStaff>} />
+        <Route path="/settings/email-templates" element={<RequireStaff><SettingsEmailTemplatesPage /></RequireStaff>} />
         <Route path="/settings/notifications" element={<RequireStaff><SettingsNotificationsPage /></RequireStaff>} />
         <Route path="/settings/availability" element={<RequireStaff><SettingsAvailabilityPage /></RequireStaff>} />
         <Route path="/settings/security" element={<SettingsSecurityPage />} />
@@ -197,6 +199,7 @@ export function AppRoutes() {
           <Route path="/settings/candidate-tags" element={<SettingsCandidateTagsPage />} />
           <Route path="/settings/task-presets" element={<SettingsTaskPresetsPage />} />
           <Route path="/settings/integrations" element={<SettingsIntegrationsPage />} />
+          <Route path="/settings/data" element={<SettingsDataRetentionPage />} />
           <Route path="/settings/templates" element={<TemplateListPage scope="workspace" />} />
           <Route path="/settings/templates/new" element={<TemplateEditorPage scope="workspace" />} />
           <Route path="/settings/templates/:code" element={<TemplateEditorPage scope="workspace" />} />
@@ -299,12 +302,8 @@ function RequireWorkspace({ children }: { children: ReactNode }) {
 }
 
 /**
- * Keeps portal guests out of the firm's internal screens. UX only — the server re-reads the roles on
- * every call, and refused every request these pages make even while they rendered.
- *
- * <p>The nav already hides them, so this closes the one way left in: typing the URL. Note the
- * predicate is "holds CLIENT and <b>no</b> staff role" — a member who holds CLIENT alongside MEMBER is
- * staff and must keep both pages.
+ * Keeps portal guests out of the internal screens — UX only; the server re-reads roles on every call. The
+ * predicate is "holds CLIENT and <b>no</b> staff role": CLIENT alongside MEMBER is staff.
  */
 function RequireStaff({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();

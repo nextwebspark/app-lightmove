@@ -13,6 +13,7 @@ import {
   foldRuns,
   iconOf,
   isMinor,
+  noteKindOfEntry,
   peopleOf,
   previewOf,
   shortDate,
@@ -38,6 +39,8 @@ const line = (
   projectTitle: "Group CFO",
   details: {},
   noteExcerpt: null,
+  noteEditedAt: null,
+  noteEditedByName: null,
   changes: [],
   ...overrides,
 });
@@ -58,16 +61,24 @@ describe("activity presentation", () => {
       const entry = line(1, kind);
       expect(ACTIVITY_FAMILIES.map((option) => option.family), kind).toContain(familyOf(entry));
       expect(verbOf(entry), kind).not.toBe("updated the record");
-      expect(iconOf(entry), kind).toBeTruthy();
+      expect(iconOf(entry) ?? noteKindOfEntry(entry), kind).toBeTruthy();
     }
   });
 
-  it("draws a call log with a handset, a logged email with an envelope and a meeting with a camera", async () => {
+  it("leaves a note's line to its kind's mark, and draws a removed note's with the bin", async () => {
     const { ICONS } = await import("../../../components/layout/Icon");
-    expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "CALL" } }))).toBe(ICONS.phoneCall);
-    expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "EMAIL" } }))).toBe(ICONS.mail);
-    expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "MEETING" } }))).toBe(ICONS.video);
-    expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "GENERAL" } }))).toBe(ICONS.fileText);
+    expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "CALL" } }))).toBeNull();
+    expect(iconOf(line(1, "NOTE_REMOVED", { details: { kind: "CALL" } }))).toBe(ICONS.trash);
+  });
+
+  it("hands a note line's kind to its tile, LinkedIn's included, and none for a removed note's bin", () => {
+    expect(noteKindOfEntry(line(1, "NOTE_ADDED", { details: { kind: "LINKEDIN" } }))).toBe("linkedin");
+    expect(noteKindOfEntry(line(1, "NOTE_RESTORED", { details: { kind: "CALL" } }))).toBe("call");
+    expect(noteKindOfEntry(line(1, "NOTE_REMOVED", { details: { kind: "LINKEDIN" } }))).toBeNull();
+    expect(noteKindOfEntry(line(1, "STATUS_CHANGED"))).toBeNull();
+    expect(verbOf(line(1, "NOTE_ADDED", { details: { kind: "LINKEDIN" } }))).toBe("logged a LinkedIn message");
+    expect(noteKindOfEntry(line(1, "NOTE_ADDED", { details: { kind: "WHATSAPP" } }))).toBe("whatsapp");
+    expect(verbOf(line(1, "NOTE_ADDED", { details: { kind: "WHATSAPP" } }))).toBe("logged a WhatsApp message");
   });
 
   it("draws a kind a newer server writes as a quiet record line rather than failing", () => {
@@ -188,8 +199,20 @@ describe("activity presentation", () => {
   describe("previews", () => {
     it("shows a note's opening words, or that it was deleted", () => {
       expect(previewOf(line(1, "NOTE_ADDED", { noteExcerpt: "Open to a move", projectId: null })))
-        .toEqual({ type: "note", excerpt: "Open to a move", noteKind: "GENERAL", aboutThePerson: true });
+        .toEqual({ type: "note", excerpt: "Open to a move", noteKind: "GENERAL", aboutThePerson: true, edited: null });
       expect(previewOf(line(1, "NOTE_ADDED", { noteExcerpt: null }))).toMatchObject({ type: "note", excerpt: null });
+    });
+
+    it("says a note was edited since, and by whom, on its one line", () => {
+      const edited = line(1, "NOTE_ADDED", {
+        noteExcerpt: "Not interested - location",
+        noteEditedAt: "2026-10-29T16:23:00Z",
+        noteEditedByName: "Aleksandra Mizinska",
+      });
+      expect(previewOf(edited)).toMatchObject({
+        type: "note",
+        edited: { at: "2026-10-29T16:23:00Z", byName: "Aleksandra Mizinska" },
+      });
     });
 
     it("shows a status move by the labels it was written with, or the built-in label of an older line", () => {
@@ -301,7 +324,9 @@ describe("activity presentation", () => {
 
   it("names an addition with no position as one to the candidates", () => {
     expect(verbOf(line(1, "ADDED_TO_POOL", { projectId: null }))).toBe("added them to your candidates");
-    expect(verbOf(line(1, "ADDED_TO_POOL"))).toBe("added them to this position");
+    expect(verbOf(line(1, "ADDED_TO_POOL"))).toBe("added them to Group CFO");
+    expect(verbOf(line(1, "UNMAPPED"))).toBe("removed them from Group CFO");
+    expect(verbOf(line(1, "ADDED_TO_POOL", { projectTitle: null }))).toBe("added them to this position");
   });
 
   it("formats a day the same way for a header and a card", () => {

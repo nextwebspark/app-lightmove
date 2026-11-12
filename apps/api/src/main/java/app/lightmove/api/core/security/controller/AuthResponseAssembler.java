@@ -15,7 +15,9 @@ import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.core.security.token.TokenPair;
-import app.lightmove.api.workspace.constant.InvitationStatus;
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.workspace.dto.WorkspaceCompanyResponse;
 import app.lightmove.api.workspace.dto.WorkspaceSummary;
 import app.lightmove.api.workspace.model.Invitation;
@@ -28,7 +30,6 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -51,6 +52,7 @@ public class AuthResponseAssembler {
     private final WorkspaceSelection selection;
     private final PlatformAccess platform;
     private final DateTimePreferenceService dateTimePreferences;
+    private final TenantResolvers resolvers;
 
     public AuthResponse assemble(TokenPair tokens, User user, WorkspaceMember membership) {
         return new AuthResponse(
@@ -71,6 +73,9 @@ public class AuthResponseAssembler {
                 user.getFullName(),
                 user.getTitle(),
                 user.getAvatarUrl(),
+                user.isAvatarEditable(),
+                user.getPhone(),
+                user.getLinkedinUrl(),
                 user.isEmailVerified(),
                 user.hasPassword(),
                 effective.zone().getId(),
@@ -102,23 +107,31 @@ public class AuthResponseAssembler {
     }
 
     /**
-     * The caller's own outstanding invitations, so routing can be derived from the server instead of a
-     * tab's sessionStorage — an invitee who verifies in a fresh tab must land on "join {workspace}",
-     * not on create-your-own — or to a second workspace. One to a workspace they are already in is hidden.
-     *
-     * <p>Carries <b>no token</b>. The emailed token only ever proved control of the invited mailbox,
-     * and an authenticated user whose verified address matches the invitation has proven exactly that
-     * — the accept-by-id endpoint applies the same guards. (The anonymous preview endpoint already
-     * exposes the same fields to any token holder; this is strictly less.)
+     * The caller's outstanding invitations, so routing comes from the server, not sessionStorage; one to a current
+     * workspace is hidden only when {@link WorkspaceMember#alreadyCovers} it. Carries no token (a verified address
+     * proves the same mailbox). None for an unverified account, which would leak which firms invited the address.
      */
     private List<PendingInvitationSummary> pendingInvitations(User user, List<WorkspaceMember> memberships) {
+        if (!user.isEmailVerified()) {
+            return List.of();
+        }
         Instant now = Instant.now();
-        Set<UUID> alreadyIn = memberships.stream().map(WorkspaceMember::getWorkspaceId).collect(Collectors.toSet());
-        List<Invitation> outstanding = invitations
-                .findByEmailAndStatusOrderByCreatedAtDesc(user.getEmail(), InvitationStatus.PENDING)
-                .stream()
+        Map<UUID, WorkspaceMember> membershipByWorkspace = memberships.stream()
+                .collect(Collectors.toMap(WorkspaceMember::getWorkspaceId, Function.identity()));
+        // Each from its own workspace: the invitations to a workspace the person is not in yet are that workspace's
+        // rows, which the session's own workspace cannot read.
+        Map<UUID, List<UUID>> waitingIn = resolvers.pendingInvitationsFor(user.getEmail()).stream()
+                .collect(Collectors.groupingBy(ResolvedRow::workspaceId,
+                        Collectors.mapping(ResolvedRow::id, Collectors.toList())));
+        List<Invitation> outstanding = waitingIn.entrySet().stream()
+                .flatMap(waiting -> WorkspaceScope.call(waiting.getKey(),
+                        () -> invitations.findAllById(waiting.getValue())).stream())
                 .filter(invitation -> invitation.isRedeemable(now))
-                .filter(invitation -> !alreadyIn.contains(invitation.getWorkspaceId()))
+                .filter(invitation -> {
+                    WorkspaceMember member = membershipByWorkspace.get(invitation.getWorkspaceId());
+                    return member == null || !member.alreadyCovers(invitation.getRole());
+                })
+                .sorted(Comparator.comparing(Invitation::getCreatedAt).reversed())
                 .toList();
         if (outstanding.isEmpty()) {
             return List.of();
@@ -137,6 +150,7 @@ public class AuthResponseAssembler {
                 .filter(invitation -> workspaceNames.containsKey(invitation.getWorkspaceId()))
                 .map(invitation -> new PendingInvitationSummary(
                         invitation.getId(),
+                        invitation.getWorkspaceId(),
                         workspaceNames.get(invitation.getWorkspaceId()),
                         invitation.getRole().getName(),
                         inviterNames.get(invitation.getInvitedBy())))
@@ -151,12 +165,8 @@ public class AuthResponseAssembler {
     }
 
     /**
-     * The workspace as its caller may see it.
-     *
-     * <p>A pure client is an outside contact at the hiring company, not a colleague: they get the
-     * brand — name, slug, mark — and not {@code emailDomain}, which describes the firm's own people.
-     * The roles are already in hand here, so this asks {@link WorkspaceRole#isStaff} rather than
-     * re-reading the membership through {@code WorkspaceAccess}.
+     * The workspace as its caller may see it: a pure client gets the brand (name, slug, mark), never
+     * {@code emailDomain}, which describes the firm's own people.
      */
     private static WorkspaceSummary toSummary(Workspace workspace, WorkspaceMember membership) {
         List<WorkspaceRole> roles = membership.getRoles().stream()

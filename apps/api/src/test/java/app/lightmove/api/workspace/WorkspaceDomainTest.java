@@ -15,6 +15,7 @@ import app.lightmove.api.workspace.constant.WorkspaceMode;
 import app.lightmove.api.workspace.model.Invitation;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -62,17 +63,30 @@ class WorkspaceDomainTest {
     }
 
     @Test
-    @DisplayName("deleting a workspace is final")
-    void workspaceDeleteIsFinal() {
+    @DisplayName("a workspace is deleted once, purged after its grace period, and restorable until then")
+    void workspaceDeleteStartsTheGracePeriod() {
         Workspace workspace = Workspace.create(
                 "Acme Search", "acme-search", "acme.example", someone, WorkspaceMode.COMPANY, null);
+        Instant now = Instant.parse("2026-11-02T10:00:00Z");
 
-        workspace.delete();
+        workspace.delete(someone, now, Duration.ofDays(30), "alok@acme.example");
 
-        assertThatThrownBy(workspace::delete)
+        assertThat(workspace.isDeleted()).isTrue();
+        assertThat(workspace.getPurgeAfter()).isEqualTo(now.plus(Duration.ofDays(30)));
+        assertThat(workspace.getPurgeNoticeEmail()).isEqualTo("alok@acme.example");
+        assertThatThrownBy(() -> workspace.delete(someone, now, Duration.ofDays(30), null))
                 .isInstanceOf(ApiException.class)
                 .extracting(ex -> ((ApiException) ex).getCode())
                 .isEqualTo(ErrorCode.CONFLICT);
+
+        workspace.restore();
+        assertThat(workspace.isDeleted()).isFalse();
+        assertThat(workspace.getPurgeAfter()).isNull();
+        assertThat(workspace.getPurgeNoticeEmail()).isNull();
+        assertThatThrownBy(workspace::restore)
+                .isInstanceOf(ApiException.class)
+                .extracting(ex -> ((ApiException) ex).getCode())
+                .isEqualTo(ErrorCode.WORKSPACE_NOT_RESTORABLE);
     }
 
     @Test

@@ -7,21 +7,12 @@ import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import { messageForOAuthError } from "../oauthErrors";
 import { startOAuthSignIn } from "../oauthPopup";
+import { TWO_FACTOR_SIGN_IN_PATH } from "../pages/TwoFactorChallengePage";
 import { landingAfterSignIn, takeReturnTo } from "../returnTo";
 
 /**
- * The "Continue with …" buttons, one per identity provider the server has configured.
- *
- * The mockup's "Continue with SSO" button sat behind a `showSso` prop. Here the list comes from the
- * server's answer to "which providers are actually wired?" — a button that leads nowhere is worse
- * than no button — and it is a list of registration ids rather than a fixed set of flags, so wiring
- * up another provider stays a yml block on the API. An id this file has no mark for still gets a
- * working button, just a generic one.
- *
- * Sign-in runs in a popup, so this page stays exactly where it is while the provider's consent
- * screen is up — and a user who backs out of that screen returns to it untouched, with no error and
- * nothing lost. See `oauthPopup` for the mechanism, including the redirect it falls back to when a
- * browser blocks the popup.
+ * The "Continue with …" buttons, one per provider the server reports as wired (registration ids, so a new provider
+ * stays a yml block; an unknown id gets a generic mark). Sign-in runs in a popup — see `oauthPopup`.
  */
 const PROVIDER_MARKS: Record<string, { label: string; mark: (props: { size?: number }) => ReactElement }> = {
   google: { label: "Google", mark: GoogleMark },
@@ -33,10 +24,17 @@ export interface OAuthButtonsProps {
    * Shown where the host screen shows its own failures. Null clears it — a cancelled sign-in reports
    * null, which is how "say nothing" reaches the screen.
    */
-  onError: (message: string | null) => void;
+  onError: (message: string | null, code?: string) => void;
+  /**
+   * Keeps the host page where it is once signed in, instead of the usual landing. The accept page uses it, since its
+   * own signed-in states (Accept, or "this invitation is for another address") are what comes next.
+   */
+  stayOnPage?: boolean;
+  /** Where a sign-in stopped for a second factor resumes, in place of the remembered destination. */
+  returnTo?: string;
 }
 
-export function OAuthButtons({ onError }: OAuthButtonsProps) {
+export function OAuthButtons({ onError, stayOnPage = false, returnTo: hostReturnTo }: OAuthButtonsProps) {
   // Server state stays in the query cache rather than useState, so Login and Signup share one fetch.
   // What this deployment has configured cannot change while the page is open — hence no refetching.
   const { data } = useQuery({
@@ -76,15 +74,25 @@ export function OAuthButtons({ onError }: OAuthButtonsProps) {
               return;
             }
 
+            if (stayOnPage) {
+              setPendingProviderId(null);
+              return;
+            }
+
             // Same ordering the redirect callback uses: a provider sign-in may still land on an
             // invitee or an unfinished wizard, and homeFor is the one place that knows.
             const returnTo = takeReturnTo();
             navigate(landingAfterSignIn(user, returnTo), { replace: true });
           })();
         },
+        onSecondFactor: () => {
+          // No session yet: the challenge cookie waits for the code, as after a password.
+          const returnTo = hostReturnTo ?? takeReturnTo();
+          navigate(TWO_FACTOR_SIGN_IN_PATH, { state: returnTo ? { from: returnTo } : undefined });
+        },
         onError: (code) => {
           setPendingProviderId(null);
-          onError(messageForOAuthError(code));
+          onError(messageForOAuthError(code), code);
         },
         onCancel: () => {
           // Nothing to say. They closed the window, or backed out at the provider.
@@ -92,7 +100,7 @@ export function OAuthButtons({ onError }: OAuthButtonsProps) {
         },
       });
     },
-    [adoptRestoredSession, navigate, onError],
+    [adoptRestoredSession, hostReturnTo, navigate, onError, stayOnPage],
   );
 
   if (providers.length === 0) {

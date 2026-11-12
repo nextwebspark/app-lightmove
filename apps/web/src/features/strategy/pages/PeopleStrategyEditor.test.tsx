@@ -14,6 +14,10 @@ import type { PeopleFilter, PeopleSearchPage, PersonDetails, PersonResult, Strat
 import { NO_PEOPLE_FILTER } from "./PeopleStrategyEditor";
 import { StrategyPage } from "./StrategyPage";
 
+vi.mock("../../triage/lib/triageStages", async (importOriginal) =>
+  (await import("../../../test/shortlistAndDecline")).withShortlistAndDecline(await importOriginal()),
+);
+
 vi.mock("../../../lib/countries", () => import("../../../test/countries"));
 vi.mock("../api/strategyApi", async (importOriginal) => ({
   ...(await importOriginal<typeof strategyApi>()),
@@ -202,6 +206,35 @@ describe("StrategyPage — People mode", () => {
     expect(vi.mocked(peopleApi.searchPeople).mock.calls.at(-1)).toEqual(["p1", 2]);
   });
 
+  it("searches a name from the toolbar: typing keeps it on the filter, Enter brings the top 25", async () => {
+    const user = userEvent.setup();
+    vi.mocked(peopleApi.searchPeople).mockResolvedValueOnce(pageOf(1, [personOf("first")]));
+    renderPeopleMode();
+    await screen.findByText("1,240");
+
+    // Enter straight after the last letter, inside the autosave's debounce: the whole name is saved before the page
+    // is bought, so a search is never asked of a half-typed one.
+    await user.type(screen.getByRole("searchbox", { name: "Search people by name" }), "Sara{Enter}");
+
+    expect((await screen.findAllByText("Person first")).length).toBeGreaterThan(0);
+    expect(peopleApi.putPeopleFilter).toHaveBeenLastCalledWith("p1", { ...CFO_FILTER, name: "Sara" });
+    expect(vi.mocked(peopleApi.putPeopleFilter).mock.invocationCallOrder.at(-1)).toBeLessThan(
+      vi.mocked(peopleApi.searchPeople).mock.invocationCallOrder[0],
+    );
+    expect(vi.mocked(peopleApi.searchPeople).mock.calls).toEqual([["p1", 1]]);
+  });
+
+  it("counts the rail's panels in force beside Hide Filters, the name being the toolbar's own", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(strategyOf({ ...CFO_FILTER, name: "Sara" }));
+    renderPeopleMode();
+
+    await waitFor(() =>
+      expect(screen.getByRole("searchbox", { name: "Search people by name" })).toHaveValue("Sara"),
+    );
+    expect(within(screen.getByRole("button", { name: /Hide Filters/ })).getByText("2")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Name" })).not.toBeInTheDocument();
+  });
+
   it("opens on the people already bought for the saved filter, without a search", async () => {
     vi.mocked(peopleApi.getPeopleResults).mockResolvedValue({
       pages: [pageOf(1, [personOf("first")], 0), pageOf(2, [personOf("second")], 0)],
@@ -249,8 +282,9 @@ describe("StrategyPage — People mode", () => {
     expect(within(drawer).getByText("Treasury")).toBeInTheDocument();
     expect(peopleApi.searchPeople).toHaveBeenCalledTimes(1);
 
-    await user.click(within(drawer).getByRole("button", { name: "Declined" }));
-    await waitFor(() => expect(peopleApi.addPeople).toHaveBeenCalledWith("p1", ["first"], "declined"));
+    expect(within(drawer).queryByRole("button", { name: "Declined" })).not.toBeInTheDocument();
+    await user.click(within(drawer).getByRole("button", { name: "Shortlisted" }));
+    await waitFor(() => expect(peopleApi.addPeople).toHaveBeenCalledWith("p1", ["first"], "shortlisted"));
   });
 
   it("shows every part ContactOut sent, and no fold for what it did not", async () => {
@@ -341,6 +375,21 @@ describe("StrategyPage — People mode", () => {
     unmount();
     renderPeopleMode();
     expect(await screen.findByRole("radio", { name: "Cards" })).toBeChecked();
+  });
+
+  it("asks companies or people first in the toolbar, before the search, and goes back to companies from it", async () => {
+    renderPeopleMode();
+
+    const modes = await screen.findByRole("radiogroup", { name: "Search for" });
+    expect(within(modes).getByRole("radio", { name: "People" })).toBeChecked();
+    const search = screen.getByRole("searchbox", { name: "Search people by name" });
+    expect(modes.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await userEvent.click(within(modes).getByRole("radio", { name: "Companies" }));
+
+    expect(await screen.findByRole("searchbox", { name: "Search companies" })).toBeInTheDocument();
+    const after = screen.getByRole("radiogroup", { name: "Search for" });
+    expect(within(after).getByRole("radio", { name: "Companies" })).toBeChecked();
   });
 
   it("is not offered to a client seat, which stays on the company search", async () => {

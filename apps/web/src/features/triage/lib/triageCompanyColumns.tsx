@@ -17,6 +17,7 @@ import {
   DataGridCell,
   GRID_ICON_BUTTON,
   type DataGridColumnLayout,
+  type DataGridSortKind,
 } from "../../../components/ui/DataGrid";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { cn } from "../../../lib/cn";
@@ -25,18 +26,15 @@ import type { Candidate, CandidateStatus } from "../../candidates/api/types";
 import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
 import { StatusPicker } from "../../candidates/components/StatusPicker";
 import { statusStyle } from "../../candidates/lib/pipelineStatus";
-import type { CustomColumn } from "../../customcolumns/api/types";
+import type { CustomColumn, CustomColumnType } from "../../customcolumns/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
-import { candidateMoveTooltip, MOVES, removeTooltip, SOURCE_STYLES } from "./triageVocabulary";
+import { SHORTLIST_OFFERED } from "./triageStages";
+import { lineMoves, removeTooltip, SOURCE_STYLES } from "./triageVocabulary";
 import type { TriageCompanyRow } from "./triageRows";
 
 /**
- * Where a grid line is, for the Country and City columns.
- *
- * <p>A line is a person at a company and the person is what it is about, so the executive's own
- * location wins and the company's HQ is what an empty "Add executive" slot falls back to. Taken as a
- * unit rather than field by field: a profile that recorded only a city must not borrow its employer's
- * country and read as somewhere neither of them is.
+ * A line's Country and City: the executive's own location, else the company HQ — taken as a unit, so a
+ * profile with only a city never borrows its employer's country.
  */
 function rowLocation(row: TriageCompanyRow): { country: string | null; city: string | null } {
   const { candidate, company } = row;
@@ -75,12 +73,13 @@ interface TriageTableMeta {
   busyIds: ReadonlySet<string>;
   /** False for a client representative, who reads these grids but moves nothing. */
   canWrite: boolean;
+  /** Declined: a list of what was ruled out, whose only act is Back to universe — nobody added, removed or worked. */
+  stageReadOnly: boolean;
 }
 
 /**
- * No pagination, filtering or sorted row model registered: all three are the server's, and a client
- * row model would re-sort the one page of rows this holds as though they were the whole result. The same
- * three features Strategy registers, because it is the same grid.
+ * No pagination, filtering or sorted row model registered: all three are the server's, which orders the whole
+ * stage's lines, and a client row model would re-sort one page as though it were the whole result.
  */
 export const triageTableFeatures = tableFeatures({
   columnOrderingFeature,
@@ -97,23 +96,14 @@ const PILL =
   "inline-flex items-center rounded-[4px] px-[6px] py-[2px] font-mono text-[10px] font-bold uppercase tracking-[0.04em]";
 
 /**
- * The Companies grid's columns — the same widths, shapes and sort tokens as Strategy's, so moving
- * between the market and what a mandate took from it does not feel like moving between two products.
- *
- * <p>Each sortable column's id is its wire sort token, the same string `TriageSortField` allowlists,
- * so there is no click-to-field mapping that can drift.
- *
- * <p><b>A row is a person at a company, not a company.</b> Executive, Title and Status are the mandate's
- * mapping of who sits there, and a company with three of them is three lines with the company
- * repeated. Executive and Title do not sort: neither is in the server's allowlist, and could not be —
- * the grid is paged by company, so ordering by a person's own field would order a page rather than a
- * result. Status is the one exception — the server ranks a *company* by the best status among its own
- * executives, which is a question about the page's companies after all, just answered by a join.
- *
- * <p>Two columns Strategy has are deliberately absent: `Fit`, which has no score to show, and the
- * Facebook and X links, which the snapshot does not carry. One is added — `Source`, last in the order
- * and off by default, because a headcount from Apollo and one typed in by hand are not equally
- * trustworthy and a reader questioning a figure should be able to tell which they are looking at.
+ * The "ACTIONS" label (about 52px) and the widest row: one move, a divider and the trash, with 4px gaps — or, while
+ * Shortlisted is offered, two moves.
+ */
+const ACTIONS_MIN_WIDTH = SHORTLIST_OFFERED ? 92 : 62;
+
+/**
+ * The Companies grid's built-in columns, shaped like Strategy's. A sortable column's id is its wire sort token
+ * (`TriageSortField`); no `Fit` or social links, plus `Source` (off by default) to tell Apollo figures from typed ones.
  */
 const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => row.company?.companyName ?? row.candidate?.companyName ?? null, {
@@ -121,7 +111,7 @@ const BUILT_IN_COLUMNS = helper.columns([
     header: "Company",
     enableHiding: false,
     // The floor covers a twenty-odd-character name: logo and gutters eat 54px before a letter draws.
-    meta: { share: 22, min: 230 },
+    meta: { share: 22, min: 230, sortKind: "text" },
     cell: (info) => {
       const { company } = info.row.original;
       const name = info.getValue();
@@ -167,7 +157,7 @@ const BUILT_IN_COLUMNS = helper.columns([
     header: "Actions",
     enableSorting: false,
     enableHiding: false,
-    meta: { share: 0, min: 134 },
+    meta: { share: 0, min: ACTIONS_MIN_WIDTH, fixed: true },
     cell: (info) => {
       const row = info.row.original;
       const meta = info.table.options.meta;
@@ -176,37 +166,46 @@ const BUILT_IN_COLUMNS = helper.columns([
       }
       // A line with a person on it acts on that person alone (#903): moving or removing Khaled at Alshaya
       // leaves his colleagues where they stand. The company's own moves and removal are its drawer's, and
-      // the line of a company with nobody listed on this stage.
+      // the line of a company with nobody listed on this stage — except on Declined, where a company was
+      // ruled out whole and Back to universe on any of its lines brings the company and everyone back.
       if (row.candidate) {
-        const { candidate } = row;
-        const candidateBusy = meta.busyIds.has(candidate.id);
-        const stage = candidate.triageStatus ?? row.company?.status ?? "inUniverse";
+        const { candidate, company } = row;
+        const candidateBusy = meta.busyIds.has(candidate.id) || (!!company && meta.busyIds.has(company.id));
+        const lineStage = candidate.triageStatus ?? company?.status ?? "inUniverse";
+        const moves = lineMoves(lineStage);
+        const movesCompany = lineStage === "declined" && company?.status === "declined";
         return (
-          <span className="flex justify-start gap-1.5">
-            {MOVES[stage].map((move) => (
+          <span className="flex justify-start gap-1">
+            {moves.map((move) => (
               <button
                 key={move.status}
                 type="button"
-                title={candidateMoveTooltip(move)}
-                aria-label={`${move.label}: ${candidate.fullName}`}
+                title={movesCompany ? `${move.label}: ${company.companyName} and everyone at it` : move.label}
+                aria-label={`${move.label}: ${movesCompany ? company.companyName : candidate.fullName}`}
                 disabled={candidateBusy}
-                onClick={() => meta.onMoveCandidate(candidate, move.status)}
+                onClick={() =>
+                  movesCompany ? meta.onMove(company, move.status) : meta.onMoveCandidate(candidate, move.status)
+                }
                 className={`${GRID_ICON_BUTTON} disabled:opacity-40`}
               >
                 <Icon d={move.icon} size={14} />
               </button>
             ))}
-            <span aria-hidden className="mx-0.5 w-px self-stretch bg-u-border" />
-            <button
-              type="button"
-              title={removeTooltip(candidate.fullName)}
-              aria-label={`Remove ${candidate.fullName} from this mandate`}
-              disabled={candidateBusy}
-              onClick={() => meta.onRemoveCandidate(candidate)}
-              className={cn(GRID_ICON_BUTTON, "hover:text-u-offlimits disabled:opacity-40")}
-            >
-              <Icon d={ICONS.trash} size={14} />
-            </button>
+            {meta.stageReadOnly ? null : (
+              <>
+                {moves.length > 0 && <span aria-hidden className="mx-0.5 w-px self-stretch bg-u-border" />}
+                <button
+                  type="button"
+                  title={removeTooltip(candidate.fullName)}
+                  aria-label={`Remove ${candidate.fullName} from this mandate`}
+                  disabled={candidateBusy}
+                  onClick={() => meta.onRemoveCandidate(candidate)}
+                  className={cn(GRID_ICON_BUTTON, "hover:text-u-offlimits disabled:opacity-40")}
+                >
+                  <Icon d={ICONS.trash} size={14} />
+                </button>
+              </>
+            )}
           </span>
         );
       }
@@ -214,9 +213,10 @@ const BUILT_IN_COLUMNS = helper.columns([
       const { company } = row;
       if (!company) return null;
       const busy = meta.busyIds.has(company.id);
+      const moves = lineMoves(company.status);
       return (
-        <span className="flex justify-start gap-1.5">
-          {MOVES[company.status].map((move) => (
+        <span className="flex justify-start gap-1">
+          {moves.map((move) => (
             <button
               key={move.status}
               type="button"
@@ -229,17 +229,21 @@ const BUILT_IN_COLUMNS = helper.columns([
               <Icon d={move.icon} size={14} />
             </button>
           ))}
-          <span aria-hidden className="mx-0.5 w-px self-stretch bg-u-border" />
-          <button
-            type="button"
-            title={removeTooltip(company.companyName)}
-            aria-label={`Remove ${company.companyName} from this mandate`}
-            disabled={busy}
-            onClick={() => meta.onDelete(company)}
-            className={cn(GRID_ICON_BUTTON, "hover:text-u-offlimits disabled:opacity-40")}
-          >
-            <Icon d={ICONS.trash} size={14} />
-          </button>
+          {meta.stageReadOnly ? null : (
+            <>
+              {moves.length > 0 && <span aria-hidden className="mx-0.5 w-px self-stretch bg-u-border" />}
+              <button
+                type="button"
+                title={removeTooltip(company.companyName)}
+                aria-label={`Remove ${company.companyName} from this mandate`}
+                disabled={busy}
+                onClick={() => meta.onDelete(company)}
+                className={cn(GRID_ICON_BUTTON, "hover:text-u-offlimits disabled:opacity-40")}
+              >
+                <Icon d={ICONS.trash} size={14} />
+              </button>
+            </>
+          )}
         </span>
       );
     },
@@ -249,7 +253,7 @@ const BUILT_IN_COLUMNS = helper.columns([
     id: "links",
     header: "Links",
     enableSorting: false,
-    meta: { share: 0, min: 56 },
+    meta: { share: 0, min: 56, fixed: true },
     cell: (info) => {
       const { company } = info.row.original;
       if (!company) return <span className="font-sans text-[13px] text-u-text3">—</span>;
@@ -277,17 +281,14 @@ const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => rowLocation(row).country, {
     id: "country",
     header: "Country",
-    meta: { share: 12, min: 82 },
+    meta: { share: 12, min: 82, sortKind: "text" },
     cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
   helper.accessor((row) => row.candidate?.fullName ?? null, {
     id: "executive",
     header: "Executive",
-    // Not in the server's sort allowlist, and could not be: the grid is paged by company, so sorting
-    // by a person would order one page rather than the mandate.
-    enableSorting: false,
-    meta: { share: 14, min: 150 },
+    meta: { share: 14, min: 150, sortKind: "text" },
     cell: (info) => {
       const { company, candidate } = info.row.original;
       const meta = info.table.options.meta;
@@ -309,7 +310,7 @@ const BUILT_IN_COLUMNS = helper.columns([
       }
       // A company with nobody mapped is the most useful thing this grid shows, so the empty cell is
       // the invitation rather than a dash.
-      if (company && meta?.canWrite) {
+      if (company && meta?.canWrite && !meta.stageReadOnly) {
         // Flagged: the mandate already looked and found nobody. Still opens the same form — one
         // action per cell — so the flag has nothing separate to unset; it clears itself the moment
         // an executive is actually saved against this company.
@@ -345,8 +346,7 @@ const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => row.candidate?.title ?? null, {
     id: "executiveTitle",
     header: "Title",
-    enableSorting: false,
-    meta: { share: 14, min: 130 },
+    meta: { share: 14, min: 130, sortKind: "text" },
     cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
@@ -369,16 +369,14 @@ const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => row.candidate?.status ?? null, {
     id: "executiveStatus",
     header: "Status",
-    // The one exception to the "person-level fields don't sort" rule below: the server ranks a page
-    // by each company's best-status executive rather than trying to order people directly, over a
-    // query built for exactly this column — see `TriageCompanyRepository`'s executive-status methods.
+    // Sorts in the workspace's pipeline order, not by the status's name.
     meta: { share: 0, min: 150 },
     cell: (info) => {
       const { candidate } = info.row.original;
       const meta = info.table.options.meta;
       if (!candidate) return <DataGridCell value={null} />;
 
-      if (meta?.canWrite) {
+      if (meta?.canWrite && !meta.stageReadOnly) {
         const busy = meta.busyIds.has(candidate.id);
         return (
           <StatusPicker
@@ -400,28 +398,28 @@ const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => row.company?.industry ?? null, {
     id: "sector",
     header: "Sector",
-    meta: { share: 18, min: 100 },
+    meta: { share: 18, min: 100, sortKind: "text" },
     cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
   helper.accessor((row) => rowLocation(row).city, {
     id: "location",
     header: "City",
-    meta: { share: 11, min: 82 },
+    meta: { share: 11, min: 82, sortKind: "text" },
     cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
   helper.accessor((row) => row.company?.annualRevenue ?? null, {
     id: "revenue",
     header: "Revenue",
-    meta: { share: 11, min: 82 },
+    meta: { share: 11, min: 82, sortKind: "number" },
     cell: (info) => <DataGridCell value={formatMoney(info.getValue())} />,
   }),
 
   helper.accessor((row) => row.company?.numEmployees ?? null, {
     id: "employees",
     header: "Employees",
-    meta: { share: 9, min: 74 },
+    meta: { share: 9, min: 74, sortKind: "number" },
     cell: (info) => <DataGridCell value={info.getValue()?.toLocaleString() ?? null} />,
   }),
 
@@ -429,8 +427,7 @@ const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => row.company?.noteCount ?? null, {
     id: "note",
     header: "Notes",
-    enableSorting: false,
-    meta: { share: 9, min: 88 },
+    meta: { share: 9, min: 88, sortKind: "number" },
     cell: (info) => {
       const { company } = info.row.original;
       const meta = info.table.options.meta;
@@ -457,22 +454,21 @@ const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => row.company?.foundedYear ?? null, {
     id: "founded",
     header: "Founded",
-    meta: { share: 5, min: 84 },
+    meta: { share: 5, min: 84, sortKind: "number" },
     cell: (info) => <DataGridCell value={info.getValue()?.toString() ?? null} />,
   }),
 
   helper.accessor((row) => row.company?.addedAt ?? row.candidate?.addedAt ?? null, {
     id: "added",
     header: "Added",
-    meta: { share: 8, min: 96 },
+    meta: { share: 8, min: 96, sortKind: "date" },
     cell: (info) => <DataGridCell value={formatInstantDate(info.getValue())} />,
   }),
 
   helper.accessor((row) => row.company?.addedByName ?? row.candidateAddedBy?.name ?? null, {
     id: "addedBy",
     header: "Added by",
-    enableSorting: false,
-    meta: { share: 9, min: 150 },
+    meta: { share: 9, min: 150, sortKind: "text" },
     cell: (info) => <AddedByCell row={info.row.original} />,
   }),
 
@@ -487,8 +483,7 @@ const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => row.company?.source ?? null, {
     id: "source",
     header: "Source",
-    enableSorting: false,
-    meta: { share: 0, min: 84 },
+    meta: { share: 0, min: 84, sortKind: "text" },
     cell: (info) => {
       const source = info.getValue();
       if (!source) return <DataGridCell value={null} />;
@@ -498,18 +493,17 @@ const BUILT_IN_COLUMNS = helper.columns([
   }),
 ]);
 
+/** How a mandate's own column sorts on the server, by what it holds; a yes/no column has no hint to draw. */
+const CUSTOM_SORT_KINDS: Record<CustomColumnType, DataGridSortKind | undefined> = {
+  text: "text",
+  number: "number",
+  date: "date",
+  boolean: undefined,
+};
+
 /**
- * The grid's columns for one mandate: the built-ins above, then a column per custom column the
- * project has defined.
- *
- * <p>A factory rather than a constant, because the column set is per project — a mandate that
- * imported a file carrying Ethnicity has a column the mandate next door does not. A parallel column
- * list for the custom ones would have to re-implement widths, pinning, ordering and the picker; one
- * list of TanStack columns gets all of that for free, and a custom column behaves exactly like a
- * built-in because it is one.
- *
- * <p>Ids are prefixed `custom:` so a project's "Note" or "Country" column can never collide with the
- * built-in of that name, whose id is the server's own sort token.
+ * One mandate's columns: the built-ins, then one per custom column, so a custom column behaves as a built-in.
+ * Ids are prefixed `custom:` so they never collide with a built-in's sort-token id.
  */
 export function createTriageCompanyColumns(customColumns: readonly CustomColumn[], { staff = true } = {}) {
   const custom = customColumns
@@ -518,10 +512,7 @@ export function createTriageCompanyColumns(customColumns: readonly CustomColumn[
       helper.accessor((row) => customValueOf(row, column), {
         id: customColumnId(column),
         header: column.label,
-        // Never: sorting is the server's, and its allowlist is the built-in columns. A header that
-        // looked clickable and re-ordered nothing would be worse than one that does not.
-        enableSorting: false,
-        meta: { share: 0, min: 120 },
+        meta: { share: 0, min: 120, sortKind: CUSTOM_SORT_KINDS[column.dataType] },
         cell: (info) => <DataGridCell value={info.getValue()} />,
       }),
     );
@@ -656,15 +647,20 @@ export const TRIAGE_COLUMN_PINNING: ColumnPinningState = {
   end: [],
 };
 
-/** The sortable column ids, which are also the server's sort tokens. */
+/** The built-in sortable column ids, which are also the server's sort tokens; a mandate's own columns sort too. */
 export const TRIAGE_SORT_FIELDS = [
   "name",
-  "sector",
+  "executive",
+  "executiveTitle",
   "country",
   "location",
-  "employees",
+  "executiveStatus",
+  "sector",
   "revenue",
+  "employees",
+  "note",
   "founded",
   "added",
-  "executiveStatus",
+  "addedBy",
+  "source",
 ] as const satisfies readonly TriageSortField[];

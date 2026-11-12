@@ -30,6 +30,21 @@ CREATE INDEX IF NOT EXISTS app_lm_audit_event_target_idx
     ON app_lm_audit_event (target_type, target_id, id DESC)
     WHERE outcome = 'SUCCESS';
 
+-- The customer audit log's read, one workspace newest first by id (V165 skips it for the same reason).
+-- CONCURRENTLY, so audit inserts keep landing while it builds. It cannot run inside a transaction block, so this file
+-- is fed to psql as the header says — never with -1/--single-transaction. A concurrent build that failed leaves an
+-- INVALID index IF NOT EXISTS would skip forever, so a leftover one is dropped first and built again.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
+               WHERE c.relname = 'app_lm_audit_event_workspace_id_idx' AND NOT i.indisvalid) THEN
+        DROP INDEX app_lm_audit_event_workspace_id_idx;
+    END IF;
+END
+$$;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS app_lm_audit_event_workspace_id_idx
+    ON app_lm_audit_event (workspace_id, id DESC);
+
 -- 2b. The contact-credit ledger (V121) is append-only on the same terms: it is what a workspace was charged,
 --     and a foothold in the app must not be able to rewrite a balance's history. V121's trigger refuses UPDATE
 --     and DELETE for every role; this takes the privilege away besides.
@@ -41,6 +56,32 @@ BEGIN
         EXECUTE 'REVOKE ALL ON app_lm_credit_entry FROM lm_app';
         EXECUTE 'GRANT  INSERT, SELECT ON app_lm_credit_entry TO lm_app';
         EXECUTE 'GRANT  USAGE ON SEQUENCE app_lm_credit_entry_id_seq TO lm_app';
+    END IF;
+END $$;
+
+-- 2c. Row-level security on the two tables this file owns (V190, #1085). Where they were already postgres's when V190
+--     ran, it skipped them with a warning; where they were still lm_app's it applied the same policies, which the
+--     ownership change keeps. Either way this leaves both forced with their policies; until it has, every API boot
+--     logs that they wait on it (TenantTableGuard.HARDEN_OWNED) rather than refusing, since the deploy has already
+--     migrated. The audit trail is never refused a line, and is read in its own workspace, or the account's; the
+--     ledger is a plain tenant table.
+DO $$
+BEGIN
+    ALTER TABLE app_lm_audit_event ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE app_lm_audit_event FORCE ROW LEVEL SECURITY;
+    IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'app_lm_audit_event'::regclass) THEN
+        CREATE POLICY app_lm_tenant_read ON app_lm_audit_event FOR SELECT
+            USING (workspace_id IS NULL OR app_lm_tenant_visible(workspace_id));
+        CREATE POLICY app_lm_tenant_write ON app_lm_audit_event FOR INSERT WITH CHECK (true);
+    END IF;
+    IF to_regclass('public.app_lm_credit_entry') IS NOT NULL THEN
+        ALTER TABLE app_lm_credit_entry ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE app_lm_credit_entry FORCE ROW LEVEL SECURITY;
+        IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'app_lm_credit_entry'::regclass) THEN
+            CREATE POLICY app_lm_tenant ON app_lm_credit_entry
+                USING (app_lm_tenant_visible(workspace_id))
+                WITH CHECK (app_lm_tenant_visible(workspace_id));
+        END IF;
     END IF;
 END $$;
 

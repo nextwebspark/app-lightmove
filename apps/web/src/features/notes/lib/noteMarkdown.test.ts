@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSafeHref, noteDocOf, parseNoteMarkdown, plainNoteDoc, serializeNoteDoc } from "./noteMarkdown";
+import { isSafeHref, noteDocOf, parseNoteMarkdown, plainEmailDoc, plainNoteDoc, serializeNoteDoc } from "./noteMarkdown";
 
 const roundTrip = (markdown: string) => serializeNoteDoc(parseNoteMarkdown(markdown));
 
@@ -75,5 +75,11 @@ describe("a note's Markdown", () => {
     expect(isSafeHref("javascript:alert(1)")).toBe(false);
     expect(isSafeHref("data:text/html,x")).toBe(false);
     expect(isSafeHref("/relative")).toBe(false);
+  });
+
+  it("writes a plain-text email as paragraphs and line breaks, its markup characters and variables kept as text", () => {
+    const markdown = serializeNoteDoc(plainEmailDoc("Hi {{firstName|there}},\n\n*Two* lines\nhere.\n\n\nBye"));
+    expect(markdown).toBe("Hi {{firstName\\|there}},\n\n\\*Two\\* lines  \nhere.\n\nBye");
+    expect(parseNoteMarkdown(markdown).content).toHaveLength(3);
   });
 });

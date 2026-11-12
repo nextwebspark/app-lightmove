@@ -4,18 +4,8 @@ import { useAssistant } from "../AssistantProvider";
 import { AssistantPanel } from "./AssistantPanel";
 
 /**
- * The slot the assistant occupies beside the page, and the thing that actually animates.
- *
- * <p>The panel used to mount straight into {@link AppShell}'s row and slide itself in on a
- * `transform`. That meant `<main>` lost its 410px in a single unanimated frame while the panel was
- * still arriving over the next 240ms — the layout finished before the panel did, and the centred
- * page inside `<main>` snapped sideways as it re-centred. Animating the *slot* instead keeps the two
- * on one curve: `<main>` narrows exactly as fast as the panel appears.
- *
- * <p>The slide comes for free and needs no transform. This slot's end edge is pinned to the row's, so
- * a widening slot grows leftward, and a fixed-width child anchored to its start edge travels with it
- * and is clipped by `overflow-hidden` — which reads as a panel arriving from off-screen. Fixed-width
- * is also why the panel's own contents never reflow while it moves.
+ * The assistant's slot, which is what animates: sliding the panel by `transform` made `<main>` snap in one frame.
+ * The slot's end edge is pinned, so a fixed-width child clipped by `overflow-hidden` reads as sliding in.
  */
 export function AssistantDock({
   contextLabel,

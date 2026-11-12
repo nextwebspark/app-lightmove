@@ -6,9 +6,6 @@
 import type { Project } from "../api/types";
 import { dayKeyOf } from "../../../lib/datetime";
 
-/** Share of the start → delivery window a search's universe should be mapped by. `ProjectTimeline` agrees. */
-export const MAPPING_SHARE = 0.6;
-
 const DAY_MS = 86_400_000;
 
 function toUtcMs(isoDate: string): number {
@@ -36,14 +33,6 @@ export function addDays(isoDate: string, days: number): string {
 /** Mirrors `ProjectTimeline`: after the start, and no later than delivery. */
 export function mappingTargetFits(startIso: string, deliveryIso: string, targetIso: string): boolean {
   return daysBetween(startIso, targetIso) > 0 && daysBetween(targetIso, deliveryIso) >= 0;
-}
-
-/** The default mapping target, or null while the window is open or runs backwards. */
-export function autoMappingTarget(startIso: string, deliveryIso: string): string | null {
-  if (!startIso || !deliveryIso) return null;
-  const window = daysBetween(startIso, deliveryIso);
-  if (window <= 0) return null;
-  return fromUtcMs(toUtcMs(startIso) + Math.round(window * MAPPING_SHARE) * DAY_MS);
 }
 
 /** When the business unit expects the work back, as the server's `Project.deadline()` reads it. */

@@ -9,7 +9,6 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.workspace.dto.InvitationResponse;
 import app.lightmove.api.workspace.dto.InviteRequest;
 import app.lightmove.api.workspace.model.Invitation;
-import app.lightmove.api.workspace.model.InviteCommand;
 import app.lightmove.api.workspace.service.InvitationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -55,7 +54,8 @@ public class InvitationsController {
         return pending.stream()
                 .map(inv -> new InvitationResponse(inv.getId(), inv.getEmail(),
                         WorkspaceRole.valueOf(inv.getRole().getName()),
-                        inviterNames.get(inv.getInvitedBy()), inv.getCreatedAt(), inv.getExpiresAt()))
+                        inviterNames.get(inv.getInvitedBy()), inv.getCreatedAt(), inv.getExpiresAt(),
+                        inv.getEmailFailedAt() != null))
                 .toList();
     }
 
@@ -69,15 +69,13 @@ public class InvitationsController {
         return Map.of("count", invitations.countPendingStaff(principal.requireWorkspaceId()));
     }
 
+    /** Fewer {@code sent} than asked means some were already staff; {@code notDelivered} names emails that did not go. */
     @PostMapping
     @RequireWorkspacePermission(WorkspaceAction.MEMBER_INVITE)
-    public Map<String, Integer> invite(@AuthenticationPrincipal AuthPrincipal principal,
-                                       @RequestBody List<@Valid InviteRequest> requests,
-                                       HttpServletRequest httpRequest) {
-        List<Invitation> sent = invitations.invite(principal,
-                requests.stream().map(r -> new InviteCommand(r.email(), r.role())).toList(),
-                httpRequest);
-        return Map.of("sent", sent.size());
+    public InvitationService.InviteOutcome invite(@AuthenticationPrincipal AuthPrincipal principal,
+                                                  @RequestBody List<@Valid InviteRequest> requests,
+                                                  HttpServletRequest httpRequest) {
+        return invitations.invite(principal, requests.stream().map(InviteRequest::toCommand).toList(), httpRequest);
     }
 
     @PostMapping("/{invitationId}/resend")

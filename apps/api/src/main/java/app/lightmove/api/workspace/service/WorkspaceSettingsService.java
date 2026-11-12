@@ -1,5 +1,6 @@
 package app.lightmove.api.workspace.service;
 
+import app.lightmove.api.billing.plan.service.WorkspaceBillingClosure;
 import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.common.time.constant.DateFormatStyle;
 import app.lightmove.api.common.time.constant.TimeFormatStyle;
@@ -7,10 +8,13 @@ import app.lightmove.api.common.time.model.DateTimePreferences;
 import app.lightmove.api.common.time.service.StandardTimeZones;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.apikey.ApiKeyService;
+import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.oauth.OAuthGrantService;
+import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.workspace.constant.CalendarSync;
 import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
@@ -18,10 +22,13 @@ import app.lightmove.api.workspace.constant.WorkspaceMode;
 import app.lightmove.api.workspace.model.CalendarSyncChanged;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceDateTimeChanged;
+import app.lightmove.api.workspace.model.WorkspaceDeleted;
 import app.lightmove.api.workspace.repository.InvitationRepository;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Objects;
 import java.util.UUID;
@@ -32,8 +39,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Settings → General. Deletion is soft — statuses flip, so the audit trail keeps its referents and
- * freed members can join elsewhere.
+ * Settings → General. Deletion ends access at once and leaves the rest to {@link WorkspacePurge} after the grace
+ * period, so Uncava can still restore a workspace deleted by mistake.
  */
 @Service
 @RequiredArgsConstructor
@@ -49,6 +56,10 @@ public class WorkspaceSettingsService {
     private final ApiKeyService apiKeys;
     private final OAuthGrantService oauthGrants;
     private final DateTimePreferenceService dateTimePreferences;
+    private final WorkspaceBillingClosure billing;
+    private final UserRepository users;
+    private final LightMoveProperties properties;
+    private final Clock clock;
 
     @Transactional(readOnly = true)
     public WorkspaceDetail get(UUID workspaceId) {
@@ -71,6 +82,7 @@ public class WorkspaceSettingsService {
                 .actor(actorId).workspace(workspaceId).from(request)
                 .detail("name", workspace.getName())
                 .detailIfPresent("apolloAccountId", workspace.getApolloAccountId())
+                .detail("defaultCurrency", workspace.getDefaultCurrency())
                 .record();
 
         return detail(workspace);
@@ -175,6 +187,12 @@ public class WorkspaceSettingsService {
         return requireWorkspace(workspaceId).getCalendarSync();
     }
 
+    /** What a new brief and a new package start in; {@code position} reads it when it drafts a brief. */
+    @Transactional(readOnly = true)
+    public String defaultCurrencyOf(UUID workspaceId) {
+        return requireWorkspace(workspaceId).getDefaultCurrency();
+    }
+
     /** The firm's country as signup or Settings picked it, or null; {@code outreach} reads its working week from it. */
     @Transactional(readOnly = true)
     public String companyCountryOf(UUID workspaceId) {
@@ -191,18 +209,25 @@ public class WorkspaceSettingsService {
             throw ApiException.of(ErrorCode.WORKSPACE_NAME_MISMATCH);
         }
 
-        workspace.delete();
+        Instant now = clock.instant();
+        // The certificate is emailed at the purge, when nobody can sign in to read where it should go.
+        String noticeEmail = users.findById(actorId).map(User::getEmail).orElse(null);
+        workspace.delete(actorId, now, properties.retention().deletedWorkspacesAfter(), noticeEmail);
         members.findByWorkspaceIdAndStatus(workspaceId, MemberStatus.ACTIVE)
-                .forEach(member -> member.remove());
+                .forEach(member -> member.endWithWorkspace());
         invitations.findByWorkspaceIdAndStatus(workspaceId, InvitationStatus.PENDING)
                 .forEach(invitation -> invitation.revoke());
         apiKeys.revokeOnWorkspaceDeletion(actorId, workspaceId, request);
         oauthGrants.revokeOnWorkspaceDeletion(actorId, workspaceId, request);
+        billing.onWorkspaceDeleted(workspaceId);
+        events.publishEvent(new WorkspaceDeleted(workspaceId, actorId, now));
 
-        log.info("User {} deleted workspace {}", actorId, workspaceId);
+        log.info("User {} deleted workspace {}, to be purged after {}", actorId, workspaceId,
+                workspace.getPurgeAfter());
         audit.event(WorkspaceEventType.WORKSPACE_DELETED)
                 .actor(actorId).workspace(workspaceId).from(request)
                 .detail("name", workspace.getName())
+                .detail("purgeAfter", workspace.getPurgeAfter().toString())
                 .record();
     }
 

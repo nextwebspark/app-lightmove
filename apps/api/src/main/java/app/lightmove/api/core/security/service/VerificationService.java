@@ -2,7 +2,7 @@ package app.lightmove.api.core.security.service;
 
 import app.lightmove.api.core.security.constant.TokenPurpose;
 import app.lightmove.api.core.security.constant.UserStatus;
-import app.lightmove.api.core.security.model.AuthenticatedSession;
+import app.lightmove.api.core.security.model.SignInOutcome;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.model.VerificationToken;
 import app.lightmove.api.core.security.repository.UserRepository;
@@ -12,7 +12,6 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.constant.ErrorCode;
-import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.core.email.service.EmailSender;
@@ -34,8 +33,7 @@ public class VerificationService {
 
     private final UserRepository users;
     private final VerificationTokenRepository verificationTokens;
-    private final WorkspaceSelection selection;
-    private final TokenService tokens;
+    private final SignInCompletion signIn;
     private final EmailSender emailSender;
     private final EmailTemplates templates;
     private final AuditService audit;
@@ -68,7 +66,7 @@ public class VerificationService {
 
     /** Signs the user in, as a reset does: the link often opens in a browser without the session. */
     @Transactional
-    public AuthenticatedSession verify(String plaintextToken, HttpServletRequest request) {
+    public SignInOutcome verify(String plaintextToken, HttpServletRequest request) {
         Instant now = Instant.now();
 
         VerificationToken token = verificationTokens.findByTokenHash(Tokens.hash(plaintextToken))
@@ -100,7 +98,7 @@ public class VerificationService {
         log.info("Email verified for user {}", user.getId());
         audit.event(AuthEventType.EMAIL_VERIFIED).actor(user.getId()).from(request).record();
 
-        return tokens.issue(user, selection.signIn(user), request);
+        return signIn.complete(user, request);
     }
 
     /** Silent for an unknown or already-verified address, or this is an enumeration oracle. */

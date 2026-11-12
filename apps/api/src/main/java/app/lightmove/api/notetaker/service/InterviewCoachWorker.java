@@ -3,11 +3,14 @@ package app.lightmove.api.notetaker.service;
 import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.model.MeteredUse;
 import app.lightmove.api.billing.usage.service.UsageRecorder;
+import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.service.CandidateCallUpdates;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.core.config.RecallSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.tenant.EveryWorkspace;
+import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.notetaker.constant.CoachState;
 import app.lightmove.api.notetaker.constant.RecordGap;
 import app.lightmove.api.notetaker.model.InterviewPlan;
@@ -77,6 +80,8 @@ public class InterviewCoachWorker {
     private final UsageRecorder usage;
     private final RecallSettings settings;
     private final JdbcTemplate jdbc;
+    private final EveryWorkspace workspaces;
+    private final TenantResolvers resolvers;
     private final TransactionTemplate transactions;
     private final Clock clock;
 
@@ -84,7 +89,9 @@ public class InterviewCoachWorker {
                          InterviewPlanService plans, PositionService positions, CandidateCallUpdates updates,
                          CandidateOutreachService outreachPeople, TeamVoices teamVoices,
                          CopilotStreamPublisher publisher, UsageRecorder usage, LightMoveProperties properties,
-                         JdbcTemplate jdbc, PlatformTransactionManager transactionManager, Clock clock) {
+                         JdbcTemplate jdbc, EveryWorkspace workspaces, TenantResolvers resolvers,
+                         PlatformTransactionManager transactionManager,
+                         Clock clock) {
         this.recordings = recordings;
         this.lines = lines;
         this.coach = coach;
@@ -97,6 +104,8 @@ public class InterviewCoachWorker {
         this.usage = usage;
         this.settings = properties.recall();
         this.jdbc = jdbc;
+        this.workspaces = workspaces;
+        this.resolvers = resolvers;
         // Woken after another transaction's commit, often on its thread: every write here is a transaction of its own.
         this.transactions = new TransactionTemplate(transactionManager);
         this.transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -117,17 +126,26 @@ public class InterviewCoachWorker {
         }
     }
 
+    /**
+     * A workspace at a time, and only one with a copilot listening: the recordings and their lines are under
+     * row-level security, and the sweep runs every few seconds.
+     */
     public void sweepAt(Instant now) {
-        for (UUID recordingId : jdbc.queryForList(PENDING, UUID.class)) {
-            try {
-                coachIfDue(recordingId, now);
-            } catch (RuntimeException failed) {
-                log.warn("Live copilot sweep could not coach recording {}: {}", recordingId, failed.toString());
+        workspaces.forEach(resolvers.workspacesWithCopilotListening(), workspaceId -> {
+            for (UUID recordingId : jdbc.queryForList(PENDING, UUID.class)) {
+                try {
+                    coachIfDue(recordingId, now);
+                } catch (RuntimeException failed) {
+                    log.warn("Live copilot sweep could not coach recording {}: {}", recordingId, failed.toString());
+                }
             }
-        }
+        });
     }
 
-    /** Answers whether a run happened, whatever it found. */
+    /**
+     * Answers whether a run happened, whatever it found. In the recording's workspace, which the live feed's webhook
+     * or the sweep's walk opened: the call's people and position are read there.
+     */
     public boolean coachIfDue(UUID recordingId, Instant now) {
         CoachTurn turn = transactions.execute(status -> turnOf(recordingId, now));
         if (turn == null) {
@@ -170,7 +188,7 @@ public class InterviewCoachWorker {
             return null;
         }
         return new CoachTurn(recording.getId(), recording.getWorkspaceId(), recording.getProjectId(),
-                recording.getPersonId(), recording.getCandidateId(), recording.getStartsAt(),
+                recording.getPersonId(), recording.getStartsAt(),
                 recording.callClockStart(), recording.getTitle(), InterviewCopilotService.teamOf(recording),
                 unread.getLast().getSeq(), !recording.isLiveCharged(), recording.getRequestedBy());
     }
@@ -255,12 +273,14 @@ public class InterviewCoachWorker {
 
     /** An unmapped executive has no record to read gaps from; the copilot then follows the competencies alone. */
     private Set<RecordGap> missingOf(CoachTurn turn) {
-        if (turn.candidateId() == null) {
-            return EnumSet.noneOf(RecordGap.class);
-        }
         try {
+            UUID candidateId = outreachPeople.currentRecipientOfPerson(turn.workspaceId(), turn.projectId(),
+                    turn.personId()).map(OutreachRecipient::candidateId).orElse(null);
+            if (candidateId == null) {
+                return EnumSet.noneOf(RecordGap.class);
+            }
             List<RecordGap> missing = InterviewPlanService.missingOf(
-                    updates.heldOf(turn.workspaceId(), turn.projectId(), turn.candidateId()));
+                    updates.heldOf(turn.workspaceId(), turn.projectId(), candidateId));
             return missing.isEmpty() ? EnumSet.noneOf(RecordGap.class) : EnumSet.copyOf(missing);
         } catch (ApiException gone) {
             return EnumSet.noneOf(RecordGap.class);
@@ -281,7 +301,7 @@ public class InterviewCoachWorker {
         return recording.getLive() == null ? CoachState.RUNNING : recording.getLive().coach();
     }
 
-    private record CoachTurn(UUID recordingId, UUID workspaceId, UUID projectId, UUID personId, UUID candidateId,
+    private record CoachTurn(UUID recordingId, UUID workspaceId, UUID projectId, UUID personId,
                              Instant startsAt, Instant clockStart, String title, List<UUID> team, long throughSeq,
                              boolean firstRun, UUID requestedBy) {}
 }

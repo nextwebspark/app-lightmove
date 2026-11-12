@@ -4,6 +4,8 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import type { NumericRange, SavedSearch, SearchVisibility, StrategyFilter } from "../api/types";
 import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { FilterRailToggle } from "../../../components/ui/FilterRail";
+import { TOOLBAR_COUNT, TOOLBAR_OUTLINE, TOOLBAR_ROW, ToolbarLabel, ToolbarSearch } from "../../../components/ui/Toolbar";
+import { cn } from "../../../lib/cn";
 import { SaveSearchMenu } from "./SaveSearchMenu";
 import { sameFilter } from "../lib/filterIdentity";
 import { companyColumns, DEFAULT_COLUMN_VISIBILITY } from "../lib/companyColumns";
@@ -21,7 +23,7 @@ function constrains(range: NumericRange | null): boolean {
 }
 
 /**
- * How many accordions carry a selection — the mockup's accent badge beside Show Filters.
+ * How many accordions carry a selection — the count beside Show Filters.
  *
  * <p>An axis is one accordion, so its bands and its custom range count once between them: they are
  * two modes of the same panel and choosing a range clears the bands.
@@ -52,13 +54,12 @@ export function StrategyToolbar({
   onSetSearchVisibility,
   onOverwriteSearch,
   onDeleteSearch,
-  onAddAll,
   onAiResearch,
+  aiResearchOpen,
   columnVisibility,
   onColumnVisibilityChange,
   onResetLayout,
   savingSearch,
-  addingAll,
 }: {
   /** The Companies | People toggle, when the viewer may search people. */
   leading?: ReactNode;
@@ -77,17 +78,19 @@ export function StrategyToolbar({
   onSetSearchVisibility: (searchId: string, visibility: SearchVisibility) => void;
   onOverwriteSearch: (searchId: string) => void;
   onDeleteSearch: (searchId: string) => void;
-  onAddAll: () => void;
   onAiResearch: () => void;
+  /** The assistant is docked beside the page, so the button reads pressed. */
+  aiResearchOpen: boolean;
   columnVisibility: ColumnVisibilityState;
   onColumnVisibilityChange: (visibility: ColumnVisibilityState) => void;
   onResetLayout: () => void;
   savingSearch: boolean;
-  addingAll: boolean;
 }) {
   return (
-    <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-u-border bg-u-raised px-3 py-2 sm:px-5 sm:py-1.5">
+    <div className={TOOLBAR_ROW}>
       {leading}
+      <ToolbarSearch value={query} onChange={onQuery} label="Search companies" placeholder="Search companies..." />
+
       <SaveSearchMenu
         searches={searches}
         isActive={(search) => sameFilter(filter, search.filter)}
@@ -104,62 +107,43 @@ export function StrategyToolbar({
       <FilterRailToggle
         open={showFilters}
         onToggle={onToggleFilters}
+        variant="toolbar"
         badge={
           filterPending ? (
-            <span className="h-[15px] w-[15px] animate-pulse rounded-[4px] bg-u-accent-tint" />
+            <span className="h-[15px] w-[15px] animate-pulse rounded-u-control bg-u-raised" />
           ) : (
-            <span className="rounded-[4px] bg-u-accent-tint px-[5px] py-[2px] font-sans text-[10px] font-bold text-u-accent">
-              {activeAxisCount(filter)}
-            </span>
+            <span className={TOOLBAR_COUNT}>{activeAxisCount(filter)}</span>
           )
         }
       />
 
-      {/* Tinted, as Strategy.dc.html draws it: a secondary way in, never louder than the screen's own job.
+      <div className="flex flex-none items-center gap-3 sm:ml-auto">
+        {/* Hidden below `lg` with the panel it opens: the assistant has no layout on a phone or a tablet yet, so
+            here it would set the open flag and show nothing at all. One of the toolbar's own bordered controls, the
+            AI told by the sparkle's violet alone; pressed while the panel is open, and a second press closes it. */}
+        <button
+          type="button"
+          onClick={onAiResearch}
+          aria-pressed={aiResearchOpen}
+          title="AI Research"
+          className={cn(
+            TOOLBAR_OUTLINE,
+            "hidden lg:inline-flex",
+            "aria-pressed:border-u-inferred/50 aria-pressed:bg-u-inferred-tint aria-pressed:text-u-inferred",
+          )}
+        >
+          <Icon d={ICONS.sparkle} size={15} className="flex-none text-u-inferred" />
+          <ToolbarLabel>AI Research</ToolbarLabel>
+        </button>
 
-          Hidden below `lg` with the panel it opens: the assistant has no layout on a phone or a
-          tablet yet, so here it would set the open flag and show nothing at all. */}
-      <button
-        type="button"
-        onClick={onAiResearch}
-        className="hidden items-center gap-2 whitespace-nowrap rounded-[6px] border border-u-border-strong bg-u-inferred-tint px-4 py-2 font-sans text-[13px] font-medium text-u-inferred transition hover:bg-u-raised lg:inline-flex"
-      >
-        <Icon
-          d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"
-          size={15}
-          className="flex-none"
-        />
-        <span className="hidden sm:inline">AI Research</span>
-      </button>
-
-      <label className="order-last flex w-full min-w-[180px] items-center gap-2 rounded-[6px] border border-u-border-strong px-3 py-2 sm:order-none sm:w-[240px] sm:flex-none">
-        <Icon d={ICONS.search} size={14} className="flex-none text-u-text3" />
-        <input
-          value={query}
-          onChange={(event) => onQuery(event.target.value)}
-          placeholder="Search companies..."
-          aria-label="Search companies"
-          className="w-full bg-transparent font-sans text-[13px] text-u-text outline-none placeholder:text-u-text3"
-        />
-      </label>
-
-      <div className="flex items-center gap-3 sm:ml-auto">
         <ColumnPicker
           columns={HIDEABLE_COMPANY_COLUMNS}
           visibility={columnVisibility}
           defaults={DEFAULT_COLUMN_VISIBILITY}
           onChange={onColumnVisibilityChange}
           onResetLayout={onResetLayout}
+          variant="toolbar"
         />
-
-        <button
-          type="button"
-          onClick={onAddAll}
-          disabled={addingAll}
-          className="whitespace-nowrap font-sans text-[13px] text-u-text3 transition hover:text-u-text disabled:opacity-40"
-        >
-          Add all to Universe →
-        </button>
       </div>
     </div>
   );

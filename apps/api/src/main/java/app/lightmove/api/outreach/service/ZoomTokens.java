@@ -20,12 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Access tokens for consultants' Zoom accounts, from each connection's stored refresh token and the workspace's Zoom
- * app. Held in memory only, until shortly before they expire, one refresh per connection at a time: Zoom rotates the
- * refresh token on every use, so two racing would each keep a different one and the loser's would be dead.
- *
- * <p>A refresh Zoom refuses marks the connection withdrawn and answers {@code ZOOM_RECONNECT_NEEDED}; a refused
- * app answers {@code ZOOM_UNAVAILABLE} and leaves the connection as it is, since an admin fixing the app fixes it.
+ * Zoom access tokens, in memory only, one refresh per connection at a time: Zoom rotates the refresh token, so racing
+ * refreshes kill the loser's. Refused refresh: {@code ZOOM_RECONNECT_NEEDED}; refused app: {@code ZOOM_UNAVAILABLE}, connection kept.
  */
 @Service
 @Slf4j
@@ -36,16 +32,18 @@ public class ZoomTokens {
     private final SecretCipher cipher;
     private final ProviderTokenClient tokenClient;
     private final TransactionTemplate transactions;
+    private final OwnAppKeyHealth keyHealth;
     private final Cache<UUID, HeldZoomToken> held;
 
     public ZoomTokens(ZoomConnectionRepository connections, ProviderCredentialsResolver credentials,
                       SecretCipher cipher, ProviderTokenClient tokenClient, TransactionTemplate transactions,
-                      Clock clock) {
+                      OwnAppKeyHealth keyHealth, Clock clock) {
         this.connections = connections;
         this.credentials = credentials;
         this.cipher = cipher;
         this.tokenClient = tokenClient;
         this.transactions = transactions;
+        this.keyHealth = keyHealth;
         this.held = Caffeine.newBuilder()
                 .ticker(() -> TimeUnit.MILLISECONDS.toNanos(clock.millis()))
                 .executor(Runnable::run)
@@ -72,6 +70,14 @@ public class ZoomTokens {
         }
         ProviderCredentials app = credentials.resolve(connection.getWorkspaceId(), IntegrationProvider.ZOOM)
                 .orElseThrow(() -> ApiException.of(ErrorCode.ZOOM_UNAVAILABLE));
+        // As MailboxTokens: a token issued to the app the workspace left cannot be refreshed through the new one.
+        if (connection.isFromAnotherApp(app.clientId())) {
+            transactions.executeWithoutResult(status -> connections.findById(connectionId)
+                    .ifPresent(ZoomConnection::markAccessWithdrawn));
+            log.info("Zoom connection {} was made through another app than the workspace's; it needs reconnecting",
+                    connectionId);
+            throw ApiException.of(ErrorCode.ZOOM_RECONNECT_NEEDED);
+        }
         String refreshToken = cipher.decrypt(connection.getRefreshTokenEncrypted(), connection.refreshTokenContext());
         ProviderTokenGrant refreshed;
         try {
@@ -85,12 +91,18 @@ public class ZoomTokens {
         } catch (ProviderAppUnavailable appRefused) {
             log.warn("The Zoom app of workspace {} was refused ({})", connection.getWorkspaceId(),
                     appRefused.getMessage());
+            keyHealth.refusedAtRefresh(connection.getWorkspaceId(), app, appRefused);
             throw ApiException.of(ErrorCode.ZOOM_UNAVAILABLE);
         }
+        keyHealth.answeredAtRefresh(connection.getWorkspaceId(), app);
         if (refreshed.refreshToken() != null && !refreshed.refreshToken().equals(refreshToken)) {
             transactions.executeWithoutResult(status -> connections.findById(connectionId)
                     .ifPresent(fresh -> fresh.rotateRefreshToken(
                             cipher.encrypt(refreshed.refreshToken(), fresh.refreshTokenContext()))));
+        }
+        if (connection.getAppClientId() == null) {
+            transactions.executeWithoutResult(status -> connections.findById(connectionId)
+                    .ifPresent(fresh -> fresh.recordAppClient(app.clientId())));
         }
         return new HeldZoomToken(refreshed.accessToken(), refreshed.expiresIn().minus(MailboxTokens.EXPIRY_MARGIN));
     }

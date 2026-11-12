@@ -10,16 +10,8 @@ import { CandidateProfile } from "./CandidateProfile";
 export type { CandidateCompanyContext } from "./AddCandidateForm";
 
 /**
- * The right-hand panel over the Companies grid: one executive's profile, or the form that adds one.
- *
- * <p>The panel does not close on a save. Every write answers with the profile as the server now
- * holds it and the caller shows that — a reader who corrected a salary is still reading, and the
- * next thing they do is usually write the note. An add lands on the profile it created for the same
- * reason.
- *
- * <p>The person shown is read through their own query, seeded with the row the caller opened: the
- * stream's refresh after a background enrichment re-reads it, so a drawer left open picks up what
- * the research and the AI enrichment filled in without being reopened.
+ * The right-hand panel over the Companies grid: one executive's profile, or the add form. It stays open on a save and
+ * shows what the server answered; the person is read through their own query, so a background enrichment shows unasked.
  */
 export function CandidateDrawer({
   open,
@@ -33,6 +25,7 @@ export function CandidateDrawer({
   onSaved,
   onDelete,
   onMarkNoExecutiveFound,
+  onOpenCompany,
   focusNoteId = null,
   focusSection = null,
   focusTab = null,
@@ -57,9 +50,11 @@ export function CandidateDrawer({
   /** Flags the company as researched-and-nobody-suitable and closes the panel — the add form's other
    *  outcome. Only meaningful with a `company`, so callers without one pass nothing. */
   onMarkNoExecutiveFound?: () => void;
+  /** Opens the drawer of the company the executive is mapped at; absent where the page has no company drawer. */
+  onOpenCompany?: () => void;
   /** A note to open the profile on — a bell row's — rather than on the Profile tab. */
   focusNoteId?: string | null;
-  /** A part of the Contact tab to open the profile on — a bell row's reply, bounce or booked call. */
+  /** A part of the Outreach tab to open the profile on — a bell row's reply, bounce or booked call. */
   focusSection?: DrawerSection | null;
   /** The tab to open on, from a link that says which; the viewer's remembered tab otherwise. */
   focusTab?: DrawerTab | null;
@@ -91,6 +86,7 @@ export function CandidateDrawer({
           onClose={onClose}
           onSaved={handleSaved}
           onRemove={canWrite ? onDelete : undefined}
+          onOpenCompany={onOpenCompany}
           focusNoteId={focusNoteId}
           focusSection={focusSection}
           focusTab={focusTab}

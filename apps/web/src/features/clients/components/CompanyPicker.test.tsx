@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as companiesApi from "../../strategy/api/companiesApi";
 import type { CompanySuggestion } from "../../strategy/api/types";
 import { createClientPayloadFor } from "../api/clientsApi";
+import type { Client } from "../api/types";
 import type { CompanyPick } from "../lib/companyPick";
 import { CompanyPicker } from "./CompanyPicker";
 
@@ -98,7 +99,7 @@ describe("CompanyPicker", () => {
     const user = userEvent.setup();
     const onRejectExisting = vi.fn();
     const onPick = renderPicker({
-      existingNames: new Set(["meridian energy group"]),
+      existingClients: [onTheBooks("c1", "Meridian Energy Group", null)],
       onRejectExisting,
     });
 
@@ -106,6 +107,23 @@ describe("CompanyPicker", () => {
     await user.click(await screen.findByText("Meridian Energy Group"));
 
     expect(onRejectExisting).toHaveBeenCalledWith("Meridian Energy Group");
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  // Matched on the name alone, a record renamed since it was picked left its company offered, and picking it filed
+  // that company a second time.
+  it("refuses a company a renamed record was picked as, naming the record as it is called now", async () => {
+    const user = userEvent.setup();
+    const onRejectExisting = vi.fn();
+    const onPick = renderPicker({
+      existingClients: [onTheBooks("c1", "Meridian", "apollo-1")],
+      onRejectExisting,
+    });
+
+    await user.type(screen.getByPlaceholderText("Search company database…"), "Meridian");
+    await user.click(await screen.findByText("Meridian Energy Group"));
+
+    expect(onRejectExisting).toHaveBeenCalledWith("Meridian");
     expect(onPick).not.toHaveBeenCalled();
   });
 
@@ -200,3 +218,20 @@ describe("createClientPayloadFor", () => {
     expect(createClientPayloadFor(pick).hqCountry).toBe("United Arab Emirates");
   });
 });
+
+function onTheBooks(id: string, name: string, apolloAccountId: string | null): Client {
+  return {
+    id,
+    name,
+    apolloAccountId,
+    type: "RETAINED",
+    sector: null,
+    hqCountry: null,
+    hqCity: null,
+    logoUrl: null,
+    activeMandates: 0,
+    deliveredMandates: 0,
+    contacts: [],
+    viewers: { active: 0, invited: 0 },
+  };
+}

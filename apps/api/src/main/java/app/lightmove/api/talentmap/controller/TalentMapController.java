@@ -33,8 +33,9 @@ public class TalentMapController {
     @RequireProjectPermission(ProjectAction.WORK_VIEW)
     public TalentMapResponse read(@AuthenticationPrincipal AuthPrincipal principal,
                                   @PathVariable UUID projectId,
-                                  @RequestParam(required = false) String status) {
-        return talentMap.read(principal.requireWorkspaceId(), projectId, status,
+                                  @RequestParam(required = false) String status,
+                                  @RequestParam(required = false) String search) {
+        return talentMap.read(principal.requireWorkspaceId(), projectId, status, search,
                 projectAccess.audienceOf(principal.userId(), principal.requireWorkspaceId(), projectId));
     }
 
@@ -42,8 +43,9 @@ public class TalentMapController {
     @RequireProjectPermission(ProjectAction.WORK_VIEW)
     public TalentMapLocationsResponse locations(@AuthenticationPrincipal AuthPrincipal principal,
                                                 @PathVariable UUID projectId,
-                                                @RequestParam(required = false) String status) {
-        return talentMap.readLocations(principal.requireWorkspaceId(), projectId, status,
+                                                @RequestParam(required = false) String status,
+                                                @RequestParam(required = false) String search) {
+        return talentMap.readLocations(principal.requireWorkspaceId(), projectId, status, search,
                 projectAccess.audienceOf(principal.userId(), principal.requireWorkspaceId(), projectId));
     }
 

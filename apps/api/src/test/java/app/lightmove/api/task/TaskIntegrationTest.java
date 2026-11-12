@@ -5,8 +5,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.candidate.PipelineFlowSupport;
+import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.outreach.model.OutreachReplied;
 import app.lightmove.api.task.service.TaskDueScanner;
 import java.time.Instant;
@@ -35,8 +37,9 @@ class TaskIntegrationTest extends PipelineFlowSupport {
 
     @Autowired private ApplicationEventPublisher events;
     @Autowired private TransactionTemplate transactions;
-    @Autowired private JdbcTemplate db;
+    @Autowired @FixtureJdbc private JdbcTemplate db;
     @Autowired private TaskDueScanner dueScanner;
+    @Autowired private TenantResolvers resolvers;
 
     private String projectId;
     private String researcher;
@@ -200,6 +203,24 @@ class TaskIntegrationTest extends PipelineFlowSupport {
     }
 
     @Test
+    @DisplayName("the due scan is told a workspace has work only while a task in it is falling due")
+    void theDueScanWalksOnlyAWorkspaceWithWork() throws Exception {
+        Instant now = Instant.now();
+        UUID workspaceId = db.queryForObject("select workspace_id from app_lm_project where id = ?::uuid", UUID.class,
+                projectId);
+        String taskId = body(created(admin, layla, "Call back", adminId,
+                now.plus(30, ChronoUnit.MINUTES).toString())).get("id").asText();
+
+        assertThat(resolvers.workspacesWithTasksFallingDue(now.minus(2, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS)))
+                .contains(workspaceId);
+
+        write(admin, "PATCH", "/api/v1/tasks/" + taskId, """
+                {"status":"done"}""");
+        assertThat(resolvers.workspacesWithTasksFallingDue(now.minus(2, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS)))
+                .doesNotContain(workspaceId);
+    }
+
+    @Test
     @DisplayName("a title is one line, since it becomes an email subject")
     void aTitleIsOneLine() throws Exception {
         MvcResult refused = write(admin, "POST", tasksUrl(layla), """
@@ -351,9 +372,9 @@ class TaskIntegrationTest extends PipelineFlowSupport {
     private void replied(UUID messageId) {
         UUID personId = db.queryForObject("select person_id from app_lm_project_candidate where id = ?::uuid",
                 UUID.class, layla);
-        transactions.executeWithoutResult(status -> events.publishEvent(new OutreachReplied(
+        inWorkspace(() -> transactions.executeWithoutResult(status -> events.publishEvent(new OutreachReplied(
                 UUID.fromString(workspaceId), UUID.fromString(projectId), UUID.fromString(layla), personId,
-                UUID.randomUUID(), UUID.fromString(researcherId), messageId)));
+                UUID.randomUUID(), UUID.fromString(researcherId), messageId))));
     }
 
     private MvcResult created(String token, String candidateId, String title, String assigneeId, String dueAt)

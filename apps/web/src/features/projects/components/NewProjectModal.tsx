@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import {
   Button,
   ChoiceCardGroup,
@@ -13,7 +13,7 @@ import {
   type ChoiceCardOption,
 } from "../../../components/ui";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { cn } from "../../../lib/cn";
+import { ApiRequestError } from "../../../lib/apiClient";
 import { codeOf } from "../../../lib/errorCodes";
 import { fieldErrorsFrom } from "../../../lib/formErrors";
 import { formatDate } from "../../../lib/format";
@@ -26,15 +26,8 @@ import { RoleTitleCombobox } from "../../position/components/RoleTitleCombobox";
 import type { CompanySuggestion } from "../../strategy/api/types";
 import { useWorkspaceMode, useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as projectsApi from "../api/projectsApi";
-import type { ProjectType } from "../api/types";
-import {
-  addDays,
-  autoMappingTarget,
-  daysBetween,
-  MAPPING_SHARE,
-  mappingTargetFits,
-  todayIso,
-} from "../lib/timeline";
+import type { NewClientPayload, ProjectType } from "../api/types";
+import { addDays, daysBetween, mappingTargetFits, todayIso } from "../lib/timeline";
 
 /** Mirrors `@Size(max = 160)` on CreateProjectRequest.positionTitle, so the cap is met at the field. */
 const MAX_POSITION_TITLE_LENGTH = 160;
@@ -43,7 +36,7 @@ const MAX_POSITION_TITLE_LENGTH = 160;
 const MAX_BUSINESS_UNIT_NAME_LENGTH = 160;
 
 /** The inputs a rejected create can be attributed to. */
-type ProjectField = "businessUnit" | "positionTitle" | "deliveryDate" | "mappingTargetDate";
+type ProjectField = "businessUnit" | "positionTitle" | "startDate" | "deliveryDate" | "mappingTargetDate";
 
 const PROJECT_TYPE_OPTIONS: readonly ChoiceCardOption<ProjectType>[] = [
   {
@@ -64,7 +57,7 @@ const TIMELINE_HEADING =
   "mb-4 mt-5 border-t border-u-border pt-4 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3";
 
 /**
- * The New-position modal (`claude-design/Workspace.dc.html`). Opened from a business unit's drawer,
+ * The New-position modal (`uncava-design/Workspace.dc.html`). Opened from a business unit's drawer,
  * `lockedClientId` — not state — is what gets submitted, so the position cannot land on another unit.
  */
 export function NewProjectModal({
@@ -90,7 +83,7 @@ export function NewProjectModal({
   const [projectType, setProjectType] = useState<ProjectType>("MAPPING");
   const [startDate, setStartDate] = useState(todayIso);
   const [deliveryDate, setDeliveryDate] = useState("");
-  const [mappingTargetOverride, setMappingTargetOverride] = useState("");
+  const [mappingTargetDate, setMappingTargetDate] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ProjectField, string>>>({});
 
@@ -122,35 +115,34 @@ export function NewProjectModal({
     windowDays !== null && windowDays <= 0
       ? `${isMapping ? "Map" : "Shortlist"} delivery date must be after the project start date.`
       : undefined;
-  const mappingTarget = mappingTargetOverride || autoMappingTarget(startDate, deliveryDate);
 
   const create = useMutation({
     mutationFn: async () => {
-      let resolvedClientId = lockedClientId || knownUnit?.id;
-      if (!resolvedClientId) {
-        try {
-          const payload = companyToFile
-            ? clientsApi.createClientPayloadFor({ source: "universe", company: companyToFile })
-            : { customName: unitName };
-          resolvedClientId = (await clientsApi.createClient(payload)).id;
-        } catch (clientError) {
-          if (codeOf(clientError) !== "CLIENT_ALREADY_EXISTS") throw clientError;
-          // The user meant that unit. Re-fetch rather than trust the prop — a colleague may have
-          // created it after this modal's list was cached.
-          const fresh = await clientsApi.clients();
-          const existing = fresh.find((c) => !c.archivedAt && c.name.toLowerCase() === unitName.toLowerCase());
-          if (!existing) throw clientError;
-          resolvedClientId = existing.id;
-        }
-      }
-      return projectsApi.createProject({
-        clientId: resolvedClientId,
+      const position = {
         positionTitle: positionTitle.trim(),
         projectType,
         startDate: startDate || undefined,
         deliveryDate: deliveryDate || undefined,
-        mappingTargetDate: !isMapping && mappingTargetOverride ? mappingTargetOverride : undefined,
-      });
+        mappingTargetDate: !isMapping && mappingTargetDate ? mappingTargetDate : undefined,
+      };
+      const heldClientId = lockedClientId || knownUnit?.id;
+      if (heldClientId) return projectsApi.createProject({ clientId: heldClientId, ...position });
+
+      const newClient: NewClientPayload = companyToFile
+        ? { company: { apolloAccountId: companyToFile.apolloAccountId }, sector: companyToFile.industry ?? undefined }
+        : { customName: unitName };
+      try {
+        // One write, so a position the server refuses takes the new unit with it. Two requests once left the unit
+        // behind whenever the position was refused after it.
+        return await projectsApi.createProject({ newClient, ...position });
+      } catch (refusal) {
+        if (codeOf(refusal) !== "CLIENT_ALREADY_EXISTS") throw refusal;
+        // The user meant that unit: one renamed since it was picked from the database, or one a colleague made
+        // after this modal's list was read.
+        const holderId = await holderIdOf(refusal, unitName);
+        if (!holderId) throw refusal;
+        return projectsApi.createProject({ clientId: holderId, ...position });
+      }
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
@@ -159,13 +151,13 @@ export function NewProjectModal({
       onClose();
     },
     onError: (mutationError) => {
-      // The unit may already exist even though the position was refused.
+      // A refusal can mean a colleague holds the name now; a fresh list files the next try under them.
       if (creatingClient) void queryClient.invalidateQueries({ queryKey: clientsApi.CLIENTS_KEY });
-      // Two requests can fail here — the inline business unit create and the position create — so both
-      // DTOs' field names are mapped onto the field that carries them.
       const { fields, formMessage } = fieldErrorsFrom(mutationError, {
-        customName: "businessUnit",
+        clientId: "businessUnit",
+        "newClient.customName": "businessUnit",
         positionTitle: "positionTitle",
+        startDate: "startDate",
         deliveryDate: "deliveryDate",
         mappingTargetDate: "mappingTargetDate",
       });
@@ -188,24 +180,25 @@ export function NewProjectModal({
     clearFieldError("positionTitle");
   };
 
-  // A moved mapping target is a statement about the old window, so any change to the window drops it.
+  // A mapping project carries no separate mapping target, so leaving Search drops it.
   const handleProjectTypeChange = (type: ProjectType) => {
     setProjectType(type);
-    setMappingTargetOverride("");
+    setMappingTargetDate("");
     clearFieldError("mappingTargetDate");
   };
   const handleStartDateChange = (isoDate: string) => {
     setStartDate(isoDate);
-    setMappingTargetOverride("");
+    clearFieldError("startDate");
     clearFieldError("deliveryDate");
+    clearFieldError("mappingTargetDate");
   };
   const handleDeliveryDateChange = (isoDate: string) => {
     setDeliveryDate(isoDate);
-    setMappingTargetOverride("");
     clearFieldError("deliveryDate");
+    clearFieldError("mappingTargetDate");
   };
   const handleMappingTargetChange = (isoDate: string) => {
-    setMappingTargetOverride(isoDate);
+    setMappingTargetDate(isoDate);
     clearFieldError("mappingTargetDate");
   };
 
@@ -225,10 +218,10 @@ export function NewProjectModal({
     }
     if (
       !isMapping &&
-      mappingTargetOverride &&
+      mappingTargetDate &&
       startDate &&
       deliveryDate &&
-      !mappingTargetFits(startDate, deliveryDate, mappingTargetOverride)
+      !mappingTargetFits(startDate, deliveryDate, mappingTargetDate)
     ) {
       refused.mappingTargetDate = "The mapping target must fall after the start and by the delivery date";
     }
@@ -280,7 +273,6 @@ export function NewProjectModal({
   })();
 
   const showSummary = windowDays !== null && windowDays > 0;
-  const mappingTargetDays = mappingTarget ? daysBetween(startDate, mappingTarget) : null;
 
   return (
     // The template list opens over the type cards below the Position field, inside the scrolling body.
@@ -340,9 +332,25 @@ export function NewProjectModal({
       <Field
         label="Project start date"
         hint="Defaults to today. Edit if the position starts later or was kicked off earlier."
+        error={fieldErrors.startDate}
       >
         <DateInput value={startDate} onChange={handleStartDateChange} />
       </Field>
+
+      {!isMapping && (
+        <Field
+          label="Mapping target date"
+          hint="When should the universe be mapped?"
+          error={fieldErrors.mappingTargetDate}
+        >
+          <DateInput
+            value={mappingTargetDate}
+            min={startDate ? addDays(startDate, 1) : undefined}
+            max={deliveryDate || undefined}
+            onChange={handleMappingTargetChange}
+          />
+        </Field>
+      )}
 
       <Field
         label={isMapping ? "Map delivery date" : "Shortlist delivery date"}
@@ -365,65 +373,17 @@ export function NewProjectModal({
         </Notice>
       )}
 
-      {showSummary && !isMapping && mappingTarget && (
-        <Notice title="Auto-calculated milestones">
-          <MilestoneRow
-            label="Mapping target"
-            dotClassName="bg-u-accent"
-            note={`~${Math.round(MAPPING_SHARE * 100)}% of window · ${mappingTargetDays} days from start${
-              mappingTargetOverride ? " · edited" : ""
-            }`}
-            error={fieldErrors.mappingTargetDate}
-          >
-            <DateInput
-              value={mappingTarget}
-              min={addDays(startDate, 1)}
-              max={deliveryDate}
-              onChange={handleMappingTargetChange}
-              ariaLabel="Mapping target date"
-              className="w-auto gap-1.5 border-0 bg-transparent p-0 font-sans text-[12.5px] font-semibold"
-            />
-          </MilestoneRow>
-          <MilestoneRow label="Shortlist target" dotClassName="bg-u-accent" note="Matches shortlist delivery date">
-            <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-u-text">
-              {formatDate(deliveryDate)}
-              <Icon d={ICONS.lock} size={12} className="text-u-text3" />
-            </span>
-          </MilestoneRow>
-          <div className="mt-2 border-t border-u-border pt-2 text-meta text-u-text3">
-            Auto-calculated from the start and shortlist dates.
-          </div>
-        </Notice>
-      )}
 
     </Modal>
   );
 }
 
-function MilestoneRow({
-  label,
-  dotClassName,
-  note,
-  error,
-  children,
-}: {
-  label: string;
-  dotClassName: string;
-  note: string;
-  error?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex items-start gap-2 border-t border-u-border py-2">
-      <span aria-hidden="true" className={cn("mt-[5px] size-1.5 flex-none rounded-full", dotClassName)} />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-u-text3">{label}</span>
-          {children}
-        </div>
-        <div className="mt-0.5 text-meta text-u-text3">{note}</div>
-        {error && <div className="mt-0.5 font-mono text-meta text-u-offlimits">{error}</div>}
-      </div>
-    </div>
-  );
+/**
+ * The record a `CLIENT_ALREADY_EXISTS` names; failing that — two creates racing on the name answer without one — the
+ * live record of that name, re-read rather than taken from the prop the refusal just proved stale.
+ */
+async function holderIdOf(refusal: unknown, unitName: string): Promise<string | undefined> {
+  if (refusal instanceof ApiRequestError && refusal.problem.clientId) return refusal.problem.clientId;
+  const fresh = await clientsApi.clients();
+  return fresh.find((client) => !client.archivedAt && client.name.toLowerCase() === unitName.toLowerCase())?.id;
 }

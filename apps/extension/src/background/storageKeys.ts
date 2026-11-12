@@ -8,9 +8,11 @@
 export const SESSION_KEY = "lightmove.session";
 export const LAST_PROJECT_KEY = "lightmove.lastProjectId";
 export const SETTINGS_KEY = "lightmove.settings";
+/** The positions filed into most recently, newest first: the switcher's Recent group. */
+export const RECENT_PROJECTS_KEY = "lightmove.recentProjectIds";
 
 /** Cleared on sign-out, because none of it means anything to a different account. */
-export const WORKSPACE_SCOPED_KEYS = [SESSION_KEY, LAST_PROJECT_KEY, SETTINGS_KEY];
+export const WORKSPACE_SCOPED_KEYS = [SESSION_KEY, LAST_PROJECT_KEY, SETTINGS_KEY, RECENT_PROJECTS_KEY];
 
 /**
  * `chrome.storage.session`, not local: the last name read from a tab, kept only so the next read can

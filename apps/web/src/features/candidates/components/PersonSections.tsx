@@ -7,11 +7,15 @@ import type { TaskNote } from "../../tasks/api/types";
 import { NoteEditor } from "../../notes/components/NoteEditor";
 import { NOTE_MAX_STORED, NOTE_TOO_LONG, withoutMentionTokens } from "../../tasks/lib/mentions";
 import { usePositionTeam } from "../../tasks/lib/usePositionTeam";
+import { CONVERSATION_KEY } from "../../outreach/api/conversationApi";
 import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
 import type { PersonNote, PersonNoteKind } from "../api/types";
+import { isContactNote, notePlaceholderOf, PLAIN_NOTE_KIND } from "../lib/noteKinds";
 import { useNoteCardActions } from "../lib/useNoteCardActions";
-import { NoteCard, NoteKindPicker, NoteScopePicker, noteAnchorOf, type NoteScope } from "./NoteParts";
+import type { Meeting } from "../../outreach/api/meetingApi";
+import { isLogInFuture, LogDetailsFields, logDetailsNow, logPayloadOf, type LogDetails } from "./LogDetailsFields";
+import { NoteCard, NoteKindPicker, NoteScopePicker, noteAnchorOf, type NoteCardLead, type NoteScope } from "./NoteParts";
 
 /**
  * The shared person in a position's drawer — where else they are mapped, the notes on them, and what
@@ -24,7 +28,6 @@ interface PersonSectionProps {
   candidateId: string;
 }
 
-const TIMELINE_PREVIEW = 5;
 
 export function usePositions(projectId: string, candidateId: string, enabled = true) {
   return useQuery({
@@ -56,6 +59,25 @@ export function DoNotContactStrip({ personId }: { personId: string }) {
   );
 }
 
+/**
+ * Restriction of processing, shown on every position the person sits on, as do not contact is: nothing uses them —
+ * no AI, lookups or outreach — until someone lifts it from the Candidates drawer. Staff-only, read from the pool record.
+ */
+export function ProcessingRestrictedStrip({ personId }: { personId: string }) {
+  const record = useQuery({
+    queryKey: poolApi.PERSON_RECORD_KEY(personId),
+    queryFn: ({ signal }) => poolApi.getPerson(personId, signal),
+  });
+  const restriction = record.data?.processingRestriction;
+  if (!restriction) return null;
+  return (
+    <p role="note" className="mt-3 rounded-u-card border border-u-signal/35 bg-u-signal-tint px-3 py-2 text-note text-u-text2">
+      <b className="font-semibold text-u-signal">Processing restricted.</b> {restriction.reason} No AI, lookups or
+      outreach until it is lifted on the Candidates page.
+    </p>
+  );
+}
+
 /** A note to bring into view — the one a task was set from — stamped so asking again scrolls again. */
 export interface NoteFocus {
   noteId: string;
@@ -67,8 +89,11 @@ export function NotesSection({
   candidateId,
   focus = null,
   onSetNextAction,
+  onShowContactNote,
 }: PersonSectionProps & {
   focus?: NoteFocus | null;
+  /** A link to a call, LinkedIn, WhatsApp or meeting note: those are Outreach's, so the drawer shows it there. */
+  onShowContactNote?: (focus: NoteFocus) => void;
   /** Opens the Next action modal on the note just saved; without it the composer offers Save note alone. */
   onSetNextAction?: (note: TaskNote) => void;
 }) {
@@ -76,15 +101,21 @@ export function NotesSection({
     queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, candidateId),
     queryFn: ({ signal }) => personCrmApi.getPersonNotes(projectId, candidateId, signal),
   });
-  const list = notes.data ?? [];
+  const allNotes = notes.data;
+  const list = (allNotes ?? []).filter((note) => !isContactNote(note.kind));
   const loaded = notes.isSuccess;
 
   useEffect(() => {
     if (!focus || !loaded) return;
+    const linked = allNotes?.find((note) => note.id === focus.noteId);
+    if (linked && isContactNote(linked.kind) && onShowContactNote) {
+      onShowContactNote(focus);
+      return;
+    }
     const card = document.getElementById(noteAnchorOf(focus.noteId));
     card?.scrollIntoView({ block: "center", behavior: "smooth" });
     card?.focus({ preventScroll: true });
-  }, [focus, loaded]);
+  }, [focus, loaded, allNotes, onShowContactNote]);
 
   return (
     <section aria-label="Notes" className="py-4">
@@ -98,7 +129,7 @@ export function NotesSection({
         ) : list.length === 0 ? (
           <p className="text-[13px]/[1.6] text-u-text3">
             No notes yet. A note saved here stays with this position; choose All positions to share it with
-            every position this person is in.
+            every position this person is in. Calls, LinkedIn and WhatsApp messages and meeting notes are in Outreach.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -119,13 +150,17 @@ export function NotesSection({
 }
 
 /**
- * A note on one executive, written from one position: its kind, its words, and whether it is about this position or
- * all of them. The drawer's Notes tab opens on it, and the Outreach page's Log call and Add note open it as a dialog.
+ * A note on one executive, written from one position: its words, and whether it is about this position or all of
+ * them. The drawer's Notes tab opens on a plain note; Log call, Log meeting, Log LinkedIn and Log WhatsApp open it as a dialog on
+ * their own kind (`kindChoices`).
  */
 export function PositionNoteComposer({
   projectId,
   candidateId,
-  initialKind = "general",
+  initialKind = PLAIN_NOTE_KIND,
+  kindChoices,
+  pastMeetings = [],
+  presetMeetingId = null,
   title = "New note",
   presentation = "inline",
   onExpandChange,
@@ -134,6 +169,12 @@ export function PositionNoteComposer({
   onSaved,
 }: PersonSectionProps & {
   initialKind?: PersonNoteKind;
+  /** The kinds the composer switches between; none drawn when it offers one. */
+  kindChoices?: readonly PersonNoteKind[];
+  /** A meeting log's Uncava meetings to choose from: this person's, already begun, newest first. */
+  pastMeetings?: readonly Meeting[];
+  /** The meeting a Log meeting notes on a call opens on. */
+  presetMeetingId?: string | null;
   /** The larger view's title. */
   title?: string;
   /** In a dialog the composer is the dialog's whole body: no frame of its own, and room to write. */
@@ -152,6 +193,8 @@ export function PositionNoteComposer({
   const positions = usePositions(projectId, candidateId);
   const thisPosition = positions.data?.find((row) => row.projectId === projectId)?.positionTitle;
   const [kind, setKind] = useState<PersonNoteKind>(initialKind);
+  const logs = kindChoices !== undefined && kindChoices.length > 0;
+  const [details, setDetails] = useState<LogDetails>(() => logDetailsNow(presetMeetingId));
   const [scope, setScope] = useState<NoteScope>("position");
   const [draft, setDraft] = useState("");
   const forEveryPosition = scope === "everywhere";
@@ -171,18 +214,24 @@ export function PositionNoteComposer({
       personCrmApi.writePersonNote(
         projectId,
         candidateId,
-        forEveryPosition
-          ? { kind, body, format: "markdown", allPositions: true }
-          : { kind, body, format: "markdown" },
+        {
+          kind,
+          body,
+          format: "markdown",
+          ...(forEveryPosition ? { allPositions: true } : {}),
+          ...(logs ? logPayloadOf(kind === "meeting" ? details : { ...details, meetingId: null }) : {}),
+        },
       ),
     onSuccess: (note, thenNextAction) => {
       setDraft("");
+      setDetails(logDetailsNow(presetMeetingId));
       void queryClient.invalidateQueries({
         queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, candidateId),
       });
       void queryClient.invalidateQueries({
         queryKey: personCrmApi.PERSON_TIMELINE_KEY(projectId, candidateId),
       });
+      void queryClient.invalidateQueries({ queryKey: CONVERSATION_KEY(projectId, candidateId) });
       if (thenNextAction && onSetNextAction) {
         toast("Note saved");
         onSetNextAction(taskNoteOf(note));
@@ -193,7 +242,7 @@ export function PositionNoteComposer({
     },
     onError: (error) => toast.error(messageFor(error)),
   });
-  const canSave = body.length > 0 && !tooLong && !saving.isPending;
+  const canSave = body.length > 0 && !tooLong && !saving.isPending && !(logs && isLogInFuture(details, kind));
   const save = () => canSave && saving.mutate(false);
 
   const isDialog = presentation === "dialog";
@@ -205,7 +254,7 @@ export function PositionNoteComposer({
         onChange={setDraft}
         teammates={forEveryPosition ? null : team.teammates}
         ariaLabel="New note"
-        placeholder="What was said, and what happens next…"
+        placeholder={kindChoices && kindChoices.length > 1 ? "What was said, and what happens next…" : notePlaceholderOf(kind)}
         onSubmit={save}
         submitLabel="Save note"
         canSubmit={canSave}
@@ -214,7 +263,16 @@ export function PositionNoteComposer({
         autoFocus={isDialog}
         fillsDialog={isDialog}
         onExpandChange={onExpandChange}
-        header={<NoteKindPicker value={kind} onChange={setKind} />}
+        header={
+          logs ? (
+            <>
+              {kindChoices.length > 1 && (
+                <NoteKindPicker value={kind} onChange={setKind} kinds={kindChoices} label="What you are logging" />
+              )}
+              <LogDetailsFields kind={kind} pastMeetings={pastMeetings} value={details} onChange={setDetails} />
+            </>
+          ) : undefined
+        }
         footer={
           <>
             {tooLong && (
@@ -255,12 +313,19 @@ export function PositionNoteComposer({
   );
 }
 
-function PositionNoteCard({
+export function PositionNoteCard({
   projectId,
   candidateId,
   note,
   flashAt,
-}: PersonSectionProps & { note: PersonNote; flashAt: number | null }) {
+  showsKindMark,
+  lead = null,
+}: PersonSectionProps & {
+  note: PersonNote;
+  flashAt: number | null;
+  showsKindMark?: boolean;
+  lead?: NoteCardLead | null;
+}) {
   const queryClient = useQueryClient();
   const actions = useNoteCardActions(
     note,
@@ -274,6 +339,7 @@ function PositionNoteCard({
     () => {
       void queryClient.invalidateQueries({ queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, candidateId) });
       void queryClient.invalidateQueries({ queryKey: personCrmApi.PERSON_TIMELINE_KEY(projectId, candidateId) });
+      void queryClient.invalidateQueries({ queryKey: CONVERSATION_KEY(projectId, candidateId) });
       void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "notes"] });
       void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "timeline"] });
       void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "activity"] });
@@ -282,7 +348,15 @@ function PositionNoteCard({
   );
   const team = usePositionTeam(note.projectId);
   return (
-    <NoteCard note={note} actions={actions} teammates={note.projectId ? team.teammates : null} flashAt={flashAt} />
+    <NoteCard
+      note={note}
+      actions={actions}
+      teammates={note.projectId ? team.teammates : null}
+      flashAt={flashAt}
+      showsKindMark={showsKindMark}
+      lead={lead}
+      namesPosition={false}
+    />
   );
 }
 
@@ -298,23 +372,4 @@ export function TabSectionHeading({ title, action }: { title: string; action?: R
       {action && <span className="ms-auto">{action}</span>}
     </div>
   );
-}
-
-/** A long history cut to its first lines, and the button that shows the rest of what is loaded. */
-export function useTimelineCut<T>(lines: readonly T[], shown = TIMELINE_PREVIEW) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const isClipped = !isExpanded && lines.length > shown;
-  return {
-    visible: isClipped ? lines.slice(0, shown) : lines,
-    isClipped,
-    seeMore: isClipped ? (
-      <button
-        type="button"
-        onClick={() => setIsExpanded(true)}
-        className="mt-3 text-note font-medium text-u-accent hover:underline"
-      >
-        See more
-      </button>
-    ) : null,
-  };
 }

@@ -5,6 +5,7 @@ import * as pipelineApi from "../../../features/pipeline/api/pipelineApi";
 import { cn } from "../../../lib/cn";
 import { BottomSheet, BottomSheetAction } from "../../ui/BottomSheet";
 import { Icon, ICONS } from "../Icon";
+import { positionPipelinePath } from "../../../features/pipeline/lib/pipelinePath";
 
 const SEARCH_DEBOUNCE_MS = 250;
 /** A position can map hundreds; past this many the sheet asks for a few letters rather than drawing them all. */
@@ -15,7 +16,7 @@ type PersonAction = "note" | "call" | "status";
 
 const PERSON_ACTION_TITLES: Record<PersonAction, string> = {
   note: "Write a note about…",
-  call: "Book a call with…",
+  call: "Book a meeting with…",
   status: "Change the status of…",
 };
 
@@ -48,11 +49,11 @@ export function PositionQuickActions({
 
   const openPerson = (candidateId: string, action: PersonAction) => {
     // Status needs no tab: its picker is in the drawer's header, over every tab.
-    const params = new URLSearchParams({ view: "list", candidate: candidateId });
-    if (action === "note") params.set("tab", "notes");
-    if (action === "call") params.set("section", "meetings");
+    const params: Record<string, string> = { candidate: candidateId };
+    if (action === "note") params.tab = "notes";
+    if (action === "call") params.section = "meetings";
     close();
-    navigate(`${base}/pipeline?${params.toString()}`);
+    navigate(positionPipelinePath(projectId, params));
   };
 
   return (
@@ -103,7 +104,7 @@ export function PositionQuickActions({
           />
           <BottomSheetAction
             icon={<Icon d={ICONS.calendar} size={18} />}
-            label="Book a call"
+            label="Book a meeting"
             hint="Pick a time on your calendar"
             onClick={() => setPicking("call")}
           />

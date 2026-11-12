@@ -17,6 +17,7 @@ export const RUN_STATES: Record<RunStatus, { label: string; className: string }>
 export const STOP_NOTES: Record<StopReason, string> = {
   MANUAL: "Stopped by hand",
   DO_NOT_CONTACT: "Marked do not contact",
+  PROCESSING_RESTRICTED: "Processing restricted",
   LEFT_THE_RUNNING: "No longer in the running",
   UNMAPPED: "Removed from the position",
   ADDRESS_REMOVED: "Address removed",

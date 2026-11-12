@@ -51,7 +51,14 @@ export interface User {
   email: string;
   fullName: string;
   title: string | null;
+  /** The stored photo's link (`/api/v1/avatars/…`), or null for initials. */
   avatarUrl: string | null;
+  /** False where the workspace's identity provider supplies the photo: Settings → Profile offers no change. */
+  avatarEditable: boolean;
+  /** Shown in the person's email signature; null when they gave none. */
+  phone: string | null;
+  /** Their own LinkedIn profile, canonical `https://www.linkedin.com/in/<slug>`. */
+  linkedinUrl: string | null;
   emailVerified: boolean;
 
   /**
@@ -96,6 +103,8 @@ export interface User {
 /** What the invitee is told about an outstanding invitation. Deliberately token-free: the id redeems it. */
 export interface PendingInvitation {
   id: string;
+  /** May be the workspace the session is in: a client contact invited as staff, or staff named a contact. */
+  workspaceId: string;
   workspaceName: string;
   role: WorkspaceRole;
   inviterName: string | null;
@@ -107,6 +116,81 @@ export interface AuthResponse {
   /** Seconds. Lets the client refresh *before* a 401 rather than in response to one. */
   expiresIn: number;
   user: User;
+}
+
+/**
+ * A right password, or emailed link, from a person with two-factor authentication on: no session yet. The challenge
+ * itself is an httpOnly cookie the browser holds, so nothing here is a credential.
+ */
+export interface MfaChallenge {
+  mfaRequired: true;
+  /** Seconds the code may still be typed in before signing in starts again. */
+  expiresIn: number;
+}
+
+/** What login, a reset link and a verification link answer. */
+export type SignInAnswer = AuthResponse | MfaChallenge;
+
+export function isMfaChallenge(answer: SignInAnswer | User): answer is MfaChallenge {
+  return "mfaRequired" in answer && answer.mfaRequired === true;
+}
+
+/** A workspace the person is in, by name. */
+export interface AccountWorkspace {
+  id: string;
+  name: string;
+}
+
+/** A live position the person is the only lead of, so it is handed over before their account can go. */
+export interface HandoverPosition {
+  workspaceId: string;
+  workspaceName: string;
+  projectId: string;
+  title: string;
+}
+
+/** What deleting the caller's account would do, and what it asks of them first. */
+export interface AccountDeletionPreview {
+  /** Every workspace they would leave. */
+  workspaces: AccountWorkspace[];
+  soleAdminOf: AccountWorkspace[];
+  soleLeadOf: HandoverPosition[];
+  /** A password account gives its password; one with none must have signed in moments ago. */
+  proof: "PASSWORD" | "RECENT_SIGN_IN";
+  /** A password account with two-factor on gives a code as well. */
+  codeRequired: boolean;
+  signedInRecently: boolean;
+  /** Lower-cased provider ids the account signs in with, to sign in again with. */
+  signInProviders: string[];
+}
+
+export interface DeleteAccountRequest {
+  currentPassword?: string;
+  code?: string;
+}
+
+/** Settings → Security's two-factor card. Never the secret or a code: those are shown once. */
+export interface MfaStatus {
+  /** Whether it may be turned on here; someone who has it may always turn it off. */
+  offered: boolean;
+  enabled: boolean;
+  enabledAt: string | null;
+  recoveryCodesLeft: number;
+}
+
+/** The secret, once, for the QR code drawn from `otpauthUri` or typed in as a setup key. */
+export interface MfaSetup {
+  secret: string;
+  otpauthUri: string;
+}
+
+/**
+ * Turning two-factor on or off, or new recovery codes: the current password, where the account has one, and a code. An
+ * account with no password sends the code alone.
+ */
+export interface MfaChangeRequest {
+  currentPassword?: string;
+  code: string;
 }
 
 export interface SignupRequest {
@@ -133,6 +217,9 @@ export interface UpdateProfileRequest {
   dateFormat: DateFormatStyle | null;
   timeFormat: TimeFormatStyle | null;
   locale: string;
+  /** Left out: unchanged. Blank: cleared. */
+  phone?: string;
+  linkedinUrl?: string;
 }
 
 /** Settings → Security. The confirm field never leaves the client — two matching copies prove nothing. */
@@ -175,6 +262,8 @@ export interface InvitationPreview {
   role: WorkspaceRole;
   workspaceName: string;
   inviterName: string | null;
+  /** When the link stops working: the server's own lifetime, never a number the page assumes. */
+  expiresAt: string;
 }
 
 /** Which sign-in methods this deployment actually offers. */
@@ -213,6 +302,14 @@ export interface ApiError {
   kind?: string;
   /** Present on TRIAL_ENDED: when the workspace's trial ended. */
   trialEndedAt?: string;
+  /** Present on CLIENT_ALREADY_EXISTS: the live record holding that name or company, to file under instead. */
+  clientId?: string;
+  /** Present on INTEGRATION_KEYS_REFUSED: the provider's own code, such as `AADSTS7000215` or `invalid_client`. */
+  providerError?: string;
+  /** Present on ACCOUNT_HANDOVER_REQUIRED: the workspaces the person is the only admin of. */
+  soleAdminOf?: AccountWorkspace[];
+  /** Present on ACCOUNT_HANDOVER_REQUIRED: the live positions the person is the only lead of. */
+  soleLeadOf?: HandoverPosition[];
 }
 
 /** A zone and two formats; on `own` each is null where the person keeps the workspace's. */

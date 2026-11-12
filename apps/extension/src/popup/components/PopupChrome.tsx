@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { avatarSrc } from "../lib/avatarSrc";
 import { cn } from "../lib/cn";
 
 /** The Uncava app icon without its tile, drawn in the text token — the same mark as the SPA's top bar. */
@@ -17,8 +18,24 @@ export function BrandMark({ className }: { className?: string }) {
   );
 }
 
-/** A person's initials in a tinted circle — the header avatar. Never an image; there is none to load. */
-export function InitialsAvatar({ name }: { name: string }) {
+/** The paired user's picture, or their initials in a tinted circle when they have none or it no longer loads. */
+export function UserAvatar({ name, src: link }: { name: string; src?: string | null }) {
+  // A picture can still fail to load — removed while the panel held its link — so it falls back to the initials,
+  // remembered per URL, so a fresh one arriving on the next refresh gets its chance.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const src = avatarSrc(link);
+  if (src && failedSrc !== src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        title={name}
+        referrerPolicy="no-referrer"
+        onError={() => setFailedSrc(src)}
+        className="h-[26px] w-[26px] shrink-0 rounded-full object-cover"
+      />
+    );
+  }
   return (
     <span
       className="grid h-[26px] w-[26px] place-items-center rounded-full bg-u-direct-tint font-mono text-[10.5px] font-bold text-u-direct"

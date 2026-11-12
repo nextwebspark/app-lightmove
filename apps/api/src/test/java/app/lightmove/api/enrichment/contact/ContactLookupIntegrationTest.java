@@ -6,9 +6,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingContactFinder;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.model.CandidateEmail;
 import app.lightmove.api.candidate.model.FoundEmails;
@@ -24,6 +26,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -45,6 +48,7 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
     private static final FoundPhones PHONES =
             new FoundPhones("contactout", List.of("+12065550100", "651-555-0142"));
 
+    @Autowired @FixtureJdbc JdbcTemplate fixture;
     @Autowired private RecordingContactFinder finder;
     @Autowired private CandidateService candidates;
 
@@ -68,14 +72,17 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
         JsonNode candidate = answer.get("candidate");
         JsonNode emails = candidate.get("contacts").get("emails");
         assertThat(emails).hasSize(3);
-        // Work before personal, in the order the provider listed them — the order the drawer shows.
-        assertThat(emails.get(0).get("address").asText()).isEqualTo("s.person@retailco.example");
+        // Personal before work, verified first within a kind — the order the drawer shows. Nobody chose a primary,
+        // so none is flagged and the first stands in.
+        assertThat(emails.get(0).get("kind").asText()).isEqualTo("personal");
+        assertThat(emails.get(0).get("primary").asBoolean()).isFalse();
         assertThat(emails.get(1).get("address").asText()).isEqualTo("sample.person@holdings.example");
         assertThat(emails.get(1).get("verified").asBoolean()).isTrue();
         assertThat(emails.get(1).get("status").asText()).isEqualTo("Verified");
         assertThat(emails.get(1).get("kind").asText()).isEqualTo("work");
         assertThat(emails.get(1).get("source").asText()).isEqualTo("contactout");
-        assertThat(emails.get(2).get("kind").asText()).isEqualTo("personal");
+        assertThat(emails.get(1).get("primary").asBoolean()).isFalse();
+        assertThat(emails.get(2).get("address").asText()).isEqualTo("s.person@retailco.example");
         assertThat(candidate.get("contacts").get("source").asText()).isEqualTo("contactout");
         assertThat(candidate.get("contacts").get("emailsLookedUpAt").isNull()).isFalse();
         assertThat(candidate.get("contacts").get("phonesLookedUpAt").isNull()).isTrue();
@@ -158,6 +165,31 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a person whose processing is restricted is refused before anything is spent")
+    void restrictionTurnsLookupsOff() throws Exception {
+        String projectId = mandate("Restricted Firm");
+        String candidateId = executive(projectId, "Sample Person", "sample-profile");
+        String personId = body(mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn()).get("personId").asText();
+        mvc.perform(put("/api/v1/candidates/" + personId + "/processing-restriction")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"restricted":true,"reason":"Contests what we hold about them."}"""))
+                .andExpect(status().isOk());
+        finder.answerEmailsWith(EMAILS);
+
+        assertThat(codeOf(mvc.perform(post(lookupUrl(projectId, candidateId, "email"))
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isConflict())
+                .andReturn()))
+                .isEqualTo("PERSON_PROCESSING_RESTRICTED");
+        assertThat(finder.askedUrls()).isEmpty();
+    }
+
+    @Test
     @DisplayName("an executive with no LinkedIn profile is refused before anything is spent")
     void noProfileIsRefusedBeforeSpending() throws Exception {
         String projectId = mandate("No Profile Firm");
@@ -209,11 +241,13 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
         String candidateId = executive(projectId, "Sample Person", "sample-profile");
 
         // Both presses pass the guard before either writes, so both reach here with their own answer.
-        candidates.applyFoundEmails(null, UUID.fromString(projectId), UUID.fromString(candidateId), EMAILS);
-        CandidateResponse loser = candidates.applyFoundEmails(null, UUID.fromString(projectId),
-                UUID.fromString(candidateId),
-                new FoundEmails("contactout",
-                        List.of(new CandidateEmail("later@retailco.example", CandidateEmail.WORK, null))));
+        UUID project = UUID.fromString(projectId);
+        TestWorkspaceScopes.inProjectsWorkspace(fixture, project, () -> candidates.applyFoundEmails(null, project,
+                UUID.fromString(candidateId), EMAILS));
+        CandidateResponse loser = TestWorkspaceScopes.inProjectsWorkspace(fixture, project,
+                () -> candidates.applyFoundEmails(null, project, UUID.fromString(candidateId),
+                        new FoundEmails("contactout",
+                                List.of(new CandidateEmail("later@retailco.example", CandidateEmail.WORK, null)))));
 
         // The second write is dropped, and the row it answers with is the first's — which is what the
         // endpoint now reads its outcome from, so the two halves of one response cannot disagree.

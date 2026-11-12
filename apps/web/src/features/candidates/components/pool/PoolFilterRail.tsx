@@ -6,7 +6,7 @@ import { SegmentedControl } from "../../../../components/ui/SegmentedControl";
 import type { Project } from "../../../projects/api/types";
 import type { Member } from "../../../workspace/api/types";
 import type { CandidateTag, PoolFilters } from "../../api/types";
-import { liveStages, liveStatuses } from "../../lib/pipelineStatus";
+import { liveStages, liveStatuses, offeredStatusLabel } from "../../lib/pipelineStatus";
 import { countActiveFilters, TAG_MATCHES, withoutRailFilters } from "../../lib/poolFilters";
 import { usePipelineCatalog } from "../../../workspace/lib/usePipelineCatalog";
 
@@ -225,7 +225,7 @@ function StageStatusSection({
                 <FilterCheckRow
                   key={status.id}
                   size="sm"
-                  label={status.label}
+                  label={offeredStatusLabel(stage, status)}
                   checked={filters.status === status.key}
                   onToggle={() =>
                     onChange({ ...filters, pipelineStage: "", status: filters.status === status.key ? "" : status.key })

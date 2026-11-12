@@ -128,6 +128,8 @@ public class SecurityConfig {
                                 API + "/auth/verify/resend",
                                 API + "/auth/password/forgot",
                                 API + "/auth/password/reset",
+                                // Completes a sign-in, like login; its challenge cookie is SameSite and httpOnly.
+                                API + "/auth/mfa/verify",
                                 // The extension's refresh token travels in the body, not a cookie.
                                 // Deliberately not /auth/extension/**: minting a token stays protected.
                                 API + "/auth/extension/refresh",
@@ -143,6 +145,7 @@ public class SecurityConfig {
                                 API + "/auth/verify/resend",
                                 API + "/auth/password/forgot",
                                 API + "/auth/password/reset",
+                                API + "/auth/mfa/verify",   // authenticated by the challenge cookie and the code
                                 API + "/auth/csrf",
                                 API + "/auth/providers",
                                 API + "/auth/extension/refresh",
@@ -318,6 +321,9 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, API + "/outreach/booking/*").permitAll()
 
+                        // A picture an email shows, fetched by the recipient's mail client: the random token is the credential.
+                        .requestMatchers(HttpMethod.GET, API + "/email-images/*").permitAll()
+
                         // The mail service's webhook holds no bearer token: the delivery's HMAC signature,
                         // checked by OutreachInboxService before anything is read, is its credential.
                         .requestMatchers(API + "/outreach/webhooks/mailbox").permitAll()
@@ -329,6 +335,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, API + "/notetaker/webhooks/recall/live").permitAll()
                         // Stripe's likewise: its signature, checked by the payment gateway, is the credential.
                         .requestMatchers(HttpMethod.POST, API + "/billing/webhooks/stripe").permitAll()
+                        // A stored profile photo: drawn by a plain <img>, which carries no token; the link's token is the guard.
+                        .requestMatchers(HttpMethod.GET, API + "/avatars/*").permitAll()
 
                         // Tenant data: an unverified user may not read a single candidate record.
                         .requestMatchers(API + "/**").access(verified)

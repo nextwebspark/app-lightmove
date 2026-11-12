@@ -7,12 +7,8 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
- * The legacy binary Office family — {@code .doc}, {@code .xls}, {@code .ppt} — sharing one OLE2
- * compound-file signature this reader does not tell apart, because doing so needs parsing the file's
- * own storage directory for a stream name ({@code WordDocument}, {@code Workbook}, {@code PowerPoint
- * Document}) and nothing here does that yet. Always refused rather than guessed at: reading one needs
- * {@code poi-scratchpad}, which is not on the classpath, and the fix a person can act on is to save it
- * as a modern format.
+ * The legacy OLE2 Office family ({@code .doc}, {@code .xls}, {@code .ppt}), always refused: reading one needs
+ * {@code poi-scratchpad}, not on the classpath, and saving as a modern format is the fix a person can act on.
  */
 @Component
 @Order(200)

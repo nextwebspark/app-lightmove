@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -53,14 +54,30 @@ public class TriageCompanyController {
                                         @RequestParam(required = false) String q,
                                         @RequestParam(required = false) String executiveQuery,
                                         @RequestParam(required = false) List<String> executiveStatuses,
+                                        @RequestParam(required = false) String search,
                                         @RequestParam(required = false) String sort,
                                         @RequestParam(required = false) String direction,
                                         @RequestParam(required = false) Integer page,
                                         @RequestParam(required = false) Integer size) {
         TriageCompanyListCriteria criteria = new TriageCompanyListCriteria(
-                status, q, executiveQuery, executiveStatuses, sort, direction, page, size);
+                status, q, executiveQuery, executiveStatuses, search, sort, direction, page, size);
         return reads.list(principal.requireWorkspaceId(), projectId, criteria,
                 projectAccess.audienceOf(principal.userId(), principal.requireWorkspaceId(), projectId));
+    }
+
+    /**
+     * Whether this position already holds the company on a LinkedIn page, by the page or by its name: the plugin asks
+     * before it offers to file one, and opens its record instead. 204 when it does not.
+     */
+    @GetMapping("/held")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public ResponseEntity<TriageCompanyResponse> held(@AuthenticationPrincipal AuthPrincipal principal,
+                                                      @PathVariable UUID projectId,
+                                                      @RequestParam(required = false) String linkedinUrl,
+                                                      @RequestParam(required = false) String name) {
+        return reads.heldAt(principal.requireWorkspaceId(), projectId, linkedinUrl, name)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     @PostMapping
@@ -153,8 +170,9 @@ public class TriageCompanyController {
     public void remove(@AuthenticationPrincipal AuthPrincipal principal,
                        @PathVariable UUID projectId,
                        @PathVariable UUID triageCompanyId,
+                       @RequestParam(defaultValue = "0") long expectedExecutives,
                        HttpServletRequest httpRequest) {
         triage.removeFromProject(principal.userId(), principal.requireWorkspaceId(), projectId,
-                triageCompanyId, httpRequest);
+                triageCompanyId, expectedExecutives, httpRequest);
     }
 }

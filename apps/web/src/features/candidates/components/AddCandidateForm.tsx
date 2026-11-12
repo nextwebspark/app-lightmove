@@ -1,5 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { DEFAULT_CURRENCY } from "../../../lib/currencies";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
@@ -11,6 +10,7 @@ import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
+import { useWorkspaceCurrency } from "../../workspace/lib/useWorkspaceCurrency";
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate, SaveCandidatePayload } from "../api/types";
@@ -28,7 +28,7 @@ import {
   CareerFields,
   CompensationFields,
   ContactEntriesFields,
-  ContactFields,
+  LinkedInUrlField,
   IdentityFields,
   NoteFields,
   StatusField,
@@ -49,15 +49,9 @@ export interface CandidateCompanyContext {
 }
 
 /**
- * A new executive, as one form: there is nothing to read yet, so every section is open at once.
- *
- * <p>Where the panel was opened from a company's row the employer is that company and the field is
- * read-only: the mapping and the name must not be able to disagree, and the server ignores a typed
- * employer in that case anyway. Opened from the toolbar there is no company, the field is free text,
- * and the row lands unmapped — the executive whose employer is not in the mandate's universe.
- *
- * <p>Mounted fresh each time the panel opens, so a reopen never shows the half-typed profile that
- * was abandoned last time.
+ * A new executive, as one form with every section open. Opened from a company's row the employer is that company,
+ * read-only (the server ignores a typed one); from the toolbar it is free text and the row lands unmapped. Mounted fresh
+ * on each open.
  */
 export function AddCandidateForm({
   projectId,
@@ -82,6 +76,7 @@ export function AddCandidateForm({
   onMarkNoExecutiveFound?: () => void;
 }) {
   const toast = useToast();
+  const { currency: workspaceCurrency } = useWorkspaceCurrency();
   const [submitError, setSubmitError] = useState<string | null>(null);
   // Outside react-hook-form: its schema is a fixed shape and these keys are the project's, decided at
   // runtime. They still travel in the same submit, so a save is one request and one audit event.
@@ -92,7 +87,7 @@ export function AddCandidateForm({
     defaultValues: {
       ...EMPTY_FORM,
       employerName: company?.companyName ?? "",
-      currency: defaultCurrency ?? DEFAULT_CURRENCY,
+      currency: defaultCurrency ?? workspaceCurrency,
     },
   });
   const { register, formState } = form;
@@ -194,7 +189,7 @@ export function AddCandidateForm({
                 <ContactEntriesFields channel="phone" />
               </div>
             </div>
-            <ContactFields />
+            <LinkedInUrlField register={register} error={formState.errors.linkedinUrl?.message} />
           </Section>
 
           <Section title="Background">

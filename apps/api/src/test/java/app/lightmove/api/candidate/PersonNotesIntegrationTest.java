@@ -8,12 +8,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubChatModel;
 import app.lightmove.api.candidate.service.PersonNotePurge;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -45,7 +47,7 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
              "evidence_against":[],"rule_applied":"none",
              "gender":"female","yearsExperience":14,"seniority":"N-1"}""";
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
     @Autowired StubChatModel model;
     @Autowired PersonNotePurge purge;
 
@@ -83,6 +85,159 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
         assertThat(timeline(credit, onCredit, "notes").get("entries")).isEmpty();
         assertThat(timeline(cfo, onCfo.get("id").asText(), "notes").get("entries").get(0).get("noteExcerpt").asText())
                 .startsWith("Open to a group CFO move");
+    }
+
+    @Test
+    @DisplayName("a LinkedIn exchange is filed as its own kind, and its timeline line says so")
+    void aLinkedInNoteKeepsItsKind() throws Exception {
+        firm("LinkedIn Notes Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, FATIMA).get("id").asText();
+
+        write(admin, cfo, candidateId, "linkedin", "Accepted the connection request; open to a call next week.");
+
+        assertThat(notes(admin, cfo, candidateId).get(0).get("kind").asText()).isEqualTo("linkedin");
+        JsonNode line = timeline(cfo, candidateId, "notes").get("entries").get(0);
+        assertThat(line.get("kind").asText()).isEqualTo("NOTE_ADDED");
+        assertThat(line.get("details").get("kind").asText()).isEqualTo("LINKEDIN");
+    }
+
+    @Test
+    @DisplayName("a WhatsApp exchange is filed as its own kind, and its timeline line says so")
+    void aWhatsAppNoteKeepsItsKind() throws Exception {
+        firm("WhatsApp Notes Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, FATIMA).get("id").asText();
+
+        write(admin, cfo, candidateId, "whatsapp", "Sent the role outline; she will read it tonight.");
+
+        assertThat(notes(admin, cfo, candidateId).get(0).get("kind").asText()).isEqualTo("whatsapp");
+        JsonNode line = timeline(cfo, candidateId, "notes").get("entries").get(0);
+        assertThat(line.get("kind").asText()).isEqualTo("NOTE_ADDED");
+        assertThat(line.get("details").get("kind").asText()).isEqualTo("WHATSAPP");
+    }
+
+    @Test
+    @DisplayName("an email is never logged by hand: a new one is refused, an old one keeps its kind, and no kind is a plain note")
+    void anEmailIsNeverLoggedByHand() throws Exception {
+        firm("Email Notes Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, FATIMA).get("id").asText();
+
+        String refusal = codeOf(mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"email","body":"Sent the brief."}"""))
+                .andExpect(status().isBadRequest())
+                .andReturn());
+        assertThat(refusal).isEqualTo("VALIDATION_FAILED");
+
+        JsonNode plain = body(mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"body":"Keep the chair out of early calls."}"""))
+                .andExpect(status().isCreated())
+                .andReturn());
+        assertThat(plain.get("kind").asText()).isEqualTo("general");
+
+        String noteId = write(admin, cfo, candidateId, "call", "Sent the brief by email.").get("id").asText();
+        db.update("update app_lm_person_note set kind = 'EMAIL' where id = ?::uuid", noteId);
+        mvc.perform(put(notesUrl(cfo, candidateId) + "/" + noteId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"email","body":"Sent the brief and the org chart."}"""))
+                .andExpect(status().isOk());
+        JsonNode kept = null;
+        for (JsonNode each : notes(admin, cfo, candidateId)) {
+            if (each.get("id").asText().equals(noteId)) {
+                kept = each;
+            }
+        }
+        assertThat(kept).isNotNull();
+        assertThat(kept.get("kind").asText()).isEqualTo("email");
+        mvc.perform(put(notesUrl(cfo, candidateId) + "/" + plain.get("id").asText())
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"email","body":"Now an email."}"""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("a logged call says when it happened and orders the conversation by it; the future and a plain note's time are refused")
+    void aLogSaysWhenItHappened() throws Exception {
+        firm("When It Happened Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, FATIMA).get("id").asText();
+        Instant lastWeek = Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(Duration.ofDays(7));
+
+        JsonNode plain = write(admin, cfo, candidateId, "general", "Typed today.");
+        assertThat(plain.get("occurredAt").asText()).isEqualTo(plain.get("createdAt").asText());
+        JsonNode call = body(mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"call","body":"Spoke last week.","occurredAt":"%s","title":"First call"}"""
+                                .formatted(lastWeek)))
+                .andExpect(status().isCreated())
+                .andReturn());
+        assertThat(Instant.parse(call.get("occurredAt").asText())).isEqualTo(lastWeek);
+        assertThat(call.get("title").asText()).isEqualTo("First call");
+
+        JsonNode events = body(mvc.perform(get("/api/v1/projects/" + cfo + "/outreach/conversations/" + candidateId)
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn()).get("events");
+        JsonNode last = events.get(events.size() - 1);
+        assertThat(last.get("note").get("id").asText()).isEqualTo(call.get("id").asText());
+        assertThat(Instant.parse(last.get("at").asText())).isEqualTo(lastWeek);
+
+        mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"call","body":"Tomorrow.","occurredAt":"%s"}"""
+                                .formatted(Instant.now().plus(Duration.ofDays(1)))))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"general","body":"A plain note.","occurredAt":"%s"}""".formatted(lastWeek)))
+                .andExpect(status().isBadRequest());        mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"call","body":"Two lines.","title":"First\\nSecond"}"""))
+                .andExpect(status().isBadRequest());
+
+        // An edit of the words alone, with no kind, keeps the kind, the time and the title.
+        String callUrl = notesUrl(cfo, candidateId) + "/" + call.get("id").asText();
+        JsonNode reworded = body(mvc.perform(put(callUrl)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"body":"Spoke last week, at length."}"""))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(reworded.get("kind").asText()).isEqualTo("call");
+        assertThat(Instant.parse(reworded.get("occurredAt").asText())).isEqualTo(lastWeek);
+        assertThat(reworded.get("title").asText()).isEqualTo("First call");
+
+        // Made a plain note, it lets its time and title go rather than failing the table's checks.
+        JsonNode plainNow = body(mvc.perform(put(callUrl)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"general","body":"Just a note now."}"""))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(plainNow.get("kind").asText()).isEqualTo("general");
+        assertThat(plainNow.get("title").isNull()).isTrue();
+        assertThat(plainNow.get("occurredAt").asText()).isEqualTo(plainNow.get("createdAt").asText());
     }
 
     @Test
@@ -604,6 +759,65 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an edited note keeps one line, read as it stands and marked edited; the audit trail keeps the edit")
+    void anEditLeavesOneLineMarkedEdited() throws Exception {
+        firm("Edited Note Firm");
+        String cfo = mandate("Chief Financial Officer");
+        JsonNode filed = add(cfo, FATIMA);
+        String candidateId = filed.get("id").asText();
+        String personId = filed.get("personId").asText();
+        String noteId = write(admin, cfo, candidateId, "general", "Not interested - locaton").get("id").asText();
+        assertThat(timeline(cfo, candidateId, "notes").get("entries").get(0).get("noteEditedAt").isNull()).isTrue();
+
+        mvc.perform(put(notesUrl(cfo, candidateId) + "/" + noteId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"call","body":"Not interested - location"}"""))
+                .andExpect(status().isOk());
+        // A line as the previous release wrote it for an edit: still on the table, never read back.
+        db.update("""
+                insert into app_lm_person_activity (workspace_id, person_id, project_id, project_title, kind,
+                                                    occurred_at, details)
+                select p.workspace_id, ?::uuid, p.id, p.position_title, 'NOTE_EDITED', now(), ?::jsonb
+                from app_lm_project p where p.id = ?::uuid
+                """, personId, "{\"noteId\":\"" + noteId + "\",\"kind\":\"CALL\"}", cfo);
+
+        // The Candidates page's person timeline carries no notes (they stay with the Notes tab and each position).
+        assertThat(kindsOf(workspaceRead("/api/v1/candidates/" + personId + "/timeline", null)))
+                .isNotEmpty().noneMatch(kind -> kind.startsWith("NOTE_"));
+        assertThat(workspaceRead("/api/v1/candidates/" + personId + "/timeline", "notes")).isEmpty();
+        List<JsonNode> reads = List.of(
+                timeline(cfo, candidateId, null).get("entries"),
+                timeline(cfo, candidateId, "notes").get("entries"),
+                workspaceRead("/api/v1/candidates/activity", "notes"));
+        for (JsonNode entries : reads) {
+            List<JsonNode> noteLines = new ArrayList<>();
+            entries.forEach(entry -> {
+                if (entry.get("kind").asText().startsWith("NOTE_")) {
+                    noteLines.add(entry);
+                }
+            });
+            assertThat(noteLines).hasSize(1);
+            JsonNode line = noteLines.getFirst();
+            assertThat(line.get("kind").asText()).isEqualTo("NOTE_ADDED");
+            assertThat(line.get("noteExcerpt").asText()).isEqualTo("Not interested - location");
+            assertThat(line.get("details").get("kind").asText()).isEqualTo("CALL");
+            assertThat(line.get("noteEditedAt").isNull()).isFalse();
+            assertThat(line.get("noteEditedByName").asText()).isEqualTo("Alok Kumar");
+        }
+
+        JsonNode row = body(mvc.perform(get("/api/v1/candidates").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn()).get("people").get(0);
+        assertThat(row.get("lastActivity").get("kind").asText()).isEqualTo("NOTE_ADDED");
+        assertThat(db.queryForObject("""
+                select count(*) from app_lm_audit_event
+                where event_type = 'PERSON_NOTE_EDITED' and metadata ->> 'noteId' = ?""", Integer.class, noteId))
+                .isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("the timeline reads newest first by page and group, and the workspace feed by who and where")
     void theTimelineAndTheFeedRead() throws Exception {
         firm("Timeline Firm");
@@ -625,7 +839,7 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"status":"contacted"}"""))
                 .andExpect(status().isOk());
-        write(admin, cfo, candidateId, "email", "Sent the brief.");
+        write(admin, cfo, candidateId, "call", "Sent the brief.");
 
         JsonNode all = timeline(cfo, candidateId, null).get("entries");
         assertThat(kindsOf(all)).containsExactly("NOTE_ADDED", "STATUS_CHANGED", "ADDED_TO_POOL");
@@ -870,6 +1084,14 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
             request = request.param("group", group);
         }
         return body(mvc.perform(request).andExpect(status().isOk()).andReturn());
+    }
+
+    private JsonNode workspaceRead(String url, String group) throws Exception {
+        var request = get(url).header("Authorization", "Bearer " + admin);
+        if (group != null) {
+            request = request.param("group", group);
+        }
+        return body(mvc.perform(request).andExpect(status().isOk()).andReturn()).get("entries");
     }
 
     private static List<String> kindsOf(JsonNode entries) {

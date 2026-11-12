@@ -20,15 +20,8 @@ export interface GridPaging {
 }
 
 /**
- * Which page of a grid is on screen.
- *
- * <p>Local rather than remembered: a page number is a position in one sitting's reading, and coming
- * back to a screen at page 14 of a list that has since been refilled is not where anyone left off.
- *
- * <p>{@link reset} and {@link clampTo} return the same state object when there is nothing to change,
- * so the effects that call them on every filter edit and every row count cannot loop. Between them
- * they are why the table's own `autoResetPageIndex` is off: a refetch that brought back the same
- * rows would otherwise bounce a reader to page one for nothing.
+ * Which page of a grid is on screen, never remembered. {@link reset} and {@link clampTo} return the same state when
+ * nothing changes so their effects cannot loop, which is why the table's `autoResetPageIndex` is off.
  */
 export function useGridPaging(initialSize: number = DEFAULT_PAGE_SIZE): GridPaging {
   const [pagination, setPagination] = useState<PaginationState>({

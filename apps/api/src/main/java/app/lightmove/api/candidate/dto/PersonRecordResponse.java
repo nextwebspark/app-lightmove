@@ -7,13 +7,15 @@ import java.util.UUID;
 /**
  * A workspace person outside any one mandate, as the Candidates drawer reads them: the profile every
  * position shares, how to reach them, where they are mapped, and the team's own facts about them —
- * owner, tags, do not contact. Staff-only; a client seat reaches none of it.
+ * owner, tags, do not contact, a restriction of processing. Staff-only; a client seat reaches none of it.
  */
 public record PersonRecordResponse(
         UUID personId,
         String fullName,
         String title,
         String companyName,
+        /** The employer's logo, as the Candidates list draws it; null for none. */
+        String companyLogoUrl,
         /** A {@code Seniority} wire token. */
         String seniority,
         String linkedinUrl,
@@ -33,6 +35,8 @@ public record PersonRecordResponse(
         UUID ownerUserId,
         /** Null unless the person is marked do not contact. */
         DoNotContactResponse doNotContact,
+        /** Null unless processing of the person is restricted. */
+        ProcessingRestrictionResponse processingRestriction,
         List<UUID> tagIds,
         /** A {@code CandidateSource} wire token: the door the person first came through. */
         String source,

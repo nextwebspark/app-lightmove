@@ -344,7 +344,7 @@ export function BookCallDialog({
     <Modal
       open
       onClose={onClose}
-      title={isRescheduling ? `Reschedule call with ${fullName}` : `Book a call with ${fullName}`}
+      title={isRescheduling ? `Reschedule call with ${fullName}` : `Book a meeting with ${fullName}`}
       subtitle={view ? `Your calendar · ${view.address} · ${view.timeZone}` : " "}
       closeButton
       initialFocusRef={weekHeading}
@@ -421,7 +421,6 @@ export function BookCallDialog({
           className={cn(
             "flex flex-col gap-5 border-t border-u-border pt-5",
             "md:min-h-0 md:overflow-y-auto md:border-s md:border-t-0 md:pb-1 md:pe-1 md:ps-6 md:pt-0",
-            "[scrollbar-color:var(--color-u-border-strong)_transparent] [scrollbar-width:thin]",
           )}
         >
           <div>

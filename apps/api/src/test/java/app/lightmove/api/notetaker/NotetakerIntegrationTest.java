@@ -12,11 +12,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.RecordingRecallBotApi;
 import app.lightmove.api.StubChatModel;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.candidate.model.SpokenLine;
 import app.lightmove.api.candidate.model.TranscriptOnFile;
@@ -25,6 +27,7 @@ import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import app.lightmove.api.notetaker.service.NotetakerReconcile;
+import app.lightmove.api.notetaker.service.RecallBotErasureSweeper;
 import app.lightmove.api.notetaker.service.NotetakerService;
 import app.lightmove.api.notetaker.service.NotetakerTranscriptPurge;
 import app.lightmove.api.outreach.model.CalendarEvent;
@@ -89,7 +92,8 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     @Autowired private NotetakerReconcile reconcile;
     @Autowired private NotetakerService notetakers;
     @Autowired private NotetakerTranscriptPurge transcriptPurge;
-    @Autowired private JdbcTemplate jdbc;
+    @Autowired private RecallBotErasureSweeper recallCleanup;
+    @Autowired @FixtureJdbc private JdbcTemplate jdbc;
     @Autowired private CandidateMaterialService material;
 
     private String grantId;
@@ -353,6 +357,44 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a researcher's own notes name a recorded call, from its position alone, once the call has begun")
+    void notesNameARecordedCall() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String notes = "/api/v1/projects/" + projectId + "/candidates/" + priya + "/notes";
+        String aboutIt = """
+                {"kind":"meeting","body":"She asked about the board.","recordingId":"%s"}""".formatted(recordingId);
+
+        as(consultant, post(notes).contentType(MediaType.APPLICATION_JSON).content(aboutIt))
+                .andExpect(status().isBadRequest());
+        Instant began = Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(Duration.ofHours(1));
+        jdbc.update("update app_lm_meeting_recording set starts_at = ? where id = ?::uuid",
+                Timestamp.from(began), recordingId);
+
+        JsonNode note = body(as(consultant, post(notes).contentType(MediaType.APPLICATION_JSON).content(aboutIt))
+                .andExpect(status().isCreated()).andReturn());
+        assertThat(note.get("recordingId").asText()).isEqualTo(recordingId);
+        assertThat(note.get("meetingId").isNull()).isTrue();
+        assertThat(note.get("title").asText()).isEqualTo("First conversation");
+        assertThat(Instant.parse(note.get("occurredAt").asText())).isEqualTo(began);
+
+        String otherProject = body(as(consultant, post("/api/v1/projects").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"clientId\":\"%s\",\"positionTitle\":\"Group COO\"}".formatted(clientId)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        String onOther = body(as(consultant, post("/api/v1/projects/" + otherProject + "/candidates")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"fullName":"Priya Raman","title":"Chief Financial Officer","employerName":"Target Group",
+                         "email":"priya@%s"}
+                        """.formatted(domain)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        as(consultant, post("/api/v1/projects/" + otherProject + "/candidates/" + onOther + "/notes")
+                .contentType(MediaType.APPLICATION_JSON).content(aboutIt))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("a call running over its booked end can still be sent a bot, which joins at once, until 20 min past")
     void anOverrunningCallIsStillRecordable() throws Exception {
         Instant now = Instant.now();
@@ -612,6 +654,67 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a call the calendar replaced at the same time keeps its bot until the new event names another link")
+    void aReplacedCallKeepsItsBotUntilItsLinkDiffers() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        assertThat(Instant.parse(notetaker().get("recordings").get(0).get("endsAt").asText()))
+                .isEqualTo(start.plus(Duration.ofMinutes(30)));
+
+        replaceCall("call-2", "First conversation - new link", null);
+        notetakers.callBackMovedCalls(Instant.now());
+
+        assertThat(statusOf(recordingId)).isEqualTo("SCHEDULED");
+        assertThat(recall.removed()).doesNotContain(bot);
+
+        replaceCall("call-2", "First conversation - new link", "https://meet.google.com/new-link-xyz");
+        notetakers.callBackMovedCalls(Instant.now());
+
+        assertThat(statusOf(recordingId)).isEqualTo("CANCELLED");
+        assertThat(recall.removed()).containsOnlyOnce(bot);
+    }
+
+    @Test
+    @DisplayName("a linkless meeting kept before the bot was sent is another meeting, and holds no bot")
+    void anOlderLinklessMeetingHoldsNoBot() throws Exception {
+        gateway.deliverNext(List.of(new CalendarEventChanged(grantId, new CalendarEvent("lunch", "Lunch", start,
+                start.plus(Duration.ofMinutes(30)), List.of(MAILBOX, "priya@" + domain), null, null))));
+        mvc.perform(post("/api/v1/outreach/webhooks/mailbox")
+                        .header("X-Nylas-Signature", RecordingMailboxGateway.VALID_SIGNATURE)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+
+        jdbc.update("delete from app_lm_person_meeting where provider_event_id = 'call-1'");
+        notetakers.callBackMovedCalls(Instant.now());
+
+        assertThat(statusOf(recordingId)).isEqualTo("CANCELLED");
+        assertThat(recall.removed()).containsOnlyOnce(bot);
+    }
+
+    @Test
+    @DisplayName("changes are found with no press though the mapping the bot was sent from was removed and made again")
+    void changesAreFoundForAPersonMappedAgain() throws Exception {
+        chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
+        chat.answerWhenSystemContains(CHANGES_MARKER, CHANGES);
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        recall.holdsTranscript("t-1", List.of(
+                new TranscriptLine(start.plusSeconds(5), "Yara Haddad", "Thanks for making the time.", true),
+                new TranscriptLine(start.plusSeconds(20), "Priya Raman", "My notice is ninety days.", true)));
+        jdbc.update("update app_lm_meeting_recording set candidate_id = null where id = ?::uuid", recordingId);
+
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        deliver(bot, """
+                {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
+
+        assertThat(statusOf(recordingId)).isEqualTo("DONE");
+        assertThat(notetaker().get("recordings").get(0).get("pendingSuggestions").asInt()).isPositive();
+    }
+
+    @Test
     @DisplayName("a leave Recall refuses keeps the bot recording, unless Recall says the bot had already left")
     void aRefusedLeaveKeepsRecording() throws Exception {
         String recordingId = scheduledRecordingId();
@@ -669,7 +772,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                 {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
         assertThat(statusOf(recordingId)).isEqualTo("DONE");
 
-        List<TranscriptOnFile> read = material.transcriptsOf(UUID.fromString(projectId), UUID.fromString(priya));
+        List<TranscriptOnFile> read = transcriptsOf(UUID.fromString(projectId), UUID.fromString(priya));
         assertThat(read).singleElement().satisfies(transcript -> {
             assertThat(transcript.title()).isEqualTo("First conversation");
             assertThat(transcript.lines()).extracting(SpokenLine::speaker, SpokenLine::team)
@@ -688,11 +791,11 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                         """.formatted(domain)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
-        assertThat(material.transcriptsOf(UUID.fromString(otherProject), UUID.fromString(onOther))).isEmpty();
+        assertThat(transcriptsOf(UUID.fromString(otherProject), UUID.fromString(onOther))).isEmpty();
 
         jdbc.update("update app_lm_person_note set deleted_at = now(), deleted_by = author_user_id where id = "
                 + "(select note_id from app_lm_meeting_recording where id = ?::uuid)", recordingId);
-        assertThat(material.transcriptsOf(UUID.fromString(projectId), UUID.fromString(priya))).isEmpty();
+        assertThat(transcriptsOf(UUID.fromString(projectId), UUID.fromString(priya))).isEmpty();
     }
 
     @Test
@@ -800,6 +903,72 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         markDoNotContact();
         schedule().andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MEETING_DO_NOT_CONTACT"));
         assertThat(recall.sent()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("restricting processing calls back a waiting bot, and no further bot goes until it is lifted")
+    void restrictionCallsBotsBackAndRefusesNew() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+
+        restrictProcessing(true);
+
+        assertThat(statusEventually(recordingId, "CANCELLED")).isEqualTo("CANCELLED");
+        assertThat(recall.removed()).contains(bot);
+        assertThat(recall.mediaDeleted()).contains(bot);
+        assertThat(auditedFor("NOTETAKER_CANCELLED", recordingId, 1)).isEqualTo(1);
+        schedule().andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PERSON_PROCESSING_RESTRICTED"));
+        assertThat(notetaker().get("recordableMeetingIds")).isEmpty();
+
+        restrictProcessing(false);
+        schedule().andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("a bot Recall refuses to strip when someone is restricted stays queued until Recall takes it")
+    void restrictionQueuesTheBotUntilRecallAnswers() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        recall.refuseMediaDeletes(VendorFailureKind.UNAVAILABLE);
+
+        restrictProcessing(true);
+
+        assertThat(statusOf(recordingId)).isEqualTo("CANCELLED");
+        assertThat(recall.removed()).contains(bot);
+        assertThat(jdbc.queryForObject("select call_back from app_lm_recall_bot_erasure where recall_bot_id = ?",
+                Boolean.class, bot)).isFalse();
+
+        recall.refuseMediaDeletes(null);
+        recallCleanup.sweepAt(Instant.now().plus(Duration.ofHours(2)));
+        assertThat(recall.mediaDeleted()).contains(bot);
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_recall_bot_erasure where recall_bot_id = ?",
+                Long.class, bot)).isZero();
+    }
+
+    @Test
+    @DisplayName("a transcript arriving for someone restricted since is neither summarised nor read for changes")
+    void restrictedTranscriptIsNotSummarised() throws Exception {
+        chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        recall.holdsTranscript("t-1", List.of(new TranscriptLine(start, "Priya Raman", "Hello.", true)));
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        deliver(bot, """
+                {"event":"bot.done","data":{"bot":{"id":"%s"},"data":{"code":"done","sub_code":null}}}""");
+        restrictProcessing(true);
+
+        deliver(bot, """
+                {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
+
+        JsonNode failed = notetaker().get("recordings").get(0);
+        assertThat(failed.get("status").asText()).isEqualTo("FAILED");
+        assertThat(failed.get("failureReason").asText()).isEqualTo("PROCESSING_RESTRICTED");
+        assertThat(transcriptHeld(recordingId)).isFalse();
+        assertThat(chat.prompts()).isEmpty();
+        as(consultant, post(suggestionsPath(recordingId))).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PERSON_PROCESSING_RESTRICTED"));
     }
 
     @Test
@@ -1077,8 +1246,26 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                 + "where id = ?::uuid)", ZoneOffset.ofHours(12 - utcHour).getId(), meetingId());
     }
 
+    /** The calendar's own replacement of the call: a new event at the same time, the old one gone. */
+    private void replaceCall(String eventId, String title, String joinUrl) throws Exception {
+        gateway.deliverNext(List.of(new CalendarEventChanged(grantId, new CalendarEvent(eventId, title, start,
+                start.plus(Duration.ofMinutes(30)), List.of(MAILBOX, "priya@" + domain), joinUrl,
+                joinUrl == null ? null : "Google Meet"))));
+        mvc.perform(post("/api/v1/outreach/webhooks/mailbox")
+                        .header("X-Nylas-Signature", RecordingMailboxGateway.VALID_SIGNATURE)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+        jdbc.update("delete from app_lm_person_meeting where provider_event_id = 'call-1'");
+    }
+
     private String scheduledRecordingId() throws Exception {
         return body(schedule().andExpect(status().isCreated()).andReturn()).get("id").asText();
+    }
+
+    /** The assessment's read, straight from the service: the position's workspace is named, as no request carries it. */
+    private List<TranscriptOnFile> transcriptsOf(UUID projectId, UUID candidateId) {
+        return TestWorkspaceScopes.inProjectsWorkspace(jdbc, projectId,
+                () -> material.transcriptsOf(projectId, candidateId));
     }
 
     private String filedRecording() throws Exception {
@@ -1225,6 +1412,25 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"doNotContact\":true,\"reason\":\"Asked not to be approached.\"}"))
                 .andExpect(status().isOk());
+    }
+
+    private void restrictProcessing(boolean restricted) throws Exception {
+        String personId = body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + priya))
+                .andReturn()).get("personId").asText();
+        as(consultant, put("/api/v1/candidates/" + personId + "/processing-restriction")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"restricted\":%s,\"reason\":\"Asked what we hold about them.\"}".formatted(restricted)))
+                .andExpect(status().isOk());
+    }
+
+    /** The call-back runs after the restriction commits, off the request. */
+    private String statusEventually(String recordingId, String expected) throws InterruptedException {
+        String status = statusOf(recordingId);
+        for (int attempt = 0; attempt < 100 && !expected.equals(status); attempt++) {
+            Thread.sleep(50);
+            status = statusOf(recordingId);
+        }
+        return status;
     }
 
     private String mandate() throws Exception {

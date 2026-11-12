@@ -17,7 +17,6 @@ export const SIGNUP_STEPS: Step[] = [
   { n: 1, label: "Account" },
   { n: 2, label: "Verify" },
   { n: 3, label: "Organization" },
-  { n: 4, label: "Invite team" },
 ];
 
 export function Stepper({
@@ -31,12 +30,7 @@ export function Stepper({
   /** Omitted when going back is not possible — e.g. once the account has actually been created. */
   onGoBack?: (step: number) => void;
   /**
-   * Which completed steps may actually be returned to. Defaults to all of them.
-   *
-   * <p>"Completed" and "revisitable" are not the same thing, and conflating them is how a signup wizard
-   * offers someone a door that opens onto a wall. Step 1 is the case: it created an account, and there
-   * is nothing to go back and do differently — so it is a tick, not a link, and must not present itself
-   * as one.
+   * Which completed steps may be returned to (default all). Step 1 created an account, so it is a tick, not a link.
    */
   backableSteps?: number[];
 }) {

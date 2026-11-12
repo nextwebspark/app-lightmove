@@ -4,7 +4,7 @@ import { Popover } from "../../../components/ui/Popover";
 import { cn } from "../../../lib/cn";
 import type { PipelineCatalog, PipelineStage, PipelineStatus } from "../../workspace/api/types";
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
-import { findStatus, pipelineSwatchClass, statusStyle } from "../lib/pipelineStatus";
+import { findStatus, pipelineSwatchClass, statusStyle, tagsOutOfProcess } from "../lib/pipelineStatus";
 
 type StatusPickerSize = "sm" | "md";
 
@@ -184,6 +184,9 @@ function StatusList({
                     )}
                   >
                     <span className="min-w-0 flex-1 truncate">{status.label}</span>
+                    {tagsOutOfProcess(group.stage, status) && (
+                      <span className="flex-none font-mono text-eyebrow text-u-text3">Out of process</span>
+                    )}
                     {isHeld && <Icon d={ICONS.check} size={13} className="flex-none text-u-accent" />}
                   </div>
                 );

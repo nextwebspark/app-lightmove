@@ -31,9 +31,20 @@ import {
   whenLabelOf,
   zoneCityOf,
 } from "../lib/sendSchedule";
-import { BOOKING_LINK_PLACEHOLDER, render, renderParts } from "../lib/sequenceTokens";
+import {
+  BOOKING_LINK_PLACEHOLDER,
+  renderParts,
+  tokenGapsIn,
+  type RenderedPart,
+  type TokenGaps,
+} from "../lib/sequenceTokens";
+import { FilledVariable } from "./FilledVariable";
+import { TokenGapChip, TokenGapLine } from "./TokenGapNotes";
 import { useMailbox } from "../lib/useMailbox";
 import { formatClock, getDateTimePreferences } from "../../../lib/datetime";
+import { SignatureChooser, SignatureUnderEmail } from "../../signatures/components/SignatureChooser";
+import * as signaturesApi from "../../signatures/api/signaturesApi";
+import { useSignatureChoice, type SignatureChoice } from "../../signatures/lib/useSignatureChoice";
 
 type EnrolStep = "choose" | "review" | "start";
 
@@ -42,6 +53,8 @@ const STEPS: { id: EnrolStep; label: string }[] = [
   { id: "review", label: "Review" },
   { id: "start", label: "Start" },
 ];
+
+const NO_GAPS: TokenGaps = { blanks: [], fallbacks: [] };
 
 /** One person's first email as the review leaves it. Kept per person, so an edit reaches nobody else. */
 interface ReviewedEmail {
@@ -65,6 +78,7 @@ interface StartChoice {
 const SKIP_NOTES: Record<OutreachSkipReason, string> = {
   NO_EMAIL: "No email · Find email in the drawer",
   DO_NOT_CONTACT: "Do not contact",
+  PROCESSING_RESTRICTED: "Processing restricted",
   LEFT_THE_RUNNING: "Out of the running on this position",
   ALREADY_IN_SEQUENCE: "Already in a sequence",
 };
@@ -72,6 +86,7 @@ const SKIP_NOTES: Record<OutreachSkipReason, string> = {
 const SKIP_SUMMARY: Record<OutreachSkipReason, string> = {
   NO_EMAIL: "no email",
   DO_NOT_CONTACT: "do not contact",
+  PROCESSING_RESTRICTED: "processing restricted",
   LEFT_THE_RUNNING: "out of the running",
   ALREADY_IN_SEQUENCE: "already in a sequence",
 };
@@ -195,6 +210,8 @@ export function EnrolDialog({
     if (fresh.length > 0) void draft(fresh.map((person) => person.candidateId));
   };
 
+  const signature = useSignatureChoice();
+
   const start = useMutation({
     mutationFn: () =>
       sequenceApi.startSequence(
@@ -213,6 +230,7 @@ export function EnrolDialog({
           startMode: startChoice.mode,
           startAt: startChoice.mode === "AT" && chosenStart ? chosenStart.toISOString() : null,
         },
+        signature.signatureId,
       ),
     onSuccess: (started) => {
       void queryClient.invalidateQueries({
@@ -232,6 +250,9 @@ export function EnrolDialog({
         setStep("choose");
       } else if (code === "OUTREACH_ADDRESS_NOT_ON_FILE") {
         void people.refetch();
+        setStep("review");
+      } else if (code === "EMAIL_SIGNATURE_NOT_FOUND") {
+        void queryClient.invalidateQueries({ queryKey: signaturesApi.SIGNATURES_KEY });
         setStep("review");
       }
     },
@@ -306,7 +327,7 @@ export function EnrolDialog({
         <Button
           className="px-3.5 py-2 text-[13px] font-semibold"
           loading={start.isPending}
-          disabled={isAnyDrafting || startProblem !== null}
+          disabled={isAnyDrafting || startProblem !== null || signature.isPending}
           onClick={() => start.mutate()}
         >
           Start sequence
@@ -364,6 +385,7 @@ export function EnrolDialog({
               },
             }))
           }
+          signature={signature}
           onRedraft={() => {
             const candidateId = reviewing.candidateId;
             void draft([candidateId], true).then((received) => {
@@ -558,7 +580,9 @@ function ReviewStep({
   onReview,
   onChange,
   onRedraft,
+  signature,
 }: {
+  signature: SignatureChoice;
   bookingLink: string | null;
   sequence: Sequence;
   chosen: EnrollmentCandidate[];
@@ -571,6 +595,11 @@ function ReviewStep({
   const email = reviewed[reviewing.candidateId];
   const first = sequence.steps[0];
   const firstName = reviewing.tokens.firstName ?? reviewing.fullName;
+  // Read once per sequence and people, not on every keystroke in the opener.
+  const gapsById = useMemo(
+    () => new Map(chosen.map((person) => [person.candidateId, tokenGapsIn(sequenceTextsOf(sequence), person.tokens)])),
+    [chosen, sequence],
+  );
   const parts = renderParts(first.body, withBookingLink(reviewing.tokens, bookingLink), null);
   const openerAt = parts.findIndex((part) => part.isOpener);
   const before = openerAt < 0 ? parts : parts.slice(0, openerAt);
@@ -599,6 +628,7 @@ function ReviewStep({
                   Edited
                 </span>
               )}
+              <TokenGapChip gaps={gapsById.get(person.candidateId) ?? NO_GAPS} />
             </button>
           </li>
         ))}
@@ -614,24 +644,22 @@ function ReviewStep({
             onChange={(event) => onChange({ toAddress: event.target.value })}
             className="min-w-0 rounded-[6px] border border-u-border bg-u-raised px-2 py-1 font-mono text-[12.5px] text-u-text"
           >
-            {reviewing.emails.map((option) => (
+            {reviewing.emails.map((option, index) => (
               <option key={option.address} value={option.address}>
                 {option.address}
                 {option.kind ? ` · ${option.kind}` : ""}
+                {index === 0 ? " · primary" : ""}
               </option>
             ))}
           </select>
           <span className="text-u-text3">Subject</span>
           <span className="font-medium text-u-text">
-            {render(first.subject ?? "", withBookingLink(reviewing.tokens, bookingLink), null)}
+            {drawn(renderParts(first.subject ?? "", withBookingLink(reviewing.tokens, bookingLink), null), firstName)}
           </span>
         </div>
         <div className="whitespace-pre-wrap pt-3 text-[13.5px]/[1.6] text-u-text">
           {/* The opener sits in its own box, so the blank lines around it in the template would double up. */}
-          {before
-            .map((part) => part.text)
-            .join("")
-            .replace(/\n+$/, "")}
+          {drawn(before, firstName, "end")}
         </div>
         {openerAt >= 0 ? (
           <div className="my-1 rounded-[8px] bg-u-inferred-tint p-2.5">
@@ -661,11 +689,19 @@ function ReviewStep({
           <p className="my-1 font-mono text-[11.5px] text-u-text3">This sequence's first email has no opener.</p>
         )}
         <div className="whitespace-pre-wrap text-[13.5px]/[1.6] text-u-text">
-          {after
-            .map((part) => part.text)
-            .join("")
-            .replace(/^\n+/, "")}
+          {drawn(after, firstName, "start")}
         </div>
+        <div className="mt-3 border-t border-u-border pt-2.5">
+          <div className="flex flex-wrap items-center gap-2 font-mono text-meta text-u-text3">
+            <SignatureChooser
+              choice={signature}
+              unreadableNote="Your signatures could not be read, so every email of this sequence goes without one."
+            />
+            {signature.included && <span>on every email of the sequence</span>}
+          </div>
+          <SignatureUnderEmail choice={signature} />
+        </div>
+        <TokenGapLine gaps={gapsById.get(reviewing.candidateId) ?? NO_GAPS} firstName={firstName} />
         {sequence.steps.length > 1 && (
           <p className="mt-3 border-t border-u-border pt-2.5 font-mono text-[11.5px] text-u-text3">
             {followUpLine(sequence)}, each only if {firstName} hasn't replied.
@@ -837,7 +873,27 @@ function startedToastOf(started: StartedSequence, mode: StartMode, timeZone: str
   return `Started. ${started.enrolled} ${emails} from ${when} ${zoneCityOf(timeZone)} time.`;
 }
 
-/** Typing is never blocked on the model: whatever is typed first wins over a draft that lands later. */
+/** The texts a sequence fills for each person: its subject and every step. */
+function sequenceTextsOf(sequence: Sequence): (string | null | undefined)[] {
+  return [sequence.steps[0]?.subject, ...sequence.steps.map((step) => step.body)];
+}
+
+/** The parts as read, the blank lines at one edge dropped across parts as one joined text would trim them. */
+function drawn(parts: RenderedPart[], firstName: string, trim?: "start" | "end") {
+  const texts = parts.map((part) => part.text);
+  if (trim) {
+    const order = trim === "end" ? [...texts.keys()].reverse() : [...texts.keys()];
+    for (const at of order) {
+      if (parts[at].isBlank) break;
+      texts[at] = trim === "end" ? texts[at].replace(/\n+$/, "") : texts[at].replace(/^\n+/, "");
+      if (texts[at] !== "") break;
+    }
+  }
+  return parts.map((part, index) => (
+    <FilledVariable key={index} part={{ ...part, text: texts[index] }} forWhom={firstName} />
+  ));
+}
+
 /** Until the sender's first Start makes their real link, the review says where it will go. */
 function withBookingLink(tokens: RecipientTokens, bookingLink: string | null): RecipientTokens {
   return { ...tokens, bookingLink: tokens.bookingLink ?? bookingLink ?? BOOKING_LINK_PLACEHOLDER };

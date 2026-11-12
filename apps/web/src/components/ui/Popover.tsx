@@ -1,19 +1,12 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { EDGE_GAP, verticalPlacement } from "./anchoredPlacement";
+import { useEscapeKey } from "../../lib/useEscapeKey";
+import { AUTO_PANEL_ROOM, EDGE_GAP, verticalPlacement } from "./anchoredPlacement";
 
 /**
- * A toolbar dropdown: a button, and a panel that closes on an outside click, Escape, or a scroll.
- *
- * <p>The panel's content is a function of `close`, so a menu item can act and dismiss without the
- * caller owning the open state.
- *
- * <p>Portalled to the body and positioned from the trigger's measured rect — the same escape
- * {@link TruncatedText} uses — rather than `absolute` inside the trigger's own box: several callers
- * (the grid header menu chief among them) open from inside a table that scrolls on both axes, and an
- * `absolute` panel is clipped by that scroll box the moment it would overflow it. A scroll closes
- * the panel instead of re-measuring it on every frame, since the fixed position would otherwise drift
- * away from the trigger that opened it.
+ * A toolbar dropdown that closes on an outside click, Escape or scroll; content is a function of `close`. Portalled
+ * and fixed from the trigger's rect (as {@link TruncatedText}), since an `absolute` panel is clipped inside a
+ * scrolling table; a scroll closes it rather than letting it drift.
  */
 export function Popover({
   trigger,
@@ -43,6 +36,7 @@ export function Popover({
   children: (close: () => void) => ReactNode;
 }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const [wanted, setWanted] = useState(AUTO_PANEL_ROOM);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const open = anchor !== null;
@@ -55,11 +49,6 @@ export function Popover({
       if (triggerRef.current?.contains(target) || panelRef.current?.contains(target)) return;
       close();
     };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      close();
-      triggerRef.current?.focus();
-    };
     // A scroll inside the panel itself — the checkbox list, or the panel's own overflow — must not
     // close it; only a scroll of whatever sits *behind* it (the table, the page) would strand the
     // fixed position, and that is the one this exists to answer.
@@ -68,7 +57,6 @@ export function Popover({
       close();
     };
     document.addEventListener("mousedown", closeOnOutside);
-    document.addEventListener("keydown", closeOnEscape);
     // Capture: the scroll that would strand the panel is usually the table's box, not the window. Heard a
     // beat late, because bringing the trigger into view on open reports its own scroll after the panel is up.
     const listenForScroll = window.setTimeout(() => window.addEventListener("scroll", closeOnOutsideScroll, true), 150);
@@ -76,17 +64,39 @@ export function Popover({
     return () => {
       window.clearTimeout(listenForScroll);
       document.removeEventListener("mousedown", closeOnOutside);
-      document.removeEventListener("keydown", closeOnEscape);
       window.removeEventListener("scroll", closeOnOutsideScroll, true);
       window.removeEventListener("resize", close);
     };
   }, [open]);
 
+  // The status picker low in the Companies grid opened beneath its trigger with only the guessed room in mind,
+  // and its later stages ran off the foot of the window. Measured once it is up, so an `auto` panel takes
+  // whichever side holds it — or the larger — and is not flipped while a search narrows it.
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!anchor || !panel || placement !== "auto") return;
+    const borders = panel.offsetHeight - panel.clientHeight;
+    const height = panel.scrollHeight + borders;
+    if (height > 0) setWanted(height);
+  }, [anchor, placement]);
+
+  // Through the overlays' one stack: inside a dialog, Escape closes the panel and leaves the dialog open.
+  useEscapeKey(open, () => {
+    setAnchor(null);
+    triggerRef.current?.focus();
+  });
+
   const toggle = () => {
     // A trigger half under its scroll box's edge is scrolled into view by the click's own focus, and that
     // scroll would close the panel it just opened — so it is brought in first, and measured where it lands.
     if (!open) triggerRef.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    setWanted(AUTO_PANEL_ROOM);
     setAnchor((current) => (current ? null : (triggerRef.current?.getBoundingClientRect() ?? null)));
+  };
+
+  const placed = (box: DOMRect) => {
+    const side = verticalPlacement(box, placement, wanted);
+    return { ...side, maxHeight: Math.min(side.maxHeight, window.innerHeight * 0.7) };
   };
 
   return (
@@ -110,7 +120,7 @@ export function Popover({
           <div
             ref={panelRef}
             style={{
-              ...verticalPlacement(anchor, placement),
+              ...placed(anchor),
               left:
                 align === "right"
                   ? Math.max(EDGE_GAP, anchor.right - width)

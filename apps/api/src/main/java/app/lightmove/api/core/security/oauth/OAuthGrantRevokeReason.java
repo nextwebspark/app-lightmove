@@ -8,5 +8,6 @@ public enum OAuthGrantRevokeReason {
     MEMBER_REMOVED,
     WORKSPACE_DELETED,
     PASSWORD_CHANGED,
+    ACCOUNT_DELETED,
     REFRESH_REUSE
 }

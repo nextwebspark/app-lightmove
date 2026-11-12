@@ -9,6 +9,7 @@ import type { PipelineRow } from "../../pipeline/api/types";
 import type { TaskKind, TaskPerson, TaskRule } from "../../tasks/api/types";
 import type { Meeting } from "./meetingApi";
 import type { CandidateOutreach, OutreachRun, StopReason } from "./runApi";
+import type { RecipientTokens } from "./sequenceApi";
 
 /**
  * The Outreach page's conversation workspace (docs/outreach-conversations.md): the action queue, one executive's
@@ -94,6 +95,7 @@ export interface ConversationMessage {
   toAddress: string | null;
   senderUserId: string;
   senderName: string | null;
+  senderAvatarUrl: string | null;
   enrollmentId: string | null;
   sequenceName: string | null;
   stepNumber: number | null;
@@ -145,6 +147,11 @@ export interface ConversationComposer {
   /** Where an email now would move the person; null where they would stay. */
   emailSentMovesTo: StatusTarget | null;
   attachmentLimits: AttachmentLimits;
+  /**
+   * What this executive's variables fill with when the caller writes to them — the server's own values, so a blank
+   * here is one the send would refuse. The booking link only where one exists.
+   */
+  tokens: RecipientTokens | null;
 }
 
 export interface Conversation {
@@ -176,6 +183,10 @@ export interface SendMessageRequest {
   replyInThread: boolean;
   /** Versions of the person's own documents the email carries. */
   documentVersionIds: string[];
+  /** One of the sender's own signatures, added under the words; null sends none. */
+  signatureId: string | null;
+  /** The email template it was written from; recorded only where the sender may see it. */
+  templateId: string | null;
 }
 
 export interface ScheduledMessage {

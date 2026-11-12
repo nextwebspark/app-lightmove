@@ -10,12 +10,8 @@ import type {
 import type { TriageCompanyStatus } from "../../triage/api/types";
 
 /**
- * A mandate's mapped executives — the people half of a talent map.
- *
- * <p>The Companies grid reads this alongside the companies rather than through them: `triagecompany`
- * knows nothing about people, deliberately, so the grid asks for the companies on its page and then
- * for the people at exactly those. Two requests, one cache entry each, and neither feature has to
- * learn the other's storage.
+ * A mandate's mapped executives. The Companies grid reads them beside the companies, not through them:
+ * `triagecompany` knows nothing about people.
  */
 
 export const CANDIDATES_KEY_PREFIX = (projectId: string) => ["candidates", projectId] as const;
@@ -27,6 +23,8 @@ export interface CandidateQuery {
   /** The other side: people whose employer is not one of the mandate's companies. */
   unmapped?: boolean;
   query?: string;
+  /** The toolbar's search: someone kept when they or their company match it. */
+  search?: string;
   /** The Companies stage the people are listed at — their own, not their company's (#903). */
   triageStatus?: TriageCompanyStatus;
 }
@@ -38,17 +36,12 @@ export const CANDIDATES_KEY = (projectId: string, scope: CandidateQuery) =>
     scope.unmapped ?? false,
     scope.query ?? "",
     scope.triageStatus ?? null,
+    scope.search ?? "",
   ] as const;
 
 /**
- * `size` is deliberately optional, and the Companies grid names none.
- *
- * <p>A client that computes its own size has to know the server's ceiling to stay under it, and the
- * grid's first attempt at that — a multiple of its own page size — landed exactly on
- * `company.list.max-page-size`. Lowering that deployment knob would have made every Companies page
- * 400 on this read. Omitted, the server sizes a company-filtered read at its own maximum and says in
- * `totalCount` whether that was enough — and, for a company-scoped or unmapped read, this pages on
- * until it was.
+ * `size` is optional and the Companies grid names none: a client-computed size once landed exactly on
+ * `company.list.max-page-size`. Omitted, the server uses its maximum and this pages on via `totalCount`.
  */
 export async function getCandidates(
   projectId: string,
@@ -96,6 +89,7 @@ function getCandidatesPage(
   scope.triageCompanyIds?.forEach((id) => params.append("triageCompanyId", id));
   if (scope.unmapped) params.set("unmapped", "true");
   if (scope.query) params.set("q", scope.query);
+  if (scope.search?.trim()) params.set("search", scope.search.trim());
   if (scope.triageStatus) params.set("triageStatus", scope.triageStatus);
   if (page > 0) params.set("page", String(page));
   return request<CandidatesPage>(`/projects/${projectId}/candidates?${params}`, { signal });
@@ -180,8 +174,14 @@ export function moveCandidateToStage(
   });
 }
 
-export function deleteCandidate(projectId: string, candidateId: string): Promise<void> {
-  return request<void>(`/projects/${projectId}/candidates/${candidateId}`, { method: "DELETE" });
+/** `withCompany` also removes the company they were the last one at; the server refuses if anyone else is there. */
+export function deleteCandidate(
+  projectId: string,
+  candidateId: string,
+  options?: { withCompany: boolean },
+): Promise<void> {
+  const query = options?.withCompany ? "?withCompany=true" : "";
+  return request<void>(`/projects/${projectId}/candidates/${candidateId}${query}`, { method: "DELETE" });
 }
 
 /** Under the list's prefix, so the stream's refresh after an enrichment re-reads it too. */

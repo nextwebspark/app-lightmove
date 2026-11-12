@@ -20,7 +20,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * One status of a workspace's pipeline, always under exactly one {@link CandidateStage} (V131). A
- * candidate holds a status and nothing else: its stage, its rank and whether it has left the running are
+ * candidate holds a status and nothing else: its stage, its rank and whether it has left the process are
  * all read through here. A retired status stays on whoever holds it and is never offered again.
  */
 @Entity
@@ -63,6 +63,9 @@ public class CandidateStatusDefinition extends BaseEntity {
     @Column(name = "system_key", updatable = false, length = 24)
     private CandidateSystemStatus systemKey;
 
+    @Column(name = "out_of_process", nullable = false)
+    private boolean outOfProcess;
+
     @Column(name = "retired_at")
     private Instant retiredAt;
 
@@ -71,7 +74,7 @@ public class CandidateStatusDefinition extends BaseEntity {
 
     public static CandidateStatusDefinition added(CandidateStage stage, String statusKey, String label,
                                                   PipelineColour colour, int position, boolean defaultOfStage,
-                                                  UUID createdBy) {
+                                                  boolean outOfProcess, UUID createdBy) {
         CandidateStatusDefinition status = new CandidateStatusDefinition();
         status.workspaceId = stage.getWorkspaceId();
         status.stage = stage;
@@ -80,6 +83,7 @@ public class CandidateStatusDefinition extends BaseEntity {
         status.colour = colour;
         status.position = position;
         status.defaultOfStage = defaultOfStage;
+        status.outOfProcess = outOfProcess;
         status.createdBy = createdBy;
         return status;
     }
@@ -96,6 +100,10 @@ public class CandidateStatusDefinition extends BaseEntity {
         this.stage = newStage;
         this.position = newPosition;
         this.defaultOfStage = false;
+    }
+
+    public void markOutOfProcess(boolean out) {
+        this.outOfProcess = out;
     }
 
     public void placeAt(int newPosition) {
@@ -132,9 +140,14 @@ public class CandidateStatusDefinition extends BaseEntity {
         return systemKey == system;
     }
 
-    /** Out of the running: nobody at a status of the closed stage is approached again on that position. */
+    /** Out of process: nobody at this status is approached again on that position, or moved on by an automation. */
     public boolean hasLeftTheRunning() {
-        return stage.isClosed();
+        return outOfProcess;
+    }
+
+    /** Live and in process: somewhere a card can stand on the board. */
+    public boolean isInProcess() {
+        return !outOfProcess && !isRetired();
     }
 
     /** Whether this status stands before {@code other} on the pipeline. */

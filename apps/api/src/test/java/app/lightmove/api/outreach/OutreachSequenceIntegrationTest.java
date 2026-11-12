@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
@@ -43,7 +44,7 @@ class OutreachSequenceIntegrationTest extends FlowTestSupport {
 
     @Autowired private RecordingMailboxGateway gateway;
     @Autowired private StubChatModel chat;
-    @Autowired private JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc private JdbcTemplate jdbc;
 
     private String consultant;
     private String projectId;
@@ -171,6 +172,25 @@ class OutreachSequenceIntegrationTest extends FlowTestSupport {
                 .andReturn();
 
         assertThat(codeOf(refused)).isEqualTo("OUTREACH_PERSON_SKIPPED");
+        assertThat(enrollmentCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("someone whose processing is restricted is skipped with that reason, and no opener is drafted for them")
+    void restrictedPeopleAreSkipped() throws Exception {
+        String sequenceId = createSequence("First approach");
+        String restricted = executive("Lina Haddad", "lina@target.example", null);
+        restrictProcessing(restricted);
+        connectMailbox();
+
+        assertThat(choose(List.of(restricted)).get(restricted).get("skipReason").asText())
+                .isEqualTo("PROCESSING_RESTRICTED");
+        assertThat(codeOf(as(consultant, post(outreach("/openers")).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"candidateIds\":[\"%s\"]}".formatted(restricted)))
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("OUTREACH_PERSON_SKIPPED");
+        assertThat(codeOf(start(sequenceId, List.of(person(restricted, "lina@target.example", "One.", false)))
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("OUTREACH_PERSON_SKIPPED");
+        assertThat(chat.prompts()).isEmpty();
         assertThat(enrollmentCount()).isZero();
     }
 
@@ -383,6 +403,15 @@ class OutreachSequenceIntegrationTest extends FlowTestSupport {
                         """.formatted(fullName, slug, emailField, extraJson == null ? "" : extraJson)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
+    }
+
+    private void restrictProcessing(String candidateId) throws Exception {
+        String personId = body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + candidateId))
+                .andReturn()).get("personId").asText();
+        as(consultant, put("/api/v1/candidates/" + personId + "/processing-restriction")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"restricted\":true,\"reason\":\"Asked what we hold about them.\"}"))
+                .andExpect(status().isOk());
     }
 
     private void markDoNotContact(String candidateId) throws Exception {

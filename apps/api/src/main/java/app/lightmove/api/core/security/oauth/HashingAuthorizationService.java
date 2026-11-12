@@ -3,6 +3,10 @@ package app.lightmove.api.core.security.oauth;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.security.token.Tokens;
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.SharedRows;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import jakarta.servlet.http.HttpServletRequest;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -14,11 +18,12 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
-import java.util.Objects;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -39,21 +44,17 @@ import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The authorization server's grants (V115), with every token held as its SHA-256 only — the state, the code, the access
- * token and the refresh token alike.
- *
- * <p>A token read back carries {@code sha256:<hash>} as its value: nothing the framework does with a stored token needs
- * the secret, and a value already so marked is stored as it stands, so re-saving a grant never hashes a hash.
- *
- * <p>A refresh token rotated away is kept, as a hash, until the grant ends. Presented again it is the theft signature:
- * the grant is deleted and the caller gets nothing, so the thief's copy and the client's newer one both stop working.
+ * The authorization server's grants (V115), every token held as SHA-256 (a {@code sha256:} value is never re-hashed); a
+ * rotated-away refresh token replayed deletes the grant. Each method resolves the grant's workspace
+ * ({@link TenantResolvers}) and opens its own transaction; one awaiting consent is reachable only from {@link SharedRows}.
  */
 @Slf4j
 @Component
@@ -83,25 +84,40 @@ public class HashingAuthorizationService implements OAuth2AuthorizationService {
     private final RegisteredClientRepository clients;
     private final AuditService audit;
     private final Clock clock;
+    private final TenantResolvers resolvers;
+    private final TransactionTemplate transactions;
+    private final TransactionTemplate reads;
     /** Spring Security's typed mapper, for the framework's own attributes and metadata, as its JDBC service writes them. */
     private final JsonMapper json;
     /** For the scope arrays, plain JSON a query can read. */
     private final JsonMapper plainJson = JsonMapper.builder().build();
 
     public HashingAuthorizationService(NamedParameterJdbcTemplate jdbc, RegisteredClientRepository clients,
-                                       AuditService audit, Clock clock) {
+                                       AuditService audit, Clock clock, TenantResolvers resolvers,
+                                       PlatformTransactionManager transactionManager) {
         this.jdbc = jdbc;
         this.clients = clients;
         this.audit = audit;
         this.clock = clock;
+        this.resolvers = resolvers;
+        this.transactions = new TransactionTemplate(transactionManager);
+        this.reads = new TransactionTemplate(transactionManager);
+        this.reads.setReadOnly(true);
         this.json = JsonMapper.builder()
                 .addModules(SecurityJacksonModules.getModules(HashingAuthorizationService.class.getClassLoader()))
                 .build();
     }
 
     @Override
-    @Transactional
     public void save(OAuth2Authorization authorization) {
+        inWorkspace(workspaceOf(authorization).orElse(null),
+                () -> transactions.execute(status -> {
+                    saveInScope(authorization);
+                    return null;
+                }));
+    }
+
+    private void saveInScope(OAuth2Authorization authorization) {
         UUID id = UUID.fromString(authorization.getId());
         Optional<StoredHashes> before = storedHashes(id);
         refuseIfChangedSinceRead(authorization, before);
@@ -192,24 +208,33 @@ public class HashingAuthorizationService implements OAuth2AuthorizationService {
     }
 
     @Override
-    @Transactional
     public void remove(OAuth2Authorization authorization) {
+        inWorkspace(workspaceOf(authorization).orElse(null), () -> transactions.execute(status -> {
+            delete(authorization);
+            return null;
+        }));
+    }
+
+    private void delete(OAuth2Authorization authorization) {
         jdbc.update("DELETE FROM app_lm_oauth_authorization WHERE id = :id",
                 new MapSqlParameterSource("id", UUID.fromString(authorization.getId())));
     }
 
     /** The app revoked a token of its own grant (RFC 7009): the grant ends, as a disconnect from Settings ends it. */
-    @Transactional
     public void revokeAtClientRequest(OAuth2Authorization authorization) {
-        remove(authorization);
-        record(WorkspaceEventType.OAUTH_GRANT_REVOKED, authorization,
-                builder -> builder.reason(OAuthGrantRevokeReason.CLIENT_REVOKED.name()));
+        inWorkspace(workspaceOf(authorization).orElse(null), () -> transactions.execute(status -> {
+            delete(authorization);
+            record(WorkspaceEventType.OAUTH_GRANT_REVOKED, authorization,
+                    builder -> builder.reason(OAuthGrantRevokeReason.CLIENT_REVOKED.name()));
+            return null;
+        }));
     }
 
     @Override
-    @Transactional(readOnly = true)
     public OAuth2Authorization findById(String id) {
-        return queryOne("id = :value", UUID.fromString(id));
+        UUID grantId = UUID.fromString(id);
+        UUID workspaceId = resolvers.oauthAuthorization(grantId).map(ResolvedRow::workspaceId).orElse(null);
+        return inWorkspace(workspaceId, () -> reads.execute(status -> queryOne("id = :value", grantId)));
     }
 
     /**
@@ -217,14 +242,21 @@ public class HashingAuthorizationService implements OAuth2AuthorizationService {
      * replayed refresh token must not roll back with the refusal it causes.
      */
     @Override
-    @Transactional
     public OAuth2Authorization findByToken(String token, OAuth2TokenType tokenType) {
         String hash = Tokens.hash(token);
-        OAuth2Authorization found = queryOne(predicateFor(tokenType), hash);
-        if (found == null && (tokenType == null || OAuth2TokenType.REFRESH_TOKEN.equals(tokenType))) {
-            revokeOnReplay(hash);
-        }
-        return found;
+        UUID workspaceId = resolvers.oauthAuthorizationsByHash(hash).stream()
+                .map(ResolvedRow::workspaceId).filter(Objects::nonNull).findFirst().orElse(null);
+        return inWorkspace(workspaceId, () -> transactions.execute(status -> {
+            OAuth2Authorization found = queryOne(predicateFor(tokenType), hash);
+            if (found == null && (tokenType == null || OAuth2TokenType.REFRESH_TOKEN.equals(tokenType))) {
+                revokeOnReplay(hash);
+            }
+            return found;
+        }));
+    }
+
+    private static <T> T inWorkspace(UUID workspaceId, Supplier<T> work) {
+        return SharedRows.call(() -> workspaceId == null ? work.get() : WorkspaceScope.call(workspaceId, work));
     }
 
     private void revokeOnReplay(String retiredHash) {
@@ -237,7 +269,7 @@ public class HashingAuthorizationService implements OAuth2AuthorizationService {
                 continue;
             }
             log.warn("Retired refresh token replayed for OAuth grant {}; revoking it", authorizationId);
-            remove(grant);
+            delete(grant);
             record(WorkspaceEventType.OAUTH_GRANT_REVOKED, grant,
                     builder -> builder.reason(OAuthGrantRevokeReason.REFRESH_REUSE.name()));
         }

@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Field, FormError, Input, Select, TextArea, useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import { CurrencySelect } from "../../../components/ui/CurrencySelect";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
@@ -16,6 +17,7 @@ import {
 } from "../../../lib/noticePeriod";
 import { SENIORITY_LABELS, SENIORITY_TIERS } from "../../../lib/seniority";
 import { POSITION_TEMPLATES_KEY } from "../../position/api/positionApi";
+import { useWorkspaceCurrency } from "../../workspace/lib/useWorkspaceCurrency";
 import type {
   BaseSalaryMode,
   BonusBasis,
@@ -31,7 +33,6 @@ import { moveRow, toggle } from "../../position/lib/competencyRows";
 import {
   BASE_SALARY_MODE_LABELS,
   BONUS_BASIS_LABELS,
-  CURRENCIES,
   EMPLOYMENT_TYPE_LABELS,
   INCENTIVE_TYPE_LABELS,
 } from "../../position/lib/labels";
@@ -92,7 +93,8 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
   });
   const detail = detailQuery.data ?? null;
 
-  const [draft, setDraft] = useState<TemplateDraft | null>(code === null ? blankDraft() : null);
+  const workspaceCurrency = useWorkspaceCurrency();
+  const [draft, setDraft] = useState<TemplateDraft | null>(null);
   const [dirty, setDirty] = useState(false);
   const [lockedTechnical, setLockedTechnical] = useState<ReadonlySet<string>>(new Set());
   const [lockedBehavioural, setLockedBehavioural] = useState<ReadonlySet<string>>(new Set());
@@ -103,6 +105,13 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
   useEffect(() => {
     if (detail && draft === null) setDraft(draftOf(detail));
   }, [detail, draft]);
+
+  // A new template waits for the workspace's currency: seeded on a cold cache, it kept the fallback for good.
+  useEffect(() => {
+    if (code === null && draft === null && workspaceCurrency.isSettled) {
+      setDraft(blankDraft(workspaceCurrency.currency));
+    }
+  }, [code, draft, workspaceCurrency.isSettled, workspaceCurrency.currency]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -315,7 +324,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
           label="Match keywords"
           values={draft.keywords}
           placeholder="Add a keyword, e.g. group cfo"
-          hint="A new mandate whose role title contains any of these is drafted from this template. Case doesn't matter."
+          hint="A new mandate whose role title has any of these as whole words, in order, is drafted from this template: group cfo matches Group CFO – Energy, never Group CFOs. Case doesn't matter."
           max={20}
           maxLength={80}
           lowercase
@@ -422,11 +431,11 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
       >
         <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
           <Field label="Currency">
-            <Select value={draft.currency} onChange={(e) => update({ currency: e.target.value })} className="!bg-u-surface">
-              {[...new Set([draft.currency, ...CURRENCIES])].map((currency) => (
-                <option key={currency}>{currency}</option>
-              ))}
-            </Select>
+            <CurrencySelect
+              value={draft.currency}
+              onChange={(code) => update({ currency: code })}
+              className="bg-u-surface"
+            />
           </Field>
           <div className="mb-4">
             <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">

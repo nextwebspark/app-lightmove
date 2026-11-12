@@ -4,13 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useOutletContext, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { FullscreenButton } from "../../../components/ui";
-import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { useToast } from "../../../components/ui/Toast";
 import { useAssistant } from "../../assistant/AssistantProvider";
 import { useAuth } from "../../auth/AuthProvider";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
-import { formatNumber } from "../../../lib/format";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { LeaveGuard } from "../../../components/layout/LeaveGuard";
@@ -18,7 +16,8 @@ import { useAutosave } from "../../../lib/useAutosave";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import * as triageApi from "../../triage/api/triageApi";
 import type { TriageCompanyStatus } from "../../triage/api/types";
-import { TRIAGE_STAGES, stageByStatus } from "../../triage/lib/triageStages";
+import { OFFERED_TRIAGE_STAGES, stageByStatus } from "../../triage/lib/triageStages";
+import { isStageOffered } from "../../triage/lib/triageVocabulary";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
 import type {
@@ -91,18 +90,15 @@ export function StrategyPage() {
 }
 
 /**
- * The search screen: filter rail on the left, the universe it selects on the right.
- *
- * <p>The filter autosaves — there is no Save button, matching every other editing surface in the
- * product. Every write invalidates the reads that depend on the scope, and cancels them first: a read
- * left running would resolve after the invalidation and reinstate the pre-edit companies as fresh for
- * the whole staleTime.
+ * The search screen: filter rail on the left, the universe it selects on the right. The filter autosaves; each write
+ * cancels then invalidates its dependent reads, since a read left running would reinstate the pre-edit companies.
  */
 function StrategyEditor({ toggle }: { toggle: ReactNode }) {
   const { project } = useOutletContext<ProjectOutletContext>();
   const queryClient = useQueryClient();
   const toast = useToast();
-  const { openAssistant } = useAssistant();
+  const { isOpenFor, openAssistant, closeAssistant } = useAssistant();
+  const assistantOpen = isOpenFor(project.id);
   // Whose searches are "Mine" in the dropdown. The list already excludes other people's private ones,
   // so this only splits what arrived, never widens it.
   const { user } = useAuth();
@@ -165,15 +161,9 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
   }, [strategy.data]);
 
   /*
-   * Any change to what is being asked returns to the first page and drops the selection: page 4 of a
-   * filter that now matches two companies is an empty table over a non-empty result, and a tick made
-   * under the last scope would act on companies this one no longer contains and the user can no
-   * longer see. A tick does survive a page turn — picking twelve companies across three pages is the
-   * case the bulk bar exists for — so this fires on the scope, never on the page.
-   *
-   * <p>Adopting the stored filter is deliberately not such a change, which is why this no longer
-   * keys off `filter`: the server has been scoping the results by that filter all along, so its
-   * arrival must not stomp a page turned, or a row ticked, while /strategy was still in flight.
+   * A scope change returns to page one and drops the selection (a tick survives a page turn, never a scope change).
+   * Adopting the stored filter is not a scope change: the server already scoped by it, so its arrival must not stomp a
+   * page turned or a row ticked while /strategy was in flight.
    */
   const resetScope = useCallback(() => {
     setPage(0);
@@ -218,9 +208,9 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
   });
 
   const saveSearch = useMutation({
-    // Flush first, for the same reason "Add all" does: the request carries only a name and the server
-    // snapshots the *stored* filter, so a save inside the debounce window records the scope as it was
-    // before the last chip click — silently, and for every later load of that search.
+    // Flush first: the request carries only a name and the server snapshots the *stored* filter, so a
+    // save inside the debounce window records the scope as it was before the last chip click —
+    // silently, and for every later load of that search.
     mutationFn: async ({ name, visibility }: { name: string; visibility: SearchVisibility }) => {
       await autosave.flush();
       return strategyApi.saveSearch(project.id, name, visibility);
@@ -270,15 +260,9 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
   });
 
   /**
-   * The one way the off-limits list is written, whoever asked. It takes what the list should become
-   * from what it currently *is* — read from the cache here rather than trusted from a caller's render
-   * — because the endpoint replaces the list wholesale, so an edit built on a stale copy silently
-   * unbars everything that arrived after it.
-   *
-   * <p>It writes immediately rather than through the autosave timer: barring a company is a decision,
-   * not a draft. The flush is still needed because the response is the whole Strategy and goes
-   * straight into the cache, so a filter edit still sitting in the timer would be overwritten by the
-   * copy the server had before it.
+   * The one way the off-limits list is written: the next list is built from the cache, not a caller's render, since the
+   * endpoint replaces it wholesale. Written at once, but the autosave is flushed first — the response is the whole
+   * Strategy and would overwrite a filter edit still in the timer.
    */
   const writeOffLimits = async (next: (barred: string[]) => string[]) => {
     await autosave.flush();
@@ -335,40 +319,19 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
       toast(
         added.status === status
           ? `${company.companyName} added to ${stageByStatus(status).label}`
-          : `${company.companyName} is already in this mandate, at ${stageByStatus(added.status).label}`,
+          : isStageOffered(added.status)
+            ? `${company.companyName} is already in this mandate, at ${stageByStatus(added.status).label}`
+            : `${company.companyName} is already in this mandate`,
       );
     },
     onError: (error) => toast.error(messageFor(error)),
-  });
-
-  const [confirmingAddAll, setConfirmingAddAll] = useState(false);
-  const matchingCount = companies.data?.totalCount;
-  const addAll = useMutation({
-    mutationFn: async () => {
-      // Flush first: "Add all" acts on the *stored* filter, and a debounced edit still in the
-      // timer would mean the server adds companies from the filter as it was two chips ago.
-      await autosave.flush();
-      return triageApi.addAllInScope(project.id);
-    },
-    onSuccess: (result) => {
-      setConfirmingAddAll(false);
-      // Every company just taken in stops matching the search that found it.
-      void refreshScopedReads();
-      toast(
-        `Added ${result.added} companies to universe${result.skipped > 0 ? `, ${result.skipped} already there` : ""}`,
-      );
-    },
-    onError: (error) => {
-      setConfirmingAddAll(false);
-      toast.error(messageFor(error));
-    },
   });
 
   /**
    * The selection bar's three buttons. One request rather than a POST per company: the toast states a
    * number, and a loop would leave it guessing after the fourth of forty failed.
    *
-   * <p>No autosave flush, unlike "Add all": this carries the ids it is adding, so a filter edit still
+   * <p>No autosave flush, unlike saving a search: this carries the ids it is adding, so a filter edit still
    * sitting in the timer cannot change what it means.
    */
   const addSelected = useMutation({
@@ -420,29 +383,13 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
         onSetSearchVisibility={(searchId, visibility) => editSearch.mutate({ searchId, visibility })}
         onOverwriteSearch={(searchId) => overwriteSearch.mutate(searchId)}
         onDeleteSearch={(searchId) => deleteSearch.mutate(searchId)}
-        onAddAll={() => setConfirmingAddAll(true)}
-        onAiResearch={() => openAssistant(project.id)}
+        onAiResearch={() => (assistantOpen ? closeAssistant() : openAssistant(project.id))}
+        aiResearchOpen={assistantOpen}
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
         onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
         savingSearch={saveSearch.isPending}
-        addingAll={addAll.isPending}
       />
-      <ConfirmDialog
-        open={confirmingAddAll}
-        title={
-          matchingCount === undefined
-            ? "Add every matching company to universe?"
-            : `Add all ${formatNumber(matchingCount)} companies to universe?`
-        }
-        confirmLabel="Add all"
-        tone="primary"
-        pending={addAll.isPending}
-        onConfirm={() => addAll.mutate()}
-        onClose={() => setConfirmingAddAll(false)}
-      >
-        Every company this filter finds joins the position&apos;s universe. Companies already in it are skipped.
-      </ConfirmDialog>
 
       <div className="flex min-h-0 flex-1">
         {showFilters &&
@@ -482,7 +429,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
               plural="companies"
               onClear={clearSelection}
             >
-              {TRIAGE_STAGES.map((stage) => (
+              {OFFERED_TRIAGE_STAGES.map((stage) => (
                 <SelectionAction
                   key={stage.status}
                   icon={stage.icon}

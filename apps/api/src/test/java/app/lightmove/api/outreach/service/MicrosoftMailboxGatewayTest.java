@@ -161,6 +161,9 @@ class MicrosoftMailboxGatewayTest {
         assertThat(microsoft.requested()).containsSubsequence("POST /graph/v1.0/me/messages",
                 "POST /graph/v1.0/me/messages/AAkALgAAAAAAHYQDEapmEc2byACqAC-EWg0A-draft/send");
         assertThat(microsoft.preferOf("/graph/v1.0/me/messages")).contains("IdType=\"ImmutableId\"");
+        assertThat(microsoft.bodyOf("POST /graph/v1.0/me/messages/AAkALgAAAAAAHYQDEapmEc2byACqAC-EWg0A-draft/send"))
+                .as("Graph answers an empty send 411 Length Required over HTTP/2")
+                .isEqualTo("{}");
     }
 
     @Test

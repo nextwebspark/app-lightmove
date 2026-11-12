@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,11 +7,18 @@ import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { AuthProvider } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
-import type { ActiveSession, User } from "../../auth/api/types";
+import type { ActiveSession, MfaStatus, User } from "../../auth/api/types";
+import * as auditLogApi from "../api/auditLogApi";
 import { SettingsSecurityPage } from "./SettingsSecurityPage";
 import { FOLLOWING_DATE_TIME } from "../../../test/fixtures/user";
 
 vi.mock("../../auth/api/authApi");
+vi.mock("../api/auditLogApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api/auditLogApi")>()),
+  auditLog: vi.fn(),
+  auditLogPeople: vi.fn(),
+  saveAuditLogCsv: vi.fn(),
+}));
 
 // AuthProvider exchanges the refresh cookie for a token before it will ask who the user is, so a test
 // that wants a signed-in user has to hand it one.
@@ -22,6 +29,8 @@ vi.mock("../../../lib/apiClient", async (importOriginal) => ({
 }));
 
 const { restoreSession } = await import("../../../lib/apiClient");
+
+const TWO_FACTOR_OFF: MfaStatus = { offered: true, enabled: false, enabledAt: null, recoveryCodesLeft: 0 };
 
 const HOUR_AGO = new Date(Date.now() - 3_600_000).toISOString();
 const NOW = new Date().toISOString();
@@ -34,6 +43,9 @@ describe("SettingsSecurityPage", () => {
     fullName: "Alok Kumar",
     title: "Managing Partner",
     avatarUrl: null,
+    avatarEditable: true,
+    phone: null,
+    linkedinUrl: null,
     emailVerified: true,
     hasPassword: true,
     timezone: "Asia/Dubai",
@@ -92,6 +104,7 @@ describe("SettingsSecurityPage", () => {
     vi.mocked(restoreSession).mockResolvedValue("token");
     vi.mocked(authApi.me).mockResolvedValue(member);
     vi.mocked(authApi.listSessions).mockResolvedValue([thisDevice, thePhone]);
+    vi.mocked(authApi.mfaStatus).mockResolvedValue(TWO_FACTOR_OFF);
   });
 
   it("lists every signed-in device and marks the one being used", async () => {
@@ -223,12 +236,178 @@ describe("SettingsSecurityPage", () => {
     expect(screen.queryByLabelText(/current password/i)).not.toBeInTheDocument();
   });
 
-  it("shows two-factor authentication as present but not yet available", async () => {
+  it("shows two-factor authentication as present but not yet available where it is not offered", async () => {
+    vi.mocked(authApi.mfaStatus).mockResolvedValue({ ...TWO_FACTOR_OFF, offered: false });
     renderPage();
 
-    const toggle = await screen.findByRole("switch", { name: /two-factor authentication/i });
+    expect(await screen.findByText("Not available yet")).toBeInTheDocument();
+    const toggle = screen.getByRole("switch", { name: /two-factor authentication/i });
     expect(toggle).toBeDisabled();
     expect(toggle).toHaveAttribute("aria-checked", "false");
-    expect(screen.getByText("Not available yet")).toBeInTheDocument();
+  });
+
+  describe("two-factor authentication", () => {
+    const RECOVERY_CODES = ["AAAA-BBBB-CCCC-DDDD", "EEEE-FFFF-GGGG-HHHH"];
+    const SETUP = {
+      secret: "JBSWY3DPEHPK3PXP",
+      otpauthUri: "otpauth://totp/Uncava:priya%40firm.example?secret=JBSWY3DPEHPK3PXP&issuer=Uncava",
+    };
+
+    const openEnableDialog = async (user: ReturnType<typeof userEvent.setup>) => {
+      await waitFor(() => expect(screen.getByRole("switch", { name: /two-factor/i })).toBeEnabled());
+      await user.click(screen.getByRole("switch", { name: /two-factor/i }));
+      return screen.findByRole("dialog", { name: /turn on two-factor/i });
+    };
+
+    it("turns on with the app's code and the password, then shows the recovery codes once", async () => {
+      vi.mocked(authApi.startMfaSetup).mockResolvedValue(SETUP);
+      vi.mocked(authApi.enableMfa).mockResolvedValue({ recoveryCodes: RECOVERY_CODES });
+      const user = userEvent.setup();
+      renderPage();
+
+      const dialog = await openEnableDialog(user);
+      expect(await within(dialog).findByText("JBSWY3DPEHPK3PXP")).toBeInTheDocument();
+      expect(within(dialog).getByTitle(/QR code/i)).toBeInTheDocument();
+
+      await user.type(within(dialog).getByLabelText(/current password/i), "secret123");
+      await user.type(within(dialog).getByLabelText(/code from your app/i), "123 456");
+      await user.click(within(dialog).getByRole("button", { name: "Turn on" }));
+
+      const codes = await screen.findByRole("list", { name: /recovery codes/i });
+      expect(authApi.enableMfa).toHaveBeenCalledWith({ currentPassword: "secret123", code: "123 456" });
+      expect(within(codes).getAllByRole("listitem").map((item) => item.textContent)).toEqual(RECOVERY_CODES);
+      // Turning it on signed every other device out, so the list beside it is read again.
+      await waitFor(() => expect(authApi.listSessions).toHaveBeenCalledTimes(2));
+
+      await user.click(screen.getByRole("button", { name: /saved them/i }));
+      expect(screen.queryByRole("list", { name: /recovery codes/i })).not.toBeInTheDocument();
+    });
+
+    it("refuses anything but six digits before asking the server", async () => {
+      vi.mocked(authApi.startMfaSetup).mockResolvedValue(SETUP);
+      const user = userEvent.setup();
+      renderPage();
+
+      const dialog = await openEnableDialog(user);
+      await user.type(within(dialog).getByLabelText(/current password/i), "secret123");
+      await user.type(within(dialog).getByLabelText(/code from your app/i), "12345");
+      await user.click(within(dialog).getByRole("button", { name: "Turn on" }));
+
+      expect(await within(dialog).findByText("Enter the 6-digit code from your authenticator app")).toBeInTheDocument();
+      expect(authApi.enableMfa).not.toHaveBeenCalled();
+    });
+
+    it("shows a code the server refused under the code field", async () => {
+      vi.mocked(authApi.startMfaSetup).mockResolvedValue(SETUP);
+      vi.mocked(authApi.enableMfa).mockRejectedValue(
+        new ApiRequestError({
+          code: "MFA_CODE_INVALID",
+          detail: "That code didn't work",
+          status: 400,
+          correlationId: "c2",
+          fieldErrors: { code: "That code didn't work. Check your authenticator app and try again" },
+        }),
+      );
+      const user = userEvent.setup();
+      renderPage();
+
+      const dialog = await openEnableDialog(user);
+      await user.type(within(dialog).getByLabelText(/current password/i), "secret123");
+      await user.type(within(dialog).getByLabelText(/code from your app/i), "654321");
+      await user.click(within(dialog).getByRole("button", { name: "Turn on" }));
+
+      expect(await within(dialog).findByText(/That code didn't work/)).toBeInTheDocument();
+      expect(screen.queryByRole("list", { name: /recovery codes/i })).not.toBeInTheDocument();
+    });
+
+    it("says when it is on and how many recovery codes are left, and turns off with a recovery code", async () => {
+      vi.mocked(authApi.mfaStatus).mockResolvedValue({
+        offered: true,
+        enabled: true,
+        enabledAt: "2026-10-01T09:00:00Z",
+        recoveryCodesLeft: 7,
+      });
+      vi.mocked(authApi.disableMfa).mockResolvedValue(undefined);
+      const user = userEvent.setup();
+      renderPage();
+
+      expect(await screen.findByText(/7 recovery codes left/)).toBeInTheDocument();
+      const toggle = screen.getByRole("switch", { name: /two-factor/i });
+      expect(toggle).toHaveAttribute("aria-checked", "true");
+
+      await user.click(toggle);
+      const dialog = await screen.findByRole("dialog", { name: /turn off two-factor/i });
+      await user.type(within(dialog).getByLabelText(/current password/i), "secret123");
+      await user.type(within(dialog).getByLabelText(/recovery code/i), "aaaa-bbbb-cccc-dddd");
+      await user.click(within(dialog).getByRole("button", { name: "Turn off" }));
+
+      await waitFor(() =>
+        expect(authApi.disableMfa).toHaveBeenCalledWith({ currentPassword: "secret123", code: "aaaa-bbbb-cccc-dddd" }),
+      );
+      expect(await screen.findByText("Two-factor authentication is off")).toBeInTheDocument();
+    });
+
+    it("turns on for an account with no password with the app's code alone", async () => {
+      vi.mocked(authApi.me).mockResolvedValue({ ...member, hasPassword: false });
+      vi.mocked(authApi.startMfaSetup).mockResolvedValue(SETUP);
+      vi.mocked(authApi.enableMfa).mockResolvedValue({ recoveryCodes: RECOVERY_CODES });
+      const user = userEvent.setup();
+      renderPage();
+
+      const dialog = await openEnableDialog(user);
+      expect(await within(dialog).findByText("JBSWY3DPEHPK3PXP")).toBeInTheDocument();
+      expect(within(dialog).queryByLabelText(/current password/i)).not.toBeInTheDocument();
+
+      await user.type(within(dialog).getByLabelText(/code from your app/i), "123456");
+      await user.click(within(dialog).getByRole("button", { name: "Turn on" }));
+
+      await screen.findByRole("list", { name: /recovery codes/i });
+      expect(authApi.enableMfa).toHaveBeenCalledWith({ code: "123456" });
+    });
+
+    it("turns off for an account with no password with a code alone", async () => {
+      vi.mocked(authApi.me).mockResolvedValue({ ...member, hasPassword: false });
+      vi.mocked(authApi.mfaStatus).mockResolvedValue({
+        offered: true,
+        enabled: true,
+        enabledAt: "2026-10-01T09:00:00Z",
+        recoveryCodesLeft: 10,
+      });
+      vi.mocked(authApi.disableMfa).mockResolvedValue(undefined);
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(await screen.findByRole("switch", { name: /two-factor/i }));
+      const dialog = await screen.findByRole("dialog", { name: /turn off two-factor/i });
+      expect(within(dialog).queryByLabelText(/current password/i)).not.toBeInTheDocument();
+      await user.type(within(dialog).getByLabelText(/recovery code/i), "123456");
+      await user.click(within(dialog).getByRole("button", { name: "Turn off" }));
+
+      await waitFor(() => expect(authApi.disableMfa).toHaveBeenCalledWith({ code: "123456" }));
+      expect(await screen.findByText("Two-factor authentication is off")).toBeInTheDocument();
+    });
+  });
+
+  describe("audit log", () => {
+    it("is a tab an admin opens beside their own account", async () => {
+      vi.mocked(authApi.me).mockResolvedValue({ ...member, workspace: { ...member.workspace!, roles: ["ADMIN"] } });
+      vi.mocked(auditLogApi.auditLog).mockResolvedValue({ entries: [], nextCursor: null });
+      vi.mocked(auditLogApi.auditLogPeople).mockResolvedValue([]);
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(await screen.findByRole("tab", { name: "Audit log" }));
+
+      expect(await screen.findByText(/No activity matches these filters/)).toBeInTheDocument();
+      expect(screen.queryByText("This device")).not.toBeInTheDocument();
+    });
+
+    it("is not offered to a member, whom the server would refuse", async () => {
+      renderPage();
+
+      expect(await screen.findByText("This device")).toBeInTheDocument();
+      expect(screen.queryByRole("tab", { name: "Audit log" })).not.toBeInTheDocument();
+      expect(auditLogApi.auditLog).not.toHaveBeenCalled();
+    });
   });
 });

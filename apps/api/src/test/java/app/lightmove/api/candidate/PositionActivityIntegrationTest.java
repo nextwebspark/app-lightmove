@@ -7,9 +7,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +35,7 @@ class PositionActivityIntegrationTest extends FlowTestSupport {
     private static final String FATIMA = """
             {"fullName":"Fatima Al Mazrouei","linkedinUrl":"https://www.linkedin.com/in/fatima-activity"}""";
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
     @Autowired CandidateOutreachService outreach;
     @Autowired TransactionTemplate transactions;
 
@@ -112,7 +114,7 @@ class PositionActivityIntegrationTest extends FlowTestSupport {
         String credit = mandate("Head of Credit Risk");
         String onCfo = add(cfo, FATIMA).get("id").asText();
         String onCredit = add(credit, FATIMA).get("id").asText();
-        for (String status : List.of("researching", "contacted", "engaged")) {
+        for (String status : List.of("source", "contacted", "engaged")) {
             setStatus(cfo, onCfo, status);
             setStatus(credit, onCredit, status);
         }
@@ -220,7 +222,7 @@ class PositionActivityIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the position read takes up to 500 lines in one page, while the workspace read still pages by 50")
+    @DisplayName("both drawers' reads take up to 500 lines in one page, and no more")
     void thePositionReadTakesTheWholeHistoryInOnePage() throws Exception {
         firm("Long History Firm");
         String cfo = mandate("Chief Financial Officer");
@@ -245,8 +247,51 @@ class PositionActivityIntegrationTest extends FlowTestSupport {
         JsonNode workspace = body(mvc.perform(get("/api/v1/candidates/" + personId + "/timeline").param("limit", "500")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk()).andReturn());
-        assertThat(workspace.get("entries")).hasSize(50);
-        assertThat(workspace.get("nextCursor").isNull()).isFalse();
+        assertThat(workspace.get("entries")).hasSize(61);
+        assertThat(workspace.get("nextCursor").isNull()).isTrue();
+    }
+
+    @Test
+    @DisplayName("the Candidates page reads the person's changes and each position's milestones, never a position's work")
+    void thePersonWideReadHoldsTheBasicsOfEveryPosition() throws Exception {
+        firm("Person Wide Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String credit = mandate("Head of Credit Risk");
+        JsonNode filed = add(cfo, FATIMA);
+        String personId = filed.get("personId").asText();
+        String onCfo = filed.get("id").asText();
+        String onCredit = add(credit, FATIMA).get("id").asText();
+
+        setStatus(cfo, onCfo, "engaged");
+        setStatus(credit, onCredit, "contacted");
+        note(cfo, onCfo, "CFO-ONLY: strong on treasury.", false);
+        note(credit, onCredit, "Prefers a listed company.", true);
+        save(credit, onCredit, """
+                {"fullName":"Fatima Al Mazrouei","linkedinUrl":"https://www.linkedin.com/in/fatima-activity",
+                 "title":"Group Finance Director"}""");
+        line(personId, credit, "TAGGED", """
+                {"tagId":"%s","tag":"Referral"}""".formatted(UUID.randomUUID()));
+        line(personId, cfo, "EMAIL_SENT", """
+                {"sequence":"CFO approach","step":"1"}""");
+        line(personId, cfo, "TASK_CREATED", """
+                {"taskId":"%s","title":"Call back"}""".formatted(UUID.randomUUID()));
+
+        String raw = body(mvc.perform(get("/api/v1/candidates/" + personId + "/timeline").param("limit", "500")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn()).toString();
+        assertThat(raw).doesNotContain("CFO-ONLY").doesNotContain("listed company").doesNotContain("CFO approach");
+        JsonNode entries = json.readTree(raw).get("entries");
+        assertThat(kindsOf(entries)).containsExactly("TAGGED", "PROFILE_EDITED", "STATUS_CHANGED", "STATUS_CHANGED",
+                "MAPPED", "ADDED_TO_POOL");
+        assertThat(entries.get(2).get("projectTitle").asText()).isEqualTo("Head of Credit Risk");
+        assertThat(entries.get(3).get("projectTitle").asText()).isEqualTo("Chief Financial Officer");
+        assertThat(entries.get(4).get("projectTitle").asText()).isEqualTo("Head of Credit Risk");
+
+        JsonNode notes = body(mvc.perform(get("/api/v1/candidates/" + personId + "/timeline").param("group", "notes")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(notes.get("entries")).isEmpty();
+        assertThat(notes.get("nextCursor").isNull()).isTrue();
     }
 
     @Test
@@ -280,11 +325,13 @@ class PositionActivityIntegrationTest extends FlowTestSupport {
         String workspaceId = db.queryForObject("select workspace_id::text from app_lm_project where id = ?::uuid",
                 String.class, cfo);
 
-        transactions.executeWithoutResult(status -> outreach.recordEmailSent(null, UUID.fromString(cfo), candidateId,
-                UUID.randomUUID(), "CFO approach", 1, sent));
-        transactions.executeWithoutResult(status -> outreach.recordReplied(UUID.fromString(workspaceId),
-                UUID.fromString(cfo), UUID.fromString(filed.get("personId").asText()), UUID.randomUUID(),
-                "CFO approach", reply));
+        WorkspaceScope.run(UUID.fromString(workspaceId), () -> {
+            transactions.executeWithoutResult(status -> outreach.recordEmailSent(null, UUID.fromString(cfo),
+                    candidateId, UUID.randomUUID(), "CFO approach", 1, sent));
+            transactions.executeWithoutResult(status -> outreach.recordReplied(UUID.fromString(workspaceId),
+                    UUID.fromString(cfo), UUID.fromString(filed.get("personId").asText()), UUID.randomUUID(),
+                    "CFO approach", reply));
+        });
 
         JsonNode entries = timeline(cfo, candidateId.toString(), null).get("entries");
         Map<String, JsonNode> byKind = new java.util.LinkedHashMap<>();

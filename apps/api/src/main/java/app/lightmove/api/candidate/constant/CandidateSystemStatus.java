@@ -6,13 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
 /**
- * The seven statuses every workspace's pipeline is seeded with (V131's {@code system_key}): the wire keys the
- * plugin, the public API and every timeline line written before the catalog still speak, and where an
- * automation nobody configured moves people (V140). An admin may retire any of them like a status of their own;
- * everything a candidate may hold is read through {@code CandidatePipelineCatalog}.
- *
- * <p>{@link #OFF_LIMITS} is about the person and is not the same thing as a mandate's off-limits
- * <i>companies</i>, which live on the strategy and bar a company from the search entirely.
+ * The seven seeded statuses (V131's {@code system_key}): the wire keys older callers speak and where an unconfigured
+ * automation moves people (V140); any may be retired. {@link #OFF_LIMITS} is about the person, not off-limits companies.
  */
 @Getter
 @Accessors(fluent = true)

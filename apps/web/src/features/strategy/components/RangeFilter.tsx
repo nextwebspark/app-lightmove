@@ -4,13 +4,8 @@ import { FacetsUnavailable } from "./FacetsUnavailable";
 import { FilterCheckRow } from "../../../components/ui/FilterCheckRow";
 
 /**
- * The Employees and Revenue panels, which share one shape: a mode pair at the top, then either the
- * predefined rows or a Min/Max pair.
- *
- * <p><b>The mode is derived, never stored.</b> A non-null `range` is Custom Range; null is
- * Predefined. There is no third piece of state that could say "custom" while the range is empty, and
- * switching modes clears whichever side is being left — so the panel and the query can never
- * disagree about what is in force, on screen or in the saved document.
+ * The Employees and Revenue panels. The mode is derived, never stored (a non-null `range` is Custom), and switching
+ * clears the side left, so panel and query never disagree.
  */
 export function RangeFilter({
   options,

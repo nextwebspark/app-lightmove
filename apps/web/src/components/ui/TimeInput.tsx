@@ -12,6 +12,7 @@ export function TimeInput({
   stepMinutes = 15,
   ariaLabel,
   invalid,
+  describedBy,
   disabled,
   placeholder,
   className,
@@ -22,6 +23,7 @@ export function TimeInput({
   stepMinutes?: number;
   ariaLabel?: string;
   invalid?: boolean;
+  describedBy?: string;
   disabled?: boolean;
   /** The empty option's words, offered only while nothing is chosen. */
   placeholder?: string;
@@ -39,6 +41,7 @@ export function TimeInput({
   return (
     <Select
       aria-label={ariaLabel}
+      aria-describedby={describedBy}
       value={value}
       invalid={invalid}
       disabled={disabled}

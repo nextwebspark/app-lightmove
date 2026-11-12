@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../components/ui";
+import { AssistantProvider } from "../features/assistant/AssistantProvider";
+import { ASSISTANT_OPEN_KEY } from "../features/assistant/assistantStorage";
 import { AuthProvider } from "../features/auth/AuthProvider";
 import * as authApi from "../features/auth/api/authApi";
 import * as clientsApi from "../features/clients/api/clientsApi";
@@ -42,9 +44,10 @@ vi.mock("../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../lib/apiClient")>()),
   restoreSession: vi.fn(),
   setAccessToken: vi.fn(),
+  onSessionExpired: vi.fn(),
 }));
 
-const { restoreSession } = await import("../lib/apiClient");
+const { restoreSession, onSessionExpired } = await import("../lib/apiClient");
 
 const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[], mode: "AGENCY" | "COMPANY" = "COMPANY") => ({
   id: "u1",
@@ -52,6 +55,9 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[], mode: "AGENCY" | "CO
   fullName: "Someone",
   title: null,
   avatarUrl: null,
+  avatarEditable: true,
+  phone: null,
+  linkedinUrl: null,
   emailVerified: true,
   hasPassword: true,
   timezone: "Asia/Dubai",
@@ -79,6 +85,9 @@ const unverifiedUser = () => ({
   fullName: "Someone",
   title: null,
   avatarUrl: null,
+  avatarEditable: true,
+  phone: null,
+  linkedinUrl: null,
   emailVerified: false,
   hasPassword: true,
   timezone: "Asia/Dubai",
@@ -106,8 +115,10 @@ const renderAt = (path: string) =>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <AuthProvider>
           <ToastProvider>
-            <AppRoutes />
-            <Pathname />
+            <AssistantProvider>
+              <AppRoutes />
+              <Pathname />
+            </AssistantProvider>
           </ToastProvider>
         </AuthProvider>
       </QueryClientProvider>
@@ -146,6 +157,16 @@ describe("routes — the verification gate", () => {
     await waitFor(() =>
       expect(screen.getByTestId("pathname").textContent).toBe("/signup/workspace"),
     );
+  });
+
+  it("sends a staff member who opens the retired invite step into the app", async () => {
+    vi.mocked(projectsApi.projects).mockResolvedValue([]);
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
+
+    renderAt("/signup/invite");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).not.toBe("/signup/invite"));
+    expect(screen.getByTestId("pathname").textContent).not.toMatch(/^\/signup/);
   });
 });
 
@@ -315,6 +336,7 @@ describe("routes — the settings gates", () => {
       persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
       company: null,
       dateTime: WORKSPACE_DATE_TIME,
+      deletionGraceDays: 30,
     });
 
     renderAt("/settings/general");
@@ -499,6 +521,40 @@ describe("routes — changing a mistyped address on the verify step", () => {
   });
 });
 
+/** A consultant's unsaved scorecard is what they think of a candidate: it goes with the session (#927). */
+describe("routes — the session ending takes this tab's unsaved scorecards", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    sessionStorage.clear();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(authApi.me).mockResolvedValue(unverifiedUser());
+    sessionStorage.setItem("lm.scorecard-draft.c-1", "{}");
+    sessionStorage.setItem("lm.other", "kept");
+  });
+
+  it("on sign-out, even when the server refuses it", async () => {
+    vi.mocked(authApi.logout).mockRejectedValue(new Error("503"));
+    renderAt("/signup/verify-email");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Change email" }));
+
+    await waitFor(() => expect(sessionStorage.getItem("lm.scorecard-draft.c-1")).toBeNull());
+    expect(sessionStorage.getItem("lm.other")).toBe("kept");
+  });
+
+  it("when a refresh finds the session gone for good", async () => {
+    renderAt("/signup/verify-email");
+    await screen.findByRole("button", { name: "Change email" });
+
+    const sessionLost = vi.mocked(onSessionExpired).mock.calls.at(-1)?.[0];
+    expect(sessionLost).toBeDefined();
+    act(() => sessionLost?.());
+
+    expect(sessionStorage.getItem("lm.scorecard-draft.c-1")).toBeNull();
+    expect(sessionStorage.getItem("lm.other")).toBe("kept");
+  });
+});
+
 /** The way back out of a position goes to the list it was opened from, and says so. */
 describe("routes — back from a position", () => {
   beforeEach(() => {
@@ -545,5 +601,92 @@ describe("routes — back from a position", () => {
     expect(back).toHaveAttribute("href", "/all?stage=DELIVERED&q=cfo");
     expect(back).toHaveAttribute("title", "Back to All positions");
     expect(screen.getByRole("link", { name: "Positions" })).toHaveAttribute("href", "/all?stage=DELIVERED&q=cfo");
+  });
+});
+
+describe("routes — a position's rail", () => {
+  const position = {
+    id: "p1",
+    clientId: "c1",
+    clientName: "Beta Client",
+    clientLogoUrl: null,
+    positionTitle: "CFO Search",
+    stage: "DELIVERED" as const,
+    health: "OK" as const,
+    targetDate: null,
+    projectType: "SEARCH" as const,
+    startDate: null,
+    deliveryDate: null,
+    mappingTargetDate: null,
+    team: [],
+    representatives: [],
+    companies: 0,
+    candidates: 0,
+    mappedCandidates: 0,
+    engagedCandidates: 0,
+    mappedCompanies: 0,
+    createdAt: "2026-07-13T10:00:00Z",
+    archivedAt: null,
+    archivedByName: null,
+  };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    localStorage.clear();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
+    vi.mocked(clientsApi.clients).mockResolvedValue([]);
+    vi.mocked(workspaceApi.members).mockResolvedValue([]);
+    vi.mocked(projectsApi.projects).mockResolvedValue([position]);
+  });
+
+  const rail = async () => within(await screen.findByRole("navigation", { name: "Main" }));
+
+  it("lists In universe and Declined under Market mapping while Shortlisted is off", async () => {
+    renderAt("/projects/p1/team");
+    const nav = await rail();
+
+    expect(nav.getByRole("link", { name: /In universe/ })).toBeInTheDocument();
+    expect(nav.getByRole("link", { name: /Declined/ })).toBeInTheDocument();
+    expect(nav.queryByRole("link", { name: /Shortlisted/ })).not.toBeInTheDocument();
+  });
+
+  it("lists each page once, Outreach under Engage and the report as Dashboard", async () => {
+    renderAt("/projects/p1/team");
+    const nav = await rail();
+
+    const [, ...pages] = nav.getAllByRole("link").map((link) => link.getAttribute("title"));
+    expect(pages).toEqual(["Brief", "Strategy", "In universe", "Declined", "Outreach", "Dashboard", "Team & access"]);
+    expect(nav.getByText("Engage")).toBeInTheDocument();
+  });
+
+  it("leaves Engage out for a client seat, which has nothing to do there", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["CLIENT"]));
+    renderAt("/projects/p1/team");
+    const nav = await rail();
+
+    expect(await nav.findByRole("link", { name: "Dashboard" })).toBeInTheDocument();
+    expect(nav.queryByText("Engage")).not.toBeInTheDocument();
+  });
+
+  it("docks the assistant beside Strategy alone, even while it is left open", async () => {
+    localStorage.setItem(ASSISTANT_OPEN_KEY, "p1");
+
+    renderAt("/projects/p1/strategy");
+    expect(await screen.findByRole("complementary", { name: "Uncava Assistant" })).toBeInTheDocument();
+
+    await userEvent.click((await rail()).getByRole("link", { name: "Team & access" }));
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/projects/p1/team"));
+    expect(screen.queryByRole("complementary", { name: "Uncava Assistant" })).not.toBeInTheDocument();
+
+    await userEvent.click((await rail()).getByRole("link", { name: "Strategy" }));
+    expect(await screen.findByRole("complementary", { name: "Uncava Assistant" })).toBeInTheDocument();
+  });
+
+  it("marks Outreach inside the sequence editor", async () => {
+    renderAt("/projects/p1/outreach/sequences/s1");
+    const nav = await rail();
+
+    expect(await nav.findByRole("link", { name: "Outreach" })).toHaveAttribute("aria-current", "page");
   });
 });

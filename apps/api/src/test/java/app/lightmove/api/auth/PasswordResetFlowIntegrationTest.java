@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.core.security.model.User;
@@ -29,7 +30,7 @@ class PasswordResetFlowIntegrationTest extends FlowTestSupport {
 
     private static final String NEW_PASSWORD = "brandnew42";
 
-    @Autowired JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc JdbcTemplate jdbc;
     @Autowired UserRepository users;
 
     // The happy path
@@ -229,7 +230,7 @@ class PasswordResetFlowIntegrationTest extends FlowTestSupport {
     @DisplayName("a Google-only account gains a local password through the reset flow")
     void googleOnlyAccountAttachesPassword() throws Exception {
         String sara = "sara@" + domain;
-        users.save(User.registerFederated(sara, "Sara G", null, "GOOGLE", Instant.now(), "2026-07-01"));
+        users.save(User.registerFederated(sara, "Sara G", Instant.now(), "2026-07-01"));
 
         forgot(sara);
         resetOk(email.latestTokenFor(sara), NEW_PASSWORD);

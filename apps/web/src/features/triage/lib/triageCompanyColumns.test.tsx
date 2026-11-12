@@ -19,6 +19,18 @@ describe("createTriageCompanyColumns", () => {
   });
 });
 
+describe("the Actions column", () => {
+  const actions = createTriageCompanyColumns([], { staff: true }).find((column) => column.id === "actions");
+
+  it("takes its content's width rather than a share of the row", () => {
+    const meta = actions?.meta as { share: number; min: number; fixed?: boolean };
+
+    expect(meta.share).toBe(0);
+    expect(meta.fixed).toBe(true);
+    expect(meta.min).toBeLessThanOrEqual(64);
+  });
+});
+
 const YARA = { userId: "u-yara", name: "Yara Haddad", avatarUrl: null };
 const OMAR = { userId: "u-omar", name: "Omar Saleh", avatarUrl: null };
 const COMPANY = {
@@ -60,5 +72,28 @@ describe("the Added by cell", () => {
     renderAddedBy({ company: null, candidate: EXECUTIVE, candidateAddedBy: OMAR });
 
     expect(screen.getByText("Omar S.")).toBeInTheDocument();
+  });
+});
+
+function renderActions(row: TriageCompanyRow) {
+  const column = createTriageCompanyColumns([], { staff: true }).find((candidate) => candidate.id === "actions");
+  const cell = column?.cell as (info: unknown) => ReactElement;
+  const meta = { canWrite: true, busyIds: new Set<string>() };
+  return render(cell({ row: { original: row }, table: { options: { meta } } }));
+}
+
+describe("the Actions cell, while Shortlisted and Declined are off", () => {
+  it("offers a company only its removal", () => {
+    renderActions({ company: { ...COMPANY, status: "inUniverse" }, candidate: null });
+
+    expect(screen.queryByRole("button", { name: /^(Shortlist|Decline)/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove ACWA Power from this mandate" })).toBeInTheDocument();
+  });
+
+  it("offers an executive's line only its removal", () => {
+    renderActions({ company: { ...COMPANY, status: "inUniverse" }, candidate: EXECUTIVE });
+
+    expect(screen.queryByRole("button", { name: /^(Shortlist|Decline)/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Layla Haddad from this mandate" })).toBeInTheDocument();
   });
 });

@@ -11,6 +11,7 @@ import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.AddedByResponse;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
+import app.lightmove.api.candidate.dto.HeldCandidateResponse;
 import app.lightmove.api.candidate.dto.MapPeopleToPositionResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
@@ -25,6 +26,7 @@ import app.lightmove.api.candidate.model.CandidateContactState;
 import app.lightmove.api.candidate.model.CandidateDetails;
 import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.CandidateProfile;
+import app.lightmove.api.candidate.model.CandidateSearchMatches;
 import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
@@ -55,13 +57,16 @@ import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
+import app.lightmove.api.core.text.model.SearchText;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
+import app.lightmove.api.triagecompany.model.FiledCompany;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
@@ -86,18 +91,9 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * A mandate's mapped executives: adding one, replacing one whole, reading them back, removing one.
- *
- * <p>Every executive is a workspace {@link Person} before they are anybody's candidate. Adding one
- * first asks whether the workspace already knows them ({@link PersonMatcher}); if it does, the mandate
- * maps that person and what it brings only fills in what nobody recorded, so a second mandate never
- * starts a second history. Every change leaves a line in the person's timeline, in the same
- * transaction ({@link PersonActivityRecorder}).
- *
- * <p>The one other decision here that is not bookkeeping is where a candidate sits. Naming one of the
- * mandate's triaged companies maps the person to it <i>and</i> snapshots that company's name, and the
- * caller's {@code employerName} is ignored — two fields that could disagree about the same company
- * would drift the moment either changed.
+ * A mandate's mapped executives. Every executive is a workspace {@link Person} first: a match ({@link PersonMatcher})
+ * is mapped, not duplicated. Naming a triaged company snapshots its name and ignores {@code employerName}, so the two
+ * never drift.
  */
 @Service
 @Slf4j
@@ -128,6 +124,9 @@ public class CandidateService {
     private final CandidatePipelineCatalog pipeline;
     private final PersonEmployerResolver employerResolver;
     private final UserRepository users;
+    private final CandidateSearchService searches;
+    private final CandidateRemoval removal;
+    private final SuppressionGate suppression;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -137,7 +136,9 @@ public class CandidateService {
                             ApplicationEventPublisher events, ProjectStreamPublisher stream,
                             CandidateRequestReader requests, CandidateResponseMapper responses,
                             CandidatePipelineCatalog pipeline, PersonEmployerResolver employerResolver,
-                            UserRepository users, LightMoveProperties properties) {
+                            UserRepository users, CandidateSearchService searches,
+                            CandidateRemoval removal, SuppressionGate suppression,
+                            LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
         this.matcher = matcher;
@@ -156,16 +157,15 @@ public class CandidateService {
         this.pipeline = pipeline;
         this.employerResolver = employerResolver;
         this.users = users;
+        this.searches = searches;
+        this.removal = removal;
+        this.suppression = suppression;
     }
 
     /**
-     * One page of people. {@code triageCompanyIds} is how the Companies grid reads, and an empty list
-     * is answered without a query — a page with no companies on it, not a request for everyone.
-     *
-     * <p><b>A caller naming no size but a company filter gets the ceiling, not the default.</b> The
-     * SPA used to name a size computed as a multiple of its page size, which landed exactly on
-     * {@code maxPageSize}, so lowering that knob would have 400'd the people read on every Companies
-     * page. An <i>explicit</i> oversized size is still refused.
+     * One page of people; an empty {@code triageCompanyIds} is answered without a query. A company filter with no size
+     * gets the ceiling, not the default (the SPA once sent exactly {@code maxPageSize}, so lowering it would 400 every
+     * Companies page); an explicit oversized size is refused.
      */
     @Transactional(readOnly = true)
     public CandidatesResponse list(UUID workspaceId, UUID projectId, CandidateListCriteria criteria,
@@ -197,13 +197,16 @@ public class CandidateService {
         }
         TriageCompanyStatus triageStatus = criteria.triageStatus() == null || criteria.triageStatus().isBlank()
                 ? null : TriageCompanyStatus.parseOrInUniverse(criteria.triageStatus());
+        SearchText search = SearchText.ofOrNull(criteria.search());
+        CandidateSearchMatches searched = search == null ? null
+                : searches.matchesOf(workspaceId, projectId, search, audience);
         Page<Candidate> found = candidates.findAll(CandidateListFilter.of(projectId, audience.clientVisibleOnly(),
                 statusIds, companyIds,
                 Boolean.TRUE.equals(criteria.unmapped()), nameQuery, textQuery, criteria.withinTriageCompanyIds(),
-                triageStatus), pageRequest);
+                triageStatus, searched), pageRequest);
 
         return new CandidatesResponse(
-                found.getContent().stream().map(responses::toDto).toList(),
+                responses.toDtos(found.getContent()),
                 found.getTotalElements(), page, size);
     }
 
@@ -267,12 +270,27 @@ public class CandidateService {
     }
 
     /**
-     * Every executive the mandate has mapped, unpaged — the seam {@code talentmap} reads people
-     * through. Takes a cap the caller states and states it back in {@code totalCount}, so a mandate
-     * past it is told rather than shown a map that looks complete and is not.
-     *
-     * <p>Sorted rather than unsorted, so the cut at the cap is deterministic and a mandate past it
-     * sees the same people on every read.
+     * The executive this position already maps at {@code linkedinUrl}'s profile, if any: what the plugin asks
+     * before it offers to file someone. Settled on the slug as {@link #refuseHeldProfile} is, so it finds the row
+     * a save from the same page would collide with.
+     */
+    @Transactional(readOnly = true)
+    public Optional<HeldCandidateResponse> heldAt(UUID workspaceId, UUID projectId, String linkedinUrl) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
+        if (slug == null) {
+            return Optional.empty();
+        }
+        return candidates.findByProjectIdAndProfileSlugLike(projectId, slug).stream()
+                .filter(held -> slug.equals(LinkedInUrls.profileSlugOrNull(held.getPerson().getLinkedinUrl())))
+                .findFirst()
+                .map(held -> new HeldCandidateResponse(responses.toDto(held), adderOf(projectId, held.getId()),
+                        employerResolver.logoOfMapping(workspaceId, held)));
+    }
+
+    /**
+     * Every mapped executive, unpaged, for {@code talentmap}: capped at the caller's limit with {@code totalCount} saying
+     * so, and sorted so the cut at the cap is deterministic.
      */
     @Transactional(readOnly = true)
     public CandidatesResponse listAllOfProject(UUID workspaceId, UUID projectId, int cap,
@@ -283,7 +301,7 @@ public class CandidateService {
                 ? candidates.findByProjectIdAndClientVisibleTrue(projectId, wholePosition)
                 : candidates.findByProjectId(projectId, wholePosition);
         return new CandidatesResponse(
-                found.getContent().stream().map(responses::toDto).toList(),
+                responses.toDtos(found.getContent()),
                 found.getTotalElements(), 0, cap);
     }
 
@@ -322,12 +340,8 @@ public class CandidateService {
     }
 
     /**
-     * The person this mandate already has for a spreadsheet row, so a second import updates profiles
-     * rather than colliding on every row.
-     *
-     * <p>Email first, name second: a name only identifies someone <i>within</i> a company, which is
-     * the scope V36's unique indexes draw, so matching on it across the mandate would merge two people
-     * who share one. Oldest first when more than one answers — nothing makes either column unique.
+     * The person this mandate already has for a spreadsheet row. Email first, then name — a name identifies someone only
+     * within a company (V36's index scope); oldest first when several answer.
      */
     @Transactional(readOnly = true)
     public Optional<CandidateResponse> findCandidateOfProject(UUID projectId, UUID triageCompanyId,
@@ -357,15 +371,16 @@ public class CandidateService {
                                  SaveCandidateRequest request, HttpServletRequest httpRequest) {
         projects.requireInWorkspace(projectId, workspaceId);
         CandidateSource source = requests.resolveSource(request.source());
-        CandidateDetails details = requests.detailsOf(projectId, request, null);
+        UUID triageCompanyId = requests.companyOf(projectId, request, null);
+        CandidateDetails details = requests.detailsOf(projectId, request.withTriageCompanyId(triageCompanyId), null);
 
-        refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), null);
+        refuseDuplicate(projectId, triageCompanyId, details.fullName(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
+        suppression.refuseSuppressed(workspaceId, details.linkedinUrl(), emailsOf(details.emails()));
 
         CandidateStatusDefinition status = pipeline.requireOfferable(workspaceId, request.status());
         Optional<Person> known = personToFile(workspaceId, source, request, details);
-        Filed filed = file(userId, workspaceId, projectId, request.triageCompanyId(), source, status, details,
-                known);
+        Filed filed = file(userId, workspaceId, projectId, triageCompanyId, source, status, details, known);
         Candidate candidate = filed.candidate();
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
@@ -418,17 +433,19 @@ public class CandidateService {
         Person person = candidate.getPerson();
         ProfileChanges changes = ProfileChanges.before(person);
 
-        CandidateDetails details = requests.detailsOf(projectId, request, candidate.getTriageCompanyId());
-        refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), candidateId);
+        UUID triageCompanyId = requests.companyOf(projectId, request, candidate);
+        CandidateDetails details = requests.detailsOf(projectId, request.withTriageCompanyId(triageCompanyId),
+                candidate.getTriageCompanyId());
+        refuseDuplicate(projectId, triageCompanyId, details.fullName(), candidateId);
         refuseHeldProfile(projectId, details.linkedinUrl(), candidateId);
         ProfileClaim claim = matcher.claimOf(workspaceId, details.linkedinUrl(), person);
         if (claim == ProfileClaim.HELD) {
             throw ApiException.of(ErrorCode.PERSON_PROFILE_HELD);
         }
-        refuseRetypedCapturedProfile(person, details.linkedinUrl());
+        refuseSuppressedAdditions(workspaceId, person, details.linkedinUrl(), details.emails());
 
         boolean confirmBackground = Boolean.TRUE.equals(request.confirmBackground());
-        candidate.remapTo(request.triageCompanyId(), triageStatusOfCompany(projectId, request.triageCompanyId()));
+        candidate.remapTo(triageCompanyId, triageStatusOfCompany(projectId, triageCompanyId));
         candidate.describe(details);
         // A whole-record save that names a status moves them like the status pill does, line and all; one
         // that names none (a re-imported sheet) leaves them where they stand.
@@ -517,17 +534,17 @@ public class CandidateService {
     }
 
     /**
-     * The short transactional tail of an enrichment.
-     *
-     * <p>{@code REQUIRES_NEW} because the enrichment worker calls this from an {@code AFTER_COMMIT}
-     * callback, where the completed transaction's resources are still bound to the thread and joining
-     * them writes nothing. A racing drawer edit wins by {@code @Version}: the save throws an
-     * optimistic-locking failure into the worker's catch and the researcher's version stands.
+     * The short transactional tail of an enrichment. {@code REQUIRES_NEW} because it runs from an {@code AFTER_COMMIT}
+     * callback, where joining the finished transaction writes nothing; a racing drawer edit wins by {@code @Version}.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void applyResearch(UUID projectId, UUID candidateId, EnrichedProfile enriched) {
         candidates.findByIdAndProjectId(candidateId, projectId).ifPresentOrElse(candidate -> {
             Person person = candidate.getPerson();
+            if (person.isProcessingRestricted()) {
+                log.info("Candidate {} was restricted before its research landed; it is not kept", candidateId);
+                return;
+            }
             boolean fresh = !person.isResearched();
             // Two mandates capturing one new person before either's research lands each queue a call;
             // the second finds the person researched, but its own mandate still wants the employer
@@ -539,7 +556,7 @@ public class CandidateService {
                         PersonActivityDetails.of("vendor", enriched.vendor()));
             }
             mapToEmployer(projectId, candidate, CapturedCompanyDetails.employerNamed(enriched.employerName(),
-                    enriched.employerLinkedinUrl(), enriched.employerLogoUrl()));
+                    enriched.employerLinkedinUrl(), enriched.employerLogoUrl()), capturedBy(projectId, candidate));
             stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
             projects.findById(projectId).ifPresent(project -> events.publishEvent(
                     new CandidateAiEnrichRequested(candidateId, projectId, project.getWorkspaceId(),
@@ -548,16 +565,9 @@ public class CandidateService {
     }
 
     /**
-     * A vendor search hit, filed and researched in one write — a Find executives pick or a People search
-     * tick: the hit is the profile, so there is no vendor call to wait for and no
-     * {@code CandidateCapturedEvent}. The automatic AI run is queued only where {@code filing} asks.
-     *
-     * <p>The employer a filing names is captured in the same transaction, so a person refused by the
-     * duplicate guards — {@code CANDIDATE_ALREADY_MAPPED}, which the caller counts as a skip — or failing
-     * any other way leaves no company behind at the stage it was filed for.
-     *
-     * <p>{@code REQUIRES_NEW} for {@link #applyResearch}'s reason: the run's worker calls this per person
-     * from an {@code AFTER_COMMIT} callback.
+     * A vendor search hit filed and researched in one write (no vendor call, no {@code CandidateCapturedEvent}); the
+     * employer is captured in the same transaction so a refused person leaves no company behind. {@code REQUIRES_NEW}
+     * for {@link #applyResearch}'s reason: called from an {@code AFTER_COMMIT} callback.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public ResearchedCandidate addResearched(UUID userId, UUID workspaceId, UUID projectId,
@@ -565,6 +575,7 @@ public class CandidateService {
                                              ResearchedFiling filing) {
         projects.requireInWorkspace(projectId, workspaceId);
         CandidateDetails details = requests.detailsOf(projectId, request, null);
+        suppression.refuseSuppressed(workspaceId, details.linkedinUrl(), emailsOf(details.emails()));
         UUID triageCompanyId = request.triageCompanyId();
         TriageCompanyResponse employer = null;
         if (filing.employer() != null && triageCompanyId == null) {
@@ -654,12 +665,16 @@ public class CandidateService {
 
     /**
      * What the AI enrichment may send to the model — {@link CandidateDossier} is an allowlist, so
-     * contact details and compensation never leave through here. Empty once the row is gone.
+     * contact details and compensation never leave through here. Empty once the row is gone. Every model run on an
+     * executive reads them here, so a person whose processing is restricted is refused here, for all of them.
      */
     @Transactional(readOnly = true)
     public Optional<CandidateDossier> dossierOf(UUID projectId, UUID candidateId) {
         return candidates.findByIdAndProjectId(candidateId, projectId).map(candidate -> {
             Person person = candidate.getPerson();
+            if (person.isProcessingRestricted()) {
+                throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
+            }
             CandidateProfile profile = person.getProfile();
             return new CandidateDossier(person.getFullName(), person.getTitle(),
                     candidate.getCompanyName(), person.getLocationCity(), person.getLocationCountry(),
@@ -722,8 +737,11 @@ public class CandidateService {
         List<ContactEntry> emails = requests.entriesOf(ContactChannel.EMAIL, request.emails(), null);
         List<ContactEntry> phones = requests.entriesOf(ContactChannel.PHONE, request.phones(), null);
         Person person = candidate.getPerson();
-        person.replaceContacts(ContactChannel.EMAIL, emails, ContactSource.MANUAL);
-        person.replaceContacts(ContactChannel.PHONE, phones, ContactSource.MANUAL);
+        refuseSuppressedAdditions(workspaceId, person, null, emails);
+        person.replaceContacts(ContactChannel.EMAIL, emails, ContactSource.MANUAL,
+                requests.primaryOf(ContactChannel.EMAIL, request.emails()));
+        person.replaceContacts(ContactChannel.PHONE, phones, ContactSource.MANUAL,
+                requests.primaryOf(ContactChannel.PHONE, request.phones()));
         activity.record(candidate, userId, PersonActivityKind.CONTACTS_EDITED,
                 PersonActivityDetails.of("emails", emails.size()).and("phones", phones.size()));
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
@@ -735,14 +753,23 @@ public class CandidateService {
         return responses.toDto(candidate);
     }
 
-    /**
-     * The plugin read this row's URL off the profile page it was on; research and contact lookup
-     * key on that slug, and a retyped one can only break them. A person's own row is theirs to fix.
-     */
-    private static void refuseRetypedCapturedProfile(Person person, String linkedinUrl) {
-        if (person.isLinkedinUrlLocked() && !Objects.equals(person.getLinkedinUrl(), linkedinUrl)) {
-            throw ApiException.of(ErrorCode.CANDIDATE_PROFILE_URL_LOCKED);
-        }
+    /** Asks the suppression list only for a profile or address the edit adds: what a person holds is theirs. */
+    private void refuseSuppressedAdditions(UUID workspaceId, Person person, String linkedinUrl,
+                                           List<ContactEntry> emails) {
+        String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
+        String newProfile = slug != null
+                && !slug.equalsIgnoreCase(LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl())) ? linkedinUrl : null;
+        Set<String> heldEmailKeys = person.emailContacts().stream()
+                .map(CandidateContact::getValueKey)
+                .collect(Collectors.toSet());
+        List<String> newEmails = emailsOf(emails).stream()
+                .filter(email -> !heldEmailKeys.contains(CandidateContact.keyOf(ContactChannel.EMAIL, email)))
+                .toList();
+        suppression.refuseSuppressed(workspaceId, newProfile, newEmails);
+    }
+
+    private static List<String> emailsOf(List<ContactEntry> emails) {
+        return emails.stream().map(ContactEntry::value).filter(Objects::nonNull).toList();
     }
 
     /**
@@ -756,16 +783,12 @@ public class CandidateService {
         return new CandidateContactState(person.getLinkedinUrl(),
                 person.hasAskedForEmails(), person.hasAskedForPhones(),
                 person.hasFoundEmails(), person.hasFoundPhones(), person.isDoNotContact(),
-                responses.toDto(candidate));
+                person.isProcessingRestricted(), responses.toDto(candidate));
     }
 
     /**
-     * The short transactional tail of an email lookup, {@code applyResearch}'s shape without its
-     * {@code REQUIRES_NEW}: this is called from a request thread with no transaction bound.
-     *
-     * <p>The guard is re-checked here rather than only before the vendor call, so two presses racing
-     * each other leave the first answer standing instead of a second write of the same values. The
-     * lookup is the person's, so an answer bought through one mandate is held on every other.
+     * The transactional tail of an email lookup (no {@code REQUIRES_NEW}: called from a request thread). The guard is
+     * re-checked here so two racing presses leave the first answer standing.
      */
     @Transactional
     public CandidateResponse applyFoundEmails(UUID userId, UUID projectId, UUID candidateId, FoundEmails found) {
@@ -809,7 +832,7 @@ public class CandidateService {
                 .filter(row -> !row.getProjectId().equals(projectId))
                 .toList();
         employerResolver.knownEmployerOf(workspaceId, person, elsewhere)
-                .ifPresent(employer -> mapToEmployer(projectId, candidate, employer));
+                .ifPresent(employer -> mapToEmployer(projectId, candidate, employer, capturedBy(projectId, candidate)));
     }
 
     /**
@@ -818,7 +841,8 @@ public class CandidateService {
      * a company moved. Skipped when the mandate already maps someone of the same name at that company —
      * the scope {@link #refuseDuplicate} holds a mandate to.
      */
-    private void mapToEmployer(UUID projectId, Candidate candidate, CapturedCompanyDetails employer) {
+    private void mapToEmployer(UUID projectId, Candidate candidate, CapturedCompanyDetails employer,
+                               EmployerFilings filings) {
         candidate.adoptEmployer(employer.companyName());
         if (candidate.getTriageCompanyId() != null || employer.companyName() == null) {
             return;
@@ -830,7 +854,8 @@ public class CandidateService {
                 && !candidate.getCompanyName().equalsIgnoreCase(employer.companyName())) {
             return;
         }
-        TriageCompanyResponse company = triage.captureFromResearch(projectId, candidate.getAddedBy(), employer);
+        FiledCompany row = filings.rowFor(employer);
+        TriageCompanyResponse company = row.company();
 
         boolean nameHeldThere = candidates
                 .findByProjectIdAndTriageCompanyIdAndPersonFullNameIgnoreCase(
@@ -842,8 +867,13 @@ public class CandidateService {
                     company.companyName());
             return;
         }
-        candidate.employBy(company.id(), company.companyName(), TriageCompanyStatus.fromValue(company.status()));
+        candidate.employBy(company.id(), company.companyName(), TriageCompanyStatus.fromValue(company.status()),
+                row.created());
         stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
+    }
+
+    private EmployerFilings capturedBy(UUID projectId, Candidate candidate) {
+        return new EmployerFilings(triage, projectId, candidate.getAddedBy(), TriageCompanySource.EXTENSION);
     }
 
     private void keepPhoto(UUID personId, EnrichedProfile enriched) {
@@ -868,23 +898,37 @@ public class CandidateService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
+    /**
+     * {@code withCompany} also removes the company they were the last one at; anyone else mapped there refuses the
+     * whole removal. {@code withFiledCompany} (the plugin's Undo) takes the company only where it was filed for them
+     * and nobody has worked it since, and otherwise leaves it without refusing. The audit is recorded last: its writer
+     * is async and would outlive a rollback.
+     */
     @Transactional
-    public void remove(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
-                       HttpServletRequest httpRequest) {
+    public void remove(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, boolean withCompany,
+                       boolean withFiledCompany, HttpServletRequest httpRequest) {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
+        UUID companyId = candidate.getTriageCompanyId();
+        boolean asksForCompany = companyId != null
+                && (withCompany || withFiledCompany && candidate.isCompanyFiledForThem());
+        if (asksForCompany) {
+            triage.holdForRemoval(projectId, companyId);
+        }
 
-        // The person stays with the workspace — their notes, contacts and history are the point of
-        // keeping them — and the line saying which mandate let them go is written before the row goes.
-        activity.record(candidate, userId, PersonActivityKind.UNMAPPED);
-        candidates.delete(candidate);
-
-        // The name is recorded because the row carrying it is about to stop existing, and an audit
-        // entry naming only an unresolvable id answers no question later.
-        audit.projectEvent(ProjectEventType.CANDIDATE_REMOVED, userId, workspaceId, projectId, httpRequest)
-                .detail("candidateId", candidateId.toString())
-                .detail("fullName", candidate.getPerson().getFullName())
-                .record();
+        removal.unmap(candidate, userId);
+        boolean companyRemoved = false;
+        if (asksForCompany) {
+            candidates.flush();
+            if (withCompany) {
+                triage.removeFromProject(userId, workspaceId, projectId, companyId, 0, httpRequest);
+                companyRemoved = true;
+            } else {
+                companyRemoved = triage.removeIfUntouched(userId, workspaceId, projectId, companyId, httpRequest);
+            }
+        }
+        CandidateRemoval.recordRemoved(audit.projectEvent(ProjectEventType.CANDIDATE_REMOVED, userId, workspaceId,
+                projectId, httpRequest).detail("companyRemoved", String.valueOf(companyRemoved)), candidate);
     }
 
     /**
@@ -898,14 +942,9 @@ public class CandidateService {
     }
 
     /**
-     * Refuses a name the mandate already maps, in the two scopes V36's partial unique indexes drew:
-     * at the company where there is one, across the mandate where there is not. Since V91 the name is
-     * the person's, so this is the only place the rule is held.
-     * {@code selfId} excludes the row being edited so a save without a rename does not collide.
-     *
-     * <p>Both finders carry the project id, including the one that already names a company. Scoping by
-     * the company alone would be safe only by the order of the statements above, and a reorder would
-     * turn this 409 into an oracle confirming another workspace's company id and a name mapped at it.
+     * Refuses a name the mandate already maps, in V36's two scopes (the company, else the mandate); {@code selfId} is the
+     * row being edited. Both finders carry the project id: scoping by company alone would make this 409 an oracle for
+     * another workspace's company ids.
      */
     private void refuseDuplicate(UUID projectId, UUID triageCompanyId, String fullName, UUID selfId) {
         List<Candidate> sameName = triageCompanyId == null
@@ -920,20 +959,20 @@ public class CandidateService {
     }
 
     /**
-     * Refuses a LinkedIn profile the mandate already maps, wherever that row currently sits. The name
-     * rule above cannot answer this one: a second capture arrives with no company, so it is checked
-     * against the unmapped scope only, while the first has since been researched and mapped to its
-     * employer and sits in the company scope. The two look past each other, the row is created, and
-     * {@link #mapToEmployer} then finds the name held at that company and leaves the duplicate
-     * unmapped — a second line reading "Not in universe" that nobody asked for.
-     *
-     * <p>The slug rather than the stored URL, because {@link LinkedInUrls} already rules that
-     * {@code /in/John-Smith} and {@code /in/john-smith} are one profile. The finder only narrows, so
-     * identity is settled here.
-     *
-     * <p>{@code selfId} is the row being edited, excluded so that saving someone without changing
-     * their URL does not collide with themselves.
+     * Refuses a LinkedIn profile slug the mandate already maps, wherever that row sits — the name rule misses a second
+     * capture (no company) against a first since mapped to its employer, leaving a duplicate "Not in universe" line.
+     * {@code selfId} is the row being edited.
      */
+    private AddedByResponse adderOf(UUID projectId, UUID candidateId) {
+        return candidates.findAttributionByProjectIdAndIdIn(projectId, List.of(candidateId)).stream()
+                .map(CandidateAttribution::getAddedBy)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .flatMap(users::findById)
+                .map(adder -> new AddedByResponse(adder.getId(), adder.getFullName(), adder.getAvatarUrl()))
+                .orElse(null);
+    }
+
     private void refuseHeldProfile(UUID projectId, String linkedinUrl, UUID selfId) {
         String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
         if (slug == null) {
@@ -951,7 +990,8 @@ public class CandidateService {
      * Files an executive on this mandate as a workspace person: the one the workspace already knows
      * them as, whose empty fields this filing fills, or a new one it founds. A person this mandate
      * already holds is refused as {@code CANDIDATE_ALREADY_MAPPED}, the answer every door already
-     * handles — V91's (project, person) index is the backstop a race would hit.
+     * handles — V91's (project, person) index is the backstop a race would hit. A person whose processing is
+     * restricted is mapped onto no further position.
      */
     private Filed file(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
                        CandidateSource source, CandidateStatusDefinition status, CandidateDetails details) {
@@ -964,6 +1004,12 @@ public class CandidateService {
                        Optional<Person> known) {
         if (known.isPresent() && candidates.existsByProjectIdAndPersonId(projectId, known.get().getId())) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
+        }
+        if (known.isPresent()) {
+            suppression.refuseSuppressedPerson(workspaceId, known.get());
+        }
+        if (known.isPresent() && known.get().isProcessingRestricted()) {
+            throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
         }
         Person person = known.orElseGet(() -> people.save(Person.founded(workspaceId, userId, source, details)));
         if (known.isPresent()) {
@@ -1029,8 +1075,9 @@ public class CandidateService {
     }
 
     /**
-     * Adds people the workspace already holds to a mandate, as Identified. Someone it already holds stays
-     * as they are. The caller has checked they may work the mandate.
+     * Adds people the workspace already holds to a mandate, as Identified, each under the employer their latest
+     * position recorded, as a plugin capture of someone known is. Someone it already holds stays as they are, and
+     * someone whose processing is restricted is left out and counted. The caller has checked they may work the mandate.
      */
     @Transactional
     public MapPeopleToPositionResponse mapFromPool(UUID userId, UUID workspaceId, UUID projectId,
@@ -1039,17 +1086,31 @@ public class CandidateService {
         Map<UUID, List<Candidate>> mappedOldestFirst = candidates
                 .findPositionsOfPeople(workspaceId, persons.stream().map(Person::getId).toList()).stream()
                 .collect(Collectors.groupingBy(row -> row.getPerson().getId()));
+        Set<UUID> suppressed = suppression.suppressedPeopleOf(workspaceId, persons);
         List<UUID> added = new ArrayList<>();
+        int alreadyIn = 0;
+        int restricted = 0;
         CandidateStatusDefinition startingStatus = pipeline.catalogOf(workspaceId).defaultStatus();
+        EmployerFilings filings = new EmployerFilings(triage, projectId, userId, TriageCompanySource.MANUAL);
         for (Person person : persons) {
             List<Candidate> rows = mappedOldestFirst.getOrDefault(person.getId(), List.of());
             if (rows.stream().anyMatch(row -> row.getProjectId().equals(projectId))) {
+                alreadyIn++;
                 continue;
             }
-            Candidate candidate = candidates.save(Candidate.mappedFromPool(projectId, userId, person,
-                    PersonEmployerResolver.employerOf(person, rows).name(), startingStatus));
+            if (suppressed.contains(person.getId())) {
+                continue;
+            }
+            if (person.isProcessingRestricted()) {
+                restricted++;
+                continue;
+            }
+            Candidate candidate = candidates.save(Candidate.mappedFromPool(projectId, userId, person, startingStatus));
             activity.record(candidate, userId, PersonActivityKind.MAPPED,
                     PersonActivityDetails.of("door", CandidateSource.MANUAL));
+            employerResolver.knownEmployerOf(workspaceId, person, rows).ifPresentOrElse(
+                    employer -> mapToEmployer(projectId, candidate, employer, filings),
+                    () -> candidate.adoptEmployer(PersonEmployerResolver.employerOf(person, rows).name()));
             added.add(person.getId());
         }
         if (!added.isEmpty()) {
@@ -1058,7 +1119,8 @@ public class CandidateService {
                     .detail("personIds", added.stream().map(UUID::toString).toList())
                     .record();
         }
-        return new MapPeopleToPositionResponse(added.size(), persons.size() - added.size());
+        return new MapPeopleToPositionResponse(added.size(), alreadyIn,
+                persons.size() - added.size() - alreadyIn - restricted, restricted);
     }
 
     /** The stage a person filed or remapped at this company starts at; In universe at none. */

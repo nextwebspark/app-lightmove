@@ -37,6 +37,7 @@ public class RecordingPaymentGateway implements PaymentGateway {
     private final Set<String> customersPaying = ConcurrentHashMap.newKeySet();
     private final Map<String, Long> seats = new ConcurrentHashMap<>();
     private final Map<String, PaymentCard> cards = new ConcurrentHashMap<>();
+    private final Set<String> cancellingAtPeriodEnd = ConcurrentHashMap.newKeySet();
     private final AtomicInteger seatUpdatesRefused = new AtomicInteger();
     private volatile boolean refusingSeatUpdates;
     private final AtomicInteger sequence = new AtomicInteger();
@@ -93,6 +94,19 @@ public class RecordingPaymentGateway implements PaymentGateway {
         }
         Long previous = seats.put(subscriptionId, quantity);
         return new SeatQuantityChange(previous == null ? quantity : previous, quantity);
+    }
+
+    @Override
+    public void cancelAtPeriodEnd(String subscriptionId, boolean cancel) {
+        if (cancel) {
+            cancellingAtPeriodEnd.add(subscriptionId);
+        } else {
+            cancellingAtPeriodEnd.remove(subscriptionId);
+        }
+    }
+
+    public boolean isCancellingAtPeriodEnd(String subscriptionId) {
+        return cancellingAtPeriodEnd.contains(subscriptionId);
     }
 
     @Override

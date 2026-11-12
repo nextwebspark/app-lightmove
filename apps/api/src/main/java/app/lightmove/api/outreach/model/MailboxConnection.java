@@ -19,12 +19,16 @@ import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.DynamicUpdate;
 
 /**
  * One consultant's own mailbox in one workspace (V99). Held through Nylas as its grant id only, or through our own
- * gateway (V107) with the provider's refresh token as ciphertext bound to this workspace and consultant.
+ * gateway (V107) with the provider's refresh token as ciphertext bound to this workspace and consultant. A save writes
+ * only what changed: the drawer's refresh claims {@code calendar_synced_at} past the version, and a save of a copy
+ * loaded before it would otherwise write the old time back.
  */
 @Entity
+@DynamicUpdate
 @Table(name = "app_lm_mailbox_connection")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -107,6 +111,10 @@ public class MailboxConnection extends BaseEntity {
     @Column(name = "reply_text_granted", nullable = false)
     private boolean replyTextGranted;
 
+    /** The OAuth client a direct connection was made through (V168); null for Nylas, or unknown before V168. */
+    @Column(name = "app_client_id")
+    private String appClientId;
+
     /** {@code refreshTokenEncrypted}: the refresh token under {@link #refreshTokenContext}; null for Nylas. */
     public static MailboxConnection connected(UUID workspaceId, UUID userId, GrantedMailbox mailbox,
                                               String refreshTokenEncrypted, int dailyCap, ZoneId zone, Instant now) {
@@ -131,6 +139,7 @@ public class MailboxConnection extends BaseEntity {
         this.address = mailbox.address();
         this.grantId = mailbox.grantId();
         this.replyTextGranted = mailbox.replyTextGranted();
+        this.appClientId = mailbox.appClientId();
         this.status = MailboxStatus.ACTIVE;
         this.connectedAt = now;
         this.calendarSyncedAt = null;
@@ -225,6 +234,27 @@ public class MailboxConnection extends BaseEntity {
 
     public boolean canSend() {
         return status == MailboxStatus.ACTIVE;
+    }
+
+    /** Its refresh token was issued to another client than {@code clientId}, so that app cannot refresh it. */
+    public boolean isFromAnotherApp(String clientId) {
+        return appClientId != null && !appClientId.equals(clientId);
+    }
+
+    /** A connection from before V168 learns its app from the first refresh that app answers. */
+    public void recordAppClient(String clientId) {
+        if (appClientId == null) {
+            this.appClientId = Objects.requireNonNull(clientId, "clientId");
+        }
+    }
+
+    /**
+     * Whether this live direct connection's refresh token was issued to {@code clientId} at {@code provider}. A
+     * connection that predates V168 recorded no client and is taken to be the workspace's app until now.
+     */
+    public boolean isLiveThrough(IntegrationProvider appProvider, String clientId) {
+        return isDirect() && canSend() && integrationProvider() == appProvider
+                && (appClientId == null || appClientId.equals(clientId));
     }
 
     public ZoneId zone() {

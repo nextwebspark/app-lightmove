@@ -25,7 +25,8 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PG_PORT="${PG_PORT:-55433}"
 
 # A dev-only key-encryption key for the secrets the app stores (core/crypto), the same one the tests use. It
-# protects nothing real; a deployment's own comes from Secret Manager.
+# protects nothing real; a deployment's own comes from Secret Manager. The suppression list's HMAC keyset beside it.
+DEV_SUPPRESSION_KEYSET='{"primaryKeyId":31013455,"key":[{"keyData":{"typeUrl":"type.googleapis.com/google.crypto.tink.HmacPrfKey","value":"EgIIAxogNW7n0Y4IR7YVIIa+pBH3RFlacGOjmxrNWT/yv57Gs9E=","keyMaterialType":"SYMMETRIC"},"status":"ENABLED","keyId":31013455,"outputPrefixType":"RAW"}]}'
 DEV_CREDENTIAL_KEYSET='{"primaryKeyId":653769729,"key":[{"keyData":{"typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey","value":"GiDdcDK+eD7jyE+NjJ55C7Ta4t9IgqMRKbdXgoG/+4KVfw==","keyMaterialType":"SYMMETRIC"},"status":"ENABLED","keyId":653769729,"outputPrefixType":"TINK"}]}'
 
 cd "$REPO_DIR/apps/api"
@@ -36,5 +37,8 @@ exec env \
   DB_PASSWORD=lm \
   LIGHTMOVE_EMAIL_PROVIDER=log \
   CREDENTIAL_KEYSET="${CREDENTIAL_KEYSET:-$DEV_CREDENTIAL_KEYSET}" \
+  SUPPRESSION_KEYSET="${SUPPRESSION_KEYSET:-$DEV_SUPPRESSION_KEYSET}" \
   MCP_ENABLED="${MCP_ENABLED:-true}" \
+  MFA_ENABLED="${MFA_ENABLED:-true}" \
+  DATA_PROTECTION_ENABLED="${DATA_PROTECTION_ENABLED:-true}" \
   ./mvnw spring-boot:run -Dspring-boot.run.profiles=local

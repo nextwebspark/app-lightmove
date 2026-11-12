@@ -37,12 +37,9 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Gmail and Google Workspace mail through the Gmail API, connected through the OAuth app the workspace chose:
- * Uncava's, or the customer's Internal app. A send is a raw RFC 2822 message ({@link RawEmail}); a follow-up names
- * the thread and carries the last message's {@code Message-ID} in {@code In-Reply-To} and {@code References}, which
- * is what threads it in the executive's own client, Gmail or not. A body is read only from a thread Uncava started,
- * and only where the consultant granted {@code gmail.readonly}; otherwise headers alone. A send is never retried — see
- * {@link MailboxGateway}.
+ * Gmail API mail through the workspace's app. A raw RFC 2822 send ({@link RawEmail}); a follow-up carries the last
+ * {@code Message-ID} in {@code In-Reply-To} and {@code References}. Bodies read only from Uncava's threads with
+ * {@code gmail.readonly}. Never retried — see {@link MailboxGateway}.
  */
 public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
 

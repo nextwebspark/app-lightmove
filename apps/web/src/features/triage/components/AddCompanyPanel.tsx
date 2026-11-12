@@ -13,6 +13,7 @@ import type { CustomColumn } from "../../customcolumns/api/types";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompanyStatus } from "../api/types";
 import { stageByStatus } from "../lib/triageStages";
+import { isStageOffered } from "../lib/triageVocabulary";
 import { capturePayloadOf, CompanyFactsForm } from "./CompanyFactsForm";
 import { CompanyFactsSections } from "./CompanyFactsSections";
 
@@ -31,16 +32,8 @@ type AddDraft =
   | { step: "byHand"; name: string };
 
 /**
- * Adding a company to the mandate: the market first, then the long way round.
- *
- * <p>The name box is a picker over the 71,822-company universe rather than a plain field, because a
- * hand-typed row is the worse of the two outcomes every time the market already holds the company —
- * it carries no universe id, no logo and no refreshable figures, and its Source badge tells every
- * later reader the mandate vouched for facts nobody checked.
- *
- * <p>A picked company is <b>shown, not offered for editing</b>. Its fields belong to the export and
- * are refreshed by it, and the server resolves them from the universe whatever this screen sends —
- * so the panel reads them back rather than pretending they are this form's to fill in.
+ * Adding a company: a picker over the universe first, since a hand-typed row has no universe id, logo or
+ * refreshable figures. A picked company is shown, not editable — the server resolves its fields from the universe.
  */
 export function AddCompanyPanel({
   projectId,
@@ -102,7 +95,9 @@ export function AddCompanyPanel({
       toast(
         saved.status === landingStatus
           ? `${saved.companyName} is in this mandate — ${stageByStatus(saved.status).label}`
-          : `${saved.companyName} is already in this mandate — ${stageByStatus(saved.status).label}`,
+          : isStageOffered(saved.status)
+            ? `${saved.companyName} is already in this mandate — ${stageByStatus(saved.status).label}`
+            : `${saved.companyName} is already in this mandate`,
       );
       onClose();
     },
@@ -200,14 +195,8 @@ export function AddCompanyPanel({
                     Nothing in the market matches “{settled}”.
                   </li>
                 )}
-                {/* Offered whatever the market answered, a failed read included. A company the
-                    export does not carry is the case this door exists for, so closing it when the
-                    universe cannot be reached refuses the very company that needs it — the risk of
-                    filing a company the market does have is stated in the label instead, to the
-                    person who can judge it.
-
-                    Seeded from what is typed rather than from what was last searched: the two differ
-                    for a quarter of a second, and the name shown is the one that was typed. */}
+                {/* Offered even when the market read failed — this door exists for companies the export lacks.
+                    Seeded from what is typed, not what was last searched. */}
                 <li>
                   <button
                     type="button"

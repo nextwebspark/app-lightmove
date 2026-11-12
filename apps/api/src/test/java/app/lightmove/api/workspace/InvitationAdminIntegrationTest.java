@@ -9,10 +9,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.JsonNode;
 
 /** Outstanding invitations as an admin manages them: list, revoke (kills the link), resend (rotates it). */
 @IntegrationTest
@@ -75,6 +78,72 @@ class InvitationAdminIntegrationTest extends FlowTestSupport {
 
         mvc.perform(get("/api/v1/invitations/pending-count").header("Authorization", "Bearer " + client))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("an invitation whose email the provider refused is saved, said so, and cleared by a resend that goes")
+    void refusedEmailIsSaidNotSwallowed() throws Exception {
+        String alok = "alok@" + domain;
+        String omar = "omar@" + domain;
+        String lina = "lina@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Bounce Firm");
+        String admin = login(alok);
+        email.refuseDeliveryTo(omar);
+
+        mvc.perform(post("/api/v1/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"%s","role":"MEMBER"},{"email":"%s","role":"MEMBER"}]
+                                """.formatted(omar, lina)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sent").value(2))
+                .andExpect(jsonPath("$.notDelivered.length()").value(1))
+                .andExpect(jsonPath("$.notDelivered[0]").value(omar));
+        assertThat(email.subjectsFor(lina)).hasSize(1);
+
+        JsonNode listed = body(mvc.perform(get("/api/v1/invitations").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn());
+        String omarInvitation = null;
+        for (JsonNode invitation : listed) {
+            boolean isOmar = invitation.get("email").asText().equals(omar);
+            assertThat(invitation.get("emailFailed").asBoolean()).isEqualTo(isOmar);
+            if (isOmar) {
+                omarInvitation = invitation.get("id").asText();
+            }
+        }
+
+        MvcResult refusedAgain = mvc.perform(post("/api/v1/invitations/" + omarInvitation + "/resend")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadGateway())
+                .andReturn();
+        assertThat(codeOf(refusedAgain)).isEqualTo("INVITATION_EMAIL_NOT_SENT");
+
+        email.clear();
+        mvc.perform(post("/api/v1/invitations/" + omarInvitation + "/resend")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/invitations").header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$[?(@.email == '%s')].emailFailed".formatted(omar)).value(false));
+    }
+
+    @Test
+    @DisplayName("more than fifty addresses in one request is refused, and nobody is invited")
+    void oneRequestInvitesAtMostFifty() throws Exception {
+        createWorkspace(verifiedUser("Alok Kumar", "alok@" + domain), "Batch Firm");
+        String admin = login("alok@" + domain);
+        StringBuilder batch = new StringBuilder("[");
+        for (int index = 0; index < 51; index++) {
+            batch.append(index == 0 ? "" : ",").append("{\"email\":\"person%d@%s\"}".formatted(index, domain));
+        }
+        email.clear();
+
+        mvc.perform(post("/api/v1/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(batch.append("]").toString()))
+                .andExpect(status().isBadRequest());
+        assertThat(email.sent()).isEmpty();
     }
 
     @Test
@@ -188,6 +257,176 @@ class InvitationAdminIntegrationTest extends FlowTestSupport {
         assertThat(body(refused).get("fieldErrors").has("requests[0].email"))
                 .as("the key names the element that failed and the field inside it")
                 .isTrue();
+    }
+
+    @Test
+    @DisplayName("re-inviting as another role grants the role the latest email names")
+    void reinviteTakesTheNewRole() throws Exception {
+        String alok = "alok@" + domain;
+        String omar = "omar@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Reinvite Firm");
+        String admin = login(alok);
+        invite(admin, omar, "MEMBER");
+        invite(admin, omar, "ADMIN");
+
+        mvc.perform(get("/api/v1/invitations").header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].role").value("ADMIN"));
+
+        String linkToken = email.latestTokenFor(omar);
+        acceptAs(verifiedUser("Omar Khalil", omar), linkToken);
+        assertThat(rolesOf(admin, omar)).containsExactly("ADMIN");
+    }
+
+    @Test
+    @DisplayName("a refused row sends nothing for the rows before it")
+    void aRefusedRowSendsNothing() throws Exception {
+        String alok = "alok@" + domain;
+        String omar = "omar@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "All Or Nothing Firm");
+        String admin = login(alok);
+
+        MvcResult refused = mvc.perform(post("/api/v1/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"%s","role":"MEMBER"},{"email":"rana@client-%s","role":"CLIENT"}]
+                                """.formatted(omar, domain)))
+                .andExpect(status().isBadRequest())
+                .andReturn();
+
+        assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
+        assertThat(email.subjectsFor(omar)).as("no link to an invitation that was rolled back").isEmpty();
+        mvc.perform(get("/api/v1/invitations").header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("an invitee with no role named is invited as a member, not answered with a 500")
+    void aMissingRoleIsAMember() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Default Role Firm");
+        String admin = login(alok);
+
+        mvc.perform(post("/api/v1/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"omar@%s"}]
+                                """.formatted(domain)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sent").value(1));
+
+        mvc.perform(get("/api/v1/invitations").header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$[0].role").value("MEMBER"));
+    }
+
+    @Test
+    @DisplayName("an address listed twice is one invitation, one email, and a link that works")
+    void aRepeatedAddressIsOneInvitation() throws Exception {
+        String alok = "alok@" + domain;
+        String omar = "omar@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Twice Firm");
+        String admin = login(alok);
+
+        mvc.perform(post("/api/v1/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"%s","role":"MEMBER"},{"email":" OMAR@%s ","role":"MEMBER"}]
+                                """.formatted(omar, domain)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sent").value(1));
+
+        assertThat(email.subjectsFor(omar)).hasSize(1);
+        String linkToken = email.latestTokenFor(omar);
+        acceptAs(verifiedUser("Omar Khalil", omar), linkToken);
+    }
+
+    @Test
+    @DisplayName("an address listed twice with two roles is refused, not quietly given the first")
+    void aRepeatedAddressWithTwoRolesIsRefused() throws Exception {
+        String alok = "alok@" + domain;
+        String omar = "omar@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Two Roles Firm");
+        String admin = login(alok);
+
+        MvcResult refused = mvc.perform(post("/api/v1/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"%s","role":"MEMBER"},{"email":"%s","role":"ADMIN"}]
+                                """.formatted(omar, omar)))
+                .andExpect(status().isBadRequest())
+                .andReturn();
+
+        assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
+        assertThat(email.subjectsFor(omar)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a pure client invited as staff becomes staff, keeping their client role")
+    void aPureClientInvitedAsStaffBecomesStaff() throws Exception {
+        String alok = "alok@" + domain;
+        String rana = "rana@client-" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Promote Firm");
+        String admin = login(alok);
+        String client = clientRepresentative(admin, "Rana Client", rana);
+
+        mvc.perform(post("/api/v1/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"%s","role":"MEMBER"}]
+                                """.formatted(rana)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sent").value(1));
+
+        acceptAs(client, email.latestTokenFor(rana));
+        assertThat(rolesOf(admin, rana)).containsExactlyInAnyOrder("CLIENT", "MEMBER");
+    }
+
+    @Test
+    @DisplayName("staff already on the roster are skipped, whatever role they are asked to take")
+    void staffAlreadyInAreSkipped() throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Skip Firm");
+        String admin = login(alok);
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+
+        mvc.perform(post("/api/v1/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"%s","role":"ADMIN"}]
+                                """.formatted(sara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sent").value(0));
+    }
+
+    private void acceptAs(String inviteeToken, String linkToken) throws Exception {
+        mvc.perform(post("/api/v1/onboarding/invitations/accept")
+                        .header("Authorization", "Bearer " + inviteeToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s"}
+                                """.formatted(linkToken)))
+                .andExpect(status().isOk());
+    }
+
+    private List<String> rolesOf(String callerToken, String memberEmail) throws Exception {
+        JsonNode roster = body(mvc.perform(get("/api/v1/members").header("Authorization", "Bearer " + callerToken))
+                .andExpect(status().isOk())
+                .andReturn());
+        for (JsonNode member : roster) {
+            if (member.get("email").asText().equals(memberEmail)) {
+                List<String> roles = new ArrayList<>();
+                member.get("roles").forEach(role -> roles.add(role.asText()));
+                return roles;
+            }
+        }
+        throw new AssertionError(memberEmail + " not on the roster: " + roster);
     }
 
     private void invite(String adminToken, String inviteeEmail, String role) throws Exception {

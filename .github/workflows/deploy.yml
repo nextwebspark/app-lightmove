@@ -153,6 +153,8 @@ jobs:
           # split is what removes DDL from the runtime role; until then this is still a *deploy* step
           # rather than a boot step, which is the half that matters most — a bad migration fails the
           # deploy and the previous revision keeps serving.
+          # initSql: row-level security (V184) is forced on tables this role owns, so a backfill reaches every
+          # workspace's rows only with Flyway's session in maintenance. #256 gives lm_migrate its own policy instead.
           docker run --rm --network host \
             -v "$PWD/apps/api/src/main/resources/db/migration:/flyway/sql:ro" \
             redgate/flyway:11 \
@@ -161,6 +163,7 @@ jobs:
             -password="${FLYWAY_PASSWORD}" \
             -baselineOnMigrate=true \
             -placeholders.iam_user= \
+            "-initSql=SET app.rls_maintenance = 'on'" \
             -connectRetries=5 \
             migrate
 
@@ -181,11 +184,65 @@ jobs:
           echo "url=${URL:-http://localhost:8080}" >> "$GITHUB_OUTPUT"
 
       - name: Deploy to Cloud Run
+        # Every value reaches the script through env, never as ${{ }} inside it: Actions refuses a run
+        # string holding an expression past 21,000 characters, and this one is near that on its own.
         env:
           IMAGE: ${{ steps.build.outputs.image }}
           BASE_URL: ${{ steps.url.outputs.url }}
           VERSION: ${{ inputs.ref }}
           EXTENSION_ID: ${{ steps.extension.outputs.id }}
+          GOOGLE_OAUTH_ENABLED: ${{ vars.GOOGLE_OAUTH_ENABLED }}
+          LINKEDIN_OAUTH_CLIENT_ID: ${{ vars.LINKEDIN_OAUTH_CLIENT_ID }}
+          EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER || 'resend' }}
+          ENRICHMENT_PROVIDER: ${{ vars.ENRICHMENT_PROVIDER }}
+          HARVESTAPI_FALLBACK_ENABLED: ${{ vars.HARVESTAPI_FALLBACK_ENABLED }}
+          SOURCING_PEOPLE_SOURCE: ${{ vars.SOURCING_PEOPLE_SOURCE }}
+          MAPBOX_ENABLED: ${{ vars.MAPBOX_ENABLED }}
+          MAPBOX_SEPARATE_GEOCODING_TOKEN: ${{ vars.MAPBOX_SEPARATE_GEOCODING_TOKEN }}
+          CONTACTOUT_ENABLED: ${{ vars.CONTACTOUT_ENABLED }}
+          NYLAS_ENABLED: ${{ vars.NYLAS_ENABLED }}
+          NYLAS_CLIENT_ID: ${{ vars.NYLAS_CLIENT_ID }}
+          NYLAS_BASE_URL: ${{ vars.NYLAS_BASE_URL || 'https://api.us.nylas.com' }}
+          CREDENTIAL_ENCRYPTION_ENABLED: ${{ vars.CREDENTIAL_ENCRYPTION_ENABLED }}
+          SUPPRESSION_LIST_ENABLED: ${{ vars.SUPPRESSION_LIST_ENABLED }}
+          OUTREACH_GATEWAY: ${{ vars.OUTREACH_GATEWAY || 'nylas' }}
+          GOOGLE_MAIL_ENABLED: ${{ vars.GOOGLE_MAIL_ENABLED }}
+          MICROSOFT_MAIL_ENABLED: ${{ vars.MICROSOFT_MAIL_ENABLED }}
+          ZOOM_ENABLED: ${{ vars.ZOOM_ENABLED }}
+          GOOGLE_MAIL_OWN_APP_GUIDE_URL: ${{ vars.GOOGLE_MAIL_OWN_APP_GUIDE_URL }}
+          GOOGLE_MAIL_SHARED_APP_GUIDE_URL: ${{ vars.GOOGLE_MAIL_SHARED_APP_GUIDE_URL }}
+          MICROSOFT_MAIL_OWN_APP_GUIDE_URL: ${{ vars.MICROSOFT_MAIL_OWN_APP_GUIDE_URL }}
+          MICROSOFT_MAIL_SHARED_APP_GUIDE_URL: ${{ vars.MICROSOFT_MAIL_SHARED_APP_GUIDE_URL }}
+          ZOOM_OWN_APP_GUIDE_URL: ${{ vars.ZOOM_OWN_APP_GUIDE_URL }}
+          ZOOM_SHARED_APP_GUIDE_URL: ${{ vars.ZOOM_SHARED_APP_GUIDE_URL }}
+          RECALL_ENABLED: ${{ vars.RECALL_ENABLED }}
+          RECALL_BASE_URL: ${{ vars.RECALL_BASE_URL || 'https://us-east-1.recall.ai' }}
+          NOTETAKER_ENABLED: ${{ vars.NOTETAKER_ENABLED }}
+          BILLING_ENABLED: ${{ vars.BILLING_ENABLED }}
+          STRIPE_PRICE_CORE_MONTHLY: ${{ vars.STRIPE_PRICE_CORE_MONTHLY }}
+          STRIPE_PRICE_CORE_ANNUAL: ${{ vars.STRIPE_PRICE_CORE_ANNUAL }}
+          STRIPE_PRICE_PRO_MONTHLY: ${{ vars.STRIPE_PRICE_PRO_MONTHLY }}
+          STRIPE_PRICE_PRO_ANNUAL: ${{ vars.STRIPE_PRICE_PRO_ANNUAL }}
+          STRIPE_PRICE_PACK_100: ${{ vars.STRIPE_PRICE_PACK_100 }}
+          STRIPE_PRICE_PACK_500: ${{ vars.STRIPE_PRICE_PACK_500 }}
+          MCP_ENABLED: ${{ vars.MCP_ENABLED }}
+          MCP_ALLOWED_ORIGINS: ${{ vars.MCP_ALLOWED_ORIGINS }}
+          GCP_RUNTIME_SA: ${{ vars.GCP_RUNTIME_SA }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM || 'noreply@uncava.com' }}
+          AUTO_VERIFY_EMAIL: ${{ vars.AUTO_VERIFY_EMAIL || 'false' }}
+          RATE_LIMIT_ENABLED: ${{ vars.RATE_LIMIT_ENABLED || 'true' }}
+          LOGIN_ATTEMPTS_PER_MINUTE: ${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}
+          SIGNUP_ATTEMPTS_PER_HOUR: ${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}
+          VERIFICATION_RESENDS_PER_HOUR: ${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}
+          TRUSTED_PROXY_COUNT: ${{ vars.TRUSTED_PROXY_COUNT || '0' }}
+          PUBLIC_API_ENABLED: ${{ vars.PUBLIC_API_ENABLED || 'true' }}
+          RETENTION_ENABLED: ${{ vars.RETENTION_ENABLED || 'false' }}
+          DATA_PROTECTION_ENABLED: ${{ vars.DATA_PROTECTION_ENABLED || 'false' }}
+          MFA_ENABLED: ${{ vars.MFA_ENABLED || 'false' }}
+          # false switches billing off for every workspace (no limits, no billing emails, nothing on screen).
+          BILLING_ENFORCE: ${{ vars.BILLING_ENFORCE || 'true' }}
+          BILLING_CONTACT_EMAIL: ${{ vars.BILLING_CONTACT_EMAIL || 'billing@uncava.com' }}
+          DOCUMENTS_BUCKET: ${{ vars.DOCUMENTS_BUCKET || format('{0}-lightmove-documents', vars.GCP_PROJECT) }}
         run: |
           # Each identity provider is wired only when it is actually configured. Spring validates every
           # declared registration at startup and REJECTS an empty client-id, so passing these through
@@ -207,7 +264,7 @@ jobs:
           #   gcloud secrets create lightmove-google-oauth-client-id     --data-file=-
           #   gcloud secrets create lightmove-google-oauth-client-secret --data-file=-
           #   …each granted roles/secretmanager.secretAccessor to the runtime service account.
-          if [ "${{ vars.GOOGLE_OAUTH_ENABLED }}" = "true" ]; then
+          if [ "${GOOGLE_OAUTH_ENABLED}" = "true" ]; then
             OAUTH_ENV="|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_SCOPE=openid,email,profile"
             # Set explicitly rather than letting Spring derive it from X-Forwarded-Host. One less thing
             # that can be quietly wrong behind a proxy, and Google rejects a redirect_uri mismatch with
@@ -222,8 +279,8 @@ jobs:
           # to start without it for the rest — and client_secret_post is not either: LinkedIn's token
           # endpoint rejects HTTP Basic, which is Spring's default, with an opaque invalid_client. The
           # endpoints themselves live in application.yml, since they carry no credentials.
-          if [ -n "${{ vars.LINKEDIN_OAUTH_CLIENT_ID }}" ]; then
-            OAUTH_ENV="${OAUTH_ENV}|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_LINKEDIN_CLIENT_ID=${{ vars.LINKEDIN_OAUTH_CLIENT_ID }}"
+          if [ -n "${LINKEDIN_OAUTH_CLIENT_ID}" ]; then
+            OAUTH_ENV="${OAUTH_ENV}|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_LINKEDIN_CLIENT_ID=${LINKEDIN_OAUTH_CLIENT_ID}"
             OAUTH_ENV="${OAUTH_ENV}|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_LINKEDIN_SCOPE=openid,profile,email"
             OAUTH_ENV="${OAUTH_ENV}|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_LINKEDIN_AUTHORIZATION_GRANT_TYPE=authorization_code"
             OAUTH_ENV="${OAUTH_ENV}|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_LINKEDIN_CLIENT_AUTHENTICATION_METHOD=client_secret_post"
@@ -246,7 +303,6 @@ jobs:
           # sending domain (uncava.com) is verified, so the provider defaults to `resend` and the
           # lightmove-resend-api-key secret is mounted below — a deploy fails if that secret has no
           # version. Set the EMAIL_PROVIDER var to `log` for an environment that should not send.
-          EMAIL_PROVIDER="${{ vars.EMAIL_PROVIDER || 'resend' }}"
           EMAIL_SECRETS=""
           if [ "$EMAIL_PROVIDER" = "resend" ]; then
             EMAIL_SECRETS=",RESEND_API_KEY=lightmove-resend-api-key:latest"
@@ -261,22 +317,22 @@ jobs:
           #   gcloud secrets create lightmove-harvestapi-api-key --data-file=-
           ENRICHMENT_ENV=""
           ENRICHMENT_SECRETS=""
-          if [ -n "${{ vars.ENRICHMENT_PROVIDER }}" ]; then
-            ENRICHMENT_ENV="|ENRICHMENT_PROVIDER=${{ vars.ENRICHMENT_PROVIDER }}"
+          if [ -n "${ENRICHMENT_PROVIDER}" ]; then
+            ENRICHMENT_ENV="|ENRICHMENT_PROVIDER=${ENRICHMENT_PROVIDER}"
           fi
-          if [ "${{ vars.ENRICHMENT_PROVIDER }}" = "brightdata" ]; then
+          if [ "${ENRICHMENT_PROVIDER}" = "brightdata" ]; then
             ENRICHMENT_SECRETS=",BRIGHTDATA_API_KEY=lightmove-brightdata-api-key:latest"
-            if [ "${{ vars.HARVESTAPI_FALLBACK_ENABLED }}" = "true" ]; then
+            if [ "${HARVESTAPI_FALLBACK_ENABLED}" = "true" ]; then
               ENRICHMENT_SECRETS="${ENRICHMENT_SECRETS},HARVESTAPI_API_KEY=lightmove-harvestapi-api-key:latest"
             fi
-          elif [ "${{ vars.ENRICHMENT_PROVIDER }}" = "harvestapi" ]; then
+          elif [ "${ENRICHMENT_PROVIDER}" = "harvestapi" ]; then
             ENRICHMENT_SECRETS=",HARVESTAPI_API_KEY=lightmove-harvestapi-api-key:latest"
           fi
           # Find executives' index: `contactout` searches ContactOut first (it needs CONTACTOUT_ENABLED
           # below for the key), with Bright Data behind it when ENRICHMENT_PROVIDER is brightdata. Unset
           # is the Bright Data dataset alone. A var, not a console edit: --set-env-vars replaces them all.
-          if [ -n "${{ vars.SOURCING_PEOPLE_SOURCE }}" ]; then
-            ENRICHMENT_ENV="${ENRICHMENT_ENV}|SOURCING_PEOPLE_SOURCE=${{ vars.SOURCING_PEOPLE_SOURCE }}"
+          if [ -n "${SOURCING_PEOPLE_SOURCE}" ]; then
+            ENRICHMENT_ENV="${ENRICHMENT_ENV}|SOURCING_PEOPLE_SOURCE=${SOURCING_PEOPLE_SOURCE}"
           fi
 
           # The Companies screen's map view, same shape again: off unless MAPBOX_ENABLED=true, because
@@ -293,9 +349,9 @@ jobs:
           # token the browser holds — so the deploy checklist is: URL-restrict the public token in the
           # Mapbox account, then mint the geocoding token and set MAPBOX_SEPARATE_GEOCODING_TOKEN.
           MAPBOX_SECRETS=""
-          if [ "${{ vars.MAPBOX_ENABLED }}" = "true" ]; then
+          if [ "${MAPBOX_ENABLED}" = "true" ]; then
             MAPBOX_SECRETS=",MAPBOX_PUBLIC_TOKEN=lightmove-mapbox-public-token:latest"
-            if [ "${{ vars.MAPBOX_SEPARATE_GEOCODING_TOKEN }}" = "true" ]; then
+            if [ "${MAPBOX_SEPARATE_GEOCODING_TOKEN}" = "true" ]; then
               MAPBOX_SECRETS="${MAPBOX_SECRETS},MAPBOX_GEOCODING_TOKEN=lightmove-mapbox-geocoding-token:latest"
             fi
           fi
@@ -309,7 +365,7 @@ jobs:
           #   gcloud secrets create lightmove-contactout-api-key --data-file=-
           # Left unset the API logs that contact lookup is off and the buttons never render.
           CONTACTOUT_SECRETS=""
-          if [ "${{ vars.CONTACTOUT_ENABLED }}" = "true" ]; then
+          if [ "${CONTACTOUT_ENABLED}" = "true" ]; then
             CONTACTOUT_SECRETS=",CONTACTOUT_API_KEY=lightmove-contactout-api-key:latest"
           fi
 
@@ -321,9 +377,9 @@ jobs:
           # Left unset the API logs that outreach email is off and no mailbox can be connected.
           NYLAS_SECRETS=""
           NYLAS_ENV=""
-          if [ "${{ vars.NYLAS_ENABLED }}" = "true" ]; then
+          if [ "${NYLAS_ENABLED}" = "true" ]; then
             NYLAS_SECRETS=",NYLAS_API_KEY=lightmove-nylas-api-key:latest"
-            NYLAS_ENV="|NYLAS_CLIENT_ID=${{ vars.NYLAS_CLIENT_ID }}|NYLAS_BASE_URL=${{ vars.NYLAS_BASE_URL || 'https://api.us.nylas.com' }}"
+            NYLAS_ENV="|NYLAS_CLIENT_ID=${NYLAS_CLIENT_ID}|NYLAS_BASE_URL=${NYLAS_BASE_URL}"
           fi
 
           # The key-encryption key for the secrets the app stores (a workspace's own OAuth client secret in
@@ -333,8 +389,20 @@ jobs:
           #     gcloud secrets create lightmove-credential-keyset --data-file=-
           # Left unset the API logs that no workspace can store its own app's keys, and the shared apps still work.
           CREDENTIAL_SECRETS=""
-          if [ "${{ vars.CREDENTIAL_ENCRYPTION_ENABLED }}" = "true" ]; then
+          if [ "${CREDENTIAL_ENCRYPTION_ENABLED}" = "true" ]; then
             CREDENTIAL_SECRETS=",CREDENTIAL_KEYSET=lightmove-credential-keyset:latest"
+          fi
+          # Two-factor authentication (#1081) is off unless MFA_ENABLED=true, and is offered only where
+          # CREDENTIAL_ENCRYPTION_ENABLED=true as well: the authenticator secret is sealed under that keyset. Turning it
+          # off again stops new set-ups only; a person who already has it is still asked for the code.
+          # The suppression list's HMAC keyset (#920): every entry is a hash under it. Off unless
+          # SUPPRESSION_LIST_ENABLED=true, for the secret-must-exist reason above. Prerequisite:
+          #   tinkey create-keyset --key-template HMAC_SHA256_PRF --out-format json | \
+          #     gcloud secrets create lightmove-suppression-keyset --data-file=-
+          # Left unset no workspace can add to its list. Never delete a key from it while an entry uses it: a workspace
+          # holding entries the keyset cannot read is refused at every door.
+          if [ "${SUPPRESSION_LIST_ENABLED}" = "true" ]; then
+            CREDENTIAL_SECRETS="${CREDENTIAL_SECRETS},SUPPRESSION_KEYSET=lightmove-suppression-keyset:latest"
           fi
 
           # Our own mail gateways and Zoom (epic #642): Uncava's shared OAuth app at each provider, each off unless
@@ -344,25 +412,25 @@ jobs:
           # OUTREACH_GATEWAY stays nylas until rollout (#650); the guide URLs are where Settings → Integrations
           # links an admin, and are left blank until the guides are published.
           PROVIDER_SECRETS=""
-          PROVIDER_ENV="|OUTREACH_GATEWAY=${{ vars.OUTREACH_GATEWAY || 'nylas' }}"
-          if [ "${{ vars.GOOGLE_MAIL_ENABLED }}" = "true" ]; then
+          PROVIDER_ENV="|OUTREACH_GATEWAY=${OUTREACH_GATEWAY}"
+          if [ "${GOOGLE_MAIL_ENABLED}" = "true" ]; then
             PROVIDER_SECRETS="${PROVIDER_SECRETS},GOOGLE_MAIL_CLIENT_ID=lightmove-google-mail-client-id:latest"
             PROVIDER_SECRETS="${PROVIDER_SECRETS},GOOGLE_MAIL_CLIENT_SECRET=lightmove-google-mail-client-secret:latest"
           fi
-          if [ "${{ vars.MICROSOFT_MAIL_ENABLED }}" = "true" ]; then
+          if [ "${MICROSOFT_MAIL_ENABLED}" = "true" ]; then
             PROVIDER_SECRETS="${PROVIDER_SECRETS},MICROSOFT_MAIL_CLIENT_ID=lightmove-microsoft-mail-client-id:latest"
             PROVIDER_SECRETS="${PROVIDER_SECRETS},MICROSOFT_MAIL_CLIENT_SECRET=lightmove-microsoft-mail-client-secret:latest"
           fi
-          if [ "${{ vars.ZOOM_ENABLED }}" = "true" ]; then
+          if [ "${ZOOM_ENABLED}" = "true" ]; then
             PROVIDER_SECRETS="${PROVIDER_SECRETS},ZOOM_CLIENT_ID=lightmove-zoom-client-id:latest"
             PROVIDER_SECRETS="${PROVIDER_SECRETS},ZOOM_CLIENT_SECRET=lightmove-zoom-client-secret:latest"
           fi
-          PROVIDER_ENV="${PROVIDER_ENV}|GOOGLE_MAIL_OWN_APP_GUIDE_URL=${{ vars.GOOGLE_MAIL_OWN_APP_GUIDE_URL }}"
-          PROVIDER_ENV="${PROVIDER_ENV}|GOOGLE_MAIL_SHARED_APP_GUIDE_URL=${{ vars.GOOGLE_MAIL_SHARED_APP_GUIDE_URL }}"
-          PROVIDER_ENV="${PROVIDER_ENV}|MICROSOFT_MAIL_OWN_APP_GUIDE_URL=${{ vars.MICROSOFT_MAIL_OWN_APP_GUIDE_URL }}"
-          PROVIDER_ENV="${PROVIDER_ENV}|MICROSOFT_MAIL_SHARED_APP_GUIDE_URL=${{ vars.MICROSOFT_MAIL_SHARED_APP_GUIDE_URL }}"
-          PROVIDER_ENV="${PROVIDER_ENV}|ZOOM_OWN_APP_GUIDE_URL=${{ vars.ZOOM_OWN_APP_GUIDE_URL }}"
-          PROVIDER_ENV="${PROVIDER_ENV}|ZOOM_SHARED_APP_GUIDE_URL=${{ vars.ZOOM_SHARED_APP_GUIDE_URL }}"
+          PROVIDER_ENV="${PROVIDER_ENV}|GOOGLE_MAIL_OWN_APP_GUIDE_URL=${GOOGLE_MAIL_OWN_APP_GUIDE_URL}"
+          PROVIDER_ENV="${PROVIDER_ENV}|GOOGLE_MAIL_SHARED_APP_GUIDE_URL=${GOOGLE_MAIL_SHARED_APP_GUIDE_URL}"
+          PROVIDER_ENV="${PROVIDER_ENV}|MICROSOFT_MAIL_OWN_APP_GUIDE_URL=${MICROSOFT_MAIL_OWN_APP_GUIDE_URL}"
+          PROVIDER_ENV="${PROVIDER_ENV}|MICROSOFT_MAIL_SHARED_APP_GUIDE_URL=${MICROSOFT_MAIL_SHARED_APP_GUIDE_URL}"
+          PROVIDER_ENV="${PROVIDER_ENV}|ZOOM_OWN_APP_GUIDE_URL=${ZOOM_OWN_APP_GUIDE_URL}"
+          PROVIDER_ENV="${PROVIDER_ENV}|ZOOM_SHARED_APP_GUIDE_URL=${ZOOM_SHARED_APP_GUIDE_URL}"
 
           # Recall.ai's Calendar API, one platform account per region. Off unless RECALL_ENABLED=true, for the
           # secret-must-exist reason above. Prerequisites:
@@ -372,18 +440,18 @@ jobs:
           # Left unset, every workspace's calendars are read directly, whatever it chose.
           RECALL_SECRETS=""
           RECALL_ENV=""
-          if [ "${{ vars.RECALL_ENABLED }}" = "true" ]; then
+          if [ "${RECALL_ENABLED}" = "true" ]; then
             RECALL_SECRETS=",RECALL_API_KEY=lightmove-recall-api-key:latest,RECALL_WEBHOOK_SECRET=lightmove-recall-webhook-secret:latest"
-            RECALL_ENV="|RECALL_BASE_URL=${{ vars.RECALL_BASE_URL || 'https://us-east-1.recall.ai' }}"
+            RECALL_ENV="|RECALL_BASE_URL=${RECALL_BASE_URL}"
           fi
           # The Notetaker's Recall.ai bots: the same account, their events on an endpoint of their own. Off unless
           # NOTETAKER_ENABLED=true; on its own it leaves calendars read directly. Prerequisites:
           #   gcloud secrets create lightmove-recall-api-key            --data-file=-   (if RECALL_ENABLED never made it)
           #   gcloud secrets create lightmove-recall-bot-webhook-secret --data-file=-   (the bot endpoint's whsec_… secret)
-          if [ "${{ vars.NOTETAKER_ENABLED }}" = "true" ]; then
+          if [ "${NOTETAKER_ENABLED}" = "true" ]; then
             if [ -z "${RECALL_SECRETS}" ]; then
               RECALL_SECRETS=",RECALL_API_KEY=lightmove-recall-api-key:latest"
-              RECALL_ENV="|RECALL_BASE_URL=${{ vars.RECALL_BASE_URL || 'https://us-east-1.recall.ai' }}"
+              RECALL_ENV="|RECALL_BASE_URL=${RECALL_BASE_URL}"
             fi
             RECALL_SECRETS="${RECALL_SECRETS},RECALL_BOT_WEBHOOK_SECRET=lightmove-recall-bot-webhook-secret:latest"
           fi
@@ -396,11 +464,11 @@ jobs:
           #   STRIPE_PRICE_PRO_MONTHLY, STRIPE_PRICE_PRO_ANNUAL, STRIPE_PRICE_PACK_100, STRIPE_PRICE_PACK_500
           BILLING_SECRETS=""
           BILLING_ENV=""
-          if [ "${{ vars.BILLING_ENABLED }}" = "true" ]; then
+          if [ "${BILLING_ENABLED}" = "true" ]; then
             BILLING_SECRETS=",STRIPE_SECRET_KEY=lightmove-stripe-secret-key:latest,STRIPE_WEBHOOK_SECRET=lightmove-stripe-webhook-secret:latest"
-            BILLING_ENV="|STRIPE_PRICE_CORE_MONTHLY=${{ vars.STRIPE_PRICE_CORE_MONTHLY }}|STRIPE_PRICE_CORE_ANNUAL=${{ vars.STRIPE_PRICE_CORE_ANNUAL }}"
-            BILLING_ENV="${BILLING_ENV}|STRIPE_PRICE_PRO_MONTHLY=${{ vars.STRIPE_PRICE_PRO_MONTHLY }}|STRIPE_PRICE_PRO_ANNUAL=${{ vars.STRIPE_PRICE_PRO_ANNUAL }}"
-            BILLING_ENV="${BILLING_ENV}|STRIPE_PRICE_PACK_100=${{ vars.STRIPE_PRICE_PACK_100 }}|STRIPE_PRICE_PACK_500=${{ vars.STRIPE_PRICE_PACK_500 }}"
+            BILLING_ENV="|STRIPE_PRICE_CORE_MONTHLY=${STRIPE_PRICE_CORE_MONTHLY}|STRIPE_PRICE_CORE_ANNUAL=${STRIPE_PRICE_CORE_ANNUAL}"
+            BILLING_ENV="${BILLING_ENV}|STRIPE_PRICE_PRO_MONTHLY=${STRIPE_PRICE_PRO_MONTHLY}|STRIPE_PRICE_PRO_ANNUAL=${STRIPE_PRICE_PRO_ANNUAL}"
+            BILLING_ENV="${BILLING_ENV}|STRIPE_PRICE_PACK_100=${STRIPE_PRICE_PACK_100}|STRIPE_PRICE_PACK_500=${STRIPE_PRICE_PACK_500}"
           fi
 
           # The MCP server and its OAuth authorization server (docs/mcp.md). Off unless MCP_ENABLED=true, for the
@@ -412,10 +480,10 @@ jobs:
           # unset in production, where every supported client calls from a server or a desktop app.
           MCP_ENV=""
           MCP_SECRETS=""
-          if [ "${{ vars.MCP_ENABLED }}" = "true" ]; then
+          if [ "${MCP_ENABLED}" = "true" ]; then
             MCP_ENV="|MCP_ENABLED=true|MCP_JWT_PRIVATE_KEY_LOCATION=file:/secrets/mcp-jwt-private/private.pem"
             MCP_ENV="${MCP_ENV}|MCP_JWT_PUBLIC_KEY_LOCATION=file:/secrets/mcp-jwt-public/public.pem"
-            MCP_ENV="${MCP_ENV}|MCP_ALLOWED_ORIGINS=${{ vars.MCP_ALLOWED_ORIGINS }}"
+            MCP_ENV="${MCP_ENV}|MCP_ALLOWED_ORIGINS=${MCP_ALLOWED_ORIGINS}"
             MCP_SECRETS=",/secrets/mcp-jwt-private/private.pem=lightmove-mcp-jwt-private-key:latest"
             MCP_SECRETS="${MCP_SECRETS},/secrets/mcp-jwt-public/public.pem=lightmove-mcp-jwt-public-key:latest"
           fi
@@ -442,18 +510,21 @@ jobs:
           # The liveness probe replaces an instance that stops answering for a minute; the one frozen on
           # 2026-10-23 kept its traffic for 39. A minute outlasts Hikari's 30s wait, so a database stall holding
           # every request thread restarts nothing, and the probe asks the liveness group, never the database.
+          #
+          # DATA_PROTECTION_ENABLED offers the suppression list, erasure, restriction and the retention review (#917).
+          # Turn it on with SUPPRESSION_LIST_ENABLED: without the keyset, an erasure that suppresses is refused.
           gcloud run deploy "$SERVICE" \
             --image "$IMAGE" \
             --region "$REGION" \
             --update-labels "release=${VERSION//./-}" \
-            --service-account "${{ vars.GCP_RUNTIME_SA }}" \
+            --service-account "${GCP_RUNTIME_SA}" \
             --allow-unauthenticated \
             --max-instances 3 \
             --cpu 1 --memory 1Gi --cpu-boost \
             --concurrency 200 \
             --timeout 300s \
             --liveness-probe "httpGet.path=/actuator/health/liveness,httpGet.port=8080,periodSeconds=10,timeoutSeconds=5,failureThreshold=6" \
-            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@uncava.com' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|PUBLIC_API_ENABLED=${{ vars.PUBLIC_API_ENABLED || 'true' }}|BILLING_CONTACT_EMAIL=${{ vars.BILLING_CONTACT_EMAIL || 'billing@uncava.com' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${{ vars.DOCUMENTS_BUCKET || format('{0}-lightmove-documents', vars.GCP_PROJECT) }}${OAUTH_ENV}${ENRICHMENT_ENV}${NYLAS_ENV}${PROVIDER_ENV}${RECALL_ENV}${BILLING_ENV}${MCP_ENV}" \
+            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${EMAIL_FROM}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${AUTO_VERIFY_EMAIL}|AUTH_RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${LOGIN_ATTEMPTS_PER_MINUTE}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${SIGNUP_ATTEMPTS_PER_HOUR}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${VERIFICATION_RESENDS_PER_HOUR}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${TRUSTED_PROXY_COUNT}|PUBLIC_API_ENABLED=${PUBLIC_API_ENABLED}|RETENTION_ENABLED=${RETENTION_ENABLED}|DATA_PROTECTION_ENABLED=${DATA_PROTECTION_ENABLED}|MFA_ENABLED=${MFA_ENABLED}|BILLING_CONTACT_EMAIL=${BILLING_CONTACT_EMAIL}|BILLING_ENFORCE=${BILLING_ENFORCE}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${DOCUMENTS_BUCKET}${OAUTH_ENV}${ENRICHMENT_ENV}${NYLAS_ENV}${PROVIDER_ENV}${RECALL_ENV}${BILLING_ENV}${MCP_ENV}" \
             --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}${CONTACTOUT_SECRETS}${NYLAS_SECRETS}${CREDENTIAL_SECRETS}${PROVIDER_SECRETS}${RECALL_SECRETS}${BILLING_SECRETS}${MCP_SECRETS}"
 
       # First deploy only, and only without a custom domain: the service now has a URL, and it is not

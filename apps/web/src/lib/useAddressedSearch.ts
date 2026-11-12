@@ -2,12 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 /**
- * A list's search box and filter chip kept in its address (`?q=`, and a chip under its own key), so a return to the
- * list — the back link from a position — finds it as it was left.
- *
- * The box filters as typed and the address catches up a moment later: a router update per keystroke would move the
- * caret and run into the browser's limit on history writes. An address that moves on its own (a link to the bare
- * list, Back) is followed rather than overwritten.
+ * A list's search and chip kept in its address (`?q=` and the chip's key) so a return finds it as left. The address lags
+ * typing (a router write per keystroke moves the caret and hits history limits); an address moved elsewhere is followed.
  */
 export function useAddressedSearch<Chip extends string>(chipKey: string, chips: readonly Chip[], defaultChip: Chip) {
   const [searchParams, setSearchParams] = useSearchParams();

@@ -1,12 +1,9 @@
 /**
- * Where a signed-in user actually belongs, given what is true of them right now.
- *
- * Its own module rather than living in routes.tsx, because the wizard pages import it and routes.tsx
- * imports them.
- *
- * Order matters: an unverified user outranks a pending invitation. Verification is step 2 and the API
- * refuses /onboarding/** without it, so routing them to accept-invite first would dead-end on a 403.
+ * Where a signed-in user belongs right now (its own module: routes.tsx imports the wizard pages that import it). An
+ * unverified user outranks a pending invitation: /onboarding/** refuses them, so accept-invite first would 403.
  */
+export const ACCEPT_INVITE_PATH = "/auth/accept-invite";
+
 export function homeFor(user: {
   emailVerified: boolean;
   workspace: { roles: string[] } | null;
@@ -16,6 +13,6 @@ export function homeFor(user: {
   // Everyone in a workspace lands on the projects list; the server scopes a pure client's to their seats.
   if (user.workspace) return "/";
   if (!user.emailVerified) return "/signup/verify-email";
-  if (user.pendingInvitations.length > 0) return "/auth/accept-invite";
+  if (user.pendingInvitations.length > 0) return ACCEPT_INVITE_PATH;
   return "/signup/workspace";
 }

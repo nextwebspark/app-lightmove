@@ -25,6 +25,10 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
 
     List<RefreshToken> findByUserIdAndRevokedAtIsNullAndExpiresAtAfter(UUID userId, Instant now);
 
+    /** When a session was signed in: its family's first token, since rotation keeps the family. */
+    @Query("SELECT MIN(t.createdAt) FROM RefreshToken t WHERE t.familyId = :familyId")
+    Instant familyStartedAt(@Param("familyId") UUID familyId);
+
     @Modifying
     @Query("""
             UPDATE RefreshToken t

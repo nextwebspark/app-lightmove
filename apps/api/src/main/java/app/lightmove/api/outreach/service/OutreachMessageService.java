@@ -32,8 +32,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -51,6 +53,9 @@ public class OutreachMessageService {
     /** As far ahead as a sequence may be started. */
     private static final Duration SCHEDULE_HORIZON = Duration.ofDays(60);
 
+    private static final int MAX_NAMED_TOKENS = 10;
+    private static final int MAX_TOKEN_NAME = 40;
+
     private final OutreachMessageRepository messages;
     private final OutreachMessageAttachmentRepository attachmentRows;
     private final OutreachAttachments attachments;
@@ -65,6 +70,8 @@ public class OutreachMessageService {
     private final AuditService audit;
     private final AvailabilityService availability;
     private final Clock clock;
+    private final EmailSignatureService signatures;
+    private final EmailTemplateService templates;
 
     public ScheduledMessageResponse schedule(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                                              SendMessageRequest request, List<MultipartFile> files,
@@ -72,15 +79,21 @@ public class OutreachMessageService {
         projects.requireNotArchived(projectId);
         Instant now = clock.instant();
         Instant sendAt = sendAtOf(request, now);
-        if (SequenceTokens.uses(request.body(), SequenceTokens.BOOKING_LINK)) {
+        if (SequenceTokens.uses(request.body(), SequenceTokens.BOOKING_LINK)
+                || !request.replyInThread() && SequenceTokens.uses(request.subject(), SequenceTokens.BOOKING_LINK)) {
             // Before anything is written: a page the mail service will not make is the consultant's to see now.
             bookingPages.prepare(userId, workspaceId);
         }
+        // Drawn now, outside any transaction (a logo's first copy is a call to another host), and kept with the email:
+        // what is scheduled goes as it was previewed, whatever becomes of the signature later. A signature showing Book a
+        // call has its page made first, as a body using the link does.
+        String signatureHtml = signatures.htmlForSending(userId, workspaceId, request.signatureId()).orElse("");
         List<StagedAttachment> staged = attachments.stage(workspaceId, projectId, candidateId, files,
                 request.documentVersionIds());
         OutreachMessage scheduled;
         try {
-            scheduled = saveScheduled(userId, workspaceId, projectId, candidateId, request, now, sendAt, staged);
+            scheduled = saveScheduled(userId, workspaceId, projectId, candidateId, request, now, sendAt, staged,
+                    signatureHtml);
         } catch (RuntimeException refused) {
             attachments.discard(staged);
             throw refused;
@@ -97,11 +110,14 @@ public class OutreachMessageService {
 
     private OutreachMessage saveScheduled(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                                           SendMessageRequest request, Instant now, Instant sendAt,
-                                          List<StagedAttachment> staged) {
+                                          List<StagedAttachment> staged, String signatureHtml) {
         return transactions.execute(status -> {
             MailboxConnection mailbox = requireSendingMailbox(userId, workspaceId);
             OutreachRecipient recipient = people.currentRecipient(workspaceId, projectId, candidateId)
                     .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+            if (recipient.processingRestricted()) {
+                throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
+            }
             if (recipient.doNotContact()) {
                 throw ApiException.of(ErrorCode.OUTREACH_DO_NOT_CONTACT);
             }
@@ -113,14 +129,17 @@ public class OutreachMessageService {
                     ? threadOf(workspaceId, projectId, recipient.personId(), mailbox)
                             .orElseThrow(() -> ApiException.of(ErrorCode.OUTREACH_THREAD_UNAVAILABLE))
                     : null;
-            String subject = reply != null ? OutreachSendService.replySubjectOf(reply.subject())
-                    : requireSubject(request.subject());
             SenderContext sender = personalisation.senderContextOf(userId, workspaceId, projectId);
-            String markdown = OutreachMarkdownEmail.wordsOf(
-                    OutreachPersonalisation.tokensOf(recipient, sender, null).renderMarkdown(request.body()));
+            SequenceTokens tokens = OutreachPersonalisation.tokensOf(recipient, sender, null);
+            String typedSubject = reply != null ? null : requireSubject(request.subject());
+            refuseUnfilled(tokens, typedSubject, request.body());
+            String subject = reply != null ? OutreachSendService.replySubjectOf(reply.subject())
+                    : requireSubject(tokens.renderLine(typedSubject));
+            String markdown = OutreachMarkdownEmail.wordsOf(tokens.renderMarkdown(request.body()));
             OutreachMessage saved = messages.save(OutreachMessage.scheduled(workspaceId, projectId,
                     recipient.personId(), candidateId, userId, mailbox.getAddress(), toAddress, subject,
-                    OutreachMarkdownEmail.htmlOf(markdown), markdown, reply, sendAt));
+                    OutreachMarkdownEmail.htmlOf(markdown) + signatureHtml, markdown, reply, sendAt,
+                    templates.visibleIdOrNull(userId, workspaceId, request.templateId())));
             attachments.record(saved, staged);
             return saved;
         });
@@ -216,6 +235,22 @@ public class OutreachMessageService {
                     .map(answered -> new ThreadReply(threadId, sent.getThreadGateway(),
                             answered.getProviderMessageId(), subject));
         });
+    }
+
+    /**
+     * Neither "Hi ," nor a literal {@code {{currentTitle}}} goes out: a variable with no value for this executive and
+     * no fallback, or one no own email can fill ({@code {{opener}}} is a sequence run's), refuses the email and names
+     * them. The composer marks the same, but a value can go between its read and this write.
+     */
+    private static void refuseUnfilled(SequenceTokens tokens, String subject, String body) {
+        String text = (subject == null ? "" : subject + "\n") + body;
+        Set<String> refused = new LinkedHashSet<>(SequenceTokens.unknownIn(text, SequenceTokens.emailVocabulary(true)));
+        refused.addAll(tokens.unfilledIn(text));
+        if (!refused.isEmpty()) {
+            throw ApiException.withProperty(ErrorCode.OUTREACH_TOKENS_UNFILLED, "tokens",
+                    refused.stream().limit(MAX_NAMED_TOKENS).map(name -> name.length() > MAX_TOKEN_NAME
+                            ? name.substring(0, MAX_TOKEN_NAME) : name).toList());
+        }
     }
 
     /** One line, as an email header must be: a line break would be refused by the mail service anyway. */

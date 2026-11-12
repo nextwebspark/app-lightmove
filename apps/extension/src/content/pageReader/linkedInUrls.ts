@@ -68,12 +68,8 @@ export function pageKeyOf(url: string | null | undefined): string | null {
 }
 
 /**
- * The identity of whatever tab the panel is looking at, readable or not.
- *
- * Total where `pageKeyOf` is nullable, because the panel keys its read on this and a tab it cannot
- * capture from still has to be *a* page: the two refusals differ (off LinkedIn entirely, versus a
- * LinkedIn page that names nobody), so they cannot collapse into one key or the panel would keep
- * showing the first refusal after moving between them.
+ * The identity of whatever tab the panel is looking at, readable or not. Total, unlike `pageKeyOf`: off LinkedIn and a
+ * LinkedIn page naming nobody need distinct keys, or the panel keeps showing the first refusal after moving.
  */
 export function tabPageKeyOf(url: string | null | undefined): string {
   return pageKeyOf(url) ?? (isLinkedInPageUrl(url) ? "linkedin:unreadable" : "offsite");

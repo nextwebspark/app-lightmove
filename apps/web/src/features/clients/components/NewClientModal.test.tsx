@@ -31,6 +31,7 @@ vi.mock("../api/clientsApi", async (importOriginal) => ({
 const client = (id: string, name: string): Client => ({
   id,
   name,
+  apolloAccountId: null,
   type: "RETAINED",
   sector: null,
   hqCountry: null,

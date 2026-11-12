@@ -69,7 +69,7 @@ post_json /onboarding/workspace "$(jq -nc --arg n "$WS" \
   -H "$(auth_header "$TOKEN")"
 check_code N42.1 "the organisation step is refused" 403 EMAIL_NOT_VERIFIED
 
-post_json /onboarding/invitations "$(jq -nc --arg a "$(new_email colleague)" '[{email:$a, role:"MEMBER"}]')" \
+post_json /invitations "$(jq -nc --arg a "$(new_email colleague)" '[{email:$a, role:"MEMBER"}]')" \
   -H "$(auth_header "$TOKEN")"
 check_status N42.2 "the invite step too" 403
 

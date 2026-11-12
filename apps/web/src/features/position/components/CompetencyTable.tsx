@@ -20,14 +20,8 @@ const MAX_ROWS = 10;
 const ROW_GRID = "grid grid-cols-[20px_minmax(0,1.2fr)_minmax(0,1.6fr)_72px_18px_22px_22px] items-center gap-x-3 px-4";
 
 /**
- * One weighting panel, technical or behavioural: the competencies in rank order, what each measures,
- * and its weight.
- *
- * <p>Three things a consultant does here. Order is the ranking, so rows drag to reorder — the handle
- * is the only draggable part, since the row also carries two text inputs. A weight is typed and
- * committed on Enter or blur, and the others rebalance so the panel keeps totalling 100. A lock holds
- * one row still while the rest absorb the change — without it, the weight you had just decided is
- * the one that keeps drifting.
+ * One weighting panel: competencies in rank order (drag by the handle only), weights committed on Enter or blur with
+ * the rest rebalancing to 100, and a lock holding one row still while others absorb the change.
  */
 export function CompetencyTable({
   title,

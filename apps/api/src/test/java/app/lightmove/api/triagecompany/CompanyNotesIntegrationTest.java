@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.triagecompany.service.CompanyNotePurge;
@@ -33,7 +34,7 @@ import tools.jackson.databind.JsonNode;
 @IntegrationTest
 class CompanyNotesIntegrationTest extends FlowTestSupport {
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
     @Autowired CompanyNotePurge purge;
 
     private String admin;
@@ -76,6 +77,30 @@ class CompanyNotesIntegrationTest extends FlowTestSupport {
         assertThat(grid.at("/companies/0").has("note")).isFalse();
         assertThat(grid.at("/companies/0/addedByName").asText()).isEqualTo("Alok Kumar");
         assertThat(grid.at("/companies/0/addedByUserId").isNull()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a LinkedIn exchange with a company is filed as its own kind")
+    void aLinkedInNoteKeepsItsKind() throws Exception {
+        firm("Company LinkedIn Note Firm");
+        String projectId = mandate("Head of Credit Risk");
+        String companyId = capture(projectId, "Harbour Ports", null);
+
+        write(admin, projectId, companyId, "linkedin", "Their talent lead replied on the company page", "plain");
+
+        assertThat(notes(admin, projectId, companyId).get(0).get("kind").asText()).isEqualTo("linkedin");
+    }
+
+    @Test
+    @DisplayName("a WhatsApp exchange with a company is filed as its own kind")
+    void aWhatsAppNoteKeepsItsKind() throws Exception {
+        firm("Company WhatsApp Note Firm");
+        String projectId = mandate("Head of Credit Risk");
+        String companyId = capture(projectId, "Harbour Ports", null);
+
+        write(admin, projectId, companyId, "whatsapp", "Their HR lead answered on the group chat", "plain");
+
+        assertThat(notes(admin, projectId, companyId).get(0).get("kind").asText()).isEqualTo("whatsapp");
     }
 
     @Test

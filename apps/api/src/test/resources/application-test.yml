@@ -44,14 +44,22 @@ lightmove:
   scheduling:
     enabled: false
 
+  data-protection:
+    enabled: true
+
+  # The retention tests drive RetentionSweeper.sweepAt themselves, so the bean must exist.
+  retention:
+    enabled: true
+
   # Uploaded documents land under target/ and go with mvn clean; no test reaches a bucket.
   storage:
     provider: filesystem
     directory: target/test-documents
 
-  # A dev-only key-encryption key, the same one ops/dev/api.sh gives npm run dev. It protects nothing real.
+  # Dev-only keys, the same ones ops/dev/api.sh gives npm run dev. They protect nothing real.
   crypto:
     keyset: '{"primaryKeyId":653769729,"key":[{"keyData":{"typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey","value":"GiDdcDK+eD7jyE+NjJ55C7Ta4t9IgqMRKbdXgoG/+4KVfw==","keyMaterialType":"SYMMETRIC"},"status":"ENABLED","keyId":653769729,"outputPrefixType":"TINK"}]}'
+    suppression-keyset: '{"primaryKeyId":31013455,"key":[{"keyData":{"typeUrl":"type.googleapis.com/google.crypto.tink.HmacPrfKey","value":"EgIIAxogNW7n0Y4IR7YVIIa+pBH3RFlacGOjmxrNWT/yv57Gs9E=","keyMaterialType":"SYMMETRIC"},"status":"ENABLED","keyId":31013455,"outputPrefixType":"RAW"}]}'
 
   # Uncava's shared apps at Google and Microsoft; none at Zoom, so "not offered" is reachable too.
   outreach:
@@ -99,10 +107,18 @@ lightmove:
     rate-limit:
       enabled: false
 
+    # On, as in npm run dev: the suite proves the challenge, and the keyset below lets the secret be stored.
+    mfa:
+      enabled: true
+
     # Strength 4, not the shipped 12: a hash costs ~1ms instead of ~250ms, and nearly every test signs
     # up and logs in. Nothing asserts on the cost — PasswordPolicy derives its decoy hash from the
     # setting, so the timing equalisation holds at whatever strength runs.
     bcrypt-strength: 4
+
+  export:
+    # Small so the audit log's refusal is reachable: a test seeds a few rows past it rather than thousands.
+    max-audit-events: 15
 
   company:
     list:

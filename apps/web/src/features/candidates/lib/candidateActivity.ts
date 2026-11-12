@@ -13,6 +13,8 @@ export interface TimelineLine {
   actorName: string;
   text: string;
   detail: string | null;
+  /** The note this line names was edited since; its excerpt is the edited text. */
+  isEdited: boolean;
   occurredAt: string;
 }
 
@@ -34,6 +36,7 @@ const VENDORS: Record<string, string> = {
 /** Why a sequence ended short, as its `reason` detail names it; a consultant's own Stop needs no reason. */
 export const STOP_REASONS: Record<string, string> = {
   DO_NOT_CONTACT: "Marked do not contact",
+  PROCESSING_RESTRICTED: "Processing was restricted",
   LEFT_THE_RUNNING: "No longer in the running",
   UNMAPPED: "Removed from the position",
   ADDRESS_REMOVED: "The address was removed",
@@ -75,6 +78,8 @@ export const NOTE_VERBS: Record<string, string> = {
   CALL: "logged a call",
   MEETING: "logged a meeting",
   EMAIL: "logged an email",
+  LINKEDIN: "logged a LinkedIn message",
+  WHATSAPP: "logged a WhatsApp message",
 };
 
 export function timelineLines(
@@ -90,6 +95,7 @@ export function timelineLines(
       actorName: actorNameOf(entry),
       text,
       detail,
+      isEdited: detail !== null && entry.noteEditedAt != null,
       occurredAt: entry.occurredAt,
     };
   });
@@ -229,6 +235,10 @@ function phraseOf(
       return { text: `marked${them} do not contact`, detail: null };
     case "DO_NOT_CONTACT_CLEARED":
       return { text: `cleared do not contact${onThem}`, detail: null };
+    case "PROCESSING_RESTRICTED":
+      return { text: `restricted processing${onThem}`, detail: null };
+    case "PROCESSING_RESTRICTION_LIFTED":
+      return { text: `lifted the processing restriction${onThem}`, detail: null };
     case "OUTREACH_ENROLLED":
       return {
         text: `added${them} to ${details.sequence ? `the sequence ${details.sequence}` : "a sequence"} on ${where}`,

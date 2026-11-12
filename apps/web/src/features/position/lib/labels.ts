@@ -71,9 +71,6 @@ export const BENEFIT_FREQUENCY_LABELS: Record<BenefitFrequency, string> = {
   YEARLY: "Yearly",
 };
 
-/** The currencies the mockup's picker offers, in its order (GCC first, then the reference pair). */
-export const CURRENCIES = ["AED", "USD", "SAR", "QAR", "KWD", "GBP", "EUR"] as const;
-
 export function labelOf<T extends string>(
   labels: Record<T, string>,
   value: T | null | undefined,

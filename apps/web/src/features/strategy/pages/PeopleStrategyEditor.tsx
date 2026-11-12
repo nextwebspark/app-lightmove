@@ -10,6 +10,7 @@ import type { RowSelectionState } from "@tanstack/react-table";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { FilterRailToggle } from "../../../components/ui/FilterRail";
+import { TOOLBAR_COUNT, TOOLBAR_ROW, ToolbarSearch } from "../../../components/ui/Toolbar";
 import { EmptyState, FullscreenButton, Spinner } from "../../../components/ui";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { SelectionAction, SelectionActionBar } from "../../../components/ui/SelectionActionBar";
@@ -25,12 +26,16 @@ import { isBillingRefusal } from "../../billing/lib/billingView";
 import { CANDIDATES_KEY_PREFIX } from "../../candidates/api/candidatesApi";
 import { TRIAGE_KEY_PREFIX } from "../../triage/api/triageApi";
 import type { TriageCompanyStatus } from "../../triage/api/types";
-import { TRIAGE_STAGES, stageByStatus } from "../../triage/lib/triageStages";
+import { PERSON_FILING_STAGES, stageByStatus } from "../../triage/lib/triageStages";
 import * as peopleApi from "../api/peopleApi";
 import * as strategyApi from "../api/strategyApi";
 import type { PeopleFilter, PeopleSearchPage, PersonResult, SavedSearch, SearchVisibility } from "../api/types";
 import { SaveSearchMenu } from "../components/SaveSearchMenu";
-import { PeopleFilterSidebar, isEmptyFilter } from "../components/people/PeopleFilterSidebar";
+import {
+  PeopleFilterSidebar,
+  activePeopleAxisCount,
+  isEmptyFilter,
+} from "../components/people/PeopleFilterSidebar";
 import { PersonPreviewDrawer } from "../components/people/PersonPreviewDrawer";
 import { PersonCardGrid } from "../components/people/PersonCardGrid";
 import { PersonResultsTable } from "../components/people/PersonResultsTable";
@@ -74,14 +79,8 @@ export const NO_PEOPLE_FILTER: PeopleFilter = {
 };
 
 /**
- * Strategy's People mode: the ContactOut filter rail on the left, the people a search returned on the
- * right. The filter autosaves and the count follows it; a search is a deliberate press, because every
- * page not already fetched is bought from ContactOut and counts toward the workspace's fair use. The first
- * press brings the top 25, and Load more the next 25 — ContactOut's own order, the only one it offers.
- *
- * <p>A page is answered from the server's people cache when anybody has asked the same question in the
- * last month, so paging back, reloading or a colleague repeating the search costs nothing — and the
- * screen opens on whatever was already bought for the stored filter, without a press.
+ * Strategy's People mode: filter rail and results. The filter autosaves; Search is a press because unfetched pages are
+ * bought from ContactOut (top 25, Load more the next). Pages come from the shared cache when anyone asked the same.
  */
 export function PeopleStrategyEditor({
   projectId,
@@ -202,6 +201,10 @@ export function PeopleStrategyEditor({
     setRun((current) => current + 1);
   };
 
+  const searching = results.isFetching && !results.isFetchingNextPage;
+  /** The rail's Search button and Enter in the name box ask the same of the filter before anything is bought. */
+  const canSearch = !isEmptyFilter(filter) && !searching && count.data?.offered !== false;
+
   const addPeople = useMutation({
     mutationFn: ({ slugs, status }: { slugs: string[]; status: TriageCompanyStatus }) =>
       peopleApi.addPeople(projectId, slugs, status),
@@ -305,8 +308,18 @@ export function PeopleStrategyEditor({
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
       <LeaveGuard hasUnsavedChanges={autosave.hasUnsavedChanges} flush={autosave.flush} />
-      <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-u-border bg-u-raised px-3 py-2 sm:px-5 sm:py-1.5">
+      <div className={TOOLBAR_ROW}>
         {toggle}
+        <ToolbarSearch
+          value={filter.name ?? ""}
+          onChange={(name) => applyFilter({ ...filter, name: name || null })}
+          label="Search people by name"
+          placeholder="Search people by name..."
+          maxLength={120}
+          onEnter={() => {
+            if (canSearch) void handleSearch();
+          }}
+        />
         <SaveSearchMenu
           searches={peopleSearches}
           isActive={(search: SavedSearch) => search.peopleFilter !== null && samePeopleFilter(filter, search.peopleFilter)}
@@ -319,13 +332,24 @@ export function PeopleStrategyEditor({
           onDelete={(searchId) => deleteSearch.mutate(searchId)}
           saving={saveSearch.isPending}
         />
-        <FilterRailToggle open={showFilters} onToggle={() => setShowFilters((shown) => !shown)} />
+        <FilterRailToggle
+          open={showFilters}
+          onToggle={() => setShowFilters((shown) => !shown)}
+          variant="toolbar"
+          badge={
+            strategy.isPending ? (
+              <span className="h-[15px] w-[15px] animate-pulse rounded-u-control bg-u-raised" />
+            ) : (
+              <span className={TOOLBAR_COUNT}>{activePeopleAxisCount(filter)}</span>
+            )
+          }
+        />
         <SegmentedControl
           label="View"
           options={VIEW_OPTIONS}
           value={view}
           onChange={setView}
-          className="hidden md:inline-flex"
+          className="hidden md:ms-auto md:inline-flex"
         />
       </div>
 
@@ -339,7 +363,7 @@ export function PeopleStrategyEditor({
             countPending={count.isFetching || autosave.status === "saving"}
             onChange={applyFilter}
             onSearch={() => void handleSearch()}
-            searching={results.isFetching && !results.isFetchingNextPage}
+            searching={searching}
             onClose={() => setShowFilters(false)}
           />
         )}
@@ -354,7 +378,7 @@ export function PeopleStrategyEditor({
                 title="Search ContactOut for people"
                 body={
                   isEmptyFilter(filter)
-                    ? "Build a filter on the left — the count follows every change."
+                    ? "Search a name above or build a filter on the left — the count follows every change."
                     : "Press Search to bring in the top 25."
                 }
               />
@@ -374,7 +398,7 @@ export function PeopleStrategyEditor({
                 plural="people"
                 onClear={() => setRowSelection({})}
               >
-                {TRIAGE_STAGES.map((stage) => (
+                {PERSON_FILING_STAGES.map((stage) => (
                   <SelectionAction
                     key={stage.status}
                     icon={stage.icon}

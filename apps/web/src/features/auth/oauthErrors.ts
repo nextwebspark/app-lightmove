@@ -7,12 +7,8 @@
  */
 
 /**
- * The sentence to show, or **null when there is nothing to say**.
- *
- * Null is the answer for a cancellation, and it is the point of this function having a nullable
- * return at all. Someone who reaches the consent screen and backs out has not hit an error; telling
- * them "sign-in did not complete, try again" reads as a broken button and is how this flow used to
- * behave. Say nothing and leave the button ready.
+ * The sentence to show, or **null when there is nothing to say** — a cancellation is not an error, and reporting one
+ * read as a broken button.
  */
 export function messageForOAuthError(code: string): string | null {
   switch (code) {

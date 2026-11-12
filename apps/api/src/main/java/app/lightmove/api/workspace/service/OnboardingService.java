@@ -13,6 +13,7 @@ import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.service.WorkspaceSelection;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.model.Workspace;
@@ -52,6 +53,10 @@ public class OnboardingService {
     @Transactional
     public Workspace createFirstWorkspace(UUID userId, CreateWorkspaceCommand command,
                                           HttpServletRequest request) {
+        // Locked before the membership is read. Read first, a submit committing between that read and the account's
+        // load left the check seeing no workspace and the row already at its new version, so @Version passed too and
+        // a double-clicked step founded two workspaces.
+        users.lockToFoundFirstWorkspace(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
         requireNoExistingMembership(userId);
         return createWorkspace(userId, command, request);
     }
@@ -75,7 +80,11 @@ public class OnboardingService {
 
         selection.remember(user, members.save(WorkspaceMember.invite(
                 workspace.getId(), userId, Set.of(rbac.role(WorkspaceRole.ADMIN)), userId)));
-        trials.start(workspace.getId(), userId);
+        // Flushed inside the scope: written at commit, the trial would be checked against the caller's workspace.
+        WorkspaceScope.runInJoinedTransaction(workspace.getId(), () -> {
+            trials.start(workspace.getId(), userId);
+            workspaces.flush();
+        });
 
         log.info("Workspace {} ({}) created by user {} on domain {}", workspace.getId(), slug, userId, domain);
         audit.event(WorkspaceEventType.WORKSPACE_CREATED)

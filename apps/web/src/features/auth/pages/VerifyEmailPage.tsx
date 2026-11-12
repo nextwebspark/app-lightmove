@@ -3,22 +3,18 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Card, Field, Input, Logo } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
+import { isMfaChallenge } from "../api/types";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import { SendFailedNotice } from "../components/SendFailedNotice";
 import { homeFor } from "../homeFor";
+import { TWO_FACTOR_SIGN_IN_PATH } from "./TwoFactorChallengePage";
 
 type State = "verifying" | "success" | "failed";
 
 /**
- * Where the emailed verification link lands.
- *
- * The link points at the SPA rather than straight at the API on purpose: the user ends up inside the
- * app, looking at a LightMove screen, rather than at a page of raw JSON.
- *
- * Redeeming returns a session, so this browser is signed in even though it is usually not the one that
- * filled in signup. Continue therefore always leads somewhere — the organisation step, for the creator
- * this gate exists for.
+ * Where the emailed verification link lands (the SPA, not raw API JSON). Redeeming signs this browser in, so Continue
+ * always leads somewhere.
  */
 export function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
@@ -52,7 +48,11 @@ export function VerifyEmailPage() {
 
     void (async () => {
       try {
-        await verifyEmail(token);
+        if (isMfaChallenge(await verifyEmail(token))) {
+          // Verified, but this person turned two-factor on: the link signs nobody in past the code.
+          navigate(TWO_FACTOR_SIGN_IN_PATH, { replace: true });
+          return;
+        }
         setState("success");
       } catch (error) {
         setState("failed");
@@ -63,7 +63,7 @@ export function VerifyEmailPage() {
         );
       }
     })();
-  }, [searchParams, verifyEmail]);
+  }, [searchParams, verifyEmail, navigate]);
 
   // A second click on the same link burns nothing and is the commonest way to reach the failure branch.
   // Someone already verified in this browser has done what the link was for, so say so.
@@ -71,14 +71,8 @@ export function VerifyEmailPage() {
   const settled = state === "success" || verifiedAlready;
 
   /**
-   * Re-read before routing, because this page can sit open for a long time and the wizard is normally
-   * finished somewhere else.
-   *
-   * <p>The tab that was waiting on this link polls, so it advances the moment the link is clicked and
-   * the user carries on there — organisation, invitations, into the app. All of that happens while this
-   * card is still showing a `user` snapshot taken at redemption time, when there was no workspace.
-   * Routing on that snapshot sent someone who already has a workspace back to the create form (which,
-   * before V81, answered a 409 — and now would found a second workspace they never asked for).
+   * Re-read before routing: the waiting tab has usually finished the wizard, and routing on the redemption-time snapshot
+   * sent someone with a workspace back to the create form (now it would found a second workspace).
    */
   const handleContinue = async () => {
     setContinuing(true);

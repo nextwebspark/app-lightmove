@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
@@ -34,7 +35,7 @@ class McpEndpointIntegrationTest extends McpFlowSupport {
     private static final String WHOAMI = """
             {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"uncava_whoami","arguments":{}}}""";
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
     @Autowired JWKSource<SecurityContext> mcpJwkSource;
     @Autowired ApplicationContext context;
 
@@ -152,6 +153,18 @@ class McpEndpointIntegrationTest extends McpFlowSupport {
         assertThat(statusOf(call(key, oversized))).isEqualTo(413);
         assertThat(mvc.perform(get(MCP).header("Authorization", "Bearer " + key)).andReturn().getResponse()
                 .getStatus()).isEqualTo(405);
+    }
+
+    @Test
+    @DisplayName("a method the server does not offer, such as Claude's server/discover probe, is Method not found,"
+            + " never a 500")
+    void unknownMethod() throws Exception {
+        String key = keyOf(adminOf(domain), "projects:read", "mcp:use");
+
+        JsonNode answered = rpc(key, """
+                {"jsonrpc":"2.0","id":4,"method":"server/discover","params":{}}""");
+        assertThat(answered.at("/error/code").asInt()).isEqualTo(-32601);
+        assertThat(answered.get("id").asInt()).isEqualTo(4);
     }
 
     private void assertRefused(String bearer) throws Exception {

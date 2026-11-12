@@ -15,17 +15,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * The projects list's people-side numbers, answered for {@code project}, which owns
- * {@link ProjectCandidateCounter}; this only implements it.
- *
- * <p>Executives who have left the running are left out of "Candidates", the same rule
- * {@code ProjectCompanyCounterAdapter} applies to declined companies. The two numbers sit side by
- * side under one "Pipeline" heading and read as a pair, so counting everyone here and only the live
- * companies there would make one heading mean two things. Every executive ever mapped, ruled out or
- * not, is still on the Candidates screen — the closed stage keeps them deliberately, because the same
- * name comes up on the next mandate. Engaged and reached out are read by stage, so a workspace's own
- * statuses count where its admin put them. A mandate its caller reads as a client seat counts only the
- * executives shown to the client.
+ * The projects list's people-side numbers for {@code project}'s {@link ProjectCandidateCounter}. "Candidates" leaves out
+ * whoever left the running, as declined companies are left out beside it; Engaged and reached out are read by stage, and
+ * a client seat counts only the executives shown to the client.
  */
 @Component
 @RequiredArgsConstructor

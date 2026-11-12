@@ -4,7 +4,7 @@ import java.util.UUID;
 
 /**
  * One status of the catalog. {@code key} is the wire value a candidate's {@code status} carries;
- * {@code system} marks the seven built-in statuses, which are never retired or moved.
+ * {@code system} marks the seven built-in statuses; {@code outOfProcess} sends whoever holds it to Inactive.
  */
 public record PipelineStatusResponse(
         UUID id,
@@ -14,5 +14,6 @@ public record PipelineStatusResponse(
         int position,
         boolean isDefault,
         boolean system,
+        boolean outOfProcess,
         boolean retired
 ) {}

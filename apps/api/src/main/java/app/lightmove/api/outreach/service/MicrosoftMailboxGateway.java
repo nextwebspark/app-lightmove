@@ -48,12 +48,9 @@ import org.springframework.web.util.UriUtils;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Outlook and Microsoft 365 mail through Microsoft Graph, connected through the OAuth app the workspace chose:
- * Uncava's multi-tenant app at {@code /organizations}, or the customer's single-tenant one at its own directory.
- *
- * <p>Every email is a draft and then a send, never {@code sendMail}: only a draft answers with the message's id and
- * conversation id, which a follow-up replies to and the reply poll reads. Ids are requested immutable, so they
- * survive the message moving to Sent Items. A send is never retried — see {@link MailboxGateway}.
+ * Microsoft Graph mail through the workspace's app ({@code /organizations} shared, or the customer's tenant). Draft
+ * then send, never {@code sendMail}: only a draft returns the immutable message and conversation ids threading needs.
+ * A send is never retried — see {@link MailboxGateway}.
  */
 public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
 
@@ -192,8 +189,12 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(recipientsOnly(email)));
             }
+            // An empty POST over HTTP/2 carries no Content-Length, and Graph has answered it 411 Length Required since
+            // late October 2026 — every email failed at the send. An empty JSON object gives the request a length.
             apiExchange("send", accessToken, client -> client.post()
-                    .uri("/v1.0/me/messages/{id}/send", messageId));
+                    .uri("/v1.0/me/messages/{id}/send", messageId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of()));
         } catch (VendorException failed) {
             discardUnsentDraft(accessToken, messageId, failed);
             throw failed;

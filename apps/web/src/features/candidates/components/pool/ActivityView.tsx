@@ -125,6 +125,7 @@ export function ActivityView({ toggle, onOpen }: { toggle: ReactNode; onOpen: (p
                                   )}
                                 >
                                   {line.detail}
+                                  {line.isEdited && <span className="font-sans"> · Edited</span>}
                                 </span>
                               )}
                             </span>

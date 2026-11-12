@@ -41,58 +41,56 @@ export function RenameForm({
   );
 }
 
-/** Rename, or Save while the name is being retyped. */
+/** Save and Cancel while a name is being retyped; Rename itself is in the row's ⋯. */
 export function RenameActions({ formId, rename, saving }: { formId: string; rename: RenameDraft; saving: boolean }) {
+  if (!rename.renaming) return null;
   // Keyed apart: patched in place, the pressed Rename became the form's Save and submitted it mid-click.
-  return rename.renaming ? (
-    <Button
-      key="save"
-      type="submit"
-      form={formId}
-      variant="secondary"
-      size="xs"
-      disabled={!rename.draft.trim()}
-      loading={saving}
-    >
-      Save
-    </Button>
-  ) : (
-    <Button key="rename" type="button" variant="ghost" size="xs" onClick={rename.begin}>
-      Rename
-    </Button>
+  return (
+    <>
+      <Button key="save" type="submit" form={formId} variant="secondary" size="xs" disabled={!rename.draft.trim()} loading={saving}>
+        Save
+      </Button>
+      <Button key="cancel" type="button" variant="ghost" size="xs" onClick={rename.end}>
+        Cancel
+      </Button>
+    </>
   );
 }
 
-/** A click moves the swatch on to the next colour, the mockup's way of recolouring in place. */
-export function ColourDot({
-  colour,
-  name,
-  size,
-  editable,
-  onChange,
-}: {
-  colour: string;
-  name: string;
-  size: "stage" | "status";
-  editable: boolean;
-  onChange: (colour: string) => void;
-}) {
-  const index = PIPELINE_COLOURS.findIndex((candidate) => candidate.value === colour);
-  const next = PIPELINE_COLOURS[(index + 1) % PIPELINE_COLOURS.length].value;
-  const current = PIPELINE_COLOURS[index]?.label;
+export function ColourDot({ colour, size }: { colour: string; size: "stage" | "status" }) {
   return (
-    <button
-      type="button"
-      disabled={!editable}
-      title={editable ? "Change colour" : undefined}
-      aria-label={current ? `Colour of ${name}: ${current}` : `Colour of ${name}`}
-      onClick={() => onChange(next)}
+    <span
+      aria-hidden="true"
       className={cn(
-        "flex-none rounded-full disabled:cursor-default",
+        "flex-none rounded-full",
         size === "stage" ? "size-[11px]" : "size-[9px]",
         pipelineSwatchClass(colour),
       )}
     />
+  );
+}
+
+/** The ⋯ menu's first line: every pipeline colour, the current one marked. */
+export function ColourSwatches({ colour, onChange }: { colour: string; onChange: (colour: string) => void }) {
+  return (
+    <div role="group" aria-label="Colour" className="flex flex-wrap gap-1.5 px-2 pb-2 pt-1">
+      {PIPELINE_COLOURS.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="menuitemradio"
+          aria-checked={option.value === colour}
+          aria-label={option.label}
+          title={option.label}
+          onClick={() => onChange(option.value)}
+          className={cn(
+            "size-[18px] rounded-full border-2 transition-transform hover:scale-110",
+            option.value === colour ? "border-u-text" : "border-transparent",
+            option.swatch,
+          )}
+        />
+      ))}
+    </div>
   );
 }
 

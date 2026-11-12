@@ -4,11 +4,13 @@ import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MailboxStatus;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 /** Connected mailboxes. Every finder carries the workspace and the user: a mailbox is one person's. */
@@ -16,27 +18,19 @@ public interface MailboxConnectionRepository extends JpaRepository<MailboxConnec
 
     Optional<MailboxConnection> findByWorkspaceIdAndUserId(UUID workspaceId, UUID userId);
 
-    /** One person's mailboxes in every workspace they belong to; only their own profile's clock reads across them. */
+    /** One person's mailbox in the workspace in scope; their profile's clock reaches each workspace's in its own. */
     List<MailboxConnection> findByUserId(UUID userId);
 
     List<MailboxConnection> findByWorkspaceId(UUID workspaceId);
 
     /**
-     * The one finder without a workspace: a mail service's webhook names a grant and nothing else, and
-     * a grant is only ever handed to the person who connected it. A list, because one mailbox connected
-     * in two workspaces can come back as one grant.
+     * A grant's mailbox in the workspace in scope: a mail service's webhook names a grant and nothing else, so its
+     * workspace is resolved first ({@code TenantResolvers}). A list, because one mailbox connected in two workspaces
+     * can come back as one grant.
      */
     List<MailboxConnection> findByGrantId(String grantId);
 
     boolean existsByGrantIdAndStatus(String grantId, MailboxStatus status);
-
-    /** A public booking page's read: the slug is the link's whole identity, so this finder carries no workspace. */
-    Optional<MailboxConnection> findByBookingSlug(String bookingSlug);
-
-    boolean existsByBookingSlug(String bookingSlug);
-
-    /** A booking webhook names the page and nothing else. A list, like {@link #findByGrantId}. */
-    List<MailboxConnection> findByBookingConfigurationId(String bookingConfigurationId);
 
     /**
      * Calendars still owed their first read and due to be tried, oldest connection first. A system job's
@@ -48,6 +42,28 @@ public interface MailboxConnectionRepository extends JpaRepository<MailboxConnec
     List<MailboxConnection> findCalendarsOwed(MailboxStatus status, int maxAttempts, Instant now, Pageable page);
 
     List<MailboxConnection> findByWorkspaceIdAndGateway(UUID workspaceId, MailboxGatewayKind gateway);
+
+    /**
+     * A drawer-opening read's claim on one calendar: two openings at once read it once. Written past the entity's
+     * version, so a refresh never fails a token rotation saving the same row, or the other way round.
+     */
+    @Modifying
+    @Query(nativeQuery = true, value = """
+            UPDATE app_lm_mailbox_connection SET calendar_synced_at = :now
+            WHERE id = :id AND calendar_synced_at < :staleBefore
+            """)
+    int claimCalendarRefresh(UUID id, Instant now, Instant staleBefore);
+
+    /**
+     * A refresh whose read failed gives its claim back, so the next opening reads the calendar again. Matched on the
+     * claim's exact time, so the caller claims at the column's precision, microseconds.
+     */
+    @Modifying
+    @Query(nativeQuery = true, value = """
+            UPDATE app_lm_mailbox_connection SET calendar_synced_at = :before
+            WHERE id = :id AND calendar_synced_at = :claimedAt
+            """)
+    int releaseCalendarRefresh(UUID id, Instant claimedAt, Instant before);
 
     /** Recall's webhook names its calendar and nothing else. A list, like {@link #findByGrantId}. */
     List<MailboxConnection> findByRecallCalendarId(String recallCalendarId);
@@ -63,4 +79,21 @@ public interface MailboxConnectionRepository extends JpaRepository<MailboxConnec
             + "and (m.recall_calendar_retry_at is null or m.recall_calendar_retry_at <= :now) "
             + "and w.calendar_sync = 'RECALL' order by m.connected_at limit :limit", nativeQuery = true)
     List<MailboxConnection> findOwedRecallCalendars(int maxAttempts, Instant now, int limit);
+
+    /** Live direct mailboxes made through {@code clientId} at a provider; a row from before V168 counts as made through it. */
+    @Query("select count(m) from MailboxConnection m where m.workspaceId = :workspaceId and m.gateway = :gateway "
+            + "and m.status = :status and lower(m.provider) = :provider "
+            + "and (m.appClientId is null or m.appClientId = :clientId)")
+    long countLiveThrough(UUID workspaceId, MailboxGatewayKind gateway, MailboxStatus status, String provider,
+                          String clientId);
+
+    /**
+     * Withdraws the still-live rows among {@code ids} and lets go of their Recall calendars, in one statement: dirtying
+     * each versioned row would fail the admin's whole save on any concurrent write to one of them (a rotated refresh
+     * token, a Recall calendar kept).
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update MailboxConnection m set m.status = :withdrawn, m.recallCalendarId = null "
+            + "where m.id in :ids and m.status = :live")
+    int withdrawLive(Collection<UUID> ids, MailboxStatus live, MailboxStatus withdrawn);
 }

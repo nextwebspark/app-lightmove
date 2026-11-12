@@ -9,13 +9,8 @@ import { UnderlineField } from "./BriefFields";
 const LIST_ID = "brief-role-title-suggestions";
 
 /**
- * The role title on the brief: free text on a hairline that suggests the templates the brief can be
- * drafted from — the New-project modal's `RoleTitleCombobox`, in the brief's own skin.
- *
- * Free text is the point. A mandate is titled "Group CFO – Energy Division" as often as it is titled
- * "Chief Financial Officer", so the seventeen templates are offered, never imposed: nothing is
- * highlighted until somebody arrows into the list, which keeps Enter on a typed title from committing
- * the suggestion sitting underneath it. Picking one renames the search and redrafts the brief.
+ * The brief's role title — `RoleTitleCombobox` in the brief's skin: free text suggesting templates, nothing highlighted
+ * until arrowed so Enter keeps a typed title. Picking one renames the search and redrafts the brief.
  */
 export function RoleTitleField({
   value,
@@ -37,7 +32,8 @@ export function RoleTitleField({
     autoHighlightFirst: false,
     onCommit: (index) => {
       const choice = matches[index];
-      if (choice) onPick(choice);
+      // One redraft at a time: a second Enter while the first applies would redraft twice.
+      if (choice && !busy) onPick(choice);
     },
   });
 
@@ -69,6 +65,7 @@ export function RoleTitleField({
         <ul
           id={LIST_ID}
           role="listbox"
+          onMouseLeave={() => list.setActive(-1)}
           aria-label="Role templates"
           className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-[10px] border border-u-border bg-u-bg py-1 shadow-u-e3"
         >

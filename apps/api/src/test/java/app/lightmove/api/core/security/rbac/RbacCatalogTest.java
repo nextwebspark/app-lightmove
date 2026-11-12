@@ -66,7 +66,7 @@ class RbacCatalogTest {
     void roleGrantsMatchTheSeededMap() {
         grantsAre(RoleScope.WORKSPACE, "ADMIN", "WORKSPACE_MANAGE", "MEMBER_MANAGE", "MEMBER_INVITE",
                 "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE", "POSITION_TEMPLATE_MANAGE",
-                "CANDIDATE_POOL_MANAGE", "API_KEY_MANAGE", "BILLING_MANAGE");
+                "CANDIDATE_POOL_MANAGE", "API_KEY_MANAGE", "BILLING_MANAGE", "PERSON_ERASE");
         grantsAre(RoleScope.WORKSPACE, "MEMBER", "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE",
                 "CANDIDATE_POOL_MANAGE", "API_KEY_MANAGE");
         grantsAre(RoleScope.WORKSPACE, "CLIENT");
@@ -75,7 +75,7 @@ class RbacCatalogTest {
         grantsAre(RoleScope.PROJECT, "RESEARCHER", "WORK_VIEW", "WORK_EXECUTE");
         grantsAre(RoleScope.PROJECT, "CLIENT", "WORK_VIEW");
         grantsAre(RoleScope.PLATFORM, "SUPER_ADMIN", "TEMPLATE_LIBRARY_MANAGE", "CREDIT_GRANT",
-                "SUBSCRIPTION_MANAGE");
+                "SUBSCRIPTION_MANAGE", "WORKSPACE_LIFECYCLE_MANAGE");
     }
 
     private void grantsAre(RoleScope scope, String roleName, String... expectedActions) {

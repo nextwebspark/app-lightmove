@@ -67,6 +67,12 @@ public class PositionService {
         return assembler.assemble(briefs.require(workspaceId, projectId));
     }
 
+    /** The brief a client seat reads: the mandate context withheld, and nothing drafted or saved for it. */
+    @Transactional(readOnly = true)
+    public PositionResponse clientViewOf(UUID workspaceId, UUID projectId) {
+        return assembler.assembleForClient(briefs.read(workspaceId, projectId));
+    }
+
     /**
      * For a reader that must not write (a client seat reads the report): unlike {@link #get}, which
      * drafts and saves a missing brief, this persists nothing.
@@ -74,7 +80,7 @@ public class PositionService {
     @Transactional(readOnly = true)
     public CompensationDto compensationOf(UUID workspaceId, UUID projectId) {
         Position position = briefs.find(workspaceId, projectId)
-                .orElseGet(() -> Position.forProject(projectId, null));
+                .orElseGet(() -> briefs.blank(workspaceId, projectId));
         return assembler.compensationOf(position);
     }
 
@@ -86,7 +92,7 @@ public class PositionService {
     @Transactional(readOnly = true)
     public BriefCompetencies competenciesOf(UUID workspaceId, UUID projectId) {
         return competenciesOf(briefs.find(workspaceId, projectId)
-                .orElseGet(() -> Position.forProject(projectId, null)));
+                .orElseGet(() -> Position.forProject(projectId, null, null)));
     }
 
     /** The brief as the AI assessment reads it, through the same narrow seam; it never drafts a brief either. */

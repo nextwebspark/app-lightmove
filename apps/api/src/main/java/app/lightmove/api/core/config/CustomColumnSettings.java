@@ -3,12 +3,8 @@ package app.lightmove.api.core.config;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * The ceiling on a mandate's custom grid columns — {@code lightmove.custom-column.*}.
- *
- * <p>A limit rather than none, because the columns are defined by whatever a spreadsheet's header row
- * happens to say. One mis-mapped import of a very wide file would otherwise define a column per header
- * and leave a mandate with a grid nobody can read across, which is tedious to undo one column at a
- * time. Counted across both grids, since it is a limit on one screen's width.
+ * The ceiling on a mandate's custom columns ({@code lightmove.custom-column.*}), counted across both grids, since
+ * one mis-mapped wide import would otherwise define a column per header.
  */
 public record CustomColumnSettings(
         @DefaultValue("40") int maxPerProject

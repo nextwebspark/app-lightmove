@@ -50,6 +50,13 @@ export interface AttachedRepresentative {
 /** What a mandate delivers: a mapped executive universe, or a full search through to a shortlist. */
 export type ProjectType = "MAPPING" | "SEARCH";
 
+/** The record a new position is made with: a universe pick or a typed name, and no contact to invite. */
+export interface NewClientPayload {
+  company?: { apolloAccountId: string };
+  customName?: string;
+  sector?: string;
+}
+
 export interface Project {
   id: string;
   clientId: string;

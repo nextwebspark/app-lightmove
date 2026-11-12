@@ -5,17 +5,11 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * What the candidates list was asked for, gathered off the query string.
- *
- * <p>{@code triageCompanyIds} fetches the people at the companies on the page being rendered — the
- * grid is paged by company — and {@code unmapped} asks for the executives whose employer is not in
- * the universe at all. Both null means every candidate in the mandate. {@code status} is a status
- * key of the workspace's catalog and {@code pipelineStage} a stage key; null is every one. {@code textQuery} matches a name, a title or an
- * employer, where {@code nameQuery} matches the name alone, and {@code withinTriageCompanyIds} holds the people to a
- * whole stage's companies — unlike the page of companies {@code triageCompanyIds} names, never capped.
- * {@code triageStatus} is a Companies stage token: the people listed under that stage themselves (V150), null is all.
+ * The candidates list's query: {@code triageCompanyIds} is the rendered page's companies and {@code unmapped} the
+ * executives outside the universe (both null: everyone); {@code withinTriageCompanyIds} holds people to a whole stage,
+ * never capped; {@code triageStatus} is the person's own stage (V150); {@code search} matches a person or their company.
  */
 public record CandidateListCriteria(List<UUID> triageCompanyIds, Boolean unmapped, String nameQuery,
                                     String textQuery, Collection<UUID> withinTriageCompanyIds,
                                     String status, String pipelineStage, String triageStatus,
-                                    Integer page, Integer size) {}
+                                    String search, Integer page, Integer size) {}

@@ -29,7 +29,9 @@ staff member founds a further one from Settings → Workspaces (`POST /workspace
 `staff` of the current workspace so a client representative cannot found a firm from a portal seat). Signup's
 own door, `POST /onboarding/workspace`, is gated on verification alone, so it founds a *first* workspace
 only and refuses anyone already in one (`ALREADY_IN_WORKSPACE`) — left open, it was a way around that
-staff gate. Both doors share one creation budget per account (`workspace-creations-per-hour`); the
+staff gate. The account row is locked before that membership is read
+(`UserRepository.lockToFoundFirstWorkspace`): read first, a double-clicked step whose first submit committed
+between the check and the account's load passed both the check and `@Version`, and founded two. Both doors share one creation budget per account (`workspace-creations-per-hour`); the
 only way into an existing one is an admin's invitation, and accepting lands `ACTIVE` immediately — an
 admin naming someone *is* the decision. **One second door, deliberately:** any staff member may name a
 client representative (`CLIENT_RECORD_MANAGE` is granted to `MEMBER` as well as `ADMIN`), and that
@@ -114,6 +116,16 @@ which email carried it.
 
 Every workspace-scoped query filters by the `workspace_id` **from the authenticated principal**, never
 from a request parameter. `AuthPrincipal.requireWorkspaceId()` is the only supported way to get it.
+
+The database enforces it too, as a backstop rather than a replacement (V184, V189, V190, `db-ops`): forced row-level
+security on every tenant table reads `app.workspace_id`, which every connection is given at checkout from the same
+principal. A path that is no signed-in request — a scheduled job, a public webhook, a worker woken by one — names
+the workspace of the row it works on with `WorkspaceScope`; with none, tenant tables answer nothing. A door that
+arrives with only a key — an invitation or API key's hash, an OAuth grant's, a Stripe customer, a booking slug —
+resolves its workspace first (`TenantResolvers`, ids out and nothing else) and is then fenced like any request.
+Membership and refresh tokens stay outside the fence on purpose: they decide which workspace a session is in, so they
+are read before one is chosen. Never "fix" an empty read by widening the scope: find the row that names the
+workspace, or resolve the key.
 
 ## Authorisation asks for an action, never a role
 
@@ -375,9 +387,15 @@ Five things this cost an afternoon each to learn:
   registrations listed in `email-verified-optional-registrations`, never by default: this handler
   links a provider identity into an *existing* account on a matching address, so "the provider did
   not say" must never read as "the provider said yes" for an IdP nobody vetted.
-- **A provider's `picture` is a URL the whole workspace fetches**, and on many IdPs it is a
-  user-editable field. It is stored only when it is `https` and under 2 KB — otherwise a member could
-  point it at a host they control and harvest a request from every colleague who opens the roster.
+- **Linking into an account nobody verified wipes what its claimant set.** Anyone can sign up on someone
+  else's address and never verify it. When the owner later signs in with a provider, linking that account
+  as it stood left the claimant's password working — and the account verified — so they walked into
+  whatever the owner built there (pre-account takeover). `UnverifiedAccountWipe` discards the password,
+  every session, any second factor and every AI-app grant first; a verified account is linked untouched.
+- **A provider's `picture` is a URL our server fetches**, and on many IdPs it is a user-editable field.
+  It is asked for only when it is `https` and under 2 KB, and only through `HttpPictureFetcher`, which
+  refuses a host resolving to any non-public address — otherwise a member could point it at our own
+  network. Before V170 the link itself was stored and every colleague's browser fetched it.
 
 **A failed OAuth login needs `OAuth2LoginFailureHandler`.** Spring's default redirects to
 `/login?error` on the *API's* host, which in development is the API and answers 404 JSON — so the
@@ -407,25 +425,84 @@ set. The popup reports over `postMessage` *and* a `BroadcastChannel`, because a
 same reason the SPA must never be served `Cross-Origin-Opener-Policy: same-origin`
 (`SpaSecurityTest` pins that).
 
-The profile picture is the provider's CDN URL, copied to `app_lm_user.avatar_url`, and **owned by
-whoever supplied it** (`avatar_source`, V25). That source may re-stamp it on every sign-in — LinkedIn's
-URLs expire within weeks — and anyone else may only fill an empty one. Without the ownership rule the
-last provider used always won, so signing in with an account that has no photo replaced a real picture
-with a generated monogram; providers send a monogram, not nothing. A null source is a row older than
-the column and is claimed once. The name follows the same shape and is only backfilled when blank — it
-is editable here, and a provider must not overwrite what someone typed. `Avatar` falls back to initials
-when the image fails to load, which is the designed end state for a user who stops signing in, not a
-bug.
+The profile picture is **ours** (V170): the person's own upload, or a copy of the provider's picture
+downloaded after a *completed* sign-in commits (one stopped at the two-factor code changes nothing of the account)
+— never the provider's link, which expired (LinkedIn's within weeks)
+and was fetched from the provider by every colleague's browser. `app_lm_user.avatar_url` holds
+`/api/v1/avatars/{token}`, public because an `<img>` carries no bearer; the token is the guard. The picture is
+**owned by whoever supplied it** (`avatar_source`, V25): that source may refresh it on every sign-in, and anyone
+else may only fill an empty one. Without the ownership rule the last provider used always won, so signing in with
+an account that has no photo replaced a real picture with a generated monogram; providers send a monogram, not
+nothing. A null source is a row older than the column and is claimed once. `USER` is the person's own choice — an
+upload, or a removal — and no provider ever replaces it; a registration id `user` is refused for that reason, as
+`local` is. The `picture` claim is fetched by our server, so it goes through `core/http`'s `GuardedHttpClient` —
+the one guard every fetch of a stranger's URL shares (https, every resolved address public and dialled exactly, no
+redirect, a size cap, one deadline). The photo is cached **privately**: a shared cache would keep serving a photo its
+owner removed. The name follows the same shape and is only backfilled
+when blank — it is editable here, and a provider must not overwrite what someone typed. `Avatar` still falls back
+to initials when an image fails to load.
 
 ## Tokens are never stored raw
 
 Refresh, verification and invitation tokens are 256-bit random values; only their SHA-256 hash is
 persisted. Passwords are BCrypt(12).
 
+**One deliberate exception: a profile photo's token** (`app_lm_user_avatar.token`) is kept as served. It is not a
+credential — it opens one image and nothing else, as a booking link's slug opens one page — and the same raw link is
+`app_lm_user.avatar_url`, drawn by every colleague's screen, so a hash beside it would protect nothing.
+
+**The same exception for an email picture** (`app_lm_email_image.token`, a signature's photo or logo): it opens one
+re-encoded picture, every email that carries it names it in plain sight, and the server must rebuild its link to draw a
+signature, so it is kept as served. One token per picture, never per message or recipient, so it tracks nobody's
+opening; and its fetches are never logged (`RequestLogFilter`, and the Cloud Logging exclusion in `ops/gcp/bootstrap.sh`).
+
 The **refresh token** is httpOnly + Secure + SameSite, scoped to `/api/v1/auth`, and **rotates on every
 use**. Presenting an already-rotated token is treated as theft and revokes the whole family. The access
 token lives in **JS memory only** — never `localStorage`, because one compromised npm dependency would
 otherwise walk away with a 30-day credential to a product holding executive-candidate PII.
+
+## Two-factor authentication is the person's, and every sign-in door asks for it
+
+**The factor belongs to the person, not to a membership** (`core/security/mfa`, V162). Sign-in happens before a
+workspace is chosen, and one person may be in several (V81), so a factor per membership would be a second
+authenticator entry per firm for the same login. What a workspace may decide is whether its members must have one
+(#1082); the factor itself is `app_lm_user_mfa_factor`, keyed on the user. Its secret is sealed by `core/crypto` under
+`EncryptionContext.ofUser` — the owner a user, the purpose prefixed `user:` so a user-bound ciphertext can never pass as
+a workspace-bound one — and is answered once, at setup, never again. Recovery codes are 80 random bits each, so a bare
+SHA-256 of one is as safe in the table as any token's, and one conditional `UPDATE … WHERE used_at IS NULL` spends one,
+so two sign-ins racing on a code cannot both get it.
+
+**Every door that turns a proved password, mailbox or provider identity into a session asks `SignInCompletion`**: login,
+a password reset, a verification link and the OAuth callback. A reset is the one that matters — it proves the mailbox,
+and a reset that signed straight in would let whoever reads the inbox skip the factor, which is exactly what the factor
+exists to stop. Signup and invitation signup make brand-new accounts with no factor; a password change and extension
+pairing start from a session that already passed. `OAuth2LoginSuccessHandler` answers a factor holder with the
+challenge cookie and `/auth/callback?challenge=two-factor` — no `#token`, no refresh cookie, and no successful-login
+stamp, since only the code clears the lock — and never asks which provider it was. `lightmove.auth.mfa.enabled` still
+keeps the feature off in deployments until its rollout; a person who already has one is asked for the code whatever
+the switch says.
+
+**The challenge rides a cookie, never a body.** A right password from a factor holder earns `lm_mfa_challenge` —
+httpOnly, SameSite as the refresh cookie, scoped to `/api/v1/auth/mfa`, five minutes, stored as its hash, single use —
+and no refresh cookie. That is what lets #1082's OAuth popup finish the same way: the popup leaves the cookie, reports
+only an outcome, and the opener sends the code; no credential crosses between the windows. The verify route is
+CSRF-exempt like login, which is safe because the cookie it needs is SameSite.
+
+**A right password does not clear the lockout counter for a factor holder; only the right code does**, and a wrong code
+counts exactly as a wrong password (`LoginLockout`): same five strikes, same one email. Clearing it at the password
+would hand anyone who has the password unlimited guesses at a six-digit code, five at a time. For the same reason a
+reset that ends in a challenge leaves the count alone. Every refusal at the code step is one answer,
+`MFA_CODE_INVALID` — wrong, replayed, expired, locked — with the real reason in the audit trail; it may name the code,
+since only the password's holder reaches it. A code is refused a second time in its 30-second step
+(`last_used_step`, under the factor's row lock).
+
+**Turning it on asks for the current password as well as a code.** Without it a stolen session could enrol the
+thief's phone and lock the owner out; it is the same reason a password change asks for the old one. Turning it on or
+off ends every other session (`MFA_CHANGED`, not theft on replay) and tells the mailbox. **An account with no password
+has none to give** — a Google or LinkedIn sign-in — so it proves itself the way a password would have: by a sign-in
+moments ago (`lightmove.auth.mfa.recent-sign-in`, 10 minutes, read as the first token of the session's refresh
+family) — a session stolen earlier cannot show one. Turning off and new recovery codes take the code
+alone for such an account: a thief holding the session but not the phone has no code to give.
 
 ## The SPA and the API are one origin
 
@@ -458,6 +535,10 @@ Sameness is about the clock too. Every refusal that skips the password check pay
 comparison anyway — `PasswordPolicy.equaliseFailureCost`, against a decoy hash derived at startup.
 Without it an unknown address answered in 26 ms and a real one in 276 ms, which told anyone who asked
 whether an address is a customer.
+
+Sameness holds under load too. Password login reads the account under a row lock
+(`UserRepository.findByEmailForSignIn`): concurrent wrong guesses each bumped the failed-attempt count
+under `@Version`, the losers answered 409 — which no unknown address can — and their count was lost.
 
 A locked-out user therefore learns it **by email**, sent once when the lock arms (not on each later
 attempt, or an attacker's dictionary run would flood the owner's inbox). The mailbox already proves

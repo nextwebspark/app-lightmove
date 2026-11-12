@@ -29,6 +29,10 @@ describe("help articles", () => {
     expect(articlesForPage("/team")).toEqual([]);
   });
 
+  it("leaves out the Shortlisted and Declined article while those stages are off", () => {
+    expect(HELP_ARTICLES.map((article) => article.slug)).not.toContain("companies-pages");
+  });
+
   it("searches titles, summaries and text, every word", () => {
     expect(searchArticles("spreadsheet")[0].slug).toBe("import-spreadsheet");
     expect(searchArticles("reply stops")).toEqual(

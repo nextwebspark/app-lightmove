@@ -10,6 +10,8 @@ import java.util.UUID;
 public record ClientListResponse(
         UUID id,
         String name,
+        /** The universe company the record was picked as; null for one typed in by hand. */
+        String apolloAccountId,
         ClientType type,
         String sector,
         String hqCountry,
@@ -27,7 +29,8 @@ public record ClientListResponse(
     public static ClientListResponse of(Client client, ClientType type, long activeMandates,
                                         long deliveredMandates, List<RepAvatar> contacts,
                                         ViewerSummary viewers, String archivedByName) {
-        return new ClientListResponse(client.getId(), client.getName(), type, client.getSector(),
+        return new ClientListResponse(client.getId(), client.getName(), client.universeAccountId(), type,
+                client.getSector(),
                 client.getHqCountry(), client.getHqCity(), client.getLogoUrl(), activeMandates,
                 deliveredMandates, contacts, viewers, client.getArchivedAt(), archivedByName);
     }

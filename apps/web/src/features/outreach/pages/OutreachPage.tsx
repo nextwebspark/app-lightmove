@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { buttonClassName, EmptyState } from "../../../components/ui";
+import { buttonClassName, EmptyState, ToolbarSearch } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { useProjectStream } from "../../../lib/useProjectStream";
 import { hasRoomForRails } from "../../../lib/viewport";
@@ -15,7 +15,7 @@ import type { ConversationList, ConversationScope, ConversationView } from "../a
 import { ConversationListPane } from "../components/ConversationListPane";
 import { CONVERSATION_REFRESH_MS, ConversationPane } from "../components/ConversationPane";
 import { MailboxBanner } from "../components/MailboxBanner";
-import { MailboxChip } from "../components/MailboxChip";
+import { MailboxChip, mailboxChipShows } from "../components/MailboxChip";
 import { MailboxSetupCard } from "../components/MailboxSetupCard";
 import { NewEmailButton } from "../components/NewEmailButton";
 import { OutreachHeader } from "../components/OutreachHeader";
@@ -23,6 +23,7 @@ import { mailboxStateOf, type MailboxState } from "../lib/mailboxState";
 import { refreshOutreachActivity } from "../lib/outreachRefresh";
 import { useMailbox } from "../lib/useMailbox";
 import { useMailboxConnect, type MailboxConnect } from "../lib/useMailboxConnect";
+import { positionPipelinePath } from "../../pipeline/lib/pipelinePath";
 
 const VIEWS: readonly ConversationView[] = ["all", "needs", "scheduled", "sent"];
 const SEARCH_DELAY_MS = 250;
@@ -30,7 +31,7 @@ const SEARCH_DELAY_MS = 250;
 export const LIVE_SAFETY_REFRESH_MS = 5 * 60_000;
 
 /**
- * A position's Outreach page (`claude-design/Outreach.dc.html`): everyone the team is in conversation with on the
+ * A position's Outreach page (`uncava-design/Outreach.dc.html`): everyone the team is in conversation with on the
  * left, and the one picked — the top of the list, where there is room beside it — with their history, the composer
  * and their details. Staff only; the sequences are the header's other view.
  */
@@ -151,10 +152,33 @@ export function OutreachPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <h1 className="sr-only">Outreach</h1>
-      <OutreachHeader projectId={project.id} section="conversations">
-        <MailboxChip state={mailboxState} connector={connector} onAsked={() => void mailbox.refetch()} />
-        <NewEmailButton projectId={project.id} mailbox={mailboxState} connector={connector} onPick={openToWrite} />
-      </OutreachHeader>
+      <OutreachHeader
+        projectId={project.id}
+        section="conversations"
+        searchFromLg={Boolean(candidateId)}
+        search={
+          <ToolbarSearch
+            value={searchText}
+            onChange={setSearchText}
+            label="Search people or emails"
+            placeholder="Search people or emails…"
+            maxLength={100}
+          />
+        }
+        chip={
+          mailboxChipShows(mailboxState) && (
+            <MailboxChip state={mailboxState} connector={connector} onAsked={() => void mailbox.refetch()} />
+          )
+        }
+        action={
+          <NewEmailButton
+            projectId={project.id}
+            mailbox={mailboxState}
+            connector={connector}
+            onPick={(recipient) => openToWrite(recipient.candidateId)}
+          />
+        }
+      />
       <MailboxBanner state={mailboxState} connector={connector} />
 
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[clamp(260px,24vw,336px)_minmax(0,1fr)] xl:grid-cols-[clamp(260px,24vw,336px)_minmax(420px,1fr)_clamp(260px,22vw,320px)]">
@@ -166,7 +190,6 @@ export function OutreachPage() {
             list={list}
             selectedCandidateId={candidateId}
             onViewChange={showView}
-            onQueryChange={setSearchText}
             onWhoChange={showScope}
             onSelect={openToRead}
           />
@@ -284,7 +307,7 @@ function NobodyOpen({
           <Link to={`/projects/${projectId}/companies/universe`} className={buttonClassName("secondary")}>
             In universe
           </Link>
-          <Link to={`/projects/${projectId}/pipeline`} className={buttonClassName("secondary")}>
+          <Link to={positionPipelinePath(projectId)} className={buttonClassName("secondary")}>
             Pipeline
           </Link>
         </div>

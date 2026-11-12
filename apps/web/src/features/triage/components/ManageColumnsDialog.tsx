@@ -6,6 +6,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { useToast } from "../../../components/ui/Toast";
 import { messageFor } from "../../../lib/errorCodes";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
+import { useDeleteCustomColumn } from "../../customcolumns/lib/useDeleteCustomColumn";
 import type {
   CustomColumn,
   CustomColumnTarget,
@@ -30,16 +31,8 @@ const ROW_BUTTON =
   "rounded-[7px] border border-u-border-strong px-2 py-[5px] text-[11.5px] font-medium transition disabled:opacity-50";
 
 /**
- * The columns this mandate has added to its own grid: rename one, change what it holds, move it,
- * hide it, or remove it.
- *
- * <p>Adding a column here as well as through an import matters more than it looks: a consultant who
- * wants somewhere to record a fact should not have to invent a spreadsheet to get a column for it.
- *
- * <p>Hide and Remove are deliberately both offered and worded differently. Hiding takes a column off
- * the grid and keeps every value in it; removing takes the definition and leaves the values on the
- * rows, so defining it again under the same name brings the data back. Neither destroys anything,
- * which is why neither asks for confirmation.
+ * The mandate's own grid columns: rename, retype, move, hide or remove. Hide keeps values; remove drops the
+ * definition but leaves the values, so re-adding the name restores them — hence no confirmation.
  */
 export function ManageColumnsDialog({
   open,
@@ -108,14 +101,7 @@ export function ManageColumnsDialog({
     onError: (error) => toast.error(messageFor(error)),
   });
 
-  const remove = useMutation({
-    mutationFn: (id: string) => customColumnsApi.deleteCustomColumn(projectId, id),
-    onSuccess: () => {
-      refresh();
-      toast("Column removed. The values stay on the rows.");
-    },
-    onError: (error) => toast.error(messageFor(error)),
-  });
+  const remove = useDeleteCustomColumn(projectId);
 
   /**
    * Moves one column and sends the whole resulting order. Scoped to its own grid, because the two
@@ -217,7 +203,7 @@ export function ManageColumnsDialog({
                   </button>
                   <button
                     type="button"
-                    onClick={() => remove.mutate(column.id)}
+                    onClick={() => remove.mutate(column)}
                     disabled={remove.isPending}
                     className={`${ROW_BUTTON} text-u-offlimits hover:border-u-offlimits`}
                   >

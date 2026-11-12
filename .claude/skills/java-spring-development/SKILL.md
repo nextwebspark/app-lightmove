@@ -1,149 +1,26 @@
 ---
 name: java-spring-development
-description: Java Spring Boot development guidelines with best practices for building robust, secure, and maintainable enterprise applications
+description: apps/api backend law — Boot 4 notes, feature-package architecture, conventions, secrets, workspace scoping and the backend traps. Load before any backend code.
 ---
 
-# Java Spring Development Best Practices
+# Java / Spring in apps/api
 
-## Core Principles
+Generic rules kept because they bite here:
 
-- Write clean, efficient, and well-documented Java code with accurate Spring Boot examples
-- Use Spring Boot 3.x with Java 21+ features (records, sealed classes, pattern matching, virtual threads)
-- Prefer constructor injection over field injection for better testability
-- Follow SOLID principles and RESTful API design patterns
-- Design for microservices architecture suitability
-
-## Project Structure
-
-Organize code using the standard layered pattern (singular package names):
-
-```
-com.example/
-├── controller/     # REST controllers
-├── service/        # Business logic
-├── repository/     # Data access layer (Spring Data JPA)
-├── entity/         # JPA domain entities
-├── dto/            # Request/response DTOs (prefer records)
-├── config/         # Spring configurations
-├── security/       # Auth filters, security config
-└── web/            # Cross-cutting web concerns (exception handlers)
-```
-
-## Naming Conventions
-
-- **Classes / records / enums**: `PascalCase`; suffix by role — `*Controller`, `*Service`, `*Repository`, `*Config`, `*Exception`, `*Dto` / `*Request` / `*Response`
-- **Methods / fields / params**: `camelCase`; Spring Data finders read as queries (`findByIdAndOrgId`, `existsByEmail`)
-- **Constants** (`static final`): `UPPER_SNAKE_CASE`
-- **Packages**: lowercase, singular layer names — match the existing project layout
-- **Config properties**: kebab-case under a namespaced prefix (`app.jwt.expiry-seconds`); bind with `@ConfigurationProperties`
-- **Test classes**: `<Unit>Test`; methods describe behavior (`returns403WhenOrgMissing`)
-
-## Dependency Injection
-
-- Use constructor injection for required dependencies
-- Leverage `@RequiredArgsConstructor` with Lombok for cleaner code
-- Keep constructors simple and avoid logic in them
-- Use `@Qualifier` when multiple implementations exist
-
-## REST API Design
-
-- Use appropriate HTTP methods (GET, POST, PUT, DELETE, PATCH)
-- Return proper HTTP status codes
-- Implement consistent error response format
-- Use DTOs to control API contract
-- Version APIs when needed
-
-## Data Access
-
-### Spring Data JPA
-- Define proper entity relationships (@OneToMany, @ManyToOne, etc.)
-- Use lazy loading appropriately to avoid N+1 queries
-- Implement pagination for large result sets
-- Use query methods and @Query for custom queries
-- Never expose entities directly over the API — map to DTOs
-
-### Transactions
-- Own transaction boundaries in the service layer with `@Transactional`
-- Mark read-only paths `@Transactional(readOnly = true)`
-- Keep transactions short; don't call external services (HTTP/LLM) inside them
-- Remember `@Transactional` only applies to public methods called through the Spring proxy (no self-invocation)
-
-### Database Migrations
-- Use Flyway or Liquibase for schema migrations, **or** manage the schema externally with `ddl-auto=none` (this project's approach — schema owned outside the app, no migration tool)
-- Version migration scripts properly
-- Never modify existing migrations
-- Test migrations in development before production
-
-## Security
-
-### Spring Security
-- Implement authentication and authorization properly
-- Use BCrypt for password encoding
-- Configure CORS appropriately
-- Protect endpoints based on roles/permissions
-- Use HTTPS in production
-
-### Secure Coding
-- Validate all user inputs
-- Sanitize data to prevent injection attacks
-- Avoid exposing sensitive information in responses
-- Use parameterized queries
-
-## Testing
-
-### Unit Testing
-- Use JUnit 5 for unit tests
-- Mock dependencies with Mockito
-- Test business logic thoroughly
-- Follow Given-When-Then pattern
-
-### Integration Testing
-- Use @SpringBootTest for integration tests
-- Use MockMvc for web layer testing
-- Test database operations with test containers
-- Test security configurations
-
-## Performance
-
-### Caching
-- Use Spring Cache abstraction
-- Configure appropriate cache providers (Redis, Caffeine)
-- Set proper TTL for cached data
-- Implement cache eviction strategies
-
-### Async Processing
-- Use @Async for non-blocking operations
-- Configure thread pools appropriately
-- Handle exceptions in async methods
-- Consider using reactive patterns for high concurrency
-
-## Logging and Monitoring
-
-### Logging
-- Use SLF4J with Logback
-- Log at appropriate levels
-- Include correlation IDs for tracing
-- Avoid logging sensitive data
-
-### Monitoring
-- Use Spring Boot Actuator for health and metrics
-- Export metrics to monitoring systems
-- Set up proper health checks
-- Monitor application performance
-
-## API Documentation
-
-- Use Springdoc OpenAPI for API documentation
-- Document all endpoints with descriptions
-- Include request/response examples
-- Keep documentation up to date with code
+- Constructor injection via Lombok `@RequiredArgsConstructor`; no logic in constructors.
+- Suffix by role (`*Controller`, `*Service`, `*Repository`, `*Config`, `*Request`/`*Response`); DTOs are records;
+  never expose an entity over the API.
+- Config properties kebab-case under `lightmove.*`, bound with `@ConfigurationProperties`.
+- Transactions live in the service layer; `readOnly = true` on reads; never call HTTP/LLM inside one;
+  `@Transactional` does not apply on self-invocation.
+- Tests: `<Unit>Test`, behaviour-named methods, Testcontainers Postgres for integration.
+- Never log personal data; parameterised queries only.
 
 ---
 
 # LightMove specifics
 
-Everything below is this repository's own law — it overrides the generic guidance above where they
-disagree. Boot version here is **4.1** (not 3.x), Java 21, Maven, Jackson 3.
+Everything below is this repository's own law. Boot version here is **4.1** (not 3.x), Java 21, Maven, Jackson 3.
 
 ## Stack notes — Boot 4 renamed the starters
 
@@ -235,7 +112,7 @@ enrichment/                # the one feature split twice: by subject first, then
                        LogPeopleSearch, CachedPeopleSearch, PeopleSearchChain, ChainedPeopleSearch,
                        ExecutiveSourcingService,
                        ExecutiveSourcingWorker, SourcingRunStore, SourcingSpecProposer, SourcingSpecRefiner,
-                       SourcedHitRanking)
+                       SourcedHitRanking, TitleWords, SeatFit)
               config/(ExecutiveSourcingConfig)  controller/  dto/
   peoplesearch/ Strategy's People mode — model/(PeoplePage)
               service/(StrategyPeopleService, PeopleSearchFiling, CachedContactOutPeopleQuery, PeopleFilterBody, LocationSuggestions)
@@ -253,11 +130,14 @@ dataexport/                # the Companies grid as a CSV — composes the same s
   constant/(ExportColumn)  model/(ExportRow)
   service/(CompaniesCsvWriter, ProjectExportService)  controller/(ProjectExportController)
 
-report/                    # the mandate's talent mapping report — four chapters over one read; owns nothing
-  model/(ReportSources, ExecutiveRow, ReportCalendar)
-  dto/(ReportResponse + one record per chapter and per row of it)
+report/                    # the mandate's talent mapping report — four chapters over one read, plus Ranking;
+                           # owns one table, the position's ranking scenario (V204), and never writes the brief
+  model/(ReportSources, ExecutiveRow, ReportCalendar, RankingScenario, BriefWeighting)
+  dto/(ReportResponse + one record per chapter and per row of it; RankingResponse, SaveRankingScenarioRequest)
+  repository/(RankingScenarioRepository)
   service/(ReportService, ReportSourceLoader, MappingProgressReporter, MarketShapeReporter,
-           RemunerationReporter, DiversityReporter, NationalityCatalog, Tally)  controller/
+           RemunerationReporter, DiversityReporter, NationalityCatalog, Tally,
+           RankingService, RankingScenarioRules)  controller/(ReportController, RankingController)
 ```
 
 **`enrichment/` is the one feature with a subject split above the type split.** People and companies
@@ -331,9 +211,13 @@ per-workspace-unique column (`Person.profileSlug`, V95) that `Person` rewrites w
 a mandate-scoped check (`refuseHeldProfile`, `mappedProfileSlugsOf`) still reads the URLs themselves,
 because V95 leaves the slug null on a person sharing a profile with an older one. `PersonRepository`'s
 finders all take the workspace id, as `CandidateRepository`'s all take the project id.
-The employer name is snapshotted beside the link so V36's `ON DELETE SET NULL` can unmap without
-deleting: removing a company from a mandate drops the mandate's decision about the company, never the
-people mapped at it.
+The employer name is snapshotted beside the link, for the executive at no company of the mandate's. Removing a
+company takes the people mapped at it: `TriageCompanyService.removeFromProject` locks the company row (a candidate
+naming it takes a key-share lock, so nobody is mapped there mid-removal), counts them through
+`MappedExecutiveLookup.executivesAt`, refuses more than the caller's `expectedExecutives`, and publishes
+`TriageCompanyRemoved`, on which `CompanyRemovalFollower` removes each one in the same transaction — V36's
+`ON DELETE SET NULL` is no longer how anyone leaves. A candidate write resolves its company in `CandidateRequestReader.companyOf`: a save naming no
+company keeps the one the person is at, and a typed employer the mandate holds by exactly that name lands there.
 
 Strategy answers "which companies match?"; triagecompany answers "what did this mandate do about that
 one?"; candidate answers "who sits there, and where has this mandate got to with them?" If a new type is
@@ -349,7 +233,7 @@ method plus the records it returns — never another feature's internals:
 
 - `triagecompany`'s `TriageCompanyService` calls `strategy`'s `ApolloCompanyQueryService` to resolve
   a company snapshot at write time, and `StrategyService.scopeOf` to resolve the saved filter behind
-  "Add all to Universe". Reads that must run the reverse way are the exception below: the Strategy
+  `POST …/triage/from-filter`. Reads that must run the reverse way are the exception below: the Strategy
   search excludes a project's already-triaged companies, so they stop reappearing once filed. That's
   bridged through
   `TriagedCompanyLookup` — an interface `strategy` declares and `triagecompany` implements
@@ -393,6 +277,9 @@ method plus the records it returns — never another feature's internals:
   and `project`'s repository for the mandate's dates. Every figure is aggregated at read time; there
   is no report table. It states what the rows carry and nothing more — no inferred gender, no
   pipeline outcome, no currency conversion — so a chapter never reports a guess as a finding.
+  The Ranking chapter reads `CandidateScorecardService.rankingInputsOf` (every assessment of the position
+  tallied by `ScorecardScoring`, which stays package-private in `candidate`) and `scoringBriefOf`, so its baseline
+  totals are the drawer's own.
   Nationality is the one thing it folds: `NationalityCatalog` counts a row's free-text value under
   one of eleven groups at read time — a country it resolves but no other group claims is Other
   expat — and never rewrites what is stored.
@@ -495,7 +382,8 @@ and a direct mailbox's provider refresh token (V107). Three rules hold for every
 - **Encrypt under an `EncryptionContext` naming the owner and the column** (`WorkspaceMailIntegration
   .clientSecretContext`, `MailboxConnection.refreshTokenContext`). It is the ciphertext's associated data, so a value copied onto another workspace's
   row, or into another column, fails to decrypt rather than handing one tenant's key to another.
-- **Write-only over the API.** A response says a secret is held (`secretSet`), never what it is; a request
+- **Write-only over the API.** A response says a secret is held (`secretSet`) and, for an own app's client secret,
+  its last four characters (`secretHint`, none under 16), never the rest; a request
   record carrying one overrides `toString` to redact it, and so does any model record holding it decrypted
   (`ProviderCredentials`, `OwnAppKeys`). Never trim one — whitespace inside a secret is the secret.
 - **Decrypt for the one call that spends it.** `MailboxTokens` and `RecallCalendars` decrypt a refresh token
@@ -522,6 +410,23 @@ tests serve recorded provider answers from a JDK `HttpServer`, every client give
 `RecordingProviderTokenClient` stands in for every token endpoint. Zoom is no mailbox and no gateway: `ZoomService` over
 `ZoomApi` (`ZoomClient`; `RecordingZoomApi` in tests), its tokens in `ZoomTokens`, called by `MeetingService` only for
 a call booked with `MeetingVideo.ZOOM`.
+
+## Work with no principal names its workspace
+
+Row-level security (V184, `core/tenant`) gives each borrowed connection the workspace `TenantContext` names: an open
+`WorkspaceScope`, else the signed-in principal's. A `@Scheduled` job, a public webhook, or a listener woken by one
+has neither, and reads none of the protected tables. Open `WorkspaceScope.run(row.getWorkspaceId(), …)` from the row
+the work is about — **before** the transaction, since a joined one keeps its connection — and turn a statement over
+every workspace into `EveryWorkspace`'s walk, its claim run inside each workspace. `@Async` tasks inherit the
+submitter's workspace through `ThreadContextTaskDecorator`; a pool built by hand wraps its tasks with
+`ThreadContextPropagation` (`core/concurrent`, MDC and workspace together), or they read nothing. A door that knows
+only a key — a webhook's grant, calendar, bot or customer, a public slug, a token's hash — has no row to read the
+workspace from yet: **resolve, then scope**. Ask `TenantResolvers` (V189: ids and the workspace, never the row), open
+`WorkspaceScope` on the answer, and read the row there; never an unscoped finder followed by a scope, which finds nothing once its table is protected. Beware a check that treats "not found" as
+"allowed" (`existsByIdAndArchivedAtIsNotNull`, `NOT IN (…)`, a purge's `NOT EXISTS`, "is this call still on a
+calendar?"): run outside its scope it fails open, not closed. And never let a `RETURNING` insert write a row of
+another workspace than the caller's — the read policy checks the returned row (`AuditEvent` takes its id from the
+sequence for exactly that).
 
 ## Traps this codebase has already fallen into
 

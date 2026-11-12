@@ -31,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PasswordChangeService {
 
     private final PasswordPolicy passwords;
+    private final CurrentPasswordCheck currentPasswordCheck;
     private final TokenService tokens;
     private final OAuthGrantService oauthGrants;
     private final AuthenticationService authentication;
@@ -50,25 +51,10 @@ public class PasswordChangeService {
         User user = authentication.requireUser(userId);
 
         // This endpoint mints a session, so it carries the same status gate as login, refresh, OAuth and
-        // reset. Without it a suspended user holding a still-valid access token could change their
-        // password to mint a fresh one, and repeat — turning the ≤15-minute window that suspension is
-        // documented to leave open into an unbounded one.
-        if (!user.getStatus().canAuthenticate()) {
-            audit.event(AuthEventType.PASSWORD_CHANGED).failed().actor(userId).from(request)
-                    .reason("status_" + user.getStatus()).record();
-            throw ApiException.of(ErrorCode.ACCOUNT_SUSPENDED);
-        }
-
-        if (!user.hasPassword()) {
-            throw ApiException.of(ErrorCode.PASSWORD_NOT_SET);
-        }
-
-        if (!passwords.matches(currentPassword, user.getPasswordHash())) {
-            audit.event(AuthEventType.PASSWORD_CHANGED).failed().actor(userId).from(request)
-                    .reason("current_password_mismatch").record();
-            throw ApiException.withField(ErrorCode.CURRENT_PASSWORD_INVALID,
-                    "currentPassword", ErrorCode.CURRENT_PASSWORD_INVALID.defaultMessage());
-        }
+        // reset (inside the check). Without it a suspended user holding a still-valid access token could
+        // change their password to mint a fresh one, and repeat — turning the ≤15-minute window that
+        // suspension is documented to leave open into an unbounded one.
+        currentPasswordCheck.require(user, currentPassword, AuthEventType.PASSWORD_CHANGED, request);
 
         String passwordProblem = passwords.validate(newPassword);
         if (passwordProblem != null) {

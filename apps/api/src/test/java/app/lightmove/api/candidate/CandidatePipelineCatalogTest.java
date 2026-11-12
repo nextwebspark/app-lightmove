@@ -15,9 +15,9 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 
 /**
- * A workspace's pipeline (V131) and the rules that keep its hierarchy whole: every status under a stage,
- * the seeded statuses retired like any other, one default per stage, a stage retired only once empty, and
- * one closed stage, last.
+ * A workspace's pipeline (V131, V163) and the rules that keep its hierarchy whole: every status under a stage,
+ * the seeded statuses retired like any other, one in-process default per stage, a stage retired only once
+ * empty, and a status flagged out of process wherever it sits — every stage alike, an old closed stage included.
  */
 @IntegrationTest
 class CandidatePipelineCatalogTest extends PipelineFlowSupport {
@@ -33,13 +33,19 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
         JsonNode catalog = catalog();
 
         assertThat(keysOf(catalog.get("stages")))
-                .containsExactly("identified", "contacted", "interested", "qualified", "shortlisted", "declined");
-        assertThat(stageIn(catalog, "declined").get("kind").asText()).isEqualTo("closed");
-        assertThat(keysOf(stageIn(catalog, "declined").get("statuses"))).containsExactly("notInterested", "withdrew",
-                "notAFit", "rejectedByClient", "noResponse", "offLimits", "outOfScope");
-        assertThat(statusIn(catalog, "screened").get("isDefault").asBoolean()).isTrue();
-        assertThat(statusIn(catalog, "offLimits").get("system").asBoolean()).isTrue();
-        assertThat(statusIn(catalog, "researching").get("system").asBoolean()).isFalse();
+                .containsExactly("identified", "contacted", "interested", "qualified", "shortlisted");
+        assertThat(labelsOf(catalog.get("stages")))
+                .containsExactly("Research", "Approach", "Assessment", "Shortlist", "Offer");
+        catalog.get("stages").forEach(stage -> assertThat(stage.has("kind")).isFalse());
+        assertThat(labelsOf(stageIn(catalog, "contacted").get("statuses"))).containsExactly("Awaiting reply",
+                "Confirming interest", "Call being arranged", "Call arranged", "Not interested", "Unresponsive");
+        assertThat(flaggedOf(catalog)).containsExactlyInAnyOrder("outOfScope", "offLimits", "notInterested",
+                "unresponsive", "screenedOut", "notProgressed", "withdrew", "clientRejected",
+                "clientRejectedAfterReferences", "declinedOffer");
+        assertThat(defaultsOf(catalog)).containsExactly("identified", "contacted", "interested", "shortlisted",
+                "references");
+        assertThat(systemOf(catalog)).containsExactlyInAnyOrder("identified", "outOfScope", "offLimits",
+                "contacted", "engaged", "notInterested", "interested");
     }
 
     @Test
@@ -61,7 +67,7 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
         assertThat(write(admin, "POST", PIPELINE + "/statuses", """
                 {"label":"Floating"}""").getResponse().getStatus()).isEqualTo(400);
         assertThat(write(admin, "POST", PIPELINE + "/stages", """
-                {"label":"Interested"}""").getResponse().getStatus()).isEqualTo(409);
+                {"label":"Assessment"}""").getResponse().getStatus()).isEqualTo(409);
     }
 
     @Test
@@ -97,7 +103,7 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
     }
 
     @Test
-    @DisplayName("the last live status new people could start at is never retired, nor its stage with it")
+    @DisplayName("the last live in-process status new people could start at is never retired, nor its stage with it")
     void theLastStartingStatusStays() throws Exception {
         JsonNode catalog = catalog();
         for (String stageKey : List.of("contacted", "interested", "qualified")) {
@@ -109,10 +115,8 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
                     {"retired":true}""");
         }
         String identifiedStage = stageIn(catalog, "identified").get("id").asText();
-        for (String key : List.of("researching", "readyToApproach")) {
-            write(admin, "PATCH", PIPELINE + "/statuses/" + statusIn(catalog, key).get("id").asText(), """
-                    {"retired":true}""");
-        }
+        write(admin, "PATCH", PIPELINE + "/statuses/" + statusIn(catalog, "source").get("id").asText(), """
+                {"retired":true}""");
 
         assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/statuses/" + statusIn(catalog, "identified")
                 .get("id").asText(), """
@@ -141,7 +145,7 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
 
         Map<String, Long> holders = new HashMap<>();
         preview.get("statuses").forEach(row -> holders.put(row.get("label").asText(), row.get("holders").asLong()));
-        assertThat(holders).containsEntry("Contacted", 2L).containsEntry("Follow-up sent", 0L).hasSize(4);
+        assertThat(holders).containsEntry("Awaiting reply", 2L).containsEntry("Call being arranged", 0L).hasSize(6);
         List<String> triggers = new ArrayList<>();
         preview.get("automations").forEach(row -> triggers.add(row.get("trigger").asText()));
         assertThat(triggers).containsExactlyInAnyOrder("emailSent", "callBooked");
@@ -155,21 +159,22 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
     }
 
     @Test
-    @DisplayName("a stage keeps exactly one default, and retiring it hands the mark to the next live status")
+    @DisplayName("a stage keeps exactly one default, and retiring it hands the mark to the next live status in process")
     void oneDefaultPerStage() throws Exception {
         JsonNode catalog = catalog();
-        String qualified = statusIn(catalog, "qualified").get("id").asText();
-        String screened = statusIn(catalog, "screened").get("id").asText();
+        String arranged = statusIn(catalog, "clientInterviewArranged").get("id").asText();
+        String first = statusIn(catalog, "presentedAwaitingFeedback").get("id").asText();
+        write(admin, "PATCH", PIPELINE + "/statuses/" + first, """
+                {"outOfProcess":true}""");
 
-        catalog = body(write(admin, "PATCH", PIPELINE + "/statuses/" + qualified, """
+        catalog = body(write(admin, "PATCH", PIPELINE + "/statuses/" + arranged, """
                 {"isDefault":true}"""));
-        assertThat(defaultsOf(stageIn(catalog, "qualified"))).containsExactly("qualified");
+        assertThat(defaultsOfStage(stageIn(catalog, "qualified"))).containsExactly("clientInterviewArranged");
 
-        catalog = body(write(admin, "PATCH", PIPELINE + "/statuses/" + qualified, """
+        catalog = body(write(admin, "PATCH", PIPELINE + "/statuses/" + arranged, """
                 {"retired":true}"""));
-        assertThat(statusIn(catalog, "qualified").get("retired").asBoolean()).isTrue();
-        assertThat(defaultsOf(stageIn(catalog, "qualified"))).containsExactly("screened");
-        assertThat(screened).isEqualTo(statusIn(catalog, "screened").get("id").asText());
+        assertThat(statusIn(catalog, "clientInterviewArranged").get("retired").asBoolean()).isTrue();
+        assertThat(defaultsOfStage(stageIn(catalog, "qualified"))).containsExactly("clientInterviewBeingArranged");
     }
 
     @Test
@@ -194,36 +199,114 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
                 {"retired":true}"""));
 
         assertThat(stageIn(catalog, "qualified").get("retired").asBoolean()).isTrue();
-        assertThat(keysOf(stageIn(catalog, "interested").get("statuses")).getLast()).isEqualTo("screened");
-        assertThat(defaultsOf(stageIn(catalog, "interested"))).containsExactly("interested");
+        assertThat(keysOf(stageIn(catalog, "interested").get("statuses")).getLast())
+                .isEqualTo("presentedAwaitingFeedback");
+        assertThat(defaultsOfStage(stageIn(catalog, "interested"))).containsExactly("interested");
     }
 
     @Test
-    @DisplayName("there is one closed stage: never retired, always last, and a new stage lands before it")
-    void theClosedStageStaysLast() throws Exception {
+    @DisplayName("a new stage lands after the live ones")
+    void aNewStageLandsLast() throws Exception {
         JsonNode catalog = body(write(admin, "POST", PIPELINE + "/stages", """
-                {"label":"Offer stage"}"""));
-        assertThat(keysOf(catalog.get("stages"))).containsExactly("identified", "contacted", "interested",
-                "qualified", "shortlisted", "offerStage", "declined");
-        assertThat(stageIn(catalog, "offerStage").get("kind").asText()).isEqualTo("active");
-        String declined = stageIn(catalog, "declined").get("id").asText();
+                {"label":"Onboarding"}"""));
 
-        assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/stages/" + declined, """
-                {"retired":true}"""))).isEqualTo("PIPELINE_STAGE_REQUIRED");
+        assertThat(keysOf(catalog.get("stages"))).containsExactly("identified", "contacted", "interested",
+                "qualified", "shortlisted", "onboarding");
+    }
+
+    @Test
+    @DisplayName("an old closed stage is a stage like any other: reordered anywhere, and retired with its statuses")
+    void anOldClosedStageIsLikeAnyOther() throws Exception {
+        formerClosedStage("Declined", "notAFit", "noResponse");
+        JsonNode catalog = body(write(admin, "POST", PIPELINE + "/stages", """
+                {"label":"Onboarding"}"""));
+        assertThat(keysOf(catalog.get("stages"))).containsExactly("identified", "contacted", "interested",
+                "qualified", "shortlisted", "declined", "onboarding");
 
         List<String> ids = new ArrayList<>();
         catalog.get("stages").forEach(stage -> ids.add(stage.get("id").asText()));
-        List<String> closedFirst = new ArrayList<>(ids);
-        closedFirst.addFirst(closedFirst.removeLast());
-        assertThat(codeOf(write(admin, "PUT", PIPELINE + "/stages/order", idsJson(closedFirst))))
-                .isEqualTo("PIPELINE_ORDER_INVALID");
+        List<String> declinedFirst = new ArrayList<>(ids);
+        declinedFirst.addFirst(declinedFirst.remove(5));
+        catalog = body(write(admin, "PUT", PIPELINE + "/stages/order", idsJson(declinedFirst)));
+        assertThat(keysOf(catalog.get("stages")).getFirst()).isEqualTo("declined");
+        assertThat(add(mandate("Chief Financial Officer"), """
+                {"fullName":"Starts In Process"}""").get("status").asText())
+                .as("a stage of ways out alone gives nobody a start").isEqualTo("identified");
 
-        List<String> swapped = new ArrayList<>(ids);
-        swapped.set(0, ids.get(1));
-        swapped.set(1, ids.get(0));
-        catalog = body(write(admin, "PUT", PIPELINE + "/stages/order", idsJson(swapped)));
-        assertThat(keysOf(catalog.get("stages")).subList(0, 2)).containsExactly("contacted", "identified");
-        assertThat(keysOf(catalog.get("stages")).getLast()).isEqualTo("declined");
+        String declined = stageIn(catalog, "declined").get("id").asText();
+        catalog = body(write(admin, "PATCH", PIPELINE + "/stages/" + declined, """
+                {"retired":true,"retireStatuses":true}"""));
+        assertThat(stageIn(catalog, "declined").get("retired").asBoolean()).isTrue();
+    }
+
+    @Test
+    @DisplayName("a status is flagged out of process and back, and a new one may start flagged")
+    void aStatusIsFlaggedOutOfProcess() throws Exception {
+        JsonNode catalog = catalog();
+        String callArranged = statusIn(catalog, "callArranged").get("id").asText();
+
+        catalog = body(write(admin, "PATCH", PIPELINE + "/statuses/" + callArranged, """
+                {"outOfProcess":true}"""));
+        assertThat(statusIn(catalog, "callArranged").get("outOfProcess").asBoolean()).isTrue();
+        catalog = body(write(admin, "PATCH", PIPELINE + "/statuses/" + callArranged, """
+                {"outOfProcess":false}"""));
+        assertThat(statusIn(catalog, "callArranged").get("outOfProcess").asBoolean()).isFalse();
+
+        String research = stageIn(catalog, "identified").get("id").asText();
+        catalog = body(write(admin, "POST", PIPELINE + "/statuses", """
+                {"stageId":"%s","label":"Retired from work","outOfProcess":true}""".formatted(research)));
+        assertThat(statusIn(catalog, "retiredFromWork").get("outOfProcess").asBoolean()).isTrue();
+        assertThat(statusIn(catalog, "retiredFromWork").get("isDefault").asBoolean()).isFalse();
+
+        String onboarding = stageIn(body(write(admin, "POST", PIPELINE + "/stages", """
+                {"label":"Onboarding"}""")), "onboarding").get("id").asText();
+        catalog = body(write(admin, "PATCH", PIPELINE + "/statuses/" + statusIn(catalog, "hold").get("id").asText(),
+                """
+                {"stageId":"%s","outOfProcess":true}""".formatted(onboarding)));
+        assertThat(statusIn(catalog, "hold").get("outOfProcess").asBoolean()).isTrue();
+        assertThat(statusIn(catalog, "hold").get("isDefault").asBoolean()).isFalse();
+    }
+
+    @Test
+    @DisplayName("an active stage's default stays in process: it is never flagged, nor a flagged status made default")
+    void theDefaultStaysInProcess() throws Exception {
+        JsonNode catalog = catalog();
+
+        assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/statuses/" + statusIn(catalog, "contacted").get("id")
+                .asText(), """
+                {"outOfProcess":true}"""))).isEqualTo("PIPELINE_DEFAULT_IN_PROCESS");
+        assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/statuses/" + statusIn(catalog, "notInterested")
+                .get("id").asText(), """
+                {"isDefault":true}"""))).isEqualTo("PIPELINE_DEFAULT_IN_PROCESS");
+
+        String onboarding = stageIn(body(write(admin, "POST", PIPELINE + "/stages", """
+                {"label":"Onboarding"}""")), "onboarding").get("id").asText();
+        catalog = body(write(admin, "POST", PIPELINE + "/statuses", """
+                {"stageId":"%s","label":"Fell through","outOfProcess":true}""".formatted(onboarding)));
+        assertThat(statusIn(catalog, "fellThrough").get("isDefault").asBoolean()).isFalse();
+        catalog = body(write(admin, "POST", PIPELINE + "/statuses", """
+                {"stageId":"%s","label":"Started"}""".formatted(onboarding)));
+        assertThat(defaultsOfStage(stageIn(catalog, "onboarding"))).containsExactly("started");
+    }
+
+    @Test
+    @DisplayName("a stage of ways out takes a default only once a status there is back in process")
+    void aStageOfWaysOutTakesADefaultOnlyInProcess() throws Exception {
+        formerClosedStage("Declined", "notAFit");
+        JsonNode catalog = catalog();
+        String declined = stageIn(catalog, "declined").get("id").asText();
+
+        catalog = body(write(admin, "PATCH", PIPELINE + "/statuses/" + statusIn(catalog, "withdrew").get("id")
+                .asText(), """
+                {"stageId":"%s"}""".formatted(declined)));
+        assertThat(statusIn(catalog, "withdrew").get("outOfProcess").asBoolean()).isTrue();
+        assertThat(statusIn(catalog, "withdrew").get("isDefault").asBoolean()).isFalse();
+
+        catalog = body(write(admin, "PATCH", PIPELINE + "/statuses/" + statusIn(catalog, "notAFit").get("id")
+                .asText(), """
+                {"outOfProcess":false}"""));
+        assertThat(statusIn(catalog, "notAFit").get("outOfProcess").asBoolean()).isFalse();
+        assertThat(defaultsOfStage(stageIn(catalog, "declined"))).containsExactly("notAFit");
     }
 
     @Test
@@ -236,8 +319,8 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
 
         JsonNode catalog = body(write(admin, "PUT", url, idsJson(ids.reversed())));
 
-        assertThat(keysOf(stageIn(catalog, "contacted").get("statuses")))
-                .containsExactly("callBooked", "engaged", "followUpSent", "contacted");
+        assertThat(keysOf(stageIn(catalog, "contacted").get("statuses"))).containsExactly("unresponsive",
+                "notInterested", "callArranged", "callBeingArranged", "engaged", "contacted");
         assertThat(codeOf(write(admin, "PUT", url, idsJson(ids.subList(1, ids.size())))))
                 .isEqualTo("PIPELINE_ORDER_INVALID");
     }
@@ -248,7 +331,35 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
         return keys;
     }
 
-    private static List<String> defaultsOf(JsonNode stage) {
+    private static List<String> labelsOf(JsonNode rows) {
+        List<String> labels = new ArrayList<>();
+        rows.forEach(row -> labels.add(row.get("label").asText()));
+        return labels;
+    }
+
+    private static List<String> flaggedOf(JsonNode catalog) {
+        return statusKeysWhere(catalog, "outOfProcess");
+    }
+
+    private static List<String> defaultsOf(JsonNode catalog) {
+        return statusKeysWhere(catalog, "isDefault");
+    }
+
+    private static List<String> systemOf(JsonNode catalog) {
+        return statusKeysWhere(catalog, "system");
+    }
+
+    private static List<String> statusKeysWhere(JsonNode catalog, String field) {
+        List<String> keys = new ArrayList<>();
+        catalog.get("stages").forEach(stage -> stage.get("statuses").forEach(status -> {
+            if (status.get(field).asBoolean()) {
+                keys.add(status.get("key").asText());
+            }
+        }));
+        return keys;
+    }
+
+    private static List<String> defaultsOfStage(JsonNode stage) {
         List<String> keys = new ArrayList<>();
         stage.get("statuses").forEach(status -> {
             if (status.get("isDefault").asBoolean()) {

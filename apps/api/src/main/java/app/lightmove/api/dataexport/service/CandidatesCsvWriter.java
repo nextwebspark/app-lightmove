@@ -20,7 +20,15 @@ public class CandidatesCsvWriter {
             "Emails", "Phones", "Positions", "Tags", "Owner", "Do not contact", "Added");
 
     public String write(List<PoolPersonExport> people) {
-        StringBuilder csv = new StringBuilder(BYTE_ORDER_MARK).append(row(HEADERS));
+        return header() + lines(people);
+    }
+
+    String header() {
+        return BYTE_ORDER_MARK + row(HEADERS);
+    }
+
+    String lines(List<PoolPersonExport> people) {
+        StringBuilder csv = new StringBuilder();
         for (PoolPersonExport person : people) {
             csv.append(row(List.of(
                     text(person.fullName()), text(person.title()), text(person.companyName()),

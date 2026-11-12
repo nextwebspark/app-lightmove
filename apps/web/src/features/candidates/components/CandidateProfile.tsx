@@ -1,27 +1,36 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
+import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/ActionMenu";
+import { DrawerFooter } from "../../../components/ui/Drawer";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
 import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
 import { tabPanelProps } from "../../../components/ui/tabPanelProps";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
-import { formatInstantDate, formatNumber } from "../../../lib/format";
-import { noticeSummaryOf } from "../../../lib/noticePeriod";
+import { formatInstantDate } from "../../../lib/format";
 import { toBrowsableUrl } from "../../../lib/url";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
-import { ContactPanel } from "../../contactlookup/components/ContactPanel";
+import { ContactDetailsDialog } from "../../contactlookup/components/ContactDetailsDialog";
+import { ContactsReadDialog } from "../../contactlookup/components/ContactsReadDialog";
+import { ContactChannels } from "../../contactlookup/components/ContactPanel";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import { CandidateOutreachButtons } from "../../outreach/components/CandidateOutreachButtons";
+import { EmailComposerDialog } from "../../outreach/components/EmailComposerDialog";
+import { useMailbox } from "../../outreach/lib/useMailbox";
 import { OutreachSection } from "../../outreach/components/OutreachSection";
+import { LogContactRow } from "../../outreach/components/LogContactRow";
 import { CopilotTab } from "../../outreach/components/copilot/CopilotTab";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
+import { DrawerOutreachTimeline } from "../../outreach/components/DrawerOutreachTimeline";
+import { NoteComposerModal } from "../../outreach/components/NoteComposerModal";
+import * as runApi from "../../outreach/api/runApi";
 import { liveCopilotOf, useNotetaker } from "../../outreach/lib/useNotetaker";
 import { NextActionModal, type NextActionTarget } from "../../tasks/components/NextActionModal";
-import { NextActionBar } from "../../tasks/components/NextActionBar";
+import { NextActionBar, NextActionSquare } from "../../tasks/components/NextActionBar";
 import type { TaskNote } from "../../tasks/api/types";
 import * as candidatesApi from "../api/candidatesApi";
 import * as personCrmApi from "../api/personCrmApi";
@@ -31,17 +40,20 @@ import type {
   Candidate,
   PersonDocument,
   PersonDocumentVersion,
+  PersonNoteKind,
   SaveCandidatePayload,
 } from "../api/types";
 import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
-import { candidateGenderLabel, CANDIDATE_SOURCE_STYLES } from "../lib/candidateVocabulary";
+import type { ActivityExecutive } from "../lib/activityPresentation";
+import { candidateGenderLabel } from "../lib/candidateVocabulary";
 import { statusStyle } from "../lib/pipelineStatus";
 import { careerSummary } from "../lib/careerTimeline";
-import { packageOf } from "../lib/compensation";
+import { compensationFoldSummary, documentsFoldSummary, scrollToFold } from "../lib/profileFolds";
 import { useBackgroundSuggestion } from "../lib/useBackgroundSuggestion";
-import { useScorecardEditor } from "../lib/useScorecardEditor";
+import { useScorecardEditor, type ScorecardEditor } from "../lib/useScorecardEditor";
 import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
 import { usePersonDocuments } from "../lib/usePersonDocuments";
+import { isContactNote } from "../lib/noteKinds";
 import { useProfileSections, type ProfileSection } from "../lib/useProfileSections";
 import {
   POSITION_CLIENT_TABS,
@@ -61,21 +73,20 @@ import {
   CareerFields,
   CompensationFields,
   IdentityFields,
+  LinkedInUrlField,
   SummaryFields,
 } from "./CandidateFieldGroups";
 import { CareerTimeline } from "./CareerTimeline";
 import { ClampedText, EducationList, FoldAllButton, PersonHeaderLayout, PillRow } from "./ProfileParts";
 import { CompensationSummary } from "./CompensationSummary";
 import { DocumentPreviewSheet, type PreviewTarget } from "./documents/DocumentPreviewSheet";
-import { PrimaryCvChip } from "./documents/PrimaryCvChip";
 import {
   DoNotContactStrip,
+  ProcessingRestrictedStrip,
   NotesSection,
-  usePositions,
   type NoteFocus,
 } from "./PersonSections";
 import { ActivityTimeline } from "./activity/ActivityTimeline";
-import { PositionsSection } from "./PersonPositions";
 import { PersonTagsSection } from "./PersonTagsSection";
 import { ProfileSectionForm, SectionEditButton, SectionEditor } from "./ProfileSectionForm";
 import { AiActionButton } from "./AiActionButton";
@@ -90,37 +101,18 @@ const PROFILE_TAB_FOLDS: readonly ProfileSection[] = [
   "summary",
   "experience",
   "education",
-  "compensation",
   "background",
+  "compensation",
+  "documents",
   "columns",
 ];
 
 const TAB_ID_PREFIX = "executive-drawer";
 
 /**
- * One executive, read first and corrected a section at a time.
- *
- * <p><b>Clicking a name opens a profile, not a form.</b> A consultant looking someone up is reading,
- * and a form that opens over the grid on every click is a form you dismiss without looking at. The
- * pencil on each section is the deliberate second step, and it edits that section in place: the rest
- * of the profile stays readable, a save puts the section back as it now reads, and the panel stays
- * open — the reader had not finished, and the next thing they do is usually write the note.
- *
- * <p><b>Every save is still a full replace on the wire.</b> The server takes the whole profile, so a
- * section's save is the stored profile with that section written over it, and nothing outside the
- * section can change. That is what lets six small forms be safer than one big one: a form that has
- * been open for a while can only overwrite the fields it was opened for.
- *
- * <p><b>Status stays live in the header</b>, with a write of its own — it is the field that changes
- * most often and the one a researcher came to flick while reading.
- *
- * <p>Tabs follow `Position.dc.html` — Career, Notes, Assessment, Contact, Documents, Activity and Positions; a
- * client seat gets Career and Contact alone. Every panel stays mounted while hidden, so a half-typed note
- * survives a look at another tab. The next action is not a tab's: it is the header's bar, on view
- * whichever tab is open, since the moment to set one is while writing the note or the email.
- *
- * <p>Keyed by the caller on the candidate's id: the open section is state about this person, while
- * the tab is the viewer's — the next profile opens on the tab this one was left on.
+ * One executive, read first and edited a section at a time; each save is still a full replace, so a section can only
+ * overwrite its own fields. Status stays live beside the name. Tabs follow `Position.dc.html` (a client seat: Profile
+ * alone); every panel stays mounted so a half-typed note survives. Keyed on the candidate id; the tab is the viewer's.
  */
 export function CandidateProfile({
   projectId,
@@ -131,6 +123,7 @@ export function CandidateProfile({
   onClose,
   onSaved,
   onRemove,
+  onOpenCompany,
   focusNoteId = null,
   focusSection = null,
   focusTab = null,
@@ -147,9 +140,11 @@ export function CandidateProfile({
   onSaved: (saved: Candidate) => void;
   /** Absent for a reader who may not write. */
   onRemove?: (candidate: Candidate) => void;
+  /** Opens the drawer of the company they are mapped at, where the page draws one; absent leaves the name plain. */
+  onOpenCompany?: () => void;
   /** A note to open on — a bell row's: the Records tab, scrolled to it. */
   focusNoteId?: string | null;
-  /** A part of the Contact tab to open on — a bell row's reply, bounce or booked call: unfolded, scrolled to. */
+  /** A part of the Outreach tab to open on — a bell row's reply, bounce or booked call: unfolded, scrolled to. */
   focusSection?: DrawerSection | null;
   focusTab?: DrawerTab | null;
 }) {
@@ -169,8 +164,8 @@ export function CandidateProfile({
   const [tab, setTab] = useState<DrawerTab>(() =>
     canWrite && focusNoteId
       ? "notes"
-      : canWrite && focusSection
-        ? "contact"
+      : canWrite && isOutreachPart(focusSection)
+        ? "outreach"
         : focusTab && offeredTabs.includes(focusTab)
           ? focusTab
           : rememberedDrawerTab("position", offeredTabs),
@@ -188,13 +183,19 @@ export function CandidateProfile({
     }
   }
   const [sectionFocus, setSectionFocus] = useState<SectionFocus | null>(() =>
-    canWrite && focusSection ? { section: focusSection, at: Date.now() } : null,
+    canWrite && isOutreachPart(focusSection) ? { section: focusSection, at: Date.now() } : null,
+  );
+  const contactWindowFor = (section: DrawerSection | null) =>
+    section === "contact" ? (canWrite ? "details" : "read") : null;
+  const [contactWindow, setContactWindow] = useState<"details" | "read" | "email" | null>(() =>
+    contactWindowFor(focusSection),
   );
   const [linkedSection, setLinkedSection] = useState(focusSection);
   if (focusSection !== linkedSection) {
     setLinkedSection(focusSection);
-    if (canWrite && focusSection) {
-      setTab("contact");
+    if (focusSection === "contact") setContactWindow(contactWindowFor(focusSection));
+    else if (canWrite && isOutreachPart(focusSection)) {
+      setTab("outreach");
       setSectionFocus({ section: focusSection, at: (sectionFocus?.at ?? 0) + 1 });
     }
   }
@@ -202,12 +203,30 @@ export function CandidateProfile({
   useEffect(() => {
     if (!sectionFocus) return;
     if (sectionFocus.section !== "meetings") unfoldSections(true, [sectionFocus.section]);
-    return scrollToContactSection(sectionFocus.section);
+    return scrollToOutreachSection(sectionFocus.section);
   }, [sectionFocus, unfoldSections]);
   const showNote = (noteId: string) => {
     setTab("notes");
     setNoteFocus({ noteId, at: Date.now() });
   };
+  // A call, LinkedIn or meeting note is Outreach's: a link to one lands there, the note brought into view.
+  const [outreachNoteFocus, setOutreachNoteFocus] = useState<NoteFocus | null>(null);
+  const showContactNote = useCallback((focus: NoteFocus) => {
+    setTab("outreach");
+    setNoteFocus(null);
+    setOutreachNoteFocus(focus);
+  }, []);
+  const [log, setLog] = useState<{ kind: PersonNoteKind; meetingId: string | null } | null>(null);
+  const candidateOutreach = useQuery({
+    queryKey: runApi.CANDIDATE_OUTREACH_KEY(projectId, candidate.id),
+    queryFn: ({ signal }) => runApi.getCandidateOutreach(projectId, candidate.id, signal),
+    enabled: canWrite,
+  });
+  const liveRun = candidateOutreach.data?.run;
+  const sequenceHeldBy =
+    liveRun && (liveRun.status === "ACTIVE" || liveRun.status === "SCHEDULED")
+      ? `Already in ${liveRun.sequenceName ?? "a sequence"}`
+      : null;
   // The Copilot tab is offered while a call's live copilot runs, and kept while it is open after the copilot stops, so
   // nobody is moved off what they were reading; it is never opened for them.
   const notetaker = useNotetaker(projectId, candidate.id, canWrite);
@@ -224,16 +243,19 @@ export function CandidateProfile({
     rememberDrawerTab("position", next);
     setHeldCopilotId(next === "copilot" ? liveCopilotId : null);
     if (next !== "notes") setNoteFocus(null);
-    if (next !== "contact") setSectionFocus(null);
+    if (next !== "outreach") {
+      setSectionFocus(null);
+      setOutreachNoteFocus(null);
+    }
     if (body.current) body.current.scrollTop = 0;
   };
   const showCopilot = (recordingId: string) => {
     chooseTab("copilot");
     setHeldCopilotId(recordingId);
   };
-  /** The phone footer's Call: the Contact tab, scrolled to Meetings and its Book a call. */
+  /** The footer's Book a call: the Outreach tab, scrolled to its calls and its Book a call. */
   const startCall = () => {
-    chooseTab("contact");
+    chooseTab("outreach");
     setSectionFocus({ section: "meetings", at: Date.now() });
   };
   /** The footer's Add note: the Notes tab, its composer ready to type in. */
@@ -241,14 +263,14 @@ export function CandidateProfile({
     chooseTab("notes");
     focusNoteComposer(`${TAB_ID_PREFIX}-panel-notes`);
   };
-  const queryClient = useQueryClient();
-  const positions = usePositions(projectId, candidate.id, canWrite);
-  const otherPositions = (positions.data ?? []).filter((position) => position.projectId !== projectId);
   const personRecord = useQuery({
     queryKey: poolApi.PERSON_RECORD_KEY(candidate.personId),
     queryFn: ({ signal }) => poolApi.getPerson(candidate.personId, signal),
     enabled: canWrite,
   });
+  const mailbox = useMailbox(canWrite);
+  const doNotContact = Boolean(personRecord.data?.doNotContact);
+  const emailWritable = canWrite && mailbox.data?.offered === true && !doNotContact;
   // Read once the tab is first opened, then kept: most profiles are read without being scored.
   const [assessmentOpened, setAssessmentOpened] = useState(tab === "assessment");
   if (tab === "assessment" && !assessmentOpened) setAssessmentOpened(true);
@@ -304,8 +326,16 @@ export function CandidateProfile({
   const startEditing = (section: EditableSection) => {
     setEditing(section);
     if (section !== "identity") return;
-    chooseTab("career");
+    chooseTab("profile");
     if (body.current) body.current.scrollTop = 0;
+  };
+
+  /** An Activity line's way back: its tab, and on Profile the fold that holds the thing, unfolded and in view. */
+  const openTab = (next: DrawerTab, fold?: ProfileSection) => {
+    chooseTab(next);
+    if (!fold) return;
+    sections.setAll(true, [fold]);
+    scrollToFold(fold);
   };
 
   const pencil = (section: EditableSection, label: string, isBusy = false) =>
@@ -341,12 +371,15 @@ export function CandidateProfile({
   });
 
   const { compensation } = candidate;
-  const { total } = packageOf(compensation);
-  const currency = compensation.currency ?? "";
   const capturedFrom = toBrowsableUrl(candidate.sourceUrl);
   const visibleColumns = customColumns.filter((column) => !column.hidden);
-  const employerLabel = candidate.companyName ?? undefined;
   const firstName = candidate.fullName.trim().split(/\s+/)[0];
+  const executiveFace: ActivityExecutive = {
+    fullName: candidate.fullName,
+    face: (size, className) => (
+      <CandidateAvatar projectId={projectId} candidate={candidate} size={size} className={className} />
+    ),
+  };
   const panelProps = (value: DrawerTab) => ({ ...tabPanelProps(TAB_ID_PREFIX, value), hidden: tab !== value });
 
   return (
@@ -363,71 +396,81 @@ export function CandidateProfile({
           }
           fullName={candidate.fullName}
           linkedinUrl={candidate.linkedinUrl}
-          nameAction={pencil("identity", "details")}
+          nameAction={
+            <>
+              <span aria-hidden className="mx-0.5 h-4 w-px flex-none bg-u-border-strong" />
+              {canWrite ? (
+                <StatusPicker
+                  value={candidate.status}
+                  currentLabel={candidate.statusLabel}
+                  aria-label="Status"
+                  disabled={changeStatus.isPending}
+                  onChange={(status) =>
+                    changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
+                  }
+                  className="h-7"
+                />
+              ) : (
+                <DetailPill
+                  label={statusStyle(candidate.status, candidate).label}
+                  className={statusStyle(candidate.status, candidate).className}
+                />
+              )}
+              {pencil("identity", "details")}
+            </>
+          }
           title={candidate.title}
-          context={[employerLabel, candidate.locationCity, candidate.locationCountry].filter(Boolean).join(" · ")}
+          contacts={candidate.contacts}
+          onEditContacts={canWrite ? () => setContactWindow("details") : undefined}
+          onShowContacts={() => setContactWindow("read")}
+          onWriteEmail={emailWritable ? () => setContactWindow("email") : undefined}
+          emailNote={doNotContact ? "Do not contact" : undefined}
+          employer={{ name: candidate.companyName, logoUrl: candidate.companyLogoUrl, onOpen: onOpenCompany }}
+          location={[candidate.locationCity, candidate.locationCountry].filter(Boolean).join(" · ")}
         >
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {candidate.seniority && (
-              <span className="inline-flex items-center gap-1">
-                <DetailPill label={candidate.seniority} />
-                {candidate.aiInferredFields.includes("seniority") && <AiInferredBadge />}
-              </span>
-            )}
-            <DetailPill
-              label={CANDIDATE_SOURCE_STYLES[candidate.source].label}
-              className={CANDIDATE_SOURCE_STYLES[candidate.source].className}
-            />
-            {canWrite ? (
-              <StatusPicker
-                value={candidate.status}
-                currentLabel={candidate.statusLabel}
-                aria-label="Status"
-                disabled={changeStatus.isPending}
-                onChange={(status) =>
-                  changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
-                }
-                className="h-7"
-              />
-            ) : (
-              <DetailPill
-                label={statusStyle(candidate.status, candidate).label}
-                className={statusStyle(candidate.status, candidate).className}
-              />
-            )}
-            {canWrite && <PrimaryCvChip documents={documents} onPreview={openPreview} />}
-          </div>
-          {personRecord.data && <PersonTagsSection person={personRecord.data} className="mt-2.5" />}
+          {personRecord.data && <PersonTagsSection person={personRecord.data} className="mt-3" />}
           {canWrite && <DoNotContactStrip personId={candidate.personId} />}
-          {canWrite && (
-            <NextActionBar
-              projectId={projectId}
-              candidateId={candidate.id}
-              firstName={firstName}
-              justCompleted={nextActionDone}
-              onCompleted={() => setNextActionDone(true)}
-              onPromptSettled={settleNextActionPrompt}
-              onOpen={openNextAction}
-              onShowNote={showNote}
-              className="mt-3"
-            />
-          )}
+          {canWrite && <ProcessingRestrictedStrip personId={candidate.personId} />}
         </PersonHeaderLayout>
-        <DrawerTabBar
-          idPrefix={TAB_ID_PREFIX}
-          tabs={drawerTabs}
-          value={tab}
-          onChange={chooseTab}
-          counts={{
-            notes: notes.data?.length,
-            documents: documents.documents.data?.length,
-            positions: otherPositions.length,
-          }}
-        />
+        {contactWindow === "details" && (
+          <ContactDetailsDialog
+            projectId={projectId}
+            candidate={candidate}
+            lookupOffered={lookupConfig.data?.enabled === true}
+            onSaved={onSaved}
+            onClose={() => setContactWindow(null)}
+          />
+        )}
+        {contactWindow === "read" && (
+          <ContactsReadDialog
+            fullName={candidate.fullName}
+            contacts={candidate.contacts}
+            onClose={() => setContactWindow(null)}
+          />
+        )}
+        {contactWindow === "email" && (
+          <EmailComposerDialog
+            projectId={projectId}
+            candidateId={candidate.id}
+            fullName={candidate.fullName}
+            onClose={() => setContactWindow(null)}
+          />
+        )}
+        {drawerTabs.length > 1 ? (
+          <DrawerTabBar
+            idPrefix={TAB_ID_PREFIX}
+            tabs={drawerTabs}
+            value={tab}
+            onChange={chooseTab}
+            counts={{ notes: notes.data?.filter((note) => !isContactNote(note.kind)).length }}
+          />
+        ) : (
+          <div className="h-3.5" />
+        )}
       </div>
 
       <div ref={body} className="min-h-0 flex-1 overflow-y-auto px-5">
-        <div {...panelProps("career")}>
+        <div {...panelProps("profile")}>
           {editing === "identity" ? (
             <section className="border-b border-u-border py-4">
               <SectionHeading>Details</SectionHeading>
@@ -440,13 +483,19 @@ export function CandidateProfile({
                 onCancel={() => setEditing(null)}
               >
                 {(form) => (
-                  <IdentityFields
-                    register={form.register}
-                    errors={form.formState.errors}
-                    control={form.control}
-                    employerLocked={candidate.triageCompanyId !== null}
-                    aiInferred={new Set(candidate.aiInferredFields)}
-                  />
+                  <>
+                    <IdentityFields
+                      register={form.register}
+                      errors={form.formState.errors}
+                      control={form.control}
+                      employerLocked={candidate.triageCompanyId !== null}
+                      aiInferred={new Set(candidate.aiInferredFields)}
+                    />
+                    <LinkedInUrlField
+                      register={form.register}
+                      error={form.formState.errors.linkedinUrl?.message}
+                    />
+                  </>
                 )}
               </SectionEditor>
             </section>
@@ -527,43 +576,6 @@ export function CandidateProfile({
           )}
 
           <CollapsibleSection
-            {...foldProps("compensation")}
-            title="Compensation"
-            summary={joinFacts([
-              total > 0 ? `${currency} ${formatNumber(total)}`.trim() : null,
-              noticeSummaryOf(compensation.noticePeriod),
-            ])}
-            action={pencil("compensation", "compensation")}
-          >
-            {editing === "compensation" ? (
-              <SectionEditor
-                section="compensation"
-                candidate={candidate}
-                save={replace}
-                doneMessage="Compensation updated"
-                onDone={finish}
-                onCancel={() => setEditing(null)}
-                footer="plain"
-              >
-                {(form) => (
-                  <CompensationFields
-                    register={form.register}
-                    errors={form.formState.errors}
-                    control={form.control}
-                    watch={form.watch}
-                    setValue={form.setValue}
-                    briefCurrency={briefCurrency}
-                    storedCurrency={compensation.currency}
-                    storedNoticePeriod={compensation.noticePeriod}
-                  />
-                )}
-              </SectionEditor>
-            ) : (
-              <CompensationSummary compensation={compensation} />
-            )}
-          </CollapsibleSection>
-
-          <CollapsibleSection
             {...foldProps("background")}
             title="Background"
             summary={joinFacts([
@@ -598,6 +610,11 @@ export function CandidateProfile({
               <>
                 <DetailGrid>
                   <DetailTile
+                    label="Seniority"
+                    value={candidate.seniority}
+                    badge={candidate.aiInferredFields.includes("seniority") ? <AiInferredBadge /> : undefined}
+                  />
+                  <DetailTile
                     label="Nationality"
                     value={candidate.nationality}
                     badge={candidate.aiInferredFields.includes("nationality") ? <AiInferredBadge /> : undefined}
@@ -628,6 +645,61 @@ export function CandidateProfile({
               </>
             )}
           </CollapsibleSection>
+
+          {canWrite && (
+            <CollapsibleSection
+              {...foldProps("compensation")}
+              title="Compensation"
+              summary={compensationFoldSummary(compensation)}
+              action={pencil("compensation", "compensation")}
+            >
+              {editing === "compensation" ? (
+                <SectionEditor
+                  section="compensation"
+                  candidate={candidate}
+                  save={replace}
+                  doneMessage="Compensation updated"
+                  onDone={finish}
+                  onCancel={() => setEditing(null)}
+                  footer="plain"
+                >
+                  {(form) => (
+                    <CompensationFields
+                      register={form.register}
+                      errors={form.formState.errors}
+                      control={form.control}
+                      watch={form.watch}
+                      setValue={form.setValue}
+                      briefCurrency={briefCurrency}
+                      storedCurrency={compensation.currency}
+                      storedNoticePeriod={compensation.noticePeriod}
+                    />
+                  )}
+                </SectionEditor>
+              ) : (
+                <CompensationSummary compensation={compensation} />
+              )}
+            </CollapsibleSection>
+          )}
+
+          {canWrite && (
+            <CollapsibleSection
+              id="documents"
+              open={sections.isOpen("documents")}
+              onToggle={() => sections.toggle("documents")}
+              title="Documents"
+              count={documents.documents.data?.length || undefined}
+              summary={documentsFoldSummary(documents.documents.data)}
+            >
+              <DocumentsPanel
+                scope={documentScope}
+                documents={documents}
+                personName={firstName}
+                compact
+                onPreview={openPreview}
+              />
+            </CollapsibleSection>
+          )}
 
           {visibleColumns.length > 0 && (
             <CollapsibleSection
@@ -680,55 +752,84 @@ export function CandidateProfile({
           </p>
         </div>
 
-        <div {...panelProps("contact")}>
+        <div {...panelProps("outreach")}>
           {canWrite && (
-            <div className="flex justify-end pt-3 empty:hidden">
-              <CandidateOutreachButtons projectId={projectId} candidateId={candidate.id} fullName={candidate.fullName} />
-            </div>
-          )}
-          <CollapsibleSection
-            {...foldProps("contact")}
-            title="Contact"
-            summary={joinFacts([
-              candidate.contacts.emails[0]?.address,
-              candidate.contacts.phones[0]?.number,
-              candidate.contacts.emails.some((entry) => entry.verified) ? "verified" : null,
-            ])}
-            action={pencil("contact", "contact")}
-          >
-            <ContactPanel
-              projectId={projectId}
-              candidate={candidate}
-              canWrite={canWrite}
-              lookupOffered={lookupConfig.data?.enabled === true}
-              onSaved={onSaved}
-              editing={editing === "contact"}
-              onDone={finish}
-              onCancel={() => setEditing(null)}
-            />
-          </CollapsibleSection>
-          {canWrite && (
-            <OutreachSection
-              projectId={projectId}
-              candidateId={candidate.id}
-              firstName={firstName}
-              candidateStatus={candidate.status}
-              open={sections.isOpen("outreach")}
-              onToggle={() => sections.toggle("outreach")}
-              isSettingStatus={changeStatus.isPending}
-              onSetStatus={(status) => changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })}
-            />
-          )}
-          {canWrite && (
-            <MeetingsSection
-              projectId={projectId}
-              candidateId={candidate.id}
-              personId={candidate.personId}
-              fullName={candidate.fullName}
-              candidateStatus={candidate.status}
-              emails={candidate.contacts.emails}
-              onShowCopilot={showCopilot}
-            />
+            <>
+              <MeetingsSection
+                projectId={projectId}
+                candidateId={candidate.id}
+                personId={candidate.personId}
+                fullName={candidate.fullName}
+                candidateStatus={candidate.status}
+                emails={candidate.contacts.emails}
+                onShowCopilot={showCopilot}
+                onLogMeeting={(meeting) => setLog({ kind: "meeting", meetingId: meeting.id })}
+                actions={(bookCall) => (
+                  <>
+                    <CandidateOutreachButtons
+                      projectId={projectId}
+                      candidateId={candidate.id}
+                      fullName={candidate.fullName}
+                      sequenceHeldBy={sequenceHeldBy}
+                      between={
+                        bookCall && (
+                          <Button variant="secondary" size="xs" onClick={bookCall}>
+                            <Icon d={ICONS.calendar} size={13} />
+                            Book a meeting
+                          </Button>
+                        )
+                      }
+                      below={<LogContactRow onLog={(kind) => setLog({ kind, meetingId: null })} />}
+                    />
+                    <OutreachSection
+                      projectId={projectId}
+                      candidateId={candidate.id}
+                      firstName={firstName}
+                      candidateStatus={candidate.status}
+                      open={sections.isOpen("outreach")}
+                      onToggle={() => sections.toggle("outreach")}
+                      isSettingStatus={changeStatus.isPending}
+                      onSetStatus={(status) =>
+                        changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
+                      }
+                    />
+                  </>
+                )}
+                renderPast={(past) => (
+                  <DrawerOutreachTimeline
+                    projectId={projectId}
+                    candidateId={candidate.id}
+                    firstName={firstName}
+                    executive={executiveFace}
+                    past={past}
+                    focus={outreachNoteFocus}
+                  />
+                )}
+              />
+              <section aria-label="Contact" className="border-t border-u-border py-4">
+                <div className="mb-1 flex items-center gap-2">
+                  <h3 className="type-micro-label text-u-text3">Contact</h3>
+                  <button
+                    type="button"
+                    aria-label="Edit contact details"
+                    onClick={() => setContactWindow("details")}
+                    className="ms-auto grid size-7 place-items-center rounded-u-control border border-u-border-strong text-u-text2 hover:text-u-text"
+                  >
+                    <Icon d={ICONS.pencil} size={13} />
+                  </button>
+                </div>
+                <ContactChannels contacts={candidate.contacts} />
+              </section>
+              <NoteComposerModal
+                projectId={projectId}
+                candidateId={candidate.id}
+                fullName={candidate.fullName}
+                kind={log?.kind ?? null}
+                presetMeetingId={log?.meetingId ?? null}
+                onClose={() => setLog(null)}
+                onSaved={() => setLog(null)}
+              />
+            </>
           )}
         </div>
 
@@ -750,120 +851,70 @@ export function CandidateProfile({
                 projectId={projectId}
                 candidateId={candidate.id}
                 focus={noteFocus}
+                onShowContactNote={showContactNote}
                 onSetNextAction={(note) => openNextAction(null, note)}
               />
             </div>
             <div {...panelProps("assessment")}>
               {assessmentOpened && <AssessmentTab projectId={projectId} editor={scorecard} />}
             </div>
-            <div {...panelProps("documents")} className="py-4">
-              <DocumentsPanel
-                scope={documentScope}
-                documents={documents}
-                personName={firstName}
-                onPreview={openPreview}
-              />
-            </div>
             <div {...panelProps("activity")} className="pb-4">
               <ActivityTimeline
-                projectId={projectId}
-                executive={candidate}
+                scope={{ kind: "position", projectId, candidateId: candidate.id }}
+                executive={executiveFace}
                 documents={documents.documents.data}
                 destinations={{
                   onShowNote: showNote,
-                  onOpenTab: chooseTab,
+                  onOpenTab: openTab,
+                  onShowContacts: () => setContactWindow(canWrite ? "details" : "read"),
                   onOpenMeetings: startCall,
                   onOpenTask: (taskId) => openNextAction(taskId),
                   onPreviewDocument: openPreview,
                 }}
               />
             </div>
-            <div {...panelProps("positions")}>
-              <PositionsSection
-                title="Other positions"
-                positions={otherPositions}
-                empty={
-                  <p className="text-note text-u-text3">
-                    Not mapped to any other positions right now. Everything on file here follows {firstName} to the next one.
-                  </p>
-                }
-                onStatusChanged={() =>
-                  void queryClient.invalidateQueries({
-                    queryKey: personCrmApi.PERSON_POSITIONS_KEY(projectId, candidate.id),
-                  })
-                }
-              />
-            </div>
           </>
         )}
       </div>
 
-      <footer className="flex flex-none items-center gap-2 border-t border-u-border px-5 py-3">
-        {onRemove && (
-          <Button
-            type="button"
-            variant="secondary"
-            aria-label="Remove from mandate"
-            title="Remove from mandate"
-            className="text-u-offlimits"
-            onClick={() => onRemove(candidate)}
-          >
-            <Icon d={ICONS.trash} size={14} className="sm:hidden" />
-            <span className="hidden sm:inline">Remove from mandate</span>
-          </Button>
-        )}
-        {canWrite && tab === "assessment" ? (
-          <>
-            {scorecard.isDirty && (
-              <Button type="button" variant="ghost" className="ms-auto" onClick={scorecard.discard}>
-                Discard
-              </Button>
-            )}
-            <Button
-              type="button"
-              variant="secondary"
-              className={cn("whitespace-nowrap", !scorecard.isDirty && "ms-auto")}
-              disabled={!scorecard.isDirty || scorecard.isSaving || scorecard.isAssessing || !scorecard.saved.data}
-              loading={scorecard.isSaving && !scorecard.savingReviewed}
-              onClick={() => scorecard.save(false)}
-            >
-              Save draft
-            </Button>
-            <Button
-              type="button"
-              className="whitespace-nowrap"
-              disabled={scorecard.isSaving || scorecard.isAssessing || !scorecard.saved.data}
-              loading={scorecard.savingReviewed}
-              onClick={() => scorecard.save(true)}
-            >
-              Mark reviewed & submit
-            </Button>
-          </>
-        ) : canWrite ? (
-          <>
-            <Button type="button" variant="secondary" className="ms-auto whitespace-nowrap" aria-label="Add note" onClick={startNote}>
-              <Icon d={ICONS.plus} size={14} />
-              <span className="sm:hidden">Note</span>
-              <span className="hidden sm:inline">Add note</span>
-            </Button>
-            <Button type="button" variant="secondary" className="whitespace-nowrap sm:hidden" onClick={startCall}>
-              <Icon d={ICONS.calendar} size={14} />
-              Call
-            </Button>
-          </>
+      <DrawerFooter>
+        {canWrite &&
+          (tab === "assessment" ? (
+            <NextActionSquare
+              projectId={projectId}
+              candidateId={candidate.id}
+              firstName={firstName}
+              onCompleted={() => setNextActionDone(true)}
+              onOpen={openNextAction}
+              onShowNote={showNote}
+            />
+          ) : (
+            <NextActionBar
+              projectId={projectId}
+              candidateId={candidate.id}
+              firstName={firstName}
+              justCompleted={nextActionDone}
+              onCompleted={() => setNextActionDone(true)}
+              onPromptSettled={settleNextActionPrompt}
+              onOpen={openNextAction}
+              onShowNote={showNote}
+              className="min-w-0 flex-1"
+            />
+          ))}
+        {canWrite && tab === "assessment" && <ScorecardFooterActions scorecard={scorecard} />}
+        {canWrite ? (
+          <MoreActionsMenu
+            onAddNote={startNote}
+            onSetNextAction={() => openNextAction(null)}
+            onBookCall={startCall}
+            onRemove={onRemove && (() => onRemove(candidate))}
+          />
         ) : (
           <Button type="button" variant="secondary" className="ms-auto" onClick={onClose}>
             Close
           </Button>
         )}
-        {canWrite && tab !== "assessment" && (
-          <Button type="button" className="whitespace-nowrap" aria-label="Set next action" onClick={() => openNextAction(null)}>
-            <Icon d={ICONS.plus} size={14} />
-            <span className="sm:hidden">Next action</span>
-            <span className="hidden sm:inline">Set next action</span>
-          </Button>
-        )}
-      </footer>
+      </DrawerFooter>
 
       {canWrite && (
         <NextActionModal
@@ -883,6 +934,81 @@ export function CandidateProfile({
         />
       )}
     </>
+  );
+}
+
+/** The Assessment tab's own foot: the scorecard saved as a draft, or reviewed and submitted. */
+function ScorecardFooterActions({ scorecard }: { scorecard: ScorecardEditor }) {
+  return (
+    <>
+      {scorecard.isDirty && (
+        <Button type="button" variant="ghost" className="ms-auto" onClick={scorecard.discard}>
+          Discard
+        </Button>
+      )}
+      <Button
+        type="button"
+        variant="secondary"
+        className={cn("whitespace-nowrap", !scorecard.isDirty && "ms-auto")}
+        disabled={!scorecard.isDirty || scorecard.isSaving || scorecard.isAssessing || !scorecard.saved.data}
+        loading={scorecard.isSaving && !scorecard.savingReviewed}
+        onClick={() => scorecard.save(false)}
+      >
+        Save draft
+      </Button>
+      <Button
+        type="button"
+        className="whitespace-nowrap"
+        disabled={scorecard.isSaving || scorecard.isAssessing || !scorecard.saved.data}
+        loading={scorecard.savingReviewed}
+        onClick={() => scorecard.save(true)}
+      >
+        Mark reviewed & submit
+      </Button>
+    </>
+  );
+}
+
+/** The footer's ⋯: every drawer action but the next action itself, Remove last and apart. */
+function MoreActionsMenu({
+  onAddNote,
+  onSetNextAction,
+  onBookCall,
+  onRemove,
+}: {
+  onAddNote: () => void;
+  onSetNextAction: () => void;
+  onBookCall: () => void;
+  onRemove?: () => void;
+}) {
+  const closingThen = (close: () => void, act: () => void) => () => {
+    close();
+    act();
+  };
+  return (
+    <ActionMenu label="More actions" triggerClassName="size-10 rounded-u-card border-u-border bg-u-surface text-u-text2">
+      {(close) => (
+        <>
+          <MenuItem icon={ICONS.noteBubble} onSelect={closingThen(close, onAddNote)}>
+            Add note
+          </MenuItem>
+          <MenuItem icon={ICONS.checklist} onSelect={closingThen(close, onSetNextAction)}>
+            Set next action
+          </MenuItem>
+          <MenuItem icon={ICONS.phoneCall} onSelect={closingThen(close, onBookCall)}>
+            Book a meeting
+          </MenuItem>
+          {onRemove && (
+            <>
+              <MenuSeparator />
+              <MenuItem icon={ICONS.trash} tone="danger" onSelect={closingThen(close, onRemove)}>
+                Remove from mandate
+              </MenuItem>
+            </>
+          )}
+        </>
+      )}
+    </ActionMenu>
   );
 }
 
@@ -962,8 +1088,14 @@ function countOf(count: number, noun: string): string {
   return `${count} ${count === 1 ? noun : `${noun}s`}`;
 }
 
+type OutreachPart = Exclude<DrawerSection, "contact">;
+
+function isOutreachPart(section: DrawerSection | null): section is OutreachPart {
+  return section === "outreach" || section === "meetings";
+}
+
 interface SectionFocus {
-  section: DrawerSection;
+  section: OutreachPart;
   /** Bumped by every new link, so the same section asked for twice scrolls twice. */
   at: number;
 }
@@ -972,22 +1104,21 @@ const SECTION_FIND_ATTEMPTS = 20;
 const SECTION_FIND_INTERVAL_MS = 100;
 
 /**
- * Scrolls the Contact tab to a section once it is drawn. Outreach and Meetings draw only after their own reads land,
- * so it looks again for a couple of seconds; an Outreach with no run draws nothing, and the Contact fold stands in.
+ * Scrolls the Outreach tab to a section once it is drawn. Outreach and Meetings draw only after their own reads land,
+ * so it looks again for a couple of seconds; an Outreach with no run draws nothing, and the tab stays at its top.
  */
-function scrollToContactSection(section: DrawerSection): () => void {
+function scrollToOutreachSection(section: OutreachPart): () => void {
   let attempts = 0;
   let timer: number | undefined;
   const find = () => {
-    const panel = document.getElementById(`${TAB_ID_PREFIX}-panel-contact`);
+    const panel = document.getElementById(`${TAB_ID_PREFIX}-panel-outreach`);
     const target =
       section === "meetings"
-        ? panel?.querySelector('section[aria-label="Meetings"]')
+        ? (panel?.querySelector('[data-outreach-part="meetings"]') ??
+          panel?.querySelector('section[aria-label="Calls and contact"]'))
         : panel?.querySelector(`#${section}-section-body`)?.closest("section");
-    const lastTry = ++attempts >= SECTION_FIND_ATTEMPTS;
-    const shown = target ?? (lastTry ? panel?.querySelector("#contact-section-body")?.closest("section") : null);
-    if (shown) shown.scrollIntoView({ block: "start", behavior: "smooth" });
-    else if (!lastTry) timer = window.setTimeout(find, SECTION_FIND_INTERVAL_MS);
+    if (target) target.scrollIntoView({ block: "start", behavior: "smooth" });
+    else if (++attempts < SECTION_FIND_ATTEMPTS) timer = window.setTimeout(find, SECTION_FIND_INTERVAL_MS);
   };
   timer = window.setTimeout(find, 0);
   return () => window.clearTimeout(timer);

@@ -27,9 +27,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 
 /** What billing emails a workspace's billing managers, and that each reaches them once. */
 @IntegrationTest
+@TestPropertySource(properties = "lightmove.billing.enforce=true")
 class BillingNoticesIntegrationTest extends BillingFlowSupport {
 
     private static final AtomicInteger SEQUENCE = new AtomicInteger();

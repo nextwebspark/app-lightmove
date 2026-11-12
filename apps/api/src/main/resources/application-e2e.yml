@@ -50,6 +50,9 @@ lightmove:
       # Every script founds workspaces from 127.0.0.1, several hundred a run across the matrix.
       workspace-creations-per-hour: 100
       workspace-creations-per-hour-per-ip: 1000
+      # The invite and roster scripts send to the same few addresses, run after run.
+      invitations-per-hour-per-workspace: 1000
+      invitations-per-hour-per-recipient: 100
 
     cookie:
       # The stack is plain http on localhost, and a Secure cookie is dropped by the browser over http —

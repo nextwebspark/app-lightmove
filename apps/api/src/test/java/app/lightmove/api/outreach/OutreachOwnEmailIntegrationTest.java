@@ -8,9 +8,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
+import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
@@ -57,7 +59,7 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
     @Autowired private RecordingMailboxGateway gateway;
     @Autowired private OutreachDispatcher dispatcher;
     @Autowired private OutreachInboxService inbox;
-    @Autowired private JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc private JdbcTemplate jdbc;
 
     @Autowired private OutreachMessageSendService ownSends;
     @Autowired private OutreachMessageClaims claims;
@@ -121,6 +123,141 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
         assertThat(line.get("thread_id")).isNotNull();
         assertThat(candidateStatus()).isEqualTo("contacted");
         assertThat(activityKinds()).contains("EMAIL_SENT");
+    }
+
+    @Test
+    @DisplayName("a chosen signature goes under the words as it was drawn when written, and never into the text")
+    void theSignatureGoesAsWritten() throws Exception {
+        String signatureId = signature(consultant, """
+                {"name":"Short reply","layout":"MINIMAL","fields":{"title":"Partner"}}""");
+        JsonNode scheduled = send("""
+                {"toAddress":"%s","subject":"A conversation","replyInThread":false,"body":"Hello","signatureId":"%s"}"""
+                .formatted(priyaAddress, signatureId));
+        as(consultant, put("/api/v1/me/signatures/" + signatureId).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"Short reply","layout":"MINIMAL","fields":{"title":"Changed since"}}"""))
+                .andExpect(status().isOk());
+
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
+
+        String html = gateway.sent().getLast().email().htmlBody();
+        assertThat(html).contains("<p>Hello</p>", "<strong>Yara Haddad</strong> · Partner").doesNotContain("Changed since");
+        assertThat(html.indexOf("Hello")).isLessThan(html.indexOf("Yara Haddad"));
+        assertThat(line(scheduled.get("id").asText())).containsEntry("body_text", "Hello");
+    }
+
+    @Test
+    @DisplayName("a scheduled email keeps the signature drawn when it was written, however it is edited before it goes")
+    void aScheduledEmailKeepsItsSignature() throws Exception {
+        String signatureId = signature(consultant, """
+                {"name":"Formal","layout":"CLASSIC","fields":{"title":"Partner"}}""");
+        Instant later = Instant.now().plus(Duration.ofHours(2));
+        send("""
+                {"toAddress":"%s","subject":"Later","replyInThread":false,"body":"Hello","sendAt":"%s","signatureId":"%s"}"""
+                .formatted(priyaAddress, later, signatureId));
+        as(consultant, put("/api/v1/me/signatures/" + signatureId).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"Formal","layout":"CLASSIC","fields":{"title":"Changed since"}}"""))
+                .andExpect(status().isOk());
+
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
+        assertThat(gateway.sent()).isEmpty();
+        dispatcher.dispatchAt(later.plusSeconds(60));
+
+        assertThat(gateway.sent().getLast().email().htmlBody()).contains("Partner").doesNotContain("Changed since");
+    }
+
+    @Test
+    @DisplayName("a reply carries the signature under its own words and still answers the executive's message")
+    void aReplyCarriesTheSignature() throws Exception {
+        start(createSequence(), priyaAddress);
+        Instant monday = nextMondayTen();
+        dispatcher.dispatchAt(monday);
+        String thread = (String) enrollment().get("thread_id");
+        String theirs = gateway.writeInto(thread, priyaAddress, "Happy to talk.");
+        inbox.pollListeningThreads(monday.plus(Duration.ofMinutes(15)));
+        String signatureId = signature(consultant, """
+                {"name":"Short reply","layout":"MINIMAL","fields":{"title":"Partner"}}""");
+
+        send("""
+                {"toAddress":"%s","replyInThread":true,"body":"Thursday at 10?","signatureId":"%s"}"""
+                .formatted(priyaAddress, signatureId));
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
+
+        OutgoingEmail email = gateway.sent().getLast().email();
+        assertThat(email.replyToMessageId()).isEqualTo(theirs);
+        assertThat(email.htmlBody()).contains("Thursday at 10?", "<strong>Yara Haddad</strong> · Partner");
+        assertThat(email.htmlBody().indexOf("Thursday")).isLessThan(email.htmlBody().indexOf("Yara Haddad"));
+    }
+
+    @Test
+    @DisplayName("a signature showing Book a call has its page made before the email is written, never a dead link")
+    void aBookingSignatureMakesThePageFirst() throws Exception {
+        String signatureId = signature(consultant, """
+                {"name":"With booking","layout":"CLASSIC","showBookingLink":true}""");
+        assertThat(gateway.bookingPages()).isEmpty();
+
+        send("""
+                {"toAddress":"%s","subject":"A conversation","replyInThread":false,"body":"Hello","signatureId":"%s"}"""
+                .formatted(priyaAddress, signatureId));
+
+        assertThat(gateway.bookingPages()).hasSize(1);
+        String slug = jdbc.queryForObject("select booking_slug from app_lm_mailbox_connection where grant_id = ?",
+                String.class, "grant-" + domain);
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
+        assertThat(gateway.sent().getLast().email().htmlBody()).contains("/book/" + slug, "Book a call with me")
+                .doesNotContain("/book/your-link");
+    }
+
+    @Test
+    @DisplayName("no signature sends none, and another person's is refused before anything is written")
+    void onlyTheSendersOwnSignature() throws Exception {
+        inviteAndAccept(consultant, "Omar Saleh", "omar@" + domain, "MEMBER");
+        String omars = signature(login("omar@" + domain), """
+                {"name":"Omar's","layout":"CLASSIC"}""");
+
+        MvcResult refused = sendExpecting(status().isNotFound(), """
+                {"toAddress":"%s","subject":"A conversation","replyInThread":false,"body":"Hello","signatureId":"%s"}"""
+                .formatted(priyaAddress, omars)).andReturn();
+        assertThat(codeOf(refused)).isEqualTo("EMAIL_SIGNATURE_NOT_FOUND");
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_outreach_message where candidate_id = ?::uuid",
+                Integer.class, priya)).isZero();
+
+        send("""
+                {"toAddress":"%s","subject":"A conversation","replyInThread":false,"body":"Hello"}"""
+                .formatted(priyaAddress));
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
+        assertThat(gateway.sent().getLast().email().htmlBody()).isEqualTo("<p>Hello</p>");
+    }
+
+    @Test
+    @DisplayName("the mailbox's test email carries the default signature, so it is seen as an executive will see it")
+    void theTestEmailCarriesTheDefault() throws Exception {
+        signature(consultant, """
+                {"name":"Formal","layout":"CLASSIC","fields":{"title":"Partner"},"isDefault":true}""");
+
+        as(consultant, post("/api/v1/outreach/mailbox/test")).andExpect(status().is2xxSuccessful());
+
+        assertThat(gateway.sent().getLast().email().htmlBody()).contains("This is a test from Uncava", "Partner");
+    }
+
+    @Test
+    @DisplayName("a booking page the mail service cannot make leaves Book a call off the test email, never fails it")
+    void theTestEmailOutlivesTheBookingPage() throws Exception {
+        signature(consultant, """
+                {"name":"Formal","layout":"CLASSIC","fields":{"title":"Partner"},"showBookingLink":true,"isDefault":true}""");
+        gateway.failBookingPagesWith(new VendorException(VendorCall.of("nylas", "create-booking-page"),
+                VendorFailureKind.UNAVAILABLE, null));
+
+        as(consultant, post("/api/v1/outreach/mailbox/test")).andExpect(status().is2xxSuccessful());
+
+        assertThat(gateway.sent().getLast().email().htmlBody())
+                .contains("This is a test from Uncava", "Partner").doesNotContain("/book/");
+    }
+
+    private String signature(String token, String json) throws Exception {
+        return body(as(token, post("/api/v1/me/signatures").contentType(MediaType.APPLICATION_JSON).content(json))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
     }
 
     @Test
@@ -288,6 +425,23 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("restricted while it waited, the email fails unsent; a new one is refused")
+    void restrictionAtSendFailsIt() throws Exception {
+        String id = send("""
+                {"toAddress":"%s","subject":"Hi","replyInThread":false,"body":"Hello"}""".formatted(priyaAddress))
+                .get("id").asText();
+        restrictProcessing();
+
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
+
+        assertThat(gateway.sent()).isEmpty();
+        assertThat(line(id)).containsEntry("status", "FAILED").containsEntry("fail_reason", "PROCESSING_RESTRICTED");
+        sendExpecting(status().isConflict(), """
+                {"toAddress":"%s","subject":"Hi","replyInThread":false,"body":"Hello"}""".formatted(priyaAddress))
+                .andExpect(jsonPath("$.code").value("PERSON_PROCESSING_RESTRICTED"));
+    }
+
+    @Test
     @DisplayName("a send whose outcome is unknown fails and is never sent again")
     void anUncertainSendIsNeverRetried() throws Exception {
         String id = send("""
@@ -411,8 +565,9 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
         jdbc.update("update app_lm_outreach_message set status = 'FAILED', fail_reason = 'SEND_UNCERTAIN' "
                 + "where id = ?::uuid", id);
 
-        claims.recordDelivered(java.util.UUID.fromString(id), new SentEmail("delivered-1", "thread-delivered-1"),
-                MailboxGatewayKind.NYLAS, Instant.now());
+        TestWorkspaceScopes.inWorkspaceOfRow(jdbc, "app_lm_outreach_message", java.util.UUID.fromString(id),
+                () -> claims.recordDelivered(java.util.UUID.fromString(id),
+                        new SentEmail("delivered-1", "thread-delivered-1"), MailboxGatewayKind.NYLAS, Instant.now()));
 
         assertThat(line(id)).containsEntry("status", "SENT").containsEntry("fail_reason", null)
                 .containsEntry("provider_message_id", "delivered-1")
@@ -471,6 +626,84 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
                 .containsEntry("from_address", "yara.haddad@firm.example");
     }
 
+    @Test
+    @DisplayName("the composer carries this executive's variable values, the blank ones as null")
+    void theComposerCarriesTheValues() throws Exception {
+        JsonNode tokens = conversation().at("/composer/tokens");
+        assertThat(tokens.get("firstName").asText()).isEqualTo("Priya");
+        assertThat(tokens.get("currentTitle").asText()).isEqualTo("Chief Financial Officer");
+        assertThat(tokens.get("currentCompany").asText()).isEqualTo("Target Group");
+        assertThat(tokens.get("positionTitle").asText()).isEqualTo("Group CFO");
+        assertThat(tokens.get("senderFirstName").asText()).isEqualTo("Yara");
+        assertThat(tokens.get("location").isNull()).isTrue();
+    }
+
+    @Test
+    @DisplayName("a variable with no value and no fallback refuses the email and names it; nothing is written")
+    void aBlankVariableIsRefused() throws Exception {
+        MvcResult refused = sendExpecting(status().isConflict(), """
+                {"toAddress":"%s","subject":"Hello","replyInThread":false,"body":"Hi {{firstName}}, in {{location}}?"}"""
+                .formatted(priyaAddress)).andReturn();
+        assertThat(codeOf(refused)).isEqualTo("OUTREACH_TOKENS_UNFILLED");
+        assertThat(body(refused).get("tokens").toString()).isEqualTo("[\"location\"]");
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_outreach_message where candidate_id = ?::uuid",
+                Integer.class, priya)).isZero();
+    }
+
+    @Test
+    @DisplayName("a fallback stands in for a blank value, and a new email's subject is filled on one line")
+    void aFallbackAndASubjectAreFilled() throws Exception {
+        send("""
+                {"toAddress":"%s","subject":"{{firstName}}, a {{positionTitle}} question","replyInThread":false,
+                 "body":"Are you still in {{location|the region}}?"}""".formatted(priyaAddress));
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
+        OutgoingEmail email = gateway.sent().getLast().email();
+        assertThat(email.subject()).isEqualTo("Priya, a Group CFO question");
+        assertThat(email.htmlBody()).contains("Are you still in the region?").doesNotContain("{{");
+    }
+
+    @Test
+    @DisplayName("an unknown variable and the opener are refused at send, named in the order written")
+    void anUnknownVariableIsRefused() throws Exception {
+        MvcResult refused = sendExpecting(status().isConflict(), """
+                {"toAddress":"%s","subject":"Hi {{fristName}}","replyInThread":false,"body":"{{opener}} {{firstName}}"}"""
+                .formatted(priyaAddress)).andReturn();
+        assertThat(codeOf(refused)).isEqualTo("OUTREACH_TOKENS_UNFILLED");
+        assertThat(body(refused).get("tokens").toString()).isEqualTo("[\"fristName\",\"opener\"]");
+    }
+
+    @Test
+    @DisplayName("an email records the template it came from, only one the sender may see; deleting it leaves the email")
+    void anEmailRecordsItsTemplate() throws Exception {
+        JsonNode template = body(as(consultant, post("/api/v1/me/email-templates").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Intro\",\"body\":\"Hi {{firstName}}\"}"))
+                .andExpect(status().isCreated()).andReturn());
+        String templateId = template.get("id").asText();
+        String otherEmail = "rita@" + domain;
+        createWorkspace(verifiedUser("Rita Rival", otherEmail), "Rival Own Email Partners");
+        String rival = login(otherEmail);
+        String foreignId = body(as(rival, post("/api/v1/me/email-templates").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Theirs\",\"body\":\"Hi\",\"shared\":true}"))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+
+        JsonNode fromOwn = send("""
+                {"toAddress":"%s","subject":"Hello","replyInThread":false,"body":"Hi {{firstName}}","templateId":"%s"}"""
+                .formatted(priyaAddress, templateId));
+        JsonNode fromForeign = send("""
+                {"toAddress":"%s","subject":"Hello","replyInThread":false,"body":"Hi","templateId":"%s"}"""
+                .formatted(priyaAddress, foreignId));
+        assertThat(line(fromOwn.get("id").asText()).get("template_id")).hasToString(templateId);
+        assertThat(line(fromForeign.get("id").asText()).get("template_id")).isNull();
+
+        JsonNode listed = body(as(consultant, get("/api/v1/me/email-templates")).andExpect(status().isOk()).andReturn());
+        assertThat(listed.get("recentlyUsed").toString()).isEqualTo("[\"" + templateId + "\"]");
+
+        as(consultant, delete("/api/v1/me/email-templates/" + templateId).param("version", "0"))
+                .andExpect(status().isNoContent());
+        assertThat(line(fromOwn.get("id").asText()).get("template_id")).isNull();
+        assertThat(line(fromOwn.get("id").asText())).containsEntry("status", "SCHEDULED");
+    }
+
     private JsonNode send(String json) throws Exception {
         return body(sendExpecting(status().isCreated(), json).andReturn());
     }
@@ -514,6 +747,15 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"doNotContact\":true,\"reason\":\"Asked not to be approached.\"}"))
                 .andExpect(status().is2xxSuccessful());
+    }
+
+    private void restrictProcessing() throws Exception {
+        String personId = jdbc.queryForObject("select person_id::text from app_lm_project_candidate where id = ?::uuid",
+                String.class, priya);
+        as(consultant, put("/api/v1/candidates/" + personId + "/processing-restriction")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"restricted\":true,\"reason\":\"Asked what we hold about them.\"}"))
+                .andExpect(status().isOk());
     }
 
     private Map<String, Object> line(String id) {

@@ -6,7 +6,9 @@ import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { searchCompanies } from "../../strategy/api/companiesApi";
 import type { CompanySuggestion } from "../../strategy/api/types";
 import { useDebouncedValue } from "../../../lib/useComboboxList";
+import type { Client } from "../api/types";
 import {
+  clientHolding,
   companyLocation,
   pickedCompanyLogo,
   pickedCompanyName,
@@ -32,19 +34,13 @@ const WORKSPACE_COMPANY_SEARCH: CompanySearchSource = {
 };
 
 /**
- * The company step of an agency's New-client modal, also used to pick the workspace's own firm in
- * Settings and signup's organisation step — which passes its own `source` — taking a typed name there
- * with no further details.
- *
- * <p>It reads the Apollo universe through the same `/companies/search` call Strategy's own pickers use.
- *
- * <p>A company the market does not carry is the escape hatch, not the default — it is offered under the
- * results, once the search has settled, so it never competes with the rows that are still arriving.
+ * The company step of an agency's New-client modal, also Settings' and signup's firm picker (which pass a `source`),
+ * over `/companies/search`. A company the market lacks is offered only once the search has settled.
  */
 export function CompanyPicker({
   pick,
   onPick,
-  existingNames,
+  existingClients,
   onRejectExisting,
   error,
   autoFocus,
@@ -54,9 +50,9 @@ export function CompanyPicker({
 }: {
   pick: CompanyPick | null;
   onPick: (pick: CompanyPick | null) => void;
-  /** Lower-cased names already on the books — those rows show a CLIENT badge and refuse the pick. */
-  existingNames?: Set<string>;
-  /** How the caller reports a refused pick; without one the row is simply inert. */
+  /** The records already on the books — a row one of them holds, by company or name, shows a CLIENT badge and refuses the pick. */
+  existingClients?: readonly Client[];
+  /** How the caller reports a refused pick, given the holding record's name; without one the row is simply inert. */
   onRejectExisting?: (name: string) => void;
   /** A refusal the caller owns — "nothing picked yet". Rendered by `Field`, like every other error. */
   error?: string;
@@ -89,11 +85,12 @@ export function CompanyPicker({
   const isSettled = debounced === trimmed;
   const isAnswered = isSettled && !isFetching && !isError;
 
-  const isOnTheBooks = (name: string) => existingNames?.has(name.toLowerCase()) ?? false;
+  const holderOf = (hit: CompanySuggestion) => (existingClients ? clientHolding(existingClients, hit) : undefined);
 
   const handlePickHit = (hit: CompanySuggestion) => {
-    if (isOnTheBooks(hit.companyName)) {
-      onRejectExisting?.(hit.companyName);
+    const holder = holderOf(hit);
+    if (holder) {
+      onRejectExisting?.(holder.name);
       return;
     }
     onPick({ source: "universe", company: hit });
@@ -168,7 +165,7 @@ export function CompanyPicker({
               <SuggestionRow
                 key={hit.apolloAccountId}
                 company={hit}
-                alreadyClient={isOnTheBooks(hit.companyName)}
+                alreadyClient={!!holderOf(hit)}
                 onSelect={() => handlePickHit(hit)}
               />
             ))}

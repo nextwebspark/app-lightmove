@@ -7,6 +7,7 @@ import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.tenant.EveryWorkspace;
 import app.lightmove.api.outreach.constant.CredentialMode;
 import app.lightmove.api.outreach.model.WorkspaceMailIntegration;
 import app.lightmove.api.outreach.repository.WorkspaceMailIntegrationRepository;
@@ -45,6 +46,7 @@ public class IntegrationSecretExpiryWarnings {
     private final EmailTemplates templates;
     private final EmailSender emailSender;
     private final LightMoveProperties properties;
+    private final EveryWorkspace everyWorkspace;
     private final Clock clock;
     private final DateTimePreferenceService dateTimePreferences;
 
@@ -53,17 +55,22 @@ public class IntegrationSecretExpiryWarnings {
         warnAt(LocalDate.ofInstant(clock.instant(), ZoneOffset.UTC));
     }
 
-    /** One pass. The timer calls it with today; tests call it with the day they arranged. */
+    /**
+     * One pass. The timer calls it with today; tests call it with the day they arranged. A workspace at a time: the
+     * integrations are under row-level security.
+     */
     public void warnAt(LocalDate today) {
         LocalDate horizon = today.plusDays(THRESHOLDS.getFirst());
-        for (WorkspaceMailIntegration integration : integrations.findByModeAndSecretExpiresOnLessThanEqual(
-                CredentialMode.OWN, horizon)) {
-            try {
-                warnIfDue(integration, today);
-            } catch (RuntimeException failed) {
-                log.error("The secret expiry warning for integration {} failed", integration.getId(), failed);
+        everyWorkspace.forEach(workspaceId -> {
+            for (WorkspaceMailIntegration integration : integrations.findByModeAndSecretExpiresOnLessThanEqual(
+                    CredentialMode.OWN, horizon)) {
+                try {
+                    warnIfDue(integration, today);
+                } catch (RuntimeException failed) {
+                    log.error("The secret expiry warning for integration {} failed", integration.getId(), failed);
+                }
             }
-        }
+        });
     }
 
     private void warnIfDue(WorkspaceMailIntegration integration, LocalDate today) {

@@ -7,15 +7,9 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * One executive mapped for a mandate, as the Companies grid and the profile drawer read them. The
- * profile is the workspace person's, shared with every other mandate mapping them; {@code status}
- * (a key of the workspace's pipeline catalog), {@code source} and {@code customFields} are this mandate's
- * own. A client seat reads this record, which is
- * why notes, the AI assessment and who filed the row are never on it.
- *
- * <p>{@code companyName} is carried rather than joined: it is the employer snapshotted when the row
- * was written, so it renders identically whether the person is still mapped to one of the mandate's
- * companies or that company has since been removed from it.
+ * One executive mapped for a mandate: the profile is the shared person's; {@code status}, {@code source} and
+ * {@code customFields} the mandate's. A client seat reads this, so notes, the AI assessment and who filed the row are
+ * never on it. {@code companyName} is the write-time snapshot, surviving its company's removal.
  */
 public record CandidateResponse(
         UUID id,
@@ -51,16 +45,20 @@ public record CandidateResponse(
         CandidateContactsDto contacts,
         /** The workspace's person this row maps — one id across every mandate that holds them (V91). */
         UUID personId,
-        /** The plugin read this person off that page, so the URL cannot be retyped (CANDIDATE_PROFILE_URL_LOCKED). */
+        /** The plugin read this person off that page; a person who changed their URL since can still have it corrected. */
         boolean linkedinUrlLocked,
         /** {@code status}'s label and colour in the workspace's catalog, drawn as held even once it is retired. */
         String statusLabel,
         String statusColour,
+        /** Whether {@code status} is a way out of the process: Inactive on the board, approached no more. */
+        boolean statusOutOfProcess,
         /** The stage {@code status} sits under — read through the status, never stored beside it. */
         CandidatePipelineStageDto pipelineStage,
         Instant statusChangedAt,
         /** Whether a client seat on the position sees this executive at all; staff always do. */
         boolean clientVisible,
         /** The Companies stage they are listed under — a {@code TriageCompanyStatus} wire token, their own (V150). */
-        String triageStatus
+        String triageStatus,
+        /** {@code companyName}'s logo: its company row's, else research's where research named it; null for neither. */
+        String companyLogoUrl
 ) {}

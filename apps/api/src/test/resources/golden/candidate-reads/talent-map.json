@@ -4,6 +4,7 @@
     "aiInferredFields" : [ ],
     "career" : [ ],
     "clientVisible" : true,
+    "companyLogoUrl" : null,
     "companyName" : "Golden Contract Foods",
     "compensation" : {
       "allowanceLines" : [ ],
@@ -20,6 +21,7 @@
         "address" : "yasmin@golden.example",
         "foundAt" : "<instant>",
         "kind" : null,
+        "primary" : false,
         "source" : "manual",
         "status" : null,
         "verified" : false
@@ -29,6 +31,7 @@
         "foundAt" : "<instant>",
         "kind" : null,
         "number" : "+966 50 111 2222",
+        "primary" : false,
         "source" : "manual",
         "status" : null,
         "verified" : false
@@ -52,10 +55,9 @@
     "nationality" : "saudi arabian",
     "personId" : "<person:yasmin>",
     "pipelineStage" : {
-      "colour" : "green",
+      "colour" : "signal",
       "key" : "interested",
-      "kind" : "active",
-      "label" : "Interested",
+      "label" : "Assessment",
       "position" : 3
     },
     "seniority" : "C-Suite",
@@ -64,8 +66,9 @@
     "sourceUrl" : null,
     "status" : "interested",
     "statusChangedAt" : "<instant>",
-    "statusColour" : "green",
-    "statusLabel" : "Interested",
+    "statusColour" : "signal",
+    "statusLabel" : "Screening arranged",
+    "statusOutOfProcess" : false,
     "summary" : null,
     "title" : "CFO",
     "triageCompanyId" : "<company:foods>",
@@ -76,6 +79,7 @@
     "aiInferredFields" : [ ],
     "career" : [ ],
     "clientVisible" : true,
+    "companyLogoUrl" : null,
     "companyName" : "Somewhere Untriaged",
     "compensation" : {
       "allowanceLines" : [ ],
@@ -108,10 +112,9 @@
     "nationality" : "Emirati",
     "personId" : "<person:lina>",
     "pipelineStage" : {
-      "colour" : "accent",
+      "colour" : "violet",
       "key" : "contacted",
-      "kind" : "active",
-      "label" : "Contacted",
+      "label" : "Approach",
       "position" : 2
     },
     "seniority" : null,
@@ -121,7 +124,8 @@
     "status" : "contacted",
     "statusChangedAt" : "<instant>",
     "statusColour" : "accent",
-    "statusLabel" : "Contacted",
+    "statusLabel" : "Awaiting reply",
+    "statusOutOfProcess" : false,
     "summary" : null,
     "title" : null,
     "triageCompanyId" : null,

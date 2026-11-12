@@ -12,6 +12,9 @@ import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.tenant.EveryWorkspace;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.notification.constant.NotificationKind;
 import app.lightmove.api.notification.model.Notification;
 import app.lightmove.api.notification.repository.NotificationRecipientRow;
@@ -48,12 +51,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * The bell's email. An assignment or a mention still unread when its email time comes is emailed once — claimed
- * in one statement ({@code SKIP LOCKED}) and committed before anything is sent, so two instances never both send
- * it. A digest goes on a weekday morning, at {@code digest-hour} in the person's own zone, to anyone with tasks due
- * or mentions unread, claimed once per person per day. Every recipient is read again before anything goes:
- * someone who has left the position, or the workspace, is sent nothing about it. An email names a note and never
- * quotes it.
+ * The bell's email: an unread assignment or mention emailed once (claimed with {@code SKIP LOCKED}, committed before
+ * sending), and a weekday digest per person per day. Recipients are re-read first; a note is named, never quoted.
+ * Runs a workspace at a time, behind row-level security.
  */
 @Slf4j
 @Component
@@ -67,7 +67,8 @@ public class NotificationEmails {
     private static final String CLAIM_EMAILS = """
             UPDATE app_lm_notification SET emailed_at = ?, version = version + 1
              WHERE id IN (SELECT id FROM app_lm_notification
-                           WHERE email_due_at <= ? AND emailed_at IS NULL AND read_at IS NULL AND archived_at IS NULL
+                           WHERE workspace_id = ? AND email_due_at <= ? AND emailed_at IS NULL AND read_at IS NULL
+                             AND archived_at IS NULL
                              AND (snoozed_until IS NULL OR snoozed_until <= ?)
                              AND NOT EXISTS (SELECT 1 FROM app_lm_person_note n
                                               WHERE n.id = app_lm_notification.note_id AND n.deleted_at IS NOT NULL)
@@ -76,6 +77,8 @@ public class NotificationEmails {
             """;
 
     private final JdbcTemplate jdbc;
+    private final EveryWorkspace workspaces;
+    private final TenantResolvers resolvers;
     private final TransactionTemplate transactions;
     private final NotificationRepository rows;
     private final NotificationPreferences preferences;
@@ -98,9 +101,14 @@ public class NotificationEmails {
 
     /** One pass; a row that fails is logged and the rows after it still sent. */
     public int emailUnreadAt(Instant now) {
+        return workspaces.sum(resolvers.workspacesWithNotificationEmailsDue(now),
+                workspaceId -> emailUnreadIn(workspaceId, now));
+    }
+
+    private int emailUnreadIn(UUID workspaceId, Instant now) {
         Timestamp at = Timestamp.from(now);
-        List<UUID> claimed = transactions.execute(status -> jdbc.queryForList(CLAIM_EMAILS, UUID.class, at, at, at,
-                BATCH));
+        List<UUID> claimed = transactions.execute(status -> jdbc.queryForList(CLAIM_EMAILS, UUID.class, at,
+                workspaceId, at, at, BATCH));
         int sent = 0;
         for (UUID id : claimed == null ? List.<UUID>of() : claimed) {
             try {
@@ -168,12 +176,18 @@ public class NotificationEmails {
         digestAt(clock.instant());
     }
 
-    /** One pass over everyone with something due or unread; each is sent at most one digest per local day. */
+    /**
+     * One pass over everyone with something due or unread; each is sent at most one digest per local day. Who that is
+     * is read a workspace at a time: the tasks and the bell are under row-level security.
+     */
     public int digestAt(Instant now) {
-        Set<TaskHolder> recipients = new LinkedHashSet<>(tasks.holdersDueBy(now.plus(DIGEST_HORIZON)));
-        for (NotificationRecipientRow mention : rows.findUnreadMentionRecipients()) {
-            recipients.add(new TaskHolder(mention.getWorkspaceId(), mention.getUserId()));
-        }
+        Set<TaskHolder> recipients = new LinkedHashSet<>();
+        workspaces.forEach(workspaceId -> {
+            recipients.addAll(tasks.holdersDueBy(now.plus(DIGEST_HORIZON)));
+            for (NotificationRecipientRow mention : rows.findUnreadMentionRecipients()) {
+                recipients.add(new TaskHolder(mention.getWorkspaceId(), mention.getUserId()));
+            }
+        });
         Map<UUID, User> people = users.findAllById(recipients.stream().map(TaskHolder::userId).distinct().toList())
                 .stream().collect(Collectors.toMap(User::getId, Function.identity()));
         int sent = 0;
@@ -183,7 +197,7 @@ public class NotificationEmails {
                 continue;
             }
             try {
-                sent += digestOne(recipient, user, now) ? 1 : 0;
+                sent += WorkspaceScope.call(recipient.workspaceId(), () -> digestOne(recipient, user, now)) ? 1 : 0;
             } catch (RuntimeException failure) {
                 log.error("The digest for user {} in workspace {} could not be sent", recipient.userId(),
                         recipient.workspaceId(), failure);

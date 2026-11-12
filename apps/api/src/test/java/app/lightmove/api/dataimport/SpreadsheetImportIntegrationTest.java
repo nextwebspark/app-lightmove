@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.ApolloUniverse;
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import java.nio.charset.StandardCharsets;
@@ -33,7 +34,7 @@ import tools.jackson.databind.JsonNode;
 @IntegrationTest
 class SpreadsheetImportIntegrationTest extends FlowTestSupport {
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     private ApolloUniverse universe;
 
@@ -204,6 +205,29 @@ class SpreadsheetImportIntegrationTest extends FlowTestSupport {
                 .isEqualTo(3500);
         assertThat(candidates(admin, projectId).get("candidates").get(0).get("title").asText())
                 .isEqualTo("Group CFO");
+    }
+
+    @Test
+    @DisplayName("re-importing people without a company column leaves each one under the company they are at")
+    void aPeopleOnlyReImportNeverUnmapsAnyone() throws Exception {
+        String admin = adminOf("Import Keeps Company Firm");
+        String projectId = project(admin);
+        importFile(admin, projectId, """
+                Company,Full Name,Work Email
+                ACWA Power,Layla Haddad,layla@acwa.example
+                """);
+        String companyId = companies(admin, projectId).get("companies").get(0).get("id").asText();
+
+        JsonNode second = importFile(admin, projectId, """
+                Full Name,Work Email,Job Title
+                Layla Haddad,layla@acwa.example,Group CFO
+                """);
+
+        assertThat(second.get("candidatesUpdated").asInt()).isEqualTo(1);
+        JsonNode layla = candidates(admin, projectId).get("candidates").get(0);
+        assertThat(layla.get("triageCompanyId").asText()).isEqualTo(companyId);
+        assertThat(layla.get("companyName").asText()).isEqualTo("ACWA Power");
+        assertThat(layla.get("title").asText()).isEqualTo("Group CFO");
     }
 
     @Test

@@ -20,6 +20,8 @@ export interface WorkspaceDetail {
   persona: HiringPersona;
   company: WorkspaceCompany | null;
   dateTime: WorkspaceDateTime;
+  /** How long a deleted workspace is kept before everything is purged. */
+  deletionGraceDays: number;
 }
 
 /** Settings → General's Date & time: each null where the admin chose nothing, beside what that reads as. */
@@ -67,13 +69,12 @@ export interface Invitation {
   invitedByName: string | null;
   createdAt: string;
   expiresAt: string;
+  /** The last email for it could not be sent; a resend that goes through clears it. */
+  emailFailed: boolean;
 }
 
 /** The swatches a pipeline stage or status is drawn in: the tag palette's six roles, plus signal and red. */
 export type PipelineColour = "green" | "accent" | "neutral" | "violet" | "adjacent" | "inferred" | "signal" | "red";
-
-/** An active stage keeps someone in the running; the one closed stage, always last, holds everyone ruled out. */
-export type PipelineStageKind = "active" | "closed";
 
 /** One status of the catalog. `key` is the wire value a candidate's `status` carries. */
 export interface PipelineStatus {
@@ -85,6 +86,8 @@ export interface PipelineStatus {
   isDefault: boolean;
   /** One of the seven seeded statuses: a wire key the extension and the public API still speak, nothing more. */
   system: boolean;
+  /** Whoever holds it is out of process on the board and approached no more, whatever stage it sits under. */
+  outOfProcess: boolean;
   retired: boolean;
 }
 
@@ -93,7 +96,6 @@ export interface PipelineStage {
   key: string;
   label: string;
   colour: string;
-  kind: PipelineStageKind;
   position: number;
   system: boolean;
   retired: boolean;
@@ -120,7 +122,7 @@ export interface StatusAutomation {
   trigger: StatusAutomationTrigger;
   enabled: boolean;
   statusId: string | null;
-  /** Its status was retired since, so it moves nobody until another is chosen. */
+  /** Its status was retired or taken out of process since, so it moves nobody until another is chosen. */
   broken: boolean;
 }
 
@@ -140,5 +142,6 @@ export interface PipelineStatusChange {
   colour?: string;
   stageId?: string;
   isDefault?: true;
+  outOfProcess?: boolean;
   retired?: boolean;
 }

@@ -1,19 +1,16 @@
 package app.lightmove.api.core.security.service;
-import app.lightmove.api.common.time.model.DateTimePreferences;
-import app.lightmove.api.common.time.service.DateTimeFormats;
 import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.AuthSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
-import app.lightmove.api.core.email.service.EmailSender;
-import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.constant.PrivacyPolicy;
 import app.lightmove.api.core.security.constant.UserStatus;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
+import app.lightmove.api.core.security.model.SignInOutcome;
 import app.lightmove.api.core.security.model.SignupCommand;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.model.UserIdentity;
@@ -39,6 +36,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class AuthenticationService {
 
+    private static final String USER_TARGET = "user";
+
     private final UserRepository users;
     private final UserIdentityRepository identities;
     private final WorkspaceSelection selection;
@@ -48,16 +47,16 @@ public class AuthenticationService {
     private final EmailAddressValidator emailValidator;
     private final RateLimitGuard rateLimit;
     private final AuditService audit;
-    private final EmailSender emailSender;
-    private final EmailTemplates templates;
+    private final LoginLockout lockout;
+    private final SignInCompletion signIn;
     private final AuthSettings config;
 
     public AuthenticationService(UserRepository users, UserIdentityRepository identities,
                                  WorkspaceSelection selection, PasswordPolicy passwords,
                                  TokenService tokens, VerificationService verification,
                                  EmailAddressValidator emailValidator, RateLimitGuard rateLimit,
-                                 AuditService audit, EmailSender emailSender,
-                                 EmailTemplates templates, LightMoveProperties properties) {
+                                 AuditService audit, LoginLockout lockout, SignInCompletion signIn,
+                                 LightMoveProperties properties) {
         this.users = users;
         this.identities = identities;
         this.selection = selection;
@@ -67,8 +66,8 @@ public class AuthenticationService {
         this.emailValidator = emailValidator;
         this.rateLimit = rateLimit;
         this.audit = audit;
-        this.emailSender = emailSender;
-        this.templates = templates;
+        this.lockout = lockout;
+        this.signIn = signIn;
         this.config = properties.auth();
     }
 
@@ -91,11 +90,7 @@ public class AuthenticationService {
 
         String domain = emailValidator.validateWorkEmail(email);
 
-        if (users.existsByEmail(email)) {
-            audit.event(AuthEventType.USER_SIGNED_UP).failed().from(request)
-                    .reason("email_already_registered").detail("email", email).record();
-            throw ApiException.of(ErrorCode.EMAIL_ALREADY_REGISTERED);
-        }
+        refuseRegisteredAddress(email, request);
 
         Instant now = Instant.now();
         User user = users.save(User.registerLocal(
@@ -110,8 +105,8 @@ public class AuthenticationService {
         if (config.autoVerifyEmail()) {
             // Before the token is issued, so the session already carries emailVerified.
             user.markEmailVerified(now);
-            log.warn("lightmove.auth.auto-verify-email is ON — {} was verified without proving the address",
-                    email);
+            log.warn("lightmove.auth.auto-verify-email is ON — user {} was verified without proving the address",
+                    user.getId());
         } else {
             verification.sendVerificationEmail(user, request);
         }
@@ -138,11 +133,7 @@ public class AuthenticationService {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "password", passwordProblem);
         }
 
-        if (users.existsByEmail(email)) {
-            audit.event(AuthEventType.USER_SIGNED_UP).failed().from(request)
-                    .reason("email_already_registered").detail("email", email).record();
-            throw ApiException.of(ErrorCode.EMAIL_ALREADY_REGISTERED);
-        }
+        refuseRegisteredAddress(email, request);
 
         Instant now = Instant.now();
         User user = users.save(User.registerLocal(
@@ -159,22 +150,18 @@ public class AuthenticationService {
     }
 
     /**
-     * Every failure — including the lockout, whose own 423 confirmed the account exists — answers
-     * {@link ErrorCode#INVALID_CREDENTIALS} and pays one BCrypt comparison
-     * ({@link PasswordPolicy#equaliseFailureCost}); a locked-out owner is told by email.
-     *
-     * <p><b>{@code noRollbackFor = ApiException.class}:</b> otherwise the failed-attempt increment rolls
-     * back with the thrown exception and account lockout silently does not exist.
+     * Every failure, lockout included, answers {@link ErrorCode#INVALID_CREDENTIALS} at one BCrypt cost
+     * ({@link PasswordPolicy#equaliseFailureCost}). {@code noRollbackFor}: else the failed-attempt count rolls back and lockout never happens.
      */
     @Transactional(noRollbackFor = ApiException.class)
-    public AuthenticatedSession login(String rawEmail, String password, HttpServletRequest request) {
+    public SignInOutcome login(String rawEmail, String password, HttpServletRequest request) {
         String email = EmailAddressValidator.normalise(rawEmail);
         rateLimit.checkLogin(email, request);
 
-        Optional<User> found = users.findByEmail(email);
+        Optional<User> found = users.findByEmailForSignIn(email);
         if (found.isEmpty()) {
             throw refuseLogin(password, audit.event(AuthEventType.LOGIN_FAILED).failed().from(request)
-                    .reason("no_such_user").detail("email", email));
+                    .reason("no_such_user").detailIfPresent("domain", typedDomainOrNull(email)));
         }
 
         User user = found.get();
@@ -194,30 +181,41 @@ public class AuthenticationService {
         }
 
         if (!passwords.matches(password, user.getPasswordHash())) {
-            user.recordFailedLogin(now, config.lockout().maxFailedAttempts(), config.lockout().duration());
-
-            audit.event(AuthEventType.LOGIN_FAILED).failed().actor(user.getId()).from(request)
-                    .reason(user.hasPassword() ? "bad_password" : "no_local_password")
-                    .detail("failedAttempts", user.getFailedLoginAttempts())
-                    .record();
-
-            if (user.isLocked(now)) {
-                log.warn("Account {} locked after {} failed attempts", user.getId(), user.getFailedLoginAttempts());
-                audit.event(AuthEventType.ACCOUNT_LOCKED).failed().actor(user.getId()).from(request)
-                        .detail("until", String.valueOf(user.getLockedUntil())).record();
-
-                // Here, not on every later refusal: one mail per lock window, not one per guess.
-                emailSender.send(templates.buildAccountLockedEmail(
-                        user.getEmail(), user.getFullName(), lockedUntilOf(user)));
-            }
-
+            lockout.recordFailure(user, now, audit.event(AuthEventType.LOGIN_FAILED).failed().actor(user.getId())
+                    .from(request).reason(user.hasPassword() ? "bad_password" : "no_local_password"), request);
             throw ApiException.of(ErrorCode.INVALID_CREDENTIALS);
         }
 
-        user.recordSuccessfulLogin(now);
-        audit.event(AuthEventType.LOGIN_SUCCEEDED).actor(user.getId()).from(request).record();
+        // A challenge leaves the failed-attempt count as it is: only the right code clears it (MfaChallengeService).
+        SignInOutcome outcome = signIn.complete(user, request);
+        if (outcome instanceof AuthenticatedSession session) {
+            user.recordSuccessfulLogin(now);
+            audit.event(AuthEventType.LOGIN_SUCCEEDED).actor(user.getId()).workspace(session.workspaceId())
+                    .from(request).record();
+        }
+        return outcome;
+    }
 
-        return tokens.issue(user, selection.signIn(user), request);
+    /** The account is the target, never the address: an address in the append-only trail outlives its account. */
+    private void refuseRegisteredAddress(String email, HttpServletRequest request) {
+        Optional<UUID> registered = users.findIdByEmail(email);
+        if (registered.isPresent()) {
+            audit.event(AuthEventType.USER_SIGNED_UP).failed().from(request)
+                    .target(USER_TARGET, registered.get()).reason("email_already_registered").record();
+            throw ApiException.of(ErrorCode.EMAIL_ALREADY_REGISTERED);
+        }
+    }
+
+    /**
+     * Only the domain of an address nobody holds: enough to see one firm targeted, and names nobody. Read after the
+     * last {@code @}, as {@code scrub-audit-pii.sql} reads older rows.
+     */
+    static String typedDomainOrNull(String email) {
+        if (email.indexOf('@') <= 0) {
+            return null;
+        }
+        String domain = EmailAddressValidator.domainOf(email);
+        return domain.isBlank() ? null : domain;
     }
 
     /** A refusal ahead of the password check: it pays the BCrypt cost it skips, records why, and says nothing. */
@@ -306,7 +304,8 @@ public class AuthenticationService {
         AuthenticatedSession paired = tokens.issue(user, selection.select(user, pairedWorkspaceId).orElse(null),
                 request, SessionClient.BROWSER_EXTENSION);
 
-        audit.event(AuthEventType.EXTENSION_PAIRED).actor(userId).from(request).record();
+        audit.event(AuthEventType.EXTENSION_PAIRED).actor(userId).workspace(paired.workspaceId()).from(request)
+                .record();
         return paired;
     }
 
@@ -342,10 +341,4 @@ public class AuthenticationService {
         return users.findById(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
     }
 
-    /** In the person's own clock where they chose one: a lock is account-wide, so no workspace's applies. */
-    private static String lockedUntilOf(User user) {
-        DateTimePreferences own = DateTimePreferences.settle(user.getTimezone(), user.getDateFormat(),
-                user.getTimeFormat(), DateTimePreferences.STANDARD);
-        return DateTimeFormats.of(own).dateTime(user.getLockedUntil()) + " (" + own.zone().getId() + ")";
-    }
 }

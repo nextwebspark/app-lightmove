@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { firstNameOf, render, renderParts, tokenOptions } from "./sequenceTokens";
+import {
+  fallbacksIn,
+  firstNameOf,
+  holdsSignature,
+  stepHoldsSignature,
+  render,
+  renderLine,
+  renderParts,
+  templateTokenOptions,
+  tokenOptions,
+  tokenGapsIn,
+  tokenUsesIn,
+  unfilledIn,
+  unknownIn,
+} from "./sequenceTokens";
 
 const TOKENS = {
   firstName: "Priya",
@@ -51,5 +65,95 @@ describe("sequence tokens", () => {
   it("offers the booking link only where booking pages are", () => {
     expect(tokenOptions(false).map((option) => option.token)).not.toContain("{{bookingLink}}");
     expect(tokenOptions(true).map((option) => option.token)).toContain("{{bookingLink}}");
+  });
+
+  it("uses a fallback only where the person has no value", () => {
+    const sparse = { ...TOKENS, firstName: null, location: "  " };
+    expect(render("Hi {{firstName|there}}, in {{ location | your city }}", sparse, null)).toBe("Hi there, in your city");
+    expect(render("Hi {{firstName|  dear   reader }}", sparse, null)).toBe("Hi dear reader");
+    expect(render("Hi {{firstName|there}}", TOKENS, null)).toBe("Hi Priya");
+  });
+
+  it("reads an escaped pipe, as the notes editor stores it, as a fallback", () => {
+    expect(render("Hi {{firstName\\|there}}", { ...TOKENS, firstName: null }, null)).toBe("Hi there");
+    expect(tokenUsesIn("{{firstName\\|there}}")).toEqual([{ name: "firstName", fallback: "there" }]);
+  });
+
+  it("leaves a fallback holding a brace or a second pipe as typed", () => {
+    expect(render("{{firstName|a|b}}", TOKENS, null)).toBe("{{firstName|a|b}}");
+  });
+
+  it("keeps a subject on one line", () => {
+    expect(renderLine("{{firstName}}: {{currentTitle}}", { ...TOKENS, currentTitle: "Chief\nFinancial  Officer" })).toBe(
+      "Priya: Chief Financial Officer",
+    );
+  });
+
+  it("names unknown and unfilled tokens in order of first use", () => {
+    const text = "Hi {{firstName}} {{fristName}} {{location}} {{location|here}} {{opener}}";
+    expect(unknownIn(text, ["firstName", "location"])).toEqual(["fristName", "opener"]);
+    expect(unfilledIn(text, { ...TOKENS, location: null })).toEqual(["location"]);
+    expect(unfilledIn("{{location|here}}", { ...TOKENS, location: null })).toEqual([]);
+  });
+
+  it("offers a template the sequence bar's tokens in its order, less the opener, and neither bar a signature", () => {
+    expect(templateTokenOptions(true).map((option) => option.token)).toEqual(
+      tokenOptions(true)
+        .map((option) => option.token)
+        .filter((token) => token !== "{{opener}}"),
+    );
+    expect(tokenOptions(true).map((option) => option.token)).not.toContain("{{signature}}");
+  });
+
+  it("marks a blank and a fallback standing in as their own parts, so a preview can show where each falls", () => {
+    expect(renderParts("In {{location}}, {{location|here}}", { ...TOKENS, location: null }, null)).toEqual([
+      { text: "In ", isOpener: false },
+      { text: "", isOpener: false, isBlank: true, token: "location" },
+      { text: ", ", isOpener: false },
+      { text: "here", isOpener: false, isFallback: true, token: "location" },
+    ]);
+    expect(render("In {{location}}.", { ...TOKENS, location: null }, null)).toBe("In .");
+    expect(render("Hi {{firstName|there}}", TOKENS, null)).toBe("Hi Priya");
+  });
+
+  it("names the variables a fallback stands in for, apart from the ones left blank", () => {
+    const text = "{{firstName|there}} in {{location|your city}}, {{currentTitle}} and {{currentTitle|leader}}";
+    const tokens = { ...TOKENS, location: null, currentTitle: null };
+    expect(fallbacksIn(text, tokens)).toEqual(["location", "currentTitle"]);
+    expect(unfilledIn(text, tokens)).toEqual(["currentTitle"]);
+  });
+
+  it("knows a signature written into the words, however it is spaced, so the editor can refuse it", () => {
+    expect(holdsSignature("Thanks,\n{{ signature|Best }}")).toBe(true);
+    expect(holdsSignature("Thanks, {{senderFirstName}}")).toBe(false);
+    expect(holdsSignature(null)).toBe(false);
+    expect(stepHoldsSignature({ subject: "Hi {{signature}}", body: "Hello" }, 0)).toBe(true);
+    expect(stepHoldsSignature({ subject: "Hi {{signature}}", body: "Hello" }, 1)).toBe(false);
+    expect(stepHoldsSignature({ subject: null, body: "Bye {{signature}}" }, 2)).toBe(true);
+  });
+
+  it("reads a fallback saved from the notes editor without its Markdown escapes", () => {
+    const saved = "Dear {{currentTitle\\|a \\*senior\\* leader}}";
+    expect(tokenUsesIn(saved)).toEqual([{ name: "currentTitle", fallback: "a *senior* leader" }]);
+    expect(render(saved, { ...TOKENS, currentTitle: null }, null)).toBe("Dear a *senior* leader");
+  });
+
+  it("names each person's blanks and fallbacks across a sequence's texts, a blank anywhere winning", () => {
+    const texts = ["For {{location|you}}", "In {{location}}?", "Hi {{firstName|there}}", null];
+    expect(tokenGapsIn(texts, { ...TOKENS, location: null, firstName: null })).toEqual({
+      blanks: ["location"],
+      fallbacks: ["firstName"],
+    });
+    expect(tokenGapsIn(texts, TOKENS)).toEqual({ blanks: [], fallbacks: [] });
+  });
+
+  it("reads a booking link's fallback where there is no link, as the server sends it", () => {
+    expect(renderParts("Book: {{bookingLink|reply to this email}}", { ...TOKENS, bookingLink: null }, null)).toEqual([
+      { text: "Book: ", isOpener: false },
+      { text: "reply to this email", isOpener: false, isFallback: true, token: "bookingLink" },
+    ]);
+    expect(render("Book: {{bookingLink|reply}}", { ...TOKENS, bookingLink: "beta.uncava.com/book/y" }, null)).toBe(
+      "Book: beta.uncava.com/book/y",
+    );
   });
 });

@@ -23,6 +23,12 @@ import lombok.Setter;
 @NoArgsConstructor(access = AccessLevel.PROTECTED) // for JPA only
 public class User extends BaseEntity {
 
+    /** What a deleted account is called wherever its old rows are drawn. */
+    public static final String FORMER_MEMBER_NAME = "Former member";
+
+    /** V25's reserved source: the person's own photo, or their removal of one. No registration id may take it. */
+    public static final String UPLOADED_AVATAR_SOURCE = "USER";
+
     @Column(nullable = false, unique = true)
     private String email;
 
@@ -39,14 +45,24 @@ public class User extends BaseEntity {
     @Column(length = 120)
     private String title;
 
+    /** Shown in the person's email signature. */
+    @Setter
+    @Column(name = "phone", length = 40)
+    private String phone;
+
+    /** Their own LinkedIn profile, canonical {@code https://www.linkedin.com/in/<slug>}. */
+    @Setter
+    @Column(name = "linkedin_url", length = 255)
+    private String linkedinUrl;
+
     @Column(name = "avatar_url")
     private String avatarUrl;
 
-    /** An uppercased registration id; no setter, as it is written only with its picture by {@link #adoptAvatarFrom}. */
+    /** An uppercased registration id, or {@link #UPLOADED_AVATAR_SOURCE}; written only with its picture. */
     @Column(name = "avatar_source", length = 32)
     private String avatarSource;
 
-    /** The person's own clock, or null to keep the workspace's (V160); read through {@code DateTimePreferenceService}. */
+    /** The person's own clock, or null to keep the workspace's (V209); read through {@code DateTimePreferenceService}. */
     @Setter
     @Column(length = 64)
     private String timezone;
@@ -93,25 +109,38 @@ public class User extends BaseEntity {
     @Column(name = "last_workspace_id")
     private UUID lastWorkspaceId;
 
-    /**
-     * Only the current picture's source may replace it; anyone else may only fill an empty one —
-     * otherwise a photo-less account's monogram replaced a real photo. A null source predates the column.
-     *
-     * @return whether the picture was taken
-     */
-    public boolean adoptAvatarFrom(String source, String url) {
-        if (url == null || source == null) {
-            return false;
-        }
-        boolean entitled = avatarUrl == null || avatarUrl.isBlank()
-                || avatarSource == null
-                || avatarSource.equals(source);
-        if (!entitled) {
-            return false;
-        }
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 
-        this.avatarUrl = url;
+    /**
+     * Whether a provider's sign-in may supply the picture. Only the current picture's source may replace it; anyone
+     * else may only fill an empty one — otherwise a photo-less account's monogram replaced a real photo. A null source
+     * predates V25 and is claimed once. The person's own choice, an upload or a removal, is never replaced.
+     */
+    public boolean mayTakeAvatarFrom(String source) {
+        if (source == null || UPLOADED_AVATAR_SOURCE.equals(source) || UPLOADED_AVATAR_SOURCE.equals(avatarSource)) {
+            return false;
+        }
+        return avatarUrl == null || avatarUrl.isBlank() || avatarSource == null || avatarSource.equals(source);
+    }
+
+    /** The caller has decided who may supply it ({@link #mayTakeAvatarFrom}, or the person's own upload). */
+    public void showAvatar(String source, String link) {
+        this.avatarUrl = link;
         this.avatarSource = source;
+    }
+
+    /** Initials from now on, and no provider sign-in brings a picture back: removing it was the person's choice. */
+    public void removeAvatar() {
+        this.avatarUrl = null;
+        this.avatarSource = UPLOADED_AVATAR_SOURCE;
+    }
+
+    /**
+     * Whether the person may upload or remove their own photo. Always, for now: once a workspace can enforce its
+     * identity provider's sign-in, a member of one holds the directory's photo here, in every workspace.
+     */
+    public boolean isAvatarEditable() {
         return true;
     }
 
@@ -128,15 +157,15 @@ public class User extends BaseEntity {
         return user;
     }
 
-    /** Starts verified and active: the provider has already proven the address. */
-    public static User registerFederated(String email, String fullName, String avatarUrl,
-                                         String avatarSource, Instant verifiedAt,
+    /**
+     * Starts verified and active: the provider has already proven the address. No picture yet — the provider's is
+     * copied in once the sign-in commits.
+     */
+    public static User registerFederated(String email, String fullName, Instant verifiedAt,
                                          String privacyPolicyVersion) {
         User user = new User();
         user.email = email;
         user.fullName = fullName;
-        user.avatarUrl = avatarUrl;
-        user.avatarSource = avatarUrl == null ? null : avatarSource;
         user.status = UserStatus.ACTIVE;
         user.emailVerifiedAt = verifiedAt;
         user.termsAcceptedAt = verifiedAt;
@@ -186,6 +215,36 @@ public class User extends BaseEntity {
 
     public void changePassword(String newPasswordHash) {
         this.passwordHash = newPasswordHash;
+    }
+
+    public void discardPassword() {
+        this.passwordHash = null;
+    }
+
+    /**
+     * Account deletion: the row stays, so whatever names its id still resolves, but nothing on it identifies the
+     * person any more. The address becomes one no mailbox answers, unique by the id, so the real one can sign up
+     * afresh.
+     */
+    public void anonymise(Instant now) {
+        this.email = "deleted-" + getId() + "@deleted.invalid";
+        this.passwordHash = null;
+        this.fullName = FORMER_MEMBER_NAME;
+        this.title = null;
+        this.phone = null;
+        this.linkedinUrl = null;
+        this.avatarUrl = null;
+        this.avatarSource = null;
+        this.status = UserStatus.DELETED;
+        this.failedLoginAttempts = 0;
+        this.lockedUntil = null;
+        this.lastLoginAt = null;
+        this.lastWorkspaceId = null;
+        this.deletedAt = now;
+    }
+
+    public boolean isDeleted() {
+        return status == UserStatus.DELETED;
     }
 
     public void attachLocalPassword(String passwordHash) {

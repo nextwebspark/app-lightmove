@@ -1,8 +1,6 @@
 /**
- * <b>Report</b> — a mandate's talent mapping in four chapters, aggregated live from
- * {@code triagecompany}, {@code candidate}, {@code position}, {@code project} and {@code geocoding}
- * rows, none depending back; nothing is stored. The researcher breakdown is a separate staff-only
- * read ({@code WORK_EXECUTE}) so a client seat never carries the firm's people. Unpaged and capped
- * ({@code lightmove.report.*}), the head saying when a cap was hit.
+ * <b>Report</b> — a mandate's talent mapping, aggregated live from other features' rows, none depending back. The
+ * researcher breakdown and Ranking are staff-only ({@code WORK_EXECUTE}); Ranking owns the one table, the position's
+ * scenario (V204), which never writes the brief. Unpaged, capped by {@code lightmove.report.*}.
  */
 package app.lightmove.api.report;

@@ -2,6 +2,22 @@ import { ApiRequestError, createLightMoveApiClient } from "../api/lightMoveApiCl
 import { captureCandidate, removeCandidate } from "../api/captureCandidateApi";
 import { captureCompany, removeTriageCompany } from "../api/captureCompanyApi";
 import { listProjects } from "../api/projectsApi";
+import { readPipeline } from "../api/pipelineApi";
+import {
+  candidatePhoto,
+  changeCandidateStatus,
+  heldCandidate,
+  heldCompany,
+  readCandidate,
+} from "../api/positionRecordApi";
+import { listNotes, pinNote, removeNote, restoreNote, reviseNote, writeNote } from "../api/notesApi";
+import {
+  createCandidateTag,
+  listCandidateTags,
+  readPersonTags,
+  tagPerson,
+  untagPerson,
+} from "../api/candidateTagsApi";
 import type { ExtensionSession } from "../api/types";
 import { extensionConnectUrl, workspaceOrigin } from "../workspaceOrigin";
 import type { PageSubject } from "../content/pageReader/readPageSubject";
@@ -21,7 +37,13 @@ import {
 } from "./panelAvailability";
 import { DEFAULT_CAPTURE_SETTINGS, type CaptureSettings } from "../domain/captureSettings";
 import type { ExtensionFailure, ExtensionRequest } from "./extensionMessages";
-import { CONNECT_RETURN_TAB_KEY, LAST_PROJECT_KEY, LAST_READ_KEY, SETTINGS_KEY } from "./storageKeys";
+import {
+  CONNECT_RETURN_TAB_KEY,
+  LAST_PROJECT_KEY,
+  LAST_READ_KEY,
+  RECENT_PROJECTS_KEY,
+  SETTINGS_KEY,
+} from "./storageKeys";
 import { applyToolbarIcon, watchColorScheme, type ToolbarIconDeps } from "./toolbarIcon";
 import {
   currentAccessToken,
@@ -165,10 +187,47 @@ async function handle(message: ExtensionRequest): Promise<unknown> {
     case "captureCandidate":
       return captureCandidate(api, message.projectId, message.candidate);
     case "rememberProject":
-      await chrome.storage.local.set({ [LAST_PROJECT_KEY]: message.projectId });
+      await rememberProject(message.projectId);
       return null;
     case "lastUsedProject":
       return (await chrome.storage.local.get(LAST_PROJECT_KEY))[LAST_PROJECT_KEY] ?? null;
+    case "recentProjects":
+      return recentProjects();
+    case "readPipeline":
+      return readPipeline(api);
+    case "heldCandidate":
+      return heldCandidate(api, message.projectId, message.linkedinUrl);
+    case "heldCompany":
+      return heldCompany(api, message.projectId, message.linkedinUrl, message.name);
+    case "readCandidate":
+      return readCandidate(api, message.projectId, message.candidateId);
+    case "candidatePhoto":
+      return candidatePhoto(api, message.projectId, message.candidateId);
+    case "changeCandidateStatus":
+      return changeCandidateStatus(api, message.projectId, message.candidateId, message.status);
+    case "listNotes":
+      return listNotes(api, message.target);
+    case "writeNote":
+      return writeNote(api, message.target, message.note);
+    case "reviseNote":
+      return reviseNote(api, message.target, message.noteId, message.note);
+    case "removeNote":
+      await removeNote(api, message.target, message.noteId);
+      return null;
+    case "restoreNote":
+      return restoreNote(api, message.target, message.noteId);
+    case "pinNote":
+      return pinNote(api, message.target, message.noteId, message.pinned);
+    case "listCandidateTags":
+      return listCandidateTags(api);
+    case "createCandidateTag":
+      return createCandidateTag(api, message.label);
+    case "readPersonTags":
+      return readPersonTags(api, message.personId);
+    case "tagPerson":
+      return tagPerson(api, message.personId, message.tagId);
+    case "untagPerson":
+      return untagPerson(api, message.personId, message.tagId);
     case "removeTriageCompany":
       await removeTriageCompany(api, message.projectId, message.triageCompanyId);
       return null;
@@ -189,6 +248,21 @@ async function handle(message: ExtensionRequest): Promise<unknown> {
       // project list rather than reporting anything.
       throw new Error(`This version of UNCAVA Capture cannot handle "${(message as { kind: string }).kind}".`);
   }
+}
+
+const RECENT_PROJECTS_KEPT = 3;
+
+async function rememberProject(projectId: string): Promise<void> {
+  const recent = (await recentProjects()).filter((id) => id !== projectId);
+  await chrome.storage.local.set({
+    [LAST_PROJECT_KEY]: projectId,
+    [RECENT_PROJECTS_KEY]: [projectId, ...recent].slice(0, RECENT_PROJECTS_KEPT),
+  });
+}
+
+async function recentProjects(): Promise<string[]> {
+  const stored = (await chrome.storage.local.get(RECENT_PROJECTS_KEY))[RECENT_PROJECTS_KEY];
+  return Array.isArray(stored) ? (stored as string[]) : [];
 }
 
 /**

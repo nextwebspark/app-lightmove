@@ -2,7 +2,8 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, useToast } from "../../../components/ui";
+import { useToast } from "../../../components/ui";
+import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/ActionMenu";
 import { FoldBody } from "../../../components/ui/FoldBody";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
@@ -13,13 +14,10 @@ import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import { statusCountLabel, statusPreview } from "../lib/pipelineStageRows";
 import { usePipelineRowChange, useRenameDraft } from "../lib/usePipelineRowEdits";
 import { PipelineRetireDialog } from "./PipelineRetireDialog";
-import { ColourDot, DragHandle, RenameActions, RenameForm } from "./PipelineRowControls";
+import { ColourDot, ColourSwatches, DragHandle, RenameActions, RenameForm } from "./PipelineRowControls";
 import { PipelineStatusList } from "./PipelineStatusList";
 
-/**
- * One stage as a row that opens onto its statuses. A stage given no `onStep` is not reordered: the closed
- * stage, which stays last, and every stage for a member who is not an admin.
- */
+/** One stage as a row that opens onto its statuses. A stage given no `onStep` is not reordered: a member's view. */
 export function PipelineStageCard({
   stage,
   isAdmin,
@@ -90,7 +88,8 @@ function StageHeader({
     rename,
   );
   const statuses = liveStatuses(stage);
-  const isClosed = stage.kind === "closed";
+  // Nothing a card could stand at, so the board draws no column for it — an old Declined stage, say.
+  const offTheBoard = statuses.length > 0 && statuses.every((status) => status.outOfProcess);
   const renameFormId = `rename-stage-${stage.id}`;
 
   const toast = useToast();
@@ -116,18 +115,7 @@ function StageHeader({
   return (
     <div className={cn("flex flex-wrap items-center gap-2.5 px-4 py-2", shown && "border-b border-u-border")}>
       {onStep && <DragHandle label={`Reorder ${stage.label} stage`} sortable={sortable} onStep={onStep} />}
-      {isAdmin && isClosed && (
-        <span title="The closed stage stays last" className="grid w-3.5 place-items-center text-u-text3">
-          <Icon d={ICONS.lock} size={12} />
-        </span>
-      )}
-      <ColourDot
-        colour={stage.colour}
-        name={`${stage.label} stage`}
-        size="stage"
-        editable={isAdmin}
-        onChange={(colour) => change({ colour })}
-      />
+      <ColourDot colour={stage.colour} size="stage" />
       {/* Named by what it shows, the spaces between its parts included; with the name being retyped it shows
           only the chevron, so it is named outright. */}
       <button
@@ -153,15 +141,18 @@ function StageHeader({
         {!rename.renaming && (
           <>
             <span className="flex-none text-body font-semibold text-u-text">{stage.label}</span>{" "}
-            <span
-              className={cn(
-                "flex-none rounded-full px-2 py-0.5 font-mono text-meta font-medium",
-                isClosed ? "bg-u-raised text-u-text3" : "bg-u-accent-tint text-u-accent",
-              )}
-            >
-              {isClosed ? "Closed" : "Active"}
+            {offTheBoard && (
+              <span
+                title="Every status here is out of process, so the board draws no column for it"
+                className="flex-none rounded-full bg-u-raised px-2 py-0.5 font-mono text-meta font-medium text-u-text3"
+              >
+                Not on the board
+              </span>
+            )}{" "}
+            {/* Shrinks on a phone rather than running under the ⋯. */}
+            <span className="min-w-0 truncate font-mono text-meta text-u-text3 sm:shrink-0">
+              {statusCountLabel(statuses.length, statuses.filter((status) => status.outOfProcess).length)}
             </span>{" "}
-            <span className="flex-none font-mono text-meta text-u-text3">{statusCountLabel(statuses.length)}</span>{" "}
             {!shown && (
               <span className="min-w-0 truncate font-mono text-meta text-u-text3">
                 {statusPreview(statuses.map((status) => status.label))}
@@ -179,19 +170,43 @@ function StageHeader({
         />
       )}
       {isAdmin && (
-        <span className="ms-auto flex flex-none gap-1">
+        <span className="ms-auto flex flex-none items-center gap-1">
           <RenameActions formId={renameFormId} rename={rename} saving={isPending} />
-          {!isClosed && (
-            <Button
-              variant="ghost"
-              size="xs"
-              title="Retire this stage"
-              aria-label={`Retire ${stage.label} stage`}
-              disabled={isPending || checking}
-              onClick={() => void handleRetire()}
-            >
-              <Icon d={ICONS.archive} size={14} />
-            </Button>
+          {!rename.renaming && (
+            <ActionMenu label={`${stage.label} stage options`} width={220}>
+              {(close) => (
+                <>
+                  <ColourSwatches
+                    colour={stage.colour}
+                    onChange={(colour) => {
+                      close();
+                      change({ colour });
+                    }}
+                  />
+                  <MenuItem
+                    icon={ICONS.pencil}
+                    onSelect={() => {
+                      close();
+                      rename.begin();
+                    }}
+                  >
+                    Rename
+                  </MenuItem>
+                  <MenuSeparator />
+                  <MenuItem
+                    icon={ICONS.archive}
+                    tone="danger"
+                    disabled={isPending || checking}
+                    onSelect={() => {
+                      close();
+                      void handleRetire();
+                    }}
+                  >
+                    Retire stage
+                  </MenuItem>
+                </>
+              )}
+            </ActionMenu>
           )}
         </span>
       )}

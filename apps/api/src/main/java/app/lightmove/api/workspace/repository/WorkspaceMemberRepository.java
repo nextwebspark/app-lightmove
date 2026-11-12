@@ -3,6 +3,7 @@ package app.lightmove.api.workspace.repository;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -41,8 +42,13 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
     @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByWorkspaceIdAndUserId(UUID workspaceId, UUID userId);
 
+    /** Every membership row the person holds, whatever its status, oldest first. */
+    List<WorkspaceMember> findAllByUserIdOrderByJoinedAtAsc(UUID userId);
+
     @EntityGraph(attributePaths = "roles")
     List<WorkspaceMember> findByWorkspaceIdAndStatus(UUID workspaceId, MemberStatus status);
+
+    List<WorkspaceMember> findByWorkspaceIdAndEndedWithWorkspaceTrue(UUID workspaceId);
 
     /** The staff roster: everyone but a <b>pure</b> client (CLIENT alongside a staff role is staff). */
     @EntityGraph(attributePaths = "roles")
@@ -67,6 +73,13 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
 
     @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
+
+    /** Every membership the workspace ever held, removed ones included — the audit log names them all. */
+    List<WorkspaceMember> findByWorkspaceId(UUID workspaceId);
+
+    List<WorkspaceMember> findByWorkspaceIdAndUserIdIn(UUID workspaceId, Collection<UUID> userIds);
+
+    List<WorkspaceMember> findByWorkspaceIdAndIdIn(UUID workspaceId, Collection<UUID> ids);
 
     /** A projection, not a lazy walk: authorisation runs in {@code @PreAuthorize}, outside a transaction. */
     @Query("select r.name from WorkspaceMember m join m.roles r where m.id = :memberId")

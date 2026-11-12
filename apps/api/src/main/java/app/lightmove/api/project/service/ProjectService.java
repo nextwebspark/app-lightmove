@@ -11,6 +11,7 @@ import app.lightmove.api.core.security.rbac.ProjectRole;
 import app.lightmove.api.core.security.rbac.RbacService;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
+import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.text.service.ConfirmationName;
@@ -72,6 +73,7 @@ public class ProjectService {
     private final ProjectRepository projects;
     private final ProjectMemberRepository seats;
     private final ClientRepository clients;
+    private final ClientRegistrar clientRegistrar;
     private final ClientRepresentativeRepository representatives;
     private final PendingRepresentativeAttachmentRepository pendingAttachments;
     private final PositionService positionService;
@@ -135,6 +137,17 @@ public class ProjectService {
         return all.stream().map(project -> toResponse(project, assembly)).toList();
     }
 
+    /** Every mandate the workspace ever ran, archived ones included: the export of the whole workspace. */
+    @Transactional(readOnly = true)
+    public List<ProjectResponse> listEveryInWorkspace(UUID workspaceId) {
+        List<Project> all = projects.findByWorkspaceIdOrderByCreatedAtDesc(workspaceId);
+        if (all.isEmpty()) {
+            return List.of();
+        }
+        Assembly assembly = assemblyFor(workspaceId, all, Set.of());
+        return all.stream().map(project -> toResponse(project, assembly)).toList();
+    }
+
     @Transactional(readOnly = true)
     public ProjectResponse get(UUID workspaceId, UUID projectId, ProjectAudience audience) {
         return responseFor(workspaceId, projects.requireInWorkspace(projectId, workspaceId), audience);
@@ -146,17 +159,19 @@ public class ProjectService {
         return responseFor(workspaceId, project, ProjectAudience.STAFF).team();
     }
 
-    /** The creator is the mandate's LEAD from birth; handover is an ordinary seat change. */
+    /**
+     * The creator is the mandate's LEAD from birth; handover is an ordinary seat change. A client made with the
+     * position is recorded last, once nothing can refuse the position, since its audit line commits on its own.
+     */
     @Transactional
     public ProjectResponse create(UUID userId, UUID workspaceId, CreateProjectRequest request,
                                   HttpServletRequest httpRequest) {
         WorkspaceMember creator = access.requireActiveMember(userId, workspaceId);
-        Client client = requireLiveClient(request.clientId(), workspaceId);
-
         ProjectTimeline timeline = ProjectTimeline.resolve(request.projectType(), request.startDate(),
                 request.deliveryDate(), request.mappingTargetDate());
+        Client client = clientFor(userId, workspaceId, request);
 
-        Project project = projects.save(Project.create(workspaceId, request.clientId(),
+        Project project = projects.save(Project.create(workspaceId, client.getId(),
                 request.positionTitle(), request.targetDate(), request.projectType(), timeline, userId));
         seats.save(ProjectMember.of(project.getId(), creator.getId(),
                 rbac.projectRoles(EnumSet.of(ProjectRole.LEAD)), userId));
@@ -164,6 +179,9 @@ public class ProjectService {
                 client.getHqCountry());
 
         log.info("User {} created project {} in workspace {}", userId, project.getId(), workspaceId);
+        if (request.newClient() != null) {
+            clientRegistrar.recordCreated(userId, workspaceId, client, httpRequest);
+        }
         audit.projectEvent(ProjectEventType.PROJECT_CREATED, userId, workspaceId, project.getId(), httpRequest)
                 .detail("position", project.getPositionTitle())
                 .detail("type", project.getProjectType().name())
@@ -233,6 +251,25 @@ public class ProjectService {
                     .record();
         }
         return responseFor(workspaceId, project, ProjectAudience.STAFF);
+    }
+
+    /**
+     * Made in this transaction when the request names a new one, so a position refused after it leaves no record
+     * behind: the New position modal once created the record in a request of its own, and a refused position kept it.
+     */
+    private Client clientFor(UUID userId, UUID workspaceId, CreateProjectRequest request) {
+        if (request.clientId() == null && request.newClient() == null) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "clientId", "Choose who the position is for");
+        }
+        if (request.clientId() != null && request.newClient() != null) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "clientId",
+                    "Choose an existing client or name a new one, not both");
+        }
+        if (request.clientId() != null) {
+            return requireLiveClient(request.clientId(), workspaceId);
+        }
+        access.requireAction(userId, workspaceId, WorkspaceAction.CLIENT_RECORD_MANAGE);
+        return clientRegistrar.register(userId, workspaceId, request.newClient().details());
     }
 
     /** Shares the archive's lock on the record, so an archive deciding on it now sees this position, or refuses it. */

@@ -1,6 +1,6 @@
 # Tasks, @mentions and notifications
 
-Epic #862 (phases #863–#866; #867 is later). Mockups: `claude-design/Position.dc.html` (Next action modal,
+Epic #862 (phases #863–#866; #867 is later). Mockups: `uncava-design/Position.dc.html` (Next action modal,
 the drawer's Next actions, the card), `Notifications.dc.html` (the bell), `Workspace.dc.html` (My tasks) and
 `Settings.dc.html` (Task presets, Notifications).
 
@@ -68,7 +68,7 @@ type TaskKind = 'call' | 'email' | 'meeting' | 'follow_up' | 'todo';
 type TaskStatus = 'open' | 'done' | 'cancelled';
 type TaskRule = 'reply' | 'bounce' | 'booked_call';
 interface TaskPerson { userId: string; fullName: string | null; avatarUrl: string | null }
-interface TaskNote { id: string; kind: 'general' | 'call' | 'meeting' | 'email'; writtenAt: string }  // never its words
+interface TaskNote { id: string; kind: 'general' | 'call' | 'meeting' | 'email' | 'linkedin'; writtenAt: string }  // never its words
 interface TaskResponse {
   id: string; projectId: string; projectTitle: string | null; candidateId: string | null;
   personId: string; personName: string | null;

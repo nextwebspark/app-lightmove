@@ -1,6 +1,5 @@
-import { moveItem } from "../../../lib/moveItem";
 import type { CandidatePipelineStage } from "../../candidates/api/types";
-import type { PipelineCatalog, PipelineStatus } from "../../workspace/api/types";
+import type { PipelineCatalog, PipelineStage, PipelineStatus } from "../../workspace/api/types";
 import type { PipelineRankMove, PipelineRow } from "../api/types";
 import { formatShortDate } from "../../../lib/datetime";
 
@@ -8,42 +7,10 @@ export function shortDate(moment: Date | string): string {
   return formatShortDate(moment) ?? "—";
 }
 
-/** Whole days since the status changed, never negative. */
-export function daysInStage(statusChangedAt: string, now: Date = new Date()): number {
-  const elapsed = now.getTime() - new Date(statusChangedAt).getTime();
-  return Math.max(0, Math.floor(elapsed / 86_400_000));
-}
-
-/**
- * A drag of one row onto another: the new order and the two rows it now sits between. A row moves only
- * among its own stage's rows, since a stage is changed by a status and never by a drag in the list.
- */
-export function rankMoveOf(
-  rows: readonly PipelineRow[],
-  movedId: string,
-  targetId: string,
-): { rows: PipelineRow[]; move: PipelineRankMove } | null {
-  const moved = rows.find((row) => row.candidateId === movedId);
-  const target = rows.find((row) => row.candidateId === targetId);
-  if (!moved || !target || moved === target || moved.pipelineStage.key !== target.pipelineStage.key) return null;
-  const from = rows.indexOf(moved);
-  const to = rows.indexOf(target);
-  const reordered = moveItem(rows, from, to);
-  const sameStage = reordered.filter((row) => row.pipelineStage.key === moved.pipelineStage.key);
-  const at = sameStage.indexOf(moved);
-  return {
-    rows: reordered,
-    move: {
-      afterCandidateId: sameStage[at - 1]?.candidateId ?? null,
-      beforeCandidateId: sameStage[at + 1]?.candidateId ?? null,
-    },
-  };
-}
-
 /** Where a dropped card goes: its stage, the status it is given (null keeps its own), and the card it lands before. */
 export interface BoardTarget {
   stage: CandidatePipelineStage;
-  status: Pick<PipelineStatus, "key" | "label" | "colour"> | null;
+  status: Pick<PipelineStatus, "key" | "label" | "colour" | "outOfProcess"> | null;
   beforeId: string | null;
 }
 
@@ -98,6 +65,7 @@ function withStatus(
     status: status.key,
     statusLabel: status.label,
     statusColour: status.colour,
+    outOfProcess: status.outOfProcess,
     pipelineStage: stage,
     statusChangedAt: now.toISOString(),
   };
@@ -133,25 +101,56 @@ function endOfStage(rows: readonly PipelineRow[], stage: CandidatePipelineStage)
   return later === -1 ? rows.length : later;
 }
 
-export interface InactiveGroup {
-  status: string;
-  label: string;
+/** A stage's live statuses out of process: the ways out a card dropped under that stage is offered. */
+export function waysOutOf(catalog: PipelineCatalog, stageKey: string): PipelineStatus[] {
+  const stage = catalog.stages.find((candidate) => candidate.key === stageKey);
+  if (!stage || stage.retired) return [];
+  return stage.statuses.filter((status) => status.outOfProcess && !status.retired);
+}
+
+/** One cell of the board's Out of process band: the people out of process under one stage, and its ways out. */
+export interface OutOfProcessCell {
+  stage: CandidatePipelineStage;
+  /** False for a stage with no column above it, whose cell names it instead. */
+  underColumn: boolean;
+  waysOut: PipelineStatus[];
   rows: PipelineRow[];
 }
 
-/** The closed stage's people grouped by status, in the catalog's order; only statuses someone holds. */
-export function inactiveGroupsOf(rows: readonly PipelineRow[], catalog: PipelineCatalog): InactiveGroup[] {
-  const closed = rows.filter((row) => row.pipelineStage.kind === "closed");
-  const order = catalog.stages.flatMap((stage) => stage.statuses.map((status) => status.key));
-  const groups = new Map<string, InactiveGroup>();
-  for (const row of closed) {
-    const group = groups.get(row.status) ?? { status: row.status, label: row.statusLabel, rows: [] };
-    group.rows.push(row);
-    groups.set(row.status, group);
+/**
+ * The band's cells: one under each column, in the columns' order, then one for each stage with no column that
+ * offers a way out or holds someone — a stage of ways out alone, like the old Declined.
+ */
+export function outOfProcessCellsOf(
+  rows: readonly PipelineRow[],
+  columns: readonly CandidatePipelineStage[],
+  catalog: PipelineCatalog,
+): OutOfProcessCell[] {
+  const out = rows.filter((row) => row.outOfProcess);
+  const cellOf = (stage: CandidatePipelineStage, underColumn: boolean): OutOfProcessCell => ({
+    stage,
+    underColumn,
+    waysOut: waysOutOf(catalog, stage.key),
+    rows: out.filter((row) => row.pipelineStage.key === stage.key),
+  });
+  const columnKeys = new Set(columns.map((column) => column.key));
+  const uncolumned = new Map<string, CandidatePipelineStage>();
+  for (const stage of catalog.stages) {
+    if (!columnKeys.has(stage.key) && waysOutOf(catalog, stage.key).length > 0) {
+      uncolumned.set(stage.key, candidateStageOf(stage));
+    }
   }
-  const rank = (key: string) => {
-    const index = order.indexOf(key);
-    return index === -1 ? Number.MAX_SAFE_INTEGER : index;
-  };
-  return [...groups.values()].sort((a, b) => rank(a.status) - rank(b.status));
+  for (const row of out) {
+    if (!columnKeys.has(row.pipelineStage.key) && !uncolumned.has(row.pipelineStage.key)) {
+      uncolumned.set(row.pipelineStage.key, row.pipelineStage);
+    }
+  }
+  return [
+    ...columns.map(({ key, label, colour, position }) => cellOf({ key, label, colour, position }, true)),
+    ...[...uncolumned.values()].sort((a, b) => a.position - b.position).map((stage) => cellOf(stage, false)),
+  ];
+}
+
+export function candidateStageOf({ key, label, colour, position }: PipelineStage): CandidatePipelineStage {
+  return { key, label, colour, position };
 }

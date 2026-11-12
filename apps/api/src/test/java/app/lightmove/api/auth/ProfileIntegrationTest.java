@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import java.util.List;
@@ -23,7 +24,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @IntegrationTest
 class ProfileIntegrationTest extends FlowTestSupport {
 
-    @Autowired JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc JdbcTemplate jdbc;
 
     private static final String EDIT = """
             {"fullName":"Alok B Kumar","title":"Managing Partner",

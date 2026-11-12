@@ -16,13 +16,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * Whether an executive a mandate is filing is someone the workspace already knows — on a key that
- * identifies a human rather than describes one. The LinkedIn profile first; then an email address,
- * unless the two records name different profiles, since one address shared by two profiles is a
- * shared inbox, not one person.
- *
- * <p>Not a phone: a switchboard number is on every executive of a company. Not a name: two people share
- * one, and folding them silently is the one mistake a merge tool cannot see afterwards.
+ * Whether the workspace already knows an executive: by LinkedIn profile, then an email unless the two name different
+ * profiles (a shared inbox). Never a phone (switchboards) or a name (a silent fold no merge tool can see).
  */
 @Component
 @RequiredArgsConstructor

@@ -12,12 +12,8 @@ export interface PageSubject {
   /** The address the page had while it was read, so the worker can refuse an answer about another. */
   pageUrl: string;
   /**
-   * The address the page *declares* it is — `canonical`, else `og:url`, and never the address bar.
-   *
-   * Kept apart from `pageUrl` because the two disagree in exactly the case that matters: LinkedIn
-   * navigates with pushState, so the address bar is the new profile while the head still declares the
-   * previous one. Evidence of staleness only — a page-supplied value can make a read wait, never make
-   * one trusted.
+   * The address the page *declares* (`canonical`, else `og:url`), kept apart from `pageUrl` because pushState updates
+   * the bar first. Evidence of staleness only — it can make a read wait, never make one trusted.
    */
   declaredUrl: string | null;
 }

@@ -1,13 +1,8 @@
 import type { NumericRange, StrategyFilter } from "../api/types";
 
 /**
- * Whether two filters select the same thing — what marks a saved search as the one currently on
- * screen.
- *
- * The comparison mirrors the server's own normalisation rather than the literal documents: token
- * lists are sets, so the order chips were clicked in is not meaning, and a range of two nulls is the
- * absence of a range, which is how `StrategyFilter`'s compact constructor stores it. Comparing the
- * raw JSON instead would leave a search that was just loaded looking inactive.
+ * Whether two filters select the same thing, mirroring the server's normalisation: token lists are sets and a two-null
+ * range is no range, so a just-loaded search reads as active.
  */
 export function sameFilter(a: StrategyFilter, b: StrategyFilter): boolean {
   return (

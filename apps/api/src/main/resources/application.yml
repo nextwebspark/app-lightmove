@@ -68,6 +68,13 @@ spring:
     # starts at V2 — leaving V4 to fail on an app_lm_user that V1 was never asked to create.
     # A baseline of 0 records "nothing has been applied yet" and runs the whole chain from V1.
     baseline-version: 0
+    # A backfill must reach every workspace's rows, and until #256 Flyway runs as the very owner row-level
+    # security is forced on (V184), so its own session turns the policies' maintenance arm on. Naming the user
+    # gives Flyway a DataSource of its own: on a borrowed pooled connection the flag would outlive the migration
+    # and serve the application, which RowLevelSecurityPosture refuses to boot over.
+    user: ${spring.datasource.username}
+    password: ${spring.datasource.password}
+    init-sqls: SET app.rls_maintenance = 'on'
     placeholders:
       # The Cloud SQL IAM principal granted read access to the schema (see V2). Empty = grant nothing,
       # which is what a production deployment wants.
@@ -260,6 +267,14 @@ lightmove:
     lockout:
       max-failed-attempts: 5
       duration: 15m
+    # Two-factor authentication (#1081, #1082). Every sign-in door asks for the code, the OAuth callback included;
+    # off in deployments until its rollout. Offered only where lightmove.crypto.keyset is set as well, since the
+    # secret is kept encrypted. A person who already has it is asked for the code whatever this says.
+    mfa:
+      enabled: ${MFA_ENABLED:false}
+      challenge-ttl: 5m
+      challenge-cookie-name: lm_mfa_challenge
+      recent-sign-in: 10m
     rate-limit:
       # Right for production; useless for anyone testing, who will create half a dozen accounts in a row
       # and be locked out by their own fourth attempt. application-local.yml already raises these for
@@ -273,6 +288,8 @@ lightmove:
       signup-attempts-per-hour: ${AUTH_SIGNUP_ATTEMPTS_PER_HOUR:5}
       verification-resends-per-hour: ${AUTH_VERIFICATION_RESENDS_PER_HOUR:3}
       password-reset-requests-per-hour: ${AUTH_PASSWORD_RESET_REQUESTS_PER_HOUR:3}
+      mfa-verify-attempts-per-minute: ${AUTH_MFA_VERIFY_ATTEMPTS_PER_MINUTE:10}
+      mfa-change-attempts-per-hour: ${AUTH_MFA_CHANGE_ATTEMPTS_PER_HOUR:10}
       extension-pairings-per-hour: ${AUTH_EXTENSION_PAIRINGS_PER_HOUR:5}
       extension-pairings-per-hour-per-ip: ${AUTH_EXTENSION_PAIRINGS_PER_HOUR_PER_IP:60}
       onboarding-company-searches-per-minute: ${AUTH_ONBOARDING_COMPANY_SEARCHES_PER_MINUTE:60}
@@ -280,6 +297,11 @@ lightmove:
       workspace-creations-per-hour-per-ip: ${AUTH_WORKSPACE_CREATIONS_PER_HOUR_PER_IP:60}
       booking-page-opens-per-minute: ${AUTH_BOOKING_PAGE_OPENS_PER_MINUTE:30}
       booking-page-bookings-per-hour: ${AUTH_BOOKING_PAGE_BOOKINGS_PER_HOUR:5}
+      avatar-changes-per-hour: ${AUTH_AVATAR_CHANGES_PER_HOUR:20}
+      avatar-changes-per-hour-per-ip: ${AUTH_AVATAR_CHANGES_PER_HOUR_PER_IP:300}
+      invitations-per-hour-per-workspace: ${AUTH_INVITATIONS_PER_HOUR_PER_WORKSPACE:100}
+      invitations-per-hour-per-recipient: ${AUTH_INVITATIONS_PER_HOUR_PER_RECIPIENT:5}
+      avatar-reads-per-minute: ${AUTH_AVATAR_READS_PER_MINUTE:1200}
 
   # The demo LLM endpoints (/api/v1/llm/*) call billed Vertex AI usage with only authentication as
   # a gate, so each is additionally capped per user. Same in-memory-per-instance caveat as the auth
@@ -584,6 +606,8 @@ lightmove:
     # its second half still looks like a complete file, which is the one thing an export must not do.
     max-companies: ${EXPORT_MAX_COMPANIES:5000}
     max-candidates: ${EXPORT_MAX_CANDIDATES:10000}
+    # Settings → Security → Audit log's CSV, refused on the same terms.
+    max-audit-events: ${EXPORT_MAX_AUDIT_EVENTS:10000}
 
   # Keys for the public API (/api/v1/public/**). Every key expires: 90 days unless its maker picks another
   # term, never past max-key-ttl. The per-user ceiling counts live personal keys only.
@@ -637,6 +661,8 @@ lightmove:
     max-nationalities: ${REPORT_MAX_NATIONALITIES:11}
     max-employers-per-hub: ${REPORT_MAX_EMPLOYERS_PER_HUB:3}
     max-executives-per-slice: ${REPORT_MAX_EXECUTIVES_PER_SLICE:12}
+    # The Ranking chapter lists the assessed executives of one position; past this the best-scored stand.
+    max-ranked: ${REPORT_MAX_RANKED:250}
 
   # Outreach email goes from each consultant's own Gmail or Outlook, connected through Nylas's hosted
   # sign-in. A blank key or client id leaves outreach unoffered. The Nylas application must list
@@ -714,6 +740,12 @@ lightmove:
   # and rotate by adding a key and promoting it: what was written under the old one still decrypts.
   crypto:
     keyset: ${CREDENTIAL_KEYSET:}
+    # The suppression list's HMAC-SHA-256 keyset, mounted from lightmove-suppression-keyset: every entry is a hash
+    # under it, so a copy of the table cannot be tested against a guessed email or slug. Blank, no workspace can add
+    # to its list, and one already holding entries is refused at every door rather than let through. Make one with
+    #   tinkey create-keyset --key-template HMAC_SHA256_PRF --out-format json
+    # and rotate by adding a key and promoting it, keeping the old one while any entry is written under it.
+    suppression-keyset: ${SUPPRESSION_KEYSET:}
 
   # Recall.ai's Calendar API: one platform account, never one per workspace. The region is the base URL (each
   # region is its own account and key; EU is https://eu-central-1.recall.ai). Blank, calendars are read directly
@@ -726,6 +758,8 @@ lightmove:
     base-url: ${RECALL_BASE_URL:https://us-east-1.recall.ai}
     # Read by @Scheduled, which never sees a binding default, so it is spelled out here.
     bot-reconcile-interval: ${RECALL_BOT_RECONCILE_INTERVAL:PT10M}
+    # How often an erased person's Recall bots still refused are tried again; read by @Scheduled, so spelled out.
+    bot-erasure-sweep-interval: ${RECALL_BOT_ERASURE_SWEEP_INTERVAL:PT1M}
     # Blank keeps every Notetaker transcript; a duration (e.g. 90d) clears one whose note is gone, or that never filed
     # one, once it has sat untouched that long.
     transcript-retention: ${NOTETAKER_TRANSCRIPT_RETENTION:}
@@ -740,6 +774,7 @@ lightmove:
     provider: ${STORAGE_PROVIDER:filesystem}
     bucket: ${STORAGE_BUCKET:}
     directory: ${STORAGE_DIRECTORY:.data/documents}
+    deletion-sweep-interval: ${STORAGE_DELETION_SWEEP_INTERVAL:PT1M}
 
   # A person's CV, cover letter and references, each a stack of versions.
   person-documents:
@@ -762,8 +797,46 @@ lightmove:
     purge-after: ${NOTES_PURGE_AFTER:30d}
     purge-interval: ${NOTES_PURGE_INTERVAL:PT1H}
 
+  # The suppression list, erasure, restriction and the retention review (#917). Off, their routes are a 404.
+  data-protection:
+    enabled: ${DATA_PROTECTION_ENABLED:false}
+
+  # How long system rows holding personal data are kept (#921): one value per row of
+  # docs/gdpr/retention-schedule.md, swept every sweep-interval by RetentionSweeper. Defaults await counsel.
+  # Off until counsel signs the periods off: no sweeper is made, and nothing is deleted.
+  retention:
+    enabled: ${RETENTION_ENABLED:false}
+    sweep-interval: ${RETENTION_SWEEP_INTERVAL:PT1H}
+    refresh-tokens-after: ${RETENTION_REFRESH_TOKENS_AFTER:30d}
+    verification-tokens-after: ${RETENTION_VERIFICATION_TOKENS_AFTER:30d}
+    mfa-challenges-after: ${RETENTION_MFA_CHALLENGES_AFTER:1d}
+    invitations-after: ${RETENTION_INVITATIONS_AFTER:90d}
+    notifications-after: ${RETENTION_NOTIFICATIONS_AFTER:90d}
+    digests-after: ${RETENTION_DIGESTS_AFTER:90d}
+    assistant-threads-after: ${RETENTION_ASSISTANT_THREADS_AFTER:180d}
+    usage-events-after: ${RETENTION_USAGE_EVENTS_AFTER:400d}
+    # A workspace that has not chosen in Settings → Data & retention: 12, 24, 36 or 60, blank for never.
+    candidate-months: ${RETENTION_CANDIDATE_MONTHS:24}
+    # A deleted workspace (#926): members lose access at once, everything is purged after this grace period.
+    deleted-workspaces-after: ${RETENTION_DELETED_WORKSPACES_AFTER:30d}
+    workspace-purge-interval: ${RETENTION_WORKSPACE_PURGE_INTERVAL:PT15M}
+    workspace-exports-after: ${RETENTION_WORKSPACE_EXPORTS_AFTER:7d}
+    workspace-export-deadline: ${RETENTION_WORKSPACE_EXPORT_DEADLINE:2h}
+
+  # Forced row-level security on the tenant tables (V184). On, a database that would not enforce it — a superuser or
+  # BYPASSRLS runtime role, an unforced table — fails the boot; off, it is only a warning.
+  row-level-security:
+    require-enforced: ${RLS_REQUIRE_ENFORCED:true}
+
+  # Profile photos (V170). The cap is on the file as sent; what is stored is re-encoded to at most 512px.
+  avatars:
+    max-upload-bytes: ${AVATAR_MAX_UPLOAD_BYTES:5242880}
+
   # Contact credits (epic #734). On, a find the credits cannot cover is refused (402); off, it is recorded as an overdraft.
   billing:
+    # Off switches billing off for every workspace at once: no credit, trial, seat or fair-use refusal, no billing
+    # email but a failed payment, and the SPA shows none of it. Finds still drain the month's credits (the shortfall an
+    # overdraft) and claim its 80/90/used-up warnings, so turn it back on at a billing month's start or grant first.
     enforce: ${BILLING_ENFORCE:true}
     hold-ttl: ${BILLING_HOLD_TTL:15m}
     # How often lapsed grants are expired and unsettled holds released. Spelled out: @Scheduled reads it.

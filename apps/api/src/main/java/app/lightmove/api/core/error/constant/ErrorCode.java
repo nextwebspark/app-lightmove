@@ -52,6 +52,34 @@ public enum ErrorCode {
     /** Provider-only account: attaching a password is the reset flow's job, which proves the mailbox first. */
     PASSWORD_NOT_SET(HttpStatus.CONFLICT, "This account signs in with a provider and has no password to change"),
 
+    /**
+     * Every refusal of a two-factor code: wrong, replayed, an expired or spent challenge, a locked account. Only
+     * the password's holder reaches this step, so it may name the code; it must not say which of those it was.
+     */
+    MFA_CODE_INVALID(HttpStatus.BAD_REQUEST, "That code didn't work. Check your authenticator app and try again"),
+
+    MFA_ALREADY_ENABLED(HttpStatus.CONFLICT, "Two-factor authentication is already on"),
+    MFA_NOT_ENABLED(HttpStatus.CONFLICT, "Two-factor authentication is not on"),
+
+    /** The setup's secret is gone (another tab started over, or it was turned on there); the QR shown is stale. */
+    MFA_SETUP_NOT_STARTED(HttpStatus.CONFLICT, "Start setting up two-factor authentication again"),
+
+    /** Not offered: switched off, or nowhere to keep the secret encrypted. */
+    MFA_UNAVAILABLE(HttpStatus.CONFLICT, "Two-factor authentication is not available yet"),
+
+    /** A person with no password proves it is them by having signed in moments ago. */
+    MFA_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign out and back in, then turn on two-factor authentication within 10 minutes"),
+
+    /** Account deletion, by a person with no password: the proof is a sign-in moments ago, as for two-factor. */
+    ACCOUNT_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign in again, then delete your account within 10 minutes"),
+
+    /**
+     * Carries {@code soleAdminOf} (workspaces, id and name) and {@code soleLeadOf} (live positions, with their
+     * workspace): what the person must hand over before their account can go, since nobody else could.
+     */
+    ACCOUNT_HANDOVER_REQUIRED(HttpStatus.CONFLICT,
+            "Hand over the workspaces you are the only admin of, and the positions you are the only lead of, first"),
+
     /** Also served for a session belonging to somebody else — a 403 would confirm the id names a real one. */
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "That session is no longer active"),
 
@@ -65,12 +93,14 @@ public enum ErrorCode {
 
     INVITATION_INVALID(HttpStatus.BAD_REQUEST, "This invitation is not valid"),
     INVITATION_EXPIRED(HttpStatus.BAD_REQUEST, "This invitation has expired"),
+    INVITATION_EMAIL_NOT_SENT(HttpStatus.BAD_GATEWAY, "The invitation email could not be sent"),
 
     LAST_ADMIN(HttpStatus.CONFLICT, "A workspace must keep at least one admin"),
 
     MEMBER_LEADS_PROJECTS(HttpStatus.CONFLICT,
             "This member is the only lead on active projects. Hand those over first"),
 
+    /** Carries {@code clientId}: the live record holding the name, or the universe company, for the caller to reuse. */
     CLIENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "A client with this name already exists"),
 
     /** Carries {@code positionIds}: the live positions to archive first, never archived out from under. */
@@ -80,6 +110,9 @@ public enum ErrorCode {
 
     /** Kept apart from {@link #CLIENT_ALREADY_EXISTS}, whose caller reuses the record it names from the live list. */
     CLIENT_NAME_ARCHIVED(HttpStatus.CONFLICT, "An archived client has this name. Restore it instead"),
+
+    /** The universe company an archived record was picked as, whatever that record is called now. */
+    CLIENT_COMPANY_ARCHIVED(HttpStatus.CONFLICT, "An archived client is this company. Restore it instead"),
 
     PROJECT_LAST_LEAD(HttpStatus.CONFLICT, "A project must keep at least one lead"),
 
@@ -94,6 +127,10 @@ public enum ErrorCode {
     /** A market company's fields are the export's snapshot; editing them would make the Source badge lie. */
     TRIAGE_COMPANY_NOT_EDITABLE(HttpStatus.CONFLICT,
             "A company taken from the market cannot be edited"),
+
+    /** Removing a company takes everyone mapped at it; more are mapped than the caller warned about. */
+    TRIAGE_COMPANY_HAS_EXECUTIVES(HttpStatus.CONFLICT,
+            "Executives are mapped at this company; removing it would remove them too"),
 
     /**
      * Same name at the same company (or anywhere, for an employer outside the universe), or a LinkedIn
@@ -198,10 +235,6 @@ public enum ErrorCode {
     CONTACT_LIMIT_REACHED(HttpStatus.CONFLICT,
             "A profile holds ten email addresses and ten phone numbers at most"),
 
-    /** A plugin capture's URL is the page it was read off, and research and contact lookup key on it. */
-    CANDIDATE_PROFILE_URL_LOCKED(HttpStatus.CONFLICT,
-            "This profile was captured from LinkedIn; its URL is not editable"),
-
     /** Another person in the workspace is that LinkedIn profile; the mandate may map them instead. */
     PERSON_PROFILE_HELD(HttpStatus.CONFLICT,
             "Another candidate in this workspace already has that LinkedIn profile"),
@@ -231,6 +264,14 @@ public enum ErrorCode {
     CANDIDATE_ASSESSMENT_STALE(HttpStatus.CONFLICT,
             "Someone saved this assessment after you opened it. Reload to see their changes"),
 
+    /** A teammate saved the position's ranking scenario after it was opened here. */
+    RANKING_SCENARIO_STALE(HttpStatus.CONFLICT,
+            "Someone saved this scenario after you opened it. Reload to see their changes"),
+
+    /** The brief's competencies changed after the ranking was opened, so the scenario names the wrong ones. */
+    RANKING_BRIEF_CHANGED(HttpStatus.CONFLICT,
+            "The brief's competencies changed since you opened this. Reload to see them"),
+
     /** The AI has nothing to score an executive against until the brief names its competencies. */
     CANDIDATE_ASSESSMENT_NO_CRITERIA(HttpStatus.CONFLICT,
             "The brief has no competencies to assess against yet. Add them in the position's Assessment Criteria step"),
@@ -242,14 +283,17 @@ public enum ErrorCode {
     /** The model answered nothing usable, or could not be reached. Nothing was written or charged. */
     AI_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "The AI could not answer just now. Try again in a moment"),
 
-    /** A stage with live statuses is retired only with them; the closed stage and the last active one never are. */
+    /** A stage with live statuses is retired only with them; the last live stage never is. */
     PIPELINE_STAGE_NOT_EMPTY(HttpStatus.CONFLICT, "This stage still has live statuses; retire them with it"),
 
-    /** New people start at a live status of a live active stage, so the last of those stays. */
+    /** New people start at a live status in process, so the last of those stays. */
     PIPELINE_STATUS_REQUIRED(HttpStatus.CONFLICT,
             "The pipeline keeps at least one active status for new candidates to start at"),
 
-    PIPELINE_STAGE_REQUIRED(HttpStatus.CONFLICT, "A pipeline keeps at least one active stage and its closed stage"),
+    PIPELINE_STAGE_REQUIRED(HttpStatus.CONFLICT, "A pipeline keeps at least one stage"),
+
+    /** A stage's default is where a card dropped on it lands, so it is never a way out of the process. */
+    PIPELINE_DEFAULT_IN_PROCESS(HttpStatus.CONFLICT, "A stage's default status stays in process"),
 
     /** Stage labels are unique among stages, status labels among statuses, whatever their case. */
     PIPELINE_LABEL_TAKEN(HttpStatus.CONFLICT, "That name is already in use"),
@@ -257,7 +301,7 @@ public enum ErrorCode {
     /** A retired status stays on whoever holds it, but can no longer be given to anyone. */
     PIPELINE_STATUS_RETIRED(HttpStatus.CONFLICT, "That status is retired. Restore it in Settings to use it again"),
 
-    /** The closed stage stays last, and a reorder names every live stage or status exactly once. */
+    /** A reorder names every live stage or status exactly once. */
     PIPELINE_ORDER_INVALID(HttpStatus.CONFLICT, "That order does not match the pipeline"),
 
     /** Changing, reassigning or cancelling a task is its creator's, its assignee's, the lead's or an admin's. */
@@ -273,6 +317,37 @@ public enum ErrorCode {
 
     /** Contact lookups are off for a person marked do not contact; nothing was spent. */
     PERSON_DO_NOT_CONTACT(HttpStatus.CONFLICT, "This person is marked do not contact, so contact lookups are off"),
+
+    /**
+     * Processing of this person is restricted (GDPR Art. 18): no AI run, contact lookup, email, invite, recording or
+     * new position until someone lifts it. Nothing was spent.
+     */
+    PERSON_PROCESSING_RESTRICTED(HttpStatus.CONFLICT,
+            "Processing is restricted for this person, so this can't be done until the restriction is lifted"),
+    PERSON_PROCESSING_RESTRICTION_NOT_YOURS(HttpStatus.FORBIDDEN,
+            "Only the person who restricted processing, or an admin, can lift it"),
+
+    /** A LinkedIn profile or email the workspace's suppression list holds: nobody may file that person again. */
+    PERSON_SUPPRESSED(HttpStatus.CONFLICT,
+            "This person is on your workspace's suppression list, so they can't be added"),
+
+    /** An email to the person is on its way to the mail service; erasing them now would race it. Nothing changed. */
+    PERSON_ERASE_SEND_IN_FLIGHT(HttpStatus.CONFLICT, "An email to this person is sending right now. Try again in a minute"),
+    /**
+     * The deployment has no suppression keyset, or none holding the key a workspace's entries were written under.
+     * Refused rather than read as an empty list, which would let every suppressed person back in.
+     */
+    SUPPRESSION_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
+            "Your workspace's suppression list can't be checked right now, so nobody can be added. Contact Uncava support"),
+
+    /** A whole-workspace export is already being built; its card shows it. Nothing new was started. */
+    WORKSPACE_EXPORT_RUNNING(HttpStatus.CONFLICT, "An export is already being built. It will be ready soon"),
+
+    /** Past its expiry, failed or still building: there is no file to download. */
+    WORKSPACE_EXPORT_UNAVAILABLE(HttpStatus.NOT_FOUND, "This export is no longer available. Start a new one"),
+
+    /** A platform admin's restore of a workspace that is not deleted, or whose purge has begun. Nothing changed. */
+    WORKSPACE_NOT_RESTORABLE(HttpStatus.CONFLICT, "This workspace can't be restored"),
 
     /** Nothing was saved. Never sent for a stream that ran out of time: see {@link #ASSISTANT_STILL_ANSWERING}. */
     ASSISTANT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
@@ -506,6 +581,13 @@ public enum ErrorCode {
     OUTREACH_DO_NOT_CONTACT(HttpStatus.CONFLICT, "This person is marked do not contact"),
 
     /** A reply needs a thread the caller's mailbox started and can still read; a first email needs none. */
+    /**
+     * An own email holding a variable this executive has no value for and no fallback, or one no email can fill
+     * ({@code {{opener}}} included); the body's {@code tokens} names them.
+     */
+    OUTREACH_TOKENS_UNFILLED(HttpStatus.CONFLICT,
+            "Some variables in this email have nothing to fill them. Fill them in, give them a fallback or remove them"),
+
     OUTREACH_THREAD_UNAVAILABLE(HttpStatus.CONFLICT,
             "There is no email thread from your mailbox to reply in. Send a new email instead"),
 
@@ -530,6 +612,13 @@ public enum ErrorCode {
 
     /** An approval for Uncava's shared app on a deployment that offers none at that provider. */
     INTEGRATION_SHARED_APP_UNAVAILABLE(HttpStatus.CONFLICT, "Uncava's shared app is not offered on this deployment"),
+
+    /** The provider refused an own app's keys when asked before saving them; {@code providerError} is its code. */
+    INTEGRATION_KEYS_REFUSED(HttpStatus.UNPROCESSABLE_CONTENT, "The provider refused these keys. Nothing was saved"),
+
+    /** The provider gave no answer about an own app's keys, or none about the keys, so nothing was saved or recorded. */
+    INTEGRATION_PROVIDER_UNREACHABLE(HttpStatus.BAD_GATEWAY,
+            "We couldn't get an answer from the provider about these keys. Try again in a moment"),
 
     /** A webhook delivery whose signature did not verify, or one this deployment is not set up to read. */
     MAILBOX_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
@@ -602,6 +691,29 @@ public enum ErrorCode {
 
     /** A Stripe webhook whose signature does not verify, or any delivery while no webhook secret is configured. */
     BILLING_WEBHOOK_REJECTED(HttpStatus.BAD_REQUEST, "Bad Request"),
+
+    /** A photo that is not a JPEG or PNG this server can read, or claims a raster too large to decode. */
+    EMAIL_IMAGE_UNREADABLE(HttpStatus.BAD_REQUEST, "That picture could not be read. Use a JPEG or PNG"),
+
+    EMAIL_IMAGE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "That picture is too large. Use one under 5 MB"),
+
+    /** Another person's signature reads the same as one that never existed. */
+    EMAIL_SIGNATURE_NOT_FOUND(HttpStatus.NOT_FOUND, "That signature does not exist"),
+
+    EMAIL_SIGNATURE_LIMIT_REACHED(HttpStatus.CONFLICT, "You can keep up to 10 signatures"),
+
+    /** Another person's personal email template reads the same as one that never existed. */
+    EMAIL_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "That email template does not exist"),
+
+    /** A shared email template changed by someone who is neither its owner nor a workspace admin. */
+    EMAIL_TEMPLATE_NOT_YOURS(HttpStatus.FORBIDDEN,
+            "Only its owner or a workspace admin can change this template. Duplicate it to make your own"),
+
+    EMAIL_TEMPLATE_LIMIT_REACHED(HttpStatus.CONFLICT, "You can keep up to 100 email templates"),
+
+    /** The version sent is not the row's: someone saved or shared the template since it was read. */
+    EMAIL_TEMPLATE_STALE(HttpStatus.CONFLICT,
+            "Someone changed this template after you opened it. Reload to see their version"),
 
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 

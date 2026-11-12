@@ -11,10 +11,16 @@ import * as poolApi from "../../candidates/api/poolApi";
 import type { CandidateEmail, CandidateStatus } from "../../candidates/api/types";
 import * as meetingApi from "../api/meetingApi";
 import type { Meeting } from "../api/meetingApi";
-import type { NotetakerRecording } from "../api/notetakerApi";
 import { dateTileOf, meetingWhenOf } from "../lib/meetingTimes";
 import { openCopilotWindow } from "../lib/copilotWindow";
-import { callMarkOf, canRecord, hasCallEnded, isNotetakerLive, recordingOfMeeting } from "../lib/notetakerChip";
+import {
+  callMarkOf,
+  callRowsOf,
+  canRecord,
+  hasCallEnded,
+  isNotetakerLive,
+  isRecordingCall,
+} from "../lib/notetakerChip";
 import { useMailbox } from "../lib/useMailbox";
 import { useNotetaker } from "../lib/useNotetaker";
 import { BookCallDialog } from "./BookCallDialog";
@@ -27,14 +33,18 @@ import { ZoomConnectControl } from "./ZoomConnectControl";
 
 const PAST_SHOWN = 3;
 
+/** The calls that are over, as the drawer's Outreach timeline draws them: each with its ⋯ and the note it became. */
+export interface PastCalls {
+  meetings: Meeting[];
+  menuOf: (meeting: Meeting) => ReactNode;
+  /** The Meeting note the Notetaker filed from the call; null before one is filed or where nothing recorded it. */
+  noteIdOf: (meeting: Meeting) => string | null;
+}
+
 /**
- * The executive drawer's Meetings section (`Outreach.dc.html?drawer=`): calls with them on the team's
- * connected calendars, and Book a call from the consultant's own. Always open, unlike the folds below
- * it. Staff-only; Book a call is never offered for someone marked do not contact. A call's row is the call and
- * its Join link; everything else is behind its ⋯ — Notetaker & questions, what came of the call once its notes are
- * filed, and Reschedule and Cancel for a call booked in Uncava on the consultant's own calendar (`editable`, the
- * server's say). A call the Notetaker has left is past: the same calendar row, quieter, the latest few shown and the
- * rest behind "Show N earlier calls" — never one whose ⋯ waits on the consultant.
+ * The executive drawer's Meetings section: calls on the team's calendars and Book a call (never for do not contact).
+ * A row is the call and its Join link; the rest is behind its ⋯. Past calls show the latest few, the rest behind
+ * "Show N earlier calls" — never one whose ⋯ waits on the consultant.
  */
 export function MeetingsSection({
   projectId,
@@ -44,6 +54,9 @@ export function MeetingsSection({
   candidateStatus,
   emails,
   onShowCopilot,
+  actions,
+  renderPast,
+  onLogMeeting,
 }: {
   projectId: string;
   candidateId: string;
@@ -53,6 +66,15 @@ export function MeetingsSection({
   emails: CandidateEmail[];
   /** Brings a call's copilot up in the drawer's Copilot tab. */
   onShowCopilot: (recordingId: string) => void;
+  /** The Outreach tab's action row, drawn first and handed Book a call — null where it cannot be offered. */
+  actions?: (bookCall: (() => void) | null) => ReactNode;
+  /**
+   * The Outreach tab's timeline, which draws the past calls among everything else. Given it, the section is the
+   * Outreach tab's body: the action row, the calls to come and the timeline, with no Meetings heading or Past list.
+   */
+  renderPast?: (past: PastCalls) => ReactNode;
+  /** A call that has happened: open Log meeting notes on it. */
+  onLogMeeting?: (meeting: Meeting) => void;
 }) {
   const meetings = useQuery({
     queryKey: meetingApi.MEETINGS_KEY(projectId, candidateId),
@@ -76,11 +98,11 @@ export function MeetingsSection({
   const [showsAllPast, setShowsAllPast] = useState(false);
 
   const firstName = fullName.trim().split(/\s+/)[0];
-  const recordings = notetaker.data?.recordings ?? [];
-  const recordingOf = (meeting: Meeting): NotetakerRecording | null => recordingOfMeeting(recordings, meeting);
-  const booked = meetings.data?.upcoming ?? [];
-  const upcoming = booked.filter((meeting) => !hasCallEnded(recordingOf(meeting)));
-  const past = [...booked.filter((meeting) => hasCallEnded(recordingOf(meeting))), ...(meetings.data?.past ?? [])];
+  const { upcoming, past, recordingOf } = callRowsOf(
+    meetings.data?.upcoming ?? [],
+    meetings.data?.past ?? [],
+    notetaker.data?.recordings ?? [],
+  );
   const count = upcoming.length + past.length;
   const collapsedPast = past.filter(
     (meeting, index) => index < PAST_SHOWN || callMarkOf(recordingOf(meeting)) !== null,
@@ -103,11 +125,13 @@ export function MeetingsSection({
       options,
       onReschedule,
       onCancel,
+      onLogNotes,
       quiet,
     }: {
       options?: { label: string; icon: string; onSelect: () => void };
       onReschedule?: () => void;
       onCancel?: () => void;
+      onLogNotes?: () => void;
       quiet?: boolean;
     } = {},
   ) => (
@@ -122,6 +146,7 @@ export function MeetingsSection({
       onOpenCopilot={handleOpenCopilot}
       onReschedule={onReschedule}
       onCancel={onCancel}
+      onLogNotes={onLogNotes}
       quiet={quiet}
     />
   );
@@ -152,96 +177,34 @@ export function MeetingsSection({
     },
   });
 
-  return (
-    <section aria-label="Meetings" className="border-b border-u-border py-3.5">
-      <div className="mb-2.5 flex items-center gap-2">
-        <Icon d={ICONS.calendar} size={14} className="text-u-text3" />
-        <span className="text-[13px] font-semibold">Meetings</span>
-        {count > 0 && <span className="font-mono text-[11px] font-medium text-u-text3">{count}</span>}
-        {canBook && (
-          <button
-            type="button"
-            onClick={() => setIsBooking(true)}
-            className="ms-auto inline-flex items-center gap-1.5 rounded-[6px] border border-u-accent-solid bg-u-accent-solid px-[11px] py-[5px] text-[12px] font-semibold text-white hover:bg-u-accent-solid-hover"
-          >
-            <Icon d={ICONS.plus} size={12} />
-            Book a call
-          </button>
-        )}
-      </div>
-
-      {meetings.isError ? (
-        <p className="text-[12.5px] text-u-text3">Meetings couldn't be loaded.</p>
-      ) : meetings.isSuccess && count === 0 ? (
-        <p className="text-[12.5px]/[1.5] text-u-text3">No meetings with {firstName} on your team's calendars yet.</p>
-      ) : null}
-
-      {upcoming.length > 0 && (
-        <>
-          <div className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[.12em] text-u-text3">
-            Upcoming
-          </div>
-          {upcoming.map((meeting) => {
-            const opensPanel = offersNotetaker(meeting);
-            return (
-              <MeetingRow
-                key={meeting.id}
-                meeting={meeting}
-                tense="upcoming"
-                menu={menuOf(meeting, {
-                  options: opensPanel
-                    ? { label: "Notetaker & questions…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
-                    : { label: "Prepare questions…", icon: ICONS.checklist, onSelect: () => setPlanOf(meeting.id) },
-                  onReschedule: meeting.editable && canReschedule ? () => setRescheduling(meeting) : undefined,
-                  onCancel: meeting.editable && hasActiveMailbox ? () => setCancelling(meeting) : undefined,
-                })}
-              />
-            );
-          })}
-        </>
-      )}
-
-      {past.length > 0 && (
-        <>
-          <div className="mb-1 mt-1.5 font-mono text-[10px] font-semibold uppercase tracking-[.12em] text-u-text3">
-            Past
-          </div>
-          {shownPast.map((meeting) => (
-            <MeetingRow
-              key={meeting.id}
-              meeting={meeting}
-              tense="past"
-              menu={
-                notetaker.isSuccess &&
-                menuOf(meeting, {
-                  options:
-                    offersNotetaker(meeting) && !hasCallEnded(recordingOf(meeting))
-                      ? { label: "Notetaker…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
-                      : undefined,
-                  quiet: true,
-                })
-              }
-            />
-          ))}
-          {foldedPastCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowsAllPast((shows) => !shows)}
-              className="mt-0.5 rounded-u-control font-mono text-meta text-u-text3 hover:text-u-text focus-visible:outline-2 focus-visible:outline-u-accent"
-            >
-              {showsAllPast ? "Show fewer" : `Show ${countOf(foldedPastCount, "earlier call")}`}
-            </button>
-          )}
-        </>
-      )}
-
-      {canBook && <ZoomConnectControl className="mt-2" />}
-
-      <p className="mt-2 font-mono text-[11px]/[1.5] text-u-text3">
-        From your team's connected calendars. Only meetings with {firstName}'s addresses are kept, never the rest of
-        anyone's calendar.
-      </p>
-
+  const upcomingRowOf = (meeting: Meeting) => (
+    <MeetingRow
+      key={meeting.id}
+      meeting={meeting}
+      tense="upcoming"
+      menu={menuOf(meeting, {
+        options: offersNotetaker(meeting)
+          ? { label: "Notetaker & questions…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
+          : isRecordingCall(meeting)
+            ? undefined
+            : { label: "Prepare questions…", icon: ICONS.checklist, onSelect: () => setPlanOf(meeting.id) },
+        onReschedule: meeting.editable && canReschedule ? () => setRescheduling(meeting) : undefined,
+        onCancel: meeting.editable && hasActiveMailbox ? () => setCancelling(meeting) : undefined,
+      })}
+    />
+  );
+  const pastMenuOf = (meeting: Meeting) =>
+    notetaker.isSuccess &&
+    menuOf(meeting, {
+      options:
+        offersNotetaker(meeting) && !hasCallEnded(recordingOf(meeting))
+          ? { label: "Notetaker…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
+          : undefined,
+      onLogNotes: onLogMeeting ? () => onLogMeeting(meeting) : undefined,
+      quiet: true,
+    });
+  const dialogs = (
+    <>
       {isBooking && mailbox.data?.connection && (
         <BookCallDialog
           projectId={projectId}
@@ -270,7 +233,7 @@ export function MeetingsSection({
           recording={recordingOf(panelMeeting)}
           mayRecord={mayRecord(panelMeeting)}
           isCallDay={onCallDay.has(panelMeeting.id)}
-          offersQuestions={upcoming.includes(panelMeeting)}
+          offersQuestions={upcoming.includes(panelMeeting) && !isRecordingCall(panelMeeting)}
           firstName={firstName}
           onPrepareQuestions={() => {
             setPanelOf(null);
@@ -330,34 +293,109 @@ export function MeetingsSection({
           </p>
         )}
       </ConfirmDialog>
+    </>
+  );
+
+  if (renderPast) {
+    return (
+      <section aria-label="Calls and contact" className="flex flex-col gap-5 py-4">
+        {actions?.(canBook ? () => setIsBooking(true) : null)}
+        {meetings.isError && <p className="text-note text-u-text3">Meetings couldn&rsquo;t be loaded.</p>}
+        {upcoming.length > 0 && (
+          <div role="group" aria-label="Upcoming calls" data-outreach-part="meetings">
+            <div className="type-micro-label mb-1 text-u-text3">Upcoming</div>
+            {upcoming.map(upcomingRowOf)}
+          </div>
+        )}
+        {canBook && <ZoomConnectControl />}
+        {renderPast({
+          meetings: past,
+          menuOf: pastMenuOf,
+          noteIdOf: (meeting) => recordingOf(meeting)?.noteId ?? null,
+        })}
+        {dialogs}
+      </section>
+    );
+  }
+
+  return (
+    <section aria-label="Meetings" className="border-b border-u-border py-3.5">
+      <div className="mb-2.5 flex items-center gap-2">
+        <Icon d={ICONS.calendar} size={14} className="text-u-text3" />
+        <span className="text-[13px] font-semibold">Meetings</span>
+        {count > 0 && <span className="font-mono text-[11px] font-medium text-u-text3">{count}</span>}
+        {canBook && (
+          <button
+            type="button"
+            onClick={() => setIsBooking(true)}
+            className="ms-auto inline-flex items-center gap-1.5 rounded-[6px] border border-u-accent-solid bg-u-accent-solid px-[11px] py-[5px] text-[12px] font-semibold text-white hover:bg-u-accent-solid-hover"
+          >
+            <Icon d={ICONS.plus} size={12} />
+            Book a meeting
+          </button>
+        )}
+      </div>
+
+      {meetings.isError ? (
+        <p className="text-[12.5px] text-u-text3">Meetings couldn't be loaded.</p>
+      ) : meetings.isSuccess && count === 0 ? (
+        <p className="text-[12.5px]/[1.5] text-u-text3">No meetings with {firstName} on your team's calendars yet.</p>
+      ) : null}
+
+      {upcoming.length > 0 && (
+        <>
+          <div className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[.12em] text-u-text3">
+            Upcoming
+          </div>
+          {upcoming.map(upcomingRowOf)}
+        </>
+      )}
+
+      {past.length > 0 && (
+        <>
+          <div className="mb-1 mt-1.5 font-mono text-[10px] font-semibold uppercase tracking-[.12em] text-u-text3">
+            Past
+          </div>
+          {shownPast.map((meeting) => (
+            <MeetingRow
+              key={meeting.id}
+              meeting={meeting}
+              tense="past"
+              menu={pastMenuOf(meeting)}
+            />
+          ))}
+          {foldedPastCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowsAllPast((shows) => !shows)}
+              className="mt-0.5 rounded-u-control font-mono text-meta text-u-text3 hover:text-u-text focus-visible:outline-2 focus-visible:outline-u-accent"
+            >
+              {showsAllPast ? "Show fewer" : `Show ${countOf(foldedPastCount, "earlier call")}`}
+            </button>
+          )}
+        </>
+      )}
+
+      {canBook && <ZoomConnectControl className="mt-2" />}
+
+      <p className="mt-2 font-mono text-[11px]/[1.5] text-u-text3">
+        From your team's connected calendars. Only meetings with {firstName}'s addresses are kept, never the rest of
+        anyone's calendar.
+      </p>
+
+      {dialogs}
     </section>
   );
 }
 
 /** A call as a calendar row: its date tile, title, when and whose calendar, then its link and ⋯. Past is quieter. */
 function MeetingRow({ meeting, tense, menu }: { meeting: Meeting; tense: "upcoming" | "past"; menu: ReactNode }) {
-  const tile = dateTileOf(meeting.startsAt);
   const when = meetingWhenOf(meeting.startsAt, meeting.endsAt);
   const isUpcoming = tense === "upcoming";
   return (
     <div className="py-2">
       <div className="flex items-start gap-3">
-        <span
-          aria-hidden="true"
-          className="w-[42px] flex-none rounded-[7px] border border-u-border py-[3px] text-center"
-        >
-          <span
-            className={cn(
-              "block font-mono text-[9.5px] font-semibold uppercase",
-              isUpcoming ? "text-u-accent" : "text-u-text3",
-            )}
-          >
-            {tile.month}
-          </span>
-          <span className={cn("block text-[16px]/[1.2] font-semibold tabular-nums", !isUpcoming && "text-u-text2")}>
-            {tile.day}
-          </span>
-        </span>
+        <MeetingDateTile startsAt={meeting.startsAt} tense={tense} />
         <span className="min-w-0 flex-1">
           <span className={cn("block text-[13px] font-medium", !isUpcoming && "text-u-text2")}>
             {meeting.title ?? "Untitled"}
@@ -388,5 +426,29 @@ function MeetingRow({ meeting, tense, menu }: { meeting: Meeting; tense: "upcomi
         </span>
       </div>
     </div>
+  );
+}
+
+/** A call's day as a small calendar leaf: the month in accent while it is to come, grey once it is over. */
+export function MeetingDateTile({ startsAt, tense }: { startsAt: string; tense: "upcoming" | "past" }) {
+  const tile = dateTileOf(startsAt);
+  const isUpcoming = tense === "upcoming";
+  return (
+    <span
+      aria-hidden="true"
+      className="w-[42px] flex-none rounded-[7px] border border-u-border py-[3px] text-center"
+    >
+      <span
+        className={cn(
+          "block font-mono text-[9.5px] font-semibold uppercase",
+          isUpcoming ? "text-u-accent" : "text-u-text3",
+        )}
+      >
+        {tile.month}
+      </span>
+      <span className={cn("block text-[16px]/[1.2] font-semibold tabular-nums", !isUpcoming && "text-u-text2")}>
+        {tile.day}
+      </span>
+    </span>
   );
 }

@@ -4,6 +4,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.core.security.rbac.Role;
+import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -59,6 +60,10 @@ public class WorkspaceMember extends BaseEntity {
     @Column(name = "decided_at")
     private Instant decidedAt;
 
+    /** The workspace's deletion ended this membership, so restoring the workspace brings it back (V202). */
+    @Column(name = "ended_with_workspace", nullable = false)
+    private boolean endedWithWorkspace;
+
     public static WorkspaceMember invite(UUID workspaceId, UUID userId, Set<Role> roles, UUID invitedBy) {
         WorkspaceMember member = new WorkspaceMember();
         member.workspaceId = workspaceId;
@@ -73,6 +78,20 @@ public class WorkspaceMember extends BaseEntity {
 
     public boolean isActive() {
         return status.grantsAccess();
+    }
+
+    /** Staff: holds a role besides CLIENT. {@link WorkspaceRole#isStaff} is the same rule over role names. */
+    public boolean holdsStaffRole() {
+        return roles.stream().anyMatch(role -> !role.is(WorkspaceRole.CLIENT));
+    }
+
+    /**
+     * Whether accepting an invitation to {@code invited} would give this member nothing: they hold it already, or it
+     * is a staff role and they are staff (a second staff role is the roster's to change, never an invitation's).
+     */
+    public boolean alreadyCovers(Role invited) {
+        return roles.stream().anyMatch(held -> held.getId().equals(invited.getId()))
+                || (!invited.is(WorkspaceRole.CLIENT) && holdsStaffRole());
     }
 
     /** Replace-set semantics: the caller states the full set the member should hold afterwards. */
@@ -92,6 +111,21 @@ public class WorkspaceMember extends BaseEntity {
         this.status = MemberStatus.REMOVED;
     }
 
+    /** The deletion of the workspace ends every active membership; nothing else sets the mark. */
+    public void endWithWorkspace() {
+        remove();
+        this.endedWithWorkspace = true;
+    }
+
+    /** Back as they were — the roles were never taken off the row. */
+    public void restoreWithWorkspace() {
+        if (status != MemberStatus.REMOVED || !endedWithWorkspace) {
+            throw new ApiException(ErrorCode.CONFLICT, "Only a membership the deletion ended comes back with it");
+        }
+        this.status = MemberStatus.ACTIVE;
+        this.endedWithWorkspace = false;
+    }
+
     /** A re-invited member reactivates the row — {@code (workspace_id, user_id)} is unique whatever the status. */
     public WorkspaceMember rejoin(Set<Role> roles, UUID invitedBy) {
         if (status != MemberStatus.REMOVED) {
@@ -100,6 +134,7 @@ public class WorkspaceMember extends BaseEntity {
         this.roles.clear();
         this.roles.addAll(roles);
         this.status = MemberStatus.ACTIVE;
+        this.endedWithWorkspace = false;
         this.joinedAt = Instant.now();
         this.decidedBy = invitedBy;
         this.decidedAt = Instant.now();

@@ -6,13 +6,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.Locale;
 
 /**
- * One address a contact lookup found, with what the provider said about it.
- *
- * <p>{@code kind} is {@code "work"} or {@code "personal"} — null where the provider listed an address
- * without saying which — and {@code status} is the provider's own word for whether it verified the
- * address ({@code "Verified"}), null where it did not say. Both stay strings rather than enums: they
- * are read back out of a jsonb column, and a value we have not seen before must land in the drawer
- * rather than break the profile.
+ * One address a lookup found: {@code kind} work or personal and {@code status} the provider's word, each null where
+ * it did not say. Strings, not enums, so an unseen value from the jsonb lands in the drawer instead of breaking it.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record CandidateEmail(String address, String kind, String status) {

@@ -8,21 +8,26 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.CalendarEventRemoved;
 import app.lightmove.api.outreach.model.GrantedMailbox;
+import app.lightmove.api.outreach.model.MailboxConnection;
+import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.service.MeetingBackfill;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
+import java.sql.Timestamp;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
@@ -33,6 +38,7 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,6 +46,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -59,7 +67,9 @@ class MeetingIntegrationTest extends FlowTestSupport {
     @Autowired private RecordingMailboxGateway gateway;
     @Autowired private OutreachDispatcher dispatcher;
     @Autowired private MeetingBackfill backfill;
-    @Autowired private JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc private JdbcTemplate jdbc;
+    @Autowired private MailboxConnectionRepository mailboxes;
+    @Autowired private PlatformTransactionManager transactionManager;
 
     private String grantId;
     private String consultant;
@@ -92,11 +102,14 @@ class MeetingIntegrationTest extends FlowTestSupport {
         assertThat(meetingRows()).isZero();
 
         changed(event("call-1", "First conversation", start, MAILBOX, "Priya@" + domain));
+        jdbc.update("update app_lm_user set avatar_url = '/api/v1/avatars/yara-photo' where email = ?",
+                "yara@" + domain);
         JsonNode meetings = meetingsOf(priya);
         assertThat(meetings.get("upcoming")).hasSize(1);
         JsonNode upcoming = meetings.get("upcoming").get(0);
         assertThat(upcoming.get("title").asText()).isEqualTo("First conversation");
         assertThat(upcoming.get("ownerName").asText()).isEqualTo("Yara Haddad");
+        assertThat(upcoming.get("ownerAvatarUrl").asText()).isEqualTo("/api/v1/avatars/yara-photo");
         assertThat(upcoming.get("joinUrl").asText()).isEqualTo("https://meet.example/call-1");
         assertThat(upcoming.get("videoProvider").asText()).isEqualTo("Google Meet");
         assertThat(meetingsOf(rajesh).get("upcoming")).isEmpty();
@@ -112,6 +125,29 @@ class MeetingIntegrationTest extends FlowTestSupport {
         gateway.deliverNext(List.of(new CalendarEventRemoved(grantId, "call-1")));
         webhook();
         assertThat(meetingRows()).isZero();
+    }
+
+    @Test
+    @DisplayName("a mailbox saved from a copy read before a calendar refresh claimed it keeps the claim")
+    void aStaleSaveKeepsTheRefreshClaim() throws Exception {
+        connectMailbox();
+        UUID mailboxId = UUID.fromString(jdbc.queryForObject(
+                "select id::text from app_lm_mailbox_connection where workspace_id = ?::uuid", String.class,
+                workspaceId));
+        Instant claimedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+
+        WorkspaceScope.run(UUID.fromString(workspaceId), () ->
+                new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+                    MailboxConnection readBeforeTheClaim = mailboxes.findById(mailboxId).orElseThrow();
+                    jdbc.update("update app_lm_mailbox_connection set calendar_synced_at = ? where id = ?::uuid",
+                            Timestamp.from(claimedAt), mailboxId.toString());
+                    readBeforeTheClaim.changeTimeZone(ZoneId.of("Europe/London"));
+                }));
+
+        assertThat(jdbc.queryForObject("select calendar_synced_at from app_lm_mailbox_connection where id = ?::uuid",
+                Instant.class, mailboxId.toString())).isEqualTo(claimedAt);
+        assertThat(jdbc.queryForObject("select time_zone from app_lm_mailbox_connection where id = ?::uuid",
+                String.class, mailboxId.toString())).isEqualTo("Europe/London");
     }
 
     @Test
@@ -134,6 +170,53 @@ class MeetingIntegrationTest extends FlowTestSupport {
         assertThat(meetingRows()).isEqualTo(2);
         assertThat(jdbc.queryForObject("select calendar_synced_at from app_lm_mailbox_connection "
                 + "where workspace_id = ?::uuid", Instant.class, workspaceId)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("notes logged about a past meeting take its start and title; a meeting still to come is refused")
+    void meetingNotesAreTiedToAPastMeeting() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        Instant pastStart = now.minus(Duration.ofDays(4));
+        gateway.calendarHolds(List.of(
+                event("past", "Coffee at DIFC", pastStart, MAILBOX, "priya@" + domain),
+                event("next", "Second conversation", now.plus(Duration.ofDays(3)), MAILBOX, "priya@" + domain)));
+        connectMailbox();
+        JsonNode meetings = meetingsOf(priya);
+        String pastId = meetings.get("past").get(0).get("id").asText();
+        String nextId = meetings.get("upcoming").get(0).get("id").asText();
+
+        JsonNode note = body(as(consultant, post(notesOf(priya)).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"kind":"meeting","body":"Wants a listed group.","meetingId":"%s"}""".formatted(pastId)))
+                .andExpect(status().isCreated()).andReturn());
+        assertThat(note.get("meetingId").asText()).isEqualTo(pastId);
+        assertThat(note.get("title").asText()).isEqualTo("Coffee at DIFC");
+        assertThat(Instant.parse(note.get("occurredAt").asText())).isEqualTo(pastStart);
+
+        // A title alone keeps the meeting and its time; becoming a call lets the meeting go and keeps the time.
+        String noteUrl = notesOf(priya) + "/" + note.get("id").asText();
+        JsonNode retitled = body(as(consultant, put(noteUrl).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"kind":"meeting","body":"Wants a listed group.","title":"Debrief"}"""))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(retitled.get("meetingId").asText()).isEqualTo(pastId);
+        assertThat(Instant.parse(retitled.get("occurredAt").asText())).isEqualTo(pastStart);
+        assertThat(retitled.get("title").asText()).isEqualTo("Debrief");
+        JsonNode asCall = body(as(consultant, put(noteUrl).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"kind":"call","body":"It was a call after all."}"""))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(asCall.get("meetingId").isNull()).isTrue();
+        assertThat(Instant.parse(asCall.get("occurredAt").asText())).isEqualTo(pastStart);
+
+        as(consultant, post(notesOf(priya)).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"kind":"meeting","body":"Too early.","meetingId":"%s"}""".formatted(nextId)))
+                .andExpect(status().isBadRequest());
+        as(consultant, post(notesOf(priya)).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"kind":"call","body":"A call is no meeting.","meetingId":"%s"}""".formatted(pastId)))
+                .andExpect(status().isBadRequest());
+        String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
+        as(consultant, post(notesOf(rajesh)).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"kind":"meeting","body":"Someone else's meeting.","meetingId":"%s"}""".formatted(pastId)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -206,6 +289,18 @@ class MeetingIntegrationTest extends FlowTestSupport {
         assertThat(Instant.parse(view.get("busy").get(0).get("end").asText())).isEqualTo(callEnds);
         assertThat(view.get("minMinutes").asInt()).isEqualTo(5);
         assertThat(view.get("maxMinutes").asInt()).isEqualTo(480);
+    }
+
+    @Test
+    @DisplayName("nothing is booked for someone whose processing is restricted")
+    void bookingRefusesARestrictedPerson() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        restrictProcessing(priya);
+
+        assertThat(codeOf(book(priya, tomorrowAt(10, 0), 30, "priya@" + domain).andExpect(status().isConflict())
+                .andReturn())).isEqualTo("PERSON_PROCESSING_RESTRICTED");
+        assertThat(gateway.created()).isEmpty();
     }
 
     @Test
@@ -631,6 +726,15 @@ class MeetingIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
     }
 
+    private void restrictProcessing(String candidateId) throws Exception {
+        String personId = body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + candidateId))
+                .andReturn()).get("personId").asText();
+        as(consultant, put("/api/v1/candidates/" + personId + "/processing-restriction")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"restricted\":true,\"reason\":\"Asked what we hold about them.\"}"))
+                .andExpect(status().isOk());
+    }
+
     private String mandate() throws Exception {
         clientId = body(as(consultant, post("/api/v1/clients").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"customName\":\"Acme Holdings\"}"))
@@ -679,6 +783,10 @@ class MeetingIntegrationTest extends FlowTestSupport {
 
     private ResultActions as(String token, MockHttpServletRequestBuilder request) throws Exception {
         return mvc.perform(request.header("Authorization", "Bearer " + token));
+    }
+
+    private String notesOf(String candidateId) {
+        return "/api/v1/projects/" + projectId + "/candidates/" + candidateId + "/notes";
     }
 
     private String meetings(String candidateId) {

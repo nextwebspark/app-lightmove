@@ -1,10 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { cn } from "../../../../lib/cn";
 import { LinesSkeleton } from "../../../../components/ui/Skeleton";
 import { messageFor } from "../../../../lib/errorCodes";
 import * as personCrmApi from "../../api/personCrmApi";
+import type { ActivityHistory } from "../../api/personCrmApi";
+import * as poolApi from "../../api/poolApi";
 import type { PersonDocument, PersonTimelineEntry } from "../../api/types";
 import {
   actorKeyOf,
@@ -12,12 +14,15 @@ import {
   familyOf,
   foldRuns,
   peopleOf,
+  positionKeyOf,
+  positionsOf,
   shortDate,
   taskStatesOf,
   type ActivityPerson,
   actorNameOf,
   actorRoleOf,
   type ActivityExecutive,
+  type ActivityScope,
 } from "../../lib/activityPresentation";
 import { groupByDay } from "../../lib/timelineGroups";
 import { ActivityDetailDialog, type ActivityDestinations } from "./ActivityDetailDialog";
@@ -26,42 +31,53 @@ import { ActivityCard, ActivityFold } from "./ActivityItems";
 import { ActorFace, KindTile } from "./ActivityVisuals";
 
 /**
- * The executive drawer's Activity tab: everything that happened to this executive on this position, and every change
- * to the person, newest first under day headers. Each entry carries a face, a name and a time and opens read-only.
- * The server decides what a position may read; this filters, folds and draws what it was sent.
+ * A person's Activity tab, newest first under day headers, each entry a card with a face, a name and a time that
+ * opens read-only. On a position it is that position's history and every change to the person; on the Candidates page
+ * it is the person's changes and each position's milestones, every card naming its position. The server decides what
+ * each may read; this filters, folds and draws what it was sent.
  */
 export function ActivityTimeline({
-  projectId,
+  scope,
   executive,
   documents,
   destinations,
 }: {
-  projectId: string;
+  scope: ActivityScope;
   executive: ActivityExecutive;
   documents: readonly PersonDocument[] | undefined;
   destinations: ActivityDestinations;
 }) {
-  const history = useQuery({
-    queryKey: personCrmApi.PERSON_TIMELINE_KEY(projectId, executive.id),
-    queryFn: ({ signal }) => personCrmApi.getPositionHistory(projectId, executive.id, signal),
-  });
+  const onPosition = scope.kind === "position" ? scope : null;
+  const historyRead: { key: readonly unknown[]; read: (signal: AbortSignal) => Promise<ActivityHistory> } =
+    scope.kind === "position"
+      ? {
+          key: personCrmApi.PERSON_TIMELINE_KEY(scope.projectId, scope.candidateId),
+          read: (signal) => personCrmApi.getPositionHistory(scope.projectId, scope.candidateId, signal),
+        }
+      : { key: poolApi.PERSON_HISTORY_KEY(scope.personId), read: (signal) => poolApi.getPersonHistory(scope.personId, signal) };
+  const history = useQuery({ queryKey: historyRead.key, queryFn: ({ signal }) => historyRead.read(signal) });
   const [families, setFamilies] = useState<Set<string>>(() => new Set());
   const [actors, setActors] = useState<Set<string>>(() => new Set());
+  const [positions, setPositions] = useState<Set<string>>(() => new Set());
   const [openFolds, setOpenFolds] = useState<Set<string>>(() => new Set());
   const [opened, setOpened] = useState<PersonTimelineEntry | null>(null);
   const now = useMinuteClock();
-  // The drawer reads the same notes for its Notes tab, so this is the cache, not a second request.
+  // The drawer reads the same notes for its Notes tab, so this is the cache, not a second request. The person-wide
+  // history carries no note lines, so it asks for none.
   const notes = useQuery({
-    queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, executive.id),
-    queryFn: ({ signal }) => personCrmApi.getPersonNotes(projectId, executive.id, signal),
+    queryKey: onPosition ? personCrmApi.PERSON_NOTES_KEY(onPosition.projectId, onPosition.candidateId) : ["no-notes"],
+    queryFn: onPosition
+      ? ({ signal }) => personCrmApi.getPersonNotes(onPosition.projectId, onPosition.candidateId, signal)
+      : skipToken,
   });
   const notesById = useMemo(() => new Map((notes.data ?? []).map((note) => [note.id, note])), [notes.data]);
 
   const entries = useMemo(() => history.data?.entries ?? [], [history.data]);
   const byFamily = (entry: PersonTimelineEntry) => families.size === 0 || families.has(familyOf(entry));
   const byActor = (entry: PersonTimelineEntry) => actors.size === 0 || actors.has(actorKeyOf(entry));
-  const shown = entries.filter((entry) => byFamily(entry) && byActor(entry));
-  const isFiltering = families.size > 0 || actors.size > 0;
+  const byPosition = (entry: PersonTimelineEntry) => positions.size === 0 || positions.has(positionKeyOf(entry));
+  const shown = entries.filter((entry) => byFamily(entry) && byActor(entry) && byPosition(entry));
+  const isFiltering = families.size > 0 || actors.size > 0 || positions.size > 0;
 
   if (history.isPending) return <LinesSkeleton lines={6} />;
   if (history.isError) {
@@ -79,26 +95,39 @@ export function ActivityTimeline({
     );
   }
   if (entries.length === 0) {
-    return <p className="text-note text-u-text3">Nothing recorded on this position yet.</p>;
+    return (
+      <p className="text-note text-u-text3">
+        {onPosition ? "Nothing recorded on this position yet." : "Nothing recorded for this person yet."}
+      </p>
+    );
   }
 
   const familyOptions: FilterMenuOption[] = familiesOf(entries).map((option) => ({
     key: option.family,
     label: option.label,
     visual: <KindTile icon={option.icon} size="dot" />,
-    count: entries.filter((entry) => byActor(entry) && familyOf(entry) === option.family).length,
+    count: entries.filter((entry) => byActor(entry) && byPosition(entry) && familyOf(entry) === option.family).length,
   }));
   const people = peopleOf(entries);
   const peopleOptions: FilterMenuOption[] = people.map((person) => ({
     key: person.key,
     label: actorNameOf(person.actor, executive),
     sublabel: actorRoleOf(person.actor),
-    visual: <ActorFace actor={person.actor} executive={executive} projectId={projectId} size="sm" />,
-    count: entries.filter((entry) => byFamily(entry) && actorKeyOf(entry) === person.key).length,
+    visual: <ActorFace actor={person.actor} executive={executive} size="sm" />,
+    count: entries.filter((entry) => byFamily(entry) && byPosition(entry) && actorKeyOf(entry) === person.key).length,
   }));
+  const positionOptions: FilterMenuOption[] = onPosition
+    ? []
+    : positionsOf(entries).map((position) => ({
+        key: position.key,
+        label: position.label,
+        visual: <KindTile icon={position.key === "person" ? ICONS.profile : ICONS.briefcase} size="dot" />,
+        count: entries.filter((entry) => byFamily(entry) && byActor(entry) && positionKeyOf(entry) === position.key).length,
+      }));
   const clearFilters = () => {
     setFamilies(new Set());
     setActors(new Set());
+    setPositions(new Set());
   };
   const toggleFold = (key: string) =>
     setOpenFolds((open) => {
@@ -108,7 +137,7 @@ export function ActivityTimeline({
       return next;
     });
   const taskStates = taskStatesOf(entries);
-  const itemProps = { executive, projectId, now, onOpen: setOpened, notes: notesById, taskStates };
+  const itemProps = { executive, now, onOpen: setOpened, notes: notesById, taskStates, showsPosition: !onPosition };
 
   return (
     <div data-activity-root className="flex flex-col">
@@ -130,8 +159,19 @@ export function ActivityTimeline({
           options={peopleOptions}
           selected={actors}
           onChange={setActors}
-          summary={<PeopleSummary selected={actors} people={people} executive={executive} projectId={projectId} />}
+          summary={<PeopleSummary selected={actors} people={people} executive={executive} />}
         />
+        {!onPosition && (
+          <ActivityFilterMenu
+            label="Filter by position"
+            heading="Position"
+            clearLabel="Every position"
+            options={positionOptions}
+            selected={positions}
+            onChange={setPositions}
+            summary={<PositionSummary selected={positions} options={positionOptions} />}
+          />
+        )}
         <span className="ms-auto flex flex-none items-center gap-2 font-mono text-meta text-u-text3">
           {isFiltering ? `${shown.length} of ${entries.length}` : `${entries.length} ${entries.length === 1 ? "event" : "events"}`}
           {isFiltering && (
@@ -150,7 +190,7 @@ export function ActivityTimeline({
 
       {shown.length === 0 ? (
         <div className="mt-6 rounded-xl border border-dashed border-u-border-strong p-5 text-center text-note text-u-text3">
-          Nothing matches these filters on this position.
+          {onPosition ? "Nothing matches these filters on this position." : "Nothing matches these filters."}
           <button type="button" onClick={clearFilters} className="mt-2 block w-full font-medium text-u-accent hover:underline">
             Clear filters
           </button>
@@ -190,7 +230,9 @@ export function ActivityTimeline({
               ? `Showing the latest ${entries.length} events. Older ones are kept but not shown here.`
               : isFiltering
                 ? "End of the matching activity"
-                : "Start of this position's history"}
+                : onPosition
+                  ? "Start of this position's history"
+                  : "Start of this person's history"}
           </p>
         </div>
       )}
@@ -199,8 +241,7 @@ export function ActivityTimeline({
         <ActivityDetailDialog
           entry={opened}
           onClose={() => setOpened(null)}
-          projectId={projectId}
-          candidateId={executive.id}
+          scope={scope}
           executive={executive}
           documents={documents}
           destinations={destinations}
@@ -232,16 +273,27 @@ function FamilySummary({ selected, options }: { selected: ReadonlySet<string>; o
   );
 }
 
+function PositionSummary({ selected, options }: { selected: ReadonlySet<string>; options: readonly FilterMenuOption[] }) {
+  const chosen = options.filter((option) => selected.has(option.key));
+  return (
+    <>
+      <Icon d={ICONS.briefcase} size={14} className="flex-none text-u-text3" />
+      <span className="truncate">
+        {chosen.length === 0 ? "Every position" : chosen[0].label}
+        {chosen.length > 1 && <span className="opacity-75"> +{chosen.length - 1}</span>}
+      </span>
+    </>
+  );
+}
+
 function PeopleSummary({
   selected,
   people,
   executive,
-  projectId,
 }: {
   selected: ReadonlySet<string>;
   people: readonly ActivityPerson[];
   executive: ActivityExecutive;
-  projectId: string;
 }) {
   const chosen = people.filter((person) => selected.has(person.key));
   const faces = (chosen.length > 0 ? chosen : people).slice(0, 2);
@@ -265,7 +317,7 @@ function PeopleSummary({
               index > 0 && "-ms-1.5",
             )}
           >
-            <ActorFace actor={person.actor} executive={executive} projectId={projectId} size="xs" />
+            <ActorFace actor={person.actor} executive={executive} size="xs" />
           </span>
         ))}
       </span>

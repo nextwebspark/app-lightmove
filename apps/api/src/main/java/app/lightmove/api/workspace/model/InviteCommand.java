@@ -2,9 +2,15 @@ package app.lightmove.api.workspace.model;
 
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 
-/** One row of signup step 3: an address, and the role they will hold. */
+/** One invitee: an address, and the role they will hold — MEMBER when none is named. */
 public record InviteCommand(
         String email,
         WorkspaceRole role
 ) {
+
+    public InviteCommand {
+        if (role == null) {
+            role = WorkspaceRole.MEMBER;
+        }
+    }
 }

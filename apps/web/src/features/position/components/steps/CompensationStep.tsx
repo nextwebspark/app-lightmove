@@ -1,10 +1,10 @@
+import { CurrencySelect } from "../../../../components/ui/CurrencySelect";
 import { SegmentedControl, type SegmentedOption } from "../../../../components/ui/SegmentedControl";
 import type { BaseSalaryMode, BonusBasis, Compensation, IncentiveType } from "../../api/types";
-import { formatAmount, packageTotal } from "../../lib/compensation";
+import { bonusValueAfterBasisChange, formatAmount, packageTotal } from "../../lib/compensation";
 import {
   BASE_SALARY_MODE_LABELS,
   BONUS_BASIS_LABELS,
-  CURRENCIES,
   INCENTIVE_TYPE_LABELS,
   OFFERED_BONUS_BASES,
   OFFERED_INCENTIVE_TYPES,
@@ -71,18 +71,12 @@ export function CompensationStep({
           />
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-4">
-          <select
-            aria-label="Currency"
+          <CurrencySelect
+            variant="compact"
+            codesOnly
             value={currency}
-            onChange={(event) => onChange({ currency: event.target.value }, true)}
-            className="rounded-[8px] border border-u-border bg-u-sunken px-3 py-1.5 text-body font-semibold text-u-text outline-none"
-          >
-            {CURRENCIES.map((code) => (
-              <option key={code} value={code}>
-                {code}
-              </option>
-            ))}
-          </select>
+            onChange={(code) => onChange({ currency: code }, true)}
+          />
           <FigureInput
             grouped
             value={compensation.salaryMin}
@@ -112,7 +106,19 @@ export function CompensationStep({
               label="Bonus basis"
               options={withRecorded(BONUS_OPTIONS, compensation.bonusBasis, (basis) => BONUS_BASIS_LABELS[basis])}
               value={compensation.bonusBasis}
-              onChange={(bonusBasis) => onChange({ bonusBasis }, true)}
+              onChange={(bonusBasis) =>
+                onChange(
+                  {
+                    bonusBasis,
+                    bonusValue: bonusValueAfterBasisChange(
+                      compensation.bonusValue,
+                      compensation.bonusBasis,
+                      bonusBasis,
+                    ),
+                  },
+                  true,
+                )
+              }
               className="flex-nowrap"
             />
           </div>

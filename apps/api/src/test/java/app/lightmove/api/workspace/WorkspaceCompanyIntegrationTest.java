@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.ApolloUniverse;
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,7 +21,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @IntegrationTest
 class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     @BeforeEach
     void seedUniverse() {
@@ -29,6 +30,34 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
         universe.company("apollo-af", "Al-Futtaim").industry("retail").country("United Arab Emirates")
                 .city("Dubai").website("https://alfuttaim.com").logo("https://logos.example/af.png")
                 .linkedin("https://www.linkedin.com/company/al-futtaim").employees(42000).insert();
+        universe.company("apollo-sa", "Olayan Group").industry("retail").country("Saudi Arabia")
+                .city("Riyadh").insert();
+    }
+
+    @Test
+    @DisplayName("a workspace starts in its firm's currency, and in AED where nobody knows the firm's country")
+    void currencyFollowsTheFirmsCountry() throws Exception {
+        String saudi = verifiedUser("Alok Kumar", "alok@" + domain);
+        mvc.perform(post("/api/v1/onboarding/workspace")
+                        .header("Authorization", "Bearer " + saudi)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"mode":"AGENCY","name":"Anything Typed","apolloAccountId":"apollo-sa"}"""))
+                .andExpect(status().isCreated());
+        mvc.perform(get("/api/v1/workspace").header("Authorization", "Bearer " + login("alok@" + domain)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.defaultCurrency").value("SAR"));
+
+        String typed = verifiedUser("Sara Al-Mansour", "sara@" + domain);
+        mvc.perform(post("/api/v1/onboarding/workspace")
+                        .header("Authorization", "Bearer " + typed)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"mode":"AGENCY","name":"Typed Firm","apolloAccountId":null}"""))
+                .andExpect(status().isCreated());
+        mvc.perform(get("/api/v1/workspace").header("Authorization", "Bearer " + login("sara@" + domain)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.defaultCurrency").value("AED"));
     }
 
     @Test

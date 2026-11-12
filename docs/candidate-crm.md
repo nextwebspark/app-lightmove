@@ -7,7 +7,7 @@ Decided and approved 2026-09-30; phases carry a `> **Built**` callout as they la
 
 | Phase | State |
 |---|---|
-| 0 — Mockups | **Done**, merged (#600): `claude-design/Candidates.dc.html`, `Position.dc.html`, `Settings.dc.html` |
+| 0 — Mockups | **Done**, merged (#600): `uncava-design/Candidates.dc.html`, `Position.dc.html`, `Settings.dc.html` |
 | 1 — Person/mapping split, auto-map, activity log (V91) | **Built**, merged (#602) |
 | 2 — Stored profile slug (V95) + golden reads | **Built**, merged (#604) |
 | 3 — Notes, timeline reads, `CANDIDATE_POOL_MANAGE` (V96, V97) | **Built**, merged (#609) |
@@ -161,7 +161,7 @@ the mapping. Nothing a client seat reads ever carries another mandate, a note or
 - **Docs to update with the code**: CLAUDE.md (the people-half paragraph, the Database section, layout
   table), `java-spring-development` (the "three tiers" paragraph, l.290-309, currently says the note,
   status and compensation are mandate-specific), `lightmove-domain` (the new action), `docs/spreadsheet-import.md`
-  (matching now workspace-wide), `claude-design/README.md` (remove the stale `Project.dc.html` row, add
+  (matching now workspace-wide), `uncava-design/README.md` (remove the stale `Project.dc.html` row, add
   `Candidates.dc.html`).
 
 ---
@@ -217,6 +217,10 @@ audit writer, a lost row here is lost product data. The audit ledger keeps being
 CONTACTS_EDITED, CONTACT_FOUND, RESEARCHED, AI_ASSESSED, BACKGROUND_CONFIRMED, IMPORTED, NOTE_ADDED,
 NOTE_EDITED, NOTE_REMOVED, TAGGED, UNTAGGED, OWNER_CHANGED, DO_NOT_CONTACT_SET, DO_NOT_CONTACT_CLEARED,
 MERGED`.
+
+`NOTE_EDITED` is retired: an edit writes no line and no read shows an old one. A note's one line reads the note as
+it stands and says it was edited (`noteEditedAt`, `noteEditedByName`), and the audit trail's `PERSON_NOTE_EDITED`
+keeps every edit.
 
 ### Java types (`api/candidate/`)
 
@@ -304,7 +308,7 @@ spelled one way. So:
 
 ## Phases
 
-### Phase 0 — Mockups (`claude-design/`)
+### Phase 0 — Mockups (`uncava-design/`)
 
 > **Built** (PR #600): `Candidates.dc.html` draws the pool, the Activity tab, the person drawer (Profile, Notes,
 > Timeline) and the bulk, merge and tag dialogs. `Position.dc.html` draws the position's Candidates page, Add
@@ -325,7 +329,7 @@ spelled one way. So:
   possible-duplicate dialog for the drawer's add form.
 - `Workspace.dc.html`: Candidates item in the Workspace nav group. `Position.dc.html`: replace the
   candidates placeholder. Vocabulary: "Position" in labels, `project` in code.
-- `claude-design/README.md`: add the row, drop the stale `Project.dc.html` row.
+- `uncava-design/README.md`: add the row, drop the stale `Project.dc.html` row.
 
 ### Phase 1 — The pool: person/mapping split + auto-map (backend, V91)
 
@@ -471,8 +475,9 @@ expand and the contract in separate deploys.
 >   on `CandidateResponse`, the talent map and the report's disclosures is gone from all three. V96
 >   copies each mapping's `note` into a `GENERAL` note about that mandate (author `added_by`, dated the
 >   row's `updated_at`) with a `NOTE_ADDED` line, and leaves the column frozen for #606.
-> - **Kinds** are the four the mockups offer: `GENERAL, CALL, MEETING, EMAIL`. FEEDBACK waits for the
->   client-feedback work (Phase 5).
+> - **Kinds** are the four the mockups offer: `GENERAL, CALL, MEETING, EMAIL`, and since V164 `LINKEDIN` — a
+>   message, connection request or reply on LinkedIn, typed by hand, drawn with the network's own mark
+>   (`NoteKindMark`), and since V201 `WHATSAPP` likewise. FEEDBACK waits for the client-feedback work (Phase 5).
 > - **Doors keep sending `note`.** `SaveCandidateRequest.note` (the add form, the plugin, a sheet's Note
 >   column) is filed as a general note about the mandate, once: the same words already there are skipped,
 >   so a re-import adds none.
@@ -626,7 +631,8 @@ maps the person. Phone is still not a key.
 >   the contacts and the custom columns.
 > - **Removed since: the position's Candidates page.** In universe already lists every executive the
 >   mandate maps (those at no company included), Outreach works them, and the workspace Candidates page's
->   Add to position files people onto a position. So the page, Add from your candidates and both reads
+>   Add to position files people onto a position, each under the employer their latest position recorded (filed
+>   into that position's universe, once per employer). So the page, Add from your candidates and both reads
 >   below were deleted; `/projects/:id/candidates` redirects to In universe. What it was:
 > - **The position's Candidates page** (`/projects/:id/candidates`, `ProjectCandidatesPage`) made two
 >   reads in `CandidatePipelineController`. The grid's own list is left alone.
@@ -734,6 +740,25 @@ from the bucket, and `app_lm_vendor_person` rows the workspace bought, which is 
 the mapping with FEEDBACK notes from the client seat, saved views, configurable statuses with fixed
 categories (today's seven `CandidateStatus` values stay).
 
+> **Built (#918): erasure.** `PersonErasureService` deletes a person for good behind `PERSON_ERASE` (ADMIN alone,
+> V196): the cascades from `app_lm_person` take every row, and each `PersonErasureContributor` reaches what they
+> cannot — outreach refuses while an email is mid-send and queues its attachments, the notetaker queues the person's
+> Recall bots (V197) to be called back and stripped of media, retried until Recall answers or its 7-day retention has
+> deleted them anyway, the vendor cache forgets the profile (across workspaces, by design), the
+> bell and Find executives' runs lose the name. Their files go through `StorageDeletionQueue` in the same transaction,
+> and by default their profile and addresses go on the suppression list (#920). The audit trail and the credit ledger
+> keep the id, never the name; since #927 no audit detail holds one, and the older lines were scrubbed.
+
+> **Built (#920, part 2): restriction of processing.** `Person.restrictProcessing` (V198, do not contact's shape: a
+> reason, who and when, kept only while set) is set by anyone holding `CANDIDATE_POOL_MANAGE` and lifted only by
+> whoever set it or a `WORKSPACE_MANAGE` holder (`ProcessingRestrictionService`), optionally suppressing the person as
+> an objection, which lifting leaves in place. The gates: `CandidateService.dossierOf`
+> refuses `PERSON_PROCESSING_RESTRICTED`, so no model reads them; the filing step and `mapFromPool` map them onto no
+> further position; `OutreachRecipient.processingRestricted` stops contact lookups, own emails, bookings, the
+> Notetaker and every run at its next send; `PersonProcessingRestricted` calls their bots off in the restriction's transaction and queues them for
+> `RecallBotErasureSweeper`, and
+> `MeetingNotesWorker` leaves a later transcript unread. What a client seat reads is unchanged until counsel decides.
+
 ### Suggested PR sequence
 
 1. Phase 0 mockups (no code) — review the screens first.
@@ -790,7 +815,7 @@ Scripts that touch the tables directly: `ops/dev/seed-report.sql`, `ops/eval/exp
 `lib/projectRows.ts` (invalidate the pool keys too). Extension: `apps/extension/src/api/captureCandidateApi.ts`
 (handle the new 409 code by offering "map").
 
-**Mockups**: `claude-design/{Candidates,Workspace,Position}.dc.html`, `claude-design/README.md`.
+**Mockups**: `uncava-design/{Candidates,Workspace,Position}.dc.html`, `uncava-design/README.md`.
 
 ## Verification
 

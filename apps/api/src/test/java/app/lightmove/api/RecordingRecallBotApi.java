@@ -39,6 +39,7 @@ public class RecordingRecallBotApi implements RecallBotApi {
     private final List<String> removed = new CopyOnWriteArrayList<>();
     private final List<String> left = new CopyOnWriteArrayList<>();
     private volatile VendorFailureKind leaveRefusal;
+    private volatile VendorFailureKind mediaDeleteRefusal;
     private final List<String> mediaDeleted = new CopyOnWriteArrayList<>();
     private final Map<String, URI> liveUpdates = new ConcurrentHashMap<>();
     private final Map<String, String> consentLines = new ConcurrentHashMap<>();
@@ -129,6 +130,9 @@ public class RecordingRecallBotApi implements RecallBotApi {
 
     @Override
     public void deleteMedia(String botId) {
+        if (mediaDeleteRefusal != null) {
+            throw new VendorException(VendorCall.of("recall", "bot-delete-media"), mediaDeleteRefusal, null);
+        }
         mediaDeleted.add(botId);
     }
 
@@ -222,6 +226,11 @@ public class RecordingRecallBotApi implements RecallBotApi {
         this.leaveRefusal = refusal;
     }
 
+    /** Every media delete is refused this way until {@link #clear}; null deletes again. */
+    public void refuseMediaDeletes(VendorFailureKind refusal) {
+        this.mediaDeleteRefusal = refusal;
+    }
+
     /** Bots asked to leave their call, oldest first. */
     public List<String> left() {
         return List.copyOf(left);
@@ -259,6 +268,7 @@ public class RecordingRecallBotApi implements RecallBotApi {
         removed.clear();
         left.clear();
         leaveRefusal = null;
+        mediaDeleteRefusal = null;
         mediaDeleted.clear();
         videos.clear();
         liveUpdates.clear();

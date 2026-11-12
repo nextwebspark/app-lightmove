@@ -19,14 +19,8 @@ import { DateTimePreview } from "./DateTimePreview";
 import { profileSchemaFor, type ProfileValues } from "../lib/profileSchema";
 
 /**
- * The mockup's two-column profile form.
- *
- * Owns nothing but the form: validation, the server's field errors, and the submit state. What a save
- * *means* — refreshing the session, telling the user — belongs to the page, which passes `onSave`. A
- * failure thrown from there lands back here, where the fields that caused it live.
- *
- * No react-query mutation: the current user is not a query, it is `AuthProvider`'s state, so
- * react-hook-form's own `isSubmitting` is the only loading flag there is to read.
+ * The two-column profile form: validation, server field errors, submit state. What a save means is the page's
+ * `onSave`. No mutation — the user is `AuthProvider` state — so `isSubmitting` is the loading flag.
  */
 export function ProfileForm({
   email,
@@ -112,6 +106,27 @@ export function ProfileForm({
             invalid={!!errors.title}
             className="!bg-u-surface"
             {...register("title")}
+          />
+        </Field>
+
+        <Field label="Phone" error={errors.phone?.message} hint="Shown in your email signature">
+          <Input
+            type="tel"
+            autoComplete="tel"
+            placeholder="+971 50 000 0000"
+            invalid={!!errors.phone}
+            className="bg-u-surface"
+            {...register("phone")}
+          />
+        </Field>
+
+        <Field label="LinkedIn" error={errors.linkedinUrl?.message} hint="Your own profile page">
+          <Input
+            type="url"
+            placeholder="linkedin.com/in/…"
+            invalid={!!errors.linkedinUrl}
+            className="bg-u-surface"
+            {...register("linkedinUrl")}
           />
         </Field>
 

@@ -1,11 +1,16 @@
 package app.lightmove.api.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.StubPictureFetcher;
+import app.lightmove.api.core.security.mfa.TestTotp;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.model.UserIdentity;
 import app.lightmove.api.core.security.repository.UserIdentityRepository;
@@ -15,6 +20,9 @@ import app.lightmove.api.core.security.service.OAuth2LoginFailureHandler;
 import app.lightmove.api.core.security.service.OAuth2LoginSuccessHandler;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
+import jakarta.servlet.http.Cookie;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -24,9 +32,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -56,9 +67,10 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
     @Autowired UserRepository users;
     @Autowired UserIdentityRepository identities;
     @Autowired WorkspaceMemberRepository members;
+    @Autowired StubPictureFetcher pictures;
 
     @Test
-    @DisplayName("a provider named only in configuration registers a user and stores its picture")
+    @DisplayName("a provider named only in configuration registers a user and stores a copy of its picture")
     void registersFromRegistrationIdAlone() throws Exception {
         String email = emailForThisTest();
 
@@ -69,7 +81,9 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
 
         User user = users.findByEmail(email).orElseThrow();
         assertThat(user.getFullName()).isEqualTo("Alok Kumar");
-        assertThat(user.getAvatarUrl()).isEqualTo("https://media.licdn.com/alok.jpg");
+        assertThat(user.getAvatarUrl()).startsWith("/api/v1/avatars/");
+        assertThat(user.getAvatarSource()).isEqualTo("LINKEDIN");
+        assertThat(pictures.fetched()).contains("https://media.licdn.com/alok.jpg");
 
         UserIdentity identity = identities.findByProviderAndProviderUserId("LINKEDIN", "linkedin-subject-1")
                 .orElseThrow();
@@ -77,15 +91,33 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the picture is re-stamped on every sign-in, because provider URLs expire")
+    @DisplayName("the provider's picture is copied again on every sign-in, and a re-signed link to the same one keeps it")
     void refreshesTheAvatarOnEverySignIn() throws Exception {
         String email = emailForThisTest();
 
         signIn("linkedin", "linkedin-subject-2", email, Map.of("picture", "https://cdn.example/first.jpg"));
-        signIn("linkedin", "linkedin-subject-2", email, Map.of("picture", "https://cdn.example/second.jpg"));
+        String first = avatarOf(email);
 
-        assertThat(users.findByEmail(email).orElseThrow().getAvatarUrl())
-                .isEqualTo("https://cdn.example/second.jpg");
+        // LinkedIn signs each link afresh: the same photo under a new URL keeps its link, and every cached copy.
+        pictures.sameAs("https://cdn.example/first-resigned.jpg", "https://cdn.example/first.jpg");
+        signIn("linkedin", "linkedin-subject-2", email, Map.of("picture", "https://cdn.example/first-resigned.jpg"));
+        assertThat(avatarOf(email)).isEqualTo(first);
+
+        signIn("linkedin", "linkedin-subject-2", email, Map.of("picture", "https://cdn.example/second.jpg"));
+        assertThat(avatarOf(email)).startsWith("/api/v1/avatars/").isNotEqualTo(first);
+    }
+
+    @Test
+    @DisplayName("a provider that does not answer leaves the picture the person had")
+    void keepsThePictureWhenTheProviderIsDown() throws Exception {
+        String email = emailForThisTest();
+        signIn("linkedin", "linkedin-subject-down", email, Map.of("picture", "https://cdn.example/up.jpg"));
+        String held = avatarOf(email);
+
+        pictures.breakDown("https://cdn.example/new.jpg");
+        signIn("linkedin", "linkedin-subject-down", email, Map.of("picture", "https://cdn.example/new.jpg"));
+
+        assertThat(avatarOf(email)).isEqualTo(held);
     }
 
     @Test
@@ -148,8 +180,8 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
         signIn("google", "google-subject-photo", email,
                 Map.of("picture", "https://lh3.googleusercontent.com/a/default-user=s96-c"));
 
-        assertThat(users.findByEmail(email).orElseThrow().getAvatarUrl())
-                .isEqualTo("https://media.licdn.com/real-photo.jpg");
+        assertThat(users.findByEmail(email).orElseThrow().getAvatarSource()).isEqualTo("LINKEDIN");
+        assertThat(pictures.fetched()).doesNotContain("https://lh3.googleusercontent.com/a/default-user=s96-c");
     }
 
     @Test
@@ -162,8 +194,9 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
         signIn("google", "google-subject-nopic", email,
                 Map.of("picture", "https://lh3.googleusercontent.com/a/photo.jpg"));
 
-        assertThat(users.findByEmail(email).orElseThrow().getAvatarUrl())
-                .isEqualTo("https://lh3.googleusercontent.com/a/photo.jpg");
+        User user = users.findByEmail(email).orElseThrow();
+        assertThat(user.getAvatarUrl()).startsWith("/api/v1/avatars/");
+        assertThat(user.getAvatarSource()).isEqualTo("GOOGLE");
     }
 
     @Test
@@ -171,19 +204,20 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
     void claimsALegacyPictureOnceAndThenHoldsIt() throws Exception {
         String email = emailForThisTest();
         // Every row that predates the avatar_source column looks like this: a picture and no owner.
-        users.save(User.registerFederated(email, "Alok Kumar", "https://cdn.example/legacy.jpg", null,
-                Instant.now(), "2026-07-01"));
+        User legacy = User.registerFederated(email, "Alok Kumar", Instant.now(), "2026-07-01");
+        legacy.showAvatar(null, "https://cdn.example/legacy.jpg");
+        users.save(legacy);
 
         signIn("google", "google-subject-legacy", email,
                 Map.of("picture", "https://lh3.googleusercontent.com/a/claimed.jpg"));
-        assertThat(users.findByEmail(email).orElseThrow().getAvatarUrl())
-                .isEqualTo("https://lh3.googleusercontent.com/a/claimed.jpg");
+        User claimed = users.findByEmail(email).orElseThrow();
+        assertThat(claimed.getAvatarUrl()).startsWith("/api/v1/avatars/");
+        assertThat(claimed.getAvatarSource()).isEqualTo("GOOGLE");
 
         signIn("linkedin", "linkedin-subject-legacy", email,
                 Map.of("picture", "https://media.licdn.com/late.jpg"));
 
-        assertThat(users.findByEmail(email).orElseThrow().getAvatarUrl())
-                .isEqualTo("https://lh3.googleusercontent.com/a/claimed.jpg");
+        assertThat(avatarOf(email)).isEqualTo(claimed.getAvatarUrl());
     }
 
     @Test
@@ -193,9 +227,54 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
 
         signIn("linkedin", "linkedin-subject-picture", email, Map.of("picture", "http://cdn.example/x.jpg"));
 
-        // It is handed to every colleague's browser from the roster, so an unvetted scheme is not
-        // stored at all — the SPA's initials fallback is the designed result.
+        // Our server would fetch it, so an unvetted scheme is not asked for at all — the SPA's initials fallback is
+        // the designed result.
         assertThat(users.findByEmail(email).orElseThrow().getAvatarUrl()).isNull();
+        assertThat(pictures.fetched()).doesNotContain("http://cdn.example/x.jpg");
+    }
+
+    @Test
+    @DisplayName("a photo the person uploaded is never replaced by a provider's sign-in")
+    void anUploadOutlivesEverySignIn() throws Exception {
+        String email = "sara@" + domain;
+        String token = verifiedUser("Sara G", email);
+        String uploaded = body(mvc.perform(multipart(HttpMethod.PUT, "/api/v1/auth/me/avatar")
+                        .file(new MockMultipartFile("file", "me.png", "image/png",
+                                StubPictureFetcher.pngOf(java.awt.Color.PINK, 120, 120)))
+                        .header("Authorization", "Bearer " + token).with(csrf()))
+                .andExpect(status().isOk()).andReturn()).get("avatarUrl").asText();
+
+        signIn("google", "google-subject-upload", email,
+                Map.of("picture", "https://lh3.googleusercontent.com/a/sara-uploaded.jpg"));
+
+        User user = users.findByEmail(email).orElseThrow();
+        assertThat(user.getAvatarUrl()).isEqualTo(uploaded);
+        assertThat(user.getAvatarSource()).isEqualTo("USER");
+        assertThat(pictures.fetched()).doesNotContain("https://lh3.googleusercontent.com/a/sara-uploaded.jpg");
+    }
+
+    @Test
+    @DisplayName("a removed photo stays removed: no provider's sign-in brings one back")
+    void aRemovalSticks() throws Exception {
+        String email = "sara@" + domain;
+        String token = verifiedUser("Sara G", email);
+        mvc.perform(delete("/api/v1/auth/me/avatar").header("Authorization", "Bearer " + token).with(csrf()))
+                .andExpect(status().isOk());
+
+        signIn("linkedin", "linkedin-subject-removed", email, Map.of("picture", "https://media.licdn.com/sara.jpg"));
+
+        assertThat(users.findByEmail(email).orElseThrow().getAvatarUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("a registration named 'user' is refused: it would own every picture as the person's own")
+    void refusesTheReservedRegistrationId() throws Exception {
+        String email = emailForThisTest();
+
+        MockHttpServletResponse response = signIn("user", "user-subject", email, Map.of());
+
+        assertThat(response.getRedirectedUrl()).endsWith("/auth/callback?error=INVALID_CREDENTIALS");
+        assertThat(users.findByEmail(email)).isEmpty();
     }
 
     @Test
@@ -229,14 +308,14 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
                                 """))
                 .andExpect(status().isForbidden());
 
-        signIn("linkedin", "linkedin-subject-held", email, Map.of());
+        String signedIn = accessTokenOf(signIn("linkedin", "linkedin-subject-held", email, Map.of()));
 
         User user = users.findByEmail(email).orElseThrow();
         assertThat(user.isEmailVerified()).isTrue();
 
-        // And the gate is genuinely open now, on a session minted after the provider sign-in.
+        // And the gate is genuinely open now, on the session the provider sign-in minted.
         mvc.perform(post("/api/v1/onboarding/workspace")
-                        .header("Authorization", "Bearer " + login(email))
+                        .header("Authorization", "Bearer " + signedIn)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"mode":"COMPANY","name":"Held Firm"}
@@ -245,6 +324,56 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
 
         assertThat(members.findAllByUserIdAndStatusOrderByJoinedAtAsc(user.getId(), MemberStatus.ACTIVE))
                 .hasSize(1);
+    }
+
+    @Test
+    @DisplayName("a provider proving an address nobody verified shuts out whoever opened the account on it")
+    void aProviderProvingTheAddressShutsOutAnUnverifiedClaimant() throws Exception {
+        // Someone signs up on the owner's address with a password of their own, and never verifies it.
+        String email = "owner@" + domain;
+        MvcResult claimant = mvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("fullName", "Claimant", "email", email,
+                                "password", PASSWORD, "termsAccepted", true))))
+                .andExpect(status().isCreated())
+                .andReturn();
+        Cookie claimantSession = claimant.getResponse().getCookie("lm_refresh");
+
+        signIn("linkedin", "linkedin-subject-owner", email, Map.of());
+
+        MvcResult refusedPassword = mvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("email", email, "password", PASSWORD))))
+                .andExpect(status().isUnauthorized())
+                .andReturn();
+        assertThat(codeOf(refusedPassword)).isEqualTo("INVALID_CREDENTIALS");
+        mvc.perform(post("/api/v1/auth/refresh").cookie(claimantSession).with(csrf()))
+                .andExpect(status().isUnauthorized());
+        assertThat(users.findByEmail(email).orElseThrow().hasPassword()).isFalse();
+    }
+
+    @Test
+    @DisplayName("an unverified claimant's second factor goes too, so the owner is not asked for a code they never had")
+    void aProviderProvingTheAddressDropsAnUnverifiedClaimantsFactor() throws Exception {
+        String email = "owner2@" + domain;
+        signup("Claimant", email);
+        enrol(email);
+
+        MockHttpServletResponse owner = signIn("linkedin", "linkedin-subject-owner2", email, Map.of());
+
+        assertThat(owner.getRedirectedUrl()).contains("#token=");
+        assertThat(owner.getCookie("lm_mfa_challenge")).isNull();
+    }
+
+    @Test
+    @DisplayName("linking a provider to a verified account keeps its password")
+    void linkingAVerifiedAccountKeepsItsPassword() throws Exception {
+        String email = "kept@" + domain;
+        verifiedUser("Kept Password", email);
+
+        signIn("linkedin", "linkedin-subject-kept", email, Map.of());
+
+        assertThat(login(email)).isNotBlank();
     }
 
     @Test
@@ -329,6 +458,77 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
                 new OAuth2AuthenticationException(new OAuth2Error(oauthErrorCode, null, null)));
 
         return response.getRedirectedUrl();
+    }
+
+    @Test
+    @DisplayName("a person with a second factor who signs in with a provider is asked for the code, as after a password")
+    void aProviderSignInStillAsksForTheCode() throws Exception {
+        String email = "sara@" + domain;
+        verifiedUser("Sara G", email);
+        String secret = enrol(email);
+
+        MockHttpServletResponse response = signIn("linkedin", "linkedin-subject-mfa", email, Map.of());
+
+        assertThat(response.getRedirectedUrl()).endsWith("/auth/callback?challenge=two-factor");
+        assertThat(response.getRedirectedUrl()).doesNotContain("#token=");
+        assertThat(response.getCookie("lm_refresh")).isNull();
+        Cookie challenge = response.getCookie("lm_mfa_challenge");
+        assertThat(challenge).isNotNull();
+        assertThat(challenge.isHttpOnly()).isTrue();
+
+        MvcResult signedIn = mvc.perform(post("/api/v1/auth/mfa/verify")
+                        .cookie(challenge)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("code", TestTotp.codeAt(secret, Instant.now().plusSeconds(30))))))
+                .andReturn();
+        assertThat(signedIn.getResponse().getStatus()).as(signedIn.getResponse().getContentAsString()).isEqualTo(200);
+        assertThat(body(signedIn).get("accessToken").asText()).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("a provider sign-in stopped at the code step changes nothing of the account, the picture included")
+    void aSignInAtTheCodeStepCopiesNoPicture() throws Exception {
+        String email = "sara@" + domain;
+        verifiedUser("Sara G", email);
+        enrol(email);
+
+        signIn("linkedin", "linkedin-subject-mfa-photo", email,
+                Map.of("picture", "https://media.licdn.com/sara-at-the-code-step.jpg"));
+
+        assertThat(pictures.fetched()).doesNotContain("https://media.licdn.com/sara-at-the-code-step.jpg");
+        assertThat(avatarOf(email)).isNull();
+    }
+
+    /** Turns two-factor on through the password session, answering the factor's secret. */
+    private String enrol(String email) throws Exception {
+        MvcResult session = mvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("email", email, "password", PASSWORD))))
+                .andReturn();
+        String token = body(session).get("accessToken").asText();
+        Cookie refresh = session.getResponse().getCookie("lm_refresh");
+        String secret = body(mvc.perform(post("/api/v1/auth/mfa/setup")
+                        .header("Authorization", "Bearer " + token).cookie(refresh).with(csrf()))
+                .andReturn()).get("secret").asText();
+        MvcResult enabled = mvc.perform(post("/api/v1/auth/mfa/enable")
+                        .header("Authorization", "Bearer " + token).cookie(refresh).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "currentPassword", PASSWORD, "code", TestTotp.codeAt(secret, Instant.now())))))
+                .andReturn();
+        assertThat(enabled.getResponse().getStatus()).as(enabled.getResponse().getContentAsString()).isEqualTo(200);
+        return secret;
+    }
+
+    private static String accessTokenOf(MockHttpServletResponse response) {
+        String redirect = response.getRedirectedUrl();
+        assertThat(redirect).contains("#token=");
+        return URLDecoder.decode(redirect.substring(redirect.indexOf("#token=") + "#token=".length()),
+                StandardCharsets.UTF_8);
+    }
+
+    private String avatarOf(String email) {
+        return users.findByEmail(email).orElseThrow().getAvatarUrl();
     }
 
     private String emailForThisTest() {

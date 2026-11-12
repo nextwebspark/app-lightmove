@@ -267,6 +267,8 @@ public class GlobalExceptionHandler {
             case "app_lm_outreach_enrollment_live_uk" -> ErrorCode.OUTREACH_ALREADY_ENROLLED;
             // Two first saves of one assessment: the second opened a version that no longer stands.
             case "app_lm_candidate_scorecard_candidate_uk" -> ErrorCode.CANDIDATE_ASSESSMENT_STALE;
+            // Two first saves of a position's ranking scenario: the same.
+            case "app_lm_ranking_scenario_project_uk" -> ErrorCode.RANKING_SCENARIO_STALE;
             case "app_lm_strategy_search_shared_name_uk", "app_lm_strategy_search_private_name_uk" ->
                     ErrorCode.STRATEGY_SEARCH_NAME_TAKEN;
             // The key is slugged from the label, so a race loses on whichever index is reached first.

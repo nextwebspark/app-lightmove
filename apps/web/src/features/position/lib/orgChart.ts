@@ -1,12 +1,8 @@
 import type { OrgNode } from "../api/types";
 
 /**
- * Reading and rearranging the org chart.
- *
- * The chart is a tree of seats with exactly one flagged as the mandate's own. Everything the rest of
- * the screen used to hold as its own field is a question about that seat: its parent is the manager,
- * its children are the direct reports. Deriving them rather than storing them is what stops the
- * summary rail and the canvas disagreeing about the same role.
+ * Reading and rearranging the org chart: a tree of seats, one flagged as the mandate's. Manager and direct
+ * reports are derived from that seat (parent, children), never stored, so the rail and canvas cannot disagree.
  */
 
 /** Node box size and spacing — shared by the layout and the canvas so they cannot drift apart. */
@@ -44,12 +40,8 @@ export function labelOfNode(node: OrgNode | null): string | null {
 }
 
 /**
- * Removes one seat and re-attaches whatever reported to it to the seat above.
- *
- * Deleting a box must not delete work nobody asked to lose: a manager typed in by mistake sits above
- * the whole chart, and taking its branch with it would take the mandate seat and every report anybody
- * had drawn. Splicing it out instead leaves every other seat where it was, one tier up. A seat with no
- * parent leaves its children as roots, which the layout and the server both allow.
+ * Removes one seat and re-attaches its reports to the seat above (roots, if it had no parent), so deleting a
+ * mistaken manager never takes the mandate seat and its branch with it.
  */
 export function removeSeat(chart: OrgNode[], nodeId: string): OrgNode[] {
   const removed = chart.find((node) => node.nodeId === nodeId);
@@ -138,22 +130,10 @@ export interface ChartMergeResult {
 }
 
 /**
- * Folds a whole reporting-section reading into the chart in one pass — a reports-to title and every
- * proposed direct report together, never a chart of its own. Source-aware throughout, so a fill can be
- * run again after somebody has started editing without clobbering what they typed.
- *
- * **Manager.** No manager yet → mint `{ title, source: "DOCUMENT" }` and re-parent the mandate seat
- * under it (refused past the seat ceiling). A `MANUAL` manager — a person's own — is left exactly as
- * typed. Anything else (`TEMPLATE`, a previous reading's `DOCUMENT`, or unmarked legacy data) is
- * renamed and stamped `DOCUMENT`. The rename never touches `name`: the proposal is title-only (see
- * `PositionReportingProposer`'s class doc), and a manager somebody had already named keeps that name
- * paired with the new title. Canvas coordinates are never touched either.
- *
- * **Direct reports**, only attempted when at least one is proposed: the mandate seat's non-`MANUAL`
- * children with no reports of their own are dropped first — a seat somebody built under stays, since
- * dropping it would orphan its own children and 400 on `requireParentsResolve` — then every proposed
- * title is de-duplicated case-insensitively against what is kept and appended as `DOCUMENT`, up to the
- * seat ceiling.
+ * Folds a reporting-section reading into the chart, source-aware so a re-run never clobbers typing. Manager: none →
+ * mint a `DOCUMENT` one above the mandate seat (seat ceiling permitting); `MANUAL` untouched; else retitled (never
+ * `name`, never coordinates) as `DOCUMENT`. Direct reports, when proposed: drop the seat's non-`MANUAL` childless
+ * children (one with reports stays, or `requireParentsResolve` 400s), then append de-duplicated titles up to the ceiling.
  */
 export function mergeReportingProposals(
   chart: OrgNode[],

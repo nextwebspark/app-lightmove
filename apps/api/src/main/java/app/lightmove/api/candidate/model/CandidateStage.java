@@ -1,7 +1,6 @@
 package app.lightmove.api.candidate.model;
 
 import app.lightmove.api.candidate.constant.PipelineColour;
-import app.lightmove.api.candidate.constant.PipelineStageKind;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,8 +14,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * One column of a workspace's pipeline (V131). Retired rather than deleted, and only once none of its
- * statuses is live; the one {@link PipelineStageKind#CLOSED} stage is never retired and always last.
+ * One column of a workspace's pipeline (V131). Retired rather than deleted, and only once none of its statuses is
+ * live. Every stage is alike: whether someone has left the process is their status's own flag (V163).
  */
 @Entity
 @Table(name = "app_lm_workspace_candidate_stage")
@@ -39,10 +38,6 @@ public class CandidateStage extends BaseEntity {
     @Column(name = "colour", nullable = false, length = 16)
     private PipelineColour colour;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "kind", nullable = false, updatable = false, length = 8)
-    private PipelineStageKind kind;
-
     @Column(name = "position", nullable = false)
     private int position;
 
@@ -63,7 +58,6 @@ public class CandidateStage extends BaseEntity {
         stage.stageKey = stageKey;
         stage.label = label;
         stage.colour = colour;
-        stage.kind = PipelineStageKind.ACTIVE;
         stage.position = position;
         stage.createdBy = createdBy;
         return stage;
@@ -93,10 +87,6 @@ public class CandidateStage extends BaseEntity {
 
     public boolean isRetired() {
         return retiredAt != null;
-    }
-
-    public boolean isClosed() {
-        return kind == PipelineStageKind.CLOSED;
     }
 
     public boolean isSystem() {

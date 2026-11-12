@@ -11,6 +11,12 @@ public record RateLimitSettings(
         @DefaultValue("3") int passwordResetRequestsPerHour,
         @DefaultValue("10") int passwordChangeAttemptsPerHour,
 
+        /** Codes after a correct password; the lockout counter is the real brake, this spares the database. */
+        @DefaultValue("10") int mfaVerifyAttemptsPerMinute,
+
+        /** Turning two-factor on or off, and new recovery codes: each asks for the current password. */
+        @DefaultValue("10") int mfaChangeAttemptsPerHour,
+
         /** Pairing the extension: rare and deliberate per account, but a whole firm shares one office IP. */
         @DefaultValue("5") int extensionPairingsPerHour,
         @DefaultValue("60") int extensionPairingsPerHourPerIp,
@@ -29,5 +35,22 @@ public record RateLimitSettings(
         @DefaultValue("30") int bookingPageOpensPerMinute,
 
         /** Booking through a link: each one is an invite on a consultant's calendar, so a tight brake. */
-        @DefaultValue("5") int bookingPageBookingsPerHour
+        @DefaultValue("5") int bookingPageBookingsPerHour,
+
+        /** A profile photo upload or removal: a few per person, but a whole firm sets theirs from one office IP. */
+        @DefaultValue("20") int avatarChangesPerHour,
+        @DefaultValue("300") int avatarChangesPerHourPerIp,
+
+        /**
+         * Invitation emails, counted per address sent to: a firm onboarding its team fits inside the workspace's
+         * budget, and the recipient's, kept across every workspace, stops trial workspaces flooding one inbox.
+         */
+        @DefaultValue("100") int invitationsPerHourPerWorkspace,
+        @DefaultValue("5") int invitationsPerHourPerRecipient,
+
+        /**
+         * Opening a stored profile photo: public, and a roster draws dozens at once from one office IP. Each answer is
+         * cached for a year, so a browser asks once per picture; this is a brake on scanning tokens, nothing more.
+         */
+        @DefaultValue("1200") int avatarReadsPerMinute
 ) {}

@@ -9,14 +9,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
- * Asks the recruiter {@link ChatClient} to weigh one candidate against one job brief, scoped by
- * the system prompt in {@code prompts/recruiter-shortlist-system.st} — set here, per call, rather
- * than on the shared {@code ChatClient} bean, so that bean stays reusable for a future feature with
- * a different prompt. Stateless — the caller supplies both texts, nothing is read from or written
- * to the database.
- *
- * <p>Both texts are free text a person wrote, so this call is guarded through {@link LlmCallPolicy}
- * like every other. It answers in prose, so there is no schema to hold it to — the guard is all of it.
+ * Asks the recruiter {@link ChatClient} to weigh one candidate against one brief, its system prompt set per call so the
+ * shared bean stays reusable; stateless. Both texts are free text, so the call is guarded through {@link LlmCallPolicy}.
  */
 @Service
 public class CandidateShortlistService {

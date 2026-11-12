@@ -27,13 +27,13 @@ export function pipelineSwatchClass(colour: string | null | undefined): string {
  */
 export const LEGACY_CATALOG: PipelineCatalog = {
   stages: [
-    legacyStage("identified", "Identified", "neutral", "active", 1, [["identified", "Identified", "neutral"]]),
-    legacyStage("contacted", "Contacted", "accent", "active", 2, [
+    legacyStage("identified", "Identified", "neutral", false, 1, [["identified", "Identified", "neutral"]]),
+    legacyStage("contacted", "Contacted", "accent", false, 2, [
       ["contacted", "Contacted", "accent"],
       ["engaged", "Engaged", "accent"],
     ]),
-    legacyStage("interested", "Interested", "green", "active", 3, [["interested", "Interested", "green"]]),
-    legacyStage("declined", "Declined", "red", "closed", 6, [
+    legacyStage("interested", "Interested", "green", false, 3, [["interested", "Interested", "green"]]),
+    legacyStage("declined", "Declined", "red", true, 6, [
       ["notInterested", "Not interested", "neutral"],
       ["offLimits", "Off-limits", "red"],
       ["outOfScope", "Out of scope", "signal"],
@@ -80,38 +80,55 @@ export function findStatus(
   return null;
 }
 
+/**
+ * Whether a status should say it is a way out: beside statuses in process it would read as one of them. A stage of
+ * ways out alone, an old Declined say, needs no tag on every row.
+ */
+export function tagsOutOfProcess(stage: Pick<PipelineStage, "statuses">, status: Pick<PipelineStatus, "outOfProcess">) {
+  return status.outOfProcess && liveStatuses(stage).some((other) => !other.outOfProcess);
+}
+
+/** A status as a filter offers it, a way out beside statuses in process saying so. */
+export function offeredStatusLabel(
+  stage: Pick<PipelineStage, "statuses">,
+  status: Pick<PipelineStatus, "label" | "outOfProcess">,
+): string {
+  return tagsOutOfProcess(stage, status) ? `${status.label} · Out of process` : status.label;
+}
+
 export function liveStages(catalog: PipelineCatalog): PipelineStage[] {
   return catalog.stages.filter((stage) => !stage.retired);
 }
 
-export function liveStatuses(stage: PipelineStage): PipelineStatus[] {
+export function liveStatuses(stage: Pick<PipelineStage, "statuses">): PipelineStatus[] {
   return stage.statuses.filter((status) => !status.retired);
 }
 
-/** The status a candidate dropped on a stage is given; null when the stage has no live default to give. */
+/** The status a candidate dropped on a stage is given; null when the stage has no live default in process. */
 export function defaultStatusOf(stage: PipelineStage): PipelineStatus | null {
-  return stage.statuses.find((status) => status.isDefault && !status.retired) ?? null;
+  return stage.statuses.find((status) => status.isDefault && !status.retired && !status.outOfProcess) ?? null;
 }
 
-/** Where someone added with no status stands, as the server decides it: the first live active stage's default. */
+/** Where someone added with no status stands, as the server decides it: the first live stage's default in process. */
 export function startingStatusKey(catalog: PipelineCatalog): string | null {
   for (const stage of liveStages(catalog)) {
-    if (stage.kind !== "active") continue;
     const status = defaultStatusOf(stage);
     if (status) return status.key;
   }
   return null;
 }
 
-export function closedStage(catalog: PipelineCatalog): PipelineStage | null {
-  return liveStages(catalog).find((stage) => stage.kind === "closed") ?? null;
+/** Whoever holds this key is out of process — Inactive on the board; an unknown key reads as in process. */
+export function isOutOfProcess(key: string, catalog?: PipelineCatalog | null): boolean {
+  const known = (catalog && findStatus(catalog, key)?.status) ?? findStatus(LEGACY_CATALOG, key)?.status;
+  return known?.outOfProcess ?? false;
 }
 
 function legacyStage(
   key: string,
   label: string,
   colour: string,
-  kind: "active" | "closed",
+  waysOut: boolean,
   position: number,
   statuses: [string, string, string][],
 ): PipelineStage {
@@ -120,17 +137,17 @@ function legacyStage(
     key,
     label,
     colour,
-    kind,
     position,
     system: true,
     retired: false,
     statuses: statuses.map(([statusKey, statusLabel, statusColour], index) => ({
+      outOfProcess: waysOut,
       id: statusKey,
       key: statusKey,
       label: statusLabel,
       colour: statusColour,
       position: index + 1,
-      isDefault: index === 0,
+      isDefault: index === 0 && !waysOut,
       system: true,
       retired: false,
     })),

@@ -12,6 +12,13 @@ public record UserResponse(
         String fullName,
         String title,
         String avatarUrl,
+
+        /** Whether Settings → Profile offers Change and Remove photo; false once an identity provider supplies it. */
+        boolean avatarEditable,
+
+        /** Shown in the person's email signature; null when they gave none. */
+        String phone,
+        String linkedinUrl,
         boolean emailVerified,
 
         /**

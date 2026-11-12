@@ -3,7 +3,7 @@
 Status: **built** — all six phases (approved 2026-10-21): the ledger and its reads, replies, own sends, the screen,
 attachments, and live refresh with the drawer's link back. Section H records, phase by phase, where what shipped
 differs from the plan above it.
-This is the design the Outreach workspace in `claude-design/Outreach.dc.html` is built from; each phase is one PR.
+This is the design the Outreach workspace in `uncava-design/Outreach.dc.html` is built from; each phase is one PR.
 Until a phase ships, the tables, routes and entities it names do not exist.
 
 
@@ -12,7 +12,7 @@ Until a phase ships, the tables, routes and entities it names do not exist.
 The Outreach screen today is count tiles, sequence cards and a "People in outreach" table; everything about one
 person is spread over the executive drawer (Outreach fold, Meetings section, Notes tab, Activity tab), and a
 reply is only ever *noticed* — "Only who wrote and where is ever read — never what" (`OutreachInboxService`).
-The new mockup (`claude-design/Outreach.dc.html`) turns the
+The new mockup (`uncava-design/Outreach.dc.html`) turns the
 page into a three-pane **conversation workspace**: an action queue on the left, one executive's communication
 history and a reply composer in the middle, that executive's details on the right. The goal is one place where a
 consultant sees everything that happened with a person on this position in time order — emails sent, replies,
@@ -421,7 +421,7 @@ unknown kind refetches everything).
 - Log call → `NoteComposerModal` wrapping `NotesSection`'s composer with new `initialKind` / `onSaved` props
   (`PersonSections.tsx`); Add note → `general`. Mark handled → `useTaskCompletion` on `openTask.taskId`, disabled
   with a tooltip when none.
-- Mockup: copy the uploaded file over `claude-design/Outreach.dc.html`; update `claude-design/README.md`'s row
+- Mockup: copy the uploaded file over `uncava-design/Outreach.dc.html`; update `uncava-design/README.md`'s row
   (the workspace's panes, the `?view=` knob, what is not drawn: formatting icons beyond the editor's, Saved
   template). `docs/glossary.md`: add Conversation, Action queue, Needs reply, Synced email (the mockup's words).
 
@@ -512,8 +512,8 @@ person merge is built, message and attachment rows move with the enrollments.
      thread, which is the only run a send stops, and `emailSentMovesTo`, the forward-only status move), and
      `sentToday`/`scheduledEmails` on the mailbox read (`DailySendCount`).
    - The mockup draws no mailbox or empty states: `lib/mailboxState.ts` reads the mailbox once for the banner, the
-     chip and the composer, with the old page's copy. The composer has no token bar (tokens still work when typed;
-     Insert follow-up brings the next step's text), no Saved template and no Attach; the mockup's contact Time zone
+     chip and the composer, with the old page's copy. The composer carries the sequence editor's own Insert bar and the Templates picker, and holds Send while a variable has nothing to fill it (`docs/email-templates.md`, Phase 2); Attach
+     came with phase 5, below. The mockup's contact Time zone
      row, the group context lines and the details "⋯" are not drawn — nothing is behind them.
    - Log call and Add note open the drawer's own composer (`PositionNoteComposer`, pulled out of `NotesSection`) in a
      modal; Mark handled completes the next-action task and moves to the next person.
@@ -540,7 +540,8 @@ person merge is built, message and attachment rows move with the enrollments.
      tabs became chips in the list pane (`ConversationListPane`: All · **To do** · Scheduled · Sent, Team | Mine beside
      the heading); To do keeps the groups, relabelled Needs reply · Follow-ups · Before first email · Delivery
      problems. A chip or scope change moves to the top of that list; Mark handled moves on only in To do. The header
-     (`OutreachHeader`) is Conversations | Sequences, the mailbox chip and the view's one action — **New email** on Conversations (a To
+     (`OutreachHeader`) is Conversations | Sequences first (`ToolbarViewSwitch`, the width every page's switch has),
+     then the mailbox chip and the view's one action — **New email** on Conversations (a To
      field over the pipeline read: the five newest before anything is typed, eight matches after, so a position of
      hundreds is narrowed by typing; the pick opens with the caret in the composer) and **New sequence** on
      Sequences — the New outreach menu, the Priority label, the "{n} open" count and the scheduled footer are gone,

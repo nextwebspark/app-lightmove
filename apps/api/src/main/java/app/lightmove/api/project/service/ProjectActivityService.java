@@ -59,11 +59,17 @@ public class ProjectActivityService {
             ProjectEventType.CANDIDATE_UPDATED);
 
     private static final List<String> DETAIL_KEYS = List.of(
-            "status", "statusLabel", "added", "companyName", "fullName", "fileName", "candidateId",
+            "status", "statusLabel", "added", "companyName", "fileName", "candidateId",
             "companiesCreated", "candidatesCreated", "stage");
+
+    private static final String PERSON_ID_KEY = "personId";
+
+    /** Answered from the person's live row; before #927 the trail kept the name itself. */
+    private static final String PERSON_NAME_KEY = "fullName";
 
     private final AuditEventRepository events;
     private final UserRepository users;
+    private final ActivityPersonNames personNames;
 
     @Transactional(readOnly = true)
     public ProjectActivityResponse list(UUID workspaceId, UUID projectId, Long beforeCursor, int pageSize) {
@@ -81,6 +87,9 @@ public class ProjectActivityService {
                 .stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
 
+        Map<UUID, String> personNameById = personNames.namesOf(workspaceId, shown.stream()
+                .map(ProjectActivityService::personIdOf).filter(Objects::nonNull).distinct().toList());
+
         List<ProjectActivityEntryResponse> entries = shown.stream()
                 .map(event -> {
                     User actor = event.getActorUserId() == null ? null : actorById.get(event.getActorUserId());
@@ -89,13 +98,13 @@ public class ProjectActivityService {
                             event.getActorUserId(),
                             actor == null ? null : actor.getFullName(),
                             actor == null ? null : actor.getAvatarUrl(),
-                            detailsOf(event.getMetadata()));
+                            detailsOf(event.getMetadata(), nameOf(event, personNameById)));
                 })
                 .toList();
         return new ProjectActivityResponse(entries, hasMore ? shown.getLast().getId() : null);
     }
 
-    private static Map<String, String> detailsOf(Map<String, Object> metadata) {
+    private static Map<String, String> detailsOf(Map<String, Object> metadata, String personName) {
         Map<String, String> details = new LinkedHashMap<>();
         for (String key : DETAIL_KEYS) {
             Object value = metadata.get(key);
@@ -103,7 +112,28 @@ public class ProjectActivityService {
                 details.put(key, value.toString());
             }
         }
+        if (personName != null) {
+            details.put(PERSON_NAME_KEY, personName);
+        }
         return details;
+    }
+
+    /** Never {@code get(null)}: the immutable map an empty page answers throws on a null key. */
+    private static String nameOf(AuditEvent event, Map<UUID, String> personNameById) {
+        UUID personId = personIdOf(event);
+        return personId == null ? null : personNameById.get(personId);
+    }
+
+    private static UUID personIdOf(AuditEvent event) {
+        Object value = event.getMetadata().get(PERSON_ID_KEY);
+        if (value == null) {
+            return null;
+        }
+        try {
+            return UUID.fromString(value.toString());
+        } catch (IllegalArgumentException unreadable) {
+            return null;
+        }
     }
 
     private static List<String> codesOf(Set<ProjectEventType> types) {

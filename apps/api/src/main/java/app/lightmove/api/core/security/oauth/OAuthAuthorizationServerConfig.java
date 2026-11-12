@@ -47,14 +47,9 @@ import org.springframework.security.web.servlet.util.matcher.PathPatternRequestM
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The OAuth 2.1 authorization server MCP clients connect through (epic #699): Spring's own, its endpoints moved under
- * {@code /api/v1/oauth} — {@code /oauth2/**} is the sign-in providers' — with the metadata at the RFC 8414 well-known
- * path. Public clients only, PKCE S256, a {@code resource} naming the MCP endpoint, a workspace chosen at consent, and
- * rotating refresh tokens.
- *
- * <p>The user is whoever the SPA's session token says, read by a bearer filter placed ahead of the framework's request
- * validation: that validation captures the principal, and the resource server's own filter would run too late for it.
- * No cookie is read on this chain, so it needs no CSRF protection.
+ * The MCP clients' OAuth 2.1 authorization server (epic #699) under {@code /api/v1/oauth}, RFC 8414 metadata; public clients,
+ * PKCE S256, {@code resource} required. The bearer filter sits ahead of request validation (which captures the principal);
+ * no cookie is read on this chain, so it needs no CSRF protection.
  */
 @Configuration
 @ConditionalOnBooleanProperty(name = OAuthAuthorizationServerConfig.MCP_SWITCH)

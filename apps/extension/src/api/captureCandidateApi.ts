@@ -17,11 +17,16 @@ export function captureCandidate(
   });
 }
 
-/** Undoes a capture: removes the person from the mandate. */
+/**
+ * Undoes a capture: removes the person from the mandate, and the company filed for them while nobody else is at it
+ * and nobody has worked it. A company the position already held stays.
+ */
 export function removeCandidate(
   api: LightMoveApiClient,
   projectId: string,
   candidateId: string,
 ): Promise<void> {
-  return api.request<void>(`/projects/${projectId}/candidates/${candidateId}`, { method: "DELETE" });
+  return api.request<void>(`/projects/${projectId}/candidates/${candidateId}?withFiledCompany=true`, {
+    method: "DELETE",
+  });
 }

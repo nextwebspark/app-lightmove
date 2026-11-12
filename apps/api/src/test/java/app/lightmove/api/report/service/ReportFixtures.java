@@ -22,7 +22,7 @@ import java.util.UUID;
 final class ReportFixtures {
 
     static final CandidatePipelineStageDto IDENTIFIED =
-            new CandidatePipelineStageDto("identified", "Identified", "neutral", "active", 1);
+            new CandidatePipelineStageDto("identified", "Identified", "neutral", 1);
 
     private ReportFixtures() {
     }
@@ -39,8 +39,8 @@ final class ReportFixtures {
                 company == null ? "Somewhere Untriaged" : company.companyName(), fullName, null, seniority,
                 "identified", null, country, null, nationality, null, null, Set.of(), null, null,
                 List.of(), List.of(), List.of(), List.of(), "manual", null, Map.of(), addedAt, null, null, null,
-                false, "Identified", "neutral", IDENTIFIED, addedAt, true,
-                "inUniverse");
+                false, "Identified", "neutral", false, IDENTIFIED, addedAt, true,
+                "inUniverse", null);
         return new ExecutiveRow(person, company);
     }
 

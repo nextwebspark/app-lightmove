@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { NotFoundPage } from "../../app/NotFoundPage";
 import { useAuth } from "../../features/auth/AuthProvider";
-import * as pipelineApi from "../../features/pipeline/api/pipelineApi";
 import * as projectsApi from "../../features/projects/api/projectsApi";
 import { canExecuteProjectWork } from "../../features/projects/lib/access";
 import type { Project } from "../../features/projects/api/types";
@@ -22,7 +21,7 @@ import { positionTabs } from "./mobile/mobileTabs";
 import { PositionQuickActions } from "./mobile/PositionQuickActions";
 import { type SidebarGroup } from "./Sidebar";
 import * as triageApi from "../../features/triage/api/triageApi";
-import { TRIAGE_STAGES } from "../../features/triage/lib/triageStages";
+import { OFFERED_TRIAGE_STAGES } from "../../features/triage/lib/triageStages";
 import { ProjectBreadcrumb } from "./Topbar";
 import { usePositionsOrigin } from "../../features/projects/lib/positionsOrigin";
 
@@ -32,26 +31,18 @@ import { usePositionsOrigin } from "../../features/projects/lib/positionsOrigin"
  * its content, and the table pushes the page into scrolling instead. `h-full` is opt-in rather than
  * shared because it caps the wrapper — a tab that scrolls normally would have its overflow clipped.
  */
-const VIEWPORT_FILLING_TABS = ["/companies/", "/strategy", "/pipeline"];
+const VIEWPORT_FILLING_TABS = ["/companies/", "/strategy"];
 
 /**
- * Tabs that own the whole main area: no gutter, and no 1440px cap.
- *
- * <p>The cap is right for a reading column and wrong for a workspace. Strategy is a filter rail and a
- * ten-column table side by side, and on a wide screen the cap left the table ending in mid-air with
- * the space it needed sitting empty beside it — the columns that got squeezed were the ones carrying
- * the data.
- *
- * <p>Reports is here for a different reason: it paints its own ground, the page background rather
- * than the shell's surface, and a gutter around it would frame the report in a second tone. The brief
- * (the mandate's index route, matched exactly below) is full-bleed for the same reason.
+ * Tabs that own the whole main area (no gutter, no 1440px cap): Strategy needs the width for its table;
+ * Reports and the brief paint their own ground.
  */
-const FULL_BLEED_TABS = ["/companies/", "/strategy", "/reports", "/pipeline"];
+const FULL_BLEED_TABS = ["/companies/", "/strategy", "/reports"];
 
 /**
  * The project workspace shell (Project.dc.html): breadcrumb topbar, the mandate sidebar — Position
- * and Strategy under "Position", the three triage stages under "Market mapping", Pipeline and Outreach
- * under "CRM" for staff — and the routed page.
+ * and Strategy under "Position", the three triage stages under "Market mapping", Outreach under "Engage" for staff
+ * (Position.dc.html) — and the routed page. Each page's views are its toolbar's switch, never the rail's.
  * The project itself is resolved from the cached list query; a deep link waits for the load and only
  * shows the not-found screen once the id is confirmed unreadable.
  */
@@ -68,14 +59,17 @@ export function ProjectLayout() {
   // wide grid ending in mid-air.
   // Conversations, the sequences list and the sequence editor each own the viewport under the one Outreach header, so
   // moving between them never moves the frame.
-  const outreachPath = pathname.replace(/\/$/, "");
+  const currentPath = pathname.replace(/\/$/, "");
   const sequencesPath = `/projects/${projectId}/outreach/sequences`;
   const isOutreachWorkspace =
-    outreachPath === `/projects/${projectId}/outreach` ||
-    outreachPath === sequencesPath ||
-    outreachPath.startsWith(`${sequencesPath}/`);
+    currentPath === `/projects/${projectId}/outreach` ||
+    currentPath === sequencesPath ||
+    currentPath.startsWith(`${sequencesPath}/`);
   const fillsViewport = isOutreachWorkspace || VIEWPORT_FILLING_TABS.some((tab) => pathname.includes(tab));
-  const isBriefTab = pathname.replace(/\/$/, "") === `/projects/${projectId}`;
+  const isBriefTab = currentPath === `/projects/${projectId}`;
+  // The assistant researches the market, so it docks beside Strategy alone; on any other screen it stays shut,
+  // and coming back to Strategy finds it as it was left.
+  const isStrategyTab = currentPath === `/projects/${projectId}/strategy`;
   const fullBleed = isBriefTab || isOutreachWorkspace || FULL_BLEED_TABS.some((tab) => pathname.includes(tab));
 
   const { data: projects, isPending } = useQuery({
@@ -94,15 +88,6 @@ export function ProjectLayout() {
 
   const { user } = useAuth();
   const isStaff = project ? canExecuteProjectWork(project, user?.id, user?.workspace?.roles) : false;
-  // The same read the page opens on, so the badge and the page share one request.
-  const { data: pipeline } = useQuery({
-    queryKey: pipelineApi.PIPELINE_KEY(projectId ?? "", pipelineApi.NO_PIPELINE_QUERY),
-    queryFn: ({ signal }) => pipelineApi.getPipeline(projectId!, pipelineApi.NO_PIPELINE_QUERY, signal),
-    enabled: Boolean(projectId) && isStaff,
-  });
-  const activeInPipeline = pipeline?.stageCounts
-    .filter((stage) => stage.kind === "active")
-    .reduce((sum, stage) => sum + stage.count, 0);
 
   if (!project) {
     if (isPending) {
@@ -135,28 +120,20 @@ export function ProjectLayout() {
       label: "Market mapping",
       // The three triage stages, each its own page: a consultant works one at a time and sends a
       // colleague the shortlist, not "the Companies screen, then the second tab".
-      items: TRIAGE_STAGES.map((stage) => ({
+      items: OFFERED_TRIAGE_STAGES.map((stage) => ({
         to: `${base}/companies/${stage.slug}`,
         label: stage.label,
         icon: stage.icon,
         count: triageCounts?.[stage.status],
       })),
     },
-    {
-      label: "CRM",
-      items: [
-        ...(isStaff
-          ? [
-              { to: `${base}/pipeline`, label: "Pipeline", icon: ICONS.pipeline, count: activeInPipeline },
-              { to: `${base}/outreach`, label: "Outreach", icon: ICONS.outreach },
-            ]
-          : []),
-      ],
-    },
+    ...(isStaff
+      ? [{ label: "Engage", items: [{ to: `${base}/outreach`, label: "Outreach", icon: ICONS.outreach }] }]
+      : []),
     {
       label: "Project",
       items: [
-        { to: `${base}/reports`, label: "Reports", icon: ICONS.reports },
+        { to: `${base}/reports`, label: "Dashboard", icon: ICONS.dashboard },
         { to: `${base}/team`, label: "Team & access", icon: ICONS.team },
       ],
     },
@@ -188,7 +165,7 @@ export function ProjectLayout() {
       navGroups={groups.filter((group) => group.items.length > 0)}
       navBackLink={{ to: origin.path, label: origin.label, title: `Back to ${origin.label}`, icon: ICONS.back }}
       assistantContext={`${project.clientName} · ${project.positionTitle}`}
-      assistantProjectId={project.id}
+      assistantProjectId={isStrategyTab ? project.id : null}
       /* Wider than the mockups' 1160px on purpose — see WorkspaceLayout for the reasoning. */
       contentClassName={cn(
         fullBleed ? "flex min-h-full w-full flex-col" : "mx-auto max-w-[1440px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7",

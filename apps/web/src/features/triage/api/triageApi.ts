@@ -1,9 +1,11 @@
 import type { CustomFieldValues } from "../../customcolumns/api/types";
 import { request } from "../../../lib/apiClient";
+import { CANDIDATES_KEY_PREFIX } from "../../candidates/api/candidatesApi";
 import type { GridSort } from "../../../lib/useGridSort";
 import type {
   BulkAddResult,
   CaptureCompanyPayload,
+  StageLinesPage,
   EditCompanyPayload,
   TriageCompaniesPage,
   TriageCompany,
@@ -13,44 +15,10 @@ import type {
 } from "./types";
 
 /**
- * A mandate's triaged companies — what Strategy's "Add to Universe" wrote, plus the companies the
- * mandate supplied itself.
- *
- * <p>This queries no market at all. The screen it replaced ran the mandate's criteria against 54k
- * warehouse rows and presented the matches, which made it a second, slower discovery screen;
- * discovery lives in Strategy now, and what is left here is the standing record of what the team
- * decided about each company.
+ * A mandate's triaged companies — what Strategy added plus its own; queries no market (discovery lives in Strategy).
  */
 
 export const TRIAGE_KEY_PREFIX = (projectId: string) => ["triage", projectId] as const;
-
-/**
- * The key carries everything the request varies by, so each stage, page, search and ordering is its
- * own cache entry — and a write still invalidates all of them at once through the prefix.
- */
-export const TRIAGE_KEY = (
-  projectId: string,
-  status: TriageCompanyStatus,
-  page: number,
-  size: number,
-  query: string,
-  executiveQuery: string,
-  /** The Status column's own header filter — independent of the two text ones above it. */
-  executiveStatuses: string[],
-  sort: GridSort<TriageSortField>,
-) =>
-  [
-    ...TRIAGE_KEY_PREFIX(projectId),
-    status,
-    page,
-    size,
-    query,
-    executiveQuery,
-    // Sorted: the same ticked set in a different click order must not read as a different cache entry.
-    [...executiveStatuses].sort(),
-    sort.field,
-    sort.direction,
-  ] as const;
 
 export function getTriageCompanies(
   projectId: string,
@@ -62,6 +30,8 @@ export function getTriageCompanies(
   executiveQuery: string,
   /** The Status column's own header filter — a closed checkbox set, ORed together server-side. */
   executiveStatuses: string[],
+  /** The toolbar's search, shared by every view: a company, its executives and, for staff, notes and tags. */
+  search: string,
   sort: GridSort<TriageSortField>,
   signal?: AbortSignal,
 ): Promise<TriageCompaniesPage> {
@@ -79,19 +49,67 @@ export function getTriageCompanies(
   // Repeated rather than joined: the server binds `executiveStatuses` as a list, and joining with a
   // separator would need one no ticked status could ever contain.
   for (const status of executiveStatuses) params.append("executiveStatuses", status);
+  if (search.trim()) params.set("search", search.trim());
   return request<TriageCompaniesPage>(`/projects/${projectId}/triage?${params}`, { signal });
+}
+
+/**
+ * The grid's lines carry people as well as companies, so they hang under the people's prefix: every edit to an
+ * executive, from whichever drawer, already invalidates it. A company's own writes refresh it by name.
+ */
+export const STAGE_LINES_KEY_PREFIX = (projectId: string) => [...CANDIDATES_KEY_PREFIX(projectId), "stage-lines"] as const;
+
+export interface StageLinesQuery {
+  status: TriageCompanyStatus;
+  page: number;
+  size: number;
+  /** The Company column's own header filter. */
+  query: string;
+  /** The Executive column's own header filter. */
+  executiveQuery: string;
+  /** The Status column's own header filter, ORed together server-side. */
+  executiveStatuses: string[];
+  /** The toolbar's search, shared by every view. */
+  search: string;
+  sort: GridSort<TriageSortField>;
+}
+
+export const STAGE_LINES_KEY = (projectId: string, scope: StageLinesQuery) =>
+  [
+    ...STAGE_LINES_KEY_PREFIX(projectId),
+    scope.status,
+    scope.page,
+    scope.size,
+    scope.query,
+    scope.executiveQuery,
+    [...scope.executiveStatuses].sort(),
+    scope.search,
+    scope.sort.field,
+    scope.sort.direction,
+  ] as const;
+
+/** One page of a stage's grid lines — people at companies — ordered across the whole stage by the sorted column. */
+export function getStageLines(projectId: string, scope: StageLinesQuery, signal?: AbortSignal): Promise<StageLinesPage> {
+  const params = new URLSearchParams({
+    status: scope.status,
+    page: String(scope.page),
+    size: String(scope.size),
+    sort: scope.sort.field,
+    direction: scope.sort.direction,
+  });
+  if (scope.query) params.set("q", scope.query);
+  if (scope.executiveQuery) params.set("executiveQuery", scope.executiveQuery);
+  for (const status of scope.executiveStatuses) params.append("executiveStatuses", status);
+  if (scope.search.trim()) params.set("search", scope.search.trim());
+  return request<StageLinesPage>(`/projects/${projectId}/triage/lines?${params}`, { signal });
 }
 
 export const TRIAGE_COUNTS_KEY = (projectId: string) =>
   [...TRIAGE_KEY_PREFIX(projectId), "counts"] as const;
 
 /**
- * The three stage counts on their own, for the sidebar — which carries them on every tab of a
- * mandate, not just the Companies grids.
- *
- * <p>It asks the list endpoint for a single row rather than a counts route of its own: the counts
- * already travel with every page because the sidebar's badges are always on screen, and the key
- * sits under {@link TRIAGE_KEY_PREFIX} so a move invalidates the rail's numbers with the grid's.
+ * The three stage counts for the sidebar, read as a one-row list page; the key sits under {@link TRIAGE_KEY_PREFIX} so a
+ * move invalidates the rail's numbers with the grid's.
  */
 export function getTriageCounts(projectId: string, signal?: AbortSignal): Promise<TriageCounts> {
   return getTriageCompanies(
@@ -102,6 +120,7 @@ export function getTriageCounts(projectId: string, signal?: AbortSignal): Promis
     "",
     "",
     [],
+    "",
     { field: "added", direction: "desc" },
     signal,
   ).then((page) => page.counts);
@@ -120,12 +139,17 @@ export function updateTriageCompany(
 }
 
 /**
- * Drops this mandate's decision about a company. The company itself is untouched — the Apollo
- * universe is read-only to the API — so it stays on Strategy and stays available to every other
- * mandate.
+ * Drops this mandate's decision about a company, and everyone mapped at it; the universe row is untouched.
+ * `expectedExecutives` is how many the caller warned about — the server refuses if more are mapped there.
  */
-export function deleteTriageCompany(projectId: string, triageCompanyId: string): Promise<void> {
-  return request<void>(`/projects/${projectId}/triage/${triageCompanyId}`, { method: "DELETE" });
+export function deleteTriageCompany(
+  projectId: string,
+  triageCompanyId: string,
+  options?: { expectedExecutives: number },
+): Promise<void> {
+  const expected = options?.expectedExecutives ?? 0;
+  const query = expected > 0 ? `?expectedExecutives=${expected}` : "";
+  return request<void>(`/projects/${projectId}/triage/${triageCompanyId}${query}`, { method: "DELETE" });
 }
 
 /**
@@ -175,15 +199,8 @@ export function captureCompany(
 }
 
 /**
- * Takes one company out of the market into this mandate — Strategy's per-row "Add to Universe", and
- * the Companies screen's own picker over the same universe.
- *
- * <p>Only the identity travels: the server resolves the snapshot from the market, so the row carries
- * the export's figures and its Source badge means what it says. What the caller may add is where the
- * company lands and the first note about it, neither of which the market can answer.
- *
- * <p>Already held answers with the existing row rather than an error — and with <i>its</i> stage, not
- * the one asked for, so re-adding never walks a declined company back into the universe.
+ * Takes one market company into the mandate by id; the server resolves the snapshot. Already held answers the existing
+ * row at <i>its</i> stage, so re-adding never walks a declined company back into the universe.
  */
 export function addMarketCompany(
   projectId: string,
@@ -197,15 +214,8 @@ export function addMarketCompany(
 }
 
 /**
- * The companies ticked on Strategy, taken in together at one stage — the selection bar's three
- * buttons.
- *
- * <p>Ids only, as {@link addMarketCompany}: the server resolves every snapshot from the market. One
- * request rather than a loop over that one, because forty POSTs would be forty audit events, forty
- * chances for a partial failure nobody can describe, and a toast that could only guess at its number.
- *
- * <p>Companies the mandate already holds keep the stage they are at and count as skipped — declining
- * a selection that happens to include an already-shortlisted company does not move it.
+ * Files Strategy's ticked companies at one stage in one request (ids only; one audit event, no partial failure). Already
+ * held companies keep their stage and count as skipped.
  */
 export function addSelectedCompanies(
   projectId: string,
@@ -216,9 +226,4 @@ export function addSelectedCompanies(
     method: "POST",
     body: { apolloAccountIds, status },
   });
-}
-
-export function addAllInScope(projectId: string): Promise<BulkAddResult> {
-  // No body: the scope is the stored filter, so this cannot ask for a wider one than is on screen.
-  return request<BulkAddResult>(`/projects/${projectId}/triage/from-filter`, { method: "POST" });
 }

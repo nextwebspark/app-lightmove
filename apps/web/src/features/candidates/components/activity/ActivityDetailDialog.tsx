@@ -13,29 +13,33 @@ import { CANDIDATE_TASKS_KEY, getCandidateTasks } from "../../../tasks/api/tasks
 import * as personCrmApi from "../../api/personCrmApi";
 import type { PersonDocument, PersonDocumentVersion, PersonNoteKind, PersonTimelineEntry } from "../../api/types";
 import type { DrawerTab } from "../../lib/drawerTabs";
+import type { ProfileSection } from "../../lib/useProfileSections";
 import {
   actorOf,
   automationCauseOf,
   doorOf,
   fieldLabel,
   fullDateTime,
-  iconOf,
   shortDateTime,
   verbOf,
   actorNameOf,
   actorRoleOf,
   type ActivityExecutive,
+  type ActivityScope,
   type TaskState,
 } from "../../lib/activityPresentation";
 import { STOP_REASONS, statusLabel } from "../../lib/candidateActivity";
-import { noteKindLabel } from "../../lib/noteKinds";
+import { isContactNote, noteKindLabel, noteKindOf } from "../../lib/noteKinds";
 import { StatusPill } from "./ActivityItems";
-import { ActorFace, KindTile } from "./ActivityVisuals";
+import { ActorFace, EntryKindTile } from "./ActivityVisuals";
 import { formatInstantTime } from "../../../../lib/datetime";
 
 export interface ActivityDestinations {
   onShowNote: (noteId: string) => void;
-  onOpenTab: (tab: DrawerTab) => void;
+  /** A tab, and on Profile the fold that holds the thing. */
+  onOpenTab: (tab: DrawerTab, fold?: ProfileSection) => void;
+  /** The header's contact details: the editor for whoever may edit them, else a read. */
+  onShowContacts: () => void;
   onOpenMeetings: () => void;
   onOpenTask: (taskId: string) => void;
   onPreviewDocument: (document: PersonDocument, version: PersonDocumentVersion) => void;
@@ -49,8 +53,7 @@ export interface ActivityDestinations {
 export function ActivityDetailDialog({
   entry,
   onClose,
-  projectId,
-  candidateId,
+  scope,
   executive,
   documents,
   destinations,
@@ -58,8 +61,7 @@ export function ActivityDetailDialog({
 }: {
   entry: PersonTimelineEntry;
   onClose: () => void;
-  projectId: string;
-  candidateId: string;
+  scope: ActivityScope;
   executive: ActivityExecutive;
   documents: readonly PersonDocument[] | undefined;
   destinations: ActivityDestinations;
@@ -72,7 +74,8 @@ export function ActivityDetailDialog({
     onClose();
     action();
   };
-  const way = wayOf(entry, projectId, candidateId, destinations);
+  const position = scope.kind === "position" ? scope : null;
+  const way = wayOf(entry, position, destinations);
   return (
     <Modal
       open
@@ -102,8 +105,8 @@ export function ActivityDetailDialog({
     >
       <div className="flex flex-col gap-4 pb-4">
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-u-border bg-u-bg px-3 py-2.5">
-          <KindTile icon={iconOf(entry)} size="head" />
-          <ActorFace actor={actor} executive={executive} projectId={projectId} size="lg" />
+          <EntryKindTile entry={entry} size="head" />
+          <ActorFace actor={actor} executive={executive} size="lg" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-body font-semibold text-u-text">{name}</p>
             <p className="truncate text-note text-u-text3">{actorRoleOf(actor)}</p>
@@ -123,8 +126,7 @@ export function ActivityDetailDialog({
         </p>
         <DetailBody
           entry={entry}
-          projectId={projectId}
-          candidateId={candidateId}
+          position={position}
           executive={executive}
           documents={documents}
           taskState={taskState}
@@ -140,16 +142,15 @@ export function ActivityDetailDialog({
 
 function DetailBody({
   entry,
-  projectId,
-  candidateId,
+  position,
   executive,
   documents,
   taskState,
   onPreviewDocument,
 }: {
   entry: PersonTimelineEntry;
-  projectId: string;
-  candidateId: string;
+  /** Null on the person-wide timeline, which is never sent a position's notes, emails, calls or tasks to read. */
+  position: PositionOfLine | null;
   executive: ActivityExecutive;
   documents: readonly PersonDocument[] | undefined;
   taskState: TaskState | undefined;
@@ -161,14 +162,18 @@ function DetailBody({
     case "NOTE_EDITED":
     case "NOTE_RESTORED":
     case "NOTE_REMOVED":
-      return <NoteDetail entry={entry} projectId={projectId} candidateId={candidateId} />;
+      return position && <NoteDetail entry={entry} projectId={position.projectId} candidateId={position.candidateId} />;
     case "EMAIL_SENT":
     case "EMAIL_REPLIED":
-      return <EmailDetail entry={entry} projectId={projectId} candidateId={candidateId} executive={executive} />;
+      return (
+        position && (
+          <EmailDetail entry={entry} projectId={position.projectId} candidateId={position.candidateId} executive={executive} />
+        )
+      );
     case "MEETING_BOOKED":
     case "MEETING_RESCHEDULED":
     case "MEETING_CANCELLED":
-      return <MeetingDetail entry={entry} projectId={projectId} candidateId={candidateId} />;
+      return position && <MeetingDetail entry={entry} projectId={position.projectId} candidateId={position.candidateId} />;
     case "STATUS_CHANGED":
       return (
         <>
@@ -199,7 +204,11 @@ function DetailBody({
     case "TASK_REASSIGNED":
     case "TASK_CANCELLED":
     case "NEXT_ACTION_SET":
-      return <TaskDetail entry={entry} projectId={projectId} candidateId={candidateId} state={taskState} />;
+      return (
+        position && (
+          <TaskDetail entry={entry} projectId={position.projectId} candidateId={position.candidateId} state={taskState} />
+        )
+      );
     case "CONTACT_FOUND":
       return (
         <>
@@ -210,7 +219,7 @@ function DetailBody({
               ["Provider", details.via === "CONTACTOUT" || !details.via ? "ContactOut" : details.via],
             ]}
           />
-          <Callout>The history keeps no address or number. They are on the Contact tab.</Callout>
+          <Callout>The history keeps no address or number. They are in the contact details at the top of the profile.</Callout>
         </>
       );
     case "CONTACTS_EDITED":
@@ -617,21 +626,40 @@ const TASK_STATES: Record<string, string> = {
 
 type Way = { kind: "action"; label: string; run: () => void } | { kind: "link"; label: string; to: string };
 
-/** Where the dialog's main button goes: the tab that holds the thing, or the conversation. */
-function wayOf(entry: PersonTimelineEntry, projectId: string, candidateId: string, to: ActivityDestinations): Way | null {
-  const conversation = `/projects/${projectId}/outreach?candidate=${candidateId}`;
+type PositionOfLine = Extract<ActivityScope, { kind: "position" }>;
+
+/**
+ * Where the dialog's main button goes: the tab that holds the thing, or the conversation. On the person-wide timeline
+ * a position's milestone opens the Positions tab, where each position's status is.
+ */
+function wayOf(entry: PersonTimelineEntry, position: PositionOfLine | null, to: ActivityDestinations): Way | null {
+  if (!position) {
+    switch (entry.kind) {
+      case "ADDED_TO_POOL":
+      case "MAPPED":
+      case "UNMAPPED":
+      case "STATUS_CHANGED":
+      case "TRIAGE_STATUS_CHANGED":
+        return { kind: "action", label: "Open Positions", run: () => to.onOpenTab("positions") };
+    }
+  }
+  const conversation = position ? `/projects/${position.projectId}/outreach?candidate=${position.candidateId}` : null;
   switch (entry.kind) {
     case "NOTE_ADDED":
     case "NOTE_EDITED":
     case "NOTE_RESTORED":
       return entry.details.noteId && entry.noteExcerpt !== null
-        ? { kind: "action", label: "Open in Notes", run: () => to.onShowNote(entry.details.noteId) }
+        ? {
+            kind: "action",
+            label: isContactNote(noteKindOf(entry.details.kind)) ? "Open in Outreach" : "Open in Notes",
+            run: () => to.onShowNote(entry.details.noteId),
+          }
         : { kind: "action", label: "Open Notes", run: () => to.onOpenTab("notes") };
     case "EMAIL_SENT":
     case "EMAIL_REPLIED":
     case "OUTREACH_ENROLLED":
     case "OUTREACH_STOPPED":
-      return { kind: "link", label: "Open conversation", to: conversation };
+      return conversation ? { kind: "link", label: "Open conversation", to: conversation } : null;
     case "MEETING_BOOKED":
     case "MEETING_RESCHEDULED":
     case "MEETING_CANCELLED":
@@ -639,20 +667,20 @@ function wayOf(entry: PersonTimelineEntry, projectId: string, candidateId: strin
       return { kind: "action", label: "Open in Meetings", run: to.onOpenMeetings };
     case "PROFILE_EDITED":
     case "RESEARCHED":
-      return { kind: "action", label: "Open Career", run: () => to.onOpenTab("career") };
+      return { kind: "action", label: "Open Background", run: () => to.onOpenTab("profile", "background") };
     case "CONTACT_FOUND":
     case "CONTACTS_EDITED":
     case "DO_NOT_CONTACT_SET":
     case "DO_NOT_CONTACT_CLEARED":
-      return { kind: "action", label: "Open Contact", run: () => to.onOpenTab("contact") };
+      return { kind: "action", label: "Show contact details", run: to.onShowContacts };
     case "DOCUMENT_ADDED":
     case "DOCUMENT_VERSION_ADDED":
     case "DOCUMENT_REMOVED":
     case "DOCUMENT_VERSION_REMOVED":
-      return { kind: "action", label: "Open Documents", run: () => to.onOpenTab("documents") };
+      return { kind: "action", label: "Open Documents", run: () => to.onOpenTab("profile", "documents") };
     case "AI_ASSESSED":
       return entry.details.scope === "BACKGROUND"
-        ? { kind: "action", label: "Open Career", run: () => to.onOpenTab("career") }
+        ? { kind: "action", label: "Open Background", run: () => to.onOpenTab("profile", "background") }
         : { kind: "action", label: "Open Assessment", run: () => to.onOpenTab("assessment") };
     case "ASSESSMENT_REVIEWED":
       return { kind: "action", label: "Open Assessment", run: () => to.onOpenTab("assessment") };
@@ -664,12 +692,6 @@ function wayOf(entry: PersonTimelineEntry, projectId: string, candidateId: strin
       return entry.details.taskId ? { kind: "action", label: "Open task", run: () => to.onOpenTask(entry.details.taskId) } : null;
   }
   return null;
-}
-
-/** The line's kind as the server writes it (`CALL`), read as a note's own kind (`call`); an unknown one is a general note. */
-function noteKindOf(detail: string | undefined): PersonNoteKind {
-  const kind = (detail ?? "general").toLowerCase();
-  return kind === "call" || kind === "meeting" || kind === "email" ? kind : "general";
 }
 
 function titleOf(entry: PersonTimelineEntry): string {
@@ -699,7 +721,7 @@ function titleOf(entry: PersonTimelineEntry): string {
       return "Changes from a call";
     case "ADDED_TO_POOL":
     case "MAPPED":
-      return entry.projectId === null ? "Added to your candidates" : "Added to this position";
+      return entry.projectId === null ? "Added to your candidates" : `Added to ${entry.projectTitle ?? "this position"}`;
   }
   const verb = verbOf(entry);
   return verb.charAt(0).toUpperCase() + verb.slice(1);

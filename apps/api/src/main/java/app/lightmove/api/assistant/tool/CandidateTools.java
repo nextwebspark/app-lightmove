@@ -6,6 +6,8 @@ import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.service.CandidatePipelineCatalog;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.TriageCompanyMatches;
@@ -77,7 +79,7 @@ public class CandidateTools {
                 : named.companies().stream().map(TriageCompanyResponse::id).toList();
         CandidatesResponse found = candidates.list(context.workspaceId(), context.projectId(),
                 new CandidateListCriteria(companyIds, null, blankToNull(executiveName), null, null,
-                        asked, null, null, pageAsked, maxRows), AssistantToolContext.AUDIENCE);
+                        asked, null, null, null, pageAsked, maxRows), AssistantToolContext.AUDIENCE);
         List<MappedExecutiveSummary> executives = found.candidates().stream()
                 .map(MappedExecutiveSummary::of)
                 .toList();
@@ -89,7 +91,7 @@ public class CandidateTools {
     @Tool(description = """
             Read one mapped executive's profile: their current role, summary, career, education, \
             skills and languages. Takes the candidateId listMappedExecutives returned. Answers null \
-            when this mandate has no such executive.""")
+            when this mandate has no such executive, or processing of them is restricted.""")
     public CandidateDossier readExecutiveProfile(
             @ToolParam(description = "The candidateId from listMappedExecutives") String candidateId,
             ToolContext toolContext) {
@@ -97,10 +99,18 @@ public class CandidateTools {
         TurnRecorder recorder = context.recorder();
         int step = recorder.startStep("Reading an executive's profile");
         UUID id = uuidOrNull(candidateId);
-        CandidateDossier dossier = id == null ? null
-                : candidates.dossierOf(context.workspaceId(), context.projectId(), id).orElse(null);
-        recorder.finishStep(step, dossier == null ? "Not found on this mandate" : dossier.fullName());
-        return dossier;
+        try {
+            CandidateDossier dossier = id == null ? null
+                    : candidates.dossierOf(context.workspaceId(), context.projectId(), id).orElse(null);
+            recorder.finishStep(step, dossier == null ? "Not found on this mandate" : dossier.fullName());
+            return dossier;
+        } catch (ApiException refused) {
+            if (refused.getCode() != ErrorCode.PERSON_PROCESSING_RESTRICTED) {
+                throw refused;
+            }
+            recorder.finishStep(step, "Processing restricted");
+            return null;
+        }
     }
 
     @Tool(description = """

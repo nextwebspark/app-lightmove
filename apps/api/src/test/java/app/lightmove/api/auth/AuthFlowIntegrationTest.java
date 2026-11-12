@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
 // Spring Boot 4 ships Jackson 3, whose packages moved from com.fasterxml.* to tools.jackson.*.
@@ -50,7 +51,7 @@ class AuthFlowIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired RecordingEmailSender email;
-    @Autowired JdbcTemplate jdbc;
+    @Autowired @FixtureJdbc JdbcTemplate jdbc;
 
     private String domain;
     private String alokEmail;
@@ -312,7 +313,7 @@ class AuthFlowIntegrationTest {
     void unverifiedUserCannotInvite() throws Exception {
         String unverified = bearer(signup("Impostor", "impostor2@" + domain, PASSWORD));
 
-        mvc.perform(post("/api/v1/onboarding/invitations")
+        mvc.perform(post("/api/v1/invitations")
                         .header("Authorization", unverified)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -381,7 +382,7 @@ class AuthFlowIntegrationTest {
         createWorkspace(alok, "NextWebSpark Search");
         String admin = tokenWithWorkspace(alokEmail);
 
-        MvcResult refused = mvc.perform(post("/api/v1/onboarding/invitations")
+        MvcResult refused = mvc.perform(post("/api/v1/invitations")
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -406,7 +407,7 @@ class AuthFlowIntegrationTest {
         createWorkspace(alok, "NextWebSpark Search");
         String admin = tokenWithWorkspace(alokEmail);
 
-        mvc.perform(post("/api/v1/onboarding/invitations")
+        mvc.perform(post("/api/v1/invitations")
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -549,7 +550,7 @@ class AuthFlowIntegrationTest {
         String alok = verifiedUser("Alok Kumar", alokEmail);
         createWorkspace(alok, "NextWebSpark Search");
 
-        mvc.perform(post("/api/v1/onboarding/invitations")
+        mvc.perform(post("/api/v1/invitations")
                         .header("Authorization", "Bearer " + tokenWithWorkspace(alokEmail))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -948,7 +949,7 @@ class AuthFlowIntegrationTest {
     }
 
     private void invite(String adminToken, String inviteeEmail, String role) throws Exception {
-        mvc.perform(post("/api/v1/onboarding/invitations")
+        mvc.perform(post("/api/v1/invitations")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""

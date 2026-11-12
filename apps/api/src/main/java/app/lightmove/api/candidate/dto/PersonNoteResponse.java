@@ -22,5 +22,12 @@ public record PersonNoteResponse(
         Instant editedAt,
         String editedByName,
         /** Whether the caller may revise or remove it: its author, or a workspace admin. */
-        boolean editable
+        boolean editable,
+        /** When the call, message or meeting happened; for a plain note, when it was written. */
+        Instant occurredAt,
+        String title,
+        /** The calendar meeting a meeting's notes are about. */
+        UUID meetingId,
+        /** The Notetaker recording they are about, where the calendar no longer holds its meeting. */
+        UUID recordingId
 ) {}

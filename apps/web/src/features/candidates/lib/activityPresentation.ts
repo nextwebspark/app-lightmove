@@ -1,7 +1,9 @@
+import type { ReactNode } from "react";
 import { ICONS } from "../../../components/layout/Icon";
-import type { Candidate, FieldChange, PersonActivityKind, PersonTimelineEntry } from "../api/types";
+import type { FieldChange, PersonActivityKind, PersonNoteKind, PersonTimelineEntry } from "../api/types";
 import { DOCUMENT_NOUNS, DOORS, NOTE_VERBS, statusLabel, triageStageLabel } from "./candidateActivity";
 import { formatFull, formatInstantTime, formatWeekdayDate, formatWeekdayDateTime } from "../../../lib/datetime";
+import { noteKindOf } from "./noteKinds";
 
 /**
  * The executive drawer's Activity tab, worked out in data: which kind of event a line is, how it is drawn, who did it
@@ -64,6 +66,8 @@ const FAMILY_OF: Record<PersonActivityKind, ActivityFamily> = {
   CONTACT_FOUND: "contact",
   DO_NOT_CONTACT_SET: "contact",
   DO_NOT_CONTACT_CLEARED: "contact",
+  PROCESSING_RESTRICTED: "profile",
+  PROCESSING_RESTRICTION_LIFTED: "profile",
   DOCUMENT_ADDED: "documents",
   DOCUMENT_VERSION_ADDED: "documents",
   DOCUMENT_REMOVED: "documents",
@@ -115,18 +119,20 @@ export function isOrigin(entry: PersonTimelineEntry): boolean {
   return entry.kind === "ADDED_TO_POOL" || entry.kind === "MAPPED";
 }
 
-export function iconOf(entry: PersonTimelineEntry): string {
+/** The kind of the note a line is about, whose mark the line draws; a removed note's line draws the bin instead. */
+export function noteKindOfEntry(entry: PersonTimelineEntry): PersonNoteKind | null {
+  return entry.kind === "NOTE_ADDED" || entry.kind === "NOTE_EDITED" || entry.kind === "NOTE_RESTORED"
+    ? noteKindOf(entry.details.kind)
+    : null;
+}
+
+/** A line's stroke glyph; null for a note's line, which draws its kind's mark (`noteKindOfEntry`). */
+export function iconOf(entry: PersonTimelineEntry): string | null {
   switch (entry.kind) {
     case "NOTE_ADDED":
     case "NOTE_EDITED":
     case "NOTE_RESTORED":
-      return entry.details.kind === "CALL"
-        ? ICONS.phoneCall
-        : entry.details.kind === "MEETING"
-          ? ICONS.video
-          : entry.details.kind === "EMAIL"
-            ? ICONS.mail
-            : ICONS.fileText;
+      return null;
     case "NOTE_REMOVED":
       return ICONS.trash;
     case "EMAIL_SENT":
@@ -161,6 +167,10 @@ export function iconOf(entry: PersonTimelineEntry): string {
     case "DO_NOT_CONTACT_SET":
     case "DO_NOT_CONTACT_CLEARED":
       return ICONS.ban;
+    case "PROCESSING_RESTRICTED":
+      return ICONS.lock;
+    case "PROCESSING_RESTRICTION_LIFTED":
+      return ICONS.unlock;
     case "DOCUMENT_ADDED":
     case "DOCUMENT_VERSION_ADDED":
       return ICONS.file;
@@ -240,17 +250,17 @@ function withArticle(noun: string): string {
 }
 
 /**
- * What the actor did, as the card's first line says it after their name. The drawer is this position's, so a line
- * never adds "on this position"; a person-level change made elsewhere reads the same as one made here.
+ * What the actor did, as the card's first line says it after their name. A line never adds "on this position"; a
+ * position's own milestone names it, which reads the same on the position and on the Candidates page.
  */
 export function verbOf(entry: PersonTimelineEntry): string {
   const { details } = entry;
   switch (entry.kind) {
     case "ADDED_TO_POOL":
     case "MAPPED":
-      return entry.projectId === null ? "added them to your candidates" : "added them to this position";
+      return entry.projectId === null ? "added them to your candidates" : `added them to ${entry.projectTitle ?? "this position"}`;
     case "UNMAPPED":
-      return "removed them from this position";
+      return `removed them from ${entry.projectTitle ?? "this position"}`;
     case "STATUS_CHANGED":
       return "moved the status";
     case "TRIAGE_STATUS_CHANGED":
@@ -303,6 +313,10 @@ export function verbOf(entry: PersonTimelineEntry): string {
       return "marked them do not contact";
     case "DO_NOT_CONTACT_CLEARED":
       return "cleared do not contact";
+    case "PROCESSING_RESTRICTED":
+      return "restricted processing";
+    case "PROCESSING_RESTRICTION_LIFTED":
+      return "lifted the processing restriction";
     case "OUTREACH_ENROLLED":
       return "added them to a sequence";
     case "EMAIL_SENT":
@@ -364,9 +378,15 @@ function contactCountsOf(details: Record<string, string>): string | null {
   return `${plural(emails, "email")}, ${plural(phones, "phone")} on file`;
 }
 
+/** A note's last edit, which leaves no line of its own: the note's one line says it. */
+export interface NoteEdit {
+  at: string;
+  byName: string | null;
+}
+
 /** What a card shows under its first line; the dialog then shows the rest. */
 export type ActivityPreview =
-  | { type: "note"; excerpt: string | null; noteKind: string; aboutThePerson: boolean }
+  | { type: "note"; excerpt: string | null; noteKind: string; aboutThePerson: boolean; edited: NoteEdit | null }
   | { type: "status"; from: string | null; to: string; cause: string | null }
   | { type: "changes"; changes: FieldChange[]; hidden: number }
   | { type: "fields"; labels: string[] }
@@ -416,6 +436,7 @@ export function previewOf(entry: PersonTimelineEntry): ActivityPreview | null {
         excerpt: entry.noteExcerpt,
         noteKind: details.kind ?? "GENERAL",
         aboutThePerson: entry.projectId === null,
+        edited: entry.noteEditedAt ? { at: entry.noteEditedAt, byName: entry.noteEditedByName } : null,
       };
     case "STATUS_CHANGED":
       return {
@@ -506,7 +527,7 @@ const FIELD_LABELS: Record<string, string> = {
   task: "A task",
 };
 
-/** A field's name as the Career tab writes it; a key a newer server sends reads as words. */
+/** A field's name as the profile writes it; a key a newer server sends reads as words. */
 export function fieldLabel(field: string): string {
   const known = FIELD_LABELS[field];
   if (known) return known;
@@ -580,6 +601,30 @@ export function peopleOf(entries: readonly PersonTimelineEntry[]): ActivityPerso
     .sort((left, right) => rank(left.actor) - rank(right.actor));
 }
 
+/** The person-wide timeline's third filter: each position a line was made on, and the person themselves. */
+export interface ActivityPosition {
+  key: string;
+  label: string;
+}
+
+const ABOUT_THE_PERSON = "person";
+
+export function positionKeyOf(entry: PersonTimelineEntry): string {
+  return entry.projectId ?? ABOUT_THE_PERSON;
+}
+
+/** Positions in the order the history last touched them, newest first, then the person's own changes. */
+export function positionsOf(entries: readonly PersonTimelineEntry[]): ActivityPosition[] {
+  const seen = new Map<string, string>();
+  for (const entry of entries) {
+    if (entry.projectId && !seen.has(entry.projectId)) seen.set(entry.projectId, entry.projectTitle ?? "A position");
+  }
+  const positions = [...seen.entries()].map(([key, label]) => ({ key, label }));
+  return entries.some((entry) => entry.projectId === null)
+    ? [...positions, { key: ABOUT_THE_PERSON, label: "About the person" }]
+    : positions;
+}
+
 export function familiesOf(entries: readonly PersonTimelineEntry[]): ActivityFamilyOption[] {
   const present = new Set(entries.map(familyOf));
   return ACTIVITY_FAMILIES.filter((option) => present.has(option.family));
@@ -611,7 +656,16 @@ export function cardTimeOf(isoInstant: string, now: Date = new Date()): string {
 }
 
 /** The executive the drawer is about, as the history names them when they acted themselves. */
-export type ActivityExecutive = Pick<Candidate, "id" | "fullName" | "enrichedAt">;
+export interface ActivityExecutive {
+  fullName: string;
+  /** Their photo or initials, from whichever read the drawer holds: a position's candidate or the workspace's person. */
+  face: (size: "sm" | "md" | "lg", className?: string) => ReactNode;
+}
+
+/** Whose history a timeline reads: one position's executive, or the person across every position. */
+export type ActivityScope =
+  | { kind: "position"; projectId: string; candidateId: string }
+  | { kind: "person"; personId: string };
 
 /** The actor's name as the line opens with it. */
 export function actorNameOf(actor: ActivityActor, executive: ActivityExecutive): string {

@@ -46,8 +46,9 @@ public class ProjectExportController {
                                             @RequestParam(required = false) String q,
                                             @RequestParam(required = false) String executiveQuery,
                                             @RequestParam(required = false) List<String> executiveStatuses,
+                                            @RequestParam(required = false) String search,
                                             HttpServletRequest httpRequest) {
-        TriageCompanyFilters filters = new TriageCompanyFilters(q, executiveQuery, executiveStatuses);
+        TriageCompanyFilters filters = new TriageCompanyFilters(q, executiveQuery, executiveStatuses, search);
         byte[] csv = exports
                 .companies(principal.userId(), principal.requireWorkspaceId(), projectId, status,
                         filters,

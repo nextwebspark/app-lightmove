@@ -8,12 +8,16 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.core.security.token.Tokens;
+import app.lightmove.api.core.tenant.ResolvedRow;
+import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.workspace.model.ClientRepresentativeAcceptedEvent;
 import app.lightmove.api.workspace.model.Invitation;
 import app.lightmove.api.workspace.model.Workspace;
@@ -22,15 +26,19 @@ import app.lightmove.api.workspace.repository.InvitationRepository;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Redeems invitations — previewing one by its token and every way of accepting it. Reached from the
@@ -52,14 +60,20 @@ public class InvitationAcceptService {
     private final ApplicationEventPublisher events;
     private final WorkspaceSelection selection;
     private final SeatAllowance seats;
+    private final TenantResolvers resolvers;
+    private final TransactionTemplate transactions;
+    private final Clock clock;
 
     /**
      * Unauthenticated, since the invitee usually has no account yet. Discloses only what the email
      * already said, and only to a holder of the 256-bit token mailed to that address.
      */
-    @Transactional(readOnly = true)
     public InvitationPreview preview(String plaintextToken) {
-        Invitation invitation = resolveRedeemable(plaintextToken, Instant.now());
+        return inWorkspaceOfToken(plaintextToken, () -> previewInScope(plaintextToken));
+    }
+
+    private InvitationPreview previewInScope(String plaintextToken) {
+        Invitation invitation = resolveRedeemable(plaintextToken, clock.instant());
 
         Workspace workspace = workspaces.findById(invitation.getWorkspaceId())
                 .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
@@ -72,35 +86,44 @@ public class InvitationAcceptService {
                 invitation.getEmail(),
                 invitation.getRole().getName(),
                 workspace.getName(),
-                inviterName);
+                inviterName,
+                invitation.getExpiresAt());
     }
 
     public record InvitationPreview(String email, String role, String workspaceName,
-                                    String inviterName) {}
+                                    String inviterName, Instant expiresAt) {}
 
     /** The invitee lands ACTIVE at once: an admin naming them was the approval. */
-    @Transactional
     public WorkspaceMember accept(String plaintextToken, UUID userId, HttpServletRequest request) {
-        Instant now = Instant.now();
-        Invitation invitation = resolveRedeemable(plaintextToken, now);
-        return redeem(invitation, requireUser(userId), now, request);
+        return inWorkspaceOfToken(plaintextToken, () -> {
+            Instant now = clock.instant();
+            Invitation invitation = resolveRedeemable(plaintextToken, now);
+            return redeem(invitation, requireUser(userId), now, request);
+        });
     }
 
     /**
      * Token-less: the token only proves the mailbox, which an <b>email-verified</b> user with the
      * matching address already has. An id not addressed to the caller reads as one that does not exist.
      */
-    @Transactional
     public WorkspaceMember acceptById(UUID invitationId, UUID userId, HttpServletRequest request) {
-        Instant now = Instant.now();
-        User user = requireUser(userId);
-
-        Invitation invitation = invitations.findById(invitationId)
-                .filter(found -> found.getEmail().equalsIgnoreCase(user.getEmail()))
-                .filter(found -> found.isRedeemable(now))
+        // Found among the invitations waiting for the caller's own address, so an id addressed to anybody else
+        // names no workspace and reads as one that does not exist.
+        UUID workspaceId = resolvers.pendingInvitationsFor(requireUser(userId).getEmail()).stream()
+                .filter(named -> named.id().equals(invitationId))
+                .map(ResolvedRow::workspaceId)
+                .findFirst()
                 .orElseThrow(() -> ApiException.of(ErrorCode.INVITATION_INVALID));
-
-        return redeem(invitation, user, now, request);
+        return WorkspaceScope.call(workspaceId, () -> transactions.execute(status -> {
+            Instant now = clock.instant();
+            // Read again inside the transaction: redeeming remembers this workspace on the account.
+            User user = requireUser(userId);
+            Invitation invitation = invitations.findById(invitationId)
+                    .filter(found -> found.getEmail().equalsIgnoreCase(user.getEmail()))
+                    .filter(found -> found.isRedeemable(now))
+                    .orElseThrow(() -> ApiException.of(ErrorCode.INVITATION_INVALID));
+            return redeem(invitation, user, now, request);
+        }));
     }
 
     /**
@@ -108,19 +131,31 @@ public class InvitationAcceptService {
      * which is the proof verification gives. The address is the invitation's, never the request's —
      * that binding plus {@code createVerifiedLocalUser}'s existing-account guard is this path's security.
      */
-    @Transactional
     public AuthenticatedSession acceptWithNewLocalUser(String plaintextToken, String fullName,
                                                        String password, HttpServletRequest request) {
-        Instant now = Instant.now();
-        Invitation invitation = resolveRedeemable(plaintextToken, now);
-        rateLimit.checkSignup(invitation.getEmail(), request);
+        return inWorkspaceOfToken(plaintextToken, () -> {
+            Instant now = clock.instant();
+            Invitation invitation = resolveRedeemable(plaintextToken, now);
+            rateLimit.checkSignup(invitation.getEmail(), request);
 
-        // Bound to the invited address; an existing account is sent to log in, not given a second identity.
-        User user = authentication.createVerifiedLocalUser(
-                invitation.getEmail(), fullName, password, request);
-        WorkspaceMember member = redeem(invitation, user, now, request);
+            // Bound to the invited address; an existing account is sent to log in, not given a second identity.
+            User user = authentication.createVerifiedLocalUser(
+                    invitation.getEmail(), fullName, password, request);
+            WorkspaceMember member = redeem(invitation, user, now, request);
 
-        return tokens.issue(user, member, request);
+            return tokens.issue(user, member, request);
+        });
+    }
+
+    /**
+     * Whoever holds the token is in no workspace yet, or in another: the invitation is the inviting workspace's row,
+     * read and redeemed — the membership, the seat and the representative's mandates with it — in that workspace's
+     * scope, opened before the transaction. A token nobody holds is refused as {@link #resolveRedeemable} would.
+     */
+    private <T> T inWorkspaceOfToken(String plaintextToken, Supplier<T> work) {
+        UUID workspaceId = resolvers.invitation(Tokens.hash(plaintextToken)).map(ResolvedRow::workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.INVITATION_INVALID));
+        return WorkspaceScope.call(workspaceId, () -> transactions.execute(status -> work.get()));
     }
 
     /** The email must match the invited address: a forwarded link must not let somebody else in. */
@@ -134,7 +169,9 @@ public class InvitationAcceptService {
                     "Invitation was addressed to a different email");
         }
 
-        // An unverified address is an unproven claim; accepting on it would let an interceptor walk in.
+        // An unverified address is an unproven claim, even holding the link: whoever opened an account on someone
+        // else's address keeps its password, and a forwarded invitation would hand them that person's seat. The
+        // anonymous signup path is safe only because it refuses an address that already has an account.
         if (!user.isEmailVerified()) {
             throw ApiException.of(ErrorCode.EMAIL_NOT_VERIFIED);
         }
@@ -142,19 +179,22 @@ public class InvitationAcceptService {
         Optional<WorkspaceMember> existing =
                 members.findByWorkspaceIdAndUserId(invitation.getWorkspaceId(), user.getId());
         boolean takesStaffSeat = !invitation.getRole().is(WorkspaceRole.CLIENT)
-                && existing.filter(WorkspaceMember::isActive).isEmpty();
+                && existing.filter(WorkspaceMember::isActive).filter(WorkspaceMember::holdsStaffRole).isEmpty();
         if (takesStaffSeat) {
             seats.requireRoomFor(invitation.getWorkspaceId(), 1);
         }
 
         invitation.accept(user.getId(), now);
-        // One row per person per workspace: a removed member rejoins theirs; an active one is moot.
+        // One row per person per workspace: a removed member rejoins theirs; an active one gains what it lacks.
         WorkspaceMember member = existing
                 .map(found -> found.isActive() ? found
                         : found.rejoin(Set.of(invitation.getRole()), invitation.getInvitedBy()))
                 .orElseGet(() -> members.save(WorkspaceMember.invite(
                         invitation.getWorkspaceId(), user.getId(), Set.of(invitation.getRole()),
                         invitation.getInvitedBy())));
+        if (existing.filter(WorkspaceMember::isActive).isPresent()) {
+            widen(member, invitation.getRole(), user.getId(), request);
+        }
         selection.remember(user, member);
         if (takesStaffSeat) {
             seats.onStaffSeatsChanged(invitation.getWorkspaceId());
@@ -176,6 +216,26 @@ public class InvitationAcceptService {
         }
 
         return member;
+    }
+
+    /** A second staff role (MEMBER beside ADMIN) is not added: the roster is where staff roles change. */
+    private void widen(WorkspaceMember member, Role invited, UUID actorId, HttpServletRequest request) {
+        if (member.alreadyCovers(invited)) {
+            return;
+        }
+        String previous = roleNames(member.getRoles());
+        Set<Role> roles = new HashSet<>(member.getRoles());
+        roles.add(invited);
+        member.changeRoles(roles);
+
+        audit.event(WorkspaceEventType.MEMBER_ROLE_CHANGED)
+                .actor(actorId).workspace(member.getWorkspaceId()).target("member", member.getId()).from(request)
+                .detail("from", previous).detail("to", roleNames(roles))
+                .record();
+    }
+
+    private static String roleNames(Set<Role> roles) {
+        return roles.stream().map(Role::getName).sorted().collect(Collectors.joining(","));
     }
 
     /** Unknown or consumed is {@code INVITATION_INVALID}; lapsed is {@code INVITATION_EXPIRED}. */

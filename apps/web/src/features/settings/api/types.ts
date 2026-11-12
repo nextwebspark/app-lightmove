@@ -7,7 +7,7 @@ export type IntegrationProvider = "GOOGLE" | "MICROSOFT" | "ZOOM";
 /** Whose OAuth app a provider is connected through: Uncava's shared one, or the workspace's own. */
 export type CredentialMode = "SHARED" | "OWN";
 
-/** One provider. The client secret is write-only: `secretSet` says one is held, and nothing carries it back. */
+/** One provider. The client secret is write-only: `secretSet` says one is held, and only its last four come back. */
 export interface WorkspaceIntegration {
   provider: IntegrationProvider;
   mode: CredentialMode;
@@ -16,6 +16,15 @@ export interface WorkspaceIntegration {
   /** yyyy-MM-dd, as read off the provider's console. */
   secretExpiresOn: string | null;
   secretSet: boolean;
+  /** The held secret's last four characters; null when none is held. */
+  secretHint: string | null;
+  /** When the held secret was saved, and by whom; null for one saved before either was recorded. */
+  secretSavedAt: string | null;
+  secretSavedBy: string | null;
+  /** When the provider last checked the keys; null when it never has. */
+  keysCheckedAt: string | null;
+  /** The provider's code when that check, or a mailbox's refresh, was refused; null when accepted or never checked. */
+  keysRefusedWith: string | null;
   sharedOffered: boolean;
   redirectUri: string;
   scopes: string[];
@@ -27,6 +36,8 @@ export interface WorkspaceIntegration {
   /** When an admin came back from Microsoft's admin-consent link having approved Uncava's app; Microsoft only. */
   adminConsentedAt: string | null;
   adminConsentTenantId: string | null;
+  /** Live mailboxes (Zoom accounts, for Zoom) connected through the app in use; each connects again on a change of app. */
+  connectionsThroughApp: number;
 }
 
 export interface WorkspaceIntegrations {
@@ -37,7 +48,7 @@ export interface WorkspaceIntegrations {
   recallOffered: boolean;
 }
 
-/** On `OWN`, a blank `clientSecret` keeps the one already held for the same client ID. */
+/** On `OWN` the provider is asked before anything is saved; a blank `clientSecret` keeps the one held for the same client ID. */
 export interface UpdateIntegrationRequest {
   mode: CredentialMode;
   clientId?: string;
@@ -113,4 +124,46 @@ export interface OAuthGrant {
   connectedAt: string;
   lastUsedAt: string | null;
   expiresAt: string | null;
+}
+
+/** Settings → Security → Audit log's Category filter, as the API spells it. */
+export type AuditLogGroup =
+  | "signIn"
+  | "membersAndAccess"
+  | "exportsAndDownloads"
+  | "settings"
+  | "apiKeysAndAiApps"
+  | "outreach";
+
+export type AuditActorKind = "MEMBER" | "UNCAVA" | "API_KEY" | "SYSTEM";
+
+/** One audit log line, phrased by the server from an allowlist; no event's own payload ever reaches the client. */
+export interface AuditLogEntry {
+  id: number;
+  occurredAt: string;
+  type: string;
+  group: AuditLogGroup | null;
+  outcome: "SUCCESS" | "FAILURE";
+  actorKind: AuditActorKind;
+  actorUserId: string | null;
+  actorName: string | null;
+  actorAvatarUrl: string | null;
+  actorRemoved: boolean;
+  summary: string;
+  positionTitle: string | null;
+  ipAddress: string | null;
+}
+
+export interface AuditLogPage {
+  entries: AuditLogEntry[];
+  /** Passed back as `before`; null on the last page. */
+  nextCursor: number | null;
+}
+
+/** Someone the Person filter offers — everyone the workspace ever held, removed members included. */
+export interface AuditLogPerson {
+  userId: string;
+  name: string | null;
+  avatarUrl: string | null;
+  removed: boolean;
 }

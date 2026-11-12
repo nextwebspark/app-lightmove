@@ -9,10 +9,17 @@ public enum WorkspaceEventType implements AuditEventType {
     WORKSPACE_CREATED,
     WORKSPACE_UPDATED,
     WORKSPACE_DELETED,
+    /** Everything a deleted workspace held is gone, past its grace period; the certificate names counts, no one. */
+    WORKSPACE_PURGED,
+    /** A platform admin brought a deleted workspace back within its grace period. */
+    WORKSPACE_RESTORED,
+    WORKSPACE_EXPORT_STARTED,
+    WORKSPACE_EXPORT_DOWNLOADED,
 
     MEMBER_INVITED,
     INVITATION_ACCEPTED,
     INVITATION_REVOKED,
+    INVITATION_EMAIL_FAILED,
 
     MEMBER_ROLE_CHANGED,
     MEMBER_REMOVED,
@@ -50,7 +57,16 @@ public enum WorkspaceEventType implements AuditEventType {
     SUBSCRIPTION_CHANGED,
     CREDITS_PURCHASED,
     SEAT_ADDED,
-    SEAT_REMOVED;
+    SEAT_REMOVED,
+
+    /** A shared email template's changes; a personal one is unaudited, like a signature. */
+    EMAIL_TEMPLATE_SHARED,
+    EMAIL_TEMPLATE_UNSHARED,
+    EMAIL_TEMPLATE_UPDATED,
+    EMAIL_TEMPLATE_DELETED,
+
+    /** An admin took the workspace's audit log as a file: the read that is itself an export. */
+    AUDIT_LOG_EXPORTED;
 
     @Override
     public String code() {

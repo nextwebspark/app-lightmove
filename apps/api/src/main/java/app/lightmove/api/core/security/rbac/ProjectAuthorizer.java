@@ -6,12 +6,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * The project-tier guard bean behind {@code @PreAuthorize} — e.g.
- * {@code @RequireProjectPermission(ProjectAction.TEAM_MANAGE)}.
- *
- * <p>Same contract as {@link WorkspaceAuthorizer}: database re-read, enforcement by throwing,
- * controllers only. {@code @RequireProjectPermission} takes a {@link ProjectAction}, so a misspelled
- * action is a compile error; the {@code valueOf} here still refuses anything a raw expression passes.
+ * The project-tier guard bean behind {@code @RequireProjectPermission(ProjectAction.TEAM_MANAGE)}: same contract as
+ * {@link WorkspaceAuthorizer} (database re-read, throws, controllers only); {@code valueOf} still refuses a raw
+ * expression's misspelled {@link ProjectAction}.
  */
 @Component("projectAuthorizer")
 @RequiredArgsConstructor

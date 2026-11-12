@@ -3,19 +3,8 @@ import { readCookie } from "./cookies";
 import { createSseParser, type SseEvent } from "./sse";
 
 /**
- * The only way this app talks to the API.
- *
- * It exists to hold three things in one place that would otherwise be scattered across every call
- * site and get one of them wrong:
- *
- *   1. The access token lives in a module variable — in memory, never in localStorage. A single
- *      compromised npm dependency can read localStorage; it cannot read a closure. The refresh token
- *      is in an httpOnly cookie script cannot touch at all.
- *   2. A 401 triggers exactly one refresh, no matter how many requests hit it at once, and the
- *      requests that were waiting are retried with the new token.
- *   3. The CSRF header is attached to the cookie-authenticated routes, and a refused token is
- *      re-fetched and the request sent once more — a rejection happens in the filter chain, so
- *      nothing was done the first time and there is nothing to be idempotent about.
+ * The only way this app talks to the API: the access token in memory only (never localStorage), one
+ * shared refresh per 401 with waiting requests retried, and the CSRF header with one re-fetch on refusal.
  */
 
 const API = "/api/v1";
@@ -87,31 +76,14 @@ export class ApiRequestError extends Error {
 }
 
 /**
- * The single in-flight refresh.
- *
- * Without this, a page that fires five requests on mount would, on an expired token, fire five
- * refreshes. Four of them would present a token the first had already rotated away — which the server
- * correctly reads as a stolen token being replayed, and it would revoke the entire session. The client
- * would log itself out by being enthusiastic. So: one refresh, everyone else waits for it.
+ * The single in-flight refresh: concurrent refreshes would replay a rotated token, which the server
+ * reads as theft and revokes the whole session.
  */
 let refreshInFlight: Promise<string> | null = null;
 
 /**
- * The same problem again, one level up: **other tabs**.
- *
- * `refreshInFlight` dedupes within one page. It cannot see a second tab, which is a second JS context
- * with its own module state — and both tabs share one cookie jar. Open the app twice and both boot,
- * both read the same refresh cookie, and both POST /auth/refresh before either response has rotated it.
- * One wins. The other presents a token that has just been rotated away, the server correctly reads that
- * as a replayed stolen token, and **revokes the whole family** — signing you out of both tabs, for
- * doing nothing but opening a second tab.
- *
- * The Web Locks API is cross-tab, which is exactly the scope needed. Whoever holds the lock refreshes;
- * the other tab waits, and by the time it runs, the rotated cookie is already in the shared jar — so
- * its own refresh presents the *new* token and rotates legitimately.
- *
- * Not a fallback worth agonising over: `navigator.locks` is in every browser we support. Where it is
- * missing we run unlocked, which is exactly today's behaviour.
+ * Cross-tab refresh lock (Web Locks): two tabs share one cookie jar, and racing refreshes replay a rotated
+ * token, so the server revokes the whole family. Where `navigator.locks` is missing we run unlocked.
  */
 function withRefreshLock<T>(work: () => Promise<T>): Promise<T> {
   return navigator.locks?.request
@@ -170,17 +142,8 @@ async function rotateRefreshCookie(): Promise<string> {
 }
 
 /**
- * Moves the session into another of the user's workspaces: `POST /auth/switch-workspace`, which
- * rotates the refresh cookie exactly as a refresh does and answers a session in the target.
- *
- * Under the same cross-tab lock as a refresh, and for the same reason: a background refresh in
- * another tab racing this would present a cookie the switch has just rotated away, and the server
- * would read that as theft and revoke the family. The bearer goes along because the server refuses
- * to move a cookie that is not the bearer's — so an expired one is renewed inside the lock and the
- * switch sent once more.
- *
- * A refused switch — not a member, cookie mismatch — changes nothing on either side: the token in
- * memory stays, the cookie was not spent, and the caller is told why. It is not a lost session.
+ * `POST /auth/switch-workspace`, under the refresh lock since it rotates the cookie too; the bearer goes
+ * along because the server refuses to move a cookie that is not the bearer's. A refused switch changes nothing.
  */
 export async function switchWorkspaceSession(workspaceId: string): Promise<AuthResponse> {
   return withRefreshLock(async () => {
@@ -215,14 +178,8 @@ export async function switchWorkspaceSession(workspaceId: string): Promise<AuthR
 }
 
 /**
- * Restores a session on a cold page load.
- *
- * The access token was in memory and a page reload wiped it — but the refresh cookie survived, so we
- * can mint a new one. This is what lets a hard refresh keep you logged in without ever putting a
- * long-lived credential somewhere script can read.
- *
- * Returns null when there is no session, which is the ordinary case for a first-time visitor and not
- * an error.
+ * Restores a session on a cold page load from the refresh cookie. Null when there is no session — the
+ * ordinary case for a first visit, not an error.
  */
 export async function restoreSession(): Promise<string | null> {
   try {
@@ -258,18 +215,8 @@ async function fetchCsrfToken(): Promise<string | null> {
 }
 
 /**
- * Sends a cookie-authenticated request, and recovers from a refused CSRF token by fetching a new one
- * and sending once more.
- *
- * The API answers a rejected token with its own `CSRF_TOKEN_INVALID` code — separate from
- * `FORBIDDEN` — specifically so the client can do this; `ProblemAccessDeniedHandler` says as much.
- * Until it did, nothing recovered: a single failed `GET /auth/csrf` left the cookie unset, so the
- * header went unsent, so `/auth/refresh` answered 403 — and `refreshAccessToken` reads any failed
- * refresh as the end of the session and signs the user out. One transient blip on a request whose
- * whole job is to be retried cost the user their session.
- *
- * Exactly one retry. A token refused twice is not a stale token, and re-asking forever would turn a
- * genuine refusal into a loop.
+ * Sends a cookie-authenticated request, re-fetching the CSRF token and retrying once on `CSRF_TOKEN_INVALID`.
+ * Without it one failed `GET /auth/csrf` made `/auth/refresh` 403 and signed the user out. Exactly one retry.
  */
 async function sendWithCsrf(send: (csrf: string | null) => Promise<Response>): Promise<Response> {
   const response = await send(await ensureCsrfToken());
@@ -378,26 +325,16 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 }
 
 /**
- * For the endpoints that answer with a file rather than JSON.
- *
- * A file still needs the bearer token, and the token only exists in this module — so a download
- * cannot be an `<a href>`. A browser navigation carries no `Authorization` header, and the refresh
- * cookie is path-scoped to the auth routes, so such a link is guaranteed to 401. Fetch the bytes
- * here, hand the caller a Blob, and let it save that.
+ * For endpoints that answer with a file: a download cannot be an `<a href>` (no bearer on a navigation,
+ * and the refresh cookie is auth-path scoped), so fetch the bytes and hand the caller a Blob.
  */
 export async function requestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
   return (await sendWithAuth(path, options)).blob();
 }
 
 /**
- * Holds open a server-sent-events stream with the same bearer token and one-refresh retry every
- * other read gets. It has to be read off fetch's body: a native EventSource cannot send the
- * Authorization header, and the token lives only in this module.
- *
- * Resolves when the server ends the stream — which it does on a cycle by design, so a clean end is
- * ordinary — and rejects on abort or a network/auth failure. The caller owns reconnecting.
- *
- * A POST with a body works too, for a request that answers by streaming its own progress.
+ * An SSE stream read off fetch's body (EventSource cannot send Authorization), with the one-refresh retry.
+ * Resolves on the server's scheduled close, rejects on abort or failure; the caller owns reconnecting.
  */
 export async function streamEvents(
   path: string,

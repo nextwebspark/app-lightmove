@@ -72,7 +72,13 @@ function Harness({
   onEditColumn,
   data = DATA,
   groupBy,
+  menuOnHeaderClick,
+  onDeleteColumn,
+  clearFiltersColumnId,
 }: {
+  menuOnHeaderClick?: boolean;
+  clearFiltersColumnId?: string;
+  onDeleteColumn?: (columnId: string) => void;
   onLayout?: (layout: GridLayout) => void;
   columnFilters?: Record<string, DataGridColumnFilter>;
   columnDefs?: typeof columns | typeof columnsWithCustom;
@@ -109,8 +115,11 @@ function Harness({
         onLayout?.(next);
       }}
       columnFilters={columnFilters}
+      clearFiltersColumnId={clearFiltersColumnId}
       onEditColumn={onEditColumn}
+      onDeleteColumn={onDeleteColumn}
       groupBy={groupBy}
+      menuOnHeaderClick={menuOnHeaderClick}
     />
   );
 }
@@ -483,6 +492,76 @@ describe("DataGrid header menu — a checkbox filter", () => {
   });
 });
 
+describe("DataGrid header menu — clearing filters", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  const SECTOR_OPTIONS = [
+    { value: "energy", label: "Energy" },
+    { value: "tech", label: "Technology" },
+  ];
+
+  it("draws a ✕ in a text filter only while it holds text, and clears it with the caret kept in the box", async () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <Harness columnFilters={{ sector: { value: "", onChange, "aria-label": "Filter by sector" } }} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    expect(screen.queryByRole("button", { name: "Clear filter" })).not.toBeInTheDocument();
+
+    rerender(<Harness columnFilters={{ sector: { value: "Ener", onChange, "aria-label": "Filter by sector" } }} />);
+    await userEvent.click(screen.getByRole("button", { name: "Clear filter" }));
+
+    expect(onChange).toHaveBeenCalledWith("");
+    expect(screen.getByRole("textbox", { name: "Filter by sector" })).toHaveFocus();
+  });
+
+  it("offers Clear on a checkbox filter only once something is ticked", async () => {
+    const onChange = vi.fn();
+    const filter = (selected: string[]): DataGridColumnFilter => ({
+      kind: "check",
+      options: SECTOR_OPTIONS,
+      selected,
+      onChange,
+      "aria-label": "Filter by sector",
+    });
+    const { rerender } = render(<Harness columnFilters={{ sector: filter([]) }} />);
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    expect(screen.queryByRole("button", { name: "Clear selection" })).not.toBeInTheDocument();
+
+    rerender(<Harness columnFilters={{ sector: filter(["energy"]) }} />);
+    await userEvent.click(screen.getByRole("button", { name: "Clear selection" }));
+
+    expect(onChange).toHaveBeenCalledWith([]);
+  });
+
+  it("shows Clear all filters only while a filter is in force, and resets every filter with it", async () => {
+    const onText = vi.fn();
+    const onCheck = vi.fn();
+    const filters = (text: string, selected: string[]): Record<string, DataGridColumnFilter> => ({
+      name: { value: text, onChange: onText, "aria-label": "Filter by name" },
+      sector: { kind: "check", options: SECTOR_OPTIONS, selected, onChange: onCheck, "aria-label": "Filter by sector" },
+    });
+    const { rerender } = render(<Harness columnFilters={filters("", [])} />);
+    expect(screen.queryByRole("button", { name: "Clear all filters" })).not.toBeInTheDocument();
+
+    rerender(<Harness columnFilters={filters("Aca", ["tech"])} />);
+    await userEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
+
+    expect(onText).toHaveBeenCalledWith("");
+    expect(onCheck).toHaveBeenCalledWith([]);
+  });
+
+  it("puts Clear all filters in the header of the column it is given", () => {
+    const filters: Record<string, DataGridColumnFilter> = {
+      name: { value: "Aca", onChange: vi.fn(), "aria-label": "Filter by name" },
+    };
+    render(<Harness columnFilters={filters} clearFiltersColumnId="sector" menuOnHeaderClick />);
+
+    expect(within(cellFor("sector")).getByRole("button", { name: "Clear all filters" })).toBeInTheDocument();
+    expect(within(cellFor("revenue")).queryByRole("button", { name: "Clear all filters" })).not.toBeInTheDocument();
+  });
+});
+
 describe("DataGrid header menu — Sort, Move, Freeze, Edit field", () => {
   beforeEach(() => vi.resetAllMocks());
 
@@ -596,5 +675,62 @@ describe("DataGrid header menu — Sort, Move, Freeze, Edit field", () => {
     await userEvent.click(screen.getByRole("button", { name: "Ethnicity column menu" }));
 
     expect(screen.queryByRole("button", { name: "Edit field" })).not.toBeInTheDocument();
+  });
+});
+
+describe("DataGrid header menu — opened from the whole header", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("opens the column's menu from a click on its name, and that click sorts nothing", async () => {
+    render(<Harness menuOnHeaderClick />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+
+    expect(screen.getByRole("button", { name: "Sort ascending" })).toBeInTheDocument();
+    expect(onSort).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Sector" })).not.toBeInTheDocument();
+  });
+
+  it("opens no menu when the press was a drag that moved the column", async () => {
+    stubLayout();
+    render(<Harness menuOnHeaderClick />);
+    const header = screen.getByRole("button", { name: "Sector column menu" });
+
+    await userEvent.pointer([
+      { target: header, keys: "[MouseLeft>]", coords: { x: 312, y: 10 } },
+      { target: header, coords: { x: 450, y: 10 } },
+      { target: header, keys: "[/MouseLeft]", coords: { x: 450, y: 10 } },
+    ]);
+
+    expect(headers()).toEqual(["Company", "Revenue", "Sector"]);
+    expect(screen.queryByRole("button", { name: "Sort ascending" })).not.toBeInTheDocument();
+  });
+
+  it("hides a built-in column, and deletes only a mandate's own", async () => {
+    const onDeleteColumn = vi.fn();
+    render(<Harness menuOnHeaderClick columnDefs={columnsWithCustom} onDeleteColumn={onDeleteColumn} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    expect(screen.queryByRole("button", { name: "Delete column" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Hide column" }));
+    expect(screen.queryByRole("button", { name: "Sector column menu" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Ethnicity column menu" }));
+    expect(screen.queryByRole("button", { name: "Hide column" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Delete column" }));
+    expect(onDeleteColumn).toHaveBeenCalledWith("custom:ethnicity");
+  });
+
+  it("names the sort in the column's own terms when the column says what it holds", async () => {
+    const typed = helper.columns([
+      helper.accessor("name", { id: "name", header: "Company", meta: { share: 22, min: 230 } }),
+      helper.accessor("revenue", { id: "revenue", header: "Revenue", meta: { share: 11, min: 120, sortKind: "number" } }),
+    ]);
+    render(<Harness menuOnHeaderClick columnDefs={typed} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Revenue column menu" }));
+
+    expect(screen.getByRole("button", { name: "Sort ascending 1 → 9" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort descending 9 → 1" })).toBeInTheDocument();
   });
 });

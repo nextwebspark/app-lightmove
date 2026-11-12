@@ -2,9 +2,18 @@
 
 Multi-tenant SaaS for executive search and talent mapping.
 
-A **Workspace** is the tenant. It holds **Members** (`ADMIN` / `CONSULTANT` / `RESEARCHER`) who run
-**Projects** — search mandates for client companies. Auth is built; Projects are designed in
-`claude-design/` and not yet modelled.
+A **Workspace** is the tenant; its members run **Projects** (positions) — search mandates for client
+companies. Product and feature detail: `CLAUDE.md` and `docs/architecture/`.
+
+UI mockups live in the private repo `nextwebspark/uncava-design`; clone it beside this one:
+`gh repo clone nextwebspark/uncava-design ../uncava-design`.
+
+## Working with Claude Code
+
+- `CLAUDE.md` loads into every session — keep it short; feature narrative goes in `docs/`.
+- `.claude/settings.json` sets the shared **Concise** output style (`.claude/output-styles/concise.md`);
+  override per person in `.claude/settings.local.json` or with `/output-style`.
+- Task-specific detail is in `.claude/skills/` (see the skills table in `CLAUDE.md`).
 
 ## Run it locally
 
@@ -172,6 +181,7 @@ can also be set as an environment variable.
 | `DB_POOL_MAX` | Hikari pool size, **per instance**. `bright-gcc` is a `db-f1-micro` (~25 connections) and the `brightdata` ETL shares it |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Billing's payments. Blank (the default) takes none: every workspace is invoiced. Locally, `stripe listen --forward-to localhost:8080/api/v1/billing/webhooks/stripe` prints the webhook secret to use |
 | `BILLING_CONTACT_EMAIL` | Where billing emails and the app's Contact Uncava links send a workspace (default `billing@uncava.com`). In production, the repo variable of that name (`deploy.yml`) |
+| `BILLING_ENFORCE` | `false` switches billing off for every workspace, existing ones included: no credit, trial, seat or fair-use refusal, no billing email but a failed payment, and no chip, prices, seat cost or Settings → Billing on screen (default `true`). Uses are still recorded, but finds still drain the month's credits and claim its low-credit warnings, so switch back to `true` at a billing month's start, or grant credits first. In production, the repo variable of that name (`deploy.yml`) |
 | `STRIPE_PRICE_*` | The Stripe price ids of the Core and Pro seat (`_CORE_MONTHLY`, `_CORE_ANNUAL`, `_PRO_MONTHLY`, `_PRO_ANNUAL`) and of the two credit packs (`_PACK_100`, `_PACK_500`), from the same mode as the key. In production, `BILLING_ENABLED=true` plus repo variables of these names (`deploy.yml`) |
 
 **Precedence.** An env var like `EMAIL_PROVIDER` only feeds a `${...}` placeholder in `application.yml`.
@@ -466,12 +476,12 @@ set the variable and assert it with a test.
 | `apps/api` | Spring Boot 4.1 (Java 21, Maven) |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `Dockerfile` | Multi-stage: builds the SPA, copies it into the jar's `static/`, one image |
-| `claude-design/` | HTML mockups — **the source of truth for all UI** |
+| `../uncava-design/` | HTML mockups (separate repo) — **the source of truth for all UI** |
 | `ops/dev/` | `db.sh` (the local Docker Postgres) and `api.sh` (the API pointed at it) — what `npm run dev` runs |
 | `ops/cloudsql/` | Database bootstrap, hardening, the `lm_migrate` role, and `psql.sh` |
 | `ops/gcp/` | `bootstrap.sh` — everything on GCP the first deploy needs, idempotent; `schedule-warm-hours.sh` — the Dubai-hours minimum-instance schedule |
 | `.github/workflows/` | `ci.yml` gates; `release.yml` tags and releases; `deploy.yml` builds, migrates, deploys, smoke-tests |
-| `docs/` | [Login & authentication](docs/login-and-authentication.md) — every signup/login/invite scenario, end to end |
+| `docs/` | Feature docs; start at `docs/architecture/` |
 
 [CLAUDE.md](CLAUDE.md) has the rules that shape the code, and the traps this codebase has already fallen
 into.

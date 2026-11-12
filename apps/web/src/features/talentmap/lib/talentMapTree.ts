@@ -4,12 +4,8 @@ import type { TriageCompany } from "../../triage/api/types";
 import type { MapLocation, TalentMapPage } from "../api/types";
 
 /**
- * The mapping panel's shape: country → company → executives, with the two groups that fall outside
- * it — executives mapped at no company of the mandate, and rows with no place at all.
- *
- * <p>An executive with no location of their own inherits their company's point (`seatedAt`), so a
- * company with three people reads as one pin with three around it. One with a place of their own is
- * drawn there, wherever their employer sits.
+ * The mapping panel's tree: country → company → executives, plus executives at no mandate company and unplaced rows.
+ * An executive with no location inherits their company's point (`seatedAt`).
  */
 
 export interface TreeExecutive {
@@ -158,13 +154,8 @@ export function buildTree(page: TalentMapPage): MappingTree {
 }
 
 /**
- * What the panel's header says, counted off the tree rather than off the page — so a filtered tree
- * counts what it holds rather than what it was narrowed from.
- *
- * <p>A row is located when the globe draws a pin for it, which is the one rule
- * `toFeatureCollection` applies: a point of its own, or — for a person — their company's to sit
- * beside. Nothing else counts, wherever the tree happens to file the row: a country name with no
- * point behind it puts an executive under that country and still draws nothing.
+ * The header's counts, off the tree so a filtered tree counts what it holds. Located means the globe draws a pin, by
+ * `toFeatureCollection`'s rule: a point of its own, or a person's company point.
  */
 function countsOf(
   countries: TreeCountry[],
@@ -196,50 +187,6 @@ function countsOf(
     executives,
     unlocated: unplaced,
   };
-}
-
-/**
- * The tree narrowed to what matches, by company name, person, title or city. A company stays with
- * all its people when it matches itself, and with only the matching people when it does not — the
- * reader typed a name and wants to see where that name sits.
- */
-export function filterTree(tree: MappingTree, query: string): MappingTree {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return tree;
-
-  const matchesExecutive = (executive: TreeExecutive) =>
-    [executive.candidate.fullName, executive.candidate.title, executive.candidate.locationCity]
-      .some((field) => field?.toLowerCase().includes(needle));
-  const matchesCompany = (company: TreeCompany) =>
-    [company.company.companyName, company.company.companyCity, company.company.industry]
-      .some((field) => field?.toLowerCase().includes(needle));
-
-  const narrowCompany = (company: TreeCompany): TreeCompany | null => {
-    if (matchesCompany(company)) return company;
-    const executives = company.executives.filter(matchesExecutive);
-    return executives.length ? { ...company, executives } : null;
-  };
-
-  const countries: TreeCountry[] = [];
-  for (const country of tree.countries) {
-    const companies = country.companies.map(narrowCompany).filter((c): c is TreeCompany => c !== null);
-    const unmapped = country.unmapped.filter(matchesExecutive);
-    if (!companies.length && !unmapped.length) continue;
-    countries.push({
-      ...country,
-      companies,
-      unmapped,
-      companyCount: companies.length,
-      executiveCount:
-        companies.reduce((sum, company) => sum + company.executives.length, 0) + unmapped.length,
-    });
-  }
-  const unlocated = {
-    companies: tree.unlocated.companies.map(narrowCompany).filter((c): c is TreeCompany => c !== null),
-    executives: tree.unlocated.executives.filter(matchesExecutive),
-  };
-
-  return { countries, unlocated, counts: countsOf(countries, unlocated) };
 }
 
 /** Every company and executive node the tree holds, in panel order. */

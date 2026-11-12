@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Button, Field, FormError, Input, Modal, Select, useToast } from "../../../components/ui";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
-import { CURRENCIES, DEFAULT_CURRENCY } from "../../../lib/currencies";
+import { CurrencySelect } from "../../../components/ui/CurrencySelect";
+import { DEFAULT_CURRENCY } from "../../../lib/currencies";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import type { WorkspaceCompany } from "../../auth/api/types";
@@ -124,13 +127,11 @@ export function SettingsGeneralPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Default currency">
-            <Select value={currency} onChange={(event) => setCurrency(event.target.value)} className="!bg-u-surface">
-              {/* A code stored before the list grew stays offered: an unmatched select would post blank. */}
-              {[...new Set([currency, ...CURRENCIES])].map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </Select>
+          <Field
+            label="Default currency"
+            hint="New positions, executives and templates start in this currency. Figures already recorded keep theirs."
+          >
+            <CurrencySelect aria-label="Default currency" value={currency} onChange={setCurrency} className="bg-u-surface" />
           </Field>
         </div>
 
@@ -161,8 +162,12 @@ export function SettingsGeneralPage() {
         <div className="flex items-center gap-3">
           <div className="flex-1">
             <div className="text-[13px] font-semibold text-u-offlimits">Delete workspace</div>
-            <div className="mt-1 font-mono text-[11.5px] text-u-text3">
-              Permanently removes all projects, candidates and client records. This cannot be undone.
+            <div className="mt-1 max-w-[520px] font-mono text-[11.5px] text-u-text3">
+              Members lose access now. Everything is permanently deleted after {graceOf(workspace)}, and a deletion
+              certificate is sent to you.{" "}
+              <Link to={DATA_PAGE} className="font-medium text-u-accent hover:underline">
+                Export your data first
+              </Link>
             </div>
           </div>
           <Button
@@ -176,17 +181,30 @@ export function SettingsGeneralPage() {
       </div>
 
       {deleteOpen && (
-        <DeleteWorkspaceModal workspaceName={workspace.name} onClose={() => setDeleteOpen(false)} />
+        <DeleteWorkspaceModal
+          workspaceName={workspace.name}
+          graceDays={workspace.deletionGraceDays}
+          onClose={() => setDeleteOpen(false)}
+        />
       )}
     </>
   );
 }
 
 /**
- * The typed-name confirmation. The exact match enabling the button is browser UX; the server
- * verifies the same string again — this dialog is not the guard rail, only its handle.
+ * The typed-name confirmation, saying what ends now and what goes after the grace period. The exact match enabling
+ * the button is browser UX; the server verifies the same string again — this dialog is not the guard rail, only its
+ * handle.
  */
-function DeleteWorkspaceModal({ workspaceName, onClose }: { workspaceName: string; onClose: () => void }) {
+function DeleteWorkspaceModal({
+  workspaceName,
+  graceDays,
+  onClose,
+}: {
+  workspaceName: string;
+  graceDays: number;
+  onClose: () => void;
+}) {
   const { reload } = useAuth();
   const [confirmName, setConfirmName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -201,11 +219,38 @@ function DeleteWorkspaceModal({ workspaceName, onClose }: { workspaceName: strin
   const matches = confirmName.trim().toLowerCase() === workspaceName.toLowerCase();
 
   return (
-    <Modal open onClose={onClose} title="Delete workspace">
+    <Modal open onClose={onClose} title={`Delete ${workspaceName}?`}>
       <FormError message={error} />
-      <p className="mb-4 text-[13px] text-u-text2">
-        This removes every member and cancels outstanding invitations. Type{" "}
-        <b className="font-semibold text-u-text">{workspaceName}</b> to confirm.
+      <div className="mb-3.5 flex flex-col gap-2 text-body text-u-text2">
+        <div className="flex gap-2.5">
+          <span className="w-8 flex-none font-mono text-meta font-semibold leading-[19.5px] text-u-offlimits">Now</span>
+          <span>
+            Every member loses access, pending invitations are cancelled, sequences stop and API keys and AI apps stop
+            working.
+          </span>
+        </div>
+        <div className="flex gap-2.5">
+          <span className="w-8 flex-none font-mono text-meta font-semibold leading-[19.5px] text-u-offlimits">
+            {graceDays}d
+          </span>
+          <span>
+            Everything is permanently deleted: positions, candidates, notes, documents and recordings. A deletion
+            certificate is then emailed to you.
+          </span>
+        </div>
+      </div>
+      <div className="mb-4 flex items-start gap-2.5 rounded-u-chip border border-u-accent bg-u-accent-tint px-3 py-2.5 text-note text-u-text2">
+        <Icon d={ICONS.download} size={16} className="mt-px flex-none text-u-accent" />
+        <span className="flex-1">
+          <b className="font-semibold text-u-text">Export first.</b> Once members lose access nobody can download
+          anything. Take a full copy from Data &amp; retention before you delete.
+        </span>
+        <Link to={DATA_PAGE} className="flex-none whitespace-nowrap font-medium text-u-accent hover:underline">
+          Export data
+        </Link>
+      </div>
+      <p className="mb-3 text-body text-u-text2">
+        Type <b className="font-semibold text-u-text">{workspaceName}</b> to confirm.
       </p>
 
       <Field label="Workspace name">
@@ -232,6 +277,12 @@ function DeleteWorkspaceModal({ workspaceName, onClose }: { workspaceName: strin
       </div>
     </Modal>
   );
+}
+
+const DATA_PAGE = "/settings/data";
+
+function graceOf(workspace: { deletionGraceDays: number }): string {
+  return workspace.deletionGraceDays === 1 ? "1 day" : `${workspace.deletionGraceDays} days`;
 }
 
 function companyLocationOf(company: WorkspaceCompany): string {

@@ -64,12 +64,8 @@ const EXCLUDED_TAG = "not:";
 const BOOLEAN_HINT = "AND, OR and NOT in capitals combine terms: (CFO OR \"Finance Director\") NOT Assistant";
 
 /**
- * The People rail: ContactOut's People Search filter, in its own dashboard's order, over the same
- * accordion the company rail uses. Only parameters ContactOut's API reference lists are offered —
- * its dashboard's Revenue, Gender and saved exclude lists have no API behind them.
- *
- * <p>The count at the top is free and live; the Search button at the foot is not, which is why the
- * results never follow a chip click the way the company grid does.
+ * The People rail: ContactOut's People Search filter in its dashboard's order, only parameters its API lists. The count
+ * is free and live; Search is not, so results never follow a chip click.
  */
 export function PeopleFilterSidebar({
   facets,
@@ -127,13 +123,11 @@ export function PeopleFilterSidebar({
         <FilterAccordion
           label="Job title"
           selected={[
-            ...(filter.name ? [{ value: "name", label: filter.name }] : []),
             ...tagsOf(filter.jobTitles),
             ...filter.excludedJobTitles.map((value) => ({ value: `${EXCLUDED_TAG}${value}`, label: `Not ${value}` })),
           ]}
           onRemove={(value) => {
-            if (value === "name") onChange({ ...filter, name: null });
-            else if (value.startsWith(EXCLUDED_TAG)) removeFrom("excludedJobTitles", value.slice(EXCLUDED_TAG.length));
+            if (value.startsWith(EXCLUDED_TAG)) removeFrom("excludedJobTitles", value.slice(EXCLUDED_TAG.length));
             else removeFrom("jobTitles", value);
           }}
           open={open === "title"}
@@ -141,7 +135,6 @@ export function PeopleFilterSidebar({
           onReset={() =>
             onChange({
               ...filter,
-              name: null,
               jobTitles: [],
               excludedJobTitles: [],
               titleMatch: null,
@@ -189,15 +182,6 @@ export function PeopleFilterSidebar({
               placeholder="Assistant, Intern…"
               ariaLabel="Excluded job titles"
               maxItems={50}
-            />
-            <Label>Name</Label>
-            <input
-              value={filter.name ?? ""}
-              onChange={(event) => onChange({ ...filter, name: event.target.value || null })}
-              placeholder="e.g. Sara Al Mansoori"
-              aria-label="Name"
-              maxLength={120}
-              className="h-8 w-full rounded-md border border-u-border-strong bg-u-raised px-[10px] text-note text-u-text outline-none placeholder:text-u-text3"
             />
           </Stack>
         </FilterAccordion>
@@ -313,7 +297,7 @@ export function PeopleFilterSidebar({
               ariaLabel="Excluded companies"
               maxItems={50}
             />
-            <Hint>This mandate&rsquo;s declined companies are always left out.</Hint>
+            <Hint>Companies this mandate already ruled out are always left out.</Hint>
             <Label>Company size</Label>
             <CheckRows
               options={facets?.companySizes}
@@ -695,6 +679,28 @@ export function domainOf(website: string | null): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * How many of the rail's panels carry a selection — the count beside Show Filters, as the company toolbar's. The name
+ * is the toolbar's own search box, so it is not one of them.
+ */
+export function activePeopleAxisCount(filter: PeopleFilter): number {
+  return [
+    filter.jobTitles.length > 0 || filter.excludedJobTitles.length > 0 || filter.recentlyChangedJobs,
+    filter.seniorities.length > 0,
+    filter.jobFunctions.length > 0,
+    filter.locations.length > 0,
+    filter.companies.length > 0 ||
+      filter.domains.length > 0 ||
+      filter.companySizes.length > 0 ||
+      filter.excludedCompanies.length > 0,
+    filter.industries.length > 0 || filter.excludedIndustries.length > 0,
+    filter.yearsInCurrentRole.length > 0 || filter.yearsOfExperience.length > 0,
+    filter.skills.length > 0 || Boolean(filter.keyword),
+    filter.languages.length > 0 || filter.education.length > 0,
+    filter.contactTypes.length > 0,
+  ].filter(Boolean).length;
 }
 
 /** Mirrors the server's `PeopleFilter.isEmpty`: with nothing to search on, ContactOut would answer its whole index. */

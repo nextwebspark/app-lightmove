@@ -93,7 +93,7 @@ public class PublicReadService {
     public PublicPage<PublicCompany> companies(PublicReader reader, UUID projectId, String stage, Integer page,
                                                Integer size) {
         TriageCompaniesResponse found = companies.list(reader.workspaceId(), projectId,
-                new TriageCompanyListCriteria(stage, null, null, null, null, null, page, size),
+                new TriageCompanyListCriteria(stage, null, null, null, null, null, null, page, size),
                 audienceOf(reader, projectId));
         List<PublicCompany> rows = found.companies().stream().map(PublicCompany::of).toList();
         return new PublicPage<>(rows, found.page(), found.size(), found.totalCount());
@@ -118,7 +118,7 @@ public class PublicReadService {
                 : TriageCompanyStatus.parseOrInUniverse(stage).value();
         CandidatesResponse found = candidates.list(reader.workspaceId(), projectId, new CandidateListCriteria(
                 companyId == null ? null : List.of(companyId), null, null, query, null, status, null, triageStatus,
-                page, pageSize), audience);
+                null, page, pageSize), audience);
         boolean withContacts = reader.holds(ApiKeyScope.CANDIDATE_CONTACTS_READ);
         boolean withCompensation = reader.holds(ApiKeyScope.CANDIDATE_COMPENSATION_READ);
         List<PublicCandidate> rows = found.candidates().stream()

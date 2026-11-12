@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.ApolloUniverse;
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.common.location.service.Countries;
@@ -28,7 +29,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @IntegrationTest
 class CountryVocabularyIntegrationTest extends FlowTestSupport {
 
-    @Autowired JdbcTemplate db;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     private ApolloUniverse universe;
 
@@ -82,6 +83,18 @@ class CountryVocabularyIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.markets[0]").value("United Arab Emirates"))
                 .andExpect(jsonPath("$.markets[1]").value("Saudi Arabia"))
                 .andExpect(jsonPath("$.markets.length()").value(2));
+    }
+
+    @Test
+    @DisplayName("the currency vocabulary is every currency a country uses today, by code")
+    void currenciesAreServed() throws Exception {
+        String admin = adminOf("Currency Vocabulary Firm");
+
+        mvc.perform(get("/api/v1/currencies").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currencies[0].code").value("AED"))
+                .andExpect(jsonPath("$.currencies[?(@.code == 'SAR')].name").value("Saudi Riyal"))
+                .andExpect(jsonPath("$.currencies[?(@.code == 'ATS')]").isEmpty());
     }
 
     private String adminOf(String workspaceName) throws Exception {

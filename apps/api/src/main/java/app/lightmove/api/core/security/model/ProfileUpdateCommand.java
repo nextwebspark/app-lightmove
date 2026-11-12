@@ -17,6 +17,8 @@ public record ProfileUpdateCommand(
         String timezone,
         DateFormatStyle dateFormat,
         TimeFormatStyle timeFormat,
-        String locale
+        String locale,
+        String phone,
+        String linkedinUrl
 ) {
 }

@@ -16,7 +16,7 @@ import * as companyNotesApi from "../api/companyNotesApi";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompany, TriageCompanyStatus } from "../api/types";
 import { stageByStatus } from "../lib/triageStages";
-import { MOVES, removeTooltip, SOURCE_STYLES } from "../lib/triageVocabulary";
+import { offeredMoves, removeTooltip, SOURCE_STYLES } from "../lib/triageVocabulary";
 import { AddCompanyPanel } from "./AddCompanyPanel";
 import { CompanyFactsForm, editPayloadOf } from "./CompanyFactsForm";
 import { CompanyFactsSections } from "./CompanyFactsSections";
@@ -31,25 +31,9 @@ const CORNER_BUTTON =
   "rounded-md p-1.5 transition hover:bg-u-raised disabled:opacity-40 disabled:hover:bg-transparent";
 
 /**
- * One company, in the mandate's own terms — the panel the mockup's `coDrawer` describes, finally
- * built, and the form that adds a new one.
- *
- * <p><b>It opens read-only.</b> A consultant clicking a company name is reading, not typing, and a
- * form that opens over the grid on every click is a form you dismiss without looking at. Edit is a
- * deliberate second step.
- *
- * <p><b>A company taken from Strategy has no Edit button at all.</b> Its fields are the market
- * export's snapshot, refreshed by the export, and a mandate rewriting them would make the Source badge
- * a claim the figures no longer support. The server refuses the write too — the missing button is the
- * courtesy, not the control.
- *
- * <p>The <b>Notes</b> tab is the exception, and stays the team's on every company including those. Notes are the
- * mandate's own remarks rather than facts about the company, which is exactly why the export cannot own them —
- * and the reason a consultant opens this panel rather than Strategy's. Staff-only, so a client seat gets no tabs.
- *
- * <p><b>Add executive sits in the header</b> rather than only on the grid row, because by the time
- * this panel is open the company is the thing being read and "map somebody here" is the next move —
- * and on the map view the row that carried the action is not on screen at all.
+ * One company in the mandate's terms (the mockup's `coDrawer`), and the form that adds one. Opens read-only; a
+ * company from Strategy has no Edit (the server refuses the write too — the button is courtesy, not control), but its
+ * staff-only Notes tab stays the team's. Add executive sits in the header for the map view, which has no row.
  */
 export function CompanyDrawer({
   open,
@@ -135,7 +119,9 @@ export function CompanyDrawer({
   // the apolloAccountId/source split above happened in the first place. Editing is that rule plus a
   // permission, which is what `canEdit` says.
   const isMandateSupplied = company !== null && company.apolloAccountId === null;
-  const canEdit = isMandateSupplied && canWrite;
+  // A declined company is ruled out whole: its panel reads, keeps its notes, and offers Back to universe alone.
+  const canWork = canWrite && company?.status !== "declined";
+  const canEdit = isMandateSupplied && canWork;
 
   if (company === null) {
     return (
@@ -176,20 +162,18 @@ export function CompanyDrawer({
           </>
         }
         cornerActions={
-          !editing && (canWrite || canEdit) && (
+          !editing && canWork && (
             <>
-              {canWrite && (
-                <button
-                  type="button"
-                  title="Add executive"
-                  aria-label={`Add an executive at ${company.companyName}`}
-                  onClick={() => onAddExecutive(company)}
-                  className={`${CORNER_BUTTON} text-u-accent hover:text-u-accent-hover`}
-                >
-                  <Icon d={ICONS.userPlus} size={16} />
-                </button>
-              )}
-              {canWrite && !company.noExecutiveFound && (
+              <button
+                type="button"
+                title="Add executive"
+                aria-label={`Add an executive at ${company.companyName}`}
+                onClick={() => onAddExecutive(company)}
+                className={`${CORNER_BUTTON} text-u-accent hover:text-u-accent-hover`}
+              >
+                <Icon d={ICONS.userPlus} size={16} />
+              </button>
+              {!company.noExecutiveFound && (
                 <button
                   type="button"
                   title="Mark as researched — nobody suitable found"
@@ -287,7 +271,7 @@ export function CompanyDrawer({
               columns={customColumns}
               values={customFields}
               onChange={setCustomFields}
-              canWrite={canWrite}
+              canWrite={canWork}
               dirty={JSON.stringify(customFields) !== JSON.stringify(company.customFields ?? {})}
               saving={saveCustomFields.isPending}
               onSave={() => saveCustomFields.mutate(customFields)}
@@ -297,7 +281,7 @@ export function CompanyDrawer({
 
           {canWrite && (
             <div className="flex flex-none flex-wrap items-center gap-2 border-t border-u-border px-5 py-3">
-              {MOVES[company.status].map((move) => (
+              {offeredMoves(company.status).map((move) => (
                 <Button
                   key={move.status}
                   type="button"
@@ -309,15 +293,17 @@ export function CompanyDrawer({
                   {move.label}
                 </Button>
               ))}
-              <Button
-                type="button"
-                variant="secondary"
-                className="ms-auto text-u-offlimits"
-                title={removeTooltip(company.companyName)}
-                onClick={() => onDelete(company)}
-              >
-                Remove
-              </Button>
+              {canWork && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="ms-auto text-u-offlimits"
+                  title={removeTooltip(company.companyName)}
+                  onClick={() => onDelete(company)}
+                >
+                  Remove
+                </Button>
+              )}
             </div>
           )}
         </>

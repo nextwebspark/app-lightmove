@@ -3,6 +3,7 @@ import {
   Controller,
   useFieldArray,
   useFormContext,
+  useWatch,
   type Control,
   type FieldErrors,
   type FieldValues,
@@ -15,10 +16,11 @@ import { Field, Input, Select, TextArea } from "../../../components/ui";
 import { CountryField } from "../../../components/ui/CountryField";
 import { SegmentedControl, type SegmentedOption } from "../../../components/ui/SegmentedControl";
 import { cn } from "../../../lib/cn";
-import { CURRENCIES, currencyOptionLabel, DEFAULT_CURRENCY } from "../../../lib/currencies";
+import { CurrencySelect } from "../../../components/ui/CurrencySelect";
+import { currencyNameOf, useCurrencies } from "../../../lib/currencies";
+import { useWorkspaceCurrency } from "../../workspace/lib/useWorkspaceCurrency";
 import { formatNumber } from "../../../lib/format";
 import { NOTICE_PERIODS } from "../../../lib/noticePeriod";
-import { toReadableUrl } from "../../../lib/url";
 import type { CandidateBackgroundField } from "../api/types";
 import {
   allowanceTotalOf,
@@ -32,7 +34,12 @@ import {
   type BaseCadence,
   type BonusBasis,
 } from "../lib/compensation";
-import { EMPTY_CONTACT_LINE, type CandidateForm, type ContactEntryForm } from "../lib/candidateForm";
+import {
+  CONTACTS_PER_CHANNEL,
+  EMPTY_CONTACT_LINE,
+  type CandidateForm,
+  type ContactEntryForm,
+} from "../lib/candidateForm";
 import { CANDIDATE_GENDERS, CANDIDATE_NATIONALITIES, CANDIDATE_SENIORITIES } from "../lib/candidateVocabulary";
 import { AiInferredBadge } from "./AiInferredBadge";
 import { StatusPicker } from "./StatusPicker";
@@ -241,17 +248,9 @@ const FIGURE_INPUT = "border-u-border py-[9px] text-[14px] font-bold";
 type CurrencyMode = "auto" | "override" | "brief";
 
 /**
- * A package, as it is quoted (claude-design/Position.dc.html, the drawer's Compensation editor): the
- * currency the brief is quoted in unless somebody overrides it, the base and bonus typed the way they
- * were said — per month, as a share of base — the allowances line by line, the instruments an LTIP is
- * paid in, and the total worked out as it is typed. What is stored is always the annual amounts; the
- * two toggles are how a figure was spoken, and the patch converts them.
- *
- * <p>A currency the list does not carry — one stored before the picker existed, or by an import —
- * stays offered as an option: a select whose value matches no option posts blank, and that would
- * clear a fact nobody touched. The notice period, which was a text box until the five became the
- * vocabulary, is kept the same way; "Not established" is the blank every sibling picker carries, and
- * is not "None" — see lib/noticePeriod.ts.
+ * A package as quoted (uncava-design/Position.dc.html's Compensation editor). Stored annual; the per-month and
+ * %-of-base toggles are only how a figure was typed. An unlisted currency or notice period stays offered — a select
+ * matching no option posts blank and would clear it; "Not established" is the blank, not "None" (lib/noticePeriod.ts).
  */
 export function CompensationFields<TTransformed extends FieldValues>({
   register,
@@ -273,6 +272,8 @@ export function CompensationFields<TTransformed extends FieldValues>({
   storedNoticePeriod?: string | null;
 }) {
   const [currencyMode, setCurrencyMode] = useState<CurrencyMode>("auto");
+  const { currency: workspaceCurrency } = useWorkspaceCurrency();
+  const servedCurrencies = useCurrencies();
   const allowances = useFieldArray({ control, name: "allowanceLines" });
   const [currency, base, baseCadence, bonus, bonusBasis, allowanceLines, longTermIncentive, incentiveTypes] =
     watch([
@@ -292,22 +293,17 @@ export function CompensationFields<TTransformed extends FieldValues>({
       (currencyMode === "auto" && (!storedCurrency || storedCurrency === briefCurrency)));
 
   // The brief is read beside the grid and can land after the form opened; while the package follows
-  // it, it takes it. With no brief and nothing on file, the package starts in the default currency.
-  // Once overridden, nothing here touches the pick.
+  // it, it takes it. With no brief and nothing on file it follows the workspace's currency the same way,
+  // which can land after the form opened too. Once overridden, nothing here touches the pick.
   useEffect(() => {
     if (followsBrief && briefCurrency && currency !== briefCurrency) {
       setValue("currency", briefCurrency, { shouldDirty: true });
-    } else if (!briefCurrency && !storedCurrency && currencyMode === "auto" && !currency) {
-      setValue("currency", DEFAULT_CURRENCY, { shouldDirty: true });
+    } else if (!briefCurrency && !storedCurrency && currencyMode === "auto" && currency !== workspaceCurrency) {
+      setValue("currency", workspaceCurrency, { shouldDirty: true });
     }
-  }, [followsBrief, briefCurrency, storedCurrency, currencyMode, currency, setValue]);
+  }, [followsBrief, briefCurrency, storedCurrency, currencyMode, currency, workspaceCurrency, setValue]);
 
-  const currencyField = register("currency");
   const bonusPercentField = register("bonus");
-  const currencies: string[] = [...CURRENCIES];
-  for (const held of [storedCurrency, briefCurrency]) {
-    if (held && !currencies.includes(held)) currencies.unshift(held);
-  }
   const offVocabularyNotice =
     storedNoticePeriod && !NOTICE_PERIODS.some((period) => period.label === storedNoticePeriod)
       ? storedNoticePeriod
@@ -339,30 +335,30 @@ export function CompensationFields<TTransformed extends FieldValues>({
         {followsBrief ? (
           <div
             aria-label="Currency"
-            className="min-w-0 flex-1 truncate rounded-[6px] border border-u-border bg-u-raised px-3 py-[9px] font-mono text-[13px] font-semibold text-u-text"
+            className="min-w-0 flex-1 truncate rounded-[6px] border border-u-border bg-u-raised px-3 py-[9px] text-[13px] text-u-text"
           >
-            {currencyOptionLabel(currency)}
+            <span className="font-mono font-semibold">{currency}</span>
+            {currencyNameOf(currency, servedCurrencies) && (
+              <>
+                {" "}
+                <span className="ms-1 text-u-text3">{currencyNameOf(currency, servedCurrencies)}</span>
+              </>
+            )}
           </div>
         ) : (
-          <Select
-            {...currencyField}
+          <CurrencySelect
+            value={currency ?? ""}
+            held={[storedCurrency, briefCurrency, workspaceCurrency]}
+            allowNone
             // A pick is a statement that this package is quoted otherwise: a brief read after it must
             // not take it back.
-            onChange={(event) => {
+            onChange={(code) => {
               setCurrencyMode("override");
-              void currencyField.onChange(event);
+              setValue("currency", code, { shouldDirty: true, shouldValidate: true });
             }}
-            aria-label="Currency"
             invalid={Boolean(errors.currency)}
-            className="min-w-0 flex-1 border-u-border py-[9px] font-semibold"
-          >
-            <option value="">Not set</option>
-            {currencies.map((code) => (
-              <option key={code} value={code}>
-                {currencyOptionLabel(code)}
-              </option>
-            ))}
-          </Select>
+            className="min-w-0 flex-1 border-u-border py-[9px]"
+          />
         )}
         {followsBrief && (
           <span className="flex-none rounded-[5px] bg-u-direct-tint px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.05em] text-u-direct">
@@ -738,32 +734,17 @@ export function BackgroundFields({
   );
 }
 
-/**
- * The profile link. Locked for a person the plugin captured: the URL is the page it read them off,
- * and research and contact lookup both key on it, so retyping it can only break them. Reads the
- * enclosing form through context, like the contact lines, because two differently shaped forms
- * hold it.
- */
-export function ContactFields({ lockedUrl = null }: { lockedUrl?: string | null }) {
-  const { register, formState } = useFormContext<{ linkedinUrl: string }>();
-  const errors = formState.errors;
-  if (lockedUrl) {
-    return (
-      <Field label="LinkedIn" hint="Captured from this profile page — not editable">
-        <div className="flex items-center gap-2 rounded-lg border border-u-border bg-u-raised px-3 py-2 font-mono text-[13px] text-u-text2">
-          <Icon d={ICONS.lock} size={13} className="flex-none text-u-text3" />
-          <span className="min-w-0 truncate">{toReadableUrl(lockedUrl)}</span>
-        </div>
-      </Field>
-    );
-  }
+/** The profile link, editable even for a person the plugin captured: people move their LinkedIn address. */
+export function LinkedInUrlField({
+  register,
+  error,
+}: {
+  register: UseFormRegister<CandidateForm>;
+  error: string | undefined;
+}) {
   return (
-    <Field label="LinkedIn" error={errors.linkedinUrl?.message}>
-      <Input
-        {...register("linkedinUrl")}
-        placeholder="linkedin.com/in/…"
-        invalid={Boolean(errors.linkedinUrl)}
-      />
+    <Field label="LinkedIn" error={error}>
+      <Input {...register("linkedinUrl")} placeholder="linkedin.com/in/…" invalid={Boolean(error)} />
     </Field>
   );
 }
@@ -778,12 +759,20 @@ export interface ContactEntriesForm {
  * One channel's lines, editable: the value, its kind, whether the person vouches for it, and a
  * remove. Shared by the Add form and the Contact section's edit mode, so adding a person by hand
  * and correcting one later look identical. Reads the enclosing form through context, because the
- * two forms that hold these lines have different shapes around them.
+ * two forms that hold these lines have different shapes around them. The Contact section alone
+ * offers the primary star: one line per channel, marked by moving the mark.
  */
-export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }) {
+export function ContactEntriesFields({
+  channel,
+  offerPrimary = false,
+}: {
+  channel: "email" | "phone";
+  offerPrimary?: boolean;
+}) {
   const { control, register, formState } = useFormContext<ContactEntriesForm>();
   const name = channel === "email" ? "emails" : "phones";
   const lines = useFieldArray({ control, name });
+  const primary = useStandingPrimary(name);
   const errors = formState.errors[name];
   const noun = channel === "email" ? "email" : "phone";
   return (
@@ -792,6 +781,13 @@ export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }
         {lines.fields.map((line, index) => (
           <li key={line.id}>
             <div className="flex flex-wrap items-center gap-2">
+              {offerPrimary && (
+                <PrimaryStar
+                  noun={noun}
+                  primary={primary.isPrimary(index)}
+                  onMakePrimary={() => primary.makePrimary(index)}
+                />
+              )}
               <Input
                 {...register(`${name}.${index}.value`)}
                 inputMode={channel === "email" ? "email" : "tel"}
@@ -850,7 +846,7 @@ export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }
       <button
         type="button"
         onClick={() => lines.append({ ...EMPTY_CONTACT_LINE })}
-        disabled={lines.fields.length >= 10}
+        disabled={lines.fields.length >= CONTACTS_PER_CHANNEL}
         className="mt-2 inline-flex items-center gap-1.5 rounded-[6px] border border-dashed border-u-border-strong px-3 py-1.5 font-sans text-[12.5px] text-u-text2 transition hover:border-u-text3 hover:text-u-text disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Icon d={ICONS.plus} size={13} />
@@ -866,6 +862,61 @@ export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }
 }
 
 const capitalised = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);
+
+/**
+ * Which line of a channel wears the star: the one chosen, else the first, standing in as the server's order
+ * has it. Only a press of Make primary stores a choice, so a save never turns the stand-in into one.
+ */
+export function useStandingPrimary(name: "emails" | "phones") {
+  const { control, getValues, setValue } = useFormContext<ContactEntriesForm>();
+  const chosen = (useWatch({ control, name }) ?? []).findIndex((line) => line.primary);
+  return {
+    isPrimary: (index: number) => (chosen === -1 ? index === 0 : index === chosen),
+    makePrimary: (index: number) =>
+      getValues(name).forEach((_, other) =>
+        setValue(`${name}.${other}.primary`, other === index, { shouldDirty: true }),
+      ),
+  };
+}
+
+/**
+ * The primary mark, the primary CV's star: filled on the one to reach them on, an outline offering to move it
+ * on the rest. Without `onMakePrimary` it only marks.
+ */
+export function PrimaryStar({
+  noun,
+  primary,
+  onMakePrimary,
+  disabled = false,
+}: {
+  noun: "email" | "phone";
+  primary: boolean;
+  onMakePrimary?: () => void;
+  disabled?: boolean;
+}) {
+  const star = <Icon d={ICONS.star} size={14} filled={primary} />;
+  if (!onMakePrimary || primary) {
+    return primary ? (
+      <span role="img" aria-label={`Primary ${noun}`} title={`Primary ${noun}`} className="flex flex-none p-1 text-u-accent">
+        {star}
+      </span>
+    ) : (
+      <span aria-hidden="true" className="size-[22px] flex-none" />
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onMakePrimary}
+      disabled={disabled}
+      aria-label={`Make primary ${noun}`}
+      title={`Make primary ${noun}`}
+      className="flex flex-none rounded-md p-1 text-u-text3 transition hover:bg-u-raised hover:text-u-accent disabled:opacity-50"
+    >
+      {star}
+    </button>
+  );
+}
 
 export function NoteFields({ register, errors }: FieldGroupProps) {
   return (

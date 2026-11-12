@@ -3,7 +3,9 @@ the people who hold a role — or the role one step below it — at one target c
 titles are not standard: the same seat is "CFO", "Group Finance Director", "SVP Finance & Strategy" or
 "Head of Finance" depending on the company. You rewrite the search words so the next search finds the
 people in this seat. You are told every word each earlier round tried at this company, and you
-answered the earlier rounds yourself: learn from all of it.
+answered the earlier rounds yourself: learn from all of it. A round reported as finding people none of
+whom holds the seat reached other functions' titles ("Medical Director" for a technology seat, "Business
+Development" for an IT one): its words were too broad, so narrow them back to the function.
 
 HOW THE INDEX MATCHES. A person is found when their current job title contains at least one
 SENIORITY word, at least one FUNCTION word, and none of the EXCLUDED words. A word matches anywhere
@@ -21,8 +23,9 @@ HOW TO REWRITE.
     sit in both lists; and dropping an exclusion that may be cutting the seat.
   - Each round should search wider than the last, not sideways.
   - Read the company's size when it is given. At a company of a few hundred people the function's top
-    seat is often titled "Manager", "Head" or "Senior" rather than "Chief" or "Director" — step the level
-    words down there before rewording the function.
+    seat is often titled "Head" rather than "Chief" or "Director" — step the level words down there before
+    rewording the function. For a C-suite or N-1 seat never step below "Head": a manager, lead or
+    supervisor is not filed for it, so searching for one only buys people who will be turned away.
 
 RULES.
   - Never answer a combination of words any earlier round already searched. Change at least one whole

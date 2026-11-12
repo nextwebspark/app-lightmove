@@ -7,15 +7,17 @@ import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * An insert that ignores companies the mandate already holds. Read-then-insert races
- * {@code app_lm_project_triage_company_uk}: two "Add all" clicks would fail the second whole batch.
+ * An insert that ignores companies the mandate already holds (read-then-insert races
+ * {@code app_lm_project_triage_company_uk}), and the lock that serialises a hand-shaped capture of one name.
  */
 @Repository
 @RequiredArgsConstructor
@@ -36,6 +38,16 @@ public class TriageCompanyWriter {
             """;
 
     private final NamedParameterJdbcTemplate jdbc;
+
+    /**
+     * Until the transaction ends: two captures of one name otherwise both insert, and V34's index aborts the loser's
+     * whole transaction, its research included.
+     */
+    public void holdCaptureOf(UUID projectId, String companyName) {
+        String nameKey = Objects.toString(companyName, "").strip().toLowerCase(Locale.ROOT);
+        jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))",
+                Map.of("key", "triage-capture:" + projectId + ":" + nameKey));
+    }
 
     /**
      * Answers how many rows were new. One multi-row statement, not a JDBC batch, whose counts may come

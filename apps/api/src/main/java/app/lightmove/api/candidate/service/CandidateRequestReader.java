@@ -9,6 +9,7 @@ import app.lightmove.api.candidate.dto.CandidateCompensationDto;
 import app.lightmove.api.candidate.dto.ContactEntryDto;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.model.AllowanceLine;
+import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateCompensation;
 import app.lightmove.api.candidate.model.CandidateContact;
@@ -42,12 +43,27 @@ class CandidateRequestReader {
     private final TriageCompanyService triage;
 
     /**
-     * Where a candidate sits. A named company is resolved through {@code triagecompany}'s public seam,
-     * which proves it belongs to this mandate — so one cannot be filed against another project's — and
-     * clears that company's {@code noExecutiveFound} flag as a side effect of the resolution, but only
-     * when {@code previousTriageCompanyId} shows this call is newly making that mapping: an executive
-     * being mapped here is what disproves the flag, but a save that merely still names the company they
-     * were already mapped to is an unrelated edit and must not revive it.
+     * The company it names; else the one they are at while it names no other employer (a stale drawer or a
+     * company-less re-import is not a move); else the mandate's company held under exactly that employer.
+     */
+    UUID companyOf(UUID projectId, SaveCandidateRequest request, Candidate current) {
+        if (request.triageCompanyId() != null) {
+            return request.triageCompanyId();
+        }
+        String employerName = request.employerName() == null || request.employerName().isBlank()
+                ? null : request.employerName().strip();
+        if (current != null && current.getTriageCompanyId() != null
+                && (employerName == null || employerName.equalsIgnoreCase(current.getCompanyName()))) {
+            return current.getTriageCompanyId();
+        }
+        return triage.findCompanyOfProjectByName(projectId, employerName)
+                .map(TriageCompanyResponse::id)
+                .orElse(null);
+    }
+
+    /**
+     * Where a candidate sits, resolved through {@code triagecompany}'s seam (so it belongs to this mandate). Clears the
+     * company's {@code noExecutiveFound} only when {@code previousTriageCompanyId} shows the mapping is new.
      */
     CandidateDetails detailsOf(UUID projectId, SaveCandidateRequest request, UUID previousTriageCompanyId) {
         CandidateDetails details = new CandidateDetails(
@@ -109,6 +125,20 @@ class CandidateRequestReader {
             }
         }
         return entries;
+    }
+
+    /** The value the Contact section marked primary, or null for none; two marked in one channel is a slip. */
+    String primaryOf(ContactChannel channel, List<ContactEntryDto> listed) {
+        List<String> chosen = listed == null ? List.of() : listed.stream()
+                .filter(entry -> Boolean.TRUE.equals(entry.primary()))
+                .map(ContactEntryDto::value)
+                .filter(value -> value != null && !value.isBlank())
+                .toList();
+        if (chosen.size() > 1) {
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                    "Only one " + channel.value() + " can be primary");
+        }
+        return chosen.isEmpty() ? null : chosen.getFirst().trim();
     }
 
     /** A profile write adds to the ledger and removes nothing, so the cap is checked on what it holds after. */

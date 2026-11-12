@@ -3,10 +3,13 @@ package app.lightmove.api.core.security.controller;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
+import app.lightmove.api.core.security.avatar.UserAvatarService;
 import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.ChangePasswordRequest;
 import app.lightmove.api.core.security.dto.ForgotPasswordRequest;
 import app.lightmove.api.core.security.dto.LoginRequest;
+import app.lightmove.api.core.security.dto.MfaChallengeResponse;
+import app.lightmove.api.core.security.dto.MfaVerifyRequest;
 import app.lightmove.api.core.security.dto.SwitchWorkspaceRequest;
 import app.lightmove.api.core.security.dto.ResendVerificationRequest;
 import app.lightmove.api.core.security.dto.ResetPasswordRequest;
@@ -15,8 +18,12 @@ import app.lightmove.api.core.security.dto.UpdateProfileRequest;
 import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.dto.VerifyEmailRequest;
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.mfa.MfaChallengeCookieFactory;
+import app.lightmove.api.core.security.mfa.MfaChallengeService;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
+import app.lightmove.api.core.security.model.MfaChallengeIssued;
 import app.lightmove.api.core.security.model.ProfileUpdateCommand;
+import app.lightmove.api.core.security.model.SignInOutcome;
 import app.lightmove.api.core.security.model.SignupCommand;
 import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.service.PasswordChangeService;
@@ -33,19 +40,25 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /** The auth endpoints. The refresh token belongs in an httpOnly cookie, never a response body. */
 @RestController
@@ -58,9 +71,12 @@ public class AuthController {
     private final PasswordResetService passwordReset;
     private final PasswordChangeService passwordChange;
     private final UserProfileService userProfile;
+    private final UserAvatarService avatars;
     private final RefreshCookieFactory refreshCookie;
     private final RateLimitGuard rateLimit;
     private final AuthResponseAssembler assembler;
+    private final MfaChallengeService mfaChallenges;
+    private final MfaChallengeCookieFactory mfaChallengeCookie;
 
     /** Absent unless at least one OAuth client is configured. */
     private final ObjectProvider<ClientRegistrationRepository> oauthRegistrations;
@@ -75,11 +91,25 @@ public class AuthController {
         return respond(HttpStatus.CREATED, session);
     }
 
+    /** A session, or for a person with a second factor a challenge in its cookie and {@code mfaRequired}. */
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request,
-                                              HttpServletRequest httpRequest) {
-        return respond(HttpStatus.OK,
-                authentication.login(request.email(), request.password(), httpRequest));
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        return respond(authentication.login(request.email(), request.password(), httpRequest));
+    }
+
+    /**
+     * Completes a challenged sign-in. The challenge is the cookie, never the body; a refusal leaves it in place, so a
+     * mistyped code can be typed again until the lock or the challenge's few minutes run out.
+     */
+    @PostMapping("/mfa/verify")
+    public ResponseEntity<AuthResponse> verifySecondFactor(
+            @Valid @RequestBody MfaVerifyRequest request,
+            @CookieValue(name = "${lightmove.auth.mfa.challenge-cookie-name}", required = false) String challenge,
+            HttpServletRequest httpRequest) {
+        rateLimit.checkMfaVerify(challenge, httpRequest);
+
+        AuthenticatedSession session = mfaChallenges.redeem(challenge, request.code(), httpRequest);
+        return respond(HttpStatus.OK, session, mfaChallengeCookie.expire());
     }
 
     @PostMapping("/refresh")
@@ -115,9 +145,8 @@ public class AuthController {
     }
 
     @PostMapping("/verify")
-    public ResponseEntity<AuthResponse> verify(@Valid @RequestBody VerifyEmailRequest request,
-                                               HttpServletRequest httpRequest) {
-        return respond(HttpStatus.OK, verification.verify(request.token(), httpRequest));
+    public ResponseEntity<?> verify(@Valid @RequestBody VerifyEmailRequest request, HttpServletRequest httpRequest) {
+        return respond(verification.verify(request.token(), httpRequest));
     }
 
     /** Always 202, even for an unknown address: anything else is an account-enumeration oracle. */
@@ -139,9 +168,9 @@ public class AuthController {
     }
 
     @PostMapping("/password/reset")
-    public ResponseEntity<AuthResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request,
-                                                      HttpServletRequest httpRequest) {
-        return respond(HttpStatus.OK, passwordReset.reset(request.token(), request.password(), httpRequest));
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request,
+                                           HttpServletRequest httpRequest) {
+        return respond(passwordReset.reset(request.token(), request.password(), httpRequest));
     }
 
     /** Answers a session because the change revokes every session, the caller's included. */
@@ -190,8 +219,24 @@ public class AuthController {
                 principal.workspaceId(),
                 new ProfileUpdateCommand(
                         request.fullName(), request.title(), request.timezone(), request.dateFormat(),
-                        request.timeFormat(), request.locale()),
+                        request.timeFormat(), request.locale(), request.phone(), request.linkedinUrl()),
                 httpRequest);
+        return assembler.userIn(principal.userId(), principal.workspaceId());
+    }
+
+    /** The caller's own photo, from the principal; the cookie chain's CSRF check applies, as to {@code PATCH /me}. */
+    @PutMapping(path = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public UserResponse uploadAvatar(@AuthenticationPrincipal AuthPrincipal principal,
+                                     @RequestParam(name = "file", required = false) MultipartFile file,
+                                     HttpServletRequest httpRequest) {
+        avatars.upload(principal.userId(), principal.workspaceId(), file, httpRequest);
+        return assembler.userIn(principal.userId(), principal.workspaceId());
+    }
+
+    @DeleteMapping("/me/avatar")
+    public UserResponse removeAvatar(@AuthenticationPrincipal AuthPrincipal principal,
+                                     HttpServletRequest httpRequest) {
+        avatars.remove(principal.userId(), principal.workspaceId(), httpRequest);
         return assembler.userIn(principal.userId(), principal.workspaceId());
     }
 
@@ -224,10 +269,24 @@ public class AuthController {
     public record AuthProviders(List<String> providers) {
     }
 
+    /** A challenge sets its own cookie and no refresh cookie: there is no session until the code. */
+    private ResponseEntity<?> respond(SignInOutcome outcome) {
+        return switch (outcome) {
+            case AuthenticatedSession session -> respond(HttpStatus.OK, session);
+            case MfaChallengeIssued challenge -> ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, mfaChallengeCookie.create(challenge).toString())
+                    .body(new MfaChallengeResponse(true, challenge.expiresIn().toSeconds()));
+        };
+    }
+
     /** The one place the refresh token is written, to a cookie and never the body. */
-    private ResponseEntity<AuthResponse> respond(HttpStatus status, AuthenticatedSession session) {
-        return ResponseEntity.status(status)
-                .header(HttpHeaders.SET_COOKIE, refreshCookie.create(session.tokens().refreshToken()).toString())
-                .body(assembler.assemble(session.tokens(), session.user(), session.membership()));
+    private ResponseEntity<AuthResponse> respond(HttpStatus status, AuthenticatedSession session,
+                                                 ResponseCookie... alsoSet) {
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(status)
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.create(session.tokens().refreshToken()).toString());
+        for (ResponseCookie cookie : alsoSet) {
+            response.header(HttpHeaders.SET_COOKIE, cookie.toString());
+        }
+        return response.body(assembler.assemble(session.tokens(), session.user(), session.membership()));
     }
 }

@@ -86,6 +86,7 @@ public class OutreachMessageSendService {
                 }));
     }
 
+    /** In the message's own workspace's scope, which the dispatcher's walk opened for the claim. */
     public void sendClaimed(UUID messageId, Instant now) {
         PreparedOwnSend checked;
         try {
@@ -191,6 +192,9 @@ public class OutreachMessageSendService {
 
     /** What the composer refused, asked again: any of it may have changed while the email waited. */
     private static OutreachStopReason refusalOf(OutreachRecipient person, OutreachMessage message) {
+        if (person.processingRestricted()) {
+            return OutreachStopReason.PROCESSING_RESTRICTED;
+        }
         if (person.doNotContact()) {
             return OutreachStopReason.DO_NOT_CONTACT;
         }

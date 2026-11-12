@@ -2,8 +2,9 @@ import { requestBlob } from "../../../lib/apiClient";
 import { saveBlob } from "../../../lib/saveBlob";
 import type { TriageCompanyStatus } from "./types";
 
-/** The grid's three header filters, exactly as its own read takes them. */
+/** The toolbar's search and the grid's three header filters, exactly as its own read takes them. */
 export interface CompaniesExportFilters {
+  search: string;
   query: string;
   executiveQuery: string;
   executiveStatuses: readonly string[];
@@ -25,6 +26,7 @@ export async function saveCompaniesCsv(
   const params = new URLSearchParams({ status });
   // Omitted rather than sent empty, as the grid's own read does: the server reads a blank filter as
   // no filter, and leaving it out keeps the two states from being one request apart in the log.
+  if (filters.search.trim()) params.set("search", filters.search.trim());
   if (filters.query.trim()) params.set("q", filters.query.trim());
   if (filters.executiveQuery.trim()) params.set("executiveQuery", filters.executiveQuery.trim());
   // Repeated rather than joined, as the grid's read does: the server binds it as a list.

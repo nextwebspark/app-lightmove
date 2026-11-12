@@ -33,14 +33,8 @@ interface RowHandlers {
 }
 
 /**
- * The mapping panel's tree: country → company → executives, a `role="tree"` whose rows mirror the
- * globe's pins. Hover and selection are the parent's, so a row and its pin light up together
- * whichever was touched; a row's Open (or Enter, or a double click) is the drawer, and a single click
- * is the pin.
- *
- * <p>One tab stop, not one per row: the ARIA tree pattern, and the only workable one at this
- * screen's caps — 2000 companies would otherwise be 2000 stops between the toolbar and the globe.
- * Tab enters the tree where the reader left it and the arrows move within it.
+ * The mapping panel's tree (country → company → executives), mirroring the globe's pins; hover and selection are the
+ * parent's. One tab stop with arrow keys within (the ARIA tree pattern) — 2000 companies would otherwise be 2000 stops.
  */
 export function TalentMapTree({
   tree,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aSeededCatalog } from "../../../test/fixtures/pipelineCatalog";
+import { aCurrentCatalog, aSeededCatalog } from "../../../test/fixtures/pipelineCatalog";
 import { sliceInterest } from "./marketStats";
 import { stageTone, statusTone } from "./statusTone";
 
@@ -13,8 +13,20 @@ describe("the report's four readings", () => {
     expect(statusTone({ status: "offer" }, catalog)).toBe("interested");
   });
 
+  it("reads a status out of process as a closed door whatever stage it sits under, the server's word first", () => {
+    const catalog = aCurrentCatalog();
+    expect(statusTone({ status: "notInterested" }, catalog)).toBe("closed");
+    expect(statusTone({ status: "callArranged" }, catalog)).toBe("inConversation");
+    expect(
+      statusTone(
+        { status: "callArranged", statusOutOfProcess: true, pipelineStage: { key: "contacted", position: 2 } },
+        catalog,
+      ),
+    ).toBe("closed");
+  });
+
   it("reads the stage the server sent before the catalog, and the seven built-in keys without one", () => {
-    expect(statusTone({ status: "custom", pipelineStage: { key: "assessed", kind: "active", position: 5 } })).toBe(
+    expect(statusTone({ status: "custom", pipelineStage: { key: "assessed", position: 5 } })).toBe(
       "interested",
     );
     expect(statusTone({ status: "engaged" })).toBe("inConversation");

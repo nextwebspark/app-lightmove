@@ -37,7 +37,7 @@ export const USER = {
     { ...WORKSPACE, id: "ws-2", name: "Northgate Leadership Advisory & Board Search", slug: "northgate", logoMark: "N", roles: ["MEMBER"] },
   ],
   pendingInvitations: [
-    { id: "inv-1", workspaceName: "Harbourline Executive Search Partners", role: "MEMBER", inviterName: "Omar Saleh" },
+    { id: "inv-1", workspaceId: "ws-harbourline", workspaceName: "Harbourline Executive Search Partners", role: "MEMBER", inviterName: "Omar Saleh" },
   ],
 };
 
@@ -570,7 +570,7 @@ const TEAM_PERFORMANCE = {
   companiesTotal: 31,
 };
 
-/** Settings → Integrations, one card of each kind: shared with the admin-consent link, shared unoffered, own with its form. */
+/** Settings → Integrations, one card of each kind: shared, shared with the admin-consent link, and an own app saved. */
 const INTEGRATIONS = {
   ownAppsOffered: true,
   recallOffered: true,
@@ -589,6 +589,14 @@ const INTEGRATIONS = {
       ownAppGuideUrl: null,
       sharedAppGuideUrl: null,
       updatedAt: null,
+      adminConsentedAt: null,
+      adminConsentTenantId: null,
+      connectionsThroughApp: 4,
+      secretHint: null,
+      secretSavedAt: null,
+      secretSavedBy: null,
+      keysCheckedAt: null,
+      keysRefusedWith: null,
     },
     {
       provider: "MICROSOFT",
@@ -606,13 +614,21 @@ const INTEGRATIONS = {
       ownAppGuideUrl: null,
       sharedAppGuideUrl: null,
       updatedAt: null,
+      adminConsentedAt: null,
+      adminConsentTenantId: null,
+      connectionsThroughApp: 6,
+      secretHint: null,
+      secretSavedAt: null,
+      secretSavedBy: null,
+      keysCheckedAt: null,
+      keysRefusedWith: null,
     },
     {
       provider: "ZOOM",
       mode: "OWN",
       clientId: "Xr2k9QpLT4mVq8ZbN3wE",
       tenantId: null,
-      secretExpiresOn: "2027-10-01",
+      secretExpiresOn: null,
       secretSet: true,
       sharedOffered: false,
       redirectUri: "https://beta.uncava.com/api/v1/outreach/zoom/callback",
@@ -621,6 +637,14 @@ const INTEGRATIONS = {
       ownAppGuideUrl: "https://uncava.com/help/zoom-own-app",
       sharedAppGuideUrl: null,
       updatedAt: "2026-10-02T10:00:00Z",
+      adminConsentedAt: null,
+      adminConsentTenantId: null,
+      connectionsThroughApp: 2,
+      secretHint: "T9wd",
+      secretSavedAt: "2026-10-02T10:00:00Z",
+      secretSavedBy: "Yara Haddad",
+      keysCheckedAt: "2026-10-02T10:00:00Z",
+      keysRefusedWith: null,
     },
   ],
 };
@@ -807,7 +831,7 @@ export function payloadFor(pathname, search = "") {
   if (/\/projects\/[^/]+\/outreach\/conversations$/.test(pathname)) return CONVERSATION_LIST;
   if (/\/projects\/[^/]+\/outreach\/people$/.test(pathname)) return OUTREACH_PEOPLE;
   if (pathname.endsWith("/outreach/mailbox")) return MAILBOX;
-  // The nav's Pipeline count and My positions' tasks card read these on every project and list page.
+  // In universe's Pipeline view and My positions' tasks card read these.
   if (/\/projects\/[^/]+\/pipeline$/.test(pathname)) return { rows: [], stageCounts: [], total: 0 };
   if (pathname.endsWith("/workspace/pipeline")) return { stages: [] };
   if (pathname.endsWith("/me/tasks")) {

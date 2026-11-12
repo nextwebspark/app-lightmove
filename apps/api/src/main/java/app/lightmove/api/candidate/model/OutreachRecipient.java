@@ -6,12 +6,13 @@ import java.util.UUID;
 /**
  * An executive as outreach reads them: enough to decide whether they may be approached and to fill a
  * sequence's tokens. Never sent to a model — the opener is drafted from the {@link CandidateDossier}.
- * {@code status} is the status key; {@code leftTheRunning} says it sits under the closed stage.
+ * {@code status} is the status key; {@code leftTheRunning} says it is out of process. {@code processingRestricted}
+ * keeps them from every approach, recording and model run, as {@code doNotContact} does from every approach.
  */
 public record OutreachRecipient(UUID candidateId, UUID personId, UUID triageCompanyId, String fullName,
                                 String title, String companyName, String locationCity, String locationCountry,
                                 String status, boolean leftTheRunning, boolean doNotContact,
-                                List<RecipientEmail> emails) {
+                                boolean processingRestricted, List<RecipientEmail> emails) {
 
     public boolean holdsEmail(String address) {
         return address != null && emails.stream()

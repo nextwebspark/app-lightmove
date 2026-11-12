@@ -1,22 +1,33 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, DateInput, Select, useToast } from "../../../components/ui";
 import { Popover } from "../../../components/ui/Popover";
-import { messageFor } from "../../../lib/errorCodes";
-import { NoteEditor } from "../../notes/components/NoteEditor";
+import { codeOf, messageFor } from "../../../lib/errorCodes";
+import * as emailTemplatesApi from "../../emailtemplates/api/emailTemplatesApi";
+import type { EmailTemplate } from "../../emailtemplates/api/emailTemplatesApi";
+import { SaveAsTemplateDialog } from "../../emailtemplates/components/SaveAsTemplateDialog";
+import { TemplatePicker } from "../../emailtemplates/components/TemplatePicker";
+import { templateVocabulary } from "../../emailtemplates/lib/templateVariables";
+import { NoteEditor, type NoteEditorHandle } from "../../notes/components/NoteEditor";
+import { parseNoteMarkdown, plainNoteDoc, serializeNoteDoc } from "../../notes/lib/noteMarkdown";
+import { SignatureChooser, SignatureUnderEmail } from "../../signatures/components/SignatureChooser";
+import * as signaturesApi from "../../signatures/api/signaturesApi";
+import { useSignatureChoice } from "../../signatures/lib/useSignatureChoice";
 import * as conversationApi from "../api/conversationApi";
 import type { AttachmentLimits, Conversation } from "../api/conversationApi";
+import type { RecipientTokens } from "../api/sequenceApi";
 import * as mailboxApi from "../api/mailboxApi";
 import * as sequenceApi from "../api/sequenceApi";
 import { AttachButton, AttachmentChips } from "./ComposerAttachments";
+import { TokenInsertBar } from "./TokenInsertBar";
 import { MailboxProviderMark } from "./MailboxProviderMark";
 import { attachmentProblemOf, type ComposerAttachment } from "../lib/composerAttachments";
 import { composerFootnoteOf } from "../lib/conversationVocabulary";
 import { canSendFrom, providerLabel, type MailboxState } from "../lib/mailboxState";
 import { isLive } from "../lib/runVocabulary";
 import { HALF_HOURS, instantOf, wallClockOf, whenLabelOf } from "../lib/sendSchedule";
-import { firstNameOf } from "../lib/sequenceTokens";
+import { firstNameOf, templateTokenOptions, unfilledIn, unknownIn } from "../lib/sequenceTokens";
 import type { MailboxConnect } from "../lib/useMailboxConnect";
 import { formatClock, getDateTimePreferences } from "../../../lib/datetime";
 
@@ -77,6 +88,7 @@ export function ReplyComposer({
       runningSequenceId={currentRun.run && isLive(currentRun.run) ? currentRun.run.sequenceId : null}
       nextStepIndex={currentRun.run ? currentRun.run.sentCount : null}
       attachmentLimits={composer.attachmentLimits}
+      tokens={composer.tokens}
       autoFocus={autoFocus}
       onSent={onSent}
       onDraftChange={onDraftChange}
@@ -100,6 +112,7 @@ function OpenComposer({
   runningSequenceId,
   nextStepIndex,
   attachmentLimits,
+  tokens,
   autoFocus,
   onSent,
   onDraftChange,
@@ -119,6 +132,7 @@ function OpenComposer({
   runningSequenceId: string | null;
   nextStepIndex: number | null;
   attachmentLimits: AttachmentLimits;
+  tokens: RecipientTokens | null;
   autoFocus: boolean;
   onSent?: () => void;
   onDraftChange?: (hasDraft: boolean) => void;
@@ -131,6 +145,18 @@ function OpenComposer({
   const [body, setBody] = useState("");
   const [chosenAddress, setChosenAddress] = useState(emails[0]);
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
+  const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [lastField, setLastField] = useState<"subject" | "body">("body");
+  const subjectRef = useRef<HTMLInputElement>(null);
+  const bodyEditor = useRef<NoteEditorHandle | null>(null);
+  const signature = useSignatureChoice();
+  const templates = useQuery({
+    queryKey: emailTemplatesApi.EMAIL_TEMPLATES_KEY,
+    queryFn: ({ signal }) => emailTemplatesApi.listEmailTemplates(signal),
+    staleTime: 60_000,
+  });
+  const bookingLinkOffered = templates.data?.bookingLinkOffered === true;
   // The ledger can change under an open composer: an address since removed falls back to the first one left.
   const toAddress = emails.includes(chosenAddress) ? chosenAddress : emails[0];
   // A thread that went away (a reconnect elsewhere) leaves a first email; one that appears is offered only to an empty draft.
@@ -150,17 +176,31 @@ function OpenComposer({
         sendAt: sendAt ? sendAt.toISOString() : null,
         replyInThread: isReply,
         documentVersionIds: attachments.flatMap((attachment) => (attachment.kind === "document" ? [attachment.versionId] : [])),
+        signatureId: signature.signatureId,
+        templateId: appliedTemplateId,
       }, attachments.flatMap((attachment) => (attachment.kind === "upload" ? [attachment.file] : []))),
     onSuccess: (scheduled, sendAt) => {
       setBody("");
       setSubject("");
       setAttachments([]);
+      setAppliedTemplateId(null);
       toast(sendAt ? `Scheduled for ${whenLabelOf(new Date(scheduled.sendAt), timeZone)}.` : `Goes to ${firstName} within a minute.`);
       void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] });
       void queryClient.invalidateQueries({ queryKey: mailboxApi.MAILBOX_KEY });
       onSent?.();
     },
-    onError: (error) => toast.error(messageFor(error)),
+    onError: (error) => {
+      // Deleted in another tab: the picker reads the list again and falls back to the default.
+      if (codeOf(error) === "EMAIL_SIGNATURE_NOT_FOUND") {
+        void queryClient.invalidateQueries({ queryKey: signaturesApi.SIGNATURES_KEY });
+      }
+      // A value went between the read and the send (a title cleared in another tab): read it again, and the line under
+      // the editor names what is now blank.
+      if (codeOf(error) === "OUTREACH_TOKENS_UNFILLED") {
+        void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] });
+      }
+      toast.error(messageFor(error));
+    },
   });
 
   const insertFollowUp = useMutation({
@@ -171,18 +211,60 @@ function OpenComposer({
         toast("Every step of this sequence has gone.");
         return;
       }
-      setBody((current) => (current.trim() ? `${current}\n\n${step.body}` : step.body));
+      // A step is plain text: read as Markdown, a "*" in it would turn into emphasis.
+      insertDoc(plainNoteDoc(step.body));
     },
     onError: (error) => toast.error(messageFor(error)),
   });
 
+  /** Into an empty editor it is the body; into words it goes in at the cursor, nothing typed lost. */
+  function insertDoc(doc: ReturnType<typeof plainNoteDoc>) {
+    if (!body.trim() || !bodyEditor.current) {
+      setBody(body.trim() ? `${body}\n\n${serializeNoteDoc(doc)}` : serializeNoteDoc(doc));
+      return;
+    }
+    bodyEditor.current.insertDoc(doc);
+  }
+
+  /** The body only into a reply, which keeps its thread's subject; a new email's subject only where it has none. */
+  const applyTemplate = (template: EmailTemplate) => {
+    insertDoc(parseNoteMarkdown(template.body));
+    if (!isReply && !subject.trim() && template.subject) setSubject(template.subject);
+    setAppliedTemplateId(template.id);
+  };
+
+  /** Into whichever of the subject or the message the caret was last in, as the sequence editor does. */
+  const insertVariable = (token: string) => {
+    if (lastField === "subject" && !isReply) {
+      const field = subjectRef.current;
+      const start = field?.selectionStart ?? subject.length;
+      const end = field?.selectionEnd ?? subject.length;
+      setSubject(subject.slice(0, start) + token + subject.slice(end));
+      requestAnimationFrame(() => {
+        field?.focus();
+        field?.setSelectionRange(start + token.length, start + token.length);
+      });
+      return;
+    }
+    if (bodyEditor.current) bodyEditor.current.insertText(token);
+    else setBody(body + token);
+  };
+
+  const unsendable = unsendableVariablesOf(isReply ? body : `${subject}\n${body}`, tokens, templateVocabulary(bookingLinkOffered));
   const hasBody = body.trim().length > 0;
   const hasDraft = hasBody || subject.trim().length > 0 || attachments.length > 0;
   useEffect(() => onDraftChange?.(hasDraft), [hasDraft, onDraftChange]);
   const isTooLong = body.length > BODY_MAX_LENGTH;
   const attachmentProblem = attachmentProblemOf(attachments, attachmentLimits);
+  // Still reading the signatures: a send now would go without the default the sender expects.
   const canSend =
-    hasBody && !isTooLong && attachmentProblem === null && (isReply || subject.trim().length > 0) && !send.isPending;
+    hasBody &&
+    !isTooLong &&
+    attachmentProblem === null &&
+    (isReply || subject.trim().length > 0) &&
+    unsendable.length === 0 &&
+    !send.isPending &&
+    !signature.isPending;
   const footnote = composerFootnoteOf({
     isReply,
     resolvesReplyTask,
@@ -217,6 +299,7 @@ function OpenComposer({
         autoFocus={autoFocus && isReply}
         fillsDialog
         onExpandChange={onExpandChange}
+        editorRef={bodyEditor}
         header={
           <>
             <div className="flex items-center gap-2 border-b border-u-border py-2 text-note">
@@ -230,9 +313,10 @@ function OpenComposer({
                   onChange={(event) => setChosenAddress(event.target.value)}
                   className="min-w-0 flex-1 py-1 font-mono text-note"
                 >
-                  {emails.map((address) => (
+                  {emails.map((address, index) => (
                     <option key={address} value={address}>
                       {address}
+                      {index === 0 ? " · primary" : ""}
                     </option>
                   ))}
                 </Select>
@@ -247,8 +331,10 @@ function OpenComposer({
               <label className="flex items-center gap-2 border-b border-u-border py-2 text-note">
                 <span className="w-14 flex-none text-u-text3">Subject</span>
                 <input
+                  ref={subjectRef}
                   aria-label="Subject"
                   autoFocus={autoFocus}
+                  onFocus={() => setLastField("subject")}
                   value={subject}
                   maxLength={200}
                   onChange={(event) => setSubject(event.target.value)}
@@ -257,11 +343,24 @@ function OpenComposer({
                 />
               </label>
             )}
+            <TokenInsertBar
+              options={templateTokenOptions(bookingLinkOffered)}
+              onInsert={insertVariable}
+              className="mt-2 border-none bg-transparent px-0 py-1"
+            />
           </>
         }
         footer={
           <>
+            <SignatureUnderEmail choice={signature} />
             <AttachmentChips attachments={attachments} limits={attachmentLimits} onChange={setAttachments} />
+            {unsendable.length > 0 && (
+              <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
+                Fill in or remove {unsendable.length === 1 ? "1 variable" : `${unsendable.length} variables`} to send:{" "}
+                {unsendable.map((problem) => problem.text).join("; ")}. Give one a fallback for anyone with none, like{" "}
+                {"{{location|your city}}"}.
+              </p>
+            )}
             {isTooLong && (
               <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
                 Too long to send. Shorten it to {BODY_MAX_LENGTH.toLocaleString("en-GB")} characters.
@@ -276,11 +375,19 @@ function OpenComposer({
                 disabled={send.isPending}
                 onChange={setAttachments}
               />
+              <TemplatePicker
+                tokens={tokens}
+                disabled={send.isPending}
+                canSaveCurrent={hasBody}
+                onApply={applyTemplate}
+                onSaveCurrent={() => setIsSavingTemplate(true)}
+              />
               {runningSequenceId && (
                 <Button variant="ghost" size="xs" loading={insertFollowUp.isPending} onClick={() => insertFollowUp.mutate()}>
                   Insert follow-up
                 </Button>
               )}
+              <SignatureChooser choice={signature} disabled={send.isPending} />
               <div className="ms-auto flex flex-wrap items-center gap-2">
                 <SchedulePicker
                   timeZone={timeZone}
@@ -302,8 +409,39 @@ function OpenComposer({
           </>
         }
       />
+      <SaveAsTemplateDialog
+        open={isSavingTemplate}
+        subject={isReply ? null : subject}
+        buildBody={() => body}
+        onClose={() => setIsSavingTemplate(false)}
+      />
     </section>
   );
+}
+
+interface UnsendableVariable {
+  name: string;
+  text: string;
+}
+
+/**
+ * What the server would refuse with `OUTREACH_TOKENS_UNFILLED`, worked out the same way: a variable no email fills,
+ * then one this executive has no value for and no fallback. Without the server's values, only the first.
+ */
+function unsendableVariablesOf(
+  text: string,
+  tokens: RecipientTokens | null,
+  vocabulary: readonly string[],
+): UnsendableVariable[] {
+  const unknown = unknownIn(text, vocabulary).map((name) => ({
+    name,
+    text: `{{${name}}} isn't a variable Uncava fills`,
+  }));
+  const blank = (tokens ? unfilledIn(text, tokens) : []).map((name) => ({
+    name,
+    text: `{{${name}}} has nothing on file`,
+  }));
+  return [...unknown, ...blank];
 }
 
 /** A day and a half hour in the mailbox's own zone, the clock its sending runs on. */

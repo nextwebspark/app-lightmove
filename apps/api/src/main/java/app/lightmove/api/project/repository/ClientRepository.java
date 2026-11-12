@@ -29,4 +29,7 @@ public interface ClientRepository extends JpaRepository<Client, UUID> {
     Optional<Client> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
     Optional<Client> findByWorkspaceIdAndNameIgnoreCase(UUID workspaceId, String name);
+
+    List<Client> findByWorkspaceIdAndCompanySourceAndCompanySourceId(UUID workspaceId, String companySource,
+                                                                     String companySourceId);
 }

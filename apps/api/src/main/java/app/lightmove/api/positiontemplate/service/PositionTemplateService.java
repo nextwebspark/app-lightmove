@@ -46,8 +46,8 @@ public class PositionTemplateService {
     }
 
     /**
-     * The first template whose keyword the role title contains, else the generic fallback. Empty only
-     * when the library is, and the mandate is then created with a blank brief.
+     * The template the role title is the title of, else the first whose keyword it contains, else the generic
+     * fallback. Empty only when the library is, and the mandate is then created with a blank brief.
      */
     public Optional<PositionTemplate> matching(UUID workspaceId, String roleTitle) {
         List<PositionTemplate> visible = templates.findAllVisibleTo(workspaceId);
@@ -67,7 +67,12 @@ public class PositionTemplateService {
         return FALLBACK_CODE.equals(template.getCode());
     }
 
+    /**
+     * A template's own title first: the New position modal sends a picked template as its title alone, and a
+     * keyword is optional, may miss that title, or may sit inside another template's.
+     */
     private static Optional<PositionTemplate> matchingByTitle(List<PositionTemplate> visible, String roleTitle) {
-        return visible.stream().filter(template -> template.matchesTitle(roleTitle)).findFirst();
+        return visible.stream().filter(template -> template.isTitled(roleTitle)).findFirst()
+                .or(() -> visible.stream().filter(template -> template.matchesTitle(roleTitle)).findFirst());
     }
 }

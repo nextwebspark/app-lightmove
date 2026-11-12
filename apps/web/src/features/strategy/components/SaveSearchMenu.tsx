@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Popover } from "../../../components/ui/Popover";
+import { TOOLBAR_COUNT_ACCENT, TOOLBAR_MENU, ToolbarLabel } from "../../../components/ui/Toolbar";
 import { cn } from "../../../lib/cn";
 import type { SavedSearch, SearchVisibility } from "../api/types";
 import { SavedSearchRow } from "./SavedSearchRow";
@@ -10,18 +11,8 @@ type TabId = "mine" | "shared";
 const CHIP = "inline-flex items-center gap-1 rounded-[6px] px-2 py-[5px] font-sans transition";
 
 /**
- * "Save Search" — the dropdown that names a filter, lists the ones already named, and loads one back.
- *
- * <p>The mockup gives the button and nothing else — no list, no naming — so this designs the rest to
- * the toolbar's own idiom, over the same {@link Popover} the Columns menu uses.
- *
- * <p>Loading a search is a client-side apply followed by the ordinary autosave, not its own endpoint:
- * that way loading a search and clicking a chip are one code path with one set of invalidations,
- * rather than two that can drift.
- *
- * <p>The two lists overlap deliberately. <b>Mine</b> is everything the viewer saved, whichever tier;
- * <b>Shared</b> is everything the mandate can see, whoever saved it. A viewer's own shared search
- * belongs in both — a "Mine" that hid the work you shared would be the confusing one.
+ * "Save Search": names a filter, lists saved ones, loads one back — a client-side apply plus the ordinary autosave, so
+ * loading and clicking a chip share one path. Mine and Shared overlap on purpose: your own shared search is in both.
  */
 export function SaveSearchMenu({
   searches,
@@ -71,20 +62,17 @@ export function SaveSearchMenu({
   return (
     <Popover
       width={360}
-      triggerClassName="inline-flex items-center gap-1.5 whitespace-nowrap py-1 font-sans text-[13px] text-u-text3 transition hover:text-u-text"
+      title="Save Search"
+      triggerClassName={TOOLBAR_MENU}
       trigger={() => (
         <>
           <Icon
             d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1Z"
-            size={14}
-            className="flex-none text-u-accent"
+            size={15}
+            className="flex-none"
           />
-          Save Search
-          {searches.length > 0 && (
-            <span className="rounded-[4px] bg-u-accent-tint px-[5px] py-[2px] font-sans text-[10px] font-bold text-u-accent">
-              {searches.length}
-            </span>
-          )}
+          <ToolbarLabel>Save Search</ToolbarLabel>
+          {searches.length > 0 && <span className={TOOLBAR_COUNT_ACCENT}>{searches.length}</span>}
         </>
       )}
     >

@@ -2,12 +2,8 @@ import { z } from "zod";
 import { WORKSPACE_MODES } from "./api/types";
 
 /**
- * Client-side validation, mirroring the server's Bean Validation rules.
- *
- * The duplication is deliberate and is not a redundancy to be refactored away. The client validates to
- * answer the user instantly, without a round-trip. The server validates because the client can be
- * bypassed with a single curl command. Neither can be dropped, and the messages are kept identical so
- * a rule that only the server catches does not suddenly sound like a different product.
+ * Client-side validation mirroring the server's Bean Validation — deliberate duplication: instant feedback here, the
+ * server because a client can be bypassed. Messages are kept identical.
  */
 
 /**
@@ -89,17 +85,57 @@ export const workspaceSchema = z.object({
 });
 
 export const inviteSchema = z.object({
-  invites: z.array(
-    z.object({
-      // Blank rows are allowed and skipped on submit — the mockup starts with two empty rows, and
-      // refusing to continue because the user did not fill them in would be absurd.
-      email: z.string().refine((value) => value === "" || z.string().email().safeParse(value).success, {
-        message: "That doesn't look like a valid email",
+  invites: z
+    .array(
+      z.object({
+        // Blank rows are allowed and skipped on submit — the mockup starts with two empty rows, and
+        // refusing to continue because the user did not fill them in would be absurd.
+        email: z.string().refine((value) => value === "" || z.string().email().safeParse(value).success, {
+          message: "That doesn't look like a valid email",
+        }),
+        role: z.enum(["ADMIN", "MEMBER"]),
       }),
-      role: z.enum(["ADMIN", "MEMBER"]),
+    )
+    // A typed repeat once went as two emails, the second killing the first's link.
+    .superRefine((invites, context) => {
+      const listed = new Set<string>();
+      invites.forEach((invite, index) => {
+        const key = invite.email.trim().toLowerCase();
+        if (key === "") return;
+        if (listed.has(key)) {
+          context.addIssue({ code: "custom", path: [index, "email"], message: "Already listed above" });
+        }
+        listed.add(key);
+      });
     }),
-  ),
 });
+
+/**
+ * Two-factor codes, read as the server reads them: an app's six digits with any grouping space dropped, and a recovery
+ * code's sixteen characters with its hyphens, spaces and case forgiven. What is sent is what was typed, trimmed.
+ */
+export function isAuthenticatorCode(value: string): boolean {
+  return /^\d{6}$/.test(value.replace(/\s/g, ""));
+}
+
+export function isRecoveryCode(value: string): boolean {
+  return /^[A-Z2-7]{16}$/.test(value.replace(/[\s-]/g, "").toUpperCase());
+}
+
+export const authenticatorCodeSchema = z.object({
+  code: z.string().refine(isAuthenticatorCode, "Enter the 6-digit code from your authenticator app"),
+});
+
+export const recoveryCodeSchema = z.object({
+  code: z.string().refine(isRecoveryCode, "Enter a recovery code, like ABCD-EFGH-IJKL-MNOP"),
+});
+
+/** Settings' changes take either: whichever the person has to hand. */
+export const secondFactorCodeRule = z
+  .string()
+  .refine((value) => isAuthenticatorCode(value) || isRecoveryCode(value), "Enter a 6-digit code or a recovery code");
+
+export type SecondFactorCodeValues = z.infer<typeof authenticatorCodeSchema>;
 
 export type LoginValues = z.infer<typeof loginSchema>;
 export type SignupValues = z.infer<typeof signupSchema>;

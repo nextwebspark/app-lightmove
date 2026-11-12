@@ -30,6 +30,7 @@ export function daysLeftLabel(days: number): string {
  * below 80% used, then what is left, then used up.
  */
 export function creditChipOf(billing: Billing): CreditChip | null {
+  if (!billing.enforced) return null;
   const trial = trialOf(billing);
   if (trial?.ended) {
     return { kind: "trial", tone: "out", label: "Trial ended", shortLabel: "Ended", credits: null };
@@ -143,6 +144,7 @@ export function planChoiceOf(billing: Billing, offer: BillingPlanOffer, interval
 
 /** A staff seat's price a month on the workspace's plan, or null where its price is agreed with Uncava. */
 export function seatCostOf(billing: Billing): number | null {
+  if (!billing.enforced) return null;
   return billing.plan && billing.status !== "CANCELLED" ? billing.seatPriceFils : null;
 }
 
@@ -365,6 +367,11 @@ export function isBillingRefusal(error: unknown): boolean {
 }
 
 /** "1 credit" / "5 credits": the price a paid button carries under it. */
+/** The prices the Find buttons carry, none where billing is switched off. */
+export function shownPricesOf(billing: Billing | undefined): Billing["prices"] | undefined {
+  return billing?.enforced ? billing.prices : undefined;
+}
+
 export function creditsLabel(credits: number): string {
   return `${formatNumber(credits)} ${credits === 1 ? "credit" : "credits"}`;
 }

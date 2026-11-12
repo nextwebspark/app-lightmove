@@ -42,11 +42,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Sends one claimed enrollment's next email: re-checks the person and the mailbox, holds the email to
- * the sequence's window (unless the consultant pinned the first one's time) and the sender's daily cap,
- * sends it, and records it. Three short transactions with the mail
- * service called between them, never inside one — and never twice: a send that failed, or whose outcome
- * is unknown, stops the run rather than trying again.
+ * Sends one claimed enrollment's next email, re-checking person and mailbox, the window (unless pinned) and the cap.
+ * The mail service is called between three short transactions, never inside one, and never twice: a failed or unknown
+ * send stops the run. Runs in the workspace scope the dispatcher's walk opens (row-level security).
  */
 @Service
 @RequiredArgsConstructor
@@ -196,6 +194,9 @@ public class OutreachSendService {
 
     /** Everything Add to sequence refused at Start, asked again: any of it may have changed since. */
     private static OutreachStopReason refusalOf(OutreachRecipient person, OutreachEnrollment enrollment) {
+        if (person.processingRestricted()) {
+            return OutreachStopReason.PROCESSING_RESTRICTED;
+        }
         if (person.doNotContact()) {
             return OutreachStopReason.DO_NOT_CONTACT;
         }
@@ -217,8 +218,8 @@ public class OutreachSendService {
         int step = enrollment.getNextStep();
         if (step == 0) {
             return new RenderedEmail(new OutgoingEmail(enrollment.getToAddress(), enrollment.getFirstSubject(),
-                    OutreachEmailBody.htmlOf(enrollment.getFirstBody(), bookingPages.linkOf(mailbox))),
-                    enrollment.getFirstBody());
+                    OutreachEmailBody.htmlOf(enrollment.getFirstBody(), bookingPages.linkOf(mailbox))
+                            + enrollment.signatureOrEmpty()), enrollment.getFirstBody());
         }
         SequenceStep followUp = sequence.getSteps().get(step);
         SenderContext sender = personalisation.senderContextOf(enrollment.getSenderUserId(),
@@ -231,7 +232,8 @@ public class OutreachSendService {
         String body = OutreachPersonalisation.tokensOf(recipient, sender, enrollment.getOpener())
                 .render(followUp.getBody());
         return new RenderedEmail(new OutgoingEmail(enrollment.getToAddress(),
-                replySubjectOf(enrollment.getFirstSubject()), OutreachEmailBody.htmlOf(body, sender.bookingLink()),
+                replySubjectOf(enrollment.getFirstSubject()),
+                OutreachEmailBody.htmlOf(body, sender.bookingLink()) + enrollment.signatureOrEmpty(),
                 enrollment.getLastMessageId()), body);
     }
 

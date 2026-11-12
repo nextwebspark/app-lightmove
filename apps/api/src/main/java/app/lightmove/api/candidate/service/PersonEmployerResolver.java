@@ -8,6 +8,7 @@ import app.lightmove.api.candidate.model.ResearchedEmployerMark;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -67,8 +68,8 @@ public class PersonEmployerResolver {
 
     /**
      * The company row of the newest position at {@code name}, which need not be the position that named it:
-     * one added from the Candidates page records the name alone, while an older position at that employer
-     * still holds its row. With no row anywhere, the name alone.
+     * one the Candidates page added before it filed employers records the name alone, while an older position at
+     * that employer still holds its row. With no row anywhere, the name alone.
      */
     private CapturedCompanyDetails recordedEmployer(UUID workspaceId, String name, List<Candidate> newestFirst,
                                                     ResearchedEmployerMark researched) {
@@ -91,6 +92,27 @@ public class PersonEmployerResolver {
         return employers.entrySet().stream()
                 .filter(entry -> logoOf(entry.getValue(), filed) != null)
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> logoOf(entry.getValue(), filed)));
+    }
+
+    /** The logo beside the employer one position recorded: its company row's, else research's where research named it. */
+    String logoOfMapping(UUID workspaceId, Candidate mapping) {
+        return logosOfMappings(workspaceId, List.of(mapping)).get(mapping.getId());
+    }
+
+    /** {@link #logoOfMapping} for many rows of one workspace, keyed by candidate id; a row with no logo is absent. */
+    Map<UUID, String> logosOfMappings(UUID workspaceId, List<Candidate> mappings) {
+        Map<UUID, String> filed = triageCompanies.logoUrlsOf(workspaceId, mappings.stream()
+                .map(Candidate::getTriageCompanyId).filter(Objects::nonNull).distinct().toList());
+        Map<UUID, String> logos = new HashMap<>();
+        for (Candidate mapping : mappings) {
+            String onRow = mapping.getTriageCompanyId() == null ? null : filed.get(mapping.getTriageCompanyId());
+            String logo = onRow != null || mapping.getCompanyName() == null ? onRow
+                    : researchedLogoOf(mapping.getPerson().getProfile().employer(), mapping.getCompanyName());
+            if (logo != null) {
+                logos.put(mapping.getId(), logo);
+            }
+        }
+        return logos;
     }
 
     private static String logoOf(PersonEmployer employer, Map<UUID, String> filed) {

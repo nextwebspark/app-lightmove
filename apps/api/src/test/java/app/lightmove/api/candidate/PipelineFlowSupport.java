@@ -6,7 +6,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
+import app.lightmove.api.core.tenant.WorkspaceScope;
+import java.util.UUID;
+import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -18,10 +22,19 @@ public abstract class PipelineFlowSupport extends FlowTestSupport {
 
     protected static final String PIPELINE = "/api/v1/workspace/pipeline";
 
-    @Autowired protected JdbcTemplate db;
+    @Autowired @FixtureJdbc protected JdbcTemplate db;
 
     protected String admin;
     protected String workspaceId;
+
+    /** A call straight to the application's beans, as the firm: no request carries the workspace for it. */
+    protected void inWorkspace(Runnable work) {
+        WorkspaceScope.run(UUID.fromString(workspaceId), work);
+    }
+
+    protected <T> T inWorkspace(Supplier<T> work) {
+        return WorkspaceScope.call(UUID.fromString(workspaceId), work);
+    }
 
     protected void firm(String name) throws Exception {
         String address = "alok@" + domain;
@@ -113,6 +126,26 @@ public abstract class PipelineFlowSupport extends FlowTestSupport {
         return body(mvc.perform(get(PIPELINE).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andReturn());
+    }
+
+    /**
+     * Gives the firm a stage of ways out alone, last, as a workspace seeded before V163 keeps its old closed stage:
+     * the frozen kind still CLOSED, every status out of process and none of them its default.
+     */
+    protected void formerClosedStage(String label, String... statusKeys) throws Exception {
+        catalog();
+        String stageId = db.queryForObject("""
+                INSERT INTO app_lm_workspace_candidate_stage (workspace_id, key, label, colour, kind, position)
+                SELECT ?::uuid, 'declined', ?, 'RED', 'CLOSED', max(position) + 1
+                FROM app_lm_workspace_candidate_stage WHERE workspace_id = ?::uuid
+                RETURNING id""", String.class, workspaceId, label, workspaceId);
+        for (int index = 0; index < statusKeys.length; index++) {
+            db.update("""
+                    INSERT INTO app_lm_workspace_candidate_status
+                        (workspace_id, stage_id, key, label, colour, position, is_default, out_of_process)
+                    VALUES (?::uuid, ?::uuid, ?, ?, 'NEUTRAL', ?, false, true)""",
+                    workspaceId, stageId, statusKeys[index], statusKeys[index], index + 1);
+        }
     }
 
     protected MvcResult write(String token, String method, String url, String json) throws Exception {

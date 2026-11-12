@@ -14,15 +14,9 @@ import java.util.UUID;
 import tools.jackson.databind.annotation.JsonDeserialize;
 
 /**
- * An executive, as the Add and Edit drawer submits them. One record for both writes: the drawer holds
- * and sends every field either way, so a create and a full replace are the same payload.
- *
- * <p>Only the name is required — research arrives in pieces, and refusing the row until the package
- * is established would send that name into a spreadsheet instead.
- *
- * <p>{@code triageCompanyId} is the mandate's own company row, not an Apollo id, and it is optional.
- * Where it is given, the server snapshots that company's name and ignores {@code employerName} — the
- * two must not be able to disagree.
+ * An executive as the Add and Edit drawer submits them; create and full replace share the payload. Only the name is
+ * required. Given a {@code triageCompanyId} (the mandate's company row, not an Apollo id), the server snapshots its
+ * name and ignores {@code employerName}.
  */
 public record SaveCandidateRequest(
         UUID triageCompanyId,
@@ -136,5 +130,13 @@ public record SaveCandidateRequest(
         return new SaveCandidateRequest(triageCompanyId, fullName, title, null, null, null, null, null, null, null,
                 linkedinUrl, locationCountry, locationCity, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null);
+    }
+
+    /** The same write, landing at the company the server resolved for it. */
+    public SaveCandidateRequest withTriageCompanyId(UUID resolvedTriageCompanyId) {
+        return new SaveCandidateRequest(resolvedTriageCompanyId, fullName, title, seniority, status, employerName,
+                email, phone, emails, phones, linkedinUrl, locationCountry, locationCity, nationality, gender,
+                yearsExperience, summary, note, compensation, career, languages, source, sourceUrl, customFields,
+                confirmBackground, addAsNewPerson, existingPersonId);
     }
 }

@@ -26,22 +26,22 @@ class CandidatePipelineControllerTest extends PipelineFlowSupport {
         String client = clientOn(projectId);
         JsonNode catalog = catalog();
         String interested = stageIn(catalog, "interested").get("id").asText();
-        String researching = statusIn(catalog, "researching").get("id").asText();
+        String source = statusIn(catalog, "source").get("id").asText();
 
         for (String reader : new String[] {member, client}) {
             JsonNode read = body(mvc.perform(get(PIPELINE).header("Authorization", "Bearer " + reader))
                     .andExpect(status().isOk())
                     .andReturn());
-            assertThat(read.get("stages")).hasSize(6);
+            assertThat(read.get("stages")).hasSize(5);
             assertThat(write(reader, "POST", PIPELINE + "/stages", """
                     {"label":"Vetting"}""").getResponse().getStatus()).isEqualTo(403);
             assertThat(write(reader, "POST", PIPELINE + "/statuses", """
                     {"stageId":"%s","label":"Vetting"}""".formatted(interested)).getResponse().getStatus())
                     .isEqualTo(403);
-            assertThat(write(reader, "PATCH", PIPELINE + "/statuses/" + researching, """
+            assertThat(write(reader, "PATCH", PIPELINE + "/statuses/" + source, """
                     {"label":"Digging"}""").getResponse().getStatus()).isEqualTo(403);
         }
-        assertThat(statusIn(catalog(), "researching").get("label").asText()).isEqualTo("Researching");
+        assertThat(statusIn(catalog(), "source").get("label").asText()).isEqualTo("Source");
     }
 
     @Test
@@ -69,7 +69,7 @@ class CandidatePipelineControllerTest extends PipelineFlowSupport {
         firm("Pipeline Owner Firm");
         JsonNode theirs = catalog();
         String theirStage = stageIn(theirs, "interested").get("id").asText();
-        String theirStatus = statusIn(theirs, "researching").get("id").asText();
+        String theirStatus = statusIn(theirs, "source").get("id").asText();
 
         domain = "pipeline-other-" + domain;
         firm("Pipeline Other Firm");
@@ -82,6 +82,6 @@ class CandidatePipelineControllerTest extends PipelineFlowSupport {
         assertThat(write(admin, "POST", PIPELINE + "/statuses", """
                 {"stageId":"%s","label":"Planted"}""".formatted(theirStage)).getResponse().getStatus())
                 .isEqualTo(404);
-        assertThat(statusIn(ours, "researching").get("id").asText()).isNotEqualTo(theirStatus);
+        assertThat(statusIn(ours, "source").get("id").asText()).isNotEqualTo(theirStatus);
     }
 }

@@ -9,19 +9,27 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.core.email.model.EmailMessage;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
 /** Mandates end to end: inline clients, creation, seating, the last-lead rule, isolation. */
 @IntegrationTest
 class ProjectFlowIntegrationTest extends FlowTestSupport {
+
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     @Test
     @DisplayName("a client is created inline once — the same name again is a 409, whatever its case")
@@ -43,6 +51,110 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                 .andReturn();
         assertThat(duplicate.getResponse().getStatus()).isEqualTo(409);
         assertThat(codeOf(duplicate)).isEqualTo("CLIENT_ALREADY_EXISTS");
+        assertThat(body(duplicate).get("clientId").asText()).isEqualTo(clientIdNamed(admin, "Meridian Energy"));
+    }
+
+    @Test
+    @DisplayName("a position made with a new client creates both in one write, and the client is recorded once")
+    void positionCreatesItsNewClient() throws Exception {
+        String admin = adminOf("Inline Client Firm");
+        String unit = "Data & Analytics " + UUID.randomUUID().toString().substring(0, 6);
+
+        JsonNode created = body(mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"newClient":{"customName":"%s"},"positionTitle":"CFO"}""".formatted(unit)))
+                .andExpect(status().isCreated())
+                .andReturn());
+
+        String clientId = clientIdNamed(admin, unit);
+        assertThat(created.get("clientId").asText()).isEqualTo(clientId);
+        assertThat(created.get("clientName").asText()).isEqualTo(unit);
+        assertThat(clientCreatedLinesFor(unit)).isEqualTo(1);
+    }
+
+    // The New position modal created the unit in a request of its own, so a position refused after it left the unit
+    // behind with nothing under it — and the screen had said it is created with the position.
+    @Test
+    @DisplayName("a position refused, by its own fields or by its dates, leaves no new client and no line saying one was made")
+    void refusedPositionLeavesNoClient() throws Exception {
+        String admin = adminOf("Refused Inline Firm");
+        String implausible = "Treasury " + UUID.randomUUID().toString().substring(0, 6);
+        String backwards = "Credit " + UUID.randomUUID().toString().substring(0, 6);
+
+        MvcResult beforeTheService = mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"newClient":{"customName":"%s"},"positionTitle":"CFO","startDate":"1999-01-01"}"""
+                                .formatted(implausible)))
+                .andExpect(status().isBadRequest())
+                .andReturn();
+        assertThat(body(beforeTheService).at("/fieldErrors/startDate").isMissingNode()).isFalse();
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"newClient":{"customName":"%s"},"positionTitle":"CFO","projectType":"SEARCH",
+                                 "startDate":"2027-01-10","deliveryDate":"2027-01-01"}""".formatted(backwards)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.deliveryDate").exists());
+
+        List<String> names = new ArrayList<>();
+        for (JsonNode client : body(mvc.perform(get("/api/v1/clients").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn())) {
+            names.add(client.get("name").asText());
+        }
+        assertThat(names).doesNotContain(implausible, backwards);
+        assertThat(clientCreatedLinesFor(implausible) + clientCreatedLinesFor(backwards)).isZero();
+    }
+
+    @Test
+    @DisplayName("a position names its client exactly once: neither an id nor a new one, or both, is refused at the field")
+    void positionNamesItsClientOnce() throws Exception {
+        String admin = adminOf("Client Once Firm");
+        String clientId = createClient(admin, "Meridian Energy");
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"positionTitle":"CFO"}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.clientId").value("Choose who the position is for"));
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","newClient":{"customName":"Agthia"},"positionTitle":"CFO"}"""
+                                .formatted(clientId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.clientId").exists());
+    }
+
+    @Test
+    @DisplayName("a new client the registry already holds by name is refused naming that record, and nothing is made")
+    void positionsNewClientNameHeld() throws Exception {
+        String admin = adminOf("Held Inline Firm");
+        String clientId = createClient(admin, "Meridian Energy");
+
+        MvcResult refused = mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"newClient":{"customName":"meridian energy"},"positionTitle":"CFO"}"""))
+                .andExpect(status().isConflict())
+                .andReturn();
+        assertThat(codeOf(refused)).isEqualTo("CLIENT_ALREADY_EXISTS");
+        assertThat(body(refused).get("clientId").asText()).isEqualTo(clientId);
+
+        mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test
@@ -254,8 +366,8 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a search stores its timeline and defaults its mapping target to 60% of the window")
-    void searchCarriesTimelineAndDefaultMappingTarget() throws Exception {
+    @DisplayName("a search stores its timeline and leaves a mapping target nobody entered blank")
+    void searchCarriesTimelineWithoutDefaultingMappingTarget() throws Exception {
         String admin = adminOf("Timeline Firm");
         String clientId = createClient(admin, "Engineering");
         LocalDate start = LocalDate.now();
@@ -271,7 +383,7 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.projectType").value("SEARCH"))
                 .andExpect(jsonPath("$.startDate").value(start.toString()))
                 .andExpect(jsonPath("$.deliveryDate").value(start.plusDays(50).toString()))
-                .andExpect(jsonPath("$.mappingTargetDate").value(start.plusDays(30).toString()))
+                .andExpect(jsonPath("$.mappingTargetDate").doesNotExist())
                 .andExpect(jsonPath("$.targetDate").doesNotExist());
     }
 
@@ -460,6 +572,40 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    @DisplayName("a removed executive is named in the activity from their live record, never from the audit trail")
+    void removedExecutiveIsNamedFromTheLiveRecord() throws Exception {
+        String admin = adminOf("Removal Activity Firm");
+        String projectId = createProject(admin, createClient(admin, "Agthia Group"), "Group CFO");
+        mapExecutive(admin, projectId, null, "Yasmin El-Sayed", null);
+        var mapping = db.queryForMap("select id, person_id from app_lm_project_candidate where project_id = ?",
+                UUID.fromString(projectId));
+
+        mvc.perform(delete("/api/v1/projects/" + projectId + "/candidates/" + mapping.get("id"))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+        db.update("update app_lm_person set full_name = 'Yasmin Saleh' where id = ?", mapping.get("person_id"));
+
+        String metadata = db.queryForObject("""
+                select metadata::text from app_lm_audit_event
+                where event_type = 'CANDIDATE_REMOVED' and target_id = ?""", String.class, projectId);
+        assertThat(metadata).contains(mapping.get("person_id").toString()).doesNotContain("Yasmin");
+
+        JsonNode removed = body(mvc.perform(get("/api/v1/projects/" + projectId + "/activity")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn()).get("entries").get(0);
+        assertThat(removed.get("type").asText()).isEqualTo("CANDIDATE_REMOVED");
+        assertThat(removed.get("details").get("fullName").asText()).isEqualTo("Yasmin Saleh");
+
+        db.update("delete from app_lm_person where id = ?", mapping.get("person_id"));
+        JsonNode erased = body(mvc.perform(get("/api/v1/projects/" + projectId + "/activity")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn()).get("entries").get(0);
+        assertThat(erased.get("details").has("fullName")).isFalse();
+    }
+
     private static JsonNode projectIn(JsonNode projects, String projectId) {
         for (JsonNode project : projects) {
             if (project.get("id").asText().equals(projectId)) {
@@ -587,6 +733,24 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                                 """.formatted(name)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
+    }
+
+    private String clientIdNamed(String token, String name) throws Exception {
+        for (JsonNode client : body(mvc.perform(get("/api/v1/clients").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn())) {
+            if (client.get("name").asText().equals(name)) {
+                return client.get("id").asText();
+            }
+        }
+        throw new AssertionError("No client named " + name);
+    }
+
+    private int clientCreatedLinesFor(String name) {
+        Integer lines = db.queryForObject("""
+                select count(*) from app_lm_audit_event
+                where event_type = 'CLIENT_CREATED' and metadata ->> 'name' = ?""", Integer.class, name);
+        return lines == null ? 0 : lines;
     }
 
     private String createProject(String token, String clientId, String position) throws Exception {

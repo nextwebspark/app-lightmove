@@ -15,4 +15,13 @@ public record MandateContextDto(
 
         /** Provenance of mandateReason and businessDriver. */
         Map<String, FieldSource> fieldSources
-) {}
+) {
+
+    /**
+     * What a client seat may read of it: the firm's own reading of the mandate — its business driver, priorities
+     * and internal notes — goes, and so does the provenance, whose keys would say a business driver exists.
+     */
+    public MandateContextDto withoutInternalContext() {
+        return new MandateContextDto(mandateReason, null, List.of(), confidential, null, Map.of());
+    }
+}

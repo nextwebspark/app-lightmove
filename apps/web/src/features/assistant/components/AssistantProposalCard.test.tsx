@@ -4,6 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 import type { AssistantProposal, ProposedCompany } from "../api/types";
 import { AssistantProposalCard } from "./AssistantProposalCard";
 
+vi.mock("../../triage/lib/triageStages", async (importOriginal) =>
+  (await import("../../../test/shortlistAndDecline")).withShortlistAndDecline(await importOriginal()),
+);
+
 function company(id: string, over: Partial<ProposedCompany> = {}): ProposedCompany {
   return {
     apolloAccountId: id,

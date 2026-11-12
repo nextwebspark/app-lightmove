@@ -1,16 +1,16 @@
-import { useEffect, useState } from "react";
-import { capturePanelId, type CaptureSubject } from "../domain/captureSubject";
+import { useState } from "react";
 import { CaptureHeader } from "./components/CaptureHeader";
-import { CaptureTabs } from "./components/CaptureTabs";
+import { PageReadNote } from "./components/PageReadNote";
+import { PanelToastProvider } from "./components/PanelToast";
 import { PopupShell } from "./components/PopupChrome";
+import { PositionBar } from "./components/PositionBar";
 import { useActivePage } from "./hooks/useActivePage";
-import { useCaptureSettings } from "./hooks/useCaptureSettings";
 import { useExtensionSession } from "./hooks/useExtensionSession";
 import { useProjectSelection } from "./hooks/useProjectSelection";
 import { cn } from "./lib/cn";
-import { CaptureCompanyScreen } from "./screens/CaptureCompanyScreen";
-import { CapturePersonScreen } from "./screens/CapturePersonScreen";
 import { CaptureSettingsScreen } from "./screens/CaptureSettingsScreen";
+import { CompanyPanel } from "./screens/CompanyPanel";
+import { PersonPanel } from "./screens/PersonPanel";
 import { PanelLoading } from "./components/PanelLoading";
 import { SignedOutScreen } from "./screens/SignedOutScreen";
 import type { WorkspaceUser } from "../api/types";
@@ -18,9 +18,8 @@ import type { WorkspaceUser } from "../api/types";
 /**
  * The popup's root: which of the states the consultant is in.
  *
- * The page read and the chosen mandate are owned here so both tabs share them — otherwise a person is
- * filed into whichever mandate the tab they did not choose on defaulted to. Both panels stay mounted
- * and hidden rather than unmounted, because each owns a draft that switching tabs would destroy.
+ * The page read and the chosen position are owned here, once, so a person and a company are filed into the same
+ * position the bar shows.
  */
 export function CapturePopup() {
   const session = useExtensionSession();
@@ -62,81 +61,45 @@ interface CaptureSessionProps {
   onSignOut: () => void;
 }
 
-/** The paired panel: what is on the page, which mandate it lands in, and the two forms over both. */
+/**
+ * The paired panel: the position it files into, chosen at the top and kept, then whatever the page is about — a
+ * person or a company, decided by the page's address alone.
+ */
 function CaptureSession({ user, onSignOut }: CaptureSessionProps) {
   const page = useActivePage();
   const projects = useProjectSelection();
-  const { settings } = useCaptureSettings();
-  const [subject, setSubject] = useState<CaptureSubject>("company");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
-  // The tab follows the page: a profile selects Person, a company page selects Company, on every
-  // navigation — keyed on the page's URL, so moving to a new page of the *same* kind realigns too.
-  // It cannot yank the tab from under an editor: re-reads of the unchanged page (a title blink)
-  // keep both dependency values identical, and "unknown" never guesses.
-  useEffect(() => {
-    if (!settings.isPageTypeDetected || !page.subject || page.subject === "unknown") {
-      return;
-    }
-    setSubject(page.subject);
-  }, [page.subject, page.pageKey, settings.isPageTypeDetected]);
 
   return (
     <PopupShell>
-      <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", isSettingsOpen && "hidden")}>
-        <CaptureHeader
-          user={user}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-          onSignOut={onSignOut}
-        />
-        <CaptureTabs active={subject} onSelect={setSubject} />
-        {/* The one read with no form worth leaving on screen. Every later read shimmers in place. */}
-        {page.hasReadOnce ? (
-          <>
-            <CapturePanel subject="company" active={subject}>
-              <CaptureCompanyScreen page={page} projects={projects} />
-            </CapturePanel>
-            <CapturePanel subject="person" active={subject}>
-              <CapturePersonScreen page={page} projects={projects} />
-            </CapturePanel>
-          </>
-        ) : (
-          <PanelLoading label="Reading this page…" />
+      <PanelToastProvider>
+        <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", isSettingsOpen && "hidden")}>
+          <CaptureHeader user={user} onOpenSettings={() => setIsSettingsOpen(true)} onSignOut={onSignOut} />
+          <PositionBar projects={projects} workspaceName={user.workspace?.name ?? null} />
+          {/* The one read with no form worth leaving on screen. Every later read shimmers in place. */}
+          {!page.hasReadOnce ? (
+            <PanelLoading label="Reading this page…" />
+          ) : page.readError || page.subject === "unknown" || !page.subject ? (
+            <div className="min-h-0 flex-1 overflow-y-auto p-3.5">
+              <PageReadNote error={page.readError} selectedProjectId={projects.selectedProjectId} />
+            </div>
+          ) : page.subject === "person" ? (
+            <PersonPanel key={page.pageKey} page={page} projects={projects} user={user} />
+          ) : (
+            <CompanyPanel key={page.pageKey} page={page} projects={projects} user={user} />
+          )}
+        </div>
+
+        {isSettingsOpen && (
+          <CaptureSettingsScreen
+            user={user}
+            projects={projects}
+            onBack={() => setIsSettingsOpen(false)}
+            onSignOut={onSignOut}
+          />
         )}
-      </div>
-
-      {isSettingsOpen && (
-        <CaptureSettingsScreen
-          user={user}
-          projects={projects}
-          onBack={() => setIsSettingsOpen(false)}
-          onSignOut={onSignOut}
-        />
-      )}
+      </PanelToastProvider>
     </PopupShell>
-  );
-}
-
-/** One tab's form, hidden when it is not the active tab — never unmounted, so its draft survives. */
-function CapturePanel({
-  subject,
-  active,
-  children,
-}: {
-  subject: CaptureSubject;
-  active: CaptureSubject;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      role="tabpanel"
-      id={capturePanelId(subject)}
-      aria-labelledby={`capture-tab-${subject}`}
-      hidden={subject !== active}
-      className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", subject !== active && "hidden")}
-    >
-      {children}
-    </div>
   );
 }
 

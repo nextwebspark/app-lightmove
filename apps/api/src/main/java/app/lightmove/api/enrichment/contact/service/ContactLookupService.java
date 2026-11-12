@@ -35,12 +35,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * One Find email / Find phone press. Not transactional: the vendor call must hold no connection
- * through a permit wait and retries. The guard against paying twice is the lookup timestamp, checked
- * here and again inside the write; two presses in flight can still both reach the provider, which the
- * per-user budget caps rather than a row lock across the call.
- *
- * <p>The price is held before the provider is asked and spent only on a find.
+ * One Find email / Find phone press. Not transactional (no connection held through the vendor call); the lookup
+ * timestamp, checked here and in the write, guards paying twice. The price is held first and spent only on a find.
  */
 @Service
 @Slf4j
@@ -123,6 +119,9 @@ public class ContactLookupService {
         }
         CandidateContactState state =
                 candidates.contactStateOf(press.workspaceId(), press.projectId(), press.candidateId());
+        if (state.processingRestricted()) {
+            throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
+        }
         if (state.doNotContact()) {
             throw ApiException.of(ErrorCode.PERSON_DO_NOT_CONTACT);
         }

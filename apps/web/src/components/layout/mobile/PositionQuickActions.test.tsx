@@ -22,7 +22,8 @@ const rowOf = (index: number): PipelineRow => ({
   status: "identified",
   statusLabel: "Identified",
   statusColour: "grey",
-  pipelineStage: { key: "identified", label: "Identified", colour: "grey", kind: "active", position: 1 },
+  outOfProcess: false,
+  pipelineStage: { key: "identified", label: "Identified", colour: "grey", position: 1 },
   addedAt: "2026-10-01T00:00:00Z",
   statusChangedAt: "2026-10-01T00:00:00Z",
   nextAction: null,
@@ -69,14 +70,14 @@ describe("PositionQuickActions", () => {
     await userEvent.click(screen.getByRole("button", { name: /Write a note/ }));
     await userEvent.click(await screen.findByRole("button", { name: /^Executive 3(?!\d)/ }));
 
-    expect(screen.getByTestId("landed")).toHaveTextContent("/projects/p1/pipeline?view=list&candidate=c3&tab=notes");
+    expect(screen.getByTestId("landed")).toHaveTextContent("/projects/p1/companies/universe?view=pipeline&candidate=c3&tab=notes");
     expect(sessionStorage.getItem("lm.person-drawer.tab.position")).toBeNull();
   });
 
   it("lists thirty executives and asks for a few letters for the rest", async () => {
     renderActions();
 
-    await userEvent.click(screen.getByRole("button", { name: /Book a call/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Book a meeting/ }));
 
     expect(await screen.findByText("Keep typing to narrow — 4 more")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^Executive \d+/ })).toHaveLength(30);

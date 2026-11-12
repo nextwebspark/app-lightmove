@@ -9,6 +9,7 @@ import type { User } from "../../auth/api/types";
 import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project } from "../../projects/api/types";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
+import * as dataProtectionApi from "../api/dataProtectionApi";
 import * as poolApi from "../api/poolApi";
 import * as tasksApi from "../../tasks/api/tasksApi";
 import type { CandidateTag, PersonNote, PersonRecord, PoolPage, PoolRow } from "../api/types";
@@ -24,6 +25,7 @@ vi.mock("../api/poolApi", async (importOriginal) => ({
   getPerson: vi.fn(),
   setOwner: vi.fn(),
   setDoNotContact: vi.fn(),
+  setProcessingRestriction: vi.fn(),
   tagPerson: vi.fn(),
   untagPerson: vi.fn(),
   retagPeople: vi.fn(),
@@ -33,10 +35,14 @@ vi.mock("../api/poolApi", async (importOriginal) => ({
   writePoolNote: vi.fn(),
   removePoolNote: vi.fn(),
   restorePoolNote: vi.fn(),
-  getPoolTimeline: vi.fn(),
+  getPersonHistory: vi.fn(),
   getActivityFeed: vi.fn(),
   tagCatalog: vi.fn(),
   createTag: vi.fn(),
+}));
+vi.mock("../api/dataProtectionApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api/dataProtectionApi")>()),
+  getDataProtectionConfig: vi.fn(),
 }));
 vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../workspace/api/workspaceApi")>()),
@@ -126,6 +132,8 @@ const fatima: PoolRow = {
     projectTitle: "Chief Financial Officer",
     details: { from: "contacted", to: "engaged" },
     noteExcerpt: null,
+    noteEditedAt: null,
+    noteEditedByName: null,
   },
 };
 
@@ -179,6 +187,7 @@ const record: PersonRecord = {
   positions: fatima.positions,
   ownerUserId: null,
   doNotContact: null,
+  processingRestriction: null,
   tagIds: ["t1"],
   source: "manual",
   addedAt: "2026-09-01T10:00:00Z",
@@ -202,6 +211,7 @@ describe("CandidatesPage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     currentUser = aUser();
+    vi.mocked(dataProtectionApi.getDataProtectionConfig).mockResolvedValue({ enabled: true });
     vi.mocked(poolApi.listPool).mockResolvedValue(page([fatima, rajesh]));
     vi.mocked(poolApi.poolCount).mockResolvedValue(2);
     vi.mocked(poolApi.tagCatalog).mockResolvedValue([openToWork, referral]);
@@ -220,7 +230,7 @@ describe("CandidatesPage", () => {
     vi.mocked(projectsApi.projects).mockResolvedValue([cfo]);
     vi.mocked(poolApi.getPerson).mockResolvedValue(record);
     vi.mocked(poolApi.getPoolNotes).mockResolvedValue([]);
-    vi.mocked(poolApi.getPoolTimeline).mockResolvedValue({ entries: [], nextCursor: null });
+    vi.mocked(poolApi.getPersonHistory).mockResolvedValue({ entries: [], truncated: false });
     vi.mocked(poolApi.getActivityFeed).mockResolvedValue({ entries: [], nextCursor: null });
   });
 
@@ -345,7 +355,7 @@ describe("CandidatesPage", () => {
   });
 
   it("adds the people ticked to a position, saying who is already in it", async () => {
-    vi.mocked(poolApi.addToPosition).mockResolvedValue({ added: 1, alreadyIn: 1 });
+    vi.mocked(poolApi.addToPosition).mockResolvedValue({ added: 1, alreadyIn: 1, suppressed: 0, restricted: 0 });
     renderPage();
     await screen.findAllByText("Fatima Al Mazrouei");
 
@@ -442,7 +452,69 @@ describe("CandidatesPage", () => {
     expect(await screen.findByRole("note")).toHaveTextContent("Set by Alok Kumar");
   });
 
-  it("draws the position drawer's tabs, less what only a position holds, with tags in the header", async () => {
+  it("shows a restriction with its reason and who set it, and lifts it from the note", async () => {
+    const restricted: PersonRecord = {
+      ...record,
+      processingRestriction: {
+        reason: "Asked on 20 Sep what we hold about her.",
+        restrictedByUserId: "u1",
+        restrictedByName: "Alok Kumar",
+        restrictedAt: "2026-09-21T11:20:00Z",
+        mayLift: true,
+      },
+    };
+    vi.mocked(poolApi.getPerson).mockResolvedValue(restricted);
+    vi.mocked(poolApi.setProcessingRestriction).mockResolvedValue(record);
+    renderPage("/candidates?person=person-1");
+
+    const note = await screen.findByRole("note", { name: "Processing restricted" });
+    expect(note).toHaveTextContent("Asked on 20 Sep what we hold about her.");
+    expect(note).toHaveTextContent("Restricted by Alok Kumar");
+    expect(screen.getByText("Processing restricted", { selector: "span" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Lift restriction" }));
+
+    await waitFor(() => expect(poolApi.setProcessingRestriction).toHaveBeenCalledWith("person-1", false));
+  });
+
+  it("offers no Lift to a teammate who neither set the restriction nor is an admin", async () => {
+    vi.mocked(poolApi.getPerson).mockResolvedValue({
+      ...record,
+      processingRestriction: {
+        reason: "Asked on 20 Sep what we hold about her.",
+        restrictedByUserId: "u2",
+        restrictedByName: "Sara Al-Mansour",
+        restrictedAt: "2026-09-21T11:20:00Z",
+        mayLift: false,
+      },
+    });
+    renderPage("/candidates?person=person-1");
+
+    const note = await screen.findByRole("note", { name: "Processing restricted" });
+    expect(note).toHaveTextContent("Only Sara Al-Mansour or an admin can lift it.");
+    expect(screen.queryByRole("button", { name: "Lift restriction" })).not.toBeInTheDocument();
+  });
+
+  it("offers Restrict processing in the person's ⋯ to anyone on the team", async () => {
+    renderPage("/candidates?person=person-1");
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+
+    await userEvent.click(await screen.findByRole("button", { name: "More for Fatima Al Mazrouei" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: /Restrict processing/ }));
+
+    expect(await screen.findByRole("dialog", { name: /Restrict processing for Fatima Al Mazrouei/ })).toBeInTheDocument();
+  });
+
+  it("offers neither Restrict processing nor Delete permanently where the deployment holds the controls back", async () => {
+    vi.mocked(dataProtectionApi.getDataProtectionConfig).mockResolvedValue({ enabled: false });
+    renderPage("/candidates?person=person-1");
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+
+    await waitFor(() => expect(dataProtectionApi.getDataProtectionConfig).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "More for Fatima Al Mazrouei" })).not.toBeInTheDocument();
+  });
+
+  it("draws the position drawer's tabs, less what only a position holds, with tags and contacts in the header", async () => {
     vi.mocked(poolApi.getPerson).mockResolvedValue({
       ...record,
       contacts: { ...record.contacts, emails: [{ address: "fatima@example.com", kind: "work", verified: true, status: null, source: "manual", foundAt: "2026-09-01T00:00:00Z" }] },
@@ -451,18 +523,19 @@ describe("CandidatesPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Fatima Al Mazrouei" })).toBeInTheDocument();
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent?.replace(/\d+$/, ""))).toEqual([
-      "Career",
+      "Profile",
       "Notes",
-      "Contact",
-      "Documents",
       "Activity",
       "Positions",
     ]);
-    // Tags are the person's, on view whichever tab is open.
+    // Tags are the person's, on view whichever tab is open; so is the primary email.
     expect(await screen.findByRole("button", { name: "Remove tag Open to work" })).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("tab", { name: "Contact" }));
     expect(screen.getByText("fatima@example.com")).toBeInTheDocument();
+    // The package and the documents are folds of Profile, closed until asked for.
+    const profile = screen.getByRole("tabpanel");
+    expect(within(profile).getByRole("button", { name: /^Summary/ })).toHaveAttribute("aria-expanded", "true");
+    expect(within(profile).getByRole("button", { name: /^Compensation/ })).toHaveAttribute("aria-expanded", "false");
+    expect(within(profile).getByRole("button", { name: /^Documents/ })).toHaveAttribute("aria-expanded", "false");
 
     await userEvent.click(screen.getByRole("tab", { name: /^Notes/ }));
     expect(await screen.findByLabelText("New note")).toBeInTheDocument();
@@ -525,11 +598,36 @@ describe("CandidatesPage", () => {
     expect(within(positions).getByRole("button", { name: "Set next action" })).toBeInTheDocument();
   });
 
+  it("keeps logged calls readable in their own group, whatever positions the person is on", async () => {
+    vi.mocked(poolApi.getPoolNotes).mockResolvedValue([
+      {
+        id: "n-call",
+        kind: "call",
+        body: "Open to a move in Q2.",
+        format: "plain",
+        pinned: false,
+        projectId: null,
+        projectTitle: null,
+        authorUserId: "u1",
+        authorName: "Alok Kumar",
+        authorAvatarUrl: null,
+        createdAt: "2026-09-22T10:00:00Z",
+        editedAt: null,
+        editedByName: null,
+        editable: true,
+      },
+    ]);
+    renderPage("/candidates?person=person-1&tab=notes");
+
+    const group = await screen.findByRole("region", { name: "Calls, meetings and messages" });
+    expect(within(group).getByText("Open to a move in Q2.")).toBeInTheDocument();
+  });
+
   it("deletes a note at once and takes it back with Undo", async () => {
     vi.mocked(poolApi.getPoolNotes).mockResolvedValue([
       {
         id: "n1",
-        kind: "call",
+        kind: "general",
         body: "Open to a move.",
         format: "plain",
         pinned: false,
@@ -579,7 +677,7 @@ describe("CandidatesPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save note" }));
     await waitFor(() =>
       expect(poolApi.writePoolNote).toHaveBeenCalledWith("person-1", {
-        kind: "call",
+        kind: "general",
         body: "Open to a move.",
         format: "markdown",
         projectId: null,

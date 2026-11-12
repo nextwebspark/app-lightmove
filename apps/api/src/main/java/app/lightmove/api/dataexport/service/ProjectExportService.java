@@ -68,7 +68,7 @@ public class ProjectExportService {
     }
 
     /** The grid's row model: one line per executive, and a company with none keeps its own line. */
-    private static List<ExportRow> rowsOf(PairedStage paired) {
+    static List<ExportRow> rowsOf(PairedStage paired) {
         List<ExportRow> rows = new ArrayList<>();
         for (TriageCompanyResponse company : paired.companies().companies()) {
             List<CandidateResponse> people = paired.peopleAt(company.id());
@@ -84,7 +84,7 @@ public class ProjectExportService {
 
     private static boolean isUnfiltered(TriageCompanyFilters filters) {
         return blank(filters.companyName()) && blank(filters.executiveName())
-                && filters.executiveStatuses().isEmpty();
+                && filters.executiveStatuses().isEmpty() && blank(filters.search());
     }
 
     private static boolean blank(String value) {

@@ -6,8 +6,8 @@
     "arbitraryText": 1
   },
   "components/layout/Sidebar.tsx": {
-    "arbitraryRadius": 1,
-    "arbitraryText": 4
+    "arbitraryText": 4,
+    "arbitraryRadius": 1
   },
   "components/layout/Topbar.tsx": {
     "arbitraryText": 7,
@@ -91,7 +91,7 @@
     "arbitraryText": 4
   },
   "features/candidates/components/CandidateFieldGroups.tsx": {
-    "arbitraryText": 26,
+    "arbitraryText": 25,
     "arbitraryRadius": 8
   },
   "features/candidates/components/CandidateProfile.tsx": {
@@ -120,10 +120,6 @@
   "features/candidates/components/documents/DocumentsPanel.tsx": {
     "arbitraryRadius": 7,
     "arbitraryText": 18
-  },
-  "features/candidates/components/documents/PrimaryCvChip.tsx": {
-    "arbitraryRadius": 1,
-    "arbitraryText": 2
   },
   "features/candidates/components/NoteParts.tsx": {
     "arbitraryText": 8,
@@ -159,10 +155,7 @@
     "arbitraryText": 3
   },
   "features/candidates/components/pool/PersonProfileTab.tsx": {
-    "arbitraryText": 2
-  },
-  "features/candidates/components/pool/PersonTimelineTab.tsx": {
-    "arbitraryText": 4
+    "arbitraryText": 1
   },
   "features/candidates/components/pool/PoolFilterRail.tsx": {
     "arbitraryRadius": 2
@@ -226,7 +219,7 @@
     "arbitraryText": 4
   },
   "features/contactlookup/components/ContactPanel.tsx": {
-    "arbitraryText": 8
+    "arbitraryText": 7
   },
   "features/customcolumns/components/CustomFieldsFieldset.tsx": {
     "arbitraryText": 1
@@ -271,10 +264,6 @@
     "arbitraryText": 11,
     "arbitraryRadius": 4
   },
-  "features/outreach/components/OutreachSection.tsx": {
-    "arbitraryRadius": 4,
-    "arbitraryText": 6
-  },
   "features/outreach/components/PeopleInOutreach.tsx": {
     "arbitraryText": 18,
     "arbitraryRadius": 4
@@ -292,8 +281,8 @@
     "arbitraryText": 1
   },
   "features/outreach/pages/SequenceEditorPage.tsx": {
-    "arbitraryText": 32,
-    "arbitraryRadius": 19
+    "arbitraryText": 30,
+    "arbitraryRadius": 18
   },
   "features/position/components/BenefitsTable.tsx": {
     "arbitraryRadius": 1
@@ -339,9 +328,6 @@
   "features/position/components/RoleTitleField.tsx": {
     "arbitraryRadius": 1
   },
-  "features/position/components/steps/CompensationStep.tsx": {
-    "arbitraryRadius": 1
-  },
   "features/position/components/steps/ReviewStep.tsx": {
     "arbitraryRadius": 1
   },
@@ -360,7 +346,7 @@
     "arbitraryText": 3
   },
   "features/projects/components/NewProjectModal.tsx": {
-    "arbitraryText": 6
+    "arbitraryText": 3
   },
   "features/projects/components/ProjectDrawer.tsx": {
     "arbitraryRadius": 2,
@@ -494,10 +480,6 @@
   "features/settings/components/ChangePasswordForm.tsx": {
     "important": 3
   },
-  "features/settings/components/CopyableValue.tsx": {
-    "arbitraryText": 1,
-    "arbitraryRadius": 2
-  },
   "features/settings/components/CreateApiKeyModal.tsx": {
     "arbitraryText": 3
   },
@@ -505,15 +487,11 @@
     "arbitraryText": 1
   },
   "features/settings/components/IntegrationCard.tsx": {
-    "arbitraryRadius": 2,
-    "arbitraryText": 4
+    "arbitraryText": 1,
+    "arbitraryRadius": 1
   },
   "features/settings/components/OAuthGrantRow.tsx": {
     "arbitraryText": 2,
-    "arbitraryRadius": 1
-  },
-  "features/settings/components/OwnAppForm.tsx": {
-    "arbitraryText": 3,
     "arbitraryRadius": 1
   },
   "features/settings/components/ProfileForm.tsx": {
@@ -561,8 +539,8 @@
   },
   "features/settings/pages/SettingsGeneralPage.tsx": {
     "arbitraryRadius": 3,
-    "arbitraryText": 8,
-    "important": 6
+    "arbitraryText": 7,
+    "important": 5
   },
   "features/settings/pages/SettingsProfilePage.tsx": {
     "arbitraryRadius": 1
@@ -623,12 +601,8 @@
     "arbitraryText": 3
   },
   "features/strategy/components/SaveSearchMenu.tsx": {
-    "arbitraryRadius": 4,
-    "arbitraryText": 7
-  },
-  "features/strategy/components/StrategyToolbar.tsx": {
-    "arbitraryRadius": 4,
-    "arbitraryText": 4
+    "arbitraryRadius": 3,
+    "arbitraryText": 5
   },
   "features/strategy/components/TagCombobox.tsx": {
     "arbitraryText": 4
@@ -703,7 +677,7 @@
   "features/templates/pages/TemplateEditorPage.tsx": {
     "arbitraryText": 7,
     "arbitraryRadius": 2,
-    "important": 17
+    "important": 16
   },
   "features/triage/components/AddCompanyPanel.tsx": {
     "arbitraryText": 13
@@ -721,10 +695,6 @@
   "features/triage/components/ManageColumnsDialog.tsx": {
     "arbitraryText": 5,
     "arbitraryRadius": 1
-  },
-  "features/triage/components/TriageToolbar.tsx": {
-    "arbitraryRadius": 2,
-    "arbitraryText": 2
   },
   "features/triage/lib/triageCompanyColumns.tsx": {
     "arbitraryRadius": 3,

@@ -30,12 +30,8 @@ const OPTION_CLASS: Record<SegmentedVariant, { base: string; selected: string; i
 };
 
 /**
- * A row of mutually exclusive choices — Table | Map — as one control. A radio group to assistive
- * tech, because that is what it is: one value, several buttons, exactly one pressed.
- *
- * <p>Which is why the keyboard is the radio group's and not a row of buttons': one tab stop on the
- * chosen option, and the arrows move the choice. A reader told "radio, 1 of 2" reaches for the arrow
- * keys, and a shared primitive that ignores them teaches the next screen to ignore them too.
+ * A row of mutually exclusive choices — Table | Map — as one control, a radio group to assistive tech: one tab stop on
+ * the chosen option and the arrows move the choice.
  */
 export function SegmentedControl<TValue extends string>({
   label,
@@ -43,6 +39,7 @@ export function SegmentedControl<TValue extends string>({
   value,
   onChange,
   variant = "default",
+  fill = false,
   className,
 }: {
   /** Names the group for a screen reader; the buttons carry their own labels. */
@@ -51,6 +48,8 @@ export function SegmentedControl<TValue extends string>({
   value: TValue;
   onChange: (value: TValue) => void;
   variant?: SegmentedVariant;
+  /** Options fill the group's set width: each its own label's width plus an even share of what is left. */
+  fill?: boolean;
   className?: string;
 }) {
   const keys = useRadioGroupKeys(
@@ -65,7 +64,12 @@ export function SegmentedControl<TValue extends string>({
       role="radiogroup"
       aria-label={label}
       onKeyDown={keys.onKeyDown}
-      className={cn("inline-flex flex-none items-center border", GROUP_CLASS[variant], className)}
+      className={cn(
+        fill ? "flex flex-none" : "inline-flex flex-none items-center",
+        "border",
+        GROUP_CLASS[variant],
+        className,
+      )}
     >
       {options.map((option) => {
         const selected = option.value === value;
@@ -79,12 +83,13 @@ export function SegmentedControl<TValue extends string>({
             onClick={() => onChange(option.value)}
             className={cn(
               "inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap font-sans transition",
+              fill && "min-w-0 flex-auto justify-center",
               OPTION_CLASS[variant].base,
               selected ? OPTION_CLASS[variant].selected : OPTION_CLASS[variant].idle,
             )}
           >
             {option.icon}
-            {option.label}
+            {fill ? <span className="truncate">{option.label}</span> : option.label}
           </button>
         );
       })}

@@ -29,17 +29,8 @@ export {
 export { ToastProvider, useToast, type ToastFn } from "./Toast";
 
 /**
- * The handful of primitives every auth screen is built from.
- *
- * Each is a direct transcription of the mockups' inline styles into Tailwind utilities over the same
- * tokens, so a screen assembled from these matches the design without anyone eyeballing it.
- *
- * One file, because there are six of them and they are only meaningful together. When this grows past
- * a screenful, split it — not before.
- *
- * Every `className` goes through {@link cn}, so a caller can override any default. Concatenating
- * instead would let the stylesheet's ordering decide who wins, and it does not decide in the caller's
- * favour: an invite row asking for a 130px select got a full-width one.
+ * The primitives every auth screen is built from, transcribed from the mockups. Every `className` goes through
+ * {@link cn}, since stylesheet order otherwise decides overrides (a 130px select came out full-width).
  */
 
 // ── Button ──────────────────────────────────────────────────────────────────
@@ -251,12 +242,16 @@ export function Card({ children, className }: { children: ReactNode; className?:
   );
 }
 
-/** The app icon without its tile, so it sits on whatever ground is behind it; `className` sets the height. */
-export function AppIcon({ className }: { className?: string }) {
+/**
+ * The app icon without its tile, so it sits on whatever ground is behind it; `className` sets the height. `bold` is the
+ * cut for a face-sized mark, whose hairline cube would otherwise blur away.
+ */
+export function AppIcon({ className, bold = false }: { className?: string; bold?: boolean }) {
+  const cut = bold ? "-bold" : "";
   return (
     <>
-      <img src="/brand/uncava-app-icon-light.svg" alt="" className={cn("w-auto shrink-0 dark:hidden", className)} />
-      <img src="/brand/uncava-app-icon-dark.svg" alt="" className={cn("hidden w-auto shrink-0 dark:block", className)} />
+      <img src={`/brand/uncava-app-icon-light${cut}.svg`} alt="" className={cn("w-auto shrink-0 dark:hidden", className)} />
+      <img src={`/brand/uncava-app-icon-dark${cut}.svg`} alt="" className={cn("hidden w-auto shrink-0 dark:block", className)} />
     </>
   );
 }
@@ -398,3 +393,17 @@ export { ChoiceCardGroup } from "./ChoiceCardGroup";
 export type { ChoiceCardOption } from "./ChoiceCardGroup";
 export { SegmentedControl } from "./SegmentedControl";
 export type { SegmentedOption } from "./SegmentedControl";
+export {
+  ToolbarDivider,
+  ToolbarLabel,
+  ToolbarSearch,
+  ToolbarViewSwitch,
+  TOOLBAR_COUNT,
+  TOOLBAR_COUNT_ACCENT,
+  TOOLBAR_GHOST,
+  TOOLBAR_MENU,
+  TOOLBAR_OUTLINE,
+  TOOLBAR_PRIMARY,
+  TOOLBAR_ROW,
+} from "./Toolbar";
+export type { ToolbarView, ToolbarViewDivider } from "./Toolbar";

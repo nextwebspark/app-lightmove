@@ -7,8 +7,8 @@ import app.lightmove.api.candidate.model.SpokenLine;
 import app.lightmove.api.candidate.model.TranscriptOnFile;
 import app.lightmove.api.candidate.service.CandidateMaterialService;
 import app.lightmove.api.common.transcript.CallTranscriptText;
-import app.lightmove.api.core.llm.service.ContactRedaction;
 import app.lightmove.api.core.storage.constant.DocumentFormat;
+import app.lightmove.api.core.text.service.ContactRedaction;
 import app.lightmove.api.position.service.PositionDocumentTextReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -129,7 +129,7 @@ class CandidateMaterialReader {
         List<String> lines = new ArrayList<>();
         int total = 0;
         for (NoteOnFile note : notes) {
-            String line = "- [%s · %s%s] %s".formatted(labelOf(note.kind().name()), DAY.format(note.writtenAt()),
+            String line = "- [%s · %s%s] %s".formatted(note.kind().promptLabel(), DAY.format(note.writtenAt()),
                     note.aboutPosition() == null ? "" : " · about " + note.aboutPosition(),
                     cut(ContactRedaction.redact(note.body().strip()), MAX_NOTE));
             if (total + line.length() > MAX_NOTES) {

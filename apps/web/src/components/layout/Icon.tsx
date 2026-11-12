@@ -1,13 +1,24 @@
 /** A 16px stroke icon from a mockup path. All nav/menu glyphs are single-path SVGs there. */
-export function Icon({ d, size = 16, className }: { d: string; size?: number; className?: string }) {
+export function Icon({
+  d,
+  size = 16,
+  filled = false,
+  className,
+}: {
+  d: string;
+  size?: number;
+  /** Painted solid rather than stroked, as a chosen star is. */
+  filled?: boolean;
+  className?: string;
+}) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
+      fill={filled ? "currentColor" : "none"}
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth={filled ? 0 : 2}
       className={className}
       aria-hidden="true"
     >
@@ -49,6 +60,7 @@ export const ICONS = {
   importInto: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
   /** The same tray with the arrow rising out of it — Export, the mandate leaving as a file. */
   exportOut: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
+  download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
   /** A page with its corner turned — the attached position description. */
   file: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6",
   /** A paperclip — a file an email carries. */
@@ -59,14 +71,13 @@ export const ICONS = {
   lock: "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 10 0v4",
   /** The same padlock with its shackle swung open — the off state of a lock toggle. */
   unlock: "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 9.9-1",
+  /** A stack of discs — what a workspace holds, and how long. */
+  database:
+    "M12 8c4.97 0 9-1.34 9-3s-4.03-3-9-3-9 1.34-9 3 4.03 3 9 3ZM3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3",
   /** A box with its lid off — retire a pipeline stage or status; whoever holds it keeps it. */
   archive: "M21 8v13H3V8M1 3h22v5H1zM10 12h4",
   /** Three columns of falling height — a position's pipeline. */
   pipeline: "M4 4h5v16H4zM10.5 4h5v10h-5zM17 4h3v7h-3z",
-  /** Three bulleted lines — the List side of a List | Board toggle. */
-  listView: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
-  /** Two dividers in a frame — the Board side of the toggle. */
-  boardView: "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM9 3v18M15 3v18",
   /** Two grip lines — the only draggable part of a row that is otherwise full of inputs. */
   dragHandle: "M5 9h14M5 15h14",
   info: "M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z",
@@ -83,6 +94,9 @@ export const ICONS = {
   searchX: "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3M13.5 8.5l-5 5M8.5 8.5l5 5",
   /** A funnel — a column's header menu has narrowed the grid by this one. */
   filter: "M22 3H2l8 9.46V19l4 2v-8.54L22 3Z",
+  /** A funnel struck through — clear every column filter at once. */
+  filterX: "M13 3H2l8 9.46V19l4 2v-8.54M22 3l-5 5M17 3l5 5",
+  sliders: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
   globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.5 9h17M3.5 15h17M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z",
   // Stroked like every other glyph here rather than the filled brand mark, which would be the only
   // filled icon in the app and would need its own component to hold it.
@@ -121,7 +135,8 @@ export const ICONS = {
   userX:
     "M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM17.5 8.5l5 5M22.5 8.5l-5 5",
   outreach: "M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z",
-  reports: "M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z",
+  dashboard:
+    "M4 3h5a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm11 0h5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm0 9h5a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1ZM4 16h5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1Z",
   pencil: "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z",
   /** Two arrows to opposite corners — enter full screen. */
   fullscreen: "M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7",
@@ -140,6 +155,8 @@ export const ICONS = {
   /** A handset — a call, as a note logs it. */
   phoneCall:
     "M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z",
+  /** A curling-back arrow — an email answered. */
+  reply: "M9 17 4 12l5-5M20 18v-2a4 4 0 0 0-4-4H4",
   /** An envelope — the Contact section's email channel. */
   mail: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm18 2-10 7L2 6",
   card: "M2 5h20v14H2zM2 10h20M6 15h4",
@@ -153,6 +170,9 @@ export const ICONS = {
   externalLink: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3",
   /** A line climbing to an arrowhead — the report's mapping progress. */
   trendingUp: "m3 17 6-6 4 4 8-8M15 7h6v6",
+  ranking: "M12 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12ZM8.2 13.9 7 22l5-3 5 3-1.2-8.1",
+  /** A circle turning back on itself — put a scenario back to where it started. */
+  reset: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5",
   /** The same line falling — a project that is off track. */
   trendingDown: "m3 7 6 6 4-4 8 8M15 17h6v-6",
   /** A struck S — the report's remuneration chapter. */
@@ -173,4 +193,15 @@ export const ICONS = {
   bell: "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0",
   /** Two ticked rows beside three lines — Settings → Task presets. */
   checklist: "M3 5l2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8",
+  /** Numbered lines — a position's outreach sequences. */
+  listOrdered: "M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M4.5 14a1.5 1.5 0 0 1 2.5-1.1Q4.5 15.5 4 18h3",
+  /** A speech bubble — a pipeline card's Add note. */
+  noteBubble: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z",
+  /** The five seeded pipeline stages' own marks, as the board's column headers draw them (`PIPE_ICONS`). */
+  stageResearch: "M3 6h1M3 12h1M3 18h1M8 6h13M8 12h13M8 18h13",
+  stageApproach: "m22 2-7 20-4-9-9-4ZM22 2 11 13",
+  stageAssessment:
+    "M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1ZM16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 14l2 2 4-4",
+  stageShortlist: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01Z",
+  stageOffer: "M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3",
 } as const;

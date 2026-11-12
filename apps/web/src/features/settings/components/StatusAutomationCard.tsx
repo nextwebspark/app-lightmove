@@ -23,7 +23,6 @@ export function StatusAutomationCard({ catalog, isAdmin }: { catalog: PipelineCa
   const queryClient = useQueryClient();
   const toast = useToast();
   const automations = useStatusAutomations();
-  const closedStage = liveStages(catalog).find((stage) => stage.kind === "closed");
 
   const saving = useMutation({
     mutationFn: ({ trigger, change }: { trigger: StatusAutomationTrigger; change: StatusAutomationChange }) =>
@@ -57,8 +56,8 @@ export function StatusAutomationCard({ catalog, isAdmin }: { catalog: PipelineCa
       </div>
       <p className="mt-0.5 max-w-[620px] font-mono text-meta text-u-text3">
         When outreach moves on, Uncava moves the candidate to the status you choose, on every position. Only ever
-        forward, and never out of {closedStage?.label ?? "the closed stage"}: someone a consultant already moved
-        further keeps their place.
+        forward, and never from a status out of process: someone a consultant already moved further, or ruled
+        out, keeps their place.
       </p>
       {automations.isError ? (
         <p className="mt-3 text-note text-u-text3">{messageFor(automations.error)}</p>
@@ -102,8 +101,8 @@ function AutomationRow({
   const target = statusById(catalog, automation?.statusId ?? null);
   const enabled = automation?.enabled ?? false;
   const broken = automation?.broken ?? false;
-  const liveTargetId = target && !target.retired ? target.id : "";
-  const activeStages = liveStages(catalog).filter((stage) => stage.kind === "active");
+  const liveTargetId = target && !target.retired && !target.outOfProcess ? target.id : "";
+  const offeredStages = liveStages(catalog);
 
   return (
     <li className="flex flex-col gap-1.5 py-3">
@@ -122,13 +121,15 @@ function AutomationRow({
           }
         >
           <option value="">{broken ? "Choose another status" : "Choose a status"}</option>
-          {activeStages.map((stage) => (
+          {offeredStages.map((stage) => (
             <optgroup key={stage.id} label={stage.label}>
-              {liveStatuses(stage).map((status) => (
-                <option key={status.id} value={status.id}>
-                  {status.label}
-                </option>
-              ))}
+              {liveStatuses(stage)
+                .filter((status) => !status.outOfProcess)
+                .map((status) => (
+                  <option key={status.id} value={status.id}>
+                    {status.label}
+                  </option>
+                ))}
             </optgroup>
           ))}
         </Select>
@@ -143,8 +144,9 @@ function AutomationRow({
       {broken && (
         <p role="status" className="flex items-center gap-1.5 text-note text-u-signal">
           <Icon d={ICONS.warning} size={12} />
-          {target?.label ?? "Its status"} was retired. This automation is paused until you choose another status or
-          switch it off.
+          {target?.label ?? "Its status"} was{" "}
+          {target?.outOfProcess && !target.retired ? "taken out of process" : "retired"}. This automation is paused
+          until you choose another status or switch it off.
         </p>
       )}
     </li>

@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
 import { hasRoomForRails } from "../../lib/viewport";
+import { TOOLBAR_GHOST, ToolbarLabel } from "./Toolbar";
 
 const WIDTHS = {
   default: "w-[min(300px,86vw)] lg:w-[21%] lg:min-w-[280px] lg:max-w-[330px]",
@@ -9,15 +10,8 @@ const WIDTHS = {
 } as const;
 
 /**
- * A screen's filter rail: a static column beside the results from `lg`, and below it an overlay over
- * them with a scrim, because a ~300px rail beside a table does not fit a phone.
- *
- * <p>As an overlay it behaves as one: opening moves focus to its close button, closing hands focus
- * back to whatever opened it, and Escape inside it closes the rail alone — stopped here, so the grid's
- * selection bar, which also answers Escape, keeps its selection.
- *
- * <p>`open={false}` hides the rail without unmounting it, so the sections a caller keeps open and
- * whatever was typed into them survive a close.
+ * A filter rail: a column from `lg`, below it an overlay with a scrim that takes focus and returns it, stopping Escape
+ * here so the grid's selection bar keeps its selection. `open={false}` hides without unmounting.
  */
 export function FilterRail({
   label,
@@ -79,25 +73,36 @@ export function FilterRail({
   );
 }
 
-/** The toolbar switch that shows and hides a {@link FilterRail}, with the count of axes in force. */
+/**
+ * The toolbar switch that shows and hides a {@link FilterRail}, with the count of axes in force. `toolbar` is the
+ * shared toolbar row's quiet control (`Toolbar.tsx`).
+ */
 export function FilterRailToggle({
   open,
   onToggle,
   badge,
+  variant = "default",
 }: {
   open: boolean;
   onToggle: () => void;
   badge?: ReactNode;
+  variant?: "default" | "toolbar";
 }) {
+  const label = open ? "Hide Filters" : "Show Filters";
   return (
     <button
       type="button"
       onClick={onToggle}
       aria-expanded={open}
-      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] p-2 text-note text-u-text3 transition hover:bg-u-surface hover:text-u-text"
+      title={variant === "toolbar" ? label : undefined}
+      className={
+        variant === "toolbar"
+          ? TOOLBAR_GHOST
+          : "inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] p-2 text-note text-u-text3 transition hover:bg-u-surface hover:text-u-text"
+      }
     >
-      <Icon d="M3 4h18l-7 8v6l-4 2v-8L3 4Z" size={14} className="flex-none" />
-      {open ? "Hide Filters" : "Show Filters"}
+      <Icon d="M3 4h18l-7 8v6l-4 2v-8L3 4Z" size={variant === "toolbar" ? 15 : 14} className="flex-none" />
+      {variant === "toolbar" ? <ToolbarLabel>{label}</ToolbarLabel> : label}
       {badge}
     </button>
   );

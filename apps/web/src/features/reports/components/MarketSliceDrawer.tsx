@@ -58,7 +58,7 @@ export function MarketSliceDrawer({
                   segments={[
                     { label: "Interested", count: interest.interested, fillClass: "bg-u-direct" },
                     { label: "Not yet", count: interest.passive, fillClass: "bg-u-border-strong" },
-                    { label: "Closed", count: interest.closed, fillClass: "bg-u-offlimits" },
+                    { label: "Out of process", count: interest.closed, fillClass: "bg-u-offlimits" },
                   ]}
                 />
               </DrawerSection>

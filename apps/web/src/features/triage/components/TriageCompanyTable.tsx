@@ -21,15 +21,8 @@ import {
 import { triageRowId, type TriageCompanyRow } from "../lib/triageRows";
 
 /**
- * The Companies half of the company grid: the mandate's own columns and its triage actions, over the
- * shared {@link DataGrid}. Everything about how the grid looks lives there, so this stage and
- * Strategy render identically without either owning a copy.
- *
- * <p>A row is a person at a company rather than a company — see {@link TriageCompanyRow} — so the page
- * hands this the expanded lines and the grid never has to know how they were paired up.
- *
- * <p>Sorting and paging are the server's, exactly as on Strategy — a header click changes the query
- * rather than the array.
+ * The Companies grid over the shared {@link DataGrid}: rows are a person at a company ({@link TriageCompanyRow});
+ * sorting and paging are the server's.
  */
 export function TriageCompanyTable({
   rows,
@@ -56,7 +49,9 @@ export function TriageCompanyTable({
   onOpenCompany,
   busyIds,
   canWrite,
+  stageReadOnly = false,
   onEditColumn,
+  onDeleteColumn,
   columnFilters,
   selection,
 }: {
@@ -89,8 +84,12 @@ export function TriageCompanyTable({
   onOpenCompany: (company: TriageCompany) => void;
   busyIds: ReadonlySet<string>;
   canWrite: boolean;
+  /** Declined: Back to universe is the one act, so nobody is added, removed or has their status changed here. */
+  stageReadOnly?: boolean;
   /** Opens a mandate's own column for rename, from its header menu — the real `CustomColumn` id. */
   onEditColumn?: (customColumnId: string) => void;
+  /** Removes a mandate's own column, from its header menu — the real `CustomColumn` id. */
+  onDeleteColumn?: (customColumnId: string) => void;
   /** The grid's own Company and Executive header filters, keyed by their built-in column ids. */
   columnFilters?: Record<string, DataGridColumnFilter>;
   /**
@@ -137,6 +136,7 @@ export function TriageCompanyTable({
       onOpenCompany,
       busyIds,
       canWrite,
+      stageReadOnly,
     },
   });
 
@@ -153,6 +153,8 @@ export function TriageCompanyTable({
     pageCompanyIds.length > 0 && pageCompanyIds.every((id) => selection?.selectedIds.has(id));
   const someOnPageSelected = pageCompanyIds.some((id) => selection?.selectedIds.has(id));
   const [asCards] = useState(isBelowTableWidth);
+  const customColumnOf = (gridColumnId: string) =>
+    customColumns.find((entry) => customColumnId(entry) === gridColumnId);
 
   return (
     <DataGrid
@@ -188,7 +190,7 @@ export function TriageCompanyTable({
       renderCard={asCards ? (row) => (
         <TriageLineCard
           row={row}
-          canWrite={canWrite}
+          canWrite={canWrite && !stageReadOnly}
           busy={!!row.company && busyIds.has(row.company.id)}
           selection={
             selection && row.company && firstLineByCompany.get(row.company.id) === triageRowId(row)
@@ -208,11 +210,20 @@ export function TriageCompanyTable({
       errorMessage="That list could not be loaded. Refresh, or check you still have access to this mandate."
       emptyMessage={emptyMessage}
       columnFilters={columnFilters}
+      clearFiltersColumnId="actions"
+      menuOnHeaderClick
       onEditColumn={
         onEditColumn &&
         ((gridColumnId: string) => {
-          const column = customColumns.find((entry) => customColumnId(entry) === gridColumnId);
+          const column = customColumnOf(gridColumnId);
           if (column) onEditColumn(column.id);
+        })
+      }
+      onDeleteColumn={
+        onDeleteColumn &&
+        ((gridColumnId: string) => {
+          const column = customColumnOf(gridColumnId);
+          if (column) onDeleteColumn(column.id);
         })
       }
     />

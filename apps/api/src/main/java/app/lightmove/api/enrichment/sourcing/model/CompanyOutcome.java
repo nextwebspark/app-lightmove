@@ -3,22 +3,37 @@ package app.lightmove.api.enrichment.sourcing.model;
 import app.lightmove.api.enrichment.sourcing.constant.SourcingOutcome;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
  * What happened at one company: the outcome, the hits it bought and the hits the people cache answered
  * free, how many matched in all (null when unknown, and on runs recorded before it was kept), the model
- * calls it cost, the picks with whether each was filed, and the provider whose answer they came from
- * (null when no provider answered, and on runs recorded before it was kept).
+ * calls it cost, the picks with whether each was filed, the provider whose answer they came from
+ * (null when no provider answered, and on runs recorded before it was kept), and how many people found
+ * did not hold the seat.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record CompanyOutcome(UUID triageCompanyId, String companyName, SourcingOutcome outcome,
                              int vendorHits, int cachedHits, Long matched, int modelCalls, int filed,
-                             int skipped, List<ExecutivePick> picks, String source) {
+                             int skipped, List<ExecutivePick> picks, String source, int notFit) {
+
+    /** The same outcome with an erased person's picks kept as counts alone: no name, no reason, no row to point at. */
+    public CompanyOutcome withoutPicksOf(Set<UUID> candidateIds) {
+        if (picks == null || picks.stream().noneMatch(pick -> candidateIds.contains(pick.candidateId()))) {
+            return this;
+        }
+        List<ExecutivePick> kept = picks.stream()
+                .map(pick -> candidateIds.contains(pick.candidateId()) ? new ExecutivePick(null, pick.score(), null, null)
+                        : pick)
+                .toList();
+        return new CompanyOutcome(triageCompanyId, companyName, outcome, vendorHits, cachedHits, matched, modelCalls,
+                filed, skipped, kept, source, notFit);
+    }
 
     public static CompanyOutcome of(SourcingCompany company, SourcingOutcome outcome) {
         return new CompanyOutcome(company.triageCompanyId(), company.companyName(), outcome, 0, 0, null, 0, 0, 0,
-                List.of(), null);
+                List.of(), null, 0);
     }
 
     public CompanyOutcome {

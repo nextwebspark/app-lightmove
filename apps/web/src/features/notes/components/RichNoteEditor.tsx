@@ -47,6 +47,7 @@ export default function RichNoteEditor({
   footer,
   fillsDialog = false,
   onExpandChange,
+  editorRef,
 }: NoteEditorProps) {
   const [picker, setPicker] = useState<Picker | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -58,6 +59,7 @@ export default function RichNoteEditor({
   const onSubmitRef = useRef(onSubmit);
   const canSubmitRef = useRef(canSubmit);
   const lastEmitted = useRef(value);
+  const wasFocused = useRef(false);
   useEffect(() => {
     teammatesRef.current = teammates;
     onChangeRef.current = onChange;
@@ -133,7 +135,24 @@ export default function RichNoteEditor({
       lastEmitted.current = body;
       onChangeRef.current(body);
     },
+    onFocus: () => {
+      wasFocused.current = true;
+    },
   });
+
+  useEffect(() => {
+    if (!editorRef) return;
+    const at = () => editor?.chain().focus(wasFocused.current ? undefined : "end");
+    editorRef.current = editor
+      ? {
+          insertText: (text) => at()?.insertContent({ type: "text", text }).run(),
+          insertDoc: (doc) => at()?.insertContent(doc.content ?? []).run(),
+        }
+      : null;
+    return () => {
+      editorRef.current = null;
+    };
+  }, [editor, editorRef]);
 
   useEffect(() => {
     if (!editor || value === lastEmitted.current) return;
@@ -235,10 +254,10 @@ export default function RichNoteEditor({
         "relative",
         fillsDialog && "flex min-h-0 flex-1 flex-col",
         isFramed &&
-          "rounded-lg border border-u-border-strong bg-u-bg transition focus-within:border-u-accent focus-within:ring-2 focus-within:ring-u-accent-ring",
+          "rounded-lg border border-u-border bg-u-surface shadow-u-e1 transition hover:border-u-border-strong focus-within:border-u-accent focus-within:shadow-none",
       )}
     >
-      <div className={cn("flex-none", isFramed && "rounded-t-lg border-b border-u-border bg-u-surface px-2 py-1.5")}>
+      <div className={cn("flex-none", isFramed && "rounded-t-lg border-b border-u-border px-1.5 py-1")}>
         <NoteToolbar
           editor={editor}
           mentionsOffered={teammates !== null}
@@ -254,7 +273,7 @@ export default function RichNoteEditor({
         editor={editor}
         className={cn(
           isFramed ? "cursor-text px-4 py-3" : "mt-1.5",
-          fillsDialog && "min-h-40 flex-1 overflow-y-auto",
+          fillsDialog && "min-h-32 flex-1 overflow-y-auto",
         )}
       />
       {teammates !== null && picker && (

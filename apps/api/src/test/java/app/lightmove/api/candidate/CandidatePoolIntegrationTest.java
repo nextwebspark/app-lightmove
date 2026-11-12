@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingProfileEnricher;
@@ -45,7 +46,7 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
             List.of(), List.of("Financial Planning"), List.of("English", "Arabic"), null,
             EnrichmentVendor.BRIGHTDATA);
 
-    @Autowired private JdbcTemplate db;
+    @Autowired @FixtureJdbc private JdbcTemplate db;
     @Autowired private RecordingProfileEnricher enricher;
     @Autowired private StubChatModel model;
 
@@ -362,8 +363,8 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a capture replaces a held URL that names no profile, and locks only the page it read")
-    void aCaptureLocksThePageItRead() throws Exception {
+    @DisplayName("a capture replaces a held URL that names no profile, and the URL stays editable after")
+    void aCaptureReplacesAUrlThatNamesNoProfile() throws Exception {
         String first = mandate("Search Url Firm", "Chief Financial Officer");
         String second = mandateInSameWorkspace("Head of Credit Risk");
         JsonNode typed = add(first, """
@@ -376,14 +377,14 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
         assertThat(captured.get("personId").asText()).isEqualTo(typed.get("personId").asText());
         assertThat(read(first, typed.get("id").asText()).get("linkedinUrl").asText())
                 .isEqualTo("https://www.linkedin.com/in/tariq-aziz");
-        String code = codeOf(mvc.perform(put(candidatesUrl(first) + "/" + typed.get("id").asText())
+        mvc.perform(put(candidatesUrl(first) + "/" + typed.get("id").asText())
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fullName":"Tariq Aziz","linkedinUrl":"https://www.linkedin.com/in/someone-else"}"""))
-                .andExpect(status().isConflict())
-                .andReturn());
-        assertThat(code).isEqualTo("CANDIDATE_PROFILE_URL_LOCKED");
+                .andExpect(status().isOk());
+        assertThat(read(first, typed.get("id").asText()).get("linkedinUrl").asText())
+                .isEqualTo("https://www.linkedin.com/in/someone-else");
     }
 
     @Test

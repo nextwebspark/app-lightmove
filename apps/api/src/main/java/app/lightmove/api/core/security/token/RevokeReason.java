@@ -18,7 +18,10 @@ public enum RevokeReason {
     USER_REVOKED,
 
     /** Replaced by re-pairing the extension; not theft on replay, just a stale device catching up. */
-    SUPERSEDED;
+    SUPERSEDED,
+
+    /** Two-factor was turned on or off: every other session ends, as on a password change. */
+    MFA_CHANGED;
 
     /**
      * {@link #ROTATED} must stay: a rotated-away token replayed <i>is</i> the attack signature. The rest

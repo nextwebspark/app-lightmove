@@ -11,17 +11,13 @@ import { OAuthButtons } from "../components/OAuthButtons";
 import { LegalConsent } from "../components/LegalConsent";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import { signupSchema, type SignupValues } from "../schemas";
-
-const SIGNUP_INPUTS: readonly (keyof SignupValues)[] = ["fullName", "email", "password", "confirmPassword"];
 import { clearSignupRestart, signupRestartName } from "../signupRestart";
 
+const SIGNUP_INPUTS: readonly (keyof SignupValues)[] = ["fullName", "email", "password", "confirmPassword"];
+
 /**
- * Signup step 1 — "Create your account". A port of Signup.dc.html's first step.
- *
- * On success the user exists but has no workspace, so they go straight on to step 2. The wizard's
- * steps are separate routes rather than local state: step 1 creates a real account on the server, and
- * a user who closes the tab after it should be able to sign back in and land where they left off,
- * which local state cannot do.
+ * Signup step 1 — "Create your account". Steps are routes, not local state: step 1 creates a real account, so a user who
+ * closes the tab can sign back in and land where they left off.
  */
 export function SignupPage() {
   const { signUp } = useAuth();
@@ -96,7 +92,7 @@ export function SignupPage() {
 
       <Card className="w-[480px] max-w-[94vw] [animation-delay:80ms]">
         <h1 className="text-[19px] font-semibold leading-tight">Create your account</h1>
-        <p className="mb-6 mt-1 font-mono text-xs text-u-text3">Step 1 of 4 · your details</p>
+        <p className="mb-6 mt-1 font-mono text-xs text-u-text3">Step 1 of 3 · your details</p>
 
         <FormError message={formError} />
 

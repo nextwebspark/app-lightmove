@@ -1,4 +1,4 @@
-import { findStatus, statusLabelOf } from "../../candidates/lib/pipelineStatus";
+import { findStatus, offeredStatusLabel, statusLabelOf } from "../../candidates/lib/pipelineStatus";
 import type { PipelineCatalog } from "../../workspace/api/types";
 
 const STAGE_PREFIX = "stage:";
@@ -17,7 +17,7 @@ export function executiveStatusOptions(
     if (held.length === 0) continue;
     const grouped = held.length > 1;
     if (grouped) options.push({ value: STAGE_PREFIX + stage.key, label: `All ${stage.label}` });
-    for (const status of held) options.push({ value: status.key, label: status.label, indent: grouped });
+    for (const status of held) options.push({ value: status.key, label: offeredStatusLabel(stage, status), indent: grouped });
   }
   for (const key of seen) {
     if (!findStatus(catalog, key)) options.push({ value: key, label: statusLabelOf(key) });

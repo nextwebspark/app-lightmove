@@ -1,8 +1,8 @@
 import type { CandidatePipelineStage } from "../../candidates/api/types";
-import { findStatus, LEGACY_CATALOG } from "../../candidates/lib/pipelineStatus";
+import { findStatus, isOutOfProcess, LEGACY_CATALOG } from "../../candidates/lib/pipelineStatus";
 import type { PipelineCatalog } from "../../workspace/api/types";
 
-/** Where the mandate has got to with someone, in the four readings the report draws — read off their stage. */
+/** Where the mandate has got to with someone, in the four readings the report draws — read off their status. */
 export type StatusTone = "interested" | "inConversation" | "closed" | "untouched";
 
 export const STATUS_TONES: Record<StatusTone, { label: string; fill: string; swatch: string; pill: string }> = {
@@ -14,7 +14,7 @@ export const STATUS_TONES: Record<StatusTone, { label: string; fill: string; swa
     pill: "bg-u-adjacent-tint text-u-adjacent",
   },
   closed: {
-    label: "Declined",
+    label: "Out of process",
     fill: "fill-u-offlimits",
     swatch: "bg-u-offlimits",
     pill: "bg-u-offlimits-tint text-u-offlimits",
@@ -30,18 +30,21 @@ export const STATUS_TONES: Record<StatusTone, { label: string; fill: string; swa
 /** A row the report draws: its status key, and the stage the server derived from it where it sent one. */
 export interface StagedStatus {
   status: string;
-  pipelineStage?: Pick<CandidatePipelineStage, "key" | "kind" | "position"> | null;
+  /** The server's own reading of whether the status is a way out; the catalog's where it sent none. */
+  statusOutOfProcess?: boolean;
+  pipelineStage?: Pick<CandidatePipelineStage, "key" | "position"> | null;
 }
 
 /**
- * The closed stage is a closed door; the first stage is someone not yet approached and the second someone in
- * conversation; every active stage past those is interest or further. The seeded stage keys win over position,
- * so a stage an admin inserted early does not shift them. A row without a stage is read off the catalog.
+ * A status out of process is a closed door, whatever stage it sits under; otherwise the first stage is someone
+ * not yet approached and the second someone in conversation, and every active stage past those is interest or
+ * further. The seeded stage keys win over position, so a stage an admin inserted early does not shift them. A
+ * row without a stage is read off the catalog.
  */
 export function statusTone(row: StagedStatus, catalog?: PipelineCatalog | null): StatusTone {
+  if (row.statusOutOfProcess ?? (row.status !== "" && isOutOfProcess(row.status, catalog))) return "closed";
   const stage = row.pipelineStage ?? stageOf(row.status, catalog);
   if (!stage) return "untouched";
-  if (stage.kind === "closed") return "closed";
   const seeded = SEEDED_STAGE_TONES[stage.key];
   if (seeded) return seeded;
   if (stage.position <= 1) return "untouched";

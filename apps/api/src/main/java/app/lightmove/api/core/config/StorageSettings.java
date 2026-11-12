@@ -15,7 +15,13 @@ public record StorageSettings(
         @DefaultValue("") String bucket,
 
         /** The directory files are written under, under {@code filesystem}. */
-        @DefaultValue(".data/documents") String directory
+        @DefaultValue(".data/documents") String directory,
+
+        /**
+         * How often files whose rows are gone are deleted from the bucket. Spelled out in yml: {@code @Scheduled}
+         * reads it.
+         */
+        @DefaultValue("PT1M") String deletionSweepInterval
 ) {
 
     public StorageSettings {

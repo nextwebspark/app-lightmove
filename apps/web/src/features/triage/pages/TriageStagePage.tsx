@@ -1,22 +1,24 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Navigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { Navigate, useLocation, useOutletContext, useParams, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { ICONS } from "../../../components/layout/Icon";
-import { FullscreenButton } from "../../../components/ui";
+import { FullscreenButton, TOOLBAR_OUTLINE } from "../../../components/ui";
+import { ColumnPickerList, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { SelectionAction, SelectionActionBar } from "../../../components/ui/SelectionActionBar";
 import { useToast } from "../../../components/ui/Toast";
 import { cn } from "../../../lib/cn";
-import { messageFor } from "../../../lib/errorCodes";
+import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { useProjectRowsChanged } from "../../../lib/projectRows";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
-import { useGridSort, type GridSort } from "../../../lib/useGridSort";
+import { sortableFieldsOf, useGridSort, type GridSort } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
+import { useExecutivesAtCompany } from "../../candidates/lib/useExecutivesAtCompany";
 import type { Candidate, CandidatesPage } from "../../candidates/api/types";
 import {
   CandidateDrawer,
@@ -25,17 +27,23 @@ import {
 import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandidateDialog";
 import { useChangeCandidateStatus } from "../../candidates/lib/useChangeCandidateStatus";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
+import { useDeleteCustomColumn } from "../../customcolumns/lib/useDeleteCustomColumn";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import * as positionApi from "../../position/api/positionApi";
+import { EmailComposerDialog } from "../../outreach/components/EmailComposerDialog";
 import { EnrolDialog } from "../../outreach/components/EnrolDialog";
+import { NewEmailButton, type EmailRecipient } from "../../outreach/components/NewEmailButton";
+import { mailboxStateOf } from "../../outreach/lib/mailboxState";
 import { refreshOutreachActivity } from "../../outreach/lib/outreachRefresh";
 import { useMailbox } from "../../outreach/lib/useMailbox";
+import { useMailboxConnect } from "../../outreach/lib/useMailboxConnect";
 import { canExecuteProjectWork } from "../../projects/lib/access";
 import { isArchived } from "../../projects/lib/filtering";
+import { PipelineView } from "../../pipeline/components/PipelineView";
 import * as talentMapApi from "../../talentmap/api/talentMapApi";
 import type * as talentMapTypes from "../../talentmap/api/types";
 import { TalentMapView } from "../../talentmap/components/TalentMapView";
-import { useTalentMapPreferences } from "../../talentmap/lib/useTalentMapPreferences";
+import { useTalentMapPreferences, type CompaniesView } from "../../talentmap/lib/useTalentMapPreferences";
 import { TASKS_KEY_PREFIX } from "../../tasks/api/tasksApi";
 import * as exportApi from "../api/exportApi";
 import * as sourcingApi from "../api/sourcingApi";
@@ -43,22 +51,25 @@ import * as triageApi from "../api/triageApi";
 import { executiveStatusOptions as statusFilterOptions, statusKeysOf } from "../lib/executiveStatusFilter";
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
+import type { AdvancedMenuSection } from "../components/AdvancedMenu";
 import { CompanyDrawer, type CompanyDrawerTab } from "../components/CompanyDrawer";
 import { ExecutiveSourcingBanner } from "../components/ExecutiveSourcingBanner";
 import { FindExecutivesDialog } from "../components/FindExecutivesDialog";
 import { ImportSpreadsheetDialog } from "../components/ImportSpreadsheetDialog";
 import { ManageColumnsDialog } from "../components/ManageColumnsDialog";
+import { DeclineCompanyDialog } from "../components/DeclineCompanyDialog";
 import { RemoveCompanyDialog } from "../components/RemoveCompanyDialog";
 import { TriageCompanyTable } from "../components/TriageCompanyTable";
-import { TriageToolbar } from "../components/TriageToolbar";
+import { TriageToolbar, type UnavailableAction } from "../components/TriageToolbar";
 import {
   createTriageCompanyColumns,
   defaultTriageColumnVisibility,
   TRIAGE_SORT_FIELDS,
 } from "../lib/triageCompanyColumns";
-import { awaitingResearch, toTriageRows } from "../lib/triageRows";
-import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
+import { awaitingResearch, type TriageCompanyRow } from "../lib/triageRows";
+import { OFFERED_TRIAGE_STAGES, offeredStageBySlug } from "../lib/triageStages";
 import { companiesOf } from "../lib/sourcingSummary";
+import { resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
 import { useCompanySelection } from "../lib/useCompanySelection";
 import { useExecutiveSourcing } from "../lib/useExecutiveSourcing";
 import { useProjectStream, type ProjectStreamKind } from "../../../lib/useProjectStream";
@@ -94,24 +105,18 @@ const MOVE_LABELS: Record<TriageCompanyStatus, string> = {
 };
 
 /**
- * One stage of a mandate's companies — In universe, Shortlisted or Declined — as its own page, in the
- * same grid Strategy uses.
- *
- * <p>The stage comes from the URL rather than a prop, so all three are one route pattern and a stage
- * added to {@link TRIAGE_STAGES} is reachable without touching the router. An unknown slug redirects
- * rather than rendering an empty grid for a stage that does not exist.
- *
- * <p>A mandate nobody has triaged shows an empty stage rather than the market. That is the change
- * this screen went through: discovery moved to Strategy, and what remains here is the record of
- * decisions, which starts empty and stays that way until someone makes one.
+ * One stage of a mandate's companies as its own page, the stage from the URL so one added to
+ * {@link OFFERED_TRIAGE_STAGES} needs no router change; an unknown or unoffered slug redirects. An untriaged
+ * mandate shows an empty stage, never the market.
  */
 export function TriageStagePage() {
   const { stage: stageSlug } = useParams();
+  const { search } = useLocation();
   const { project } = useOutletContext<ProjectOutletContext>();
-  const stage = stageSlug ? stageBySlug(stageSlug) : undefined;
+  const stage = stageSlug ? offeredStageBySlug(stageSlug) : undefined;
 
   if (!stage) {
-    return <Navigate to={`/projects/${project.id}/companies/${TRIAGE_STAGES[0].slug}`} replace />;
+    return <Navigate to={`/projects/${project.id}/companies/${OFFERED_TRIAGE_STAGES[0].slug}${search}`} replace />;
   }
   // Keyed on the project too, not just the stage: the outlet context updates in place on a project
   // switch (react-router does not remount a route element just because a param changed), so without
@@ -128,11 +133,15 @@ function TriageStage() {
   const rowsChanged = useProjectRowsChanged();
   const toast = useToast();
 
-  const stage = stageBySlug(stageSlug!)!;
+  const stage = offeredStageBySlug(stageSlug!)!;
   const canWrite = canExecuteProjectWork(project, user?.id, user?.workspace?.roles);
 
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  /** The toolbar's search, the same in every view: the server matches it, so the three views agree. */
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  /** The Company column's own header filter: the company's name alone. */
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   /** The Executive column's own header filter — independent of the Company one above it. */
@@ -166,13 +175,16 @@ function TriageStage() {
     });
   const [openCompany, setOpenCompany] = useState<OpenCompany | null>(null);
   const [pendingRemoval, setPendingRemoval] = useState<TriageCompany | null>(null);
+  const [pendingDecline, setPendingDecline] = useState<PendingDecline | null>(null);
   const [profile, setProfile] = useState<OpenProfile | null>(null);
   const profileCompany = profile?.company ?? null;
   const [pendingCandidateRemoval, setPendingCandidateRemoval] = useState<Candidate | null>(null);
   const [importing, setImporting] = useState(false);
   const companySelection = useCompanySelection();
   const [confirmingFindExecutives, setConfirmingFindExecutives] = useState(false);
-  const [enrollingCompanyIds, setEnrollingCompanyIds] = useState<string[] | null>(null);
+  const [enrolment, setEnrolment] = useState<Enrolment | null>(null);
+  const [emailing, setEmailing] = useState<EmailRecipient | null>(null);
+  const [pipelineSelection, setPipelineSelection] = useState<ReadonlySet<string>>(() => new Set());
   const [managingColumns, setManagingColumns] = useState(false);
   /** Set when "Edit field" is opened from a header menu, so the dialog lands already renaming it. */
   const [editColumnId, setEditColumnId] = useState<string | null>(null);
@@ -197,23 +209,38 @@ function TriageStage() {
       { replace: true },
     );
   }, [addRequest, user, canWrite, setSearchParams]);
-  const [sort, setSort] = useGridSort("companies", project.id, TRIAGE_SORT_FIELDS, DEFAULT_SORT);
+  const [sort, setSort] = useGridSort<TriageSortField>("companies", project.id, TRIAGE_SORT_FIELDS, DEFAULT_SORT);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [mapPreferences, setMapPreferences] = useTalentMapPreferences(project.id);
-
-  /**
-   * Whether this deployment draws a map at all. A refused or failed read means no toggle rather than
-   * a broken globe — the grid is the screen, the map is the second reading of it. Read once and kept:
-   * a token does not change while a tab is open.
-   */
-  const mapConfig = useQuery({
-    queryKey: talentMapApi.TALENT_MAP_CONFIG_KEY,
-    queryFn: ({ signal }) => talentMapApi.getTalentMapConfig(signal),
-    staleTime: Infinity,
-  });
-  const mapOffered =
-    stage.status === "inUniverse" && mapConfig.data?.enabled === true && !!mapConfig.data.publicToken;
-  const view = mapOffered ? mapPreferences.view : "table";
+  const { views, mapConfig } = useCompaniesViews(stage.status, canWrite);
+  const requestedView = searchParams.get("view");
+  const view = resolveCompaniesView(views, requestedView, mapPreferences.view);
+  const isBoard = view === "pipeline";
+  /** Declined is a list of what was ruled out, whose one act is Back to universe. */
+  const declinedStage = stage.status === "declined";
+  // A tick made on one reading of the stage must not ride silently into another.
+  const [tickedInView, setTickedInView] = useState(view);
+  if (tickedInView !== view) {
+    setTickedInView(view);
+    companySelection.clear();
+    setPipelineSelection(new Set());
+  }
+  // Only the switch remembers a view: a link that names one, a notification's opening the pipeline, is a visit.
+  const handleViewChange = (next: CompaniesView) => {
+    setMapPreferences({ view: next });
+    setSearchParams(
+      (current) => {
+        const params = new URLSearchParams(current);
+        params.set("view", next);
+        params.delete("candidate");
+        params.delete("note");
+        params.delete("section");
+        params.delete("tab");
+        return params;
+      },
+      { replace: true },
+    );
+  };
 
   /**
    * The mandate's currency, offered to a new executive's package so a consultant stops picking it on
@@ -265,8 +292,30 @@ function TriageStage() {
     defaultVisibility,
   );
   const [layout, setLayout] = useGridLayout("companies", TRIAGE_LAYOUT_COLUMNS);
+  const hideableColumns = useMemo(
+    () => hideableColumnsOf(createTriageCompanyColumns(customColumns, { staff: canWrite })),
+    [customColumns, canWrite],
+  );
+  const hiddenColumnCount = hideableColumns.filter((column) => columnVisibility[column.id] === false).length;
+
+  // A sort on a column this reader no longer has — a custom column removed, a staff column on a client seat — is a
+  // 400 from the server, so the grid falls back to its default rather than failing.
+  const sortableFields = useMemo(
+    () => sortableFieldsOf(createTriageCompanyColumns(customColumns, { staff: canWrite })),
+    [customColumns, canWrite],
+  );
+  useEffect(() => {
+    if (!customColumnsQuery.isSuccess || sortableFields.includes(sort.field)) return;
+    setSort(DEFAULT_SORT);
+  }, [customColumnsQuery.isSuccess, sortableFields, sort.field, setSort]);
 
   // A keystroke should narrow the list, not fire a request per character.
+  useEffect(() => {
+    // Trimmed once here, so a trailing space neither refetches the same page under a new key nor reads as a search.
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query), 300);
     return () => clearTimeout(timer);
@@ -284,9 +333,10 @@ function TriageStage() {
       setPage(0);
       // A tick made on one reading of the stage must not ride silently into another.
       companySelection.clear();
+      setPipelineSelection(new Set());
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [debouncedQuery, debouncedExecutiveQuery, executiveStatuses.join(","), sort],
+    [debouncedSearch, debouncedQuery, debouncedExecutiveQuery, executiveStatuses.join(","), sort],
   );
 
   /**
@@ -294,8 +344,10 @@ function TriageStage() {
    * and all three counts, and a page that refreshed only the list it was looking at would show the
    * company gone and the sidebar's shortlist badge still one short.
    */
-  const refreshEveryStage = () =>
+  const refreshEveryStage = () => {
     void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
+    void queryClient.invalidateQueries({ queryKey: triageApi.STAGE_LINES_KEY_PREFIX(project.id) });
+  };
 
   const refreshPeople = () =>
     void queryClient.invalidateQueries({
@@ -308,9 +360,9 @@ function TriageStage() {
     });
 
   /**
-   * Removing a company unmaps its people rather than deleting them, and adding one changes which
-   * people the grid should be asking about — so the two caches move together on every write, which
-   * is what {@link useProjectRowsChanged} is. The columns are not part of that and stay here: only
+   * Removing a company takes its people with it, and adding one changes which people the grid should
+   * be asking about — so the two caches move together on every write, which is what
+   * {@link useProjectRowsChanged} is. The columns are not part of that and stay here: only
    * an import defines one, and refreshing rows without their headers leaves the imported values in
    * columns the grid does not yet know how to render.
    */
@@ -356,24 +408,22 @@ function TriageStage() {
 
   const streamIsLive = useProjectStream(project.id, refreshWhatMoved);
 
-  /** Offered on the universe's table view only, and only where the deployment has a people search. */
+  /** Offered on the universe only, and only where the deployment has a people search. */
   const sourcing = useExecutiveSourcing(
     project.id,
     canWrite && stage.status === "inUniverse",
     streamIsLive,
     companySelection.deselect,
   );
-  const findExecutivesOffered = canWrite && stage.status === "inUniverse" && view === "table" && sourcing.offered;
+  const findExecutivesOffered = canWrite && stage.status === "inUniverse" && sourcing.offered;
   const findExecutivesCap = sourcing.config?.maxCompaniesPerRun ?? 0;
   const mailbox = useMailbox(canWrite);
-  /** Ticked companies' executives go to Add to sequence; never from Declined. */
-  const addToSequenceOffered =
-    canWrite &&
-    stage.status !== "declined" &&
-    view === "table" &&
-    mailbox.data?.offered === true &&
-    !isArchived(project);
-  const selectionOffered = findExecutivesOffered || addToSequenceOffered;
+  const mailboxConnect = useMailboxConnect();
+  const mailboxState = mailboxStateOf(mailbox);
+  const emailOffered = canWrite && mailbox.data?.offered === true && !isArchived(project);
+  /** Ticked companies' or executives' people go to Add to sequence; never from Declined. */
+  const addToSequenceOffered = emailOffered && stage.status !== "declined";
+  const selectionOffered = view === "table" && (findExecutivesOffered || addToSequenceOffered);
   const selectionCap = addToSequenceOffered ? Math.max(findExecutivesCap, ADD_TO_SEQUENCE_COMPANY_CAP) : findExecutivesCap;
   const selectionAction = addToSequenceOffered ? "Add to sequence" : "Find executives";
 
@@ -389,15 +439,8 @@ function TriageStage() {
     sourcing.start([...companySelection.selectedIds], () => setConfirmingFindExecutives(false));
 
   /**
-   * The screen's ordinary freshness is the project stream above: the server says when something
-   * under the mandate moved, and the grid refetches. This poll is the degraded mode, and only that —
-   * while the stream is down *and* a visible plugin capture is still being researched, the grid
-   * looks for itself every few seconds. With the stream up it announces the same research within a
-   * second, so polling beside it was one wasted page read per tick, per open tab.
-   *
-   * <p>A ref rather than the queries themselves: react-query evaluates this while the first query is
-   * still being declared, so reading the people queries here directly is a use-before-init. The ref
-   * is refreshed right after they land, below.
+   * Degraded-mode poll: only while the project stream is down and a visible capture is still being researched.
+   * A ref, not the queries: react-query evaluates this before the people queries are declared (use-before-init).
    */
   const visiblePeople = useRef<Candidate[]>([]);
   const researchPoll = () => {
@@ -405,29 +448,25 @@ function TriageStage() {
     return awaitingResearch(visiblePeople.current) ? RESEARCH_POLL_MS : false;
   };
 
-  const companies = useQuery({
-    queryKey: triageApi.TRIAGE_KEY(
-      project.id,
-      stage.status,
-      page,
-      pageSize,
-      debouncedQuery,
-      debouncedExecutiveQuery,
-      executiveStatuses,
-      sort,
-    ),
-    queryFn: ({ signal }) =>
-      triageApi.getTriageCompanies(
-        project.id,
-        stage.status,
-        page,
-        pageSize,
-        debouncedQuery,
-        debouncedExecutiveQuery,
-        executiveStatuses,
-        sort,
-        signal,
-      ),
+  /**
+   * The grid's lines — people at companies, a company nobody is listed at yet, an executive at no company of the
+   * mandate — ordered by the server across the whole stage, so sorting by a person's name or title sorts the people
+   * whatever company they sit at. Filtered per person there too, so a company kept for one matching colleague draws
+   * only that colleague.
+   */
+  const linesScope: triageApi.StageLinesQuery = {
+    status: stage.status,
+    page,
+    size: pageSize,
+    query: debouncedQuery,
+    executiveQuery: debouncedExecutiveQuery.trim(),
+    executiveStatuses,
+    search: debouncedSearch,
+    sort,
+  };
+  const lines = useQuery({
+    queryKey: triageApi.STAGE_LINES_KEY(project.id, linesScope),
+    queryFn: ({ signal }) => triageApi.getStageLines(project.id, linesScope, signal),
     // The grid's reads are the grid's: the map reads the whole stage in one request of its own.
     enabled: view === "table",
     // Paging without blanking the grid, which would make every page turn look like a reload.
@@ -435,78 +474,16 @@ function TriageStage() {
     refetchInterval: researchPoll,
   });
 
-  const companyIds = useMemo(
-    () => (companies.data?.companies ?? []).map((company) => company.id),
-    [companies.data],
-  );
-
-  /**
-   * The people at the companies on this page, asked for separately rather than embedded in the list
-   * above. `triagecompany` knows nothing about candidates by design — the dependency runs one way —
-   * so the grid composes the two sides here instead of either feature learning the other's storage.
-   *
-   * <p>Disabled until the companies land: firing with no ids would either ask for the whole mandate
-   * or answer nothing, and both are wrong for a page that does not exist yet.
-   *
-   * <p>No size is named. The server sizes a company-filtered read at its own ceiling, which is a
-   * number this side must not try to guess — see {@link candidatesApi.getCandidates}. The
-   * Executive-name filter goes with it for the same reason: matched on the arrived page alone, a
-   * company whose only match sat past that ceiling would draw the "no executive mapped" slot over
-   * someone it has.
-   */
-  const executiveName = debouncedExecutiveQuery.trim();
-  // Only the people listed at this stage: a company carries its people across stages since #903, and a
-  // colleague moved to Declined is a line on Declined, not here.
-  const mappedScope = { triageCompanyIds: companyIds, query: executiveName, triageStatus: stage.status };
-  const mappedPeople = useQuery({
-    queryKey: candidatesApi.CANDIDATES_KEY(project.id, mappedScope),
-    queryFn: ({ signal }) => candidatesApi.getCandidates(project.id, mappedScope, signal),
-    enabled: view === "table" && companyIds.length > 0,
-    placeholderData: keepPreviousData,
-    refetchInterval: researchPoll,
-  });
-
-  /**
-   * What each read is entitled to show. `enabled` stops a fetch and never the cache behind it, and
-   * `keepPreviousData` hands an uncached key the last page outright — so a gate that lives on the
-   * query alone leaks a stale page into a view that asked for nothing like it.
-   */
-  const mappedPage = companyIds.length > 0 ? mappedPeople.data : undefined;
-
-  const totalCount = companies.data?.totalCount;
+  const totalCount = lines.data?.totalCount;
   const lastPage = Math.max(0, Math.ceil((totalCount ?? 0) / pageSize) - 1);
 
-  /**
-   * Whether this render carries the employer-less executives at all — one flag for the read <i>and</i>
-   * the merge below, because `enabled` stops the fetch and not the data: gated only there, the cached
-   * page kept being merged into every filtered view. A company-name filter hides them; the Executive
-   * and Status filters narrow them.
-   */
-  const showsUnmappedPeople = view === "table" && !debouncedQuery.trim() && page === lastPage;
-
-  /**
-   * Executives whose employer is not in the mandate's universe at all. They belong to the mandate
-   * rather than to any company, so they sit after the companies on their stage's last page — the one
-   * place a reader reaches by scrolling to the end of the mapping. Grouping the grid by company is
-   * where they eventually get a heading of their own; until then, invisible would be worse.
-   *
-   * <p>The name filter goes to the server: the read is capped there, so matching it on the arrived
-   * page alone would miss everyone past the cap.
-   */
-  const unmappedScope = { unmapped: true, query: executiveName, triageStatus: stage.status };
-  const unmappedPeople = useQuery({
-    queryKey: candidatesApi.CANDIDATES_KEY(project.id, unmappedScope),
-    queryFn: ({ signal }) => candidatesApi.getCandidates(project.id, unmappedScope, signal),
-    enabled: showsUnmappedPeople,
-    placeholderData: keepPreviousData,
-    refetchInterval: researchPoll,
-  });
-  const unmappedPage = showsUnmappedPeople ? unmappedPeople.data : undefined;
-
-  visiblePeople.current = [
-    ...(mappedPage?.candidates ?? []),
-    ...(unmappedPage?.candidates ?? []),
-  ];
+  visiblePeople.current = (lines.data?.lines ?? [])
+    .map((line) => line.candidate)
+    .filter((candidate): candidate is Candidate => candidate !== null);
+  const profileCompanyId = profile?.candidate?.triageCompanyId ?? null;
+  const profileCompanyRow = profileCompanyId
+    ? (lines.data?.lines.find((line) => line.company?.id === profileCompanyId)?.company ?? null)
+    : null;
 
   /**
    * Which Status values the Status column's header menu offers — only the ones actually borne by an
@@ -519,14 +496,14 @@ function TriageStage() {
     () => new Set(),
   );
   useEffect(() => {
-    if (executiveStatuses.length > 0 || executiveName || visiblePeople.current.length === 0) return;
+    if (executiveStatuses.length > 0 || debouncedExecutiveQuery.trim() || debouncedSearch || visiblePeople.current.length === 0) return;
     setSeenExecutiveStatuses((current) => {
       const next = new Set(current);
       for (const candidate of visiblePeople.current) next.add(candidate.status);
       return next.size === current.size ? current : next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mappedPage, unmappedPage, executiveStatuses.length, executiveName]);
+  }, [lines.data, executiveStatuses.length, debouncedExecutiveQuery, debouncedSearch]);
   const executiveStatusOptions = useMemo(
     () => statusFilterOptions(pipelineCatalog, seenExecutiveStatuses),
     [pipelineCatalog, seenExecutiveStatuses],
@@ -534,24 +511,20 @@ function TriageStage() {
 
   /** The whole stage as points, read once when the globe opens and again when the mandate changes. */
   const talentMap = useQuery({
-    queryKey: talentMapApi.TALENT_MAP_KEY(project.id, stage.status),
-    queryFn: ({ signal }) => talentMapApi.getTalentMap(project.id, stage.status, signal),
+    queryKey: talentMapApi.TALENT_MAP_KEY(project.id, stage.status, debouncedSearch),
+    queryFn: ({ signal }) => talentMapApi.getTalentMap(project.id, stage.status, debouncedSearch, signal),
     enabled: view === "map",
     placeholderData: keepPreviousData,
   });
 
   /**
-   * The points on their own, polled while the server is still placing rows it could not place in one
-   * read — a big import fills in over a few of them — and stopping by itself once nothing is pending.
-   *
-   * <p>A read of its own rather than a poll of the one above: what changes between two polls is a
-   * handful of coordinates, and re-reading the stage for them would put the mandate's every company
-   * and full profile back on the wire every three seconds.
+   * The points alone, polled while the server is still placing rows and stopping once none is pending — a read of
+   * its own so a poll never re-sends every company and profile.
    */
   const geocodingPending = talentMap.data?.geocodingPending ?? 0;
   const talentMapLocations = useQuery({
-    queryKey: talentMapApi.TALENT_MAP_LOCATIONS_KEY(project.id, stage.status),
-    queryFn: ({ signal }) => talentMapApi.getTalentMapLocations(project.id, stage.status, signal),
+    queryKey: talentMapApi.TALENT_MAP_LOCATIONS_KEY(project.id, stage.status, debouncedSearch),
+    queryFn: ({ signal }) => talentMapApi.getTalentMapLocations(project.id, stage.status, debouncedSearch, signal),
     enabled: view === "map" && geocodingPending > 0,
     refetchInterval: GEOCODING_POLL_MS,
   });
@@ -562,42 +535,20 @@ function TriageStage() {
   useEffect(() => {
     if (!polledLocations) return;
     queryClient.setQueryData(
-      talentMapApi.TALENT_MAP_KEY(project.id, stage.status),
+      talentMapApi.TALENT_MAP_KEY(project.id, stage.status, debouncedSearch),
       (held: talentMapTypes.TalentMapPage | undefined) =>
         held ? { ...held, ...polledLocations } : held,
     );
-  }, [polledLocations, queryClient, project.id, stage.status]);
+  }, [polledLocations, queryClient, project.id, stage.status, debouncedSearch]);
 
   const rows = useMemo(() => {
-    // The server's Executive-name and Status filters are both company-level (EXISTS: does this
-    // company have a matching executive at all), so a page can carry a company for one matching
-    // person among several. The grid's own rows are people, not companies, so each ticked/typed
-    // filter also narrows which of a kept company's executives get a line — otherwise searching
-    // "Alok" would still draw an unrelated colleague's row beneath theirs.
-    const normalisedQuery = executiveName.toLowerCase();
-    const matchesExecutiveFilters = (candidate: Candidate) => {
-      if (executiveStatuses.length > 0 && !executiveStatuses.includes(candidate.status)) return false;
-      if (normalisedQuery && !candidate.fullName.toLowerCase().includes(normalisedQuery)) return false;
-      return true;
-    };
-    const people = (mappedPage?.candidates ?? []).filter(matchesExecutiveFilters);
-    const unmapped = (unmappedPage?.candidates ?? []).filter(matchesExecutiveFilters);
-    const addedBy = { ...(mappedPage?.addedBy ?? {}), ...(unmappedPage?.addedBy ?? {}) };
-    return toTriageRows(companies.data?.companies ?? [], people, unmapped, addedBy);
-  }, [companies.data, mappedPage, unmappedPage, executiveStatuses, executiveName]);
-
-  /**
-   * What the two people reads could not fit. Both are capped by the server, and a mapping that ran
-   * past the cap would otherwise render fewer lines per company with nothing saying so — a talent map
-   * that looks complete and is not, on the screen whose whole job is showing what has been mapped.
-   *
-   * <p>Stated rather than hidden, for the same reason `totalLabel` below refuses to print a count it
-   * has not read yet.
-   */
-  const unlisted = [
-    peopleNotShown(mappedPage, "at these companies"),
-    peopleNotShown(unmappedPage, "with no company in this mandate"),
-  ].filter((line): line is string => line !== null);
+    const addedBy = lines.data?.addedBy ?? {};
+    return (lines.data?.lines ?? []).flatMap((line): TriageCompanyRow[] => {
+      const candidateAddedBy = line.candidate ? addedBy[line.candidate.id] : undefined;
+      if (line.company) return [{ company: line.company, candidate: line.candidate, candidateAddedBy }];
+      return line.candidate ? [{ company: null, candidate: line.candidate, candidateAddedBy }] : [];
+    });
+  }, [lines.data]);
 
   /**
    * A company's move carries the people still where it stood, and someone moved on their own stays put (#903). The
@@ -644,13 +595,48 @@ function TriageStage() {
       : standing.candidates.map((candidate) => candidate.id);
   };
 
-  /** Who a removal leaves on the position with no company, read only while its dialog is open. */
-  const removalScope = { triageCompanyIds: pendingRemoval ? [pendingRemoval.id] : [] };
-  const peopleAtRemoval = useQuery({
-    queryKey: candidatesApi.CANDIDATES_KEY(project.id, removalScope),
-    queryFn: ({ signal }) => candidatesApi.getCandidates(project.id, removalScope, signal),
-    enabled: pendingRemoval !== null,
-  });
+  /**
+   * Declining takes everyone mapped at the company, whatever stage they stand at, so it reads them first: nobody, and
+   * the company goes at once; anybody, and the dialog says how many go with it.
+   */
+  const requestMove = async (company: TriageCompany, status: TriageCompanyStatus) => {
+    markBusy(company.id);
+    if (status !== "declined") {
+      move.mutate({ company, status });
+      return;
+    }
+    let everyone: CandidatesPage;
+    try {
+      everyone = await candidatesApi.getCandidates(project.id, { triageCompanyIds: [company.id] });
+    } catch (error) {
+      clearBusy(company.id);
+      toast.error(messageFor(error));
+      return;
+    }
+    const executiveIds =
+      everyone.totalCount > everyone.candidates.length ? undefined : everyone.candidates.map((candidate) => candidate.id);
+    if (everyone.totalCount === 0) {
+      move.mutate({ company, status, executiveIds: [] });
+      return;
+    }
+    clearBusy(company.id);
+    setPendingDecline({ company, executiveIds, count: everyone.totalCount });
+  };
+
+  /** Who a company's removal takes with it, and whether a person's removal could take their company too. */
+  const executivesAtRemoval = useExecutivesAtCompany(project.id, pendingRemoval?.id ?? null);
+  const executivesAtCandidateCompany = useExecutivesAtCompany(
+    project.id,
+    pendingCandidateRemoval?.triageCompanyId ?? null,
+  );
+
+  /** Someone was mapped at the company after its count was read: read it again, so the dialog says who goes. */
+  const recountWhenRefused = (error: unknown) => {
+    if (codeOf(error) === "TRIAGE_COMPANY_HAS_EXECUTIVES") {
+      void queryClient.invalidateQueries({ queryKey: candidatesApi.CANDIDATES_KEY_PREFIX(project.id) });
+    }
+    toast.error(messageFor(error));
+  };
 
   /** One executive alone (#903): their company, and everyone else at it, stay where they stand. */
   const moveCandidate = useMutation({
@@ -676,35 +662,46 @@ function TriageStage() {
   });
 
   const remove = useMutation({
-    mutationFn: (company: TriageCompany) => triageApi.deleteTriageCompany(project.id, company.id),
-    onSuccess: (_result, company) => {
+    mutationFn: ({ company, executives }: { company: TriageCompany; executives: number }) =>
+      triageApi.deleteTriageCompany(project.id, company.id, { expectedExecutives: executives }),
+    onSuccess: (_result, { company, executives }) => {
       refreshEverything();
       setPendingRemoval(null);
-      toast(`${company.companyName} removed from this mandate`);
+      toast(
+        executives > 0
+          ? `${company.companyName} and ${executivesOf(executives)} removed from this mandate`
+          : `${company.companyName} removed from this mandate`,
+      );
     },
-    onError: (error) => toast.error(messageFor(error)),
-    onSettled: (_data, _error, company) => clearBusy(company.id),
+    onError: recountWhenRefused,
+    onSettled: (_data, _error, { company }) => clearBusy(company.id),
   });
 
   const exportCsv = useMutation({
     // The debounced terms, not the keystrokes: the file is what the grid is showing, and for 300ms
     // after a keypress those are two different things.
     mutationFn: () => exportApi.saveCompaniesCsv(project.id, stage.status,
-      { query: debouncedQuery, executiveQuery: debouncedExecutiveQuery, executiveStatuses },
+      { search: debouncedSearch, query: debouncedQuery, executiveQuery: debouncedExecutiveQuery, executiveStatuses },
       [project.clientName, project.positionTitle, stage.label]),
     onError: (error) => toast.error(messageFor(error)),
   });
 
   const removeCandidate = useMutation({
-    mutationFn: (candidate: Candidate) =>
-      candidatesApi.deleteCandidate(project.id, candidate.id),
-    onSuccess: (_result, candidate) => {
+    mutationFn: ({ candidate, withCompany }: { candidate: Candidate; withCompany: boolean }) =>
+      withCompany
+        ? candidatesApi.deleteCandidate(project.id, candidate.id, { withCompany })
+        : candidatesApi.deleteCandidate(project.id, candidate.id),
+    onSuccess: (_result, { candidate, withCompany }) => {
       refreshEverything();
       setPendingCandidateRemoval(null);
       setProfile(null);
-      toast(`${candidate.fullName} removed from this mandate`);
+      toast(
+        withCompany
+          ? `${candidate.fullName} and ${candidate.companyName} removed from this mandate`
+          : `${candidate.fullName} removed from this mandate`,
+      );
     },
-    onError: (error) => toast.error(messageFor(error)),
+    onError: recountWhenRefused,
   });
 
   // Loosened past `TriageCompany`: the add-executive panel holds only its company context, which is
@@ -722,6 +719,139 @@ function TriageStage() {
 
   const changeCandidateStatus = useChangeCandidateStatus(project.id, refreshPeople);
 
+  const deleteColumn = useDeleteCustomColumn(project.id);
+
+  const togglePipelineSelected = (candidateId: string) =>
+    setPipelineSelection((current) => {
+      const next = new Set(current);
+      if (next.has(candidateId)) next.delete(candidateId);
+      else next.add(candidateId);
+      return next;
+    });
+
+  const enrolTicked = () => {
+    if (view === "pipeline") {
+      const ids = [...pipelineSelection];
+      setEnrolment({
+        scope: { candidateIds: ids },
+        source: `From the ${ids.length === 1 ? "executive" : `${ids.length} executives`} you ticked on the pipeline`,
+      });
+      return;
+    }
+    const ids = [...companySelection.selectedIds];
+    setEnrolment({
+      scope: { triageCompanyIds: ids, triageStatus: stage.status },
+      source: `From the ${companiesOf(ids.length)} you ticked on ${stage.label}`,
+    });
+  };
+
+  /** The toolbar's Add to sequence, greyed with the way in until something is ticked; the map ticks nothing. */
+  const toolbarEnrolUnavailable = (): UnavailableAction | undefined => {
+    if (view === "map") return { reason: "Add to sequence from Table or Pipeline" };
+    const ticked = view === "pipeline" ? pipelineSelection.size : companySelection.selectedIds.size;
+    if (ticked > 0) return undefined;
+    return { reason: view === "pipeline" ? "Tick executives on the board first" : "Tick companies first" };
+  };
+
+  /** What Advanced ▾ holds on Table and Map (`Position.dc.html`'s `advancedItems`): only what that view can use. */
+  const advancedSections = (): AdvancedMenuSection[] => {
+    const sections: AdvancedMenuSection[] = [];
+    if (view === "table") {
+      sections.push({
+        label: "Layout",
+        items: [
+          {
+            key: "columns",
+            label: "Show / hide columns",
+            icon: ICONS.columns,
+            badge: hiddenColumnCount > 0 ? `${hiddenColumnCount} hidden` : undefined,
+            panel: () => (
+              <ColumnPickerList
+                columns={hideableColumns}
+                visibility={columnVisibility}
+                defaults={defaultVisibility}
+                onChange={setColumnVisibility}
+                onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
+              />
+            ),
+          },
+          ...(canWrite && !declinedStage
+            ? [
+                {
+                  key: "manageColumns",
+                  label: "Manage custom columns…",
+                  icon: ICONS.settings,
+                  hint: "This position's own fields",
+                  onSelect: () => setManagingColumns(true),
+                },
+              ]
+            : []),
+        ],
+      });
+    } else if (view === "map") {
+      sections.push({
+        label: "Map",
+        items: [
+          {
+            key: "mapExecutives",
+            label: "Executives on the map",
+            icon: ICONS.candidates,
+            checked: mapPreferences.showExecutives,
+            onSelect: () => setMapPreferences({ showExecutives: !mapPreferences.showExecutives }),
+          },
+          {
+            key: "mapPanel",
+            label: "Mapping panel",
+            icon: ICONS.table,
+            checked: !mapPreferences.panelCollapsed,
+            onSelect: () => setMapPreferences({ panelCollapsed: !mapPreferences.panelCollapsed }),
+          },
+        ],
+      });
+    }
+    if (addToSequenceOffered && view === "table") {
+      const ticked = companySelection.selectedIds.size;
+      sections.push({
+        label: "Outreach",
+        items: [
+          {
+            key: "sequence",
+            label: "Add to sequence…",
+            icon: ICONS.outreach,
+            disabled: ticked === 0,
+            hint: ticked > 0 ? `${ticked} ticked` : "Tick companies first",
+            onSelect: enrolTicked,
+          },
+        ],
+      });
+    }
+    sections.push({
+      label: "Data",
+      items: [
+        ...(canWrite && stage.status === "inUniverse"
+          ? [
+              {
+                key: "import",
+                label: "Import spreadsheet…",
+                icon: ICONS.importInto,
+                hint: "CSV or Excel · companies and people",
+                onSelect: () => setImporting(true),
+              },
+            ]
+          : []),
+        {
+          key: "export",
+          label: exportCsv.isPending ? "Exporting…" : "Export CSV",
+          icon: ICONS.exportOut,
+          disabled: exportCsv.isPending,
+          hint: debouncedSearch.trim() ? "This stage, as searched" : "Every row of this stage",
+          onSelect: () => exportCsv.mutate(),
+        },
+      ],
+    });
+    return sections;
+  };
+
   // A page that outlives its rows — the last company on page 3 was moved away — would otherwise sit
   // on an empty grid with no way back but the pager.
   useEffect(() => {
@@ -734,22 +864,39 @@ function TriageStage() {
        than guessed from a hard-coded amount of chrome that any topbar change would falsify. */
     <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
       <TriageToolbar
-        query={query}
-        onQuery={setQuery}
-        columnVisibility={columnVisibility}
-        onColumnVisibilityChange={setColumnVisibility}
-        customColumns={customColumns}
-        onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
-        onAddCompany={() => setOpenCompany({ company: null })}
-        onAddExecutive={() => setProfile({ candidate: null, company: null })}
-        onImport={() => setImporting(true)}
-        onExport={() => exportCsv.mutate()}
-        exporting={exportCsv.isPending}
-        onManageColumns={() => setManagingColumns(true)}
-        canWrite={canWrite}
-        canImport={stage.status === "inUniverse"}
+        search={search}
+        onSearch={setSearch}
+        searchPlaceholder={!canWrite ? "Search companies and executives…" : "Search companies, executives, notes…"}
+        views={views}
+        view={view}
+        onViewChange={handleViewChange}
+        addToSequence={addToSequenceOffered ? { onPress: enrolTicked, unavailable: toolbarEnrolUnavailable() } : undefined}
+        sendEmail={
+          emailOffered &&
+          !declinedStage &&
+          mailboxState.kind !== "unavailable" && (
+            <NewEmailButton
+              projectId={project.id}
+              mailbox={mailboxState}
+              connector={mailboxConnect}
+              onPick={setEmailing}
+              label="Send email"
+              icon={ICONS.mail}
+              triggerClassName={TOOLBAR_OUTLINE}
+              collapsible
+            />
+          )
+        }
+        create={
+          canWrite && !isBoard && !declinedStage
+            ? {
+                onAddExecutive: () => setProfile({ candidate: null, company: null }),
+                onAddCompany: () => setOpenCompany({ company: null }),
+              }
+            : undefined
+        }
         findExecutives={
-          findExecutivesOffered
+          findExecutivesOffered && !isBoard
             ? {
                 onPress: handleFindExecutives,
                 running: sourcing.isRunning,
@@ -759,8 +906,12 @@ function TriageStage() {
               }
             : undefined
         }
-        view={view}
-        onViewChange={mapOffered ? (next) => setMapPreferences({ view: next }) : undefined}
+        advanced={isBoard ? undefined : advancedSections()}
+        advancedDot={
+          view === "table" && hiddenColumnCount > 0
+            ? `${hiddenColumnCount} column${hiddenColumnCount === 1 ? "" : "s"} hidden`
+            : undefined
+        }
       />
 
       {findExecutivesOffered && sourcing.run && !sourcing.isDismissed && (
@@ -797,11 +948,30 @@ function TriageStage() {
         }}
       />
 
-      {view === "map" ? (
+      {view === "pipeline" ? (
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <PipelineView
+            project={project}
+            search={debouncedSearch}
+            selectedIds={pipelineSelection}
+            onToggleSelected={togglePipelineSelected}
+          />
+          {addToSequenceOffered && pipelineSelection.size > 0 && (
+            <SelectionActionBar
+              count={pipelineSelection.size}
+              noun="executive"
+              plural="executives"
+              onClear={() => setPipelineSelection(new Set())}
+            >
+              <SelectionAction icon={ICONS.mail} label="Add to sequence" onClick={enrolTicked} />
+            </SelectionActionBar>
+          )}
+        </div>
+      ) : view === "map" ? (
         <TalentMapView
           projectId={project.id}
           page={talentMap.data}
-          query={query}
+          searching={debouncedSearch.trim() !== ""}
           accessToken={mapConfig.data?.publicToken ?? ""}
           canWrite={canWrite}
           loading={talentMap.isFetching}
@@ -821,7 +991,7 @@ function TriageStage() {
       /* `min-h-0`: a `flex-1` child of a flex *column* keeps `min-height: auto` and refuses to
          shrink, so without it the grid grows to the height of every row it holds and the whole
          screen scrolls — header and pager included — rather than the rows scrolling under them. */
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-2">
         <TriageCompanyTable
           rows={rows}
           projectId={project.id}
@@ -833,10 +1003,10 @@ function TriageStage() {
           customColumns={customColumns}
           layout={layout}
           onLayoutChange={setLayout}
-          loading={companies.isFetching}
-          error={companies.isError}
+          loading={lines.isFetching}
+          error={lines.isError}
           emptyMessage={
-            debouncedQuery || debouncedExecutiveQuery || executiveStatuses.length > 0
+            debouncedSearch || debouncedQuery || debouncedExecutiveQuery || executiveStatuses.length > 0
               ? "No companies match that search."
               : stage.emptyMessage
           }
@@ -863,14 +1033,23 @@ function TriageStage() {
                 }
               : {}),
           }}
-          onEditColumn={(customColumnId) => {
-            setEditColumnId(customColumnId);
-            setManagingColumns(true);
-          }}
-          onMove={(company, status) => {
-            markBusy(company.id);
-            move.mutate({ company, status });
-          }}
+          onEditColumn={
+            declinedStage
+              ? undefined
+              : (customColumnId) => {
+                  setEditColumnId(customColumnId);
+                  setManagingColumns(true);
+                }
+          }
+          onDeleteColumn={
+            canWrite && !declinedStage
+              ? (customColumnId) => {
+                  const column = customColumns.find((entry) => entry.id === customColumnId);
+                  if (column) deleteColumn.mutate(column);
+                }
+              : undefined
+          }
+          onMove={(company, status) => void requestMove(company, status)}
           onDelete={setPendingRemoval}
           onAddExecutive={(company) =>
             setProfile({
@@ -895,6 +1074,7 @@ function TriageStage() {
           onOpenCompany={(company) => setOpenCompany({ company })}
           busyIds={busyIds}
           canWrite={canWrite}
+          stageReadOnly={declinedStage}
           selection={
             selectionOffered
               ? {
@@ -918,7 +1098,7 @@ function TriageStage() {
               <SelectionAction
                 icon={ICONS.mail}
                 label="Add to sequence"
-                onClick={() => setEnrollingCompanyIds([...companySelection.selectedIds])}
+                onClick={enrolTicked}
               />
             )}
             {findExecutivesOffered && (
@@ -932,20 +1112,11 @@ function TriageStage() {
           </SelectionActionBar>
         )}
 
-        {enrollingCompanyIds && (
-          <EnrolDialog
-            projectId={project.id}
-            scope={{ triageCompanyIds: enrollingCompanyIds, triageStatus: stage.status }}
-            source={`From the ${companiesOf(enrollingCompanyIds.length)} you ticked on ${stage.label}`}
-            onClose={() => setEnrollingCompanyIds(null)}
-          />
-        )}
-
-        {unlisted.map((line) => (
-          <p key={line} role="status" className="flex-none font-mono text-[11.5px] text-u-text3">
-            {line}
+        {lines.data?.truncated && (
+          <p role="status" className="flex-none font-mono text-[11.5px] text-u-text3">
+            This stage is larger than one read can sort, so not every company or executive is listed. Search or filter to narrow it.
           </p>
-        ))}
+        )}
 
         <PaginationBar
           page={page}
@@ -956,6 +1127,24 @@ function TriageStage() {
           trailing={<FullscreenButton active={isFullscreen} onToggle={toggleFullscreen} />}
         />
       </div>
+      )}
+
+      {emailing && (
+        <EmailComposerDialog
+          projectId={project.id}
+          candidateId={emailing.candidateId}
+          fullName={emailing.fullName}
+          onClose={() => setEmailing(null)}
+        />
+      )}
+
+      {enrolment && (
+        <EnrolDialog
+          projectId={project.id}
+          scope={enrolment.scope}
+          source={enrolment.source}
+          onClose={() => setEnrolment(null)}
+        />
       )}
 
       <CompanyDrawer
@@ -969,9 +1158,8 @@ function TriageStage() {
         onClose={() => setOpenCompany(null)}
         onSaved={refreshEverything}
         onMove={(company, status) => {
-          markBusy(company.id);
           setOpenCompany(null);
-          move.mutate({ company, status });
+          void requestMove(company, status);
         }}
         onDelete={(company) => {
           setOpenCompany(null);
@@ -1007,7 +1195,15 @@ function TriageStage() {
           setProfile({ candidate: saved, company: null });
           refreshEverything();
         }}
-        onDelete={canWrite ? setPendingCandidateRemoval : undefined}
+        onDelete={canWrite && !declinedStage ? setPendingCandidateRemoval : undefined}
+        onOpenCompany={
+          profileCompanyRow
+            ? () => {
+                setProfile(null);
+                setOpenCompany({ company: profileCompanyRow });
+              }
+            : undefined
+        }
         // The add form's other conclusion: the research happened and nobody fit, so the panel closes
         // on the flag rather than on a saved profile.
         onMarkNoExecutiveFound={
@@ -1024,39 +1220,57 @@ function TriageStage() {
         }
       />
 
+      <DeclineCompanyDialog
+        company={pendingDecline?.company ?? null}
+        executiveCount={pendingDecline?.count ?? 0}
+        declining={move.isPending}
+        onCancel={() => setPendingDecline(null)}
+        onConfirm={(company) => {
+          markBusy(company.id);
+          move.mutate(
+            { company, status: "declined", executiveIds: pendingDecline?.executiveIds },
+            { onSettled: () => setPendingDecline(null) },
+          );
+        }}
+      />
+
       <RemoveCompanyDialog
         company={pendingRemoval}
-        executiveCount={pendingRemoval ? peopleAtRemoval.data?.totalCount : undefined}
+        executiveCount={executivesAtRemoval}
         removing={remove.isPending}
         onCancel={() => setPendingRemoval(null)}
         onConfirm={(company) => {
           markBusy(company.id);
-          remove.mutate(company);
+          remove.mutate({ company, executives: executivesAtRemoval ?? 0 });
         }}
       />
 
       <RemoveCandidateDialog
         candidate={pendingCandidateRemoval}
+        soleAtCompany={executivesAtCandidateCompany === 1}
         removing={removeCandidate.isPending}
         onCancel={() => setPendingCandidateRemoval(null)}
-        onConfirm={(candidate) => removeCandidate.mutate(candidate)}
+        onConfirm={(candidate, { withCompany }) => removeCandidate.mutate({ candidate, withCompany })}
       />
     </div>
   );
 }
 
-/**
- * One line naming what a capped read left out, or null when it left nothing out. `totalCount` is the
- * server's count of everything matching, so the gap between it and what arrived is exactly the number
- * of people this page cannot show.
- */
-function peopleNotShown(page: CandidatesPage | undefined, where: string): string | null {
-  if (!page || page.totalCount <= page.candidates.length) return null;
-  return `Showing ${page.candidates.length} of ${page.totalCount} executives ${where}.`;
-}
-
 function executivesOf(count: number): string {
   return count === 1 ? "1 executive" : `${count} executives`;
+}
+
+/** Who Add to sequence was asked for: the ticked companies' executives, or the ticked executives. */
+interface Enrolment {
+  scope: ComponentProps<typeof EnrolDialog>["scope"];
+  source: string;
+}
+
+/** A company waiting on the decline dialog, with everyone mapped at it — undefined ids when one read could not fit them. */
+interface PendingDecline {
+  company: TriageCompany;
+  executiveIds?: string[];
+  count: number;
 }
 
 interface CompanyMove {

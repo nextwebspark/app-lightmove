@@ -157,7 +157,7 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
             token = tokenEndpoint.redeemCode(app, code, redirectUri,
                     repeatsScopesAtRedemption() ? scopes() : List.of());
         } catch (ProviderGrantRefused | ProviderAppUnavailable refused) {
-            throw new VendorException(call, VendorFailureKind.BAD_REQUEST, refused);
+            throw new VendorException(call, VendorFailureKind.BAD_REQUEST, null, refused.getMessage(), refused);
         }
         if (token.refreshToken() == null) {
             // Without a refresh token the mailbox dies with its first access token, within the hour.
@@ -173,7 +173,7 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
             throw new VendorException(vendorCall("mailbox-address"), VendorFailureKind.MALFORMED_RESPONSE, null);
         }
         return new GrantedMailbox(MailboxGrants.mintDirect(providerName), address, providerName, token.refreshToken(),
-                grantsReplyText(token.scopes()));
+                grantsReplyText(token.scopes()), app.clientId());
     }
 
     @Override

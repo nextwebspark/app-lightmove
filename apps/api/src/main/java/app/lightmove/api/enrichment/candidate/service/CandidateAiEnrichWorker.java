@@ -9,7 +9,9 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.EnrichmentSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.logging.service.MdcPropagation;
+import app.lightmove.api.core.concurrent.service.ThreadContextPropagation;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import java.util.Queue;
@@ -67,7 +69,7 @@ class CandidateAiEnrichWorker {
         if (!settings.aiEnrichOnCapture()) {
             return;
         }
-        waiting.add(MdcPropagation.wrap(() -> runOne(request)));
+        waiting.add(ThreadContextPropagation.wrap(() -> runOne(request)));
         drain();
     }
 
@@ -94,6 +96,10 @@ class CandidateAiEnrichWorker {
                     .ifPresent(dossier -> enrichFrom(dossier, request));
         } catch (ObjectOptimisticLockingFailureException raced) {
             log.info("Candidate {} was edited while its AI run wrote", request.candidateId());
+        } catch (ApiException refused) {
+            if (refused.getCode() != ErrorCode.PERSON_PROCESSING_RESTRICTED) {
+                log.error("Failed AI run for candidate {}", request.candidateId(), refused);
+            }
         } catch (RuntimeException ex) {
             log.error("Failed AI run for candidate {}", request.candidateId(), ex);
         }

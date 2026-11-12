@@ -106,6 +106,19 @@ public class CandidateOutreachService {
         return candidates.findByIdAndProjectId(candidateId, projectId).map(CandidateOutreachService::recipientOf);
     }
 
+    /** {@link #currentRecipient} found by the person: a mapping removed and made again has a new id, the person not. */
+    @Transactional(readOnly = true)
+    public Optional<OutreachRecipient> currentRecipientOfPerson(UUID workspaceId, UUID projectId, UUID personId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return candidates.findByProjectIdAndPersonId(projectId, personId).map(CandidateOutreachService::recipientOf);
+    }
+
+    /** Whether processing of the person is restricted; a person gone from the workspace reads as restricted. */
+    @Transactional(readOnly = true)
+    public boolean isProcessingRestricted(UUID workspaceId, UUID personId) {
+        return persons.findByIdAndWorkspaceId(personId, workspaceId).map(Person::isProcessingRestricted).orElse(true);
+    }
+
     /** A version of the executive's own document, for an email to them to carry. Empty if it is not theirs. */
     @Transactional(readOnly = true)
     public Optional<AttachableDocument> attachableDocumentOf(UUID workspaceId, UUID projectId, UUID candidateId,
@@ -168,8 +181,9 @@ public class CandidateOutreachService {
     }
 
     /**
-     * Only ever forward, and never out of the closed stage: automation does not undo a consultant's call. An
-     * automation that is off, or whose status was retired, moves nobody and never fails the event behind it.
+     * Only ever forward, and never from a status out of process: automation does not undo a consultant's call.
+     * An automation that is off, or whose status was retired or taken out, moves nobody and never fails the
+     * event behind it.
      */
     private void moveForwardTo(Candidate candidate, UUID actor, StatusAutomationTrigger trigger) {
         CandidateStatusDefinition was = candidate.getStatus();
@@ -282,7 +296,8 @@ public class CandidateOutreachService {
         return new OutreachRecipient(candidate.getId(), person.getId(), candidate.getTriageCompanyId(),
                 person.getFullName(), person.getTitle(), candidate.getCompanyName(), person.getLocationCity(),
                 person.getLocationCountry(), candidate.getStatus().getStatusKey(),
-                candidate.getStatus().hasLeftTheRunning(), person.isDoNotContact(), emails);
+                candidate.getStatus().hasLeftTheRunning(), person.isDoNotContact(), person.isProcessingRestricted(),
+                emails);
     }
 
     private static RecipientEmail emailOf(CandidateContact contact) {

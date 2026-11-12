@@ -1,11 +1,13 @@
+import type { ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import type { PipelineCatalog, PipelineRetirePreview } from "../../workspace/api/types";
 import { statusById, triggerCopyOf } from "../../workspace/lib/statusAutomation";
 
 /**
- * The question asked before a retire that touches anyone: which statuses go out of offer and who holds them
- * (they keep them), and every automation that stops until another status is chosen.
+ * The question asked before a change that touches anyone — a retire, or taking a status out of process: which
+ * statuses it reaches and who holds them, what happens to those people, and every automation that stops until
+ * another status is chosen.
  */
 export function PipelineRetireDialog({
   open,
@@ -14,6 +16,7 @@ export function PipelineRetireDialog({
   catalog,
   preview,
   pending,
+  explanation = "Candidates keep the status they hold, but it won't be offered again. Nothing is deleted.",
   onConfirm,
   onClose,
 }: {
@@ -23,6 +26,8 @@ export function PipelineRetireDialog({
   catalog: PipelineCatalog;
   preview: PipelineRetirePreview | null;
   pending: boolean;
+  /** What becomes of whoever holds the statuses. */
+  explanation?: ReactNode;
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -48,9 +53,7 @@ export function PipelineRetireDialog({
               ))}
             </ul>
           )}
-          <p className="text-body text-u-text2">
-            Candidates keep the status they hold, but it won&apos;t be offered again. Nothing is deleted.
-          </p>
+          <p className="text-body text-u-text2">{explanation}</p>
           {preview.automations.length > 0 && (
             <div role="note" className="rounded-md border border-u-signal/40 bg-u-signal-tint px-3 py-2.5">
               <p className="flex items-center gap-1.5 text-note font-semibold text-u-text">

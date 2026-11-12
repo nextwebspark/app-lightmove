@@ -55,6 +55,26 @@ class CandidateMaterialReaderTest {
     }
 
     @Test
+    @DisplayName("a LinkedIn note reaches the model under the network's own spelling")
+    void aLinkedInNoteIsLabelledLinkedIn() {
+        when(material.materialOf(PROJECT, CANDIDATE)).thenReturn(new CandidateMaterial(List.of(new NoteOnFile(
+                PersonNoteKind.LINKEDIN, Instant.parse("2026-10-01T09:00:00Z"), null, "Replied to the InMail.")),
+                List.of()));
+
+        assertThat(reader.read(PROJECT, CANDIDATE).notes()).startsWith("- [LinkedIn · ");
+    }
+
+    @Test
+    @DisplayName("a WhatsApp note reaches the model under the network's own spelling")
+    void aWhatsAppNoteIsLabelledWhatsApp() {
+        when(material.materialOf(PROJECT, CANDIDATE)).thenReturn(new CandidateMaterial(List.of(new NoteOnFile(
+                PersonNoteKind.WHATSAPP, Instant.parse("2026-10-01T09:00:00Z"), null, "Sent the role outline.")),
+                List.of()));
+
+        assertThat(reader.read(PROJECT, CANDIDATE).notes()).startsWith("- [WhatsApp · ");
+    }
+
+    @Test
     @DisplayName("notes past the budget are named as left out, and only the notes sent are counted")
     void notesOverTheBudgetAreLeftOutAndNotCounted() {
         List<NoteOnFile> notes = IntStream.range(0, 20)

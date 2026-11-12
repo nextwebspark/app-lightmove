@@ -72,7 +72,7 @@ class DiversityReporterTest {
     }
 
     private static DiversityDto reportCappedAt(int maxNationalities, ExecutiveRow... executives) {
-        ReportSettings caps = new ReportSettings(2000, 5000, 6, 8, maxNationalities, 3, 12);
+        ReportSettings caps = new ReportSettings(2000, 5000, 6, 8, maxNationalities, 3, 12, 250);
         return new DiversityReporter(capped(caps)).report(sources(List.of(), List.of(executives)));
     }
 

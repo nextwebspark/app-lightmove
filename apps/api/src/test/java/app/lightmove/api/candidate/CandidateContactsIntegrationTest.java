@@ -3,15 +3,19 @@ package app.lightmove.api.candidate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -20,11 +24,13 @@ import tools.jackson.databind.JsonNode;
  * <p>What must hold: the save makes each channel hold exactly what was listed, a value's door is
  * kept unless the person respells it, a duplicate in one save is refused rather than silently
  * merged, someone who may only read the mandate may not write, a profile URL the plugin captured
- * cannot be retyped through the profile's own PUT, and the profile's own writes are held to the same
- * cap and duplicate rule as the section's.
+ * can still be corrected through the profile's own PUT, and the profile's own writes are held to the
+ * same cap and duplicate rule as the section's.
  */
 @IntegrationTest
 class CandidateContactsIntegrationTest extends FlowTestSupport {
+
+    @Autowired @FixtureJdbc private JdbcTemplate db;
 
     private String adminToken;
 
@@ -36,7 +42,7 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
                 {"fullName":"Sample Person","email":"typed@them.example","phone":"+971 50 000 0001"}""");
 
         JsonNode saved = contacts(projectId, candidateId, """
-                {"emails":[{"value":"typed@them.example","kind":"work","verified":true},
+                {"emails":[{"value":"typed@them.example","kind":"work","verified":true,"primary":true},
                            {"value":"Second@Them.Example","kind":"personal","verified":false}],
                  "phones":[{"value":"+971 50 000 0002","kind":null,"verified":false}]}""",
                 status().isOk());
@@ -48,7 +54,9 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
         assertThat(emails.get(0).get("verified").asBoolean()).isTrue();
         assertThat(emails.get(0).get("status").asText()).isEqualTo("Verified by researcher");
         assertThat(emails.get(0).get("source").asText()).isEqualTo("manual");
+        assertThat(emails.get(0).get("primary").asBoolean()).isTrue();
         assertThat(emails.get(1).get("address").asText()).isEqualTo("Second@Them.Example");
+        assertThat(emails.get(1).get("primary").asBoolean()).isFalse();
         JsonNode phones = saved.get("contacts").get("phones");
         assertThat(phones).hasSize(1);
         assertThat(phones.get(0).get("number").asText()).isEqualTo("+971 50 000 0002");
@@ -70,6 +78,52 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isBadRequest())
                 .andReturn()))
                 .isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    @DisplayName("two addresses marked primary in one save is refused")
+    void twoPrimariesInOneSaveAreRefused() throws Exception {
+        String projectId = mandate("Two Primaries Firm");
+        String candidateId = executive(projectId, """
+                {"fullName":"Sample Person"}""");
+
+        assertThat(codeOf(mvc.perform(put(contactsUrl(projectId, candidateId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"emails":[{"value":"one@them.example","primary":true},
+                                           {"value":"two@them.example","primary":true}],
+                                 "phones":[]}"""))
+                .andExpect(status().isBadRequest())
+                .andReturn()))
+                .isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    @DisplayName("the primary moves to another address, and a save choosing none stores none")
+    void thePrimaryMovesAndIsNeverStoredUnchosen() throws Exception {
+        String projectId = mandate("Primary Switch Firm");
+        String candidateId = executive(projectId, """
+                {"fullName":"Sample Person"}""");
+        contacts(projectId, candidateId, """
+                {"emails":[{"value":"one@them.example","primary":true},{"value":"two@them.example"}],
+                 "phones":[{"value":"+971 50 000 0001"}]}""", status().isOk());
+
+        JsonNode moved = contacts(projectId, candidateId, """
+                {"emails":[{"value":"one@them.example"},{"value":"two@them.example","primary":true}],
+                 "phones":[{"value":"+971 50 000 0001"}]}""", status().isOk()).get("contacts");
+
+        assertThat(moved.get("emails").get(0).get("address").asText()).isEqualTo("two@them.example");
+        assertThat(moved.get("emails").get(0).get("primary").asBoolean()).isTrue();
+        assertThat(moved.get("emails").get(1).get("primary").asBoolean()).isFalse();
+        assertThat(moved.get("phones").get(0).get("primary").asBoolean()).isFalse();
+
+        JsonNode cleared = contacts(projectId, candidateId, """
+                {"emails":[{"value":"one@them.example"},{"value":"two@them.example"}],
+                 "phones":[{"value":"+971 50 000 0001"}]}""", status().isOk()).get("contacts");
+
+        assertThat(cleared.get("emails").get(0).get("primary").asBoolean()).isFalse();
+        assertThat(cleared.get("emails").get(1).get("primary").asBoolean()).isFalse();
     }
 
     @Test
@@ -126,8 +180,8 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a captured profile's LinkedIn URL cannot be retyped; a hand-added one can")
-    void aCapturedProfileUrlIsLocked() throws Exception {
+    @DisplayName("a captured profile's LinkedIn URL can be corrected when the person has moved it")
+    void aCapturedProfileUrlCanBeCorrected() throws Exception {
         String projectId = mandate("Locked Url Firm");
         String captured = executive(projectId, """
                 {"fullName":"Captured Person","source":"extension",
@@ -135,24 +189,24 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
         String typed = executive(projectId, """
                 {"fullName":"Typed Person","linkedinUrl":"https://www.linkedin.com/in/typed-person"}""");
 
-        assertThat(codeOf(mvc.perform(put(candidatesUrl(projectId) + "/" + captured)
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"fullName":"Captured Person","source":"extension",
-                                 "linkedinUrl":"https://www.linkedin.com/in/someone-else"}"""))
-                .andExpect(status().isConflict())
-                .andReturn()))
-                .isEqualTo("CANDIDATE_PROFILE_URL_LOCKED");
-
-        // Replaying the captured URL unchanged is how every other section saves; it must pass.
         mvc.perform(put(candidatesUrl(projectId) + "/" + captured)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fullName":"Captured Person","title":"CFO","source":"extension",
                                  "linkedinUrl":"https://www.linkedin.com/in/captured-person"}"""))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linkedinUrlLocked").value(true));
+
+        mvc.perform(put(candidatesUrl(projectId) + "/" + captured)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Captured Person","source":"extension",
+                                 "linkedinUrl":"https://www.linkedin.com/in/captured-person-new"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linkedinUrl").value("https://www.linkedin.com/in/captured-person-new"))
+                .andExpect(jsonPath("$.linkedinUrlLocked").value(false));
 
         mvc.perform(put(candidatesUrl(projectId) + "/" + typed)
                         .header("Authorization", "Bearer " + adminToken)
@@ -160,6 +214,41 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"fullName":"Typed Person","linkedinUrl":"https://www.linkedin.com/in/typed-person-2"}"""))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("a corrected LinkedIn URL lets the next lookup ask again, and a respelling of the same profile does not")
+    void aCorrectedProfileUrlForgetsTheRecordedMisses() throws Exception {
+        String projectId = mandate("Corrected Url Firm");
+        String candidate = executive(projectId, """
+                {"fullName":"Moved Person","linkedinUrl":"https://www.linkedin.com/in/moved-person"}""");
+        db.update("""
+                update app_lm_person set emails_looked_up_at = now(), phones_looked_up_at = now()
+                where id = (select person_id from app_lm_project_candidate where id = ?::uuid)""", candidate);
+
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidate)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Moved Person","linkedinUrl":"https://www.linkedin.com/in/moved-person/?trk=x"}"""))
+                .andExpect(status().isOk());
+        assertThat(lookupStampsOf(candidate)).isEqualTo(2);
+
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidate)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Moved Person","linkedinUrl":"https://www.linkedin.com/in/moved-person-new"}"""))
+                .andExpect(status().isOk());
+        assertThat(lookupStampsOf(candidate)).isZero();
+    }
+
+    private int lookupStampsOf(String candidateId) {
+        return db.queryForObject("""
+                select (emails_looked_up_at is not null)::int + (phones_looked_up_at is not null)::int
+                from app_lm_person
+                where id = (select person_id from app_lm_project_candidate where id = ?::uuid)""",
+                Integer.class, candidateId);
     }
 
     @Test

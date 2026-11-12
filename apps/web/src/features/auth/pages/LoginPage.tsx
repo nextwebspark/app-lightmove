@@ -2,17 +2,20 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { AuthLogo, Button, Card, Field, FormError, Input } from "../../../components/ui";
+import { AuthLogo, Button, Card, Field, FormError, Input, Notice } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
 import { ThemeToggle } from "../../theme/ThemeToggle";
+import { isMfaChallenge } from "../api/types";
 import { useAuth } from "../AuthProvider";
 import { messageForOAuthError } from "../oauthErrors";
 import { landingAfterSignIn, rememberReturnTo, safeReturnTo } from "../returnTo";
 import { OAuthButtons } from "../components/OAuthButtons";
 import { loginSchema, type LoginValues } from "../schemas";
+import { takeAccountDeleted } from "../accountDeletedNotice";
+import { TWO_FACTOR_SIGN_IN_PATH } from "./TwoFactorChallengePage";
 
-/** Sign in. A port of claude-design/Login.dc.html. */
+/** Sign in. A port of uncava-design/Login.dc.html. */
 export function LoginPage() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
@@ -22,6 +25,11 @@ export function LoginPage() {
   // Signup hands the typed address over when it turns out to already have an account, so "log in
   // instead" starts with the email filled rather than making the user type it twice.
   const prefill = (location.state as { email?: string } | null)?.email ?? "";
+  // Settings → Profile's Delete my account lands here, the session already gone; said once.
+  const [accountDeleted, setAccountDeleted] = useState(false);
+  useEffect(() => {
+    if (takeAccountDeleted()) setAccountDeleted(true);
+  }, []);
 
   // Where a guard sent them from, honoured on submit and stashed for the OAuth round trip — which
   // leaves the SPA and so cannot carry router state. Written on every visit, cleared when there is
@@ -70,10 +78,14 @@ export function LoginPage() {
   const onSubmit = async (values: LoginValues) => {
     setFormError(null);
     try {
-      const user = await signIn(values.email, values.password);
+      const answer = await signIn(values.email, values.password);
+      if (isMfaChallenge(answer)) {
+        navigate(TWO_FACTOR_SIGN_IN_PATH, { state: returnTo ? { from: returnTo } : undefined });
+        return;
+      }
       // Only once they are somewhere they can be: an unverified user or one mid-wizard belongs at the
       // step homeFor names, not at the page they were reaching for.
-      navigate(landingAfterSignIn(user, returnTo), { replace: true });
+      navigate(landingAfterSignIn(answer, returnTo), { replace: true });
     } catch (error) {
       setFormError(
         error instanceof ApiRequestError
@@ -92,6 +104,7 @@ export function LoginPage() {
         <h1 className="text-[19px] font-semibold leading-tight">Sign in</h1>
         <p className="mb-6 mt-1 font-mono text-xs text-u-text3">Executive search workspace</p>
 
+        {accountDeleted && <Notice>Your account was deleted.</Notice>}
         <FormError message={formError} />
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate>

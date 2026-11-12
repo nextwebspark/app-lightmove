@@ -53,8 +53,9 @@ public class TalentMapService {
                 mapbox.isConfigured() ? mapbox.publicToken() : null);
     }
 
-    public TalentMapResponse read(UUID workspaceId, UUID projectId, String statusToken, ProjectAudience audience) {
-        Placement placed = place(workspaceId, projectId, statusToken, audience);
+    public TalentMapResponse read(UUID workspaceId, UUID projectId, String statusToken, String search,
+                                  ProjectAudience audience) {
+        Placement placed = place(workspaceId, projectId, statusToken, search, audience);
         Locations located = locate(placed);
         return new TalentMapResponse(placed.companies().companies(), placed.companies().totalCount(),
                 placed.people(), placed.totalCandidates(), located.locations(), located.pending());
@@ -62,14 +63,17 @@ public class TalentMapService {
 
     /** The points alone, for the screen's poll while places resolve. */
     public TalentMapLocationsResponse readLocations(UUID workspaceId, UUID projectId, String statusToken,
-                                                    ProjectAudience audience) {
-        Locations located = locate(place(workspaceId, projectId, statusToken, audience));
+                                                    String search, ProjectAudience audience) {
+        Locations located = locate(place(workspaceId, projectId, statusToken, search, audience));
         return new TalentMapLocationsResponse(located.locations(), located.pending());
     }
 
-    private Placement place(UUID workspaceId, UUID projectId, String statusToken, ProjectAudience audience) {
+    /** {@code search} narrows as the grid's search box does. */
+    private Placement place(UUID workspaceId, UUID projectId, String statusToken, String search,
+                            ProjectAudience audience) {
         TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(statusToken);
-        PairedStage paired = pairing.pair(workspaceId, projectId, status, TriageCompanyFilters.none(),
+        PairedStage paired = pairing.pair(workspaceId, projectId, status,
+                new TriageCompanyFilters(null, null, List.of(), search),
                 caps.maxCompanies(), caps.maxCandidates(), audience);
         TriageCompaniesResponse companies = paired.companies();
         List<CandidateResponse> people = paired.people();

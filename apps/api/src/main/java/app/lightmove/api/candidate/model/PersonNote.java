@@ -29,6 +29,7 @@ import org.hibernate.annotations.SQLRestriction;
 public class PersonNote extends BaseEntity {
 
     public static final int MAX_BODY = 10000;
+    public static final int MAX_TITLE = 200;
 
     @Column(name = "workspace_id", nullable = false, updatable = false)
     private UUID workspaceId;
@@ -65,6 +66,19 @@ public class PersonNote extends BaseEntity {
     @Column(name = "edited_by")
     private UUID editedBy;
 
+    /** When a logged call, message or meeting took place; null for a plain note, where the writing is the event. */
+    @Column(name = "occurred_at")
+    private Instant occurredAt;
+
+    @Column(name = "title", length = MAX_TITLE)
+    private String title;
+
+    @Column(name = "meeting_id")
+    private UUID meetingId;
+
+    @Column(name = "recording_id")
+    private UUID recordingId;
+
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
@@ -83,6 +97,19 @@ public class PersonNote extends BaseEntity {
         note.bodyFormat = format;
         note.authorUserId = author;
         return note;
+    }
+
+    /** When it happened, its title and the meeting it is about; a plain note carries none of them. */
+    public void placeAt(NoteOccurrence occurrence) {
+        this.occurredAt = occurrence.occurredAt();
+        this.title = occurrence.title();
+        this.meetingId = occurrence.meetingId();
+        this.recordingId = occurrence.recordingId();
+    }
+
+    /** When the event the note records happened: the logged time, or the writing for a note that logged none. */
+    public Instant happenedAt() {
+        return occurredAt != null ? occurredAt : getCreatedAt();
     }
 
     public void revise(PersonNoteKind newKind, String newBody, NoteFormat newFormat, UUID editor) {

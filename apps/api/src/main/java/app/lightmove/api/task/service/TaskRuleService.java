@@ -39,14 +39,9 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Outreach that needs a person files the task for them: a reply ({@code Reply to …}), a bounce ({@code Find a
- * working email for …}), a booked call ({@code Debrief …}, due as it ends). Each is filed for whoever started
- * the sequence or holds the call — the position's lead where they no longer work it — once per event: the rule
- * key is unique, so a replayed webhook files nothing. A workspace may switch any rule off; the event is still
- * announced, with no task.
- *
- * <p>Run after the outreach write commits and in a transaction of its own, so a failure here never undoes the
- * reply, bounce or booking it reacts to.
+ * Files a task for outreach that needs a person (reply, bounce, booked call) for its sender or call holder — the
+ * lead if they left — once per event (unique rule key). Runs after the outreach commit, in its own transaction, so a
+ * failure never undoes the event; a switched-off rule still announces it.
  */
 @Service
 @RequiredArgsConstructor

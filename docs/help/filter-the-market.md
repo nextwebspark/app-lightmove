@@ -2,9 +2,8 @@
 
 - **Filter** the market by **Location**, **# Employees**, **Revenue**, **Industry & Keywords** and **Market Segments**, and keep companies you must not approach out with **Off-limits**. The count updates as you go, and the filter saves itself.
 - **Save a search** to come back to the same question later, on this position.
-- **Add companies** one at a time from their row, or tick several and use the bar that appears to put them all **In universe**, **Shortlisted** or **Declined** in one go.
-- **Add all to Universe** takes every company the filter matches.
+- **Add companies** one at a time from their row, or tick several and use the bar that appears to put them all **In universe** or **Declined** in one go. A declined company stays out of the results and out of the universe until someone brings it back from **Declined**.
 
-Companies already on the position — In universe, Shortlisted or Declined — drop out of the results, so the list gets shorter as you decide.
+Companies already on the position drop out of the results, so the list gets shorter as you decide.
 
-Switch to **People** on the Strategy toolbar to search for executives directly rather than companies.
+Switch to **People** at the start of the Strategy toolbar to search for executives directly rather than companies.

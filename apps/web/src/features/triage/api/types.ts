@@ -1,3 +1,4 @@
+import type { AddedBy, Candidate } from "../../candidates/api/types";
 import type { CustomFieldValues } from "../../customcolumns/api/types";
 
 /** Where a company stands in a mandate's triage. There is no untriaged state — that has no row. */
@@ -66,7 +67,7 @@ export interface TriageCompaniesPage {
   counts: TriageCounts;
 }
 
-/** What "Add all to Universe" did. Never partial — an oversized filter is refused, not truncated. */
+/** What a bulk add did: the selection bar's, or an assistant proposal accepted. */
 export interface BulkAddResult {
   added: number;
   /** Companies the mandate already held, declined ones included. */
@@ -74,38 +75,55 @@ export interface BulkAddResult {
 }
 
 /**
- * The columns a Companies grid can be sorted by. Mirrors the server's allowlist token for token, plus
- * `executiveStatus` — kept outside that allowlist on the server (it ranks by a joined table's
- * aggregate, not a flat property) but still a real, server-ordered sort from here.
+ * The columns a Companies grid can be sorted by — each the column's own id, which is also the server's sort token.
+ * The grid orders its lines, so a person's own fields sort by the person whatever company they sit at; a mandate's
+ * own column sorts as `custom:<target>:<fieldKey>`.
  */
 export type TriageSortField =
   | "name"
-  | "sector"
+  | "executive"
+  | "executiveTitle"
   | "country"
   | "location"
-  | "employees"
+  | "executiveStatus"
+  | "sector"
   | "revenue"
+  | "employees"
   | "founded"
   | "added"
-  | "executiveStatus";
+  | "addedBy"
+  | "note"
+  | "source"
+  | `custom:${string}`;
+
+/** One grid line: a person at a company — `candidate` null on a company nobody is listed at yet, `company` null on an
+ *  executive whose employer is not in the mandate. */
+export interface StageLine {
+  company: TriageCompany | null;
+  candidate: Candidate | null;
+}
+
+/** One page of a stage's lines, ordered across the whole stage. */
+export interface StageLinesPage {
+  lines: StageLine[];
+  /** Who filed each executive, by candidate id: a staff read's alone, null for a client seat. */
+  addedBy: Record<string, AddedBy> | null;
+  totalCount: number;
+  page: number;
+  size: number;
+  counts: TriageCounts;
+  /** The stage ran past what one read orders — its companies, its people or both — so some lines are left out. */
+  truncated: boolean;
+}
 
 /**
- * A company the mandate supplies itself — typed into the Add company form, or read off a live page by
- * the browser plugin.
- *
- * <p>Only the name is required. The plugin reads whatever a page happens to publish and a researcher
- * may have a name and a country and nothing else; refusing the row until it is complete would push
- * the consultant back to a spreadsheet, which is what these screens exist to replace.
+ * A company the mandate supplies itself — typed into Add company or read off a page by the plugin. Only the
+ * name is required: the plugin reads whatever a page publishes.
  */
 /**
- * A company's own facts, replaced whole — what the Companies panel's Edit form submits.
- *
- * <p>Only for a company the mandate supplied itself. A row taken from Strategy carries the market
- * export's snapshot and the server refuses to rewrite it, which is why `apolloAccountId === null` is
- * also what decides whether the panel offers an Edit button at all.
- *
- * <p>No `note`: that is the mandate's remark rather than a fact about the company, it stays editable
- * on the very companies this refuses, and it has its own write.
+ * A company's own facts, replaced whole (the panel's Edit form). Only for a company the mandate supplied — the
+ * server refuses a Strategy row, so `apolloAccountId === null` decides whether Edit is offered. No `note`: it has its
+ * own write.
  */
 export interface EditCompanyPayload {
   companyName: string;

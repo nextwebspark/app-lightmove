@@ -28,6 +28,8 @@ export interface ViewerSummary {
 export interface Client {
   id: string;
   name: string;
+  /** The universe company the record was picked as, whatever it is called now; null for one typed in by hand. */
+  apolloAccountId: string | null;
   type: ClientType;
   sector: string | null;
   hqCountry: string | null;
@@ -49,6 +51,10 @@ export interface ClientRepresentative {
   position: string | null;
   email: string;
   status: ClientRepStatus;
+  /** An invited contact's link has lapsed; resending renews it. False once they are active. */
+  invitationExpired: boolean;
+  /** The mail provider refused an invited contact's email. False once they are active. */
+  emailFailed: boolean;
 }
 
 /** A mandate as the client drawer lists it. */

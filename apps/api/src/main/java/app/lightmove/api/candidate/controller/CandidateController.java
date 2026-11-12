@@ -3,6 +3,7 @@ package app.lightmove.api.candidate.controller;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
+import app.lightmove.api.candidate.dto.HeldCandidateResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateTriageStatusRequest;
@@ -37,12 +38,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * A mandate's mapped executives. Gated per method exactly as the companies are: reading is WORK_VIEW,
- * held by every seated role including CLIENT, while every write is WORK_EXECUTE.
- *
- * <p>Editing is a PUT rather than a PATCH because the drawer holds and submits every field: a partial
- * merge would make "cleared" and "not sent" the same request, and clearing a compensation figure is
- * exactly the edit that must not silently do nothing.
+ * A mandate's mapped executives: reading is WORK_VIEW (CLIENT included), every write WORK_EXECUTE. Editing is a PUT, so
+ * "cleared" and "not sent" differ — clearing a compensation figure must not silently do nothing.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/candidates")
@@ -67,13 +64,28 @@ public class CandidateController {
                                    @RequestParam(required = false) String status,
                                    @RequestParam(required = false) String pipelineStage,
                                    @RequestParam(required = false) String triageStatus,
+                                   @RequestParam(required = false) String search,
                                    @RequestParam(required = false) Integer page,
                                    @RequestParam(required = false) Integer size) {
         CandidateListCriteria criteria = new CandidateListCriteria(triageCompanyId, unmapped, q, null, null,
-                status, pipelineStage, triageStatus, page, size);
+                status, pipelineStage, triageStatus, search, page, size);
         ProjectAudience audience = audienceOf(principal, projectId);
         CandidatesResponse found = candidates.list(principal.requireWorkspaceId(), projectId, criteria, audience);
         return audience == ProjectAudience.STAFF ? candidates.withAddedBy(principal.requireWorkspaceId(), projectId, found) : found;
+    }
+
+    /**
+     * Whether this position already maps the profile at {@code linkedinUrl}: the plugin asks before it offers to file
+     * someone, and opens their record instead. 204 when it does not.
+     */
+    @GetMapping("/held")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public ResponseEntity<HeldCandidateResponse> held(@AuthenticationPrincipal AuthPrincipal principal,
+                                                      @PathVariable UUID projectId,
+                                                      @RequestParam String linkedinUrl) {
+        return candidates.heldAt(principal.requireWorkspaceId(), projectId, linkedinUrl)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     /** One executive whole — the report opens a person from a figure that carries only their id. */
@@ -160,16 +172,22 @@ public class CandidateController {
                 principal.requireWorkspaceId(), projectId, candidateId, request, httpRequest);
     }
 
-    /** Removes this mandate's research on a person. Another mandate's row about them is untouched. */
+    /**
+     * Removes this mandate's research on a person, with {@code withCompany} the company they were the last one at,
+     * and with {@code withFiledCompany} (the plugin's Undo) the company filed for them while nobody has worked it.
+     * Another mandate's row about them is untouched.
+     */
     @DeleteMapping("/{candidateId}")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void remove(@AuthenticationPrincipal AuthPrincipal principal,
                        @PathVariable UUID projectId,
                        @PathVariable UUID candidateId,
+                       @RequestParam(defaultValue = "false") boolean withCompany,
+                       @RequestParam(defaultValue = "false") boolean withFiledCompany,
                        HttpServletRequest httpRequest) {
-        candidates.remove(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId,
-                httpRequest);
+        candidates.remove(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId, withCompany,
+                withFiledCompany, httpRequest);
     }
 
     private ProjectAudience audienceOf(AuthPrincipal principal, UUID projectId) {

@@ -7,7 +7,7 @@ import { cn } from "../../../lib/cn";
 import { formatDate, formatMoney } from "../../../lib/format";
 import { CompanyFactsSections } from "../../triage/components/CompanyFactsSections";
 import type { TriageCompanyStatus } from "../../triage/api/types";
-import { TRIAGE_STAGES } from "../../triage/lib/triageStages";
+import { OFFERED_TRIAGE_STAGES } from "../../triage/lib/triageStages";
 import type { CompanyResult } from "../api/types";
 
 /** Beyond this the tag rows stop being a summary and start being the whole panel. */
@@ -93,7 +93,7 @@ export function MarketCompanyDrawer({
       </div>
 
       <div className="flex flex-none flex-wrap items-center gap-2 border-t border-u-border px-5 py-3">
-        {TRIAGE_STAGES.map((stage) => (
+        {OFFERED_TRIAGE_STAGES.map((stage) => (
           <Button
             key={stage.status}
             type="button"

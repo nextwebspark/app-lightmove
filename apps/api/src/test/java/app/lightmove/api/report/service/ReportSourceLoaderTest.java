@@ -108,7 +108,7 @@ class ReportSourceLoaderTest {
 
     private ReportSourceLoader loaderCappedAt(int maxCompanies) {
         return new ReportSourceLoader(projects, triage, candidates, pipeline, positions,
-                capped(new ReportSettings(maxCompanies, 5000, 6, 8, 9, 3, 12)));
+                capped(new ReportSettings(maxCompanies, 5000, 6, 8, 9, 3, 12, 250)));
     }
 
     private void stage(TriageCompanyStatus status, int askedCap, List<TriageCompanyResponse> answered, long total) {

@@ -2,16 +2,8 @@ import { useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../layout/Icon";
 
 /**
- * Pick a file, or drop one on it.
- *
- * <p>Extracted from the position-description uploader once a second screen needed the same thing.
- * The part worth having once is small and easy to get subtly wrong: a hidden input driven by a
- * button, a drag state that clears on leave *and* on drop, and — the one that is invisible until it
- * bites — clearing `event.target.value` after a change, so choosing the same file twice in a row
- * still fires. A user who picks the wrong file, closes the dialog and picks the right one from the
- * same folder hits that on their second attempt.
- *
- * <p>Presentation only: it hands a `File` to its caller and holds none of its own.
+ * Pick a file, or drop one on it — presentation only. Clears `event.target.value` after a change so picking the
+ * same file twice in a row still fires.
  */
 export function FileDropzone({
   accept,
