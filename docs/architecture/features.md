@@ -355,7 +355,7 @@ people are stored ranked (V213 `app_lm_executive_sourcing_suggestion`, slugs and
 read from the cache, so results last as long as it keeps them) and recorded as the company finishes, Stop
 (`POST …/{runId}/stop`) letting the companies in flight finish and the rest read STOPPED. While a company is searched
 its step — looking, checking titles *n of N*, reading confirmed profiles, ranking — and the people considered are merged
-into the run's `progress` (V214) and announced as `executive-sourcing-progress`, which rereads the run alone; the panel
+into the run's `progress` (V215) and announced as `executive-sourcing-progress`, which rereads the run alone; the panel
 marks every started company as searching, names its step, and once one company has finished estimates the time left
 from how long it took (`lib/searchProgress.ts`). The panel reads each company's
 latest results (`GET …/suggestions`) — who fits, best first, the top three pre-ticked; *Title not on record* (no check
@@ -903,7 +903,7 @@ from the header and decoded subsampled, re-encoded, kept in the bucket and serve
 `/api/v1/email-images/{token}`, a 256-bit token per picture (never per message or recipient) its only credential,
 cached for good and never logged (`RequestLogFilter` skips it; `ops/gcp/bootstrap.sh` excludes it from Cloud Run's
 request log), counted or rate-limited per address (mail clients' image proxies fetch for everyone from a few). An image
-row outlives the avatar it was copied from, since a sent email names it. A Custom signature also takes the person's own pictures (V210, a
+row outlives the avatar it was copied from, since a sent email names it. Every layout also takes a Mobile row, a photo cut Circle, Rounded or Square into the picture itself, and extra words with pictures, each picture cut to a shape too, under the details (V214, `email-signatures.md` §C3). A Custom signature also takes the person's own pictures (V210, a
 group's logo, a membership badge): Insert picture, paste or drop uploads one (`POST /me/signatures/pictures`, JPEG or
 PNG ≤ 5 MB, kept inside 1200 × 400), the editor writes `![alt](/api/v1/email-images/{token} "size")` into the
 Markdown, a save refuses more than six or one that is not the signer's own, and the renderer draws only the signer's

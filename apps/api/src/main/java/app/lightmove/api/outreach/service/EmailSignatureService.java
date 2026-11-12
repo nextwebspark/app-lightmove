@@ -7,7 +7,6 @@ import app.lightmove.api.core.storage.model.EmailImage;
 import app.lightmove.api.core.storage.service.EmailImageService;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.core.text.service.PhoneNumbers;
-import app.lightmove.api.outreach.constant.SignatureLayout;
 import app.lightmove.api.outreach.dto.EmailSignatureResponse;
 import app.lightmove.api.outreach.dto.EmailSignaturesResponse;
 import app.lightmove.api.outreach.dto.RenderedSignatureResponse;
@@ -145,7 +144,7 @@ public class EmailSignatureService {
         SignatureContent content = contentOf(request);
         SignatureNeeds needs = SignatureNeeds.of(content);
         SignatureSender sender = senders.forPreview(userId, workspaceId,
-                new SignatureNeeds(needs.photo(), needs.logo(), false, List.of()));
+                new SignatureNeeds(needs.photoShapes(), needs.logo(), false, needs.pictureKeys()));
         return new SignatureStarterResponse(EmailSignatureRenderer.asMarkdown(content, sender));
     }
 
@@ -191,14 +190,11 @@ public class EmailSignatureService {
     }
 
     /**
-     * Every picture a saved Custom signature names is the caller's to show — an upload of theirs here, their photo, the
+     * Every picture a saved signature's words name is the caller's to show — an upload of theirs here, their photo, the
      * workspace's logo — and there are at most six. A token copied out of a colleague's signature would draw nothing in
      * an email, so it is refused here instead.
      */
     private void requireOwnPictures(UUID userId, UUID workspaceId, SignatureContent content) {
-        if (content.layout() != SignatureLayout.CUSTOM || content.customBody() == null) {
-            return;
-        }
         if (OutreachMarkdownEmail.pictureCountIn(content.customBody()) > SignaturePicture.MAX_PER_SIGNATURE) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "customBody", "Keep it to 6 pictures");
         }
@@ -237,9 +233,10 @@ public class EmailSignatureService {
         SignatureFields fields = content.fields();
         return new EmailSignatureResponse(signature.getId(), content.name(), content.layout(),
                 new SignatureFieldsDto(fields.name(), fields.title(), fields.phone(), fields.linkedinUrl(),
-                        fields.company(), fields.website(), fields.address()),
-                content.showPhoto(), content.showLogo(), content.showBookingLink(), content.customBody(),
-                content.disclaimer(), signature.isDefault(), signature.getUpdatedAt(), rendered.html());
+                        fields.company(), fields.website(), fields.address(), fields.mobile()),
+                content.showPhoto(), content.photoShape(), content.showLogo(), content.showBookingLink(),
+                content.customBody(), content.disclaimer(), signature.isDefault(), signature.getUpdatedAt(),
+                rendered.html());
     }
 
     /** Trimmed, blank as absent, and an address that is not what its field says refused by name. */
@@ -248,11 +245,11 @@ public class EmailSignatureService {
         SignatureFields fields = typed == null ? SignatureFields.NONE : new SignatureFields(
                 trimmed(typed.name()), trimmed(typed.title()), PhoneNumbers.typedOrNull(typed.phone(), "fields.phone"),
                 linkedinOrNull(typed.linkedinUrl()), trimmed(typed.company()), websiteOrNull(typed.website()),
-                trimmed(typed.address()));
-        String customBody = request.layout() == SignatureLayout.CUSTOM ? trimmed(request.customBody()) : null;
+                trimmed(typed.address()), PhoneNumbers.typedOrNull(typed.mobile(), "fields.mobile"));
         return new SignatureContent(request.name().strip(), request.layout(), fields,
-                Boolean.TRUE.equals(request.showPhoto()), Boolean.TRUE.equals(request.showLogo()),
-                Boolean.TRUE.equals(request.showBookingLink()), customBody, trimmed(request.disclaimer()));
+                Boolean.TRUE.equals(request.showPhoto()), request.photoShape(), Boolean.TRUE.equals(request.showLogo()),
+                Boolean.TRUE.equals(request.showBookingLink()), trimmed(request.customBody()),
+                trimmed(request.disclaimer()));
     }
 
     private static String linkedinOrNull(String value) {

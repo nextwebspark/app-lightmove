@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isSafeHref, noteDocOf, parseNoteMarkdown, plainEmailDoc, plainNoteDoc, serializeNoteDoc } from "./noteMarkdown";
+import { pictureShapeOf, pictureSizeOf, pictureTitleOf } from "./notePicture";
 
 const roundTrip = (markdown: string) => serializeNoteDoc(parseNoteMarkdown(markdown));
 
@@ -91,8 +92,18 @@ describe("a signature's pictures", () => {
   it.each([
     `Mobile +971 58 000 0000\n\n![Group](${own}) ![AESC](${own} "small")`,
     `![](${own} "large")`,
+    `![](${own} "small circle") ![](${own} "rounded")`,
   ])("reads and writes %j unchanged where pictures are kept", (markdown) => {
     expect(serializeNoteDoc(parseNoteMarkdown(markdown, pictures), pictures)).toBe(markdown);
+  });
+
+  it("keeps a picture's size and shape as the words of its title, leaving medium and square unsaid", () => {
+    expect(pictureTitleOf("small", "circle")).toBe("small circle");
+    expect(pictureTitleOf("medium", "rounded")).toBe("rounded");
+    expect(pictureTitleOf("medium", "square")).toBeNull();
+    expect(pictureSizeOf("circle large")).toBe("large");
+    expect(pictureShapeOf("small circle")).toBe("circle");
+    expect(pictureShapeOf(null)).toBe("square");
   });
 
   it("reads a picture as an inline image node beside the words", () => {

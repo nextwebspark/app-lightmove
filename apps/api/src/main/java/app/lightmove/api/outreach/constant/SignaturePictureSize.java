@@ -23,11 +23,15 @@ public enum SignaturePictureSize {
         if (title == null) {
             return MEDIUM;
         }
-        return switch (title.strip().toLowerCase(Locale.ROOT)) {
-            case "small" -> SMALL;
-            case "large" -> LARGE;
-            default -> MEDIUM;
-        };
+        for (String word : title.strip().toLowerCase(Locale.ROOT).split("\\s+")) {
+            if (word.equals("small")) {
+                return SMALL;
+            }
+            if (word.equals("large")) {
+                return LARGE;
+            }
+        }
+        return MEDIUM;
     }
 
     /** {@code width} and {@code height} fitted inside this box, as {@code [width, height]}. */

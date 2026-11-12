@@ -517,7 +517,10 @@ people cache's life). The run gains its `criteria` snapshot, a `suggested` count
 status; its `spec`, `executives_filed` and `model_calls` columns are frozen, read by nothing since, and the names of
 whom older runs filed are taken off their `outcomes` (an erasure forgets a person's suggestions by slug). Both new
 tables are under forced row-level security.
-V214 adds `app_lm_executive_sourcing_run.progress` (jsonb, `{}` by default): each started company's step
+V214 adds `photo_shape` (`CIRCLE | ROUNDED | SQUARE`, default `CIRCLE`) to `app_lm_email_signature` and drops V193's
+`app_lm_email_signature_custom_chk`: `custom_body` is now any layout's extra words, not only Custom's. A picture's own
+shape is a word in its Markdown title; its cut copy is another `SIGNATURE` row of `app_lm_email_image`.
+V215 adds `app_lm_executive_sourcing_run.progress` (jsonb, `{}` by default): each started company's step
 (`LOOKING | CHECKING | CONFIRMING | RANKING`), the people considered, a counted step's done/total, and its start and
 finish in epoch millis, keyed by triage company id — counts and times only, no person. Written by one merging `UPDATE`
 that leaves the row's `version` alone, so companies searched side by side never fail the outcome writes; the entity
