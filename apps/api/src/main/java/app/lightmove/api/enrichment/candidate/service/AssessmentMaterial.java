@@ -6,24 +6,21 @@ package app.lightmove.api.enrichment.candidate.service;
  * held to its own share of the prompt so a long CV never crowds out what the executive said. Emails and phone numbers
  * are already taken out.
  */
-record AssessmentMaterial(String transcripts, String conversationNotes, String cvs, String otherNotes,
-                          String otherDocuments, int transcriptCount, int conversationNoteCount, int cvCount,
-                          int otherNoteCount, int otherDocumentCount) {
+record AssessmentMaterial(MaterialGroup transcripts, MaterialGroup conversationNotes, MaterialGroup cvs,
+                          MaterialGroup otherNotes, MaterialGroup otherDocuments) {
 
-    static final AssessmentMaterial NONE = new AssessmentMaterial(MaterialText.NONE_ON_FILE,
-            MaterialText.NONE_ON_FILE, MaterialText.NONE_ON_FILE, MaterialText.NONE_ON_FILE,
-            MaterialText.NONE_ON_FILE, 0, 0, 0, 0, 0);
+    static final AssessmentMaterial NONE = new AssessmentMaterial(MaterialGroup.NONE, MaterialGroup.NONE,
+            MaterialGroup.NONE, MaterialGroup.NONE, MaterialGroup.NONE);
 
     int noteCount() {
-        return conversationNoteCount + otherNoteCount;
+        return conversationNotes.count() + otherNotes.count();
     }
 
     int documentCount() {
-        return cvCount + otherDocumentCount;
+        return cvs.count() + otherDocuments.count();
     }
 
     AssessmentMaterial withoutTranscripts() {
-        return new AssessmentMaterial(MaterialText.NONE_ON_FILE, conversationNotes, cvs, otherNotes, otherDocuments,
-                0, conversationNoteCount, cvCount, otherNoteCount, otherDocumentCount);
+        return new AssessmentMaterial(MaterialGroup.NONE, conversationNotes, cvs, otherNotes, otherDocuments);
     }
 }

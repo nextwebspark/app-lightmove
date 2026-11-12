@@ -34,8 +34,6 @@ public class CandidateScorecardDrafter {
 
     private static final String PROMPT_ID = "candidate-scorecard-draft";
 
-    static final int MAX_POSITION_DESCRIPTION = 30_000;
-
     private static final String BLOCKED =
             "{\"scores\":[],\"report\":{\"careerSummary\":\"" + BlockedAnswer.MARKER + "\"}}";
 
@@ -67,7 +65,7 @@ public class CandidateScorecardDrafter {
             return Optional.empty();
         }
         if (answered.report() != null && BlockedAnswer.matches(answered.report().careerSummary())) {
-            if (material.transcriptCount() > 0) {
+            if (material.transcripts().count() > 0) {
                 // Anyone in a call speaks into its transcript and nobody can reword it, so a remark there costs the
                 // calls' evidence, never the whole assessment.
                 log.info("Candidate scorecard draft asked again without the call transcripts the guard stopped");
@@ -136,8 +134,10 @@ public class CandidateScorecardDrafter {
                 .param("seniority", brief.seniority() == null ? DossierText.NOT_STATED : brief.seniority().value())
                 .param("department", DossierText.orNotStated(brief.department()))
                 .param("location", DossierText.placeOf(brief.locationCity(), brief.locationCountry()))
-                .param("employmentType", labelOf(brief.employmentType()))
-                .param("mandateReason", labelOf(brief.mandateReason()))
+                .param("employmentType", brief.employmentType() == null ? DossierText.NOT_STATED
+                        : brief.employmentType().promptLabel())
+                .param("mandateReason", brief.mandateReason() == null ? DossierText.NOT_STATED
+                        : brief.mandateReason().promptLabel())
                 .param("reportsTo", DossierText.orNotStated(brief.reportsTo()))
                 .param("directReports", DossierText.listOf(brief.directReports()))
                 .param("teamSize", DossierText.orNotStated(brief.teamSize()))
@@ -157,17 +157,12 @@ public class CandidateScorecardDrafter {
                         .collect(Collectors.joining("\n")))
                 .param("positionDescription", positionDescription == null || positionDescription.isBlank()
                         ? MaterialText.NONE_ON_FILE : positionDescription)
-                .param("transcripts", material.transcripts())
-                .param("conversationNotes", material.conversationNotes())
-                .param("cvs", material.cvs())
+                .param("transcripts", material.transcripts().text())
+                .param("conversationNotes", material.conversationNotes().text())
+                .param("cvs", material.cvs().text())
                 .param("profile", DossierText.of(dossier))
-                .param("otherNotes", material.otherNotes())
-                .param("otherDocuments", material.otherDocuments()));
-    }
-
-    /** {@code SUCCESSION} reads as "succession", {@code FULL_TIME_PERMANENT} as "full time permanent". */
-    private static String labelOf(Enum<?> value) {
-        return value == null ? DossierText.NOT_STATED : value.name().toLowerCase(Locale.ROOT).replace('_', ' ');
+                .param("otherNotes", material.otherNotes().text())
+                .param("otherDocuments", material.otherDocuments().text()));
     }
 
     /** T1, T2, … for the technical panel and B1, B2, … for the behavioural, each in the brief's own order. */

@@ -39,7 +39,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -114,43 +113,15 @@ public class PositionService {
                         .filter(PositionPriority::isSelected)
                         .map(PositionPriority::getName)
                         .toList(),
-                position.getMandateReason(),
+                position.statedMandateReason().orElse(null),
                 position.getEmploymentType(),
-                reportsToOf(position.getOrgChart()),
-                directReportsOf(position.getOrgChart()),
+                position.reportsToTitle().orElse(null),
+                position.directReportTitles(),
                 position.getTeamSize(),
                 position.getCriteria().stream()
                         .map(criterion -> new BriefCriterion(criterion.getText(), criterion.getMode()))
                         .toList(),
                 competenciesOf(position));
-    }
-
-    static String reportsToOf(List<PositionOrgNode> orgChart) {
-        UUID above = orgChart.stream()
-                .filter(PositionOrgNode::isMandateSeat)
-                .map(PositionOrgNode::getParentNodeId)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
-        return above == null ? null : orgChart.stream()
-                .filter(node -> above.equals(node.getNodeId()))
-                .map(PositionOrgNode::getTitle)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
-    }
-
-    static List<String> directReportsOf(List<PositionOrgNode> orgChart) {
-        UUID seat = orgChart.stream()
-                .filter(PositionOrgNode::isMandateSeat)
-                .map(PositionOrgNode::getNodeId)
-                .findFirst()
-                .orElse(null);
-        return seat == null ? List.of() : orgChart.stream()
-                .filter(node -> seat.equals(node.getParentNodeId()))
-                .map(PositionOrgNode::getTitle)
-                .filter(Objects::nonNull)
-                .toList();
     }
 
     private static BriefCompetencies competenciesOf(Position position) {

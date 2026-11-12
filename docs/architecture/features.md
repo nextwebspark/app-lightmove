@@ -455,9 +455,9 @@ and the audit line counts how many of each went. Assess with AI alone also reads
 position recorded (`MeetingTranscriptLookup`, answered by `notetaker`), newest first, only while each call's Meeting
 note is live, redacted and held to 150k characters a call (start and end kept) and 250k in all, each voice marked
 with its role in code (Candidate, Interviewer, Other participant, Unconfirmed); it splits the notes into call and
-meeting notes (8k each, 40k in all) and the rest, and the documents into CVs (30k) and the rest (40k), so no group
-crowds out another, and the audit line also says whether the client's position description went; a claim the
-executive makes about themselves with no example behind it scores as self-report, and a transcript the prompt guard stops is dropped and the assessment asked again without it. **The model never sees a candidate's contacts, compensation
+meeting notes (8k each, 40k in all) and the rest, and the documents into CVs (20k each, 30k in all) and the rest
+(20k each, 40k in all), so no group crowds out another, and the audit line also says whether the client's position
+description went; a claim the executive makes about themselves with no example behind it scores as self-report, and a transcript the prompt guard stops is dropped and the assessment asked again without it. **The model never sees a candidate's contacts, compensation
 fields or custom fields**: the profile is the `CandidateDossier` allowlist, and `core/text`'s `ContactRedaction` —
 the one copy of the email and phone patterns, which `PositionDocumentRedactor` uses too — takes every address
 and number out of the About, the notes, the transcripts and

@@ -53,6 +53,7 @@ class CandidateMaterialReader {
     static final int MAX_CONVERSATION_NOTE = 8_000;
     static final int MAX_CONVERSATION_NOTES = 40_000;
     static final int MAX_CVS = 30_000;
+    static final int MAX_POSITION_DESCRIPTION = 30_000;
     static final Set<PersonNoteKind> CONVERSATION_KINDS = Set.of(PersonNoteKind.CALL, PersonNoteKind.MEETING);
     static final String CANDIDATE_MARK = "Candidate";
     static final String TEAM_MARK = "Interviewer, your team";
@@ -90,9 +91,11 @@ class CandidateMaterialReader {
                 .filter(document -> !isCv(document))
                 .toList(), MAX_DOCUMENTS);
         int callsSent = calls.size() - (calls.contains(EARLIER_CALLS_LEFT_OUT) ? 1 : 0);
-        return new AssessmentMaterial(joined(calls, "\n\n"), joined(conversationNotes, "\n"),
-                joined(cvs, "\n\n"), joined(otherNotes, "\n"), joined(otherDocuments, "\n\n"), callsSent,
-                countOf(conversationNotes), cvs.size(), countOf(otherNotes), otherDocuments.size());
+        return new AssessmentMaterial(new MaterialGroup(joined(calls, "\n\n"), callsSent),
+                new MaterialGroup(joined(conversationNotes, "\n"), countOf(conversationNotes)),
+                new MaterialGroup(joined(cvs, "\n\n"), cvs.size()),
+                new MaterialGroup(joined(otherNotes, "\n"), countOf(otherNotes)),
+                new MaterialGroup(joined(otherDocuments, "\n\n"), otherDocuments.size()));
     }
 
     private static boolean isCv(DocumentOnFile document) {

@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -255,6 +256,35 @@ public class Position extends BaseEntity {
     /** Absent only on a chart that has somehow lost its anchor. */
     public Optional<PositionOrgNode> mandateSeat() {
         return orgChart.stream().filter(PositionOrgNode::isMandateSeat).findFirst();
+    }
+
+    /** The title of the seat the mandate's reports to, never its holder's name. */
+    public Optional<String> reportsToTitle() {
+        return mandateSeat()
+                .map(PositionOrgNode::getParentNodeId)
+                .flatMap(parent -> orgChart.stream().filter(node -> parent.equals(node.getNodeId())).findFirst())
+                .map(PositionOrgNode::getTitle);
+    }
+
+    /** The titles of the seats reporting to the mandate's, never their holders' names. */
+    public List<String> directReportTitles() {
+        return mandateSeat()
+                .map(seat -> orgChart.stream()
+                        .filter(node -> seat.getNodeId().equals(node.getParentNodeId()))
+                        .map(PositionOrgNode::getTitle)
+                        .filter(Objects::nonNull)
+                        .toList())
+                .orElse(List.of());
+    }
+
+    /**
+     * The reason for hire as someone stated it — chosen on the brief, or read from the client's document — and
+     * empty otherwise: the column defaults to {@code NEW_ROLE}, which nobody said.
+     */
+    public Optional<MandateReason> statedMandateReason() {
+        FieldSource source = fieldSources.get(PositionFieldKeys.MANDATE_REASON);
+        return source == FieldSource.MANUAL || source == FieldSource.DOCUMENT
+                ? Optional.ofNullable(mandateReason) : Optional.empty();
     }
 
     public void applyCompensation(CompensationPackage compensation) {

@@ -94,9 +94,9 @@ public class CandidateAiEnrichService {
         fairUse.check(workspaceId, userId, UsageKind.AI_ENRICH, 1);
         AssessmentMaterial material = materialReader.readForAssessment(projectId, candidateId);
         String positionDescription = positionDescriptions
-                .textOf(workspaceId, projectId, CandidateScorecardDrafter.MAX_POSITION_DESCRIPTION)
+                .textOf(workspaceId, projectId, CandidateMaterialReader.MAX_POSITION_DESCRIPTION)
                 .orElse(null);
-        requested(AiRunScope.ASSESSMENT, material.noteCount(), material.documentCount(), material.transcriptCount(),
+        requested(AiRunScope.ASSESSMENT, material.noteCount(), material.documentCount(), material.transcripts().count(),
                 positionDescription != null, userId, workspaceId, projectId, candidateId, httpRequest);
 
         AiScorecardDraft draft = drafter.draft(dossier, brief, positionDescription, material)

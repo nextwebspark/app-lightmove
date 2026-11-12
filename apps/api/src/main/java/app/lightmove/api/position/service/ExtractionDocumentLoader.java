@@ -4,13 +4,15 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.position.model.PositionDocument;
 import app.lightmove.api.position.repository.PositionDocumentRepository;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The reads an extraction needs, in a short transaction that ends before the parse and the model call.
+ * The reads an extraction, or the assessment's position description, needs, in a short transaction that ends before
+ * the parse and the model call.
  * A separate bean because proxy-based {@code @Transactional} does not apply to self-invocation.
  */
 @Component
@@ -31,5 +33,17 @@ class ExtractionDocumentLoader {
                         "Attach a position description before reading it"));
         return new LoadedDocument(document.getContent(), brief.project().getClientId(),
                 brief.project().getPositionTitle());
+    }
+
+    /** For a reader that must not draft a brief: empty with no brief yet, or no description attached. */
+    @Transactional(readOnly = true)
+    Optional<LoadedDocument> find(UUID workspaceId, UUID projectId) {
+        PositionBrief brief = briefs.read(workspaceId, projectId);
+        if (brief.position().getId() == null) {
+            return Optional.empty();
+        }
+        return documents.findByPositionId(brief.position().getId())
+                .map(document -> new LoadedDocument(document.getContent(), brief.project().getClientId(),
+                        brief.project().getPositionTitle()));
     }
 }

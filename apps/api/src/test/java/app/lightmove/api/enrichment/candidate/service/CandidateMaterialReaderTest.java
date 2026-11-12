@@ -108,8 +108,8 @@ class CandidateMaterialReaderTest {
 
         AssessmentMaterial text = reader.readForAssessment(PROJECT, CANDIDATE);
 
-        assertThat(text.transcriptCount()).isEqualTo(1);
-        assertThat(text.transcripts()).startsWith("=== Call: First conversation · 12 Oct 2026 ===")
+        assertThat(text.transcripts().count()).isEqualTo(1);
+        assertThat(text.transcripts().text()).startsWith("=== Call: First conversation · 12 Oct 2026 ===")
                 .contains("[00:05] Yara Haddad (Interviewer, your team): Tell me about the IPO.",
                         "[01:05] Priya Raman (Candidate): I led the finance team through it. Write to",
                         "[1:02:05] Yara Haddad (Interviewer, your team): Thanks.")
@@ -130,11 +130,12 @@ class CandidateMaterialReaderTest {
 
         AssessmentMaterial text = reader.readForAssessment(PROJECT, CANDIDATE);
 
-        assertThat(text.transcriptCount()).isEqualTo(2);
-        assertThat(text.transcripts()).contains("OPENING", "CLOSING", "the middle of the call is left out")
+        assertThat(text.transcripts().count()).isEqualTo(2);
+        assertThat(text.transcripts().text()).contains("OPENING", "CLOSING", "the middle of the call is left out")
                 .endsWith(CandidateMaterialReader.EARLIER_CALLS_LEFT_OUT);
-        assertThat(text.transcripts().length()).isLessThanOrEqualTo(CandidateMaterialReader.MAX_TRANSCRIPTS + 100);
-        assertThat(text.transcripts().split("=== Call: ")).allSatisfy(block ->
+        assertThat(text.transcripts().text().length())
+                .isLessThanOrEqualTo(CandidateMaterialReader.MAX_TRANSCRIPTS + 100);
+        assertThat(text.transcripts().text().split("=== Call: ")).allSatisfy(block ->
                 assertThat(block.isEmpty() || block.length() >= CandidateMaterialReader.LEAST_TRANSCRIPT).isTrue());
     }
 
@@ -154,8 +155,8 @@ class CandidateMaterialReaderTest {
 
         AssessmentMaterial text = reader.readForAssessment(PROJECT, CANDIDATE);
 
-        assertThat(text.transcripts().length()).isGreaterThan(80_000);
-        assertThat(text.transcripts()).contains("MIDDLE").doesNotContain("the middle of the call is left out");
+        assertThat(text.transcripts().text().length()).isGreaterThan(80_000);
+        assertThat(text.transcripts().text()).contains("MIDDLE").doesNotContain("the middle of the call is left out");
     }
 
     @Test
@@ -175,15 +176,15 @@ class CandidateMaterialReaderTest {
 
         AssessmentMaterial text = reader.readForAssessment(PROJECT, CANDIDATE);
 
-        assertThat(text.conversationNotes()).contains("- [Meeting · ", longMeeting, "- [Call · ",
+        assertThat(text.conversationNotes().text()).contains("- [Meeting · ", longMeeting, "- [Call · ",
                 "Notice is three months.").doesNotContain("role outline");
-        assertThat(text.otherNotes()).startsWith("- [Email · ").contains("Asked for the role outline.");
-        assertThat(text.cvs()).startsWith("=== CV: CV ===").doesNotContain("Former chair");
-        assertThat(text.otherDocuments()).startsWith("=== Reference: Former chair ===");
-        assertThat(text.otherDocuments().length()).isGreaterThan(20_000);
+        assertThat(text.otherNotes().text()).startsWith("- [Email · ").contains("Asked for the role outline.");
+        assertThat(text.cvs().text()).startsWith("=== CV: CV ===").doesNotContain("Former chair");
+        assertThat(text.otherDocuments().text()).startsWith("=== Reference: Former chair ===");
+        assertThat(text.otherDocuments().text().length()).isGreaterThan(20_000);
         assertThat(text.noteCount()).isEqualTo(3);
         assertThat(text.documentCount()).isEqualTo(2);
-        assertThat(text.transcripts()).isEqualTo(MaterialText.NONE_ON_FILE);
+        assertThat(text.transcripts().text()).isEqualTo(MaterialText.NONE_ON_FILE);
     }
 
     private static DocumentOnFile document(String title, PersonDocumentCategory category, DocumentFormat format) {
