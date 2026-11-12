@@ -63,6 +63,13 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
 
     long countByWorkspaceIdAndStatus(UUID workspaceId, MemberStatus status);
 
+    /** Active members who pinned no time zone: their clock follows their device. */
+    @Query(value = """
+            select count(*) from app_lm_workspace_member m join app_lm_user u on u.id = m.user_id
+            where m.workspace_id = :workspaceId and m.status = 'ACTIVE' and u.timezone is null
+            """, nativeQuery = true)
+    long countWithAutomaticTimeZone(@Param("workspaceId") UUID workspaceId);
+
     @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 

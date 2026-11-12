@@ -23,7 +23,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 class DataProtectionSwitchedOffIntegrationTest extends FlowTestSupport {
 
     @Test
-    @DisplayName("the config says so, and the list, erasure, restriction and retention routes answer an admin 404")
+    @DisplayName("the config says so, and the list, erasure, export, restriction and retention routes answer an admin 404")
     void everyControlIsNotFound() throws Exception {
         String address = "switchedoff@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", address), "Switched Off Firm");
@@ -43,6 +43,7 @@ class DataProtectionSwitchedOffIntegrationTest extends FlowTestSupport {
                 get("/api/v1/candidates/" + someone + "/erase-preview"),
                 post("/api/v1/candidates/" + someone + "/erase").content("""
                         {"confirmName":"Noor Haddad"}"""),
+                get("/api/v1/candidates/" + someone + "/subject-access-export"),
                 put("/api/v1/candidates/" + someone + "/processing-restriction").content("""
                         {"restricted":true,"reason":"Contesting their record"}"""),
                 get("/api/v1/workspace/retention"),

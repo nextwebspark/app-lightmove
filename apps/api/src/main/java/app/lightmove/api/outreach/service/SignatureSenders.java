@@ -4,15 +4,20 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.storage.model.EmailImage;
 import app.lightmove.api.core.storage.service.EmailImageService;
 import app.lightmove.api.outreach.dto.SignatureSourcesResponse;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.SignatureLogo;
+import app.lightmove.api.outreach.model.SignaturePicture;
 import app.lightmove.api.outreach.model.SignatureSender;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -56,6 +61,7 @@ public class SignatureSenders {
     private SignatureSender senderOf(UUID userId, UUID workspaceId, SignatureNeeds needs, boolean sending) {
         String photoUrl = needs.photo() ? emailImages.photoOf(userId).map(emailImages::urlOf).orElse(null) : null;
         SignatureLogo logo = needs.logo() ? logoOf(workspaceId) : null;
+        Map<String, SignaturePicture> pictures = picturesOf(userId, workspaceId, needs.pictureTokens());
         return transactions.execute(status -> {
             User user = users.findById(userId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
             Workspace workspace = workspaces.findById(workspaceId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
@@ -64,7 +70,7 @@ public class SignatureSenders {
                     ? (sending ? bookingPages.linkOf(mailbox) : bookingPages.previewLinkOf(mailbox)) : null;
             return new SignatureSender(user.getFullName(), user.getTitle(), user.getPhone(), user.getLinkedinUrl(),
                     mailbox == null ? user.getEmail() : mailbox.getAddress(), workspace.getName(),
-                    workspace.getCompanyWebsite(), photoUrl, logo, bookingLink);
+                    workspace.getCompanyWebsite(), photoUrl, logo, bookingLink, pictures);
         });
     }
 
@@ -79,6 +85,13 @@ public class SignatureSenders {
                     workspace.getLogoUrl() != null && !workspace.getLogoUrl().isBlank(),
                     mailbox != null && bookingPages.isOfferedFor(mailbox));
         });
+    }
+
+    /** Only the signer's own pictures in this workspace: a token copied from someone else's signature draws nothing. */
+    private Map<String, SignaturePicture> picturesOf(UUID userId, UUID workspaceId, List<String> tokens) {
+        return emailImages.signaturePicturesOf(workspaceId, userId, tokens).stream()
+                .collect(Collectors.toMap(EmailImage::getToken,
+                        image -> new SignaturePicture(emailImages.urlOf(image), image.getWidth(), image.getHeight())));
     }
 
     private SignatureLogo logoOf(UUID workspaceId) {

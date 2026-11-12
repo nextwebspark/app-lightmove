@@ -37,5 +37,8 @@ public enum WorkspaceAction {
     BILLING_MANAGE,
 
     /** Erase a person and everything held about them: the one irreversible act on a person, an admin's alone. */
-    PERSON_ERASE
+    PERSON_ERASE,
+
+    /** Export everything held about a person, to answer their subject access request (#919). An admin's alone. */
+    PERSON_SUBJECT_ACCESS
 }

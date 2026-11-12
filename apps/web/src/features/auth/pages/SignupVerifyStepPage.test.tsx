@@ -7,6 +7,7 @@ import { AuthProvider } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import type { User } from "../api/types";
 import { RESEND_COOLDOWN_SECONDS, SignupVerifyStepPage } from "./SignupVerifyStepPage";
+import { FOLLOWING_DATE_TIME } from "../../../test/fixtures/user";
 
 vi.mock("../api/authApi");
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
@@ -35,6 +36,7 @@ const userAt = (emailVerified: boolean): User => ({
   emailVerified,
   hasPassword: true,
   timezone: "Asia/Dubai",
+  dateTime: FOLLOWING_DATE_TIME,
   locale: "en",
   platformActions: [],
   pendingInvitations: [],

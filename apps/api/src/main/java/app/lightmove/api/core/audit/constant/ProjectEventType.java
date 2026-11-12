@@ -87,6 +87,8 @@ public enum ProjectEventType implements AuditEventType {
     PERSON_ERASED,
     /** Candidate retention: an admin kept someone due for deletion for another period. Recorded by id. */
     PERSON_RETENTION_KEPT,
+    /** Everything held on a person left as one zip, to answer their subject access request (#919). Counts only. */
+    PERSON_SUBJECT_ACCESS_EXPORTED,
 
     /** The Pipeline page's three working facts: the team's manual order, the next action, client visibility. */
     CANDIDATE_PIPELINE_REORDERED,

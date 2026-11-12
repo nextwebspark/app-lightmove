@@ -31,6 +31,7 @@ import { ConversationEventBody } from "./ConversationEventCard";
 import type { PastCalls } from "./MeetingsSection";
 import { EntryActor, EntryLeadMark, OutreachEntryCard, RecordedBadge } from "./OutreachEntryCard";
 import { kindOfLine, linesOf, matches, type TimelineKind, type TimelineLine as Line } from "../lib/drawerTimeline";
+import { formatLongMonthYear } from "../../../lib/datetime";
 
 const KINDS: readonly { kind: TimelineKind; label: string; icon: string | null }[] = [
   { kind: "email", label: "Email", icon: ICONS.mail },
@@ -433,9 +434,6 @@ const NOTE_HEADINGS: Record<PersonNote["kind"], string> = {
   whatsapp: "WhatsApp",
 };
 
-const MONTH = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" });
-
 function monthOf(isoInstant: string): string {
-  const at = new Date(isoInstant);
-  return Number.isNaN(at.getTime()) ? "" : MONTH.format(at);
+  return formatLongMonthYear(isoInstant) ?? "";
 }

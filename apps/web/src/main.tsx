@@ -8,6 +8,7 @@ import { AssistantProvider } from "./features/assistant/AssistantProvider";
 import { AuthProvider } from "./features/auth/AuthProvider";
 import { BillingRefusalSheets } from "./features/billing/components/BillingRefusalSheets";
 import { applyStoredTheme } from "./features/theme/useTheme";
+import { DateTimeBoundary } from "./lib/datetime/DateTimeBoundary";
 import { redrawFaviconOnColorSchemeChange } from "./lib/favicon";
 import "./styles/global.css";
 
@@ -37,7 +38,9 @@ createRoot(document.getElementById("root")!).render(
             {/* Above the routes, because the three layouts are siblings and anything below them is
                 reset by crossing from a project screen to a workspace one. */}
             <AssistantProvider>
-              <AppRoutes />
+              <DateTimeBoundary>
+                <AppRoutes />
+              </DateTimeBoundary>
             </AssistantProvider>
             <BillingRefusalSheets />
           </ToastProvider>

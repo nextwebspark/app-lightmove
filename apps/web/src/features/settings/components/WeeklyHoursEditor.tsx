@@ -2,6 +2,7 @@ import { cn } from "../../../lib/cn";
 import type { Weekday } from "../../outreach/api/sequenceApi";
 import { HALF_HOURS, MONDAY_TO_FRIDAY, SUNDAY_TO_THURSDAY, WEEKDAYS } from "../../outreach/lib/sendSchedule";
 import { DEFAULT_DAY_HOURS, presetOf, weekProblemOf, type WeekDraft } from "../lib/weeklyHours";
+import { formatClock } from "../../../lib/datetime";
 
 const STARTS = HALF_HOURS;
 const ENDS = [...HALF_HOURS.slice(1), "23:59"];
@@ -120,7 +121,7 @@ function TimeSelect({
     >
       {offered.map((time) => (
         <option key={time} value={time}>
-          {time}
+          {formatClock(time)}
         </option>
       ))}
     </select>

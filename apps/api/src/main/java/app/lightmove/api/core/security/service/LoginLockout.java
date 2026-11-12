@@ -1,5 +1,7 @@
 package app.lightmove.api.core.security.service;
 
+import app.lightmove.api.common.time.model.DateTimePreferences;
+import app.lightmove.api.common.time.service.DateTimeFormats;
 import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -45,7 +47,14 @@ public class LoginLockout {
 
             // Here, not on every later refusal: one mail per lock window, not one per guess.
             emailSender.send(templates.buildAccountLockedEmail(
-                    user.getEmail(), user.getFullName(), String.valueOf(user.getLockedUntil())));
+                    user.getEmail(), user.getFullName(), lockedUntilOf(user)));
         }
+    }
+
+    /** In the person's own clock where they chose one: a lock is account-wide, so no workspace's applies. */
+    private static String lockedUntilOf(User user) {
+        DateTimePreferences own = DateTimePreferences.settle(user.getTimezone(), user.getDateFormat(),
+                user.getTimeFormat(), DateTimePreferences.STANDARD);
+        return DateTimeFormats.of(own).dateTime(user.getLockedUntil()) + " (" + own.zone().getId() + ")";
     }
 }

@@ -99,6 +99,28 @@ class EmailImageEncoderTest {
         assertThat(EmailImageEncoder.logo(png)).isEmpty();
     }
 
+    @Test
+    @DisplayName("a signature's own picture is fitted inside twice its largest box, a transparent one kept as PNG")
+    void signaturePictureFitsAndKeepsTransparency() throws Exception {
+        EncodedImage logo = EmailImageEncoder.signaturePicture(picture(4000, 1000, "png")).orElseThrow();
+
+        assertThat(logo.contentType()).isEqualTo("image/png");
+        assertThat(logo.width()).isEqualTo(1200);
+        assertThat(logo.height()).isEqualTo(300);
+    }
+
+    @Test
+    @DisplayName("a signature's opaque picture becomes a JPEG, a small one keeps its size, and a non-picture is refused")
+    void signaturePictureOpaqueSmallOrRefused() throws Exception {
+        EncodedImage badge = EmailImageEncoder.signaturePicture(picture(240, 80, "jpg")).orElseThrow();
+
+        assertThat(badge.contentType()).isEqualTo("image/jpeg");
+        assertThat(badge.width()).isEqualTo(240);
+        assertThat(badge.height()).isEqualTo(80);
+        assertThat(EmailImageEncoder.signaturePicture("<svg/>".getBytes(StandardCharsets.UTF_8))).isEmpty();
+        assertThat(EmailImageEncoder.signaturePicture(picture(40, 40, "gif"))).isEmpty();
+    }
+
     private static byte[] chunk(String type, byte[] data) {
         byte[] typeBytes = type.getBytes(StandardCharsets.ISO_8859_1);
         java.util.zip.CRC32 crc = new java.util.zip.CRC32();

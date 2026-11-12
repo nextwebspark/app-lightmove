@@ -48,8 +48,16 @@ export default function RichNoteEditor({
   fillsDialog = false,
   onExpandChange,
   editorRef,
+  pictures,
 }: NoteEditorProps) {
   const [picker, setPicker] = useState<Picker | null>(null);
+  const [uploadingPictures, setUploadingPictures] = useState(0);
+  const pictureInput = useRef<HTMLInputElement>(null);
+  const uploadingRef = useRef(0);
+  const editorInstance = useRef<Editor | null>(null);
+  const picturesRef = useRef(pictures);
+  // The schema is fixed when the editor is built: a stored picture must be read with the node that keeps it.
+  const schema = useMemo(() => ({ pictures: pictures !== undefined }), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [expanded, setExpanded] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const pickerRef = useRef<Picker | null>(null);
@@ -62,6 +70,7 @@ export default function RichNoteEditor({
   const wasFocused = useRef(false);
   useEffect(() => {
     teammatesRef.current = teammates;
+    picturesRef.current = pictures;
     onChangeRef.current = onChange;
     onSubmitRef.current = onSubmit;
     canSubmitRef.current = canSubmit;
@@ -79,21 +88,24 @@ export default function RichNoteEditor({
 
   const extensions = useMemo(
     () => [
-      ...noteExtensions({
-        suggestion: {
-          char: "@",
-          allow: () => teammatesRef.current !== null,
-          items: ({ query }) => mentionOptionsFor(teammatesRef.current ?? [], query),
-          render: () => ({
-            onStart: (props: SuggestionProps<MentionPickerOption, MentionNodeAttrs>) =>
-              showPicker({ options: props.items, active: 0, pick: props.command, caret: props.clientRect ?? null }),
-            onUpdate: (props: SuggestionProps<MentionPickerOption, MentionNodeAttrs>) =>
-              showPicker({ options: props.items, active: 0, pick: props.command, caret: props.clientRect ?? null }),
-            onKeyDown: ({ event }: SuggestionKeyDownProps) => handlePickerKey(event),
-            onExit: () => showPicker(null),
-          }),
+      ...noteExtensions(
+        {
+          suggestion: {
+            char: "@",
+            allow: () => teammatesRef.current !== null,
+            items: ({ query }) => mentionOptionsFor(teammatesRef.current ?? [], query),
+            render: () => ({
+              onStart: (props: SuggestionProps<MentionPickerOption, MentionNodeAttrs>) =>
+                showPicker({ options: props.items, active: 0, pick: props.command, caret: props.clientRect ?? null }),
+              onUpdate: (props: SuggestionProps<MentionPickerOption, MentionNodeAttrs>) =>
+                showPicker({ options: props.items, active: 0, pick: props.command, caret: props.clientRect ?? null }),
+              onKeyDown: ({ event }: SuggestionKeyDownProps) => handlePickerKey(event),
+              onExit: () => showPicker(null),
+            }),
+          },
         },
-      }),
+        schema,
+      ),
       Placeholder.configure({ placeholder: placeholder ?? "" }),
       Extension.create({
         name: "noteShortcuts",
@@ -120,9 +132,13 @@ export default function RichNoteEditor({
 
   const editor = useEditor({
     extensions,
-    content: noteDocOf(value, format),
+    content: noteDocOf(value, format, schema),
     autofocus: autoFocus ? "end" : false,
     editorProps: {
+      // Word, Outlook and web pages put words beside a picture on the clipboard: the picture goes up, and the words
+      // are still pasted (an <img> among them that is not ours is dropped by the picture node).
+      handlePaste: (_view, event) => takePictures(event.clipboardData?.files) && !hasWords(event.clipboardData),
+      handleDrop: (_view, event) => takePictures((event as DragEvent).dataTransfer?.files),
       attributes: {
         role: "textbox",
         "aria-multiline": "true",
@@ -131,7 +147,7 @@ export default function RichNoteEditor({
       },
     },
     onUpdate: ({ editor: changed }) => {
-      const body = serializeNoteDoc(changed.getJSON());
+      const body = serializeNoteDoc(changed.getJSON(), schema);
       lastEmitted.current = body;
       onChangeRef.current(body);
     },
@@ -139,6 +155,10 @@ export default function RichNoteEditor({
       wasFocused.current = true;
     },
   });
+
+  useEffect(() => {
+    editorInstance.current = editor;
+  }, [editor]);
 
   useEffect(() => {
     if (!editorRef) return;
@@ -157,9 +177,9 @@ export default function RichNoteEditor({
   useEffect(() => {
     if (!editor || value === lastEmitted.current) return;
     lastEmitted.current = value;
-    editor.commands.setContent(noteDocOf(value, format), { emitUpdate: false });
+    editor.commands.setContent(noteDocOf(value, format, schema), { emitUpdate: false });
     if (value === "" && !fillsDialog) setExpanded(false);
-  }, [editor, value, format, fillsDialog]);
+  }, [editor, value, format, fillsDialog, schema]);
 
   useEffect(() => {
     editor?.setOptions({
@@ -179,6 +199,38 @@ export default function RichNoteEditor({
     selector: ({ editor: current }) => (current ? mentionsOf(current) : []),
     equalityFn: (a, b) => (a ?? []).map(mentionKey).join() === (b ?? []).map(mentionKey).join(),
   });
+
+  /** Pasted or dropped files that are pictures go up and in; anything else is left to the editor. */
+  function takePictures(files: FileList | null | undefined): boolean {
+    const chosen = Array.from(files ?? []).filter((file) => PICTURE_TYPES.includes(file.type));
+    if (!picturesRef.current || chosen.length === 0) return false;
+    void insertPictures(chosen);
+    return true;
+  }
+
+  // Read through a ref: the paste and drop handlers were built with the editor, before it existed.
+  async function insertPictures(files: File[]) {
+    const offered = picturesRef.current;
+    const target = editorInstance.current;
+    if (!offered || !target) return;
+    for (const file of files) {
+      if (picturesIn(target) + uploadingRef.current >= offered.max) {
+        offered.onLimit();
+        return;
+      }
+      uploadingRef.current += 1;
+      setUploadingPictures(uploadingRef.current);
+      try {
+        const { src } = await offered.upload(file);
+        target.chain().focus().insertContent({ type: "image", attrs: { src, alt: "" } }).run();
+      } catch (error) {
+        offered.onError(error);
+      } finally {
+        uploadingRef.current -= 1;
+        setUploadingPictures(uploadingRef.current);
+      }
+    }
+  }
 
   function handlePickerKey(event: KeyboardEvent): boolean {
     const open = pickerRef.current;
@@ -266,7 +318,28 @@ export default function RichNoteEditor({
           onLink={() => setLinkOpen((open) => !open)}
           expanded={expanded}
           onExpand={toggleExpanded}
+          onPicture={pictures ? () => pictureInput.current?.click() : undefined}
         />
+        {pictures && (
+          <input
+            ref={pictureInput}
+            type="file"
+            accept={PICTURE_TYPES.join(",")}
+            multiple
+            hidden
+            aria-label="Picture to insert"
+            onChange={(event) => {
+              const files = Array.from(event.target.files ?? []);
+              event.target.value = "";
+              void insertPictures(files);
+            }}
+          />
+        )}
+        {uploadingPictures > 0 && (
+          <p aria-live="polite" className="mt-1 text-meta text-u-text3">
+            Uploading {uploadingPictures === 1 ? "picture" : `${uploadingPictures} pictures`}…
+          </p>
+        )}
         {linkOpen && editor && <LinkRow editor={editor} onClose={() => setLinkOpen(false)} />}
       </div>
       <EditorContent
@@ -372,6 +445,21 @@ function surfaceClassOf(
     // Inline, a long note scrolls inside its editor rather than stretching the drawer; Expand is the room to grow.
     !expanded && "max-h-[45vh] overflow-y-auto",
   );
+}
+
+/** What the server keeps; anything else would be refused after the upload, with a vaguer word. */
+const PICTURE_TYPES = ["image/png", "image/jpeg"];
+
+function hasWords(clipboard: DataTransfer | null): boolean {
+  return !!clipboard && (clipboard.types.includes("text/html") || clipboard.types.includes("text/plain"));
+}
+
+function picturesIn(editor: Editor): number {
+  let count = 0;
+  editor.state.doc.descendants((node) => {
+    if (node.type.name === "image") count += 1;
+  });
+  return count;
 }
 
 function mentionsOf(editor: Editor): Mention[] {

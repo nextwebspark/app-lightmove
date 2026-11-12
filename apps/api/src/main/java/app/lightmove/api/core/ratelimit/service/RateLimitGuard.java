@@ -98,9 +98,26 @@ public class RateLimitGuard {
     }
 
     /** Keyed on the person, as an email keys the others: the request is signed in and carries none. */
+    public void checkDeviceTimeZoneReport(UUID userId, HttpServletRequest request) {
+        checkRateLimit("device-time-zone", userId.toString(), request, config.deviceTimeZoneReportsPerHour(),
+                config.deviceTimeZoneReportsPerHourPerIp(), Duration.ofHours(1));
+    }
+
     public void checkAvatarChange(UUID userId, HttpServletRequest request) {
         checkRateLimit("avatar-change", userId.toString(), request, config.avatarChangesPerHour(),
                 config.avatarChangesPerHourPerIp(), Duration.ofHours(1));
+    }
+
+    /** A Custom signature's picture: each is decoded and stored, so a brake per person and per office IP. */
+    public void checkSignaturePictureUpload(UUID userId, HttpServletRequest request) {
+        checkRateLimit("signature-picture-upload", userId.toString(), request, config.signaturePictureUploadsPerHour(),
+                config.signaturePictureUploadsPerHourPerIp(), Duration.ofHours(1));
+    }
+
+    /** A signature's test email goes to the sender's own mailbox only; this keeps it from counting as a sending loop. */
+    public void checkSignatureTestSend(UUID userId, HttpServletRequest request) {
+        checkRateLimit("signature-test-send", userId.toString(), request, config.signatureTestSendsPerHour(),
+                config.signatureTestSendsPerHourPerIp(), Duration.ofHours(1));
     }
 
     /**

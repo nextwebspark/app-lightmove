@@ -14,6 +14,7 @@ import { ClampedNoteText } from "../../notes/components/ClampedNoteText";
 import { NoteReaderModal } from "../../notes/components/NoteReaderModal";
 import { NOTE_MAX_STORED, NOTE_TOO_LONG } from "../../tasks/lib/mentions";
 import type { TeammateOption } from "../../tasks/lib/team";
+import { formatFull, formatInstantTime } from "../../../lib/datetime";
 
 /** Who reads a note written inside a position: that position's team, or every position's. */
 export type NoteScope = "position" | "everywhere";
@@ -199,8 +200,8 @@ export function NoteCard({
       dateTime={happenedAtOf(note)}
       title={
         happenedAtOf(note) === note.createdAt
-          ? new Date(note.createdAt).toLocaleString()
-          : `Happened ${new Date(happenedAtOf(note)).toLocaleString()} · logged ${new Date(note.createdAt).toLocaleString()}`
+          ? (formatFull(note.createdAt) ?? undefined)
+          : `Happened ${formatFull(happenedAtOf(note)) ?? "—"} · logged ${formatFull(note.createdAt) ?? "—"}`
       }
       className="ms-auto flex-none font-mono text-[11px] text-u-text3"
     >
@@ -313,7 +314,7 @@ export function NoteCard({
           note.projectId === null && <span>All positions</span>
         )}
         {note.editedAt && (
-          <span title={new Date(note.editedAt).toLocaleString()}>Edited by {note.editedByName ?? "someone"}</span>
+          <span title={formatFull(note.editedAt) ?? undefined}>Edited by {note.editedByName ?? "someone"}</span>
         )}
         {actions && (
           <span className="-my-1 ms-auto flex items-center gap-0.5">
@@ -421,8 +422,8 @@ function NoteActionButton({
 
 /** "3 Nov · 15:20": a logged call or meeting is read by the hour it happened, not only the day. */
 function whenWithClock(isoInstant: string): string {
-  const at = new Date(isoInstant);
-  if (Number.isNaN(at.getTime())) return "—";
+  const clock = formatInstantTime(isoInstant);
+  if (!clock) return "—";
   const day = shortWhen(isoInstant);
-  return day.startsWith("Today") ? day : `${day} · ${at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+  return day.startsWith("Today") ? day : `${day} · ${clock}`;
 }

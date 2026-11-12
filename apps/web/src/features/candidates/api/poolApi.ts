@@ -117,6 +117,11 @@ export function erasePerson(personId: string, confirmName: string, suppress: boo
   });
 }
 
+/** Everything held on the person as one zip, to answer their subject access request (an admin's; audited). */
+export function exportSubjectAccess(personId: string): Promise<Blob> {
+  return requestBlob(`/candidates/${personId}/subject-access-export`);
+}
+
 export function setDoNotContact(
   personId: string,
   doNotContact: boolean,

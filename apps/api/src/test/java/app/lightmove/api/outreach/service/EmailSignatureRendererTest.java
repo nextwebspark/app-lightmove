@@ -7,7 +7,9 @@ import app.lightmove.api.outreach.model.RenderedSignature;
 import app.lightmove.api.outreach.model.SignatureContent;
 import app.lightmove.api.outreach.model.SignatureFields;
 import app.lightmove.api.outreach.model.SignatureLogo;
+import app.lightmove.api.outreach.model.SignaturePicture;
 import app.lightmove.api.outreach.model.SignatureSender;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -19,7 +21,7 @@ class EmailSignatureRendererTest {
             480, 120);
     private static final SignatureSender YARA = new SignatureSender("Yara Haddad", "Head of Talent Acquisition",
             "+971 50 123 4567", "https://www.linkedin.com/in/yarahaddad", "yara@alfuttaim.com", "Al-Futtaim",
-            "alfuttaim.com", PHOTO, LOGO, "https://beta.uncava.com/book/yara-haddad-ab12cd34");
+            "alfuttaim.com", PHOTO, LOGO, "https://beta.uncava.com/book/yara-haddad-ab12cd34", Map.of());
 
     private static SignatureContent content(SignatureLayout layout, SignatureFields fields, boolean photo, boolean logo,
                                             boolean booking) {
@@ -66,7 +68,7 @@ class EmailSignatureRendererTest {
         assertThat(classicAskedAnyway).doesNotContain("<img");
 
         SignatureSender noPictures = new SignatureSender("Yara Haddad", null, null, null, "yara@alfuttaim.com", null,
-                null, null, null, null);
+                null, null, null, null, Map.of());
         String none = EmailSignatureRenderer.render(
                 content(SignatureLayout.PHOTO_LOGO, SignatureFields.NONE, true, true, true), noPictures).html();
         assertThat(none).doesNotContain("<img", "Book a call");
@@ -96,6 +98,40 @@ class EmailSignatureRendererTest {
                 "Confidential.");
         assertThat(rendered.html()).doesNotContain("evil.example", "javascript:");
         assertThat(rendered.html()).contains("Kind regards,");
+    }
+
+    @Test
+    @DisplayName("a custom signature draws the signer's own pictures in a row at a fixed size, at most six, nothing else")
+    void customDrawsOwnPictures() {
+        String own = "https://beta.uncava.com/api/v1/email-images/" + "a".repeat(43);
+        String other = "/api/v1/email-images/" + "b".repeat(43);
+        SignatureSender withPictures = new SignatureSender("Yara Haddad", null, null, null, "yara@alfuttaim.com", null,
+                null, null, null, null, Map.of("a".repeat(43), new SignaturePicture(own, 1200, 300)));
+        String markdown = "![Group](/api/v1/email-images/" + "a".repeat(43) + " \"large\") ![Not mine](" + other + ")";
+        String html = EmailSignatureRenderer.render(new SignatureContent("Mine", SignatureLayout.CUSTOM,
+                SignatureFields.NONE, false, false, false, markdown, null), withPictures).html();
+
+        assertThat(html).contains("<img src=\"" + own + "\" width=\"600\" height=\"150\" alt=\"Group\"",
+                "Not mine").doesNotContain("b".repeat(43));
+
+        String eight = ("![](/api/v1/email-images/" + "a".repeat(43) + ") ").repeat(8);
+        String capped = EmailSignatureRenderer.render(new SignatureContent("Mine", SignatureLayout.CUSTOM,
+                SignatureFields.NONE, false, false, false, eight, null), withPictures).html();
+        assertThat(capped.split("<img", -1)).hasSize(SignaturePicture.MAX_PER_SIGNATURE + 1);
+    }
+
+    @Test
+    @DisplayName("as Markdown, no value starts a list or heading or names an entity, and the photo and logo are pictures")
+    void asMarkdownKeepsValuesText() {
+        SignatureFields typed = new SignatureFields(null, "1. Partner", null, null, "A & B", null, "- Floor 3");
+        String markdown = EmailSignatureRenderer.asMarkdown(content(SignatureLayout.LOGO_BANNER, typed, false, true,
+                false), YARA);
+
+        assertThat(markdown).contains("1\\. Partner, A \\& B", "\\- Floor 3",
+                "](<mailto:yara@alfuttaim.com>)", "![](/api/v1/email-images/logo-token)");
+        String drawn = EmailSignatureRenderer.render(new SignatureContent("Mine", SignatureLayout.CUSTOM,
+                SignatureFields.NONE, false, false, false, markdown, null), YARA).html();
+        assertThat(drawn).contains("1. Partner, A &amp; B", "- Floor 3").doesNotContain("<ol", "<ul", "<h");
     }
 
     @Test

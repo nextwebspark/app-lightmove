@@ -30,6 +30,7 @@ import * as mailboxApi from "../../outreach/api/mailboxApi";
 import type { Mailbox } from "../../outreach/api/mailboxApi";
 import * as companyNotesApi from "../api/companyNotesApi";
 import { typeInto } from "../../../test/noteEditor";
+import { FOLLOWING_DATE_TIME } from "../../../test/fixtures/user";
 
 vi.mock("../lib/triageStages", async (importOriginal) =>
   (await import("../../../test/shortlistAndDecline")).withShortlistAndDecline(await importOriginal()),
@@ -168,6 +169,7 @@ const lead = {
   emailVerified: true,
   hasPassword: true,
   timezone: "Asia/Dubai",
+  dateTime: FOLLOWING_DATE_TIME,
   locale: "en",
   platformActions: [],
   pendingInvitations: [],

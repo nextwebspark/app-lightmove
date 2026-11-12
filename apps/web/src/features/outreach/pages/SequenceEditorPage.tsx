@@ -38,6 +38,7 @@ import { MailboxBanner } from "../components/MailboxBanner";
 import { MailboxChip, mailboxChipShows } from "../components/MailboxChip";
 import { OutreachHeader } from "../components/OutreachHeader";
 import { SequenceStatePill } from "../components/SequenceStatePill";
+import { formatClock } from "../../../lib/datetime";
 import { TokenInsertBar } from "../components/TokenInsertBar";
 import { FilledVariable } from "../components/FilledVariable";
 import type { EmailTemplate } from "../../emailtemplates/api/emailTemplatesApi";
@@ -433,7 +434,7 @@ function SequenceEditor({
                       step.sendTime ? clockOf(step.sendTime) : null,
                     ).map((time) => (
                       <option key={time} value={time}>
-                        {time}
+                        {formatClock(time)}
                       </option>
                     ))}
                   </select>
@@ -624,7 +625,7 @@ function SendingScheduleCard({
         >
           {timeChoicesWith(HALF_HOURS, schedule.windowStart).map((time) => (
             <option key={time} value={time}>
-              {time}
+              {formatClock(time)}
             </option>
           ))}
         </select>
@@ -637,7 +638,7 @@ function SendingScheduleCard({
         >
           {timeChoicesWith([...HALF_HOURS.slice(1), "23:59"], schedule.windowEnd).map((time) => (
             <option key={time} value={time}>
-              {time}
+              {formatClock(time)}
             </option>
           ))}
         </select>

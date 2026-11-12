@@ -41,6 +41,14 @@ public record RateLimitSettings(
         @DefaultValue("20") int avatarChangesPerHour,
         @DefaultValue("300") int avatarChangesPerHourPerIp,
 
+        /** A Custom signature's pictures: a few logos each, but a whole firm builds theirs from one office IP. */
+        @DefaultValue("60") int signaturePictureUploadsPerHour,
+        @DefaultValue("600") int signaturePictureUploadsPerHourPerIp,
+
+        /** A signature's test email, sent to the sender's own mailbox. */
+        @DefaultValue("20") int signatureTestSendsPerHour,
+        @DefaultValue("300") int signatureTestSendsPerHourPerIp,
+
         /**
          * Invitation emails, counted per address sent to: a firm onboarding its team fits inside the workspace's
          * budget, and the recipient's, kept across every workspace, stops trial workspaces flooding one inbox.
@@ -52,5 +60,9 @@ public record RateLimitSettings(
          * Opening a stored profile photo: public, and a roster draws dozens at once from one office IP. Each answer is
          * cached for a year, so a browser asks once per picture; this is a brake on scanning tokens, nothing more.
          */
-        @DefaultValue("1200") int avatarReadsPerMinute
+        @DefaultValue("1200") int avatarReadsPerMinute,
+
+        /** A browser reporting its zone: a few an hour per person, a whole firm from one office IP. */
+        @DefaultValue("30") int deviceTimeZoneReportsPerHour,
+        @DefaultValue("600") int deviceTimeZoneReportsPerHourPerIp
 ) {}

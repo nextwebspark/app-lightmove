@@ -2,6 +2,7 @@ import type { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
 import { Icon } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
+import { PICTURE_SIZES, pictureSizeOf, type PictureSize } from "../lib/notePicture";
 
 /** Lucide's strokes, drawn by the app's own Icon. */
 const GLYPHS = {
@@ -13,6 +14,7 @@ const GLYPHS = {
   orderedList: "M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1",
   taskList: "m3 17 2 2 4-4M3 7l2 2 4-4M13 6h8M13 12h8M13 18h8",
   quote: "M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1zM15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z",
+  picture: "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM9 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM21 15l-3.09-3.09a2 2 0 0 0-2.82 0L6 21",
   link: "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71",
   expand: "M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7",
   collapse: "M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7",
@@ -21,6 +23,7 @@ const GLYPHS = {
 /**
  * The note editor's formatting row: marks, two heading sizes, three kinds of list, a quote, a link, a mention and
  * Expand, which reads Collapse in the larger view. Each button says whether it is on, and keeps the selection it acts on.
+ * Where the editor takes pictures it adds Insert picture, and a selected picture's three sizes.
  */
 export function NoteToolbar({
   editor,
@@ -30,6 +33,7 @@ export function NoteToolbar({
   onLink,
   expanded,
   onExpand,
+  onPicture,
 }: {
   editor: Editor | null;
   mentionsOffered: boolean;
@@ -38,6 +42,8 @@ export function NoteToolbar({
   onLink: () => void;
   expanded: boolean;
   onExpand: () => void;
+  /** Set where the editor takes pictures. */
+  onPicture?: () => void;
 }) {
   const active = useEditorState({
     editor,
@@ -53,6 +59,7 @@ export function NoteToolbar({
       taskList: current?.isActive("taskList") ?? false,
       quote: current?.isActive("blockquote") ?? false,
       link: current?.isActive("link") ?? false,
+      pictureSize: current?.isActive("image") ? pictureSizeOf(current.getAttributes("image").title) : null,
     }),
   });
   const run = (action: (chain: ReturnType<Editor["chain"]>) => ReturnType<Editor["chain"]>) => () => {
@@ -74,6 +81,21 @@ export function NoteToolbar({
       <ToolButton label="Checklist" pressed={active?.taskList} glyph={GLYPHS.taskList} onClick={run((c) => c.toggleTaskList())} />
       <ToolButton label="Quote" pressed={active?.quote} glyph={GLYPHS.quote} onClick={run((c) => c.toggleBlockquote())} />
       <ToolButton label="Link" shortcut="⌘K" pressed={active?.link} glyph={GLYPHS.link} onClick={onLink} />
+      {onPicture && <ToolButton label="Insert picture" glyph={GLYPHS.picture} onClick={onPicture} />}
+      {onPicture && active?.pictureSize && (
+        <>
+          <Divider />
+          {PICTURE_SIZES.map((size: PictureSize) => (
+            <ToolButton
+              key={size}
+              label={`${SIZE_LABELS[size]} picture`}
+              text={SIZE_LABELS[size][0]}
+              pressed={active.pictureSize === size}
+              onClick={run((c) => c.updateAttributes("image", { title: size === "medium" ? null : size }))}
+            />
+          ))}
+        </>
+      )}
       {mentionsOffered && (
         <ToolButton label="Mention a teammate" shortcut="@" pressed={pickerOpen} text="@" onClick={onMention} />
       )}
@@ -86,6 +108,8 @@ export function NoteToolbar({
     </div>
   );
 }
+
+const SIZE_LABELS: Record<PictureSize, string> = { small: "Small", medium: "Medium", large: "Large" };
 
 function ToolButton({
   label,

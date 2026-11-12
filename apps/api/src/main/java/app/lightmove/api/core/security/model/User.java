@@ -1,7 +1,8 @@
 package app.lightmove.api.core.security.model;
-import app.lightmove.api.core.security.constant.UserStatus;
-
+import app.lightmove.api.common.time.constant.DateFormatStyle;
+import app.lightmove.api.common.time.constant.TimeFormatStyle;
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.core.security.constant.UserStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -9,7 +10,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -62,9 +62,29 @@ public class User extends BaseEntity {
     @Column(name = "avatar_source", length = 32)
     private String avatarSource;
 
+    /** A zone the person pinned, or null for Automatic (V212); read through {@code DateTimePreferenceService}. */
     @Setter
-    @Column(nullable = false, length = 64)
-    private String timezone = "Asia/Dubai";
+    @Column(length = 64)
+    private String timezone;
+
+    /** The zone this person's browser last reported: their clock while nothing is pinned. */
+    @Column(name = "device_time_zone", length = 64)
+    private String deviceTimeZone;
+
+    @Column(name = "device_time_zone_at")
+    private Instant deviceTimeZoneAt;
+
+    /** Null keeps the workspace's. */
+    @Setter
+    @Enumerated(EnumType.STRING)
+    @Column(name = "date_format", length = 16)
+    private DateFormatStyle dateFormat;
+
+    /** Null keeps the workspace's. */
+    @Setter
+    @Enumerated(EnumType.STRING)
+    @Column(name = "time_format", length = 4)
+    private TimeFormatStyle timeFormat;
 
     @Setter
     @Column(nullable = false, length = 16)
@@ -160,8 +180,18 @@ public class User extends BaseEntity {
         return user;
     }
 
-    public ZoneId zone() {
-        return ZoneId.of(timezone);
+    /** @return whether the device moved to another zone, which only then is recorded */
+    public boolean reportDeviceTimeZone(String zone, Instant now) {
+        if (zone.equals(deviceTimeZone)) {
+            return false;
+        }
+        this.deviceTimeZone = zone;
+        this.deviceTimeZoneAt = now;
+        return true;
+    }
+
+    public boolean isTimeZoneAutomatic() {
+        return timezone == null;
     }
 
     public boolean hasPassword() {

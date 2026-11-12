@@ -8,6 +8,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { Marked } from "marked";
 import { mentionToken, parseNoteBody, type Mention as NoteMention } from "../../tasks/lib/mentions";
 import type { NoteFormat } from "./noteFormat";
+import { NotePictureNode } from "./notePicture";
 
 /**
  * A note's formatting, one schema for the editor, the renderer and the stored Markdown, so what is typed is what is
@@ -97,8 +98,13 @@ export function mentionOf(id: string | null | undefined, label: string | null | 
     : { kind: "user", userId: id, name: label ?? "" };
 }
 
+/** Whether a surface keeps pictures Uncava hosts: a Custom signature does, and nothing else. */
+export interface NoteSchemaOptions {
+  pictures?: boolean;
+}
+
 /** The schema every note surface shares; the editor alone hands the mention its picker. */
-export function noteExtensions(mention?: Partial<MentionOptions>): AnyExtension[] {
+export function noteExtensions(mention?: Partial<MentionOptions>, options: NoteSchemaOptions = {}): AnyExtension[] {
   return [
     StarterKit.configure({
       paragraph: false,
@@ -118,24 +124,35 @@ export function noteExtensions(mention?: Partial<MentionOptions>): AnyExtension[
     TaskList,
     TaskItem.configure({ nested: true }),
     mention ? NoteMentionNode.configure(mention) : NoteMentionNode,
+    ...(options.pictures ? [NotePictureNode] : []),
   ];
 }
 
-let manager: MarkdownManager | null = null;
+const managers = new Map<boolean, MarkdownManager>();
 
-/** A manager over its own Marked instance: the shared global one would carry every other manager's tokenizers. */
-function markdownManager(): MarkdownManager {
-  manager ??= escapePlusRuns(new MarkdownManager({ marked: new Marked() as never, extensions: noteExtensions() }));
+/**
+ * A manager over its own Marked instance: the shared global one would carry every other manager's tokenizers. Read
+ * without the picture node, a stored picture would be dropped on the next save, so a surface keeping them has its own.
+ */
+function markdownManager(options: NoteSchemaOptions): MarkdownManager {
+  const pictures = options.pictures === true;
+  let manager = managers.get(pictures);
+  if (!manager) {
+    manager = escapePlusRuns(
+      new MarkdownManager({ marked: new Marked() as never, extensions: noteExtensions(undefined, { pictures }) }),
+    );
+    managers.set(pictures, manager);
+  }
   return manager;
 }
 
-export function parseNoteMarkdown(body: string): JSONContent {
-  return markdownManager().parse(body);
+export function parseNoteMarkdown(body: string, options: NoteSchemaOptions = {}): JSONContent {
+  return markdownManager(options).parse(body);
 }
 
 /** The document as stored. Not trimmed: a space typed after a mention is the next word's, until the note is saved. */
-export function serializeNoteDoc(doc: JSONContent): string {
-  return markdownManager().serialize(doc).replace(/\n+$/, "");
+export function serializeNoteDoc(doc: JSONContent, options: NoteSchemaOptions = {}): string {
+  return markdownManager(options).serialize(doc).replace(/\n+$/, "");
 }
 
 /**
@@ -175,6 +192,6 @@ export function plainEmailDoc(text: string): JSONContent {
   return { type: "doc", content: paragraphs };
 }
 
-export function noteDocOf(body: string, format: NoteFormat): JSONContent {
-  return format === "markdown" ? parseNoteMarkdown(body) : plainNoteDoc(body);
+export function noteDocOf(body: string, format: NoteFormat, options: NoteSchemaOptions = {}): JSONContent {
+  return format === "markdown" ? parseNoteMarkdown(body, options) : plainNoteDoc(body);
 }

@@ -1,3 +1,4 @@
+import { formatInstantDate, formatInstantDateTime } from "../../../lib/datetime";
 import type { RetentionErased, SuppressionKind, SuppressionReason } from "../api/dataRetentionApi";
 
 /**
@@ -60,9 +61,9 @@ export function erasedToast(result: RetentionErased): string {
   return left.length === 0 ? deleted : `${deleted} · ${left.join(", ")} kept`;
 }
 
-/** "14 Aug 2024" in the viewer's zone. */
+/** "14 Aug 2024" in the viewer's zone and date format. */
 export function dayOf(isoInstant: string): string {
-  return new Date(isoInstant).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return formatInstantDate(isoInstant) ?? "—";
 }
 
 const LAST_ACTIVITY: Record<string, string> = {
@@ -141,10 +142,9 @@ export function exportSizeLabel(bytes: number): string {
   return `${size >= 10 || unit === 0 ? Math.max(1, Math.round(size)) : Number(size.toFixed(1))} ${units[unit]}`;
 }
 
-/** "5 Oct 2026, 14:09" in the viewer's zone. */
+/** "5 Oct 2026, 14:09" in the viewer's zone and formats. */
 export function momentOf(isoInstant: string): string {
-  const at = new Date(isoInstant);
-  return `${dayOf(isoInstant)}, ${at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+  return formatInstantDateTime(isoInstant) ?? "—";
 }
 
 /** "expires in 7 days", or "expires within a day" for the last of them. */

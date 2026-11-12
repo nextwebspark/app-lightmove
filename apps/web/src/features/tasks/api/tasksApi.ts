@@ -12,6 +12,7 @@ import type {
   TasksResponse,
   UpdateTaskRequest,
 } from "./types";
+import { getDateTimePreferences } from "../../../lib/datetime";
 
 /** Every task read hangs under this prefix, so one invalidation after any write refreshes them all. */
 export const TASKS_KEY_PREFIX = ["tasks"] as const;
@@ -68,7 +69,7 @@ export function getMyTasks(
 ): Promise<MyTasksResponse> {
   const params = new URLSearchParams({
     view,
-    tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    tz: getDateTimePreferences().timeZone,
     offset: String(offset),
     size: String(size),
   });

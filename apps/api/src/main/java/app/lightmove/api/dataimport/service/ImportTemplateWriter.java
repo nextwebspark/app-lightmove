@@ -44,7 +44,7 @@ public class ImportTemplateWriter {
             Map.entry(ImportTargetField.CANDIDATE_PHONE, "+966 50 123 4567"),
             Map.entry(ImportTargetField.CANDIDATE_LINKEDIN, "https://linkedin.com/in/example"));
 
-    public static final String FILE_NAME = "lightmove-import-template.csv";
+    public static final String FILE_NAME = "uncava-import-template.csv";
 
     /** Appends the mandate's custom columns, so a second import of the same shape needs no model call. */
     public String templateFor(List<CustomColumnDto> customColumns) {

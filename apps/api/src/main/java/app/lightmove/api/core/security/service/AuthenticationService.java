@@ -340,4 +340,5 @@ public class AuthenticationService {
     public User requireUser(UUID userId) {
         return users.findById(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
     }
+
 }

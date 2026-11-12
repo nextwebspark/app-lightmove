@@ -2,7 +2,7 @@
  * What "Copy AI prompt" puts on the clipboard. Paired with the downloaded schema, it lets a model
  * outside the app write a file the import accepts; the rules below are the ones the import enforces.
  */
-export const AI_TEMPLATE_PROMPT = `You are writing role templates for LightMove, an executive-search platform. A template drafts the position brief for every new search whose role title matches one of its keywords.
+export const AI_TEMPLATE_PROMPT = `You are writing role templates for Uncava, an executive-search platform. A template drafts the position brief for every new search whose role title matches one of its keywords.
 
 Reply with one JSON document and nothing else. It must validate against the attached JSON Schema (position-templates.schema.json) and have this outer shape:
 {"format": "lightmove.position-templates", "formatVersion": 1, "templates": [ ... ]}

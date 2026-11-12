@@ -1,6 +1,8 @@
 package app.lightmove.api.core.security.service;
 
-import app.lightmove.api.common.time.service.RegionZones;
+import app.lightmove.api.common.time.constant.DateFormatStyle;
+import app.lightmove.api.common.time.constant.TimeFormatStyle;
+import app.lightmove.api.common.time.service.StandardTimeZones;
 import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -10,6 +12,8 @@ import app.lightmove.api.core.security.model.TimezoneChanged;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +42,7 @@ public class UserProfileService {
     private final UserRepository users;
     private final AuditService audit;
     private final ApplicationEventPublisher events;
+    private final Clock clock;
 
     @Transactional
     public User update(UUID actorId, UUID workspaceId, ProfileUpdateCommand command,
@@ -48,11 +53,15 @@ public class UserProfileService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
         String previousTimezone = user.getTimezone();
-        String timezone = command.timezone().trim();
-        boolean isMoved = !previousTimezone.equals(timezone);
+        String timezone = command.timezone() == null || command.timezone().isBlank() ? null : command.timezone().trim();
+        boolean isMoved = !Objects.equals(previousTimezone, timezone);
+        DateFormatStyle previousDateFormat = user.getDateFormat();
+        TimeFormatStyle previousTimeFormat = user.getTimeFormat();
         user.setFullName(command.fullName().trim());
         user.setTitle(normaliseTitle(command.title()));
-        user.setTimezone(isMoved ? requireRegionZone(timezone) : timezone);
+        user.setTimezone(isMoved ? requireOfferedZone(timezone) : timezone);
+        user.setDateFormat(command.dateFormat());
+        user.setTimeFormat(command.timeFormat());
         user.setLocale(requireSupportedLocale(command.locale()));
         if (command.phone() != null) {
             user.setPhone(ContactDetails.phoneOrNull(command.phone()));
@@ -61,13 +70,19 @@ public class UserProfileService {
             user.setLinkedinUrl(ContactDetails.linkedinProfileOrNull(command.linkedinUrl()));
         }
 
+        boolean isDateFormatMoved = previousDateFormat != user.getDateFormat();
+        boolean isTimeFormatMoved = previousTimeFormat != user.getTimeFormat();
         audit.event(AuthEventType.PROFILE_UPDATED)
                 .actor(actorId).workspace(workspaceId).from(request)
-                .detailIfPresent("timezoneFrom", isMoved ? previousTimezone : null)
-                .detailIfPresent("timezoneTo", isMoved ? user.getTimezone() : null)
+                .detailIfPresent("timezoneFrom", isMoved ? orAutomatic(previousTimezone) : null)
+                .detailIfPresent("timezoneTo", isMoved ? orAutomatic(user.getTimezone()) : null)
+                .detailIfPresent("dateFormatFrom", isDateFormatMoved ? orWorkspace(previousDateFormat) : null)
+                .detailIfPresent("dateFormatTo", isDateFormatMoved ? orWorkspace(user.getDateFormat()) : null)
+                .detailIfPresent("timeFormatFrom", isTimeFormatMoved ? orWorkspace(previousTimeFormat) : null)
+                .detailIfPresent("timeFormatTo", isTimeFormatMoved ? orWorkspace(user.getTimeFormat()) : null)
                 .record();
         if (isMoved) {
-            events.publishEvent(new TimezoneChanged(actorId, user.zone()));
+            events.publishEvent(new TimezoneChanged(actorId));
         }
 
         return user;
@@ -81,12 +96,38 @@ public class UserProfileService {
         return title.trim();
     }
 
+    /** Not audited, by design: it moves with every trip; only a pinned zone is a choice. */
+    @Transactional
+    public void reportDeviceTimeZone(UUID actorId, String zone) {
+        User user = users.findById(actorId)
+                .filter(found -> !found.isDeleted())
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        String reported = zone == null ? null : zone.trim();
+        if (!StandardTimeZones.isReportableDeviceZone(reported)) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "timeZone", "That is not a time zone");
+        }
+        if (user.reportDeviceTimeZone(reported, clock.instant()) && user.isTimeZoneAutomatic()) {
+            events.publishEvent(new TimezoneChanged(actorId));
+        }
+    }
+
+    /** What the audit line says for a zone left to the device. */
+    private static String orAutomatic(Object choice) {
+        return choice == null ? "automatic" : choice.toString();
+    }
+
+    /** What the audit line says for a choice left to the workspace. */
+    private static String orWorkspace(Object choice) {
+        return choice == null ? "workspace" : choice.toString();
+    }
+
     /**
-     * Asked of a new choice only: a zone saved before the rule (one the old check took, like {@code US/Pacific}) still
-     * saves unchanged with the rest of the profile, and still reads correctly.
+     * Asked of a new choice only: a zone saved before the fixed list (one an older check took, like {@code US/Pacific}
+     * or {@code Asia/Tashkent}) still saves unchanged with the rest of the profile, and still reads correctly. Going
+     * back to Automatic is always allowed.
      */
-    private static String requireRegionZone(String timezone) {
-        if (!RegionZones.isRegionZone(timezone)) {
+    private static String requireOfferedZone(String timezone) {
+        if (timezone != null && !StandardTimeZones.isOffered(timezone)) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "timezone",
                     "Pick a timezone from the list");
         }

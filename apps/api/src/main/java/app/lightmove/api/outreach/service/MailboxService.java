@@ -1,5 +1,6 @@
 package app.lightmove.api.outreach.service;
 
+import app.lightmove.api.common.time.model.DateTimePreferences;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -10,7 +11,8 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.model.TimezoneChanged;
-import app.lightmove.api.core.security.service.UserTimezones;
+import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.core.tenant.ResolvedRow;
 import app.lightmove.api.core.tenant.TenantResolvers;
@@ -20,10 +22,11 @@ import app.lightmove.api.outreach.constant.MessageKind;
 import app.lightmove.api.outreach.constant.MessageStatus;
 import app.lightmove.api.outreach.dto.ConnectedMailboxResponse;
 import app.lightmove.api.outreach.dto.MailboxResponse;
+import app.lightmove.api.outreach.dto.SaveSignatureRequest;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxAuthorization;
-import app.lightmove.api.outreach.model.MailboxConnected;
 import app.lightmove.api.outreach.model.MailboxConnectStart;
+import app.lightmove.api.outreach.model.MailboxConnected;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.RecallCalendarReleased;
@@ -33,6 +36,8 @@ import app.lightmove.api.outreach.repository.MailboxAuthorizationRepository;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import app.lightmove.api.outreach.repository.OutreachMessageRepository;
+import app.lightmove.api.workspace.model.WorkspaceDateTimeChanged;
+import app.lightmove.api.workspace.service.DateTimePreferenceService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -40,13 +45,19 @@ import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -69,6 +80,9 @@ public class MailboxService {
     private static final String TEST_BODY = "<p>This is a test from Uncava.</p>"
             + "<p>Outreach you start in Uncava will go from this mailbox, and replies will land here, in your inbox.</p>";
 
+    private static final String SIGNATURE_TEST_SUBJECT = "Your signature in Uncava";
+    private static final String SIGNATURE_TEST_BODY = "<p>This is how your signature looks in an email from Uncava.</p>";
+
     private final MailboxGateway gateway;
     private final MailboxConnectionRepository connections;
     private final MailboxAuthorizationRepository authorizations;
@@ -84,7 +98,8 @@ public class MailboxService {
     private final MailboxTokens tokens;
     private final SecretCipher cipher;
     private final LightMoveProperties properties;
-    private final UserTimezones timezones;
+    private final DateTimePreferenceService dateTimePreferences;
+    private final UserRepository users;
     private final TenantResolvers resolvers;
     private final Clock clock;
     private final EmailSignatureService signatures;
@@ -113,10 +128,8 @@ public class MailboxService {
     }
 
     /**
-     * A person's clock is their profile's (V148): every mailbox they hold, one per workspace, sends and caps by it. Sends
-     * already due keep their time; the window and the cap read the new zone from the next one. Once the profile has
-     * committed, each workspace's mailbox in that workspace's scope and its own transaction: the profile's transaction
-     * is the caller's workspace, and under row-level security sees no other's.
+     * After the profile commits, each workspace's mailbox in that workspace's scope and its own transaction: the
+     * profile's transaction is the caller's workspace, and under row-level security sees no other's.
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onTimezoneChanged(TimezoneChanged changed) {
@@ -124,8 +137,29 @@ public class MailboxService {
         own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         resolvers.mailboxesOfUser(changed.userId()).stream().map(ResolvedRow::workspaceId).distinct()
                 .forEach(workspaceId -> WorkspaceScope.run(workspaceId, () -> own.executeWithoutResult(status ->
-                        connections.findByUserId(changed.userId())
-                                .forEach(connection -> connection.changeTimeZone(changed.zone())))));
+                        followClocks(workspaceId, connections.findByUserId(changed.userId())))));
+    }
+
+    @EventListener
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void onWorkspaceDateTimeChanged(WorkspaceDateTimeChanged changed) {
+        followClocks(changed.workspaceId(), connections.findByWorkspaceId(changed.workspaceId()));
+    }
+
+    /** Sends already due keep their time; the window and the cap read the new zone from the next one. */
+    private void followClocks(UUID workspaceId, List<MailboxConnection> mailboxes) {
+        if (mailboxes.isEmpty()) {
+            return;
+        }
+        DateTimePreferences defaults = dateTimePreferences.workspaceDefaultsOf(workspaceId);
+        Map<UUID, User> owners = users.findAllById(mailboxes.stream().map(MailboxConnection::getUserId).distinct()
+                .toList()).stream().collect(Collectors.toMap(User::getId, Function.identity()));
+        for (MailboxConnection mailbox : mailboxes) {
+            User owner = owners.get(mailbox.getUserId());
+            if (owner != null) {
+                mailbox.changeTimeZone(dateTimePreferences.forPerson(owner, defaults).zone());
+            }
+        }
     }
 
     /** Any attempt the caller left unfinished is dropped, so only the newest consent screen can connect. */
@@ -311,6 +345,18 @@ public class MailboxService {
 
     /** Sends one email from the mailbox to itself, which is the only proof that it can send at all. */
     public void sendTest(UUID userId, UUID workspaceId) {
+        // The default signature rides along, so the consultant sees it in their own inbox as an executive will.
+        sendToSelf(userId, workspaceId, TEST_SUBJECT, TEST_BODY, () -> signatures.renderDefaultForTest(userId, workspaceId)
+                .map(RenderedSignature::html).orElse(""));
+    }
+
+    /** The signature being edited, saved or not, sent from the mailbox to itself; the address it went to. */
+    public String sendSignatureTest(UUID userId, UUID workspaceId, SaveSignatureRequest draft) {
+        return sendToSelf(userId, workspaceId, SIGNATURE_TEST_SUBJECT, SIGNATURE_TEST_BODY,
+                () -> signatures.renderDraftForTest(userId, workspaceId, draft).html());
+    }
+
+    private String sendToSelf(UUID userId, UUID workspaceId, String subject, String body, Supplier<String> signature) {
         requireOffered();
         MailboxConnection connection = connections.findByWorkspaceIdAndUserId(workspaceId, userId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_NOT_CONNECTED));
@@ -318,10 +364,9 @@ public class MailboxService {
             throw ApiException.of(ErrorCode.MAILBOX_RECONNECT_NEEDED);
         }
         try {
-            // The default signature rides along, so the consultant sees it in their own inbox as an executive will.
-            String signature = signatures.renderDefaultForTest(userId, workspaceId).map(RenderedSignature::html).orElse("");
             gateway.send(connection.getGrantId(),
-                    new OutgoingEmail(connection.getAddress(), TEST_SUBJECT, TEST_BODY + signature));
+                    new OutgoingEmail(connection.getAddress(), subject, body + signature.get()));
+            return connection.getAddress();
         } catch (VendorException failed) {
             if (isAccessWithdrawn(failed)) {
                 transactions.executeWithoutResult(status -> requireConnection(userId, workspaceId).markAccessWithdrawn());
@@ -358,7 +403,7 @@ public class MailboxService {
                 .orElseGet(() -> {
                     MailboxConnection connected = connections.save(MailboxConnection.connected(
                             started.getWorkspaceId(), started.getUserId(), granted, refreshTokenEncrypted,
-                            settings().dailyCap(), timezones.zoneOf(started.getUserId()), now));
+                            settings().dailyCap(), dateTimePreferences.zoneOf(started.getWorkspaceId(), started.getUserId()), now));
                     events.publishEvent(new MailboxConnected(connected.getId()));
                     return null;
                 });

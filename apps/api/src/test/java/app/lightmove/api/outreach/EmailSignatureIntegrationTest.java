@@ -41,6 +41,7 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
 
     private static final String SIGNATURES = "/api/v1/me/signatures";
     private static final String LOGO_URL = "https://logos.example/al-futtaim.png";
+    private static final String GROUP_LOGO_URL = "https://logos.example/al-futtaim-group.png";
 
     @Autowired @FixtureJdbc private JdbcTemplate jdbc;
     @Autowired private StubPictureFetcher pictures;
@@ -101,7 +102,8 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
         String second = previewHtml(photo);
         assertThat(first).contains("/api/v1/email-images/").doesNotContain("/api/v1/avatars/");
         assertThat(second).isEqualTo(first);
-        assertThat(jdbc.queryForObject("select count(*) from app_lm_email_image where kind = 'PHOTO'", Integer.class))
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_email_image where kind = 'PHOTO' and user_id = "
+                + "(select id from app_lm_user where email = ?)", Integer.class, "yara@" + domain))
                 .isOne();
 
         String path = first.substring(first.indexOf("/api/v1/email-images/"), first.indexOf('"',
@@ -263,6 +265,111 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
         mvc.perform(get(logoPath)).andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/png"));
         assertThat(list(yara).get("sources").get("logoAvailable").asBoolean()).isTrue();
+    }
+
+    @Test
+    @DisplayName("a Custom signature's own pictures are kept once, drawn side by side, and only ever the signer's own")
+    void customSignaturePictures() throws Exception {
+        JsonNode group = uploadPicture(yara, picture(2400, 600));
+        JsonNode again = uploadPicture(yara, picture(2400, 600));
+        JsonNode badge = uploadPicture(yara, picture(300, 100));
+        assertThat(again.get("token").asText()).isEqualTo(group.get("token").asText());
+        assertThat(group.get("src").asText()).isEqualTo(EmailImageService.PATH + group.get("token").asText());
+        assertThat(group.get("width").asInt()).isEqualTo(1200);
+        assertThat(group.get("height").asInt()).isEqualTo(300);
+        mvc.perform(get(group.get("src").asText())).andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"));
+
+        String custom = """
+                {"name":"Firm","layout":"CUSTOM","customBody":"Mobile +971 58 000 0000\\n\\n![Group](%s) ![AESC](%s \\"small\\")"}"""
+                .formatted(group.get("src").asText(), badge.get("src").asText());
+        String drawn = previewHtml(custom);
+        assertThat(drawn).contains("Mobile +971 58 000 0000", "alt=\"Group\"", "alt=\"AESC\"",
+                "width=\"256\" height=\"64\"", "width=\"120\" height=\"40\"");
+        assertThat(drawn.indexOf("Group")).isLessThan(drawn.indexOf("AESC"));
+        create(yara, custom);
+
+        inviteAndAccept(yara, "Omar Saleh", "omar@" + domain, "MEMBER");
+        String omar = login("omar@" + domain);
+        String borrowed = """
+                {"name":"Borrowed","layout":"CUSTOM","customBody":"![Group](%s)"}""".formatted(group.get("src").asText());
+        assertThat(body(mvc.perform(post(SIGNATURES + "/preview").header("Authorization", "Bearer " + omar)
+                        .contentType(MediaType.APPLICATION_JSON).content(borrowed))
+                .andExpect(status().isOk()).andReturn()).get("html").asText()).doesNotContain("<img").contains("Group");
+        MvcResult refused = mvc.perform(post(SIGNATURES).header("Authorization", "Bearer " + omar)
+                        .contentType(MediaType.APPLICATION_JSON).content(borrowed))
+                .andExpect(status().isBadRequest()).andReturn();
+        assertThat(body(refused).get("fieldErrors").has("customBody")).isTrue();
+
+        String outside = """
+                {"name":"Outside","layout":"CUSTOM","customBody":"![Logo](https://evil.example/pixel.png)"}""";
+        assertThat(previewHtml(outside)).doesNotContain("<img", "evil.example");
+
+        String seven = """
+                {"name":"Many","layout":"CUSTOM","customBody":"%s"}""".formatted(
+                ("![](" + badge.get("src").asText() + ") ").repeat(7));
+        MvcResult tooMany = mvc.perform(post(SIGNATURES).header("Authorization", "Bearer " + yara)
+                        .contentType(MediaType.APPLICATION_JSON).content(seven))
+                .andExpect(status().isBadRequest()).andReturn();
+        assertThat(body(tooMany).get("fieldErrors").has("customBody")).isTrue();
+    }
+
+    @Test
+    @DisplayName("a starting point is the details, photo and logo as Markdown the signer may save and send as their own")
+    void starterIsEditableMarkdown() throws Exception {
+        mvc.perform(profile(yara, """
+                        {"fullName":"Yara *Haddad*","title":"Head of Talent","timezone":"Asia/Dubai","locale":"en",
+                         "phone":"+971 50 123 4567"}"""))
+                .andExpect(status().isOk());
+        mvc.perform(multipart(HttpMethod.PUT, "/api/v1/auth/me/avatar")
+                        .file(new MockMultipartFile("file", "me.png", "image/png", picture(400, 400)))
+                        .header("Authorization", "Bearer " + yara).with(csrf()))
+                .andExpect(status().isOk());
+        jdbc.update("update app_lm_workspace set logo_url = ? where id = ?::uuid", GROUP_LOGO_URL, workspaceId);
+        pictures.answer(GROUP_LOGO_URL, picture(800, 200));
+
+        String markdown = body(mvc.perform(post(SIGNATURES + "/starter").header("Authorization", "Bearer " + yara)
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"name":"With photo","layout":"PHOTO_LOGO","showPhoto":true,"showLogo":true}"""))
+                .andExpect(status().isOk()).andReturn()).get("customBody").asText();
+        assertThat(markdown).startsWith("![](" + EmailImageService.PATH)
+                .contains("**Yara \\*Haddad\\***", "Head of Talent, Al-Futtaim", "\\+971 50 123 4567",
+                        "[yara@" + domain + "](<mailto:yara@" + domain + ">)")
+                .doesNotContain("http://", GROUP_LOGO_URL);
+        assertThat(markdown.split("!\\[]\\(", -1)).hasSize(3);
+
+        String saved = """
+                {"name":"Mine","layout":"CUSTOM","customBody":%s}""".formatted(
+                json.writeValueAsString(markdown + "\n\nMobile +971 58 000 0000"));
+        create(yara, saved);
+        String drawn = previewHtml(saved);
+        assertThat(drawn.split("<img", -1)).hasSize(3);
+        assertThat(drawn).contains("Yara *Haddad*", "Mobile +971 58 000 0000");
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_email_signature where layout = 'CUSTOM'",
+                Integer.class)).isPositive();
+    }
+
+    @Test
+    @DisplayName("an upload that is not a picture, or too big, is refused by code")
+    void pictureRefusals() throws Exception {
+        MvcResult notAPicture = mvc.perform(multipart(SIGNATURES + "/pictures")
+                        .file(new MockMultipartFile("file", "logo.png", "image/png", "not a picture".getBytes()))
+                        .header("Authorization", "Bearer " + yara).with(csrf()))
+                .andExpect(status().isBadRequest()).andReturn();
+        assertThat(codeOf(notAPicture)).isEqualTo("EMAIL_IMAGE_UNREADABLE");
+
+        MvcResult tooLarge = mvc.perform(multipart(SIGNATURES + "/pictures")
+                        .file(new MockMultipartFile("file", "big.png", "image/png", new byte[5 * 1024 * 1024 + 1]))
+                        .header("Authorization", "Bearer " + yara).with(csrf()))
+                .andExpect(status().isPayloadTooLarge()).andReturn();
+        assertThat(codeOf(tooLarge)).isEqualTo("EMAIL_IMAGE_TOO_LARGE");
+    }
+
+    private JsonNode uploadPicture(String token, byte[] content) throws Exception {
+        return body(mvc.perform(multipart(SIGNATURES + "/pictures")
+                        .file(new MockMultipartFile("file", "logo.png", "image/png", content))
+                        .header("Authorization", "Bearer " + token).with(csrf()))
+                .andExpect(status().isCreated()).andReturn());
     }
 
     private int makeDefault(String signatureId) {

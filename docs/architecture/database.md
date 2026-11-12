@@ -389,7 +389,36 @@ V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kin
 `MEETING_CANCELLED`.
 V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),
 the profile's old `Etc/GMT` becomes `UTC`, and every mailbox's `time_zone` is set to its user's — kept so from then by
-the profile write, and taken by a new connection.
+the profile write, and taken by a new connection. Since V211/V212 that clock is settled, not stored: the zone the person
+pinned, else the one their device last reported (Automatic), else their workspace's, else its country's
+(`DateTimePreferenceService`, the one place the order lives).
+V211 is **Date & time** — the workspace's time zone, date format and time format on Settings → General
+(`PUT /workspace/date-time`, `WORKSPACE_MANAGE`, audited as a `dateTime` section), each a nullable column on
+`app_lm_workspace` (null: the country's zone through `CountryTimeZones`, the standard `DD_MMM_YYYY` / `H24`), and a
+person's own choice of any of them on `app_lm_user` (`timezone` now nullable, `date_format`, `time_format`; null keeps
+the workspace's, chosen on Settings → Profile as "Workspace default" and applying in every workspace they are in). Every
+value is a fixed set: 42 zones (`data/time-zones.json`, `StandardTimeZones`; the SPA's `lib/datetime/timeZones.ts` is
+held equal to it), 5 date shapes, 2 clocks — a zone saved before the list keeps working until changed. The backfill
+moves nobody's clock: a workspace took its active members' most common zone, and a person kept theirs only where it
+differs from a workspace they are in. `/me` carries `dateTime` (`effective`, `own`, `workspace`); a mailbox's
+`time_zone` copy is read again on `TimezoneChanged` (after commit, per workspace in its own scope) and
+`WorkspaceDateTimeChanged`; server text (the digest, task emails, billing and secret-expiry emails — billing on UTC's
+calendar — the lock email and the lines a call files) goes through `DateTimeFormats`, while exports and model input
+stay ISO. In the SPA every date is `lib/datetime`'s, read in the effective preferences that `AuthProvider` sets and
+`DateTimeBoundary` redraws on; `lib/dateRatchet.test.ts` refuses a browser date formatter anywhere else, and time
+pickers are `TimeInput` (labelled in the person's clock), never a native time input.
+V212 makes a person's time zone **Automatic** by default — it follows their device, as Slack's, HubSpot's and Teams'
+do — and the workspace's zone a fallback, for a member whose browser has not yet reported and for workspace emails.
+`app_lm_user.device_time_zone` (and `_at`) is the zone the person's browser last sent (`PUT /auth/me/device-time-zone`,
+any region zone the JDK knows, the fixed list's or not; rate-limited, not audited, nothing written when unchanged); a
+null `timezone` is Automatic and a set one is pinned in Settings → Profile. A change publishes `TimezoneChanged` only
+while Automatic, so the mailbox's send window and the digest follow the person. The backfill moves nobody's clock: each
+person's device zone is seeded with the zone they read in, and a zone stays pinned only where the audit trail shows
+they chose it (the latest `PROFILE_UPDATED` with a `timezoneTo` Postgres knows as a zone, read in RLS maintenance). In the SPA an Automatic person reads in
+this browser's zone at once (`automaticAware`), `AuthProvider` reports it once per zone per tab
+(`features/auth/deviceTimeZone.ts`), and `TimeZoneMoveNotice` says a move aloud until answered (held in the browser,
+`features/auth/timeZoneMove.ts`) — *Keep London* or *Stay on Dubai time*, which pins the zone they came from and is
+offered only where that zone is on the fixed list.
 V162 adds two-factor authentication (#1081): `app_lm_user_mfa_factor` (one per user, the authenticator secret sealed by
 `core/crypto` under `EncryptionContext.ofUser`, `enabled_at` null while setup waits for a first code, `last_used_step` the
 replay guard), `app_lm_user_mfa_recovery_code` (SHA-256 per code, spent by a conditional update) and
@@ -436,6 +465,10 @@ row. V206 indexes a sender's emails that came from a template, for Recently used
 V207 takes the `{{signature}}` token (#1277) out of every `app_lm_outreach_sequence_step.body` and
 `app_lm_outreach_enrollment.first_body`, its gap closed to one blank line; no schema change, `signature_html` kept.
 V208 does the same to the step's `subject` and the frozen `first_subject` (a step subject left empty is null).
+V209 seeds `PERSON_SUBJECT_ACCESS` to ADMIN alone: the subject access export (#919).
+V210 adds the `SIGNATURE` kind to `app_lm_email_image`: a Custom signature's own uploaded picture, carrying both its
+person and its workspace (V193's policy already fences a row with a workspace), one per file per person per workspace
+by partial unique index on the content's SHA-256.
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.
