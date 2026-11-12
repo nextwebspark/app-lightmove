@@ -353,7 +353,11 @@ against the role's, where they live, how their role was read, found by both inde
 Possible, each point a reason code (`SuggestionReason`) the panel shows as a chip. **The run files nobody**: each company's
 people are stored ranked (V213 `app_lm_executive_sourcing_suggestion`, slugs and our judgement only; names and titles are
 read from the cache, so results last as long as it keeps them) and recorded as the company finishes, Stop
-(`POST …/{runId}/stop`) letting the companies in flight finish and the rest read STOPPED. The panel reads each company's
+(`POST …/{runId}/stop`) letting the companies in flight finish and the rest read STOPPED. While a company is searched
+its step — looking, checking titles *n of N*, reading confirmed profiles, ranking — and the people considered are merged
+into the run's `progress` (V214) and announced as `executive-sourcing-progress`, which rereads the run alone; the panel
+marks every started company as searching, names its step, and once one company has finished estimates the time left
+from how long it took (`lib/searchProgress.ts`). The panel reads each company's
 latest results (`GET …/suggestions`) — who fits, best first, the top three pre-ticked; *Title not on record* (no check
 reached them) and *Doesn't fit the role* (the live index's own hits; what the profile index alone returned is listed
 only where its title fits or a free check confirms it) folded; a company the running search has not read back shows no

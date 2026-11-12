@@ -89,7 +89,7 @@ class ProjectStreamIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("outreach and tasks reach the team's streams and never a client seat's, which still hears the rest")
+    @DisplayName("outreach, tasks and Find executives reach the team's streams, never a client seat's, which hears the rest")
     void staffKindsStayWithTheTeam() throws Exception {
         String projectId = mandate("Staff Stream Firm");
         String client = clientSeat(projectId);
@@ -100,15 +100,18 @@ class ProjectStreamIntegrationTest extends FlowTestSupport {
         inTransaction(() -> {
             publisher.publish(UUID.fromString(projectId), ProjectStreamKind.OUTREACH);
             publisher.publish(UUID.fromString(projectId), ProjectStreamKind.TASK);
+            publisher.publish(UUID.fromString(projectId), ProjectStreamKind.EXECUTIVE_SOURCING);
+            publisher.publish(UUID.fromString(projectId), ProjectStreamKind.EXECUTIVE_SOURCING_PROGRESS);
         });
         // Delivered in commit order: once this lands on the client's stream, the two before it had their chance.
         inTransaction(() -> publisher.publish(UUID.fromString(projectId), ProjectStreamKind.CANDIDATE_ENRICHED));
 
         awaitContent(staffStream, "candidate-enriched");
         awaitContent(clientStream, "candidate-enriched");
-        assertThat(staffStream.getResponse().getContentAsString()).contains("\"outreach\"").contains("\"task\"");
+        assertThat(staffStream.getResponse().getContentAsString()).contains("\"outreach\"").contains("\"task\"")
+                .contains("\"executive-sourcing\"").contains("\"executive-sourcing-progress\"");
         assertThat(clientStream.getResponse().getContentAsString()).doesNotContain("outreach")
-                .doesNotContain("\"task\"");
+                .doesNotContain("\"task\"").doesNotContain("executive-sourcing");
     }
 
     @Test

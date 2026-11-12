@@ -2,6 +2,7 @@ package app.lightmove.api.enrichment.sourcing.service;
 
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
+import app.lightmove.api.enrichment.sourcing.constant.SourcingStage;
 import app.lightmove.api.enrichment.sourcing.model.CompanyOutcome;
 import app.lightmove.api.enrichment.sourcing.model.ExecutiveSourcingRun;
 import app.lightmove.api.enrichment.sourcing.repository.ExecutiveSourcingRunRepository;
@@ -41,6 +42,21 @@ public class SourcingRunStore {
             run.recordOutcome(outcome);
             stream.publish(run.getProjectId(), ProjectStreamKind.EXECUTIVE_SOURCING);
         });
+    }
+
+    /** Apart from the outcome, so a progress write that fails never takes a company's result with it. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markProgressFinished(UUID runId, UUID triageCompanyId) {
+        runs.markProgressFinished(runId, triageCompanyId);
+    }
+
+    /** One company's step, announced as progress alone so the panel rereads the run and not what was found. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void reportProgress(UUID runId, UUID projectId, UUID triageCompanyId, SourcingStage stage, int considered,
+                               int done, int total) {
+        if (runs.reportProgress(runId, triageCompanyId, stage.name(), considered, done, total) > 0) {
+            stream.publish(projectId, ProjectStreamKind.EXECUTIVE_SOURCING_PROGRESS);
+        }
     }
 
     /** Read fresh before each company, so a stop asked for while the run searches is honoured at the next. */
