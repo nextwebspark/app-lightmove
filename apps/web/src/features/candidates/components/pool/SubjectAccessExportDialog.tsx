@@ -72,11 +72,14 @@ const CONTENTS = [
   "What the AI proposed about them, and how it works",
 ];
 
-/** `uncava-subject-access-noor-haddad-2026-11-11.zip`, the Candidates CSV's naming. */
+/**
+ * `uncava-subject-access-noor-haddad-2026-11-11.zip`, the Candidates CSV's naming. Mirrors the name
+ * `PersonSubjectAccessController` sends in `Content-Disposition` (`ZipArchiveWriter.slugOf`, the UTC date): change both.
+ */
 export function subjectAccessFileName(fullName: string, on: Date): string {
   const slug = fullName
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/\p{M}/gu, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
