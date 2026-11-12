@@ -9,6 +9,9 @@ as its own PR:
 | Erase a person for good | #918 (Art. 17) | #1179 | V196, V197 | merged |
 | Restrict processing of a person | #920, part 2 (Art. 18) | #1180 | V198 | merged |
 
+A fourth control, exporting everything held on a person to answer their subject access request (#919, Art. 15
+and 20), sits in the same ⋯ menu; it is [subject-access-export.md](subject-access-export.md).
+
 They depend on each other in one direction. The erasure writes suppression entries so an erased person isn't filed
 again, and restriction can add an objection to the same list. All three rely on forced row-level security (V184,
 V190), which was merged before them.

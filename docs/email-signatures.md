@@ -184,7 +184,7 @@ pasted signature breaks). So the Custom layout now does that, and the fixed layo
   only, multipart, ≤ 5 MB, its own rate limit per person and per IP). It is read and re-encoded as §B's pictures are
   (`EmailImageEncoder.signaturePicture`: JPEG or PNG, 40-megapixel header check, fitted inside 1200 × 400 — twice the
   largest box it is drawn in — PNG where it has transparency, JPEG otherwise) and kept as an `app_lm_email_image` row
-  of kind `SIGNATURE` (V209), carrying the person and the workspace, one per file by its SHA-256. The answer's `src`
+  of kind `SIGNATURE` (V210), carrying the person and the workspace, one per file by its SHA-256. The answer's `src`
   is the public route.
 - **Stored in the Markdown.** The editor writes `![alt](/api/v1/email-images/{token} "size")`, inline, so pictures
   on one line sit in a row; the title is its size, `small` (inside 200 × 40), medium (300 × 64, no title) or `large`
