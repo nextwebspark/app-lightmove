@@ -101,7 +101,7 @@ public class Workspace extends BaseEntity {
     @Column(nullable = false, length = 32)
     private String plan = "FREE";
 
-    /** Null is the country's; read through {@code DateTimePreferenceService}, never alone (V209). */
+    /** Null is the country's; read through {@code DateTimePreferenceService}, never alone (V210). */
     @Column(name = "time_zone", length = 64)
     private String timeZone;
 

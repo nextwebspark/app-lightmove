@@ -116,7 +116,7 @@ public class MailboxService {
     }
 
     /**
-     * A person's clock is their own choice, else their workspace's (V148, V209): every mailbox they hold, one per
+     * A person's clock is their own choice, else their workspace's (V148, V210): every mailbox they hold, one per
      * workspace, sends and caps by it there. Sends already due keep their time; the window and the cap read the new
      * zone from the next one. Once the profile has committed, each workspace's mailbox in that workspace's scope and
      * its own transaction: the profile's transaction is the caller's workspace, and under row-level security sees no

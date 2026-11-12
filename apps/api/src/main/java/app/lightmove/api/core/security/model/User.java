@@ -62,7 +62,7 @@ public class User extends BaseEntity {
     @Column(name = "avatar_source", length = 32)
     private String avatarSource;
 
-    /** A zone the person pinned, or null for Automatic (V210); read through {@code DateTimePreferenceService}. */
+    /** A zone the person pinned, or null for Automatic (V211); read through {@code DateTimePreferenceService}. */
     @Setter
     @Column(length = 64)
     private String timezone;

@@ -759,7 +759,7 @@ instances never share a row, and a claim nobody released is stopped `SEND_UNCERT
 send re-checks what Start checked (do not contact, still mapped, still in the running, address still on the
 ledger, mailbox active) and stops the run with that reason rather than hooking `candidate`; it waits for
 the sequence's own sending days and hours (V113, `send_days`/`window_start`/`window_end`, Mon–Fri 08:00–18:00
-by default) in the mailbox's `time_zone` — the consultant's own time zone (Settings → Profile, else the workspace's, V209) copied to
+by default) in the mailbox's `time_zone` — the consultant's own time zone (Settings → Profile, else the workspace's, V210) copied to
 each of their mailboxes (V148, `TimezoneChanged`) — and under its daily cap. A follow-up waits its delay in those days and
 goes at its step's `send_time`, or the time of day the step before went. Start chooses when the first emails
 go (`startMode`): `NOW` or `AT` a chosen instant (≤ 60 days) pins it (`first_send_pinned`), so the window

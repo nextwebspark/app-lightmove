@@ -16,9 +16,9 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * V210: a zone stays pinned only where its person chose one, as the audit trail records; everyone else becomes
+ * V211: a zone stays pinned only where its person chose one, as the audit trail records; everyone else becomes
  * Automatic, their device's zone seeded with the one they read in, so nobody's clock moves on deploy. Its own
- * container, stopped at V209 to seed.
+ * container, stopped at V210 to seed.
  */
 class AutomaticTimeZoneMigrationTest {
 
@@ -29,11 +29,11 @@ class AutomaticTimeZoneMigrationTest {
     private static final UUID FOLLOWER = UUID.fromString("00000000-0000-0000-0000-0000000000a4");
 
     @Test
-    @DisplayName("V210 keeps a chosen zone pinned, makes everyone else Automatic, and moves nobody's clock")
+    @DisplayName("V211 keeps a chosen zone pinned, makes everyone else Automatic, and moves nobody's clock")
     void pinsOnlyWhatWasChosen() throws Exception {
         try (PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"))) {
             postgres.start();
-            migrateTo(postgres, "208");
+            migrateTo(postgres, "209");
             try (Connection connection = connect(postgres)) {
                 user(connection, CHOOSER, "Asia/Kolkata");
                 user(connection, UNDONE, "Asia/Dubai");
@@ -44,21 +44,21 @@ class AutomaticTimeZoneMigrationTest {
                     member(connection, DUBAI_FIRM, person);
                 }
             }
-            migrateTo(postgres, "209");
+            migrateTo(postgres, "210");
             try (Connection connection = connect(postgres)) {
                 profileUpdated(connection, CHOOSER, "Asia/Kolkata", "2026-10-01T09:00:00Z");
                 profileUpdated(connection, UNDONE, "Asia/Tokyo", "2026-10-01T09:00:00Z");
                 profileUpdated(connection, UNDONE, "workspace", "2026-10-02T09:00:00Z");
             }
 
-            migrateTo(postgres, "210");
+            migrateTo(postgres, "211");
 
             try (Connection connection = connect(postgres)) {
                 assertThat(column(connection, "timezone", CHOOSER)).isEqualTo("Asia/Kolkata");
                 assertThat(column(connection, "device_time_zone", CHOOSER)).isEqualTo("Asia/Kolkata");
                 assertThat(column(connection, "timezone", UNDONE)).isNull();
                 assertThat(column(connection, "device_time_zone", UNDONE)).isEqualTo("Asia/Dubai");
-                // V209 kept their London as if chosen; nothing says they chose it, so it is their device's now.
+                // V210 kept their London as if chosen; nothing says they chose it, so it is their device's now.
                 assertThat(column(connection, "timezone", NEVER_CHOSE)).isNull();
                 assertThat(column(connection, "device_time_zone", NEVER_CHOSE)).isEqualTo("Europe/London");
                 assertThat(column(connection, "timezone", FOLLOWER)).isNull();
