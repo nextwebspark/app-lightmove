@@ -4,7 +4,8 @@ How long Uncava keeps each table that holds personal data, why, and what deletes
 `app_lm_*` table. `RetentionScheduleCoverageTest` reads this file: every table with a `person_id`, `user_id`,
 `actor_user_id`, `recipient_user_id`, `owner_user_id`, `full_name`, `linkedin_url`, `to_address`, `from_address` or email column must
 have a row, and every row must name a table that exists. A new table of that kind fails the build until it is
-written down here.
+written down here. What a person's subject access export hands over from these tables, and what it leaves out and
+why, is [subject-access-export.md](subject-access-export.md) (#919), held to the schema by `SubjectAccessCoverageTest`.
 
 ⚖️ marks a period that is a default awaiting counsel's sign-off (#930). Every period the sweep applies is an
 environment override under `lightmove.retention.*` (`RetentionSettings`), so a deployment can change it without a
