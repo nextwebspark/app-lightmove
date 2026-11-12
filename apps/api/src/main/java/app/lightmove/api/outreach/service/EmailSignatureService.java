@@ -9,6 +9,7 @@ import app.lightmove.api.core.storage.service.EmailImageService;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.core.text.service.PhoneNumbers;
 import app.lightmove.api.outreach.dto.EmailSignatureResponse;
+import app.lightmove.api.outreach.dto.FooterPictureResponse;
 import app.lightmove.api.outreach.dto.EmailSignaturesResponse;
 import app.lightmove.api.outreach.dto.RenderedSignatureResponse;
 import app.lightmove.api.outreach.dto.SaveSignatureRequest;
@@ -16,6 +17,7 @@ import app.lightmove.api.outreach.dto.SignatureFieldsDto;
 import app.lightmove.api.outreach.dto.SignaturePictureResponse;
 import app.lightmove.api.outreach.dto.SignatureStarterResponse;
 import app.lightmove.api.outreach.model.EmailSignature;
+import app.lightmove.api.outreach.model.FooterPicture;
 import app.lightmove.api.outreach.model.OutreachMarkdownEmail;
 import app.lightmove.api.outreach.model.RenderedSignature;
 import app.lightmove.api.outreach.model.SignatureContent;
@@ -24,6 +26,7 @@ import app.lightmove.api.outreach.model.SignaturePicture;
 import app.lightmove.api.outreach.model.SignatureSender;
 import app.lightmove.api.outreach.repository.EmailSignatureRepository;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -151,7 +154,7 @@ public class EmailSignatureService {
         SignatureContent content = contentOf(request);
         SignatureNeeds needs = SignatureNeeds.of(content);
         SignatureSender sender = senders.forPreview(userId, workspaceId,
-                new SignatureNeeds(needs.photoShapes(), needs.logo(), false, needs.pictureTokens()));
+                new SignatureNeeds(needs.photoShapes(), needs.logo(), false, needs.pictureKeys()));
         return new SignatureStarterResponse(EmailSignatureRenderer.asMarkdown(content, sender));
     }
 
@@ -210,15 +213,15 @@ public class EmailSignatureService {
         }
         List<String> inBody = OutreachMarkdownEmail.pictureTokensIn(content.customBody());
         Set<String> named = new LinkedHashSet<>(inBody);
-        named.addAll(content.footerPictures());
+        content.footerPictures().forEach(picture -> named.add(picture.token()));
         Map<String, EmailImage> own = emailImages.signaturePicturesOf(workspaceId, userId, named).stream()
                 .collect(Collectors.toMap(EmailImage::getToken, Function.identity()));
         if (!own.keySet().containsAll(inBody)) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "customBody",
                     "A picture in it could not be found. Remove it and insert it again");
         }
-        if (!content.footerPictures().stream().allMatch(token -> own.containsKey(token)
-                && own.get(token).getKind() == EmailImageKind.SIGNATURE)) {
+        if (!content.footerPictures().stream().allMatch(picture -> own.containsKey(picture.token())
+                && own.get(picture.token()).getKind() == EmailImageKind.SIGNATURE)) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "footerPictures",
                     "A picture could not be found. Remove it and add it again");
         }
@@ -250,10 +253,11 @@ public class EmailSignatureService {
         SignatureContent content = signature.content();
         RenderedSignature rendered = EmailSignatureRenderer.render(content, sender);
         SignatureFields fields = content.fields();
-        List<SignaturePictureResponse> footer = content.footerPictures().stream()
-                .filter(token -> sender.pictures().containsKey(token))
-                .map(token -> new SignaturePictureResponse(token, EmailImageService.PATH + token,
-                        sender.pictures().get(token).width(), sender.pictures().get(token).height()))
+        List<FooterPictureResponse> footer = content.footerPictures().stream()
+                .filter(picture -> sender.pictures().containsKey(picture.key()))
+                .map(picture -> new FooterPictureResponse(picture.token(), EmailImageService.PATH + picture.token(),
+                        sender.pictures().get(picture.key()).width(), sender.pictures().get(picture.key()).height(),
+                        picture.shape()))
                 .toList();
         return new EmailSignatureResponse(signature.getId(), content.name(), content.layout(),
                 new SignatureFieldsDto(fields.name(), fields.title(), fields.phone(), fields.linkedinUrl(),
@@ -270,9 +274,14 @@ public class EmailSignatureService {
                 trimmed(typed.name()), trimmed(typed.title()), PhoneNumbers.typedOrNull(typed.phone(), "fields.phone"),
                 linkedinOrNull(typed.linkedinUrl()), trimmed(typed.company()), websiteOrNull(typed.website()),
                 trimmed(typed.address()), PhoneNumbers.typedOrNull(typed.mobile(), "fields.mobile"));
-        List<String> footer = request.footerPictures() == null ? List.of()
-                : new ArrayList<>(new LinkedHashSet<>(request.footerPictures().stream()
-                        .filter(token -> token != null && !token.isBlank()).map(String::strip).toList()));
+        Map<String, FooterPicture> footerByToken = new LinkedHashMap<>();
+        if (request.footerPictures() != null) {
+            request.footerPictures().stream()
+                    .filter(picture -> picture != null && picture.token() != null && !picture.token().isBlank())
+                    .forEach(picture -> footerByToken.putIfAbsent(picture.token().strip(),
+                            new FooterPicture(picture.token().strip(), picture.shape())));
+        }
+        List<FooterPicture> footer = new ArrayList<>(footerByToken.values());
         return new SignatureContent(request.name().strip(), request.layout(), fields,
                 Boolean.TRUE.equals(request.showPhoto()), request.photoShape(), Boolean.TRUE.equals(request.showLogo()),
                 Boolean.TRUE.equals(request.showBookingLink()), trimmed(request.customBody()), footer,

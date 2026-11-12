@@ -311,6 +311,31 @@ describe("SettingsSignaturesPage", () => {
     expect(vi.mocked(signaturesApi.updateSignature).mock.calls[0][1].customBody).toContain(src);
   });
 
+  it("adds a picture at the foot and sends the shape picked for it", async () => {
+    const src = "/api/v1/email-images/AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde";
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
+      signatures: [aSignature({ id: "firm", name: "Firm", isDefault: true })],
+      sources: SOURCES,
+      limit: 10,
+    });
+    vi.mocked(signaturesApi.uploadSignaturePicture).mockResolvedValue({ token: "t", src, width: 300, height: 100 });
+    vi.mocked(signaturesApi.updateSignature).mockImplementation(async (_id, payload) =>
+      aSignature({ ...payload, footerPictures: [], id: "firm" }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.upload(await screen.findByLabelText("Add picture"), new File(["png"], "aesc.png", { type: "image/png" }));
+    await user.click(await screen.findByRole("radio", { name: "Circle" }));
+    await user.click(screen.getByRole("button", { name: "Save signature" }));
+
+    await waitFor(() => expect(signaturesApi.updateSignature).toHaveBeenCalled());
+    expect(vi.mocked(signaturesApi.updateSignature).mock.calls[0][1].footerPictures).toEqual([
+      { token: "t", shape: "CIRCLE" },
+    ]);
+  });
+
   it("refuses a seventh picture before uploading it", async () => {
     const src = "/api/v1/email-images/AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde";
     vi.mocked(signaturesApi.listSignatures).mockResolvedValue({

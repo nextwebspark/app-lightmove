@@ -1,10 +1,10 @@
 import type {
   EmailSignature,
-  PhotoShape,
+  FooterPicture,
+  PictureShape,
   SaveSignaturePayload,
   SignatureFields,
   SignatureLayout,
-  SignaturePicture,
 } from "../api/signaturesApi";
 
 /** Each layout as the gallery and the editor's chips name it. */
@@ -31,14 +31,14 @@ export interface SignatureDraft {
   layout: SignatureLayout;
   fields: Record<keyof SignatureFields, string>;
   showPhoto: boolean;
-  photoShape: PhotoShape;
+  photoShape: PictureShape;
   showLogo: boolean;
   showBookingLink: boolean;
   /** Custom's whole signature. */
   customBody: string;
   /** Any other layout's extra words under the details; kept apart so switching layout loses neither. */
   extras: string;
-  footerPictures: SignaturePicture[];
+  footerPictures: FooterPicture[];
   disclaimer: string;
   isDefault: boolean;
 }
@@ -115,7 +115,7 @@ export function payloadOf(draft: SignatureDraft): SaveSignaturePayload {
     showLogo: draft.showLogo,
     showBookingLink: draft.showBookingLink,
     customBody: blankAsNull(draft.layout === "CUSTOM" ? draft.customBody : draft.extras),
-    footerPictures: draft.footerPictures.map((picture) => picture.token),
+    footerPictures: draft.footerPictures.map(({ token, shape }) => ({ token, shape })),
     disclaimer: blankAsNull(draft.disclaimer),
     isDefault: draft.isDefault,
   };

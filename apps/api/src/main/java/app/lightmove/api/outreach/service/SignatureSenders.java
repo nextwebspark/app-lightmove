@@ -4,7 +4,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
-import app.lightmove.api.core.storage.constant.PhotoShape;
+import app.lightmove.api.core.storage.constant.PictureShape;
 import app.lightmove.api.core.storage.model.EmailImage;
 import app.lightmove.api.core.storage.service.EmailImageService;
 import app.lightmove.api.outreach.dto.SignatureSourcesResponse;
@@ -16,6 +16,7 @@ import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -61,11 +62,11 @@ public class SignatureSenders {
     }
 
     private SignatureSender senderOf(UUID userId, UUID workspaceId, SignatureNeeds needs, boolean sending) {
-        Map<PhotoShape, String> photos = new EnumMap<>(PhotoShape.class);
+        Map<PictureShape, String> photos = new EnumMap<>(PictureShape.class);
         needs.photoShapes().forEach(shape -> emailImages.photoOf(userId, shape)
                 .ifPresent(photo -> photos.put(shape, emailImages.urlOf(photo))));
         SignatureLogo logo = needs.logo() ? logoOf(workspaceId) : null;
-        Map<String, SignaturePicture> pictures = picturesOf(userId, workspaceId, needs.pictureTokens());
+        Map<String, SignaturePicture> pictures = picturesOf(userId, workspaceId, needs.pictureKeys());
         return transactions.execute(status -> {
             User user = users.findById(userId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
             Workspace workspace = workspaces.findById(workspaceId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
@@ -91,11 +92,23 @@ public class SignatureSenders {
         });
     }
 
-    /** Only the signer's own pictures in this workspace: a token copied from someone else's signature draws nothing. */
-    private Map<String, SignaturePicture> picturesOf(UUID userId, UUID workspaceId, List<String> tokens) {
-        return emailImages.signaturePicturesOf(workspaceId, userId, tokens).stream()
-                .collect(Collectors.toMap(EmailImage::getToken,
-                        image -> new SignaturePicture(emailImages.urlOf(image), image.getWidth(), image.getHeight())));
+    /**
+     * Only the signer's own pictures in this workspace, each cut to the shape its key names (made the first time it is
+     * drawn): a token copied from someone else's signature draws nothing.
+     */
+    private Map<String, SignaturePicture> picturesOf(UUID userId, UUID workspaceId, List<String> keys) {
+        Map<String, EmailImage> own = emailImages.signaturePicturesOf(workspaceId, userId,
+                keys.stream().map(SignaturePicture::tokenOf).distinct().toList()).stream()
+                .collect(Collectors.toMap(EmailImage::getToken, image -> image));
+        Map<String, SignaturePicture> pictures = new HashMap<>();
+        for (String key : keys) {
+            EmailImage upload = own.get(SignaturePicture.tokenOf(key));
+            if (upload != null) {
+                emailImages.shapedOf(upload, SignaturePicture.shapeOf(key)).ifPresent(image -> pictures.put(key,
+                        new SignaturePicture(emailImages.urlOf(image), image.getWidth(), image.getHeight())));
+            }
+        }
+        return pictures;
     }
 
     private SignatureLogo logoOf(UUID workspaceId) {

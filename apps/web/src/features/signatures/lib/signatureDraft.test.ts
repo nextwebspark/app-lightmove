@@ -12,7 +12,7 @@ const saved: EmailSignature = {
   showLogo: true,
   showBookingLink: false,
   customBody: "Festival Tower",
-  footerPictures: [{ token: "t1", src: "/api/v1/email-images/t1", width: 96, height: 48 }],
+  footerPictures: [{ token: "t1", src: "/api/v1/email-images/t1", width: 96, height: 48, shape: "CIRCLE" }],
   disclaimer: null,
   isDefault: true,
   updatedAt: "2026-11-01T10:00:00Z",
@@ -46,7 +46,7 @@ describe("signature drafts", () => {
     const draft = draftOf(saved);
     expect(draft).toMatchObject({ extras: "Festival Tower", customBody: "", photoShape: "ROUNDED" });
 
-    expect(payloadOf(draft)).toMatchObject({ customBody: "Festival Tower", footerPictures: ["t1"], photoShape: "ROUNDED" });
+    expect(payloadOf(draft)).toMatchObject({ customBody: "Festival Tower", footerPictures: [{ token: "t1", shape: "CIRCLE" }], photoShape: "ROUNDED" });
     expect(payloadOf({ ...draft, layout: "CUSTOM", customBody: "Mine" }).customBody).toBe("Mine");
   });
 

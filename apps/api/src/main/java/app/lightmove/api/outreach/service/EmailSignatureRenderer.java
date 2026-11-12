@@ -1,8 +1,9 @@
 package app.lightmove.api.outreach.service;
 
-import app.lightmove.api.core.storage.constant.PhotoShape;
+import app.lightmove.api.core.storage.constant.PictureShape;
 import app.lightmove.api.core.storage.service.EmailImageService;
 import app.lightmove.api.outreach.constant.SignatureLayout;
+import app.lightmove.api.outreach.model.FooterPicture;
 import app.lightmove.api.outreach.model.OutreachMarkdownEmail;
 import app.lightmove.api.outreach.model.RenderedSignature;
 import app.lightmove.api.outreach.model.SignatureContent;
@@ -89,7 +90,7 @@ public final class EmailSignatureRenderer {
      * The photo, then the details, then the logo past a vertical rule. The photo's shape is in its pixels; the radius is
      * for a client that scales it, so its edge stays smooth.
      */
-    private static String beside(Details details, String photoUrl, PhotoShape shape, SignatureLogo logo) {
+    private static String beside(Details details, String photoUrl, PictureShape shape, SignatureLogo logo) {
         StringBuilder html = new StringBuilder(TABLE).append("<tr>");
         if (photoUrl != null) {
             html.append("<td style=\"vertical-align:middle;padding-right:14px\"><img src=\"").append(escape(photoUrl))
@@ -107,7 +108,7 @@ public final class EmailSignatureRenderer {
         return html.append("</tr></table>").toString();
     }
 
-    private static String radiusOf(PhotoShape shape) {
+    private static String radiusOf(PictureShape shape) {
         return switch (shape) {
             case CIRCLE -> "50%";
             case ROUNDED -> "10px";
@@ -116,10 +117,10 @@ public final class EmailSignatureRenderer {
     }
 
     /** The signer's own pictures in one row, each fitted to a logo's box; a token not theirs draws nothing. */
-    private static String footer(List<String> tokens, SignatureSender sender) {
+    private static String footer(List<FooterPicture> footer, SignatureSender sender) {
         StringBuilder row = new StringBuilder();
-        for (String token : tokens) {
-            SignaturePicture picture = sender.pictures().get(token);
+        for (FooterPicture placed : footer) {
+            SignaturePicture picture = sender.pictures().get(placed.key());
             if (picture == null) {
                 continue;
             }

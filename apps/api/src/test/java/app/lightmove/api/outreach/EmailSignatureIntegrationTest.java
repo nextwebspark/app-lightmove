@@ -327,16 +327,28 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
         String signature = """
                 {"name":"Full","layout":"PHOTO","showPhoto":true,"photoShape":"ROUNDED",
                  "fields":{"phone":"+971 4 111 2222","mobile":"+971 50 333 4444"},
-                 "customBody":"Festival Tower, **Dubai**","footerPictures":["%s","%s"]}"""
+                 "customBody":"Festival Tower, **Dubai**","footerPictures":[{"token":"%s"},{"token":"%s","shape":"CIRCLE"}]}"""
                 .formatted(group.get("token").asText(), aesc.get("token").asText());
         JsonNode saved = create(yara, signature);
         assertThat(saved.get("photoShape").asText()).isEqualTo("ROUNDED");
         assertThat(saved.get("fields").get("mobile").asText()).isEqualTo("+971 50 333 4444");
         assertThat(saved.get("footerPictures")).hasSize(2);
         assertThat(saved.get("footerPictures").get(0).get("src").asText()).isEqualTo(group.get("src").asText());
+        assertThat(saved.get("footerPictures").get(1).get("shape").asText()).isEqualTo("CIRCLE");
         String html = saved.get("html").asText();
         assertThat(html).contains("M <a href=\"tel:+971503334444\"", "<strong>Dubai</strong>", "border-radius:10px",
-                "width=\"96\" height=\"48\"", "width=\"144\" height=\"48\"");
+                "width=\"96\" height=\"48\"", "width=\"48\" height=\"48\"", group.get("token").asText())
+                .doesNotContain(aesc.get("token").asText());
+        int aescEnd = html.lastIndexOf("width=\"48\" height=\"48\"");
+        String circleSrc = html.substring(html.lastIndexOf("src=\"", aescEnd) + 5, html.indexOf('"',
+                html.lastIndexOf("src=\"", aescEnd) + 5));
+        mvc.perform(get(circleSrc.substring(circleSrc.indexOf(EmailImageService.PATH)))).andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"));
+        create(yara, signature);
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_email_image where kind = 'SIGNATURE' and user_id = "
+                + "(select id from app_lm_user where email = ?)", Integer.class, "yara@" + domain)).isEqualTo(3);
+        String square = signature.replace("\"shape\":\"CIRCLE\"", "\"shape\":\"SQUARE\"");
+        assertThat(previewHtml(square)).contains(aesc.get("token").asText());
 
         String photoSrc = html.substring(html.indexOf("src=\"") + 5, html.indexOf('"', html.indexOf("src=\"") + 5));
         mvc.perform(get(photoSrc.substring(photoSrc.indexOf(EmailImageService.PATH)))).andExpect(status().isOk())
@@ -346,14 +358,14 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
         String omar = login("omar@" + domain);
         MvcResult borrowed = mvc.perform(post(SIGNATURES).header("Authorization", "Bearer " + omar)
                         .contentType(MediaType.APPLICATION_JSON).content("""
-                                {"name":"Borrowed","layout":"CLASSIC","footerPictures":["%s"]}"""
+                                {"name":"Borrowed","layout":"CLASSIC","footerPictures":[{"token":"%s"}]}"""
                                 .formatted(group.get("token").asText())))
                 .andExpect(status().isBadRequest()).andReturn();
         assertThat(body(borrowed).get("fieldErrors").has("footerPictures")).isTrue();
 
         MvcResult tooMany = mvc.perform(post(SIGNATURES).header("Authorization", "Bearer " + yara)
                         .contentType(MediaType.APPLICATION_JSON).content("""
-                                {"name":"Many","layout":"CLASSIC","customBody":"%s","footerPictures":["%s"]}"""
+                                {"name":"Many","layout":"CLASSIC","customBody":"%s","footerPictures":[{"token":"%s"}]}"""
                                 .formatted(("![](" + aesc.get("src").asText() + ") ").repeat(6),
                                         group.get("token").asText())))
                 .andExpect(status().isBadRequest()).andReturn();

@@ -1,15 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { Icon } from "../../../components/layout/Icon";
 import { Button, Field, FormError, Input, SegmentedControl, TextArea, Toggle, useToast } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import { NoteEditor, type NotePictures } from "../../notes/components/NoteEditor";
+import { PICTURE_SHAPE_GLYPHS } from "../../notes/lib/notePicture";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as signaturesApi from "../api/signaturesApi";
-import type { PhotoShape, SignatureFields, SignatureLayout, SignaturePicture, SignatureSources } from "../api/signaturesApi";
+import type { FooterPicture, PictureShape, SignatureFields, SignatureLayout, SignatureSources } from "../api/signaturesApi";
 import { customBodyFor, drawsLogo, drawsPhoto, LAYOUT_DETAILS, payloadOf, type SignatureDraft } from "../lib/signatureDraft";
 import { SignaturePreviewFrame } from "./SignaturePreviewFrame";
 
@@ -19,7 +21,7 @@ const PREVIEW_DELAY_MS = 350;
 const CUSTOM_BODY_MAX_LENGTH = 2000;
 /** `SignaturePicture.MAX_PER_SIGNATURE`: the words' pictures and the footer's together. */
 const MAX_PICTURES = 6;
-const PHOTO_SHAPE_LABELS: Record<PhotoShape, string> = { CIRCLE: "Circle", ROUNDED: "Rounded", SQUARE: "Square" };
+const SHAPE_LABELS: Record<PictureShape, string> = { CIRCLE: "Circle", ROUNDED: "Rounded", SQUARE: "Square" };
 
 type FieldKey = keyof SignatureFields;
 
@@ -345,9 +347,9 @@ export function SignatureEditor({
               <div className="min-w-0 flex-1 text-note font-medium">Photo shape</div>
               <SegmentedControl
                 label="Photo shape"
-                options={signaturesApi.PHOTO_SHAPES.map((shape) => ({ value: shape, label: PHOTO_SHAPE_LABELS[shape] }))}
+                options={signaturesApi.PICTURE_SHAPES.map((shape) => ({ value: shape, label: SHAPE_LABELS[shape] }))}
                 value={draft.photoShape}
-                onChange={(photoShape) => setDraft({ ...draft, photoShape: photoShape as PhotoShape })}
+                onChange={(photoShape) => setDraft({ ...draft, photoShape: photoShape as PictureShape })}
               />
             </div>
           )}
@@ -465,17 +467,19 @@ function FooterPictures({
   error,
   onChange,
 }: {
-  pictures: SignaturePicture[];
+  pictures: FooterPicture[];
   room: number;
   error?: string;
-  onChange: (pictures: SignaturePicture[]) => void;
+  onChange: (pictures: FooterPicture[]) => void;
 }) {
   const toast = useToast();
   const input = useRef<HTMLInputElement>(null);
   const upload = useMutation({
     mutationFn: signaturesApi.uploadSignaturePicture,
     onSuccess: (picture) => {
-      if (!pictures.some((kept) => kept.token === picture.token)) onChange([...pictures, picture]);
+      if (!pictures.some((kept) => kept.token === picture.token)) {
+        onChange([...pictures, { ...picture, shape: "SQUARE" }]);
+      }
     },
     onError: (failure) => toast.error(messageFor(failure)),
   });
@@ -484,11 +488,40 @@ function FooterPictures({
       <span className="type-micro-label mb-1.5 block font-mono text-u-text3">Pictures · optional</span>
       <div className="flex flex-wrap items-center gap-2.5">
         {pictures.map((picture) => (
-          <span
-            key={picture.token}
-            className="relative inline-flex h-14 items-center rounded-lg border border-u-border bg-white px-2.5"
-          >
-            <img src={picture.src} alt="" className="max-h-10 max-w-32 object-contain" />
+          <span key={picture.token} className="relative inline-flex flex-col items-center gap-1">
+            <span className="inline-flex h-14 items-center rounded-lg border border-u-border bg-white px-2.5">
+              <img
+                src={picture.src}
+                alt=""
+                className={cn(
+                  picture.shape === "CIRCLE"
+                    ? "h-10 w-10 rounded-full object-cover"
+                    : "max-h-10 max-w-32 object-contain",
+                  picture.shape === "ROUNDED" && "rounded-md",
+                )}
+              />
+            </span>
+            <span role="radiogroup" aria-label="Picture shape" className="flex gap-0.5">
+              {FOOTER_SHAPE_ORDER.map((shape) => (
+                <button
+                  key={shape}
+                  type="button"
+                  role="radio"
+                  aria-checked={picture.shape === shape}
+                  aria-label={SHAPE_LABELS[shape]}
+                  title={SHAPE_LABELS[shape]}
+                  onClick={() =>
+                    onChange(pictures.map((kept) => (kept.token === picture.token ? { ...kept, shape } : kept)))
+                  }
+                  className={cn(
+                    "flex h-5 w-5 items-center justify-center rounded",
+                    picture.shape === shape ? "bg-u-accent-tint text-u-text" : "text-u-text3 hover:text-u-text",
+                  )}
+                >
+                  <Icon d={PICTURE_SHAPE_GLYPHS[GLYPH_OF[shape]]} size={13} />
+                </button>
+              ))}
+            </span>
             <button
               type="button"
               aria-label="Remove picture"
@@ -528,6 +561,10 @@ function FooterPictures({
     </div>
   );
 }
+
+/** As the editor's toolbar orders them. */
+const FOOTER_SHAPE_ORDER: PictureShape[] = ["SQUARE", "ROUNDED", "CIRCLE"];
+const GLYPH_OF = { SQUARE: "square", ROUNDED: "rounded", CIRCLE: "circle" } as const;
 
 function LayoutChip({ layout, checked, onPick }: { layout: SignatureLayout; checked: boolean; onPick: () => void }) {
   return (

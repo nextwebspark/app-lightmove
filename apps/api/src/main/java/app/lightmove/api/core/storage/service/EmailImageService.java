@@ -6,7 +6,7 @@ import app.lightmove.api.core.security.avatar.PictureFetcher;
 import app.lightmove.api.core.security.avatar.UserAvatarRepository;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.core.storage.constant.EmailImageKind;
-import app.lightmove.api.core.storage.constant.PhotoShape;
+import app.lightmove.api.core.storage.constant.PictureShape;
 import app.lightmove.api.core.storage.model.EmailImage;
 import app.lightmove.api.core.storage.model.EncodedImage;
 import app.lightmove.api.core.storage.repository.EmailImageRepository;
@@ -65,13 +65,13 @@ public class EmailImageService {
      * The person's profile photo as an email draws it, copied once per photo and shape; empty where they have none. A
      * photo they replace or remove later stays in the emails that already carry it.
      */
-    public Optional<EmailImage> photoOf(UUID userId, PhotoShape shape) {
+    public Optional<EmailImage> photoOf(UUID userId, PictureShape shape) {
         Optional<String> avatarHash = avatars.findSha256ByUserId(userId);
         if (avatarHash.isEmpty()) {
             return Optional.empty();
         }
         // Square keeps the bare photo hash its copies were made under before shapes existed.
-        String sourceHash = shape == PhotoShape.SQUARE ? avatarHash.get()
+        String sourceHash = shape == PictureShape.SQUARE ? avatarHash.get()
                 : Tokens.hash(avatarHash.get() + ":" + shape.name());
         Supplier<Optional<EmailImage>> copied = () -> images.findByKindAndUserIdAndSourceSha256(EmailImageKind.PHOTO,
                 userId, sourceHash);
@@ -130,6 +130,37 @@ public class EmailImageService {
                 .flatMap(picture -> save("ws/" + workspaceId + "/users/" + userId + "/email-images/", picture, copied,
                         key -> EmailImage.signaturePictureOf(workspaceId, userId, contentHash, Tokens.generate(),
                                 picture, key)));
+    }
+
+    /**
+     * {@code upload}, one of a person's own signature pictures, cut to {@code shape}: itself for a square, otherwise a
+     * copy made the first time a drawing asks for it and kept beside it, so changing shape back never loses the original.
+     */
+    public Optional<EmailImage> shapedOf(EmailImage upload, PictureShape shape) {
+        if (shape == PictureShape.SQUARE || upload.getKind() != EmailImageKind.SIGNATURE) {
+            return Optional.of(upload);
+        }
+        UUID workspaceId = upload.getWorkspaceId();
+        UUID userId = upload.getUserId();
+        String sourceHash = Tokens.hash(upload.getSourceSha256() + ":" + shape.name());
+        Supplier<Optional<EmailImage>> copied = () -> images.findByKindAndWorkspaceIdAndUserIdAndSourceSha256(
+                EmailImageKind.SIGNATURE, workspaceId, userId, sourceHash);
+        Optional<EmailImage> existing = copied.get();
+        if (existing.isPresent()) {
+            return existing;
+        }
+        byte[] original;
+        try (InputStream stored = open(upload)) {
+            original = stored.readAllBytes();
+        } catch (IOException | UncheckedIOException unreadable) {
+            log.warn("Could not read signature picture {} to shape it: {}", upload.getId(), unreadable.getMessage());
+            return Optional.of(upload);
+        }
+        Optional<EmailImage> shaped = EmailImageEncoder.shaped(original, shape)
+                .flatMap(picture -> save("ws/" + workspaceId + "/users/" + userId + "/email-images/", picture, copied,
+                        key -> EmailImage.signaturePictureOf(workspaceId, userId, sourceHash, Tokens.generate(),
+                                picture, key)));
+        return shaped.isPresent() ? shaped : Optional.of(upload);
     }
 
     /**

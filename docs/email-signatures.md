@@ -172,6 +172,12 @@ field form back, each value still following the profile and workspace, and Aleks
   membership badges), kept as `footer_pictures` jsonb tokens (V214) and drawn in one table row fitted to 160 × 48.
   Only the signer's own `SIGNATURE` uploads are accepted (`VALIDATION_FAILED` on `footerPictures`); pictures in the
   words and the footer together are at most six.
+- **Every picture takes a shape**, as the photo does: an inserted picture's Markdown title holds its size and shape
+  as words (`"small circle"`; medium and square unsaid; the toolbar's □ ▢ ○ beside S M L), and a footer picture is
+  `{token, shape}`. The signature keeps the original upload; `EmailImageService.shapedOf` cuts a copy the first time a
+  drawing asks for one (`EmailImageEncoder.shaped`: a circle is the centred square, rounded keeps its proportions, PNG
+  with transparent corners) and keeps it beside the original as a `SIGNATURE` row keyed `hash(sourceSha:shape)`, so
+  going back to square draws the original again. `SignaturePicture.keyOf(token, shape)` names each in a drawing.
 - **Edit everything freely**: under Anything else, a one-way, confirmed switch to Custom through
   `POST /me/signatures/starter` (`EmailSignatureRenderer.asMarkdown`): the details, the photo in its shape, the logo
   and the extra words become the Custom signature's Markdown, which then no longer follows the profile. The footer

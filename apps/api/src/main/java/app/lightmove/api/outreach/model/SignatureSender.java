@@ -1,6 +1,6 @@
 package app.lightmove.api.outreach.model;
 
-import app.lightmove.api.core.storage.constant.PhotoShape;
+import app.lightmove.api.core.storage.constant.PictureShape;
 import java.util.Map;
 
 /**
@@ -10,7 +10,7 @@ import java.util.Map;
  * {@code pictures} are the signer's own uploaded pictures a drawing names, keyed by token.
  */
 public record SignatureSender(String name, String title, String phone, String linkedinUrl, String email,
-                              String company, String website, Map<PhotoShape, String> photos, SignatureLogo logo,
+                              String company, String website, Map<PictureShape, String> photos, SignatureLogo logo,
                               String bookingLink, Map<String, SignaturePicture> pictures) {
 
     public SignatureSender {
@@ -19,7 +19,7 @@ public record SignatureSender(String name, String title, String phone, String li
     }
 
     /** Null where the person has no photo. */
-    public String photoUrl(PhotoShape shape) {
+    public String photoUrl(PictureShape shape) {
         return photos.get(shape);
     }
 }

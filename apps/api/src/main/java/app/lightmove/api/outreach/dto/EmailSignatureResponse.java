@@ -1,6 +1,6 @@
 package app.lightmove.api.outreach.dto;
 
-import app.lightmove.api.core.storage.constant.PhotoShape;
+import app.lightmove.api.core.storage.constant.PictureShape;
 import app.lightmove.api.outreach.constant.SignatureLayout;
 import java.time.Instant;
 import java.util.List;
@@ -13,11 +13,11 @@ public record EmailSignatureResponse(
         SignatureLayout layout,
         SignatureFieldsDto fields,
         boolean showPhoto,
-        PhotoShape photoShape,
+        PictureShape photoShape,
         boolean showLogo,
         boolean showBookingLink,
         String customBody,
-        List<SignaturePictureResponse> footerPictures,
+        List<FooterPictureResponse> footerPictures,
         String disclaimer,
         boolean isDefault,
         Instant updatedAt,

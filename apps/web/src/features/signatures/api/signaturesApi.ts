@@ -11,9 +11,9 @@ export const SIGNATURES_KEY = ["email-signatures"] as const;
 export const SIGNATURE_LAYOUTS = ["PHOTO_LOGO", "PHOTO", "CLASSIC", "LOGO_BANNER", "MINIMAL", "CUSTOM"] as const;
 export type SignatureLayout = (typeof SIGNATURE_LAYOUTS)[number];
 
-/** How the photo is cut; the server bakes the shape into the picture so Outlook draws it too. */
-export const PHOTO_SHAPES = ["CIRCLE", "ROUNDED", "SQUARE"] as const;
-export type PhotoShape = (typeof PHOTO_SHAPES)[number];
+/** How the photo or a picture is cut; the server bakes the shape into the picture so Outlook draws it too. */
+export const PICTURE_SHAPES = ["CIRCLE", "ROUNDED", "SQUARE"] as const;
+export type PictureShape = (typeof PICTURE_SHAPES)[number];
 
 /** What a signature says instead of its source; null or blank follows the source. */
 export interface SignatureFields {
@@ -33,20 +33,20 @@ export interface SaveSignaturePayload {
   layout: SignatureLayout;
   fields: SignatureFields;
   showPhoto: boolean;
-  photoShape: PhotoShape;
+  photoShape: PictureShape;
   showLogo: boolean;
   showBookingLink: boolean;
   /** Custom's whole signature; under any other layout, the extra words drawn below the details. */
   customBody: string | null;
-  /** Tokens of uploaded pictures drawn in a row at the foot. */
-  footerPictures: string[];
+  /** Uploaded pictures drawn in a row at the foot, each in its shape. */
+  footerPictures: { token: string; shape: PictureShape }[];
   disclaimer: string | null;
   isDefault: boolean;
 }
 
 export interface EmailSignature extends Omit<SaveSignaturePayload, "footerPictures"> {
   id: string;
-  footerPictures: SignaturePicture[];
+  footerPictures: FooterPicture[];
   updatedAt: string;
   /** How it draws today, as an email would carry it. */
   html: string;
@@ -106,6 +106,10 @@ export interface SignaturePicture {
   src: string;
   width: number;
   height: number;
+}
+
+export interface FooterPicture extends SignaturePicture {
+  shape: PictureShape;
 }
 
 export function uploadSignaturePicture(file: File): Promise<SignaturePicture> {

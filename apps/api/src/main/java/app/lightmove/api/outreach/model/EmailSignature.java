@@ -1,7 +1,7 @@
 package app.lightmove.api.outreach.model;
 
 import app.lightmove.api.core.persistence.model.BaseEntity;
-import app.lightmove.api.core.storage.constant.PhotoShape;
+import app.lightmove.api.core.storage.constant.PictureShape;
 import app.lightmove.api.outreach.constant.SignatureLayout;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -46,7 +46,7 @@ public class EmailSignature extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "photo_shape", nullable = false, length = 8)
-    private PhotoShape photoShape = PhotoShape.CIRCLE;
+    private PictureShape photoShape = PictureShape.CIRCLE;
 
     @Column(name = "show_logo", nullable = false)
     private boolean showLogo;
@@ -59,7 +59,7 @@ public class EmailSignature extends BaseEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "footer_pictures", columnDefinition = "jsonb", nullable = false)
-    private List<String> footerPictures = new ArrayList<>();
+    private List<FooterPicture> footerPictures = new ArrayList<>();
 
     @Column(name = "disclaimer", length = 1000)
     private String disclaimer;

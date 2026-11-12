@@ -2,7 +2,7 @@ package app.lightmove.api.core.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.lightmove.api.core.storage.constant.PhotoShape;
+import app.lightmove.api.core.storage.constant.PictureShape;
 import app.lightmove.api.core.storage.model.EncodedImage;
 import app.lightmove.api.core.storage.service.EmailImageEncoder;
 import java.awt.Color;
@@ -33,7 +33,7 @@ class EmailImageEncoderTest {
     @Test
     @DisplayName("a photo is cropped square and kept at 192 pixels as JPEG")
     void photoIsSquare() throws Exception {
-        EncodedImage photo = EmailImageEncoder.photo(picture(1200, 800, "png"), PhotoShape.SQUARE).orElseThrow();
+        EncodedImage photo = EmailImageEncoder.photo(picture(1200, 800, "png"), PictureShape.SQUARE).orElseThrow();
 
         assertThat(photo.contentType()).isEqualTo("image/jpeg");
         assertThat(photo.width()).isEqualTo(192);
@@ -45,13 +45,30 @@ class EmailImageEncoderTest {
     @Test
     @DisplayName("a circle or rounded photo is PNG with its corners cut away, its middle kept")
     void shapedPhotoHasTransparentCorners() throws Exception {
-        for (PhotoShape shape : new PhotoShape[] {PhotoShape.CIRCLE, PhotoShape.ROUNDED}) {
+        for (PictureShape shape : new PictureShape[] {PictureShape.CIRCLE, PictureShape.ROUNDED}) {
             EncodedImage photo = EmailImageEncoder.photo(picture(1200, 800, "jpeg"), shape).orElseThrow();
 
             assertThat(photo.contentType()).isEqualTo("image/png");
             BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(photo.content()));
             assertThat(decoded.getRGB(0, 0) >>> 24).as(shape + " corner").isZero();
             assertThat(decoded.getRGB(96, 96) >>> 24).as(shape + " middle").isEqualTo(255);
+        }
+    }
+
+    @Test
+    @DisplayName("an upload cut to a circle is its centred square; rounded keeps its proportions; both cut their corners")
+    void shapedUpload() throws Exception {
+        EncodedImage circle = EmailImageEncoder.shaped(picture(800, 400, "png"), PictureShape.CIRCLE).orElseThrow();
+        assertThat(circle.width()).isEqualTo(circle.height()).isEqualTo(400);
+        EncodedImage rounded = EmailImageEncoder.shaped(picture(800, 400, "png"), PictureShape.ROUNDED).orElseThrow();
+        assertThat(rounded.width()).isEqualTo(800);
+        assertThat(rounded.height()).isEqualTo(400);
+
+        for (EncodedImage shaped : new EncodedImage[] {circle, rounded}) {
+            assertThat(shaped.contentType()).isEqualTo("image/png");
+            BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(shaped.content()));
+            assertThat(decoded.getRGB(0, 0) >>> 24).isZero();
+            assertThat(decoded.getRGB(decoded.getWidth() / 2, decoded.getHeight() / 2) >>> 24).isEqualTo(255);
         }
     }
 
@@ -72,8 +89,8 @@ class EmailImageEncoderTest {
     @DisplayName("anything but a JPEG or PNG is refused")
     void refusesTheRest() throws Exception {
         assertThat(EmailImageEncoder.photo("<svg onload=alert(1)/>".getBytes(StandardCharsets.UTF_8),
-                PhotoShape.CIRCLE)).isEmpty();
-        assertThat(EmailImageEncoder.photo(picture(20, 20, "gif"), PhotoShape.CIRCLE)).isEmpty();
+                PictureShape.CIRCLE)).isEmpty();
+        assertThat(EmailImageEncoder.photo(picture(20, 20, "gif"), PictureShape.CIRCLE)).isEmpty();
         assertThat(EmailImageEncoder.logo(new byte[0])).isEmpty();
     }
 
@@ -90,7 +107,7 @@ class EmailImageEncoderTest {
         withExif.write(exif);
         withExif.write(jpeg, 2, jpeg.length - 2);
         assertThat(contains(withExif.toByteArray(), secret)).isTrue();
-        assertThat(contains(EmailImageEncoder.photo(withExif.toByteArray(), PhotoShape.SQUARE).orElseThrow().content(),
+        assertThat(contains(EmailImageEncoder.photo(withExif.toByteArray(), PictureShape.SQUARE).orElseThrow().content(),
                 secret)).isFalse();
 
         byte[] png = picture(300, 100, "png");
@@ -111,7 +128,7 @@ class EmailImageEncoderTest {
         java.nio.ByteBuffer.wrap(png, 29, 4).putInt((int) crc.getValue());
 
         assertThat(png.length).isLessThan(2_000);
-        assertThat(EmailImageEncoder.photo(png, PhotoShape.CIRCLE)).isEmpty();
+        assertThat(EmailImageEncoder.photo(png, PictureShape.CIRCLE)).isEmpty();
         assertThat(EmailImageEncoder.logo(png)).isEmpty();
     }
 
