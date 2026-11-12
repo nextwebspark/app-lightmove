@@ -13,8 +13,8 @@ public interface MeetingTranscriptLookup {
 
     /**
      * Newest call first. Only a call whose Meeting note is among {@code liveNoteIds}: a consultant who removed the
-     * note took the call out of what the AI reads with it.
+     * note took the call out of what the AI reads with it. {@code executiveName} tells the executive's voice apart.
      */
-    List<TranscriptOnFile> transcriptsOf(UUID workspaceId, UUID projectId, UUID personId,
+    List<TranscriptOnFile> transcriptsOf(UUID workspaceId, UUID projectId, UUID personId, String executiveName,
                                          Collection<UUID> liveNoteIds);
 }

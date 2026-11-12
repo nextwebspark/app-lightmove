@@ -20,6 +20,7 @@ import app.lightmove.api.RecordingRecallBotApi;
 import app.lightmove.api.StubChatModel;
 import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
+import app.lightmove.api.candidate.constant.CallSpeakerRole;
 import app.lightmove.api.candidate.model.SpokenLine;
 import app.lightmove.api.candidate.model.TranscriptOnFile;
 import app.lightmove.api.candidate.service.CandidateMaterialService;
@@ -757,7 +758,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the assessment reads a call's transcript from its position while its note is live, the team marked")
+    @DisplayName("the assessment reads a call's transcript from its position while its note is live, roles marked")
     void transcriptReachesTheAssessmentWhileItsNoteIsLive() throws Exception {
         chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
         String recordingId = scheduledRecordingId();
@@ -765,7 +766,8 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         recall.holdsTranscript("t-1", List.of(
                 new TranscriptLine(start.plusSeconds(5), "Yara  haddad", "How did the listing go?", true),
                 new TranscriptLine(start.plusSeconds(20), "Priya Raman", "I took the finance team through the IPO.",
-                        true)));
+                        true),
+                new TranscriptLine(start.plusSeconds(40), "Omar Saleh", "We need that on day one.", true)));
         deliver(bot, """
                 {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
         deliver(bot, """
@@ -775,8 +777,10 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         List<TranscriptOnFile> read = transcriptsOf(UUID.fromString(projectId), UUID.fromString(priya));
         assertThat(read).singleElement().satisfies(transcript -> {
             assertThat(transcript.title()).isEqualTo("First conversation");
-            assertThat(transcript.lines()).extracting(SpokenLine::speaker, SpokenLine::team)
-                    .containsExactly(tuple("Yara  haddad", true), tuple("Priya Raman", false));
+            assertThat(transcript.lines()).extracting(SpokenLine::speaker, SpokenLine::role)
+                    .containsExactly(tuple("Yara  haddad", CallSpeakerRole.TEAM),
+                            tuple("Priya Raman", CallSpeakerRole.CANDIDATE),
+                            tuple("Omar Saleh", CallSpeakerRole.OTHER));
         });
 
         String otherProject = body(as(consultant, post("/api/v1/projects").contentType(MediaType.APPLICATION_JSON)

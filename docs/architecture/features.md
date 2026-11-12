@@ -181,11 +181,16 @@ competency, out of 100 by each panel's `technical_share` (`ScorecardScoring`, mi
 reviewed & submit**. A score snapshots its criterion and is matched on panel + name, so one the brief drops is kept,
 uncounted. A stale save is `CANDIDATE_ASSESSMENT_STALE`; it is staff-only (`WORK_EXECUTE`, never on `CandidateResponse`).
 **Assess with AI** (V136, `POST …/candidates/{id}/assessment/ai`, answered while the consultant waits) drafts it:
-`CandidateScorecardDrafter` sends the `CandidateDossier`, the person's notes and documents (below) and the brief's
-`AssessmentBrief` seam (role, criteria, competencies with ids — never compensation or the internal context) and gets
-back, per competency, evidence naming its source then a 0–10 score against an anchored rubric — a note, a reference
-or a CV can state a behaviour; read from the career alone a score is held to 3–7 and marked "Inferred from …", and
-null only with nothing on file — and the five sections; the weights and the total stay `ScorecardScoring`'s. It writes only what nobody holds — an empty value, or one still in
+`CandidateScorecardDrafter` sends the brief first as the client's benchmark — the `AssessmentBrief` seam (role, why it
+exists, employment type, reporting line and team size from the org chart, criteria, competencies with ids — never
+compensation or the internal context) and the client's position description (`PositionDescriptionReader`, redacted as
+extraction redacts it) — then everything on file in its order of weight, each group on its own budget
+(`AssessmentMaterial`): the position's call transcripts, every voice given its role (`CallSpeakerRole`); the call and
+meeting notes; the CV and the `CandidateDossier` profile, read as the executive's own account; every other note and
+document. It gets back, per competency, evidence naming every source it rests on then a 0–10 score against an anchored
+rubric — a call, a note or a reference can state a behaviour; a CV claim none of them confirms, or the career alone,
+holds a score to 3–7, and null only with nothing on file; a higher group outranks a lower one where they disagree — and
+the five sections; the weights and the total stay `ScorecardScoring`'s. It writes only what nobody holds — an empty value, or one still in
 `ai_drafted` (an untouched earlier draft, sparkled in the tab) — never a consultant's; an edit takes a value out of
 `ai_drafted`, and **Mark reviewed & submit** adopts every AI value. It runs only when pressed — never on a filing. The executive drawer draws **Notes** and **Activity** for staff, through the
 position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`).
@@ -436,9 +441,11 @@ AI run on an executive reads the person's notes and documents too** (`CandidateM
 document (a PDF, DOCX, DOC or TXT; an image or a scan without a text layer is left out), each held to a length,
 and the audit line counts how many of each went. Assess with AI alone also reads the **transcripts** of the calls that
 position recorded (`MeetingTranscriptLookup`, answered by `notetaker`), newest first, only while each call's Meeting
-note is live, redacted and held to 150k characters a call (start and end kept) and 250k in all, a staff member's voice
-marked "(your team)" in code; a claim the executive makes about themselves with no example behind it scores as
-indirect evidence, and a transcript the prompt guard stops is dropped and the assessment asked again without it. **The model never sees a candidate's contacts, compensation
+note is live, redacted and held to 150k characters a call (start and end kept) and 250k in all, each voice marked
+with its role in code (Candidate, Interviewer, Other participant, Unconfirmed); it splits the notes into call and
+meeting notes (8k each, 40k in all) and the rest, and the documents into CVs (30k) and the rest (40k), so no group
+crowds out another, and the audit line also says whether the client's position description went; a claim the
+executive makes about themselves with no example behind it scores as self-report, and a transcript the prompt guard stops is dropped and the assessment asked again without it. **The model never sees a candidate's contacts, compensation
 fields or custom fields**: the profile is the `CandidateDossier` allowlist, and `core/text`'s `ContactRedaction` —
 the one copy of the email and phone patterns, which `PositionDocumentRedactor` uses too — takes every address
 and number out of the About, the notes, the transcripts and
