@@ -10,4 +10,5 @@ public record SignatureFieldsDto(
         @Size(max = 255, message = "That address is too long") String linkedinUrl,
         @Size(max = 160, message = "That company name is too long") String company,
         @Size(max = 255, message = "That address is too long") String website,
-        @Size(max = 200, message = "That address is too long") String address) {}
+        @Size(max = 200, message = "That address is too long") String address,
+        @Size(max = 40, message = "That phone number is too long") String mobile) {}

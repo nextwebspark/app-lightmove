@@ -88,7 +88,7 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the profile photo is copied once for email, served publicly by its own token, and kept after removal")
+    @DisplayName("the profile photo is cut round once for email, served publicly by its own token, and kept after removal")
     void photoFromAvatar() throws Exception {
         String photo = """
                 {"name":"With photo","layout":"PHOTO","showPhoto":true}""";
@@ -110,7 +110,7 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
                 first.indexOf("/api/v1/email-images/")));
         MvcResult served = mvc.perform(get(path))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type", "image/jpeg"))
+                .andExpect(header().string("Content-Type", "image/png"))
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andReturn();
         assertThat(served.getResponse().getHeader("Cache-Control")).contains("immutable", "public");
@@ -315,6 +315,46 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("any layout takes a second number and its own words with pictures, each picture in its shape")
+    void fixedLayoutExtras() throws Exception {
+        mvc.perform(multipart(HttpMethod.PUT, "/api/v1/auth/me/avatar")
+                        .file(new MockMultipartFile("file", "me.png", "image/png", picture(400, 400)))
+                        .header("Authorization", "Bearer " + yara).with(csrf()))
+                .andExpect(status().isOk());
+        // A screenshot with no transparency is kept as JPEG: the shape must be cut from that too.
+        JsonNode screenshot = uploadPicture(yara, jpeg(1600, 1000));
+        JsonNode aesc = uploadPicture(yara, picture(300, 100));
+
+        String signature = """
+                {"name":"Full","layout":"PHOTO","showPhoto":true,"photoShape":"ROUNDED",
+                 "fields":{"phone":"+971 4 111 2222","mobile":"+971 50 333 4444"},
+                 "customBody":"Festival Tower, **Dubai**\\n\\n![](%s \\"small circle\\") ![](%s)"}"""
+                .formatted(screenshot.get("src").asText(), aesc.get("src").asText());
+        JsonNode saved = create(yara, signature);
+        assertThat(saved.get("photoShape").asText()).isEqualTo("ROUNDED");
+        assertThat(saved.get("fields").get("mobile").asText()).isEqualTo("+971 50 333 4444");
+        String html = saved.get("html").asText();
+        assertThat(html).contains("M <a href=\"tel:+971503334444\"", "<strong>Dubai</strong>", "border-radius:10px",
+                "width=\"40\" height=\"40\"", aesc.get("token").asText())
+                .doesNotContain(screenshot.get("token").asText());
+
+        int circleAt = html.indexOf("width=\"40\" height=\"40\"");
+        String circleSrc = html.substring(html.lastIndexOf("src=\"", circleAt) + 5,
+                html.indexOf('"', html.lastIndexOf("src=\"", circleAt) + 5));
+        mvc.perform(get(circleSrc.substring(circleSrc.indexOf(EmailImageService.PATH)))).andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"));
+        create(yara, signature);
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_email_image where kind = 'SIGNATURE' and user_id = "
+                + "(select id from app_lm_user where email = ?)", Integer.class, "yara@" + domain)).isEqualTo(3);
+        assertThat(previewHtml(signature.replace(" \\\"small circle\\\"", "")))
+                .contains(screenshot.get("token").asText());
+
+        String photoSrc = html.substring(html.indexOf("src=\"") + 5, html.indexOf('"', html.indexOf("src=\"") + 5));
+        mvc.perform(get(photoSrc.substring(photoSrc.indexOf(EmailImageService.PATH)))).andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"));
+    }
+
+    @Test
     @DisplayName("a starting point is the details, photo and logo as Markdown the signer may save and send as their own")
     void starterIsEditableMarkdown() throws Exception {
         mvc.perform(profile(yara, """
@@ -423,6 +463,17 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
         return """
                 {"name":"%s","layout":"%s","showPhoto":true,"showLogo":true,"isDefault":%s}"""
                 .formatted(name, layout, isDefault);
+    }
+
+    private static byte[] jpeg(int width, int height) throws Exception {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = image.createGraphics();
+        graphics.setColor(Color.DARK_GRAY);
+        graphics.fillRect(0, 0, width, height);
+        graphics.dispose();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(image, "jpeg", out);
+        return out.toByteArray();
     }
 
     private static byte[] picture(int width, int height) throws Exception {
