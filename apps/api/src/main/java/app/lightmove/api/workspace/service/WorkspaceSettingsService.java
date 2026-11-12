@@ -38,6 +38,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -47,7 +48,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class WorkspaceSettingsService {
+public class WorkspaceSettingsService implements WorkspaceAiControlsReader {
 
     private final WorkspaceRepository workspaces;
     private final WorkspaceMemberRepository members;
@@ -192,12 +193,15 @@ public class WorkspaceSettingsService {
 
     /**
      * Turning an inference off clears what it left on the workspace's people in the same transaction, so a value
-     * the workspace has said it does not want is never held past the switch. A no-op change records nothing.
+     * the workspace has said it does not want is never held past the switch. The row is locked before anything is
+     * cleared, so an AI write in flight either lands first and is cleared, or waits and sees the switch off
+     * ({@link #aiControlsHeldForWrite}). A no-op change records nothing.
      */
     @Transactional
     public WorkspaceDetail changeAiControls(UUID actorId, UUID workspaceId, WorkspaceAiControls controls,
                                             HttpServletRequest request) {
-        Workspace workspace = requireWorkspace(workspaceId);
+        Workspace workspace = workspaces.lockById(workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
         WorkspaceAiControls previous = workspace.getAiControls();
         if (previous.equals(controls)) {
             return detail(workspace);
@@ -222,10 +226,18 @@ public class WorkspaceSettingsService {
         return detail(workspace);
     }
 
-    /** What the AI may do with the workspace's people; {@code enrichment} asks before every model call. */
+    @Override
     @Transactional(readOnly = true)
     public WorkspaceAiControls aiControlsOf(UUID workspaceId) {
         return requireWorkspace(workspaceId).getAiControls();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public WorkspaceAiControls aiControlsHeldForWrite(UUID workspaceId) {
+        return workspaces.lockForShareById(workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND))
+                .getAiControls();
     }
 
     /** What turning the two inferences off would clear now, for the confirmation's count. */

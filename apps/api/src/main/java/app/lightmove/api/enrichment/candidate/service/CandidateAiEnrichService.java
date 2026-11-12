@@ -22,7 +22,7 @@ import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.position.model.AssessmentBrief;
 import app.lightmove.api.position.service.PositionService;
 import app.lightmove.api.workspace.model.WorkspaceAiControls;
-import app.lightmove.api.workspace.service.WorkspaceSettingsService;
+import app.lightmove.api.workspace.service.WorkspaceAiControlsReader;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Optional;
 import java.util.UUID;
@@ -49,7 +49,7 @@ public class CandidateAiEnrichService {
     private final FairUseGuard fairUse;
     private final UsageRecorder usage;
     private final AuditService audit;
-    private final WorkspaceSettingsService workspaces;
+    private final WorkspaceAiControlsReader workspaces;
 
     /** A background with nothing left to propose answers as it stands, spending nothing. */
     public CandidateResponse suggestBackground(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
@@ -69,7 +69,7 @@ public class CandidateAiEnrichService {
         if (proposals.holdsNothing()) {
             throw ApiException.of(ErrorCode.AI_UNAVAILABLE);
         }
-        CandidateResponse answer = writer.writeBackground(projectId, candidateId, userId, proposals);
+        CandidateResponse answer = writer.writeBackground(workspaceId, projectId, candidateId, userId, proposals);
         usage.record(MeteredUse.of(workspaceId, userId, projectId, UsageKind.AI_ENRICH, 1));
         return answer;
     }

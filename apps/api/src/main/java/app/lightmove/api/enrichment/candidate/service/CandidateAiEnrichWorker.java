@@ -15,7 +15,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.workspace.model.WorkspaceAiControls;
-import app.lightmove.api.workspace.service.WorkspaceSettingsService;
+import app.lightmove.api.workspace.service.WorkspaceAiControlsReader;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -50,14 +50,14 @@ class CandidateAiEnrichWorker {
     private final LlmBudgetGuard llmBudget;
     private final AuditService audit;
     private final EnrichmentSettings settings;
-    private final WorkspaceSettingsService workspaces;
+    private final WorkspaceAiControlsReader workspaces;
     private final Semaphore runs = new Semaphore(CONCURRENT_RUNS);
     private final Queue<Runnable> waiting = new ConcurrentLinkedQueue<>();
 
     CandidateAiEnrichWorker(BackgroundProposer backgroundProposer, CandidateService candidates,
                             CandidateMaterialReader materialReader, AiDraftWriter writer, LlmBudgetGuard llmBudget,
                             AuditService audit, LightMoveProperties properties,
-                            WorkspaceSettingsService workspaces) {
+                            WorkspaceAiControlsReader workspaces) {
         this.backgroundProposer = backgroundProposer;
         this.candidates = candidates;
         this.materialReader = materialReader;
@@ -131,7 +131,7 @@ class CandidateAiEnrichWorker {
         audited(request, material);
         BackgroundProposals proposals = backgroundProposer.propose(dossier, material, needs);
         if (!proposals.holdsNothing()) {
-            writer.writeBackground(projectId, candidateId, request.requestedBy(), proposals);
+            writer.writeBackground(request.workspaceId(), projectId, candidateId, request.requestedBy(), proposals);
         }
     }
 

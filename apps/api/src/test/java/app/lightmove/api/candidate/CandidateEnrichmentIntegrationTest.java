@@ -681,6 +681,34 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("gender and nationality switched off while the model answers are not written back over the clear")
+    void aSwitchTurnedOffMidRunDropsWhatItCovered() throws Exception {
+        String projectId = mandate("Mid Run Firm");
+        model.answerWith(AI_ENRICHMENT);
+        String candidateId = handAdded(projectId);
+        model.whileNextPromptIsAnswered(() -> db.update("""
+                UPDATE app_lm_workspace SET ai_infer_gender = false, ai_infer_nationality = false
+                WHERE id = (SELECT workspace_id FROM app_lm_project WHERE id = ?::uuid)
+                """, projectId));
+
+        JsonNode filled = body(mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/background/ai")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        assertThat(model.prompts()).as("both were asked before the switches went off").hasSize(2);
+        assertThat(filled.get("gender").isNull()).isTrue();
+        assertThat(filled.get("nationality").isNull()).isTrue();
+        assertThat(filled.get("aiInferredFields")).extracting(JsonNode::asText)
+                .containsExactlyInAnyOrder("yearsExperience", "seniority");
+        assertThat(db.queryForObject("""
+                SELECT person.ai_nationality_reading IS NULL FROM app_lm_person person
+                JOIN app_lm_project_candidate mapping ON mapping.person_id = person.id
+                WHERE mapping.id = ?::uuid
+                """, Boolean.class, candidateId)).isTrue();
+    }
+
+    @Test
     @DisplayName("Assess with AI reads the notes and the CV, drafts what a consultant left open and keeps what they scored")
     void assessWithAiNeverOverwritesAConsultant() throws Exception {
         String projectId = mandate("Assessment Button Firm");

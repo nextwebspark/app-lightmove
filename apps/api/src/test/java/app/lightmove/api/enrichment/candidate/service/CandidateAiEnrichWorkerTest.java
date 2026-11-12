@@ -14,7 +14,7 @@ import app.lightmove.api.core.config.EnrichmentSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.workspace.model.WorkspaceAiControls;
-import app.lightmove.api.workspace.service.WorkspaceSettingsService;
+import app.lightmove.api.workspace.service.WorkspaceAiControlsReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -71,7 +71,7 @@ class CandidateAiEnrichWorkerTest {
     @DisplayName("a workspace that does not run the AI on capture has nothing of the person read (#922)")
     void aWorkspaceWithTheSwitchOffRunsNothing() {
         CandidateService candidates = mock(CandidateService.class);
-        WorkspaceSettingsService workspaces = mock(WorkspaceSettingsService.class);
+        WorkspaceAiControlsReader workspaces = mock(WorkspaceAiControlsReader.class);
         when(workspaces.aiControlsOf(any(UUID.class))).thenReturn(new WorkspaceAiControls(true, true, true, false));
 
         workerOver(candidates, workspaces).enrich(requestFor(UUID.randomUUID()));
@@ -80,13 +80,13 @@ class CandidateAiEnrichWorkerTest {
     }
 
     private static CandidateAiEnrichWorker workerOver(CandidateService candidates) {
-        WorkspaceSettingsService workspaces = mock(WorkspaceSettingsService.class);
+        WorkspaceAiControlsReader workspaces = mock(WorkspaceAiControlsReader.class);
         when(workspaces.aiControlsOf(any(UUID.class))).thenReturn(WorkspaceAiControls.allOn());
         return workerOver(candidates, workspaces);
     }
 
     private static CandidateAiEnrichWorker workerOver(CandidateService candidates,
-                                                      WorkspaceSettingsService workspaces) {
+                                                      WorkspaceAiControlsReader workspaces) {
         EnrichmentSettings settings = mock(EnrichmentSettings.class);
         when(settings.aiEnrichOnCapture()).thenReturn(true);
         LightMoveProperties properties = mock(LightMoveProperties.class);

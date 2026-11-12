@@ -34,6 +34,10 @@ implemented in `candidate`), for every person in the workspace:
   itself an inference, even when it said Unknown.
 - V91's frozen copy on `app_lm_project_candidate` is cleared alongside.
 - The person's `version` is bumped, so a drawer save racing the clear fails rather than writing the value back.
+- A model run already in flight cannot write the value back either. The change locks the workspace row
+  (`FOR UPDATE`) before it clears anything. `CandidateService.applyAiBackground` reads the switches again under
+  `FOR SHARE` (`WorkspaceAiControlsReader.aiControlsHeldForWrite`) before it loads the person, and drops the half
+  that is now off. Either the write lands first and the clear removes it, or the write waits and sees the switch off.
 
 A value a consultant typed, imported or confirmed is never touched: confirming a value removes its flag. The clear
 cannot be undone, so the screen asks first and says how many candidates it touches
