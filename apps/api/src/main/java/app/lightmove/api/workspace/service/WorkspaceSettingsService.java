@@ -16,7 +16,9 @@ import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.constant.WorkspaceMode;
 import app.lightmove.api.workspace.model.CalendarSyncChanged;
+import app.lightmove.api.workspace.model.InferredBackgroundCounts;
 import app.lightmove.api.workspace.model.Workspace;
+import app.lightmove.api.workspace.model.WorkspaceAiControls;
 import app.lightmove.api.workspace.model.WorkspaceDeleted;
 import app.lightmove.api.workspace.repository.InvitationRepository;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
@@ -50,6 +52,7 @@ public class WorkspaceSettingsService {
     private final OAuthGrantService oauthGrants;
     private final WorkspaceBillingClosure billing;
     private final UserRepository users;
+    private final InferredBackgroundEraser inferredBackground;
     private final LightMoveProperties properties;
     private final Clock clock;
 
@@ -133,6 +136,51 @@ public class WorkspaceSettingsService {
         return requireWorkspace(workspaceId).getCalendarSync();
     }
 
+    /**
+     * Turning an inference off clears what it left on the workspace's people in the same transaction, so a value
+     * the workspace has said it does not want is never held past the switch. A no-op change records nothing.
+     */
+    @Transactional
+    public WorkspaceDetail changeAiControls(UUID actorId, UUID workspaceId, WorkspaceAiControls controls,
+                                            HttpServletRequest request) {
+        Workspace workspace = requireWorkspace(workspaceId);
+        WorkspaceAiControls previous = workspace.getAiControls();
+        if (previous.equals(controls)) {
+            return detail(workspace);
+        }
+        workspace.changeAiControls(controls);
+        InferredBackgroundCounts cleared = inferredBackground.clear(workspaceId,
+                previous.inferGender() && !controls.inferGender(),
+                previous.inferNationality() && !controls.inferNationality());
+        audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
+                .actor(actorId).workspace(workspaceId).from(request)
+                .detail("section", "aiControls")
+                .detailIfPresent("inferGender", switched(previous.inferGender(), controls.inferGender()))
+                .detailIfPresent("inferNationality",
+                        switched(previous.inferNationality(), controls.inferNationality()))
+                .detailIfPresent("draftAssessments",
+                        switched(previous.draftAssessments(), controls.draftAssessments()))
+                .detailIfPresent("enrichAutomatically",
+                        switched(previous.enrichAutomatically(), controls.enrichAutomatically()))
+                .detail("genderCleared", String.valueOf(cleared.gender()))
+                .detail("nationalityCleared", String.valueOf(cleared.nationality()))
+                .record();
+        return detail(workspace);
+    }
+
+    /** What the AI may do with the workspace's people; {@code enrichment} asks before every model call. */
+    @Transactional(readOnly = true)
+    public WorkspaceAiControls aiControlsOf(UUID workspaceId) {
+        return requireWorkspace(workspaceId).getAiControls();
+    }
+
+    /** What turning the two inferences off would clear now, for the confirmation's count. */
+    @Transactional(readOnly = true)
+    public InferredBackgroundCounts inferredBackgroundOf(UUID workspaceId) {
+        requireWorkspace(workspaceId);
+        return inferredBackground.heldIn(workspaceId);
+    }
+
     /** What a new brief and a new package start in; {@code position} reads it when it drafts a brief. */
     @Transactional(readOnly = true)
     public String defaultCurrencyOf(UUID workspaceId) {
@@ -180,6 +228,10 @@ public class WorkspaceSettingsService {
     private Workspace requireWorkspace(UUID workspaceId) {
         return workspaces.findById(workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
+    }
+
+    private static String switched(boolean before, boolean after) {
+        return before == after ? null : after ? "on" : "off";
     }
 
     private WorkspaceDetail detail(Workspace workspace) {

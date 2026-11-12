@@ -6,10 +6,13 @@ import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.workspace.dto.DeleteWorkspaceRequest;
+import app.lightmove.api.workspace.dto.InferredBackgroundResponse;
+import app.lightmove.api.workspace.dto.UpdateWorkspaceAiControlsRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceCalendarSyncRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceModeRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspacePersonaRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceSettingsRequest;
+import app.lightmove.api.workspace.dto.WorkspaceAiControlsResponse;
 import app.lightmove.api.workspace.dto.WorkspaceCompanyResponse;
 import app.lightmove.api.workspace.dto.WorkspaceResponse;
 import app.lightmove.api.workspace.model.Workspace;
@@ -87,6 +90,22 @@ public class WorkspaceController {
                 principal.userId(), principal.requireWorkspaceId(), request.calendarSync(), httpRequest));
     }
 
+    /** Turning gender or nationality off clears the AI's unconfirmed values for every person, in the same write. */
+    @PutMapping("/ai-controls")
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public WorkspaceResponse changeAiControls(@AuthenticationPrincipal AuthPrincipal principal,
+                                              @Valid @RequestBody UpdateWorkspaceAiControlsRequest request,
+                                              HttpServletRequest httpRequest) {
+        return toResponse(settings.changeAiControls(
+                principal.userId(), principal.requireWorkspaceId(), request.controls(), httpRequest));
+    }
+
+    @GetMapping("/ai-controls/inferred-background")
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public InferredBackgroundResponse inferredBackground(@AuthenticationPrincipal AuthPrincipal principal) {
+        return InferredBackgroundResponse.of(settings.inferredBackgroundOf(principal.requireWorkspaceId()));
+    }
+
     @DeleteMapping
     @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -100,7 +119,8 @@ public class WorkspaceController {
     private WorkspaceResponse toResponse(WorkspaceDetail detail) {
         Workspace ws = detail.workspace();
         return new WorkspaceResponse(ws.getId(), ws.getName(), ws.getSlug(), ws.getLogoMark(),
-                ws.getEmailDomain(), ws.getMode(), ws.getCalendarSync(), ws.getDefaultRegion(),
+                ws.getEmailDomain(), ws.getMode(), ws.getCalendarSync(),
+                WorkspaceAiControlsResponse.of(ws.getAiControls()), ws.getDefaultRegion(),
                 ws.getDefaultCurrency(), ws.getPlan(),
                 detail.memberCount(), ws.getCreatedAt(), ws.getPersona(),
                 WorkspaceCompanyResponse.of(ws.getCompany()),

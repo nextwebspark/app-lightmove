@@ -9,6 +9,7 @@ import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidateScorecardResponse;
 import app.lightmove.api.candidate.model.AiScorecardDraft;
 import app.lightmove.api.candidate.model.CandidateDossier;
+import app.lightmove.api.candidate.model.NationalityReading;
 import app.lightmove.api.candidate.service.CandidateScorecardService;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
@@ -20,7 +21,10 @@ import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.position.model.AssessmentBrief;
 import app.lightmove.api.position.service.PositionService;
+import app.lightmove.api.workspace.model.WorkspaceAiControls;
+import app.lightmove.api.workspace.service.WorkspaceSettingsService;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -45,12 +49,14 @@ public class CandidateAiEnrichService {
     private final FairUseGuard fairUse;
     private final UsageRecorder usage;
     private final AuditService audit;
+    private final WorkspaceSettingsService workspaces;
 
     /** A background with nothing left to propose answers as it stands, spending nothing. */
     public CandidateResponse suggestBackground(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                                                HttpServletRequest httpRequest) {
         CandidateDossier dossier = dossierOf(workspaceId, projectId, candidateId);
-        BackgroundNeeds needs = BackgroundNeeds.of(dossier, candidates.hasNationalityReading(projectId, candidateId));
+        BackgroundNeeds needs = BackgroundNeeds.of(dossier, candidates.hasNationalityReading(projectId, candidateId),
+                workspaces.aiControlsOf(workspaceId));
         if (!needs.any()) {
             return candidates.get(workspaceId, projectId, candidateId, ProjectAudience.STAFF);
         }
@@ -71,6 +77,9 @@ public class CandidateAiEnrichService {
     public CandidateScorecardResponse assess(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                                              HttpServletRequest httpRequest) {
         CandidateDossier dossier = dossierOf(workspaceId, projectId, candidateId);
+        if (!workspaces.aiControlsOf(workspaceId).draftAssessments()) {
+            throw ApiException.of(ErrorCode.AI_ASSESSMENT_DISABLED);
+        }
         AssessmentBrief brief = positions.assessmentBriefOf(workspaceId, projectId);
         if (brief.competencies().competencies().isEmpty()) {
             throw ApiException.of(ErrorCode.CANDIDATE_ASSESSMENT_NO_CRITERIA);
@@ -88,6 +97,14 @@ public class CandidateAiEnrichService {
         CandidateScorecardResponse answer = writer.writeScorecard(workspaceId, projectId, candidateId, userId, draft);
         usage.record(MeteredUse.of(workspaceId, userId, projectId, UsageKind.AI_ENRICH, 1));
         return answer;
+    }
+
+    /** None while the workspace has nationality inference off: turning it off cleared every reading. */
+    public Optional<NationalityReading> nationalityReadingOf(UUID workspaceId, UUID projectId, UUID candidateId) {
+        WorkspaceAiControls controls = workspaces.aiControlsOf(workspaceId);
+        return controls.inferNationality()
+                ? candidates.nationalityReadingOf(workspaceId, projectId, candidateId)
+                : Optional.empty();
     }
 
     private CandidateDossier dossierOf(UUID workspaceId, UUID projectId, UUID candidateId) {

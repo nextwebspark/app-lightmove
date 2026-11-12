@@ -15,6 +15,7 @@ public record WorkspaceResponse(
         String emailDomain,
         WorkspaceMode mode,
         CalendarSync calendarSync,
+        WorkspaceAiControlsResponse aiControls,
         String defaultRegion,
         String defaultCurrency,
         String plan,

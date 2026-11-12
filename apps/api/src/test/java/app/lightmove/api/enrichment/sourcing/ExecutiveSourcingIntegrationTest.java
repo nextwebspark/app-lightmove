@@ -662,7 +662,7 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
 
     private String mandate(String firmName) throws Exception {
         String alok = firmName.toLowerCase().replaceAll("[^a-z]", "") + "@" + domain;
-        createWorkspace(verifiedUser("Alok Kumar", alok), firmName);
+        switchOnPeopleAi(createWorkspace(verifiedUser("Alok Kumar", alok), firmName));
         adminToken = login(alok);
         String clientId = body(mvc.perform(post("/api/v1/clients")
                         .header("Authorization", "Bearer " + adminToken)

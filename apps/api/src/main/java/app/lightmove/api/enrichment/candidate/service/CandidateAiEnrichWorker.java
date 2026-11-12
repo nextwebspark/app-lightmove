@@ -14,6 +14,8 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
+import app.lightmove.api.workspace.model.WorkspaceAiControls;
+import app.lightmove.api.workspace.service.WorkspaceSettingsService;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -28,8 +30,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 /**
  * A newly researched executive's background proposals, after the filing commits and off its thread: whichever of
  * gender, years and seniority is missing, and the nationality classifier while nationality is. Asks the model nothing
- * when nothing is missing. The assessment is never drafted here — only Assess with AI drafts it. Shaped like
- * {@link CandidateEnrichmentWorker}, for its reasons.
+ * when nothing is missing, and nothing at all unless the workspace runs the AI on capture. The assessment is never
+ * drafted here — only Assess with AI drafts it. Shaped like {@link CandidateEnrichmentWorker}, for its reasons.
  */
 @Component
 @Slf4j
@@ -48,12 +50,14 @@ class CandidateAiEnrichWorker {
     private final LlmBudgetGuard llmBudget;
     private final AuditService audit;
     private final EnrichmentSettings settings;
+    private final WorkspaceSettingsService workspaces;
     private final Semaphore runs = new Semaphore(CONCURRENT_RUNS);
     private final Queue<Runnable> waiting = new ConcurrentLinkedQueue<>();
 
     CandidateAiEnrichWorker(BackgroundProposer backgroundProposer, CandidateService candidates,
                             CandidateMaterialReader materialReader, AiDraftWriter writer, LlmBudgetGuard llmBudget,
-                            AuditService audit, LightMoveProperties properties) {
+                            AuditService audit, LightMoveProperties properties,
+                            WorkspaceSettingsService workspaces) {
         this.backgroundProposer = backgroundProposer;
         this.candidates = candidates;
         this.materialReader = materialReader;
@@ -61,6 +65,7 @@ class CandidateAiEnrichWorker {
         this.llmBudget = llmBudget;
         this.audit = audit;
         this.settings = properties.enrichment();
+        this.workspaces = workspaces;
     }
 
     @Async
@@ -90,10 +95,15 @@ class CandidateAiEnrichWorker {
         }
     }
 
+    /** The environment's switch is the platform's kill-switch; the workspace's says whether it wants the run at all. */
     private void runOne(CandidateAiEnrichRequested request) {
         try {
+            WorkspaceAiControls controls = workspaces.aiControlsOf(request.workspaceId());
+            if (!controls.enrichAutomatically()) {
+                return;
+            }
             candidates.dossierOf(request.projectId(), request.candidateId())
-                    .ifPresent(dossier -> enrichFrom(dossier, request));
+                    .ifPresent(dossier -> enrichFrom(dossier, request, controls));
         } catch (ObjectOptimisticLockingFailureException raced) {
             log.info("Candidate {} was edited while its AI run wrote", request.candidateId());
         } catch (ApiException refused) {
@@ -105,10 +115,12 @@ class CandidateAiEnrichWorker {
         }
     }
 
-    private void enrichFrom(CandidateDossier dossier, CandidateAiEnrichRequested request) {
+    private void enrichFrom(CandidateDossier dossier, CandidateAiEnrichRequested request,
+                            WorkspaceAiControls controls) {
         UUID projectId = request.projectId();
         UUID candidateId = request.candidateId();
-        BackgroundNeeds needs = BackgroundNeeds.of(dossier, candidates.hasNationalityReading(projectId, candidateId));
+        BackgroundNeeds needs = BackgroundNeeds.of(dossier, candidates.hasNationalityReading(projectId, candidateId),
+                controls);
         if (!needs.any()) {
             return;
         }
