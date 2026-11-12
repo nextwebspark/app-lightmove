@@ -9,8 +9,8 @@ import org.jspecify.annotations.Nullable;
  * Each use of a language model that leaves something on a person's record, with the fixed words a subject access
  * export gives about it (#919, GDPR Art. 15(1)(h): "meaningful information about the logic involved"). Written from
  * the prompt each one runs, named by {@link #promptFile}; {@code AiLogicCatalogTest} makes every prompt either one of
- * these or a use that leaves nothing about anyone, so a new prompt cannot reach a person unexplained. #922 may refine
- * the wording.
+ * these or a use that leaves nothing about anyone, so a new prompt cannot reach a person unexplained. The workspace's
+ * #922 switches are named where they apply.
  */
 @Getter
 @Accessors(fluent = true)
@@ -27,7 +27,9 @@ public enum AiUse {
                     + " alone gives low confidence at most, and conflicting signals give Unknown. The model answers"
                     + " with a confidence and the evidence for and against, kept whole on your record. Only a"
                     + " high-confidence reading fills the field, marked as the AI's until a consultant changes it; a"
-                    + " medium or low one is only a suggestion a consultant may accept."),
+                    + " medium or low one is only a suggestion a consultant may accept. It runs only while the"
+                    + " workspace holding your record has nationality inference switched on; switching it off clears"
+                    + " every reading and every value the AI filled that no consultant had confirmed."),
 
     BACKGROUND("candidate-ai-enrich-system.st", "Background proposals: gender, years of experience, seniority",
             "When one of these is missing from your record, a language model reads your LinkedIn profile with the"
@@ -36,7 +38,9 @@ public enum AiUse {
                     + " your earliest dated role or your graduation year; and the level of your current role (Board,"
                     + " C-Suite, N-1, N-2 or N-3) from your title, the size of your employer and your career. A value"
                     + " already on your record is never replaced, and each proposal is marked as the AI's until a"
-                    + " consultant confirms or changes it."),
+                    + " consultant confirms or changes it. Gender is proposed only while the workspace holding your"
+                    + " record has gender inference switched on; switching it off clears every gender the AI filled"
+                    + " that no consultant had confirmed."),
 
     ASSESSMENT_DRAFT("candidate-scorecard-draft-system.st", "Assessment draft",
             "When a consultant asks for it, a language model drafts the consultant's assessment of you against one"
@@ -47,7 +51,8 @@ public enum AiUse {
                     + " compensation. Only your own words on a call count as evidence from it, never an interviewer's."
                     + " A score resting on your CV, your profile or your career alone is held between 3 and 7. The weighting and the total are calculated by the"
                     + " software, not by the model. Every drafted value stays marked as the AI's until a consultant"
-                    + " edits it or reviews and submits the assessment."),
+                    + " edits it or reviews and submits the assessment. It can be asked for only while the workspace"
+                    + " holding your record has AI-drafted assessments switched on."),
 
     MEETING_SUMMARY("meeting-summary-system.st", "Call notes from the Notetaker",
             "When a consultant records a call with you through the Notetaker, a language model reads the transcript"

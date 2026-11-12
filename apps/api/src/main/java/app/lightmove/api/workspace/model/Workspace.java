@@ -64,6 +64,19 @@ public class Workspace extends BaseEntity {
     @Column(name = "calendar_sync", nullable = false, length = 16)
     private CalendarSync calendarSync = CalendarSync.RECALL;
 
+    /** #922's four switches (V216): off for a workspace founded since, on for the ones that existed before. */
+    @Column(name = "ai_infer_gender", nullable = false)
+    private boolean aiInferGender;
+
+    @Column(name = "ai_infer_nationality", nullable = false)
+    private boolean aiInferNationality;
+
+    @Column(name = "ai_draft_assessments", nullable = false)
+    private boolean aiDraftAssessments;
+
+    @Column(name = "ai_enrich_automatically", nullable = false)
+    private boolean aiEnrichAutomatically;
+
     /** The universe row this firm was picked as at signup; null for a firm typed in by hand (V68). */
     @Column(name = "apollo_account_id")
     private String apolloAccountId;
@@ -174,6 +187,19 @@ public class Workspace extends BaseEntity {
     /** The one write of the calendar sync, so every switch passes the audited path that calls it. */
     public void changeCalendarSync(CalendarSync calendarSync) {
         this.calendarSync = Objects.requireNonNull(calendarSync, "calendarSync");
+    }
+
+    public WorkspaceAiControls getAiControls() {
+        return new WorkspaceAiControls(aiInferGender, aiInferNationality, aiDraftAssessments, aiEnrichAutomatically);
+    }
+
+    /** The one write of the AI switches, so every change passes the audited path that calls it. */
+    public void changeAiControls(WorkspaceAiControls controls) {
+        Objects.requireNonNull(controls, "controls");
+        this.aiInferGender = controls.inferGender();
+        this.aiInferNationality = controls.inferNationality();
+        this.aiDraftAssessments = controls.draftAssessments();
+        this.aiEnrichAutomatically = controls.enrichAutomatically();
     }
 
     /** The one write of the date and time settings, so every change passes the audited path that calls it. */

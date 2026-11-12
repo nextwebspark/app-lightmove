@@ -92,7 +92,11 @@ export function useSourcingRun(projectId: string, enabled: boolean, streamIsLive
 
   const stop = useMutation({
     mutationFn: (runId: string) => sourcingApi.stopSearch(projectId, runId),
-    onSuccess: (stopped) => queryClient.setQueryData(sourcingApi.sourcingKeys.latest(projectId), stopped),
+    // Shipped bug: a stop answering after a new search had started put the old run back over it.
+    onSuccess: (stopped) =>
+      queryClient.setQueryData<SourcingRun | null>(sourcingApi.sourcingKeys.latest(projectId), (latest) =>
+        latest?.id === stopped.id ? stopped : latest,
+      ),
     onError: (error) => toast.error(messageFor(error)),
   });
 
@@ -116,7 +120,8 @@ export function useSourcingRun(projectId: string, enabled: boolean, streamIsLive
     markOpened,
     start: (triageCompanyIds: readonly string[]) => start.mutate(triageCompanyIds),
     isStarting: start.isPending,
-    stop: () => run && stop.mutate(run.id),
+    /** Nothing to stop while a search is still starting: the run on screen is the one before it. */
+    stop: () => run && !start.isPending && stop.mutate(run.id),
     isStopping: stop.isPending || run?.stopRequested === true,
   };
 }

@@ -129,6 +129,7 @@ it("names every kind for a payload it does not recognise", async () => {
     "company-captured",
     "company-enriched",
     "executive-sourcing",
+    "executive-sourcing-progress",
     "outreach",
     "task",
   ]);

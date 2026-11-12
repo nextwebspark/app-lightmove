@@ -68,6 +68,8 @@ import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.model.FiledCompany;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
+import app.lightmove.api.workspace.model.WorkspaceAiControls;
+import app.lightmove.api.workspace.service.WorkspaceAiControlsReader;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -127,6 +129,7 @@ public class CandidateService {
     private final CandidateSearchService searches;
     private final CandidateRemoval removal;
     private final SuppressionGate suppression;
+    private final WorkspaceAiControlsReader aiControls;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -138,7 +141,7 @@ public class CandidateService {
                             CandidatePipelineCatalog pipeline, PersonEmployerResolver employerResolver,
                             UserRepository users, CandidateSearchService searches,
                             CandidateRemoval removal, SuppressionGate suppression,
-                            LightMoveProperties properties) {
+                            WorkspaceAiControlsReader aiControls, LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
         this.matcher = matcher;
@@ -160,6 +163,7 @@ public class CandidateService {
         this.searches = searches;
         this.removal = removal;
         this.suppression = suppression;
+        this.aiControls = aiControls;
     }
 
     /**
@@ -703,18 +707,23 @@ public class CandidateService {
     /**
      * The AI's background proposals: whichever of gender, years and seniority are still empty, and the nationality
      * reading. Both are the person's. {@code REQUIRES_NEW} for {@link #applyResearch}'s reason; a racing drawer edit
-     * wins by {@code @Version}, and the caller asks again over the fresh row.
+     * wins by {@code @Version}, and the caller asks again over the fresh row. The workspace's switches are read
+     * again here, before the person is loaded: one turned off while the model was answering drops its half (#922).
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public CandidateResponse applyAiBackground(UUID projectId, UUID candidateId, UUID requestedBy,
+    public CandidateResponse applyAiBackground(UUID workspaceId, UUID projectId, UUID candidateId, UUID requestedBy,
                                                InferredBackground background, NationalityReading reading) {
+        WorkspaceAiControls controls = aiControls.aiControlsHeldForWrite(workspaceId);
+        InferredBackground allowedBackground = background == null || controls.inferGender()
+                ? background : background.withoutGender();
+        NationalityReading allowedReading = controls.inferNationality() ? reading : null;
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
         Person person = candidate.getPerson();
-        boolean filled = background != null && person.proposeBackground(background);
-        if (reading != null) {
-            person.recordNationalityReading(reading);
+        boolean filled = allowedBackground != null && person.proposeBackground(allowedBackground);
+        if (allowedReading != null) {
+            person.recordNationalityReading(allowedReading);
         }
-        if (filled || reading != null) {
+        if (filled || allowedReading != null) {
             activity.record(candidate, requestedBy, PersonActivityKind.AI_ASSESSED,
                     PersonActivityDetails.of("scope", AiRunScope.BACKGROUND));
             stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);

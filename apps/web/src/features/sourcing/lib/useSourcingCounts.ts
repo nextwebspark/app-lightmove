@@ -11,7 +11,7 @@ const COUNT_AFTER_MS = 500;
  */
 export function useSourcingCounts(projectId: string, companyIds: readonly string[], criteria: SearchCriteria | null) {
   const settled = useDebouncedValue(criteria, COUNT_AFTER_MS);
-  const searchable = settled !== null && (settled.functionTerms.length > 0 || settled.standaloneTitles.length > 0);
+  const searchable = hasWords(settled);
   const counts = useQuery({
     queryKey: settled ? sourcingApi.sourcingKeys.counts(projectId, companyIds, settled) : ["executiveSourcing", "idle"],
     queryFn: ({ signal }) => sourcingApi.countSearch(projectId, companyIds, settled!, signal),
@@ -22,8 +22,13 @@ export function useSourcingCounts(projectId: string, companyIds: readonly string
   });
   return {
     counts: searchable ? (counts.data ?? null) : null,
-    counting: searchable && (counts.isFetching || settled !== criteria),
+    // The draft's first half-second, before it settles, read as "not counting" and the status line flipped to ready
+    counting: (hasWords(criteria) && settled !== criteria) || (searchable && counts.isFetching),
   };
+}
+
+function hasWords(criteria: SearchCriteria | null): boolean {
+  return criteria !== null && (criteria.functionTerms.length > 0 || criteria.standaloneTitles.length > 0);
 }
 
 function sameCompanies(previous: unknown, companyIds: readonly string[]): boolean {

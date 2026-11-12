@@ -3,7 +3,6 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { isPureClient } from "../../features/auth/roles";
 import { useBillingOffered } from "../../features/billing/lib/useBilling";
-import { useDataProtection } from "../../features/candidates/lib/useDataProtection";
 import { cn } from "../../lib/cn";
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
@@ -29,15 +28,11 @@ const GRID_PAGES = new Set(["/settings/templates", "/settings/template-library"]
 export function SettingsLayout() {
   const { pathname } = useLocation();
   const { user } = useAuth();
-  const { offered: dataProtection } = useDataProtection();
   const { offered: billing } = useBillingOffered();
 
-  useEffect(
-    () => rememberSettingsSection(user, pathname, { dataProtection, billing }),
-    [user, pathname, dataProtection, billing],
-  );
+  useEffect(() => rememberSettingsSection(user, pathname, { billing }), [user, pathname, billing]);
 
-  const visible = visibleSettingsSections(user, { dataProtection, billing });
+  const visible = visibleSettingsSections(user, { billing });
   const groups: SidebarGroup[] = GROUP_ORDER.map((group) => ({
     label: group,
     items: visible
@@ -76,14 +71,8 @@ const GROUP_ORDER: SettingsGroupLabel[] = ["Your account", "Workspace", "Platfor
 /** `/settings` itself: the section this person last had open, or the one their role most likely came for. */
 export function SettingsLanding() {
   const { user } = useAuth();
-  const dataProtection = useDataProtection();
   const billing = useBillingOffered();
-  // A remembered Data & retention or Billing is only reachable once the deployment says it is offered.
-  if (dataProtection.isPending || billing.isLoading) return null;
-  return (
-    <Navigate
-      to={settingsLandingOf(user, { dataProtection: dataProtection.offered, billing: billing.offered })}
-      replace
-    />
-  );
+  // A remembered Billing is only reachable once the deployment says it is offered.
+  if (billing.isLoading) return null;
+  return <Navigate to={settingsLandingOf(user, { billing: billing.offered })} replace />;
 }

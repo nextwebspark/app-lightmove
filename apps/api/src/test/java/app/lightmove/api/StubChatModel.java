@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
@@ -39,6 +40,7 @@ public class StubChatModel implements ChatModel {
     private final Map<String, String> repliesBySystemText = new ConcurrentHashMap<>();
     private final Map<String, AssistantMessage.ToolCall> toolCallsBySystemText = new ConcurrentHashMap<>();
     private final Map<String, RuntimeException> failuresBySystemText = new ConcurrentHashMap<>();
+    private final AtomicReference<Runnable> beforeNextAnswer = new AtomicReference<>();
 
     /**
      * ChatClient builds every call's options from these, and only tool-calling options carry a call's tools —
@@ -53,6 +55,10 @@ public class StubChatModel implements ChatModel {
     public ChatResponse call(Prompt prompt) {
         lastPrompt = prompt;
         prompts.add(prompt);
+        Runnable interlude = beforeNextAnswer.getAndSet(null);
+        if (interlude != null) {
+            interlude.run();
+        }
         String system = prompt.getSystemMessage().getText();
         failuresBySystemText.entrySet().stream()
                 .filter(marked -> system != null && system.contains(marked.getKey()))
@@ -97,6 +103,11 @@ public class StubChatModel implements ChatModel {
                 arguments));
     }
 
+    /** Runs {@code interlude} once, while the next prompt is with the model: what changes before its answer lands. */
+    public void whileNextPromptIsAnswered(Runnable interlude) {
+        beforeNextAnswer.set(interlude);
+    }
+
     /** Answers every prompt with {@code text} until {@link #reset}; the context is shared, so reset it. */
     public void answerWith(String text) {
         reply = text;
@@ -107,6 +118,7 @@ public class StubChatModel implements ChatModel {
         repliesBySystemText.clear();
         toolCallsBySystemText.clear();
         failuresBySystemText.clear();
+        beforeNextAnswer.set(null);
         lastPrompt = null;
         prompts.clear();
     }

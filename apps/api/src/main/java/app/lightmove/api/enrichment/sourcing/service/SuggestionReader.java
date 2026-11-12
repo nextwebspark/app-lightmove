@@ -1,6 +1,7 @@
 package app.lightmove.api.enrichment.sourcing.service;
 
 import app.lightmove.api.candidate.service.CandidateService;
+import app.lightmove.api.candidate.service.SuppressionGate;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.service.CachedPeopleStore;
@@ -34,7 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Each company's latest search as the panel reviews it: the people in rank order, each read from the people cache
  * — never a vendor — and marked when the position already holds them. A company's results last as long as the cache
- * keeps who they were.
+ * keeps who they were. Someone put on the suppression list since the search is left out of it.
  */
 @Service
 public class SuggestionReader {
@@ -47,14 +48,16 @@ public class SuggestionReader {
     private final SuggestionStore suggestions;
     private final CachedPeopleStore people;
     private final CandidateService candidates;
+    private final SuppressionGate suppression;
     private final Duration ttl;
 
     public SuggestionReader(ExecutiveSourcingRunRepository runs, SuggestionStore suggestions, CachedPeopleStore people,
-                            CandidateService candidates, LightMoveProperties properties) {
+                            CandidateService candidates, SuppressionGate suppression, LightMoveProperties properties) {
         this.runs = runs;
         this.suggestions = suggestions;
         this.people = people;
         this.candidates = candidates;
+        this.suppression = suppression;
         this.ttl = properties.enrichment().peopleCacheTtl();
     }
 
@@ -69,10 +72,12 @@ public class SuggestionReader {
                 .filter(stored -> stored.runId().equals(latest.get(stored.triageCompanyId()).runId()))
                 .collect(Collectors.groupingBy(StoredSuggestion::triageCompanyId, LinkedHashMap::new,
                         Collectors.mapping(StoredSuggestion::suggestion, Collectors.toList())));
-        Map<String, OnFile> read = people.peopleOf(found.values().stream()
+        Set<String> slugs = found.values().stream()
                 .flatMap(List::stream)
                 .map(Suggestion::linkedinSlug)
-                .collect(Collectors.toSet()), freshAfter);
+                .collect(Collectors.toSet());
+        Set<String> suppressed = suppression.suppressedProfileSlugsOf(workspaceId, slugs);
+        Map<String, OnFile> read = people.peopleOf(slugs, freshAfter);
         Map<String, UUID> onPosition = new LinkedHashMap<>();
         candidates.mappedProfileCandidatesOf(workspaceId, projectId)
                 .forEach((slug, candidateId) -> onPosition.putIfAbsent(slug.toLowerCase(Locale.ROOT), candidateId));
@@ -80,6 +85,7 @@ public class SuggestionReader {
         latest.forEach((companyId, search) -> {
             List<Suggestion> ranked = found.getOrDefault(companyId, List.of());
             List<SuggestedPerson> listed = ranked.stream()
+                    .filter(suggestion -> !suppressed.contains(suggestion.linkedinSlug()))
                     .map(suggestion -> suggestedPerson(suggestion, read, onPosition))
                     .toList();
             boolean expired = !listed.isEmpty() && listed.stream().allMatch(person -> person.person() == null);

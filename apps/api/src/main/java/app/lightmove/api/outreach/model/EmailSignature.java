@@ -1,6 +1,7 @@
 package app.lightmove.api.outreach.model;
 
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.core.storage.constant.PictureShape;
 import app.lightmove.api.outreach.constant.SignatureLayout;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -41,6 +42,10 @@ public class EmailSignature extends BaseEntity {
     @Column(name = "show_photo", nullable = false)
     private boolean showPhoto;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "photo_shape", nullable = false, length = 8)
+    private PictureShape photoShape = PictureShape.CIRCLE;
+
     @Column(name = "show_logo", nullable = false)
     private boolean showLogo;
 
@@ -69,15 +74,16 @@ public class EmailSignature extends BaseEntity {
         this.layout = content.layout();
         this.fields = content.fields();
         this.showPhoto = content.showPhoto();
+        this.photoShape = content.photoShape();
         this.showLogo = content.showLogo();
         this.showBookingLink = content.showBookingLink();
-        this.customBody = content.layout() == SignatureLayout.CUSTOM ? content.customBody() : null;
+        this.customBody = content.customBody();
         this.disclaimer = content.disclaimer();
     }
 
     public SignatureContent content() {
-        return new SignatureContent(name, layout, fields == null ? SignatureFields.NONE : fields, showPhoto, showLogo,
-                showBookingLink, customBody, disclaimer);
+        return new SignatureContent(name, layout, fields == null ? SignatureFields.NONE : fields, showPhoto, photoShape,
+                showLogo, showBookingLink, customBody, disclaimer);
     }
 
     public void markDefault(boolean isDefault) {

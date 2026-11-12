@@ -469,6 +469,11 @@ V209 seeds `PERSON_SUBJECT_ACCESS` to ADMIN alone: the subject access export (#9
 V210 adds the `SIGNATURE` kind to `app_lm_email_image`: a Custom signature's own uploaded picture, carrying both its
 person and its workspace (V193's policy already fences a row with a workspace), one per file per person per workspace
 by partial unique index on the content's SHA-256.
+V216 adds #922's four AI switches to `app_lm_workspace` (`ai_infer_gender`, `ai_infer_nationality`,
+`ai_draft_assessments`, `ai_enrich_automatically`): every workspace that existed is backfilled `true`, then the default
+becomes `false`, so a workspace founded since starts with all four off (`docs/gdpr/ai-controls-922.md`).
+V217 adds `candidates.demographics:read` to the scopes CHECKs of `app_lm_api_key` and `app_lm_oauth_client`: gender and
+nationality leave over the public API and MCP only under it.
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.
@@ -517,6 +522,14 @@ people cache's life). The run gains its `criteria` snapshot, a `suggested` count
 status; its `spec`, `executives_filed` and `model_calls` columns are frozen, read by nothing since, and the names of
 whom older runs filed are taken off their `outcomes` (an erasure forgets a person's suggestions by slug). Both new
 tables are under forced row-level security.
+V214 adds `photo_shape` (`CIRCLE | ROUNDED | SQUARE`, default `CIRCLE`) to `app_lm_email_signature` and drops V193's
+`app_lm_email_signature_custom_chk`: `custom_body` is now any layout's extra words, not only Custom's. A picture's own
+shape is a word in its Markdown title; its cut copy is another `SIGNATURE` row of `app_lm_email_image`.
+V215 adds `app_lm_executive_sourcing_run.progress` (jsonb, `{}` by default): each started company's step
+(`LOOKING | CHECKING | CONFIRMING | RANKING`), the people considered, a counted step's done/total, and its start and
+finish in epoch millis, keyed by triage company id — counts and times only, no person. Written by one merging `UPDATE`
+that leaves the row's `version` alone, so companies searched side by side never fail the outcome writes; the entity
+maps it read-only. Under the run's existing row-level security.
 V167 adds `app_lm_project_candidate.company_filed_for_them`: their company was filed for them (research, or the
 employer the workspace knew them at) rather than already held, cleared by any move; only the plugin's Undo reads it.
 V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage

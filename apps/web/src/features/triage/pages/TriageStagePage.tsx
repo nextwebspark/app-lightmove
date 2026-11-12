@@ -388,6 +388,8 @@ function TriageStage() {
     if (kinds.includes("executive-sourcing")) {
       void queryClient.invalidateQueries({ queryKey: sourcingApi.sourcingKeys.latest(project.id) });
       void queryClient.invalidateQueries({ queryKey: sourcingApi.sourcingKeys.suggestions(project.id) });
+    } else if (kinds.includes("executive-sourcing-progress")) {
+      void queryClient.invalidateQueries({ queryKey: sourcingApi.sourcingKeys.latest(project.id) });
     }
     // An executive's drawer opened here carries their Outreach fold and next action.
     if (kinds.includes("outreach") || kinds.includes("task")) {
@@ -397,9 +399,9 @@ function TriageStage() {
       void queryClient.invalidateQueries({ queryKey: TASKS_KEY_PREFIX });
     }
     // Both halves are points on the globe. Free while the grid is the view: the map's reads are
-    // disabled there, and an inactive query is marked stale rather than refetched. Outreach and tasks
-    // move neither half.
-    if (kinds.some((kind) => kind !== "outreach" && kind !== "task")) {
+    // disabled there, and an inactive query is marked stale rather than refetched. Outreach, tasks and
+    // a Find executives search (which files nobody) move neither half.
+    if (kinds.some((kind) => kind !== "outreach" && kind !== "task" && !kind.startsWith("executive-sourcing"))) {
       refreshMap();
     }
   };

@@ -1,5 +1,6 @@
 package app.lightmove.api.outreach.model;
 
+import app.lightmove.api.core.storage.constant.PictureShape;
 import app.lightmove.api.common.note.NoteMentionTokens;
 import app.lightmove.api.core.storage.service.EmailImageService;
 import app.lightmove.api.outreach.constant.SignaturePictureSize;
@@ -95,6 +96,25 @@ public final class OutreachMarkdownEmail {
         return List.copyOf(tokens);
     }
 
+    /** Like {@link #pictureTokensIn}, each with the shape its title names, as {@link SignaturePicture#keyOf} keys. */
+    public static List<String> pictureKeysIn(String markdown) {
+        if (markdown == null || markdown.isBlank()) {
+            return List.of();
+        }
+        Set<String> keys = new LinkedHashSet<>();
+        PARSER.parse(markdown).accept(new AbstractVisitor() {
+            @Override
+            public void visit(Image image) {
+                String token = pictureTokenOf(image.getDestination());
+                if (token != null) {
+                    keys.add(SignaturePicture.keyOf(token, PictureShape.fromTitle(image.getTitle())));
+                }
+                visitChildren(image);
+            }
+        });
+        return List.copyOf(keys);
+    }
+
     /** The number of pictures {@code markdown} draws or names, ours or not: what a signature's limit counts. */
     public static int pictureCountIn(String markdown) {
         if (markdown == null || markdown.isBlank()) {
@@ -164,7 +184,8 @@ public final class OutreachMarkdownEmail {
         public void render(Node node) {
             Image image = (Image) node;
             String token = pictureTokenOf(image.getDestination());
-            SignaturePicture picture = token == null ? null : pictures.get(token);
+            SignaturePicture picture = token == null ? null
+                    : pictures.get(SignaturePicture.keyOf(token, PictureShape.fromTitle(image.getTitle())));
             if (picture == null || drawn >= SignaturePicture.MAX_PER_SIGNATURE) {
                 for (Node child = node.getFirstChild(); child != null; child = child.getNext()) {
                     context.render(child);

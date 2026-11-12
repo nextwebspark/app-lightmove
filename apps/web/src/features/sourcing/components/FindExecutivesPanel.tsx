@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FullscreenButton } from "../../../components/ui/FullscreenButton";
 import { Modal } from "../../../components/ui/Modal";
-import { Skeleton } from "../../../components/ui/Skeleton";
 import { cn } from "../../../lib/cn";
 import { useCountries } from "../../../lib/countries";
 import { useFullscreen } from "../../../lib/useFullscreen";
@@ -13,18 +12,21 @@ import type {
   SuggestedPerson,
 } from "../api/sourcingApi";
 import { LEVEL_TABS } from "../lib/searchLevels";
+import { searchingIdsOf, stepOf } from "../lib/searchProgress";
 import { companiesOf, peopleOf } from "../lib/sourcingSummary";
 import { titleLevelOf } from "../lib/suggestionReasons";
 import { useSearchCriteria } from "../lib/useSearchCriteria";
+import { useDraftingStep } from "../lib/useDraftingStep";
 import { useSourcingCounts } from "../lib/useSourcingCounts";
 import type { SourcingRunState } from "../lib/useSourcingRun";
 import { useSuggestions } from "../lib/useSuggestions";
-import { CompanyResults, PeopleSkeleton, type CompanyStatus } from "./CompanyResults";
+import { CompanyPlaceholder, CompanyResults, type CompanyStatus } from "./CompanyResults";
 import { ProfilePane } from "./ProfilePane";
 import { SearchBar } from "./SearchBar";
-import { SearchProgress } from "./SearchProgress";
+import { SearchStatus, type SearchPhase } from "./SearchStatus";
 
 const PRE_TICKED_PER_COMPANY = 3;
+const PLACEHOLDER_COMPANIES = 5;
 const MAX_ADD = 50;
 
 interface Picked {
@@ -70,11 +72,12 @@ export function FindExecutivesPanel({
   const criteria = useSearchCriteria(projectId, companyIds, open);
   const { counts, counting } = useSourcingCounts(projectId, companyIds, open ? criteria.criteria : null);
   const suggestions = useSuggestions(projectId, open);
+  const draftingStep = useDraftingStep(criteria.drafting);
   const { countries } = useCountries();
   const countryName = (code: string) => countries.find((country) => country.code === code)?.name ?? code;
 
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
-  const [levelTab, setLevelTab] = useState<string | null>(null);
+  const [pickedTab, setPickedTab] = useState<string | null>(null);
   const [opened, setOpened] = useState<{ triageCompanyId: string; person: SuggestedPerson } | null>(null);
   const [ticked, setTicked] = useState<ReadonlyMap<string, Picked>>(new Map());
   const [retryWords, setRetryWords] = useState<ReadonlySet<string>>(new Set());
@@ -121,13 +124,17 @@ export function FindExecutivesPanel({
   const fitCount = people.filter((person) => person.verdict === "FITS").length;
   const hasResults =
     shown.some((entry) => entry.found !== null || entry.status === "loading") || sourcing.isRunning;
-  const loadingResults = !hasResults && (suggestions.loading || (counting && companies.length === 0));
+  const preparing =
+    companies.length === 0 &&
+    !criteria.draftFailed &&
+    (counting || suggestions.loading || criteria.criteria === null);
   const nobodyFits = shown.filter((entry) => entry.status === "searched" && entry.found?.result.fits === 0);
   const tryWords = (counts?.words ?? []).filter((word) => word.count > 0);
   const tabs = LEVEL_TABS.map((tab) => ({
     ...tab,
     count: people.filter((person) => person.verdict === "FITS" && titleLevelOf(person) === tab.key).length,
   })).filter((tab) => tab.count > 0);
+  const levelTab = tabs.some((tab) => tab.key === pickedTab) ? pickedTab : null;
 
   const behind = shown
     .filter((entry) => entry.status === "loading")
@@ -148,10 +155,19 @@ export function FindExecutivesPanel({
     });
   const isTicked = (triageCompanyId: string, person: SuggestedPerson) =>
     person.candidateId === null && ticked.has(keyOf(triageCompanyId, person.linkedinSlug));
-  const pickedCount = [...ticked.values()].filter((picked) => {
-    const person = found.get(picked.triageCompanyId)?.people.find((one) => one.linkedinSlug === picked.linkedinSlug);
-    return person !== undefined && person.candidateId === null;
-  }).length;
+  // Shipped bug: the count and Add read every company with stored results, so ticks pre-set at companies this
+  // panel does not show (another opening's, an older search's) were counted and filed unseen.
+  const onScreen = new Set(
+    shown.flatMap((entry) =>
+      (entry.found?.people ?? [])
+        .filter((person) => person.candidateId === null)
+        .map((person) => keyOf(entry.company.triageCompanyId, person.linkedinSlug)),
+    ),
+  );
+  const picked = [...ticked.entries()]
+    .filter(([key]) => onScreen.has(key))
+    .map(([, one]) => one);
+  const pickedCount = picked.length;
 
   const search = async (ids: readonly string[]) => {
     await criteria.saveNow();
@@ -198,23 +214,42 @@ export function FindExecutivesPanel({
     await search(nobodyFits.map((entry) => entry.company.triageCompanyId));
   };
   const add = () => {
-    const picked = [...ticked.values()].slice(0, MAX_ADD);
-    suggestions.add(picked, {
+    const adding = picked.slice(0, MAX_ADD);
+    suggestions.add(adding, {
       onSuccess: () =>
         setTicked((current) => {
           const next = new Map(current);
-          picked.forEach((one) => next.delete(keyOf(one.triageCompanyId, one.linkedinSlug)));
+          adding.forEach((one) => next.delete(keyOf(one.triageCompanyId, one.linkedinSlug)));
           return next;
         }),
     });
   };
 
   const searchable = hasWords(criteria.criteria);
+  function phaseOf(): SearchPhase {
+    if (criteria.drafting) return { kind: "drafting", step: draftingStep };
+    if (run && sourcing.isRunning && !sourcing.isStarting) {
+      return {
+        kind: "searching",
+        run,
+        parallelism: sourcing.config?.parallelism ?? 1,
+        stopping: sourcing.isStopping,
+        onStop: sourcing.stop,
+      };
+    }
+    if (criteria.draftFailed) return { kind: "draftFailed", onRetry: criteria.retryDraft };
+    if (preparing || (counting && !counts)) return { kind: "counting" };
+    if (hasResults) return { kind: "found", fits: fitCount, more: people.length - fitCount };
+    return { kind: "ready", perCompany: criteria.criteria?.perCompany ?? 3 };
+  }
+  const phase = phaseOf();
   const searchLabel = sourcing.isRunning
     ? "Searching…"
     : hasResults
       ? "Search again"
-      : `Search ${companiesOf(searchIds.length || companies.length)}`;
+      : companies.length === 0
+        ? "Search"
+        : `Search ${companiesOf(searchIds.length || companies.length)}`;
 
   return (
     <Modal
@@ -259,6 +294,7 @@ export function FindExecutivesPanel({
           source={criteria.source}
           briefChanged={criteria.briefChanged}
           drafting={criteria.drafting}
+          draftingStep={draftingStep}
           onReset={criteria.reset}
           counts={counts}
           counting={counting}
@@ -282,39 +318,31 @@ export function FindExecutivesPanel({
           searchDisabled={!searchable || sourcing.isRunning || criteria.drafting || searchIds.length === 0}
           onSearch={() => void search(searchIds)}
         />
-        {run && sourcing.isRunning && (
-          <SearchProgress run={run} onStop={sourcing.stop} stopping={sourcing.isStopping} />
-        )}
-        {hasResults && (
-          <div className="flex flex-none items-end gap-0.5 border-b border-u-border px-[18px] pt-2">
-            <LevelTab label="All" count={fitCount} active={levelTab === null} onSelect={() => setLevelTab(null)} />
-            {tabs.map((tab) => (
-              <LevelTab
-                key={tab.key}
-                label={tab.label}
-                count={tab.count}
-                active={levelTab === tab.key}
-                onSelect={() => setLevelTab(tab.key)}
-              />
-            ))}
-            <span className="flex-1" />
-            <span className="pb-2 font-mono text-note text-u-text3">
-              {fitCount} fit the role
-              {people.length > fitCount && ` · ${people.length - fitCount} more found`}
-            </span>
-          </div>
-        )}
+        <SearchStatus
+          phase={phase}
+          tabs={
+            people.length > 0 && (
+              <>
+                <LevelTab label="All" count={fitCount} active={levelTab === null} onSelect={() => setPickedTab(null)} />
+                {tabs.map((tab) => (
+                  <LevelTab
+                    key={tab.key}
+                    label={tab.label}
+                    count={tab.count}
+                    active={levelTab === tab.key}
+                    onSelect={() => setPickedTab(tab.key)}
+                  />
+                ))}
+              </>
+            )
+          }
+        />
         <div className="flex min-h-0 flex-1">
           <div className={cn("min-w-0 flex-1 overflow-y-auto pb-4", opened && "hidden md:block")}>
-            {loadingResults && <ResultsSkeleton />}
-            {!hasResults && !loadingResults && criteria.criteria === null && (
-              <p className="px-[18px] pt-5 text-body text-u-text2">
-                Reading the brief for the role&apos;s title, level and location…
-              </p>
-            )}
-            {!hasResults && !loadingResults && criteria.criteria !== null && (
-              <Preview companies={companies} isIncluded={isIncluded} perCompany={criteria.criteria.perCompany} />
-            )}
+            {preparing &&
+              Array.from({ length: Math.max(1, Math.min(scope.length, PLACEHOLDER_COMPANIES)) }, (_, index) => (
+                <CompanyPlaceholder key={index} />
+              ))}
             {hasResults && nobodyFits.length > 0 && tryWords.length > 0 && !sourcing.isRunning && (
               <div className="mx-[18px] mt-3.5 flex flex-wrap items-center gap-2.5 rounded-lg border border-dashed border-u-border-strong px-3 py-2.5">
                 <span className="text-body font-medium">
@@ -356,12 +384,14 @@ export function FindExecutivesPanel({
                 </button>
               </div>
             )}
-            {hasResults &&
-              shown.map(({ company, status, found: atCompany }) => (
+            {shown.map(({ company, status, found: atCompany }) => (
                 <CompanyResults
                   key={company.triageCompanyId}
                   companyName={company.companyName}
                   status={status}
+                  step={stepOf(run, company.triageCompanyId)}
+                  count={counts?.counted ? company : undefined}
+                  leftOut={status === "unsearched" && !isIncluded(company.triageCompanyId)}
                   found={atCompany}
                   levelTab={levelTab}
                   isTicked={(person) => isTicked(company.triageCompanyId, person)}
@@ -416,25 +446,12 @@ function statusOf(company: CompanyCount, run: SourcingRun | null, found: Company
   const inRun = run?.companies.some((one) => one.triageCompanyId === company.triageCompanyId) ?? false;
   const outcome = run?.outcomes.find((one) => one.triageCompanyId === company.triageCompanyId);
   if (inRun && run && !outcome && (run.status === "QUEUED" || run.status === "RUNNING")) {
-    const pending = run.companies.filter((one) => !run.outcomes.some((done) => done.triageCompanyId === one.triageCompanyId));
-    return pending[0]?.triageCompanyId === company.triageCompanyId ? "searching" : "waiting";
+    return searchingIdsOf(run).has(company.triageCompanyId) ? "searching" : "waiting";
   }
   if (outcome?.outcome === "FAILED") return "failed";
   if (outcome?.outcome === "STOPPED" || outcome?.outcome === "NOT_REACHED") return found ? "searched" : "stopped";
   if (run && outcome && SEARCHED_OUTCOMES.has(outcome.outcome) && found?.runId !== run.id) return "loading";
   return found ? "searched" : "unsearched";
-}
-
-/** The results' stand-in while what was found is read: a company's frame over a few pulsing rows. */
-function ResultsSkeleton() {
-  return (
-    <div role="status" aria-label="Loading results" className="mx-[18px] mt-3.5 overflow-hidden rounded-lg border border-u-border">
-      <div className="bg-u-sunken px-3 py-3">
-        <Skeleton className="h-3.5 w-40" />
-      </div>
-      <PeopleSkeleton />
-    </div>
-  );
 }
 
 function LevelTab({
@@ -468,53 +485,5 @@ function LevelTab({
         {count}
       </span>
     </button>
-  );
-}
-
-/** Before anything is searched: each company with what the search would reach there, counted free. */
-function Preview({
-  companies,
-  isIncluded,
-  perCompany,
-}: {
-  companies: CompanyCount[];
-  isIncluded: (companyId: string) => boolean;
-  perCompany: number;
-}) {
-  const searchable = companies.filter((company) => company.searchable && isIncluded(company.triageCompanyId));
-  if (companies.length === 0) return null;
-  return (
-    <div className="px-[18px] pt-4">
-      <div className="flex flex-wrap items-baseline gap-2.5">
-        <span className="text-body font-semibold">
-          Ready to search {searchable.length} of {companiesOf(companies.length)}
-        </span>
-        <span className="font-mono text-note text-u-text3">
-          Counting and title checks are free · Search buys at most {perCompany} profiles a company
-        </span>
-      </div>
-      <div className="mt-3 overflow-hidden rounded-lg border border-u-border">
-        {companies.map((company, index) => (
-          <div
-            key={company.triageCompanyId}
-            className={cn(
-              "flex flex-wrap items-center gap-2.5 px-3 py-2.5",
-              index > 0 && "border-t border-u-border",
-              (!company.searchable || !isIncluded(company.triageCompanyId)) && "opacity-70",
-            )}
-          >
-            <span className="w-[260px] text-body font-medium">{company.companyName}</span>
-            {company.searchable ? (
-              <span className="font-mono text-note text-u-text2">
-                {company.match} match · {company.toBuy} to buy · {company.onFile} already on file
-                {company.match === 0 && " — nobody matches yet; try the suggested words above"}
-              </span>
-            ) : (
-              <span className="text-note text-u-signal">No LinkedIn page — add it with Edit company to search here</span>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }

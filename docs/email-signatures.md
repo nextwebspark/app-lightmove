@@ -152,26 +152,35 @@ alike), so there is no text form and no `-- ` separator.
   unevenly.
 - Placed after the body behind a spacer.
 
-### C3. One editor, three starting points (2026-11-12, replacing §D's layout gallery and field form)
+### C3. The layouts back, with free words and picture shapes (2026-11-12, replacing the one-editor screen)
 
-The product owner asked for less: two starting points and Custom, each just a start, with everything after typed in
-the one editor rather than a form per field. So a new signature starts from **With logo**, **With photo** or
-**Custom**, and every signature is saved as `CUSTOM`.
+The one-editor screen (one editor, three starting points) went too far: the product owner wanted the layouts and the
+field form back, each value still following the profile and workspace, and Aleksandra's asks met on top of them.
 
-- `POST /me/signatures/starter` (the preview's body) turns a layout into the editor's Markdown
-  (`EmailSignatureRenderer.asMarkdown`): the details the layout drew — profile, workspace and mailbox values, any
-  override the signature held — escaped, one per line, and its photo and logo as pictures. Nothing is saved.
-- A picture in a Custom signature may be the signer's own upload, **their own photo, or the workspace's logo**
-  (`EmailImageService.signaturePicturesOf`); a colleague's photo or upload still draws nothing and is refused on save.
-- A signature saved in an older fixed layout, or a Custom one with the logo switch on, keeps sending exactly as it
-  did; opening it in the editor turns it into Markdown the same way, and saving makes it `CUSTOM`. The fixed layouts,
-  `fields` and the photo and logo switches stay in the API and the table for those rows only.
-- The words are a snapshot: once saved, a signature no longer follows a later profile, workspace or logo change
-  (an older layout's untouched fields did, until it is opened and saved). The editor says so under the box.
-- A signature's uploads are erased with the account (`AccountDeletionOutreach`, their files queued for the bucket),
-  as the photo's copies are.
-- The editor keeps Book a call, Use as my default and the disclaimer; the field rows, the layout chips and the photo
-  and logo switches are gone.
+- **The form is back**: the six layout chips, Your details / Company rows with Change and + Add, and the photo, logo,
+  booking and default switches (§D). A saved signature keeps its layout.
+- **Mobile**: a second number row under Phone (`fields.mobile`, the phone's rule, signature-only). With both, the
+  email draws them `T … · M …`.
+- **Photo shape**: Circle (default), Rounded or Square (`photo_shape`, V214). Outlook on Windows draws with Word's
+  engine and ignores `border-radius`, so the shape is cut into the picture: `EmailImageEncoder.photo(bytes, shape)`
+  writes a 192px PNG through an antialiased mask with transparent corners (Square stays the JPEG it was), one copy per
+  photo per shape (`source_sha256` is the avatar's hash for Square, `hash(avatarSha:shape)` otherwise). The radius is
+  still on the `<img>` for clients that scale it.
+- **Anything else · optional**: under the Company rows of every fixed layout, the notes' editor with pictures — a
+  second office, the group's logo, membership badges. It is `custom_body` (V214 drops V193's `CUSTOM`-only check),
+  drawn under the details by `signatureHtmlOf`, ≤ 2,000, at most six pictures.
+- **Every picture takes a shape**, as the photo does: an inserted picture's Markdown title holds its size and shape
+  as words (`"small circle"`; medium and square unsaid; the toolbar's square, rounded and circle beside S M L). The
+  signature keeps the original upload; `EmailImageService.shapedOf` cuts a copy the first time a
+  drawing asks for one (`EmailImageEncoder.shaped`: a circle is the centred square, rounded keeps its proportions, PNG
+  with transparent corners) and keeps it beside the original as a `SIGNATURE` row keyed `hash(sourceSha:shape)`, so
+  going back to square draws the original again. `SignaturePicture.keyOf(token, shape)` names each in a drawing.
+- **Edit everything freely**: under Anything else, a one-way, confirmed switch to Custom through
+  `POST /me/signatures/starter` (`EmailSignatureRenderer.asMarkdown`): the details, the photo in its shape, the logo
+  and the extra words become the Custom signature's Markdown, which then no longer follows the profile.
+- A Custom signature may still show the signer's own photo and the workspace logo as pictures
+  (`EmailImageService.signaturePicturesOf`); a signature's uploads are erased with the account
+  (`AccountDeletionOutreach`).
 
 ### C2. A Custom signature's own pictures (2026-11-12)
 

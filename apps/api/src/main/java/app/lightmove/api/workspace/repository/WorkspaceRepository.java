@@ -21,4 +21,9 @@ public interface WorkspaceRepository extends JpaRepository<Workspace, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT w FROM Workspace w WHERE w.id = :id")
     Optional<Workspace> lockById(UUID id);
+
+    /** Held while the AI's answer is written, against {@link #lockById} in a change to the AI switches. */
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    @Query("SELECT w FROM Workspace w WHERE w.id = :id")
+    Optional<Workspace> lockForShareById(UUID id);
 }

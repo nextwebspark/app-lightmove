@@ -182,6 +182,14 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
                 .as("what the profile index alone returned, refuted by its title or a free check, is not listed")
                 .containsExactly(2, 2, 0, 0, 2, 1);
         assertThat(outcomeFor(run.get("outcomes"), noPage).get("outcome").asText()).isEqualTo("NO_LINKEDIN_PAGE");
+        JsonNode steps = progressFor(run.get("progress"), dpWorld);
+        assertThat(steps.get("stage").asText()).as("the last step a searched company reaches").isEqualTo("RANKING");
+        assertThat(steps.get("considered").asLong())
+                .isEqualTo(result.get("matched").asLong() + result.get("indexFound").asLong());
+        assertThat(steps.get("startedAt").isNull()).isFalse();
+        assertThat(steps.get("finishedAt").isNull()).isFalse();
+        assertThat(run.get("progress")).as("a company with no page is never started")
+                .noneMatch(entry -> entry.get("triageCompanyId").asText().equals(noPage));
 
         JsonNode found = companyIn(suggestionsOf(projectId).get("companies"), dpWorld);
         assertThat(found.get("people")).extracting(person -> person.get("linkedinSlug").asText(),
@@ -332,7 +340,7 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("someone on the suppression list is left out of what a search found, and Add withholds anyone listed since")
+    @DisplayName("someone suppressed is left out of what a search found, and anyone listed since is hidden and withheld")
     void suppressedPeopleAreLeftOut() throws Exception {
         String projectId = mandate("Suppressed Hit Firm");
         String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
@@ -347,6 +355,8 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
                 .extracting(person -> person.get("linkedinSlug").asText())
                 .containsExactly("risalat-rehman");
         suppress("linkedin.com/in/risalat-rehman");
+        assertThat(companyIn(suggestionsOf(projectId).get("companies"), dpWorld).get("people"))
+                .as("someone listed since the search is no longer shown").isEmpty();
         JsonNode added = add(projectId, dpWorld, "risalat-rehman", "asked-to-leave");
         assertThat(added.get("added").asInt()).isZero();
         assertThat(added.get("withheld").asInt()).isEqualTo(1);
@@ -559,6 +569,27 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         assertThat(outcomeFor(run.get("outcomes"), dpWorld).get("outcome").asText()).isEqualTo("FAILED");
     }
 
+    @Test
+    @DisplayName("a company that fails after buying profiles still meters what it bought")
+    void aFailureAfterBuyingStillMetersTheProfiles() throws Exception {
+        String projectId = mandate("Half Spent Firm");
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        live.answerWith("dp-world", List.of(
+                person("risalat-rehman", "Risalat Rehman", "Chief Financial Officer at DP World Jeddah"),
+                person("group-director", "Group Director", "Group Director - Financial Accounts")));
+        index.failWith(new IllegalStateException("index down"));
+
+        String runId = start(projectId, "[]");
+
+        JsonNode run = runOf(projectId, runId);
+        JsonNode result = outcomeFor(run.get("outcomes"), dpWorld);
+        assertThat(result.get("outcome").asText()).isEqualTo("FAILED");
+        assertThat(result.get("bought").asInt()).isEqualTo(2);
+        assertThat(run.get("profilesBought").asInt()).isEqualTo(2);
+        assertThat(db.queryForList("select units from app_lm_usage_event where project_id = ?::uuid and kind = ?",
+                Integer.class, projectId, "SOURCING_RUN")).containsExactly(2);
+    }
+
     private JsonNode postJson(String url, String json) throws Exception {
         return body(mvc.perform(post(url)
                         .header("Authorization", "Bearer " + adminToken)
@@ -655,6 +686,15 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         throw new AssertionError("No outcome for " + triageCompanyId + " in " + outcomes);
     }
 
+    private static JsonNode progressFor(JsonNode progress, String triageCompanyId) {
+        for (JsonNode entry : progress) {
+            if (entry.get("triageCompanyId").asText().equals(triageCompanyId)) {
+                return entry;
+            }
+        }
+        throw new AssertionError("No progress for " + triageCompanyId + " in " + progress);
+    }
+
     private JsonNode candidatesOf(String projectId) throws Exception {
         return body(mvc.perform(get(candidatesUrl(projectId))
                         .header("Authorization", "Bearer " + adminToken))
@@ -733,7 +773,7 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
     /** Its own admin per firm, so one test can open two mandates in two workspaces. */
     private String mandate(String firmName) throws Exception {
         adminEmail = firmName.toLowerCase().replaceAll("[^a-z]", "") + "@" + domain;
-        createWorkspace(verifiedUser("Alok Kumar", adminEmail), firmName);
+        switchOnPeopleAi(createWorkspace(verifiedUser("Alok Kumar", adminEmail), firmName));
         adminToken = login(adminEmail);
         String clientId = body(mvc.perform(post("/api/v1/clients")
                         .header("Authorization", "Bearer " + adminToken)
