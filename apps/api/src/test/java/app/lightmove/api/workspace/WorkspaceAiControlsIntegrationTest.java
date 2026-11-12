@@ -2,6 +2,7 @@ package app.lightmove.api.workspace;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -113,6 +114,71 @@ class WorkspaceAiControlsIntegrationTest extends FlowTestSupport {
         assertThat(change.get("inferGender")).isEqualTo("off");
         assertThat(change.get("genderCleared")).isEqualTo("1");
         assertThat(change.get("nationalityCleared")).isEqualTo("2");
+    }
+
+    @Test
+    @DisplayName("V91's frozen copy on each mapping is cleared with the person, and a recorded value there is kept")
+    void turningInferenceOffClearsTheMappingsFrozenCopy() throws Exception {
+        String alok = "alok@" + domain;
+        String workspaceId = createWorkspace(verifiedUser("Alok Kumar", alok), "Mapping Firm");
+        switchOnPeopleAi(workspaceId);
+        String admin = login(alok);
+        String projectId = mandate(admin);
+        String guessed = mapped(admin, projectId, "Guessed Mapping");
+        String recorded = mapped(admin, projectId, "Recorded Mapping");
+        frozenCopy(guessed, "FEMALE", "Emirati", "[\"gender\", \"nationality\"]", true);
+        frozenCopy(recorded, "MALE", "Saudi", "[]", false);
+
+        changeAiControls(admin, false, false, true, true).andExpect(status().isOk());
+
+        assertThat(mappingBackground(guessed)).containsEntry("gender", null).containsEntry("nationality", null)
+                .containsEntry("reading", null).containsEntry("inferred", "[]");
+        assertThat(mappingBackground(recorded)).containsEntry("gender", "MALE").containsEntry("nationality", "Saudi")
+                .containsEntry("inferred", "[]");
+    }
+
+    private String mandate(String bearerToken) throws Exception {
+        String clientId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + bearerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customName":"Retail Unit"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        return body(mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + bearerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Head of Retail"}""".formatted(clientId)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    private String mapped(String bearerToken, String projectId, String fullName) throws Exception {
+        return body(mvc.perform(post("/api/v1/projects/" + projectId + "/candidates")
+                        .header("Authorization", "Bearer " + bearerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"%s","title":"Group CFO"}""".formatted(fullName)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    private void frozenCopy(String candidateId, String gender, String nationality, String inferred,
+                            boolean withReading) {
+        jdbc.update("""
+                UPDATE app_lm_project_candidate
+                SET gender = ?, nationality = ?, ai_inferred_fields = ?::jsonb, ai_nationality_reading = ?::jsonb
+                WHERE id = ?::uuid
+                """, gender, nationality, inferred,
+                withReading ? "{\"category\":\"Emirati\",\"confidence\":\"HIGH\"}" : null, candidateId);
+    }
+
+    private Map<String, Object> mappingBackground(String candidateId) {
+        return jdbc.queryForMap("""
+                SELECT gender, nationality, ai_nationality_reading::text AS reading, ai_inferred_fields::text AS inferred
+                FROM app_lm_project_candidate WHERE id = ?::uuid
+                """, candidateId);
     }
 
     private ResultActions changeAiControls(String bearerToken, boolean inferGender, boolean inferNationality,
