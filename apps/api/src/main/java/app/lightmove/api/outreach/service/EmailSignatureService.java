@@ -2,7 +2,6 @@ package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.storage.model.EmailImage;
 import app.lightmove.api.core.storage.service.EmailImageService;
@@ -24,15 +23,12 @@ import app.lightmove.api.outreach.model.SignatureFields;
 import app.lightmove.api.outreach.model.SignaturePicture;
 import app.lightmove.api.outreach.model.SignatureSender;
 import app.lightmove.api.outreach.repository.EmailSignatureRepository;
-import jakarta.servlet.http.HttpServletRequest;
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.web.multipart.MultipartFile;
 
 /**
  * A consultant's email signatures in one workspace: theirs alone, so every read and write is keyed on the caller and the
@@ -45,15 +41,11 @@ public class EmailSignatureService {
 
     public static final int MAX_SIGNATURES = 10;
 
-    /** The {@code EMAIL_IMAGE_TOO_LARGE} sentence's 5 MB. */
-    static final long MAX_PICTURE_BYTES = 5L * 1024 * 1024;
-
     private final EmailSignatureRepository signatures;
     private final SignatureSenders senders;
     private final UserRepository users;
     private final TransactionTemplate transactions;
     private final EmailImageService emailImages;
-    private final RateLimitGuard rateLimit;
 
     public EmailSignaturesResponse list(UUID userId, UUID workspaceId) {
         List<EmailSignature> owned = signatures.findByWorkspaceIdAndUserIdOrderByCreatedAtAsc(workspaceId, userId);
@@ -137,21 +129,7 @@ public class EmailSignatureService {
      * A picture for the caller's Custom signature, kept and served by Uncava like the photo and logo. The editor writes
      * the returned address into the signature's Markdown; a save then holds it to being the caller's own.
      */
-    public SignaturePictureResponse uploadPicture(UUID userId, UUID workspaceId, MultipartFile file,
-                                                  HttpServletRequest request) {
-        rateLimit.checkSignaturePictureUpload(userId, request);
-        if (file == null || file.isEmpty()) {
-            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "file", "Choose a picture");
-        }
-        if (file.getSize() > MAX_PICTURE_BYTES) {
-            throw ApiException.of(ErrorCode.EMAIL_IMAGE_TOO_LARGE);
-        }
-        byte[] content;
-        try {
-            content = file.getBytes();
-        } catch (IOException unreadable) {
-            throw ApiException.of(ErrorCode.EMAIL_IMAGE_UNREADABLE);
-        }
+    public SignaturePictureResponse uploadPicture(UUID userId, UUID workspaceId, byte[] content) {
         EmailImage picture = emailImages.uploadSignaturePicture(workspaceId, userId, content)
                 .orElseThrow(() -> ApiException.of(ErrorCode.EMAIL_IMAGE_UNREADABLE));
         return new SignaturePictureResponse(picture.getToken(), EmailImageService.PATH + picture.getToken(),

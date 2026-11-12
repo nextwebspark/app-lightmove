@@ -121,6 +121,20 @@ class EmailSignatureRendererTest {
     }
 
     @Test
+    @DisplayName("as Markdown, no value starts a list or heading or names an entity, and the photo and logo are pictures")
+    void asMarkdownKeepsValuesText() {
+        SignatureFields typed = new SignatureFields(null, "1. Partner", null, null, "A & B", null, "- Floor 3");
+        String markdown = EmailSignatureRenderer.asMarkdown(content(SignatureLayout.LOGO_BANNER, typed, false, true,
+                false), YARA);
+
+        assertThat(markdown).contains("1\\. Partner, A \\& B", "\\- Floor 3",
+                "](<mailto:yara@alfuttaim.com>)", "![](/api/v1/email-images/logo-token)");
+        String drawn = EmailSignatureRenderer.render(new SignatureContent("Mine", SignatureLayout.CUSTOM,
+                SignatureFields.NONE, false, false, false, markdown, null), YARA).html();
+        assertThat(drawn).contains("1. Partner, A &amp; B", "- Floor 3").doesNotContain("<ol", "<ul", "<h");
+    }
+
+    @Test
     @DisplayName("minimal is one line, and the booking link is the consultant's own")
     void minimalAndBooking() {
         RenderedSignature rendered = EmailSignatureRenderer.render(

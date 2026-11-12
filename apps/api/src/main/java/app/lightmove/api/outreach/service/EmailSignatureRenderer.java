@@ -18,8 +18,8 @@ import org.springframework.web.util.HtmlUtils;
 /**
  * Draws a signature the way mail clients agree on: nested tables with inline styles, a fixed size on every picture, no
  * class, no background image. Every value is escaped, a link goes only to http, https, mailto or tel, and the only
- * pictures are ones Uncava serves: the photo, the logo, and a Custom signature's own uploaded pictures. Text takes no colour of its own but the muted lines', so a client's
- * dark mode can turn it light.
+ * pictures are ones Uncava serves: the photo, the logo, and a Custom signature's own uploaded pictures. Text takes no
+ * colour of its own but the muted lines', so a client's dark mode can turn it light.
  */
 public final class EmailSignatureRenderer {
 
@@ -155,8 +155,14 @@ public final class EmailSignatureRenderer {
         return "![](" + (route < 0 ? url : url.substring(route)) + ")";
     }
 
+    /**
+     * Inline punctuation and entity references escaped, and what would start a block at the head of a line — "1." or
+     * "1)", "-", "=" — escaped too, so a title like "1. Partner" stays text.
+     */
     private static String markdownEscaped(String value) {
-        return value.replaceAll("([\\\\`*_\\[\\]()<>#+!|~])", "\\\\$1");
+        return value.replaceAll("([\\\\`*_\\[\\]()<>#+!|~&])", "\\\\$1")
+                .replaceFirst("^(\\s*\\d+)([.)])", "$1\\\\$2")
+                .replaceFirst("^(\\s*)([-=])", "$1\\\\$2");
     }
 
     /** The signature's own value where it set one, its source's otherwise; blank is absent either way. */
@@ -248,7 +254,7 @@ public final class EmailSignatureRenderer {
                 reach.add(markdownEscaped(phone));
             }
             if (email != null) {
-                reach.add("[" + markdownEscaped(email) + "](mailto:" + email + ")");
+                reach.add("[" + markdownEscaped(email) + "](<mailto:" + email + ">)");
             }
             if (reach.length() > 0) {
                 lines.add(reach.toString());

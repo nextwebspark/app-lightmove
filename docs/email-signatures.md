@@ -166,6 +166,10 @@ the one editor rather than a form per field. So a new signature starts from **Wi
 - A signature saved in an older fixed layout, or a Custom one with the logo switch on, keeps sending exactly as it
   did; opening it in the editor turns it into Markdown the same way, and saving makes it `CUSTOM`. The fixed layouts,
   `fields` and the photo and logo switches stay in the API and the table for those rows only.
+- The words are a snapshot: once saved, a signature no longer follows a later profile, workspace or logo change
+  (an older layout's untouched fields did, until it is opened and saved). The editor says so under the box.
+- A signature's uploads are erased with the account (`AccountDeletionOutreach`, their files queued for the bucket),
+  as the photo's copies are.
 - The editor keeps Book a call, Use as my default and the disclaimer; the field rows, the layout chips and the photo
   and logo switches are gone.
 

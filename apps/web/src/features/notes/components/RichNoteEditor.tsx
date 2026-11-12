@@ -135,7 +135,9 @@ export default function RichNoteEditor({
     content: noteDocOf(value, format, schema),
     autofocus: autoFocus ? "end" : false,
     editorProps: {
-      handlePaste: (_view, event) => takePictures(event.clipboardData?.files),
+      // Word, Outlook and web pages put words beside a picture on the clipboard: the picture goes up, and the words
+      // are still pasted (an <img> among them that is not ours is dropped by the picture node).
+      handlePaste: (_view, event) => takePictures(event.clipboardData?.files) && !hasWords(event.clipboardData),
       handleDrop: (_view, event) => takePictures((event as DragEvent).dataTransfer?.files),
       attributes: {
         role: "textbox",
@@ -200,7 +202,7 @@ export default function RichNoteEditor({
 
   /** Pasted or dropped files that are pictures go up and in; anything else is left to the editor. */
   function takePictures(files: FileList | null | undefined): boolean {
-    const chosen = Array.from(files ?? []).filter((file) => file.type.startsWith("image/"));
+    const chosen = Array.from(files ?? []).filter((file) => PICTURE_TYPES.includes(file.type));
     if (!picturesRef.current || chosen.length === 0) return false;
     void insertPictures(chosen);
     return true;
@@ -322,7 +324,7 @@ export default function RichNoteEditor({
           <input
             ref={pictureInput}
             type="file"
-            accept="image/png,image/jpeg"
+            accept={PICTURE_TYPES.join(",")}
             multiple
             hidden
             aria-label="Picture to insert"
@@ -443,6 +445,13 @@ function surfaceClassOf(
     // Inline, a long note scrolls inside its editor rather than stretching the drawer; Expand is the room to grow.
     !expanded && "max-h-[45vh] overflow-y-auto",
   );
+}
+
+/** What the server keeps; anything else would be refused after the upload, with a vaguer word. */
+const PICTURE_TYPES = ["image/png", "image/jpeg"];
+
+function hasWords(clipboard: DataTransfer | null): boolean {
+  return !!clipboard && (clipboard.types.includes("text/html") || clipboard.types.includes("text/plain"));
 }
 
 function picturesIn(editor: Editor): number {

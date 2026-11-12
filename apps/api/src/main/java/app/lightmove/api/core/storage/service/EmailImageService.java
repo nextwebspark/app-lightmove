@@ -36,11 +36,12 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 /**
- * The pictures an email carries: a copy of a person's profile photo and of a workspace's logo, each made the first time a
- * signature draws it, and the pictures a person uploads into their Custom signature. A recipient's mail client fetches
- * them with no session, so each is served publicly by a random token ({@code /api/v1/email-images/{token}}) — one per
- * stored picture, shared by every email showing it and never minted per message or recipient, so a fetch identifies
- * nobody — never a signed bucket URL, which would expire in an inbox, and never another host's address. Nothing here runs inside a transaction: the bytes go to the bucket first.
+ * The pictures an email carries: a copy of a person's profile photo and of a workspace's logo, each made the first time
+ * a signature draws it, and the pictures a person uploads into their Custom signature. A recipient's mail client
+ * fetches them with no session, so each is served publicly by a random token ({@code /api/v1/email-images/{token}}) —
+ * one per stored picture, shared by every email showing it and never minted per message or recipient, so a fetch
+ * identifies nobody — never a signed bucket URL, which would expire in an inbox, and never another host's address.
+ * Nothing here runs inside a transaction: the bytes go to the bucket first.
  */
 @Slf4j
 @Service

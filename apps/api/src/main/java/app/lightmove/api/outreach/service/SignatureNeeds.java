@@ -22,9 +22,10 @@ public record SignatureNeeds(boolean photo, boolean logo, boolean booking, List<
     }
 
     public static SignatureNeeds ofAll(Collection<SignatureContent> contents) {
-        return new SignatureNeeds(contents.stream().anyMatch(c -> of(c).photo()),
-                contents.stream().anyMatch(c -> of(c).logo()), contents.stream().anyMatch(c -> of(c).booking()),
-                contents.stream().flatMap(c -> pictureTokensOf(c).stream()).distinct().toList());
+        List<SignatureNeeds> each = contents.stream().map(SignatureNeeds::of).toList();
+        return new SignatureNeeds(each.stream().anyMatch(SignatureNeeds::photo),
+                each.stream().anyMatch(SignatureNeeds::logo), each.stream().anyMatch(SignatureNeeds::booking),
+                each.stream().flatMap(needs -> needs.pictureTokens().stream()).distinct().toList());
     }
 
     private static List<String> pictureTokensOf(SignatureContent content) {

@@ -14,3 +14,6 @@ ALTER TABLE app_lm_email_image ADD CONSTRAINT app_lm_email_image_owner_chk CHECK
 -- The same file uploaded twice is one picture.
 CREATE UNIQUE INDEX app_lm_email_image_signature_uk ON app_lm_email_image (workspace_id, user_id, source_sha256)
     WHERE kind = 'SIGNATURE';
+
+COMMENT ON TABLE app_lm_email_image IS
+    'Pictures an email carries (a copy of a person''s photo, a workspace''s logo, a picture a person uploaded into their signature), served publicly by their token; the bytes are in object storage under storage_key.';

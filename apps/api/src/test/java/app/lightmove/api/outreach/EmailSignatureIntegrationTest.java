@@ -334,7 +334,7 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk()).andReturn()).get("customBody").asText();
         assertThat(markdown).startsWith("![](" + EmailImageService.PATH)
                 .contains("**Yara \\*Haddad\\***", "Head of Talent, Al-Futtaim", "\\+971 50 123 4567",
-                        "[yara@" + domain + "](mailto:yara@" + domain + ")")
+                        "[yara@" + domain + "](<mailto:yara@" + domain + ">)")
                 .doesNotContain("http://", GROUP_LOGO_URL);
         assertThat(markdown.split("!\\[]\\(", -1)).hasSize(3);
 

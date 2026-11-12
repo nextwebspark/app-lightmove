@@ -160,7 +160,7 @@ function SignatureForm({
           </span>
           <p className="mt-1.5 font-mono text-meta text-u-text3">
             Type anything — another phone number, an address — and insert up to {MAX_PICTURES} pictures, like a group
-            logo or a membership badge.
+            logo or a membership badge. These are your own words: a later change to your profile won't update them.
           </p>
         </div>
 

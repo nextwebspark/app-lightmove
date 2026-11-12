@@ -1,5 +1,7 @@
 package app.lightmove.api.outreach.controller;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.outreach.dto.EmailSignatureResponse;
@@ -13,6 +15,7 @@ import app.lightmove.api.outreach.service.EmailSignatureService;
 import app.lightmove.api.outreach.service.MailboxService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.io.IOException;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -37,6 +40,9 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequiredArgsConstructor
 public class EmailSignatureController {
+
+    /** The {@code EMAIL_IMAGE_TOO_LARGE} sentence's 5 MB. */
+    private static final long MAX_PICTURE_BYTES = 5L * 1024 * 1024;
 
     private final EmailSignatureService signatures;
     private final MailboxService mailboxes;
@@ -83,7 +89,20 @@ public class EmailSignatureController {
     public SignaturePictureResponse uploadPicture(@AuthenticationPrincipal AuthPrincipal principal,
                                                   @RequestParam(name = "file", required = false) MultipartFile file,
                                                   HttpServletRequest httpRequest) {
-        return signatures.uploadPicture(principal.userId(), principal.requireWorkspaceId(), file, httpRequest);
+        rateLimit.checkSignaturePictureUpload(principal.userId(), httpRequest);
+        if (file == null || file.isEmpty()) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "file", "Choose a picture");
+        }
+        if (file.getSize() > MAX_PICTURE_BYTES) {
+            throw ApiException.of(ErrorCode.EMAIL_IMAGE_TOO_LARGE);
+        }
+        byte[] content;
+        try {
+            content = file.getBytes();
+        } catch (IOException unreadable) {
+            throw ApiException.of(ErrorCode.EMAIL_IMAGE_UNREADABLE);
+        }
+        return signatures.uploadPicture(principal.userId(), principal.requireWorkspaceId(), content);
     }
 
     /** A starting point, or an older layout, as Markdown the editor goes on with; nothing is saved. */

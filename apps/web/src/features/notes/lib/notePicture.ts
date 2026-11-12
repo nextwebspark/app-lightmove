@@ -17,10 +17,6 @@ export function pictureSizeOf(title: unknown): PictureSize {
   return title === "small" || title === "large" ? title : "medium";
 }
 
-export function isOwnPicture(src: unknown): src is string {
-  return typeof src === "string" && src.startsWith(EMAIL_IMAGE_PATH);
-}
-
 /**
  * A picture Uncava hosts, inline so several sit in a row, kept in Markdown as `![alt](src "size")` — the title is its
  * size. A pasted `<img>` from anywhere else is not taken in: the email would never draw it.
