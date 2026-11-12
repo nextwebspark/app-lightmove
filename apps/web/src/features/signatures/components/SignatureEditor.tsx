@@ -1,17 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Icon } from "../../../components/layout/Icon";
 import { Button, Field, FormError, Input, SegmentedControl, TextArea, Toggle, useToast } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import { NoteEditor, type NotePictures } from "../../notes/components/NoteEditor";
-import { PICTURE_SHAPE_GLYPHS } from "../../notes/lib/notePicture";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as signaturesApi from "../api/signaturesApi";
-import type { FooterPicture, PictureShape, SignatureFields, SignatureLayout, SignatureSources } from "../api/signaturesApi";
+import type { PictureShape, SignatureFields, SignatureLayout, SignatureSources } from "../api/signaturesApi";
 import { customBodyFor, drawsLogo, drawsPhoto, LAYOUT_DETAILS, payloadOf, type SignatureDraft } from "../lib/signatureDraft";
 import { SignaturePreviewFrame } from "./SignaturePreviewFrame";
 
@@ -19,7 +17,7 @@ import { SignaturePreviewFrame } from "./SignaturePreviewFrame";
 const PREVIEW_DELAY_MS = 350;
 /** `SaveSignatureRequest.customBody`'s `@Size`. */
 const CUSTOM_BODY_MAX_LENGTH = 2000;
-/** `SignaturePicture.MAX_PER_SIGNATURE`: the words' pictures and the footer's together. */
+/** `SignaturePicture.MAX_PER_SIGNATURE`. */
 const MAX_PICTURES = 6;
 const SHAPE_LABELS: Record<PictureShape, string> = { CIRCLE: "Circle", ROUNDED: "Rounded", SQUARE: "Square" };
 
@@ -97,17 +95,12 @@ export function SignatureEditor({
     },
   });
 
-  // The footer's pictures count against the same six as the words'.
-  const footerCount = draft.footerPictures.length;
-  const pictures = useMemo<NotePictures>(
-    () => ({
-      upload: signaturesApi.uploadSignaturePicture,
-      max: MAX_PICTURES - footerCount,
-      onLimit: () => toast.error(`A signature holds up to ${MAX_PICTURES} pictures, with the ones at its foot`),
-      onError: (error) => toast.error(messageFor(error)),
-    }),
-    [footerCount, toast],
-  );
+  const [pictures] = useState<NotePictures>(() => ({
+    upload: signaturesApi.uploadSignaturePicture,
+    max: MAX_PICTURES,
+    onLimit: () => toast.error(`A signature holds up to ${MAX_PICTURES} pictures`),
+    onError: (error) => toast.error(messageFor(error)),
+  }));
 
   const setField = (key: FieldKey, value: string) => {
     setDraft((current) => ({ ...current, fields: { ...current.fields, [key]: value } }));
@@ -117,14 +110,13 @@ export function SignatureEditor({
   const customBodyTooLong = words.length > CUSTOM_BODY_MAX_LENGTH;
   const customBodyError =
     fieldErrors.customBody || (customBodyTooLong ? `Keep it to ${CUSTOM_BODY_MAX_LENGTH.toLocaleString()} characters` : "");
-  const picturesInWords = (words.match(/!\[/g) ?? []).length;
 
   const editFreely = useMutation({
     mutationFn: () => signaturesApi.signatureStarter(payload),
     onSuccess: ({ customBody }) => {
       // The photo and logo become pictures in the words, so they now count against the six.
-      if ((customBody.match(/!\[/g) ?? []).length + draft.footerPictures.length > MAX_PICTURES) {
-        toast.error(`That would hold more than ${MAX_PICTURES} pictures. Remove one at the foot or in Anything else first.`);
+      if ((customBody.match(/!\[/g) ?? []).length > MAX_PICTURES) {
+        toast.error(`That would hold more than ${MAX_PICTURES} pictures. Remove one from Anything else first.`);
         return;
       }
       // The logo is in the words now; the Custom switch would draw it a second time.
@@ -311,7 +303,8 @@ export function SignatureEditor({
                 )}
               </span>
               <p className="mt-1.5 font-mono text-meta text-u-text3">
-                Shown under your details.{" "}
+                Shown under your details: another number, an office, or pictures like your group&apos;s logo or
+                membership badges, each in a size and shape.{" "}
                 <button
                   type="button"
                   className="font-sans font-medium text-u-accent hover:underline disabled:opacity-50"
@@ -390,16 +383,6 @@ export function SignatureEditor({
           />
         </div>
 
-        <FooterPictures
-          pictures={draft.footerPictures}
-          room={MAX_PICTURES - picturesInWords - draft.footerPictures.length}
-          error={fieldErrors.footerPictures}
-          onChange={(footerPictures) => {
-            setDraft((current) => ({ ...current, footerPictures }));
-            setFieldErrors((current) => ({ ...current, footerPictures: "" }));
-          }}
-        />
-
         <div className="mt-2">
           <Field label="Disclaimer · optional" error={fieldErrors.disclaimer || undefined}>
             <TextArea
@@ -459,112 +442,6 @@ export function SignatureEditor({
     </div>
   );
 }
-
-/** Pictures in a row at the signature's foot — a group's logo, membership badges — for every layout. */
-function FooterPictures({
-  pictures,
-  room,
-  error,
-  onChange,
-}: {
-  pictures: FooterPicture[];
-  room: number;
-  error?: string;
-  onChange: (pictures: FooterPicture[]) => void;
-}) {
-  const toast = useToast();
-  const input = useRef<HTMLInputElement>(null);
-  const upload = useMutation({
-    mutationFn: signaturesApi.uploadSignaturePicture,
-    onSuccess: (picture) => {
-      if (!pictures.some((kept) => kept.token === picture.token)) {
-        onChange([...pictures, { ...picture, shape: "SQUARE" }]);
-      }
-    },
-    onError: (failure) => toast.error(messageFor(failure)),
-  });
-  return (
-    <div className="mt-2 mb-4">
-      <span className="type-micro-label mb-1.5 block font-mono text-u-text3">Pictures · optional</span>
-      <div className="flex flex-wrap items-center gap-2.5">
-        {pictures.map((picture) => (
-          <span key={picture.token} className="relative inline-flex flex-col items-center gap-1">
-            <span className="inline-flex h-14 items-center rounded-lg border border-u-border bg-white px-2.5">
-              <img
-                src={picture.src}
-                alt=""
-                className={cn(
-                  picture.shape === "CIRCLE"
-                    ? "h-10 w-10 rounded-full object-cover"
-                    : "max-h-10 max-w-32 object-contain",
-                  picture.shape === "ROUNDED" && "rounded-md",
-                )}
-              />
-            </span>
-            <span role="radiogroup" aria-label="Picture shape" className="flex gap-0.5">
-              {FOOTER_SHAPE_ORDER.map((shape) => (
-                <button
-                  key={shape}
-                  type="button"
-                  role="radio"
-                  aria-checked={picture.shape === shape}
-                  aria-label={SHAPE_LABELS[shape]}
-                  title={SHAPE_LABELS[shape]}
-                  onClick={() =>
-                    onChange(pictures.map((kept) => (kept.token === picture.token ? { ...kept, shape } : kept)))
-                  }
-                  className={cn(
-                    "flex h-5 w-5 items-center justify-center rounded",
-                    picture.shape === shape ? "bg-u-accent-tint text-u-text" : "text-u-text3 hover:text-u-text",
-                  )}
-                >
-                  <Icon d={PICTURE_SHAPE_GLYPHS[GLYPH_OF[shape]]} size={13} />
-                </button>
-              ))}
-            </span>
-            <button
-              type="button"
-              aria-label="Remove picture"
-              onClick={() => onChange(pictures.filter((kept) => kept.token !== picture.token))}
-              className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full border border-u-border-strong bg-u-raised text-meta text-u-text2 hover:text-u-text"
-            >
-              ×
-            </button>
-          </span>
-        ))}
-        <Button
-          variant="secondary"
-          size="xs"
-          loading={upload.isPending}
-          disabled={room <= 0}
-          onClick={() => input.current?.click()}
-        >
-          + Add picture
-        </Button>
-        <input
-          ref={input}
-          type="file"
-          accept="image/png,image/jpeg"
-          className="hidden"
-          aria-label="Add picture"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            event.target.value = "";
-            if (file) upload.mutate(file);
-          }}
-        />
-      </div>
-      <RowNote error={error || undefined}>
-        A row at the foot of the signature, like your group&apos;s logo or membership badges. Up to {MAX_PICTURES} pictures
-        in all.
-      </RowNote>
-    </div>
-  );
-}
-
-/** As the editor's toolbar orders them. */
-const FOOTER_SHAPE_ORDER: PictureShape[] = ["SQUARE", "ROUNDED", "CIRCLE"];
-const GLYPH_OF = { SQUARE: "square", ROUNDED: "rounded", CIRCLE: "circle" } as const;
 
 function LayoutChip({ layout, checked, onPick }: { layout: SignatureLayout; checked: boolean; onPick: () => void }) {
   return (
@@ -727,5 +604,5 @@ function useSettled(value: string, delayMs: number): string {
 /** Custom draws no field rows, so an error on one must reach the form's own message. */
 function isDrawnField(key: string, layout: SignatureLayout): boolean {
   if (key.startsWith("fields.")) return layout !== "CUSTOM";
-  return key === "name" || key === "disclaimer" || key === "customBody" || key === "footerPictures";
+  return key === "name" || key === "disclaimer" || key === "customBody";
 }

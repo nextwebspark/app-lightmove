@@ -8,8 +8,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -57,10 +55,6 @@ public class EmailSignature extends BaseEntity {
     @Column(name = "custom_body", length = 2000)
     private String customBody;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "footer_pictures", columnDefinition = "jsonb", nullable = false)
-    private List<FooterPicture> footerPictures = new ArrayList<>();
-
     @Column(name = "disclaimer", length = 1000)
     private String disclaimer;
 
@@ -84,13 +78,12 @@ public class EmailSignature extends BaseEntity {
         this.showLogo = content.showLogo();
         this.showBookingLink = content.showBookingLink();
         this.customBody = content.customBody();
-        this.footerPictures = new ArrayList<>(content.footerPictures());
         this.disclaimer = content.disclaimer();
     }
 
     public SignatureContent content() {
         return new SignatureContent(name, layout, fields == null ? SignatureFields.NONE : fields, showPhoto, photoShape,
-                showLogo, showBookingLink, customBody, footerPictures, disclaimer);
+                showLogo, showBookingLink, customBody, disclaimer);
     }
 
     public void markDefault(boolean isDefault) {

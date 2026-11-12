@@ -3,13 +3,11 @@ package app.lightmove.api.outreach.service;
 import app.lightmove.api.core.storage.constant.PictureShape;
 import app.lightmove.api.core.storage.service.EmailImageService;
 import app.lightmove.api.outreach.constant.SignatureLayout;
-import app.lightmove.api.outreach.model.FooterPicture;
 import app.lightmove.api.outreach.model.OutreachMarkdownEmail;
 import app.lightmove.api.outreach.model.RenderedSignature;
 import app.lightmove.api.outreach.model.SignatureContent;
 import app.lightmove.api.outreach.model.SignatureFields;
 import app.lightmove.api.outreach.model.SignatureLogo;
-import app.lightmove.api.outreach.model.SignaturePicture;
 import app.lightmove.api.outreach.model.SignatureSender;
 import java.net.URI;
 import java.util.ArrayList;
@@ -32,8 +30,6 @@ public final class EmailSignatureRenderer {
     private static final int PHOTO_PX = 64;
     private static final int LOGO_MAX_WIDTH_PX = 200;
     private static final int LOGO_MAX_HEIGHT_PX = 48;
-    private static final int FOOTER_PICTURE_MAX_WIDTH_PX = 160;
-    private static final int FOOTER_PICTURE_MAX_HEIGHT_PX = 48;
     private static final String TABLE = "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" "
             + "style=\"border-collapse:collapse\">";
 
@@ -60,7 +56,6 @@ public final class EmailSignatureRenderer {
                     .append(OutreachMarkdownEmail.signatureHtmlOf(content.customBody(), sender.pictures()))
                     .append("</div>");
         }
-        html.append(footer(content.footerPictures(), sender));
         if (booking != null) {
             html.append("<div style=\"margin-top:8px;font-weight:bold\">")
                     .append(anchor(booking, "Book a call with me")).append("</div>");
@@ -116,25 +111,6 @@ public final class EmailSignatureRenderer {
         };
     }
 
-    /** The signer's own pictures in one row, each fitted to a logo's box; a token not theirs draws nothing. */
-    private static String footer(List<FooterPicture> footer, SignatureSender sender) {
-        StringBuilder row = new StringBuilder();
-        for (FooterPicture placed : footer) {
-            SignaturePicture picture = sender.pictures().get(placed.key());
-            if (picture == null) {
-                continue;
-            }
-            row.append("<td style=\"vertical-align:middle;padding-right:16px\">")
-                    .append(fitted(picture.url(), picture.width(), picture.height(), FOOTER_PICTURE_MAX_WIDTH_PX,
-                            FOOTER_PICTURE_MAX_HEIGHT_PX))
-                    .append("</td>");
-        }
-        if (row.isEmpty()) {
-            return "";
-        }
-        return "<div style=\"margin-top:12px\">" + TABLE + "<tr>" + row + "</tr></table></div>";
-    }
-
     private static String minimal(Details details) {
         StringJoiner line = new StringJoiner(" · ");
         if (details.name != null) {
@@ -160,22 +136,18 @@ public final class EmailSignatureRenderer {
     }
 
     private static String image(SignatureLogo logo) {
-        return fitted(logo.url(), logo.width(), logo.height(), LOGO_MAX_WIDTH_PX, LOGO_MAX_HEIGHT_PX);
-    }
-
-    /** Fitted inside the box, never enlarged, its size fixed on the tag. */
-    private static String fitted(String url, int naturalWidth, int naturalHeight, int maxWidth, int maxHeight) {
-        double scale = Math.min(1.0, Math.min((double) maxWidth / naturalWidth, (double) maxHeight / naturalHeight));
-        int width = Math.max(1, (int) Math.round(naturalWidth * scale));
-        int height = Math.max(1, (int) Math.round(naturalHeight * scale));
-        return "<img src=\"" + escape(url) + "\" width=\"" + width + "\" height=\"" + height
+        double scale = Math.min(1.0, Math.min((double) LOGO_MAX_WIDTH_PX / logo.width(),
+                (double) LOGO_MAX_HEIGHT_PX / logo.height()));
+        int width = Math.max(1, (int) Math.round(logo.width() * scale));
+        int height = Math.max(1, (int) Math.round(logo.height() * scale));
+        return "<img src=\"" + escape(logo.url()) + "\" width=\"" + width + "\" height=\"" + height
                 + "\" alt=\"\" style=\"display:block;width:" + width + "px;height:" + height + "px;border:0\">";
     }
 
     /**
      * The signature as a Custom signature's Markdown, to go on editing in its place: the details it draws, its photo and
-     * logo as the signer's own pictures, its own words kept. The footer's pictures are not in it: they stay the footer. Values are escaped, so a name never becomes
-     * markup; a phone stays text, as a Custom signature keeps it.
+     * logo as the signer's own pictures, its own words kept. Values are escaped, so a name never becomes markup; a phone
+     * stays text, as a Custom signature keeps it.
      */
     public static String asMarkdown(SignatureContent content, SignatureSender sender) {
         String photoUrl = content.layout().drawsPhoto() && content.showPhoto()

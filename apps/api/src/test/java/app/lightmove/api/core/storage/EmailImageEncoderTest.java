@@ -64,7 +64,13 @@ class EmailImageEncoderTest {
         assertThat(rounded.width()).isEqualTo(800);
         assertThat(rounded.height()).isEqualTo(400);
 
-        for (EncodedImage shaped : new EncodedImage[] {circle, rounded}) {
+        // A screenshot is kept as JPEG; its shape is cut from that copy.
+        EncodedImage kept = EmailImageEncoder.signaturePicture(picture(1600, 1000, "jpeg")).orElseThrow();
+        assertThat(kept.contentType()).isEqualTo("image/jpeg");
+        EncodedImage fromJpeg = EmailImageEncoder.shaped(kept.content(), PictureShape.CIRCLE).orElseThrow();
+        assertThat(fromJpeg.width()).isEqualTo(fromJpeg.height());
+
+        for (EncodedImage shaped : new EncodedImage[] {circle, rounded, fromJpeg}) {
             assertThat(shaped.contentType()).isEqualTo("image/png");
             BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(shaped.content()));
             assertThat(decoded.getRGB(0, 0) >>> 24).isZero();

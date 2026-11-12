@@ -62,7 +62,6 @@ const DEFAULT_SIGNATURE: signaturesApi.EmailSignature = {
   showLogo: false,
   showBookingLink: false,
   customBody: null,
-  footerPictures: [],
   disclaimer: null,
   isDefault: true,
   updatedAt: "2026-11-01T10:00:00Z",

@@ -152,7 +152,7 @@ alike), so there is no text form and no `-- ` separator.
   unevenly.
 - Placed after the body behind a spacer.
 
-### C3. The layouts back, with free words, a photo shape and a footer of pictures (2026-11-12, replacing the one-editor screen)
+### C3. The layouts back, with free words and picture shapes (2026-11-12, replacing the one-editor screen)
 
 The one-editor screen (one editor, three starting points) went too far: the product owner wanted the layouts and the
 field form back, each value still following the profile and workspace, and Aleksandra's asks met on top of them.
@@ -166,22 +166,18 @@ field form back, each value still following the profile and workspace, and Aleks
   writes a 192px PNG through an antialiased mask with transparent corners (Square stays the JPEG it was), one copy per
   photo per shape (`source_sha256` is the avatar's hash for Square, `hash(avatarSha:shape)` otherwise). The radius is
   still on the `<img>` for clients that scale it.
-- **Anything else · optional**: under the Company rows of every fixed layout, the notes' editor with pictures. It is
-  `custom_body` (V214 drops V193's `CUSTOM`-only check), drawn under the details by `signatureHtmlOf`, ≤ 2,000.
-- **Pictures · optional**: above the disclaimer, for every layout including Custom, a row of uploads (the group's logo,
-  membership badges), kept as `footer_pictures` jsonb tokens (V214) and drawn in one table row fitted to 160 × 48.
-  Only the signer's own `SIGNATURE` uploads are accepted (`VALIDATION_FAILED` on `footerPictures`); pictures in the
-  words and the footer together are at most six.
+- **Anything else · optional**: under the Company rows of every fixed layout, the notes' editor with pictures — a
+  second office, the group's logo, membership badges. It is `custom_body` (V214 drops V193's `CUSTOM`-only check),
+  drawn under the details by `signatureHtmlOf`, ≤ 2,000, at most six pictures.
 - **Every picture takes a shape**, as the photo does: an inserted picture's Markdown title holds its size and shape
-  as words (`"small circle"`; medium and square unsaid; the toolbar's □ ▢ ○ beside S M L), and a footer picture is
-  `{token, shape}`. The signature keeps the original upload; `EmailImageService.shapedOf` cuts a copy the first time a
+  as words (`"small circle"`; medium and square unsaid; the toolbar's square, rounded and circle beside S M L). The
+  signature keeps the original upload; `EmailImageService.shapedOf` cuts a copy the first time a
   drawing asks for one (`EmailImageEncoder.shaped`: a circle is the centred square, rounded keeps its proportions, PNG
   with transparent corners) and keeps it beside the original as a `SIGNATURE` row keyed `hash(sourceSha:shape)`, so
   going back to square draws the original again. `SignaturePicture.keyOf(token, shape)` names each in a drawing.
 - **Edit everything freely**: under Anything else, a one-way, confirmed switch to Custom through
   `POST /me/signatures/starter` (`EmailSignatureRenderer.asMarkdown`): the details, the photo in its shape, the logo
-  and the extra words become the Custom signature's Markdown, which then no longer follows the profile. The footer
-  stays the footer.
+  and the extra words become the Custom signature's Markdown, which then no longer follows the profile.
 - A Custom signature may still show the signer's own photo and the workspace logo as pictures
   (`EmailImageService.signaturePicturesOf`); a signature's uploads are erased with the account
   (`AccountDeletionOutreach`).

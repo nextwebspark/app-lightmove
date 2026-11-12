@@ -78,7 +78,6 @@ function aSignature(overrides: Partial<EmailSignature>): EmailSignature {
     showLogo: true,
     showBookingLink: false,
     customBody: null,
-    footerPictures: [],
     disclaimer: null,
     isDefault: false,
     updatedAt: "2026-11-01T10:00:00Z",
@@ -292,7 +291,7 @@ describe("SettingsSignaturesPage", () => {
     vi.mocked(signaturesApi.uploadSignaturePicture).mockResolvedValue({ token: "t", src, width: 600, height: 150 });
     vi.mocked(signaturesApi.sendSignatureTest).mockResolvedValue({ sentTo: "alok@nextwebspark.com" });
     vi.mocked(signaturesApi.updateSignature).mockImplementation(async (_id, payload) =>
-      aSignature({ ...payload, footerPictures: [], id: "firm" }),
+      aSignature({ ...payload, id: "firm" }),
     );
     const user = userEvent.setup();
     renderPage();
@@ -311,31 +310,6 @@ describe("SettingsSignaturesPage", () => {
     expect(vi.mocked(signaturesApi.updateSignature).mock.calls[0][1].customBody).toContain(src);
   });
 
-  it("adds a picture at the foot and sends the shape picked for it", async () => {
-    const src = "/api/v1/email-images/AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde";
-    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
-      signatures: [aSignature({ id: "firm", name: "Firm", isDefault: true })],
-      sources: SOURCES,
-      limit: 10,
-    });
-    vi.mocked(signaturesApi.uploadSignaturePicture).mockResolvedValue({ token: "t", src, width: 300, height: 100 });
-    vi.mocked(signaturesApi.updateSignature).mockImplementation(async (_id, payload) =>
-      aSignature({ ...payload, footerPictures: [], id: "firm" }),
-    );
-    const user = userEvent.setup();
-    renderPage();
-
-    await user.click(await screen.findByRole("button", { name: "Edit" }));
-    await user.upload(await screen.findByLabelText("Add picture"), new File(["png"], "aesc.png", { type: "image/png" }));
-    await user.click(await screen.findByRole("radio", { name: "Circle" }));
-    await user.click(screen.getByRole("button", { name: "Save signature" }));
-
-    await waitFor(() => expect(signaturesApi.updateSignature).toHaveBeenCalled());
-    expect(vi.mocked(signaturesApi.updateSignature).mock.calls[0][1].footerPictures).toEqual([
-      { token: "t", shape: "CIRCLE" },
-    ]);
-  });
-
   it("refuses a seventh picture before uploading it", async () => {
     const src = "/api/v1/email-images/AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde";
     vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
@@ -351,7 +325,7 @@ describe("SettingsSignaturesPage", () => {
     await user.click(await screen.findByRole("button", { name: "Edit" }));
     await screen.findByRole("button", { name: "Insert picture" });
     await user.upload(screen.getByLabelText("Picture to insert"), new File(["png"], "badge.png", { type: "image/png" }));
-    expect(await screen.findByText("A signature holds up to 6 pictures, with the ones at its foot")).toBeInTheDocument();
+    expect(await screen.findByText("A signature holds up to 6 pictures")).toBeInTheDocument();
     expect(signaturesApi.uploadSignaturePicture).not.toHaveBeenCalled();
   });
 

@@ -315,61 +315,43 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("any layout takes a second number, its own words and a footer of the signer's pictures; a photo keeps its shape")
+    @DisplayName("any layout takes a second number and its own words with pictures, each picture in its shape")
     void fixedLayoutExtras() throws Exception {
         mvc.perform(multipart(HttpMethod.PUT, "/api/v1/auth/me/avatar")
                         .file(new MockMultipartFile("file", "me.png", "image/png", picture(400, 400)))
                         .header("Authorization", "Bearer " + yara).with(csrf()))
                 .andExpect(status().isOk());
-        JsonNode group = uploadPicture(yara, picture(800, 400));
+        // A screenshot with no transparency is kept as JPEG: the shape must be cut from that too.
+        JsonNode screenshot = uploadPicture(yara, jpeg(1600, 1000));
         JsonNode aesc = uploadPicture(yara, picture(300, 100));
 
         String signature = """
                 {"name":"Full","layout":"PHOTO","showPhoto":true,"photoShape":"ROUNDED",
                  "fields":{"phone":"+971 4 111 2222","mobile":"+971 50 333 4444"},
-                 "customBody":"Festival Tower, **Dubai**","footerPictures":[{"token":"%s"},{"token":"%s","shape":"CIRCLE"}]}"""
-                .formatted(group.get("token").asText(), aesc.get("token").asText());
+                 "customBody":"Festival Tower, **Dubai**\\n\\n![](%s \\"small circle\\") ![](%s)"}"""
+                .formatted(screenshot.get("src").asText(), aesc.get("src").asText());
         JsonNode saved = create(yara, signature);
         assertThat(saved.get("photoShape").asText()).isEqualTo("ROUNDED");
         assertThat(saved.get("fields").get("mobile").asText()).isEqualTo("+971 50 333 4444");
-        assertThat(saved.get("footerPictures")).hasSize(2);
-        assertThat(saved.get("footerPictures").get(0).get("src").asText()).isEqualTo(group.get("src").asText());
-        assertThat(saved.get("footerPictures").get(1).get("shape").asText()).isEqualTo("CIRCLE");
         String html = saved.get("html").asText();
         assertThat(html).contains("M <a href=\"tel:+971503334444\"", "<strong>Dubai</strong>", "border-radius:10px",
-                "width=\"96\" height=\"48\"", "width=\"48\" height=\"48\"", group.get("token").asText())
-                .doesNotContain(aesc.get("token").asText());
-        int aescEnd = html.lastIndexOf("width=\"48\" height=\"48\"");
-        String circleSrc = html.substring(html.lastIndexOf("src=\"", aescEnd) + 5, html.indexOf('"',
-                html.lastIndexOf("src=\"", aescEnd) + 5));
+                "width=\"40\" height=\"40\"", aesc.get("token").asText())
+                .doesNotContain(screenshot.get("token").asText());
+
+        int circleAt = html.indexOf("width=\"40\" height=\"40\"");
+        String circleSrc = html.substring(html.lastIndexOf("src=\"", circleAt) + 5,
+                html.indexOf('"', html.lastIndexOf("src=\"", circleAt) + 5));
         mvc.perform(get(circleSrc.substring(circleSrc.indexOf(EmailImageService.PATH)))).andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/png"));
         create(yara, signature);
         assertThat(jdbc.queryForObject("select count(*) from app_lm_email_image where kind = 'SIGNATURE' and user_id = "
                 + "(select id from app_lm_user where email = ?)", Integer.class, "yara@" + domain)).isEqualTo(3);
-        String square = signature.replace("\"shape\":\"CIRCLE\"", "\"shape\":\"SQUARE\"");
-        assertThat(previewHtml(square)).contains(aesc.get("token").asText());
+        assertThat(previewHtml(signature.replace(" \\\"small circle\\\"", "")))
+                .contains(screenshot.get("token").asText());
 
         String photoSrc = html.substring(html.indexOf("src=\"") + 5, html.indexOf('"', html.indexOf("src=\"") + 5));
         mvc.perform(get(photoSrc.substring(photoSrc.indexOf(EmailImageService.PATH)))).andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/png"));
-
-        inviteAndAccept(yara, "Omar Saleh", "omar@" + domain, "MEMBER");
-        String omar = login("omar@" + domain);
-        MvcResult borrowed = mvc.perform(post(SIGNATURES).header("Authorization", "Bearer " + omar)
-                        .contentType(MediaType.APPLICATION_JSON).content("""
-                                {"name":"Borrowed","layout":"CLASSIC","footerPictures":[{"token":"%s"}]}"""
-                                .formatted(group.get("token").asText())))
-                .andExpect(status().isBadRequest()).andReturn();
-        assertThat(body(borrowed).get("fieldErrors").has("footerPictures")).isTrue();
-
-        MvcResult tooMany = mvc.perform(post(SIGNATURES).header("Authorization", "Bearer " + yara)
-                        .contentType(MediaType.APPLICATION_JSON).content("""
-                                {"name":"Many","layout":"CLASSIC","customBody":"%s","footerPictures":[{"token":"%s"}]}"""
-                                .formatted(("![](" + aesc.get("src").asText() + ") ").repeat(6),
-                                        group.get("token").asText())))
-                .andExpect(status().isBadRequest()).andReturn();
-        assertThat(body(tooMany).get("fieldErrors").has("footerPictures")).isTrue();
     }
 
     @Test
@@ -481,6 +463,17 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
         return """
                 {"name":"%s","layout":"%s","showPhoto":true,"showLogo":true,"isDefault":%s}"""
                 .formatted(name, layout, isDefault);
+    }
+
+    private static byte[] jpeg(int width, int height) throws Exception {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = image.createGraphics();
+        graphics.setColor(Color.DARK_GRAY);
+        graphics.fillRect(0, 0, width, height);
+        graphics.dispose();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(image, "jpeg", out);
+        return out.toByteArray();
     }
 
     private static byte[] picture(int width, int height) throws Exception {

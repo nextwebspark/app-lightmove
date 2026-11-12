@@ -22,7 +22,6 @@ function aSignature(id: string, isDefault: boolean): EmailSignature {
     showLogo: false,
     showBookingLink: false,
     customBody: null,
-    footerPictures: [],
     disclaimer: null,
     isDefault,
     updatedAt: "2026-11-01T10:00:00Z",

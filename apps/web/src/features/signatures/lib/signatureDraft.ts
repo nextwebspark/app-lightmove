@@ -1,6 +1,5 @@
 import type {
   EmailSignature,
-  FooterPicture,
   PictureShape,
   SaveSignaturePayload,
   SignatureFields,
@@ -38,7 +37,6 @@ export interface SignatureDraft {
   customBody: string;
   /** Any other layout's extra words under the details; kept apart so switching layout loses neither. */
   extras: string;
-  footerPictures: FooterPicture[];
   disclaimer: string;
   isDefault: boolean;
 }
@@ -66,7 +64,6 @@ export function newDraft(layout: SignatureLayout, isFirst: boolean, ownName: str
     showBookingLink: false,
     customBody: layout === "CUSTOM" ? customBodyFor(ownName) : "",
     extras: "",
-    footerPictures: [],
     disclaimer: "",
     isDefault: isFirst,
   };
@@ -94,7 +91,6 @@ export function draftOf(signature: EmailSignature): SignatureDraft {
     showBookingLink: signature.showBookingLink,
     customBody: signature.layout === "CUSTOM" ? (signature.customBody ?? "") : "",
     extras: signature.layout === "CUSTOM" ? "" : (signature.customBody ?? ""),
-    footerPictures: signature.footerPictures ?? [],
     disclaimer: signature.disclaimer ?? "",
     isDefault: signature.isDefault,
   };
@@ -115,7 +111,6 @@ export function payloadOf(draft: SignatureDraft): SaveSignaturePayload {
     showLogo: draft.showLogo,
     showBookingLink: draft.showBookingLink,
     customBody: blankAsNull(draft.layout === "CUSTOM" ? draft.customBody : draft.extras),
-    footerPictures: draft.footerPictures.map(({ token, shape }) => ({ token, shape })),
     disclaimer: blankAsNull(draft.disclaimer),
     isDefault: draft.isDefault,
   };

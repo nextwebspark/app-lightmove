@@ -5,7 +5,6 @@ import app.lightmove.api.outreach.model.OutreachMarkdownEmail;
 import app.lightmove.api.outreach.model.SignatureContent;
 import java.util.Collection;
 import java.util.EnumSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -36,10 +35,8 @@ public record SignatureNeeds(Set<PictureShape> photoShapes, boolean logo, boolea
                 each.stream().flatMap(needs -> needs.pictureKeys().stream()).distinct().toList());
     }
 
-    /** The pictures in its words, then its footer's, each in the shape it is drawn in. */
+    /** The pictures in its words, each in the shape it is drawn in. */
     static List<String> pictureKeysOf(SignatureContent content) {
-        Set<String> keys = new LinkedHashSet<>(OutreachMarkdownEmail.pictureKeysIn(content.customBody()));
-        content.footerPictures().forEach(picture -> keys.add(picture.key()));
-        return List.copyOf(keys);
+        return OutreachMarkdownEmail.pictureKeysIn(content.customBody());
     }
 }

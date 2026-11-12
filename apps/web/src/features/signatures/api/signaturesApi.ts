@@ -38,15 +38,12 @@ export interface SaveSignaturePayload {
   showBookingLink: boolean;
   /** Custom's whole signature; under any other layout, the extra words drawn below the details. */
   customBody: string | null;
-  /** Uploaded pictures drawn in a row at the foot, each in its shape. */
-  footerPictures: { token: string; shape: PictureShape }[];
   disclaimer: string | null;
   isDefault: boolean;
 }
 
-export interface EmailSignature extends Omit<SaveSignaturePayload, "footerPictures"> {
+export interface EmailSignature extends SaveSignaturePayload {
   id: string;
-  footerPictures: FooterPicture[];
   updatedAt: string;
   /** How it draws today, as an email would carry it. */
   html: string;
@@ -106,10 +103,6 @@ export interface SignaturePicture {
   src: string;
   width: number;
   height: number;
-}
-
-export interface FooterPicture extends SignaturePicture {
-  shape: PictureShape;
 }
 
 export function uploadSignaturePicture(file: File): Promise<SignaturePicture> {

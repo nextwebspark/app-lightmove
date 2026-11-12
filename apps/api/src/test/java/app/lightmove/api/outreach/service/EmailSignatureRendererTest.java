@@ -4,14 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.core.storage.constant.PictureShape;
 import app.lightmove.api.outreach.constant.SignatureLayout;
-import app.lightmove.api.outreach.model.FooterPicture;
 import app.lightmove.api.outreach.model.RenderedSignature;
 import app.lightmove.api.outreach.model.SignatureContent;
 import app.lightmove.api.outreach.model.SignatureFields;
 import app.lightmove.api.outreach.model.SignatureLogo;
 import app.lightmove.api.outreach.model.SignaturePicture;
 import app.lightmove.api.outreach.model.SignatureSender;
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,14 +27,13 @@ class EmailSignatureRendererTest {
     private static SignatureContent signature(String name, SignatureLayout layout, SignatureFields fields,
                                               boolean photo, boolean logo, boolean booking, String customBody,
                                               String disclaimer) {
-        return signature(name, layout, fields, photo, PictureShape.CIRCLE, logo, booking, customBody, List.of(),
-                disclaimer);
+        return signature(name, layout, fields, photo, PictureShape.CIRCLE, logo, booking, customBody, disclaimer);
     }
 
     private static SignatureContent signature(String name, SignatureLayout layout, SignatureFields fields,
                                               boolean photo, PictureShape shape, boolean logo, boolean booking,
-                                              String customBody, List<FooterPicture> footer, String disclaimer) {
-        return new SignatureContent(name, layout, fields, photo, shape, logo, booking, customBody, footer, disclaimer);
+                                              String customBody, String disclaimer) {
+        return new SignatureContent(name, layout, fields, photo, shape, logo, booking, customBody, disclaimer);
     }
 
     private static SignatureContent content(SignatureLayout layout, SignatureFields fields, boolean photo, boolean logo,
@@ -154,14 +151,14 @@ class EmailSignatureRendererTest {
     @DisplayName("the photo is drawn in the shape asked for")
     void photoInItsShape() {
         SignatureContent rounded = signature("Formal", SignatureLayout.PHOTO, SignatureFields.NONE, true,
-                PictureShape.ROUNDED, false, false, null, List.of(), null);
+                PictureShape.ROUNDED, false, false, null, null);
         String html = EmailSignatureRenderer.render(rounded, YARA).html();
 
         assertThat(html).contains("src=\"" + PHOTO + "-rounded\"", "border-radius:10px");
     }
 
     @Test
-    @DisplayName("a second number, extra words and footer pictures show in a fixed layout; a picture not theirs does not")
+    @DisplayName("a second number and extra words with pictures show in a fixed layout; a picture not theirs does not")
     void extrasInAFixedLayout() {
         String own = "https://beta.uncava.com/api/v1/email-images/" + "a".repeat(43);
         SignatureSender withPictures = new SignatureSender("Yara Haddad", null, "+971 4 111 2222", null,
@@ -169,17 +166,17 @@ class EmailSignatureRendererTest {
                 Map.of("a".repeat(43), new SignaturePicture(own, 480, 240)));
         SignatureFields mobile = new SignatureFields(null, null, null, null, null, null, null, "+971 50 333 4444");
         SignatureContent content = signature("Formal", SignatureLayout.CLASSIC, mobile, false,
-                PictureShape.CIRCLE, false, false, "Dubai · **Riyadh**", List.of(new FooterPicture("a".repeat(43), PictureShape.SQUARE),
-                        new FooterPicture("b".repeat(43), PictureShape.SQUARE)), null);
+                PictureShape.CIRCLE, false, false, "Dubai · **Riyadh**\n\n![](/api/v1/email-images/" + "a".repeat(43)
+                        + " \"small\") ![](/api/v1/email-images/" + "b".repeat(43) + ")", null);
         String html = EmailSignatureRenderer.render(content, withPictures).html();
 
         assertThat(html).contains("T <a href=\"tel:+97141112222\"", "M <a href=\"tel:+971503334444\"",
-                "<strong>Riyadh</strong>", "<img src=\"" + own + "\" width=\"96\" height=\"48\"");
+                "<strong>Riyadh</strong>", "<img src=\"" + own + "\" width=\"80\" height=\"40\"");
         assertThat(html).doesNotContain("b".repeat(43));
     }
 
     @Test
-    @DisplayName("a picture is drawn in the shape it names, in the words and at the foot")
+    @DisplayName("a picture is drawn in the shape its title names")
     void picturesInTheirShape() {
         String token = "a".repeat(43);
         String circle = "https://beta.uncava.com/api/v1/email-images/" + "c".repeat(43);
@@ -188,12 +185,12 @@ class EmailSignatureRendererTest {
                 null, Map.of(), null, null, Map.of(token + ":CIRCLE", new SignaturePicture(circle, 400, 400),
                         token + ":ROUNDED", new SignaturePicture(rounded, 800, 400)));
         SignatureContent content = signature("Mine", SignatureLayout.CUSTOM, SignatureFields.NONE, false,
-                PictureShape.CIRCLE, false, false, "![Me](/api/v1/email-images/" + token + " \"small circle\")",
-                List.of(new FooterPicture(token, PictureShape.ROUNDED)), null);
+                PictureShape.CIRCLE, false, false, "![Me](/api/v1/email-images/" + token + " \"small circle\") ![Us]"
+                        + "(/api/v1/email-images/" + token + " \"rounded\")", null);
         String html = EmailSignatureRenderer.render(content, shaped).html();
 
         assertThat(html).contains("<img src=\"" + circle + "\" width=\"40\" height=\"40\"",
-                "<img src=\"" + rounded + "\" width=\"96\" height=\"48\"");
+                "<img src=\"" + rounded + "\" width=\"128\" height=\"64\"");
     }
 
     @Test
