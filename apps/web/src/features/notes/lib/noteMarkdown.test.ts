@@ -83,3 +83,26 @@ describe("a note's Markdown", () => {
     expect(parseNoteMarkdown(markdown).content).toHaveLength(3);
   });
 });
+
+describe("a signature's pictures", () => {
+  const pictures = { pictures: true };
+  const own = "/api/v1/email-images/AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde";
+
+  it.each([
+    `Mobile +971 58 000 0000\n\n![Group](${own}) ![AESC](${own} "small")`,
+    `![](${own} "large")`,
+  ])("reads and writes %j unchanged where pictures are kept", (markdown) => {
+    expect(serializeNoteDoc(parseNoteMarkdown(markdown, pictures), pictures)).toBe(markdown);
+  });
+
+  it("reads a picture as an inline image node beside the words", () => {
+    const doc = parseNoteMarkdown(`Hello ![Group](${own} "small")`, pictures);
+    expect(doc.content?.[0].content?.map((node) => node.type)).toEqual(["text", "image"]);
+    expect(doc.content?.[0].content?.[1].attrs).toMatchObject({ src: own, alt: "Group", title: "small" });
+  });
+
+  it("keeps no picture node where pictures are not taken", () => {
+    const doc = parseNoteMarkdown(`Hello ![Group](${own})`);
+    expect(JSON.stringify(doc)).not.toContain('"image"');
+  });
+});

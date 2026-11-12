@@ -299,6 +299,10 @@ lightmove:
       booking-page-bookings-per-hour: ${AUTH_BOOKING_PAGE_BOOKINGS_PER_HOUR:5}
       avatar-changes-per-hour: ${AUTH_AVATAR_CHANGES_PER_HOUR:20}
       avatar-changes-per-hour-per-ip: ${AUTH_AVATAR_CHANGES_PER_HOUR_PER_IP:300}
+      signature-picture-uploads-per-hour: ${AUTH_SIGNATURE_PICTURE_UPLOADS_PER_HOUR:60}
+      signature-picture-uploads-per-hour-per-ip: ${AUTH_SIGNATURE_PICTURE_UPLOADS_PER_HOUR_PER_IP:600}
+      signature-test-sends-per-hour: ${AUTH_SIGNATURE_TEST_SENDS_PER_HOUR:20}
+      signature-test-sends-per-hour-per-ip: ${AUTH_SIGNATURE_TEST_SENDS_PER_HOUR_PER_IP:300}
       invitations-per-hour-per-workspace: ${AUTH_INVITATIONS_PER_HOUR_PER_WORKSPACE:100}
       invitations-per-hour-per-recipient: ${AUTH_INVITATIONS_PER_HOUR_PER_RECIPIENT:5}
       avatar-reads-per-minute: ${AUTH_AVATAR_READS_PER_MINUTE:1200}

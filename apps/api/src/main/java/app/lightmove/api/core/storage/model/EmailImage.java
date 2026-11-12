@@ -43,7 +43,7 @@ public class EmailImage {
     @Column(name = "workspace_id", updatable = false)
     private UUID workspaceId;
 
-    /** What it was copied from: the avatar's own hash, or the logo's address hashed. */
+    /** What it was copied from: the avatar's own hash, the logo's address hashed, or an uploaded file's hash. */
     @Column(name = "source_sha256", nullable = false, updatable = false)
     private String sourceSha256;
 
@@ -77,6 +77,14 @@ public class EmailImage {
         EmailImage logo = stored(EmailImageKind.LOGO, sourceUrlSha256, token, image, storageKey);
         logo.workspaceId = workspaceId;
         return logo;
+    }
+
+    public static EmailImage signaturePictureOf(UUID workspaceId, UUID userId, String contentSha256, String token,
+                                                EncodedImage image, String storageKey) {
+        EmailImage picture = stored(EmailImageKind.SIGNATURE, contentSha256, token, image, storageKey);
+        picture.workspaceId = workspaceId;
+        picture.userId = userId;
+        return picture;
     }
 
     private static EmailImage stored(EmailImageKind kind, String sourceSha256, String token, EncodedImage image,

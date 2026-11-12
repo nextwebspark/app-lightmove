@@ -6,21 +6,31 @@ import { Button, CardsSkeleton, EmptyState, useToast } from "../../../components
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import * as signaturesApi from "../api/signaturesApi";
-import type { EmailSignature, EmailSignatures, SignatureLayout } from "../api/signaturesApi";
+import type { EmailSignature, EmailSignatures, SaveSignaturePayload } from "../api/signaturesApi";
 import { LayoutSketch } from "../components/LayoutSketch";
 import { SignatureEditor } from "../components/SignatureEditor";
 import { SignatureMailboxNote } from "../components/SignatureMailboxNote";
 import { SignaturePreviewFrame } from "../components/SignaturePreviewFrame";
-import { draftOf, duplicateOf, LAYOUT_DETAILS, newDraft, type SignatureDraft } from "../lib/signatureDraft";
+import {
+  draftOf,
+  duplicateOf,
+  needsConversion,
+  newDraft,
+  savedRequestOf,
+  STARTERS,
+  starterRequestOf,
+  type SignatureDraft,
+  type StarterLayout,
+} from "../lib/signatureDraft";
 
 type View =
   | { kind: "list" }
   | { kind: "gallery" }
-  | { kind: "editor"; signatureId: string | null; draft: SignatureDraft };
+  | { kind: "editor"; signatureId: string | null; draft: SignatureDraft; starterFrom: SaveSignaturePayload | null };
 
 /**
  * Settings → Email signature (`Settings.dc.html`, `signatures`): the consultant's own signatures, the default first,
- * a layout gallery for a new one and the editor beside the server's preview. Uncava adds the chosen one to the emails
+ * three starting points for a new one and the editor beside the server's preview. Uncava adds the chosen one to the emails
  * it sends for them; no mailbox adds one to email sent through an app.
  */
 export function SettingsSignaturesPage() {
@@ -34,9 +44,9 @@ export function SettingsSignaturesPage() {
     view.kind === "gallery" ? "New signature" : view.kind === "editor" ? (view.signatureId ? "Edit signature" : "New signature") : "Email signature";
   const subtitle =
     view.kind === "gallery"
-      ? "Pick a layout. Uncava fills it in from your profile and your workspace, and you can change anything after."
+      ? "Pick a starting point. Uncava fills it in from your profile and workspace, and you change anything after."
       : view.kind === "editor"
-        ? "What you don't change follows your profile and workspace, so an edit there reaches every signature."
+        ? "Write it however you like: it is yours to edit, line by line."
         : "What closes every email you send from Uncava";
   const data = signatures.data;
   const atLimit = data ? data.signatures.length >= data.limit : false;
@@ -71,17 +81,20 @@ export function SettingsSignaturesPage() {
       ) : view.kind === "gallery" ? (
         <LayoutGallery
           ownName={data.sources.name}
-          onPick={(layout) =>
+          onPick={(layout) => {
+            const draft = newDraft(layout, data.signatures.length === 0, data.sources.name);
             setView({
               kind: "editor",
               signatureId: null,
-              draft: newDraft(layout, data.signatures.length === 0, data.sources.name),
-            })
-          }
+              draft,
+              starterFrom: layout === "CUSTOM" ? null : starterRequestOf(layout, draft.name),
+            });
+          }}
         />
       ) : view.kind === "editor" ? (
         <SignatureEditor
           initial={view.draft}
+          starterFrom={view.starterFrom}
           signatureId={view.signatureId}
           sources={data.sources}
           onDone={() => setView({ kind: "list" })}
@@ -93,7 +106,14 @@ export function SettingsSignaturesPage() {
             data={data}
             atLimit={atLimit}
             onNew={() => setView({ kind: "gallery" })}
-            onEdit={(signature) => setView({ kind: "editor", signatureId: signature.id, draft: draftOf(signature) })}
+            onEdit={(signature) =>
+              setView({
+                kind: "editor",
+                signatureId: signature.id,
+                draft: draftOf(signature),
+                starterFrom: needsConversion(signature) ? savedRequestOf(signature) : null,
+              })
+            }
           />
         </>
       )}
@@ -146,7 +166,7 @@ function SignatureList({
       <EmptyState
         icon={<Icon d={ICONS.pencil} size={22} />}
         title="No signature yet"
-        body="Your emails go without one. Pick a layout and Uncava fills it in from your profile."
+        body="Your emails go without one. Pick a starting point and Uncava fills it in from your profile."
       >
         <Button onClick={onNew}>New signature</Button>
       </EmptyState>
@@ -176,7 +196,6 @@ function SignatureList({
                   </span>
                 )}
               </div>
-              <span className="font-mono text-meta text-u-text3">{LAYOUT_DETAILS[signature.layout].label}</span>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <Button variant="secondary" size="xs" onClick={() => onEdit(signature)}>
                   Edit
@@ -217,11 +236,11 @@ function SignatureList({
   );
 }
 
-function LayoutGallery({ ownName, onPick }: { ownName: string; onPick: (layout: SignatureLayout) => void }) {
+function LayoutGallery({ ownName, onPick }: { ownName: string; onPick: (layout: StarterLayout) => void }) {
   const { user } = useAuth();
   return (
-    <ul aria-label="Layouts" className="grid grid-cols-1 gap-3 md:grid-cols-2">
-      {signaturesApi.SIGNATURE_LAYOUTS.map((layout) => (
+    <ul aria-label="Starting points" className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      {STARTERS.map(({ layout, label, hint }) => (
         <li key={layout}>
           <button
             type="button"
@@ -230,8 +249,8 @@ function LayoutGallery({ ownName, onPick }: { ownName: string; onPick: (layout: 
           >
             <LayoutSketch layout={layout} name={ownName} title={user?.title ?? null} />
             <span>
-              <span className="block text-body font-semibold text-u-text">{LAYOUT_DETAILS[layout].label}</span>
-              <span className="mt-0.5 block font-mono text-meta text-u-text3">{LAYOUT_DETAILS[layout].hint}</span>
+              <span className="block text-body font-semibold text-u-text">{label}</span>
+              <span className="mt-0.5 block font-mono text-meta text-u-text3">{hint}</span>
             </span>
           </button>
         </li>

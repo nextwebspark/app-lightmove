@@ -8,8 +8,8 @@ import { request } from "../../../lib/apiClient";
 
 export const SIGNATURES_KEY = ["email-signatures"] as const;
 
-export const SIGNATURE_LAYOUTS = ["PHOTO_LOGO", "PHOTO", "CLASSIC", "LOGO_BANNER", "MINIMAL", "CUSTOM"] as const;
-export type SignatureLayout = (typeof SIGNATURE_LAYOUTS)[number];
+/** Every new signature is saved as CUSTOM; the fixed layouts are what older ones were saved in, and still send as. */
+export type SignatureLayout = "PHOTO_LOGO" | "PHOTO" | "CLASSIC" | "LOGO_BANNER" | "MINIMAL" | "CUSTOM";
 
 /** What a signature says instead of its source; null or blank follows the source. */
 export interface SignatureFields {
@@ -87,4 +87,28 @@ export function deleteSignature(id: string): Promise<void> {
 
 export function previewSignature(payload: SaveSignaturePayload, signal?: AbortSignal): Promise<RenderedSignature> {
   return request<RenderedSignature>("/me/signatures/preview", { method: "POST", body: payload, signal });
+}
+
+/** A picture for a Custom signature, kept and served by Uncava; `src` is what the editor writes into its Markdown. */
+export interface SignaturePicture {
+  token: string;
+  src: string;
+  width: number;
+  height: number;
+}
+
+export function uploadSignaturePicture(file: File): Promise<SignaturePicture> {
+  const body = new FormData();
+  body.append("file", file, file.name || "picture");
+  return request<SignaturePicture>("/me/signatures/pictures", { method: "POST", body });
+}
+
+/** Sends what the editor holds, saved or not, from the person's mailbox to itself; the address it went to. */
+export function sendSignatureTest(payload: SaveSignaturePayload): Promise<{ sentTo: string }> {
+  return request<{ sentTo: string }>("/me/signatures/test", { method: "POST", body: payload });
+}
+
+/** A starting point, or a signature saved in an older layout, as the Markdown the editor goes on with. */
+export function signatureStarter(payload: SaveSignaturePayload): Promise<{ customBody: string }> {
+  return request<{ customBody: string }>("/me/signatures/starter", { method: "POST", body: payload });
 }

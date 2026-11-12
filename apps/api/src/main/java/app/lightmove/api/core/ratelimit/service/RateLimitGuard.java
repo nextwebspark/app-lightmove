@@ -103,6 +103,18 @@ public class RateLimitGuard {
                 config.avatarChangesPerHourPerIp(), Duration.ofHours(1));
     }
 
+    /** A Custom signature's picture: each is decoded and stored, so a brake per person and per office IP. */
+    public void checkSignaturePictureUpload(UUID userId, HttpServletRequest request) {
+        checkRateLimit("signature-picture-upload", userId.toString(), request, config.signaturePictureUploadsPerHour(),
+                config.signaturePictureUploadsPerHourPerIp(), Duration.ofHours(1));
+    }
+
+    /** A signature's test email goes to the sender's own mailbox only; this keeps it from counting as a sending loop. */
+    public void checkSignatureTestSend(UUID userId, HttpServletRequest request) {
+        checkRateLimit("signature-test-send", userId.toString(), request, config.signatureTestSendsPerHour(),
+                config.signatureTestSendsPerHourPerIp(), Duration.ofHours(1));
+    }
+
     /**
      * Invitation emails: per address, one from the workspace's budget and one from the recipient's, kept across
      * every workspace. Checked before anything is issued, so a refused batch sends nobody.
