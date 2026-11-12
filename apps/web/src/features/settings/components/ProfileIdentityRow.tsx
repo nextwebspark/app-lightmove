@@ -46,7 +46,9 @@ export function ProfileIdentityRow({
 
   return (
     <div className="mb-5 flex flex-wrap items-center gap-3.5">
-      <Avatar id={userId} name={fullName} src={avatarUrl} size="xl" className="rounded-xl" />
+      {/* Round, as the photo dialog frames it: a rounded square showed the corners the dialog had dimmed out,
+          and a picture with transparent corners came back cut off by white. */}
+      <Avatar id={userId} name={fullName} src={avatarUrl} size="xl" />
       <div className="min-w-40 flex-1">
         <div className="text-sm font-semibold">{fullName}</div>
         <div className="mt-0.5 font-mono text-[11.5px] text-u-text3">{membershipMeta(roles, joinedAt)}</div>
