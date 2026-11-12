@@ -340,7 +340,7 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("someone on the suppression list is left out of what a search found, and Add withholds anyone listed since")
+    @DisplayName("someone suppressed is left out of what a search found, and anyone listed since is hidden and withheld")
     void suppressedPeopleAreLeftOut() throws Exception {
         String projectId = mandate("Suppressed Hit Firm");
         String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
@@ -355,6 +355,8 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
                 .extracting(person -> person.get("linkedinSlug").asText())
                 .containsExactly("risalat-rehman");
         suppress("linkedin.com/in/risalat-rehman");
+        assertThat(companyIn(suggestionsOf(projectId).get("companies"), dpWorld).get("people"))
+                .as("someone listed since the search is no longer shown").isEmpty();
         JsonNode added = add(projectId, dpWorld, "risalat-rehman", "asked-to-leave");
         assertThat(added.get("added").asInt()).isZero();
         assertThat(added.get("withheld").asInt()).isEqualTo(1);
@@ -565,6 +567,27 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         JsonNode run = runOf(projectId, runId);
         assertThat(run.get("status").asText()).isEqualTo("COMPLETED");
         assertThat(outcomeFor(run.get("outcomes"), dpWorld).get("outcome").asText()).isEqualTo("FAILED");
+    }
+
+    @Test
+    @DisplayName("a company that fails after buying profiles still meters what it bought")
+    void aFailureAfterBuyingStillMetersTheProfiles() throws Exception {
+        String projectId = mandate("Half Spent Firm");
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        live.answerWith("dp-world", List.of(
+                person("risalat-rehman", "Risalat Rehman", "Chief Financial Officer at DP World Jeddah"),
+                person("group-director", "Group Director", "Group Director - Financial Accounts")));
+        index.failWith(new IllegalStateException("index down"));
+
+        String runId = start(projectId, "[]");
+
+        JsonNode run = runOf(projectId, runId);
+        JsonNode result = outcomeFor(run.get("outcomes"), dpWorld);
+        assertThat(result.get("outcome").asText()).isEqualTo("FAILED");
+        assertThat(result.get("bought").asInt()).isEqualTo(2);
+        assertThat(run.get("profilesBought").asInt()).isEqualTo(2);
+        assertThat(db.queryForList("select units from app_lm_usage_event where project_id = ?::uuid and kind = ?",
+                Integer.class, projectId, "SOURCING_RUN")).containsExactly(2);
     }
 
     private JsonNode postJson(String url, String json) throws Exception {

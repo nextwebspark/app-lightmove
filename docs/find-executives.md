@@ -70,6 +70,11 @@ company being searched side by side reads so, the rest *Next in line*), then its
 time left reads *Usually a minute or two* until a company has finished, then is judged from how long that took —
 rounded, never a percentage. Closing the panel does not stop the search. A company the running search has not finished
 — or has finished, before its results are read back — never shows its older results.
+Stop sets the run's stop without bumping its version, so a company finishing at the same moment never turns into a
+failure, and Stop is not offered while a new search is still starting. A company that fails part-way still counts the
+profiles it had bought toward fair use and the audit. Someone added to the suppression list after a search drops out
+of its results the next time they are read, as well as being withheld from Add. Only the ticked people on screen count
+toward *N selected* and are sent by Add.
 
 - **Level tabs** filter what was found, on the client and for free.
 - **Each company** lists the people who fit, best first:

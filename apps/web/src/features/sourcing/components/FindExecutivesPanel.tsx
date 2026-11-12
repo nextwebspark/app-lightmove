@@ -228,7 +228,7 @@ export function FindExecutivesPanel({
   const searchable = hasWords(criteria.criteria);
   function phaseOf(): SearchPhase {
     if (criteria.drafting) return { kind: "drafting", step: draftingStep };
-    if (run && sourcing.isRunning) {
+    if (run && sourcing.isRunning && !sourcing.isStarting) {
       return {
         kind: "searching",
         run,

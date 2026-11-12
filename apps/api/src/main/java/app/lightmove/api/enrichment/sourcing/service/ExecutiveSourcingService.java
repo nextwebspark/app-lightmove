@@ -106,10 +106,14 @@ public class ExecutiveSourcingService {
     public ExecutiveSourcingRunResponse stop(UUID workspaceId, UUID projectId, UUID runId) {
         ExecutiveSourcingRun run = runs.findByIdAndWorkspaceIdAndProjectId(runId, workspaceId, projectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-        if (run.requestStop()) {
-            stream.publish(projectId, ProjectStreamKind.EXECUTIVE_SOURCING);
+        if (!SourcingRunStatus.IN_PROGRESS.contains(run.getStatus())) {
+            return ExecutiveSourcingRunResponse.of(run);
         }
-        return ExecutiveSourcingRunResponse.of(run);
+        runs.markStopRequested(runId, Instant.now(), SourcingRunStatus.IN_PROGRESS);
+        stream.publish(projectId, ProjectStreamKind.EXECUTIVE_SOURCING);
+        return runs.findByIdAndWorkspaceIdAndProjectId(runId, workspaceId, projectId)
+                .map(ExecutiveSourcingRunResponse::of)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
     @Transactional(readOnly = true)

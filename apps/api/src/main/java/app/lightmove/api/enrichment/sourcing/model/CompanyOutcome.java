@@ -22,6 +22,18 @@ public record CompanyOutcome(UUID triageCompanyId, String companyName, SourcingO
                 0, 0);
     }
 
+    /** A company whose search failed part-way, keeping the profiles it had bought and read free. */
+    public static CompanyOutcome failed(SourcingCompany company, int vendorHits, int cachedHits) {
+        return new CompanyOutcome(company.triageCompanyId(), company.companyName(), SourcingOutcome.FAILED, vendorHits,
+                cachedHits, null, 0, 0, 0, 0, 0, 0);
+    }
+
+    /** The same company read as failed — its results unsaved — with what it spent kept. */
+    public CompanyOutcome asFailed() {
+        return new CompanyOutcome(triageCompanyId, companyName, SourcingOutcome.FAILED, vendorHits, cachedHits, matched,
+                0, 0, 0, 0, indexFound, titleChecks);
+    }
+
     /** A company searched: what was found, judged, and what finding it cost. */
     public static CompanyOutcome searched(SourcingCompany company, FoundPeople found, List<Suggestion> judged) {
         int fits = count(judged, SuggestionVerdict.FITS);

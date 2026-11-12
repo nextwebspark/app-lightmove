@@ -62,11 +62,15 @@ public class CompanySearch {
         }
         Spend spend = new Spend(progress);
         spend.reached(SourcingStage.LOOKING, 0, 0);
-        if (live.isOffered()) {
-            buyLive(employer, words, seat, countryCodes, profiles, spend);
-        }
-        if (index.isOffered() && !words.roleWords().isEmpty()) {
-            checkIndex(employer, words, countryCodes, spend);
+        try {
+            if (live.isOffered()) {
+                buyLive(employer, words, seat, countryCodes, profiles, spend);
+            }
+            if (index.isOffered() && !words.roleWords().isEmpty()) {
+                checkIndex(employer, words, countryCodes, spend);
+            }
+        } catch (RuntimeException failed) {
+            throw new CompanySearchFailure(spend.credits, spend.cached, failed);
         }
         return new FoundPeople(List.copyOf(spend.found.values()), spend.credits, spend.cached, spend.matched,
                 spend.indexFound, spend.indexSearches, spend.titleChecks);
