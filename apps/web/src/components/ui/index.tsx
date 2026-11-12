@@ -29,17 +29,8 @@ export {
 export { ToastProvider, useToast, type ToastFn } from "./Toast";
 
 /**
- * The handful of primitives every auth screen is built from.
- *
- * Each is a direct transcription of the mockups' inline styles into Tailwind utilities over the same
- * tokens, so a screen assembled from these matches the design without anyone eyeballing it.
- *
- * One file, because there are six of them and they are only meaningful together. When this grows past
- * a screenful, split it — not before.
- *
- * Every `className` goes through {@link cn}, so a caller can override any default. Concatenating
- * instead would let the stylesheet's ordering decide who wins, and it does not decide in the caller's
- * favour: an invite row asking for a 130px select got a full-width one.
+ * The primitives every auth screen is built from, transcribed from the mockups. Every `className` goes through
+ * {@link cn}, since stylesheet order otherwise decides overrides (a 130px select came out full-width).
  */
 
 // ── Button ──────────────────────────────────────────────────────────────────

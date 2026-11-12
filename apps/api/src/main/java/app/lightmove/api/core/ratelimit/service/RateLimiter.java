@@ -3,12 +3,8 @@ package app.lightmove.api.core.ratelimit.service;
 import java.time.Duration;
 
 /**
- * Port for "may this caller do this again yet?".
- *
- * <p>An interface rather than a direct Bucket4j call because the current implementation holds its
- * buckets in local memory, which is correct for exactly one instance. The moment a second instance
- * runs, each holds its own counters and the effective limit silently doubles. Swapping in a
- * Redis-backed implementation then changes one {@code @Bean} and nothing else.
+ * Port for "may this caller do this again yet?". The buckets are in local memory — correct for one instance only;
+ * a second doubles the limit, so a Redis-backed bean is the swap.
  */
 public interface RateLimiter {
 

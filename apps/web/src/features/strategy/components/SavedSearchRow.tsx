@@ -12,12 +12,8 @@ const ROW_INPUT =
   "w-full rounded-[7px] border border-u-border-strong bg-u-raised px-2.5 py-[7px] font-sans text-[13px] text-u-text outline-none focus:border-u-text3";
 
 /**
- * One saved search in the dropdown: load it, rename it, re-capture the current filter onto it, move
- * it between tiers, or delete it.
- *
- * <p>Renaming is state this row owns rather than the menu's, so closing the popover discards a
- * half-typed name with it — a menu that reopened into an editor for a row the reader had moved on
- * from was the alternative.
+ * One saved search in the dropdown: load, rename, re-capture, move tier, delete. Rename state is the row's, so
+ * closing the popover discards a half-typed name.
  */
 export function SavedSearchRow({
   search,

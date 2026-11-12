@@ -64,12 +64,8 @@ const EXCLUDED_TAG = "not:";
 const BOOLEAN_HINT = "AND, OR and NOT in capitals combine terms: (CFO OR \"Finance Director\") NOT Assistant";
 
 /**
- * The People rail: ContactOut's People Search filter, in its own dashboard's order, over the same
- * accordion the company rail uses. Only parameters ContactOut's API reference lists are offered —
- * its dashboard's Revenue, Gender and saved exclude lists have no API behind them.
- *
- * <p>The count at the top is free and live; the Search button at the foot is not, which is why the
- * results never follow a chip click the way the company grid does.
+ * The People rail: ContactOut's People Search filter in its dashboard's order, only parameters its API lists. The count
+ * is free and live; Search is not, so results never follow a chip click.
  */
 export function PeopleFilterSidebar({
   facets,

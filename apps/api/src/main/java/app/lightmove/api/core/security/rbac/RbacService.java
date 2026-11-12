@@ -7,12 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * Catalog lookups — the bridge from code-side role names to the seeded {@link Role} rows that
- * assignments actually reference.
- *
- * <p>A missing row is an {@link IllegalStateException}, not an {@code ApiException}: the catalog is
- * seeded by migration, so its absence is a broken deployment, never a user mistake.
- * {@code RbacCatalogTest} makes that a red build instead of a runtime surprise.
+ * Catalog lookups from code-side role names to seeded {@link Role} rows. A missing row is an
+ * {@link IllegalStateException} — a broken deployment, never a user mistake; {@code RbacCatalogTest} catches it.
  */
 @Service
 @RequiredArgsConstructor

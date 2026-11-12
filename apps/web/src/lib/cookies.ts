@@ -1,10 +1,6 @@
 /**
- * Reading and writing the cookies this app owns from script.
- *
- * Only ever non-secret, non-session values. The two cookies that matter for auth — the refresh token
- * and the session — are `httpOnly` and deliberately invisible here: that is what stops a compromised
- * dependency walking away with a credential. Nothing in this module can reach them, and nothing
- * should be added that tries.
+ * Script-owned cookies: non-secret values only. The auth cookies are `httpOnly` and must stay out of reach
+ * of this module.
  */
 
 /** The value, or null when the cookie is absent. */
@@ -14,12 +10,8 @@ export function readCookie(name: string): string | null {
 }
 
 /**
- * Writes a first-party cookie scoped to the whole site.
- *
- * `SameSite=Lax` rather than `Strict` because the one caller — the OAuth popup handshake — needs the
- * cookie sent on the top-level navigation *back* from the identity provider, which is cross-site.
- * Never `Secure` unconditionally: local development is plain http, and a Secure cookie is dropped
- * there, so it follows the page's own protocol.
+ * A site-wide first-party cookie. `SameSite=Lax` so the OAuth popup's cross-site return carries it;
+ * `Secure` follows the page's protocol, since local dev is plain http.
  */
 export function writeCookie(name: string, value: string, maxAgeSeconds: number): void {
   const attributes = [

@@ -5,13 +5,8 @@ import { BRIEF_LIMITS } from "../lib/briefLimits";
 import { Eyebrow, UnderlineField } from "./BriefFields";
 
 /**
- * Where the role sits, in two halves: the city as free text, the country from the served vocabulary
- * every other country box in the app reads — so the brief spells a country exactly as the mandate's
- * companies and executives do, and the Strategy filter can compare them. Free text survives in both.
- *
- * Each half carries its own provenance glyph, because each is filled on its own: a document naming
- * only "Saudi Arabia" fills the country and leaves the city for a person, and undoing one half must
- * not disturb the other.
+ * The role's location: city as free text, country from the shared vocabulary (so Strategy can compare). Each half
+ * has its own provenance glyph, since a document may fill one and undoing it must not touch the other.
  */
 export function LocationFields({
   city,

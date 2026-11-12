@@ -18,16 +18,8 @@ export class PageReadError extends Error {
 const SETTLE_BURST_MS = 150;
 
 /**
- * What is on the page the consultant is looking at — the person, the company, and which of the two it
- * is about. One read feeds both tabs, and it follows the tab rather than freezing on whichever page
- * the toolbar gesture landed on.
- *
- * <b>The page key is the whole design.</b> The read is cached under the identity of the page it
- * describes, so the moment the address bar moves there is no entry for the new page and `data` is
- * `undefined` on that same render — the previous profile cannot be on screen while the next one is
- * read, and an answer for the page just left resolves into an entry nothing renders. The mask this
- * replaced could be cleared by whichever refetch happened to finish first, which is what made the
- * previous profile flash back.
+ * The page the consultant is looking at, cached under the page's identity: when the address changes `data` is
+ * `undefined` on that render, so the previous profile can never flash back (the mask this replaced could be cleared by a stale refetch).
  */
 export function useActivePage() {
   const [pageKey, setPageKey] = useState<string | null>(null);

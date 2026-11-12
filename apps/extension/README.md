@@ -23,7 +23,7 @@ the manual form captures** — adding one is a change to both, and a story of it
 This extension adds **no triage code and no candidate code**. The only thing it needed that did not
 exist is a session of its own, which is the pairing flow below.
 
-Design source of truth: `claude-design/Extension.dc.html` and `Extension.handoff.md`.
+Design source of truth: `uncava-design/Extension.dc.html` and `Extension.handoff.md`.
 Coding standard: `.claude/skills/chrome-extension/SKILL.md` — read it before changing anything here.
 
 ## Running it

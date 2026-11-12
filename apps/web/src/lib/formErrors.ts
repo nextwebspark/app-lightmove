@@ -2,16 +2,9 @@ import { ApiRequestError } from "./apiClient";
 import { messageFor } from "./errorCodes";
 
 /**
- * Splits a failed write into the messages that belong to a field and the one that belongs to the form.
- *
- * `Field`'s `error` renders inline, next to the input the user has to change; `FormError` is the
- * banner for a failure no single input owns — a conflict, a refusal, an unreachable server. A server
- * `VALIDATION_FAILED` already names the field it rejected, so sending it to the banner throws that
- * away and leaves "One or more fields are invalid" pointing at nothing.
- *
- * `serverFieldNames` maps a server field name onto this form's. Row indices are stripped before the
- * lookup, so one `requests.email` entry answers `requests[0].email` and `requests[7].email` alike and
- * a form posting many rows to one endpoint needs no entry per row.
+ * Splits a failed write into per-field messages (inline) and one form-level banner; a `VALIDATION_FAILED` keeps its
+ * field. `serverFieldNames` maps server names to this form's, row indices stripped (`requests[7].email` →
+ * `requests.email`).
  */
 export function fieldErrorsFrom<Name extends string>(
   error: unknown,

@@ -29,12 +29,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Writes a template's content onto a brief, for both seeding and a later re-pick, so both end up with
- * the same brief. What the template carries replaces the brief's own and is stamped {@code TEMPLATE};
- * what it leaves blank keeps the brief's value and that value's provenance, so a re-pick never wipes a
- * typed department or bonus, nor turns a typed field back into one a document reading may overwrite.
- * Figures keep the currency and period they were typed in, and every merged list stays within what the
- * brief's own write accepts, or the step could never be saved again.
+ * Writes a template onto a brief, for seeding and a re-pick alike: what it carries replaces and is stamped
+ * {@code TEMPLATE}; what it leaves blank keeps the brief's value and provenance. Merged lists stay within what the
+ * step's write accepts, or the step could never be saved again.
  */
 final class PositionTemplateApplier {
 
@@ -84,7 +81,7 @@ final class PositionTemplateApplier {
                         "noticeValue", templateStatesNotice,
                         "noticeUnit", templateStatesNotice && body.noticeUnit() != null))));
 
-        position.applyCompensation(compensationOf(position, body));
+        position.applyCompensation(compensationOf(position, template));
 
         position.replaceCriteria(draftedCriteria(position, body));
         if (!body.competencies().isEmpty()) {
@@ -98,13 +95,16 @@ final class PositionTemplateApplier {
     /**
      * A figure keeps the currency it was typed in, and a band its period: re-picking a template once relabelled
      * a monthly SAR band as the same numbers in annual AED, a twelfth of the package on the client's report.
+     * The shared library's currency is nobody's choice, so the workspace's stands; a firm's own template's is.
      */
-    private static CompensationPackage compensationOf(Position position, PositionTemplateBody body) {
+    private static CompensationPackage compensationOf(Position position, PositionTemplate template) {
+        PositionTemplateBody body = template.getBody();
+        boolean briefKeepsCurrency = holdsMoney(position) || template.isSharedLibrary();
         boolean bandTyped = position.getSalaryMin() != null || position.getSalaryMax() != null;
         boolean templateStatesBonus = body.bonusValue() != null || body.bonusBasis() != null;
         boolean incentiveTyped = position.getIncentiveAmount() != null;
         return new CompensationPackage(
-                holdsMoney(position) ? position.getCurrency() : body.currency(),
+                briefKeepsCurrency ? position.getCurrency() : body.currency(),
                 position.getSalaryMin(), position.getSalaryMax(),
                 bandTyped ? position.getBaseSalaryMode() : body.baseSalaryMode(),
                 templateStatesBonus ? body.bonusValue() : position.getBonusValue(),

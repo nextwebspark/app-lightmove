@@ -31,20 +31,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Deletes everything a deleted workspace held once its grace period is over (#926): every row of every table carrying
- * its id but the audit trail and billing records ({@link WorkspacePurgeTables}), then every file under {@code ws/{id}/},
- * leaving the workspace row a tombstone and a deletion certificate, audited and emailed to whoever deleted it.
- *
- * <p>A workspace is claimed on {@code app_lm_workspace}, which carries no policy, by a lease committed before any work
- * and renewed with every batch, so two instances never purge one and a purge whose instance died is resumed after the
- * lease by the next. All the work runs inside the workspace's {@code WorkspaceScope} and in batches of their own
- * transactions; the certificate's counts are taken at the first attempt and checked against an empty workspace at the
- * last, so a purge that left a row behind fails rather than certifying it.
- *
- * <p>A contributor that could not yet release what it holds outside the database fails the attempt, keeping the rows
- * that are its only way back for the next, up to {@link #RELEASE_PATIENCE} after the purge first began. The
- * certificate's email is owed until the mail service accepts it, and asked again every pass for
- * {@link #NOTICE_PATIENCE}.
+ * Purges a deleted workspace after its grace period (#926): every table but {@link WorkspacePurgeTables}' retained ones,
+ * then files under {@code ws/{id}/}, leaving a tombstone and an emailed certificate. Claimed by a lease committed before
+ * any work; a contributor still holding something fails the attempt, retried until {@link #RELEASE_PATIENCE}.
  */
 @Slf4j
 @Component

@@ -20,18 +20,9 @@ import { ACCEPT_INVITE_PATH } from "../homeFor";
 import { isDeadInvitation } from "../invitationLabel";
 
 /**
- * Where an invitation lands — and, since membership is invitation-only, the only door into an existing
- * workspace.
- *
- * <p>The common arrival is a stranger with a token and no account: they set a name and a password right
- * here and are in immediately, with <b>no email-verification step</b>. The invitation token, mailed only
- * to the invited address, is the proof of the mailbox that verification would otherwise establish, so the
- * account is created already verified. The address is the invitation's, shown read-only — never theirs to
- * choose, because acceptance is bound to the invited address and an account created under a different one
- * would only be refused.
- *
- * <p>Someone who already has an account is handled too: a token arrival whose address already exists is
- * told to log in, and a signed-in invitee accepts with one click.
+ * Where an invitation lands — the only door into an existing workspace. A new account is created already verified (the
+ * token, mailed only to the invited address, proves the mailbox), the address read-only since acceptance is bound to it.
+ * An existing account is told to log in; a signed-in invitee accepts in one click.
  */
 export function AcceptInvitePage() {
   const [params] = useSearchParams();

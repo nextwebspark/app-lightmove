@@ -39,12 +39,9 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * One Recall calendar per direct mailbox, while its workspace syncs calendars through Recall: made when the mailbox
- * connects, handed the new refresh token when it reconnects, deleted when it disconnects, loses access, or its
- * workspace moves to {@code DIRECT}. Recall is called outside any transaction; a call that fails leaves the row
- * without a calendar, and the reply poll makes it again. Recall reporting a calendar {@code disconnected} is a refresh
- * the provider refused, and marks the mailbox for reconnecting; Recall reporting its events synced is a read of what
- * changed, kept as meetings exactly as a direct read would be.
+ * One Recall calendar per direct mailbox on Recall sync: made on connect, re-keyed on reconnect, deleted on disconnect,
+ * lost access or a move to {@code DIRECT}. Called outside any transaction; a failed create is retried by the reply poll.
+ * Recall's {@code disconnected} marks the mailbox for reconnecting; its synced events are read as a direct read would be.
  */
 @Component
 @Slf4j

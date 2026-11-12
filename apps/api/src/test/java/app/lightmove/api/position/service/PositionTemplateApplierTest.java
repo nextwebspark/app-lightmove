@@ -42,7 +42,7 @@ class PositionTemplateApplierTest {
     @Test
     @DisplayName("a typed band keeps its currency and period, and a typed incentive its type")
     void figuresKeepTheirUnits() {
-        Position position = Position.forProject(UUID.randomUUID(), "Saudi Arabia");
+        Position position = Position.forProject(UUID.randomUUID(), "Saudi Arabia", "AED");
         position.applyCompensation(new CompensationPackage("SAR", 40_000L, 50_000L, BaseSalaryMode.MONTHLY,
                 null, null, IncentiveType.RSU, 200_000L, null, List.of()));
 
@@ -58,11 +58,11 @@ class PositionTemplateApplierTest {
     }
 
     @Test
-    @DisplayName("a brief with no figures takes the template's currency and period")
-    void anEmptyPackageTakesTheTemplatesUnits() {
-        Position position = Position.forProject(UUID.randomUUID(), null);
+    @DisplayName("a brief with no figures takes a firm's own template's currency")
+    void anEmptyPackageTakesTheFirmsTemplateCurrency() {
+        Position position = Position.forProject(UUID.randomUUID(), null, "AED");
 
-        PositionTemplateApplier.applyTo(position, template(body("Group Finance", "USD", null, null, List.of(), 0)));
+        PositionTemplateApplier.applyTo(position, firmTemplate(body("Group Finance", "USD", null, null, List.of(), 0)));
 
         assertThat(position.getCurrency()).isEqualTo("USD");
         assertThat(position.getDepartment()).isEqualTo("Group Finance");
@@ -70,9 +70,20 @@ class PositionTemplateApplierTest {
     }
 
     @Test
+    @DisplayName("the shared library's currency never replaces the workspace's")
+    void aLibraryTemplateLeavesTheWorkspaceCurrency() {
+        Position position = Position.forProject(UUID.randomUUID(), null, "SAR");
+
+        PositionTemplateApplier.applyTo(position, template(body("Group Finance", "AED", null, null, List.of(), 0)));
+
+        assertThat(position.getCurrency()).isEqualTo("SAR");
+        assertThat(position.getDepartment()).isEqualTo("Group Finance");
+    }
+
+    @Test
     @DisplayName("what the template leaves blank keeps the brief's value, and every kept field its mark")
     void blanksKeepTypedValuesAndTheirProvenance() {
-        Position position = Position.forProject(UUID.randomUUID(), null);
+        Position position = Position.forProject(UUID.randomUUID(), null, "AED");
         position.applyDetails(new PositionDetails("Group Finance", "Riyadh", "Saudi Arabia",
                 EmploymentType.FULL_TIME_PERMANENT, Seniority.C_SUITE, List.of(), "Typed narrative",
                 Map.of("department", FieldSource.MANUAL, "locationCity", FieldSource.MANUAL,
@@ -104,7 +115,7 @@ class PositionTemplateApplierTest {
     @Test
     @DisplayName("merged lists stay within what a save of their step accepts, the template giving way first")
     void mergedListsStayWithinTheStepsCeilings() {
-        Position position = Position.forProject(UUID.randomUUID(), null);
+        Position position = Position.forProject(UUID.randomUUID(), null, "AED");
         List<PositionPriority> own = IntStream.range(0, 15)
                 .mapToObj(index -> PositionPriority.of("Own " + index, true, FieldSource.MANUAL))
                 .toList();
@@ -127,7 +138,7 @@ class PositionTemplateApplierTest {
     @Test
     @DisplayName("a palette's case duplicates are drafted once, and an earlier template's unlit ones go")
     void palettesNeitherDuplicateNorPileUp() {
-        Position position = Position.forProject(UUID.randomUUID(), null);
+        Position position = Position.forProject(UUID.randomUUID(), null, "AED");
         position.applyContext(new MandateContext(MandateReason.NEW_ROLE, null, List.of(
                 PositionPriority.of("Old template, unlit", false, FieldSource.TEMPLATE),
                 PositionPriority.of("Old template, lit", true, FieldSource.TEMPLATE)), false, null, Map.of()));
@@ -142,7 +153,7 @@ class PositionTemplateApplierTest {
     @Test
     @DisplayName("a re-pick's benefits replace the old list; a template with none leaves typed benefits alone")
     void benefitsAreLeftAloneByATemplateWithNone() {
-        Position position = Position.forProject(UUID.randomUUID(), null);
+        Position position = Position.forProject(UUID.randomUUID(), null, "AED");
         position.applyCompensation(new CompensationPackage("AED", null, null, BaseSalaryMode.ANNUAL, null, null,
                 null, null, null, List.of(PositionBenefit.of("Housing", 10_000L, BenefitFrequency.MONTHLY,
                         FieldSource.MANUAL))));
@@ -166,8 +177,15 @@ class PositionTemplateApplierTest {
     }
 
     private static PositionTemplate template(PositionTemplateBody body) {
-        return PositionTemplate.forLibrary("chief-financial-officer", new PositionTemplateDraft(
-                "Chief Financial Officer", PositionDiscipline.FINANCE, Seniority.C_SUITE, null, List.of("cfo"),
-                body).normalised(), 0, null);
+        return PositionTemplate.forLibrary("chief-financial-officer", draftOf(body), 0, null);
+    }
+
+    private static PositionTemplate firmTemplate(PositionTemplateBody body) {
+        return PositionTemplate.ownedBy(UUID.randomUUID(), "chief-financial-officer", draftOf(body), null);
+    }
+
+    private static PositionTemplateDraft draftOf(PositionTemplateBody body) {
+        return new PositionTemplateDraft("Chief Financial Officer", PositionDiscipline.FINANCE, Seniority.C_SUITE,
+                null, List.of("cfo"), body).normalised();
     }
 }

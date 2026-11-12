@@ -1,41 +1,9 @@
 import { deleteCookie, readCookie, writeCookie } from "../../lib/cookies";
 
 /**
- * Sign-in with an identity provider, run in a popup window.
- *
- * Both ends of the handshake live here on purpose. The opener and the page the provider sends the
- * popup back to have to agree on a channel, a message shape and a nonce, and splitting that across
- * two files is how one end quietly stops matching the other.
- *
- * ## Why a popup
- *
- * A full-page redirect unloads the app. Someone who reaches the provider's consent screen and thinks
- * better of it comes back to a login page carrying an error banner, having lost whatever they had on
- * screen — a deliberate "not now" presented as a fault. In a popup the app never unloads: the window
- * closes and the page underneath is exactly as they left it.
- *
- * A redirect is still the fallback, because a blocked popup must never be a dead end.
- *
- * ## What crosses the channel
- *
- * An outcome, and never a credential. The server has already set the httpOnly refresh cookie by the
- * time the popup lands, so the opener mints its access token the same way a cold page load does —
- * see `AuthProvider.adoptRestoredSession`. The access token the server also puts in the popup's URL
- * fragment is scrubbed and discarded unread. That keeps "the access token lives in JS memory only"
- * true without qualification, and means a stray listener on the channel learns nothing worth having.
- *
- * ## Why two channels
- *
- * `window.opener.postMessage` is the standard mechanism and the one that normally carries the
- * outcome. It has a silent failure mode: a `Cross-Origin-Opener-Policy` anywhere in the round trip
- * can sever `window.opener`, and the popup then has no way to say so — the button would hang on
- * "Connecting…" forever. A `BroadcastChannel` is same-origin by construction and survives that, so
- * the outcome goes out on both and whichever arrives first wins.
- *
- * Broadcasting reaches *every* tab of this app, so an outcome has to be tied back to the attempt
- * that asked for it. `postMessage` is tied exactly, by the window handle we opened. The broadcast
- * has no such handle and leans on the handshake id, which is why that id is kept where the tab that
- * minted it can be told apart from any other — see {@link HANDSHAKE_COOKIE}.
+ * Provider sign-in in a popup, falling back to a redirect when blocked; both handshake ends live here so they agree.
+ * Only an outcome crosses, never a credential (the opener mints from the refresh cookie; the fragment's token is dropped).
+ * Sent on postMessage and a BroadcastChannel (a COOP can sever `window.opener`); the handshake id ties each to its attempt.
  */
 
 /** Identifies our messages on a channel we do not exclusively own. */
@@ -44,22 +12,8 @@ const OAUTH_OUTCOME_MESSAGE = "lightmove.oauth.outcome";
 const BROADCAST_CHANNEL_NAME = "lightmove.oauth";
 
 /**
- * Tells the page the provider redirects to that it is running inside a popup, and which attempt it
- * belongs to. A nonce, never a credential.
- *
- * It is kept in **two** places, and the pairing is the point.
- *
- * `sessionStorage` is scoped to one browsing context and a popup opened with `window.open` inherits
- * a copy of its opener's, so a popup reads the id of the attempt that actually opened it even while
- * another tab is running an attempt of its own. That is the property a cookie cannot give: cookies
- * are per *origin*, so two tabs signing in at once would overwrite one another and each popup would
- * read back whichever id was written last — the first tab hanging on a sign-in that in fact
- * succeeded, the second adopting an outcome it never asked for.
- *
- * The cookie is the fallback, because it is the only carrier guaranteed to survive the cross-origin
- * hop under every browsing-context rule: a `Cross-Origin-Opener-Policy` in the round trip can swap
- * the browsing context group, and a popup that comes back in a fresh context has lost the inherited
- * `sessionStorage` along with its opener.
+ * The popup's handshake nonce, kept twice: `sessionStorage` (inherited by the popup and per tab, so concurrent tabs don't
+ * overwrite each other as a per-origin cookie would) and this cookie, the fallback when a COOP swaps the browsing context.
  */
 const HANDSHAKE_COOKIE = "lm_oauth_popup";
 const HANDSHAKE_STORAGE_KEY = "lightmove.oauth.handshake";
@@ -105,14 +59,8 @@ export function authorizationUrl(providerId: string): string {
 }
 
 /**
- * Opens the provider's consent screen in a popup and reports what came of it.
- *
- * Returns a function that abandons the attempt — stops listening and stops polling, leaving any open
- * popup alone. Call it when the component unmounts, or none of the handlers will outlive the page
- * they belong to.
- *
- * Falls back to a full-page redirect when the browser blocks the popup, in which case no handler is
- * ever called: this document is on its way out.
+ * Opens the provider's consent popup; returns an abandon function to call on unmount. A blocked popup falls back to a
+ * full-page redirect, and then no handler is ever called.
  */
 export function startOAuthSignIn(providerId: string, handlers: OAuthSignInHandlers): () => void {
   const url = authorizationUrl(providerId);
@@ -212,14 +160,8 @@ function listenForOutcome(popup: Window, handshakeId: string, handlers: OAuthSig
 }
 
 /**
- * The handshake id this document was opened under, consumed — an attempt is answered once, and a
- * handshake left behind would make the *next* full-page sign-in believe it is a popup.
- *
- * The tab-scoped copy is preferred: it belongs to the attempt that opened *this* window, where the
- * cookie only ever holds whichever attempt wrote last. The cookie answers when the browsing context
- * was swapped on the way back and took the inherited storage with it.
- *
- * Null when this is an ordinary redirect sign-in, which is the signal to behave as we always have.
+ * The handshake id this document was opened under, consumed (a leftover would make the next redirect sign-in think it is
+ * a popup). The tab-scoped copy first, the cookie when the context was swapped; null for an ordinary redirect sign-in.
  */
 export function takeHandshakeId(): string | null {
   const handshakeId = readSessionValue(HANDSHAKE_STORAGE_KEY) ?? readCookie(HANDSHAKE_COOKIE);

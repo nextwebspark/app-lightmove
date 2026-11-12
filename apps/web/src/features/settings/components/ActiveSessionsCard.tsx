@@ -12,12 +12,8 @@ const DEVICE_ICONS: Record<DeviceKind, string> = {
 };
 
 /**
- * The mockup's active-sessions card: every signed-in device, with the caller's own marked and the
- * rest revocable.
- *
- * A refused read renders as an error and never as an empty list. "You have no other sessions" is a
- * statement of fact about the account's security, and stating it because a request failed is worse
- * than saying nothing.
+ * Every signed-in device, the caller's own marked and the rest revocable. A failed read renders as an error, never
+ * as "no other sessions" — a false security statement.
  */
 export function ActiveSessionsCard({
   sessions,

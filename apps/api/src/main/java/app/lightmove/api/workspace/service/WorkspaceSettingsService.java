@@ -70,6 +70,7 @@ public class WorkspaceSettingsService {
                 .actor(actorId).workspace(workspaceId).from(request)
                 .detail("name", workspace.getName())
                 .detailIfPresent("apolloAccountId", workspace.getApolloAccountId())
+                .detail("defaultCurrency", workspace.getDefaultCurrency())
                 .record();
 
         return detail(workspace);
@@ -130,6 +131,12 @@ public class WorkspaceSettingsService {
     @Transactional(readOnly = true)
     public CalendarSync calendarSyncOf(UUID workspaceId) {
         return requireWorkspace(workspaceId).getCalendarSync();
+    }
+
+    /** What a new brief and a new package start in; {@code position} reads it when it drafts a brief. */
+    @Transactional(readOnly = true)
+    public String defaultCurrencyOf(UUID workspaceId) {
+        return requireWorkspace(workspaceId).getDefaultCurrency();
     }
 
     /** The firm's country as signup or Settings picked it, or null; {@code outreach} reads its working week from it. */

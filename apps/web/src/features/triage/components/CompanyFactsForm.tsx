@@ -64,17 +64,8 @@ const EMPTY_FACTS: CompanyFactsValues = {
 const FACETS_STALE_MS = 10 * 60 * 1000;
 
 /**
- * A company's own facts, as a form — the mandate's hand-typed company being added, and the same
- * company being corrected later.
- *
- * <p>Only ever for a company the mandate supplied itself. A row taken from the market carries the
- * export's snapshot, which the export refreshes and the server refuses to let a mandate rewrite; that
- * company is added by its universe id and never through this.
- *
- * <p><b>Sector and Country are the market's own vocabulary</b>, not free text: they are the industry
- * taxonomy and the country list the Strategy filter is expressed in, so a company typed in by hand
- * files under the same names as the 71,822 the filter searches. A hand-typed "industrial mfg" would
- * read the same to a person and match nothing the filter can ask for.
+ * A hand-typed company's facts, added or corrected — never a market row, whose snapshot a mandate may not rewrite.
+ * Sector and Country use the market's vocabulary so the company files under names the Strategy filter matches.
  */
 export function CompanyFactsForm({
   company,
@@ -256,14 +247,8 @@ export function CompanyFactsForm({
 }
 
 /**
- * One field the market's vocabulary answers for, bound to the form.
- *
- * <p>A `Controller` rather than a `register`, because the picker is not a control the DOM hands a
- * value back from — and because the fallback when the facets read failed is a plain input, so both
- * shapes live behind one field name instead of two registrations that could disagree.
- *
- * <p>That fallback is deliberate: both fields are optional, and refusing to take a company at all
- * because a reference list would not load helps nobody.
+ * One vocabulary-backed field: a `Controller` so the picker and its plain-input fallback (when the facets read fails —
+ * both fields are optional) share one field name.
  */
 function VocabularyField({
   name,

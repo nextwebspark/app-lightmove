@@ -35,13 +35,8 @@ export function sortableFieldsOf(
 }
 
 /**
- * Which column a grid is sorted by, remembered per scope in `localStorage`, beside the column
- * layout it belongs with. The filter is the server's and survives a navigation; a sort that resets
- * while the filter holds makes the same screen come back half-remembered.
- *
- * <p>`fields` is the allowlist, and it is checked on read for a reason: a field dropped from the API
- * since the value was written would be a 400 on every page load, from a stored preference the user
- * has no way to see or clear.
+ * A grid's sort column, in `localStorage` per scope. `fields` is checked on read, or a field dropped from the API would
+ * 400 every load from a preference the user cannot see.
  */
 export function useGridSort<TField extends string>(
   namespace: string,

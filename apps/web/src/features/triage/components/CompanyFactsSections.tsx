@@ -19,12 +19,8 @@ export interface CompanyFacts {
 }
 
 /**
- * A company's own facts, read-only — what the panel shows for a company the mandate holds, and what
- * the Add form shows for one still being picked out of the market.
- *
- * <p>One component for both, because they are the same company either side of the decision to take
- * it. Two would let the preview and the panel describe it differently, which is the one thing a
- * consultant comparing them would read as the record having changed.
+ * A company's own facts, read-only — one component for the held company's panel and the Add form's preview, so the two
+ * never describe the same company differently.
  */
 export function CompanyFactsSections({
   company,

@@ -19,14 +19,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * Which tables a workspace's purge empties, read off the schema rather than a list someone keeps: every {@code app_lm_}
- * table with a {@code workspace_id} but those {@link #RETAINED}, so a table added later is purged without anyone
- * remembering to. A table without one is a child, and goes by its parent's cascade. They are emptied children first —
- * a {@code RESTRICT} reference (a candidate's status, a status's stage, a run's sequence) refuses its parent's delete
- * while a child still names it — so the order is the foreign keys', walked through the tables in between.
- *
- * <p>Every read and delete here filters on the workspace and runs inside its {@code WorkspaceScope}; a count taken
- * outside one reads zero under row-level security and would certify a purge that never happened.
+ * The tables a purge empties, read off the schema: every {@code app_lm_} table with {@code workspace_id} but {@link #RETAINED},
+ * children first in foreign-key order since {@code RESTRICT} refs refuse a parent's delete. Everything runs inside the
+ * {@code WorkspaceScope}: a count outside one reads zero under RLS and would certify a purge that never happened.
  */
 @Slf4j
 @Component

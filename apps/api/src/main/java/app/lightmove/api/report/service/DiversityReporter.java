@@ -20,12 +20,8 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
- * Chapter four. Nationality is counted under one spelling per group, by seniority, with the tail
- * folded into "Other" past the cap and the Gulf nationals totalled — the figure a localisation
- * quota is measured against.
- *
- * <p>Gender is counted the same way and only where a researcher recorded it. Nothing here reads a
- * name, so a mandate that has recorded none is reported as unmeasured rather than as all-male.
+ * Chapter four: nationality by group and seniority, the tail folded into "Other" past the cap and Gulf nationals totalled.
+ * Gender only where recorded and never read off a name, so a mandate recording none reads as unmeasured.
  */
 @Component
 class DiversityReporter {

@@ -71,15 +71,8 @@ interface AuthContextValue {
   /** Adopts a session established elsewhere — the OAuth callback, after a full-page redirect. */
   adopt: (token: string, user: User) => void;
   /**
-   * Adopts a session the server established for us in another window, and answers who it belongs to.
-   *
-   * This is the popup sign-in's landing point. The popup is handed an access token in its URL and
-   * throws it away unread: the refresh cookie the server set alongside it is the whole session, and
-   * exchanging that here keeps the access token in this tab's memory and nowhere else — no
-   * credential ever crosses the message channel between the two windows.
-   *
-   * Answers null when there is no session to adopt, which is what a popup reporting success it did
-   * not have would look like.
+   * Adopts a session the server set in another window (the popup sign-in): the popup discards its token and only the
+   * refresh cookie is exchanged here, so no credential crosses the message channel. Null when there is none to adopt.
    */
   adoptRestoredSession: () => Promise<User | null>;
 }
@@ -103,18 +96,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const startFreshSession = useCallback(() => queryClient.clear(), [queryClient]);
 
   /**
-   * Restore the session on boot.
-   *
-   * The access token died with the page; the httpOnly refresh cookie did not. Exchanging it here is
-   * what makes a hard refresh keep you signed in — the entire reason the token is allowed to be
-   * memory-only in the first place.
-   *
-   * <p>Never inside a sign-in popup. The popup closes the moment it reports back, cancelling a refresh
-   * the server has already rotated, so the opener's own refresh presented the spent token, read as
-   * reuse, and revoked the session it had just signed in. Read at render: the callback page consumes
-   * the handshake in its own effect, which runs before this one.
-   *
-   * <p>The mailbox connect popup lands back in the app the same way, and is skipped for the same reason.
+   * Restore the session on boot from the httpOnly refresh cookie. Never inside a sign-in or mailbox popup: the popup
+   * closed mid-refresh after the server rotated, the opener presented the spent token, read as reuse, and revoked the
+   * new session. Read at render: the callback page consumes the handshake in its own effect, which runs first.
    */
   const [isSignInPopup] = useState(() => isReturningSignInPopup() || isReturningMailboxPopup());
 
@@ -298,18 +282,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [startFreshSession]);
 
   /**
-   * Re-reads the session from the server — <b>token first</b>, then user.
-   *
-   * <p>The refresh is not optional, and this is the subtle part. The tenant claims (`wsId`, `role`)
-   * are baked into the access token when it is minted, so anything that changes a user's membership
-   * leaves the token they are holding describing a world that no longer exists. Creating a workspace
-   * mints nothing: the caller still carries a token that says they have none, and the very next
-   * workspace-scoped call — sending the step-3 invites — fails `requireWorkspaceId()`. The same is true
-   * of an admin approving a join request: `/auth/me` would happily report the new workspace while every
-   * request made with the old token was still refused.
-   *
-   * <p>`/auth/refresh` re-reads the membership from the database and mints a token that tells the
-   * truth. Only then is it worth asking who the user is.
+   * Re-reads the session — token first, then user. Tenant claims (`wsId`, `role`) are baked in at mint, so after a
+   * membership change (a new workspace, an approved join) the held token is refused; `/auth/refresh` mints a true one.
    */
   const reload = useCallback(async () => {
     try {
@@ -338,12 +312,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   /**
-   * Takes on a session that was established somewhere other than here — currently the Google callback,
-   * which is handed a token by the server rather than exchanging credentials for one.
-   *
-   * <p>Takes the token and user separately rather than an {@code AuthResponse}, because the OAuth
-   * callback never sees one: it is given a bare token in the URL fragment and has to ask who it belongs
-   * to. Making it fabricate a response object to hand back would be a lie for the type's benefit.
+   * Takes on a session established elsewhere (the OAuth callback, handed a bare token in the URL fragment), so it takes
+   * the token and user separately rather than a fabricated {@code AuthResponse}.
    */
   const adopt = useCallback(
     (token: string, adopted: User) => {

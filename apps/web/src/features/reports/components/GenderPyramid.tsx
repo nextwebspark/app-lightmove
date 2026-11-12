@@ -8,14 +8,8 @@ const HALF_W = W / 2 - 80;
 const BAR_H = 22;
 
 /**
- * Gender through the seniority ladder, drawn as a population pyramid.
- *
- * <p>Bar <b>length</b> is scaled to headcount rather than to share, so a level of five is not drawn
- * the width of a level of fifty: the whole point of the chart is that "20% female" means one person
- * at Board and nine at N-2, and a percentage bar hides exactly that.
- *
- * <p>A third gender is counted in the caption, never given a third wing — two people in a column
- * would be drawn as a wing the eye reads as a third of the level.
+ * Gender by seniority as a population pyramid, bars scaled to headcount (not share) so small levels stay small. A third
+ * gender is counted in the caption, never drawn as a wing.
  */
 export function GenderPyramid({ stats }: { stats: GenderStats }) {
   const height = PAD_TOP + stats.levels.length * ROW_H + 6;

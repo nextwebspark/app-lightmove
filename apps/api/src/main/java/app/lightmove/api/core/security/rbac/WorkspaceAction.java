@@ -1,12 +1,8 @@
 package app.lightmove.api.core.security.rbac;
 
 /**
- * Code-side names for the seeded WORKSPACE-scope actions in {@code app_lm_action}.
- *
- * <p>Authorisation asks "may this member perform this action?", never "which role do they hold?" —
- * which roles grant which actions lives in {@code app_lm_role_action} and can change by INSERT, not
- * redeploy. Add a constant here whenever a migration seeds a new action; {@code RbacCatalogTest} keeps
- * the two in step.
+ * Code-side names for the seeded WORKSPACE-scope actions in {@code app_lm_action}; which roles grant them is
+ * {@code app_lm_role_action}'s. Add one whenever a migration seeds an action — {@code RbacCatalogTest} keeps them in step.
  */
 public enum WorkspaceAction {
 

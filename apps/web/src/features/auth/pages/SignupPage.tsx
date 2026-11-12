@@ -16,12 +16,8 @@ import { clearSignupRestart, signupRestartName } from "../signupRestart";
 const SIGNUP_INPUTS: readonly (keyof SignupValues)[] = ["fullName", "email", "password", "confirmPassword"];
 
 /**
- * Signup step 1 — "Create your account". A port of Signup.dc.html's first step.
- *
- * On success the user exists but has no workspace, so they go straight on to step 2. The wizard's
- * steps are separate routes rather than local state: step 1 creates a real account on the server, and
- * a user who closes the tab after it should be able to sign back in and land where they left off,
- * which local state cannot do.
+ * Signup step 1 — "Create your account". Steps are routes, not local state: step 1 creates a real account, so a user who
+ * closes the tab can sign back in and land where they left off.
  */
 export function SignupPage() {
   const { signUp } = useAuth();

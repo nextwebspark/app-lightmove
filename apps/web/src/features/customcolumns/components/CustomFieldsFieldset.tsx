@@ -2,18 +2,8 @@ import { Field, Input, Select } from "../../../components/ui";
 import type { CustomColumn, CustomFieldValues } from "../api/types";
 
 /**
- * The inputs for a mandate's own columns, for one half of a Companies-grid row.
- *
- * <p>Rendered inside the drawer forms that already edit every built-in field, rather than as inline
- * editing in the grid: nothing on these screens is edited in a cell, and a custom column that were
- * would be the one field on the page behaving differently from the twenty beside it.
- *
- * <p>Controlled from outside and holding no state. The form owns the values so they travel in the
- * same request as the fields above them — one save, one audit event, and no half-saved row.
- *
- * <p>The values are strings whatever the column's declared type. The type decides what the server
- * accepts, never how it is stored, so a column corrected from text to number later does not lose the
- * rows already filled in.
+ * Inputs for a mandate's own columns in the drawer forms (never in-cell), controlled from outside so they save in the
+ * same request. Values are strings whatever the type, so a column retyped later loses no rows.
  */
 export function CustomFieldsFieldset({
   columns,

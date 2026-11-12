@@ -5,8 +5,8 @@ Status: **Phases 0–3 built** (epic #1247, decisions taken with the product own
 Email templates, the composer and sequence steps.
 Each phase is one PR into `feature/email-templates`, and each is stacked on the one before. The branch merges to
 `main` once all four are in. Until a phase ships, the tables, routes and entities it names do not exist. Phase 0 is
-this document and the mockups that Phases 1–3 are built from: `claude-design/Outreach.dc.html` (the composer and the
-sequence editor) and `claude-design/Settings.dc.html` (Settings → Email templates).
+this document and the mockups that Phases 1–3 are built from: `uncava-design/Outreach.dc.html` (the composer and the
+sequence editor) and `uncava-design/Settings.dc.html` (Settings → Email templates).
 
 ## Context
 

@@ -9,16 +9,8 @@ import app.lightmove.api.common.location.service.Countries;
 import java.util.List;
 
 /**
- * Everything a caller supplies about an executive, normalised once on the way in. Only the name is
- * required: research arrives in pieces, and refusing the row until the compensation is established
- * would send that name into a spreadsheet instead.
- *
- * <p>{@code emails} and {@code phones} are what this write supplies for the ledger — one cell from
- * a spreadsheet, one capture from the plugin, a list from the Add form. They add; only the Contact
- * section's own write removes. {@code employerName} is the company as the row will remember it — overwritten with the triaged
- * company's name where the candidate is mapped to one, so the two cannot drift.
- * {@code linkedinUrl} goes through {@link app.lightmove.api.core.text.service.SuppliedText}, being
- * the field most likely to be pasted from somewhere else.
+ * What a caller supplies about an executive, normalised once; only the name is required. {@code emails}/{@code phones}
+ * add to the ledger (only the Contact section removes); {@code employerName} is overwritten by the triaged company's name.
  */
 public record CandidateDetails(String fullName, String title, Seniority seniority,
                                String employerName, List<ContactEntry> emails,

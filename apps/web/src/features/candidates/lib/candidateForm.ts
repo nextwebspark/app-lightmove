@@ -378,13 +378,8 @@ export function amountOf(amount: number | null): string {
 }
 
 /**
- * The stored profile as the request that would store it again unchanged. A section save is this
- * with one section's fields written over it: the server replaces the whole record, so what the
- * panel is not editing has to be said again exactly as it is.
- *
- * <p>Custom columns are deliberately left out — omitted, the server leaves every one of them alone,
- * so a save of any other section cannot touch them. So are the contacts: the Contact section has
- * its own write, and a profile PUT never removes a contact.
+ * The stored profile as the request that would store it again unchanged: the server replaces the whole record, so a
+ * section save writes over this. Custom columns and contacts are left out — omitted, the server leaves them alone.
  */
 export function replayOf(candidate: Candidate): SaveCandidatePayload {
   return {
@@ -408,12 +403,8 @@ export function replayOf(candidate: Candidate): SaveCandidatePayload {
 }
 
 /**
- * One section's parsed fields as the request keys they set. Empty strings become omissions rather
- * than blanks — the server treats a blank as null anyway, and sending `""` would make the network
- * log lie about what was typed.
- *
- * <p>Identity's employer is only sent for someone mapped to no company: where a company row is
- * named the server snapshots that company's name and the two must not be able to disagree.
+ * One section's parsed fields as request keys; empty strings are omitted. Identity's employer is sent only for someone
+ * mapped to no company — a named company's snapshot must not be able to disagree with it.
  */
 const PATCHES: {
   [S in ProfileFormSection]: (

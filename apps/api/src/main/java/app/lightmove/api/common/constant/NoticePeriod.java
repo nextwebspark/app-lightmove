@@ -43,12 +43,8 @@ public enum NoticePeriod {
     }
 
     /**
-     * The option a count and a unit name — the brief's own pair, or a period a document or a
-     * spreadsheet stated in some other unit.
-     *
-     * <p>Only an exact equivalent folds: ninety days and three months are one period, six weeks is
-     * none of these five and answers null. Nothing is rounded to the nearest option, because a
-     * rounded notice period is this code restating somebody else's figure.
+     * The option a count and unit name, or null: only an exact equivalent folds (ninety days is three months, six weeks
+     * is none), never rounded.
      */
     public static NoticePeriod ofPair(Integer count, NoticeUnit unit) {
         if (count == null || unit == null) {

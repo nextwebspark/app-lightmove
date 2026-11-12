@@ -105,16 +105,9 @@ const MOVE_LABELS: Record<TriageCompanyStatus, string> = {
 };
 
 /**
- * One stage of a mandate's companies — In universe, Shortlisted or Declined — as its own page. In universe reads as a
- * Table, a Map or its executives' Pipeline, one search box narrowing whichever is open.
- *
- * <p>The stage comes from the URL rather than a prop, so all three are one route pattern and a stage
- * added to {@link OFFERED_TRIAGE_STAGES} is reachable without touching the router. An unknown slug redirects
- * rather than rendering an empty grid for a stage that does not exist, and so does a stage that is not offered.
- *
- * <p>A mandate nobody has triaged shows an empty stage rather than the market. That is the change
- * this screen went through: discovery moved to Strategy, and what remains here is the record of
- * decisions, which starts empty and stays that way until someone makes one.
+ * One stage of a mandate's companies as its own page, the stage from the URL so one added to
+ * {@link OFFERED_TRIAGE_STAGES} needs no router change; an unknown or unoffered slug redirects. An untriaged
+ * mandate shows an empty stage, never the market.
  */
 export function TriageStagePage() {
   const { stage: stageSlug } = useParams();
@@ -446,15 +439,8 @@ function TriageStage() {
     sourcing.start([...companySelection.selectedIds], () => setConfirmingFindExecutives(false));
 
   /**
-   * The screen's ordinary freshness is the project stream above: the server says when something
-   * under the mandate moved, and the grid refetches. This poll is the degraded mode, and only that —
-   * while the stream is down *and* a visible plugin capture is still being researched, the grid
-   * looks for itself every few seconds. With the stream up it announces the same research within a
-   * second, so polling beside it was one wasted page read per tick, per open tab.
-   *
-   * <p>A ref rather than the queries themselves: react-query evaluates this while the first query is
-   * still being declared, so reading the people queries here directly is a use-before-init. The ref
-   * is refreshed right after they land, below.
+   * Degraded-mode poll: only while the project stream is down and a visible capture is still being researched.
+   * A ref, not the queries: react-query evaluates this before the people queries are declared (use-before-init).
    */
   const visiblePeople = useRef<Candidate[]>([]);
   const researchPoll = () => {
@@ -532,12 +518,8 @@ function TriageStage() {
   });
 
   /**
-   * The points on their own, polled while the server is still placing rows it could not place in one
-   * read — a big import fills in over a few of them — and stopping by itself once nothing is pending.
-   *
-   * <p>A read of its own rather than a poll of the one above: what changes between two polls is a
-   * handful of coordinates, and re-reading the stage for them would put the mandate's every company
-   * and full profile back on the wire every three seconds.
+   * The points alone, polled while the server is still placing rows and stopping once none is pending — a read of
+   * its own so a poll never re-sends every company and profile.
    */
   const geocodingPending = talentMap.data?.geocodingPending ?? 0;
   const talentMapLocations = useQuery({

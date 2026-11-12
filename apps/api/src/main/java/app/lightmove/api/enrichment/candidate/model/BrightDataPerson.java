@@ -5,12 +5,9 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
 
 /**
- * One record of Bright Data's LinkedIn people dataset, as the Search API returns it — the profile
- * lookup's answer and a people search's hit alike. Masked values ("******* ***") are carried as they
- * arrive; {@code BrightDataPersonProfiles.toEnrichedProfile} is what reads them as absent.
- *
- * <p>{@code linkedinId} is the profile slug, the dataset's own key and the one every profile URL is
- * rebuilt from. {@code currentCompany.companyId} is the employer's slug — not a number.
+ * One Bright Data LinkedIn people record (profile lookup or search hit); masked values arrive as-is and
+ * {@code BrightDataPersonProfiles.toEnrichedProfile} reads them as absent. {@code linkedinId} and
+ * {@code currentCompany.companyId} are slugs, not numbers.
  */
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record BrightDataPerson(String id, String linkedinId, String name, String url, String about,

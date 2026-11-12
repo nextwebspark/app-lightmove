@@ -24,16 +24,9 @@ import org.springframework.security.oauth2.server.authorization.authentication.O
 import org.springframework.util.StringUtils;
 
 /**
- * What an MCP authorization request must carry beyond OAuth's own rules, checked before anyone is asked to sign in and
- * again at consent:
- * <ul>
- *   <li>a redirect URI the client registered, exactly — or, for a listener on this machine, in any port
- *       ({@link RedirectUriRules});</li>
- *   <li>{@code resource} (RFC 8707) naming the MCP endpoint and nothing else — it becomes the token's audience;</li>
- *   <li>a PKCE challenge, S256 only;</li>
- *   <li>once someone is signed in, a {@code workspace_id} where they are staff ({@code API_KEY_MANAGE}, the same door
- *       an API key needs) — a pure client representative connects no AI app.</li>
- * </ul>
+ * An MCP authorization request's extra rules, checked before sign-in and at consent: an exactly registered redirect URI
+ * (any port for a loopback listener, {@link RedirectUriRules}); {@code resource} (RFC 8707) naming the MCP endpoint;
+ * PKCE S256; and once signed in a {@code workspace_id} where they hold {@code API_KEY_MANAGE} (never a pure client).
  */
 public class McpAuthorizationRules {
 

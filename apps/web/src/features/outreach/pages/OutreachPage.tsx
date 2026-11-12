@@ -31,7 +31,7 @@ const SEARCH_DELAY_MS = 250;
 export const LIVE_SAFETY_REFRESH_MS = 5 * 60_000;
 
 /**
- * A position's Outreach page (`claude-design/Outreach.dc.html`): everyone the team is in conversation with on the
+ * A position's Outreach page (`uncava-design/Outreach.dc.html`): everyone the team is in conversation with on the
  * left, and the one picked — the top of the list, where there is room beside it — with their history, the composer
  * and their details. Staff only; the sequences are the header's other view.
  */

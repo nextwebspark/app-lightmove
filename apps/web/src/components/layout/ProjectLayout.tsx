@@ -34,16 +34,8 @@ import { usePositionsOrigin } from "../../features/projects/lib/positionsOrigin"
 const VIEWPORT_FILLING_TABS = ["/companies/", "/strategy"];
 
 /**
- * Tabs that own the whole main area: no gutter, and no 1440px cap.
- *
- * <p>The cap is right for a reading column and wrong for a workspace. Strategy is a filter rail and a
- * ten-column table side by side, and on a wide screen the cap left the table ending in mid-air with
- * the space it needed sitting empty beside it — the columns that got squeezed were the ones carrying
- * the data.
- *
- * <p>Reports is here for a different reason: it paints its own ground, the page background rather
- * than the shell's surface, and a gutter around it would frame the report in a second tone. The brief
- * (the mandate's index route, matched exactly below) is full-bleed for the same reason.
+ * Tabs that own the whole main area (no gutter, no 1440px cap): Strategy needs the width for its table;
+ * Reports and the brief paint their own ground.
  */
 const FULL_BLEED_TABS = ["/companies/", "/strategy", "/reports"];
 

@@ -9,15 +9,11 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.datasource.DelegatingDataSource;
 
 /**
- * Hands every borrowed connection the workspace {@link TenantContext} names, so row-level security reads that
- * workspace's rows and no other's — or, with none, the protected tables' nothing.
- *
- * <p>At checkout rather than at transaction begin: Spring Data's declared query methods and a {@code JdbcTemplate}
- * outside a transaction run in autocommit, where a transaction-local setting would be gone before the statement
- * ran. Every checkout overwrites the setting, an absent workspace included, so a pooled connection never carries
- * one borrower's workspace into the next — and clears {@code app.rls_maintenance} and sets {@code app.shared_rows} in
- * the same statement, so a flag set on a borrowed connection, by mistake or by injected SQL, dies with that borrower,
- * and only an open {@link SharedRows} scope reaches a row of no workspace. The cost is one round trip per checkout.
+ * Sets every borrowed connection's workspace from {@link TenantContext} for row-level security — none means the
+ * protected tables answer nothing. At checkout, not transaction begin, since autocommit queries would miss a
+ * transaction-local setting. Each checkout overwrites it (absent included), clears {@code app.rls_maintenance} and
+ * sets {@code app.shared_rows} in one statement, so no flag outlives its borrower and only an open
+ * {@link SharedRows} scope reaches a row of no workspace.
  */
 class TenantAwareDataSource extends DelegatingDataSource {
 

@@ -13,12 +13,8 @@ import type {
 } from "./types";
 
 /**
- * Every call the Position screen makes. One read, one snapshot PUT per section of the brief, the
- * operations that are not a section — publish, withdraw, the template redraft, the attached position
- * description — and the four "Read from document" calls the fill engine (lib/documentFill.ts) folds
- * into the brief.
- *
- * Every write answers with the whole brief, so a caller only ever replaces its cached copy.
+ * Every call the Position screen makes: the read, a PUT per section, publish/withdraw/template/document, and the
+ * four "Read from document" calls. Every write answers with the whole brief.
  */
 
 export const POSITION_KEY = (projectId: string) => ["position", projectId] as const;

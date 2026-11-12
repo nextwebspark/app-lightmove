@@ -16,7 +16,9 @@ import { Field, Input, Select, TextArea } from "../../../components/ui";
 import { CountryField } from "../../../components/ui/CountryField";
 import { SegmentedControl, type SegmentedOption } from "../../../components/ui/SegmentedControl";
 import { cn } from "../../../lib/cn";
-import { CURRENCIES, currencyOptionLabel, DEFAULT_CURRENCY } from "../../../lib/currencies";
+import { CurrencySelect } from "../../../components/ui/CurrencySelect";
+import { currencyNameOf, useCurrencies } from "../../../lib/currencies";
+import { useWorkspaceCurrency } from "../../workspace/lib/useWorkspaceCurrency";
 import { formatNumber } from "../../../lib/format";
 import { NOTICE_PERIODS } from "../../../lib/noticePeriod";
 import type { CandidateBackgroundField } from "../api/types";
@@ -246,17 +248,9 @@ const FIGURE_INPUT = "border-u-border py-[9px] text-[14px] font-bold";
 type CurrencyMode = "auto" | "override" | "brief";
 
 /**
- * A package, as it is quoted (claude-design/Position.dc.html, the drawer's Compensation editor): the
- * currency the brief is quoted in unless somebody overrides it, the base and bonus typed the way they
- * were said — per month, as a share of base — the allowances line by line, the instruments an LTIP is
- * paid in, and the total worked out as it is typed. What is stored is always the annual amounts; the
- * two toggles are how a figure was spoken, and the patch converts them.
- *
- * <p>A currency the list does not carry — one stored before the picker existed, or by an import —
- * stays offered as an option: a select whose value matches no option posts blank, and that would
- * clear a fact nobody touched. The notice period, which was a text box until the five became the
- * vocabulary, is kept the same way; "Not established" is the blank every sibling picker carries, and
- * is not "None" — see lib/noticePeriod.ts.
+ * A package as quoted (uncava-design/Position.dc.html's Compensation editor). Stored annual; the per-month and
+ * %-of-base toggles are only how a figure was typed. An unlisted currency or notice period stays offered — a select
+ * matching no option posts blank and would clear it; "Not established" is the blank, not "None" (lib/noticePeriod.ts).
  */
 export function CompensationFields<TTransformed extends FieldValues>({
   register,
@@ -278,6 +272,8 @@ export function CompensationFields<TTransformed extends FieldValues>({
   storedNoticePeriod?: string | null;
 }) {
   const [currencyMode, setCurrencyMode] = useState<CurrencyMode>("auto");
+  const { currency: workspaceCurrency } = useWorkspaceCurrency();
+  const servedCurrencies = useCurrencies();
   const allowances = useFieldArray({ control, name: "allowanceLines" });
   const [currency, base, baseCadence, bonus, bonusBasis, allowanceLines, longTermIncentive, incentiveTypes] =
     watch([
@@ -297,22 +293,17 @@ export function CompensationFields<TTransformed extends FieldValues>({
       (currencyMode === "auto" && (!storedCurrency || storedCurrency === briefCurrency)));
 
   // The brief is read beside the grid and can land after the form opened; while the package follows
-  // it, it takes it. With no brief and nothing on file, the package starts in the default currency.
-  // Once overridden, nothing here touches the pick.
+  // it, it takes it. With no brief and nothing on file it follows the workspace's currency the same way,
+  // which can land after the form opened too. Once overridden, nothing here touches the pick.
   useEffect(() => {
     if (followsBrief && briefCurrency && currency !== briefCurrency) {
       setValue("currency", briefCurrency, { shouldDirty: true });
-    } else if (!briefCurrency && !storedCurrency && currencyMode === "auto" && !currency) {
-      setValue("currency", DEFAULT_CURRENCY, { shouldDirty: true });
+    } else if (!briefCurrency && !storedCurrency && currencyMode === "auto" && currency !== workspaceCurrency) {
+      setValue("currency", workspaceCurrency, { shouldDirty: true });
     }
-  }, [followsBrief, briefCurrency, storedCurrency, currencyMode, currency, setValue]);
+  }, [followsBrief, briefCurrency, storedCurrency, currencyMode, currency, workspaceCurrency, setValue]);
 
-  const currencyField = register("currency");
   const bonusPercentField = register("bonus");
-  const currencies: string[] = [...CURRENCIES];
-  for (const held of [storedCurrency, briefCurrency]) {
-    if (held && !currencies.includes(held)) currencies.unshift(held);
-  }
   const offVocabularyNotice =
     storedNoticePeriod && !NOTICE_PERIODS.some((period) => period.label === storedNoticePeriod)
       ? storedNoticePeriod
@@ -344,30 +335,30 @@ export function CompensationFields<TTransformed extends FieldValues>({
         {followsBrief ? (
           <div
             aria-label="Currency"
-            className="min-w-0 flex-1 truncate rounded-[6px] border border-u-border bg-u-raised px-3 py-[9px] font-mono text-[13px] font-semibold text-u-text"
+            className="min-w-0 flex-1 truncate rounded-[6px] border border-u-border bg-u-raised px-3 py-[9px] text-[13px] text-u-text"
           >
-            {currencyOptionLabel(currency)}
+            <span className="font-mono font-semibold">{currency}</span>
+            {currencyNameOf(currency, servedCurrencies) && (
+              <>
+                {" "}
+                <span className="ms-1 text-u-text3">{currencyNameOf(currency, servedCurrencies)}</span>
+              </>
+            )}
           </div>
         ) : (
-          <Select
-            {...currencyField}
+          <CurrencySelect
+            value={currency ?? ""}
+            held={[storedCurrency, briefCurrency, workspaceCurrency]}
+            allowNone
             // A pick is a statement that this package is quoted otherwise: a brief read after it must
             // not take it back.
-            onChange={(event) => {
+            onChange={(code) => {
               setCurrencyMode("override");
-              void currencyField.onChange(event);
+              setValue("currency", code, { shouldDirty: true, shouldValidate: true });
             }}
-            aria-label="Currency"
             invalid={Boolean(errors.currency)}
-            className="min-w-0 flex-1 border-u-border py-[9px] font-semibold"
-          >
-            <option value="">Not set</option>
-            {currencies.map((code) => (
-              <option key={code} value={code}>
-                {currencyOptionLabel(code)}
-              </option>
-            ))}
-          </Select>
+            className="min-w-0 flex-1 border-u-border py-[9px]"
+          />
         )}
         {followsBrief && (
           <span className="flex-none rounded-[5px] bg-u-direct-tint px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.05em] text-u-direct">

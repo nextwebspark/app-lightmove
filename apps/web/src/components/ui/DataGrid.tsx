@@ -127,34 +127,13 @@ const PINNED_START = "sticky ps-4 shadow-[1px_0_0_0_var(--color-u-border)]";
 const PINNED_FILL = "flex items-center self-stretch bg-u-surface transition group-hover:bg-u-raised";
 
 /**
- * The company grid: TanStack Table v9 computing the models, this file owning every pixel.
- *
- * <p>Shared rather than per-screen, because Strategy and the three Companies stages are one table
- * rendering four sources. Each caller builds its own table — its own columns, its own row actions,
- * its own data — and hands the instance here; the layout, the pinning, the scroll behaviour and the
- * loading and failure states are this component's, once.
- *
- * <p>One scroll box for both axes with the header sticky inside it. A body with its own
- * `overflow-y` becomes a horizontal scroll container too — the browser will not honour
- * `overflow-x: visible` beside a scrolling y-axis — which would strand the header the moment the
- * rows scrolled sideways.
- *
- * <p>Sorting and paging belong to the caller and, in both current callers, to the server: a page
- * holds one page out of tens of thousands, so a header click changes the query rather than the array.
- *
- * <p>Columns move and resize by drag. Neither gesture re-renders while it is in flight: the grid
- * template lives in a CSS variable the handlers write straight to the DOM, and React only sees the
- * result on pointerup. Dragging 24 columns across a page of rows through state would repaint
- * hundreds of cells a frame.
+ * The shared company grid: TanStack Table v9 models, this file owning every pixel. One scroll box for both
+ * axes (a body with its own `overflow-y` strands the sticky header); sorting and paging are the caller's.
+ * Column drag and resize write a CSS variable straight to the DOM, so React sees only the result on pointerup.
  */
 /**
- * The features every grid using this component registers, and the column meta they all declare.
- *
- * <p>It exists as a *concrete* type because v9 derives a table's API from the feature keys present in
- * `TFeatures`, and that lookup cannot resolve through a generic parameter — written against
- * `TFeatures extends TableFeatures`, this file would find that `getIsPinned`, `getIsSorted` and
- * `FlexRender` do not exist on the table it was handed. So the prop stays precisely typed for
- * callers, and the body works against this shape instead.
+ * A concrete feature set, because v9 derives a table's API from `TFeatures` keys and that lookup cannot
+ * resolve through a generic parameter (`getIsPinned`, `FlexRender` would not exist).
  */
 type GridFeatures = {
   columnOrderingFeature: typeof columnOrderingFeature;
@@ -207,14 +186,8 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   layout: GridLayout;
   onLayoutChange: (layout: GridLayout) => void;
   /**
-   * A control drawn at the very start of the first column, before its header text and before each
-   * row's first cell — the select-all box and the per-row box of a multi-select grid.
-   *
-   * <p>A slot rather than a checkbox column of its own, and rather than something the caller renders
-   * inside its own first cell. A leading column would be a second pinned region and `sticky start-0`
-   * only holds one, so the two would stack on top of each other the moment the grid scrolled
-   * sideways. And a box rendered inside the first *header* cell would land inside the sort button,
-   * which is both invalid markup and a select-all that re-sorts the table.
+   * A control at the start of the first column (header and rows), e.g. selection boxes. A slot, not a column:
+   * `sticky start-0` holds one pinned region, and inside the header cell it would land in the sort button.
    */
   headerLead?: ReactNode;
   rowLead?: (row: TData) => ReactNode;
@@ -810,15 +783,8 @@ interface ReorderSession<TData extends RowData> {
 }
 
 /**
- * The one grid template the header and every row share.
- *
- * <p>`fr`, not a literal `%`: percentages resolve against the grid's content box and ignore the gaps,
- * so shares summing to 100 would overflow the row by the width of every gap between them. A width a
- * user has dragged wins over the declared share, which is what makes a resized column hold still
- * while its neighbours keep flexing.
- *
- * <p>A grid honours a `minmax` floor whatever the container's width, so without the `min` sum the row
- * overflows a container that clips rather than scrolls, and the last column stops existing.
+ * The one grid template the header and every row share. `fr`, not `%` (percentages ignore the gaps); a
+ * dragged width wins over the share; the `min` sum keeps a clipping container from losing its last column.
  */
 function groupsOf<TData extends RowData>(
   rows: GridRow<TData>[],

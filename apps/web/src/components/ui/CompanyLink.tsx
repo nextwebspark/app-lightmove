@@ -5,18 +5,8 @@ import { Icon, ICONS } from "../layout/Icon";
 import { NetworkMark } from "./NetworkMark";
 
 /**
- * One icon link out to a company's presence somewhere — its site, LinkedIn, X. A dead icon is never
- * drawn: without a URL it renders nothing, or with `reserve` an empty slot the size of the button,
- * so a grid's Links cells keep every network in its own column whichever ones a row publishes.
- *
- * <p>The company name is taken separately from the URL because it is only ever the accessible label:
- * four identical "open link" buttons in a row tell a screen-reader user nothing about which company
- * they belong to.
- *
- * <p>The URL goes through {@link toBrowsableUrl}, which is the client mirror of the server's capture
- * normalisation: a bare host gains `https://` and anything a browser should not follow renders as
- * nothing. Promoting rather than dropping matters here — plenty of Apollo rows publish a bare host,
- * and refusing those would lose the icon on a company whose site is perfectly real.
+ * One icon link to a company's site or network; no URL renders nothing (or, with `reserve`, an empty slot). The name is
+ * the accessible label only. {@link toBrowsableUrl} promotes a bare host to https — many Apollo rows publish one.
  */
 export function CompanyLink({
   url,
@@ -50,12 +40,7 @@ export function CompanyLink({
 }
 
 /**
- * The pair a company panel shows beside its name: its site and its LinkedIn, as icons.
- *
- * <p>Beside the name rather than in a tile of its own. An address is a way out to the company, not a
- * figure about it — and a tile is a frame around a figure, so framing two glyphs leaves an empty box
- * on every company that publishes neither. Here, that company takes no room at all: the pair renders
- * nothing when neither address survives {@link toBrowsableUrl}.
+ * A company panel's site and LinkedIn icons beside its name; renders nothing when neither survives {@link toBrowsableUrl}.
  */
 export function CompanyLinks({
   companyName,

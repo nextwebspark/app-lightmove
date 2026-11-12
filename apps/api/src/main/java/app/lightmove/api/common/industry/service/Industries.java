@@ -15,12 +15,9 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Resolves every spelling of an industry — vendor, spreadsheet, typed — to the universe's LinkedIn V1
- * label; Bright Data answers in V2. Static so {@code CapturedCompanyDetails}' compact constructor can
- * call it. An unknown industry is kept as typed.
- *
- * <p>The map is keyed on LinkedIn's industry id, shared by V1 and V2 — except id 25, which V2 gave to
- * the {@code Manufacturing} root where V1 had {@code Consumer Goods}.
+ * Resolves every spelling of an industry to the universe's LinkedIn V1 label (Bright Data answers in V2); static for
+ * {@code CapturedCompanyDetails}' constructor, an unknown one kept as typed. Keyed on LinkedIn's shared id — except id
+ * 25, which V2 gave to {@code Manufacturing} where V1 had {@code Consumer Goods}.
  */
 public final class Industries {
 

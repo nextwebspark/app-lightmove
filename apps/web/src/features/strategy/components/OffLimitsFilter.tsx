@@ -3,17 +3,8 @@ import { CompanySearchCombobox } from "./CompanySearchCombobox";
 import { SelectionPill } from "../../../components/ui/SelectionPill";
 
 /**
- * The Off-limits panel: companies this mandate may not approach, barred by name.
- *
- * <p>The panel states the rule it enforces, and it enforces exactly that rule. There is no
- * show-anyway toggle: a barred company is dropped from every filtered read and from the count above
- * the table. A screen that offered to reveal them would make the list advisory, and an off-limits
- * list is the one filter on this rail that is a commitment rather than a preference — usually a
- * client's own subsidiaries, or a firm the mandate has an agreement about.
- *
- * <p>Entries are picked from the universe, never typed. A free-text bar would silently fail to match
- * the company it named — the exclusion is by account id, and a name that resolves to nothing bars
- * nothing while looking like it bars something.
+ * The Off-limits panel: companies this mandate may not approach. Binding, with no show-anyway toggle — barred companies
+ * drop from every read and count. Entries are picked from the universe (the bar is by account id), never typed.
  */
 export function OffLimitsFilter({
   companies,

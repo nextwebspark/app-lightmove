@@ -1,6 +1,6 @@
 # Settings → Integrations: how an own app's keys should look, and what the current build gets wrong
 
-Research for the redesign drawn in `claude-design/Settings.dc.html` (`?section=integrations&integrationsState=…`:
+Research for the redesign drawn in `uncava-design/Settings.dc.html` (`?section=integrations&integrationsState=…`:
 `overview`, `own-new`, `own-saved`, `replacing`, `verify-failed`, `expiring`). The app now draws it
 (`IntegrationCard`, `OwnAppSetupForm`, `SavedOwnApp`), over the API described at the end of this page.
 

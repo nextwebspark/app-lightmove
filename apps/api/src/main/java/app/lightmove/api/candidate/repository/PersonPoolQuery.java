@@ -17,12 +17,8 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * The Candidates page's read of the pool: which of the workspace's people match, in what order, and how
- * many each quick view holds. Answers ids only; the rows are loaded through the entities.
- *
- * <p>The search is a plain scan over one workspace's people, as V33 chose for the universe: a pool is
- * hundreds to a few thousand rows, and a trigram index needs an extension the runtime role cannot
- * create. Every fragment below is fixed text; every value is bound.
+ * The Candidates page's pool read: matching ids, order and quick-view counts. A plain scan per workspace (V33's
+ * reasoning: no trigram extension for the runtime role); every fragment is fixed text, every value bound.
  */
 @Repository
 @RequiredArgsConstructor

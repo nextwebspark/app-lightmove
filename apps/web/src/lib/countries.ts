@@ -20,14 +20,8 @@ interface CountriesResponse {
 const COUNTRIES_KEY = ["countries"] as const;
 
 /**
- * The country vocabulary, read once and kept.
- *
- * <p>Served rather than mirrored: the same catalog canonicalises every country the API stores, so a
- * spelling added there reaches the pickers without a frontend release. It was a hardcoded array of
- * eight until it drifted from the data twice — the universe carries thirteen countries, and a
- * mandate maps executives in countries the universe has never carried at all.
- *
- * <p>It changes when the pipeline loads, which is to say not during a session.
+ * The country vocabulary, read once and kept — served, not mirrored, so the API's catalog reaches the pickers
+ * without a frontend release (a hardcoded list drifted twice).
  */
 export function useCountries() {
   const countries = useQuery({

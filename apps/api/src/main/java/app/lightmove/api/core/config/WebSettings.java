@@ -13,15 +13,9 @@ public record WebSettings(
         @DefaultValue("/auth/callback") String oauthSuccessPath,
 
         /**
-         * How many reverse proxies sit in front of this application.
-         *
-         * <p>Zero — the default — means we are exposed directly and {@code X-Forwarded-For} is
-         * attacker-controlled, so it is ignored entirely. Behind one load balancer, set 1: the
-         * balancer appends the peer it saw, so the last entry is the only one it wrote and the only
-         * one that cannot be forged.
-         *
-         * <p>Get this number wrong upwards and you trust a hop the client supplied; the rate
-         * limiter's per-IP budget then becomes free to bypass and the audit log records fiction.
+         * Reverse proxies in front of the app. 0: {@code X-Forwarded-For} is attacker-controlled and ignored; behind one
+         * balancer, 1 (the last entry is the only unforgeable one). Too high trusts a client-supplied hop, bypassing the
+         * per-IP rate limit and falsifying the audit log.
          */
         @DefaultValue("0") int trustedProxyCount,
 

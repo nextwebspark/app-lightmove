@@ -343,7 +343,7 @@ Each PR can ship on its own, and company mode never regresses.
 - `features/projects/components/{NewProjectModal,BusinessUnitCombobox}.tsx` and `projects/pages/TeamAccessPage.tsx`
 - `features/assistant/components/AssistantStarters.tsx`
 
-**Mockups:** `claude-design/{Signup,Settings,Clients}.dc.html`
+**Mockups:** `uncava-design/{Signup,Settings,Clients}.dc.html`
 
 ## Verification
 

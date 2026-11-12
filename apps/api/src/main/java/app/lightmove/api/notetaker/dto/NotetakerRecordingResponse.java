@@ -6,18 +6,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * One Notetaker bot as the drawer's Meetings section draws it. {@code meetingId} is the row it was sent for; a
- * calendar's re-read gives the same call a new row, so {@code startsAt} and {@code title} match it too, and a bot whose
- * call has left every calendar is drawn as its own row from {@code title}, {@code startsAt} and {@code endsAt}.
- * {@code failureReason} is Recall's sub-code or our own word, explained on screen. {@code suggestionsAsked},
- * {@code pendingSuggestions}, {@code appliedSuggestions} and {@code foundSuggestions} word the row's changes, or what
- * the review made of them, and {@code suggesting} that the model is reading the transcript for them now;
- * {@code liveCopilot} and {@code liveStatus} its live copilot's toggle and Open copilot link, and
- * {@code mayChangeCopilot} whether the caller, being the bot's sender, may switch it. {@code joinAt} is null for a bot
- * sent at once, {@code recordingStartedAt} where the call clock starts, and {@code endRequested} that End & file notes
- * was pressed and the bot is leaving. {@code recordingAvailableUntil} is when Recall drops the call's recording,
- * null once it is gone or before the call ended, and {@code mayDownloadRecording} that the caller, being the bot's
- * sender, may still fetch it.
+ * One Notetaker bot as the Meetings section draws it; a calendar re-read gives the call a new row, so {@code startsAt}
+ * and {@code title} match it too, and a bot whose call left every calendar is its own row. {@code joinAt} is null for a
+ * bot sent at once; the {@code may*} flags hold only for the bot's sender.
  */
 public record NotetakerRecordingResponse(UUID id, UUID meetingId, Instant startsAt, Instant endsAt, String title,
                                          NotetakerStatus status, String failureReason, boolean hasTranscript,

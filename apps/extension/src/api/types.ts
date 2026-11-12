@@ -88,12 +88,8 @@ export interface TriagedCompany {
 }
 
 /**
- * The body of `POST /projects/{id}/candidates`.
- *
- * The API's own `SaveCandidateRequest`, the same one the web app's Add-executive drawer posts. A strict
- * subset of its fields: the popup sends the name, the profile URL and the status the drawer's own
- * select offers, and leaves the rest — title, employer, career, contact — to the drawer and to later
- * enrichment. Nothing here is invented and the extension adds no endpoint.
+ * The body of `POST /projects/{id}/candidates`: a strict subset of the API's own `SaveCandidateRequest` (name, profile
+ * URL, status); the rest is left to the drawer and later enrichment. The extension adds no endpoint.
  */
 export interface SaveCandidateRequest {
   fullName: string;

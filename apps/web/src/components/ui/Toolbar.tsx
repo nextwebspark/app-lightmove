@@ -4,13 +4,8 @@ import { cn } from "../../lib/cn";
 import { SegmentedControl } from "./SegmentedControl";
 
 /**
- * The toolbar row Strategy, In universe and Outreach share (`Strategy.dc.html`, `Position.dc.html`,
- * `Outreach.dc.html`): the page's view switch, the search, the page's own controls beside it, its actions pushed
- * right.
- *
- * <p>One line down to a phone: the search and the view switch shrink first, then the buttons give up their words
- * ({@link ToolbarLabel}, by the row's own width, since a sidebar or a drawer takes some of the screen). Only below
- * `sm` does the row wrap. It is a size container so its buttons can ask how wide it is.
+ * The toolbar row Strategy, In universe and Outreach share: view switch, search, controls, actions pushed right. One
+ * line down to `sm` — search and switch shrink, then buttons drop words ({@link ToolbarLabel}, a size container query).
  */
 export const TOOLBAR_ROW =
   "@container flex flex-none flex-nowrap items-center gap-x-3 gap-y-2 border-b border-u-border bg-u-surface px-4 py-2.5 max-sm:flex-wrap";

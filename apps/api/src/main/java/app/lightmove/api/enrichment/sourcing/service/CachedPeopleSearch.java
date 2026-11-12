@@ -21,17 +21,9 @@ import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
 
 /**
- * The people search with memory, so nobody is bought twice (V87). A question already asked inside
- * {@code people-cache-ttl} is answered from the cache with no vendor call. Otherwise the people on
- * file at that employer whose title fits are read back free, and the vendor is asked only for the
- * rest — with every person on file there excluded ({@code linkedin_id not_in}), since a record the
- * vendor returns is billed whether or not it was new to us.
- *
- * <p>The exclusion is everyone on file at the employer, never a mandate's own mapped people: the
- * search's answer is remembered for every workspace, and one firm's roster must not shape it.
- *
- * <p>Everything read back is the asked provider's own, so a stale dataset record never answers a search
- * of a fresher index.
+ * People search with memory (V87): a repeat within {@code people-cache-ttl} is free; otherwise fitting people on file
+ * are read back and the vendor asked for the rest, excluding everyone on file at the employer (billed either way), never
+ * a mandate's roster, since the answer is shared. Only the asked provider's records answer.
  */
 @Service
 public class CachedPeopleSearch {

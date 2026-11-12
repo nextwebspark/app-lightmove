@@ -4,17 +4,9 @@ import { useEscapeKey } from "../../lib/useEscapeKey";
 import { AUTO_PANEL_ROOM, EDGE_GAP, verticalPlacement } from "./anchoredPlacement";
 
 /**
- * A toolbar dropdown: a button, and a panel that closes on an outside click, Escape, or a scroll.
- *
- * <p>The panel's content is a function of `close`, so a menu item can act and dismiss without the
- * caller owning the open state.
- *
- * <p>Portalled to the body and positioned from the trigger's measured rect — the same escape
- * {@link TruncatedText} uses — rather than `absolute` inside the trigger's own box: several callers
- * (the grid header menu chief among them) open from inside a table that scrolls on both axes, and an
- * `absolute` panel is clipped by that scroll box the moment it would overflow it. A scroll closes
- * the panel instead of re-measuring it on every frame, since the fixed position would otherwise drift
- * away from the trigger that opened it.
+ * A toolbar dropdown that closes on an outside click, Escape or scroll; content is a function of `close`. Portalled
+ * and fixed from the trigger's rect (as {@link TruncatedText}), since an `absolute` panel is clipped inside a
+ * scrolling table; a scroll closes it rather than letting it drift.
  */
 export function Popover({
   trigger,

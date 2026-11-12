@@ -25,13 +25,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * Pairs a stage's companies with their executives as the Companies grid does, for the talent map, the
- * export and the public API alike: an executive rides the stage they are listed at, which is their own
- * (#903), under their company wherever that company stands; one at no company is left out under a
- * company-name search. The executive filters are applied per person, because the stage read's
- * own are company-level; so is the search box, which keeps a person who matches or whose company does, and one at
- * no company only when they match — resolved once and handed to the stage read, which narrows by the same matches.
- * Not {@code @Transactional}: the reads open their own.
+ * Pairs a stage's companies with their executives as the Companies grid does (talent map, export, public API). An
+ * executive rides their own stage (#903); filters and search apply per person, one at no company kept only when they
+ * match. Not {@code @Transactional}: the reads open their own.
  */
 @Service
 @RequiredArgsConstructor

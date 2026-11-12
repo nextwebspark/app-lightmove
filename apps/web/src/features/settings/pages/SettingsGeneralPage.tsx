@@ -5,7 +5,8 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Button, Field, FormError, Input, Modal, Select, useToast } from "../../../components/ui";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
-import { CURRENCIES, DEFAULT_CURRENCY } from "../../../lib/currencies";
+import { CurrencySelect } from "../../../components/ui/CurrencySelect";
+import { DEFAULT_CURRENCY } from "../../../lib/currencies";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import type { WorkspaceCompany } from "../../auth/api/types";
@@ -125,13 +126,11 @@ export function SettingsGeneralPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Default currency">
-            <Select value={currency} onChange={(event) => setCurrency(event.target.value)} className="!bg-u-surface">
-              {/* A code stored before the list grew stays offered: an unmatched select would post blank. */}
-              {[...new Set([currency, ...CURRENCIES])].map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </Select>
+          <Field
+            label="Default currency"
+            hint="New positions, executives and templates start in this currency. Figures already recorded keep theirs."
+          >
+            <CurrencySelect aria-label="Default currency" value={currency} onChange={setCurrency} className="bg-u-surface" />
           </Field>
         </div>
 

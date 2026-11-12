@@ -12,13 +12,8 @@ const MAX_RETRY_MS = 30_000;
 const COALESCE_MS = 500;
 
 /**
- * Holds the caller's own notification stream open while the tab is visible, and refreshes the bell and
- * every task read whenever the server says something reached them. A frame names no content, so the
- * refresh goes through the ordinary reads.
- *
- * <p>The useProjectStream idiom: a hidden tab holds no stream, and coming back refreshes once, because
- * whatever happened meanwhile was missed by design. Answers whether the stream is live, so the caller
- * can poll only while it is not.
+ * Holds the caller's notification stream open while the tab is visible and refreshes the bell and task reads on a
+ * frame (frames carry no content). A hidden tab holds none and refreshes once on return; answers whether it is live.
  */
 export function useNotificationStream(): boolean {
   const queryClient = useQueryClient();

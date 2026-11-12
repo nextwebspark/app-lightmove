@@ -3,7 +3,7 @@
 The code, routes, API and tables keep their own names (`project`, `client`, `triage`, `lightmove`).
 This page is about what a user reads.
 
-**The rule: a mockup's wording wins.** `claude-design/*.dc.html` is the source of truth for every
+**The rule: a mockup's wording wins.** `uncava-design/*.dc.html` is the source of truth for every
 screen. Where a mockup still says a word this page would avoid, the screen says it too until the mockup
 changes. Copy no mockup draws — toasts, errors, banners, empty states — follows this page.
 

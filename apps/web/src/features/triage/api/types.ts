@@ -117,22 +117,13 @@ export interface StageLinesPage {
 }
 
 /**
- * A company the mandate supplies itself — typed into the Add company form, or read off a live page by
- * the browser plugin.
- *
- * <p>Only the name is required. The plugin reads whatever a page happens to publish and a researcher
- * may have a name and a country and nothing else; refusing the row until it is complete would push
- * the consultant back to a spreadsheet, which is what these screens exist to replace.
+ * A company the mandate supplies itself — typed into Add company or read off a page by the plugin. Only the
+ * name is required: the plugin reads whatever a page publishes.
  */
 /**
- * A company's own facts, replaced whole — what the Companies panel's Edit form submits.
- *
- * <p>Only for a company the mandate supplied itself. A row taken from Strategy carries the market
- * export's snapshot and the server refuses to rewrite it, which is why `apolloAccountId === null` is
- * also what decides whether the panel offers an Edit button at all.
- *
- * <p>No `note`: that is the mandate's remark rather than a fact about the company, it stays editable
- * on the very companies this refuses, and it has its own write.
+ * A company's own facts, replaced whole (the panel's Edit form). Only for a company the mandate supplied — the
+ * server refuses a Strategy row, so `apolloAccountId === null` decides whether Edit is offered. No `note`: it has its
+ * own write.
  */
 export interface EditCompanyPayload {
   companyName: string;

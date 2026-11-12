@@ -50,12 +50,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * The bell's email. An assignment or a mention still unread when its email time comes is emailed once — claimed
- * in one statement ({@code SKIP LOCKED}) and committed before anything is sent, so two instances never both send
- * it. A digest goes on a weekday morning, at {@code digest-hour} in the person's own zone, to anyone with tasks due
- * or mentions unread, claimed once per person per day. Every recipient is read again before anything goes:
- * someone who has left the position, or the workspace, is sent nothing about it. An email names a note and never
- * quotes it. Both run a workspace at a time, the notes and positions they read being behind row-level security.
+ * The bell's email: an unread assignment or mention emailed once (claimed with {@code SKIP LOCKED}, committed before
+ * sending), and a weekday digest per person per day. Recipients are re-read first; a note is named, never quoted.
+ * Runs a workspace at a time, behind row-level security.
  */
 @Slf4j
 @Component

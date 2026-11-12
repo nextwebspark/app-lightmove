@@ -3,12 +3,8 @@ package app.lightmove.api.core.config;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * The role-template library's tunables — {@code lightmove.position.template.*}. Today the ceilings on a
- * template JSON file imported in Settings; not {@code …import.*}, because {@code import} is a Java
- * keyword and cannot be a record component.
- *
- * <p>No content-type allowlist, unlike {@link PositionDocumentSettings}: the bytes are parsed as JSON
- * whatever the part claims, and anything that is not the template format is refused as unreadable.
+ * {@code lightmove.position.template.*}: the template JSON import's ceilings (not {@code …import.*}, a Java keyword).
+ * No content-type allowlist: the bytes are parsed as JSON whatever the part claims.
  */
 public record PositionTemplateSettings(
         /** Ceiling on one import, in bytes. The file is held whole in memory while it is parsed. */

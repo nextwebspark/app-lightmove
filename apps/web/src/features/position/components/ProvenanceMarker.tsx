@@ -16,27 +16,9 @@ const EDGE_GAP = 12;
 const PANEL_GAP = 6;
 
 /**
- * The only visible provenance UI: a small sparkle a `DOCUMENT` value wears, nothing for `TEMPLATE` or
- * `MANUAL`. Hover or focus opens a hand-rolled popover — where the value was read from, the snippet it
- * was read out of, and an Undo.
- *
- * <p>Drawn as every other floating surface in the app is — a hairline, a panel ground and the
- * elevation ladder's top step — rather than as an inverted black tooltip, which it was alone in being.
- * The machine's voice is carried in the ink instead: the sparkle and the Undo wear `u-inferred`, the
- * same way the reading's strip and the file card's Extract with AI do.
- *
- * <p>Portalled and positioned from the trigger's measured rect, the escape {@link TruncatedText} and
- * {@link Popover} already make: the glyph sits inside a competency table that scrolls sideways, a
- * benefits table that does the same, and a React Flow canvas whose viewport is both clipped and
- * `transform`ed. An `absolute` panel is cut off by all three, and `position: fixed` alone does not
- * help inside the transformed one, since a transform makes its own containing block. The panel also
- * flips above the glyph rather than hanging off the bottom of the window.
- *
- * <p>`confidence`/`snippet`/`fileName`/`onUndo` come from the reading's receipt, which
- * {@link file://./../lib/receiptStore.ts} keeps for the tab — so a reload reads back the same popover
- * rather than degrading to a glyph with nothing behind it. A receipt can still be genuinely absent (a
- * second tab, storage the browser refuses), and the glyph then says "From the document" alone: the
- * value really did come from one, even where this tab no longer remembers which.
+ * The sparkle a `DOCUMENT` value wears (nothing for `TEMPLATE`/`MANUAL`); hover or focus opens its source, snippet and
+ * Undo. Portalled from the trigger's rect: scrolling tables clip an `absolute` panel and React Flow's `transform` defeats
+ * `position: fixed`. With no receipt (another tab, storage refused) it says "From the document" alone.
  */
 export function ProvenanceMarker({
   source,
@@ -93,14 +75,9 @@ export function ProvenanceMarker({
   };
 
   /**
-   * What closes the panel, all of it while it is open and none of it while it is not.
-   *
-   * <p>Leaving is read from where the pointer or the focus *arrived* rather than from a leave event's
-   * `relatedTarget`. The panel is portalled to the body, so crossing from the glyph onto it is a leave
-   * of the glyph with nothing in the DOM tree to pair it to: acting on that leave is what makes a
-   * popover vanish from under the hand reaching for its Undo. A scroll or a resize closes it too —
-   * the panel is placed from a rect measured once, and re-measuring it every frame buys nothing over
-   * dismissing a popover whose anchor has moved.
+   * What closes the panel while it is open. Leaving is read from where pointer or focus *arrived*, not `relatedTarget`:
+   * the panel is portalled, so glyph-to-panel reads as a leave and the popover vanished under the hand reaching for Undo.
+   * A scroll or resize closes it, since it is placed from a rect measured once.
    */
   useEffect(() => {
     if (!open) return;

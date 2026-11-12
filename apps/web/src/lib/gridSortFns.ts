@@ -1,12 +1,6 @@
 /**
- * The comparators a client-sorted grid's columns declare.
- *
- * <p>Each answers only the ascending question: TanStack applies the direction by reversing the
- * ascending result rather than sorting again, so a comparator that tried to be direction-aware would
- * be applied twice.
- *
- * <p>A blank sorts as the largest value, which puts "not set" at the end of an ascending page and the
- * head of a descending one — the two places a reader looks for it.
+ * Comparators for client-sorted grids. Ascending only — TanStack reverses for descending, so a direction-aware one
+ * would apply twice. A blank sorts largest: last ascending, first descending.
  */
 
 export function compareText(left: string | null | undefined, right: string | null | undefined): number {

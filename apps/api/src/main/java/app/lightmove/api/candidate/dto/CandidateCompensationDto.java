@@ -1,22 +1,17 @@
 package app.lightmove.api.candidate.dto;
 
+import app.lightmove.api.core.validation.SuppliedCurrencyCode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 
 /**
- * A package as the drawer edits it and the API answers it. Nested rather than flattened into twenty
- * sibling fields, because the currency is only meaningful attached to the numbers it qualifies.
- *
- * <p>No upper bound on the elements: executive packages in this market are quoted in whole units of
- * currencies worth a fraction of a dollar, and a ceiling picked for AED would refuse a legitimate
- * figure in another. Negative is refused, which is the only claim that is never true of a salary.
- *
- * <p>The two lists itemise {@code allowances} and {@code longTermIncentive}; omitted is empty.
+ * A package as the drawer edits it, nested so the currency stays with its figures. No upper bound (weak currencies
+ * quote large figures); only negatives are refused. The lists itemise {@code allowances} and {@code longTermIncentive}.
  */
 public record CandidateCompensationDto(
-        @Size(max = 3, message = "Use a three-letter currency code")
+        @SuppliedCurrencyCode
         String currency,
 
         @PositiveOrZero(message = "A base salary cannot be negative")

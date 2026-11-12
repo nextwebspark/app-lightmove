@@ -28,20 +28,10 @@ public final class BrightDataSearch {
     }
 
     /**
-     * People whose current employer is {@code companySlug} and whose title carries one seniority word,
-     * one function word and none of {@code excludedWords} — the Find executives search — leaving out
-     * {@code excludedSlugs}, the people already on file, so none of them is bought again.
-     *
-     * <p>{@code current_company_company_id} is the employer's LinkedIn <i>slug</i> ({@code dp-world}):
-     * the numeric id the company dataset also carries matches nothing and answers "no records", which
-     * is indistinguishable from a company with no staff. Every word is a single token: {@code includes}
-     * on a phrase is a 10-second query, and a group of them times out at the vendor's own 60s.
-     *
-     * <p>The title groups and the exclusions sit in a nested {@code and} because a group may hold four
-     * rules at most, and employer, country, three title groups and a slug exclusion are six. The
-     * excluded words are an {@code and} of {@code not_includes} one level further in — three levels,
-     * the documented depth, probed live. Country and exclusions are sent only when there is something
-     * to send.
+     * Find executives' search: current employer {@code companySlug}, one seniority and one function word, none of
+     * {@code excludedWords}, minus {@code excludedSlugs}. The employer key is the LinkedIn <i>slug</i> — the numeric id
+     * matches nothing; words are single tokens, as a phrase {@code includes} takes 10s and a group times out at 60s.
+     * Groups hold at most four rules, hence the nested {@code and} (three levels, the documented depth, probed live).
      */
     public static Map<String, Object> currentEmployeesTitled(String companySlug, List<String> seniorityWords,
                                                             List<String> functionWords, List<String> excludedWords,

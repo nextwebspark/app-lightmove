@@ -34,14 +34,8 @@ const WORKSPACE_COMPANY_SEARCH: CompanySearchSource = {
 };
 
 /**
- * The company step of an agency's New-client modal, also used to pick the workspace's own firm in
- * Settings and signup's organisation step — which passes its own `source` — taking a typed name there
- * with no further details.
- *
- * <p>It reads the Apollo universe through the same `/companies/search` call Strategy's own pickers use.
- *
- * <p>A company the market does not carry is the escape hatch, not the default — it is offered under the
- * results, once the search has settled, so it never competes with the rows that are still arriving.
+ * The company step of an agency's New-client modal, also Settings' and signup's firm picker (which pass a `source`),
+ * over `/companies/search`. A company the market lacks is offered only once the search has settled.
  */
 export function CompanyPicker({
   pick,

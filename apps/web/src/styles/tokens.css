@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * The design system: UNCAVA, lifted verbatim from claude-design/uncava-tokens.css. There is one
+ * The design system: UNCAVA, lifted verbatim from uncava-design/uncava-tokens.css. There is one
  * palette and its names are `u-*`; the app's old names (panel, amber, sky, …) are gone, so a class
  * written against one of them compiles to nothing.
  *
@@ -62,7 +62,7 @@
   --radius-u-card: 12px;
   --radius-u-modal: 16px;
 
-  /* ── UNCAVA (the --u-* block in every claude-design/*.dc.html helmet) ───────────────────────────────────
+  /* ── UNCAVA (the --u-* block in every uncava-design/*.dc.html helmet) ───────────────────────────────────
    *
    * The one palette, and every screen reads these names directly.
    *
@@ -199,7 +199,7 @@
   --shadow-u-e3: 0 18px 44px -10px rgba(0, 0, 0, 0.8);
 }
 
-/* Type roles: each is one recurring text style of claude-design/Position.dc.html, colour left to the caller. */
+/* Type roles: each is one recurring text style of uncava-design/Position.dc.html, colour left to the caller. */
 @utility type-label {
   font-size: var(--text-note);
   line-height: var(--text-note--line-height);
