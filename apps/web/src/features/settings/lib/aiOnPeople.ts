@@ -26,7 +26,7 @@ export const AI_SWITCHES: readonly { key: keyof AiControls; label: string; descr
   },
 ];
 
-function candidates(count: number): string {
+function candidateCountLabel(count: number): string {
   return count === 1 ? "1 candidate" : `${count} candidates`;
 }
 
@@ -42,7 +42,7 @@ export function clearingConfirmation(
   if (count === 0) {
     return { title, body: `No candidate holds a ${what} the AI suggested, so nothing is cleared.` };
   }
-  const subject = count === null ? `every candidate it suggested one for` : candidates(count);
+  const subject = count === null ? `every candidate it suggested one for` : candidateCountLabel(count);
   const cleared = isGender
     ? "the gender the AI suggested and nobody confirmed"
     : "the nationality the AI suggested and nobody confirmed, and its reading of the evidence,";
