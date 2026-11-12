@@ -1,4 +1,4 @@
--- A person's time zone follows their device unless they pin one (V210 made it follow the workspace). The device's
+-- A person's time zone follows their device unless they pin one (V211 made it follow the workspace). The device's
 -- zone is what their browser last reported; a pinned zone stays in app_lm_user.timezone, and null there is Automatic.
 ALTER TABLE app_lm_user
     ADD COLUMN device_time_zone    varchar(64),
@@ -8,7 +8,7 @@ ALTER TABLE app_lm_user
 SELECT set_config('app.rls_maintenance', 'on', true);
 
 -- Nobody's clock moves on deploy: the zone each person now reads in becomes their device's until their browser says
--- otherwise — their own zone, or for a follower V210 cleared, the zone of the workspace they are in.
+-- otherwise — their own zone, or for a follower V211 cleared, the zone of the workspace they are in.
 UPDATE app_lm_user u
 SET device_time_zone = coalesce(u.timezone, (
     SELECT w.time_zone
@@ -20,7 +20,7 @@ SET device_time_zone = coalesce(u.timezone, (
 
 -- A zone is pinned only where its person chose one in Settings → Profile, which the audit trail records; their latest
 -- choice stands. Everyone else is Automatic. The latest is read over every PROFILE_UPDATED line naming a zone, so a
--- choice later undone (V210's "workspace") leaves its person Automatic.
+-- choice later undone (V211's "workspace") leaves its person Automatic.
 UPDATE app_lm_user u
 SET timezone = chosen.zone
 FROM (

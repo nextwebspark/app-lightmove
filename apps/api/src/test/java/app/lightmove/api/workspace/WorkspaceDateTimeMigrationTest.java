@@ -16,8 +16,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * V210: nobody's clock moves on deploy. A workspace takes the zone most of its members keep, and a person follows it
- * only where that changes nothing in any workspace they are in. Its own container, stopped at V209 to seed.
+ * V211: nobody's clock moves on deploy. A workspace takes the zone most of its members keep, and a person follows it
+ * only where that changes nothing in any workspace they are in. Its own container, stopped at V210 to seed.
  */
 class WorkspaceDateTimeMigrationTest {
 
@@ -32,11 +32,11 @@ class WorkspaceDateTimeMigrationTest {
     private static final UUID IN_NONE = UUID.fromString("00000000-0000-0000-0000-0000000000a6");
 
     @Test
-    @DisplayName("V210 gives each workspace its members' zone and leaves a person their own only where it differs")
+    @DisplayName("V211 gives each workspace its members' zone and leaves a person their own only where it differs")
     void keepsEveryClockWhereItWas() throws Exception {
         try (PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"))) {
             postgres.start();
-            migrateTo(postgres, "209");
+            migrateTo(postgres, "210");
             try (Connection connection = connect(postgres)) {
                 user(connection, IN_BOTH, "Asia/Dubai");
                 user(connection, DUBAI_ONLY, "Asia/Dubai");
@@ -55,7 +55,7 @@ class WorkspaceDateTimeMigrationTest {
                 member(connection, LONDON_FIRM, LONDON_TWO);
             }
 
-            migrateTo(postgres, "210");
+            migrateTo(postgres, "211");
 
             try (Connection connection = connect(postgres)) {
                 assertThat(value(connection, "SELECT time_zone FROM app_lm_workspace WHERE id = ?", DUBAI_FIRM))

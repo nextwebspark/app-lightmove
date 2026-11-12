@@ -386,10 +386,10 @@ V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kin
 `MEETING_CANCELLED`.
 V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),
 the profile's old `Etc/GMT` becomes `UTC`, and every mailbox's `time_zone` is set to its user's — kept so from then by
-the profile write, and taken by a new connection. Since V210/V211 that clock is settled, not stored: the zone the person
+the profile write, and taken by a new connection. Since V211/V212 that clock is settled, not stored: the zone the person
 pinned, else the one their device last reported (Automatic), else their workspace's, else its country's
 (`DateTimePreferenceService`, the one place the order lives).
-V210 is **Date & time** — the workspace's time zone, date format and time format on Settings → General
+V211 is **Date & time** — the workspace's time zone, date format and time format on Settings → General
 (`PUT /workspace/date-time`, `WORKSPACE_MANAGE`, audited as a `dateTime` section), each a nullable column on
 `app_lm_workspace` (null: the country's zone through `CountryTimeZones`, the standard `DD_MMM_YYYY` / `H24`), and a
 person's own choice of any of them on `app_lm_user` (`timezone` now nullable, `date_format`, `time_format`; null keeps
@@ -404,7 +404,7 @@ calendar — the lock email and the lines a call files) goes through `DateTimeFo
 stay ISO. In the SPA every date is `lib/datetime`'s, read in the effective preferences that `AuthProvider` sets and
 `DateTimeBoundary` redraws on; `lib/dateRatchet.test.ts` refuses a browser date formatter anywhere else, and time
 pickers are `TimeInput` (labelled in the person's clock), never a native time input.
-V211 makes a person's time zone **Automatic** by default — it follows their device, as Slack's, HubSpot's and Teams'
+V212 makes a person's time zone **Automatic** by default — it follows their device, as Slack's, HubSpot's and Teams'
 do — and the workspace's zone a fallback, for a member whose browser has not yet reported and for workspace emails.
 `app_lm_user.device_time_zone` (and `_at`) is the zone the person's browser last sent (`PUT /auth/me/device-time-zone`,
 any region zone the JDK knows, the fixed list's or not; rate-limited, not audited, nothing written when unchanged); a
