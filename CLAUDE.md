@@ -36,7 +36,7 @@ Read the relevant `../uncava-design/*.dc.html` before building a screen. Don't b
 | `apps/extension` | LightMove Capture — Chrome extension (MV3, React 19, Vite 8). Shares no code with `apps/web`. |
 | `e2e/` | End-to-end matrix |
 | `ops/` | Cloud SQL bootstrap/hardening, GCP, eval scripts |
-| `docs/` | Feature docs, contracts read by tests (`public-api/openapi.json`, `mcp/tools.json`, `gdpr/retention-schedule.md`, `eval/*`) |
+| `docs/` | Feature docs, contracts read by tests (`public-api/openapi.json`, `mcp/tools.json`, `gdpr/retention-schedule.md`, `gdpr/subject-access-export.md`, `eval/*`) |
 
 Feature dependency directions (nothing depends back):
 - `position` (the brief) → `project`; `positiontemplate` is read by `position`; shared vocabulary in `common/constant`.
