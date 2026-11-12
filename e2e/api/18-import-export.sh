@@ -131,7 +131,7 @@ TEMPLATE_HEADER='Company,Sector,Country,City,Employees,Website,Name,Title,Level,
 get "/projects/$PROJECT/import/template" -H "$LEAD"
 check_status 18.1 "the lead downloads the import template" 200
 check_contains 18.2 "…served as text/csv" "text/csv" "$(header 'content-type')"
-check_contains 18.3 "…as an attachment named for the template" "lightmove-import-template.csv" \
+check_contains 18.3 "…as an attachment named for the template" "uncava-import-template.csv" \
   "$(header 'content-disposition')"
 DOWNLOADED_HEADER=$(printf '%s' "$LAST_BODY" | tr -d '\r' | head -1)
 check 18.4 "…whose header row is the dozen common fields, in row order" "$TEMPLATE_HEADER" "$DOWNLOADED_HEADER"

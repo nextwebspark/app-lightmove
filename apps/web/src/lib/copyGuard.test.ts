@@ -7,6 +7,9 @@ import { describe, expect, it } from "vitest";
  */
 const FORBIDDEN = /\bNylas\b|\bthis deployment\b|\btriage\b/i;
 
+/** Case-sensitive: the lowercase `lightmove.` file-format id an import file carries is a key, not the name. */
+const CODE_PRODUCT_NAME = /\bLightMove\b/;
+
 /** Copy a mockup still draws — the mockup wins until it changes (docs/glossary.md). */
 const MOCKUP_BACKED = new Set([
   "A position holds one open role end to end — brief, company universe, triage and candidates.",
@@ -42,10 +45,10 @@ function proseOf(path: string, source: string): string[] {
 }
 
 describe("on-screen copy", () => {
-  it("never names a vendor, the deployment or the internal word triage", () => {
+  it("never names the code-side product name, a vendor, the deployment or the internal word triage", () => {
     const offenders = Object.entries(sources).flatMap(([path, source]) =>
       proseOf(path, source)
-        .filter((text) => FORBIDDEN.test(text) && !MOCKUP_BACKED.has(text))
+        .filter((text) => (FORBIDDEN.test(text) || CODE_PRODUCT_NAME.test(text)) && !MOCKUP_BACKED.has(text))
         .map((text) => `${path}: ${text}`),
     );
 
