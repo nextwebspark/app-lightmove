@@ -58,10 +58,10 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Profile LinkedIn | optional; trimmed, ≤ 255; a `linkedin.com/in/…` address, scheme optional | `@Size(255)`; left out is unchanged, blank clears it; a member profile on a LinkedIn host (`VALIDATION_FAILED` on `linkedinUrl`), stored as `https://www.linkedin.com/in/<slug>` | field |
 | Profile photo | any picture the browser opens, framed square in the crop dialog and drawn as a ≤ 512px JPEG; one it cannot open is said in the dialog | ≤ the configured cap, 5 MB by default (`lightmove.avatars.max-upload-bytes`, named in the message), decoded as JPEG or PNG and re-encoded, anything else refused (`VALIDATION_FAILED` on `file`); 20 changes an hour per person, 300 per address | dialog banner |
 | Email signature name | ≤ 60; blank is named for its layout | `@NotBlank @Size(60)` | field |
-| Email signature fields (older layouts only; new signatures are written in the editor) | ≤ 160 name and company, 120 title, 40 phone, 255 LinkedIn and website, 200 address; blank follows the profile or workspace | the same `@Size`s; a website must be an http(s) address with a dotted host (`VALIDATION_FAILED` on `fields.website`), a LinkedIn a profile or company page (`fields.linkedinUrl`), a phone the profile's rule (`fields.phone`) | field |
+| Email signature fields | ≤ 160 name and company, 120 title, 40 phone and mobile, 255 LinkedIn and website, 200 address; blank follows the profile or workspace | the same `@Size`s; a website must be an http(s) address with a dotted host (`VALIDATION_FAILED` on `fields.website`), a LinkedIn a profile or company page (`fields.linkedinUrl`), a phone or mobile the profile's rule (`fields.phone`, `fields.mobile`) | field |
 | Email signature default | "Use as my default" is fixed on while a signature is the default | exactly one while any exist: the first is it, `isDefault: false` on the default is ignored, deleting it hands the mark to the oldest left | — |
-| Email signature body and disclaimer | ≤ 2,000 (Custom only; counted under the editor and Save held past it) / ≤ 1,000 | `@Size(2000)` / `@Size(1000)`; a body is kept only for Custom | field |
-| Email signature pictures | Insert picture takes JPEG or PNG; a seventh is refused before it uploads (toast) | ≤ 5 MB (`EMAIL_IMAGE_TOO_LARGE`), a JPEG or PNG under 40 megapixels (`EMAIL_IMAGE_UNREADABLE`); a save holds a Custom body to six pictures, each the signer's own upload here, their photo or the workspace logo (`VALIDATION_FAILED` on `customBody`) | toast / field |
+| Email signature body and disclaimer | ≤ 2,000 (Custom's signature, or Anything else under a fixed layout; counted under the editor and Save held past it) / ≤ 1,000 | `@Size(2000)` / `@Size(1000)` | field |
+| Email signature pictures | Insert picture takes JPEG or PNG, each then a size and Square, Rounded or Circle; a seventh is refused before it uploads (toast) | ≤ 5 MB (`EMAIL_IMAGE_TOO_LARGE`), a JPEG or PNG under 40 megapixels (`EMAIL_IMAGE_UNREADABLE`); a save holds the words to six pictures, each the signer's own upload here, their photo or the workspace logo (`VALIDATION_FAILED` on `customBody`) | toast / field |
 | Email signatures kept | New signature and Duplicate off at 10 | at most 10 per person per workspace (`EMAIL_SIGNATURE_LIMIT_REACHED`) | toast |
 | Email template name | Save held while blank; ≤ 80 by `maxLength` | `@NotBlank @Size(80)` | field |
 | Email template subject | optional; ≤ 200 by `maxLength`; a line break typed or pasted becomes a space | `@Size(200)`; one line (`VALIDATION_FAILED` on `subject`); blank stored as none | field |
@@ -182,6 +182,17 @@ is held back rather than sent (the step does not save until it is named) and the
 | Ranking competency weight | slider 0–100 per competency; a changed group must total 100% | `@Min(0) @Max(100)` each; a changed group off 100 is `VALIDATION_FAILED` on `weights` | inline under the group, Save held |
 | Ranking scenario rationale | `maxLength` 1000 | `@Size(1000)`, blank kept as none | toast |
 | Ranking scenario save | sends the version it opened and every competency of the brief | `RANKING_SCENARIO_STALE` (409) on another version; `RANKING_BRIEF_CHANGED` (409) when the competencies differ | banner, Reload, keeping mine / reload and re-seed |
+
+### Find executives
+
+| Field | Client | Server | Shown as |
+|---|---|---|---|
+| Title words | trimmed; ≤ 12 title words, a repeat ignored; an abbreviation such as CIO kept as a title on its own | ≤ 12 × 60 (`@Size`); cleaned by `SearchWords` — brackets, quotes and capital AND/OR/NOT dropped, a level-only word or one over three words dropped | toast |
+| Leave out | trimmed; ≤ 4 words | ≤ 4 × 60; a word the search itself looks for is dropped | toast |
+| Where | countries from the catalog | ≤ 12 two-letter codes (`@Pattern`) | toast |
+| Profiles bought per company | 3, 5 or 10 | any other number is read as 3 | — |
+| Companies | the ticked ones, ≤ the cap (`max-companies-per-run`, 10), each In universe | `EXECUTIVE_SOURCING_TOO_MANY_COMPANIES`; a company of another stage `VALIDATION_FAILED` on `triageCompanyIds` | toast |
+| Add | ≤ 50 ticked | `@NotEmpty @Size(50)`; someone no search of this position found is counted `notFound`, never filed | toast |
 
 ### Import, export, outreach, assistant
 | Field | Client | Server | Shown as |

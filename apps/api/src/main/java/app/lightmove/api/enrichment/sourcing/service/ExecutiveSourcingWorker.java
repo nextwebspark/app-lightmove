@@ -3,93 +3,86 @@ package app.lightmove.api.enrichment.sourcing.service;
 import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.model.MeteredUse;
 import app.lightmove.api.billing.usage.service.UsageRecorder;
-import app.lightmove.api.candidate.constant.EnrichmentVendor;
-import app.lightmove.api.candidate.dto.SaveCandidateRequest;
-import app.lightmove.api.candidate.model.EnrichedProfile;
-import app.lightmove.api.candidate.model.ResearchedFiling;
-import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.candidate.service.SuppressionGate;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.ExecutiveSourcingSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.error.constant.ErrorCode;
-import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.concurrent.service.ThreadContextPropagation;
-import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
-import app.lightmove.api.enrichment.candidate.service.BrightDataPersonProfiles;
-import app.lightmove.api.enrichment.common.service.SearchHitFiling;
-import app.lightmove.api.enrichment.candidate.service.ProfilePhotoDownloader;
 import app.lightmove.api.enrichment.sourcing.constant.SourcingOutcome;
+import app.lightmove.api.enrichment.sourcing.constant.TitleCheck;
 import app.lightmove.api.enrichment.sourcing.model.CompanyOutcome;
-import app.lightmove.api.enrichment.sourcing.model.ExecutivePick;
 import app.lightmove.api.enrichment.sourcing.model.ExecutiveSourcingRequested;
 import app.lightmove.api.enrichment.sourcing.model.ExecutiveSourcingRun;
+import app.lightmove.api.enrichment.sourcing.model.FoundPeople;
+import app.lightmove.api.enrichment.sourcing.model.FoundPerson;
+import app.lightmove.api.enrichment.sourcing.model.SearchCriteria;
 import app.lightmove.api.enrichment.sourcing.model.SourcingBrief;
 import app.lightmove.api.enrichment.sourcing.model.SourcingCompany;
-import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
+import app.lightmove.api.enrichment.sourcing.model.Suggestion;
 import app.lightmove.api.position.service.PositionService;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Runs a Find executives request after it commits, off its thread: one model call for the search
- * words, then the companies a few at a time — a vendor search, reworded while it finds nobody in the
- * seat, and a filing per hit that holds it — recording each company as it finishes so the strip moves.
- * Not {@code @Transactional}: every vendor and model call is made with no connection held, and the writes
- * go through {@link SourcingRunStore} and {@code CandidateService.addResearched}, each its own transaction.
+ * Runs a Find executives search after it commits, off its thread: the companies a few at a time, each one
+ * {@link CompanySearch}, its confirmed people's live profiles bought while the company's budget lasts, everyone
+ * judged and ranked ({@link SuggestionJudge}) and stored for the panel, the suppression list left out — nobody is
+ * filed. Each company is recorded as it finishes, and a stop asked for is honoured before the next. No model is
+ * called. Not {@code @Transactional}: every vendor call is made with no connection held, and the writes are each
+ * their own short transaction.
  */
 @Component
 @Slf4j
 class ExecutiveSourcingWorker {
 
     private final SourcingRunStore store;
-    private final ChainedPeopleSearch peopleSearch;
-    private final SourcingSpecProposer specs;
-    private final SourcingSpecRefiner refiner;
-    private final CandidateService candidates;
+    private final SuggestionStore suggestions;
+    private final CompanySearch companySearch;
+    private final LiveProfiles live;
+    private final PeopleCache cache;
+    private final SourcingCriteriaService criteria;
     private final SuppressionGate suppression;
     private final PositionService positions;
-    private final ProfilePhotoDownloader photos;
     private final AuditService audit;
     private final UsageRecorder usage;
+    private final Clock clock;
     private final ExecutiveSourcingSettings settings;
+    private final Duration peopleCacheTtl;
 
-    ExecutiveSourcingWorker(SourcingRunStore store, ChainedPeopleSearch peopleSearch, SourcingSpecProposer specs,
-                            SourcingSpecRefiner refiner, CandidateService candidates,
-                            SuppressionGate suppression, PositionService positions,
-                            ProfilePhotoDownloader photos, AuditService audit, UsageRecorder usage,
+    ExecutiveSourcingWorker(SourcingRunStore store, SuggestionStore suggestions, CompanySearch companySearch,
+                            LiveProfiles live, PeopleCache cache, SourcingCriteriaService criteria,
+                            SuppressionGate suppression, PositionService positions, AuditService audit, UsageRecorder usage, Clock clock,
                             LightMoveProperties properties) {
         this.store = store;
-        this.peopleSearch = peopleSearch;
-        this.specs = specs;
-        this.refiner = refiner;
-        this.candidates = candidates;
+        this.suggestions = suggestions;
+        this.companySearch = companySearch;
+        this.live = live;
+        this.cache = cache;
+        this.criteria = criteria;
         this.suppression = suppression;
         this.positions = positions;
-        this.photos = photos;
         this.audit = audit;
         this.usage = usage;
+        this.clock = clock;
         this.settings = properties.enrichment().sourcing();
+        this.peopleCacheTtl = properties.enrichment().peopleCacheTtl();
     }
 
     @Async
@@ -101,7 +94,7 @@ class ExecutiveSourcingWorker {
             return;
         }
         try {
-            execute(request, started.get().getCompanies());
+            execute(request, started.get());
         } catch (RuntimeException failed) {
             log.error("Sourcing run {} failed", request.runId(), failed);
             store.fail(request.runId(), "The run stopped unexpectedly")
@@ -110,22 +103,20 @@ class ExecutiveSourcingWorker {
     }
 
     /**
-     * Closing the pool waits for every company already started; one not started by the deadline is
-     * reported as not reached rather than cancelled mid-filing.
+     * Closing the pool waits for every company already started; one not started by the deadline is reported as
+     * not reached, and one not started once a stop was asked for as stopped, rather than cancelled mid-search.
      */
-    private void execute(ExecutiveSourcingRequested request, List<SourcingCompany> companies) {
+    private void execute(ExecutiveSourcingRequested request, ExecutiveSourcingRun started) {
         SourcingBrief brief = SourcingBrief.of(positions.briefOf(request.workspaceId(), request.projectId()));
-        SourcingSpec spec = specs.propose(brief)
-                .orElseGet(() -> SourcingSpec.defaultFor(brief.roleTitle(), brief.seniority()));
-        store.recordSpec(request.runId(), spec);
-        Set<String> heldSlugs = ConcurrentHashMap.newKeySet();
-        heldSlugs.addAll(candidates.mappedProfileSlugsOf(request.workspaceId(), request.projectId()));
-        Run run = new Run(request, brief, spec, SeatFit.of(brief, spec), searchedCountries(brief), heldSlugs,
-                Instant.now().plus(settings.runDeadline()));
+        SearchCriteria searched = started.getCriteria() != null ? started.getCriteria()
+                : criteria.current(request.workspaceId(), request.projectId());
+        suggestions.purgeCreatedBefore(Instant.now(clock).minus(peopleCacheTtl));
+        Run run = new Run(request, brief, searched, Instant.now(clock).plus(settings.runDeadline()));
 
         try (ExecutorService pool = Executors.newFixedThreadPool(settings.parallelism(),
                 Thread.ofVirtual().factory())) {
-            companies.forEach(company -> pool.execute(ThreadContextPropagation.wrap(() -> run.record(company, run.sourceOne(company)))));
+            started.getCompanies().forEach(company ->
+                    pool.execute(ThreadContextPropagation.wrap(() -> run.record(company, run.searchOne(company)))));
         }
 
         store.finish(request.runId()).ifPresent(finished -> {
@@ -134,51 +125,38 @@ class ExecutiveSourcingWorker {
                     .target(AuditService.PROJECT_TARGET, request.projectId())
                     .detail("runId", finished.getId().toString())
                     .detail("companies", finished.getCompanies().size())
-                    .detail("filed", finished.getExecutivesFiled())
+                    .detail("suggested", finished.getSuggested())
+                    .detail("runStatus", finished.getStatus().name())
                     .detail("vendorHits", finished.getVendorHits())
                     .detail("cachedHits", finished.getCachedHits())
-                    .detail("modelCalls", finished.getModelCalls())
                     .record();
             recordUsage(request, finished);
         });
     }
 
-    /** Whatever a run filed before it ended, once per run; a run that filed nobody used nothing. */
+    /** The live profiles a run bought, once per run; a run that bought none used nothing. */
     private void recordUsage(ExecutiveSourcingRequested request, ExecutiveSourcingRun ended) {
-        if (ended.getExecutivesFiled() == 0) {
+        if (ended.getVendorHits() == 0) {
             return;
         }
         usage.record(new MeteredUse(request.workspaceId(), request.requestedBy(), request.projectId(),
-                UsageKind.SOURCING_RUN, ended.getExecutivesFiled(), "sourcing-run:" + ended.getId()));
+                UsageKind.SOURCING_RUN, ended.getVendorHits(), "sourcing-run:" + ended.getId()));
     }
 
-    /** The position's country and the configured neighbours; nothing — anywhere — when the brief names no country. */
-    private List<String> searchedCountries(SourcingBrief brief) {
-        if (brief.countryCode() == null) {
-            return List.of();
-        }
-        return Stream.concat(Stream.of(brief.countryCode()), settings.neighbourCountryCodes().stream())
-                .distinct()
-                .toList();
-    }
-
-    /** One run's fixed inputs, and the people it must not file twice — including those it files itself. */
+    /** One run's fixed inputs. */
     @RequiredArgsConstructor
     private final class Run {
 
         private final ExecutiveSourcingRequested request;
         private final SourcingBrief brief;
-        private final SourcingSpec spec;
-        private final SeatFit seat;
-        private final List<String> searchedCountries;
-        private final Set<String> heldSlugs;
+        private final SearchCriteria searched;
         private final Instant deadline;
         private final ReentrantLock recording = new ReentrantLock();
 
         /**
-         * Serialised: the run row is one aggregate under {@code @Version}, and the companies finish on
-         * their own threads. An outcome that will not save is recorded as a failure instead, so the run
-         * never finishes a company short.
+         * Serialised: the run row is one aggregate under {@code @Version}, and the companies finish on their own
+         * threads. An outcome that will not save is recorded as a failure instead, so the run never finishes a
+         * company short.
          */
         void record(SourcingCompany company, CompanyOutcome outcome) {
             recording.lock();
@@ -192,9 +170,15 @@ class ExecutiveSourcingWorker {
             }
         }
 
-        CompanyOutcome sourceOne(SourcingCompany company) {
-            if (Instant.now().isAfter(deadline)) {
+        CompanyOutcome searchOne(SourcingCompany company) {
+            if (Instant.now(clock).isAfter(deadline)) {
                 return CompanyOutcome.of(company, SourcingOutcome.NOT_REACHED);
+            }
+            if (store.isStopRequested(request.runId())) {
+                return CompanyOutcome.of(company, SourcingOutcome.STOPPED);
+            }
+            if (company.linkedinSlug() == null) {
+                return CompanyOutcome.of(company, SourcingOutcome.NO_LINKEDIN_PAGE);
             }
             try {
                 return search(company);
@@ -204,148 +188,52 @@ class ExecutiveSourcingWorker {
             }
         }
 
-        /**
-         * A search finding nobody in the seat — nobody at all, or only people {@link SeatFit} turns away — is
-         * reworded by the model and run again, up to {@code max-search-rounds}; the first that finds someone
-         * holding it is the last, and those not already mapped are filed best fit first
-         * ({@link SourcedHitRanking}).
-         */
         private CompanyOutcome search(SourcingCompany company) {
-            if (company.linkedinSlug() == null) {
-                return CompanyOutcome.of(company, SourcingOutcome.NO_LINKEDIN_PAGE);
-            }
-            Map<String, Integer> triedWords = new HashMap<>();
-            Set<String> turnedAway = new HashSet<>();
-            RefineConversation conversation = null;
-            SourcingSpec searching = spec;
-            int billed = 0;
-            int cached = 0;
-            int modelCalls = 0;
-            for (int round = 1; ; round++) {
-                triedWords.putIfAbsent(searching.wordKey(), round);
-                PeopleFound found = peopleSearch.currentEmployeesTitled(company.employer(), searching,
-                        brief.seniority(), searchedCountries, settings.hitsPerCompany());
-                billed += found.billed();
-                cached += found.cached();
-                PeopleFound total = found.spending(billed, cached);
-                boolean foundPeople = !found.people().isEmpty();
-                if (foundPeople) {
-                    List<BrightDataPerson> unmapped = usable(found.people());
-                    if (unmapped.isEmpty()) {
-                        return outcome(company, SourcingOutcome.ALL_ALREADY_MAPPED, total, modelCalls, List.of(),
-                                turnedAway.size());
-                    }
-                    SeatScreening screening = screen(unmapped, searching);
-                    turnedAway.addAll(screening.turnedAwaySlugs());
-                    if (!screening.holdingTheSeat().isEmpty()) {
-                        return file(company, total, modelCalls, searching, screening.holdingTheSeat(),
-                                turnedAway.size());
-                    }
-                }
-                if (round >= settings.maxSearchRounds() || Instant.now().isAfter(deadline)) {
-                    return outcome(company, nobodyFiled(turnedAway), total, modelCalls, List.of(), turnedAway.size());
-                }
-                if (conversation == null) {
-                    conversation = refiner.open(brief, company.companyName(), company.employeeCount());
-                }
-                if (foundPeople) {
-                    refiner.reportNoneHoldsTheSeat(conversation, round, searching);
-                } else {
-                    refiner.reportNobodyFound(conversation, round, searching);
-                }
-                Optional<SourcingSpec> next = refiner.refine(conversation, round + 1, spec.roleSummary());
-                modelCalls += 1;
-                Integer repeated = next.map(words -> triedWords.get(words.wordKey())).orElse(null);
-                if (repeated != null) {
-                    refiner.reportRepeat(conversation, repeated);
-                    next = refiner.refine(conversation, round + 1, spec.roleSummary());
-                    modelCalls += 1;
-                }
-                if (next.isEmpty() || triedWords.containsKey(next.get().wordKey())) {
-                    return outcome(company, nobodyFiled(turnedAway), total, modelCalls, List.of(), turnedAway.size());
-                }
-                searching = next.get();
-            }
+            List<String> countries = searched.countriesFor(company);
+            FoundPeople found = withConfirmedProfiles(company, withoutSuppressed(companySearch.search(
+                    company.employer(), searched.words(), brief.seniority(), countries, searched.perCompany())));
+            List<Suggestion> judged = SuggestionJudge.of(brief, searched.words(), countries, YearMonth.now(clock))
+                    .judge(found.people());
+            suggestions.save(request.workspaceId(), request.projectId(), request.runId(), company.triageCompanyId(),
+                    judged);
+            return CompanyOutcome.searched(company, found, judged);
         }
 
-        private SeatScreening screen(List<BrightDataPerson> unmapped, SourcingSpec searched) {
-            Map<Boolean, List<BrightDataPerson>> holding = unmapped.stream()
-                    .collect(Collectors.partitioningBy(person -> seat.holds(person, searched)));
-            return new SeatScreening(holding.get(true),
-                    holding.get(false).stream().map(BrightDataPerson::linkedinId).toList());
-        }
-
-        private static SourcingOutcome nobodyFiled(Set<String> turnedAway) {
-            return turnedAway.isEmpty() ? SourcingOutcome.NO_HITS : SourcingOutcome.NOTHING_FIT;
-        }
-
-        private CompanyOutcome file(SourcingCompany company, PeopleFound found, int modelCalls, SourcingSpec searched,
-                                    List<BrightDataPerson> holdingTheSeat, int notFit) {
-            List<ExecutivePick> picks = SourcedHitRanking.ranked(holdingTheSeat, searched, brief.seniority()).stream()
-                    .limit(settings.picksPerCompany())
-                    .map(person -> file(company, person, found.researchedBy()))
-                    .toList();
-            boolean anyFiled = picks.stream().anyMatch(pick -> pick.candidateId() != null);
-            return outcome(company, anyFiled ? SourcingOutcome.FILED : SourcingOutcome.NOTHING_FIT, found, modelCalls,
-                    picks, notFit);
-        }
-
-        /**
-         * A hit refused as already mapped, suppressed since the run began, restricted, or losing a race to the same
-         * name, is counted as skipped.
-         */
-        private ExecutivePick file(SourcingCompany company, BrightDataPerson person, EnrichmentVendor researchedBy) {
-            EnrichedProfile research = BrightDataPersonProfiles.toEnrichedProfile(person, researchedBy)
-                    .withPhoto(photos.fetchOrNull(person.usableAvatarUrl()));
-            String name = SearchHitFiling.nameOf(person);
-            SaveCandidateRequest filing = SaveCandidateRequest.ofFoundExecutive(company.triageCompanyId(), name,
-                    research.title(), person.profileUrl(), research.locationCountry(), research.locationCity());
-            try {
-                UUID candidateId = candidates.addResearched(request.requestedBy(), request.workspaceId(),
-                        request.projectId(), filing, research, ResearchedFiling.ofSourcingRun(request.runId()))
-                        .candidate().id();
-                heldSlugs.add(person.linkedinId());
-                return ExecutivePick.of(name, candidateId);
-            } catch (ApiException refused) {
-                if (refused.getCode() != ErrorCode.CANDIDATE_ALREADY_MAPPED
-                        && refused.getCode() != ErrorCode.PERSON_SUPPRESSED
-                        && refused.getCode() != ErrorCode.PERSON_PROCESSING_RESTRICTED) {
-                    throw refused;
-                }
-                return ExecutivePick.of(name, null);
-            } catch (DataIntegrityViolationException raced) {
-                if (!SearchHitFiling.isFilingRace(raced)) {
-                    throw raced;
-                }
-                return ExecutivePick.of(name, null);
-            }
-        }
-
-        /**
-         * Hits with a slug to key on, not already mapped in the mandate — including by this run — and not on the
-         * workspace's suppression list, which is asked before a photo is fetched or anything filed.
-         */
-        private List<BrightDataPerson> usable(List<BrightDataPerson> hits) {
-            List<BrightDataPerson> unmapped = hits.stream()
-                    .filter(person -> person.linkedinId() != null && !person.linkedinId().isBlank())
-                    .filter(person -> !heldSlugs.contains(person.linkedinId()))
-                    .toList();
+        /** The workspace's suppression list is asked before a profile is bought for anyone or anyone is stored. */
+        private FoundPeople withoutSuppressed(FoundPeople found) {
             Set<String> suppressed = suppression.suppressedProfileSlugsOf(request.workspaceId(),
-                    unmapped.stream().map(BrightDataPerson::linkedinId).toList());
-            return unmapped.stream()
-                    .filter(person -> !suppressed.contains(person.linkedinId()))
-                    .toList();
+                    found.people().stream().map(FoundPerson::slug).filter(Objects::nonNull).toList());
+            if (suppressed.isEmpty()) {
+                return found;
+            }
+            return found.withPeople(found.people().stream()
+                    .filter(person -> !suppressed.contains(person.slug()))
+                    .toList(), 0, 0);
         }
 
-        private static CompanyOutcome outcome(SourcingCompany company, SourcingOutcome outcome, PeopleFound found,
-                                              int modelCalls, List<ExecutivePick> picks, int notFit) {
-            int filed = (int) picks.stream().filter(pick -> pick.candidateId() != null).count();
-            return new CompanyOutcome(company.triageCompanyId(), company.companyName(), outcome, found.billed(),
-                    found.cached(), found.matched(), modelCalls, filed, picks.size() - filed, picks, found.source(),
-                    notFit);
+        /**
+         * Everyone a free check confirmed, read from the live index — on file, or bought while the company's budget
+         * lasts — so the panel shows their title and Add files them from a whole profile.
+         */
+        private FoundPeople withConfirmedProfiles(SourcingCompany company, FoundPeople found) {
+            int budget = searched.perCompany() - found.credits();
+            int bought = 0;
+            int cached = 0;
+            List<FoundPerson> people = new ArrayList<>(found.people().size());
+            for (FoundPerson person : found.people()) {
+                if (person.check() != TitleCheck.CONFIRMED) {
+                    people.add(person);
+                    continue;
+                }
+                PeopleFound profile = cache.liveProfileOf(live, company.employer(), person.person(), searched.words(),
+                        budget - bought > 0);
+                bought += profile.bought();
+                cached += profile.cached();
+                people.add(profile.people().stream().findFirst()
+                        .map(read -> person.asLive(read, live.provider(), live.researchedBy()))
+                        .orElse(person));
+            }
+            return found.withPeople(people, bought, cached);
         }
     }
-
-    /** One round's unmapped hits: those holding the seat, and the slugs of those turned away. */
-    private record SeatScreening(List<BrightDataPerson> holdingTheSeat, List<String> turnedAwaySlugs) {}
 }

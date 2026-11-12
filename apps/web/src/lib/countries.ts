@@ -35,6 +35,8 @@ export function useCountries() {
 
   return {
     options,
+    /** Every country with its ISO code, for a screen that stores codes and shows names. */
+    countries: data?.countries ?? EMPTY_COUNTRIES,
     /** The Strategy filter's Location chips, in the order the universe justifies. */
     markets: data?.markets ?? EMPTY_MARKETS,
     /**
@@ -48,6 +50,7 @@ export function useCountries() {
 }
 
 const EMPTY_OPTIONS: ComboboxOption[] = [];
+const EMPTY_COUNTRIES: Country[] = [];
 const EMPTY_MARKETS: string[] = [];
 
 function optionsOf(countries: Country[]): ComboboxOption[] {

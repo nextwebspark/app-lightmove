@@ -2,6 +2,7 @@ package app.lightmove.api.enrichment.sourcing.repository;
 
 import app.lightmove.api.enrichment.sourcing.constant.SourcingRunStatus;
 import app.lightmove.api.enrichment.sourcing.model.ExecutiveSourcingRun;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -16,7 +17,9 @@ public interface ExecutiveSourcingRunRepository extends JpaRepository<ExecutiveS
     Optional<ExecutiveSourcingRun> findFirstByWorkspaceIdAndProjectIdOrderByCreatedAtDesc(UUID workspaceId,
                                                                                          UUID projectId);
 
-    List<ExecutiveSourcingRun> findByWorkspaceIdAndProjectIdIn(UUID workspaceId, Collection<UUID> projectIds);
+    List<ExecutiveSourcingRun> findByWorkspaceIdAndProjectIdAndCreatedAtAfterOrderByCreatedAtDesc(UUID workspaceId,
+                                                                                              UUID projectId,
+                                                                                              Instant after);
 
     List<ExecutiveSourcingRun> findByWorkspaceIdAndProjectIdAndStatusIn(UUID workspaceId, UUID projectId,
                                                                         Collection<SourcingRunStatus> statuses);

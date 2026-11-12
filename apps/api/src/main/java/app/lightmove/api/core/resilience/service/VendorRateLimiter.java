@@ -19,10 +19,19 @@ public class VendorRateLimiter {
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
     public void pace(String vendor, int requestsPerSecond) {
+        pace(vendor, requestsPerSecond, Duration.ofSeconds(1));
+    }
+
+    /**
+     * {@code permits} calls every {@code period}, for a vendor whose cap is slower than one a second. The
+     * first registration of a vendor wins, so an adapter pacing itself this way does so before its client
+     * is built.
+     */
+    public void pace(String vendor, int permits, Duration period) {
         buckets.computeIfAbsent(vendor, ignored -> Bucket.builder()
                 .addLimit(Bandwidth.builder()
-                        .capacity(requestsPerSecond)
-                        .refillGreedy(requestsPerSecond, Duration.ofSeconds(1))
+                        .capacity(permits)
+                        .refillGreedy(permits, period)
                         .build())
                 .build());
     }

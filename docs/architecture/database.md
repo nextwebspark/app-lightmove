@@ -129,17 +129,20 @@ V83 adds `app_lm_project_candidate.ai_nationality_reading` jsonb — the nationa
 reading (category or Unknown, confidence, evidence, rule), replaced whole per run and staff-only.
 `app_lm_vendor_person` and `app_lm_vendor_people_search` (V87) are the people cache, V64's shape and
 tenant rule for people: every record a billed search or lookup returned, keyed on the profile slug,
-and which slugs each normalised search returned. `CachedPeopleSearch` answers a repeated search from
-them with no vendor call, and otherwise reads back the fitting people on file at that employer and
-asks the vendor only for the rest with every person on file excluded (`linkedin_id not_in`, nested in
-an `and` to stay under four rules a group) — a returned record is billed whether or not it was new.
-`BrightDataProfileEnricher` reads the same table first, so a capture of someone a run bought is free.
+and which slugs each normalised search returned. `PeopleCache` answers a repeated search from them with
+no vendor call, and otherwise reads back the fitting people on file at that employer and asks the vendor
+only for how many more the free count says there are — ContactOut cannot leave anyone out, so a returned
+record is billed whether or not it was new. One row a person, whichever provider returned them: a fresh
+record is never replaced by a thinner provider's (`CachedPeopleStore`'s precedence, ContactOut over
+Business Search over the dataset), and a provider's own `source_record` survives its later answer
+without one. `BrightDataProfileEnricher` reads the same table first, so a capture of someone a run bought
+is free — never from a Business Search row, which says who works where and often holds no title.
 Both age out after `lightmove.enrichment.people-cache-ttl` (30d), and every billed call purges what
 has aged past it (V89 indexes `fetched_at` for that), so a third party's record is never held longer
-than it may be read. The exclusion is the employer's
-people on file, never a mandate's own roster: the answer is shared by every workspace.
+than it may be read. What is read back is the employer's people on file, never a mandate's own roster:
+the answer is shared by every workspace.
 `app_lm_executive_sourcing_run` (V86) is one Find executives run — the companies frozen at request
-time, the spec the model proposed, and an outcome per company as each finishes — kept as a row so the
+time, the words the model drafted (`spec`, read back from an older run's shape too), and an outcome per company as each finishes — kept as a row so the
 screen can poll it, read it back after a reload and be refused a second one while it runs. V86 also
 adds `AI_SOURCED` to both source CHECKs (the contact ledger's only because `ContactSource.ofDoor` is
 exhaustive; nothing writes it).
@@ -466,10 +469,10 @@ V209 seeds `PERSON_SUBJECT_ACCESS` to ADMIN alone: the subject access export (#9
 V210 adds the `SIGNATURE` kind to `app_lm_email_image`: a Custom signature's own uploaded picture, carrying both its
 person and its workspace (V193's policy already fences a row with a workspace), one per file per person per workspace
 by partial unique index on the content's SHA-256.
-V213 adds #922's four AI switches to `app_lm_workspace` (`ai_infer_gender`, `ai_infer_nationality`,
+V215 adds #922's four AI switches to `app_lm_workspace` (`ai_infer_gender`, `ai_infer_nationality`,
 `ai_draft_assessments`, `ai_enrich_automatically`): every workspace that existed is backfilled `true`, then the default
 becomes `false`, so a workspace founded since starts with all four off (`docs/gdpr/ai-controls-922.md`).
-V214 adds `candidates.demographics:read` to the scopes CHECKs of `app_lm_api_key` and `app_lm_oauth_client`: gender and
+V216 adds `candidates.demographics:read` to the scopes CHECKs of `app_lm_api_key` and `app_lm_oauth_client`: gender and
 nationality leave over the public API and MCP only under it.
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
@@ -509,6 +512,19 @@ public, no redirect, a size cap, one deadline) — and `app_lm_user.avatar_url` 
 or a removal no provider replaces (`User.mayTakeAvatarFrom`), and once a workspace can enforce its identity provider's
 sign-in, `isAvatarEditable` is where its directory photo becomes final. It clears every provider link stored before it,
 which expired and, once dead, kept every other provider out: the next sign-in copies the picture.
+V213 is the Find executives panel: `app_lm_executive_sourcing_criteria` (one per position — the search as `criteria`
+jsonb, `source` `DEFAULT | AI | EDITED`, the `brief_fingerprint` it was drafted from, unique on the project) and
+`app_lm_executive_sourcing_suggestion` (one row per person a run found at a company: the profile slug, `verdict`
+`FITS | NO_TITLE | NOT_FIT`, `score`, `rank`, `reasons text[]` — our codes and our search's words, never a name or a
+title, which are read from the people cache — and `found_by` `LIVE | INDEX | BOTH`; unique on run, company and slug;
+no status, since "added" is read from the position's mapped profiles; deleted by the next run once older than the
+people cache's life). The run gains its `criteria` snapshot, a `suggested` count, `stop_requested_at` and a `STOPPED`
+status; its `spec`, `executives_filed` and `model_calls` columns are frozen, read by nothing since, and the names of
+whom older runs filed are taken off their `outcomes` (an erasure forgets a person's suggestions by slug). Both new
+tables are under forced row-level security.
+V214 adds `photo_shape` (`CIRCLE | ROUNDED | SQUARE`, default `CIRCLE`) to `app_lm_email_signature` and drops V193's
+`app_lm_email_signature_custom_chk`: `custom_body` is now any layout's extra words, not only Custom's. A picture's own
+shape is a word in its Markdown title; its cut copy is another `SIGNATURE` row of `app_lm_email_image`.
 V167 adds `app_lm_project_candidate.company_filed_for_them`: their company was filed for them (research, or the
 employer the workspace knew them at) rather than already held, cleared by any move; only the plugin's Undo reads it.
 V163 puts **out of process** on the status (`app_lm_workspace_candidate_status.out_of_process`) and makes every stage

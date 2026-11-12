@@ -17,8 +17,8 @@ import * as talentMapApi from "../../talentmap/api/talentMapApi";
 import type { TalentMapPage } from "../../talentmap/api/types";
 import type { CompanyResult, Facets } from "../../strategy/api/types";
 import * as exportApi from "../api/exportApi";
-import * as sourcingApi from "../api/sourcingApi";
-import type { SourcingRun } from "../api/sourcingApi";
+import * as sourcingApi from "../../sourcing/api/sourcingApi";
+import type { SavedCriteria, SourcingRun } from "../../sourcing/api/sourcingApi";
 import * as triageApi from "../api/triageApi";
 import type { StageLinesPage, TriageCompaniesPage, TriageCompany } from "../api/types";
 import { stubFullscreenApi } from "../../../test/fullscreen";
@@ -65,12 +65,19 @@ vi.mock("../../position/api/positionApi", async (importOriginal) => ({
   ...(await importOriginal<typeof positionApi>()),
   getBriefCompensation: vi.fn(),
 }));
-vi.mock("../api/sourcingApi", async (importOriginal) => ({
+vi.mock("../../sourcing/api/sourcingApi", async (importOriginal) => ({
   // Keys and the in-progress predicate are real; only the calls are mocked.
   ...(await importOriginal<typeof sourcingApi>()),
   getSourcingConfig: vi.fn(),
-  getLatestSourcingRun: vi.fn(),
-  startSourcing: vi.fn(),
+  getLatestRun: vi.fn(),
+  startSearch: vi.fn(),
+  stopSearch: vi.fn(),
+  getCriteria: vi.fn(),
+  suggestCriteria: vi.fn(),
+  saveCriteria: vi.fn(),
+  countSearch: vi.fn(),
+  getSuggestions: vi.fn(),
+  addSuggested: vi.fn(),
 }));
 vi.mock("../api/importApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/importApi")>()),
@@ -437,7 +444,6 @@ const openAdvanced = async () => userEvent.click(await screen.findByRole("button
 const openCreate = async () => userEvent.click(await screen.findByRole("button", { name: /^Create/ }));
 
 /** The strip is the nearest `role="status"` box around one of its lines. */
-const stripAround = (line: HTMLElement) => line.closest('[role="status"]') as HTMLElement;
 
 const NO_OUTREACH: Mailbox = { offered: false, providers: [], bookingLinkOffered: false, connection: null };
 
@@ -463,18 +469,45 @@ const CONNECTED_MAILBOX: Mailbox = {
   },
 };
 
-const SOURCING_OFF = { enabled: false, maxCompaniesPerRun: 5, hitsPerCompany: 10, picksPerCompany: 3, lostAfterSeconds: 240 };
+const SOURCING_OFF = {
+  enabled: false,
+  maxCompaniesPerRun: 10,
+  perCompanyChoices: [3, 5, 10],
+  defaultPerCompany: 3,
+  lostAfterSeconds: 240,
+};
+
+const DRAFTED: SavedCriteria = {
+  criteria: {
+    levels: ["C_LEVEL", "SENIOR_VP", "VP_HEAD_DIRECTOR"],
+    functionTerms: ["Finance", "Financial"],
+    standaloneTitles: ["CFO"],
+    localLevelWords: [],
+    excludedWords: ["Assistant"],
+    suggestions: ["Treasury"],
+    roleSummary: null,
+    countryCodes: ["AE"],
+    perCompany: 3,
+  },
+  source: "AI",
+  briefChanged: false,
+  updatedAt: "2026-11-03T10:00:00Z",
+};
 
 const runOf = (overrides: Partial<SourcingRun> = {}): SourcingRun => ({
   id: "run1",
   status: "RUNNING",
-  companyNames: ["ACWA Power", "Hand Typed Co"],
+  companies: [
+    { triageCompanyId: "u1", companyName: "ACWA Power", searchable: true },
+    { triageCompanyId: "u2", companyName: "Hand Typed Co", searchable: false },
+  ],
   companiesTotal: 2,
   companiesDone: 0,
-  executivesFiled: 0,
-  vendorHits: 0,
-  cachedHits: 0,
-  searchedFor: null,
+  suggested: 0,
+  profilesBought: 0,
+  profilesCached: 0,
+  stopRequested: false,
+  searched: null,
   outcomes: [],
   // Now, not a fixed date: a run marked running for more than a few minutes reads as lost.
   requestedAt: new Date().toISOString(),
@@ -510,7 +543,19 @@ describe("TriageStagePage", () => {
     vi.mocked(mailboxApi.getMailbox).mockResolvedValue(NO_OUTREACH);
     // Off unless a test turns it on: most of this suite is about the grid, not Find executives.
     vi.mocked(sourcingApi.getSourcingConfig).mockResolvedValue(SOURCING_OFF);
-    vi.mocked(sourcingApi.getLatestSourcingRun).mockResolvedValue(null);
+    vi.mocked(sourcingApi.getLatestRun).mockResolvedValue(null);
+    vi.mocked(sourcingApi.getCriteria).mockResolvedValue(null);
+    vi.mocked(sourcingApi.suggestCriteria).mockResolvedValue(DRAFTED);
+    vi.mocked(sourcingApi.getSuggestions).mockResolvedValue({ companies: [] });
+    vi.mocked(sourcingApi.countSearch).mockResolvedValue({
+      counted: true,
+      companies: [{ triageCompanyId: "u1", companyName: "ACWA Power", searchable: true, match: 4, onFile: 1, toBuy: 3 }],
+      levels: [],
+      words: [{ word: "Treasury", count: 2 }],
+      match: 4,
+      onFile: 1,
+      toBuy: 3,
+    });
     streamListeners.length = 0;
     localStorage.clear();
     sessionStorage.clear();
@@ -532,7 +577,7 @@ describe("TriageStagePage", () => {
     const offered = () =>
       vi.mocked(sourcingApi.getSourcingConfig).mockResolvedValue({ ...SOURCING_OFF, enabled: true });
 
-    it("is not drawn until the deployment says it offers the run, and never for a client seat", async () => {
+    it("is not drawn until the deployment says it offers the search, and never for a client seat", async () => {
       renderStage();
       await screen.findByText("ACWA Power");
       await waitFor(() => expect(sourcingApi.getSourcingConfig).toHaveBeenCalled());
@@ -540,96 +585,104 @@ describe("TriageStagePage", () => {
       expect(screen.queryByRole("checkbox", { name: /Select ACWA Power/i })).not.toBeInTheDocument();
     });
 
-    it("with nothing ticked, says it takes the first few without an executive and starts over the server's pick", async () => {
+    it("opens the panel on the ticked companies, drafts the search on its first open, and searches them at once", async () => {
       offered();
-      vi.mocked(sourcingApi.startSourcing).mockResolvedValue(runOf({ status: "RUNNING", companiesDone: 1 }));
+      vi.mocked(sourcingApi.startSearch).mockResolvedValue(runOf({ status: "QUEUED" }));
       renderStage();
 
-      await userEvent.click(await screen.findByRole("button", { name: /^Find executives$/i }));
-      const dialog = screen.getByRole("dialog", { name: /Find executives\?/i });
-      expect(dialog).toHaveTextContent("the first 5 companies in the universe with no executive mapped yet");
-      expect(dialog).toHaveTextContent("tick them first");
-      await userEvent.click(within(dialog).getByRole("button", { name: /^Find executives$/i }));
-
-      await waitFor(() => expect(sourcingApi.startSourcing).toHaveBeenCalledWith("p1", []));
-      // The strip takes over and the button is held while the run is in progress.
-      // Exact: the held toolbar button also reads "Finding executives… 1/2".
-      const strip = stripAround(await screen.findByText("Finding executives"));
-      expect(strip).toHaveTextContent("1/2 companies");
-      expect(screen.getByRole("button", { name: /Finding executives… 1\/2/i })).toHaveAttribute("aria-disabled", "true");
-    });
-
-    it("with companies ticked, runs over exactly those, caps the ticks and keeps them until the run lands", async () => {
-      offered();
-      vi.mocked(sourcingApi.getSourcingConfig).mockResolvedValue({ ...SOURCING_OFF, enabled: true, maxCompaniesPerRun: 1 });
-      const second = { ...acwa, id: "u2", apolloAccountId: "a2", companyName: "Emirates NBD" };
-      vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(pageOf({ companies: [acwa, second], totalCount: 2 }));
-      vi.mocked(sourcingApi.startSourcing).mockResolvedValue(runOf({ status: "QUEUED", companiesTotal: 1 }));
-      renderStage();
+      const find = await screen.findByRole("button", { name: /^Find executives/ });
+      expect(find).toHaveAttribute("aria-disabled", "true");
+      await userEvent.click(find);
+      expect(await screen.findByText("Tick up to 10 companies to find executives there")).toBeInTheDocument();
 
       await userEvent.click(await screen.findByRole("checkbox", { name: "Select ACWA Power" }));
-      const bar = screen.getByRole("region", { name: "1 company selected" });
-      await userEvent.click(screen.getByRole("checkbox", { name: "Select Emirates NBD" }));
-      expect(await screen.findByText(/takes 1 company at a time/i)).toBeInTheDocument();
-      expect(screen.getByRole("checkbox", { name: "Select Emirates NBD" })).not.toBeChecked();
+      expect(find).not.toHaveAttribute("aria-disabled");
+      expect(find).toHaveTextContent("Find executives· 1");
+      await userEvent.click(find);
 
-      await userEvent.click(within(bar).getByRole("button", { name: /Find executives/i }));
-      const dialog = screen.getByRole("dialog", { name: /Find executives\?/i });
-      expect(dialog).toHaveTextContent("the 1 company you ticked");
-      await userEvent.click(within(dialog).getByRole("button", { name: /^Find executives$/i }));
+      const panel = await screen.findByRole("dialog", { name: "Find executives" });
+      await waitFor(() => expect(sourcingApi.suggestCriteria).toHaveBeenCalledWith("p1", ["u1"]));
+      await waitFor(() => expect(sourcingApi.countSearch).toHaveBeenCalled());
+      await waitFor(() => expect(sourcingApi.startSearch).toHaveBeenCalledWith("p1", ["u1"]));
+      expect(sourcingApi.startSearch).toHaveBeenCalledTimes(1);
+      expect(panel).toBeInTheDocument();
+    });
 
-      await waitFor(() => expect(sourcingApi.startSourcing).toHaveBeenCalledWith("p1", ["u1"]));
-      await screen.findByText("Finding executives");
-      expect(screen.getByRole("checkbox", { name: "Select ACWA Power" })).toBeChecked();
+    it("counts the companies the ticked rows name, and says so past the cap", async () => {
+      vi.mocked(sourcingApi.getSourcingConfig).mockResolvedValue({
+        ...SOURCING_OFF,
+        enabled: true,
+        maxCompaniesPerRun: 1,
+      });
+      const other: TriageCompany = { ...acwa, id: "u2", companyName: "Almarai" };
+      vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
+        pageOf({ companies: [acwa, other], counts: { inUniverse: 2, shortlisted: 0, declined: 0 } }),
+      );
+      vi.mocked(candidatesApi.getCandidates).mockResolvedValue(peopleOf([yasmin, { ...yasmin, id: "c2", fullName: "Omar Saleh" }]));
+      renderStage();
 
-      vi.mocked(sourcingApi.getLatestSourcingRun).mockResolvedValue(runOf({ status: "COMPLETED", companiesDone: 1, companiesTotal: 1 }));
+      await userEvent.click(await screen.findByRole("checkbox", { name: "Select Yasmin El-Sayed at ACWA Power" }));
+      await userEvent.click(screen.getByRole("checkbox", { name: "Select Omar Saleh at ACWA Power" }));
+      const find = screen.getByRole("button", { name: /^Find executives/ });
+      expect(find).toHaveTextContent("Find executives· 1");
+      expect(find).not.toHaveAttribute("aria-disabled");
+
+      await userEvent.click(screen.getByRole("checkbox", { name: "Select Almarai" }));
+      expect(find).toHaveTextContent("Find executives· 2");
+      expect(find).toHaveAttribute("title", "Find executives works on 1 company at most — 2 are ticked");
+      await userEvent.click(find);
+      expect(await screen.findByText("Find executives works on 1 company at most — 2 are ticked")).toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: "Find executives" })).not.toBeInTheDocument();
+    });
+
+    it("asks at an empty slot whether to find with Uncava or add by hand", async () => {
+      offered();
+      renderStage();
+
+      await screen.findByRole("button", { name: /^Find executives/ });
+      await userEvent.click(screen.getByRole("button", { name: /Add an executive at ACWA Power/i }));
+      await userEvent.click(screen.getByRole("menuitem", { name: /Find with Uncava/ }));
+      expect(await screen.findByRole("dialog", { name: "Find executives" })).toBeInTheDocument();
+      await waitFor(() => expect(sourcingApi.countSearch).toHaveBeenCalledWith("p1", ["u1"], expect.anything(), expect.anything()));
+
+      await userEvent.click(screen.getByRole("button", { name: "Close" }));
+      await userEvent.click(screen.getByRole("button", { name: /Add an executive at ACWA Power/i }));
+      await userEvent.click(screen.getByRole("menuitem", { name: /Add manually/ }));
+      expect(await screen.findByRole("dialog", { name: /Add executive/i })).toBeInTheDocument();
+    });
+
+    it("opens the last search from the button's menu whatever is ticked", async () => {
+      offered();
+      vi.mocked(sourcingApi.getLatestRun).mockResolvedValue(runOf({ status: "COMPLETED", companiesDone: 2, suggested: 3 }));
+      localStorage.setItem("lightmove.sourcing.opened.p1", runOf().id);
+      renderStage();
+
+      await userEvent.click(await screen.findByRole("button", { name: "Find executives options" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: /Open the last search/ }));
+      expect(await screen.findByRole("dialog", { name: "Find executives" })).toBeInTheDocument();
+    });
+
+    it("carries the search on the toolbar button: still a button while it runs, then a count of who fits", async () => {
+      offered();
+      vi.mocked(sourcingApi.getLatestRun).mockResolvedValue(runOf({ id: "run3", status: "RUNNING", companiesDone: 1 }));
+      renderStage();
+
+      const running = await screen.findByRole("button", { name: /Finding… 1\/2/i });
+      expect(running).not.toHaveAttribute("aria-disabled");
+
+      vi.mocked(sourcingApi.getLatestRun).mockResolvedValue(
+        runOf({ id: "run3", status: "COMPLETED", companiesDone: 2, suggested: 7 }),
+      );
       act(() => {
         for (const listener of streamListeners) listener({ name: "change", data: '{"kind":"executive-sourcing"}' });
       });
-      await waitFor(() => expect(screen.queryByRole("region", { name: /selected/ })).not.toBeInTheDocument());
-      expect(screen.getByRole("checkbox", { name: "Select ACWA Power" })).not.toBeChecked();
-    });
 
-    it("reads a finished run back after a reload, summarised, with its details behind a fold and a dismiss", async () => {
-      offered();
-      vi.mocked(sourcingApi.getLatestSourcingRun).mockResolvedValue(runOf({
-        status: "COMPLETED",
-        companiesDone: 2,
-        executivesFiled: 3,
-        finishedAt: "2026-09-28T10:03:00Z",
-        searchedFor: { seniorityWords: ["Chief", "CFO"], functionWords: ["Finance"], excludedWords: ["Assistant"] },
-        outcomes: [
-          { triageCompanyId: "u1", companyName: "ACWA Power", outcome: "FILED", seen: 10, matched: 27, filed: 3, skipped: 0,
-            picks: [{ name: "Risalat Rehman", score: 9, reason: "Holds the seat", candidateId: "c9" }] },
-          { triageCompanyId: "u2", companyName: "Hand Typed Co", outcome: "NO_LINKEDIN_PAGE", seen: 0, matched: null, filed: 0, skipped: 0, picks: [] },
-        ],
-      }));
-      renderStage();
+      expect(await screen.findByRole("button", { name: /Find executives\s*7/i })).toBeInTheDocument();
+      expect(await screen.findByText(/7 executives found at 2 companies/i)).toBeInTheDocument();
 
-      const strip = stripAround(await screen.findByText(/Found 3 executives at 1 of 2 companies/i));
-      await userEvent.click(within(strip).getByRole("button", { name: /Show details/i }));
-      expect(strip).toHaveTextContent("No LinkedIn page on this company");
-      expect(strip).toHaveTextContent("Risalat Rehman");
-      expect(strip).toHaveTextContent("(10 of 27 matched)");
-      expect(strip).toHaveTextContent("Titles with Chief / CFO and Finance, without Assistant");
-      expect(screen.getByRole("button", { name: /^Find executives$/i })).toBeEnabled();
-
-      await userEvent.click(within(strip).getByRole("button", { name: "Dismiss" }));
-      expect(screen.queryByText(/Found 3 executives/i)).not.toBeInTheDocument();
-    });
-
-    it("re-reads the run when the stream says it moved", async () => {
-      offered();
-      vi.mocked(sourcingApi.getLatestSourcingRun).mockResolvedValue(runOf({ status: "RUNNING" }));
-      renderStage();
-      await screen.findByText("Finding executives");
-      vi.mocked(sourcingApi.getLatestSourcingRun).mockResolvedValue(runOf({ status: "COMPLETED", companiesDone: 2 }));
-
-      act(() => {
-        for (const listener of streamListeners) listener({ name: "change", data: '{"kind":"executive-sourcing"}' });
-      });
-
-      await screen.findByText(/Found no executives to add at 2 companies/i);
+      await userEvent.click(screen.getByRole("button", { name: /Find executives\s*7/i }));
+      await screen.findByRole("dialog", { name: "Find executives" });
+      expect(screen.queryByRole("button", { name: /Find executives\s*7/i })).not.toBeInTheDocument();
     });
   });
 
@@ -2163,19 +2216,22 @@ describe("TriageStagePage", () => {
       const toolbarSequence = await screen.findByRole("button", { name: "Add to sequence" });
       expect(toolbarSequence).toHaveAttribute("aria-disabled", "true");
       expect(toolbarSequence).toHaveAttribute("title", "Tick executives on the board first");
-      expect(screen.getByRole("button", { name: "Send email" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Send email" })).not.toBeInTheDocument();
     });
 
-    it("holds Add to sequence greyed until a company is ticked", async () => {
+    it("holds Add to sequence greyed until an executive is ticked, and counts them on the button", async () => {
       vi.mocked(mailboxApi.getMailbox).mockResolvedValue(CONNECTED_MAILBOX);
+      vi.mocked(candidatesApi.getCandidates).mockResolvedValue(peopleOf([yasmin]));
       renderStage();
 
       const toolbarSequence = await screen.findByRole("button", { name: "Add to sequence" });
       expect(toolbarSequence).toHaveAttribute("aria-disabled", "true");
-      expect(toolbarSequence).toHaveAttribute("title", "Tick companies first");
+      expect(toolbarSequence).toHaveAttribute("title", "Tick executives first");
 
-      await userEvent.click(await screen.findByRole("checkbox", { name: "Select ACWA Power" }));
+      await userEvent.click(await screen.findByRole("checkbox", { name: "Select Yasmin El-Sayed at ACWA Power" }));
       expect(toolbarSequence).not.toHaveAttribute("aria-disabled");
+      expect(toolbarSequence).toHaveTextContent("Add to sequence· 1");
+      expect(screen.queryByRole("region", { name: /selected/ })).not.toBeInTheDocument();
       await userEvent.click(toolbarSequence);
       expect(await screen.findByRole("dialog", { name: "Add to sequence" })).toBeInTheDocument();
     });
@@ -2191,20 +2247,7 @@ describe("TriageStagePage", () => {
       expect(toolbarSequence).toHaveAttribute("title", "Add to sequence from Table or Pipeline");
     });
 
-    it("writes to anyone on the position from Send email, in place", async () => {
-      vi.mocked(mailboxApi.getMailbox).mockResolvedValue(CONNECTED_MAILBOX);
-      vi.mocked(pipelineApi.getPipeline).mockResolvedValue(
-        aPipelinePage([aPipelineRow({ candidateId: "c7", fullName: "Rania Khoury", status: "contacted" })]),
-      );
-      renderStage();
-
-      await userEvent.click(await screen.findByRole("button", { name: "Send email" }));
-      await userEvent.click(await screen.findByRole("option", { name: /Rania Khoury/ }));
-
-      expect(await screen.findByRole("dialog", { name: "Email Rania Khoury" })).toBeInTheDocument();
-    });
-
-    it("offers neither outreach action where outreach is not set up", async () => {
+    it("offers no Add to sequence where outreach is not set up", async () => {
       renderStage();
 
       await screen.findByText("ACWA Power");

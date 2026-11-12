@@ -83,7 +83,7 @@ class PersonErasureIntegrationTest extends FlowTestSupport {
                 + " where person_id = ?::uuid", String.class, personId);
         String attachmentKey = seedOutreach(cfo, personId, candidateIds.getFirst());
         seedRecordingsTaskAndBell(cfo, personId);
-        seedVendorCacheAndRun(cfo, candidateIds.getFirst());
+        seedVendorCacheAndRun(cfo);
         assertThat(referencesTo(personId, candidateIds)).as("the walk sees the seeded rows").isNotEmpty();
 
         JsonNode preview = body(mvc.perform(get("/api/v1/candidates/" + personId + "/erase-preview")
@@ -114,8 +114,8 @@ class PersonErasureIntegrationTest extends FlowTestSupport {
                 Long.class)).isZero();
         assertThat(db.queryForObject("select details ->> 'names' from app_lm_notification where workspace_id = ?::uuid",
                 String.class, workspaceId)).isEqualTo("[\"Omar Saleh\"]");
-        assertThat(db.queryForObject("select outcomes::text from app_lm_executive_sourcing_run where project_id = ?::uuid",
-                String.class, cfo)).doesNotContain("Noor").doesNotContain(candidateIds.getFirst());
+        assertThat(db.queryForList("select linkedin_slug from app_lm_executive_sourcing_suggestion where project_id = ?::uuid",
+                String.class, cfo)).containsExactly("omar-saleh");
 
         assertThat(db.queryForList("select storage_key from app_lm_storage_deletion", String.class))
                 .contains(documentKey, attachmentKey);
@@ -230,7 +230,7 @@ class PersonErasureIntegrationTest extends FlowTestSupport {
                 workspaceId, adminId, projectId);
     }
 
-    private void seedVendorCacheAndRun(String projectId, String candidateId) {
+    private void seedVendorCacheAndRun(String projectId) {
         db.update("""
                 insert into app_lm_vendor_person (linkedin_slug, provider, fetched_at, raw)
                 values ('noor-haddad', 'contactout', now(), '{"name":"Noor Haddad"}')
@@ -239,14 +239,20 @@ class PersonErasureIntegrationTest extends FlowTestSupport {
                 insert into app_lm_vendor_people_search (query_key, company_slug, slugs, fetched_at)
                 values ('erasure-q', 'aldar', array['someone-else','Noor-Haddad'], now())
                 on conflict (query_key) do update set slugs = excluded.slugs""");
+        String runId = db.queryForObject("""
+                insert into app_lm_executive_sourcing_run (workspace_id, project_id, requested_by, status, companies)
+                values (?::uuid, ?::uuid, ?::uuid, 'COMPLETED', '[]') returning id::text""",
+                String.class, workspaceId, projectId, adminId);
+        String aldar = db.queryForObject("""
+                insert into app_lm_project_triage_company (project_id, source, status, company_name, added_by)
+                values (?::uuid, 'MANUAL', 'IN_UNIVERSE', 'Aldar', ?::uuid) returning id::text""",
+                String.class, projectId, adminId);
         db.update("""
-                insert into app_lm_executive_sourcing_run (workspace_id, project_id, requested_by, status, companies,
-                    outcomes)
-                values (?::uuid, ?::uuid, ?::uuid, 'COMPLETED', '[]',
-                    jsonb_build_array(jsonb_build_object('companyName', 'Aldar', 'outcome', 'FILED', 'picks',
-                        jsonb_build_array(jsonb_build_object('name', 'Noor Haddad', 'candidateId', ?),
-                                          jsonb_build_object('name', 'Omar Saleh', 'candidateId', null)))))""",
-                workspaceId, projectId, adminId, candidateId);
+                insert into app_lm_executive_sourcing_suggestion (workspace_id, project_id, run_id, triage_company_id,
+                    linkedin_slug, verdict, rank, found_by)
+                values (?::uuid, ?::uuid, ?::uuid, ?::uuid, 'Noor-Haddad', 'FITS', 1, 'LIVE'),
+                       (?::uuid, ?::uuid, ?::uuid, ?::uuid, 'omar-saleh', 'FITS', 2, 'LIVE')""",
+                workspaceId, projectId, runId, aldar, workspaceId, projectId, runId, aldar);
     }
 
     /** Every uuid column of every table that still holds the person or one of their mappings, bar the kept ones. */

@@ -107,11 +107,13 @@ lightmove:
   #   contactout:
   #     api-key: CHANGEME
   #
-  # Find executives searches Bright Data's people dataset by default. With a ContactOut key it can
-  # search ContactOut's People Search instead — current titles, where Bright Data's are frozen at
-  # November 2025 — at one search credit per profile returned:
+  # Find executives searches ContactOut's People Search on the key above — current titles, a search
+  # credit per profile returned, three a company at most — and Bright Data's Business Search on the
+  # brightdata key, whatever `provider` says, about $0.002 a company. Either key alone offers it. To keep
+  # the Bright Data key for captures but leave Business Search alone:
   #   sourcing:
-  #     people-source: contactout
+  #     business-search:
+  #       enabled: false
 
   # The Companies screen's map view. Paste your account's **Default public token** — the one already
   # listed at account.mapbox.com → Tokens — and nothing else: it both draws the globe and geocodes,

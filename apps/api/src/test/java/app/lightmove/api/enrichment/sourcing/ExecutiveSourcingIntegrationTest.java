@@ -1,6 +1,7 @@
 package app.lightmove.api.enrichment.sourcing;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -11,53 +12,71 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingPeopleSearch;
 import app.lightmove.api.StubChatModel;
+import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataExperience;
+import app.lightmove.api.enrichment.sourcing.model.ExecutiveSourcingRequested;
+import app.lightmove.api.enrichment.sourcing.model.ExecutiveSourcingRun;
+import app.lightmove.api.enrichment.sourcing.model.SearchCriteria;
+import app.lightmove.api.enrichment.sourcing.model.SearchWords;
+import app.lightmove.api.enrichment.sourcing.model.SourcingCompany;
+import app.lightmove.api.enrichment.sourcing.repository.ExecutiveSourcingRunRepository;
+import app.lightmove.api.enrichment.sourcing.service.RecordingLiveProfiles;
+import app.lightmove.api.enrichment.sourcing.service.RecordingProfileIndex;
+import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Find executives end to end: the POST answers 202 with the run, the worker runs inline (see
- * {@code SynchronousAuditWrites}) against the recording people search and the stub model, and the
- * hits land as AI-sourced executives at their companies.
+ * Find executives end to end, as the panel drives it: the saved search, its free counts, a search that stores what
+ * it found at each company and files nobody, the results read back, and Add. The worker runs inline (see
+ * {@code SynchronousAuditWrites}) against the two recording indexes and the stub model.
  *
- * <p>The stub answers every prompt of a run with one document, so it carries every shape the run
- * asks for: the spec's words, and the automatic AI run's background and nationality. Each call binds
- * the half it asked for. Asked to reword, it answers the spec's words again — a repeat, so a company
- * finding nobody stops after one search unless a test scripts the rewording.
+ * <p>The stub answers every prompt with one document, so it carries every shape asked for: the search words, and
+ * the automatic AI run's background and nationality once someone is added.
  */
 @IntegrationTest
 @TestPropertySource(properties = "lightmove.billing.enforce=true")
 class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
 
     private static final String EVERY_ANSWER = """
-            {"seniorityWords":["Chief","Head"],"functionWords":["Finance","Financial"],
-             "excludedWords":["Assistant","Office"],
-             "roleSummary":"The group's finance chief.",
+            {"levels":["C_LEVEL","SENIOR_VP","VP_HEAD_DIRECTOR"],"functionTerms":["Finance","Financial"],
+             "localLevelWords":[],"standaloneTitles":["CFO"],"excludedWords":["Assistant"],
+             "suggestions":["Treasury"],"roleSummary":"The group's finance chief.",
              "category":"Emirati","confidence":"high","evidence_for":[],"evidence_against":[],"rule_applied":"none",
              "gender":"male","yearsExperience":20,"seniority":"C-Suite"}""";
 
-    private static final String REFINE_PROMPT = "rewrite the search words";
+    private static final String WORDS_PROMPT = "You are a researcher on an executive search mandate";
 
-    @Autowired private RecordingPeopleSearch peopleSearch;
+    @Autowired private RecordingLiveProfiles live;
+    @Autowired private RecordingProfileIndex index;
     @Autowired private StubChatModel model;
     @Autowired @FixtureJdbc private JdbcTemplate db;
+    @Autowired private ExecutiveSourcingRunRepository runs;
+    @Autowired private ApplicationEventPublisher events;
+    @Autowired private PlatformTransactionManager transactions;
 
     private String adminToken;
+    private String adminEmail;
 
     @BeforeEach
-    void resetTheVendor() {
-        peopleSearch.clear();
+    void resetTheIndexes() {
+        live.clear();
+        index.clear();
         model.answerWith(EVERY_ANSWER);
     }
 
@@ -67,104 +86,230 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a run files the search's hits, up to the per-company cap, researched from the hit, and enriches them")
-    void aRunFilesThePicks() throws Exception {
-        String projectId = mandate("Sourcing Firm");
-        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
-        String noPage = company(projectId, "Hand Typed Co", null);
-        peopleSearch.answerWith("dp-world", List.of(
-                person("risalat-rehman", "Risalat Rehman", "Chief Financial Officer at DP World Jeddah"),
-                person("group-director", "Group Director", "Group Director - Financial Accounts"),
-                person("third-person", "Third Person", "Head of Finance Transformation"),
-                person("fourth-person", "Fourth Person", "Head of Finance Operations")));
+    @DisplayName("the search is drafted from the brief once, saved as the consultant edits it, and drafted again on Reset")
+    void theSavedSearch() throws Exception {
+        String projectId = mandate("Criteria Firm");
+        inTheUae(projectId);
+        mvc.perform(get(sourcingUrl(projectId) + "/criteria").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNoContent());
 
-        JsonNode started = body(mvc.perform(post(sourcingUrl(projectId))
+        JsonNode drafted = postJson(sourcingUrl(projectId) + "/criteria/suggest", "{\"triageCompanyIds\":[]}");
+        assertThat(drafted.get("source").asText()).isEqualTo("AI");
+        assertThat(drafted.at("/criteria/functionTerms")).extracting(JsonNode::asText)
+                .containsExactly("Finance", "Financial");
+        assertThat(drafted.at("/criteria/countryCodes")).extracting(JsonNode::asText)
+                .containsExactly("AE", "SA", "QA", "KW", "BH", "OM");
+        assertThat(drafted.at("/criteria/perCompany").asInt()).isEqualTo(3);
+
+        JsonNode edited = body(mvc.perform(put(sourcingUrl(projectId) + "/criteria")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"triageCompanyIds\":[]}"))
-                .andExpect(status().isAccepted())
+                        .content(criteriaJson("[\"Finance\",\"Treasury\"]", "[\"CFO\"]", 5)))
+                .andExpect(status().isOk())
                 .andReturn());
-        String runId = started.get("id").asText();
+        assertThat(edited.get("source").asText()).isEqualTo("EDITED");
+        assertThat(edited.at("/criteria/functionTerms")).extracting(JsonNode::asText)
+                .containsExactly("Finance", "Treasury");
+
+        JsonNode reset = postJson(sourcingUrl(projectId) + "/criteria/suggest", "{\"triageCompanyIds\":[]}");
+        assertThat(reset.get("source").asText()).isEqualTo("AI");
+        assertThat(reset.at("/criteria/perCompany").asInt()).as("the consultant's own choice stands").isEqualTo(5);
+        assertThat(reset.get("briefChanged").asBoolean()).isFalse();
+
+        db.update("UPDATE app_lm_position SET department = 'Group Finance' WHERE project_id = ?::uuid", projectId);
+        mvc.perform(get(sourcingUrl(projectId) + "/criteria").header("Authorization", "Bearer " + adminToken))
+                .andExpect(jsonPath("$.briefChanged").value(true));
+    }
+
+    @Test
+    @DisplayName("counts are free: each company, each level and each suggested word, and nothing is bought")
+    void countsAreFree() throws Exception {
+        String projectId = mandate("Counts Firm");
+        inTheUae(projectId);
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        String noPage = company(projectId, "Hand Typed Co", null);
+        live.answerWith("dp-world", List.of(
+                person("the-cfo", "The CFO", "Chief Financial Officer"),
+                person("head-finance", "Head of Finance", "Head of Finance"),
+                person("treasurer", "A Treasurer", "Head of Treasury"),
+                person("manager", "A Manager", "Finance Manager")));
+
+        JsonNode counts = postJson(sourcingUrl(projectId) + "/counts",
+                "{\"triageCompanyIds\":[],\"criteria\":" + criteriaJson("[\"Finance\",\"Financial\"]",
+                        "[\"CFO\"]", 3).replace("\"suggestions\":[]", "\"suggestions\":[\"Treasury\"]") + "}");
+
+        assertThat(counts.get("counted").asBoolean()).isTrue();
+        JsonNode atDpWorld = companyIn(counts.get("companies"), dpWorld);
+        assertThat(atDpWorld.get("match").asLong()).isEqualTo(2);
+        assertThat(atDpWorld.get("toBuy").asLong()).isEqualTo(2);
+        assertThat(companyIn(counts.get("companies"), noPage).get("searchable").asBoolean()).isFalse();
+        assertThat(levelCount(counts, "C_LEVEL")).isEqualTo(1);
+        assertThat(levelCount(counts, "VP_HEAD_DIRECTOR")).isEqualTo(1);
+        assertThat(levelCount(counts, "MANAGER")).isEqualTo(1);
+        assertThat(counts.at("/words/0/word").asText()).isEqualTo("Treasury");
+        assertThat(counts.at("/words/0/count").asLong()).isEqualTo(1);
+        assertThat(live.searches()).isEmpty();
+        assertThat(index.searches()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a search stores what it found at each company, judged and ranked, and files nobody")
+    void aSearchStoresWhatItFound() throws Exception {
+        String projectId = mandate("Search Firm");
+        inTheUae(projectId);
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        String noPage = company(projectId, "Hand Typed Co", null);
+        live.answerWith("dp-world", List.of(
+                person("risalat-rehman", "Risalat Rehman", "Chief Financial Officer at DP World Jeddah"),
+                person("group-director", "Group Director", "Group Director - Financial Accounts")));
+        index.answerWith("dp-world", List.of(
+                person("a-pharmacist", "A Pharmacist", "Doctor of Pharmacy"),
+                untitled("omar-khalil", "Omar Khalil")));
+
+        String runId = start(projectId, "[]");
 
         JsonNode run = runOf(projectId, runId);
         assertThat(run.get("status").asText()).isEqualTo("COMPLETED");
         assertThat(run.get("companiesTotal").asInt()).isEqualTo(2);
-        assertThat(run.get("companiesDone").asInt()).isEqualTo(2);
-        assertThat(run.get("executivesFiled").asInt()).isEqualTo(3);
-        assertThat(run.get("vendorHits").asInt()).isEqualTo(4);
-        JsonNode outcomes = run.get("outcomes");
-        assertThat(outcomes).hasSize(2);
-        JsonNode filed = outcomeFor(outcomes, dpWorld);
-        assertThat(filed.get("outcome").asText()).isEqualTo("FILED");
-        assertThat(filed.get("filed").asInt()).isEqualTo(3);
-        assertThat(filed.get("picks")).extracting(pick -> pick.get("name").asText())
-                .containsExactly("Risalat Rehman", "Group Director", "Third Person");
-        assertThat(filed.get("picks").get(0).get("score").isNull()).isTrue();
-        assertThat(filed.get("seen").asInt()).isEqualTo(4);
-        assertThat(filed.get("matched").asLong()).isEqualTo(4);
-        assertThat(outcomeFor(outcomes, noPage).get("outcome").asText()).isEqualTo("NO_LINKEDIN_PAGE");
-        assertThat(run.get("searchedFor").get("excludedWords")).extracting(JsonNode::asText)
-                .containsExactly("Assistant");
+        assertThat(run.get("suggested").asInt()).isEqualTo(2);
+        assertThat(run.get("profilesBought").asInt()).isEqualTo(2);
+        assertThat(run.at("/searched/functionTerms")).extracting(JsonNode::asText)
+                .containsExactly("Finance", "Financial");
+        JsonNode result = outcomeFor(run.get("outcomes"), dpWorld);
+        assertThat(result.get("outcome").asText()).isEqualTo("FOUND");
+        assertThat(List.of(result.get("found").asInt(), result.get("fits").asInt(), result.get("noTitle").asInt(),
+                result.get("notFit").asInt(), result.get("indexFound").asInt(), result.get("titleChecks").asInt()))
+                .as("what the profile index alone returned, refuted by its title or a free check, is not listed")
+                .containsExactly(2, 2, 0, 0, 2, 1);
+        assertThat(outcomeFor(run.get("outcomes"), noPage).get("outcome").asText()).isEqualTo("NO_LINKEDIN_PAGE");
 
-        assertThat(peopleSearch.searches()).hasSize(1);
-        RecordingPeopleSearch.Asked search = peopleSearch.searches().getFirst();
-        assertThat(search.companySlug()).isEqualTo("dp-world");
-        assertThat(search.seniorityWords()).containsExactly("Chief", "Head");
-        assertThat(search.functionWords()).containsExactly("Finance", "Financial");
-        assertThat(search.excludedWords()).containsExactly("Assistant");
-        assertThat(search.countryCodes()).isEmpty();
+        JsonNode found = companyIn(suggestionsOf(projectId).get("companies"), dpWorld);
+        assertThat(found.get("people")).extracting(person -> person.get("linkedinSlug").asText(),
+                        person -> person.get("verdict").asText(),
+                        person -> person.get("band").isNull() ? null : person.get("band").asText())
+                .containsExactly(
+                        tuple("risalat-rehman", "FITS", "STRONG"),
+                        tuple("group-director", "FITS", "GOOD"));
+        assertThat(found.at("/people/0/reasons")).extracting(JsonNode::asText)
+                .contains("ROLE_WORD:Financial", "LEVEL:TOP", "LIVES_IN_ROLE_COUNTRY:AE");
+        assertThat(found.at("/people/0/person/fullName").asText()).isEqualTo("Risalat Rehman");
 
-        JsonNode people = candidatesOf(projectId);
-        assertThat(people).hasSize(3);
-        JsonNode cfo = null;
-        for (JsonNode person : people) {
-            if (person.get("fullName").asText().equals("Risalat Rehman")) {
-                cfo = person;
-            }
-        }
-        assertThat(cfo).isNotNull();
-        assertThat(cfo.get("source").asText()).isEqualTo("ai_sourced");
-        assertThat(cfo.get("triageCompanyId").asText()).isEqualTo(dpWorld);
-        assertThat(cfo.get("companyName").asText()).isEqualTo("DP World");
-        assertThat(cfo.get("linkedinUrl").asText()).isEqualTo("https://www.linkedin.com/in/risalat-rehman/");
-        assertThat(cfo.get("title").asText()).isEqualTo("Chief Financial Officer at DP World Jeddah");
-        assertThat(cfo.get("enrichedAt").isNull()).isFalse();
-        assertThat(cfo.get("nationality").asText()).isEqualTo("Emirati");
-        assertThat(db.queryForObject("select p.enriched_by from app_lm_person p join app_lm_project_candidate c on c.person_id = p.id where c.id = ?::uuid",
-                String.class, cfo.get("id").asText())).isEqualTo("BRIGHTDATA");
-
+        assertThat(candidatesOf(projectId)).isEmpty();
         assertThat(db.queryForObject("select count(*) from app_lm_audit_event where target_id = ? and event_type in "
                 + "('EXECUTIVE_SOURCING_REQUESTED', 'EXECUTIVE_SOURCING_COMPLETED')", Integer.class, projectId))
                 .isEqualTo(2);
         assertThat(db.queryForList("select units from app_lm_usage_event where project_id = ?::uuid and kind = ?",
-                Integer.class, projectId, "SOURCING_RUN")).as("the executives filed, once per run").containsExactly(3);
-
+                Integer.class, projectId, "SOURCING_RUN")).as("the profiles bought, once per run").containsExactly(2);
         mvc.perform(get(sourcingUrl(projectId) + "/latest").header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(runId));
     }
 
     @Test
-    @DisplayName("the picks are the hits whose current role fits the seat best, not the first the vendor returned")
-    void thePicksAreTheBestFitsNotTheFirstReturned() throws Exception {
-        String projectId = mandate("Ranking Firm");
+    @DisplayName("Add files the ticked people from what the search read, once; nobody a search did not find is added")
+    void addFilesTheTicked() throws Exception {
+        String projectId = mandate("Add Firm");
         String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
-        db.update("UPDATE app_lm_position SET seniority = 'C_SUITE' WHERE project_id = ?::uuid", projectId);
-        peopleSearch.answerWith("dp-world", List.of(
-                person("finance-manager", "Finance Manager", "Finance Manager"),
-                person("head-of-finance", "Head of Finance", "Head of Finance"),
-                person("finance-director", "Finance Director", "Group Finance Director"),
-                person("the-cfo", "The CFO", "Chief Financial Officer")));
+        live.answerWith("dp-world", List.of(
+                person("risalat-rehman", "Risalat Rehman", "Chief Financial Officer at DP World Jeddah"),
+                person("group-director", "Group Director", "Group Director - Financial Accounts")));
+        start(projectId, "[]");
+        int searchesBefore = live.searches().size();
 
-        String runId = start(projectId, "[]");
+        JsonNode added = add(projectId, dpWorld, "risalat-rehman", "group-director", "a-stranger");
 
-        JsonNode outcome = outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld);
-        assertThat(outcome.get("picks")).extracting(pick -> pick.get("name").asText())
-                .containsExactly("The CFO", "Head of Finance", "Finance Director");
+        assertThat(added.get("added").asInt()).isEqualTo(2);
+        assertThat(added.get("notFound").asInt()).isEqualTo(1);
+        assertThat(live.searches()).as("no second vendor call").hasSize(searchesBefore);
+        JsonNode people = candidatesOf(projectId);
+        assertThat(people).hasSize(2);
+        JsonNode cfo = people.get(0).get("fullName").asText().equals("Risalat Rehman") ? people.get(0) : people.get(1);
+        assertThat(cfo.get("source").asText()).isEqualTo("ai_sourced");
+        assertThat(cfo.get("triageCompanyId").asText()).isEqualTo(dpWorld);
+        assertThat(cfo.get("title").asText()).isEqualTo("Chief Financial Officer at DP World Jeddah");
+        assertThat(cfo.get("nationality").asText()).isEqualTo("Emirati");
+        assertThat(enrichedByOf(cfo)).isEqualTo("CONTACTOUT");
+
+        JsonNode again = add(projectId, dpWorld, "risalat-rehman");
+        assertThat(again.get("added").asInt()).isZero();
+        assertThat(again.get("alreadyOnPosition").asInt()).isEqualTo(1);
+        assertThat(companyIn(suggestionsOf(projectId).get("companies"), dpWorld).at("/people/0/candidateId").asText())
+                .isEqualTo(cfo.get("id").asText());
+        assertThat(db.queryForObject("select count(*) from app_lm_audit_event where target_id = ? and event_type = "
+                + "'EXECUTIVE_SOURCING_ADDED'", Integer.class, projectId)).isEqualTo(1);
     }
 
     @Test
-    @DisplayName("a run that would pass the month's fair-use ceiling is refused before anything is searched or queued")
+    @DisplayName("an untitled person the live index confirms by name is shown from a profile bought within the budget")
+    void aConfirmedPersonIsReadFromTheirLiveProfile() throws Exception {
+        String projectId = mandate("Confirmed Firm");
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        inTheUae(projectId);
+        live.answerWith("dp-world", List.of(personLivingIn("rania-haddad", "Rania Haddad", "Head of Finance", "GB")));
+        index.answerWith("dp-world", List.of(untitled("rania-haddad", "Rania Haddad"),
+                untitled("omar-khalil", "Omar Khalil")));
+
+        String runId = start(projectId, "[]");
+
+        assertThat(live.searches()).as("nobody holds the title where the role is").isEmpty();
+        assertThat(live.titleChecks()).containsExactly("Rania Haddad", "Omar Khalil");
+        assertThat(live.profilesBought()).containsExactly("rania-haddad");
+        assertThat(runOf(projectId, runId).get("profilesBought").asInt()).isEqualTo(1);
+        JsonNode rania = companyIn(suggestionsOf(projectId).get("companies"), dpWorld).at("/people/0");
+        assertThat(rania.get("verdict").asText()).isEqualTo("FITS");
+        assertThat(rania.get("foundBy").asText()).isEqualTo("BOTH");
+        assertThat(rania.at("/person/title").asText()).isEqualTo("Head of Finance");
+        assertThat(candidatesOf(projectId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a stop asked for while a run is queued or searching leaves the companies not yet searched stopped")
+    void aStoppedRun() throws Exception {
+        String projectId = mandate("Stop Firm");
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        UUID workspaceId = db.queryForObject("select workspace_id from app_lm_project where id = ?::uuid", UUID.class,
+                projectId);
+        UUID userId = db.queryForObject("select id from app_lm_user where email = ?", UUID.class, adminEmail);
+        UUID runId = WorkspaceScope.call(workspaceId, () -> new TransactionTemplate(transactions).execute(status -> {
+            ExecutiveSourcingRun queued = runs.save(ExecutiveSourcingRun.requested(workspaceId,
+                    UUID.fromString(projectId), userId, List.of(new SourcingCompany(UUID.fromString(dpWorld),
+                            "DP World", "dp-world", null, null, null)),
+                    new SearchCriteria(SearchWords.defaultFor("Group CFO", null), List.of(), 3)));
+            return queued.getId();
+        }));
+
+        mvc.perform(post(sourcingUrl(projectId) + "/" + runId + "/stop")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stopRequested").value(true));
+        WorkspaceScope.run(workspaceId, () -> new TransactionTemplate(transactions).executeWithoutResult(status ->
+                events.publishEvent(new ExecutiveSourcingRequested(runId, UUID.fromString(projectId), workspaceId,
+                        userId))));
+
+        JsonNode run = runOf(projectId, runId.toString());
+        assertThat(run.get("status").asText()).isEqualTo("STOPPED");
+        assertThat(outcomeFor(run.get("outcomes"), dpWorld).get("outcome").asText()).isEqualTo("STOPPED");
+        assertThat(live.searches()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("results last as long as the people cache keeps who they were; Add then reads them as expired")
+    void resultsExpireWithTheCache() throws Exception {
+        String projectId = mandate("Expiry Firm");
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        live.answerWith("dp-world", List.of(person("the-cfo", "The CFO", "Chief Financial Officer")));
+        start(projectId, "[]");
+        db.update("DELETE FROM app_lm_vendor_person");
+
+        JsonNode company = companyIn(suggestionsOf(projectId).get("companies"), dpWorld);
+        assertThat(company.get("expired").asBoolean()).isTrue();
+        assertThat(company.get("people")).isEmpty();
+        assertThat(add(projectId, dpWorld, "the-cfo").get("expired").asInt()).isEqualTo(1);
+        assertThat(candidatesOf(projectId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a search that would pass the month's fair use, counted in profiles it may buy, is refused before anything runs")
     void aRunPastTheFairUseCeilingIsRefused() throws Exception {
         String projectId = mandate("Fair Use Firm");
         company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
@@ -181,51 +326,40 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
 
         assertThat(refusal.get("code").asText()).isEqualTo("FAIR_USE_REACHED");
         assertThat(refusal.get("kind").asText()).isEqualTo("SOURCING_RUN");
-        assertThat(refusal.get("resetsAt").isNull()).isFalse();
-        assertThat(peopleSearch.searches()).isEmpty();
+        assertThat(index.searches()).isEmpty();
         assertThat(db.queryForObject("select count(*) from app_lm_executive_sourcing_run where project_id = ?::uuid",
                 Integer.class, projectId)).isZero();
     }
 
     @Test
-    @DisplayName("someone the mandate already maps is left out, and a hit that collides with a held name is a skip")
-    void alreadyMappedPeopleAreSkipped() throws Exception {
-        String projectId = mandate("Held Firm");
+    @DisplayName("someone on the suppression list is left out of what a search found, and Add withholds anyone listed since")
+    void suppressedPeopleAreLeftOut() throws Exception {
+        String projectId = mandate("Suppressed Hit Firm");
         String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
-        mvc.perform(post(candidatesUrl(projectId))
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"fullName":"Already Held","triageCompanyId":"%s",
-                                 "linkedinUrl":"https://www.linkedin.com/in/Already-Held/"}""".formatted(dpWorld)))
-                .andExpect(status().isCreated());
-        mvc.perform(post(candidatesUrl(projectId))
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"fullName":"Group Director","triageCompanyId":"%s"}""".formatted(dpWorld)))
-                .andExpect(status().isCreated());
-        peopleSearch.answerWith("dp-world", List.of(
-                person("already-held", "Already Held", "Chief Financial Officer"),
-                person("risalat-rehman", "Risalat Rehman", "Chief Financial Officer at DP World Jeddah"),
-                person("group-director", "Group Director", "Group Director - Financial Accounts")));
+        suppress("linkedin.com/in/Asked-To-Leave");
+        live.answerWith("dp-world", List.of(
+                person("asked-to-leave", "Asked To Leave", "Chief Financial Officer"),
+                person("risalat-rehman", "Risalat Rehman", "Chief Financial Officer at DP World Jeddah")));
 
-        String runId = start(projectId, "[\"" + dpWorld + "\"]");
+        start(projectId, "[]");
 
-        JsonNode outcome = outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld);
-        assertThat(outcome.get("outcome").asText()).isEqualTo("FILED");
-        assertThat(outcome.get("filed").asInt()).isEqualTo(1);
-        assertThat(outcome.get("skipped").asInt()).isEqualTo(1);
-        assertThat(outcome.get("picks").get(1).get("candidateId").isNull()).isTrue();
-        assertThat(candidatesOf(projectId)).hasSize(3);
+        assertThat(companyIn(suggestionsOf(projectId).get("companies"), dpWorld).get("people"))
+                .extracting(person -> person.get("linkedinSlug").asText())
+                .containsExactly("risalat-rehman");
+        suppress("linkedin.com/in/risalat-rehman");
+        JsonNode added = add(projectId, dpWorld, "risalat-rehman", "asked-to-leave");
+        assertThat(added.get("added").asInt()).isZero();
+        assertThat(added.get("withheld").asInt()).isEqualTo(1);
+        assertThat(added.get("notFound").asInt()).isEqualTo(1);
+        assertThat(candidatesOf(projectId)).isEmpty();
     }
 
     @Test
-    @DisplayName("someone whose processing is restricted is skipped, and the run files the rest")
-    void restrictedPeopleAreSkipped() throws Exception {
+    @DisplayName("someone whose processing is restricted is withheld from Add, and the rest are filed")
+    void restrictedPeopleAreWithheld() throws Exception {
         String projectId = mandate("Restricted Run Firm");
         String elsewhere = anotherPosition();
-        String personId = body(mvc.perform(post("/api/v1/projects/" + elsewhere + "/candidates")
+        String personId = body(mvc.perform(post(candidatesUrl(elsewhere))
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -238,14 +372,15 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
                                 {"restricted":true,"reason":"Contests what we hold."}"""))
                 .andExpect(status().isOk());
         String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
-        peopleSearch.answerWith("dp-world", List.of(
+        live.answerWith("dp-world", List.of(
                 person("asked-to-wait", "Asked To Wait", "Chief Financial Officer"),
                 person("risalat-rehman", "Risalat Rehman", "Chief Financial Officer at DP World Jeddah")));
+        start(projectId, "[]");
 
-        String runId = start(projectId, "[\"" + dpWorld + "\"]");
+        JsonNode added = add(projectId, dpWorld, "asked-to-wait", "risalat-rehman");
 
-        JsonNode outcome = outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld);
-        assertThat(outcome.get("filed").asInt()).isEqualTo(1);
+        assertThat(added.get("added").asInt()).isEqualTo(1);
+        assertThat(added.get("withheld").asInt()).isEqualTo(1);
         assertThat(candidatesOf(projectId)).extracting(candidate -> candidate.get("fullName").asText())
                 .containsExactly("Risalat Rehman");
         assertThat(db.queryForObject("select count(*) from app_lm_project_candidate where person_id = ?::uuid",
@@ -253,41 +388,14 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("someone on the workspace's suppression list is left out before anything is filed")
-    void suppressedPeopleAreLeftOut() throws Exception {
-        String projectId = mandate("Suppressed Hit Firm");
-        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
-        mvc.perform(post("/api/v1/workspace/suppressions")
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"linkedinUrl":"linkedin.com/in/Asked-To-Leave"}"""))
-                .andExpect(status().isCreated());
-        peopleSearch.answerWith("dp-world", List.of(
-                person("asked-to-leave", "Asked To Leave", "Chief Financial Officer"),
-                person("risalat-rehman", "Risalat Rehman", "Chief Financial Officer at DP World Jeddah")));
-
-        String runId = start(projectId, "[\"" + dpWorld + "\"]");
-
-        JsonNode outcome = outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld);
-        assertThat(outcome.get("filed").asInt()).isEqualTo(1);
-        assertThat(outcome.get("picks")).extracting(pick -> pick.get("name").asText())
-                .containsExactly("Risalat Rehman");
-        assertThat(candidatesOf(projectId)).extracting(candidate -> candidate.get("fullName").asText())
-                .containsExactly("Risalat Rehman");
-        assertThat(db.queryForObject("select count(*) from app_lm_person where profile_slug = 'asked-to-leave'",
-                Long.class)).isZero();
-    }
-
-    @Test
     @DisplayName("more companies than the cap, a company from another stage, and a second run are refused unspent")
     void overTheCapAStrayCompanyAndASecondRunAreRefused() throws Exception {
         String projectId = mandate("Refusal Firm");
-        String[] ids = new String[7];
-        for (int index = 0; index < ids.length; index++) {
-            ids[index] = company(projectId, "Company " + index, "https://www.linkedin.com/company/co-" + index);
+        String[] ids = new String[12];
+        for (int number = 0; number < ids.length; number++) {
+            ids[number] = company(projectId, "Company " + number, "https://www.linkedin.com/company/co-" + number);
         }
-        mvc.perform(patch(triageUrl(projectId) + "/" + ids[6])
+        mvc.perform(patch(triageUrl(projectId) + "/" + ids[11])
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"shortlisted\"}"))
@@ -296,20 +404,19 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         mvc.perform(post(sourcingUrl(projectId))
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"triageCompanyIds\":[\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"]}"
-                                .formatted(ids[0], ids[1], ids[2], ids[3], ids[4], ids[5])))
+                        .content("{\"triageCompanyIds\":" + idsJson(Arrays.copyOf(ids, 11)) + "}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("EXECUTIVE_SOURCING_TOO_MANY_COMPANIES"));
         mvc.perform(post(sourcingUrl(projectId))
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"triageCompanyIds\":[\"%s\"]}".formatted(ids[6])))
+                        .content("{\"triageCompanyIds\":[\"%s\"]}".formatted(ids[11])))
                 .andExpect(status().isBadRequest());
-        assertThat(peopleSearch.searches()).isEmpty();
+        assertThat(index.searches()).isEmpty();
 
         String runId = start(projectId, "[]");
         assertThat(runOf(projectId, runId).get("companiesTotal").asInt()).isEqualTo(5);
-        assertThat(peopleSearch.searches()).hasSize(5);
+        assertThat(index.searches()).hasSize(5);
     }
 
     @Test
@@ -333,10 +440,10 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a client representative can neither start nor read a run, and an unoffered deployment refuses")
+    @DisplayName("a client representative reaches none of it, and a deployment with neither index refuses a search")
     void clientSeatsAndUnofferedDeploymentsAreRefused() throws Exception {
         String projectId = mandate("Access Firm");
-        company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
         String clientEmail = "client@client-" + domain;
         mvc.perform(post("/api/v1/projects/" + projectId + "/representatives/invitations")
                         .header("Authorization", "Bearer " + adminToken)
@@ -345,7 +452,7 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
                                 {"fullName":"A Client","position":"Chair","email":"%s"}
                                 """.formatted(clientEmail)))
                 .andExpect(status().isOk());
-        String clientToken = body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
+        String bearer = "Bearer " + body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"token":"%s","fullName":"A Client","password":"%s"}
@@ -353,18 +460,25 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isCreated())
                 .andReturn()).get("accessToken").asText();
 
-        mvc.perform(post(sourcingUrl(projectId))
-                        .header("Authorization", "Bearer " + clientToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"triageCompanyIds\":[]}"))
+        mvc.perform(post(sourcingUrl(projectId)).header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"triageCompanyIds\":[]}"))
                 .andExpect(status().isForbidden());
-        mvc.perform(get(sourcingUrl(projectId) + "/latest").header("Authorization", "Bearer " + clientToken))
+        mvc.perform(get(sourcingUrl(projectId) + "/criteria").header("Authorization", bearer))
+                .andExpect(status().isForbidden());
+        mvc.perform(get(sourcingUrl(projectId) + "/suggestions").header("Authorization", bearer))
+                .andExpect(status().isForbidden());
+        mvc.perform(post(sourcingUrl(projectId) + "/suggestions/add").header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"people\":[{\"triageCompanyId\":\"%s\",\"linkedinSlug\":\"x\"}]}"
+                                .formatted(dpWorld)))
                 .andExpect(status().isForbidden());
 
-        peopleSearch.offer(false);
+        live.offer(false);
+        index.offer(false);
         mvc.perform(get("/api/v1/executive-sourcing/config").header("Authorization", "Bearer " + adminToken))
                 .andExpect(jsonPath("$.enabled").value(false))
-                .andExpect(jsonPath("$.maxCompaniesPerRun").value(5));
+                .andExpect(jsonPath("$.maxCompaniesPerRun").value(5))
+                .andExpect(jsonPath("$.perCompanyChoices[2]").value(10));
         mvc.perform(post(sourcingUrl(projectId))
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -374,214 +488,146 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a second mandate on the same company is answered from the people cache — nobody bought twice")
+    @DisplayName("a second mandate searching the same company is answered from the people cache — nobody bought twice")
     void nobodyIsBoughtTwice() throws Exception {
         String firstProject = mandate("First Cache Firm");
         company(firstProject, "DP World", "https://www.linkedin.com/company/dp-world/");
-        peopleSearch.answerWith("dp-world", List.of(
+        live.answerWith("dp-world", List.of(
                 person("risalat-rehman", "Risalat Rehman", "Chief Financial Officer at DP World Jeddah"),
                 person("group-director", "Group Director", "Head of Group Finance")));
         String firstRun = start(firstProject, "[]");
-        assertThat(runOf(firstProject, firstRun).get("vendorHits").asInt()).isEqualTo(2);
-        assertThat(peopleSearch.searches()).hasSize(1);
+        assertThat(runOf(firstProject, firstRun).get("profilesBought").asInt()).isEqualTo(2);
 
         String secondProject = mandate("Second Cache Firm");
         String secondCompany = company(secondProject, "DP World", "https://www.linkedin.com/company/dp-world/");
         String secondRun = start(secondProject, "[]");
 
         JsonNode run = runOf(secondProject, secondRun);
-        assertThat(peopleSearch.searches()).hasSize(1);
-        assertThat(run.get("vendorHits").asInt()).isZero();
-        assertThat(run.get("cachedHits").asInt()).isEqualTo(2);
-        assertThat(outcomeFor(run.get("outcomes"), secondCompany).get("filed").asInt()).isEqualTo(2);
-        assertThat(candidatesOf(secondProject)).hasSize(2);
+        assertThat(live.searches()).hasSize(1);
+        assertThat(index.searches()).hasSize(1);
+        assertThat(run.get("profilesBought").asInt()).isZero();
+        assertThat(run.get("profilesCached").asInt()).isEqualTo(2);
+        assertThat(outcomeFor(run.get("outcomes"), secondCompany).get("fits").asInt()).isEqualTo(2);
     }
 
     @Test
-    @DisplayName("a different search at a company already on file excludes everyone on file and buys only the new")
-    void aNewQuestionBuysOnlyNewPeople() throws Exception {
-        String firstProject = mandate("Words One Firm");
-        company(firstProject, "DP World", "https://www.linkedin.com/company/dp-world/");
-        peopleSearch.answerWith("dp-world", List.of(
-                person("risalat-rehman", "Risalat Rehman", "Chief Financial Officer at DP World Jeddah")));
-        start(firstProject, "[]");
-
-        peopleSearch.answerWith("dp-world", List.of(
-                person("risalat-rehman", "Risalat Rehman", "Chief Financial Officer at DP World Jeddah"),
-                person("new-person", "New Person", "Head of Finance Operations")));
-        db.update("DELETE FROM app_lm_vendor_people_search");
-        String secondProject = mandate("Words Two Firm");
-        company(secondProject, "DP World", "https://www.linkedin.com/company/dp-world/");
-        String secondRun = start(secondProject, "[]");
-
-        RecordingPeopleSearch.Asked second = peopleSearch.searches().getLast();
-        assertThat(second.excludedSlugs()).containsExactly("risalat-rehman");
-        JsonNode run = runOf(secondProject, secondRun);
-        assertThat(run.get("vendorHits").asInt()).isEqualTo(1);
-        assertThat(run.get("cachedHits").asInt()).isEqualTo(1);
-    }
-
-    @Test
-    @DisplayName("the search keeps to the position's country and its Gulf neighbours, and never leaves them")
-    void theSearchKeepsToThePositionsRegion() throws Exception {
+    @DisplayName("the search keeps to the search's countries and each company's own, and the draft is told the latter")
+    void theSearchKeepsToItsCountries() throws Exception {
         String projectId = mandate("Regional Firm");
-        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
-        db.update("UPDATE app_lm_position SET location_country = 'United Arab Emirates' WHERE project_id = ?::uuid",
-                projectId);
+        inTheUae(projectId);
+        String cairo = company(projectId, "Cairo Foods", "https://www.linkedin.com/company/cairo-foods/", "Egypt");
+        postJson(sourcingUrl(projectId) + "/criteria/suggest", "{\"triageCompanyIds\":[\"" + cairo + "\"]}");
 
         String runId = start(projectId, "[]");
 
-        assertThat(peopleSearch.searches()).hasSize(1);
-        assertThat(peopleSearch.searches().getFirst().countryCodes())
-                .containsExactly("AE", "SA", "QA", "KW", "BH", "OM");
-        assertThat(outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld).get("outcome").asText())
+        assertThat(index.searches()).singleElement().satisfies(search -> assertThat(search.countryCodes())
+                .containsExactly("AE", "SA", "QA", "KW", "BH", "OM", "EG"));
+        assertThat(wordsPrompts()).singleElement().asString().contains("Companies being searched are in: Egypt");
+        assertThat(outcomeFor(runOf(projectId, runId).get("outcomes"), cairo).get("outcome").asText())
                 .isEqualTo("NO_HITS");
         assertThat(db.queryForObject("select count(*) from app_lm_usage_event where project_id = ?::uuid",
-                Integer.class, projectId)).as("a run that filed nobody used nothing").isZero();
+                Integer.class, projectId)).as("a search that bought nothing used nothing").isZero();
     }
 
     @Test
-    @DisplayName("a search finding nobody is searched again with the model's other title words, and its hits filed")
-    void aSearchFindingNobodyIsReworded() throws Exception {
-        String projectId = mandate("Rewording Firm");
+    @DisplayName("with nothing saved, a search runs on the role title's own words, and no model is asked")
+    void anUnsavedSearchUsesTheRoleTitle() throws Exception {
+        String projectId = mandate("Fallback Firm");
         String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
-        peopleSearch.answerWhen("dp-world", asked -> asked.functionWords().contains("Treasury"),
-                List.of(person("group-treasurer", "Group Treasurer", "Group Treasury Director")));
-        model.answerWhenSystemContains(REFINE_PROMPT, """
-                {"seniorityWords":["Group","Director"],"functionWords":["Treasury"],"excludedWords":[],
-                 "why":"Chief and Finance found nobody; Group and Treasury are the usual spelling."}""");
+        live.answerWith("dp-world", List.of(person("the-cfo", "The CFO", "Group CFO")));
 
         String runId = start(projectId, "[]");
 
         JsonNode run = runOf(projectId, runId);
-        JsonNode outcome = outcomeFor(run.get("outcomes"), dpWorld);
-        assertThat(outcome.get("outcome").asText()).isEqualTo("FILED");
-        assertThat(outcome.get("picks").get(0).get("name").asText()).isEqualTo("Group Treasurer");
-        assertThat(run.get("vendorHits").asInt()).isEqualTo(1);
-
-        assertThat(peopleSearch.searches()).extracting(RecordingPeopleSearch.Asked::functionWords)
-                .containsExactly(List.of("Finance", "Financial"), List.of("Treasury"));
-        assertThat(refinePrompts()).singleElement().asString().contains("ROUND 1 SEARCHED — found nobody",
-                "Seniority: Chief, Head", "Function: Finance, Financial", "Propose the words for round 2");
-        assertThat(candidatesOf(projectId)).hasSize(1);
+        assertThat(run.at("/searched/excludedWords")).extracting(JsonNode::asText)
+                .containsExactly("Assistant", "Secretary", "Coordinator", "Intern");
+        assertThat(outcomeFor(run.get("outcomes"), dpWorld).get("fits").asInt()).isEqualTo(1);
+        assertThat(wordsPrompts()).isEmpty();
     }
 
     @Test
-    @DisplayName("people found who do not hold the seat are never filed: the round is reworded, and its seat holder filed")
-    void peopleNotHoldingTheSeatAreReworded() throws Exception {
-        String projectId = mandate("Seat Firm");
-        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
-        peopleSearch.answerWith("dp-world", List.of(
-                person("a-pharmacist", "A Pharmacist", "Doctor of Pharmacy"),
-                person("a-medical-director", "A Medical Director", "Medical Director"),
-                person("a-finance-manager", "A Finance Manager", "Finance Manager")));
-        peopleSearch.answerWhen("dp-world", asked -> asked.functionWords().contains("Treasury"),
-                List.of(person("group-treasurer", "Group Treasurer", "Group Treasury Director")));
-        model.answerWhenSystemContains(REFINE_PROMPT, """
-                {"seniorityWords":["Group","Director"],"functionWords":["Treasury"],"excludedWords":[],
-                 "why":"Finance reached other functions; Treasury is the seat's own word."}""");
-
-        String runId = start(projectId, "[]");
-
-        JsonNode outcome = outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld);
-        assertThat(outcome.get("outcome").asText()).isEqualTo("FILED");
-        assertThat(outcome.get("picks")).extracting(pick -> pick.get("name").asText())
-                .containsExactly("Group Treasurer");
-        assertThat(outcome.get("notFit").asInt()).isEqualTo(3);
-        assertThat(candidatesOf(projectId)).extracting(person -> person.get("fullName").asText())
-                .containsExactly("Group Treasurer");
-        assertThat(refinePrompts()).singleElement().asString()
-                .contains("ROUND 1 SEARCHED — found people, but none holds the seat");
-    }
-
-    @Test
-    @DisplayName("a reworded round reaching only people the mandate already maps reads all already mapped, whoever was turned away before")
-    void aRoundOfMappedPeopleAfterOutsidersIsAllAlreadyMapped() throws Exception {
-        String projectId = mandate("Mapped After Firm");
-        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
-        mvc.perform(post(candidatesUrl(projectId))
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"fullName":"Already Held","triageCompanyId":"%s",
-                                 "linkedinUrl":"https://www.linkedin.com/in/already-held/"}""".formatted(dpWorld)))
-                .andExpect(status().isCreated());
-        peopleSearch.answerWith("dp-world", List.of(person("a-pharmacist", "A Pharmacist", "Doctor of Pharmacy")));
-        peopleSearch.answerWhen("dp-world", asked -> asked.functionWords().contains("Treasury"),
-                List.of(person("already-held", "Already Held", "Group Treasury Director")));
-        model.answerWhenSystemContains(REFINE_PROMPT, """
-                {"seniorityWords":["Group","Director"],"functionWords":["Treasury"],"excludedWords":[],
-                 "why":"Treasury is the seat's own word."}""");
-
-        String runId = start(projectId, "[\"" + dpWorld + "\"]");
-
-        JsonNode outcome = outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld);
-        assertThat(outcome.get("outcome").asText()).isEqualTo("ALL_ALREADY_MAPPED");
-        assertThat(outcome.get("notFit").asInt()).isEqualTo(1);
-        assertThat(candidatesOf(projectId)).hasSize(1);
-    }
-
-    @Test
-    @DisplayName("a company whose every round finds only people outside the seat reads Nothing fit and files nobody")
-    void onlyPeopleOutsideTheSeatIsNothingFit() throws Exception {
-        String projectId = mandate("Nothing Fit Firm");
-        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
-        peopleSearch.answerWith("dp-world", List.of(
-                person("a-pharmacist", "A Pharmacist", "Doctor of Pharmacy"),
-                person("a-medical-director", "A Medical Director", "DHA pharmacist / Medical director")));
-
-        String runId = start(projectId, "[]");
-
-        JsonNode run = runOf(projectId, runId);
-        JsonNode outcome = outcomeFor(run.get("outcomes"), dpWorld);
-        assertThat(outcome.get("outcome").asText()).isEqualTo("NOTHING_FIT");
-        assertThat(outcome.get("notFit").asInt()).isEqualTo(2);
-        assertThat(outcome.get("picks")).isEmpty();
-        assertThat(run.get("executivesFiled").asInt()).isZero();
-        assertThat(candidatesOf(projectId)).isEmpty();
-        assertThat(db.queryForObject("select count(*) from app_lm_usage_event where project_id = ?::uuid",
-                Integer.class, projectId)).as("a run that filed nobody used nothing").isZero();
-    }
-
-    @Test
-    @DisplayName("a rewording repeating words a round already searched is re-asked once, naming the round, then the company stops")
-    void aRepeatedRewordingStops() throws Exception {
-        String projectId = mandate("Repeating Firm");
-        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
-        model.answerWhenSystemContains(REFINE_PROMPT, """
-                {"seniorityWords":["head","CHIEF"],"functionWords":["financial","Finance"],
-                 "excludedWords":["Assistant"],"why":"Try again."}""");
-
-        String runId = start(projectId, "[]");
-
-        JsonNode outcome = outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld);
-        assertThat(outcome.get("outcome").asText()).isEqualTo("NO_HITS");
-        assertThat(peopleSearch.searches()).hasSize(1);
-        List<String> refinePrompts = refinePrompts();
-        assertThat(refinePrompts).hasSize(2);
-        assertThat(refinePrompts.getLast()).contains("Try again.", "repeats the words round 1 already searched");
-    }
-
-    private List<String> refinePrompts() {
-        return model.prompts().stream()
-                .filter(prompt -> prompt.getSystemMessage().getText().contains(REFINE_PROMPT))
-                .map(prompt -> prompt.getContents())
-                .toList();
-    }
-
-    @Test
-    @DisplayName("a vendor failure at one company is that company's outcome; the run still completes")
+    @DisplayName("a vendor failure at one company is that company's result; the run still completes")
     void aVendorFailureIsOneCompanysOutcome() throws Exception {
         String projectId = mandate("Failing Vendor Firm");
         String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
-        peopleSearch.failWith(new IllegalStateException("vendor down"));
+        live.failWith(new IllegalStateException("vendor down"));
 
         String runId = start(projectId, "[]");
 
         JsonNode run = runOf(projectId, runId);
         assertThat(run.get("status").asText()).isEqualTo("COMPLETED");
         assertThat(outcomeFor(run.get("outcomes"), dpWorld).get("outcome").asText()).isEqualTo("FAILED");
-        assertThat(candidatesOf(projectId)).isEmpty();
+    }
+
+    private JsonNode postJson(String url, String json) throws Exception {
+        return body(mvc.perform(post(url)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isOk())
+                .andReturn());
+    }
+
+    private JsonNode add(String projectId, String triageCompanyId, String... slugs) throws Exception {
+        String people = Arrays.stream(slugs)
+                .map(slug -> "{\"triageCompanyId\":\"%s\",\"linkedinSlug\":\"%s\"}".formatted(triageCompanyId, slug))
+                .collect(Collectors.joining(","));
+        return postJson(sourcingUrl(projectId) + "/suggestions/add", "{\"people\":[" + people + "]}");
+    }
+
+    private JsonNode suggestionsOf(String projectId) throws Exception {
+        return body(mvc.perform(get(sourcingUrl(projectId) + "/suggestions")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn());
+    }
+
+    private void inTheUae(String projectId) {
+        db.update("UPDATE app_lm_position SET location_country = 'United Arab Emirates' WHERE project_id = ?::uuid",
+                projectId);
+    }
+
+    private static String criteriaJson(String functionTerms, String standaloneTitles, int perCompany) {
+        return """
+                {"levels":["C_LEVEL","SENIOR_VP","VP_HEAD_DIRECTOR"],"functionTerms":%s,"standaloneTitles":%s,
+                 "localLevelWords":[],"excludedWords":["Assistant"],"suggestions":[],"roleSummary":null,
+                 "countryCodes":["AE","SA","QA","KW","BH","OM"],"perCompany":%d}""".formatted(functionTerms,
+                standaloneTitles, perCompany);
+    }
+
+    private static String idsJson(String[] ids) {
+        return "[" + Arrays.stream(ids).map(id -> "\"" + id + "\"")
+                .collect(Collectors.joining(",")) + "]";
+    }
+
+    private static long levelCount(JsonNode counts, String level) {
+        for (JsonNode count : counts.get("levels")) {
+            if (count.get("level").asText().equals(level)) {
+                return count.get("count").asLong();
+            }
+        }
+        throw new AssertionError("No count for " + level);
+    }
+
+    private static JsonNode companyIn(JsonNode companies, String triageCompanyId) {
+        for (JsonNode company : companies) {
+            if (company.get("triageCompanyId").asText().equals(triageCompanyId)) {
+                return company;
+            }
+        }
+        throw new AssertionError("No company " + triageCompanyId + " in " + companies);
+    }
+
+    private List<String> wordsPrompts() {
+        return model.prompts().stream()
+                .filter(prompt -> prompt.getSystemMessage().getText().contains(WORDS_PROMPT))
+                .map(prompt -> prompt.getContents())
+                .toList();
+    }
+
+    private String enrichedByOf(JsonNode candidate) {
+        return db.queryForObject("select p.enriched_by from app_lm_person p join app_lm_project_candidate c "
+                + "on c.person_id = p.id where c.id = ?::uuid", String.class, candidate.get("id").asText());
     }
 
     private String start(String projectId, String idsJson) throws Exception {
@@ -617,20 +663,37 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
     }
 
     private String company(String projectId, String name, String linkedinUrl) throws Exception {
+        return company(projectId, name, linkedinUrl, null);
+    }
+
+    private String company(String projectId, String name, String linkedinUrl, String country) throws Exception {
         String page = linkedinUrl == null ? "" : ",\"companyLinkedinUrl\":\"" + linkedinUrl + "\"";
+        String where = country == null ? "" : ",\"companyCountry\":\"" + country + "\"";
         return body(mvc.perform(post(triageUrl(projectId) + "/capture")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"companyName\":\"" + name + "\"" + page + "}"))
+                        .content("{\"companyName\":\"" + name + "\"" + page + where + "}"))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
     }
 
     private static BrightDataPerson person(String slug, String name, String position) {
+        return personLivingIn(slug, name, position, "AE");
+    }
+
+    private static BrightDataPerson personLivingIn(String slug, String name, String position, String countryCode) {
         return new BrightDataPerson(slug, slug, name, "https://www.linkedin.com/in/" + slug, "About " + name,
-                position, "Dubai", "Dubai, United Arab Emirates", "AE", "DP World",
+                position, "Dubai", "Dubai, United Arab Emirates", countryCode, "DP World",
                 new BrightDataPerson.BrightDataCurrentCompany("DP World", "dp-world", null), null, true,
                 List.of(new BrightDataExperience("DP World", position, null, null, null, "2020", null, null, null)),
+                List.of(), List.of(), List.of());
+    }
+
+    /** As the profile index holds most people now: at the company, with no title on record. */
+    private static BrightDataPerson untitled(String slug, String name) {
+        return new BrightDataPerson(slug, slug, name, "https://www.linkedin.com/in/" + slug, null, null, "Dubai",
+                "Dubai, United Arab Emirates", "AE", "DP World",
+                new BrightDataPerson.BrightDataCurrentCompany("DP World", "dp-world", null), null, true, List.of(),
                 List.of(), List.of(), List.of());
     }
 
@@ -646,7 +709,14 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         return "/api/v1/projects/" + projectId + "/triage";
     }
 
-    /** Its own admin per firm, so one test can open two mandates in two workspaces. */
+    private void suppress(String linkedinUrl) throws Exception {
+        mvc.perform(post("/api/v1/workspace/suppressions")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"linkedinUrl\":\"%s\"}".formatted(linkedinUrl)))
+                .andExpect(status().isCreated());
+    }
+
     private String anotherPosition() throws Exception {
         String clientId = body(mvc.perform(post("/api/v1/clients")
                         .header("Authorization", "Bearer " + adminToken)
@@ -660,10 +730,11 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
                 .andReturn()).get("id").asText();
     }
 
+    /** Its own admin per firm, so one test can open two mandates in two workspaces. */
     private String mandate(String firmName) throws Exception {
-        String alok = firmName.toLowerCase().replaceAll("[^a-z]", "") + "@" + domain;
-        switchOnPeopleAi(createWorkspace(verifiedUser("Alok Kumar", alok), firmName));
-        adminToken = login(alok);
+        adminEmail = firmName.toLowerCase().replaceAll("[^a-z]", "") + "@" + domain;
+        switchOnPeopleAi(createWorkspace(verifiedUser("Alok Kumar", adminEmail), firmName));
+        adminToken = login(adminEmail);
         String clientId = body(mvc.perform(post("/api/v1/clients")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)

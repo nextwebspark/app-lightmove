@@ -6,7 +6,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * What a key may read, and {@link #MCP_USE}, where it may read it from. V214's CHECK lists the same tokens. All
+ * What a key may read, and {@link #MCP_USE}, where it may read it from. V216's CHECK lists the same tokens. All
  * read-only: no key writes anything.
  */
 public enum ApiKeyScope implements ApiValueEnum {

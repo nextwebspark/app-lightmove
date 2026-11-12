@@ -26,7 +26,7 @@ class WorkspaceAiControlsIntegrationTest extends FlowTestSupport {
     @Autowired @FixtureJdbc JdbcTemplate jdbc;
 
     @Test
-    @DisplayName("a workspace founded since V213 starts with every AI switch off")
+    @DisplayName("a workspace founded since V215 starts with every AI switch off")
     void aNewWorkspaceStartsWithEverySwitchOff() throws Exception {
         String alok = "alok@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), "Careful Firm");

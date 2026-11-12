@@ -11,7 +11,7 @@ public record WorkspaceAiControls(
         boolean enrichAutomatically
 ) {
 
-    /** Every switch on: what a workspace that existed before V213 holds. */
+    /** Every switch on: what a workspace that existed before V215 holds. */
     public static WorkspaceAiControls allOn() {
         return new WorkspaceAiControls(true, true, true, true);
     }

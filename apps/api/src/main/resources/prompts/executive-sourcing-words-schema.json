@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "levels": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["C_LEVEL", "SENIOR_VP", "VP_HEAD_DIRECTOR", "MANAGER", "SPECIALIST"] }
+    },
+    "functionTerms": { "type": "array", "items": { "type": "string" }, "maxItems": 12 },
+    "localLevelWords": { "type": "array", "items": { "type": "string" }, "maxItems": 6 },
+    "standaloneTitles": { "type": "array", "items": { "type": "string" }, "maxItems": 6 },
+    "excludedWords": { "type": "array", "items": { "type": "string" }, "maxItems": 4 },
+    "suggestions": { "type": "array", "items": { "type": "string" }, "maxItems": 8 },
+    "roleSummary": { "type": ["string", "null"] }
+  },
+  "required": ["levels", "functionTerms", "localLevelWords", "standaloneTitles", "excludedWords", "suggestions"]
+}
