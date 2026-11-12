@@ -2,7 +2,7 @@
 
 This page covers how a firm on Uncava handles the personal data of the executives it maps: the suppression list, a
 request to delete someone, a request to restrict processing, and how long records are kept. It describes what is
-built on `main` after #1178, #1179, #1180, #1185 and #1186 (epic #917). For the engineering detail, see
+built on `main` after #1178, #1179, #1180, #1185, #1186 and #919's export (epic #917). For the engineering detail, see
 [people-controls-918-920.md](people-controls-918-920.md) and [retention-schedule.md](retention-schedule.md).
 
 **Who is the controller.** The firm that holds the workspace decides why it keeps each candidate, so it is the
@@ -19,6 +19,7 @@ person.
 | Restrict processing of a person | Anyone on the team (Admin or Member) | Candidates → person → ⋯ → **Restrict processing…** |
 | Lift a restriction | The person who set it, or an Admin | The same menu, or the note in the drawer |
 | See, add to or remove from the suppression list | Admin only | Settings → **Data & retention** → Suppression list |
+| Export everything held on a person | Admin only | Candidates → person → ⋯ → **Export personal data…** |
 | Erase a person permanently | Admin only | Candidates → person → ⋯ → **Delete person permanently…** |
 | Choose the candidate retention period | Admin only | Settings → Data & retention |
 | Review who is past the period, and keep them | Admin only | Settings → Data & retention → Due for deletion |
@@ -124,11 +125,37 @@ on the list with the reason Objected.
 
 ---
 
-## 5. How retention works
+## 5. When someone asks for a copy of their data
+
+A **subject access request** (Art. 15) asks what the firm holds about a person; **portability** (Art. 20) asks for it
+in a form they can take elsewhere. An Admin answers both from Candidates → person → ⋯ → **Export personal data…** →
+**Download**. The zip holds:
+
+- `person.html`, everything held on them, to read in a browser;
+- `person.json`, the same data, machine-readable;
+- the latest file of each of their documents, and their photo.
+
+It covers their profile and contacts (each with where it came from), every position they are on with its status,
+custom columns, scorecard and tasks, the team's notes (deleted ones too, until they are purged), documents, emails
+both ways, meetings, call recordings' transcripts and suggested changes, and the timeline. It also gives the fixed
+answers the request is owed: why the data is held, who reads it, how long it is kept, the person's rights, and how
+each AI feature that touched their record works.
+
+**Check it before sending.** Colleagues stay named where they wrote or did something. Notes, emails and call
+transcripts go as written and may mention other people: remove their details where the request does not need them.
+Send the file only to the person, through a channel you trust.
+
+The export changes nothing, and works for a restricted person too. It is recorded in the audit log as *Exported
+everything held on a candidate*, by id, never by name. What is in it, table by table, is
+[subject-access-export.md](subject-access-export.md).
+
+---
+
+## 6. How retention works
 
 There are two kinds of retention, and they work differently.
 
-### 5a. Candidates: reviewed by an Admin, never deleted automatically
+### 6a. Candidates: reviewed by an Admin, never deleted automatically
 
 Each workspace chooses how long to keep a candidate nobody is working with: **12, 24, 36 or 60 months, or never**.
 Until it chooses, the deployment's default applies (24 months, `RETENTION_CANDIDATE_MONTHS`, awaiting counsel).
@@ -151,7 +178,7 @@ Just before deleting, each person is checked again. Anyone touched or mapped sin
 anyone being emailed at that moment waits for the next review. The result says how many were deleted, how many were
 no longer due, and how many were mid-send.
 
-### 5b. System records: deleted automatically by an hourly sweep
+### 6b. System records: deleted automatically by an hourly sweep
 
 `RetentionSweeper` deletes housekeeping rows once they pass their period. Every period is a default awaiting
 counsel's sign-off, and each can be changed per deployment without a release.
@@ -172,7 +199,7 @@ Some deletions run independently of this sweep: a deleted note is purged for goo
 erasure are removed, and Notetaker transcripts are cleared after `lightmove.recall.transcript-retention` where that is
 set.
 
-### 5c. Kept on purpose
+### 6c. Kept on purpose
 
 | Record | Why |
 |---|---|
@@ -187,7 +214,7 @@ table holding personal data has no row there.
 
 ---
 
-## 6. Turning it on
+## 7. Turning it on
 
 Three deployment switches decide what a deployment offers. All three are off by default.
 
@@ -201,7 +228,7 @@ Three deployment switches decide what a deployment offers. All three are off by 
 restrictions made while it was on are still enforced at every route that files a person. But no screen can remove an
 entry or lift a restriction until the switch is back on.
 
-## 7. Not built yet
+## 8. Not built yet
 
 - Hiding a restricted person from client seats (waits on counsel).
 - Cross-workspace suppression, for an objection sent to Uncava about vendor-sourced data (#920).

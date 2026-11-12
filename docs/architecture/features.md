@@ -94,7 +94,15 @@ mid-send, queues their Recall bots in `app_lm_recall_bot_erasure` (global, bot i
 call back and strip of media until Recall answers, forgets the vendor cache's copy of the profile and scrubs the name from the bell
 and Find executives' runs; their files are queued in `app_lm_storage_deletion` (global, keys only) for
 `StorageDeletionSweeper`, and their profile and addresses suppressed unless the admin unticks it. Audited by id and
-counts, never the name. **Anyone on the team restricts processing of a person (#920, V198, GDPR Art. 18)** from the
+counts, never the name. **An admin exports everything held on a person (#919, `PERSON_SUBJECT_ACCESS`, V209, GDPR
+Art. 15 and 20)** from the same ⋯ (`GET /candidates/{personId}/subject-access-export`, `PersonSubjectAccessService`): one
+zip of `person.json`, `person.html` (escaped, no script) and the latest file of each document, every row read whole
+(`core/export`'s `RowSnapshotReader`, only machinery withheld) through each `SubjectAccessContributor` — declared in
+`candidate`, implemented where the rows live — on the request thread, since the zip streams where row-level security
+reads nothing; deleted notes until purged, V91's frozen copies, the ids named (`references`), and the fixed Art. 15(1)
+answers with each AI use's logic text (`AiUse`). `SubjectAccessCoverageTest` holds every person table to
+`docs/gdpr/subject-access-export.md` (exported or excluded with a reason) and `AiLogicCatalogTest` every prompt to an
+`AiUse`; audited `PERSON_SUBJECT_ACCESS_EXPORTED` by id and counts. **Anyone on the team restricts processing of a person (#920, V198, GDPR Art. 18)** from the
 Candidates drawer's ⋯, with a reason and optionally the suppression list as an objection (`PUT
 /candidates/{personId}/processing-restriction`, `CANDIDATE_POOL_MANAGE`, `ProcessingRestrictionService`), lifted only
 by whoever restricted them or a `WORKSPACE_MANAGE` holder (`PERSON_PROCESSING_RESTRICTION_NOT_YOURS`; the read's

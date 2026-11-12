@@ -36,6 +36,7 @@ import { ActionMenu, MenuItem } from "../../../../components/ui/ActionMenu";
 import { useIsWorkspaceAdmin } from "../../../billing/lib/useBilling";
 import { ErasePersonDialog } from "./ErasePersonDialog";
 import { RestrictProcessingDialog } from "./RestrictProcessingDialog";
+import { SubjectAccessExportDialog } from "./SubjectAccessExportDialog";
 
 const TAB_ID_PREFIX = "person-drawer";
 
@@ -121,6 +122,7 @@ function PersonDrawerBody({
   };
   const [adding, setAdding] = useState(false);
   const [erasing, setErasing] = useState(false);
+  const [exportingData, setExportingData] = useState(false);
   const [restricting, setRestricting] = useState(false);
   const isAdmin = useIsWorkspaceAdmin();
   const { offered: dataProtection } = useDataProtection();
@@ -163,7 +165,8 @@ function PersonDrawerBody({
   const restriction = person.processingRestriction;
   const offersRestriction = dataProtection && (!restriction || restriction.mayLift);
   const offersErasure = dataProtection && isAdmin;
-  const hasMenu = offersRestriction || offersErasure;
+  const offersExport = dataProtection && isAdmin;
+  const hasMenu = offersRestriction || offersExport || offersErasure;
 
   return (
     <>
@@ -193,6 +196,17 @@ function PersonDrawerBody({
                       }}
                     >
                       Restrict processing…
+                    </MenuItem>
+                  )}
+                  {offersExport && (
+                    <MenuItem
+                      icon={ICONS.download}
+                      onSelect={() => {
+                        close();
+                        setExportingData(true);
+                      }}
+                    >
+                      Export personal data…
                     </MenuItem>
                   )}
                   {offersErasure && (
@@ -426,6 +440,13 @@ function PersonDrawerBody({
             changed(record);
             setRestricting(false);
           }}
+        />
+      )}
+      {exportingData && (
+        <SubjectAccessExportDialog
+          personId={person.personId}
+          fullName={person.fullName}
+          onClose={() => setExportingData(false)}
         />
       )}
       {erasing && (

@@ -461,6 +461,7 @@ row. V206 indexes a sender's emails that came from a template, for Recently used
 V207 takes the `{{signature}}` token (#1277) out of every `app_lm_outreach_sequence_step.body` and
 `app_lm_outreach_enrollment.first_body`, its gap closed to one blank line; no schema change, `signature_html` kept.
 V208 does the same to the step's `subject` and the frozen `first_subject` (a step subject left empty is null).
+V209 seeds `PERSON_SUBJECT_ACCESS` to ADMIN alone: the subject access export (#919).
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.

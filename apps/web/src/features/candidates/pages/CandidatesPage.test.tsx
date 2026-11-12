@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
+import { saveBlob } from "../../../lib/saveBlob";
 import { aUser, aWorkspace } from "../../../test/fixtures/user";
 import type { User } from "../../auth/api/types";
 import * as projectsApi from "../../projects/api/projectsApi";
@@ -26,6 +27,7 @@ vi.mock("../api/poolApi", async (importOriginal) => ({
   setOwner: vi.fn(),
   setDoNotContact: vi.fn(),
   setProcessingRestriction: vi.fn(),
+  exportSubjectAccess: vi.fn(),
   tagPerson: vi.fn(),
   untagPerson: vi.fn(),
   retagPeople: vi.fn(),
@@ -503,6 +505,36 @@ describe("CandidatesPage", () => {
     await userEvent.click(await screen.findByRole("menuitem", { name: /Restrict processing/ }));
 
     expect(await screen.findByRole("dialog", { name: /Restrict processing for Fatima Al Mazrouei/ })).toBeInTheDocument();
+  });
+
+  it("lets an admin export everything held on the person from the ⋯, recorded in the audit log", async () => {
+    const zip = new Blob(["zip"], { type: "application/zip" });
+    vi.mocked(poolApi.exportSubjectAccess).mockResolvedValue(zip);
+    renderPage("/candidates?person=person-1");
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+
+    await userEvent.click(await screen.findByRole("button", { name: "More for Fatima Al Mazrouei" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: /Export personal data/ }));
+    const dialog = await screen.findByRole("dialog", { name: /Export everything held on Fatima Al Mazrouei/ });
+    expect(within(dialog).getByRole("note")).toHaveTextContent("Check it before you send it.");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Download" }));
+
+    await waitFor(() => expect(poolApi.exportSubjectAccess).toHaveBeenCalledWith("person-1"));
+    expect(saveBlob).toHaveBeenCalledWith(
+      zip,
+      expect.stringMatching(/^uncava-subject-access-fatima-al-mazrouei-\d{4}-\d{2}-\d{2}\.zip$/),
+    );
+    expect(await screen.findByText(/Exported everything held on Fatima Al Mazrouei/)).toBeInTheDocument();
+  });
+
+  it("offers a member no Export personal data", async () => {
+    currentUser = aUser({ workspace: aWorkspace({ roles: ["MEMBER"] }) });
+    renderPage("/candidates?person=person-1");
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+
+    await userEvent.click(await screen.findByRole("button", { name: "More for Fatima Al Mazrouei" }));
+    expect(await screen.findByRole("menuitem", { name: /Restrict processing/ })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /Export personal data/ })).not.toBeInTheDocument();
   });
 
   it("offers neither Restrict processing nor Delete permanently where the deployment holds the controls back", async () => {

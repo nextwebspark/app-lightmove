@@ -38,6 +38,7 @@ public enum AuditLogGroup implements ApiValueEnum {
             WorkspaceEventType.SEAT_ADDED, WorkspaceEventType.SEAT_REMOVED),
     EXPORTS_AND_DOWNLOADS("exportsAndDownloads", "Exports & downloads",
             ProjectEventType.COMPANIES_EXPORTED, ProjectEventType.CANDIDATES_EXPORTED,
+            ProjectEventType.PERSON_SUBJECT_ACCESS_EXPORTED,
             ProjectEventType.PERSON_DOCUMENT_DOWNLOADED, ProjectEventType.OUTREACH_ATTACHMENT_DOWNLOADED,
             ProjectEventType.NOTETAKER_RECORDING_DOWNLOADED, WorkspaceEventType.AUDIT_LOG_EXPORTED,
             WorkspaceEventType.WORKSPACE_EXPORT_STARTED, WorkspaceEventType.WORKSPACE_EXPORT_DOWNLOADED),
