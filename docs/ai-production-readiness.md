@@ -35,7 +35,7 @@ Without these four, the first bad day is an incident rather than a bug report. E
 **What goes wrong without it.** The enrichment prompt infers **gender from a name and pronouns** and **nationality from a profile**. It writes both into real candidate columns, flagged only by `ai_inferred_fields`, and it scores the person 1–10. Hiring is a regulated use of AI: the EU AI Act lists it as high-risk, and GDPR and UAE PDPL both treat these attributes as special. Everything is processed in `us-central1`, whatever the client's contract says.
 
 **Done when:**
-- gender and nationality inference is **off by default**, a per-workspace opt-in — ✅ #922 (V215): four switches on
+- gender and nationality inference is **off by default**, a per-workspace opt-in — ✅ #922 (V216): four switches on
   Settings → Data & retention, off for every workspace founded since; workspaces that existed kept them on;
 - the report's diversity chapter never counts a value that is still in `ai_inferred_fields`;
 - the Vertex region and its data-use terms are confirmed against GCC client contracts;

@@ -64,7 +64,7 @@ public class Workspace extends BaseEntity {
     @Column(name = "calendar_sync", nullable = false, length = 16)
     private CalendarSync calendarSync = CalendarSync.RECALL;
 
-    /** #922's four switches (V215): off for a workspace founded since, on for the ones that existed before. */
+    /** #922's four switches (V216): off for a workspace founded since, on for the ones that existed before. */
     @Column(name = "ai_infer_gender", nullable = false)
     private boolean aiInferGender;
 

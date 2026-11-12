@@ -353,7 +353,11 @@ against the role's, where they live, how their role was read, found by both inde
 Possible, each point a reason code (`SuggestionReason`) the panel shows as a chip. **The run files nobody**: each company's
 people are stored ranked (V213 `app_lm_executive_sourcing_suggestion`, slugs and our judgement only; names and titles are
 read from the cache, so results last as long as it keeps them) and recorded as the company finishes, Stop
-(`POST …/{runId}/stop`) letting the companies in flight finish and the rest read STOPPED. The panel reads each company's
+(`POST …/{runId}/stop`) letting the companies in flight finish and the rest read STOPPED. While a company is searched
+its step — looking, checking titles *n of N*, reading confirmed profiles, ranking — and the people considered are merged
+into the run's `progress` (V215) and announced as `executive-sourcing-progress`, which rereads the run alone; the panel
+marks every started company as searching, names its step, and once one company has finished estimates the time left
+from how long it took (`lib/searchProgress.ts`). The panel reads each company's
 latest results (`GET …/suggestions`) — who fits, best first, the top three pre-ticked; *Title not on record* (no check
 reached them) and *Doesn't fit the role* (the live index's own hits; what the profile index alone returned is listed
 only where its title fits or a free check confirms it) folded; a company the running search has not read back shows no
@@ -407,13 +411,13 @@ chapter divides by the executives who have one on file, not by the headcount, so
 recorded reads as unmeasured rather than as a pool of one gender. **The AI on an executive** is ungrounded
 Gemini calls at temperature 0 (no web search — grounding was too slow): the background (`CandidateAiEnricher` and
 the nationality classifier, asked side by side by `BackgroundProposer`) and the assessment draft (above).
-**What the AI may do is the workspace's choice (#922, V215):** Settings → Data & retention's AI on people holds four
+**What the AI may do is the workspace's choice (#922, V216):** Settings → Data & retention's AI on people holds four
 switches, `WORKSPACE_MANAGE` and audited (`WORKSPACE_UPDATED`, `section=aiControls`) — Infer gender, Infer nationality,
 Draft assessments with AI, AI-enrich on capture. A gender or nationality switched off is never listed to the model
 nor kept from its answer (`BackgroundNeeds`), the classifier is not asked and its reading answers 204, Assess with AI
 is `AI_ASSESSMENT_DISABLED`, and the worker below runs nothing; turning gender or nationality off clears the AI's
 unconfirmed values and every reading across the workspace in the same write (`InferredBackgroundEraser`, implemented
-in `candidate`). Workspaces founded since V215 start with all four off; see `docs/gdpr/ai-controls-922.md`.
+in `candidate`). Workspaces founded since V216 start with all four off; see `docs/gdpr/ai-controls-922.md`.
 `CandidateAiEnrichWorker` runs the background alone, unprompted and audited like a press, once a capture's research
 lands or Find executives files someone — asking nothing when nothing is missing, and nothing at all while the
 workspace's AI-enrich on capture is off (`CANDIDATE_AI_ENRICH_ON_CAPTURE` stays the platform's kill-switch above it)

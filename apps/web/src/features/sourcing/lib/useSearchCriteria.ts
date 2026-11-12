@@ -87,6 +87,10 @@ export function useSearchCriteria(projectId: string, companyIds: readonly string
     briefChanged: saved.data?.briefChanged ?? false,
     /** True while the AI drafts the search, or while it is still being read. */
     drafting: suggest.isPending || (open && saved.isPending),
+    /** Nothing to show: the saved search could not be read, or the AI could not draft one. */
+    draftFailed: draft === null && !suggest.isPending && (saved.isError || suggest.isError),
+    /** Reads the saved search again when that failed, else asks the AI for its draft again. */
+    retryDraft: () => (saved.isError ? void saved.refetch() : suggest.mutate()),
     update,
     reset: () => suggest.mutate(),
     saveNow,

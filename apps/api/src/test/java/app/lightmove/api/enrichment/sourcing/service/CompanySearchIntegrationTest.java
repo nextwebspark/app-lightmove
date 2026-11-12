@@ -15,6 +15,7 @@ import app.lightmove.api.enrichment.sourcing.model.FoundPeople;
 import app.lightmove.api.enrichment.sourcing.model.FoundPerson;
 import app.lightmove.api.enrichment.sourcing.model.SearchWords;
 import app.lightmove.api.enrichment.sourcing.model.SearchedEmployer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -184,6 +185,27 @@ class CompanySearchIntegrationTest {
                 .allSatisfy(person -> assertThat(person.check()).isEqualTo(TitleCheck.UNCONFIRMED));
         assertThat(found.people().subList(checked, page))
                 .allSatisfy(person -> assertThat(person.check()).isEqualTo(TitleCheck.UNCHECKED));
+    }
+
+    @Test
+    @DisplayName("the search reports its steps as it goes: looking first, then each free check by name out of those to make")
+    void reportsItsSteps() {
+        Staff harrow = new Staff("harrow-holdings");
+        live.answerWith(harrow.company(), List.of(harrow.titled("the-cfo", "Chief Financial Officer")));
+        index.answerWith(harrow.company(), List.of(
+                harrow.untitled("the-cfo", "The CFO"),
+                harrow.untitled("rania-haddad", "Rania Haddad"),
+                harrow.untitled("omar-khalil", "Omar Khalil"),
+                harrow.titled("tax-head", "Group Head of Tax")));
+        List<String> steps = new ArrayList<>();
+
+        FoundPeople found = search.search(employer(harrow.company()), FINANCE, Seniority.C_SUITE, UAE, PROFILES,
+                (stage, considered, done, total) -> steps.add(stage + " " + done + "/" + total));
+
+        assertThat(steps.getFirst()).isEqualTo("LOOKING 0/0");
+        assertThat(steps).as("the one already found by the live index is not checked again")
+                .endsWith("CHECKING 0/2", "CHECKING 1/2", "CHECKING 2/2");
+        assertThat(found.considered()).isEqualTo(FoundPeople.consideredOf(found.matched(), 4));
     }
 
     private static SearchedEmployer employer(String slug) {

@@ -22,6 +22,8 @@ export type ProjectStreamKind =
   | "company-captured"
   | "company-enriched"
   | "executive-sourcing"
+  /** A company in the running search moved to its next step: only the run is reread. */
+  | "executive-sourcing-progress"
   /** An email, a reply or a sequence run moved. Sent only to someone who may work the position. */
   | "outreach"
   /** A task was filed, changed or closed. Sent only to someone who may work the position. */
@@ -34,6 +36,7 @@ const EVERY_KIND: ProjectStreamKind[] = [
   "company-captured",
   "company-enriched",
   "executive-sourcing",
+  "executive-sourcing-progress",
   "outreach",
   "task",
 ];

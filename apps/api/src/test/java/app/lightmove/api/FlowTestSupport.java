@@ -114,7 +114,7 @@ public abstract class FlowTestSupport {
     }
 
     /**
-     * Turns on all four of #922's AI switches, which a workspace founded since V215 starts with off — for a test about
+     * Turns on all four of #922's AI switches, which a workspace founded since V216 starts with off — for a test about
      * what the AI does rather than whether the workspace lets it.
      */
     protected void switchOnPeopleAi(String workspaceId) {
