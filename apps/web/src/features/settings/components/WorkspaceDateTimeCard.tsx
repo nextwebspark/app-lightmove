@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Button, Field, SegmentedControl, Select, useToast } from "../../../components/ui";
+import { Button, Field, SegmentedControl, useToast } from "../../../components/ui";
+import { ListboxSelect } from "../../../components/ui/ListboxSelect";
 import {
   STANDARD_DATE_FORMAT,
   STANDARD_TIME_FORMAT,
@@ -113,23 +114,27 @@ export function WorkspaceDateTimeCard({
               : undefined
           }
         >
-          <Select value={timeZone} className="bg-u-surface" onChange={(event) => setTimeZone(event.target.value)}>
-            {zoneOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
+          <ListboxSelect
+            aria-label="Time zone"
+            value={timeZone}
+            options={zoneOptions}
+            onChange={setTimeZone}
+            searchable
+            searchPlaceholder="Search by city, country or GMT offset"
+            noMatch="No time zone matches"
+            width={340}
+            className="bg-u-surface"
+          />
         </Field>
 
         <Field label="Date format">
-          <Select value={dateFormat} className="bg-u-surface" onChange={(event) => setDateFormat(event.target.value as DateFormatStyle)}>
-            {dateOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
+          <ListboxSelect
+            aria-label="Date format"
+            value={dateFormat}
+            options={dateOptions}
+            onChange={setDateFormat}
+            className="bg-u-surface"
+          />
         </Field>
 
         <div className="mb-4">

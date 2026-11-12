@@ -1,7 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
-import { Button, Field, FormError, Input, Select } from "../../../components/ui";
+import { Button, Field, FormError, Input } from "../../../components/ui";
+import { ListboxSelect, type ListboxOption } from "../../../components/ui/ListboxSelect";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { titleCase } from "../../../lib/format";
 import { messageFor } from "../../../lib/errorCodes";
@@ -47,13 +48,34 @@ export function ProfileForm({
     watch,
     formState: { errors, isSubmitting },
   } = useForm<ProfileValues>({ resolver: zodResolver(profileSchemaFor(defaultValues.timezone)), defaultValues });
-  const [timezone, dateFormat, timeFormat] = watch(["timezone", "dateFormat", "timeFormat"]);
-  const timezones = useMemo(() => timeZoneSelectOptions(defaultValues.timezone || null), [defaultValues.timezone]);
-  const dateFormats = useMemo(() => dateFormatSelectOptions(), []);
-  const timeFormats = useMemo(() => timeFormatSelectOptions(), []);
+  const [timezone, dateFormat, timeFormat, locale] = watch(["timezone", "dateFormat", "timeFormat", "locale"]);
   const computerZone = useMemo(browserTimeZone, []);
   const fallback = workspace ?? fallbackPreferences();
   const followLabel = workspace ? "Workspace default" : "Standard";
+  const timezones = useMemo<ListboxOption<string>[]>(
+    () => [
+      { value: "", label: followLabel, detail: timeZoneLabelOf(fallback.timeZone), keywords: "workspace default" },
+      ...timeZoneSelectOptions(defaultValues.timezone || null),
+    ],
+    [defaultValues.timezone, followLabel, fallback.timeZone],
+  );
+  const dateFormats = useMemo<ListboxOption<ProfileValues["dateFormat"]>[]>(
+    () => [
+      { value: "", label: followLabel, detail: formatDate(new Date(), { dateFormat: fallback.dateFormat }) },
+      ...dateFormatSelectOptions(),
+    ],
+    [followLabel, fallback.dateFormat],
+  );
+  const timeFormats = useMemo<ListboxOption<ProfileValues["timeFormat"]>[]>(
+    () => [
+      { value: "", label: followLabel, detail: timeFormatLabelOf(fallback.timeFormat) },
+      ...timeFormatSelectOptions(),
+    ],
+    [followLabel, fallback.timeFormat],
+  );
+  const choose = <K extends "timezone" | "dateFormat" | "timeFormat" | "locale">(field: K) =>
+    (value: ProfileValues[K]) =>
+      setValue(field, value as never, { shouldDirty: true, shouldValidate: true });
   const effective: DateTimePreferences = {
     timeZone: timezone || fallback.timeZone,
     dateFormat: dateFormat || fallback.dateFormat,
@@ -135,13 +157,14 @@ export function ProfileForm({
         </Field>
 
         <Field label="Language" error={errors.locale?.message}>
-          <Select invalid={!!errors.locale} className="!bg-u-surface" {...register("locale")}>
-            {LANGUAGE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
+          <ListboxSelect
+            aria-label="Language"
+            value={locale}
+            options={LANGUAGE_OPTIONS}
+            invalid={!!errors.locale}
+            onChange={choose("locale")}
+            className="bg-u-surface"
+          />
         </Field>
       </div>
 
@@ -162,16 +185,18 @@ export function ProfileForm({
               error={errors.timezone?.message}
               hint="Sequences, scheduled emails and your daily digest follow this clock"
             >
-              <Select invalid={!!errors.timezone} className="bg-u-surface" {...register("timezone")}>
-                <option value="">
-                  {followLabel} · {timeZoneLabelOf(fallback.timeZone)}
-                </option>
-                {timezones.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
+              <ListboxSelect
+                aria-label="Timezone"
+                value={timezone}
+                options={timezones}
+                invalid={!!errors.timezone}
+                onChange={choose("timezone")}
+                searchable
+                searchPlaceholder="Search by city, country or GMT offset"
+                noMatch="No time zone matches"
+                width={340}
+                className="bg-u-surface"
+              />
             </Field>
             {computerZone && computerZone !== effective.timeZone && (
               <p className="-mt-2.5 mb-4 text-meta text-u-text3">
@@ -188,29 +213,25 @@ export function ProfileForm({
           </div>
 
           <Field label="Date format" error={errors.dateFormat?.message}>
-            <Select invalid={!!errors.dateFormat} className="bg-u-surface" {...register("dateFormat")}>
-              <option value="">
-                {followLabel} · {formatDate(new Date(), { dateFormat: fallback.dateFormat })}
-              </option>
-              {dateFormats.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
+            <ListboxSelect
+              aria-label="Date format"
+              value={dateFormat}
+              options={dateFormats}
+              invalid={!!errors.dateFormat}
+              onChange={choose("dateFormat")}
+              className="bg-u-surface"
+            />
           </Field>
 
           <Field label="Time format" error={errors.timeFormat?.message}>
-            <Select invalid={!!errors.timeFormat} className="bg-u-surface" {...register("timeFormat")}>
-              <option value="">
-                {followLabel} · {timeFormatLabelOf(fallback.timeFormat)}
-              </option>
-              {timeFormats.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
+            <ListboxSelect
+              aria-label="Time format"
+              value={timeFormat}
+              options={timeFormats}
+              invalid={!!errors.timeFormat}
+              onChange={choose("timeFormat")}
+              className="bg-u-surface"
+            />
           </Field>
         </div>
 

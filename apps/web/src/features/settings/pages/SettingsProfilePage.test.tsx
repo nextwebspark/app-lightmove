@@ -10,6 +10,15 @@ import * as authApi from "../../auth/api/authApi";
 import { SettingsProfilePage } from "./SettingsProfilePage";
 import { FOLLOWING_DATE_TIME } from "../../../test/fixtures/user";
 
+const picker = (name: string) => screen.getByRole("button", { name });
+
+/** Opens a Date & time picker and chooses an option, searching first where the picker searches. */
+async function pick(user: ReturnType<typeof userEvent.setup>, name: string, option: string | RegExp, search?: string) {
+  await user.click(picker(name));
+  if (search) await user.type(screen.getByRole("combobox", { name: `Search ${name.toLowerCase()}` }), search);
+  await user.click(screen.getByRole("option", { name: option }));
+}
+
 vi.mock("../../auth/api/authApi");
 
 // AuthProvider exchanges the refresh cookie for a token before it will ask who the user is, so a test
@@ -98,12 +107,10 @@ describe("SettingsProfilePage — your own profile", () => {
     expect(await screen.findByLabelText(/full name/i)).toHaveValue("Alok Kumar");
     expect(screen.getByLabelText(/^title$/i)).toHaveValue("Managing Partner");
     // A person who chose nothing follows the workspace, which the first option names.
-    expect(screen.getByLabelText(/timezone/i)).toHaveValue("");
-    expect(screen.getByRole("option", { name: "Workspace default · (GMT+04:00) Dubai, Abu Dhabi" })).toBeInTheDocument();
-    expect(screen.getByLabelText(/date format/i)).toHaveValue("");
-    expect(screen.getByLabelText(/time format/i)).toHaveValue("");
-    expect(screen.getByRole("option", { name: "Workspace default · 14:30 · 24-hour" })).toBeInTheDocument();
-    expect(screen.getByLabelText(/language/i)).toHaveValue("en");
+    expect(picker("Timezone")).toHaveTextContent("Workspace default(GMT+04:00) Dubai, Abu Dhabi");
+    expect(picker("Date format")).toHaveTextContent(/^Workspace default/);
+    expect(picker("Time format")).toHaveTextContent("Workspace default14:30 · 24-hour");
+    expect(picker("Language")).toHaveTextContent("English");
 
     // Neither the address nor the role is an input — both are the workspace's to decide.
     expect(screen.getByText("alok@nextwebspark.com")).toBeInTheDocument();
@@ -118,7 +125,7 @@ describe("SettingsProfilePage — your own profile", () => {
     const name = await screen.findByLabelText(/full name/i);
     await user.clear(name);
     await user.type(name, "  Alok B Kumar  ");
-    await user.selectOptions(screen.getByLabelText(/timezone/i), "Asia/Riyadh");
+    await pick(user, "Timezone", /Riyadh, Jeddah/, "riyadh");
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() =>
@@ -145,15 +152,14 @@ describe("SettingsProfilePage — your own profile", () => {
     const user = userEvent.setup();
     renderPage();
 
-    const timezone = await screen.findByLabelText(/timezone/i);
-    expect(screen.getByRole("option", { name: /^\(GMT-0[45]:00\) Eastern Time \(New York\)$/ })).toHaveValue(
-      "America/New_York",
-    );
-    expect(screen.getByRole("option", { name: "(GMT+00:00) Coordinated Universal Time" })).toHaveValue("UTC");
+    await user.click(await screen.findByRole("button", { name: "Timezone" }));
+    expect(screen.getByRole("option", { name: /^\(GMT-0[45]:00\) Eastern Time \(New York\)$/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "(GMT+00:00) Coordinated Universal Time" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: /Tashkent/ })).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
     expect(screen.getByText("Sequences, scheduled emails and your daily digest follow this clock")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Use London" }));
-    expect(timezone).toHaveValue("Europe/London");
+    expect(picker("Timezone")).toHaveTextContent("(GMT+00:00) London");
     expect(screen.queryByRole("button", { name: "Use London" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
@@ -167,8 +173,9 @@ describe("SettingsProfilePage — your own profile", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.selectOptions(await screen.findByLabelText(/date format/i), "MMM_D_YYYY");
-    await user.selectOptions(screen.getByLabelText(/time format/i), "H12");
+    await screen.findByRole("button", { name: "Date format" });
+    await pick(user, "Date format", /MMM D, YYYY/);
+    await pick(user, "Time format", "2:30 PM · 12-hour");
     expect(screen.getByText(/^\w{3}, \w{3} \d{1,2}, \d{4}, \d{1,2}:\d{2} [AP]M GMT\+4 · Dubai, Abu Dhabi$/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /save changes/i }));
     await waitFor(() =>
@@ -177,7 +184,7 @@ describe("SettingsProfilePage — your own profile", () => {
       ),
     );
 
-    await user.selectOptions(screen.getByLabelText(/time format/i), "");
+    await pick(user, "Time format", /^Workspace default/);
     await user.click(screen.getByRole("button", { name: /save changes/i }));
     await waitFor(() =>
       expect(authApi.updateProfile).toHaveBeenLastCalledWith(expect.objectContaining({ timeFormat: null })),
