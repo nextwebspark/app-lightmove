@@ -42,8 +42,8 @@ describe("filterTemplates", () => {
 });
 
 describe("reviserOf", () => {
-  it("names LightMove for a library template a firm is looking at, and nobody for an unrevised library row", () => {
-    expect(reviserOf("workspace", row({ origin: "LIBRARY" }))).toBe("LightMove");
+  it("names Uncava for a library template a firm is looking at, and nobody for an unrevised library row", () => {
+    expect(reviserOf("workspace", row({ origin: "LIBRARY" }))).toBe("Uncava");
     expect(reviserOf("library", row({ origin: null }))).toBeNull();
     expect(reviserOf("workspace", row({ origin: "OWN", revisedByName: "Sara" }))).toBe("Sara");
   });

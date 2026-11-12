@@ -100,7 +100,7 @@ public class WorkspacePositionTemplateController {
     @RequireWorkspacePermission(WorkspaceAction.POSITION_TEMPLATE_MANAGE)
     public ResponseEntity<byte[]> export(@AuthenticationPrincipal AuthPrincipal principal) {
         return PositionTemplateFileResponse.attachment(templates.export(principal.requireWorkspaceId()),
-                MediaType.APPLICATION_JSON, "lightmove-position-templates.json");
+                MediaType.APPLICATION_JSON, "uncava-position-templates.json");
     }
 
     @GetMapping("/schema")
