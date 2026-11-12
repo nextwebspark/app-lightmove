@@ -20,6 +20,5 @@ public interface EmailImageRepository extends JpaRepository<EmailImage, UUID> {
     Optional<EmailImage> findByKindAndWorkspaceIdAndUserIdAndSourceSha256(EmailImageKind kind, UUID workspaceId,
                                                                           UUID userId, String sourceSha256);
 
-    List<EmailImage> findByKindAndWorkspaceIdAndUserIdAndTokenIn(EmailImageKind kind, UUID workspaceId, UUID userId,
-                                                                 Collection<String> tokens);
+    List<EmailImage> findByTokenIn(Collection<String> tokens);
 }

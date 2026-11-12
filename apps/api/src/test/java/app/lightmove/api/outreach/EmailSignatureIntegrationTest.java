@@ -41,6 +41,7 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
 
     private static final String SIGNATURES = "/api/v1/me/signatures";
     private static final String LOGO_URL = "https://logos.example/al-futtaim.png";
+    private static final String GROUP_LOGO_URL = "https://logos.example/al-futtaim-group.png";
 
     @Autowired @FixtureJdbc private JdbcTemplate jdbc;
     @Autowired private StubPictureFetcher pictures;
@@ -101,7 +102,8 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
         String second = previewHtml(photo);
         assertThat(first).contains("/api/v1/email-images/").doesNotContain("/api/v1/avatars/");
         assertThat(second).isEqualTo(first);
-        assertThat(jdbc.queryForObject("select count(*) from app_lm_email_image where kind = 'PHOTO'", Integer.class))
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_email_image where kind = 'PHOTO' and user_id = "
+                + "(select id from app_lm_user where email = ?)", Integer.class, "yara@" + domain))
                 .isOne();
 
         String path = first.substring(first.indexOf("/api/v1/email-images/"), first.indexOf('"',
@@ -310,6 +312,41 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON).content(seven))
                 .andExpect(status().isBadRequest()).andReturn();
         assertThat(body(tooMany).get("fieldErrors").has("customBody")).isTrue();
+    }
+
+    @Test
+    @DisplayName("a starting point is the details, photo and logo as Markdown the signer may save and send as their own")
+    void starterIsEditableMarkdown() throws Exception {
+        mvc.perform(profile(yara, """
+                        {"fullName":"Yara *Haddad*","title":"Head of Talent","timezone":"Asia/Dubai","locale":"en",
+                         "phone":"+971 50 123 4567"}"""))
+                .andExpect(status().isOk());
+        mvc.perform(multipart(HttpMethod.PUT, "/api/v1/auth/me/avatar")
+                        .file(new MockMultipartFile("file", "me.png", "image/png", picture(400, 400)))
+                        .header("Authorization", "Bearer " + yara).with(csrf()))
+                .andExpect(status().isOk());
+        jdbc.update("update app_lm_workspace set logo_url = ? where id = ?::uuid", GROUP_LOGO_URL, workspaceId);
+        pictures.answer(GROUP_LOGO_URL, picture(800, 200));
+
+        String markdown = body(mvc.perform(post(SIGNATURES + "/starter").header("Authorization", "Bearer " + yara)
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"name":"With photo","layout":"PHOTO_LOGO","showPhoto":true,"showLogo":true}"""))
+                .andExpect(status().isOk()).andReturn()).get("customBody").asText();
+        assertThat(markdown).startsWith("![](" + EmailImageService.PATH)
+                .contains("**Yara \\*Haddad\\***", "Head of Talent, Al-Futtaim", "\\+971 50 123 4567",
+                        "[yara@" + domain + "](mailto:yara@" + domain + ")")
+                .doesNotContain("http://", GROUP_LOGO_URL);
+        assertThat(markdown.split("!\\[]\\(", -1)).hasSize(3);
+
+        String saved = """
+                {"name":"Mine","layout":"CUSTOM","customBody":%s}""".formatted(
+                json.writeValueAsString(markdown + "\n\nMobile +971 58 000 0000"));
+        create(yara, saved);
+        String drawn = previewHtml(saved);
+        assertThat(drawn.split("<img", -1)).hasSize(3);
+        assertThat(drawn).contains("Yara *Haddad*", "Mobile +971 58 000 0000");
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_email_signature where layout = 'CUSTOM'",
+                Integer.class)).isPositive();
     }
 
     @Test

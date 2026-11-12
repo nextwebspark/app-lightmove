@@ -1,5 +1,7 @@
 package app.lightmove.api.outreach.service;
 
+import app.lightmove.api.core.storage.service.EmailImageService;
+import app.lightmove.api.outreach.constant.SignatureLayout;
 import app.lightmove.api.outreach.model.OutreachMarkdownEmail;
 import app.lightmove.api.outreach.model.RenderedSignature;
 import app.lightmove.api.outreach.model.SignatureContent;
@@ -121,6 +123,42 @@ public final class EmailSignatureRenderer {
                 + "\" alt=\"\" style=\"display:block;width:" + width + "px;height:" + height + "px;border:0\">";
     }
 
+    /**
+     * The signature as a Custom signature's Markdown, to go on editing in its place: the details it draws, its photo and
+     * logo as the signer's own pictures, a Custom one's own words kept. Values are escaped, so a name never becomes
+     * markup; a phone stays text, as a Custom signature keeps it.
+     */
+    public static String asMarkdown(SignatureContent content, SignatureSender sender) {
+        boolean photo = content.layout().drawsPhoto() && content.showPhoto() && sender.photoUrl() != null;
+        SignatureLogo logo = content.layout().drawsLogo() && content.showLogo() ? sender.logo() : null;
+        List<String> blocks = new ArrayList<>();
+        if (content.layout() == SignatureLayout.CUSTOM) {
+            if (hasText(content.customBody())) {
+                blocks.add(content.customBody().strip());
+            }
+        } else {
+            if (photo) {
+                blocks.add(pictureMarkdown(sender.photoUrl()));
+            }
+            blocks.add(String.join("\\\n", Details.of(content.fields(), sender).markdownLines(
+                    content.layout() == SignatureLayout.MINIMAL)));
+        }
+        if (logo != null) {
+            blocks.add(pictureMarkdown(logo.url()));
+        }
+        return String.join("\n\n", blocks);
+    }
+
+    /** Relative, as the editor inserts one: the email's own drawing makes it absolute again. */
+    private static String pictureMarkdown(String url) {
+        int route = url.indexOf(EmailImageService.PATH);
+        return "![](" + (route < 0 ? url : url.substring(route)) + ")";
+    }
+
+    private static String markdownEscaped(String value) {
+        return value.replaceAll("([\\\\`*_\\[\\]()<>#+!|~])", "\\\\$1");
+    }
+
     /** The signature's own value where it set one, its source's otherwise; blank is absent either way. */
     private record Details(String name, String title, String company, String phone, String email, String website,
                            String linkedinUrl, String address) {
@@ -179,6 +217,56 @@ public final class EmailSignatureRenderer {
             }
             if (address != null) {
                 lines.add(muted(escape(address)));
+            }
+            return lines;
+        }
+
+        /** The same lines as Markdown, one per hard break; {@code oneLine} is Minimal's. */
+        List<String> markdownLines(boolean oneLine) {
+            List<String> lines = new ArrayList<>();
+            StringJoiner first = new StringJoiner(" · ");
+            if (name != null) {
+                first.add("**" + markdownEscaped(name) + "**");
+            }
+            if (oneLine) {
+                if (roleLine() != null) {
+                    first.add(markdownEscaped(roleLine()));
+                }
+                if (phone != null) {
+                    first.add(markdownEscaped(phone));
+                }
+                return first.length() > 0 ? List.of(first.toString()) : List.of();
+            }
+            if (first.length() > 0) {
+                lines.add(first.toString());
+            }
+            if (roleLine() != null) {
+                lines.add(markdownEscaped(roleLine()));
+            }
+            StringJoiner reach = new StringJoiner(" · ");
+            if (phone != null) {
+                reach.add(markdownEscaped(phone));
+            }
+            if (email != null) {
+                reach.add("[" + markdownEscaped(email) + "](mailto:" + email + ")");
+            }
+            if (reach.length() > 0) {
+                lines.add(reach.toString());
+            }
+            StringJoiner web = new StringJoiner(" · ");
+            String site = websiteHref(website);
+            if (site != null) {
+                web.add("[" + markdownEscaped(displayOf(website)) + "](" + site + ")");
+            }
+            String linkedin = websiteHref(linkedinUrl);
+            if (linkedin != null) {
+                web.add("[LinkedIn](" + linkedin + ")");
+            }
+            if (web.length() > 0) {
+                lines.add(web.toString());
+            }
+            if (address != null) {
+                lines.add(markdownEscaped(address));
             }
             return lines;
         }

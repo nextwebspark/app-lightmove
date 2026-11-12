@@ -15,6 +15,7 @@ import app.lightmove.api.outreach.dto.RenderedSignatureResponse;
 import app.lightmove.api.outreach.dto.SaveSignatureRequest;
 import app.lightmove.api.outreach.dto.SignatureFieldsDto;
 import app.lightmove.api.outreach.dto.SignaturePictureResponse;
+import app.lightmove.api.outreach.dto.SignatureStarterResponse;
 import app.lightmove.api.outreach.model.EmailSignature;
 import app.lightmove.api.outreach.model.OutreachMarkdownEmail;
 import app.lightmove.api.outreach.model.RenderedSignature;
@@ -158,6 +159,19 @@ public class EmailSignatureService {
     }
 
     /**
+     * {@code request} as a Custom signature's Markdown, for the editor to go on with: a starting point filled from the
+     * profile, workspace and mailbox, or an older layout opened for editing. Writes nothing but the photo's and logo's
+     * copies, which a preview makes too.
+     */
+    public SignatureStarterResponse starterOf(UUID userId, UUID workspaceId, SaveSignatureRequest request) {
+        SignatureContent content = contentOf(request);
+        SignatureNeeds needs = SignatureNeeds.of(content);
+        SignatureSender sender = senders.forPreview(userId, workspaceId,
+                new SignatureNeeds(needs.photo(), needs.logo(), false, List.of()));
+        return new SignatureStarterResponse(EmailSignatureRenderer.asMarkdown(content, sender));
+    }
+
+    /**
      * The signature being edited, saved or not, drawn for the caller's own test email. As with the default's test, a
      * booking page that cannot be made leaves the Book a call line out rather than failing it.
      */
@@ -199,8 +213,9 @@ public class EmailSignatureService {
     }
 
     /**
-     * Every picture a saved Custom signature names is one the caller uploaded in this workspace, and there are at most
-     * six. A token copied out of a colleague's signature would draw nothing in an email, so it is refused here instead.
+     * Every picture a saved Custom signature names is the caller's to show — an upload of theirs here, their photo, the
+     * workspace's logo — and there are at most six. A token copied out of a colleague's signature would draw nothing in
+     * an email, so it is refused here instead.
      */
     private void requireOwnPictures(UUID userId, UUID workspaceId, SignatureContent content) {
         if (content.layout() != SignatureLayout.CUSTOM || content.customBody() == null) {

@@ -7,6 +7,7 @@ import app.lightmove.api.outreach.dto.EmailSignaturesResponse;
 import app.lightmove.api.outreach.dto.RenderedSignatureResponse;
 import app.lightmove.api.outreach.dto.SaveSignatureRequest;
 import app.lightmove.api.outreach.dto.SignaturePictureResponse;
+import app.lightmove.api.outreach.dto.SignatureStarterResponse;
 import app.lightmove.api.outreach.dto.SignatureTestResponse;
 import app.lightmove.api.outreach.service.EmailSignatureService;
 import app.lightmove.api.outreach.service.MailboxService;
@@ -83,6 +84,14 @@ public class EmailSignatureController {
                                                   @RequestParam(name = "file", required = false) MultipartFile file,
                                                   HttpServletRequest httpRequest) {
         return signatures.uploadPicture(principal.userId(), principal.requireWorkspaceId(), file, httpRequest);
+    }
+
+    /** A starting point, or an older layout, as Markdown the editor goes on with; nothing is saved. */
+    @PostMapping("/api/v1/me/signatures/starter")
+    @PreAuthorize("@workspaceAuthorizer.staffOnly(principal)")
+    public SignatureStarterResponse starter(@AuthenticationPrincipal AuthPrincipal principal,
+                                            @Valid @RequestBody SaveSignatureRequest request) {
+        return signatures.starterOf(principal.userId(), principal.requireWorkspaceId(), request);
     }
 
     /** Sends what the editor holds, saved or not, from the caller's mailbox to itself. */

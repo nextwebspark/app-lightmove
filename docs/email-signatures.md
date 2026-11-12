@@ -152,6 +152,23 @@ alike), so there is no text form and no `-- ` separator.
   unevenly.
 - Placed after the body behind a spacer.
 
+### C3. One editor, three starting points (2026-11-12, replacing §D's layout gallery and field form)
+
+The product owner asked for less: two starting points and Custom, each just a start, with everything after typed in
+the one editor rather than a form per field. So a new signature starts from **With logo**, **With photo** or
+**Custom**, and every signature is saved as `CUSTOM`.
+
+- `POST /me/signatures/starter` (the preview's body) turns a layout into the editor's Markdown
+  (`EmailSignatureRenderer.asMarkdown`): the details the layout drew — profile, workspace and mailbox values, any
+  override the signature held — escaped, one per line, and its photo and logo as pictures. Nothing is saved.
+- A picture in a Custom signature may be the signer's own upload, **their own photo, or the workspace's logo**
+  (`EmailImageService.signaturePicturesOf`); a colleague's photo or upload still draws nothing and is refused on save.
+- A signature saved in an older fixed layout, or a Custom one with the logo switch on, keeps sending exactly as it
+  did; opening it in the editor turns it into Markdown the same way, and saving makes it `CUSTOM`. The fixed layouts,
+  `fields` and the photo and logo switches stay in the API and the table for those rows only.
+- The editor keeps Book a call, Use as my default and the disclaimer; the field rows, the layout chips and the photo
+  and logo switches are gone.
+
 ### C2. A Custom signature's own pictures (2026-11-12)
 
 A consultant asked for a second phone number and her firm's three logos (a group, AESC, GRC) side by side, and to

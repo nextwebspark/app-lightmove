@@ -128,12 +128,19 @@ public class EmailImageService {
                                 picture, key)));
     }
 
-    /** Of {@code tokens}, the ones naming this person's own signature pictures in this workspace; any other is absent. */
+    /**
+     * Of {@code tokens}, the pictures this person may show in a signature here: their own uploads in this workspace,
+     * their own photo, and this workspace's logo. Any other — a colleague's upload or photo — is absent.
+     */
     public List<EmailImage> signaturePicturesOf(UUID workspaceId, UUID userId, Collection<String> tokens) {
         if (tokens.isEmpty()) {
             return List.of();
         }
-        return images.findByKindAndWorkspaceIdAndUserIdAndTokenIn(EmailImageKind.SIGNATURE, workspaceId, userId, tokens);
+        return images.findByTokenIn(tokens).stream().filter(image -> switch (image.getKind()) {
+            case SIGNATURE -> workspaceId.equals(image.getWorkspaceId()) && userId.equals(image.getUserId());
+            case PHOTO -> userId.equals(image.getUserId());
+            case LOGO -> workspaceId.equals(image.getWorkspaceId());
+        }).toList();
     }
 
     /** The public route's read: no workspace is known until the token names one. */
