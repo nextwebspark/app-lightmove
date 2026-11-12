@@ -6,7 +6,7 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
-import { NoteEditor } from "../../notes/components/NoteEditor";
+import { NoteEditor, type NotePictures } from "../../notes/components/NoteEditor";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as signaturesApi from "../api/signaturesApi";
 import type { SignatureFields, SignatureLayout, SignatureSources } from "../api/signaturesApi";
@@ -17,6 +17,8 @@ import { SignaturePreviewFrame } from "./SignaturePreviewFrame";
 const PREVIEW_DELAY_MS = 350;
 /** `SaveSignatureRequest.customBody`'s `@Size`. */
 const CUSTOM_BODY_MAX_LENGTH = 2000;
+/** `SignaturePicture.MAX_PER_SIGNATURE`. */
+const MAX_PICTURES = 6;
 
 type FieldKey = keyof SignatureFields;
 
@@ -78,6 +80,24 @@ export function SignatureEditor({
       setFormError(messageFor(error));
     },
   });
+
+  const sendTest = useMutation({
+    mutationFn: () => signaturesApi.sendSignatureTest(payload),
+    onSuccess: ({ sentTo }) => toast(`Test sent to ${sentTo}`),
+    onError: (error) => {
+      if (error instanceof ApiRequestError && Object.keys(error.fieldErrors).length > 0) {
+        setFieldErrors(error.fieldErrors);
+      }
+      toast.error(messageFor(error));
+    },
+  });
+
+  const [pictures] = useState<NotePictures>(() => ({
+    upload: signaturesApi.uploadSignaturePicture,
+    max: MAX_PICTURES,
+    onLimit: () => toast.error(`A signature holds up to ${MAX_PICTURES} pictures`),
+    onError: (error) => toast.error(messageFor(error)),
+  }));
 
   const setField = (key: FieldKey, value: string) => {
     setDraft((current) => ({ ...current, fields: { ...current.fields, [key]: value } }));
@@ -164,6 +184,7 @@ export function SignatureEditor({
                 ariaLabel="Signature"
                 variant="field"
                 expandTitle="Signature"
+                pictures={pictures}
               />
             </div>
             <span aria-live="polite">
@@ -174,7 +195,8 @@ export function SignatureEditor({
               )}
             </span>
             <p className="mt-1.5 font-mono text-meta text-u-text3">
-              Your logo comes from the switch below. A pasted picture is never sent.
+              Insert up to {MAX_PICTURES} pictures — your group's logo, a membership badge — and pick each one's size.
+              Your company logo comes from the switch below.
             </p>
           </div>
         ) : (
@@ -291,6 +313,14 @@ export function SignatureEditor({
           <Button variant="secondary" onClick={onDone}>
             Cancel
           </Button>
+          <Button
+            variant="secondary"
+            loading={sendTest.isPending}
+            disabled={customBodyTooLong}
+            onClick={() => sendTest.mutate()}
+          >
+            Send test to me
+          </Button>
           <Button loading={save.isPending} disabled={customBodyTooLong} onClick={() => save.mutate()}>
             Save signature
           </Button>
@@ -318,8 +348,8 @@ export function SignatureEditor({
           <div className="h-24 animate-pulse rounded-lg bg-u-surface" />
         )}
         <p className="mt-2.5 font-mono text-meta text-u-text3">
-          Drawn as Gmail and Outlook show it. Your photo and logo are hosted by Uncava, so they show in replies and
-          forwards too.
+          Drawn as Gmail and Outlook show it. Your photo, logo and pictures are hosted by Uncava, so they show in
+          replies and forwards too.
         </p>
       </div>
     </div>

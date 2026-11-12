@@ -16,7 +16,7 @@ import org.springframework.web.util.HtmlUtils;
 /**
  * Draws a signature the way mail clients agree on: nested tables with inline styles, a fixed size on every picture, no
  * class, no background image. Every value is escaped, a link goes only to http, https, mailto or tel, and the only
- * pictures are the photo and logo Uncava serves. Text takes no colour of its own but the muted lines', so a client's
+ * pictures are ones Uncava serves: the photo, the logo, and a Custom signature's own uploaded pictures. Text takes no colour of its own but the muted lines', so a client's
  * dark mode can turn it light.
  */
 public final class EmailSignatureRenderer {
@@ -44,7 +44,7 @@ public final class EmailSignatureRenderer {
             case PHOTO, PHOTO_LOGO -> beside(details, photo ? sender.photoUrl() : null, logo);
             case LOGO_BANNER -> stacked(details, logo);
             case MINIMAL -> minimal(details);
-            case CUSTOM -> custom(content.customBody(), logo);
+            case CUSTOM -> custom(content.customBody(), logo, sender);
         };
         StringBuilder html = new StringBuilder("<div style=\"margin-top:16px;").append(FONT).append("\">").append(body);
         if (booking != null) {
@@ -107,8 +107,8 @@ public final class EmailSignatureRenderer {
     }
 
     /** The person's own Markdown under the composer's rules — no raw HTML, no picture — then the logo, if asked for. */
-    private static String custom(String customBody, SignatureLogo logo) {
-        String html = hasText(customBody) ? OutreachMarkdownEmail.htmlOf(customBody) : "";
+    private static String custom(String customBody, SignatureLogo logo, SignatureSender sender) {
+        String html = hasText(customBody) ? OutreachMarkdownEmail.signatureHtmlOf(customBody, sender.pictures()) : "";
         return logo == null ? html : html + "<div style=\"margin-top:10px\">" + image(logo) + "</div>";
     }
 

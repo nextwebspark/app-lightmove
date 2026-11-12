@@ -20,6 +20,8 @@ vi.mock("../api/signaturesApi", async (importOriginal) => ({
   makeDefaultSignature: vi.fn(),
   deleteSignature: vi.fn(),
   previewSignature: vi.fn(),
+  uploadSignaturePicture: vi.fn(),
+  sendSignatureTest: vi.fn(),
 }));
 
 vi.mock("../../outreach/api/mailboxApi", async (importOriginal) => ({
@@ -276,6 +278,54 @@ describe("SettingsSignaturesPage", () => {
     await user.click(within(again.find((item) => within(item).queryByText("Short"))!).getByRole("button", { name: "Edit" }));
     await user.click(screen.getByRole("button", { name: "Save signature" }));
     expect(await screen.findByText("That signature is too long (4 now).")).toBeInTheDocument();
+  });
+
+  it("inserts an uploaded picture into a Custom signature, sizes it, and sends the draft as a test", async () => {
+    const src = "/api/v1/email-images/AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde";
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
+      signatures: [aSignature({ id: "firm", name: "Firm", layout: "CUSTOM", customBody: "Alok", isDefault: true })],
+      sources: SOURCES,
+      limit: 10,
+    });
+    vi.mocked(signaturesApi.uploadSignaturePicture).mockResolvedValue({ token: "t", src, width: 600, height: 150 });
+    vi.mocked(signaturesApi.sendSignatureTest).mockResolvedValue({ sentTo: "alok@nextwebspark.com" });
+    vi.mocked(signaturesApi.updateSignature).mockImplementation(async (_id, payload) =>
+      aSignature({ ...payload, id: "firm" }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    expect(await screen.findByRole("button", { name: "Insert picture" })).toBeInTheDocument();
+    await user.upload(screen.getByLabelText("Picture to insert"), new File(["png"], "group.png", { type: "image/png" }));
+    await waitFor(() => expect(signaturesApi.uploadSignaturePicture).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole("button", { name: "Send test to me" }));
+    expect(await screen.findByText("Test sent to alok@nextwebspark.com")).toBeInTheDocument();
+    expect(vi.mocked(signaturesApi.sendSignatureTest).mock.calls[0][0].customBody).toContain(`![](${src})`);
+
+    await user.click(screen.getByRole("button", { name: "Save signature" }));
+    await waitFor(() => expect(signaturesApi.updateSignature).toHaveBeenCalled());
+    expect(vi.mocked(signaturesApi.updateSignature).mock.calls[0][1].customBody).toContain(src);
+  });
+
+  it("refuses a seventh picture before uploading it", async () => {
+    const src = "/api/v1/email-images/AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde";
+    vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
+      signatures: [
+        aSignature({ id: "full", name: "Full", layout: "CUSTOM", customBody: `![](${src}) `.repeat(6).trim(), isDefault: true }),
+      ],
+      sources: SOURCES,
+      limit: 10,
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await screen.findByRole("button", { name: "Insert picture" });
+    await user.upload(screen.getByLabelText("Picture to insert"), new File(["png"], "badge.png", { type: "image/png" }));
+    expect(await screen.findByText("A signature holds up to 6 pictures")).toBeInTheDocument();
+    expect(signaturesApi.uploadSignaturePicture).not.toHaveBeenCalled();
   });
 
   it("holds every Make default while one is on its way", async () => {

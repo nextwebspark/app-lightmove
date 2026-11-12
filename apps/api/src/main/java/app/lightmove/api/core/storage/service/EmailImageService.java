@@ -17,8 +17,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,10 +37,10 @@ import org.springframework.stereotype.Service;
 
 /**
  * The pictures an email carries: a copy of a person's profile photo and of a workspace's logo, each made the first time a
- * signature draws it. A recipient's mail client fetches them with no session, so each is served publicly by a random
- * token ({@code /api/v1/email-images/{token}}) — one per stored picture, shared by every email showing it and never
- * minted per message or recipient, so a fetch identifies nobody — never a signed bucket URL, which would expire in an
- * inbox, and never another host's address. Nothing here runs inside a transaction: the bytes go to the bucket first.
+ * signature draws it, and the pictures a person uploads into their Custom signature. A recipient's mail client fetches
+ * them with no session, so each is served publicly by a random token ({@code /api/v1/email-images/{token}}) — one per
+ * stored picture, shared by every email showing it and never minted per message or recipient, so a fetch identifies
+ * nobody — never a signed bucket URL, which would expire in an inbox, and never another host's address. Nothing here runs inside a transaction: the bytes go to the bucket first.
  */
 @Slf4j
 @Service
@@ -106,6 +111,31 @@ public class EmailImageService {
                 key -> EmailImage.logoOf(workspaceId, sourceHash, Tokens.generate(), logo.get(), key));
     }
 
+    /**
+     * A picture a person put in their Custom signature, kept once per file however often it is uploaded. Empty for
+     * anything that is not a JPEG or PNG this server can read safely.
+     */
+    public Optional<EmailImage> uploadSignaturePicture(UUID workspaceId, UUID userId, byte[] content) {
+        String contentHash = sha256(content);
+        Supplier<Optional<EmailImage>> copied = () -> images.findByKindAndWorkspaceIdAndUserIdAndSourceSha256(
+                EmailImageKind.SIGNATURE, workspaceId, userId, contentHash);
+        if (copied.get().isPresent()) {
+            return copied.get();
+        }
+        return EmailImageEncoder.signaturePicture(content)
+                .flatMap(picture -> save("ws/" + workspaceId + "/users/" + userId + "/email-images/", picture, copied,
+                        key -> EmailImage.signaturePictureOf(workspaceId, userId, contentHash, Tokens.generate(),
+                                picture, key)));
+    }
+
+    /** Of {@code tokens}, the ones naming this person's own signature pictures in this workspace; any other is absent. */
+    public List<EmailImage> signaturePicturesOf(UUID workspaceId, UUID userId, Collection<String> tokens) {
+        if (tokens.isEmpty()) {
+            return List.of();
+        }
+        return images.findByKindAndWorkspaceIdAndUserIdAndTokenIn(EmailImageKind.SIGNATURE, workspaceId, userId, tokens);
+    }
+
     /** The public route's read: no workspace is known until the token names one. */
     public Optional<EmailImage> find(String token) {
         if (token == null || token.isBlank()) {
@@ -152,6 +182,14 @@ public class EmailImageService {
             store.delete(key);
         } catch (IOException | RuntimeException failed) {
             log.warn("Could not delete an unused email image {}: {}", key, failed.getMessage());
+        }
+    }
+
+    private static String sha256(byte[] content) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 unavailable", impossible);
         }
     }
 

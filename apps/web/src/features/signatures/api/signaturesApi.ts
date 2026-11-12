@@ -88,3 +88,22 @@ export function deleteSignature(id: string): Promise<void> {
 export function previewSignature(payload: SaveSignaturePayload, signal?: AbortSignal): Promise<RenderedSignature> {
   return request<RenderedSignature>("/me/signatures/preview", { method: "POST", body: payload, signal });
 }
+
+/** A picture for a Custom signature, kept and served by Uncava; `src` is what the editor writes into its Markdown. */
+export interface SignaturePicture {
+  token: string;
+  src: string;
+  width: number;
+  height: number;
+}
+
+export function uploadSignaturePicture(file: File): Promise<SignaturePicture> {
+  const body = new FormData();
+  body.append("file", file, file.name || "picture");
+  return request<SignaturePicture>("/me/signatures/pictures", { method: "POST", body });
+}
+
+/** Sends what the editor holds, saved or not, from the person's mailbox to itself; the address it went to. */
+export function sendSignatureTest(payload: SaveSignaturePayload): Promise<{ sentTo: string }> {
+  return request<{ sentTo: string }>("/me/signatures/test", { method: "POST", body: payload });
+}

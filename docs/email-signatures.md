@@ -147,10 +147,37 @@ alike), so there is no text form and no `-- ` separator.
 - `CUSTOM` is written in the notes' shared editor (`features/notes`' `NoteEditor`) **with mentions off**. A signature
   belongs to nobody's position, and a mention token there would carry a teammate's id. It renders through
   `OutreachMarkdownEmail`'s rules: raw HTML is text, links are http/https/mailto only (a typed `tel:` link is
-  stripped, so a phone there is plain text), and images are refused. A custom layout places the logo with its switch,
-  not by typing a URL. Headings, lists and quotes are kept; a checklist is best avoided, since mail clients draw it
+  stripped, so a phone there is plain text), and a picture is drawn only if it is one the signer uploaded (§C2). The
+  workspace logo is still placed with its switch, not by typing a URL. Headings, lists and quotes are kept; a checklist is best avoided, since mail clients draw it
   unevenly.
 - Placed after the body behind a spacer.
+
+### C2. A Custom signature's own pictures (2026-11-12)
+
+A consultant asked for a second phone number and her firm's three logos (a group, AESC, GRC) side by side, and to
+send herself a test. Outlook, Gmail, HubSpot and Outreach all answer this the same way: a free-form signature with an
+**Insert picture** button, the picture uploaded to the product and hosted there, never pasted HTML (Outreach warns a
+pasted signature breaks). So the Custom layout now does that, and the fixed layouts stay as they are.
+
+- **Upload.** Insert picture, a pasted image file or a dropped one goes to `POST /me/signatures/pictures` (staff
+  only, multipart, ≤ 5 MB, its own rate limit per person and per IP). It is read and re-encoded as §B's pictures are
+  (`EmailImageEncoder.signaturePicture`: JPEG or PNG, 40-megapixel header check, fitted inside 1200 × 400 — twice the
+  largest box it is drawn in — PNG where it has transparency, JPEG otherwise) and kept as an `app_lm_email_image` row
+  of kind `SIGNATURE` (V209), carrying the person and the workspace, one per file by its SHA-256. The answer's `src`
+  is the public route.
+- **Stored in the Markdown.** The editor writes `![alt](/api/v1/email-images/{token} "size")`, inline, so pictures
+  on one line sit in a row; the title is its size, `small` (inside 200 × 40), medium (300 × 64, no title) or `large`
+  (600 × 200), never enlarged. Selecting a picture offers the three sizes. The notes' editor takes pictures only where
+  it is handed them (`NoteEditor`'s `pictures`); a note or an email still keeps none, and a pasted `<img>` from
+  another host is never taken in.
+- **Saved.** At most six pictures, and every token one the signer uploaded in this workspace: a token copied out of a
+  colleague's signature is refused on `customBody` rather than drawing nothing in an email.
+- **Drawn.** `OutreachMarkdownEmail.signatureHtmlOf` draws a picture only when its token is one of the signer's own
+  (`SignatureSenders` resolves them per drawing), with a fixed `width`/`height`, up to six; any other picture — another
+  person's, another host's — stays its alt text, as before.
+- **Send test to me** (`POST /me/signatures/test`, the preview's body) sends the signature being edited, saved or not,
+  from the person's mailbox to itself (`MailboxService.sendSignatureTest`), with the same Book a call fallback as the
+  mailbox's own test email.
 
 ## D. Settings → Email signature
 

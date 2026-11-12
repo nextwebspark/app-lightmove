@@ -265,6 +265,76 @@ class EmailSignatureIntegrationTest extends FlowTestSupport {
         assertThat(list(yara).get("sources").get("logoAvailable").asBoolean()).isTrue();
     }
 
+    @Test
+    @DisplayName("a Custom signature's own pictures are kept once, drawn side by side, and only ever the signer's own")
+    void customSignaturePictures() throws Exception {
+        JsonNode group = uploadPicture(yara, picture(2400, 600));
+        JsonNode again = uploadPicture(yara, picture(2400, 600));
+        JsonNode badge = uploadPicture(yara, picture(300, 100));
+        assertThat(again.get("token").asText()).isEqualTo(group.get("token").asText());
+        assertThat(group.get("src").asText()).isEqualTo(EmailImageService.PATH + group.get("token").asText());
+        assertThat(group.get("width").asInt()).isEqualTo(1200);
+        assertThat(group.get("height").asInt()).isEqualTo(300);
+        mvc.perform(get(group.get("src").asText())).andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"));
+
+        String custom = """
+                {"name":"Firm","layout":"CUSTOM","customBody":"Mobile +971 58 000 0000\\n\\n![Group](%s) ![AESC](%s \\"small\\")"}"""
+                .formatted(group.get("src").asText(), badge.get("src").asText());
+        String drawn = previewHtml(custom);
+        assertThat(drawn).contains("Mobile +971 58 000 0000", "alt=\"Group\"", "alt=\"AESC\"",
+                "width=\"256\" height=\"64\"", "width=\"120\" height=\"40\"");
+        assertThat(drawn.indexOf("Group")).isLessThan(drawn.indexOf("AESC"));
+        create(yara, custom);
+
+        inviteAndAccept(yara, "Omar Saleh", "omar@" + domain, "MEMBER");
+        String omar = login("omar@" + domain);
+        String borrowed = """
+                {"name":"Borrowed","layout":"CUSTOM","customBody":"![Group](%s)"}""".formatted(group.get("src").asText());
+        assertThat(body(mvc.perform(post(SIGNATURES + "/preview").header("Authorization", "Bearer " + omar)
+                        .contentType(MediaType.APPLICATION_JSON).content(borrowed))
+                .andExpect(status().isOk()).andReturn()).get("html").asText()).doesNotContain("<img").contains("Group");
+        MvcResult refused = mvc.perform(post(SIGNATURES).header("Authorization", "Bearer " + omar)
+                        .contentType(MediaType.APPLICATION_JSON).content(borrowed))
+                .andExpect(status().isBadRequest()).andReturn();
+        assertThat(body(refused).get("fieldErrors").has("customBody")).isTrue();
+
+        String outside = """
+                {"name":"Outside","layout":"CUSTOM","customBody":"![Logo](https://evil.example/pixel.png)"}""";
+        assertThat(previewHtml(outside)).doesNotContain("<img", "evil.example");
+
+        String seven = """
+                {"name":"Many","layout":"CUSTOM","customBody":"%s"}""".formatted(
+                ("![](" + badge.get("src").asText() + ") ").repeat(7));
+        MvcResult tooMany = mvc.perform(post(SIGNATURES).header("Authorization", "Bearer " + yara)
+                        .contentType(MediaType.APPLICATION_JSON).content(seven))
+                .andExpect(status().isBadRequest()).andReturn();
+        assertThat(body(tooMany).get("fieldErrors").has("customBody")).isTrue();
+    }
+
+    @Test
+    @DisplayName("an upload that is not a picture, or too big, is refused by code")
+    void pictureRefusals() throws Exception {
+        MvcResult notAPicture = mvc.perform(multipart(SIGNATURES + "/pictures")
+                        .file(new MockMultipartFile("file", "logo.png", "image/png", "not a picture".getBytes()))
+                        .header("Authorization", "Bearer " + yara).with(csrf()))
+                .andExpect(status().isBadRequest()).andReturn();
+        assertThat(codeOf(notAPicture)).isEqualTo("EMAIL_IMAGE_UNREADABLE");
+
+        MvcResult tooLarge = mvc.perform(multipart(SIGNATURES + "/pictures")
+                        .file(new MockMultipartFile("file", "big.png", "image/png", new byte[5 * 1024 * 1024 + 1]))
+                        .header("Authorization", "Bearer " + yara).with(csrf()))
+                .andExpect(status().isPayloadTooLarge()).andReturn();
+        assertThat(codeOf(tooLarge)).isEqualTo("EMAIL_IMAGE_TOO_LARGE");
+    }
+
+    private JsonNode uploadPicture(String token, byte[] content) throws Exception {
+        return body(mvc.perform(multipart(SIGNATURES + "/pictures")
+                        .file(new MockMultipartFile("file", "logo.png", "image/png", content))
+                        .header("Authorization", "Bearer " + token).with(csrf()))
+                .andExpect(status().isCreated()).andReturn());
+    }
+
     private int makeDefault(String signatureId) {
         try {
             return mvc.perform(post(SIGNATURES + "/" + signatureId + "/default").header("Authorization", "Bearer " + yara))

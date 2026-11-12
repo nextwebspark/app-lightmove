@@ -34,6 +34,10 @@ public final class EmailImageEncoder {
     static final int LOGO_MAX_WIDTH_PX = 480;
     static final int LOGO_MAX_HEIGHT_PX = 160;
 
+    /** A signature's own picture is drawn at most 600 × 200; kept at twice that. */
+    static final int SIGNATURE_PICTURE_MAX_WIDTH_PX = 1200;
+    static final int SIGNATURE_PICTURE_MAX_HEIGHT_PX = 400;
+
     /** Past this a picture is refused before its pixels are read. */
     static final long MAX_PIXELS = 40_000_000L;
     private static final float JPEG_QUALITY = 0.88f;
@@ -62,6 +66,25 @@ public final class EmailImageEncoder {
             int height = Math.max(1, (int) Math.round(source.getHeight() * scale));
             BufferedImage scaled = scaled(source, width, height, BufferedImage.TYPE_INT_ARGB);
             return new EncodedImage(png(scaled), "image/png", width, height);
+        });
+    }
+
+    /**
+     * A Custom signature's own picture, fitted inside twice the largest box a signature draws one in and never enlarged:
+     * PNG where it has transparency to keep, JPEG otherwise, so a photo-like banner stays small.
+     */
+    public static Optional<EncodedImage> signaturePicture(byte[] content) {
+        return decode(content, SIGNATURE_PICTURE_MAX_WIDTH_PX).map(source -> {
+            double scale = Math.min(1.0, Math.min((double) SIGNATURE_PICTURE_MAX_WIDTH_PX / source.getWidth(),
+                    (double) SIGNATURE_PICTURE_MAX_HEIGHT_PX / source.getHeight()));
+            int width = Math.max(1, (int) Math.round(source.getWidth() * scale));
+            int height = Math.max(1, (int) Math.round(source.getHeight() * scale));
+            if (source.getColorModel().hasAlpha()) {
+                return new EncodedImage(png(scaled(source, width, height, BufferedImage.TYPE_INT_ARGB)), "image/png",
+                        width, height);
+            }
+            return new EncodedImage(jpeg(scaled(source, width, height, BufferedImage.TYPE_INT_RGB)), "image/jpeg",
+                    width, height);
         });
     }
 

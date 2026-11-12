@@ -20,6 +20,7 @@ import app.lightmove.api.outreach.constant.MessageKind;
 import app.lightmove.api.outreach.constant.MessageStatus;
 import app.lightmove.api.outreach.dto.ConnectedMailboxResponse;
 import app.lightmove.api.outreach.dto.MailboxResponse;
+import app.lightmove.api.outreach.dto.SaveSignatureRequest;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxAuthorization;
 import app.lightmove.api.outreach.model.MailboxConnected;
@@ -42,6 +43,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -68,6 +70,9 @@ public class MailboxService {
     private static final String TEST_SUBJECT = "Your mailbox is connected to Uncava";
     private static final String TEST_BODY = "<p>This is a test from Uncava.</p>"
             + "<p>Outreach you start in Uncava will go from this mailbox, and replies will land here, in your inbox.</p>";
+
+    private static final String SIGNATURE_TEST_SUBJECT = "Your signature in Uncava";
+    private static final String SIGNATURE_TEST_BODY = "<p>This is how your signature looks in an email from Uncava.</p>";
 
     private final MailboxGateway gateway;
     private final MailboxConnectionRepository connections;
@@ -311,6 +316,18 @@ public class MailboxService {
 
     /** Sends one email from the mailbox to itself, which is the only proof that it can send at all. */
     public void sendTest(UUID userId, UUID workspaceId) {
+        // The default signature rides along, so the consultant sees it in their own inbox as an executive will.
+        sendToSelf(userId, workspaceId, TEST_SUBJECT, TEST_BODY, () -> signatures.renderDefaultForTest(userId, workspaceId)
+                .map(RenderedSignature::html).orElse(""));
+    }
+
+    /** The signature being edited, saved or not, sent from the mailbox to itself; the address it went to. */
+    public String sendSignatureTest(UUID userId, UUID workspaceId, SaveSignatureRequest draft) {
+        return sendToSelf(userId, workspaceId, SIGNATURE_TEST_SUBJECT, SIGNATURE_TEST_BODY,
+                () -> signatures.renderDraftForTest(userId, workspaceId, draft).html());
+    }
+
+    private String sendToSelf(UUID userId, UUID workspaceId, String subject, String body, Supplier<String> signature) {
         requireOffered();
         MailboxConnection connection = connections.findByWorkspaceIdAndUserId(workspaceId, userId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_NOT_CONNECTED));
@@ -318,10 +335,9 @@ public class MailboxService {
             throw ApiException.of(ErrorCode.MAILBOX_RECONNECT_NEEDED);
         }
         try {
-            // The default signature rides along, so the consultant sees it in their own inbox as an executive will.
-            String signature = signatures.renderDefaultForTest(userId, workspaceId).map(RenderedSignature::html).orElse("");
             gateway.send(connection.getGrantId(),
-                    new OutgoingEmail(connection.getAddress(), TEST_SUBJECT, TEST_BODY + signature));
+                    new OutgoingEmail(connection.getAddress(), subject, body + signature.get()));
+            return connection.getAddress();
         } catch (VendorException failed) {
             if (isAccessWithdrawn(failed)) {
                 transactions.executeWithoutResult(status -> requireConnection(userId, workspaceId).markAccessWithdrawn());
