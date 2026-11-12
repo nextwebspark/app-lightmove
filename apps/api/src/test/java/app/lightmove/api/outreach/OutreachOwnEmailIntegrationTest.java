@@ -255,6 +255,24 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
                 .contains("This is a test from Uncava", "Partner").doesNotContain("/book/");
     }
 
+    @Test
+    @DisplayName("Send test to me sends the signature being edited, unsaved, from the mailbox to itself")
+    void theSignatureTestSendsTheDraft() throws Exception {
+        signature(consultant, """
+                {"name":"Formal","layout":"CLASSIC","fields":{"title":"Partner"},"isDefault":true}""");
+
+        JsonNode sent = body(as(consultant, post("/api/v1/me/signatures/test").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Draft","layout":"CUSTOM","customBody":"Direct +971 4 000 0000\\n\\nMobile +971 50 000 0000"}"""))
+                .andExpect(status().isOk()).andReturn());
+
+        assertThat(sent.get("sentTo").asText()).isEqualTo(MAILBOX);
+        OutgoingEmail email = gateway.sent().getLast().email();
+        assertThat(email.to()).isEqualTo(MAILBOX);
+        assertThat(email.htmlBody()).contains("how your signature looks", "Direct +971 4 000 0000", "Mobile +971 50 000 0000")
+                .doesNotContain("Partner");
+    }
+
     private String signature(String token, String json) throws Exception {
         return body(as(token, post("/api/v1/me/signatures").contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isCreated()).andReturn()).get("id").asText();

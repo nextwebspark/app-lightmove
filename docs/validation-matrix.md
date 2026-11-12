@@ -54,24 +54,21 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Device time zone (sent by the browser) | this browser's zone, once per zone per tab | `@NotBlank @Size(64)`; any region zone the JDK knows or `UTC`, never an alias like `EST` (`VALIDATION_FAILED` on `timeZone`); rate-limited | not shown |
 | Workspace default time zone | one of the fixed 42, opening on the country's; equal to it sent as null | `@Size(64)`; a new choice must be listed (`VALIDATION_FAILED` on `timeZone`), null is the country's | toast |
 | Workspace date format / time format | one of the 5 / 2, opening on the standard; equal to it sent as null | the enums, null is the standard | toast |
-| Role title | ≤ 160; blank held, "Nothing on this step saves until it has one" | `@NotBlank @Size(160)` | field |
-| Department, city, ideal profile | ≤ 160 / 120 / 4000 | same | toast + rail |
-| Responsibilities | ≤ 20 × 200, no duplicates | ≤ 20 × 200 | toast + rail |
-| Org chart seats | ≤ 60, no cycles; title / name ≤ 160 | 1–60, `OrgChartRules`, 160 | sentence |
-| Salary, incentive | ≤ 15 digits | ≥ 0 | toast + rail |
-| Bonus | % or months: two decimals, ≤ 100 % / 24 months; fixed: ≤ 15 digits; a basis change clears a figure the new basis cannot read (money ↔ share, or past its ceiling) | same, by `BonusBasis.admits` (a template's too) | toast + rail |
-| Currency | picker | ISO 4217 (`@CurrencyCode`) | toast + rail |
-| Benefits | ≤ 20 × 120, blank held | ≤ 20 × 120, `@NotBlank` | toast + rail |
-| Competency name / description | ≤ 120 / 300, blank name held | same | toast + rail |
-| Competency weight, technical share | 0–100 | 0–100, DB CHECK | — |
-| Criteria | ≤ 30 × 300, no duplicates, blank held | ≤ 30 × 300 | toast + rail |
-| Document | `accept`; ≤ 10 MB before upload | ≤ 10 MB; name **and bytes** must agree on PDF / DOC / DOCX / TXT — the declared type decides nothing | sentence |
-
-### Strategy
-| Field | Client | Server | Shown as |
-|---|---|---|---|
-| ☐ Range min / max | none | `@AssertTrue` min ≤ max | toast + autosave |
-| Saved search name | trimmed, ≤ 120 | `@NotBlank @Size(120)`, unique | sentence |
+| Profile phone | optional; trimmed, ≤ 40; digits, spaces and `+ ( ) - .` only, a plus only first, six digits at least | `@Size(40)`; left out is unchanged, blank clears it; the same character rule (`VALIDATION_FAILED` on `phone`) | field |
+| Profile LinkedIn | optional; trimmed, ≤ 255; a `linkedin.com/in/…` address, scheme optional | `@Size(255)`; left out is unchanged, blank clears it; a member profile on a LinkedIn host (`VALIDATION_FAILED` on `linkedinUrl`), stored as `https://www.linkedin.com/in/<slug>` | field |
+| Profile photo | any picture the browser opens, framed square in the crop dialog and drawn as a ≤ 512px JPEG; one it cannot open is said in the dialog | ≤ the configured cap, 5 MB by default (`lightmove.avatars.max-upload-bytes`, named in the message), decoded as JPEG or PNG and re-encoded, anything else refused (`VALIDATION_FAILED` on `file`); 20 changes an hour per person, 300 per address | dialog banner |
+| Email signature name | ≤ 60; blank is named for its layout | `@NotBlank @Size(60)` | field |
+| Email signature fields (older layouts only; new signatures are written in the editor) | ≤ 160 name and company, 120 title, 40 phone, 255 LinkedIn and website, 200 address; blank follows the profile or workspace | the same `@Size`s; a website must be an http(s) address with a dotted host (`VALIDATION_FAILED` on `fields.website`), a LinkedIn a profile or company page (`fields.linkedinUrl`), a phone the profile's rule (`fields.phone`) | field |
+| Email signature default | "Use as my default" is fixed on while a signature is the default | exactly one while any exist: the first is it, `isDefault: false` on the default is ignored, deleting it hands the mark to the oldest left | — |
+| Email signature body and disclaimer | ≤ 2,000 (Custom only; counted under the editor and Save held past it) / ≤ 1,000 | `@Size(2000)` / `@Size(1000)`; a body is kept only for Custom | field |
+| Email signature pictures | Insert picture takes JPEG or PNG; a seventh is refused before it uploads (toast) | ≤ 5 MB (`EMAIL_IMAGE_TOO_LARGE`), a JPEG or PNG under 40 megapixels (`EMAIL_IMAGE_UNREADABLE`); a save holds a Custom body to six pictures, each the signer's own upload here, their photo or the workspace logo (`VALIDATION_FAILED` on `customBody`) | toast / field |
+| Email signatures kept | New signature and Duplicate off at 10 | at most 10 per person per workspace (`EMAIL_SIGNATURE_LIMIT_REACHED`) | toast |
+| Email template name | Save held while blank; ≤ 80 by `maxLength` | `@NotBlank @Size(80)` | field |
+| Email template subject | optional; ≤ 200 by `maxLength`; a line break typed or pasted becomes a space | `@Size(200)`; one line (`VALIDATION_FAILED` on `subject`); blank stored as none | field |
+| Email template body | Save held while blank, past 10,000, or while it holds a variable below | `@NotBlank @Size(10000)` | field |
+| Email template variables | the line under the subject or the email names the first refused variable and Save waits | only the sequence's six and `bookingLink` (where booking pages are offered); `{{opener}}`, `{{signature}}`, an unknown variable and a fallback on `bookingLink` are `VALIDATION_FAILED` on `subject` or `body` | field |
+| Email templates kept | New template and Duplicate off at 100 of one's own | at most 100 per person per workspace, by create or duplicate (`EMAIL_TEMPLATE_LIMIT_REACHED`) | toast |
+| Email template edit | a colleague's shared one offers Duplicate alone | owner or `WORKSPACE_MANAGE` only (`EMAIL_TEMPLATE_NOT_YOURS`); another's personal one is missing (`EMAIL_TEMPLATE_NOT_FOUND`); a stale `version` is `EMAIL_TEMPLATE_STALE` | toast |
 | Candidate tag label | trimmed, ≤ 40 | `@NotBlank @Size(40)` | toast |
 | API key name | trimmed, ≤ 80 | `@NotBlank @Size(80)` | banner |
 | Suppression list entry: LinkedIn profile, email (Settings → Data & retention) | at least one (Add to list disabled until then); the link names a member profile (`linkedin.com/in/…`, scheme optional), ≤ 500; email ≤ 320 | at least one (`VALIDATION_FAILED` on `linkedinUrl`); the link must name a member profile, a missing `https://` forgiven (`VALIDATION_FAILED` on `linkedinUrl`); email normalised, `@Email @Size(320)`; `@Size(500)` on the link; refused with no suppression keyset (`SUPPRESSION_UNAVAILABLE`) | field (banner for the keyset) |

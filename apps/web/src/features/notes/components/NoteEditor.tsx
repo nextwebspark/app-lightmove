@@ -6,6 +6,18 @@ import type { NoteFormat } from "../lib/noteFormat";
 
 const RichNoteEditor = lazy(() => import("./RichNoteEditor"));
 
+/**
+ * An editor that takes pictures — a Custom signature's — uploads each one chosen, pasted or dropped, and keeps the
+ * address the server answers. Off everywhere else: a note or an email keeps no picture.
+ */
+export interface NotePictures {
+  upload: (file: File) => Promise<{ src: string }>;
+  /** The most it keeps; one more is refused through `onLimit`. */
+  max: number;
+  onLimit: () => void;
+  onError: (error: unknown) => void;
+}
+
 /** What a control outside the editor may do to it. */
 export interface NoteEditorHandle {
   /** Puts text at the cursor as typed, or at the end where the editor was never focused. */
@@ -46,6 +58,8 @@ export interface NoteEditorProps {
   onExpandChange?: (expanded: boolean) => void;
   /** Set while the editor is loaded, for a bar outside it — the Insert variables — that types into it. */
   editorRef?: MutableRefObject<NoteEditorHandle | null>;
+  /** Fixed for the editor's life: it decides the schema the stored Markdown is read with. */
+  pictures?: NotePictures;
 }
 
 /** The note editor, loaded on first use so a page that never writes a note never downloads it. */

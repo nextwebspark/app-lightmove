@@ -3,6 +3,8 @@ package app.lightmove.api.outreach.service;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.storage.model.EmailImage;
+import app.lightmove.api.core.storage.service.EmailImageService;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.core.text.service.PhoneNumbers;
 import app.lightmove.api.outreach.constant.SignatureLayout;
@@ -11,10 +13,14 @@ import app.lightmove.api.outreach.dto.EmailSignaturesResponse;
 import app.lightmove.api.outreach.dto.RenderedSignatureResponse;
 import app.lightmove.api.outreach.dto.SaveSignatureRequest;
 import app.lightmove.api.outreach.dto.SignatureFieldsDto;
+import app.lightmove.api.outreach.dto.SignaturePictureResponse;
+import app.lightmove.api.outreach.dto.SignatureStarterResponse;
 import app.lightmove.api.outreach.model.EmailSignature;
+import app.lightmove.api.outreach.model.OutreachMarkdownEmail;
 import app.lightmove.api.outreach.model.RenderedSignature;
 import app.lightmove.api.outreach.model.SignatureContent;
 import app.lightmove.api.outreach.model.SignatureFields;
+import app.lightmove.api.outreach.model.SignaturePicture;
 import app.lightmove.api.outreach.model.SignatureSender;
 import app.lightmove.api.outreach.repository.EmailSignatureRepository;
 import java.util.List;
@@ -39,6 +45,7 @@ public class EmailSignatureService {
     private final SignatureSenders senders;
     private final UserRepository users;
     private final TransactionTemplate transactions;
+    private final EmailImageService emailImages;
 
     public EmailSignaturesResponse list(UUID userId, UUID workspaceId) {
         List<EmailSignature> owned = signatures.findByWorkspaceIdAndUserIdOrderByCreatedAtAsc(workspaceId, userId);
@@ -50,6 +57,7 @@ public class EmailSignatureService {
 
     public EmailSignatureResponse create(UUID userId, UUID workspaceId, SaveSignatureRequest request) {
         SignatureContent content = contentOf(request);
+        requireOwnPictures(userId, workspaceId, content);
         EmailSignature saved = transactions.execute(status -> {
             lockSignaturesOf(userId);
             if (signatures.countByWorkspaceIdAndUserId(workspaceId, userId) >= MAX_SIGNATURES) {
@@ -69,6 +77,7 @@ public class EmailSignatureService {
     /** The default stays the default until another is made one: unticking it alone would leave the composer none. */
     public EmailSignatureResponse update(UUID userId, UUID workspaceId, UUID signatureId, SaveSignatureRequest request) {
         SignatureContent content = contentOf(request);
+        requireOwnPictures(userId, workspaceId, content);
         EmailSignature saved = transactions.execute(status -> {
             lockSignaturesOf(userId);
             EmailSignature signature = owned(userId, workspaceId, signatureId);
@@ -117,6 +126,38 @@ public class EmailSignatureService {
     }
 
     /**
+     * A picture for the caller's Custom signature, kept and served by Uncava like the photo and logo. The editor writes
+     * the returned address into the signature's Markdown; a save then holds it to being the caller's own.
+     */
+    public SignaturePictureResponse uploadPicture(UUID userId, UUID workspaceId, byte[] content) {
+        EmailImage picture = emailImages.uploadSignaturePicture(workspaceId, userId, content)
+                .orElseThrow(() -> ApiException.of(ErrorCode.EMAIL_IMAGE_UNREADABLE));
+        return new SignaturePictureResponse(picture.getToken(), EmailImageService.PATH + picture.getToken(),
+                picture.getWidth(), picture.getHeight());
+    }
+
+    /**
+     * {@code request} as a Custom signature's Markdown, for the editor to go on with: a starting point filled from the
+     * profile, workspace and mailbox, or an older layout opened for editing. Writes nothing but the photo's and logo's
+     * copies, which a preview makes too.
+     */
+    public SignatureStarterResponse starterOf(UUID userId, UUID workspaceId, SaveSignatureRequest request) {
+        SignatureContent content = contentOf(request);
+        SignatureNeeds needs = SignatureNeeds.of(content);
+        SignatureSender sender = senders.forPreview(userId, workspaceId,
+                new SignatureNeeds(needs.photo(), needs.logo(), false, List.of()));
+        return new SignatureStarterResponse(EmailSignatureRenderer.asMarkdown(content, sender));
+    }
+
+    /**
+     * The signature being edited, saved or not, drawn for the caller's own test email. As with the default's test, a
+     * booking page that cannot be made leaves the Book a call line out rather than failing it.
+     */
+    public RenderedSignature renderDraftForTest(UUID userId, UUID workspaceId, SaveSignatureRequest draft) {
+        return renderedForTest(userId, workspaceId, contentOf(draft));
+    }
+
+    /**
      * The HTML of the signature the caller chose for an email, or a sequence run, about to go — its booking page made
      * first where it shows the link. Empty where none was chosen; {@code EMAIL_SIGNATURE_NOT_FOUND} for one that is not
      * theirs, in this workspace.
@@ -131,19 +172,41 @@ public class EmailSignatureService {
      * leaves the Book a call line out rather than failing it; a mailbox the page found withdrawn still fails it.
      */
     public Optional<RenderedSignature> renderDefaultForTest(UUID userId, UUID workspaceId) {
-        return signatures.findByWorkspaceIdAndUserIdAndIsDefaultTrue(workspaceId, userId).map(signature -> {
-            try {
-                return renderedForSending(userId, workspaceId, signature);
-            } catch (ApiException bookingPage) {
-                if (bookingPage.getCode() != ErrorCode.OUTREACH_BOOKING_LINK_FAILED
-                        && bookingPage.getCode() != ErrorCode.OUTREACH_BOOKING_LINK_UNAVAILABLE) {
-                    throw bookingPage;
-                }
-                SignatureContent content = signature.content().withoutBookingLink();
-                return EmailSignatureRenderer.render(content,
-                        senders.forSending(userId, workspaceId, SignatureNeeds.of(content)));
+        return signatures.findByWorkspaceIdAndUserIdAndIsDefaultTrue(workspaceId, userId)
+                .map(signature -> renderedForTest(userId, workspaceId, signature.content()));
+    }
+
+    private RenderedSignature renderedForTest(UUID userId, UUID workspaceId, SignatureContent content) {
+        try {
+            return EmailSignatureRenderer.render(content, senders.forSending(userId, workspaceId, SignatureNeeds.of(content)));
+        } catch (ApiException bookingPage) {
+            if (bookingPage.getCode() != ErrorCode.OUTREACH_BOOKING_LINK_FAILED
+                    && bookingPage.getCode() != ErrorCode.OUTREACH_BOOKING_LINK_UNAVAILABLE) {
+                throw bookingPage;
             }
-        });
+            SignatureContent unbooked = content.withoutBookingLink();
+            return EmailSignatureRenderer.render(unbooked,
+                    senders.forSending(userId, workspaceId, SignatureNeeds.of(unbooked)));
+        }
+    }
+
+    /**
+     * Every picture a saved Custom signature names is the caller's to show — an upload of theirs here, their photo, the
+     * workspace's logo — and there are at most six. A token copied out of a colleague's signature would draw nothing in
+     * an email, so it is refused here instead.
+     */
+    private void requireOwnPictures(UUID userId, UUID workspaceId, SignatureContent content) {
+        if (content.layout() != SignatureLayout.CUSTOM || content.customBody() == null) {
+            return;
+        }
+        if (OutreachMarkdownEmail.pictureCountIn(content.customBody()) > SignaturePicture.MAX_PER_SIGNATURE) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "customBody", "Keep it to 6 pictures");
+        }
+        List<String> tokens = OutreachMarkdownEmail.pictureTokensIn(content.customBody());
+        if (emailImages.signaturePicturesOf(workspaceId, userId, tokens).size() != tokens.size()) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "customBody",
+                    "A picture in it could not be found. Remove it and insert it again");
+        }
     }
 
     private RenderedSignature renderedForSending(UUID userId, UUID workspaceId, EmailSignature signature) {

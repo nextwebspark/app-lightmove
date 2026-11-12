@@ -108,6 +108,12 @@ class AccountDeletionIntegrationTest extends FlowTestSupport {
                     size_bytes, storage_key)
                 values (?, 'PHOTO', ?, ?, 'image/jpeg', 96, 96, 2048, ?)""",
                 "p".repeat(43), omarId, "0".repeat(64), photoKey);
+        String uploadKey = "ws/" + beta + "/users/" + omarId + "/email-images/" + UUID.randomUUID() + ".png";
+        db.update("""
+                insert into app_lm_email_image (token, kind, user_id, workspace_id, source_sha256, content_type, width,
+                    height, size_bytes, storage_key)
+                values (?, 'SIGNATURE', ?, ?::uuid, ?, 'image/png', 300, 100, 4096, ?)""",
+                "u".repeat(43), omarId, beta, "1".repeat(64), uploadKey);
         assertThat(countOf("app_lm_notification_preference", omarId)).as("the seeded rows are there to go").isOne();
         assertThat(countOf("app_lm_user_avatar", omarId)).isOne();
         assertThat(countOf("app_lm_member_availability", omarId)).isOne();
@@ -151,7 +157,10 @@ class AccountDeletionIntegrationTest extends FlowTestSupport {
                 "app_lm_email_signature")) {
             assertThat(countOf(table, omarId)).as(table).isZero();
         }
-        assertThat(countOf("app_lm_email_image", omarId)).as("a sent signature's copy of the photo").isZero();
+        assertThat(countOf("app_lm_email_image", omarId)).as("the photo's copy and the uploads, in every workspace")
+                .isZero();
+        assertThat(db.queryForObject("select count(*) from app_lm_storage_deletion where storage_key = ?",
+                Long.class, uploadKey)).as("a signature upload's file queued for the bucket").isOne();
         assertThat(db.queryForObject("select count(*) from app_lm_email_template where owner_user_id = ?", Long.class,
                 omarId)).as("their email templates, the shared one too, in every workspace").isZero();
         assertThat(db.queryForObject("select count(*) from app_lm_storage_deletion where storage_key = ?",
