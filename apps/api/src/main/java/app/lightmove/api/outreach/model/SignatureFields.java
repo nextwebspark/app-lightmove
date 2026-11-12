@@ -9,9 +9,4 @@ public record SignatureFields(String name, String title, String phone, String li
                               String website, String address, String mobile) {
 
     public static final SignatureFields NONE = new SignatureFields(null, null, null, null, null, null, null, null);
-
-    public SignatureFields(String name, String title, String phone, String linkedinUrl, String company, String website,
-                           String address) {
-        this(name, title, phone, linkedinUrl, company, website, address, null);
-    }
 }

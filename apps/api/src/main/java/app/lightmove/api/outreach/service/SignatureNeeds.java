@@ -16,7 +16,7 @@ import java.util.Set;
 public record SignatureNeeds(Set<PhotoShape> photoShapes, boolean logo, boolean booking, List<String> pictureTokens) {
 
     public SignatureNeeds {
-        photoShapes = photoShapes.isEmpty() ? Set.of() : Set.copyOf(EnumSet.copyOf(photoShapes));
+        photoShapes = Set.copyOf(photoShapes);
         pictureTokens = List.copyOf(pictureTokens);
     }
 

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Button, Field, FormError, Input, SegmentedControl, TextArea, Toggle, useToast } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
@@ -75,7 +75,9 @@ export function SignatureEditor({
       if (error instanceof ApiRequestError && Object.keys(error.fieldErrors).length > 0) {
         setFieldErrors(error.fieldErrors);
         // A field this form draws no error under still has to say something, or Save looks like it did nothing.
-        if (!Object.keys(error.fieldErrors).some(isDrawnField)) setFormError(messageFor(error));
+        if (!Object.keys(error.fieldErrors).some((key) => isDrawnField(key, draft.layout))) {
+          setFormError(messageFor(error));
+        }
         return;
       }
       setFormError(messageFor(error));
@@ -93,12 +95,17 @@ export function SignatureEditor({
     },
   });
 
-  const [pictures] = useState<NotePictures>(() => ({
-    upload: signaturesApi.uploadSignaturePicture,
-    max: MAX_PICTURES,
-    onLimit: () => toast.error(`A signature holds up to ${MAX_PICTURES} pictures`),
-    onError: (error) => toast.error(messageFor(error)),
-  }));
+  // The footer's pictures count against the same six as the words'.
+  const footerCount = draft.footerPictures.length;
+  const pictures = useMemo<NotePictures>(
+    () => ({
+      upload: signaturesApi.uploadSignaturePicture,
+      max: MAX_PICTURES - footerCount,
+      onLimit: () => toast.error(`A signature holds up to ${MAX_PICTURES} pictures, with the ones at its foot`),
+      onError: (error) => toast.error(messageFor(error)),
+    }),
+    [footerCount, toast],
+  );
 
   const setField = (key: FieldKey, value: string) => {
     setDraft((current) => ({ ...current, fields: { ...current.fields, [key]: value } }));
@@ -113,6 +120,11 @@ export function SignatureEditor({
   const editFreely = useMutation({
     mutationFn: () => signaturesApi.signatureStarter(payload),
     onSuccess: ({ customBody }) => {
+      // The photo and logo become pictures in the words, so they now count against the six.
+      if ((customBody.match(/!\[/g) ?? []).length + draft.footerPictures.length > MAX_PICTURES) {
+        toast.error(`That would hold more than ${MAX_PICTURES} pictures. Remove one at the foot or in Anything else first.`);
+        return;
+      }
       // The logo is in the words now; the Custom switch would draw it a second time.
       setDraft((current) => ({ ...current, layout: "CUSTOM", customBody, extras: "", showLogo: false }));
       setFieldErrors({});
@@ -179,6 +191,9 @@ export function SignatureEditor({
                   setDraft({
                     ...draft,
                     layout,
+                    // A layout that newly draws the photo or logo shows it; one that already did keeps its switch.
+                    showPhoto: drawsPhoto(draft.layout) ? draft.showPhoto : drawsPhoto(layout),
+                    showLogo: drawsLogo(draft.layout) && draft.layout !== "CUSTOM" ? draft.showLogo : drawsLogo(layout) && layout !== "CUSTOM",
                     customBody:
                       layout === "CUSTOM" && draft.customBody.trim() === ""
                         ? customBodyFor(draft.fields.name || sources.name)
@@ -672,8 +687,8 @@ function useSettled(value: string, delayMs: number): string {
   return settled;
 }
 
-function isDrawnField(key: string): boolean {
-  return (
-    key === "name" || key === "disclaimer" || key === "customBody" || key === "footerPictures" || key.startsWith("fields.")
-  );
+/** Custom draws no field rows, so an error on one must reach the form's own message. */
+function isDrawnField(key: string, layout: SignatureLayout): boolean {
+  if (key.startsWith("fields.")) return layout !== "CUSTOM";
+  return key === "name" || key === "disclaimer" || key === "customBody" || key === "footerPictures";
 }

@@ -123,14 +123,10 @@ public final class EmailSignatureRenderer {
             if (picture == null) {
                 continue;
             }
-            double scale = Math.min(1.0, Math.min((double) FOOTER_PICTURE_MAX_WIDTH_PX / picture.width(),
-                    (double) FOOTER_PICTURE_MAX_HEIGHT_PX / picture.height()));
-            int width = Math.max(1, (int) Math.round(picture.width() * scale));
-            int height = Math.max(1, (int) Math.round(picture.height() * scale));
-            row.append("<td style=\"vertical-align:middle;padding-right:16px\"><img src=\"").append(escape(picture.url()))
-                    .append("\" width=\"").append(width).append("\" height=\"").append(height)
-                    .append("\" alt=\"\" style=\"display:block;width:").append(width).append("px;height:").append(height)
-                    .append("px;border:0\"></td>");
+            row.append("<td style=\"vertical-align:middle;padding-right:16px\">")
+                    .append(fitted(picture.url(), picture.width(), picture.height(), FOOTER_PICTURE_MAX_WIDTH_PX,
+                            FOOTER_PICTURE_MAX_HEIGHT_PX))
+                    .append("</td>");
         }
         if (row.isEmpty()) {
             return "";
@@ -150,6 +146,9 @@ public final class EmailSignatureRenderer {
         if (details.phone != null) {
             line.add(phoneAnchor(details.phone));
         }
+        if (details.mobile != null) {
+            line.add(phoneAnchor(details.mobile));
+        }
         return "<div>" + line + "</div>";
     }
 
@@ -160,11 +159,15 @@ public final class EmailSignatureRenderer {
     }
 
     private static String image(SignatureLogo logo) {
-        double scale = Math.min(1.0, Math.min((double) LOGO_MAX_WIDTH_PX / logo.width(),
-                (double) LOGO_MAX_HEIGHT_PX / logo.height()));
-        int width = Math.max(1, (int) Math.round(logo.width() * scale));
-        int height = Math.max(1, (int) Math.round(logo.height() * scale));
-        return "<img src=\"" + escape(logo.url()) + "\" width=\"" + width + "\" height=\"" + height
+        return fitted(logo.url(), logo.width(), logo.height(), LOGO_MAX_WIDTH_PX, LOGO_MAX_HEIGHT_PX);
+    }
+
+    /** Fitted inside the box, never enlarged, its size fixed on the tag. */
+    private static String fitted(String url, int naturalWidth, int naturalHeight, int maxWidth, int maxHeight) {
+        double scale = Math.min(1.0, Math.min((double) maxWidth / naturalWidth, (double) maxHeight / naturalHeight));
+        int width = Math.max(1, (int) Math.round(naturalWidth * scale));
+        int height = Math.max(1, (int) Math.round(naturalHeight * scale));
+        return "<img src=\"" + escape(url) + "\" width=\"" + width + "\" height=\"" + height
                 + "\" alt=\"\" style=\"display:block;width:" + width + "px;height:" + height + "px;border:0\">";
     }
 
@@ -293,6 +296,9 @@ public final class EmailSignatureRenderer {
                 }
                 if (phone != null) {
                     first.add(markdownEscaped(phone));
+                }
+                if (mobile != null) {
+                    first.add(markdownEscaped(mobile));
                 }
                 return first.length() > 0 ? List.of(first.toString()) : List.of();
             }

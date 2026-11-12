@@ -326,7 +326,7 @@ describe("SettingsSignaturesPage", () => {
     await user.click(await screen.findByRole("button", { name: "Edit" }));
     await screen.findByRole("button", { name: "Insert picture" });
     await user.upload(screen.getByLabelText("Picture to insert"), new File(["png"], "badge.png", { type: "image/png" }));
-    expect(await screen.findByText("A signature holds up to 6 pictures")).toBeInTheDocument();
+    expect(await screen.findByText("A signature holds up to 6 pictures, with the ones at its foot")).toBeInTheDocument();
     expect(signaturesApi.uploadSignaturePicture).not.toHaveBeenCalled();
   });
 

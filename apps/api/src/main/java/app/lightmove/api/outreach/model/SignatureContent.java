@@ -18,12 +18,6 @@ public record SignatureContent(String name, SignatureLayout layout, SignatureFie
         footerPictures = footerPictures == null ? List.of() : List.copyOf(footerPictures);
     }
 
-    public SignatureContent(String name, SignatureLayout layout, SignatureFields fields, boolean showPhoto,
-                            boolean showLogo, boolean showBookingLink, String customBody, String disclaimer) {
-        this(name, layout, fields, showPhoto, PhotoShape.CIRCLE, showLogo, showBookingLink, customBody, List.of(),
-                disclaimer);
-    }
-
     public SignatureContent withoutBookingLink() {
         return new SignatureContent(name, layout, fields, showPhoto, photoShape, showLogo, false, customBody,
                 footerPictures, disclaimer);

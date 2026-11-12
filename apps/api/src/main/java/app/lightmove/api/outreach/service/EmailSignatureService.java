@@ -26,7 +26,11 @@ import app.lightmove.api.outreach.repository.EmailSignatureRepository;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -201,16 +205,20 @@ public class EmailSignatureService {
         int inWords = OutreachMarkdownEmail.pictureCountIn(content.customBody());
         if (inWords + content.footerPictures().size() > SignaturePicture.MAX_PER_SIGNATURE) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED,
-                    content.footerPictures().isEmpty() ? "customBody" : "footerPictures", "Keep it to 6 pictures");
+                    inWords > SignaturePicture.MAX_PER_SIGNATURE || content.footerPictures().isEmpty()
+                            ? "customBody" : "footerPictures", "Keep it to 6 pictures");
         }
         List<String> inBody = OutreachMarkdownEmail.pictureTokensIn(content.customBody());
-        if (emailImages.signaturePicturesOf(workspaceId, userId, inBody).size() != inBody.size()) {
+        Set<String> named = new LinkedHashSet<>(inBody);
+        named.addAll(content.footerPictures());
+        Map<String, EmailImage> own = emailImages.signaturePicturesOf(workspaceId, userId, named).stream()
+                .collect(Collectors.toMap(EmailImage::getToken, Function.identity()));
+        if (!own.keySet().containsAll(inBody)) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "customBody",
                     "A picture in it could not be found. Remove it and insert it again");
         }
-        List<String> uploaded = emailImages.signaturePicturesOf(workspaceId, userId, content.footerPictures()).stream()
-                .filter(image -> image.getKind() == EmailImageKind.SIGNATURE).map(EmailImage::getToken).toList();
-        if (!uploaded.containsAll(content.footerPictures())) {
+        if (!content.footerPictures().stream().allMatch(token -> own.containsKey(token)
+                && own.get(token).getKind() == EmailImageKind.SIGNATURE)) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "footerPictures",
                     "A picture could not be found. Remove it and add it again");
         }

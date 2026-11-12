@@ -3,7 +3,6 @@ package app.lightmove.api.core.storage.service;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.security.avatar.PictureFetch;
 import app.lightmove.api.core.security.avatar.PictureFetcher;
-import app.lightmove.api.core.security.avatar.UserAvatar;
 import app.lightmove.api.core.security.avatar.UserAvatarRepository;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.core.storage.constant.EmailImageKind;
@@ -67,19 +66,20 @@ public class EmailImageService {
      * photo they replace or remove later stays in the emails that already carry it.
      */
     public Optional<EmailImage> photoOf(UUID userId, PhotoShape shape) {
-        Optional<UserAvatar> avatar = avatars.findByUserId(userId);
-        if (avatar.isEmpty()) {
+        Optional<String> avatarHash = avatars.findSha256ByUserId(userId);
+        if (avatarHash.isEmpty()) {
             return Optional.empty();
         }
         // Square keeps the bare photo hash its copies were made under before shapes existed.
-        String sourceHash = shape == PhotoShape.SQUARE ? avatar.get().getSha256()
-                : Tokens.hash(avatar.get().getSha256() + ":" + shape.name());
+        String sourceHash = shape == PhotoShape.SQUARE ? avatarHash.get()
+                : Tokens.hash(avatarHash.get() + ":" + shape.name());
         Supplier<Optional<EmailImage>> copied = () -> images.findByKindAndUserIdAndSourceSha256(EmailImageKind.PHOTO,
                 userId, sourceHash);
-        if (copied.get().isPresent()) {
-            return copied.get();
+        Optional<EmailImage> existing = copied.get();
+        if (existing.isPresent()) {
+            return existing;
         }
-        return EmailImageEncoder.photo(avatar.get().getContent(), shape)
+        return avatars.findByUserId(userId).flatMap(avatar -> EmailImageEncoder.photo(avatar.getContent(), shape))
                 .flatMap(photo -> save("users/" + userId + "/email-images/", photo, copied,
                         key -> EmailImage.photoOf(userId, sourceHash, Tokens.generate(), photo, key)));
     }
