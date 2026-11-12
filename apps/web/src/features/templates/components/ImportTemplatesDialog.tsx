@@ -21,7 +21,7 @@ const ACTION_BADGES: Record<TemplateImportAction, { label: string; className: st
 const SUMMARY_ORDER: TemplateImportAction[] = ["CREATE", "UPDATE", "CUSTOMISE", "UNCHANGED", "INVALID"];
 
 const SCOPE_LINES: Record<TemplateScope, string> = {
-  library: "Into the LightMove library — every workspace without its own copy sees the result",
+  library: "Into the Uncava library — every workspace without its own copy sees the result",
   workspace: "Into your firm's templates — library templates in the file become your own copies",
 };
 
