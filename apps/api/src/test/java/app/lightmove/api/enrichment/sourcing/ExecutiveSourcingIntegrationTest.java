@@ -182,6 +182,14 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
                 .as("what the profile index alone returned, refuted by its title or a free check, is not listed")
                 .containsExactly(2, 2, 0, 0, 2, 1);
         assertThat(outcomeFor(run.get("outcomes"), noPage).get("outcome").asText()).isEqualTo("NO_LINKEDIN_PAGE");
+        JsonNode steps = progressFor(run.get("progress"), dpWorld);
+        assertThat(steps.get("stage").asText()).as("the last step a searched company reaches").isEqualTo("RANKING");
+        assertThat(steps.get("considered").asLong())
+                .isEqualTo(result.get("matched").asLong() + result.get("indexFound").asLong());
+        assertThat(steps.get("startedAt").isNull()).isFalse();
+        assertThat(steps.get("finishedAt").isNull()).isFalse();
+        assertThat(run.get("progress")).as("a company with no page is never started")
+                .noneMatch(entry -> entry.get("triageCompanyId").asText().equals(noPage));
 
         JsonNode found = companyIn(suggestionsOf(projectId).get("companies"), dpWorld);
         assertThat(found.get("people")).extracting(person -> person.get("linkedinSlug").asText(),
@@ -653,6 +661,15 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
             }
         }
         throw new AssertionError("No outcome for " + triageCompanyId + " in " + outcomes);
+    }
+
+    private static JsonNode progressFor(JsonNode progress, String triageCompanyId) {
+        for (JsonNode entry : progress) {
+            if (entry.get("triageCompanyId").asText().equals(triageCompanyId)) {
+                return entry;
+            }
+        }
+        throw new AssertionError("No progress for " + triageCompanyId + " in " + progress);
     }
 
     private JsonNode candidatesOf(String projectId) throws Exception {
