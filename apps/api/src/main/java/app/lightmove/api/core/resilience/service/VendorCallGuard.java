@@ -5,6 +5,7 @@ import app.lightmove.api.core.config.ResilienceSettings;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
+import java.time.Duration;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -30,7 +31,8 @@ public class VendorCallGuard {
     }
 
     public <T> T call(VendorCall call, Supplier<T> attempt) {
-        if (!rateLimiter.tryAcquire(call.vendor(), settings.permitMaxWait())) {
+        Duration wait = call.maxWait() == null ? settings.permitMaxWait() : call.maxWait();
+        if (!rateLimiter.tryAcquire(call.vendor(), wait)) {
             throw new VendorException(call, VendorFailureKind.RATE_LIMITED, null);
         }
         try {

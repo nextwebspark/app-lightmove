@@ -182,6 +182,17 @@ is held back rather than sent (the step does not save until it is named) and the
 | Ranking scenario rationale | `maxLength` 1000 | `@Size(1000)`, blank kept as none | toast |
 | Ranking scenario save | sends the version it opened and every competency of the brief | `RANKING_SCENARIO_STALE` (409) on another version; `RANKING_BRIEF_CHANGED` (409) when the competencies differ | banner, Reload, keeping mine / reload and re-seed |
 
+### Find executives
+
+| Field | Client | Server | Shown as |
+|---|---|---|---|
+| Title words | trimmed; ≤ 12 title words, a repeat ignored; an abbreviation such as CIO kept as a title on its own | ≤ 12 × 60 (`@Size`); cleaned by `SearchWords` — brackets, quotes and capital AND/OR/NOT dropped, a level-only word or one over three words dropped | toast |
+| Leave out | trimmed; ≤ 4 words | ≤ 4 × 60; a word the search itself looks for is dropped | toast |
+| Where | countries from the catalog | ≤ 12 two-letter codes (`@Pattern`) | toast |
+| Profiles bought per company | 3, 5 or 10 | any other number is read as 3 | — |
+| Companies | the ticked ones, ≤ the cap (`max-companies-per-run`, 10), each In universe | `EXECUTIVE_SOURCING_TOO_MANY_COMPANIES`; a company of another stage `VALIDATION_FAILED` on `triageCompanyIds` | toast |
+| Add | ≤ 50 ticked | `@NotEmpty @Size(50)`; someone no search of this position found is counted `notFound`, never filed | toast |
+
 ### Import, export, outreach, assistant
 | Field | Client | Server | Shown as |
 |---|---|---|---|

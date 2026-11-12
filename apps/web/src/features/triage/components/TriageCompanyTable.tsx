@@ -19,6 +19,7 @@ import {
   triageTableFeatures,
 } from "../lib/triageCompanyColumns";
 import { triageRowId, type TriageCompanyRow } from "../lib/triageRows";
+import { AddExecutiveChoice } from "./AddExecutiveChoice";
 
 /**
  * The Companies grid over the shared {@link DataGrid}: rows are a person at a company ({@link TriageCompanyRow});
@@ -41,6 +42,7 @@ export function TriageCompanyTable({
   onMove,
   onDelete,
   onAddExecutive,
+  onFindExecutives,
   onOpenCompanyNotes,
   onChangeCandidateStatus,
   onEditCandidate,
@@ -72,6 +74,8 @@ export function TriageCompanyTable({
   onMove: (company: TriageCompany, status: TriageCompanyStatus) => void;
   onDelete: (company: TriageCompany) => void;
   onAddExecutive: (company: TriageCompany) => void;
+  /** Find executives at one company; where given, the empty slot asks which way in. */
+  onFindExecutives?: (company: TriageCompany) => void;
   /** Saves the grid's own inline-edited Note cell — the same write the Companies panel makes. */
   /** Opens the company's panel on its Notes tab. */
   onOpenCompanyNotes: (company: TriageCompany) => void;
@@ -93,15 +97,14 @@ export function TriageCompanyTable({
   /** The grid's own Company and Executive header filters, keyed by their built-in column ids. */
   columnFilters?: Record<string, DataGridColumnFilter>;
   /**
-   * Tick boxes for Find executives, offered only where that run is. Keyed by company rather than
-   * by grid line: a line is a person at a company, so ticking through TanStack's own row selection
-   * would tick three lines for one company. Only a company's first line carries the box.
+   * A tick box on every line — a person at a company, a company nobody is listed at yet, a person at no company — for
+   * Find executives (the companies the lines name) and Add to sequence (the people on them).
    */
   selection?: {
-    selectedIds: ReadonlySet<string>;
-    onToggle: (companyId: string) => void;
-    /** Ticks or clears every company on the page, in its order. */
-    onToggleAll: (companyIds: string[]) => void;
+    isTicked: (row: TriageCompanyRow) => boolean;
+    onToggle: (row: TriageCompanyRow) => void;
+    /** Ticks or clears every line on the page, in its order. */
+    onToggleAll: (rows: readonly TriageCompanyRow[]) => void;
   };
 }) {
   // Rebuilt only when the project's column set changes: a fresh array every render would rebuild
@@ -128,6 +131,7 @@ export function TriageCompanyTable({
       onMove,
       onDelete,
       onAddExecutive,
+      onFindExecutives,
       onOpenCompanyNotes,
       onChangeCandidateStatus,
       onEditCandidate,
@@ -140,18 +144,8 @@ export function TriageCompanyTable({
     },
   });
 
-  // Which line of each company carries its tick box: the first one the page hands over.
-  const firstLineByCompany = useMemo(() => {
-    const first = new Map<string, string>();
-    for (const row of rows) {
-      if (row.company && !first.has(row.company.id)) first.set(row.company.id, triageRowId(row));
-    }
-    return first;
-  }, [rows]);
-  const pageCompanyIds = useMemo(() => [...firstLineByCompany.keys()], [firstLineByCompany]);
-  const allOnPageSelected =
-    pageCompanyIds.length > 0 && pageCompanyIds.every((id) => selection?.selectedIds.has(id));
-  const someOnPageSelected = pageCompanyIds.some((id) => selection?.selectedIds.has(id));
+  const allOnPageSelected = rows.length > 0 && rows.every((row) => selection?.isTicked(row));
+  const someOnPageSelected = rows.some((row) => selection?.isTicked(row));
   const [asCards] = useState(isBelowTableWidth);
   const customColumnOf = (gridColumnId: string) =>
     customColumns.find((entry) => customColumnId(entry) === gridColumnId);
@@ -165,40 +159,30 @@ export function TriageCompanyTable({
           <SelectionCheckbox
             checked={allOnPageSelected}
             indeterminate={!allOnPageSelected && someOnPageSelected}
-            label="Select all companies on this page"
-            onChange={() => selection.onToggleAll(pageCompanyIds)}
+            label="Select all rows on this page"
+            onChange={() => selection.onToggleAll(rows)}
           />
         )
       }
       rowLead={
         selection &&
-        ((row: TriageCompanyRow) => {
-          if (!row.company) return null;
-          if (firstLineByCompany.get(row.company.id) !== triageRowId(row)) {
-            // A later line of the same company keeps the column aligned without a second box.
-            return <span aria-hidden className="size-4 flex-none" />;
-          }
-          return (
-            <SelectionCheckbox
-              checked={selection.selectedIds.has(row.company.id)}
-              label={`Select ${row.company.companyName}`}
-              onChange={() => selection.onToggle(row.company!.id)}
-            />
-          );
-        })
+        ((row: TriageCompanyRow) => (
+          <SelectionCheckbox
+            checked={selection.isTicked(row)}
+            label={`Select ${lineName(row)}`}
+            onChange={() => selection.onToggle(row)}
+          />
+        ))
       }
       renderCard={asCards ? (row) => (
         <TriageLineCard
           row={row}
           canWrite={canWrite && !stageReadOnly}
           busy={!!row.company && busyIds.has(row.company.id)}
-          selection={
-            selection && row.company && firstLineByCompany.get(row.company.id) === triageRowId(row)
-              ? { checked: selection.selectedIds.has(row.company.id), onToggle: () => selection.onToggle(row.company!.id) }
-              : undefined
-          }
+          selection={selection && { checked: selection.isTicked(row), onToggle: () => selection.onToggle(row) }}
           onOpenCompany={onOpenCompany}
           onAddExecutive={onAddExecutive}
+          onFindExecutives={onFindExecutives}
           onEditCandidate={onEditCandidate}
           onChangeCandidateStatus={onChangeCandidateStatus}
         />
@@ -230,6 +214,26 @@ export function TriageCompanyTable({
   );
 }
 
+const CARD_ADD_EXECUTIVE =
+  "flex min-h-10 w-full items-center gap-2 text-start text-note font-medium text-u-accent disabled:opacity-60";
+
+function CardAddExecutiveFace({ company }: { company: TriageCompany }) {
+  return (
+    <>
+      <Icon d={ICONS.userPlus} size={16} />
+      Add executive
+      {company.noExecutiveFound && <span className="ms-auto text-meta font-normal text-u-text3">Nobody suitable found</span>}
+    </>
+  );
+}
+
+/** A line by who is on it, and where: "Rania Haddad at ACWA Power", or the company alone where nobody is yet. */
+function lineName(row: TriageCompanyRow): string {
+  if (!row.candidate) return row.company?.companyName ?? "";
+  const employer = row.company?.companyName ?? row.candidate.companyName;
+  return employer ? `${row.candidate.fullName} at ${employer}` : row.candidate.fullName;
+}
+
 /**
  * One grid line as a phone reads it: the company on top, the person at it underneath with their status in
  * reach of the thumb — or, where nobody is mapped yet, the Add executive a researcher is there to press.
@@ -241,6 +245,7 @@ function TriageLineCard({
   selection,
   onOpenCompany,
   onAddExecutive,
+  onFindExecutives,
   onEditCandidate,
   onChangeCandidateStatus,
 }: {
@@ -250,6 +255,8 @@ function TriageLineCard({
   selection?: { checked: boolean; onToggle: () => void };
   onOpenCompany: (company: TriageCompany) => void;
   onAddExecutive: (company: TriageCompany) => void;
+  /** Find executives at one company; where given, the empty slot asks which way in. */
+  onFindExecutives?: (company: TriageCompany) => void;
   onEditCandidate: (candidate: Candidate) => void;
   onChangeCandidateStatus: (candidate: Candidate, status: CandidateStatus) => void;
 }) {
@@ -262,7 +269,7 @@ function TriageLineCard({
         {selection && (
           <SelectionCheckbox
             checked={selection.checked}
-            label={`Select ${company?.companyName ?? ""}`}
+            label={`Select ${lineName(row)}`}
             onChange={selection.onToggle}
           />
         )}
@@ -306,17 +313,25 @@ function TriageLineCard({
               <span className="flex-none text-meta text-u-text2">{candidate.statusLabel ?? candidate.status}</span>
             )}
           </div>
+        ) : canWrite && company && onFindExecutives && !busy ? (
+          <AddExecutiveChoice
+            company={company}
+            label={`Add executive at ${company.companyName}`}
+            title="Add executive"
+            triggerClassName={CARD_ADD_EXECUTIVE}
+            trigger={<CardAddExecutiveFace company={company} />}
+            onFind={onFindExecutives}
+            onAddByHand={onAddExecutive}
+          />
         ) : canWrite && company ? (
           <button
             type="button"
             disabled={busy}
             aria-label={`Add executive at ${company.companyName}`}
             onClick={() => onAddExecutive(company)}
-            className="flex min-h-10 w-full items-center gap-2 text-start text-note font-medium text-u-accent disabled:opacity-60"
+            className={CARD_ADD_EXECUTIVE}
           >
-            <Icon d={ICONS.userPlus} size={16} />
-            Add executive
-            {company.noExecutiveFound && <span className="ms-auto text-meta font-normal text-u-text3">Nobody suitable found</span>}
+            <CardAddExecutiveFace company={company} />
           </button>
         ) : (
           <span className="text-meta text-u-text3">Nobody mapped yet</span>

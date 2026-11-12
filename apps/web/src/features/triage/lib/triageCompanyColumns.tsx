@@ -28,6 +28,7 @@ import { StatusPicker } from "../../candidates/components/StatusPicker";
 import { statusStyle } from "../../candidates/lib/pipelineStatus";
 import type { CustomColumn, CustomColumnType } from "../../customcolumns/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
+import { AddExecutiveChoice } from "../components/AddExecutiveChoice";
 import { SHORTLIST_OFFERED } from "./triageStages";
 import { lineMoves, removeTooltip, SOURCE_STYLES } from "./triageVocabulary";
 import type { TriageCompanyRow } from "./triageRows";
@@ -58,6 +59,8 @@ interface TriageTableMeta {
   onMoveCandidate: (candidate: Candidate, status: TriageCompanyStatus) => void;
   /** Opens the drawer to map someone new at this company. */
   onAddExecutive: (company: TriageCompany) => void;
+  /** Find executives at this company alone; where offered, the empty slot asks which way in. */
+  onFindExecutives?: (company: TriageCompany) => void;
   /** Opens the company's panel on its Notes tab. */
   onOpenCompanyNotes: (company: TriageCompany) => void;
   /** Changes a mapped executive's status from the grid's own Status column. */
@@ -314,28 +317,41 @@ const BUILT_IN_COLUMNS = helper.columns([
         // Flagged: the mandate already looked and found nobody. Still opens the same form — one
         // action per cell — so the flag has nothing separate to unset; it clears itself the moment
         // an executive is actually saved against this company.
-        if (company.noExecutiveFound) {
+        const slot = company.noExecutiveFound
+          ? {
+              title: "Researched — nobody suitable found. Click to search again.",
+              label: `No executive found at ${company.companyName} — search again`,
+              className: GRID_ICON_BUTTON,
+              icon: <Icon d={ICONS.userX} size={14} />,
+            }
+          : {
+              title: "Add executive",
+              label: `Add an executive at ${company.companyName}`,
+              className: cn(GRID_ICON_BUTTON, "text-u-accent hover:text-u-accent-hover"),
+              icon: <Icon d={ICONS.userPlus} size={14} />,
+            };
+        if (meta.onFindExecutives) {
           return (
-            <button
-              type="button"
-              onClick={() => meta.onAddExecutive(company)}
-              title="Researched — nobody suitable found. Click to search again."
-              aria-label={`No executive found at ${company.companyName} — search again`}
-              className={GRID_ICON_BUTTON}
-            >
-              <Icon d={ICONS.userX} size={14} />
-            </button>
+            <AddExecutiveChoice
+              company={company}
+              label={slot.label}
+              title={slot.title}
+              triggerClassName={slot.className}
+              trigger={slot.icon}
+              onFind={meta.onFindExecutives}
+              onAddByHand={meta.onAddExecutive}
+            />
           );
         }
         return (
           <button
             type="button"
             onClick={() => meta.onAddExecutive(company)}
-            title="Add executive"
-            aria-label={`Add an executive at ${company.companyName}`}
-            className={cn(GRID_ICON_BUTTON, "text-u-accent hover:text-u-accent-hover")}
+            title={slot.title}
+            aria-label={slot.label}
+            className={slot.className}
           >
-            <Icon d={ICONS.userPlus} size={14} />
+            {slot.icon}
           </button>
         );
       }

@@ -139,10 +139,17 @@ function phraseOf(entry: ProjectActivityEntry): Phrase | null {
         : "ran Find executives");
     }
     case "EXECUTIVE_SOURCING_COMPLETED": {
+      // A search from before the panel filed its people itself; one since finds them for review.
       const filed = Number(details.filed) || 0;
-      return fixed(entry.type, filed > 0
-        ? `Find executives added ${plural(filed, "executive", "executives")}`
-        : "Find executives added no one");
+      const suggested = Number(details.suggested) || 0;
+      if (filed > 0) return fixed(entry.type, `Find executives added ${plural(filed, "executive", "executives")}`);
+      return fixed(entry.type, suggested > 0
+        ? `Find executives found ${plural(suggested, "executive", "executives")} who fit`
+        : "Find executives found no one who fits");
+    }
+    case "EXECUTIVE_SOURCING_ADDED": {
+      const added = Number(details.added) || 0;
+      return fixed(entry.type, `added ${plural(added, "executive", "executives")} Find executives found`);
     }
     case "CANDIDATE_UPDATED": {
       if (!details.status) return null;

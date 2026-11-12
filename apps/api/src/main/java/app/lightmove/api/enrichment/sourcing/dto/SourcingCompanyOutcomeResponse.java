@@ -1,22 +1,21 @@
 package app.lightmove.api.enrichment.sourcing.dto;
 
 import app.lightmove.api.enrichment.sourcing.model.CompanyOutcome;
-import java.util.List;
 import java.util.UUID;
 
 /**
- * One company's line of the strip. {@code seen} is how many people the search answered with, and
- * {@code matched} how many fitted in all (null when unknown) — more matched than seen means the
- * per-company cap cut it short. {@code notFit} is how many of those found did not hold the seat.
+ * One company's result, as the panel's progress line and "How we searched" read it: the outcome, the people found
+ * and how they were judged, the live profiles bought and read back free, what the live index matched (null when
+ * unknown), what the profile index answered and the free title checks made.
  */
-public record SourcingCompanyOutcomeResponse(UUID triageCompanyId, String companyName, String outcome,
-                                             int seen, Long matched, int filed, int skipped,
-                                             List<SourcingPickResponse> picks, int notFit) {
+public record SourcingCompanyOutcomeResponse(UUID triageCompanyId, String companyName, String outcome, int found,
+                                             int fits, int noTitle, int notFit, int bought, int cached,
+                                             Long matched, int indexFound, int titleChecks) {
 
-    static SourcingCompanyOutcomeResponse of(CompanyOutcome outcome) {
+    public static SourcingCompanyOutcomeResponse of(CompanyOutcome outcome) {
         return new SourcingCompanyOutcomeResponse(outcome.triageCompanyId(), outcome.companyName(),
-                outcome.outcome().name(), outcome.vendorHits() + outcome.cachedHits(), outcome.matched(),
-                outcome.filed(), outcome.skipped(),
-                outcome.picks().stream().map(SourcingPickResponse::of).toList(), outcome.notFit());
+                outcome.outcome().name(), outcome.found(), outcome.fits(), outcome.noTitle(), outcome.notFit(),
+                outcome.vendorHits(), outcome.cachedHits(), outcome.matched(), outcome.indexFound(),
+                outcome.titleChecks());
     }
 }

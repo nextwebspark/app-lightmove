@@ -29,8 +29,7 @@ class AiLogicCatalogTest {
                     + " (app_lm_assistant_turn), never on a person's record"),
             Map.entry("recruiter-shortlist-system.st", "the /llm/shortlist smoke test: stateless, reads no workspace"
                     + " data and stores nothing"),
-            Map.entry("executive-sourcing-spec-system.st", "turns a brief into title words; no person in or out"),
-            Map.entry("executive-sourcing-refine-system.st", "rewords a search that found nobody; no person in or out"),
+            Map.entry("executive-sourcing-words-system.st", "turns a brief into title words; no person in or out"),
             Map.entry("import-column-mapping-system.st", "maps spreadsheet headers; never sees a cell value"),
             Map.entry("position-extract-assessment-system.st", "reads a position description; no person"),
             Map.entry("position-extract-context-system.st", "reads a position description; no person"),

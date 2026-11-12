@@ -51,7 +51,8 @@ public class ProjectActivityService {
             ProjectEventType.SPREADSHEET_IMPORTED,
             ProjectEventType.COMPANIES_EXPORTED,
             ProjectEventType.EXECUTIVE_SOURCING_REQUESTED,
-            ProjectEventType.EXECUTIVE_SOURCING_COMPLETED);
+            ProjectEventType.EXECUTIVE_SOURCING_COMPLETED,
+            ProjectEventType.EXECUTIVE_SOURCING_ADDED);
 
     /** Shown only when they record a status: the same types also cover note and profile edits. */
     private static final Set<ProjectEventType> SHOWN_WHEN_STATUS_CHANGED = EnumSet.of(
@@ -60,7 +61,7 @@ public class ProjectActivityService {
 
     private static final List<String> DETAIL_KEYS = List.of(
             "status", "statusLabel", "added", "companyName", "fileName", "candidateId",
-            "companiesCreated", "candidatesCreated", "stage");
+            "companiesCreated", "candidatesCreated", "stage", "companies", "suggested", "filed");
 
     private static final String PERSON_ID_KEY = "personId";
 

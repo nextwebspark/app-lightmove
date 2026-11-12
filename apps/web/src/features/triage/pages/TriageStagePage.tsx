@@ -3,10 +3,9 @@ import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react
 import { Navigate, useLocation, useOutletContext, useParams, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { ICONS } from "../../../components/layout/Icon";
-import { FullscreenButton, TOOLBAR_OUTLINE } from "../../../components/ui";
+import { FullscreenButton } from "../../../components/ui";
 import { ColumnPickerList, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
-import { SelectionAction, SelectionActionBar } from "../../../components/ui/SelectionActionBar";
 import { useToast } from "../../../components/ui/Toast";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
@@ -30,13 +29,9 @@ import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import { useDeleteCustomColumn } from "../../customcolumns/lib/useDeleteCustomColumn";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import * as positionApi from "../../position/api/positionApi";
-import { EmailComposerDialog } from "../../outreach/components/EmailComposerDialog";
 import { EnrolDialog } from "../../outreach/components/EnrolDialog";
-import { NewEmailButton, type EmailRecipient } from "../../outreach/components/NewEmailButton";
-import { mailboxStateOf } from "../../outreach/lib/mailboxState";
 import { refreshOutreachActivity } from "../../outreach/lib/outreachRefresh";
 import { useMailbox } from "../../outreach/lib/useMailbox";
-import { useMailboxConnect } from "../../outreach/lib/useMailboxConnect";
 import { canExecuteProjectWork } from "../../projects/lib/access";
 import { isArchived } from "../../projects/lib/filtering";
 import { PipelineView } from "../../pipeline/components/PipelineView";
@@ -46,15 +41,18 @@ import { TalentMapView } from "../../talentmap/components/TalentMapView";
 import { useTalentMapPreferences, type CompaniesView } from "../../talentmap/lib/useTalentMapPreferences";
 import { TASKS_KEY_PREFIX } from "../../tasks/api/tasksApi";
 import * as exportApi from "../api/exportApi";
-import * as sourcingApi from "../api/sourcingApi";
+import * as sourcingApi from "../../sourcing/api/sourcingApi";
+import { FindExecutivesPanel } from "../../sourcing/components/FindExecutivesPanel";
+import { formatRelativeTime } from "../../../lib/format";
+import type { SourcingRun } from "../../sourcing/api/sourcingApi";
+import { companiesOf, peopleOf } from "../../sourcing/lib/sourcingSummary";
+import { useSourcingRun } from "../../sourcing/lib/useSourcingRun";
 import * as triageApi from "../api/triageApi";
 import { executiveStatusOptions as statusFilterOptions, statusKeysOf } from "../lib/executiveStatusFilter";
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import type { AdvancedMenuSection } from "../components/AdvancedMenu";
 import { CompanyDrawer, type CompanyDrawerTab } from "../components/CompanyDrawer";
-import { ExecutiveSourcingBanner } from "../components/ExecutiveSourcingBanner";
-import { FindExecutivesDialog } from "../components/FindExecutivesDialog";
 import { ImportSpreadsheetDialog } from "../components/ImportSpreadsheetDialog";
 import { ManageColumnsDialog } from "../components/ManageColumnsDialog";
 import { DeclineCompanyDialog } from "../components/DeclineCompanyDialog";
@@ -68,10 +66,8 @@ import {
 } from "../lib/triageCompanyColumns";
 import { awaitingResearch, type TriageCompanyRow } from "../lib/triageRows";
 import { OFFERED_TRIAGE_STAGES, offeredStageBySlug } from "../lib/triageStages";
-import { companiesOf } from "../lib/sourcingSummary";
 import { resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
-import { useCompanySelection } from "../lib/useCompanySelection";
-import { useExecutiveSourcing } from "../lib/useExecutiveSourcing";
+import { useLineSelection } from "../lib/useLineSelection";
 import { useProjectStream, type ProjectStreamKind } from "../../../lib/useProjectStream";
 
 /**
@@ -89,7 +85,8 @@ const EMPTY_CUSTOM_COLUMNS: CustomColumn[] = [];
 const RESEARCH_POLL_MS = 4_000;
 
 /** The server reads at most this many ticked companies' executives for one Add to sequence. */
-const ADD_TO_SEQUENCE_COMPANY_CAP = 200;
+/** Lines one press of Add to sequence may tick. */
+const TICKED_LINES_CAP = 200;
 
 /** How often the map asks again while the server is still placing rows it could not place yet. */
 const GEOCODING_POLL_MS = 3_000;
@@ -180,10 +177,10 @@ function TriageStage() {
   const profileCompany = profile?.company ?? null;
   const [pendingCandidateRemoval, setPendingCandidateRemoval] = useState<Candidate | null>(null);
   const [importing, setImporting] = useState(false);
-  const companySelection = useCompanySelection();
-  const [confirmingFindExecutives, setConfirmingFindExecutives] = useState(false);
+  const lineSelection = useLineSelection(TICKED_LINES_CAP);
+  /** The companies Find executives opened on; null while its panel is closed. */
+  const [findingAt, setFindingAt] = useState<{ scope: readonly string[]; search: boolean } | null>(null);
   const [enrolment, setEnrolment] = useState<Enrolment | null>(null);
-  const [emailing, setEmailing] = useState<EmailRecipient | null>(null);
   const [pipelineSelection, setPipelineSelection] = useState<ReadonlySet<string>>(() => new Set());
   const [managingColumns, setManagingColumns] = useState(false);
   /** Set when "Edit field" is opened from a header menu, so the dialog lands already renaming it. */
@@ -222,7 +219,7 @@ function TriageStage() {
   const [tickedInView, setTickedInView] = useState(view);
   if (tickedInView !== view) {
     setTickedInView(view);
-    companySelection.clear();
+    lineSelection.clear();
     setPipelineSelection(new Set());
   }
   // Only the switch remembers a view: a link that names one, a notification's opening the pipeline, is a visit.
@@ -332,7 +329,7 @@ function TriageStage() {
     () => {
       setPage(0);
       // A tick made on one reading of the stage must not ride silently into another.
-      companySelection.clear();
+      lineSelection.clear();
       setPipelineSelection(new Set());
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -389,7 +386,8 @@ function TriageStage() {
       refreshPeople();
     }
     if (kinds.includes("executive-sourcing")) {
-      void queryClient.invalidateQueries({ queryKey: sourcingApi.SOURCING_LATEST_KEY(project.id) });
+      void queryClient.invalidateQueries({ queryKey: sourcingApi.sourcingKeys.latest(project.id) });
+      void queryClient.invalidateQueries({ queryKey: sourcingApi.sourcingKeys.suggestions(project.id) });
     }
     // An executive's drawer opened here carries their Outreach fold and next action.
     if (kinds.includes("outreach") || kinds.includes("task")) {
@@ -409,34 +407,33 @@ function TriageStage() {
   const streamIsLive = useProjectStream(project.id, refreshWhatMoved);
 
   /** Offered on the universe only, and only where the deployment has a people search. */
-  const sourcing = useExecutiveSourcing(
-    project.id,
-    canWrite && stage.status === "inUniverse",
-    streamIsLive,
-    companySelection.deselect,
-  );
+  const sourcing = useSourcingRun(project.id, canWrite && stage.status === "inUniverse", streamIsLive);
   const findExecutivesOffered = canWrite && stage.status === "inUniverse" && sourcing.offered;
   const findExecutivesCap = sourcing.config?.maxCompaniesPerRun ?? 0;
   const mailbox = useMailbox(canWrite);
-  const mailboxConnect = useMailboxConnect();
-  const mailboxState = mailboxStateOf(mailbox);
   const emailOffered = canWrite && mailbox.data?.offered === true && !isArchived(project);
   /** Ticked companies' or executives' people go to Add to sequence; never from Declined. */
   const addToSequenceOffered = emailOffered && stage.status !== "declined";
   const selectionOffered = view === "table" && (findExecutivesOffered || addToSequenceOffered);
-  const selectionCap = addToSequenceOffered ? Math.max(findExecutivesCap, ADD_TO_SEQUENCE_COMPANY_CAP) : findExecutivesCap;
-  const selectionAction = addToSequenceOffered ? "Add to sequence" : "Find executives";
+  const tickedCompanies = lineSelection.companyIds;
 
-  const handleFindExecutives = () => {
-    if (companySelection.selectedIds.size > findExecutivesCap) {
-      toast(`Find executives takes ${companiesOf(findExecutivesCap)} at a time`);
-      return;
+  /**
+   * Find executives takes the ticked companies, up to the run's cap, counted once each whatever lines name them.
+   * While a search runs or its results wait it opens on that search; otherwise nothing ticked, or too many, is said.
+   */
+  const findExecutivesUnavailable = (): string | undefined => {
+    if (sourcing.button.kind !== "idle") return undefined;
+    if (view === "map") return "Tick companies on the Table to find executives there";
+    if (tickedCompanies.length === 0) return `Tick up to ${companiesOf(findExecutivesCap)} to find executives there`;
+    if (tickedCompanies.length > findExecutivesCap) {
+      return `Find executives works on ${companiesOf(findExecutivesCap)} at most — ${tickedCompanies.length} are ticked`;
     }
-    setConfirmingFindExecutives(true);
+    return undefined;
   };
-
-  const handleStartFindExecutives = () =>
-    sourcing.start([...companySelection.selectedIds], () => setConfirmingFindExecutives(false));
+  const handleFindExecutives = () => {
+    const fits = tickedCompanies.length > 0 && tickedCompanies.length <= findExecutivesCap;
+    setFindingAt({ scope: fits ? tickedCompanies : [], search: true });
+  };
 
   /**
    * Degraded-mode poll: only while the project stream is down and a visible capture is still being researched.
@@ -738,19 +735,21 @@ function TriageStage() {
       });
       return;
     }
-    const ids = [...companySelection.selectedIds];
+    const ids = lineSelection.candidateIds;
     setEnrolment({
-      scope: { triageCompanyIds: ids, triageStatus: stage.status },
-      source: `From the ${companiesOf(ids.length)} you ticked on ${stage.label}`,
+      scope: { candidateIds: ids },
+      source: `From the ${ids.length === 1 ? "executive" : `${ids.length} executives`} you ticked on ${stage.label}`,
     });
   };
 
   /** The toolbar's Add to sequence, greyed with the way in until something is ticked; the map ticks nothing. */
   const toolbarEnrolUnavailable = (): UnavailableAction | undefined => {
     if (view === "map") return { reason: "Add to sequence from Table or Pipeline" };
-    const ticked = view === "pipeline" ? pipelineSelection.size : companySelection.selectedIds.size;
-    if (ticked > 0) return undefined;
-    return { reason: view === "pipeline" ? "Tick executives on the board first" : "Tick companies first" };
+    if (view === "pipeline") {
+      return pipelineSelection.size > 0 ? undefined : { reason: "Tick executives on the board first" };
+    }
+    if (lineSelection.candidateIds.length > 0) return undefined;
+    return { reason: lineSelection.size > 0 ? "The ticked rows have no executives yet" : "Tick executives first" };
   };
 
   /** What Advanced ▾ holds on Table and Map (`Position.dc.html`'s `advancedItems`): only what that view can use. */
@@ -810,7 +809,7 @@ function TriageStage() {
       });
     }
     if (addToSequenceOffered && view === "table") {
-      const ticked = companySelection.selectedIds.size;
+      const ticked = lineSelection.candidateIds.length;
       sections.push({
         label: "Outreach",
         items: [
@@ -819,7 +818,7 @@ function TriageStage() {
             label: "Add to sequence…",
             icon: ICONS.outreach,
             disabled: ticked === 0,
-            hint: ticked > 0 ? `${ticked} ticked` : "Tick companies first",
+            hint: ticked > 0 ? `${ticked} ticked` : "Tick executives first",
             onSelect: enrolTicked,
           },
         ],
@@ -870,22 +869,14 @@ function TriageStage() {
         views={views}
         view={view}
         onViewChange={handleViewChange}
-        addToSequence={addToSequenceOffered ? { onPress: enrolTicked, unavailable: toolbarEnrolUnavailable() } : undefined}
-        sendEmail={
-          emailOffered &&
-          !declinedStage &&
-          mailboxState.kind !== "unavailable" && (
-            <NewEmailButton
-              projectId={project.id}
-              mailbox={mailboxState}
-              connector={mailboxConnect}
-              onPick={setEmailing}
-              label="Send email"
-              icon={ICONS.mail}
-              triggerClassName={TOOLBAR_OUTLINE}
-              collapsible
-            />
-          )
+        addToSequence={
+          addToSequenceOffered
+            ? {
+                onPress: enrolTicked,
+                unavailable: toolbarEnrolUnavailable(),
+                count: view === "pipeline" ? pipelineSelection.size : lineSelection.candidateIds.length,
+              }
+            : undefined
         }
         create={
           canWrite && !isBoard && !declinedStage
@@ -899,10 +890,10 @@ function TriageStage() {
           findExecutivesOffered && !isBoard
             ? {
                 onPress: handleFindExecutives,
-                running: sourcing.isRunning,
-                progress: sourcing.run && sourcing.isRunning
-                  ? `${sourcing.run.companiesDone}/${sourcing.run.companiesTotal}`
-                  : undefined,
+                state: sourcing.button,
+                unavailable: findExecutivesUnavailable(),
+                companies: tickedCompanies.length,
+                last: sourcing.run ? { summary: lastSearchSummary(sourcing.run), onOpen: () => setFindingAt({ scope: [], search: false }) } : undefined,
               }
             : undefined
         }
@@ -914,18 +905,15 @@ function TriageStage() {
         }
       />
 
-      {findExecutivesOffered && sourcing.run && !sourcing.isDismissed && (
-        <ExecutiveSourcingBanner run={sourcing.run} onDismiss={sourcing.dismiss} />
-      )}
-
-      {sourcing.config && (
-        <FindExecutivesDialog
-          open={confirmingFindExecutives}
-          config={sourcing.config}
-          selectedCount={companySelection.selectedIds.size}
-          starting={sourcing.isStarting}
-          onCancel={() => setConfirmingFindExecutives(false)}
-          onConfirm={handleStartFindExecutives}
+      {findExecutivesOffered && (
+        <FindExecutivesPanel
+          open={findingAt !== null}
+          onClose={() => setFindingAt(null)}
+          projectId={project.id}
+          subtitle={project.positionTitle}
+          scope={findingAt?.scope ?? []}
+          autoSearch={findingAt?.search ?? false}
+          sourcing={sourcing}
         />
       )}
 
@@ -956,16 +944,6 @@ function TriageStage() {
             selectedIds={pipelineSelection}
             onToggleSelected={togglePipelineSelected}
           />
-          {addToSequenceOffered && pipelineSelection.size > 0 && (
-            <SelectionActionBar
-              count={pipelineSelection.size}
-              noun="executive"
-              plural="executives"
-              onClear={() => setPipelineSelection(new Set())}
-            >
-              <SelectionAction icon={ICONS.mail} label="Add to sequence" onClick={enrolTicked} />
-            </SelectionActionBar>
-          )}
         </div>
       ) : view === "map" ? (
         <TalentMapView
@@ -1072,45 +1050,18 @@ function TriageStage() {
             moveCandidate.mutate({ candidate, status });
           }}
           onOpenCompany={(company) => setOpenCompany({ company })}
+          onFindExecutives={
+            findExecutivesOffered ? (company) => setFindingAt({ scope: [company.id], search: true }) : undefined
+          }
           busyIds={busyIds}
           canWrite={canWrite}
           stageReadOnly={declinedStage}
           selection={
             selectionOffered
-              ? {
-                  selectedIds: companySelection.selectedIds,
-                  onToggle: (companyId) => companySelection.toggle(companyId, selectionCap, selectionAction),
-                  onToggleAll: (companyIds) =>
-                    companySelection.toggleAll(companyIds, selectionCap, selectionAction),
-                }
+              ? { isTicked: lineSelection.isTicked, onToggle: lineSelection.toggle, onToggleAll: lineSelection.toggleAll }
               : undefined
           }
         />
-
-        {selectionOffered && companySelection.selectedIds.size > 0 && !confirmingFindExecutives && (
-          <SelectionActionBar
-            count={companySelection.selectedIds.size}
-            noun="company"
-            plural="companies"
-            onClear={companySelection.clear}
-          >
-            {addToSequenceOffered && (
-              <SelectionAction
-                icon={ICONS.mail}
-                label="Add to sequence"
-                onClick={enrolTicked}
-              />
-            )}
-            {findExecutivesOffered && (
-              <SelectionAction
-                icon={ICONS.search}
-                label="Find executives"
-                disabled={sourcing.isRunning}
-                onClick={handleFindExecutives}
-              />
-            )}
-          </SelectionActionBar>
-        )}
 
         {lines.data?.truncated && (
           <p role="status" className="flex-none font-mono text-[11.5px] text-u-text3">
@@ -1127,15 +1078,6 @@ function TriageStage() {
           trailing={<FullscreenButton active={isFullscreen} onToggle={toggleFullscreen} />}
         />
       </div>
-      )}
-
-      {emailing && (
-        <EmailComposerDialog
-          projectId={project.id}
-          candidateId={emailing.candidateId}
-          fullName={emailing.fullName}
-          onClose={() => setEmailing(null)}
-        />
       )}
 
       {enrolment && (
@@ -1178,6 +1120,14 @@ function TriageStage() {
           markNoExecutiveFound.mutate(company);
         }}
         markingNoExecutiveFound={!!openCompany?.company && busyIds.has(openCompany.company.id)}
+        onFindExecutives={
+          findExecutivesOffered
+            ? (company) => {
+                setOpenCompany(null);
+                setFindingAt({ scope: [company.id], search: false });
+              }
+            : undefined
+        }
       />
 
       <CandidateDrawer
@@ -1299,4 +1249,13 @@ interface OpenCompany {
   company: TriageCompany | null;
   /** The panel's tab to open on; its Overview when not said. */
   tab?: CompanyDrawerTab;
+}
+
+/** "4 companies · 6 executives found · 2 hours ago", or how far a search in progress has got. */
+function lastSearchSummary(run: SourcingRun): string {
+  if (run.status === "QUEUED" || run.status === "RUNNING") {
+    return `Searching ${companiesOf(run.companiesTotal)} · ${run.companiesDone} done`;
+  }
+  const when = formatRelativeTime(run.finishedAt ?? run.requestedAt);
+  return `${companiesOf(run.companiesTotal)} · ${peopleOf(run.suggested)} found · ${when === "active now" ? "just now" : when}`;
 }

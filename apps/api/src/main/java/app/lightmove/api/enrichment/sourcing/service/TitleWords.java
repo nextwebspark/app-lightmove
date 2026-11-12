@@ -1,6 +1,7 @@
 package app.lightmove.api.enrichment.sourcing.service;
 
-import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
+import app.lightmove.api.enrichment.sourcing.model.SearchWords;
+import app.lightmove.api.enrichment.sourcing.model.TitleTier;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -26,9 +27,23 @@ final class TitleWords {
         return words.stream().anyMatch(word -> holdsRun(titleWords, wordsOf(word)));
     }
 
-    /** {@link #containsAny}, or an abbreviation the function words spell out: "Head of IT" for Technology. */
-    static boolean containsFunction(String title, List<String> functionWords) {
-        return containsAny(title, functionWords) || containsAny(title, SourcingSpec.abbreviationsOf(functionWords));
+    /**
+     * Whether a title is one {@code words} looks for: a level word and a function term, or a standalone
+     * title — the function alone when the words name no level — and no excluded word.
+     */
+    static boolean holds(String title, SearchWords words) {
+        if (title == null || title.isBlank() || containsAny(title, words.excludedWords())) {
+            return false;
+        }
+        if (containsAny(title, words.standaloneTitles())) {
+            return true;
+        }
+        boolean leveled = words.levelWords().isEmpty() || containsAny(title, words.levelWords());
+        return leveled && containsAny(title, words.functionTerms());
+    }
+
+    static boolean holds(String title, TitleTier tier) {
+        return holds(title, tier.include()) && (tier.exclude() == null || !holds(title, tier.exclude()));
     }
 
     static List<String> wordsOf(String text) {

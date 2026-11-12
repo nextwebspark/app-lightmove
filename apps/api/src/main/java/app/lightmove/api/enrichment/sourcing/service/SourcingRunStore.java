@@ -4,7 +4,6 @@ import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
 import app.lightmove.api.enrichment.sourcing.model.CompanyOutcome;
 import app.lightmove.api.enrichment.sourcing.model.ExecutiveSourcingRun;
-import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
 import app.lightmove.api.enrichment.sourcing.repository.ExecutiveSourcingRunRepository;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,19 +36,17 @@ public class SourcingRunStore {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void recordSpec(UUID runId, SourcingSpec spec) {
-        runs.findById(runId).ifPresent(run -> {
-            run.recordSpec(spec);
-            run.countModelCall();
-        });
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordOutcome(UUID runId, CompanyOutcome outcome) {
         runs.findById(runId).ifPresent(run -> {
             run.recordOutcome(outcome);
             stream.publish(run.getProjectId(), ProjectStreamKind.EXECUTIVE_SOURCING);
         });
+    }
+
+    /** Read fresh before each company, so a stop asked for while the run searches is honoured at the next. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public boolean isStopRequested(UUID runId) {
+        return runs.findById(runId).map(ExecutiveSourcingRun::isStopRequested).orElse(true);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

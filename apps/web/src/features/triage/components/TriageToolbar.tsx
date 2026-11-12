@@ -2,7 +2,6 @@ import { Fragment, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import {
   TOOLBAR_OUTLINE,
-  TOOLBAR_PRIMARY,
   TOOLBAR_ROW,
   ToolbarDivider,
   ToolbarLabel,
@@ -12,6 +11,8 @@ import {
 import { cn } from "../../../lib/cn";
 import type { CompaniesView } from "../../talentmap/lib/useTalentMapPreferences";
 import { COMPANIES_VIEW_LABELS } from "../lib/useCompaniesViews";
+import { FindExecutivesButton, type LastSearch } from "../../sourcing/components/FindExecutivesButton";
+import type { FindButtonState } from "../../sourcing/lib/useSourcingRun";
 import { AdvancedMenu, ToolbarMenu, type AdvancedMenuSection } from "./AdvancedMenu";
 
 /** A primary action the current view cannot take: still drawn where it always is, greyed, saying where it can. */
@@ -20,8 +21,8 @@ export interface UnavailableAction {
 }
 
 /**
- * The Companies stage toolbar (`Position.dc.html`); the board gets only the outreach pair. "Add executive" here
- * maps someone with no company — adding someone at a company is that row's action.
+ * The Companies stage toolbar (`Position.dc.html`); the board gets only Add to sequence. "Add executive" here maps
+ * someone with no company — adding someone at a company is that row's action.
  */
 export function TriageToolbar({
   search,
@@ -31,7 +32,6 @@ export function TriageToolbar({
   view,
   onViewChange,
   addToSequence,
-  sendEmail,
   findExecutives,
   create,
   advanced,
@@ -44,16 +44,15 @@ export function TriageToolbar({
   views: readonly CompaniesView[];
   view: CompaniesView;
   onViewChange: (view: CompaniesView) => void;
-  /** The ticked companies' or executives' people, enrolled; absent where outreach is not offered. */
-  addToSequence?: { onPress: () => void; unavailable?: UnavailableAction };
-  /** Write to anyone on the position; absent where outreach is not offered. */
-  sendEmail?: ReactNode;
-  /** Find executives over the universe's companies; takes no second press while a run is in progress. */
+  /** The ticked executives, enrolled; absent where outreach is not offered. */
+  addToSequence?: { onPress: () => void; unavailable?: UnavailableAction; count?: number };
+  /** Find executives on the ticked companies, carrying the search's state; its caret opens the last search. */
   findExecutives?: {
     onPress: () => void;
-    running: boolean;
-    /** "3/5" while a run is in progress. */
-    progress?: string;
+    state: FindButtonState;
+    unavailable?: string;
+    companies?: number;
+    last?: LastSearch;
   };
   /** Create ▾; absent for a client representative, who writes nothing, and on the board. */
   create?: { onAddExecutive: () => void; onAddCompany: () => void };
@@ -65,65 +64,58 @@ export function TriageToolbar({
   const groups = [
     {
       key: "outreach",
-      node: (addToSequence || sendEmail) && (
-        <>
-          {addToSequence && (
-            <ToolbarAction
-              icon={ICONS.outreach}
-              unavailable={addToSequence.unavailable}
-              onClick={addToSequence.onPress}
-              className={TOOLBAR_OUTLINE}
-            >
-              Add to sequence
-            </ToolbarAction>
-          )}
-          {sendEmail}
-        </>
+      node: addToSequence && (
+        <ToolbarAction
+          icon={ICONS.outreach}
+          unavailable={addToSequence.unavailable}
+          onClick={addToSequence.onPress}
+          className={TOOLBAR_OUTLINE}
+        >
+          Add to sequence
+          {addToSequence.count ? <span className="tabular-nums text-u-text3">· {addToSequence.count}</span> : null}
+        </ToolbarAction>
       ),
     },
     {
       key: "grid",
-      node: (findExecutives || advanced) && (
+      node: (findExecutives || advanced || create) && (
         <>
           {findExecutives && (
-            <ToolbarAction
-              icon={ICONS.search}
-              pulsing={findExecutives.running}
-              busy={findExecutives.running}
-              title={
-                findExecutives.running
-                  ? "A run is in progress"
-                  : "Find executives at the ticked companies, or at the first ones with nobody mapped"
-              }
-              onClick={findExecutives.onPress}
-              className={TOOLBAR_PRIMARY}
-            >
-              {findExecutives.running
-                ? `Finding executives… ${findExecutives.progress ?? ""}`.trimEnd()
-                : "Find executives"}
-            </ToolbarAction>
+            <FindExecutivesButton
+              state={findExecutives.state}
+              onPress={findExecutives.onPress}
+              unavailable={findExecutives.unavailable}
+              companies={findExecutives.companies}
+              last={findExecutives.last}
+            />
           )}
-          {advanced && <AdvancedMenu sections={advanced} dot={advancedDot} />}
+          {(advanced || create) && (
+            <span className="flex items-center gap-1">
+              {advanced && <AdvancedMenu sections={advanced} dot={advancedDot} />}
+              {create && (
+                <ToolbarMenu
+                  label="Create"
+                  icon={ICONS.plus}
+                  width={240}
+                  sections={[
+                    {
+                      label: "",
+                      items: [
+                        {
+                          key: "executive",
+                          label: "Add executive",
+                          icon: ICONS.userPlus,
+                          onSelect: create.onAddExecutive,
+                        },
+                        { key: "company", label: "Add company", icon: ICONS.plus, onSelect: create.onAddCompany },
+                      ],
+                    },
+                  ]}
+                />
+              )}
+            </span>
+          )}
         </>
-      ),
-    },
-    {
-      key: "create",
-      node: create && (
-        <ToolbarMenu
-          label="Create"
-          icon={ICONS.plus}
-          width={240}
-          sections={[
-            {
-              label: "",
-              items: [
-                { key: "executive", label: "Add executive", icon: ICONS.userPlus, onSelect: create.onAddExecutive },
-                { key: "company", label: "Add company", icon: ICONS.plus, onSelect: create.onAddCompany },
-              ],
-            },
-          ]}
-        />
       ),
     },
   ].filter((group) => group.node);
