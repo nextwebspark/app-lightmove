@@ -84,7 +84,7 @@ public class PositionTemplateLibraryController {
     @RequirePlatformPermission(PlatformAction.TEMPLATE_LIBRARY_MANAGE)
     public ResponseEntity<byte[]> export() {
         return PositionTemplateFileResponse.attachment(library.export(), MediaType.APPLICATION_JSON,
-                "lightmove-template-library.json");
+                "uncava-template-library.json");
     }
 
     @GetMapping("/schema")
