@@ -121,7 +121,8 @@ public class PublicProjectsController {
     @Tag(name = "Candidates", description = "The executives a position has mapped")
     @Operation(operationId = "listCandidates", summary = "List a position's executives",
             description = "Needs `candidates:read`. `contacts` is filled only with `candidates.contacts:read`, "
-                    + "and `compensation` only with `candidates.compensation:read`; otherwise both are null. "
+                    + "`compensation` only with `candidates.compensation:read`, and `gender` and `nationality` "
+                    + "only with `candidates.demographics:read`; otherwise they are null. "
                     + "First mapped first.")
     @ApiResponse(responseCode = "200", description = "One page of executives")
     @ApiResponse(responseCode = "404", description = NOT_FOUND,

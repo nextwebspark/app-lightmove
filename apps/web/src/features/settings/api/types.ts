@@ -69,6 +69,7 @@ export type ApiKeyScope =
   | "candidates:read"
   | "candidates.contacts:read"
   | "candidates.compensation:read"
+  | "candidates.demographics:read"
   | "mcp:use";
 
 /** Never the secret: `tokenHint` is its first and last characters, which cannot be used. */

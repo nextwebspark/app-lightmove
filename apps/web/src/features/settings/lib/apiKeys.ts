@@ -4,13 +4,14 @@ import type { ApiKey, ApiKeyKind, ApiKeyScope } from "../api/types";
 /** Lets a key reach the MCP server; it reads nothing by itself. */
 export const MCP_SCOPE: ApiKeyScope = "mcp:use";
 
-/** What each scope reads, in the API's own order; the personal-data pair says so, and `mcp:use` comes last. */
+/** What each scope reads, in the API's own order; the personal-data scopes say so, and `mcp:use` comes last. */
 export const API_KEY_SCOPES: readonly { scope: ApiKeyScope; note: string; personalData: boolean }[] = [
   { scope: "projects:read", note: "Positions: title, stage, type, dates and counts.", personalData: false },
   { scope: "companies:read", note: "Each position's companies — in universe, shortlisted and declined.", personalData: false },
   { scope: "candidates:read", note: "Each position's executives: profile, company and status.", personalData: false },
   { scope: "candidates.contacts:read", note: "Their emails and phone numbers.", personalData: true },
   { scope: "candidates.compensation:read", note: "Their salary, bonus, allowances and incentives.", personalData: true },
+  { scope: "candidates.demographics:read", note: "Their gender and nationality, where your team recorded them.", personalData: true },
   {
     scope: MCP_SCOPE,
     note: "Lets an AI agent use this key over MCP. Reads nothing by itself — tick what it may read too.",

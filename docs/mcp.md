@@ -164,6 +164,7 @@ schema, with the same JSON as text for clients that read only text.
 | `candidates:read` | Each position's executives: profile, company and status |
 | `candidates.contacts:read` | An executive's emails and phone numbers. Personal data |
 | `candidates.compensation:read` | An executive's package. Personal data |
+| `candidates.demographics:read` | An executive's gender and nationality. Personal data |
 
 You choose these on the consent screen, or on the key. A key also needs `mcp:use`, marked **AI access**, to reach the MCP server. That scope
 reads nothing by itself, so a key made for a dashboard never becomes an AI connection unless you say so.

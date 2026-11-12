@@ -5,7 +5,7 @@
       "name" : "Uncava",
       "url" : "https://beta.uncava.com"
     },
-    "description" : "Read-only access to a workspace's positions, their companies and their executives, as JSON.\n\n## Authentication\nMake a key in **Settings → API keys** and send it on every request as `Authorization: Bearer <key>`. The key is shown once, when it is made; Uncava keeps only a fingerprint of it.\n\n| Key | Prefix | Reads |\n|---|---|---|\n| Personal | `uncava_pat_` | Only the positions its owner can open in Uncava, re-checked on every request. It stops working when its owner leaves the workspace. |\n| Workspace | `uncava_svc_` | Every position in the workspace. Only an admin makes one. |\n\nEvery key expires; a revoked, expired or unknown key answers `401 API_KEY_INVALID`. No key writes anything.\n\n## Scopes\nA key carries the scopes chosen when it was made. A route outside them answers `403 API_KEY_SCOPE_MISSING`, naming the scope in `requiredScope`.\n\n| Scope | Reads |\n|---|---|\n| `projects:read` | Positions: title, client, stage, type, dates and counts |\n| `companies:read` | Each position's companies, a stage at a time |\n| `candidates:read` | Each position's executives: profile, company and status |\n| `candidates.contacts:read` | Fills an executive's `contacts`; null without it |\n| `candidates.compensation:read` | Fills an executive's `compensation`; null without it |\n\nAn executive's seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them. Notes and AI assessments are never sent.\n\n## Paging\nList routes take `page` (from 0) and `size` (default 25, at most 100) and answer `{ data, page, size, totalCount }`. The universe route answers a whole stage in one call, or refuses one too large for it.\n\n## Rate limits\n60 requests a minute per key, and 300 per IP address. Past either, the answer is `429 RATE_LIMITED` with a `Retry-After` header in seconds.\n\n## Errors\nEvery error is an RFC 9457 problem document (`application/problem+json`). Switch on `code`, never on `detail`; quote `correlationId` when asking for support.\n\n| Status | Code | When |\n|---|---|---|\n| 400 | `VALIDATION_FAILED` | A parameter is out of range or not one of its values |\n| 400 | `PUBLIC_API_UNIVERSE_TOO_LARGE` | A universe too large for one call; page instead |\n| 401 | `API_KEY_INVALID` | The key is missing, malformed, unknown, revoked or expired |\n| 403 | `API_KEY_SCOPE_MISSING` | The key lacks the scope the route needs |\n| 403 | `FORBIDDEN` | A personal key's owner is not on the position |\n| 404 | `NOT_FOUND` | No such position in the key's workspace |\n| 429 | `RATE_LIMITED` | Too many requests; wait for `Retry-After` |\n",
+    "description" : "Read-only access to a workspace's positions, their companies and their executives, as JSON.\n\n## Authentication\nMake a key in **Settings → API keys** and send it on every request as `Authorization: Bearer <key>`. The key is shown once, when it is made; Uncava keeps only a fingerprint of it.\n\n| Key | Prefix | Reads |\n|---|---|---|\n| Personal | `uncava_pat_` | Only the positions its owner can open in Uncava, re-checked on every request. It stops working when its owner leaves the workspace. |\n| Workspace | `uncava_svc_` | Every position in the workspace. Only an admin makes one. |\n\nEvery key expires; a revoked, expired or unknown key answers `401 API_KEY_INVALID`. No key writes anything.\n\n## Scopes\nA key carries the scopes chosen when it was made. A route outside them answers `403 API_KEY_SCOPE_MISSING`, naming the scope in `requiredScope`.\n\n| Scope | Reads |\n|---|---|\n| `projects:read` | Positions: title, client, stage, type, dates and counts |\n| `companies:read` | Each position's companies, a stage at a time |\n| `candidates:read` | Each position's executives: profile, company and status |\n| `candidates.contacts:read` | Fills an executive's `contacts`; null without it |\n| `candidates.compensation:read` | Fills an executive's `compensation`; null without it |\n| `candidates.demographics:read` | Fills an executive's `gender` and `nationality`; null without it |\n\nAn executive's seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them. Notes and AI assessments are never sent.\n\n## Paging\nList routes take `page` (from 0) and `size` (default 25, at most 100) and answer `{ data, page, size, totalCount }`. The universe route answers a whole stage in one call, or refuses one too large for it.\n\n## Rate limits\n60 requests a minute per key, and 300 per IP address. Past either, the answer is `429 RATE_LIMITED` with a `Retry-After` header in seconds.\n\n## Errors\nEvery error is an RFC 9457 problem document (`application/problem+json`). Switch on `code`, never on `detail`; quote `correlationId` when asking for support.\n\n| Status | Code | When |\n|---|---|---|\n| 400 | `VALIDATION_FAILED` | A parameter is out of range or not one of its values |\n| 400 | `PUBLIC_API_UNIVERSE_TOO_LARGE` | A universe too large for one call; page instead |\n| 401 | `API_KEY_INVALID` | The key is missing, malformed, unknown, revoked or expired |\n| 403 | `API_KEY_SCOPE_MISSING` | The key lacks the scope the route needs |\n| 403 | `FORBIDDEN` | A personal key's owner is not on the position |\n| 404 | `NOT_FOUND` | No such position in the key's workspace |\n| 429 | `RATE_LIMITED` | Too many requests; wait for `Retry-After` |\n",
     "title" : "Uncava Public API",
     "version" : "v1"
   },
@@ -245,7 +245,7 @@
     },
     "/api/v1/public/projects/{projectId}/candidates" : {
       "get" : {
-        "description" : "Needs `candidates:read`. `contacts` is filled only with `candidates.contacts:read`, and `compensation` only with `candidates.compensation:read`; otherwise both are null. First mapped first.",
+        "description" : "Needs `candidates:read`. `contacts` is filled only with `candidates.contacts:read`, `compensation` only with `candidates.compensation:read`, and `gender` and `nationality` only with `candidates.demographics:read`; otherwise they are null. First mapped first.",
         "operationId" : "listCandidates",
         "parameters" : [ {
           "description" : "The position's id",
@@ -891,7 +891,7 @@
             "description" : "What the key may read",
             "items" : {
               "type" : "string",
-              "enum" : [ "projects:read", "companies:read", "candidates:read", "candidates.contacts:read", "candidates.compensation:read", "mcp:use" ]
+              "enum" : [ "projects:read", "companies:read", "candidates:read", "candidates.contacts:read", "candidates.compensation:read", "candidates.demographics:read", "mcp:use" ]
             }
           },
           "workspaceId" : {
@@ -903,7 +903,7 @@
       },
       "Candidate" : {
         "type" : "object",
-        "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them",
+        "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them; nationality and gender are also null unless the key holds candidates.demographics:read",
         "properties" : {
           "addedAt" : {
             "type" : "string",
@@ -961,7 +961,7 @@
           },
           "gender" : {
             "type" : [ "string", "null" ],
-            "description" : "Their gender, where recorded",
+            "description" : "Their gender, where recorded. Null unless the key holds candidates.demographics:read",
             "enum" : [ "female", "male", "other" ]
           },
           "id" : {
@@ -984,7 +984,7 @@
           },
           "nationality" : {
             "type" : [ "string", "null" ],
-            "description" : "Their nationality group",
+            "description" : "Their nationality group. Null unless the key holds candidates.demographics:read",
             "example" : "Emirati"
           },
           "outOfProcess" : {

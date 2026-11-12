@@ -108,8 +108,9 @@ curl -s "$BASE/projects/$PROJECT_ID/universe?stage=inUniverse" -H "Authorization
 | `candidates:read` | Each position's executives: profile, company and status |
 | `candidates.contacts:read` | Fills an executive's `contacts` (emails and phones). Personal data |
 | `candidates.compensation:read` | Fills an executive's `compensation` (the package). Personal data |
+| `candidates.demographics:read` | Fills an executive's `gender` and `nationality`. Personal data; nationality can reveal ethnic origin (#922) |
 
-- **Personal data:** without its scope, `contacts` or `compensation` is `null`. It is never left out of the
+- **Personal data:** without its scope, `contacts`, `compensation`, `gender` or `nationality` is `null`. It is never left out of the
   response, so a client can tell "not allowed" from "a field that does not exist".
 - **AI guesses:** an executive's `seniority`, `nationality`, `gender` and `yearsExperience` are `null` while
   they are only a model's guess that nobody has confirmed.

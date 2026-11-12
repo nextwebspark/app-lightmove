@@ -12,10 +12,11 @@ import java.util.function.UnaryOperator;
 /**
  * An executive as a key reads them. A background value a model proposed and no researcher has since
  * confirmed (seniority, nationality, gender, years of experience) is sent as null: outside the product
- * there is no badge to say it is a guess.
+ * there is no badge to say it is a guess. Gender and nationality leave only under their own scope.
  */
 @Schema(name = "Candidate", description = "An executive a position has mapped. Seniority, nationality, gender and "
-        + "years of experience are null until a person has recorded or confirmed them")
+        + "years of experience are null until a person has recorded or confirmed them; nationality and gender are "
+        + "also null unless the key holds candidates.demographics:read")
 public record PublicCandidate(
         @Schema(description = "This executive's id within the position") UUID id,
         @Schema(description = "The person's id, the same on every position that maps them, so one person can be followed across positions")
@@ -45,8 +46,11 @@ public record PublicCandidate(
         @Schema(description = "The city they live in", nullable = true, example = "Dubai") String city,
         @Schema(description = "The country they live in", nullable = true, example = "United Arab Emirates")
         String country,
-        @Schema(description = "Their nationality group", nullable = true, example = "Emirati") String nationality,
-        @Schema(description = "Their gender, where recorded", nullable = true,
+        @Schema(description = "Their nationality group. Null unless the key holds candidates.demographics:read",
+                nullable = true, example = "Emirati")
+        String nationality,
+        @Schema(description = "Their gender, where recorded. Null unless the key holds candidates.demographics:read",
+                nullable = true,
                 allowableValues = {"female", "male", "other"})
         String gender,
         @Schema(description = "Years of experience", nullable = true, example = "18") Integer yearsExperience,
@@ -64,7 +68,8 @@ public record PublicCandidate(
         PublicCompensation compensation
 ) {
 
-    public static PublicCandidate of(CandidateResponse candidate, boolean withContacts, boolean withCompensation) {
+    public static PublicCandidate of(CandidateResponse candidate, boolean withContacts, boolean withCompensation,
+                                     boolean withDemographics) {
         Set<String> proposed = candidate.aiInferredFields() == null ? Set.of() : candidate.aiInferredFields();
         return new PublicCandidate(candidate.id(), candidate.personId(), candidate.triageCompanyId(),
                 candidate.companyName(), candidate.fullName(), candidate.title(),
@@ -72,8 +77,8 @@ public record PublicCandidate(
                 candidate.status(), candidate.statusLabel(), candidate.statusOutOfProcess(),
                 PublicPipelineStage.of(candidate.pipelineStage()),
                 candidate.linkedinUrl(), candidate.locationCity(), candidate.locationCountry(),
-                recorded(proposed, BackgroundField.NATIONALITY, candidate.nationality()),
-                recorded(proposed, BackgroundField.GENDER, candidate.gender()),
+                withDemographics ? recorded(proposed, BackgroundField.NATIONALITY, candidate.nationality()) : null,
+                withDemographics ? recorded(proposed, BackgroundField.GENDER, candidate.gender()) : null,
                 recorded(proposed, BackgroundField.YEARS_EXPERIENCE, candidate.yearsExperience()),
                 candidate.summary(),
                 candidate.career().stream()
