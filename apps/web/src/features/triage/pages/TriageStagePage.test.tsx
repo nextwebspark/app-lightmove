@@ -475,6 +475,7 @@ const SOURCING_OFF = {
   perCompanyChoices: [3, 5, 10],
   defaultPerCompany: 3,
   lostAfterSeconds: 240,
+  parallelism: 4,
 };
 
 const DRAFTED: SavedCriteria = {

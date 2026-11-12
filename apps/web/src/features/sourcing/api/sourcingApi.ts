@@ -31,6 +31,8 @@ export interface SourcingConfig {
   perCompanyChoices: number[];
   defaultPerCompany: number;
   lostAfterSeconds: number;
+  /** How many companies a run searches at once. */
+  parallelism: number;
 }
 
 export interface CompanyCount {
@@ -80,6 +82,20 @@ export interface CompanyResult {
   titleChecks: number;
 }
 
+/** The step a company's search is on, in the order they run. */
+export type SourcingStage = "LOOKING" | "CHECKING" | "CONFIRMING" | "RANKING";
+
+/** Where one company's search has got to; `done` of `total` count a step that is counted, else both are 0. */
+export interface CompanyProgress {
+  triageCompanyId: string;
+  stage: SourcingStage | null;
+  considered: number;
+  done: number;
+  total: number;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
 export interface SourcingRun {
   id: string;
   status: SourcingRunStatus;
@@ -92,6 +108,8 @@ export interface SourcingRun {
   stopRequested: boolean;
   searched: SearchCriteria | null;
   outcomes: CompanyResult[];
+  /** One entry for each company the run has started. */
+  progress?: CompanyProgress[];
   requestedAt: string;
   startedAt: string | null;
   finishedAt: string | null;

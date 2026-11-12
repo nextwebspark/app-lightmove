@@ -30,6 +30,7 @@ export function SearchBar({
   source,
   briefChanged,
   drafting,
+  draftingStep,
   onReset,
   counts,
   counting,
@@ -49,6 +50,8 @@ export function SearchBar({
   source: SavedCriteria["source"] | null;
   briefChanged: boolean;
   drafting: boolean;
+  /** What the AI is doing while it drafts, shown in place of where the search came from. */
+  draftingStep: string;
   onReset: () => void;
   counts: SourcingCounts | null;
   counting: boolean;
@@ -67,7 +70,7 @@ export function SearchBar({
   const fieldsId = useId();
   const included = companies.filter((company) => isIncluded(company.triageCompanyId));
   const countLine = !criteria
-    ? "Reading the brief…"
+    ? ""
     : counting && !counts
       ? "Counting…"
       : counts?.counted
@@ -93,7 +96,7 @@ export function SearchBar({
             className={cn("flex-none", source === "AI" && !briefChanged ? "text-u-inferred" : "text-u-text3")}
           />
           <span className={cn("flex-none text-note font-semibold", briefChanged ? "text-u-signal" : "text-u-text")}>
-            {noteOf(source, briefChanged, drafting)}
+            {drafting ? draftingStep : noteOf(source, briefChanged)}
           </span>
           {!drafting && source !== null && (
             <button
@@ -176,8 +179,7 @@ export function SearchBar({
   );
 }
 
-function noteOf(source: SavedCriteria["source"] | null, briefChanged: boolean, drafting: boolean): string {
-  if (drafting) return "Drafting the search from the brief…";
+function noteOf(source: SavedCriteria["source"] | null, briefChanged: boolean): string {
   if (briefChanged) return "The brief has changed since this search was drafted";
   if (source === "EDITED") return "Your search";
   if (source === "DEFAULT") return "From the role title";

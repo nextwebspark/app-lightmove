@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { cn } from "../../../lib/cn";
-import type { CompanySuggestions, SuggestedPerson } from "../api/sourcingApi";
+import type { CompanyCount, CompanyProgress, CompanySuggestions, SuggestedPerson } from "../api/sourcingApi";
+import { stepLineOf } from "../lib/searchProgress";
 import { titleLevelOf } from "../lib/suggestionReasons";
 import { SuggestionRow } from "./SuggestionRow";
 
@@ -18,7 +19,7 @@ export type CompanyStatus =
   | "stopped";
 
 const STATUS_NOTE: Partial<Record<CompanyStatus, string>> = {
-  waiting: "Waiting",
+  waiting: "Next in line",
   unsearched: "Not searched yet",
   noPage: "No LinkedIn page — add it with Edit company to search here",
   failed: "The search failed here — search again",
@@ -32,6 +33,9 @@ const STATUS_NOTE: Partial<Record<CompanyStatus, string>> = {
 export function CompanyResults({
   companyName,
   status,
+  step,
+  count,
+  leftOut = false,
   found,
   levelTab,
   isTicked,
@@ -45,6 +49,12 @@ export function CompanyResults({
 }: {
   companyName: string;
   status: CompanyStatus;
+  /** The step a company being searched has reached. */
+  step?: CompanyProgress;
+  /** What a search would reach here, counted free, shown before the company is searched. */
+  count?: CompanyCount;
+  /** Unticked in the search's Companies, so the next search passes it by. */
+  leftOut?: boolean;
   found: CompanySuggestions | null;
   levelTab: string | null;
   isTicked: (person: SuggestedPerson) => boolean;
@@ -67,7 +77,7 @@ export function CompanyResults({
   const result = found?.result ?? null;
   const onPosition = people.filter((person) => person.candidateId !== null).length;
   const nobodyFits = status === "searched" && result !== null && result.fits === 0;
-  if (levelTab !== null && fits.length === 0) return null;
+  if (levelTab !== null && status === "searched" && fits.length === 0) return null;
 
   const row = (person: SuggestedPerson) => (
     <SuggestionRow
@@ -82,9 +92,18 @@ export function CompanyResults({
   );
 
   return (
-    <section aria-label={companyName} className="mx-[18px] mt-3.5 overflow-hidden rounded-lg border border-u-border">
+    <section
+      aria-label={companyName}
+      className={cn("mx-[18px] mt-3.5 overflow-hidden rounded-lg border border-u-border", leftOut && "opacity-70")}
+    >
       <div className="flex flex-wrap items-center gap-2.5 bg-u-sunken px-3 py-2.5">
         <span className="text-body font-semibold text-u-text">{companyName}</span>
+        {count && status === "unsearched" && (
+          <span className="font-mono text-note text-u-text3">
+            {count.match} match · {count.toBuy} to buy · {count.onFile} already on file
+          </span>
+        )}
+        {leftOut && <span className="text-note font-medium text-u-text3">Left out of this search</span>}
         {result && status === "searched" && (
           <span className="font-mono text-note text-u-text3">
             {result.found} found · {result.fits} fit{onPosition > 0 ? ` · ${onPosition} on this position` : ""}
@@ -93,10 +112,10 @@ export function CompanyResults({
         {status === "searching" && (
           <span className="inline-flex items-center gap-1.5 text-note font-medium text-u-text2">
             <span className="size-[11px] animate-spin rounded-full border-2 border-u-border border-t-u-accent" />
-            Searching…
+            {stepLineOf(step)}
           </span>
         )}
-        {STATUS_NOTE[status] && <span className="text-note font-medium text-u-text3">{STATUS_NOTE[status]}</span>}
+        {STATUS_NOTE[status] && !(leftOut && status === "unsearched") && <span className="text-note font-medium text-u-text3">{STATUS_NOTE[status]}</span>}
         {nobodyFits && result.found === 0 && (
           <span className="rounded-full bg-u-signal-tint px-2.5 py-0.5 text-meta font-semibold text-u-signal">
             Nobody found
@@ -175,6 +194,17 @@ export function CompanyResults({
       {noTitleOpen && noTitle.map(row)}
       {notFitOpen && notFit.map(row)}
     </section>
+  );
+}
+
+/** A company's frame before its name is known — the same block the company will be, so nothing moves when it lands. */
+export function CompanyPlaceholder() {
+  return (
+    <div aria-hidden="true" className="mx-[18px] mt-3.5 overflow-hidden rounded-lg border border-u-border">
+      <div className="flex items-center gap-2.5 bg-u-sunken px-3 py-3">
+        <Skeleton className="h-3.5 w-44" />
+      </div>
+    </div>
   );
 }
 

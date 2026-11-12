@@ -10,6 +10,7 @@ import app.lightmove.api.core.config.ExecutiveSourcingSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.concurrent.service.ThreadContextPropagation;
 import app.lightmove.api.enrichment.sourcing.constant.SourcingOutcome;
+import app.lightmove.api.enrichment.sourcing.constant.SourcingStage;
 import app.lightmove.api.enrichment.sourcing.constant.TitleCheck;
 import app.lightmove.api.enrichment.sourcing.model.CompanyOutcome;
 import app.lightmove.api.enrichment.sourcing.model.ExecutiveSourcingRequested;
@@ -51,6 +52,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Component
 @Slf4j
 class ExecutiveSourcingWorker {
+
+    private static final Duration TICK_EVERY = Duration.ofSeconds(2);
 
     private final SourcingRunStore store;
     private final SuggestionStore suggestions;
@@ -168,6 +171,12 @@ class ExecutiveSourcingWorker {
             } finally {
                 recording.unlock();
             }
+            try {
+                store.markProgressFinished(request.runId(), company.triageCompanyId());
+            } catch (RuntimeException unsaved) {
+                log.warn("Sourcing progress at {} was not marked finished: {}", company.companyName(),
+                        unsaved.toString());
+            }
         }
 
         CompanyOutcome searchOne(SourcingCompany company) {
@@ -190,8 +199,11 @@ class ExecutiveSourcingWorker {
 
         private CompanyOutcome search(SourcingCompany company) {
             List<String> countries = searched.countriesFor(company);
+            StepReporter steps = new StepReporter(company);
             FoundPeople found = withConfirmedProfiles(company, withoutSuppressed(companySearch.search(
-                    company.employer(), searched.words(), brief.seniority(), countries, searched.perCompany())));
+                    company.employer(), searched.words(), brief.seniority(), countries, searched.perCompany(),
+                    steps)), steps);
+            steps.reached(SourcingStage.RANKING, found.considered(), 0, 0);
             List<Suggestion> judged = SuggestionJudge.of(brief, searched.words(), countries, YearMonth.now(clock))
                     .judge(found.people());
             suggestions.save(request.workspaceId(), request.projectId(), request.runId(), company.triageCompanyId(),
@@ -215,16 +227,21 @@ class ExecutiveSourcingWorker {
          * Everyone a free check confirmed, read from the live index — on file, or bought while the company's budget
          * lasts — so the panel shows their title and Add files them from a whole profile.
          */
-        private FoundPeople withConfirmedProfiles(SourcingCompany company, FoundPeople found) {
+        private FoundPeople withConfirmedProfiles(SourcingCompany company, FoundPeople found,
+                                                  CompanySearchProgress steps) {
             int budget = searched.perCompany() - found.credits();
             int bought = 0;
             int cached = 0;
+            int toConfirm = (int) found.people().stream().filter(person -> person.check() == TitleCheck.CONFIRMED)
+                    .count();
+            int confirmed = 0;
             List<FoundPerson> people = new ArrayList<>(found.people().size());
             for (FoundPerson person : found.people()) {
                 if (person.check() != TitleCheck.CONFIRMED) {
                     people.add(person);
                     continue;
                 }
+                steps.reached(SourcingStage.CONFIRMING, found.considered(), confirmed++, toConfirm);
                 PeopleFound profile = cache.liveProfileOf(live, company.employer(), person.person(), searched.words(),
                         budget - bought > 0);
                 bought += profile.bought();
@@ -234,6 +251,36 @@ class ExecutiveSourcingWorker {
                         .orElse(person));
             }
             return found.withPeople(people, bought, cached);
+        }
+
+        /**
+         * Writes one company's steps as they come: every change of step, and a counted step's ticks no oftener
+         * than {@link #TICK_EVERY}, so a hundred checks by name are a handful of writes. A write that fails is
+         * logged and the search goes on — progress is never worth a company's result.
+         */
+        @RequiredArgsConstructor
+        private final class StepReporter implements CompanySearchProgress {
+
+            private final SourcingCompany company;
+            private SourcingStage lastStage;
+            private Instant lastWrite = Instant.MIN;
+
+            @Override
+            public void reached(SourcingStage stage, int considered, int done, int total) {
+                Instant now = Instant.now(clock);
+                if (stage == lastStage && now.isBefore(lastWrite.plus(TICK_EVERY))) {
+                    return;
+                }
+                lastStage = stage;
+                lastWrite = now;
+                try {
+                    store.reportProgress(request.runId(), request.projectId(), company.triageCompanyId(), stage,
+                            considered, done, total);
+                } catch (RuntimeException unsaved) {
+                    log.warn("Sourcing progress at {} was not saved: {}", company.companyName(),
+                            unsaved.toString());
+                }
+            }
         }
     }
 }
