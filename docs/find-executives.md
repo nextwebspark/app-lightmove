@@ -55,11 +55,21 @@ drafts it again. It opens folded to one line that says what it looks for, with t
 - **Leave out** and **Where** (the brief's country and the Gulf) — the same pills and box. **Companies** (each counted,
   no LinkedIn page noted) and **Per company** (3, 5 or 10 profiles bought; three by default).
 - **The count line** — "≈ 30 match · 12 to buy · 4 already on file". It is free and refreshes 500 ms after an edit.
-  **Search** is the only thing that spends.
+  **Search** is the only thing that spends. The counts are asked side by side, six at a time, under the live index's count pacing;
+  until they land the companies' frames stand in place and the status line says it is counting, free.
 
-**Results** arrive company by company. While a search runs, a progress line names each company as done, searching
-or waiting, with **Stop**. Closing the panel does not stop the search. A company the running search has not finished
-— or has finished, before its results are read back — shows pulsing rows, never its older results.
+**One layout from open to results — nothing swaps out.** Under the search bar sits one status line, always in the
+same place: the level tabs on its left once people are found, and on its right what is happening now — the AI's
+drafting step (reading the brief, choosing levels and title words, adding local words, picking words to leave out),
+*Counting who matches at each company · free* with a seconds counter, then *Searching · 2 of 5 done · 4 executives fit
+so far · 148 looked at · About 40 s left* with **Stop** and a thin bar along its foot, then *N fit the role*. Below it
+the companies are the same blocks throughout: a frame while the names are counted, then each company's free count
+(*6 match · 3 to buy · 0 already on file*), then its step while searched — *Looking for people in the role…*,
+*Checking titles · 12 of 40*, *Reading confirmed profiles · 1 of 3*, *Ranking who fits…* — over pulsing rows (every
+company being searched side by side reads so, the rest *Next in line*), then its people. No step names a source. The
+time left reads *Usually a minute or two* until a company has finished, then is judged from how long that took —
+rounded, never a percentage. Closing the panel does not stop the search. A company the running search has not finished
+— or has finished, before its results are read back — never shows its older results.
 Stop sets the run's stop without bumping its version, so a company finishing at the same moment never turns into a
 failure, and Stop is not offered while a new search is still starting. A company that fails part-way still counts the
 profiles it had bought toward fair use and the audit. Someone added to the suppression list after a search drops out

@@ -19,6 +19,15 @@ public record FoundPeople(List<FoundPerson> people, int credits, int cached, lon
         return new FoundPeople(List.of(), 0, 0, 0, 0, 0, 0);
     }
 
+    /** The people looked at: those the live index counted and those the profile index answered. */
+    public int considered() {
+        return consideredOf(matched, indexFound);
+    }
+
+    public static int consideredOf(long matched, int indexFound) {
+        return (int) Math.min(Integer.MAX_VALUE, matched + indexFound);
+    }
+
     public FoundPeople withPeople(List<FoundPerson> replaced, int moreCredits, int moreCached) {
         return new FoundPeople(replaced, credits + moreCredits, cached + moreCached, matched, indexFound,
                 indexSearches, titleChecks);

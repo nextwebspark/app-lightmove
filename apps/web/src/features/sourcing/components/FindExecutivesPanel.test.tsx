@@ -5,7 +5,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import type { PersonResult } from "../../strategy/api/types";
 import * as sourcingApi from "../api/sourcingApi";
-import type { CompanySuggestions, SavedCriteria, SourcingRun, SuggestedPerson } from "../api/sourcingApi";
+import type {
+  CompanyProgress,
+  CompanySuggestions,
+  SavedCriteria,
+  SourcingRun,
+  SuggestedPerson,
+} from "../api/sourcingApi";
 import type { SourcingRunState } from "../lib/useSourcingRun";
 import { FindExecutivesPanel } from "./FindExecutivesPanel";
 
@@ -112,9 +118,26 @@ const run = (overrides: Partial<SourcingRun> = {}): SourcingRun => ({
   ...overrides,
 });
 
+const step = (
+  triageCompanyId: string,
+  stage: CompanyProgress["stage"],
+  done = 0,
+  total = 0,
+  times: Partial<Pick<CompanyProgress, "startedAt" | "finishedAt">> = {},
+): CompanyProgress => ({
+  triageCompanyId,
+  stage,
+  considered: 20,
+  done,
+  total,
+  startedAt: "2026-11-03T10:00:02Z",
+  finishedAt: null,
+  ...times,
+});
+
 const sourcingWith = (overrides: Partial<SourcingRunState> = {}): SourcingRunState => ({
   offered: true,
-  config: { enabled: true, maxCompaniesPerRun: 10, perCompanyChoices: [3, 5, 10], defaultPerCompany: 3, lostAfterSeconds: 240 },
+  config: { enabled: true, maxCompaniesPerRun: 10, perCompanyChoices: [3, 5, 10], defaultPerCompany: 3, lostAfterSeconds: 240, parallelism: 4 },
   run: null,
   isRunning: false,
   button: { kind: "idle" },
@@ -126,7 +149,26 @@ const sourcingWith = (overrides: Partial<SourcingRunState> = {}): SourcingRunSta
   ...overrides,
 });
 
-function renderPanel(sourcing: SourcingRunState, autoSearch = false) {
+function countedAt(...companies: [string, string][]) {
+  vi.mocked(sourcingApi.countSearch).mockResolvedValue({
+    counted: true,
+    companies: companies.map(([triageCompanyId, companyName]) => ({
+      triageCompanyId,
+      companyName,
+      searchable: true,
+      match: 6,
+      onFile: 0,
+      toBuy: 3,
+    })),
+    levels: [],
+    words: [],
+    match: 6 * companies.length,
+    onFile: 0,
+    toBuy: 3 * companies.length,
+  });
+}
+
+function renderPanel(sourcing: SourcingRunState, autoSearch = false, scope: readonly string[] = ["c1"]) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
@@ -136,7 +178,7 @@ function renderPanel(sourcing: SourcingRunState, autoSearch = false) {
           onClose={vi.fn()}
           projectId="p1"
           subtitle="Group CFO"
-          scope={["c1"]}
+          scope={scope}
           autoSearch={autoSearch}
           sourcing={sourcing}
         />
@@ -308,12 +350,101 @@ describe("FindExecutivesPanel", () => {
         outcomes: [{ ...harbour([], 2).result, outcome: "FOUND" }],
       }),
     });
-    renderPanel(sourcing);
+    countedAt(["c1", "Harbour Group"], ["c2", "Cedar Holdings"]);
+    renderPanel(sourcing, false, ["c1", "c2"]);
 
-    const progress = await screen.findByText("Searching 2 companies");
-    expect(progress.closest('[role="status"]')).toHaveTextContent("Cedar Holdings");
+    expect(await screen.findByText("Searching · 1 of 2 done")).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Cedar Holdings" })).toHaveTextContent("Next in line");
     await userEvent.click(screen.getByRole("button", { name: "Stop" }));
     expect(sourcing.stop).toHaveBeenCalled();
+  });
+
+  it("shows every company being searched side by side on its own step, and how long is left once one has finished", async () => {
+    vi.mocked(sourcingApi.getSuggestions).mockResolvedValue({ companies: [] });
+    countedAt(["c1", "Harbour Group"], ["c2", "Cedar Holdings"], ["c3", "Dune Partners"], ["c4", "Eastgate"]);
+    renderPanel(
+      sourcingWith({
+        isRunning: true,
+        run: run({
+          status: "RUNNING",
+          companies: [
+            { triageCompanyId: "c1", companyName: "Harbour Group", searchable: true },
+            { triageCompanyId: "c2", companyName: "Cedar Holdings", searchable: true },
+            { triageCompanyId: "c3", companyName: "Dune Partners", searchable: true },
+            { triageCompanyId: "c4", companyName: "Eastgate", searchable: true },
+          ],
+          companiesTotal: 4,
+          companiesDone: 1,
+          outcomes: [{ ...harbour([], 2).result, outcome: "FOUND" }],
+          progress: [
+            step("c1", "RANKING", 0, 0, { startedAt: "2026-11-03T10:00:02Z", finishedAt: "2026-11-03T10:00:32Z" }),
+            step("c2", "CHECKING", 3, 10),
+            step("c3", "LOOKING"),
+          ],
+        }),
+      }),
+      false,
+      ["c1", "c2", "c3", "c4"],
+    );
+
+    const status = (await screen.findByText("Searching · 1 of 4 done")).closest('[role="status"]') as HTMLElement;
+    expect(status).toHaveTextContent("60 looked at");
+    expect(status).toHaveTextContent("About 30 s left");
+    expect(await screen.findByRole("region", { name: "Cedar Holdings" })).toHaveTextContent("Checking titles · 3 of 10");
+    expect(screen.getByRole("region", { name: "Dune Partners" })).toHaveTextContent("Looking for people in the role…");
+    expect(screen.getByRole("region", { name: "Eastgate" })).toHaveTextContent("Next in line");
+  });
+
+  it("says on the status line that it is counting, free, while the companies' frames wait in place", async () => {
+    vi.mocked(sourcingApi.getSuggestions).mockResolvedValue({ companies: [] });
+    vi.mocked(sourcingApi.countSearch).mockReturnValue(new Promise(() => {}));
+    renderPanel(sourcingWith());
+
+    const status = (await screen.findByText("Counting who matches at each company")).closest(
+      '[role="status"]',
+    ) as HTMLElement;
+    expect(status).toHaveTextContent("free, nothing is bought");
+    expect(screen.getByRole("button", { name: /^Search$/ })).toBeDisabled();
+  });
+
+  it("keeps a company being searched in view under a level tab", async () => {
+    vi.mocked(sourcingApi.getSuggestions).mockResolvedValue({
+      companies: [harbour([fits(1, "the-cfo", "Fatima Al Mazrouei", "Group CFO", ["LEVEL:TOP"])], 1)],
+    });
+    countedAt(["c1", "Harbour Group"], ["c2", "Cedar Holdings"]);
+    renderPanel(
+      sourcingWith({
+        isRunning: true,
+        run: run({
+          id: "run2",
+          status: "RUNNING",
+          companies: [{ triageCompanyId: "c2", companyName: "Cedar Holdings", searchable: true }],
+          companiesTotal: 1,
+          companiesDone: 0,
+          progress: [step("c2", "CHECKING", 1, 4)],
+        }),
+      }),
+      false,
+      ["c1", "c2"],
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: /^C-level\s*\d+$/ }));
+
+    expect(screen.getByRole("region", { name: "Cedar Holdings" })).toHaveTextContent("Checking titles · 1 of 4");
+    expect(screen.getByRole("region", { name: "Harbour Group" })).toHaveTextContent("Fatima Al Mazrouei");
+  });
+
+  it("says when the AI could not draft the search, and Try again asks once more", async () => {
+    vi.mocked(sourcingApi.getSuggestions).mockResolvedValue({ companies: [] });
+    vi.mocked(sourcingApi.getCriteria).mockResolvedValue(null);
+    vi.mocked(sourcingApi.suggestCriteria).mockRejectedValueOnce(new Error("model down")).mockResolvedValue(SAVED);
+    renderPanel(sourcingWith());
+
+    expect(await screen.findByText("Couldn't draft the search from the brief")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    await waitFor(() => expect(sourcingApi.suggestCriteria).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(/Finance, Financial, CFO/)).toBeInTheDocument();
   });
 
   it("folds the search to one line, and Edit search opens each field as a dropdown", async () => {
@@ -338,10 +469,20 @@ describe("FindExecutivesPanel", () => {
     vi.mocked(sourcingApi.getSuggestions).mockResolvedValue({
       companies: [harbour([fits(1, "the-cfo", "Fatima Al Mazrouei", "Group CFO", ["ROLE_WORD:CFO"])], 1)],
     });
-    const searching = sourcingWith({ isRunning: true, run: run({ id: "run2", status: "RUNNING", companiesDone: 0 }) });
+    const searching = sourcingWith({
+      isRunning: true,
+      run: run({
+        id: "run2",
+        status: "RUNNING",
+        companiesDone: 0,
+        progress: [step("c1", "CHECKING", 12, 40)],
+      }),
+    });
     const { unmount } = renderPanel(searching);
 
-    expect(await screen.findByRole("region", { name: "Harbour Group" })).toHaveTextContent("Searching…");
+    expect(await screen.findByRole("region", { name: "Harbour Group" })).toHaveTextContent(
+      "Checking titles · 12 of 40",
+    );
     expect(screen.queryByText("Fatima Al Mazrouei")).not.toBeInTheDocument();
     unmount();
     const readsBefore = vi.mocked(sourcingApi.getSuggestions).mock.calls.length;

@@ -8,13 +8,14 @@ import java.util.UUID;
 
 /**
  * A run as the panel and the toolbar button read it: where it stands, the companies it takes in order, what each
- * finished one yielded, how many people fit, what it bought, the search as pressed (null on runs from before the
+ * finished one yielded, the step each started one has reached, how many people fit, what it bought, the search as pressed (null on runs from before the
  * panel), and whether a stop was asked for.
  */
 public record ExecutiveSourcingRunResponse(UUID id, String status, List<RunCompany> companies, int companiesTotal,
                                            int companiesDone, int suggested, int profilesBought, int profilesCached,
                                            boolean stopRequested, SourcingCriteriaDto searched,
-                                           List<SourcingCompanyOutcomeResponse> outcomes, Instant requestedAt,
+                                           List<SourcingCompanyOutcomeResponse> outcomes,
+                                           List<SourcingCompanyProgressResponse> progress, Instant requestedAt,
                                            Instant startedAt, Instant finishedAt, String error) {
 
     public static ExecutiveSourcingRunResponse of(ExecutiveSourcingRun run) {
@@ -23,6 +24,9 @@ public record ExecutiveSourcingRunResponse(UUID id, String status, List<RunCompa
                 run.getCompaniesDone(), run.getSuggested(), run.getVendorHits(), run.getCachedHits(),
                 run.isStopRequested(), run.getCriteria() == null ? null : SourcingCriteriaDto.of(run.getCriteria()),
                 run.getOutcomes().stream().map(SourcingCompanyOutcomeResponse::of).toList(),
+                run.getProgress().entrySet().stream()
+                        .map(entry -> SourcingCompanyProgressResponse.of(entry.getKey(), entry.getValue()))
+                        .toList(),
                 run.getCreatedAt(), run.getStartedAt(), run.getFinishedAt(), run.getError());
     }
 

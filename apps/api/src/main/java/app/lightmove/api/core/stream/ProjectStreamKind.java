@@ -12,8 +12,10 @@ public enum ProjectStreamKind {
     CANDIDATE_MOVED,
     COMPANY_CAPTURED,
     COMPANY_ENRICHED,
-    /** A Find executives run moved: started, a company finished, or the run ended. */
+    /** A Find executives run moved: started, a company finished, or the run ended. Staff-only, as outreach is. */
     EXECUTIVE_SOURCING,
+    /** A company in a Find executives run moved to its next step; only the run is reread. Staff-only. */
+    EXECUTIVE_SOURCING_PROGRESS,
     /** An email, a reply or a sequence run moved. Staff-only: a client seat is never told outreach happened. */
     OUTREACH,
     /** A task was filed, changed or closed. Staff-only, as outreach is. */
@@ -21,7 +23,7 @@ public enum ProjectStreamKind {
 
     /** Sent only to a stream whose holder may work the position, never to one that may only read it. */
     public boolean isStaffOnly() {
-        return this == OUTREACH || this == TASK;
+        return this == OUTREACH || this == TASK || this == EXECUTIVE_SOURCING || this == EXECUTIVE_SOURCING_PROGRESS;
     }
 
     /**

@@ -9,7 +9,9 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -52,6 +54,15 @@ public class ExecutiveSourcingRun extends BaseEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "outcomes", nullable = false)
     private List<CompanyOutcome> outcomes = new ArrayList<>();
+
+    /**
+     * Each company's step while it is searched, keyed by triage company id. Written only by
+     * {@code ExecutiveSourcingRunRepository.reportProgress}, never through the entity, so a company's step and
+     * another's outcome never overwrite each other.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "progress", nullable = false, insertable = false, updatable = false)
+    private Map<UUID, CompanyProgress> progress = new LinkedHashMap<>();
 
     @Column(name = "companies_done", nullable = false)
     private int companiesDone;

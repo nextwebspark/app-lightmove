@@ -65,7 +65,7 @@ public class ExecutiveSourcingService {
     public ExecutiveSourcingConfigResponse config() {
         return new ExecutiveSourcingConfigResponse(companySearch.isOffered(), settings.maxCompaniesPerRun(),
                 SearchCriteria.PER_COMPANY_CHOICES, SearchCriteria.DEFAULT_PER_COMPANY,
-                settings.lostAfter().toSeconds());
+                settings.lostAfter().toSeconds(), settings.parallelism());
     }
 
     @Transactional
