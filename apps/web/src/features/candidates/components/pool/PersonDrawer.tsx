@@ -31,6 +31,7 @@ import { useProfileSections, type ProfileSection } from "../../lib/useProfileSec
 import { scrollToFold } from "../../lib/profileFolds";
 import { AddToPositionDialog } from "./AddToPositionDialog";
 import { focusNoteComposer } from "../../../notes/lib/focusNoteComposer";
+import { formatInstantDateTime } from "../../../../lib/datetime";
 import { ActionMenu, MenuItem } from "../../../../components/ui/ActionMenu";
 import { useIsWorkspaceAdmin } from "../../../billing/lib/useBilling";
 import { ErasePersonDialog } from "./ErasePersonDialog";
@@ -291,7 +292,7 @@ function PersonDrawerBody({
               {doNotContact.reason && ` ${doNotContact.reason}`}
               <span className="mt-0.5 block font-mono text-[11px] text-u-text3">
                 Set by {doNotContact.setByName ?? "someone"}
-                {doNotContact.setAt && ` · ${new Date(doNotContact.setAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`}
+                {doNotContact.setAt && ` · ${formatInstantDateTime(doNotContact.setAt)}`}
               </span>
             </div>
           )}
@@ -307,7 +308,7 @@ function PersonDrawerBody({
                 <div className="mt-0.5 text-note text-u-text2">{restriction.reason}</div>
                 <div className="mt-0.5 font-mono text-meta text-u-text3">
                   Restricted by {restriction.restrictedByName ?? "someone"} ·{" "}
-                  {new Date(restriction.restrictedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                  {formatInstantDateTime(restriction.restrictedAt) ?? "—"}
                 </div>
                 {!restriction.mayLift && (
                   <div className="mt-0.5 text-note text-u-text3">

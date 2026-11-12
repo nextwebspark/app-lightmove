@@ -25,6 +25,12 @@ export const USER = {
   hasPassword: true,
   platformActions: [],
   timezone: "Asia/Dubai",
+  dateTime: {
+    effective: { timeZone: "Asia/Dubai", dateFormat: "DD_MMM_YYYY", timeFormat: "H24" },
+    own: { timeZone: null, dateFormat: null, timeFormat: null },
+    deviceTimeZone: null,
+    workspace: { timeZone: "Asia/Dubai", dateFormat: "DD_MMM_YYYY", timeFormat: "H24" },
+  },
   locale: "en",
   workspace: WORKSPACE,
   workspaces: [
@@ -518,6 +524,14 @@ const WORKSPACE_DETAIL = {
     competitors: [],
     geographies: ["United Arab Emirates", "Saudi Arabia"],
     notes: null,
+  },
+  dateTime: {
+    timeZone: null,
+    dateFormat: null,
+    timeFormat: null,
+    suggestedTimeZone: "Asia/Dubai",
+    suggestedFrom: "United Arab Emirates",
+    membersAutomatic: 3,
   },
 };
 

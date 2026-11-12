@@ -47,7 +47,7 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
     private static final String SECRET = "contoso~very-secret-value";
     private static final String MICROSOFT_APP = "6a1c3e5f-7b9d-4f2a-8c4e-0d2b4f6a8c0e";
     private static final String GOOGLE_APP = "acme-app.apps.googleusercontent.com";
-    private static final DateTimeFormatter EMAIL_DATE = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH);
+    private static final DateTimeFormatter EMAIL_DATE = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH);
 
     @Autowired @FixtureJdbc JdbcTemplate jdbc;
     @Autowired SecretCipher cipher;

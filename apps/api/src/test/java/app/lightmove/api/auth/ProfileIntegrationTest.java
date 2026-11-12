@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -59,7 +60,137 @@ class ProfileIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.timezone").value("Asia/Dubai"))
                 .andExpect(jsonPath("$.locale").value("en"))
                 // The identity row reads "Admin · joined {month} {year}" off this.
-                .andExpect(jsonPath("$.workspace.joinedAt").exists());
+                .andExpect(jsonPath("$.workspace.joinedAt").exists())
+                .andExpect(jsonPath("$.dateTime.own.timeZone").doesNotExist())
+                .andExpect(jsonPath("$.dateTime.own.dateFormat").doesNotExist())
+                .andExpect(jsonPath("$.dateTime.own.timeFormat").doesNotExist())
+                .andExpect(jsonPath("$.dateTime.workspace.timeZone").value("Asia/Dubai"))
+                .andExpect(jsonPath("$.dateTime.effective.dateFormat").value("DD_MMM_YYYY"))
+                .andExpect(jsonPath("$.dateTime.effective.timeFormat").value("H24"));
+    }
+
+    @Test
+    @DisplayName("a member follows the workspace's date and time until they choose their own, and can go back to it")
+    void followsTheWorkspaceUntilChoosingTheirOwn() throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Clock Firm");
+        String admin = login(alok);
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        String member = login(sara);
+
+        mvc.perform(putDateTime(admin, """
+                        {"timeZone":"Europe/London","dateFormat":"MMM_D_YYYY","timeFormat":"H12"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dateTime.timeZone").value("Europe/London"))
+                .andExpect(jsonPath("$.dateTime.membersAutomatic").value(2));
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + member))
+                .andExpect(jsonPath("$.timezone").value("Europe/London"))
+                .andExpect(jsonPath("$.dateTime.effective.dateFormat").value("MMM_D_YYYY"))
+                .andExpect(jsonPath("$.dateTime.effective.timeFormat").value("H12"));
+
+        mvc.perform(patchProfile(member, """
+                        {"fullName":"Sara Al-Mansour","title":null,"timezone":"Asia/Riyadh",
+                         "dateFormat":"YYYY_MM_DD","timeFormat":null,"locale":"en"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.timezone").value("Asia/Riyadh"))
+                .andExpect(jsonPath("$.dateTime.own.timeZone").value("Asia/Riyadh"))
+                .andExpect(jsonPath("$.dateTime.effective.dateFormat").value("YYYY_MM_DD"))
+                .andExpect(jsonPath("$.dateTime.effective.timeFormat").value("H12"))
+                .andExpect(jsonPath("$.dateTime.workspace.timeZone").value("Europe/London"));
+
+        mvc.perform(patchProfile(member, """
+                        {"fullName":"Sara Al-Mansour","title":null,"timezone":null,"locale":"en"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.timezone").value("Europe/London"))
+                .andExpect(jsonPath("$.dateTime.own.timeZone").doesNotExist())
+                .andExpect(jsonPath("$.dateTime.effective.dateFormat").value("MMM_D_YYYY"));
+    }
+
+    @Test
+    @DisplayName("an Automatic clock follows the browser's reported zone, any region's, until a zone is pinned")
+    void anAutomaticClockFollowsTheDevice() throws Exception {
+        String token = adminOf("Alok Kumar", "Device Clock Firm");
+
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.dateTime.own.timeZone").doesNotExist())
+                .andExpect(jsonPath("$.dateTime.deviceTimeZone").doesNotExist())
+                .andExpect(jsonPath("$.timezone").value("Asia/Dubai"));
+
+        mvc.perform(putDeviceZone(token, "Europe/Madrid")).andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.dateTime.deviceTimeZone").value("Europe/Madrid"))
+                .andExpect(jsonPath("$.dateTime.effective.timeZone").value("Europe/Madrid"))
+                .andExpect(jsonPath("$.timezone").value("Europe/Madrid"));
+
+        mvc.perform(patchProfile(token, """
+                        {"fullName":"Alok Kumar","title":null,"timezone":"Asia/Riyadh","locale":"en"}"""))
+                .andExpect(jsonPath("$.timezone").value("Asia/Riyadh"));
+        mvc.perform(putDeviceZone(token, "Asia/Tokyo")).andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.dateTime.deviceTimeZone").value("Asia/Tokyo"))
+                .andExpect(jsonPath("$.timezone").value("Asia/Riyadh"));
+
+        mvc.perform(patchProfile(token, """
+                        {"fullName":"Alok Kumar","title":null,"timezone":null,"locale":"en"}"""))
+                .andExpect(jsonPath("$.timezone").value("Asia/Tokyo"));
+        assertThat(jdbc.queryForObject("""
+                select count(*) from app_lm_audit_event where event_type = 'PROFILE_UPDATED'
+                 and metadata ->> 'timezoneFrom' = 'Asia/Riyadh' and metadata ->> 'timezoneTo' = 'automatic'
+                 and actor_user_id = (select id from app_lm_user where email = ?)""", Integer.class, "alok@" + domain))
+                .isEqualTo(1);
+
+        for (String refusedZone : List.of("EST", "Mars/Olympus", "SystemV/AST4")) {
+            mvc.perform(putDeviceZone(token, refusedZone))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fieldErrors.timeZone").exists());
+        }
+    }
+
+    @Test
+    @DisplayName("the workspace's date and time are an admin's to set, from the fixed lists, audited once per change")
+    void workspaceDateTimeIsAnAdminsAndAudited() throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Admin Clock Firm");
+        String admin = login(alok);
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+
+        mvc.perform(putDateTime(login(sara), """
+                        {"timeZone":"Europe/London"}"""))
+                .andExpect(status().isForbidden());
+        MvcResult refused = mvc.perform(putDateTime(admin, """
+                        {"timeZone":"Asia/Tashkent"}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.timeZone").exists())
+                .andReturn();
+        assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
+        mvc.perform(putDateTime(admin, """
+                        {"timeZone":"Asia/Riyadh","dateFormat":"DD_MM_YYYY","timeFormat":"BOGUS"}"""))
+                .andExpect(status().isBadRequest());
+
+        String chosen = """
+                {"timeZone":"Asia/Riyadh","dateFormat":"DD_MM_YYYY","timeFormat":"H12"}""";
+        mvc.perform(putDateTime(admin, chosen)).andExpect(status().isOk());
+        mvc.perform(putDateTime(admin, chosen)).andExpect(status().isOk());
+        assertThat(jdbc.queryForObject("""
+                select count(*) from app_lm_audit_event where event_type = 'WORKSPACE_UPDATED'
+                 and metadata ->> 'section' = 'dateTime' and metadata ->> 'timeZoneFrom' = 'country'
+                 and metadata ->> 'timeZoneTo' = 'Asia/Riyadh' and metadata ->> 'timeFormatTo' = 'H12'
+                 and workspace_id = (select workspace_id from app_lm_workspace_member m join app_lm_user u
+                                      on u.id = m.user_id where u.email = ?)""", Integer.class, alok))
+                .isEqualTo(1);
+
+        mvc.perform(get("/api/v1/workspace").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dateTime.timeZone").value("Asia/Riyadh"))
+                .andExpect(jsonPath("$.dateTime.dateFormat").value("DD_MM_YYYY"))
+                .andExpect(jsonPath("$.dateTime.suggestedTimeZone").value("Asia/Dubai"));
+
+        mvc.perform(putDateTime(admin, "{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dateTime.timeZone").doesNotExist())
+                .andExpect(jsonPath("$.dateTime.dateFormat").doesNotExist());
     }
 
     @Test
@@ -75,11 +206,11 @@ class ProfileIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a timezone that is no region's own — unknown, or a legacy alias — is refused, under that field")
+    @DisplayName("a timezone off the fixed list — unknown, a legacy alias, or a region's zone not offered — is refused")
     void refusesUnknownTimezone() throws Exception {
         String token = adminOf("Alok Kumar", "Zone Firm");
 
-        for (String refusedZone : List.of("Mars/Olympus", "EST", "Etc/GMT")) {
+        for (String refusedZone : List.of("Mars/Olympus", "EST", "Etc/GMT", "Asia/Tashkent")) {
             MvcResult refused = mvc.perform(patchProfile(token, """
                             {"fullName":"Alok Kumar","title":null,
                              "timezone":"%s","locale":"en"}""".formatted(refusedZone)))
@@ -91,7 +222,7 @@ class ProfileIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a zone saved before the region rule saves unchanged with the rest; only a new choice must be a region's")
+    @DisplayName("a zone saved before the fixed list saves unchanged with the rest; only a new choice must be listed")
     void keepsALegacyZoneUntilItIsChanged() throws Exception {
         String token = adminOf("Alok Kumar", "Legacy Zone Firm");
         jdbc.update("update app_lm_user set timezone = 'US/Pacific' where email = ?", "alok@" + domain);
@@ -161,6 +292,22 @@ class ProfileIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fullName").value("Alok Kumar"))
                 .andExpect(jsonPath("$.timezone").value("Asia/Dubai"));
+    }
+
+    private MockHttpServletRequestBuilder putDeviceZone(String token, String zone) {
+        return put("/api/v1/auth/me/device-time-zone")
+                .with(csrf())
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"timeZone\":\"%s\"}".formatted(zone));
+    }
+
+    private MockHttpServletRequestBuilder putDateTime(String token, String body) {
+        return put("/api/v1/workspace/date-time")
+                .with(csrf())
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body);
     }
 
     /** A verified admin of a fresh workspace, with tenant claims already in the token. */

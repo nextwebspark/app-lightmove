@@ -5,6 +5,7 @@ import type { ConversationEvent, ConversationGroup, ConversationMessage, Convers
 import type { Meeting } from "../api/meetingApi";
 import type { OutreachRun } from "../api/runApi";
 import { isLive, STOP_NOTES } from "./runVocabulary";
+import { dayKeyOf, formatDate, formatInstantTime, formatShortDate } from "../../../lib/datetime";
 
 /** The tone a mockup line is drawn in: `Outreach.dc.html`'s accent, green, red, signal and neutral. */
 export type ConversationTone = "accent" | "green" | "red" | "signal" | "neutral";
@@ -358,20 +359,17 @@ export function keyDateOf(isoInstant: string | null): string {
   if (!isoInstant) return "—";
   const at = new Date(isoInstant);
   if (Number.isNaN(at.getTime())) return "—";
-  return `${shortDateOf(at)} ${at.getFullYear()}`;
+  return formatDate(at).toUpperCase();
 }
 
 function clockOf(at: Date): string {
-  return at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return formatInstantTime(at) ?? "";
 }
 
-// Spelled out rather than asked of Intl: en-GB's short September is "Sept", which the mockup never draws.
-const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-
 function shortDateOf(at: Date): string {
-  return `${String(at.getDate()).padStart(2, "0")} ${MONTHS[at.getMonth()]}`;
+  return (formatShortDate(at) ?? "").toUpperCase();
 }
 
 function sameDay(left: Date, right: Date): boolean {
-  return left.toDateString() === right.toDateString();
+  return dayKeyOf(left) === dayKeyOf(right);
 }

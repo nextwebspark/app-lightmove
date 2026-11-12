@@ -1,3 +1,11 @@
+import {
+  dayKeyOf,
+  daysBetween,
+  formatInstantDate,
+  formatInstantDateTime,
+  formatInstantTime,
+} from "./datetime";
+
 /** Tiny display helpers shared across features — the roster, drawers and tables all speak these. */
 
 /** "ADMIN" → "Admin". */
@@ -18,55 +26,20 @@ export function industryDisplayName(label: string): string {
     .join(" ");
 }
 
-/** "2026-09-15" → "15 Sep 2026", the mockups' date shape. */
-export function formatDate(isoDate: string | null | undefined): string {
-  if (!isoDate) return "—";
-  return new Date(`${isoDate}T00:00:00`).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
+export {
+  formatDate,
+  formatInstantDate,
+  formatInstantDateTime,
+  formatInstantTime,
+  formatMonthYear,
+} from "./datetime";
 
 /**
- * Whole days from today to an ISO date, in the viewer's own zone: negative once it has passed. The server counts
- * in UTC, so near midnight the two can disagree by a day.
+ * Whole days from today to an ISO date, both read in the signed-in person's zone: negative once it has passed. The
+ * server counts in UTC, so near midnight the two can disagree by a day.
  */
-export function daysUntil(isoDate: string): number {
-  const today = new Date();
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  return Math.round((new Date(`${isoDate}T00:00:00`).getTime() - startOfToday.getTime()) / 86_400_000);
-}
-
-/**
- * An instant → "Mar 2026", the shape a "joined" line wants. Null when there is no instant, so the
- * caller can drop the clause rather than print a dash in the middle of a sentence.
- */
-export function formatMonthYear(isoInstant: string | null | undefined): string | null {
-  if (!isoInstant) return null;
-  const moment = new Date(isoInstant);
-  if (Number.isNaN(moment.getTime())) return null;
-  return moment.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
-}
-
-/**
- * An instant → "15 Sep 2026". The same shape {@link formatDate} produces, for the case where the
- * server sent a moment rather than a calendar date — a row's `addedAt`, where the time of day is
- * recorded but is not what the reader is being told.
- */
-export function formatInstantDate(isoInstant: string | null | undefined): string | null {
-  if (!isoInstant) return null;
-  const moment = new Date(isoInstant);
-  if (Number.isNaN(moment.getTime())) return null;
-  return moment.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-}
-
-/** An instant → "03 Oct 2026, 16:00" in the viewer's zone: the one shape a date with a time reads in. */
-export function formatInstantDateTime(isoInstant: string | null | undefined): string | null {
-  if (!isoInstant) return null;
-  const moment = new Date(isoInstant);
-  if (Number.isNaN(moment.getTime())) return null;
-  return `${formatInstantDate(isoInstant)}, ${clockOf(moment)}`;
+export function daysUntil(isoDate: string, now: Date = new Date()): number {
+  return daysBetween(dayKeyOf(now), isoDate);
 }
 
 /** How near a due moment is: overdue reads red, today amber, anything later plain. */
@@ -74,7 +47,7 @@ export type DueTone = "overdue" | "today" | "plain";
 
 /**
  * A due moment as a chip says it — "Today · 16:00", "Tomorrow · 09:00", "Overdue · 03 Oct 2026", or else
- * "08 Oct 2026, 09:00" — and its tone. Days are the viewer's own.
+ * "08 Oct 2026, 09:00" — and its tone. Days are the person's own.
  */
 export function describeDue(
   isoInstant: string | null | undefined,
@@ -83,26 +56,14 @@ export function describeDue(
   if (!isoInstant) return null;
   const due = new Date(isoInstant);
   if (Number.isNaN(due.getTime())) return null;
-  const dayOf = (moment: Date) => new Date(moment.getFullYear(), moment.getMonth(), moment.getDate()).getTime();
-  const days = Math.round((dayOf(due) - dayOf(now)) / 86_400_000);
+  const days = daysBetween(dayKeyOf(now), dayKeyOf(due));
+  const clock = formatInstantTime(due) ?? "";
   if (due.getTime() < now.getTime()) {
-    return { label: days === 0 ? `Overdue · ${clockOf(due)}` : `Overdue · ${formatInstantDate(isoInstant)}`, tone: "overdue" };
+    return { label: days === 0 ? `Overdue · ${clock}` : `Overdue · ${formatInstantDate(due)}`, tone: "overdue" };
   }
-  if (days === 0) return { label: `Today · ${clockOf(due)}`, tone: "today" };
-  if (days === 1) return { label: `Tomorrow · ${clockOf(due)}`, tone: "plain" };
-  return { label: formatInstantDateTime(isoInstant) ?? "", tone: "plain" };
-}
-
-/** An instant → "16:00" in the viewer's zone: a time of day where the day goes without saying. */
-export function formatInstantTime(isoInstant: string | null | undefined): string | null {
-  if (!isoInstant) return null;
-  const moment = new Date(isoInstant);
-  if (Number.isNaN(moment.getTime())) return null;
-  return clockOf(moment);
-}
-
-function clockOf(moment: Date): string {
-  return moment.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  if (days === 0) return { label: `Today · ${clock}`, tone: "today" };
+  if (days === 1) return { label: `Tomorrow · ${clock}`, tone: "plain" };
+  return { label: formatInstantDateTime(due) ?? "", tone: "plain" };
 }
 
 /** 450000 → "450,000". The money shape a package reads in, where the exact figure is the point. */

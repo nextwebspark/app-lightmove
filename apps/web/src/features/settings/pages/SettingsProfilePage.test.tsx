@@ -8,6 +8,16 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { AuthProvider } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
 import { SettingsProfilePage } from "./SettingsProfilePage";
+import { FOLLOWING_DATE_TIME } from "../../../test/fixtures/user";
+
+const picker = (name: string) => screen.getByRole("button", { name });
+
+/** Opens a Date & time picker and chooses an option, searching first where the picker searches. */
+async function pick(user: ReturnType<typeof userEvent.setup>, name: string, option: string | RegExp, search?: string) {
+  await user.click(picker(name));
+  if (search) await user.type(screen.getByRole("combobox", { name: `Search ${name.toLowerCase()}` }), search);
+  await user.click(screen.getByRole("option", { name: option }));
+}
 
 vi.mock("../../auth/api/authApi");
 
@@ -49,6 +59,7 @@ describe("SettingsProfilePage — your own profile", () => {
     emailVerified: true,
     hasPassword: true,
     timezone: "Asia/Dubai",
+    dateTime: FOLLOWING_DATE_TIME,
     locale: "en",
     platformActions: [],
     pendingInvitations: [],
@@ -95,8 +106,12 @@ describe("SettingsProfilePage — your own profile", () => {
 
     expect(await screen.findByLabelText(/full name/i)).toHaveValue("Alok Kumar");
     expect(screen.getByLabelText(/^title$/i)).toHaveValue("Managing Partner");
-    expect(screen.getByLabelText(/timezone/i)).toHaveValue("Asia/Dubai");
-    expect(screen.getByLabelText(/language/i)).toHaveValue("en");
+    // A person who chose nothing follows the workspace, which the first option names.
+    // Nobody pinned a zone, so it is Automatic: the zone this device is in.
+    expect(picker("Timezone")).toHaveTextContent(/^Automatic\(GMT[+-]\d{2}:\d{2}\) .+ · this device$/);
+    expect(picker("Date format")).toHaveTextContent(/^Workspace default/);
+    expect(picker("Time format")).toHaveTextContent("Workspace default14:30 · 24-hour");
+    expect(picker("Language")).toHaveTextContent("English");
 
     // Neither the address nor the role is an input — both are the workspace's to decide.
     expect(screen.getByText("alok@nextwebspark.com")).toBeInTheDocument();
@@ -111,7 +126,7 @@ describe("SettingsProfilePage — your own profile", () => {
     const name = await screen.findByLabelText(/full name/i);
     await user.clear(name);
     await user.type(name, "  Alok B Kumar  ");
-    await user.selectOptions(screen.getByLabelText(/timezone/i), "Asia/Riyadh");
+    await pick(user, "Timezone", /Riyadh, Jeddah/, "riyadh");
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() =>
@@ -119,6 +134,8 @@ describe("SettingsProfilePage — your own profile", () => {
         fullName: "Alok B Kumar",
         title: "Managing Partner",
         timezone: "Asia/Riyadh",
+        dateFormat: null,
+        timeFormat: null,
         locale: "en",
         phone: "",
         linkedinUrl: "",
@@ -129,24 +146,60 @@ describe("SettingsProfilePage — your own profile", () => {
     expect(await screen.findByText("Profile saved")).toBeInTheDocument();
   });
 
-  it("offers every region's zone by city, and the computer's own clock in one click", async () => {
+  it("opens on Automatic at this device's zone, offers the fixed zones to pin one, and goes back to Automatic", async () => {
     const computer = vi
       .spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions")
-      .mockReturnValue({ timeZone: "Europe/London" } as Intl.ResolvedDateTimeFormatOptions);
+      .mockReturnValue({ timeZone: "Europe/Madrid" } as Intl.ResolvedDateTimeFormatOptions);
     const user = userEvent.setup();
     renderPage();
 
-    const timezone = await screen.findByLabelText(/timezone/i);
-    expect(screen.getByRole("option", { name: /^New York \(GMT[−-]\d+\)$/ })).toHaveValue("America/New_York");
-    expect(screen.getByRole("option", { name: "UTC" })).toBeInTheDocument();
+    await screen.findByRole("button", { name: "Timezone" });
+    // A device zone off the fixed list still reads as itself.
+    expect(picker("Timezone")).toHaveTextContent(/^Automatic\(GMT\+0[12]:00\) Madrid · this device$/);
+    await user.click(screen.getByRole("button", { name: "Timezone" }));
+    expect(screen.getByRole("option", { name: /^\(GMT-0[45]:00\) Eastern Time \(New York\)$/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "(GMT+00:00) Coordinated Universal Time" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Tashkent/ })).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
     expect(screen.getByText("Sequences, scheduled emails and your daily digest follow this clock")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Use London" }));
-    expect(timezone).toHaveValue("Europe/London");
-    expect(screen.queryByRole("button", { name: "Use London" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /save changes/i }));
+    expect(screen.queryByRole("button", { name: /^Use / })).not.toBeInTheDocument();
 
+    await pick(user, "Timezone", /Dubai, Abu Dhabi/);
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
     await waitFor(() =>
-      expect(authApi.updateProfile).toHaveBeenCalledWith(expect.objectContaining({ timezone: "Europe/London" })),
+      expect(authApi.updateProfile).toHaveBeenCalledWith(expect.objectContaining({ timezone: "Asia/Dubai" })),
+    );
+
+    await pick(user, "Timezone", /^Automatic/);
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+    await waitFor(() =>
+      expect(authApi.updateProfile).toHaveBeenLastCalledWith(expect.objectContaining({ timezone: null })),
+    );
+    computer.mockRestore();
+  });
+
+  it("saves a format of their own, previewed as chosen, and Workspace default again as null", async () => {
+    const computer = vi
+      .spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions")
+      .mockReturnValue({ timeZone: "Asia/Dubai" } as Intl.ResolvedDateTimeFormatOptions);
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByRole("button", { name: "Date format" });
+    await pick(user, "Date format", /MMM D, YYYY/);
+    await pick(user, "Time format", "2:30 PM · 12-hour");
+    expect(screen.getByText(/^\w{3}, \w{3} \d{1,2}, \d{4}, \d{1,2}:\d{2} [AP]M GMT\+4 · Dubai, Abu Dhabi$/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+    await waitFor(() =>
+      expect(authApi.updateProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ timezone: null, dateFormat: "MMM_D_YYYY", timeFormat: "H12" }),
+      ),
+    );
+
+    await pick(user, "Time format", /^Workspace default/);
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+    await waitFor(() =>
+      expect(authApi.updateProfile).toHaveBeenLastCalledWith(expect.objectContaining({ timeFormat: null })),
     );
     computer.mockRestore();
   });

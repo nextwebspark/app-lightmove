@@ -1,7 +1,9 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Avatar } from "../../../components/ui/Avatar";
+import { DateInput } from "../../../components/ui/DateInput";
 import { cn } from "../../../lib/cn";
+import { formatDate } from "../../../lib/datetime";
 import * as reportApi from "../api/reportApi";
 import type { TeamRange } from "../api/reportApi";
 import type { CompanyCoverage, Researcher, ReportProgress, TeamPerformance } from "../api/types";
@@ -346,8 +348,7 @@ function seriesByResearcher(team: TeamPerformance): Map<string, { fill: string; 
 
 /** A projection past this year says its year — "9 May" alone would read as the coming May. */
 function formatProjectedDate(isoDate: string, asOf: string): string {
-  const short = formatShortDate(isoDate);
-  return isoDate.slice(0, 4) === asOf.slice(0, 4) ? short : `${short} ${isoDate.slice(0, 4)}`;
+  return isoDate.slice(0, 4) === asOf.slice(0, 4) ? formatShortDate(isoDate) : formatDate(isoDate);
 }
 
 function researcherMeta(row: Researcher): string {
@@ -403,28 +404,28 @@ function RangePills({
       </div>
       {active === "custom" && (
         <div className="flex items-center gap-2 text-[11.5px] text-u-text2">
-          <label className="flex items-center gap-1.5">
-            From
-            <input
-              type="date"
+          <span className="flex items-center gap-1.5">
+            <span aria-hidden="true">From</span>
+            <DateInput
+              ariaLabel="From"
               value={custom.from ?? ""}
               min={bounds.min}
               max={custom.to ?? bounds.max}
-              onChange={(event) => onCustomChange({ ...custom, from: event.target.value || undefined })}
-              className="rounded-md border border-u-border-strong bg-u-surface px-2 py-1 font-u-num text-u-text"
+              onChange={(isoDate) => onCustomChange({ ...custom, from: isoDate || undefined })}
+              className="w-auto gap-2 bg-u-surface px-2 py-1"
             />
-          </label>
-          <label className="flex items-center gap-1.5">
-            To
-            <input
-              type="date"
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span aria-hidden="true">To</span>
+            <DateInput
+              ariaLabel="To"
               value={custom.to ?? ""}
               min={custom.from ?? bounds.min}
               max={bounds.max}
-              onChange={(event) => onCustomChange({ ...custom, to: event.target.value || undefined })}
-              className="rounded-md border border-u-border-strong bg-u-surface px-2 py-1 font-u-num text-u-text"
+              onChange={(isoDate) => onCustomChange({ ...custom, to: isoDate || undefined })}
+              className="w-auto gap-2 bg-u-surface px-2 py-1"
             />
-          </label>
+          </span>
         </div>
       )}
       {active === "custom" && isBackwards && (

@@ -1,7 +1,6 @@
 package app.lightmove.api.core.security.model;
 
-import java.time.ZoneId;
 import java.util.UUID;
 
-/** A person moved their own clock in Settings → Profile; whatever keeps a copy of it follows in the same transaction. */
-public record TimezoneChanged(UUID userId, ZoneId zone) {}
+/** A person's settled zone moved — a pin, or their device while Automatic; whatever copies it reads it again. */
+public record TimezoneChanged(UUID userId) {}

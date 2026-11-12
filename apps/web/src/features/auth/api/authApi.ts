@@ -84,6 +84,11 @@ export function me(): Promise<User> {
  * `withCsrf` because this is a state change on the auth chain, where CSRF stays on — the same
  * double-submit refresh and logout use.
  */
+/** This browser's zone, for an Automatic clock's sending hours and digest. */
+export function reportDeviceTimeZone(timeZone: string): Promise<void> {
+  return request<void>("/auth/me/device-time-zone", { method: "PUT", body: { timeZone }, withCsrf: true });
+}
+
 export function updateProfile(payload: UpdateProfileRequest): Promise<User> {
   return request<User>("/auth/me", { method: "PATCH", body: payload, withCsrf: true });
 }

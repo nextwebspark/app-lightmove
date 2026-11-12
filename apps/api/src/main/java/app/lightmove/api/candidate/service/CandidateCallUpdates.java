@@ -14,18 +14,17 @@ import app.lightmove.api.candidate.model.ProfileFromCall;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.CandidateScorecardRepository;
 import app.lightmove.api.candidate.repository.CandidateTagRepository;
+import app.lightmove.api.common.time.service.DateTimeFormats;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.workspace.service.DateTimePreferenceService;
 import jakarta.servlet.http.HttpServletRequest;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,8 +46,6 @@ public class CandidateCallUpdates {
     static final String OPEN_TO_RELOCATE = "Open to relocate";
 
     private static final String PERSON_TARGET = "person";
-    private static final DateTimeFormatter CALL_DATE = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
-            .withZone(ZoneOffset.UTC);
 
     private final ProjectRepository projects;
     private final CandidateRepository candidates;
@@ -56,6 +53,7 @@ public class CandidateCallUpdates {
     private final CandidateTagRepository tags;
     private final PersonActivityRecorder activity;
     private final AuditService audit;
+    private final DateTimePreferenceService dateTimePreferences;
 
     @Transactional(readOnly = true)
     public CallHeldFields heldOf(UUID workspaceId, UUID projectId, UUID candidateId) {
@@ -109,8 +107,9 @@ public class CandidateCallUpdates {
                 .orElseGet(() -> CandidateScorecard.startFor(candidate, workspaceId));
         String previous = scorecard.getReport().textOf(ScorecardReportSection.MOTIVATION);
         Map<CallField, String> ordered = new EnumMap<>(words);
+        String callDate = DateTimeFormats.of(dateTimePreferences.workspaceDefaultsOf(workspaceId)).date(call.startsAt());
         String blocks = ordered.values().stream()
-                .map(text -> "From the call on " + CALL_DATE.format(call.startsAt()) + ": " + text.strip())
+                .map(text -> "From the call on " + callDate + ": " + text.strip())
                 .collect(Collectors.joining("\n\n"));
         String next = previous == null || previous.isBlank() ? blocks : previous.stripTrailing() + "\n\n" + blocks;
         if (next.length() > CandidateScorecard.MAX_REPORT_SECTION) {

@@ -1,6 +1,8 @@
 package app.lightmove.api.notification.service;
 
 import app.lightmove.api.candidate.service.CandidateTaskService;
+import app.lightmove.api.common.time.model.DateTimePreferences;
+import app.lightmove.api.common.time.service.DateTimeFormats;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.core.email.service.EmailSender;
@@ -24,6 +26,7 @@ import app.lightmove.api.task.model.DueDigest;
 import app.lightmove.api.task.model.DueDigestLine;
 import app.lightmove.api.task.model.TaskHolder;
 import app.lightmove.api.task.service.TaskService;
+import app.lightmove.api.workspace.service.DateTimePreferenceService;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.DayOfWeek;
@@ -32,10 +35,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -62,9 +64,6 @@ public class NotificationEmails {
     private static final int BATCH = 200;
     private static final int DIGEST_LINES = 8;
     private static final Duration DIGEST_HORIZON = Duration.ofHours(36);
-    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH);
-    private static final DateTimeFormatter DATE_TIME =
-            DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm", Locale.ENGLISH);
 
     private static final String CLAIM_EMAILS = """
             UPDATE app_lm_notification SET emailed_at = ?, version = version + 1
@@ -94,6 +93,7 @@ public class NotificationEmails {
     private final EmailSender emailSender;
     private final LightMoveProperties properties;
     private final Clock clock;
+    private final DateTimePreferenceService dateTimePreferences;
 
     @Scheduled(cron = "${lightmove.notifications.email-scan}", zone = "UTC")
     public void scheduledEmails() {
@@ -161,12 +161,13 @@ public class NotificationEmails {
                     position, link));
         }
         if (row.getKind() == NotificationKind.TASK_ASSIGNED && row.getTaskId() != null) {
-            ZoneId zone = to.zone();
+            DateTimeFormats formats = DateTimeFormats.of(dateTimePreferences.forPerson(to,
+                    dateTimePreferences.workspaceDefaultsOf(row.getWorkspaceId())));
             return tasks.find(row.getWorkspaceId(), row.getTaskId())
                     .filter(task -> "open".equals(task.status())
                             && row.getRecipientUserId().equals(task.assignee().userId()))
                     .map(task -> templates.buildTaskAssignedEmail(to.getEmail(), to.getFullName(), actorName,
-                            task.title(), executive, position, dueOf(task, zone), link));
+                            task.title(), executive, position, dueOf(task, formats), link));
         }
         return Optional.empty();
     }
@@ -190,6 +191,7 @@ public class NotificationEmails {
         });
         Map<UUID, User> people = users.findAllById(recipients.stream().map(TaskHolder::userId).distinct().toList())
                 .stream().collect(Collectors.toMap(User::getId, Function.identity()));
+        Map<UUID, DateTimePreferences> workspaceDefaults = new HashMap<>();
         int sent = 0;
         for (TaskHolder recipient : recipients) {
             User user = people.get(recipient.userId());
@@ -197,7 +199,11 @@ public class NotificationEmails {
                 continue;
             }
             try {
-                sent += WorkspaceScope.call(recipient.workspaceId(), () -> digestOne(recipient, user, now)) ? 1 : 0;
+                sent += WorkspaceScope.call(recipient.workspaceId(), () -> {
+                    DateTimePreferences defaults = workspaceDefaults.computeIfAbsent(recipient.workspaceId(),
+                            dateTimePreferences::workspaceDefaultsOf);
+                    return digestOne(recipient, user, dateTimePreferences.forPerson(user, defaults), now);
+                }) ? 1 : 0;
             } catch (RuntimeException failure) {
                 log.error("The digest for user {} in workspace {} could not be sent", recipient.userId(),
                         recipient.workspaceId(), failure);
@@ -206,10 +212,11 @@ public class NotificationEmails {
         return sent;
     }
 
-    private boolean digestOne(TaskHolder recipient, User user, Instant now) {
+    private boolean digestOne(TaskHolder recipient, User user, DateTimePreferences personal, Instant now) {
         UUID userId = recipient.userId();
         UUID workspaceId = recipient.workspaceId();
-        ZoneId zone = user.zone();
+        DateTimeFormats formats = DateTimeFormats.of(personal);
+        ZoneId zone = personal.zone();
         ZonedDateTime local = now.atZone(zone);
         if (local.getHour() != properties.notifications().digestHour() || isWeekend(local.getDayOfWeek())
                 || !workspaceAccess.isStaff(userId, workspaceId) || !preferences.digest(userId, workspaceId)) {
@@ -220,9 +227,9 @@ public class NotificationEmails {
         if ((due.isEmpty() && mentions == 0) || !claimDigest(userId, workspaceId, local.toLocalDate())) {
             return false;
         }
-        List<String> lines = due.lines().stream().map(line -> lineOf(line, zone)).toList();
+        List<String> lines = due.lines().stream().map(line -> lineOf(line, formats)).toList();
         emailSender.send(templates.buildNotificationDigestEmail(user.getEmail(), user.getFullName(),
-                DATE.format(local), due.dueToday(), due.overdue(), (int) mentions, lines,
+                formats.date(now), due.dueToday(), due.overdue(), (int) mentions, lines,
                 properties.web().baseUrl() + "/"));
         return true;
     }
@@ -238,15 +245,15 @@ public class NotificationEmails {
         return day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY;
     }
 
-    private static String lineOf(DueDigestLine line, ZoneId zone) {
-        String due = DATE_TIME.format(line.dueAt().atZone(zone));
+    private static String lineOf(DueDigestLine line, DateTimeFormats formats) {
+        String due = formats.dateTime(line.dueAt());
         String who = line.executiveName() == null ? "" : " — " + line.executiveName();
         String where = line.positionTitle() == null ? "" : ", " + line.positionTitle();
         return (line.overdue() ? "Overdue · " : "") + line.title() + who + where + " · due " + due;
     }
 
-    private static String dueOf(TaskResponse task, ZoneId zone) {
-        return task.dueAt() == null ? "with no date" : DATE_TIME.format(task.dueAt().atZone(zone));
+    private static String dueOf(TaskResponse task, DateTimeFormats formats) {
+        return task.dueAt() == null ? "with no date" : formats.dateTime(task.dueAt());
     }
 
     /** The bell's own destination (the SPA's `notificationHref`), so an email and its bell row open the same place. */

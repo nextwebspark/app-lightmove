@@ -60,5 +60,9 @@ public record RateLimitSettings(
          * Opening a stored profile photo: public, and a roster draws dozens at once from one office IP. Each answer is
          * cached for a year, so a browser asks once per picture; this is a brake on scanning tokens, nothing more.
          */
-        @DefaultValue("1200") int avatarReadsPerMinute
+        @DefaultValue("1200") int avatarReadsPerMinute,
+
+        /** A browser reporting its zone: a few an hour per person, a whole firm from one office IP. */
+        @DefaultValue("30") int deviceTimeZoneReportsPerHour,
+        @DefaultValue("600") int deviceTimeZoneReportsPerHourPerIp
 ) {}
