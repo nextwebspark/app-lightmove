@@ -45,6 +45,9 @@ spa/screenshots/          browser screenshots                    (gitignored)
 
 ## Running it
 
+It needs `curl`, `docker`, `jq`, `psql`, `openssl`, `node` and `python3` on `PATH`; `run-all.sh` refuses to start
+without them. On Windows, run it from Git Bash.
+
 ```bash
 cd e2e
 PROFILE=e2e ./run-all.sh       # everything; non-zero exit if any case failed
