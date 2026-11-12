@@ -28,6 +28,12 @@ export const CONSENT_SCOPES: readonly { scope: ApiKeyScope; label: string; note:
     note: "Their salary, bonus, allowances and incentives.",
     personalData: true,
   },
+  {
+    scope: "candidates.demographics:read",
+    label: "Gender and nationality",
+    note: "Their gender and nationality, where your team recorded them.",
+    personalData: true,
+  },
 ];
 
 /** The AI client's request as it arrived, or the error the authorization server sent the browser here with. */

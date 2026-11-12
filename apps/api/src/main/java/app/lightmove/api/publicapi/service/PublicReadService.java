@@ -121,8 +121,9 @@ public class PublicReadService {
                 null, page, pageSize), audience);
         boolean withContacts = reader.holds(ApiKeyScope.CANDIDATE_CONTACTS_READ);
         boolean withCompensation = reader.holds(ApiKeyScope.CANDIDATE_COMPENSATION_READ);
+        boolean withDemographics = reader.holds(ApiKeyScope.CANDIDATE_DEMOGRAPHICS_READ);
         List<PublicCandidate> rows = found.candidates().stream()
-                .map(candidate -> PublicCandidate.of(candidate, withContacts, withCompensation))
+                .map(candidate -> PublicCandidate.of(candidate, withContacts, withCompensation, withDemographics))
                 .toList();
         return new PublicPage<>(rows, found.page(), found.size(), found.totalCount());
     }
@@ -151,7 +152,8 @@ public class PublicReadService {
         return PublicCandidate.of(candidates.get(reader.workspaceId(), projectId, candidateId,
                         audienceOf(reader, projectId)),
                 reader.holds(ApiKeyScope.CANDIDATE_CONTACTS_READ),
-                reader.holds(ApiKeyScope.CANDIDATE_COMPENSATION_READ));
+                reader.holds(ApiKeyScope.CANDIDATE_COMPENSATION_READ),
+                reader.holds(ApiKeyScope.CANDIDATE_DEMOGRAPHICS_READ));
     }
 
     /** The company, and its executives only for a reader who may read executives. */
@@ -180,8 +182,9 @@ public class PublicReadService {
 
         boolean withContacts = reader.holds(ApiKeyScope.CANDIDATE_CONTACTS_READ);
         boolean withCompensation = reader.holds(ApiKeyScope.CANDIDATE_COMPENSATION_READ);
+        boolean withDemographics = reader.holds(ApiKeyScope.CANDIDATE_DEMOGRAPHICS_READ);
         Function<CandidateResponse, PublicCandidate> toPublic =
-                candidate -> PublicCandidate.of(candidate, withContacts, withCompensation);
+                candidate -> PublicCandidate.of(candidate, withContacts, withCompensation, withDemographics);
         List<PublicUniverseCompany> rows = paired.companies().companies().stream()
                 .map(company -> new PublicUniverseCompany(PublicCompany.of(company),
                         paired.peopleAt(company.id()).stream().map(toPublic).toList()))

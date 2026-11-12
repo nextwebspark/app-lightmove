@@ -19,8 +19,10 @@ import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.constant.WorkspaceMode;
 import app.lightmove.api.workspace.model.CalendarSyncChanged;
+import app.lightmove.api.workspace.model.InferredBackgroundCounts;
 import app.lightmove.api.workspace.model.SuggestedDateTime;
 import app.lightmove.api.workspace.model.Workspace;
+import app.lightmove.api.workspace.model.WorkspaceAiControls;
 import app.lightmove.api.workspace.model.WorkspaceDateTimeChanged;
 import app.lightmove.api.workspace.model.WorkspaceDeleted;
 import app.lightmove.api.workspace.repository.InvitationRepository;
@@ -36,6 +38,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -45,7 +48,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class WorkspaceSettingsService {
+public class WorkspaceSettingsService implements WorkspaceAiControlsReader {
 
     private final WorkspaceRepository workspaces;
     private final WorkspaceMemberRepository members;
@@ -58,6 +61,7 @@ public class WorkspaceSettingsService {
     private final DateTimePreferenceService dateTimePreferences;
     private final WorkspaceBillingClosure billing;
     private final UserRepository users;
+    private final InferredBackgroundEraser inferredBackground;
     private final LightMoveProperties properties;
     private final Clock clock;
 
@@ -187,6 +191,62 @@ public class WorkspaceSettingsService {
         return requireWorkspace(workspaceId).getCalendarSync();
     }
 
+    /**
+     * Turning an inference off clears what it left on the workspace's people in the same transaction, so a value
+     * the workspace has said it does not want is never held past the switch. The row is locked before anything is
+     * cleared, so an AI write in flight either lands first and is cleared, or waits and sees the switch off
+     * ({@link #aiControlsHeldForWrite}). A no-op change records nothing.
+     */
+    @Transactional
+    public WorkspaceDetail changeAiControls(UUID actorId, UUID workspaceId, WorkspaceAiControls controls,
+                                            HttpServletRequest request) {
+        Workspace workspace = workspaces.lockById(workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
+        WorkspaceAiControls previous = workspace.getAiControls();
+        if (previous.equals(controls)) {
+            return detail(workspace);
+        }
+        workspace.changeAiControls(controls);
+        InferredBackgroundCounts cleared = inferredBackground.clear(workspaceId,
+                previous.inferGender() && !controls.inferGender(),
+                previous.inferNationality() && !controls.inferNationality());
+        audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
+                .actor(actorId).workspace(workspaceId).from(request)
+                .detail("section", "aiControls")
+                .detailIfPresent("inferGender", switched(previous.inferGender(), controls.inferGender()))
+                .detailIfPresent("inferNationality",
+                        switched(previous.inferNationality(), controls.inferNationality()))
+                .detailIfPresent("draftAssessments",
+                        switched(previous.draftAssessments(), controls.draftAssessments()))
+                .detailIfPresent("enrichAutomatically",
+                        switched(previous.enrichAutomatically(), controls.enrichAutomatically()))
+                .detail("genderCleared", String.valueOf(cleared.gender()))
+                .detail("nationalityCleared", String.valueOf(cleared.nationality()))
+                .record();
+        return detail(workspace);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public WorkspaceAiControls aiControlsOf(UUID workspaceId) {
+        return requireWorkspace(workspaceId).getAiControls();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public WorkspaceAiControls aiControlsHeldForWrite(UUID workspaceId) {
+        return workspaces.lockForShareById(workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND))
+                .getAiControls();
+    }
+
+    /** What turning the two inferences off would clear now, for the confirmation's count. */
+    @Transactional(readOnly = true)
+    public InferredBackgroundCounts inferredBackgroundOf(UUID workspaceId) {
+        requireWorkspace(workspaceId);
+        return inferredBackground.heldIn(workspaceId);
+    }
+
     /** What a new brief and a new package start in; {@code position} reads it when it drafts a brief. */
     @Transactional(readOnly = true)
     public String defaultCurrencyOf(UUID workspaceId) {
@@ -234,6 +294,10 @@ public class WorkspaceSettingsService {
     private Workspace requireWorkspace(UUID workspaceId) {
         return workspaces.findById(workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
+    }
+
+    private static String switched(boolean before, boolean after) {
+        return before == after ? null : after ? "on" : "off";
     }
 
     private WorkspaceDetail detail(Workspace workspace) {

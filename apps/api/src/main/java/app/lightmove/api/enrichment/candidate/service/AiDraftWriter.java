@@ -25,9 +25,9 @@ class AiDraftWriter {
     private final CandidateService candidates;
     private final CandidateScorecardService scorecards;
 
-    CandidateResponse writeBackground(UUID projectId, UUID candidateId, UUID requestedBy,
+    CandidateResponse writeBackground(UUID workspaceId, UUID projectId, UUID candidateId, UUID requestedBy,
                                       BackgroundProposals proposals) {
-        return onceMoreIfRaced(() -> candidates.applyAiBackground(projectId, candidateId, requestedBy,
+        return onceMoreIfRaced(() -> candidates.applyAiBackground(workspaceId, projectId, candidateId, requestedBy,
                 proposals.background(), proposals.reading()));
     }
 

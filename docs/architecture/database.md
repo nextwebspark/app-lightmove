@@ -469,6 +469,11 @@ V209 seeds `PERSON_SUBJECT_ACCESS` to ADMIN alone: the subject access export (#9
 V210 adds the `SIGNATURE` kind to `app_lm_email_image`: a Custom signature's own uploaded picture, carrying both its
 person and its workspace (V193's policy already fences a row with a workspace), one per file per person per workspace
 by partial unique index on the content's SHA-256.
+V216 adds #922's four AI switches to `app_lm_workspace` (`ai_infer_gender`, `ai_infer_nationality`,
+`ai_draft_assessments`, `ai_enrich_automatically`): every workspace that existed is backfilled `true`, then the default
+becomes `false`, so a workspace founded since starts with all four off (`docs/gdpr/ai-controls-922.md`).
+V217 adds `candidates.demographics:read` to the scopes CHECKs of `app_lm_api_key` and `app_lm_oauth_client`: gender and
+nationality leave over the public API and MCP only under it.
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.

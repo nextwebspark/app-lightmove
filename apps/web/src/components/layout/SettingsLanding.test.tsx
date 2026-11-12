@@ -4,15 +4,9 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as billingApi from "../../features/billing/api/billingApi";
 import { aBilling } from "../../features/billing/test/fixtures";
-import * as dataProtectionApi from "../../features/candidates/api/dataProtectionApi";
 import { aUser } from "../../test/fixtures/user";
 import { SettingsLanding } from "./SettingsLayout";
 import { rememberSettingsSection, settingsLandingOf } from "./settingsSections";
-
-vi.mock("../../features/candidates/api/dataProtectionApi", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../features/candidates/api/dataProtectionApi")>()),
-  getDataProtectionConfig: vi.fn(),
-}));
 
 vi.mock("../../features/billing/api/billingApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../features/billing/api/billingApi")>()),
@@ -42,27 +36,14 @@ describe("the /settings landing and Data & retention", () => {
     vi.resetAllMocks();
     localStorage.clear();
     vi.mocked(billingApi.getBilling).mockResolvedValue(aBilling());
-    rememberSettingsSection(admin, "/settings/data", { dataProtection: true, billing: true });
+    rememberSettingsSection(admin, "/settings/data", { billing: true });
   });
 
-  it("lands on a remembered Data & retention only while the deployment offers it", () => {
-    expect(settingsLandingOf(admin, { dataProtection: true, billing: true })).toBe("/settings/data");
-    expect(settingsLandingOf(admin, { dataProtection: false, billing: true })).toBe("/settings/general");
-    expect(settingsLandingOf(admin)).toBe("/settings/general");
-  });
-
-  it("waits for the config, then lands on the remembered section", async () => {
-    vi.mocked(dataProtectionApi.getDataProtectionConfig).mockResolvedValue({ enabled: true });
+  it("lands on a remembered Data & retention whatever the deployment offers, since AI on people is always there", async () => {
+    expect(settingsLandingOf(admin, { billing: false })).toBe("/settings/data");
     renderLanding();
 
     expect(await screen.findByText("Data page")).toBeInTheDocument();
-  });
-
-  it("falls back to General where the deployment holds the controls back", async () => {
-    vi.mocked(dataProtectionApi.getDataProtectionConfig).mockResolvedValue({ enabled: false });
-    renderLanding();
-
-    expect(await screen.findByText("General page")).toBeInTheDocument();
   });
 });
 
@@ -70,8 +51,7 @@ describe("the /settings landing and Billing", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     localStorage.clear();
-    vi.mocked(dataProtectionApi.getDataProtectionConfig).mockResolvedValue({ enabled: false });
-    rememberSettingsSection(admin, "/settings/billing", { dataProtection: false, billing: true });
+    rememberSettingsSection(admin, "/settings/billing", { billing: true });
   });
 
   it("lands on a remembered Billing while the deployment bills", async () => {

@@ -57,6 +57,21 @@ class CandidateAiEnricherTest {
     }
 
     @Test
+    @DisplayName("a field the workspace has switched off is neither asked nor kept from the answer (#922)")
+    void anUnaskedFieldIsNeitherListedNorKept() {
+        RecordingChatModel model = new RecordingChatModel(FULL_ANSWER);
+
+        InferredBackground inferred = enricherOver(model)
+                .infer(dossier(ALL_MISSING), MaterialText.NONE,
+                        EnumSet.of(BackgroundField.YEARS_EXPERIENCE, BackgroundField.SENIORITY))
+                .orElseThrow();
+
+        assertThat(inferred).isEqualTo(new InferredBackground(null, 14, Seniority.N_MINUS_1));
+        assertThat(model.prompts.getLast()).contains("Background fields still to propose: yearsExperience, seniority")
+                .doesNotContain("propose: gender");
+    }
+
+    @Test
     @DisplayName("nationality is never asked of this call — the classifier answers it")
     void nationalityIsNotAsked() {
         RecordingChatModel model = new RecordingChatModel(FULL_ANSWER);

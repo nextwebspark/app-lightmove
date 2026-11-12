@@ -113,6 +113,18 @@ public abstract class FlowTestSupport {
         return body(result).at("/workspace/id").asText();
     }
 
+    /**
+     * Turns on all four of #922's AI switches, which a workspace founded since V216 starts with off — for a test about
+     * what the AI does rather than whether the workspace lets it.
+     */
+    protected void switchOnPeopleAi(String workspaceId) {
+        vendorCache.update("""
+                UPDATE app_lm_workspace SET ai_infer_gender = true, ai_infer_nationality = true,
+                       ai_draft_assessments = true, ai_enrich_automatically = true
+                WHERE id = ?::uuid
+                """, workspaceId);
+    }
+
     /** Admin invites, invitee signs up verified and accepts — the fast path to a second member. */
     protected void inviteAndAccept(String adminToken, String name, String inviteeEmail, String role)
             throws Exception {

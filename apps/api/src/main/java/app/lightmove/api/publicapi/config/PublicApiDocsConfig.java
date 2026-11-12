@@ -153,6 +153,7 @@ public class PublicApiDocsConfig implements WebMvcConfigurer {
                 | `candidates:read` | Each position's executives: profile, company and status |
                 | `candidates.contacts:read` | Fills an executive's `contacts`; null without it |
                 | `candidates.compensation:read` | Fills an executive's `compensation`; null without it |
+                | `candidates.demographics:read` | Fills an executive's `gender` and `nationality`; null without it |
 
                 An executive's seniority, nationality, gender and years of experience are null until a person \
                 has recorded or confirmed them. Notes and AI assessments are never sent.

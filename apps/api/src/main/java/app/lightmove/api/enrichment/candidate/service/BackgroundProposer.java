@@ -24,7 +24,9 @@ class BackgroundProposer {
     BackgroundProposals propose(CandidateDossier dossier, MaterialText material, BackgroundNeeds needs) {
         try (ExecutorService threads = Executors.newVirtualThreadPerTaskExecutor()) {
             CompletableFuture<InferredBackground> background = CompletableFuture.supplyAsync(
-                    () -> needs.inferring() ? enricher.infer(dossier, material).orElse(null) : null, threads);
+                    () -> needs.inferring().isEmpty() ? null
+                            : enricher.infer(dossier, material, needs.inferring()).orElse(null),
+                    threads);
             CompletableFuture<NationalityReading> reading = CompletableFuture.supplyAsync(
                     () -> needs.classifying() ? nationalityClassifier.classify(dossier, material).orElse(null) : null,
                     threads);

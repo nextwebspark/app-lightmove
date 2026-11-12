@@ -280,6 +280,10 @@ public enum ErrorCode {
     CANDIDATE_ASSESSMENT_NOTHING_OPEN(HttpStatus.CONFLICT,
             "Every score and section is already your team's. There is nothing left for the AI to draft"),
 
+    /** The workspace has switched AI-drafted assessments off (#922); a consultant still scores by hand. */
+    AI_ASSESSMENT_DISABLED(HttpStatus.CONFLICT,
+            "This workspace has turned off AI-drafted assessments. An admin can turn them on in Settings"),
+
     /** The model answered nothing usable, or could not be reached. Nothing was written or charged. */
     AI_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "The AI could not answer just now. Try again in a moment"),
 

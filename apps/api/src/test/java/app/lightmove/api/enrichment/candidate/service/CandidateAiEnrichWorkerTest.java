@@ -3,6 +3,7 @@ package app.lightmove.api.enrichment.candidate.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import app.lightmove.api.candidate.constant.AiEnrichTrigger;
@@ -12,6 +13,8 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.EnrichmentSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
+import app.lightmove.api.workspace.model.WorkspaceAiControls;
+import app.lightmove.api.workspace.service.WorkspaceAiControlsReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -64,14 +67,33 @@ class CandidateAiEnrichWorkerTest {
         assertThat(ran).hasSize(CandidateAiEnrichWorker.CONCURRENT_RUNS + 1);
     }
 
+    @Test
+    @DisplayName("a workspace that does not run the AI on capture has nothing of the person read (#922)")
+    void aWorkspaceWithTheSwitchOffRunsNothing() {
+        CandidateService candidates = mock(CandidateService.class);
+        WorkspaceAiControlsReader workspaces = mock(WorkspaceAiControlsReader.class);
+        when(workspaces.aiControlsOf(any(UUID.class))).thenReturn(new WorkspaceAiControls(true, true, true, false));
+
+        workerOver(candidates, workspaces).enrich(requestFor(UUID.randomUUID()));
+
+        verifyNoInteractions(candidates);
+    }
+
     private static CandidateAiEnrichWorker workerOver(CandidateService candidates) {
+        WorkspaceAiControlsReader workspaces = mock(WorkspaceAiControlsReader.class);
+        when(workspaces.aiControlsOf(any(UUID.class))).thenReturn(WorkspaceAiControls.allOn());
+        return workerOver(candidates, workspaces);
+    }
+
+    private static CandidateAiEnrichWorker workerOver(CandidateService candidates,
+                                                      WorkspaceAiControlsReader workspaces) {
         EnrichmentSettings settings = mock(EnrichmentSettings.class);
         when(settings.aiEnrichOnCapture()).thenReturn(true);
         LightMoveProperties properties = mock(LightMoveProperties.class);
         when(properties.enrichment()).thenReturn(settings);
         return new CandidateAiEnrichWorker(mock(BackgroundProposer.class), candidates,
                 mock(CandidateMaterialReader.class), mock(AiDraftWriter.class), mock(LlmBudgetGuard.class),
-                mock(AuditService.class), properties);
+                mock(AuditService.class), properties, workspaces);
     }
 
     private static CandidateAiEnrichRequested requestFor(UUID candidateId) {

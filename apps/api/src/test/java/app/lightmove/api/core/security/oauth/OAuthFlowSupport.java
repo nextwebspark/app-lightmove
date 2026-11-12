@@ -31,7 +31,7 @@ public abstract class OAuthFlowSupport extends FlowTestSupport {
     protected static final String REDIRECT = "https://claude.ai/api/mcp/auth_callback";
     protected static final String CLIENT_STATE = "client-state-1";
     protected static final List<String> EVERY_SCOPE = List.of("projects:read", "companies:read", "candidates:read",
-            "candidates.contacts:read", "candidates.compensation:read");
+            "candidates.contacts:read", "candidates.compensation:read", "candidates.demographics:read");
 
     @Autowired protected OAuthClientJpaRepository clients;
     @Autowired protected McpServerIdentity identity;

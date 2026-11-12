@@ -10,6 +10,7 @@ import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -46,11 +47,26 @@ public class CandidateAiEnricher {
         return infer(dossier, MaterialText.NONE);
     }
 
-    /** Empty when the model could not be reached or answered nothing usable; a blocked prompt is refused instead. */
     Optional<InferredBackground> infer(CandidateDossier dossier, MaterialText material) {
+        return infer(dossier, material, askedOf(dossier.missingBackground()));
+    }
+
+    /** What of these fields the dossier is missing: everything this call may propose for it. */
+    static Set<BackgroundField> askedOf(Set<BackgroundField> missing) {
+        Set<BackgroundField> asked = EnumSet.noneOf(BackgroundField.class);
+        missing.stream().filter(INFERRED::contains).forEach(asked::add);
+        return asked;
+    }
+
+    /**
+     * Proposes only the fields {@code asked}: a field the workspace has switched off is neither listed to the model
+     * nor kept from its answer. Empty when the model could not be reached or answered nothing usable; a blocked
+     * prompt is refused instead.
+     */
+    Optional<InferredBackground> infer(CandidateDossier dossier, MaterialText material, Set<BackgroundField> asked) {
         ModelAnswer answered;
         try {
-            answered = ask(dossier, material);
+            answered = ask(dossier, material, asked);
         } catch (RuntimeException e) {
             log.warn("Candidate AI background skipped: {}", e.toString());
             return Optional.empty();
@@ -58,10 +74,10 @@ public class CandidateAiEnricher {
         if (answered != null && BlockedAnswer.matches(answered.gender())) {
             throw AiRefusals.blockedText();
         }
-        return Optional.ofNullable(answered).map(found -> backgroundOf(found, dossier.missingBackground()));
+        return Optional.ofNullable(answered).map(found -> backgroundOf(found, asked));
     }
 
-    private ModelAnswer ask(CandidateDossier dossier, MaterialText material) {
+    private ModelAnswer ask(CandidateDossier dossier, MaterialText material, Set<BackgroundField> asked) {
         return prompt.ask(ModelAnswer.class, user -> user.text("""
                 THE CANDIDATE (their LinkedIn profile)
                 {profile}
@@ -78,11 +94,11 @@ public class CandidateAiEnricher {
                 .param("profile", DossierText.of(dossier))
                 .param("notes", material.notes())
                 .param("documents", material.documents())
-                .param("missing", missingOf(dossier.missingBackground()))
+                .param("missing", missingOf(asked))
                 .param("today", LocalDate.now(ZoneOffset.UTC).toString()));
     }
 
-    /** Only what was missing when the run began; {@code Person.proposeBackground} re-checks at write. */
+    /** Only what was asked, which was missing when the run began; {@code Person.proposeBackground} re-checks at write. */
     private static InferredBackground backgroundOf(ModelAnswer answered, Set<BackgroundField> missing) {
         return new InferredBackground(
                 missing.contains(BackgroundField.GENDER) ? genderOf(answered) : null,
