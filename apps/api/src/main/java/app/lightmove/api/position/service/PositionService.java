@@ -113,6 +113,11 @@ public class PositionService {
                         .filter(PositionPriority::isSelected)
                         .map(PositionPriority::getName)
                         .toList(),
+                position.statedMandateReason().orElse(null),
+                position.getEmploymentType(),
+                position.reportsToTitle().orElse(null),
+                position.directReportTitles(),
+                position.getTeamSize(),
                 position.getCriteria().stream()
                         .map(criterion -> new BriefCriterion(criterion.getText(), criterion.getMode()))
                         .toList(),

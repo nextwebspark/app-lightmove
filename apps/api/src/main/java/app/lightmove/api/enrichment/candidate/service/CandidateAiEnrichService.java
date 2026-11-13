@@ -20,6 +20,7 @@ import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.position.model.AssessmentBrief;
+import app.lightmove.api.position.service.PositionDescriptionReader;
 import app.lightmove.api.position.service.PositionService;
 import app.lightmove.api.workspace.model.WorkspaceAiControls;
 import app.lightmove.api.workspace.service.WorkspaceAiControlsReader;
@@ -41,6 +42,7 @@ public class CandidateAiEnrichService {
     private final CandidateService candidates;
     private final CandidateScorecardService scorecards;
     private final PositionService positions;
+    private final PositionDescriptionReader positionDescriptions;
     private final BackgroundProposer backgroundProposer;
     private final CandidateScorecardDrafter drafter;
     private final CandidateMaterialReader materialReader;
@@ -63,7 +65,8 @@ public class CandidateAiEnrichService {
         llmBudget.require(LlmBudget.CANDIDATE_AI_ENRICH, userId);
         fairUse.check(workspaceId, userId, UsageKind.AI_ENRICH, 1);
         MaterialText material = materialReader.read(projectId, candidateId);
-        requested(AiRunScope.BACKGROUND, material, userId, workspaceId, projectId, candidateId, httpRequest);
+        requested(AiRunScope.BACKGROUND, material.noteCount(), material.documentCount(), 0, false, userId,
+                workspaceId, projectId, candidateId, httpRequest);
 
         BackgroundProposals proposals = backgroundProposer.propose(dossier, material, needs);
         if (proposals.holdsNothing()) {
@@ -89,10 +92,14 @@ public class CandidateAiEnrichService {
         }
         llmBudget.require(LlmBudget.CANDIDATE_AI_ASSESSMENT, userId);
         fairUse.check(workspaceId, userId, UsageKind.AI_ENRICH, 1);
-        MaterialText material = materialReader.readForAssessment(projectId, candidateId);
-        requested(AiRunScope.ASSESSMENT, material, userId, workspaceId, projectId, candidateId, httpRequest);
+        AssessmentMaterial material = materialReader.readForAssessment(projectId, candidateId);
+        String positionDescription = positionDescriptions
+                .textOf(workspaceId, projectId, CandidateMaterialReader.MAX_POSITION_DESCRIPTION)
+                .orElse(null);
+        requested(AiRunScope.ASSESSMENT, material.noteCount(), material.documentCount(), material.transcripts().count(),
+                positionDescription != null, userId, workspaceId, projectId, candidateId, httpRequest);
 
-        AiScorecardDraft draft = drafter.draft(dossier, brief, material)
+        AiScorecardDraft draft = drafter.draft(dossier, brief, positionDescription, material)
                 .orElseThrow(() -> ApiException.of(ErrorCode.AI_UNAVAILABLE));
         CandidateScorecardResponse answer = writer.writeScorecard(workspaceId, projectId, candidateId, userId, draft);
         usage.record(MeteredUse.of(workspaceId, userId, projectId, UsageKind.AI_ENRICH, 1));
@@ -113,17 +120,19 @@ public class CandidateAiEnrichService {
     }
 
     /**
-     * Says how many notes, documents and call transcripts left for the model with the profile: a CV sent out is a CV
-     * out of the app.
+     * Says how many notes, documents and call transcripts left for the model with the profile, and whether the client's
+     * position description did: a CV sent out is a CV out of the app.
      */
-    private void requested(AiRunScope scope, MaterialText material, UUID userId, UUID workspaceId, UUID projectId,
+    private void requested(AiRunScope scope, int notesSent, int documentsSent, int transcriptsSent,
+                           boolean positionDescriptionSent, UUID userId, UUID workspaceId, UUID projectId,
                            UUID candidateId, HttpServletRequest httpRequest) {
         audit.projectEvent(ProjectEventType.CANDIDATE_AI_ENRICH_REQUESTED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .detail("scope", scope.name())
-                .detail("notesSent", String.valueOf(material.noteCount()))
-                .detail("documentsSent", String.valueOf(material.documentCount()))
-                .detail("transcriptsSent", String.valueOf(material.transcriptCount()))
+                .detail("notesSent", String.valueOf(notesSent))
+                .detail("documentsSent", String.valueOf(documentsSent))
+                .detail("transcriptsSent", String.valueOf(transcriptsSent))
+                .detail("positionDescriptionSent", String.valueOf(positionDescriptionSent))
                 .record();
     }
 }

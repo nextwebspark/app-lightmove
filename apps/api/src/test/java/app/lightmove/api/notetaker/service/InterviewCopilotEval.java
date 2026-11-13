@@ -72,7 +72,7 @@ class InterviewCopilotEval {
             "Finance", "Dubai", "United Arab Emirates",
             "A listed ports group needs a CFO to refinance its debt and modernise finance.",
             List.of("Own the group's capital structure", "Lead the finance function of 120 people"),
-            "Debt maturities in 2027", List.of("Refinance before 2027"),
+            "Debt maturities in 2027", List.of("Refinance before 2027"), null, null, null, List.of(), null,
             List.of(new BriefCriterion("Has led a refinancing above USD 500m", CriterionMode.REQUIRED)),
             new BriefCompetencies(List.of(TREASURY, TEAMS, DIGITAL, BOARD), 60));
 

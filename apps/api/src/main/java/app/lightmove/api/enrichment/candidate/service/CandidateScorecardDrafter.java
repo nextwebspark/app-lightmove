@@ -22,10 +22,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * One model call drafting a consultant's assessment from the profile, the team's notes, the documents on file and the
- * transcripts of the calls the position recorded: a score out of 10 and its evidence per competency, and the five
- * report sections. The total out of 100 is never the model's — {@code ScorecardScoring} weighs the scores exactly as
- * it weighs a consultant's.
+ * One model call drafting a consultant's assessment against the brief — the client's benchmark — from everything on
+ * file, in its order of weight: the position's call transcripts, the call and meeting notes, the CV and profile, then
+ * every other note and document. A score out of 10 and its evidence per competency, and the five report sections. The
+ * total out of 100 is never the model's — {@code ScorecardScoring} weighs the scores exactly as it weighs a
+ * consultant's.
  */
 @Service
 @Slf4j
@@ -47,14 +48,15 @@ public class CandidateScorecardDrafter {
      * with no score and no section is never written or charged. A blocked prompt is asked again without the call
      * transcripts, then refused.
      */
-    Optional<AiScorecardDraft> draft(CandidateDossier dossier, AssessmentBrief brief, MaterialText material) {
+    Optional<AiScorecardDraft> draft(CandidateDossier dossier, AssessmentBrief brief, String positionDescription,
+                                     AssessmentMaterial material) {
         Map<String, BriefCompetency> competencyById = idsOf(brief.competencies().competencies());
         if (competencyById.isEmpty()) {
             return Optional.empty();
         }
         ModelAnswer answered;
         try {
-            answered = ask(dossier, brief, material, competencyById);
+            answered = ask(dossier, brief, positionDescription, material, competencyById);
         } catch (RuntimeException e) {
             log.warn("Candidate scorecard draft skipped: {}", e.toString());
             return Optional.empty();
@@ -63,11 +65,11 @@ public class CandidateScorecardDrafter {
             return Optional.empty();
         }
         if (answered.report() != null && BlockedAnswer.matches(answered.report().careerSummary())) {
-            if (material.transcriptCount() > 0) {
+            if (material.transcripts().count() > 0) {
                 // Anyone in a call speaks into its transcript and nobody can reword it, so a remark there costs the
                 // calls' evidence, never the whole assessment.
                 log.info("Candidate scorecard draft asked again without the call transcripts the guard stopped");
-                return draft(dossier, brief, material.withoutTranscripts());
+                return draft(dossier, brief, positionDescription, material.withoutTranscripts());
             }
             throw AiRefusals.blockedText();
         }
@@ -77,26 +79,19 @@ public class CandidateScorecardDrafter {
                 ? Optional.empty() : Optional.of(draft);
     }
 
-    private ModelAnswer ask(CandidateDossier dossier, AssessmentBrief brief, MaterialText material,
-                            Map<String, BriefCompetency> competencyById) {
+    private ModelAnswer ask(CandidateDossier dossier, AssessmentBrief brief, String positionDescription,
+                            AssessmentMaterial material, Map<String, BriefCompetency> competencyById) {
         return prompt.ask(ModelAnswer.class, user -> user.text("""
-                THE CANDIDATE (their LinkedIn profile)
-                {profile}
-
-                NOTES ON FILE (the team's own, newest first)
-                {notes}
-
-                CALL TRANSCRIPTS (newest first; time into the call, speaker, words)
-                {transcripts}
-
-                DOCUMENTS ON FILE
-                {documents}
-
-                THE ROLE
+                THE BRIEF — the client's benchmark for this position
                 Title: {roleTitle}
                 Level: {seniority}
                 Department: {department}
                 Location: {location}
+                Employment: {employmentType}
+                Why the role exists: {mandateReason}
+                Reports to: {reportsTo}
+                Direct reports: {directReports}
+                Team size: {teamSize}
                 About the role: {narrative}
                 Business driver: {businessDriver}
                 Strategic priorities: {priorities}
@@ -109,15 +104,43 @@ public class CandidateScorecardDrafter {
 
                 Competencies to score (technical carries {technicalShare}% of the assessment, behavioural the rest):
                 {competencies}
+
+                The client's position description (their own document; the client is named as a placeholder):
+                {positionDescription}
+
+                EVIDENCE ON FILE, IN ORDER OF WEIGHT
+
+                1. CALL TRANSCRIPTS (newest first; time into the call, speaker and their role, words)
+                {transcripts}
+
+                2. CALL AND MEETING NOTES (the team's own record, newest first)
+                {conversationNotes}
+
+                3. THE CANDIDATE'S OWN ACCOUNT — self-reported
+                CV:
+                {cvs}
+
+                LinkedIn profile:
+                {profile}
+
+                4. OTHER RECORDS
+                Other notes (the team's own, newest first):
+                {otherNotes}
+
+                Other documents (references, cover letters, certificates, assessments and the rest):
+                {otherDocuments}
                 """)
-                .param("profile", DossierText.of(dossier))
-                .param("notes", material.notes())
-                .param("transcripts", material.transcripts())
-                .param("documents", material.documents())
                 .param("roleTitle", DossierText.orNotStated(brief.roleTitle()))
                 .param("seniority", brief.seniority() == null ? DossierText.NOT_STATED : brief.seniority().value())
                 .param("department", DossierText.orNotStated(brief.department()))
                 .param("location", DossierText.placeOf(brief.locationCity(), brief.locationCountry()))
+                .param("employmentType", brief.employmentType() == null ? DossierText.NOT_STATED
+                        : brief.employmentType().promptLabel())
+                .param("mandateReason", brief.mandateReason() == null ? DossierText.NOT_STATED
+                        : brief.mandateReason().promptLabel())
+                .param("reportsTo", DossierText.orNotStated(brief.reportsTo()))
+                .param("directReports", DossierText.listOf(brief.directReports()))
+                .param("teamSize", DossierText.orNotStated(brief.teamSize()))
                 .param("narrative", DossierText.orNotStated(brief.narrative()))
                 .param("businessDriver", DossierText.orNotStated(brief.businessDriver()))
                 .param("priorities", DossierText.listOf(brief.strategicPriorities()))
@@ -131,7 +154,15 @@ public class CandidateScorecardDrafter {
                         .map(entry -> "- %s [%s, weight %d] %s%s".formatted(entry.getKey(),
                                 entry.getValue().panel().value(), entry.getValue().weight(), entry.getValue().name(),
                                 entry.getValue().description() == null ? "" : ": " + entry.getValue().description()))
-                        .collect(Collectors.joining("\n"))));
+                        .collect(Collectors.joining("\n")))
+                .param("positionDescription", positionDescription == null || positionDescription.isBlank()
+                        ? MaterialText.NONE_ON_FILE : positionDescription)
+                .param("transcripts", material.transcripts().text())
+                .param("conversationNotes", material.conversationNotes().text())
+                .param("cvs", material.cvs().text())
+                .param("profile", DossierText.of(dossier))
+                .param("otherNotes", material.otherNotes().text())
+                .param("otherDocuments", material.otherDocuments().text()));
     }
 
     /** T1, T2, … for the technical panel and B1, B2, … for the behavioural, each in the brief's own order. */

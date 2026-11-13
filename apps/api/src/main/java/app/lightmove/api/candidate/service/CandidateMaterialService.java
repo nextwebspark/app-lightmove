@@ -61,12 +61,13 @@ public class CandidateMaterialService {
     public List<TranscriptOnFile> transcriptsOf(UUID projectId, UUID candidateId) {
         return candidates.findByIdAndProjectId(candidateId, projectId)
                 .map(Candidate::getPerson)
-                .map(person -> transcripts.transcriptsOf(person.getWorkspaceId(), projectId, person.getId(), notes
-                        .findReadableNewestFirst(person.getWorkspaceId(), person.getId(),
-                                NoteViewpoint.position(projectId))
-                        .stream()
-                        .map(PersonNote::getId)
-                        .toList()))
+                .map(person -> transcripts.transcriptsOf(person.getWorkspaceId(), projectId, person.getId(),
+                        person.getFullName(), notes
+                                .findReadableNewestFirst(person.getWorkspaceId(), person.getId(),
+                                        NoteViewpoint.position(projectId))
+                                .stream()
+                                .map(PersonNote::getId)
+                                .toList()))
                 .orElse(List.of());
     }
 

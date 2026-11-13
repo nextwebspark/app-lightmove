@@ -1,5 +1,7 @@
 package app.lightmove.api.enrichment.candidate.service;
 
+import app.lightmove.api.candidate.constant.PersonDocumentCategory;
+import app.lightmove.api.candidate.constant.PersonNoteKind;
 import app.lightmove.api.candidate.model.CandidateMaterial;
 import app.lightmove.api.candidate.model.DocumentOnFile;
 import app.lightmove.api.candidate.model.NoteOnFile;
@@ -28,9 +30,9 @@ import org.springframework.stereotype.Component;
 /**
  * Writes out what the team has filed on a person for a prompt: every note the position reads, newest first, and the
  * text of the latest file of every document a text can be read from — an image or a scan without a text layer is left
- * out — and, for the assessment alone, the transcripts of the calls the position recorded with them. Emails and phone
- * numbers are taken out of all three, and each is held to a share of the prompt, so one long file or call never crowds
- * out the rest.
+ * out — and, for the assessment alone, the transcripts of the calls the position recorded with them, everything split
+ * into the groups the assessment weighs in turn. Emails and phone numbers are taken out of all of it, and each group
+ * and each item is held to a share of the prompt, so one long file or call never crowds out the rest.
  */
 @Component
 @RequiredArgsConstructor
@@ -47,7 +49,16 @@ class CandidateMaterialReader {
     static final int MAX_TRANSCRIPT = 150_000;
     static final int MAX_TRANSCRIPTS = 250_000;
     static final int LEAST_TRANSCRIPT = 2_000;
-    static final String TEAM_MARK = "(your team)";
+    /** A call or meeting note is often the only record of an unrecorded interview, so it is read near whole. */
+    static final int MAX_CONVERSATION_NOTE = 8_000;
+    static final int MAX_CONVERSATION_NOTES = 40_000;
+    static final int MAX_CVS = 30_000;
+    static final int MAX_POSITION_DESCRIPTION = 30_000;
+    static final Set<PersonNoteKind> CONVERSATION_KINDS = Set.of(PersonNoteKind.CALL, PersonNoteKind.MEETING);
+    static final String CANDIDATE_MARK = "Candidate";
+    static final String TEAM_MARK = "Interviewer, your team";
+    static final String OTHER_MARK = "Other participant, not the candidate";
+    static final String UNCONFIRMED_MARK = "Unconfirmed speaker";
     static final String EARLIER_CALLS_LEFT_OUT = "- earlier calls left out";
 
     private static final Set<String> READABLE = Stream.of(DocumentFormat.PDF, DocumentFormat.DOCX, DocumentFormat.DOC,
@@ -60,16 +71,39 @@ class CandidateMaterialReader {
 
     MaterialText read(UUID projectId, UUID candidateId) {
         CandidateMaterial filed = material.materialOf(projectId, candidateId);
-        List<String> notes = notesOf(filed.notes());
-        List<String> documents = documentsOf(filed.documents());
-        int notesSent = notes.size() - (notes.contains(OLDER_NOTES_LEFT_OUT) ? 1 : 0);
-        return new MaterialText(joined(notes, "\n"), joined(documents, "\n\n"), notesSent, documents.size());
+        List<String> notes = notesOf(filed.notes(), MAX_NOTE, MAX_NOTES);
+        List<String> documents = documentsOf(filed.documents(), MAX_DOCUMENTS);
+        return new MaterialText(joined(notes, "\n"), joined(documents, "\n\n"), countOf(notes), documents.size());
     }
 
-    MaterialText readForAssessment(UUID projectId, UUID candidateId) {
+    AssessmentMaterial readForAssessment(UUID projectId, UUID candidateId) {
+        CandidateMaterial filed = material.materialOf(projectId, candidateId);
         List<String> calls = transcriptsOf(material.transcriptsOf(projectId, candidateId));
+        List<String> conversationNotes = notesOf(filed.notes().stream()
+                .filter(note -> CONVERSATION_KINDS.contains(note.kind()))
+                .toList(), MAX_CONVERSATION_NOTE, MAX_CONVERSATION_NOTES);
+        List<String> otherNotes = notesOf(filed.notes().stream()
+                .filter(note -> !CONVERSATION_KINDS.contains(note.kind()))
+                .toList(), MAX_NOTE, MAX_NOTES);
+        List<String> cvs = documentsOf(filed.documents().stream().filter(CandidateMaterialReader::isCv).toList(),
+                MAX_CVS);
+        List<String> otherDocuments = documentsOf(filed.documents().stream()
+                .filter(document -> !isCv(document))
+                .toList(), MAX_DOCUMENTS);
         int callsSent = calls.size() - (calls.contains(EARLIER_CALLS_LEFT_OUT) ? 1 : 0);
-        return read(projectId, candidateId).withTranscripts(joined(calls, "\n\n"), callsSent);
+        return new AssessmentMaterial(new MaterialGroup(joined(calls, "\n\n"), callsSent),
+                new MaterialGroup(joined(conversationNotes, "\n"), countOf(conversationNotes)),
+                new MaterialGroup(joined(cvs, "\n\n"), cvs.size()),
+                new MaterialGroup(joined(otherNotes, "\n"), countOf(otherNotes)),
+                new MaterialGroup(joined(otherDocuments, "\n\n"), otherDocuments.size()));
+    }
+
+    private static boolean isCv(DocumentOnFile document) {
+        return document.primaryCv() || document.category() == PersonDocumentCategory.CV;
+    }
+
+    private static int countOf(List<String> notes) {
+        return notes.size() - (notes.contains(OLDER_NOTES_LEFT_OUT) ? 1 : 0);
     }
 
     /**
@@ -97,7 +131,7 @@ class CandidateMaterialReader {
         return read;
     }
 
-    /** A speaker's consecutive lines are one turn, stamped with when it began; the team's speakers are marked. */
+    /** A speaker's consecutive lines are one turn, stamped with when it began and marked with who is speaking. */
     private static String turnsOf(TranscriptOnFile transcript) {
         StringBuilder text = new StringBuilder();
         String speaking = null;
@@ -122,17 +156,23 @@ class CandidateMaterialReader {
 
     private static String speakerOf(SpokenLine line) {
         String name = line.speaker() == null || line.speaker().isBlank() ? "Unnamed speaker" : line.speaker().strip();
-        return line.team() ? name + " " + TEAM_MARK : name;
+        String role = switch (line.role()) {
+            case CANDIDATE -> CANDIDATE_MARK;
+            case TEAM -> TEAM_MARK;
+            case OTHER -> OTHER_MARK;
+            case UNCONFIRMED -> UNCONFIRMED_MARK;
+        };
+        return name + " (" + role + ")";
     }
 
-    private static List<String> notesOf(List<NoteOnFile> notes) {
+    private static List<String> notesOf(List<NoteOnFile> notes, int maxEach, int maxTotal) {
         List<String> lines = new ArrayList<>();
         int total = 0;
         for (NoteOnFile note : notes) {
             String line = "- [%s · %s%s] %s".formatted(note.kind().promptLabel(), DAY.format(note.writtenAt()),
                     note.aboutPosition() == null ? "" : " · about " + note.aboutPosition(),
-                    cut(ContactRedaction.redact(note.body().strip()), MAX_NOTE));
-            if (total + line.length() > MAX_NOTES) {
+                    cut(ContactRedaction.redact(note.body().strip()), maxEach));
+            if (total + line.length() > maxTotal) {
                 lines.add(OLDER_NOTES_LEFT_OUT);
                 break;
             }
@@ -143,9 +183,9 @@ class CandidateMaterialReader {
     }
 
     /** A file that still fits is cut to what is left of the budget, so a long one never shuts out the next. */
-    private List<String> documentsOf(List<DocumentOnFile> documents) {
+    private List<String> documentsOf(List<DocumentOnFile> documents, int maxTotal) {
         List<String> read = new ArrayList<>();
-        int left = MAX_DOCUMENTS;
+        int left = maxTotal;
         for (DocumentOnFile document : documents) {
             String heading = "=== %s: %s ===\n".formatted(labelOf(document.category().name()), document.title());
             int room = Math.min(MAX_DOCUMENT, left - heading.length() - CUT.length());

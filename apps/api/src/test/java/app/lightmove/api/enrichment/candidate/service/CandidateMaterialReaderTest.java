@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import app.lightmove.api.candidate.constant.CallSpeakerRole;
 import app.lightmove.api.candidate.constant.PersonDocumentCategory;
 import app.lightmove.api.candidate.constant.PersonNoteKind;
 import app.lightmove.api.candidate.model.CandidateMaterial;
@@ -91,47 +92,51 @@ class CandidateMaterialReaderTest {
     }
 
     @Test
-    @DisplayName("a call's transcript reaches the assessment as speaker turns, the team marked and contacts taken out")
+    @DisplayName("a call's transcript reaches the assessment as speaker turns, each role marked and contacts taken out")
     void transcriptIsWrittenAsTurnsWithContactsRedacted() {
         Instant start = Instant.parse("2026-10-12T14:00:00Z");
         when(material.materialOf(PROJECT, CANDIDATE)).thenReturn(CandidateMaterial.NONE);
         when(material.transcriptsOf(PROJECT, CANDIDATE)).thenReturn(List.of(new TranscriptOnFile("First conversation",
                 start, List.of(
-                        new SpokenLine(start.plusSeconds(5), "Yara Haddad", "Tell me about the IPO.", true),
-                        new SpokenLine(start.plusSeconds(65), "Priya Raman", "I led the finance team through it.", false),
-                        new SpokenLine(start.plusSeconds(70), "Priya Raman", "Write to priya@example.com.", false),
-                        new SpokenLine(start.plusSeconds(3_725), "Yara Haddad", "Thanks.", true)))));
+                        new SpokenLine(start.plusSeconds(5), "Yara Haddad", "Tell me about the IPO.",
+                                CallSpeakerRole.TEAM),
+                        new SpokenLine(start.plusSeconds(65), "Priya Raman", "I led the finance team through it.",
+                                CallSpeakerRole.CANDIDATE),
+                        new SpokenLine(start.plusSeconds(70), "Priya Raman", "Write to priya@example.com.",
+                                CallSpeakerRole.CANDIDATE),
+                        new SpokenLine(start.plusSeconds(3_725), "Yara Haddad", "Thanks.", CallSpeakerRole.TEAM)))));
 
-        MaterialText text = reader.readForAssessment(PROJECT, CANDIDATE);
+        AssessmentMaterial text = reader.readForAssessment(PROJECT, CANDIDATE);
 
-        assertThat(text.transcriptCount()).isEqualTo(1);
-        assertThat(text.transcripts()).startsWith("=== Call: First conversation · 12 Oct 2026 ===")
-                .contains("[00:05] Yara Haddad (your team): Tell me about the IPO.",
-                        "[01:05] Priya Raman: I led the finance team through it. Write to",
-                        "[1:02:05] Yara Haddad (your team): Thanks.")
+        assertThat(text.transcripts().count()).isEqualTo(1);
+        assertThat(text.transcripts().text()).startsWith("=== Call: First conversation · 12 Oct 2026 ===")
+                .contains("[00:05] Yara Haddad (Interviewer, your team): Tell me about the IPO.",
+                        "[01:05] Priya Raman (Candidate): I led the finance team through it. Write to",
+                        "[1:02:05] Yara Haddad (Interviewer, your team): Thanks.")
                 .doesNotContain("priya@example.com");
     }
 
     @Test
-    @DisplayName("a long call keeps its start and end, a call past the budget is left out, and Background reads none")
+    @DisplayName("a long call keeps its start and end, and a call past the budget is left out")
     void transcriptsShareTheBudget() {
         Instant start = Instant.parse("2026-10-12T14:00:00Z");
         // Words rather than one long run of letters: the contact patterns are slow on a single endless token.
         TranscriptOnFile longCall = new TranscriptOnFile("Long call", start, List.of(
-                new SpokenLine(start, "Priya Raman", "OPENING " + "said ".repeat(20_000), false),
-                new SpokenLine(start.plusSeconds(60), "Yara Haddad", "asked ".repeat(16_000) + "CLOSING", true)));
+                new SpokenLine(start, "Priya Raman", "OPENING " + "said ".repeat(20_000), CallSpeakerRole.CANDIDATE),
+                new SpokenLine(start.plusSeconds(60), "Yara Haddad", "asked ".repeat(16_000) + "CLOSING",
+                        CallSpeakerRole.TEAM)));
         when(material.materialOf(PROJECT, CANDIDATE)).thenReturn(CandidateMaterial.NONE);
         when(material.transcriptsOf(PROJECT, CANDIDATE)).thenReturn(List.of(longCall, longCall, longCall));
 
-        MaterialText text = reader.readForAssessment(PROJECT, CANDIDATE);
+        AssessmentMaterial text = reader.readForAssessment(PROJECT, CANDIDATE);
 
-        assertThat(text.transcriptCount()).isEqualTo(2);
-        assertThat(text.transcripts()).contains("OPENING", "CLOSING", "the middle of the call is left out")
+        assertThat(text.transcripts().count()).isEqualTo(2);
+        assertThat(text.transcripts().text()).contains("OPENING", "CLOSING", "the middle of the call is left out")
                 .endsWith(CandidateMaterialReader.EARLIER_CALLS_LEFT_OUT);
-        assertThat(text.transcripts().length()).isLessThanOrEqualTo(CandidateMaterialReader.MAX_TRANSCRIPTS + 100);
-        assertThat(text.transcripts().split("=== Call: ")).allSatisfy(block ->
+        assertThat(text.transcripts().text().length())
+                .isLessThanOrEqualTo(CandidateMaterialReader.MAX_TRANSCRIPTS + 100);
+        assertThat(text.transcripts().text().split("=== Call: ")).allSatisfy(block ->
                 assertThat(block.isEmpty() || block.length() >= CandidateMaterialReader.LEAST_TRANSCRIPT).isTrue());
-        assertThat(reader.read(PROJECT, CANDIDATE).transcripts()).isEqualTo(MaterialText.NONE_ON_FILE);
     }
 
     @Test
@@ -142,16 +147,44 @@ class CandidateMaterialReaderTest {
         for (int minute = 0; minute < 90; minute++) {
             String words = (minute == 45 ? "MIDDLE " : "") + "we talked about the role and the team ".repeat(24);
             lines.add(new SpokenLine(start.plusSeconds(minute * 60L), minute % 2 == 0 ? "Priya Raman" : "Yara Haddad",
-                    words, minute % 2 == 1));
+                    words, minute % 2 == 1 ? CallSpeakerRole.TEAM : CallSpeakerRole.CANDIDATE));
         }
         when(material.materialOf(PROJECT, CANDIDATE)).thenReturn(CandidateMaterial.NONE);
         when(material.transcriptsOf(PROJECT, CANDIDATE))
                 .thenReturn(List.of(new TranscriptOnFile("Ninety minutes", start, lines)));
 
-        MaterialText text = reader.readForAssessment(PROJECT, CANDIDATE);
+        AssessmentMaterial text = reader.readForAssessment(PROJECT, CANDIDATE);
 
-        assertThat(text.transcripts().length()).isGreaterThan(80_000);
-        assertThat(text.transcripts()).contains("MIDDLE").doesNotContain("the middle of the call is left out");
+        assertThat(text.transcripts().text().length()).isGreaterThan(80_000);
+        assertThat(text.transcripts().text()).contains("MIDDLE").doesNotContain("the middle of the call is left out");
+    }
+
+    @Test
+    @DisplayName("the assessment reads every note and document, split into its groups, each held to its own budget")
+    void theAssessmentSplitsWhatIsOnFileIntoItsGroups() {
+        Instant day = Instant.parse("2026-10-01T09:00:00Z");
+        String longMeeting = "Led the board through the refinancing. " + "z".repeat(6_000);
+        when(material.materialOf(PROJECT, CANDIDATE)).thenReturn(new CandidateMaterial(List.of(
+                new NoteOnFile(PersonNoteKind.MEETING, day, null, longMeeting),
+                new NoteOnFile(PersonNoteKind.CALL, day, null, "Notice is three months."),
+                new NoteOnFile(PersonNoteKind.EMAIL, day, null, "Asked for the role outline.")), List.of(
+                document("CV", PersonDocumentCategory.CV, DocumentFormat.PDF),
+                document("Former chair", PersonDocumentCategory.REFERENCE, DocumentFormat.DOCX))));
+        when(material.open(any())).thenAnswer(call -> new ByteArrayInputStream(new byte[] {1}));
+        when(textReader.readUpTo(any(), anyInt()))
+                .thenAnswer(call -> "x".repeat(Math.min(25_000, (int) call.getArgument(1))));
+
+        AssessmentMaterial text = reader.readForAssessment(PROJECT, CANDIDATE);
+
+        assertThat(text.conversationNotes().text()).contains("- [Meeting · ", longMeeting, "- [Call · ",
+                "Notice is three months.").doesNotContain("role outline");
+        assertThat(text.otherNotes().text()).startsWith("- [Email · ").contains("Asked for the role outline.");
+        assertThat(text.cvs().text()).startsWith("=== CV: CV ===").doesNotContain("Former chair");
+        assertThat(text.otherDocuments().text()).startsWith("=== Reference: Former chair ===");
+        assertThat(text.otherDocuments().text().length()).isGreaterThan(20_000);
+        assertThat(text.noteCount()).isEqualTo(3);
+        assertThat(text.documentCount()).isEqualTo(2);
+        assertThat(text.transcripts().text()).isEqualTo(MaterialText.NONE_ON_FILE);
     }
 
     private static DocumentOnFile document(String title, PersonDocumentCategory category, DocumentFormat format) {

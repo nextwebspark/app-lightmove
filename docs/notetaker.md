@@ -267,8 +267,11 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 - **To Gemini:** the transcript with contacts redacted, and the brief's assessment seam — once to write the note, once
   to find the changes once the notes are filed or on a **Suggest changes** press (with the record's notice period, location, relocation tag and motivation — no package —
   never a contact), and again on each **Assess with AI** press on that position while the note is live (`MeetingTranscriptLookup`, read by
-  `CandidateMaterialReader`, newest call first, 150k characters a call with its start and end kept, 250k in all). A
-  speaker whose name is a staff member's or the scheduler's is marked "(your team)" in code. A recording whose summary
+  `CandidateMaterialReader`, newest call first, 150k characters a call with its start and end kept, 250k in all). Every
+  voice is given its role in code (`CallSpeakerRole`, by `TeamVoices`' rules — the copilot's): a staff member's or the
+  scheduler's is "(Interviewer, your team)", the executive's "(Candidate)", anyone else's on a call whose executive was
+  told apart "(Other participant, not the candidate)", and the rest "(Unconfirmed speaker)"; only the candidate's words
+  are evidence. A recording whose summary
   failed has no note yet, so its transcript is not read until **Try again** files one. A transcript the prompt guard
   stops is dropped and the assessment asked again without transcripts, so a remark in a call never blocks it.
 - **Kept:** the note, and the transcript and its suggestions (staff-only, on the recording row) — by default for as

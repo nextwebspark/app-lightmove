@@ -45,13 +45,15 @@ public enum AiUse {
     ASSESSMENT_DRAFT("candidate-scorecard-draft-system.st", "Assessment draft",
             "When a consultant asks for it, a language model drafts the consultant's assessment of you against one"
                     + " position's brief: for each competency the brief scores, the evidence it found and a score from"
-                    + " 0 to 10 against a fixed scale, and a written report. It reads your profile, the team's notes,"
-                    + " the documents on file and the transcripts of calls the team recorded with you, contact details"
-                    + " taken out; it is never given your compensation. A score read from your career alone is held"
-                    + " between 3 and 7 and marked as inferred. The weighting and the total are calculated by the"
-                    + " software, not by the model. Every drafted value stays marked as the AI's until a consultant"
-                    + " edits it or reviews and submits the assessment. It can be asked for only while the workspace"
-                    + " holding your record has AI-drafted assessments switched on."),
+                    + " 0 to 10 against a fixed scale, and a written report. It reads the brief and the client's"
+                    + " position description, the transcripts of calls the team recorded with you, the team's notes,"
+                    + " your CV and profile and the other documents on file, contact details taken out; it is never"
+                    + " given your compensation. Only your own words on a call count as evidence from it, never an"
+                    + " interviewer's. A score resting on your CV, your profile or your career alone is held between 3"
+                    + " and 7. The weighting and the total are calculated by the software, not by the model. Every"
+                    + " drafted value stays marked as the AI's until a consultant edits it or reviews and submits the"
+                    + " assessment. It can be asked for only while the workspace holding your record has AI-drafted"
+                    + " assessments switched on."),
 
     MEETING_SUMMARY("meeting-summary-system.st", "Call notes from the Notetaker",
             "When a consultant records a call with you through the Notetaker, a language model reads the transcript"

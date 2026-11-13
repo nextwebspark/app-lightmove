@@ -1,6 +1,8 @@
 package app.lightmove.api.position.model;
 
+import app.lightmove.api.common.constant.EmploymentType;
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.position.constant.MandateReason;
 import java.util.List;
 
 /**
@@ -8,6 +10,8 @@ import java.util.List;
  * the weighted competencies. Never the compensation or the internal context, which have no bearing on a score.
  *
  * @param strategicPriorities the selected ones only
+ * @param reportsTo           the title of the seat above the mandate's in the org chart, never its holder's name
+ * @param directReports       the titles of the seats below it
  */
 public record AssessmentBrief(
         String roleTitle,
@@ -19,6 +23,11 @@ public record AssessmentBrief(
         List<String> responsibilities,
         String businessDriver,
         List<String> strategicPriorities,
+        MandateReason mandateReason,
+        EmploymentType employmentType,
+        String reportsTo,
+        List<String> directReports,
+        String teamSize,
         List<BriefCriterion> criteria,
         BriefCompetencies competencies
 ) {}

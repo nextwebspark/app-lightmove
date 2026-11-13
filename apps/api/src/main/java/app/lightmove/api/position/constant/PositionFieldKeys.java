@@ -15,7 +15,9 @@ public final class PositionFieldKeys {
     public static final Set<String> DETAILS =
             Set.of("department", "locationCity", "locationCountry", "employmentType", "seniority", "narrative");
 
-    public static final Set<String> CONTEXT = Set.of("mandateReason", "businessDriver");
+    public static final String MANDATE_REASON = "mandateReason";
+
+    public static final Set<String> CONTEXT = Set.of(MANDATE_REASON, "businessDriver");
 
     public static final Set<String> REPORTING = Set.of("teamSize", "noticeValue", "noticeUnit");
 
