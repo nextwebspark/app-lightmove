@@ -32,7 +32,7 @@ Without these four, the first bad day is an incident rather than a bug report. E
 
 ### 2. Legal sign-off on candidate AI enrichment — protected attributes and data residency
 
-**What goes wrong without it.** The enrichment prompt infers **gender from a name and pronouns** and **nationality from a profile**. It writes both into real candidate columns, flagged only by `ai_inferred_fields`, and it scores the person 1–10. Hiring is a regulated use of AI: the EU AI Act lists it as high-risk, and GDPR and UAE PDPL both treat these attributes as special. Everything is processed in `us-central1`, whatever the client's contract says.
+**What goes wrong without it.** The enrichment prompt infers **gender from a name and pronouns** and **nationality from a profile**. It writes both into real candidate columns, flagged only by `ai_inferred_fields`, and it scores the person 1–10. Hiring is a regulated use of AI: the EU AI Act lists it as high-risk, and GDPR and UAE PDPL both treat these attributes as special. Vertex AI runs at `location: global` (`GOOGLE_CLOUD_LOCATION` is unset), so a call may be served from any region, whatever the client's contract says (#925).
 
 **Done when:**
 - gender and nationality inference is **off by default**, a per-workspace opt-in — ✅ #922 (V216): four switches on
