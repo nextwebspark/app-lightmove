@@ -206,7 +206,7 @@ set.
 | The audit trail | A security and legal record; the floor is for counsel to set, and deleting rows needs a maintenance role (#256). |
 | The contact-credit ledger | A financial record; it cannot be changed. |
 | Suppression list entries | Until an Admin removes them. Removing one lets the person back in. |
-| Accounts, workspaces, members, mailbox and Zoom connections | While they are live; removed by offboarding (#926, not built yet). |
+| Accounts, workspaces, members, mailbox and Zoom connections | While they are live; removed by account deletion and the workspace purge (#926). |
 | Pictures used in sent email signatures | A sent email still shows them. |
 
 The full table-by-table schedule is [retention-schedule.md](retention-schedule.md). A build test fails if a new
@@ -231,7 +231,7 @@ entry or lift a restriction until the switch is back on.
 ## 8. Not built yet
 
 - Hiding a restricted person from client seats (waits on counsel).
-- Cross-workspace suppression, for an objection sent to Uncava about vendor-sourced data (#920).
-- Workspace offboarding and account deletion (#926).
+- Cross-workspace suppression, for an objection sent to Uncava about vendor-sourced data (#920). Until then, such a
+  request follows [subject-requests-procedure.md](subject-requests-procedure.md).
 - Deleting audit rows past a retention floor (#256).
 - Counsel's sign-off on every period (#930).

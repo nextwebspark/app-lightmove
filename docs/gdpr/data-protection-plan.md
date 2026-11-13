@@ -36,11 +36,11 @@ access by us).
 |---|---|---|---|
 | G1 | Humans get direct DB access to **all tenants**, any Google account (consumer included), read or write, outside the app's audit trail. | `ops/cloudsql/grant-db-user.sh` | Fails "can your developers see our data?" |
 | G2 | Hosting in `us-central1`; Vertex at `location: global`. | `deploy.yml` `REGION`, `application.yml` | GCC residency questions (UAE/KSA PDPL). |
-| G3 | Workspace deletion is soft; all data stays. | `WorkspaceSettingsService.delete` | Contract-end deletion clause. |
-| G4 | No erasure of an executive (`app_lm_person`); "remove" only unmaps. | `CandidateController` DELETE | GDPR/PDPL data-subject requests. |
-| G5 | No retention policy for people, audit log, transcripts by default. | — | Every DPA asks. |
-| G6 | No MFA, SAML/OIDC SSO, or SCIM. | — | First enterprise checkbox. |
-| G7 | No DB-level isolation (Postgres RLS). | no `CREATE POLICY` anywhere | Defence in depth on questionnaires. |
+| G3 | ✅ Closed (#926): `WorkspacePurge` deletes a workspace 30 days after deletion, with a certificate. Was: workspace deletion is soft; all data stays. | `WorkspaceSettingsService.delete` | Contract-end deletion clause. |
+| G4 | ✅ Closed (#918): `PersonErasureService`. Was: no erasure of an executive (`app_lm_person`); "remove" only unmaps. | `CandidateController` DELETE | GDPR/PDPL data-subject requests. |
+| G5 | 🟡 Mostly closed (#921): `retention-schedule.md`, `RetentionSweeper` (off until `RETENTION_ENABLED`), the candidate review. Audit-log retention waits on #256. Was: no retention policy. | — | Every DPA asks. |
+| G6 | 🟡 MFA built (TOTP and recovery codes, behind `MFA_ENABLED`); no per-workspace enforcement, SAML/OIDC SSO or SCIM. | — | First enterprise checkbox. |
+| G7 | ✅ Closed: forced row-level security on every tenant table (V184, V190, V192). | `docs/security/row-level-security.md` | Defence in depth on questionnaires. |
 | G8 | PII encrypted only by Google default at rest; no CMEK/BYOK. | — | Enterprise "own keys" ask. |
 | G9 | No DPA, subprocessor list, security overview, incident/breach policy, certification, pen test. | — | Procurement blocker. |
 | G10 | Backups / PITR / restore drill not documented. **Read 2026-11-10: automated backups and PITR are off**, and the one on-demand backup never expires. | `docs/gdpr/security-of-processing.md` | "What is your RPO/RTO?" |

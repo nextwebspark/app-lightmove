@@ -100,7 +100,7 @@ once by `ops/cloudsql/scrub-audit-pii.sql`.
 | `app_lm_usage_event` | user | fair use and billing usage | 400 days ⚖️ | age | `RetentionSweeper` |
 | `app_lm_credit_hold` | user, person | a paid find in flight | with the ledger | — | — |
 | `app_lm_credit_entry` | user, person | the contact-credit ledger, append-only | statutory ⚖️; financial record | — | none: append-only (#256) |
-| `app_lm_audit_event` | actor, ids; never a name or contact in its details (#927) | the security audit trail | statutory ⚖️; floor set by counsel | — | none until #256 |
+| `app_lm_audit_event` | actor, ids, IP address, browser line; never a name or contact in its details (#927) | the security audit trail | statutory ⚖️; floor set by counsel | — | none until #256 |
 | `app_lm_workspace_suppression` | one-way hashes only | who no door may file again | until an admin removes the entry | removal | — |
 | `app_lm_vendor_person` | an executive's vendor record | the people cache, shared by every workspace | `lightmove.enrichment.people-cache-ttl` (30 days) | age, erasure | `RetentionSweeper` |
 | `app_lm_vendor_people_search` | profile slugs a search returned | the people cache | `lightmove.enrichment.people-cache-ttl` (30 days) | age, erasure | `RetentionSweeper` |
