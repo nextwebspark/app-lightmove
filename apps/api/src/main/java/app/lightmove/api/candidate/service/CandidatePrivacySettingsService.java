@@ -11,6 +11,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -107,15 +108,19 @@ public class CandidatePrivacySettingsService {
         if (url == null) {
             return null;
         }
+        if (!isHttpsLinkWithHost(url)) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "noticeUrl", "Enter a link starting with https://");
+        }
+        return url;
+    }
+
+    private static boolean isHttpsLinkWithHost(String url) {
         try {
             URI uri = new URI(url);
-            if ("https".equalsIgnoreCase(uri.getScheme()) && uri.getHost() != null && uri.getHost().contains(".")) {
-                return url;
-            }
-        } catch (java.net.URISyntaxException invalid) {
-            // Falls through to the refusal below.
+            return "https".equalsIgnoreCase(uri.getScheme()) && uri.getHost() != null && uri.getHost().contains(".");
+        } catch (URISyntaxException invalid) {
+            return false;
         }
-        throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "noticeUrl", "Enter a link starting with https://");
     }
 
     private static String blankToNull(String value) {
