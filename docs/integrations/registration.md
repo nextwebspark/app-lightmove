@@ -108,8 +108,9 @@ Then the repository variables `deploy.yml` reads, per environment:
 The reviewers read the privacy policy, and the signup page already links `/privacy` — **which serves nothing yet**.
 Publish it before submitting any review, and add:
 
-- **Google, Microsoft and Zoom data access:** Uncava reads the sender of messages in threads it sent (never message
-  content), sends email the consultant composed, reads calendar events only to keep those with people in the
+- **Google, Microsoft and Zoom data access:** Uncava reads the sender and the text of replies in threads it sent
+  (`gmail.readonly` / `Mail.ReadWrite`, to show the conversation; on Google, where the owner may untick the read,
+  the sender only), never other messages, sends email the consultant composed, reads calendar events only to keep those with people in the
   workspace (title, time, attendees, join link — never descriptions or bodies), reads free/busy, and creates calendar
   events and Zoom meetings the consultant books. Refresh tokens are stored encrypted and revoked on disconnect.
 - **Google's Limited Use** statement: use of data from Google APIs adheres to the Google API Services User Data

@@ -75,10 +75,11 @@ gender proposal, and the assessment draft.
 
 ## Left for #930 and later ⚖️
 
-- The DPIA (`docs/gdpr/` once written) and the Art. 22 position: AI output is a draft and a consultant decides. That
+- The DPIA ([dpia.md](dpia.md), draft for counsel) and the Art. 22 position: AI output is a draft and a consultant decides. That
   is already true on screen and stated in `AiUse.NO_SOLELY_AUTOMATED_DECISION`.
 - Whether nationality inference stays at all for people in the EU/EEA/UK.
-- `SourcedHitRanking` picks which search hits Find executives files. It decides who is *added*, never who is
-  rejected, but counsel should confirm that is not an automated decision about a person.
+- `SuggestionJudge` and `SeatFit`, fixed rules with no model, pick which search hits Find executives files. They
+  decide who is *added*, never who is rejected, but counsel should confirm that is not an automated decision about a
+  person ([dpia.md](dpia.md) §4).
 - The report's diversity chapter still counts an unconfirmed AI nationality while the switch is on
   (`docs/ai-production-readiness.md` §2 asks it not to).
