@@ -33,7 +33,7 @@ import { AddToPositionDialog } from "./AddToPositionDialog";
 import { focusNoteComposer } from "../../../notes/lib/focusNoteComposer";
 import { formatInstantDateTime } from "../../../../lib/datetime";
 import { ActionMenu, MenuItem, MenuSeparator } from "../../../../components/ui/ActionMenu";
-import { useIsWorkspaceAdmin } from "../../../billing/lib/useBilling";
+import { useIsWorkspaceAdmin } from "../../../auth/useIsWorkspaceAdmin";
 import { ErasePersonDialog } from "./ErasePersonDialog";
 import { RestrictProcessingDialog } from "./RestrictProcessingDialog";
 import { SubjectAccessExportDialog } from "./SubjectAccessExportDialog";

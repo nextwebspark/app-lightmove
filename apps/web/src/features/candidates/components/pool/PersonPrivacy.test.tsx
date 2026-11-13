@@ -26,8 +26,7 @@ vi.mock("../../api/candidatePrivacyApi", async (importOriginal) => ({
   getCandidatePrivacy: vi.fn(),
 }));
 const admin = vi.hoisted(() => ({ value: true }));
-vi.mock("../../../billing/lib/useBilling", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../../billing/lib/useBilling")>()),
+vi.mock("../../../auth/useIsWorkspaceAdmin", () => ({
   useIsWorkspaceAdmin: () => admin.value,
 }));
 
@@ -59,6 +58,7 @@ const PERSON = {
     noticeChannel: null,
   },
   addedAt: "2026-07-01T10:00:00Z",
+  source: "extension",
 } as unknown as PersonRecord;
 
 const NOTIFIED: PersonRecord = {
@@ -126,6 +126,11 @@ describe("the drawer's privacy record", () => {
 
     const preview = await screen.findByLabelText("Notice preview");
     expect(within(preview).getByText(/Meridian Search Partners FZ-LLC via Uncava/)).toBeInTheDocument();
+    expect(
+      within(preview).getByText(
+        "Meridian Search Partners FZ-LLC holds some of your professional details, such as your name, career history and work contact details, which came from your public professional profile. We hold them to consider you for senior roles, on the basis of our legitimate interest in finding people for senior roles.",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText(/at noor@example.com/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Send notice" }));
 

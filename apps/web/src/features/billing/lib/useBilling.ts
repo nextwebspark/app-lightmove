@@ -28,9 +28,3 @@ export function useBillingOffered(): { offered: boolean; isLoading: boolean } {
   const billing = useBilling();
   return { offered: billing.data ? billing.data.enforced : billing.isError, isLoading: billing.isLoading };
 }
-
-/** Whether the caller is a workspace admin: the one who may change the plan or buy credits. */
-export function useIsWorkspaceAdmin(): boolean {
-  const { user } = useAuth();
-  return user?.workspace?.roles.includes("ADMIN") ?? false;
-}

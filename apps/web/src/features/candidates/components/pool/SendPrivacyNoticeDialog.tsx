@@ -5,11 +5,11 @@ import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { Button, FormError, useToast } from "../../../../components/ui";
 import { Modal } from "../../../../components/ui/Modal";
 import { messageFor } from "../../../../lib/errorCodes";
-import { useIsWorkspaceAdmin } from "../../../billing/lib/useBilling";
+import { useIsWorkspaceAdmin } from "../../../auth/useIsWorkspaceAdmin";
 import * as candidatePrivacyApi from "../../api/candidatePrivacyApi";
 import * as poolApi from "../../api/poolApi";
 import type { BulkPrivacyNoticeResult, PersonRecord } from "../../api/types";
-import { skipReasonLabel } from "../../lib/candidatePrivacy";
+import { noticePreviewParagraphs, skipReasonLabel } from "../../lib/candidatePrivacy";
 
 /** One person from the drawer, or the Candidates selection. */
 export type PrivacyNoticeTarget =
@@ -100,6 +100,9 @@ export function SendPrivacyNoticeDialog({
   }
 
   const ready = firm?.readyForNotices ?? false;
+  const preview = firm
+    ? noticePreviewParagraphs(firm.controllerName ?? "", single?.source, single?.privacy.lawfulBasis)
+    : null;
   return (
     <Modal
       open
@@ -147,11 +150,11 @@ export function SendPrivacyNoticeDialog({
                 <div className="mt-1 text-note font-semibold text-u-text">
                   How {firm.controllerName} holds your details
                 </div>
-                <p className="mt-2 text-note text-u-text2">
-                  {firm.controllerName} holds some of your professional details, such as your name, career history
-                  and work contact details, and says where they came from and why. You can object, ask for a copy, or
-                  ask us to delete them at any time.
-                </p>
+                {preview?.map((paragraph) => (
+                  <p key={paragraph} className="mt-2 text-note text-u-text2">
+                    {paragraph}
+                  </p>
+                ))}
               </div>
             )}
             <div className="flex gap-2.5 rounded-u-chip border border-u-border bg-u-raised px-3 py-2.5 font-mono text-meta text-u-text2">
