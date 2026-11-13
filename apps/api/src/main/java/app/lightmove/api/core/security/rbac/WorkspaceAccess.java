@@ -112,4 +112,9 @@ public class WorkspaceAccess {
     public List<WorkspaceMember> activeStaff(UUID workspaceId) {
         return members.findStaff(workspaceId, MemberStatus.ACTIVE, WorkspaceRole.CLIENT.name());
     }
+
+    /** The active members whose roles grant {@code action}, in one read: who a workspace-wide notice goes to. */
+    public List<UUID> activeUsersHolding(UUID workspaceId, WorkspaceAction action) {
+        return members.findUserIdsHoldingAction(workspaceId, action.name(), MemberStatus.ACTIVE);
+    }
 }

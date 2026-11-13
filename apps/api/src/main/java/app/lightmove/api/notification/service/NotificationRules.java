@@ -15,7 +15,6 @@ import app.lightmove.api.task.model.OutreachFollowUp;
 import app.lightmove.api.task.model.TaskAssigned;
 import app.lightmove.api.task.model.TaskFallingDue;
 import app.lightmove.api.task.model.TasksMovedToLead;
-import app.lightmove.api.workspace.model.WorkspaceMember;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -126,13 +125,11 @@ public class NotificationRules {
         inItsWorkspace(requested.workspaceId(), () -> {
             String name = people.personNamesOf(requested.workspaceId(), List.of(requested.personId()))
                     .get(requested.personId());
-            for (WorkspaceMember member : workspaceAccess.activeStaff(requested.workspaceId())) {
-                if (workspaceAccess.holdsAction(member.getUserId(), requested.workspaceId(),
-                        WorkspaceAction.WORKSPACE_MANAGE)) {
-                    deliver(new NotificationDraft(requested.workspaceId(), member.getUserId(), kind, null, null,
-                            requested.personId(), null, null, null,
-                            kind.value() + ":" + requested.personId(), name, null, 1, null));
-                }
+            for (UUID admin : workspaceAccess.activeUsersHolding(requested.workspaceId(),
+                    WorkspaceAction.WORKSPACE_MANAGE)) {
+                deliver(new NotificationDraft(requested.workspaceId(), admin, kind, null, null,
+                        requested.personId(), null, null, null,
+                        kind.value() + ":" + requested.personId(), name, null, 1, null));
             }
         });
     }

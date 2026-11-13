@@ -124,8 +124,7 @@ public class PrivacyPageService {
     public void request(String token, String wireKind, HttpServletRequest request) {
         PrivacyRequestKind kind = ApiValueEnum.require(PrivacyRequestKind.class, wireKind, "request");
         if (kind == PrivacyRequestKind.OBJECTION) {
-            object(token, request);
-            return;
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "kind", "Choose copy or deletion");
         }
         String tokenHash = Tokens.hash(token);
         rateLimit.checkPrivacyPageRequest(tokenHash, request);
