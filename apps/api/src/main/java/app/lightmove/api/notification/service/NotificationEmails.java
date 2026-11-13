@@ -4,6 +4,7 @@ import app.lightmove.api.candidate.service.CandidateTaskService;
 import app.lightmove.api.common.time.model.DateTimePreferences;
 import app.lightmove.api.common.time.service.DateTimeFormats;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.email.constant.PrivacyRequestEmailKind;
 import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
@@ -156,6 +157,17 @@ public class NotificationEmails {
                 ? row.getNoteId() : null;
         String link = linkOf(row.getProjectId(), row.getCandidateId(), row.getPersonId(), liveNoteId);
         User to = recipient.get();
+        PrivacyRequestEmailKind privacyRequest = switch (row.getKind()) {
+            case COPY_REQUESTED -> PrivacyRequestEmailKind.COPY;
+            case DELETION_REQUESTED -> PrivacyRequestEmailKind.DELETION;
+            case PERSON_OBJECTED -> PrivacyRequestEmailKind.OBJECTION;
+            default -> null;
+        };
+        if (privacyRequest != null && row.getPersonId() != null) {
+            String record = "%s/candidates?person=%s".formatted(properties.web().baseUrl(), row.getPersonId());
+            return Optional.of(templates.buildPrivacyRequestEmail(to.getEmail(), to.getFullName(), executive,
+                    privacyRequest, record));
+        }
         if (row.getKind() == NotificationKind.MENTIONED && liveNoteId != null) {
             return Optional.of(templates.buildMentionedEmail(to.getEmail(), to.getFullName(), actorName, executive,
                     position, link));

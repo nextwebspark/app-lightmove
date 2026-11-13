@@ -40,7 +40,7 @@ class PersonSubjectAccessRecords implements SubjectAccessContributor {
         return Set.of("app_lm_person", "app_lm_person_photo", "app_lm_person_contact", "app_lm_person_tag",
                 "app_lm_person_note", "app_lm_person_document", "app_lm_person_document_version",
                 "app_lm_person_activity", "app_lm_project_candidate", "app_lm_candidate_contact",
-                "app_lm_candidate_photo", "app_lm_candidate_scorecard");
+                "app_lm_candidate_photo", "app_lm_candidate_scorecard", "app_lm_person_privacy_link");
     }
 
     @Override
@@ -77,6 +77,9 @@ class PersonSubjectAccessRecords implements SubjectAccessContributor {
                 SELECT * FROM app_lm_person_activity WHERE workspace_id = :workspaceId AND person_id = :personId
                 ORDER BY occurred_at, id""", parameters, Set.of("workspace_id"));
         sections.add(new SubjectAccessSection("timeline", "Timeline", timeline));
+        sections.add(new SubjectAccessSection("privacyNotices", "Privacy notices sent to you", rows.rowsOf("""
+                SELECT * FROM app_lm_person_privacy_link WHERE workspace_id = :workspaceId AND person_id = :personId
+                ORDER BY created_at, id""", parameters, Set.of("workspace_id", "token_hash"))));
         List<Map<String, Object>> positions = rows.rowsOf("""
                 SELECT * FROM app_lm_project_candidate WHERE workspace_id = :workspaceId AND person_id = :personId
                 ORDER BY created_at, id""", parameters, Set.of("workspace_id", "version"));

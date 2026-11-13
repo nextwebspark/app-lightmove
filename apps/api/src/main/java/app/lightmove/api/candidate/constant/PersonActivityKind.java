@@ -102,7 +102,22 @@ public enum PersonActivityKind {
      * A researcher applied a change a recorded call suggested; {@code reverted} marks an undo, written only while the
      * review offered one. The line names the fields and the call, never the values.
      */
-    UPDATED_FROM_CALL;
+    UPDATED_FROM_CALL,
+
+    /** A colleague recorded a lawful basis for the person, or put them back on the workspace's default (#923). */
+    LAWFUL_BASIS_CHANGED,
+
+    /** The person was sent a privacy notice; {@code channel} says how. Never the address it went to. */
+    PRIVACY_NOTICE_SENT,
+
+    /** A colleague recorded that the person was told another way; {@code notifiedOn} is the day they named. */
+    PRIVACY_NOTICE_MARKED,
+
+    /** The person objected from the public privacy page: do not contact is set and they are suppressed. */
+    PRIVACY_OBJECTED,
+
+    /** The person asked for a copy of their data, or for its deletion, from the public privacy page. */
+    PRIVACY_REQUEST_RECEIVED;
 
     /** Kinds still on old rows that no read shows. */
     public static final Set<PersonActivityKind> RETIRED = Set.of(NOTE_EDITED);

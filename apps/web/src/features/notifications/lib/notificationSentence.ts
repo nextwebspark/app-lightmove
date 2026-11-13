@@ -108,6 +108,24 @@ export function sentenceOf(notification: NotificationResponse, now: Date = new D
         where,
         sub: null,
       };
+    case "copy_requested":
+      return {
+        parts: [strong(person), plain(" asked for a copy of their data")],
+        where: null,
+        sub: { text: "From their privacy page · answer within one month", tone: "muted" },
+      };
+    case "deletion_requested":
+      return {
+        parts: [strong(person), plain(" asked for their data to be deleted")],
+        where: null,
+        sub: { text: "From their privacy page · answer within one month", tone: "muted" },
+      };
+    case "person_objected":
+      return {
+        parts: [strong(person), plain(" objected to being contacted")],
+        where: null,
+        sub: { text: "Do not contact set and added to the suppression list", tone: "muted" },
+      };
   }
 }
 

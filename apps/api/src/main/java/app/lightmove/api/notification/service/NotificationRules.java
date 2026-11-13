@@ -1,10 +1,12 @@
 package app.lightmove.api.notification.service;
 
 import app.lightmove.api.candidate.model.PersonNoteMentioned;
+import app.lightmove.api.candidate.model.PersonPrivacyRequested;
 import app.lightmove.api.candidate.service.CandidateTaskService;
 import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
+import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.notification.constant.NotificationKind;
 import app.lightmove.api.notification.model.NotificationDraft;
@@ -13,6 +15,7 @@ import app.lightmove.api.task.model.OutreachFollowUp;
 import app.lightmove.api.task.model.TaskAssigned;
 import app.lightmove.api.task.model.TaskFallingDue;
 import app.lightmove.api.task.model.TasksMovedToLead;
+import app.lightmove.api.workspace.model.WorkspaceMember;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -109,6 +112,29 @@ public class NotificationRules {
         deliverInItsWorkspace(new NotificationDraft(seated.workspaceId(), seated.userId(),
                 NotificationKind.ADDED_TO_TEAM, seated.actorUserId(), seated.projectId(), null, null, null, null,
                 "added_to_team:" + seated.projectId(), null, null, 1, null));
+    }
+
+    /** To every admin: a copy, a deletion or an objection is the workspace's to answer, whoever owns the person. */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onPrivacyRequested(PersonPrivacyRequested requested) {
+        NotificationKind kind = switch (requested.kind()) {
+            case COPY -> NotificationKind.COPY_REQUESTED;
+            case DELETION -> NotificationKind.DELETION_REQUESTED;
+            case OBJECTION -> NotificationKind.PERSON_OBJECTED;
+        };
+        inItsWorkspace(requested.workspaceId(), () -> {
+            String name = people.personNamesOf(requested.workspaceId(), List.of(requested.personId()))
+                    .get(requested.personId());
+            for (WorkspaceMember member : workspaceAccess.activeStaff(requested.workspaceId())) {
+                if (workspaceAccess.holdsAction(member.getUserId(), requested.workspaceId(),
+                        WorkspaceAction.WORKSPACE_MANAGE)) {
+                    deliver(new NotificationDraft(requested.workspaceId(), member.getUserId(), kind, null, null,
+                            requested.personId(), null, null, null,
+                            kind.value() + ":" + requested.personId(), name, null, 1, null));
+                }
+            }
+        });
     }
 
     private void deliverInItsWorkspace(NotificationDraft draft) {

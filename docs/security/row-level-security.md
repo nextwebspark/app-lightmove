@@ -206,6 +206,7 @@ caller.
 |---|---|
 | Nylas grant, booking configuration, Recall calendar | `app_lm_resolve_mailboxes_by_grant`, `…_by_booking_configuration`, `…_by_recall_calendar` |
 | Booking slug | `app_lm_resolve_mailbox_by_booking_slug` |
+| Privacy notice link's token hash (V218) | `app_lm_resolve_person_privacy_link` |
 | A user's mailboxes in every workspace (a time-zone change reaches each) | `app_lm_resolve_mailboxes_of_user` |
 | Mailbox / Zoom consent state | `app_lm_resolve_mailbox_authorization` |
 | Recall bot, final transcript | `app_lm_resolve_recording_by_bot`, `…_by_final_transcript` |

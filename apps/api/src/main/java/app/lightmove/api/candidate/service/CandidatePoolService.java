@@ -88,9 +88,11 @@ public class CandidatePoolService {
             case MINE -> counts.mine();
             case ACTIVE -> counts.active();
             case UNPLACED -> counts.unplaced();
+            case NOT_NOTIFIED -> counts.notNotified();
         };
         return new CandidatePoolResponse(rowsOf(workspaceId, ids), total,
-                new CandidatePoolViewCountsResponse(counts.all(), counts.mine(), counts.active(), counts.unplaced()),
+                new CandidatePoolViewCountsResponse(counts.all(), counts.mine(), counts.active(), counts.unplaced(),
+                        counts.notNotified()),
                 counts.pool(), pool.countries(workspaceId));
     }
 

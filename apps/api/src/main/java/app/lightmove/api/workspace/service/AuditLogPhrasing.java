@@ -177,6 +177,12 @@ public class AuditLogPhrasing {
         on(ProjectEventType.PERSON_ERASED, line -> line.is("reason", "retention")
                 ? "Permanently deleted a candidate past the retention period" : "Permanently deleted a candidate");
         on(ProjectEventType.PERSON_RETENTION_KEPT, line -> "Kept a candidate due for deletion");
+        on(ProjectEventType.PERSON_LAWFUL_BASIS_CHANGED, line -> "Recorded a candidate's lawful basis");
+        on(ProjectEventType.PERSON_PRIVACY_NOTICE_SENT, line -> "Sent a candidate a privacy notice");
+        on(ProjectEventType.PERSON_PRIVACY_NOTICE_MARKED, line -> "Marked a candidate as notified");
+        on(ProjectEventType.PERSON_OBJECTED, line -> "A candidate objected from their privacy page");
+        on(ProjectEventType.PERSON_PRIVACY_REQUESTED, line -> line.is("kind", "deletion")
+                ? "A candidate asked for their data to be deleted" : "A candidate asked for a copy of their data");
         on(ProjectEventType.CANDIDATE_PIPELINE_REORDERED, line -> "Reordered the pipeline");
         on(ProjectEventType.TASK_PRESET_CREATED, line -> "Added a task preset");
         on(ProjectEventType.TASK_PRESET_UPDATED, line -> "Changed a task preset");

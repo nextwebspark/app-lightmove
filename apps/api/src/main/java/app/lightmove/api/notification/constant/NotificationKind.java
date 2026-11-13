@@ -22,7 +22,11 @@ public enum NotificationKind implements ApiValueEnum {
     OUTREACH_BOUNCED("outreach_bounced", NotificationPreferenceKind.OUTREACH_BOUNCED, false),
     CALL_BOOKED("call_booked", NotificationPreferenceKind.CALL_BOOKED, false),
     ADDED_TO_TEAM("added_to_team", NotificationPreferenceKind.ADDED_TO_TEAM, false),
-    TASKS_MOVED("tasks_moved", NotificationPreferenceKind.TASKS_MOVED, false);
+    TASKS_MOVED("tasks_moved", NotificationPreferenceKind.TASKS_MOVED, false),
+    /** From a person's privacy page (#923), to every admin: each has a month's deadline, so each is emailed. */
+    COPY_REQUESTED("copy_requested", NotificationPreferenceKind.PRIVACY_REQUEST, true),
+    DELETION_REQUESTED("deletion_requested", NotificationPreferenceKind.PRIVACY_REQUEST, true),
+    PERSON_OBJECTED("person_objected", NotificationPreferenceKind.PRIVACY_REQUEST, true);
 
     private final String value;
     private final NotificationPreferenceKind preference;

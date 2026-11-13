@@ -335,6 +335,17 @@ public enum ErrorCode {
     PERSON_SUPPRESSED(HttpStatus.CONFLICT,
             "This person is on your workspace's suppression list, so they can't be added"),
 
+    /** The firm's legal name, privacy contact and notice link are needed before any privacy notice is sent (#923). */
+    CANDIDATE_PRIVACY_NOT_SET_UP(HttpStatus.CONFLICT,
+            "An admin needs to fill in your firm's privacy details in Settings → Data & retention first"),
+    PRIVACY_NOTICE_NO_EMAIL(HttpStatus.CONFLICT, "There's no email address on file for this person"),
+    PRIVACY_NOTICE_RECENTLY_SENT(HttpStatus.CONFLICT, "This person was sent a privacy notice in the last 14 days"),
+    /** The workspace's day of privacy notices is spent; the deployment sets how many. */
+    PRIVACY_NOTICE_DAILY_LIMIT(HttpStatus.TOO_MANY_REQUESTS,
+            "Your workspace has sent today's privacy notices. Try again tomorrow"),
+    /** A privacy page past its date: the page still names the firm to write to, and nothing is recorded. */
+    PRIVACY_LINK_EXPIRED(HttpStatus.GONE, "This link has expired"),
+
     /** An email to the person is on its way to the mail service; erasing them now would race it. Nothing changed. */
     PERSON_ERASE_SEND_IN_FLIGHT(HttpStatus.CONFLICT, "An email to this person is sending right now. Try again in a minute"),
     /**

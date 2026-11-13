@@ -376,7 +376,12 @@ export type PersonActivityKind =
   | "TASK_COMPLETED"
   | "TASK_REOPENED"
   | "TASK_REASSIGNED"
-  | "TASK_CANCELLED";
+  | "TASK_CANCELLED"
+  | "LAWFUL_BASIS_CHANGED"
+  | "PRIVACY_NOTICE_SENT"
+  | "PRIVACY_NOTICE_MARKED"
+  | "PRIVACY_OBJECTED"
+  | "PRIVACY_REQUEST_RECEIVED";
 
 /** The timeline's filter chips, as the server's `TimelineGroup` tokens. */
 export type TimelineGroup = "positions" | "notes" | "contacts" | "profile" | "tags" | "documents";
@@ -428,7 +433,7 @@ export interface CandidateTag {
   holders: number;
 }
 
-export type PoolView = "all" | "mine" | "active" | "unplaced";
+export type PoolView = "all" | "mine" | "active" | "unplaced" | "not_notified";
 export type TagMatch = "any" | "all" | "none";
 export type PoolSortField = "name" | "location" | "positions" | "activity";
 
@@ -478,6 +483,7 @@ export interface PoolRow {
 export interface PoolPage {
   people: PoolRow[];
   totalCount: number;
+  /** `not_notified`'s count is answered as `notNotified`; `poolApi` folds it into the view's key. */
   viewCounts: Record<PoolView, number>;
   poolSize: number;
   countries: string[];
@@ -498,6 +504,33 @@ export interface ProcessingRestriction {
   restrictedAt: string;
   /** Whoever restricted them, or an admin, as the server decides. */
   mayLift: boolean;
+}
+
+export type LawfulBasis = "legitimate_interest" | "consent" | "contract";
+export type PrivacyNoticeChannel = "privacy_email" | "outreach_email" | "marked_by_hand";
+
+export type PrivacyNoticeSkipReason =
+  | "no_email"
+  | "do_not_contact"
+  | "suppressed"
+  | "processing_restricted"
+  | "recently_notified"
+  | "daily_cap";
+
+export interface BulkPrivacyNoticeResult {
+  sent: number;
+  skipped: { personId: string; reason: PrivacyNoticeSkipReason }[];
+}
+
+/** The drawer's Privacy row (#923): the basis in force and when, and how, the person was last told. */
+export interface PersonPrivacy {
+  lawfulBasis: LawfulBasis;
+  /** True while the person follows the workspace's default rather than a basis recorded on them. */
+  basisIsDefault: boolean;
+  basisSetByName: string | null;
+  basisSetAt: string | null;
+  notifiedAt: string | null;
+  noticeChannel: PrivacyNoticeChannel | null;
 }
 
 /** A workspace person as the Candidates drawer reads them. Staff-only. */
@@ -524,6 +557,8 @@ export interface PersonRecord {
   doNotContact: DoNotContact | null;
   /** Null unless processing is restricted: nothing uses the person until it is lifted. */
   processingRestriction: ProcessingRestriction | null;
+  /** The lawful basis in force, and whether and how the person was told (#923). */
+  privacy: PersonPrivacy;
   tagIds: string[];
   source: CandidateSource;
   addedAt: string;

@@ -8,6 +8,8 @@ import app.lightmove.api.candidate.constant.ContactKind;
 import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.constant.Gender;
+import app.lightmove.api.candidate.constant.LawfulBasis;
+import app.lightmove.api.candidate.constant.PrivacyNoticeChannel;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.core.text.service.LinkedInUrls;
@@ -197,6 +199,25 @@ public class Person extends BaseEntity {
 
     @Column(name = "processing_restricted_at")
     private Instant processingRestrictedAt;
+
+    /** The basis a colleague recorded for holding the person (V218); null follows the workspace's default. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "lawful_basis")
+    private LawfulBasis lawfulBasis;
+
+    @Column(name = "lawful_basis_set_by")
+    private UUID lawfulBasisSetBy;
+
+    @Column(name = "lawful_basis_set_at")
+    private Instant lawfulBasisSetAt;
+
+    /** When the person was last told the firm holds their data, and how (V218, GDPR Art. 14). */
+    @Column(name = "privacy_notified_at")
+    private Instant privacyNotifiedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "privacy_notice_channel")
+    private PrivacyNoticeChannel privacyNoticeChannel;
 
     /**
      * The workspace's tags this person holds (V98), by id, so a rename reaches everyone at once. Who
@@ -690,6 +711,26 @@ public class Person extends BaseEntity {
         this.processingRestrictedBy = null;
         this.processingRestrictedAt = null;
         return true;
+    }
+
+    /** Null puts the person back on the workspace's default. Answers whether anything changed. */
+    public boolean recordLawfulBasis(LawfulBasis basis, UUID setBy) {
+        if (lawfulBasis == basis) {
+            return false;
+        }
+        this.lawfulBasis = basis;
+        this.lawfulBasisSetBy = basis == null ? null : setBy;
+        this.lawfulBasisSetAt = basis == null ? null : Instant.now();
+        return true;
+    }
+
+    /** The latest telling wins; an earlier one marked by hand after a later email never winds the date back. */
+    public void recordNotified(Instant at, PrivacyNoticeChannel channel) {
+        if (privacyNotifiedAt != null && privacyNotifiedAt.isAfter(at)) {
+            return;
+        }
+        this.privacyNotifiedAt = at;
+        this.privacyNoticeChannel = channel;
     }
 
     public boolean tag(UUID tagId) {

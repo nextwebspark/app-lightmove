@@ -45,6 +45,11 @@ public class TenantResolvers {
         return single("app_lm_resolve_email_image", token);
     }
 
+    /** A privacy notice's public page, by the hash of its link's token (V218). */
+    public Optional<ResolvedRow> personPrivacyLink(String tokenHash) {
+        return single("app_lm_resolve_person_privacy_link", tokenHash);
+    }
+
     public Optional<ResolvedRow> mailboxByBookingSlug(String slug) {
         return single("app_lm_resolve_mailbox_by_booking_slug", slug);
     }

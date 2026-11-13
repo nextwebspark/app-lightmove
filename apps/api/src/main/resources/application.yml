@@ -306,6 +306,8 @@ lightmove:
       invitations-per-hour-per-workspace: ${AUTH_INVITATIONS_PER_HOUR_PER_WORKSPACE:100}
       invitations-per-hour-per-recipient: ${AUTH_INVITATIONS_PER_HOUR_PER_RECIPIENT:5}
       avatar-reads-per-minute: ${AUTH_AVATAR_READS_PER_MINUTE:1200}
+      privacy-page-opens-per-minute: ${AUTH_PRIVACY_PAGE_OPENS_PER_MINUTE:30}
+      privacy-page-requests-per-hour: ${AUTH_PRIVACY_PAGE_REQUESTS_PER_HOUR:10}
 
   # The demo LLM endpoints (/api/v1/llm/*) call billed Vertex AI usage with only authentication as
   # a gate, so each is additionally capped per user. Same in-memory-per-instance caveat as the auth
@@ -804,6 +806,8 @@ lightmove:
   # The suppression list, erasure, restriction and the retention review (#917). Off, their routes are a 404.
   data-protection:
     enabled: ${DATA_PROTECTION_ENABLED:false}
+    # Privacy notices (#923) one workspace may send a day through Uncava's own sender.
+    privacy-notices-per-day: ${DATA_PROTECTION_PRIVACY_NOTICES_PER_DAY:500}
 
   # How long system rows holding personal data are kept (#921): one value per row of
   # docs/gdpr/retention-schedule.md, swept every sweep-interval by RetentionSweeper. Defaults await counsel.

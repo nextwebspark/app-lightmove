@@ -4,6 +4,7 @@ import static app.lightmove.api.core.email.render.EmailPhrase.plain;
 import static app.lightmove.api.core.email.render.EmailPhrase.strong;
 
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.email.constant.PrivacyRequestEmailKind;
 import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.core.email.render.EmailAction;
 import app.lightmove.api.core.email.render.EmailBlock;
@@ -372,6 +373,52 @@ public class EmailTemplates {
                 new EmailAction("Read the note", link),
                 EmailNote.of("Notes stay in Uncava, so this email doesn't carry it. Change what Uncava emails you "
                         + "in Settings → Notifications.")));
+    }
+
+    /**
+     * A privacy notice (#923, GDPR Art. 14), sent by Uncava in the firm's name: the firm is the controller, so it heads
+     * the email and receives the replies. It names where the details came from and the basis, never the details.
+     */
+    public EmailMessage buildPrivacyNoticeEmail(String recipient, String firm, String replyTo, String sourcePhrase,
+                                                String basisPhrase, String pageLink, String noticeUrl) {
+        return renderer.renderOnBehalfOf(recipient, "How %s holds your details".formatted(firm), EmailContent.of(
+                "How we hold your details",
+                EmailParagraph.of("%s holds some of your professional details, such as your name, career history and "
+                                + "work contact details, which came from %s. We hold them to consider you for senior "
+                                + "roles, on the basis of %s.",
+                        strong(firm), plain(sourcePhrase), plain(basisPhrase)),
+                EmailParagraph.of("You can object, ask for a copy of what we hold, or ask us to delete it at any time."),
+                new EmailAction("See what we hold and your choices", pageLink),
+                EmailNote.of("Our full privacy notice is at %s. Questions go to %s, or reply to this email.",
+                        plain(noticeUrl), plain(replyTo))), firm, replyTo);
+    }
+
+    /** To each admin, when a person asks from their privacy page; the request itself is answered by a person. */
+    public EmailMessage buildPrivacyRequestEmail(String recipient, String recipientName, String executiveName,
+                                                 PrivacyRequestEmailKind kind, String link) {
+        String first = firstName(recipientName);
+        return switch (kind) {
+            case COPY -> renderer.render(recipient, "A candidate asked for a copy of their data", EmailContent.of(
+                    "A candidate asked for their data",
+                    EmailParagraph.of("Hi %s — %s asked, from their privacy page, for a copy of what your workspace "
+                            + "holds about them. Answer within one month.", plain(first), strong(executiveName)),
+                    new EmailAction("Open their record", link),
+                    EmailNote.of("Export everything held from the ⋯ menu on their record, then send it to them.")));
+            case DELETION -> renderer.render(recipient, "A candidate asked for their data to be deleted",
+                    EmailContent.of("A candidate asked to be deleted",
+                            EmailParagraph.of("Hi %s — %s asked, from their privacy page, for what your workspace "
+                                            + "holds about them to be deleted. Answer within one month.",
+                                    plain(first), strong(executiveName)),
+                            new EmailAction("Open their record", link),
+                            EmailNote.of("Delete them permanently from the ⋯ menu on their record, or tell them "
+                                    + "what you must keep and why.")));
+            case OBJECTION -> renderer.render(recipient, "A candidate objected to being contacted", EmailContent.of(
+                    "A candidate objected",
+                    EmailParagraph.of("Hi %s — %s objected, from their privacy page, to your workspace holding and "
+                                    + "using their details. They are marked do not contact and on your suppression "
+                                    + "list.", plain(first), strong(executiveName)),
+                    new EmailAction("Open their record", link)));
+        };
     }
 
     /** The morning's summary: what is due today, what is overdue, and mentions still unread. */

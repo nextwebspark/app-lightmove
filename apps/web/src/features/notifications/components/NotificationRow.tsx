@@ -27,6 +27,9 @@ const KIND_BADGES: Record<NotificationKind, { label: string; glyph: string; clas
   call_booked: { label: "Call booked", glyph: ICONS.calendar, className: "bg-u-adjacent" },
   added_to_team: { label: "Team", glyph: ICONS.team, className: "bg-u-text2" },
   tasks_moved: { label: "Tasks moved", glyph: GLYPHS.task, className: "bg-u-accent-solid" },
+  copy_requested: { label: "Privacy request", glyph: ICONS.lock, className: "bg-u-signal" },
+  deletion_requested: { label: "Privacy request", glyph: ICONS.lock, className: "bg-u-offlimits" },
+  person_objected: { label: "Objection", glyph: ICONS.ban, className: "bg-u-offlimits" },
 };
 
 /** One bell row: who, the sentence, where and when; on hover or focus, read, snooze and archive. */

@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { RowSelectionState } from "@tanstack/react-table";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -28,11 +28,13 @@ import { PeopleToolbar } from "./PeopleToolbar";
 import { PoolFilterRail } from "./PoolFilterRail";
 import { SetOwnerDialog } from "./SetOwnerDialog";
 import { TagPeopleDialog } from "./TagPeopleDialog";
+import { SendPrivacyNoticeDialog } from "./SendPrivacyNoticeDialog";
+import { useDataProtection } from "../../lib/useDataProtection";
 
 const POOL_LAYOUT_COLUMNS = layoutColumnsOf(poolColumnsFor(new Map(), new Map()));
 const NOTHING_SELECTED: RowSelectionState = {};
 
-type BulkDialog = "position" | "tag" | "owner" | null;
+type BulkDialog = "position" | "tag" | "owner" | "notice" | null;
 
 /**
  * The People view of the Candidates page: everyone the workspace holds, searched, filtered and sorted
@@ -56,6 +58,8 @@ export function PeopleView({
   exporting: boolean;
 }) {
   const lookups = usePoolLookups();
+  const queryClient = useQueryClient();
+  const { offered: dataProtection } = useDataProtection();
   const paging = useGridPaging(50);
   const [query, setQuery] = useState(filters.q);
   // Closed at every width, unlike Strategy's: most visits here are a search or a quick view.
@@ -133,6 +137,7 @@ export function PeopleView({
         canExportView={selectedPeople === 0}
         exporting={exporting}
         onExportView={() => onExport([])}
+        showsPrivacyViews={dataProtection}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -226,6 +231,9 @@ export function PeopleView({
                     <SelectionAction icon={ICONS.position} label="Add to position" onClick={() => setDialog("position")} />
                     <SelectionAction icon={ICONS.tag} label="Tag" onClick={() => setDialog("tag")} />
                     <SelectionAction icon={ICONS.profile} label="Set owner" onClick={() => setDialog("owner")} />
+                    {dataProtection && (
+                      <SelectionAction icon={ICONS.mail} label="Privacy notice" onClick={() => setDialog("notice")} />
+                    )}
                     <SelectionAction
                       icon={ICONS.exportOut}
                       label={exporting ? "Exporting…" : "Export"}
@@ -267,6 +275,22 @@ export function PeopleView({
           holdersByTag={holdersByTagOf(rows, rowSelection)}
           tags={lookups.offeredTags}
           onDone={() => setRowSelection(NOTHING_SELECTED)}
+        />
+      )}
+      {dialog === "notice" && (
+        <SendPrivacyNoticeDialog
+          target={{
+            kind: "selection",
+            people: selectedIds.map((personId) => ({
+              personId,
+              fullName: rows.find((row) => row.personId === personId)?.fullName ?? "Someone",
+            })),
+          }}
+          onClose={() => setDialog(null)}
+          onSent={() => {
+            setRowSelection(NOTHING_SELECTED);
+            void queryClient.invalidateQueries({ queryKey: poolApi.POOL_KEY });
+          }}
         />
       )}
       {dialog === "owner" && (

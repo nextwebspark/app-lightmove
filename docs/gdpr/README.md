@@ -26,5 +26,6 @@ and wait on the decisions in [governance-decisions.md](governance-decisions.md).
 | [security-of-processing.md](security-of-processing.md) | Backups, recovery, encryption and logs (Art. 32) |
 | [people-controls-918-920.md](people-controls-918-920.md) | How suppression, erasure and restriction are built |
 | [ai-controls-922.md](ai-controls-922.md) | The AI switches and the demographics API scope |
+| [privacy-notices-923.md](privacy-notices-923.md) | Candidate privacy notices, the lawful basis per person, and the public privacy page |
 | [logs-and-audit-927.md](logs-and-audit-927.md) | Personal data out of logs and audit details |
 | [data-protection-plan.md](data-protection-plan.md) | The original gap analysis and phased plan |

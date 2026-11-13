@@ -26,10 +26,20 @@ public class EmailRenderer {
     }
 
     public EmailMessage render(String recipient, String subject, EmailContent content) {
-        return new EmailMessage(recipient, subject, html(content), text(content));
+        return new EmailMessage(recipient, subject, html(content, null), text(content, null));
     }
 
-    private String html(EmailContent content) {
+    /**
+     * An email a firm sends through Uncava (a privacy notice, #923): the firm's name heads it in place of Uncava's
+     * mark, the footer says Uncava carried it, and a reply goes to the firm.
+     */
+    public EmailMessage renderOnBehalfOf(String recipient, String subject, EmailContent content, String firm,
+                                         String replyTo) {
+        return new EmailMessage(recipient, subject, html(content, firm), text(content, firm))
+                .onBehalfOf(firm, replyTo);
+    }
+
+    private String html(EmailContent content, String firm) {
         StringBuilder body = new StringBuilder("""
                 <h1 style="margin:0 0 16px;font:600 20px/1.3 %s;color:%s">%s</h1>
                 """.formatted(EmailPalette.FONT, EmailPalette.HEADING, escape(content.heading())));
@@ -48,10 +58,10 @@ public class EmailRenderer {
             });
         }
 
-        return page(body.toString());
+        return page(body.toString(), firm);
     }
 
-    private String text(EmailContent content) {
+    private String text(EmailContent content, String firm) {
         StringBuilder text = new StringBuilder(content.heading()).append("\n\n");
 
         for (EmailBlock block : content.blocks()) {
@@ -62,11 +72,17 @@ public class EmailRenderer {
             }).append("\n\n");
         }
 
-        return text.append("--\n").append(WORDMARK).append(" · ").append(siteUrl).append('\n').toString();
+        String signOff = firm == null ? WORDMARK + " · " + siteUrl : "Sent by " + firm + " with Uncava";
+        return text.append("--\n").append(signOff).append('\n').toString();
     }
 
     /** Two {@code valign="middle"} cells: the only vertical centring every mail client agrees on. */
-    private String header() {
+    private String header(String firm) {
+        if (firm != null) {
+            return """
+                    <span style="font:600 16px %s;color:%s">%s</span>
+                    """.formatted(EmailPalette.FONT, EmailPalette.HEADING, escape(firm));
+        }
         return """
                 <table cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>
                   <td valign="middle"><img src="%s" width="29" height="42" alt="Uncava" style="display:block;border:0"></td>
@@ -87,7 +103,7 @@ public class EmailRenderer {
                 EmailPalette.ON_ACCENT, escape(action.label()));
     }
 
-    private String page(String content) {
+    private String page(String content, String firm) {
         return """
                 <!DOCTYPE html>
                 <html><body style="margin:0;padding:32px 16px;background:%s">
@@ -99,13 +115,20 @@ public class EmailRenderer {
                       %s
                     </td></tr>
                     <tr><td style="padding:20px 4px 0;font:400 12px/1.6 %s;color:%s">
-                      %s · <a href="%s" style="color:%s;text-decoration:none">%s</a>
+                      %s
                     </td></tr>
                   </table>
                 </body></html>
-                """.formatted(EmailPalette.PAGE, header(), EmailPalette.CARD, EmailPalette.BORDER,
-                content, EmailPalette.FONT, EmailPalette.MUTED, WORDMARK, siteUrl,
-                EmailPalette.MUTED, siteLabel);
+                """.formatted(EmailPalette.PAGE, header(firm), EmailPalette.CARD, EmailPalette.BORDER,
+                content, EmailPalette.FONT, EmailPalette.MUTED, footer(firm));
+    }
+
+    private String footer(String firm) {
+        if (firm != null) {
+            return "Sent by " + escape(firm) + " with Uncava";
+        }
+        return "%s · <a href=\"%s\" style=\"color:%s;text-decoration:none\">%s</a>"
+                .formatted(WORDMARK, siteUrl, EmailPalette.MUTED, siteLabel);
     }
 
     /** The sentence is a template literal; only the phrases carry user input, so escaping is decided here once. */

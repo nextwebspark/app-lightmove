@@ -89,6 +89,7 @@ its logic text, or listed as leaving nothing on a person.
 | `app_lm_candidate_contact` | Included | `earlierContacts` (V91's frozen copy) |
 | `app_lm_candidate_photo` | Included | `earlierPhotos`, and the file |
 | `app_lm_candidate_scorecard` | Included | `scorecards` |
+| `app_lm_person_privacy_link` | Included | `privacyNotices`: when each was sent, by whom and until when it opened; never the link's hash (#923) |
 | `app_lm_outreach_enrollment` | Included | `outreachRuns` |
 | `app_lm_outreach_message` | Included | `emails`, both ways, with their words |
 | `app_lm_outreach_message_attachment` | Included | `emailAttachments`, named; the files are the person's documents or the consultant's own |

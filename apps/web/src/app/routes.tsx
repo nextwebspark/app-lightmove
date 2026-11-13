@@ -30,6 +30,7 @@ import CopilotWindowPage from "../features/outreach/pages/CopilotWindowPage";
 import { OAuthConsentPage } from "../features/oauth/pages/OAuthConsentPage";
 import { MAILBOX_CALLBACK_PATH } from "../features/outreach/lib/mailboxPopup";
 import BookingPage from "../features/outreach/pages/BookingPage";
+import PrivacyLinkPage from "../features/privacy/pages/PrivacyLinkPage";
 import { MailboxCallbackPage } from "../features/outreach/pages/MailboxCallbackPage";
 import { OutreachPage } from "../features/outreach/pages/OutreachPage";
 import { SequenceEditorPage } from "../features/outreach/pages/SequenceEditorPage";
@@ -86,6 +87,7 @@ export function AppRoutes() {
       <Route path={MAILBOX_CALLBACK_PATH} element={<MailboxCallbackPage />} />
       {/* Public and unguarded: an executive opens their consultant's booking link from an email. */}
       <Route path="/book/:slug" element={<BookingPage />} />
+      <Route path="/privacy/:token" element={<PrivacyLinkPage />} />
       {/* Where an AI app's authorize request lands. Unguarded: it shows the authorization server's error to anyone,
           and sends a signed-out visitor to sign in with the request as the return-to. */}
       <Route path="/oauth/consent" element={<OAuthConsentPage />} />

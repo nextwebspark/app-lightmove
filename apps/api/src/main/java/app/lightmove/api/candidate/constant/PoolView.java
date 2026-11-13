@@ -20,7 +20,10 @@ public enum PoolView implements ApiValueEnum {
     ACTIVE("active"),
 
     /** Mapped on no position at all. */
-    UNPLACED("unplaced");
+    UNPLACED("unplaced"),
+
+    /** Held over a month and never told the firm holds their data (#923, GDPR Art. 14). */
+    NOT_NOTIFIED("not_notified");
 
     private final String value;
 }

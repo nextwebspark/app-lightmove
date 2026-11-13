@@ -32,11 +32,14 @@ import { scrollToFold } from "../../lib/profileFolds";
 import { AddToPositionDialog } from "./AddToPositionDialog";
 import { focusNoteComposer } from "../../../notes/lib/focusNoteComposer";
 import { formatInstantDateTime } from "../../../../lib/datetime";
-import { ActionMenu, MenuItem } from "../../../../components/ui/ActionMenu";
+import { ActionMenu, MenuItem, MenuSeparator } from "../../../../components/ui/ActionMenu";
 import { useIsWorkspaceAdmin } from "../../../billing/lib/useBilling";
 import { ErasePersonDialog } from "./ErasePersonDialog";
 import { RestrictProcessingDialog } from "./RestrictProcessingDialog";
 import { SubjectAccessExportDialog } from "./SubjectAccessExportDialog";
+import { MarkNotifiedDialog } from "./MarkNotifiedDialog";
+import { PersonPrivacySection } from "./PersonPrivacySection";
+import { SendPrivacyNoticeDialog } from "./SendPrivacyNoticeDialog";
 
 const TAB_ID_PREFIX = "person-drawer";
 
@@ -124,6 +127,8 @@ function PersonDrawerBody({
   const [erasing, setErasing] = useState(false);
   const [exportingData, setExportingData] = useState(false);
   const [restricting, setRestricting] = useState(false);
+  const [noticing, setNoticing] = useState(false);
+  const [markingNotified, setMarkingNotified] = useState(false);
   const isAdmin = useIsWorkspaceAdmin();
   const { offered: dataProtection } = useDataProtection();
   const [nextAction, setNextAction] = useState<NextActionTarget | null>(null);
@@ -166,7 +171,7 @@ function PersonDrawerBody({
   const offersRestriction = dataProtection && (!restriction || restriction.mayLift);
   const offersErasure = dataProtection && isAdmin;
   const offersExport = dataProtection && isAdmin;
-  const hasMenu = offersRestriction || offersExport || offersErasure;
+  const hasMenu = dataProtection;
 
   return (
     <>
@@ -177,6 +182,25 @@ function PersonDrawerBody({
             <ActionMenu label={`More for ${person.fullName}`} width={256}>
               {(close) => (
                 <>
+                  <MenuItem
+                    icon={ICONS.mail}
+                    onSelect={() => {
+                      close();
+                      setNoticing(true);
+                    }}
+                  >
+                    Send privacy notice…
+                  </MenuItem>
+                  <MenuItem
+                    icon={ICONS.check}
+                    onSelect={() => {
+                      close();
+                      setMarkingNotified(true);
+                    }}
+                  >
+                    Mark as notified…
+                  </MenuItem>
+                  {(offersRestriction || offersExport || offersErasure) && <MenuSeparator />}
                   {!offersRestriction ? null : restriction ? (
                     <MenuItem
                       icon={ICONS.unlock}
@@ -354,6 +378,14 @@ function PersonDrawerBody({
       <div key={tab} className="min-h-0 flex-1 overflow-y-auto px-5" {...tabPanelProps(TAB_ID_PREFIX, tab)}>
         {tab === "profile" && (
           <div className="py-4">
+            {dataProtection && (
+              <PersonPrivacySection
+                person={person}
+                onChanged={changed}
+                onSendNotice={() => setNoticing(true)}
+                onMarkNotified={() => setMarkingNotified(true)}
+              />
+            )}
             <PersonProfileTab
               person={person}
               sections={sections}
@@ -439,6 +471,23 @@ function PersonDrawerBody({
           onRestricted={(record) => {
             changed(record);
             setRestricting(false);
+          }}
+        />
+      )}
+      {noticing && (
+        <SendPrivacyNoticeDialog
+          target={{ kind: "person", person }}
+          onClose={() => setNoticing(false)}
+          onSent={(record) => record && changed(record)}
+        />
+      )}
+      {markingNotified && (
+        <MarkNotifiedDialog
+          person={person}
+          onClose={() => setMarkingNotified(false)}
+          onMarked={(record) => {
+            changed(record);
+            setMarkingNotified(false);
           }}
         />
       )}

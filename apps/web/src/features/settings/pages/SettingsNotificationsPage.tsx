@@ -20,10 +20,14 @@ const EVENTS: readonly { kind: NotificationPreferenceKind; label: string }[] = [
   { kind: "call_booked", label: "A call is booked through my link" },
   { kind: "added_to_team", label: "I'm added to a position's team" },
   { kind: "tasks_moved", label: "Tasks are moved to me" },
+  { kind: "privacy_request", label: "A candidate objects or asks for their data" },
 ];
 
+/** Offered to admins alone, who alone receive them: the server lists the kind only for them. */
+const ADMIN_ONLY_KINDS: ReadonlySet<NotificationPreferenceKind> = new Set(["privacy_request"]);
+
 /** Only these are ever emailed one by one; the rest reach an inbox in the daily digest. */
-const EMAILED_KINDS: ReadonlySet<NotificationPreferenceKind> = new Set(["task_assigned", "mentioned"]);
+const EMAILED_KINDS: ReadonlySet<NotificationPreferenceKind> = new Set(["task_assigned", "mentioned", "privacy_request"]);
 
 const AUTOMATIC_TASKS: readonly { key: keyof TaskRules; trigger: string; task: string }[] = [
   { key: "reply", trigger: "Reply", task: "Reply to {name}" },
@@ -90,7 +94,9 @@ export function SettingsNotificationsPage() {
               <span className="text-center">Email</span>
             </div>
             <ul className="divide-y divide-u-border">
-              {EVENTS.map((event) => (
+              {EVENTS.filter(
+                (event) => !ADMIN_ONLY_KINDS.has(event.kind) || current?.kinds.some((entry) => entry.kind === event.kind),
+              ).map((event) => (
                 <li key={event.kind} className="grid grid-cols-[minmax(0,1fr)_72px_72px] items-center gap-3 py-2.5">
                   <span className="text-body text-u-text">{event.label}</span>
                   <span className="flex justify-center">
