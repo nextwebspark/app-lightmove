@@ -480,6 +480,9 @@ the default) with who and when, and `privacy_notified_at` with `privacy_notice_c
 `app_lm_person_privacy_link` keeps each notice sent with its link's token as a SHA-256, read by the public page through
 `app_lm_resolve_person_privacy_link`. Both tables carry forced row-level security; five activity kinds and three
 notification kinds join their CHECKs (`docs/gdpr/privacy-notices-923.md`).
+V219 adds `failed_at` to `app_lm_person_privacy_link` and `PRIVACY_NOTICE_FAILED` to the activity CHECK: a notice the
+mail provider refused is marked on its row (which still counts against the daily cap) and the person goes back to how
+they were last told (`PrivacyNoticeMailer`).
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.

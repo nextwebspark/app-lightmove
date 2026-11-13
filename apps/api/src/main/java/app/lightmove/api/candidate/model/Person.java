@@ -733,6 +733,20 @@ public class Person extends BaseEntity {
         this.privacyNoticeChannel = channel;
     }
 
+    /**
+     * A privacy email the provider refused: the person goes back to how they were told before it. Only while that
+     * email is still the latest telling — a colleague who marked them told since keeps their mark.
+     */
+    public boolean withdrawRefusedNotice(Instant sentAt, Instant previouslyNotifiedAt,
+                                         PrivacyNoticeChannel previousChannel) {
+        if (privacyNoticeChannel != PrivacyNoticeChannel.PRIVACY_EMAIL || !sentAt.equals(privacyNotifiedAt)) {
+            return false;
+        }
+        this.privacyNotifiedAt = previouslyNotifiedAt;
+        this.privacyNoticeChannel = previousChannel;
+        return true;
+    }
+
     public boolean tag(UUID tagId) {
         return tagIds.add(tagId);
     }

@@ -53,10 +53,18 @@ admin picks `CONSENT` or `CONTRACT`).
 - **The email** goes through Uncava's own sender (Resend), shown as "{firm} via Uncava" from `EMAIL_FROM`, with
   `reply_to` the firm's privacy contact. It names the firm as controller, where the details came from
   (`PrivacyNoticeWording`, by the person's first door), the basis, the firm's notice link, and a button to the person's
-  page. It is sent after the transaction commits.
+  page. It is sent after the transaction commits, off the request thread (`PrivacyNoticeMailer`, an `@Async`
+  after-commit listener of `PrivacyNoticesQueued`), so a bulk send of 500 answers without waiting on the provider.
 - **The record:** a row in `app_lm_person_privacy_link` (the link's token stored as SHA-256 only, valid 30 days, who sent
   it), `privacy_notified_at` set with `PRIVACY_EMAIL`, a `PRIVACY_NOTICE_SENT` line and a `PERSON_PRIVACY_NOTICE_SENT`
   audit event. The address it went to is never recorded beside it.
+- **A refused send is undone on the record (V219):** the link row gets `failed_at`, the person goes back to how they
+  were told before it (unless a colleague has marked them told since), a `PRIVACY_NOTICE_FAILED` line and a failed
+  `PERSON_PRIVACY_NOTICE_FAILED` audit event. They are back in *Not notified*, and the 14-day skip no longer blocks a
+  resend. The refused row still counts against the daily cap.
+- **The cap holds under concurrency:** each send takes a transaction-scoped advisory lock on the workspace before it
+  counts the day's notices or reads who was told, so two sends at once can neither pass the cap together nor both
+  send to the same person.
 
 ## The public page
 
@@ -69,7 +77,8 @@ admin picks `CONSENT` or `CONTRACT`).
 - `POST …/objection`: do not contact ("Objected through their privacy page") and the suppression list as `OBJECTED`,
   in one transaction. A `PRIVACY_OBJECTED` line, a `PERSON_OBJECTED` audit event with no actor, and a bell and an email
   to every admin. Asking twice changes nothing.
-- `POST …/requests` `{"kind":"copy"|"deletion"}`: a `PRIVACY_REQUEST_RECEIVED` line and a bell and email to every admin
+- `POST …/requests` `{"kind":"copy"|"deletion"}` (an objection goes to `…/objection` alone; `objection` here is a
+  `VALIDATION_FAILED`): a `PRIVACY_REQUEST_RECEIVED` line and a bell and email to every admin
   (`COPY_REQUESTED`, `DELETION_REQUESTED`). Nothing is exported or deleted from here: an admin answers through the
   subject access export (#919) or the erasure (#918). The same request within a day tells nobody again.
 - Rate-limited per IP and token (`privacy-page-opens-per-minute` 30, `privacy-page-requests-per-hour` 10). An unknown

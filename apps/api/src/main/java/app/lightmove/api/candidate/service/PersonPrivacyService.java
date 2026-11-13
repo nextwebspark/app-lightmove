@@ -10,13 +10,14 @@ import app.lightmove.api.candidate.dto.PersonRecordResponse;
 import app.lightmove.api.candidate.dto.PrivacyNoticeSkipResponse;
 import app.lightmove.api.candidate.model.CandidatePrivacySettings;
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.candidate.model.PrivacyNoticesQueued;
+import app.lightmove.api.candidate.model.QueuedPrivacyNotice;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.model.EmailMessage;
-import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
@@ -29,6 +30,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -37,16 +39,16 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * A person's lawful basis and Art. 14 notice (#923): recording the basis, marking them told by hand, and sending them a
- * privacy notice through Uncava in the firm's name. Each change is a timeline line and an audit event, by id.
+ * privacy notice through Uncava in the firm's name. Each change is a timeline line and an audit event, by id. The
+ * emails themselves leave after the commit, through {@link PrivacyNoticeMailer}.
  */
 @Service
 public class PersonPrivacyService {
@@ -62,7 +64,7 @@ public class PersonPrivacyService {
     private final SuppressionGate suppression;
     private final NamedParameterJdbcTemplate jdbc;
     private final EmailTemplates templates;
-    private final EmailSender emailSender;
+    private final ApplicationEventPublisher events;
     private final AuditService audit;
     private final Clock clock;
     private final String baseUrl;
@@ -70,8 +72,9 @@ public class PersonPrivacyService {
 
     public PersonPrivacyService(PersonRepository people, PersonRecordService records, PersonActivityRecorder activity,
                                 CandidatePrivacySettingsService settings, SuppressionGate suppression,
-                                NamedParameterJdbcTemplate jdbc, EmailTemplates templates, EmailSender emailSender,
-                                AuditService audit, Clock clock, LightMoveProperties properties) {
+                                NamedParameterJdbcTemplate jdbc, EmailTemplates templates,
+                                ApplicationEventPublisher events, AuditService audit, Clock clock,
+                                LightMoveProperties properties) {
         this.people = people;
         this.records = records;
         this.activity = activity;
@@ -79,7 +82,7 @@ public class PersonPrivacyService {
         this.suppression = suppression;
         this.jdbc = jdbc;
         this.templates = templates;
-        this.emailSender = emailSender;
+        this.events = events;
         this.audit = audit;
         this.clock = clock;
         this.baseUrl = properties.web().baseUrl();
@@ -126,6 +129,7 @@ public class PersonPrivacyService {
     public PersonRecordResponse sendNotice(UUID userId, UUID workspaceId, UUID personId,
                                            HttpServletRequest httpRequest) {
         CandidatePrivacySettings firm = requireReady(workspaceId);
+        holdDailyBudget(workspaceId);
         Person person = people.requireInWorkspace(personId, workspaceId);
         PrivacyNoticeSkipReason skip = skipReasonOf(person,
                 suppression.suppressedPeopleOf(workspaceId, List.of(person)));
@@ -135,7 +139,7 @@ public class PersonPrivacyService {
         if (skip != null) {
             throw refusalOf(skip);
         }
-        send(userId, workspaceId, person, firm, httpRequest);
+        queue(userId, workspaceId, List.of(person), firm, httpRequest);
         return records.toRecord(userId, person);
     }
 
@@ -144,12 +148,13 @@ public class PersonPrivacyService {
     public BulkPrivacyNoticeResponse sendNotices(UUID userId, UUID workspaceId, List<UUID> personIds,
                                                  HttpServletRequest httpRequest) {
         CandidatePrivacySettings firm = requireReady(workspaceId);
+        holdDailyBudget(workspaceId);
         Set<UUID> asked = new LinkedHashSet<>(personIds);
         Map<UUID, Person> found = people.findByWorkspaceIdAndIdIn(workspaceId, asked).stream()
                 .collect(Collectors.toMap(Person::getId, Function.identity()));
         Set<UUID> suppressed = suppression.suppressedPeopleOf(workspaceId, found.values());
         int capacity = noticesPerDay - sentToday(workspaceId);
-        int sent = 0;
+        List<Person> sending = new ArrayList<>();
         List<PrivacyNoticeSkipResponse> skipped = new ArrayList<>();
         for (UUID personId : asked) {
             Person person = found.get(personId);
@@ -157,17 +162,17 @@ public class PersonPrivacyService {
                 throw ApiException.of(ErrorCode.NOT_FOUND);
             }
             PrivacyNoticeSkipReason skip = skipReasonOf(person, suppressed);
-            if (skip == null && sent >= capacity) {
+            if (skip == null && sending.size() >= capacity) {
                 skip = PrivacyNoticeSkipReason.DAILY_CAP;
             }
             if (skip != null) {
                 skipped.add(new PrivacyNoticeSkipResponse(personId, skip.value()));
                 continue;
             }
-            send(userId, workspaceId, person, firm, httpRequest);
-            sent++;
+            sending.add(person);
         }
-        return new BulkPrivacyNoticeResponse(sent, skipped);
+        queue(userId, workspaceId, sending, firm, httpRequest);
+        return new BulkPrivacyNoticeResponse(sending.size(), skipped);
     }
 
     /** The basis in force: the person's own, else the workspace's default. */
@@ -175,31 +180,52 @@ public class PersonPrivacyService {
         return person.getLawfulBasis() != null ? person.getLawfulBasis() : firm.defaultLawfulBasis();
     }
 
-    private void send(UUID userId, UUID workspaceId, Person person, CandidatePrivacySettings firm,
-                      HttpServletRequest httpRequest) {
-        Instant now = clock.instant();
-        String token = Tokens.generate();
-        jdbc.update("""
-                INSERT INTO app_lm_person_privacy_link (workspace_id, person_id, token_hash, purpose, sent_by, created_at,
-                                                        expires_at)
-                VALUES (:workspaceId, :personId, :tokenHash, :purpose, :sentBy, :now, :expiresAt)
-                """, new MapSqlParameterSource("workspaceId", workspaceId)
-                .addValue("personId", person.getId())
-                .addValue("tokenHash", Tokens.hash(token))
-                .addValue("purpose", PrivacyLinkPurpose.NOTICE.name())
-                .addValue("sentBy", userId)
-                .addValue("now", Timestamp.from(now))
-                .addValue("expiresAt", Timestamp.from(now.plus(LINK_LIFETIME))));
-        person.recordNotified(now, PrivacyNoticeChannel.PRIVACY_EMAIL);
-        activity.record(person, null, userId, PersonActivityKind.PRIVACY_NOTICE_SENT,
-                PersonActivityDetails.of("channel", PrivacyNoticeChannel.PRIVACY_EMAIL));
-        audit.event(ProjectEventType.PERSON_PRIVACY_NOTICE_SENT)
-                .actor(userId).workspace(workspaceId).target(PERSON_TARGET, person.getId()).from(httpRequest)
-                .record();
-        EmailMessage email = templates.buildPrivacyNoticeEmail(person.emailContacts().getFirst().getValue(),
-                firm.controllerName(), firm.privacyContactEmail(), PrivacyNoticeWording.sourceOf(person.getSource()),
-                PrivacyNoticeWording.basisOf(basisOf(person, firm)), baseUrl + "/privacy/" + token, firm.noticeUrl());
-        mailOnceCommitted(() -> emailSender.send(email));
+    /**
+     * Records every notice as sent and hands the emails to the mailer for after the commit: a rolled-back send must
+     * not reach anyone, and a refused one is undone there.
+     */
+    private void queue(UUID userId, UUID workspaceId, List<Person> recipients, CandidatePrivacySettings firm,
+                       HttpServletRequest httpRequest) {
+        if (recipients.isEmpty()) {
+            return;
+        }
+        // Microseconds, as the column keeps it, so a refused send can tell its own telling from a later one.
+        Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
+        List<QueuedPrivacyNotice> queued = new ArrayList<>(recipients.size());
+        List<MapSqlParameterSource> links = new ArrayList<>(recipients.size());
+        for (Person person : recipients) {
+            UUID linkId = UUID.randomUUID();
+            String token = Tokens.generate();
+            links.add(new MapSqlParameterSource("id", linkId)
+                    .addValue("workspaceId", workspaceId)
+                    .addValue("personId", person.getId())
+                    .addValue("tokenHash", Tokens.hash(token))
+                    .addValue("purpose", PrivacyLinkPurpose.NOTICE.name())
+                    .addValue("sentBy", userId)
+                    .addValue("now", Timestamp.from(now))
+                    .addValue("expiresAt", Timestamp.from(now.plus(LINK_LIFETIME))));
+            Instant previouslyNotifiedAt = person.getPrivacyNotifiedAt();
+            PrivacyNoticeChannel previousChannel = person.getPrivacyNoticeChannel();
+            person.recordNotified(now, PrivacyNoticeChannel.PRIVACY_EMAIL);
+            activity.record(person, null, userId, PersonActivityKind.PRIVACY_NOTICE_SENT,
+                    PersonActivityDetails.of("channel", PrivacyNoticeChannel.PRIVACY_EMAIL));
+            audit.event(ProjectEventType.PERSON_PRIVACY_NOTICE_SENT)
+                    .actor(userId).workspace(workspaceId).target(PERSON_TARGET, person.getId()).from(httpRequest)
+                    .record();
+            EmailMessage email = templates.buildPrivacyNoticeEmail(person.emailContacts().getFirst().getValue(),
+                    firm.controllerName(), firm.privacyContactEmail(),
+                    PrivacyNoticeWording.sourceOf(person.getSource()),
+                    PrivacyNoticeWording.basisOf(basisOf(person, firm)), baseUrl + "/privacy/" + token,
+                    firm.noticeUrl());
+            queued.add(new QueuedPrivacyNotice(linkId, person.getId(), now, previouslyNotifiedAt, previousChannel,
+                    email));
+        }
+        jdbc.batchUpdate("""
+                INSERT INTO app_lm_person_privacy_link (id, workspace_id, person_id, token_hash, purpose, sent_by,
+                                                        created_at, expires_at)
+                VALUES (:id, :workspaceId, :personId, :tokenHash, :purpose, :sentBy, :now, :expiresAt)
+                """, links.toArray(MapSqlParameterSource[]::new));
+        events.publishEvent(new PrivacyNoticesQueued(workspaceId, userId, List.copyOf(queued)));
     }
 
     private PrivacyNoticeSkipReason skipReasonOf(Person person, Set<UUID> suppressed) {
@@ -241,6 +267,15 @@ public class PersonPrivacyService {
         return firm;
     }
 
+    /**
+     * Held until the commit, so two sends at once cannot each read the same count and together pass the cap, nor both
+     * find the same person not yet told.
+     */
+    private void holdDailyBudget(UUID workspaceId) {
+        jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))",
+                Map.of("key", "privacy-notice:" + workspaceId));
+    }
+
     /** Notices this workspace sent since midnight UTC; the cap is a brake on Uncava's sender, not a calendar. */
     private int sentToday(UUID workspaceId) {
         Instant midnight = LocalDate.now(clock).atStartOfDay().toInstant(ZoneOffset.UTC);
@@ -251,19 +286,5 @@ public class PersonPrivacyService {
                 .addValue("purpose", PrivacyLinkPurpose.NOTICE.name())
                 .addValue("since", Timestamp.from(midnight)), Integer.class);
         return count == null ? 0 : count;
-    }
-
-    /** A rolled-back send must not reach the person, so the email waits for the commit. */
-    private static void mailOnceCommitted(Runnable send) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            send.run();
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                send.run();
-            }
-        });
     }
 }

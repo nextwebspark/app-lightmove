@@ -11,11 +11,15 @@ import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.notification.service.NotificationEmails;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -82,11 +86,12 @@ class PersonPrivacyNoticeIntegrationTest extends FlowTestSupport {
         assertThat(record.at("/privacy/lawfulBasis").asText()).isEqualTo("legitimate_interest");
         assertThat(record.at("/privacy/basisIsDefault").asBoolean()).isTrue();
 
-        EmailMessage notice = email.sent().getLast();
+        EmailMessage notice = noticeTo("noor@example.com");
         assertThat(notice.to()).isEqualTo("noor@example.com");
         assertThat(notice.senderName()).isEqualTo("Meridian Search Partners FZ-LLC");
         assertThat(notice.replyTo()).isEqualTo("privacy@meridian.example");
-        assertThat(notice.textBody()).contains("https://meridian.example/privacy").doesNotContain("Uncava ·");
+        assertThat(notice.textBody()).contains("https://meridian.example/privacy").doesNotContain("Uncava ·")
+                .contains("which came from our own research");
         String token = tokenOf(notice);
         assertThat(db.queryForObject("select count(*) from app_lm_person_privacy_link where token_hash = ?",
                 Long.class, token)).isZero();
@@ -112,7 +117,7 @@ class PersonPrivacyNoticeIntegrationTest extends FlowTestSupport {
     void objectionFromThePage() throws Exception {
         call(put("/api/v1/workspace/candidate-privacy"), SETTINGS).andExpect(status().isOk());
         send(person).andExpect(status().isOk());
-        String token = tokenOf(email.sent().getLast());
+        String token = tokenOf(noticeTo("noor@example.com"));
 
         mvc.perform(post("/api/v1/privacy/links/" + token + "/objection")).andExpect(status().isNoContent());
         mvc.perform(post("/api/v1/privacy/links/" + token + "/objection")).andExpect(status().isNoContent());
@@ -133,7 +138,7 @@ class PersonPrivacyNoticeIntegrationTest extends FlowTestSupport {
     void requestsFromThePage() throws Exception {
         call(put("/api/v1/workspace/candidate-privacy"), SETTINGS).andExpect(status().isOk());
         send(person).andExpect(status().isOk());
-        String token = tokenOf(email.sent().getLast());
+        String token = tokenOf(noticeTo("noor@example.com"));
 
         for (String kind : List.of("copy", "copy", "deletion")) {
             mvc.perform(post("/api/v1/privacy/links/" + token + "/requests")
@@ -151,11 +156,51 @@ class PersonPrivacyNoticeIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an objection has one door: the requests route refuses it")
+    void objectionIsNotARequest() throws Exception {
+        call(put("/api/v1/workspace/candidate-privacy"), SETTINGS).andExpect(status().isOk());
+        send(person).andExpect(status().isOk());
+        String token = tokenOf(noticeTo("noor@example.com"));
+
+        JsonNode refused = body(mvc.perform(post("/api/v1/privacy/links/" + token + "/requests")
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"kind":"objection"}"""))
+                .andExpect(status().isBadRequest()).andReturn());
+        assertThat(refused.get("fieldErrors").has("kind")).isTrue();
+        assertThat(db.queryForObject("select do_not_contact from app_lm_person where id = ?::uuid", Boolean.class,
+                person)).isFalse();
+    }
+
+    @Test
+    @DisplayName("a notice the provider refuses is undone: not notified, the link marked failed, and a resend allowed")
+    void refusedNotice() throws Exception {
+        call(put("/api/v1/workspace/candidate-privacy"), SETTINGS).andExpect(status().isOk());
+        email.refuseDeliveryTo("noor@example.com");
+
+        send(person).andExpect(status().isOk());
+        Awaitility.await().atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThat(kinds()).contains("PRIVACY_NOTICE_FAILED"));
+        assertThat(db.queryForObject("select privacy_notified_at is null and privacy_notice_channel is null"
+                + " from app_lm_person where id = ?::uuid", Boolean.class, person)).isTrue();
+        assertThat(db.queryForObject("select count(*) from app_lm_person_privacy_link where person_id = ?::uuid"
+                + " and failed_at is not null", Long.class, UUID.fromString(person))).isEqualTo(1);
+        assertThat(db.queryForObject("select count(*) from app_lm_audit_event where event_type ="
+                + " 'PERSON_PRIVACY_NOTICE_FAILED' and workspace_id = ?::uuid", Long.class, workspace)).isEqualTo(1);
+        JsonNode told = body(call(get("/api/v1/candidates/" + person), null).andExpect(status().isOk()).andReturn())
+                .at("/privacy/notifiedAt");
+        assertThat(told.isNull() || told.isMissingNode()).isTrue();
+
+        email.clear();
+        send(person).andExpect(status().isOk());
+        assertThat(noticeTo("noor@example.com").to()).isEqualTo("noor@example.com");
+    }
+
+    @Test
     @DisplayName("an expired link names the firm and nothing else, and refuses every request")
     void expiredLink() throws Exception {
         call(put("/api/v1/workspace/candidate-privacy"), SETTINGS).andExpect(status().isOk());
         send(person).andExpect(status().isOk());
-        String token = tokenOf(email.sent().getLast());
+        String token = tokenOf(noticeTo("noor@example.com"));
         db.update("update app_lm_person_privacy_link set expires_at = now() - interval '1 minute'"
                 + " where person_id = ?::uuid", java.util.UUID.fromString(person));
 
@@ -247,6 +292,14 @@ class PersonPrivacyNoticeIntegrationTest extends FlowTestSupport {
     private List<String> kinds() {
         return db.queryForList("select kind from app_lm_person_activity where person_id = ?::uuid", String.class,
                 person);
+    }
+
+    /** Notices leave after the commit, on another thread. */
+    private EmailMessage noticeTo(String address) {
+        return Awaitility.await().atMost(Duration.ofSeconds(10))
+                .until(() -> email.sent().reversed().stream()
+                        .filter(message -> address.equalsIgnoreCase(message.to())).findFirst(), Optional::isPresent)
+                .orElseThrow();
     }
 
     private static String tokenOf(EmailMessage message) {

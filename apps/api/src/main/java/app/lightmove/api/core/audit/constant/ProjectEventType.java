@@ -94,6 +94,8 @@ public enum ProjectEventType implements AuditEventType {
     /** A privacy notice sent to a person, or a colleague recording they were told another way. By id. */
     PERSON_PRIVACY_NOTICE_SENT,
     PERSON_PRIVACY_NOTICE_MARKED,
+    /** The mail provider refused a privacy notice after it was recorded; the person is no longer marked told by it. */
+    PERSON_PRIVACY_NOTICE_FAILED,
     /** From the person's own privacy page, with no signed-in actor: an objection, or a copy or deletion asked for. */
     PERSON_OBJECTED,
     PERSON_PRIVACY_REQUESTED,

@@ -71,6 +71,7 @@ const FAMILY_OF: Record<PersonActivityKind, ActivityFamily> = {
   LAWFUL_BASIS_CHANGED: "profile",
   PRIVACY_NOTICE_SENT: "profile",
   PRIVACY_NOTICE_MARKED: "profile",
+  PRIVACY_NOTICE_FAILED: "profile",
   PRIVACY_OBJECTED: "profile",
   PRIVACY_REQUEST_RECEIVED: "profile",
   DOCUMENT_ADDED: "documents",
@@ -185,6 +186,8 @@ export function iconOf(entry: PersonTimelineEntry): string | null {
       return ICONS.mail;
     case "PRIVACY_NOTICE_MARKED":
       return ICONS.check;
+    case "PRIVACY_NOTICE_FAILED":
+      return ICONS.info;
     case "PRIVACY_OBJECTED":
       return ICONS.ban;
     case "DOCUMENT_ADDED":
@@ -341,6 +344,8 @@ export function verbOf(entry: PersonTimelineEntry): string {
       return details.channel === "OUTREACH_EMAIL" ? "told them through the first outreach email" : "sent a privacy notice";
     case "PRIVACY_NOTICE_MARKED":
       return "marked them as notified";
+    case "PRIVACY_NOTICE_FAILED":
+      return "sent a privacy notice that could not be delivered";
     case "PRIVACY_OBJECTED":
       return "objected from their privacy page";
     case "PRIVACY_REQUEST_RECEIVED":

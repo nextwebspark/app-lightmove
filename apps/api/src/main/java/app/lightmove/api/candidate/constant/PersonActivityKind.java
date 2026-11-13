@@ -113,6 +113,9 @@ public enum PersonActivityKind {
     /** A colleague recorded that the person was told another way; {@code notifiedOn} is the day they named. */
     PRIVACY_NOTICE_MARKED,
 
+    /** The mail provider refused a privacy notice; the person is back to how they were last told (V219). */
+    PRIVACY_NOTICE_FAILED,
+
     /** The person objected from the public privacy page: do not contact is set and they are suppressed. */
     PRIVACY_OBJECTED,
 

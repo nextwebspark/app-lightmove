@@ -258,6 +258,11 @@ function phraseOf(
       };
     case "PRIVACY_NOTICE_MARKED":
       return { text: `marked${them} as notified`, detail: details.notifiedOn ? `Told on ${details.notifiedOn}` : null };
+    case "PRIVACY_NOTICE_FAILED":
+      return {
+        text: `sent${them || " them"} a privacy notice that could not be delivered`,
+        detail: "Not marked as notified",
+      };
     case "PRIVACY_OBJECTED":
       return { text: "objected from their privacy page", detail: "Do not contact set and added to the suppression list" };
     case "PRIVACY_REQUEST_RECEIVED":
