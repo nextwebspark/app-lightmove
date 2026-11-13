@@ -167,7 +167,7 @@ class ExecutiveSourcingWorker {
                 store.recordOutcome(request.runId(), outcome);
             } catch (RuntimeException unsaved) {
                 log.error("Sourcing outcome at {} was not saved", company.companyName(), unsaved);
-                store.recordOutcome(request.runId(), CompanyOutcome.of(company, SourcingOutcome.FAILED));
+                store.recordOutcome(request.runId(), outcome.asFailed());
             } finally {
                 recording.unlock();
             }
@@ -191,6 +191,10 @@ class ExecutiveSourcingWorker {
             }
             try {
                 return search(company);
+            } catch (CompanySearchFailure failed) {
+                log.warn("Sourcing at {} failed after {} profiles: {}", company.companyName(), failed.getCredits(),
+                        failed.getCause().toString());
+                return CompanyOutcome.failed(company, failed.getCredits(), failed.getCached());
             } catch (RuntimeException failed) {
                 log.warn("Sourcing at {} failed: {}", company.companyName(), failed.toString());
                 return CompanyOutcome.of(company, SourcingOutcome.FAILED);
@@ -200,15 +204,21 @@ class ExecutiveSourcingWorker {
         private CompanyOutcome search(SourcingCompany company) {
             List<String> countries = searched.countriesFor(company);
             StepReporter steps = new StepReporter(company);
-            FoundPeople found = withConfirmedProfiles(company, withoutSuppressed(companySearch.search(
-                    company.employer(), searched.words(), brief.seniority(), countries, searched.perCompany(),
-                    steps)), steps);
-            steps.reached(SourcingStage.RANKING, found.considered(), 0, 0);
-            List<Suggestion> judged = SuggestionJudge.of(brief, searched.words(), countries, YearMonth.now(clock))
-                    .judge(found.people());
-            suggestions.save(request.workspaceId(), request.projectId(), request.runId(), company.triageCompanyId(),
-                    judged);
-            return CompanyOutcome.searched(company, found, judged);
+            FoundPeople found = companySearch.search(company.employer(), searched.words(), brief.seniority(),
+                    countries, searched.perCompany(), steps);
+            try {
+                found = withConfirmedProfiles(company, withoutSuppressed(found), steps);
+                steps.reached(SourcingStage.RANKING, found.considered(), 0, 0);
+                List<Suggestion> judged = SuggestionJudge.of(brief, searched.words(), countries, YearMonth.now(clock))
+                        .judge(found.people());
+                suggestions.save(request.workspaceId(), request.projectId(), request.runId(),
+                        company.triageCompanyId(), judged);
+                return CompanyOutcome.searched(company, found, judged);
+            } catch (CompanySearchFailure failed) {
+                throw failed;
+            } catch (RuntimeException failed) {
+                throw new CompanySearchFailure(found.credits(), found.cached(), failed);
+            }
         }
 
         /** The workspace's suppression list is asked before a profile is bought for anyone or anyone is stored. */
@@ -242,8 +252,13 @@ class ExecutiveSourcingWorker {
                     continue;
                 }
                 steps.reached(SourcingStage.CONFIRMING, found.considered(), confirmed++, toConfirm);
-                PeopleFound profile = cache.liveProfileOf(live, company.employer(), person.person(), searched.words(),
-                        budget - bought > 0);
+                PeopleFound profile;
+                try {
+                    profile = cache.liveProfileOf(live, company.employer(), person.person(), searched.words(),
+                            budget - bought > 0);
+                } catch (RuntimeException failed) {
+                    throw new CompanySearchFailure(found.credits() + bought, found.cached() + cached, failed);
+                }
                 bought += profile.bought();
                 cached += profile.cached();
                 people.add(profile.people().stream().findFirst()

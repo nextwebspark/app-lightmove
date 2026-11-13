@@ -24,6 +24,18 @@ public interface ExecutiveSourcingRunRepository extends JpaRepository<ExecutiveS
                                                                                               UUID projectId,
                                                                                               Instant after);
 
+    /**
+     * Asks a run in progress to stop without touching its version, so a company's outcome being recorded at the
+     * same moment never fails on it, nor the stop on the outcome.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            update ExecutiveSourcingRun run set run.stopRequestedAt = :at
+            where run.id = :runId and run.stopRequestedAt is null and run.status in :inProgress
+            """)
+    int markStopRequested(@Param("runId") UUID runId, @Param("at") Instant at,
+                          @Param("inProgress") Collection<SourcingRunStatus> inProgress);
+
     List<ExecutiveSourcingRun> findByWorkspaceIdAndProjectIdAndStatusIn(UUID workspaceId, UUID projectId,
                                                                         Collection<SourcingRunStatus> statuses);
 
