@@ -1,5 +1,6 @@
 package app.lightmove.api.workspace.controller;
 
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.controller.AuthResponseAssembler;
 import app.lightmove.api.core.security.dto.AuthResponse;
@@ -12,6 +13,7 @@ import app.lightmove.api.strategy.service.CompanySuggestionSearch;
 import app.lightmove.api.workspace.dto.AcceptInvitationRequest;
 import app.lightmove.api.workspace.dto.AcceptInvitationSignupRequest;
 import app.lightmove.api.workspace.dto.CreateWorkspaceRequest;
+import app.lightmove.api.workspace.dto.WorkspaceLegalResponse;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.service.InvitationAcceptService;
@@ -46,6 +48,7 @@ public class OnboardingController {
     private static final int MIN_COMPANY_QUERY_LENGTH = 2;
 
     private final OnboardingService onboarding;
+    private final LightMoveProperties properties;
     private final InvitationAcceptService invitationAccept;
     private final AuthResponseAssembler assembler;
     private final RefreshCookieFactory refreshCookie;
@@ -58,8 +61,15 @@ public class OnboardingController {
     public UserResponse createWorkspace(@AuthenticationPrincipal AuthPrincipal principal,
                                         @Valid @RequestBody CreateWorkspaceRequest request,
                                         HttpServletRequest httpRequest) {
-        Workspace workspace = onboarding.createFirstWorkspace(principal.userId(), request.toCommand(), httpRequest);
+        Workspace workspace = onboarding.createFirstWorkspace(principal.userId(), request.toCommand(),
+                request.acceptsDpa(), httpRequest);
         return assembler.userIn(principal.userId(), workspace.getId());
+    }
+
+    /** What founding a workspace asks the founder to accept, for signup's step and Settings → Workspaces alike. */
+    @GetMapping("/legal")
+    public WorkspaceLegalResponse legal() {
+        return WorkspaceLegalResponse.from(properties.legal());
     }
 
     /** "Back" after the step committed. The workspace id is the principal's, never a parameter. */

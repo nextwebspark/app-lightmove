@@ -65,6 +65,8 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[], mode: "AGENCY" | "CO
   locale: "en",
   platformActions: [],
   pendingInvitations: [],
+  termsUpdateRequired: false,
+  termsVersion: "2026-07-01",
   workspaces: [],
   workspace: {
     id: "w1",
@@ -95,6 +97,8 @@ const unverifiedUser = () => ({
   locale: "en",
   platformActions: [],
   pendingInvitations: [],
+  termsUpdateRequired: false,
+  termsVersion: "2026-07-01",
   workspaces: [],
   workspace: null,
 });

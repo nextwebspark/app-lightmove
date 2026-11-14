@@ -169,15 +169,30 @@ public class User extends BaseEntity {
      * copied in once the sign-in commits.
      */
     public static User registerFederated(String email, String fullName, Instant verifiedAt,
-                                         String privacyPolicyVersion) {
+                                         Instant termsAcceptedAt, String privacyPolicyVersion) {
         User user = new User();
         user.email = email;
         user.fullName = fullName;
         user.status = UserStatus.ACTIVE;
         user.emailVerifiedAt = verifiedAt;
-        user.termsAcceptedAt = verifiedAt;
+        user.termsAcceptedAt = termsAcceptedAt;
         user.privacyPolicyVersion = privacyPolicyVersion;
         return user;
+    }
+
+    public boolean owesTermsAcceptance(String currentVersion) {
+        return !currentVersion.equals(privacyPolicyVersion);
+    }
+
+    public void acceptTerms(String version, Instant acceptedAt) {
+        this.privacyPolicyVersion = version;
+        this.termsAcceptedAt = acceptedAt;
+    }
+
+    /** Whoever opened an account nobody verified ticked for themselves, not for the mailbox's owner. */
+    public void forgetTermsAcceptance() {
+        this.privacyPolicyVersion = null;
+        this.termsAcceptedAt = null;
     }
 
     /** @return whether the device moved to another zone, which only then is recorded */

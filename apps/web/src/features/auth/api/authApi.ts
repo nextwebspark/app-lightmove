@@ -14,10 +14,12 @@ import type {
   MfaChangeRequest,
   MfaSetup,
   MfaStatus,
+  PendingRegistration,
   SignInAnswer,
   SignupRequest,
   UpdateProfileRequest,
   User,
+  WorkspaceLegal,
 } from "./types";
 import { isMfaChallenge } from "./types";
 
@@ -67,6 +69,30 @@ function adoptIfSession(answer: SignInAnswer): SignInAnswer {
     setAccessToken(answer.accessToken);
   }
   return answer;
+}
+
+/**
+ * The terms step of a first provider sign-in: what the provider told us, read by the held registration's cookie. A
+ * spent or expired hold answers `REGISTRATION_EXPIRED`.
+ */
+export function pendingRegistration(): Promise<PendingRegistration> {
+  return request<PendingRegistration>("/auth/oauth/registration", { anonymous: true });
+}
+
+/** Creates the account with the tick and signs in — or, where the address was a factor holder's, asks for the code. */
+export async function completeRegistration(termsAccepted: boolean): Promise<SignInAnswer> {
+  const answer = await request<SignInAnswer>("/auth/oauth/registration", {
+    method: "POST",
+    body: { termsAccepted },
+    anonymous: true,
+    withCsrf: true,
+  });
+  return adoptIfSession(answer);
+}
+
+/** The re-acceptance sheet's tick, naming the version it showed. */
+export function acceptTerms(version: string): Promise<User> {
+  return request<User>("/auth/me/terms-acceptance", { method: "POST", body: { version } });
 }
 
 export async function logout(): Promise<void> {
@@ -247,6 +273,13 @@ export function createWorkspace(payload: CreateWorkspaceRequest): Promise<User> 
   return request<User>("/onboarding/workspace", { method: "POST", body: payload });
 }
 
+export const WORKSPACE_LEGAL_KEY = ["onboarding", "legal"] as const;
+
+/** Whether founding a workspace asks for the data processing agreement, and which. */
+export function workspaceLegal(): Promise<WorkspaceLegal> {
+  return request<WorkspaceLegal>("/onboarding/legal");
+}
+
 export const ONBOARDING_COMPANY_SEARCH_KEY = (query: string) => ["onboardingCompanySearch", query] as const;
 
 /**
@@ -298,10 +331,11 @@ export async function acceptInvitationSignup(
   token: string,
   fullName: string,
   password: string,
+  termsAccepted: boolean,
 ): Promise<AuthResponse> {
   const session = await request<AuthResponse>("/onboarding/accept-invitation-signup", {
     method: "POST",
-    body: { token, fullName, password },
+    body: { token, fullName, password, termsAccepted },
     anonymous: true,
   });
   setAccessToken(session.accessToken);

@@ -16,7 +16,9 @@ workspace `CLIENT` role grants nothing; access is the project `CLIENT` seat, whi
 (read a mandate's content, never edit).
 
 **Built so far: auth, workspace management, projects, the RBAC layer, and the search layer.** Signup
-(4 steps), login, OAuth sign-in (Google and LinkedIn, run in a popup), invitations, the roster, **several
+(4 steps), login, OAuth sign-in (Google and LinkedIn, run in a popup; a first one creates the account only at the
+terms step, `/signup/terms`), the terms tick on every signup door with re-acceptance when they change and the DPA tick
+when founding a workspace (#928, `docs/gdpr/terms-acceptance-928.md`), invitations, the roster, **several
 workspaces per user** (V81: a staff member founds a further one from Settings → Workspaces through the
 wizard's organisation and invite steps in a modal, an invitation to a second workspace is accepted from
 the topbar menu or the emailed link, and the topbar menu switches — a session is in exactly one

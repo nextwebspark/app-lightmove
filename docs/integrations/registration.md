@@ -115,6 +115,9 @@ Publish it before submitting any review, and add:
   events and Zoom meetings the consultant books. Refresh tokens are stored encrypted and revoked on disconnect.
 - **Google's Limited Use** statement: use of data from Google APIs adheres to the Google API Services User Data
   Policy, including the Limited Use requirements.
+- **The terms on every signup door:** a first Google or LinkedIn sign-in asks for the same Terms and Privacy Policy
+  tick as the password form before any account exists (`/signup/terms`, #928), so the URLs the consent screens list
+  must be the documents that tick accepts.
 - **Recall.ai as a sub-processor** that receives calendar access (the OAuth app's keys and a refresh token) for
   workspaces syncing calendars through Recall, and the audio of every call a consultant sends the Notetaker into
   (deleted from Recall once its transcript is filed).

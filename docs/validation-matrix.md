@@ -35,7 +35,11 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Signup full name | 1–160 | `@NotBlank @Size(160)`, trimmed | field |
 | Signup email | trimmed, email | normalised, `@Email @Size(255)`, work domain, MX | field |
 | Signup password | 8+, a digit, ≤ 72 bytes | same; bytes in `PasswordPolicy` | field |
-| Signup terms | — | `@AssertTrue` | banner (was swallowed) |
+| Signup terms | an unticked box, required | `@AssertTrue` | under the box |
+| Invite accept terms | an unticked box, required | `@NotNull @AssertTrue` | under the box |
+| Provider sign-in terms (`/signup/terms`) | an unticked box, required | `@NotNull @AssertTrue`; a spent, replaced or late hold `REGISTRATION_EXPIRED` | under the box, banner |
+| Updated terms sheet | an unticked box, required | the version shown must be the current one (`TERMS_VERSION_OUTDATED`) | under the box, banner |
+| Founding DPA | an unticked box, required only where the deployment names an agreement; never when editing | `dpaAccepted` true where `lightmove.legal.dpa-version` is set (`DPA_ACCEPTANCE_REQUIRED`) | under the box, banner |
 | ☐ Invite accept full name | 1–160, not trimmed | `@NotBlank @Size(160)` | banner |
 | ☐ Invite team rows | email per row, an address listed once, no cap | `List<@Valid InviteRequest>`, at most 50 a request; no role is MEMBER; a repeat is one invitation; every row checked before any is sent; seats (an invoiced workspace, `SEAT_LIMIT_REACHED`) before the hourly budget, so a batch refused for seats spends none; per hour, 100 addresses a workspace and 5 sends an address across workspaces (`RATE_LIMITED`) | row (client), banner, row unnamed (server) |
 | ☐ Invitation resend | — | the outstanding invitation only (`NOT_FOUND` once accepted or withdrawn, and the row re-reads); a lapsed one takes a seat again (`SEAT_LIMIT_REACHED`); the hourly budget; a refused email `INVITATION_EMAIL_NOT_SENT` | toast |

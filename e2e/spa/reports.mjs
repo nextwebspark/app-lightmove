@@ -102,7 +102,7 @@ const PROJECT = (await api("/projects", { method: "POST", token, body: { clientI
 
 // The client seat: a representative attached to this mandate, signed up through the invite link.
 await api(`/projects/${PROJECT}/representatives/invitations`, { method: "POST", token, body: { fullName: "Cora Client", position: "Group CFO", email: REP_EMAIL } });
-await api("/onboarding/accept-invitation-signup", { method: "POST", body: { token: decodeURIComponent(linkFor(REP_EMAIL, "accept-invite").split("token=")[1]), fullName: "Cora Client", password: PASSWORD } });
+await api("/onboarding/accept-invitation-signup", { method: "POST", body: { token: decodeURIComponent(linkFor(REP_EMAIL, "accept-invite").split("token=")[1]), fullName: "Cora Client", password: PASSWORD, termsAccepted: true } });
 const repToken = (await api("/auth/login", { method: "POST", body: { email: REP_EMAIL, password: PASSWORD } })).body.accessToken;
 
 // Read through the seam the report uses (it drafts nothing), so the seeded packages are in its currency.

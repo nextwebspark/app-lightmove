@@ -294,7 +294,7 @@ check_status 14.62 "…but the market's own shape is readable to any workspace" 
 BENCH_EMAIL=$(new_email bench)
 post_json /invitations "$(jq -nc --arg e "$BENCH_EMAIL" '[{email:$e, role:"MEMBER"}]')" -H "$AUTH" >/dev/null
 post_json /onboarding/accept-invitation-signup "$(jq -nc --arg t "$(token_for "$BENCH_EMAIL" accept-invite)" \
-  --arg p "$PASSWORD" '{token:$t, fullName:"Ben Bench", password:$p}')" >/dev/null
+  --arg p "$PASSWORD" '{token:$t, fullName:"Ben Bench", password:$p, termsAccepted:true}')" >/dev/null
 post_json /auth/login "$(jq -nc --arg e "$BENCH_EMAIL" --arg p "$PASSWORD" '{email:$e,password:$p}')" >/dev/null
 BENCH_AUTH="$(auth_header "$(json '.accessToken')")"
 get "$STRATEGY" -H "$BENCH_AUTH";           check_status 14.63 "a member with no seat cannot read the mandate's filter" 403

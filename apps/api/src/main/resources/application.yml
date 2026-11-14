@@ -811,6 +811,12 @@ lightmove:
     # Privacy notices (#923) one workspace may send a day through Uncava's own sender.
     privacy-notices-per-day: ${DATA_PROTECTION_PRIVACY_NOTICES_PER_DAY:500}
 
+  # The data processing agreement a founder accepts for the firm when creating a workspace (#928). Both blank until
+  # counsel publishes one: nothing is asked. Set together; a new version asks only workspaces created after it.
+  legal:
+    dpa-version: ${LEGAL_DPA_VERSION:}
+    dpa-url: ${LEGAL_DPA_URL:}
+
   # How long system rows holding personal data are kept (#921): one value per row of
   # docs/gdpr/retention-schedule.md, swept every sweep-interval by RetentionSweeper. Defaults await counsel.
   # Off until counsel signs the periods off: no sweeper is made, and nothing is deleted.
@@ -820,6 +826,7 @@ lightmove:
     refresh-tokens-after: ${RETENTION_REFRESH_TOKENS_AFTER:30d}
     verification-tokens-after: ${RETENTION_VERIFICATION_TOKENS_AFTER:30d}
     mfa-challenges-after: ${RETENTION_MFA_CHALLENGES_AFTER:1d}
+    pending-registrations-after: ${RETENTION_PENDING_REGISTRATIONS_AFTER:1d}
     invitations-after: ${RETENTION_INVITATIONS_AFTER:90d}
     notifications-after: ${RETENTION_NOTIFICATIONS_AFTER:90d}
     digests-after: ${RETENTION_DIGESTS_AFTER:90d}

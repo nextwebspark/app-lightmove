@@ -55,6 +55,6 @@ class UserAvatarRulesTest {
     }
 
     private static User user() {
-        return User.registerFederated("alok@firm.example", "Alok Kumar", Instant.now(), "2026-07-01");
+        return User.registerFederated("alok@firm.example", "Alok Kumar", Instant.now(), Instant.now(), "2026-07-01");
     }
 }

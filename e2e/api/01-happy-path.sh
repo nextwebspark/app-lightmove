@@ -175,7 +175,7 @@ check P8.3 "preview echoes the invited address" "$COLLEAGUE_EMAIL" "$(json '.ema
 VERIFY_MAILS_BEFORE=$(email_count "Confirm your Uncava email")
 post_json /onboarding/accept-invitation-signup \
   "$(jq -nc --arg t "$COLLEAGUE_TOKEN_RAW" --arg p "$PASSWORD" \
-     '{token:$t, fullName:"Colin Colleague", password:$p}')" -c "$(jar colleague)"
+     '{token:$t, fullName:"Colin Colleague", password:$p, termsAccepted:true}')" -c "$(jar colleague)"
 check_status P8.4 "POST /onboarding/accept-invitation-signup" 201
 check P8.5 "invitee is already verified" "true" "$(json '.user.emailVerified')"
 check P8.6 "invitee lands in the workspace immediately" "$WORKSPACE_NAME" "$(json '.user.workspace.name')"

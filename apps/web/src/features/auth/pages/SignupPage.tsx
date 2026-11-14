@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthLogo, Button, Card, Field, FormError, Input } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
@@ -13,7 +13,13 @@ import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import { signupSchema, type SignupValues } from "../schemas";
 import { clearSignupRestart, signupRestartName } from "../signupRestart";
 
-const SIGNUP_INPUTS: readonly (keyof SignupValues)[] = ["fullName", "email", "password", "confirmPassword"];
+const SIGNUP_INPUTS: readonly (keyof SignupValues)[] = [
+  "fullName",
+  "email",
+  "password",
+  "confirmPassword",
+  "termsAccepted",
+];
 
 /**
  * Signup step 1 — "Create your account". Steps are routes, not local state: step 1 creates a real account, so a user who
@@ -30,6 +36,7 @@ export function SignupPage() {
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
   const {
+    control,
     register,
     handleSubmit,
     setError,
@@ -41,6 +48,7 @@ export function SignupPage() {
       email: "",
       password: "",
       confirmPassword: "",
+      termsAccepted: false,
     },
   });
 
@@ -48,7 +56,7 @@ export function SignupPage() {
     setFormError(null);
     setRegisteredEmail(null);
     try {
-      await signUp(values.fullName, values.email, values.password);
+      await signUp(values.fullName, values.email, values.password, values.termsAccepted);
       navigate("/signup/verify-email", { replace: true });
     } catch (error) {
       if (!(error instanceof ApiRequestError)) {
@@ -68,7 +76,7 @@ export function SignupPage() {
       }
 
       // Field-level messages the server produced (its rules are the ones that actually count).
-      // Only fields with an input take an inline error: one set on any other (termsAccepted) renders nowhere,
+      // Only fields with an input take an inline error: one set on any other renders nowhere,
       // and the form just sits there refusing to submit.
       const unattributed: string[] = [];
       for (const [field, message] of Object.entries(error.fieldErrors)) {
@@ -158,7 +166,13 @@ export function SignupPage() {
             />
           </Field>
 
-          <LegalConsent className="mb-5" />
+          <Controller
+            control={control}
+            name="termsAccepted"
+            render={({ field, fieldState }) => (
+              <LegalConsent checked={field.value} onChange={field.onChange} error={fieldState.error?.message} />
+            )}
+          />
 
           <Button type="submit" loading={isSubmitting} className="w-full">
             Continue

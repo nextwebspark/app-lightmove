@@ -36,7 +36,8 @@ public class WorkspacesController {
     public UserResponse create(@AuthenticationPrincipal AuthPrincipal principal,
                                @Valid @RequestBody CreateWorkspaceRequest request,
                                HttpServletRequest httpRequest) {
-        Workspace workspace = onboarding.createWorkspace(principal.userId(), request.toCommand(), httpRequest);
+        Workspace workspace = onboarding.createWorkspace(principal.userId(), request.toCommand(),
+                request.acceptsDpa(), httpRequest);
         return assembler.userIn(principal.userId(), workspace.getId());
     }
 }

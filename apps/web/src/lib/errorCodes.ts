@@ -1,6 +1,10 @@
 import { ApiRequestError } from "./apiClient";
 import { AutosaveFailedError } from "./useAutosave";
 
+/** The terms tick's words when left unticked, on every door that asks (#928). */
+export const TERMS_REQUIRED_MESSAGE = "Tick the box to accept the Terms and Privacy Policy.";
+export const DPA_REQUIRED_MESSAGE = "Tick the box to accept the Data Processing Agreement.";
+
 /**
  * The backend's ErrorCode enum, mirrored — the machine-readable identity every failure carries.
  * UI switches on these; `messageFor` is the one place user-facing wording lives, so the same failure
@@ -18,6 +22,9 @@ export type ApiErrorCode =
   | "EMAIL_NOT_WORK_ADDRESS"
   | "TOKEN_INVALID"
   | "TOKEN_EXPIRED"
+  | "REGISTRATION_EXPIRED"
+  | "TERMS_VERSION_OUTDATED"
+  | "DPA_ACCEPTANCE_REQUIRED"
   | "REFRESH_TOKEN_INVALID"
   | "REFRESH_TOKEN_REUSED"
   | "CURRENT_PASSWORD_INVALID"
@@ -252,6 +259,9 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   API_KEY_READS_NOTHING: "Choose what the key may read as well as MCP access.",
   RATE_LIMITED: "Too many requests in a short time. Wait a minute and try again.",
   ALREADY_IN_WORKSPACE: "You already belong to a workspace. Found another from Settings → Workspaces.",
+  REGISTRATION_EXPIRED: "This sign-up has expired. Sign in again to start over.",
+  TERMS_VERSION_OUTDATED: "Our terms changed again while this was open. Reload the page to read them.",
+  DPA_ACCEPTANCE_REQUIRED: DPA_REQUIRED_MESSAGE,
   EMAIL_NOT_VERIFIED: "Verify your email address to continue.",
   ACCOUNT_SUSPENDED: "This account has been suspended.",
   EMAIL_NOT_WORK_ADDRESS: "Use your work email — the domain identifies your organization.",

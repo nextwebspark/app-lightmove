@@ -7,7 +7,7 @@ import { AuthProvider } from "../AuthProvider";
 import { SignupPage } from "./SignupPage";
 import * as authApi from "../api/authApi";
 import { ApiRequestError } from "../../../lib/apiClient";
-import { FOLLOWING_DATE_TIME } from "../../../test/fixtures/user";
+import { FOLLOWING_DATE_TIME, aUser } from "../../../test/fixtures/user";
 
 vi.mock("../api/authApi");
 
@@ -91,6 +91,8 @@ describe("SignupPage", () => {
         locale: "en",
         platformActions: [],
         pendingInvitations: [],
+        termsUpdateRequired: false,
+        termsVersion: "2026-07-01",
   workspaces: [],
         workspace: null,
       },
@@ -102,6 +104,7 @@ describe("SignupPage", () => {
     await user.type(screen.getByPlaceholderText("you@firm.com"), "alok@nextwebspark.com");
     await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
     await user.type(screen.getByPlaceholderText("Re-enter your password"), "secret123");
+    await user.click(screen.getByRole("checkbox", { name: /I agree to the Terms/ }));
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
     await waitFor(() => expect(authApi.signup).toHaveBeenCalledOnce());
@@ -130,6 +133,7 @@ describe("SignupPage", () => {
     await user.type(screen.getByPlaceholderText("you@firm.com"), "alok@gmail.com");
     await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
     await user.type(screen.getByPlaceholderText("Re-enter your password"), "secret123");
+    await user.click(screen.getByRole("checkbox", { name: /I agree to the Terms/ }));
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
     expect(await screen.findByText("Use your work email — the domain identifies your organization.")).toBeInTheDocument();
@@ -158,11 +162,37 @@ describe("SignupPage", () => {
     await user.type(screen.getByPlaceholderText("you@firm.com"), "alok@nextwebspark.com");
     await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
     await user.type(screen.getByPlaceholderText("Re-enter your password"), "secret123");
+    await user.click(screen.getByRole("checkbox", { name: /I agree to the Terms/ }));
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
     expect(await screen.findByText("An account with this email already exists")).toBeInTheDocument();
     const cta = screen.getByRole("link", { name: /log in instead/i });
     expect(cta).toHaveAttribute("href", "/login");
+  });
+
+  it("will not create the account until the terms are ticked, and sends the tick it was given", async () => {
+    const user = userEvent.setup();
+    vi.mocked(authApi.signup).mockClear();
+    vi.mocked(authApi.signup).mockResolvedValue({
+      accessToken: "t",
+      expiresIn: 900,
+      user: aUser({ emailVerified: false, workspace: null }),
+    });
+    renderPage();
+
+    await user.type(screen.getByPlaceholderText("Yara Haddad"), "Alok Kumar");
+    await user.type(screen.getByPlaceholderText("you@firm.com"), "alok@nextwebspark.com");
+    await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
+    await user.type(screen.getByPlaceholderText("Re-enter your password"), "secret123");
+    await user.click(screen.getByRole("button", { name: /continue/i }));
+
+    expect(await screen.findByText("Tick the box to accept the Terms and Privacy Policy.")).toBeInTheDocument();
+    expect(authApi.signup).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("checkbox", { name: /I agree to the Terms/ }));
+    await user.click(screen.getByRole("button", { name: /continue/i }));
+
+    await waitFor(() => expect(authApi.signup).toHaveBeenCalledWith(expect.objectContaining({ termsAccepted: true })));
   });
 
   it("blocks mismatched passwords before reaching the server", async () => {
@@ -176,6 +206,7 @@ describe("SignupPage", () => {
     await user.type(screen.getByPlaceholderText("you@firm.com"), "alok@nextwebspark.com");
     await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
     await user.type(screen.getByPlaceholderText("Re-enter your password"), "different1");
+    await user.click(screen.getByRole("checkbox", { name: /I agree to the Terms/ }));
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
     expect(await screen.findByText("Those passwords don't match")).toBeInTheDocument();

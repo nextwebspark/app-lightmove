@@ -118,7 +118,7 @@ await api(`/projects/${PROJECT}/custom-columns`, { method: "POST", token, body: 
 await api(`/projects/${PROJECT}/representatives/invitations`, { method: "POST", token,
   body: { fullName: "Cora Client", position: "Group CFO", email: REP_EMAIL } });
 await api("/onboarding/accept-invitation-signup", { method: "POST",
-  body: { token: await tokenFor(REP_EMAIL, "accept-invite"), fullName: "Cora Client", password: PASSWORD } });
+  body: { token: await tokenFor(REP_EMAIL, "accept-invite"), fullName: "Cora Client", password: PASSWORD, termsAccepted: true } });
 
 // --- the file ---------------------------------------------------------------
 

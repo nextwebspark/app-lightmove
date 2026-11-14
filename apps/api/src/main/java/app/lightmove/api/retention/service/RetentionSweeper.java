@@ -71,6 +71,11 @@ public class RetentionSweeper {
                 DELETE FROM app_lm_mfa_challenge WHERE id IN (
                     SELECT id FROM app_lm_mfa_challenge WHERE expires_at < :cutoff LIMIT :batch FOR UPDATE SKIP LOCKED)
                 """, cutoff(now.minus(retention.mfaChallengesAfter()))));
+        sweep(deleted, RetentionTarget.PENDING_REGISTRATIONS, null, () -> inBatches("""
+                DELETE FROM app_lm_pending_registration WHERE id IN (
+                    SELECT id FROM app_lm_pending_registration WHERE expires_at < :cutoff
+                    LIMIT :batch FOR UPDATE SKIP LOCKED)
+                """, cutoff(now.minus(retention.pendingRegistrationsAfter()))));
         sweep(deleted, RetentionTarget.VENDOR_COMPANIES, null, () -> inBatches("""
                 DELETE FROM app_lm_vendor_company WHERE linkedin_slug IN (
                     SELECT linkedin_slug FROM app_lm_vendor_company WHERE fetched_at < :cutoff

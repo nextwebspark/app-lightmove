@@ -40,7 +40,7 @@ class AuditDetailKeysTest {
             // A number of emails a day.
             Map.entry("dailyEmailCap", Set.of("AvailabilityService")),
             // The domain of a work address alone, which names the firm and nobody in it.
-            Map.entry("domain", Set.of("AuthenticationService", "OAuth2LoginSuccessHandler", "OnboardingService")),
+            Map.entry("domain", Set.of("AuthenticationService", "OnboardingService", "ProviderSignInService")),
             // A boolean.
             Map.entry("emailVerifiedByReset", Set.of("PasswordResetService")),
             // A position description's and an imported spreadsheet's file name — never a CV's, whose name is its

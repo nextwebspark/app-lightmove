@@ -161,17 +161,17 @@ check_code N32.2 "preview with a garbage token" 400 INVITATION_INVALID
 TOKEN_NEW=$(token_for "$INVITEE_NEW" accept-invite)
 
 post_json /onboarding/accept-invitation-signup \
-  "$(jq -nc --arg t "$TOKEN_NEW" '{token:$t, fullName:"New Person", password:"weak"}')"
+  "$(jq -nc --arg t "$TOKEN_NEW" '{token:$t, fullName:"New Person", password:"weak", termsAccepted:true}')"
 check_code N32.3 "a weak password on invited signup" 400 VALIDATION_FAILED
 check N32.4 "the invitation was not burned by the failed attempt" "PENDING" \
   "$(sql "SELECT status FROM app_lm_invitation WHERE email = '$INVITEE_NEW'")"
 
 post_json /onboarding/accept-invitation-signup \
-  "$(jq -nc --arg t "$TOKEN_NEW" --arg p "$PASSWORD" '{token:$t, fullName:"New Person", password:$p}')"
+  "$(jq -nc --arg t "$TOKEN_NEW" --arg p "$PASSWORD" '{token:$t, fullName:"New Person", password:$p, termsAccepted:true}')"
 check_status N32.5 "the invitation still works afterwards" 201
 
 post_json /onboarding/accept-invitation-signup \
-  "$(jq -nc --arg t "$TOKEN_NEW" --arg p "$PASSWORD" '{token:$t, fullName:"Impostor", password:$p}')"
+  "$(jq -nc --arg t "$TOKEN_NEW" --arg p "$PASSWORD" '{token:$t, fullName:"Impostor", password:$p, termsAccepted:true}')"
 check N32.6 "the invitation cannot be redeemed twice" "true" \
   "$(test "$LAST_STATUS" != "201" && echo true || echo false)"
 note N32.7 "second redemption -> $LAST_STATUS $(ecode)"
@@ -180,7 +180,7 @@ note N32.7 "second redemption -> $LAST_STATUS $(ecode)"
 signup_verified "$INVITEE_TAKEN" "Taken Person" >/dev/null
 post_json /onboarding/accept-invitation-signup \
   "$(jq -nc --arg t "$(token_for "$INVITEE_TAKEN" accept-invite)" --arg p "$PASSWORD" \
-     '{token:$t, fullName:"Taken Person", password:$p}')"
+     '{token:$t, fullName:"Taken Person", password:$p, termsAccepted:true}')"
 check_code N32.8 "invited signup for an address that already exists" 409 EMAIL_ALREADY_REGISTERED
 check N32.9 "no duplicate user row was created" "1" \
   "$(sql "SELECT count(*) FROM app_lm_user WHERE email = '$INVITEE_TAKEN'")"
@@ -196,7 +196,7 @@ sql_run "UPDATE app_lm_invitation SET expires_at = now() - interval '1 hour' WHE
 get "/onboarding/invitations/preview?token=$EXPIRED_TOKEN"
 check_code N33.1 "preview of an expired invitation" 400 INVITATION_EXPIRED
 post_json /onboarding/accept-invitation-signup \
-  "$(jq -nc --arg t "$EXPIRED_TOKEN" --arg p "$PASSWORD" '{token:$t, fullName:"Too Late", password:$p}')"
+  "$(jq -nc --arg t "$EXPIRED_TOKEN" --arg p "$PASSWORD" '{token:$t, fullName:"Too Late", password:$p, termsAccepted:true}')"
 check_code N33.2 "redeeming an expired invitation" 400 INVITATION_EXPIRED
 
 # The invitee already belongs to a different workspace: the single-membership index must win.

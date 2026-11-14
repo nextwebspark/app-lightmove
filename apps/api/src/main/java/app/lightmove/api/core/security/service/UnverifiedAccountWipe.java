@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * An account nobody had verified may have been opened by someone else on its owner's address. Once a provider proves
- * the mailbox, whatever that claimant set — password, sessions, second factor — goes, or they keep a way in.
+ * the mailbox, whatever that claimant set — password, sessions, second factor, their terms tick — goes, or they keep a way in.
  */
 @Component
 @RequiredArgsConstructor
@@ -33,6 +33,7 @@ public class UnverifiedAccountWipe {
         boolean heldCredentials = user.hasPassword() || factor.isPresent();
 
         user.discardPassword();
+        user.forgetTermsAcceptance();
         tokens.revokeAllSessions(user.getId(), RevokeReason.PASSWORD_CHANGED);
         challenges.deleteByUserId(user.getId());
         recoveryCodes.deleteByUserId(user.getId());

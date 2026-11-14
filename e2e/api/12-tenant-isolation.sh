@@ -117,7 +117,7 @@ post_json /invitations "$(jq -nc --arg e "$DOOMED_MEMBER" '[{email:$e, role:"MEM
   -H "$(auth_header "$DOOMED_ADMIN_TOKEN")" >/dev/null
 post_json /onboarding/accept-invitation-signup \
   "$(jq -nc --arg t "$(token_for "$DOOMED_MEMBER" accept-invite)" --arg p "$PASSWORD" \
-     '{token:$t, fullName:"Dan Doomed", password:$p}')" >/dev/null
+     '{token:$t, fullName:"Dan Doomed", password:$p, termsAccepted:true}')" >/dev/null
 DOOMED_MEMBER_TOKEN=$(json '.accessToken')
 
 # A pending invitation that must die with the workspace.

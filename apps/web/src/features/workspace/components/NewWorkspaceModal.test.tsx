@@ -12,6 +12,7 @@ import { NewWorkspaceModal } from "./NewWorkspaceModal";
 vi.mock("../../auth/api/authApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../auth/api/authApi")>()),
   searchOnboardingCompanies: vi.fn(),
+  workspaceLegal: vi.fn().mockResolvedValue({ dpaVersion: null, dpaUrl: null }),
 }));
 vi.mock("../api/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/workspaceApi")>()),

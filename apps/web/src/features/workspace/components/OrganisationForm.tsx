@@ -1,14 +1,15 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Button, FormError } from "../../../components/ui";
+import { Button, ConsentCheckbox, FormError } from "../../../components/ui";
 import * as authApi from "../../auth/api/authApi";
 import type { CreateWorkspaceRequest, User, WorkspaceSummary } from "../../auth/api/types";
 import { workspaceSchema, type WorkspaceValues } from "../../auth/schemas";
 import type { CompanySearchSource } from "../../clients/components/CompanyPicker";
 import { workspaceCompanyPick } from "../../clients/lib/companyPick";
 import type { CompanySuggestion } from "../../strategy/api/types";
-import { messageFor } from "../../../lib/errorCodes";
+import { codeOf, DPA_REQUIRED_MESSAGE, messageFor } from "../../../lib/errorCodes";
 import { FirmNameField } from "./FirmNameField";
 import { WorkspaceModeChoice } from "./WorkspaceModeChoice";
 
@@ -41,28 +42,53 @@ export function OrganisationForm({
     return pick.source === "universe" ? pick.company : null;
   });
 
+  // Founding only, and only where the deployment names an agreement: correcting the step never asks again.
+  const legal = useQuery({
+    queryKey: authApi.WORKSPACE_LEGAL_KEY,
+    queryFn: authApi.workspaceLegal,
+    enabled: !editing,
+    staleTime: Infinity,
+    retry: false,
+  });
+  const dpaUrl = !editing && legal.data?.dpaVersion ? legal.data.dpaUrl : null;
+  // Until the deployment says whether an agreement is asked, a founding submit could only be refused for a box
+  // nobody was shown.
+  const legalUnknown = !editing && !legal.isSuccess;
+
   const {
     control,
     handleSubmit,
     watch,
     setValue,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<WorkspaceValues>({
     resolver: zodResolver(workspaceSchema),
     defaultValues: {
       mode: editing?.mode,
       name: editing?.name ?? "",
+      dpaAccepted: false,
     },
   });
   const mode = watch("mode");
   const name = watch("name");
 
-  const onSubmit = async (values: WorkspaceValues) => {
+  const onSubmit = async ({ dpaAccepted, ...values }: WorkspaceValues) => {
     setFormError(null);
-    const payload = { ...values, apolloAccountId: match?.apolloAccountId ?? null };
+    if (legalUnknown) return;
+    if (dpaUrl && !dpaAccepted) {
+      setError("dpaAccepted", { message: DPA_REQUIRED_MESSAGE });
+      return;
+    }
+    const payload = {
+      ...values,
+      apolloAccountId: match?.apolloAccountId ?? null,
+      ...(editing ? {} : { dpaAccepted }),
+    };
     try {
       await onDone(await submit(payload));
     } catch (error) {
+      if (codeOf(error) === "DPA_ACCEPTANCE_REQUIRED") void legal.refetch();
       setFormError(messageFor(error));
     }
   };
@@ -98,7 +124,34 @@ export function OrganisationForm({
           autoFocus
         />
 
-        <Button type="submit" loading={isSubmitting} className="w-full">
+        {/* The firm is the controller of what it keeps here and Uncava its processor (Signup.dc.html `dpaOffered`). */}
+        {dpaUrl && (
+          <Controller
+            control={control}
+            name="dpaAccepted"
+            render={({ field, fieldState }) => (
+              <ConsentCheckbox checked={field.value} onChange={field.onChange} error={fieldState.error?.message}>
+                I accept the{" "}
+                <a href={dpaUrl} target="_blank" rel="noopener noreferrer" className="text-u-accent hover:underline">
+                  Data Processing Agreement
+                  <span className="sr-only"> (opens in a new tab)</span>
+                </a>{" "}
+                on behalf of this organization.
+              </ConsentCheckbox>
+            )}
+          />
+        )}
+
+        {!editing && legal.isError && (
+          <div role="alert" className="mb-4 flex items-center justify-between gap-3 text-note text-u-offlimits">
+            <span>Could not load the sign-up details. Check your connection and try again.</span>
+            <Button type="button" variant="secondary" size="xs" onClick={() => void legal.refetch()}>
+              Try again
+            </Button>
+          </div>
+        )}
+
+        <Button type="submit" loading={isSubmitting || (legalUnknown && legal.isFetching)} disabled={legalUnknown} className="w-full">
           {submitLabel}
         </Button>
       </form>

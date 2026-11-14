@@ -390,6 +390,7 @@ export function Toggle({
 }
 
 export { ChoiceCardGroup } from "./ChoiceCardGroup";
+export { ConsentCheckbox } from "./ConsentCheckbox";
 export type { ChoiceCardOption } from "./ChoiceCardGroup";
 export { SegmentedControl } from "./SegmentedControl";
 export type { SegmentedOption } from "./SegmentedControl";
