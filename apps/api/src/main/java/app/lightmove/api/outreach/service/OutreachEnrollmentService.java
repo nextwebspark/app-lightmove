@@ -95,7 +95,8 @@ public class OutreachEnrollmentService {
         Map<UUID, String> footers = privacy.footerStatementsOf(workspaceId,
                 recipients.stream().map(OutreachRecipient::personId).toList());
         Map<UUID, RecentApproachResponse> approached = recentApproaches.approachesOf(userId, workspaceId,
-                recipients.stream().map(OutreachRecipient::personId).toList(), projectId);
+                recipients.stream().filter(recipient -> eligible.skipReasonOf(recipient) == null)
+                        .map(OutreachRecipient::personId).toList(), projectId);
         return new EnrollmentCandidatesResponse(recipients.stream()
                 .map(recipient -> {
                     OutreachSkipReason skip = eligible.skipReasonOf(recipient);

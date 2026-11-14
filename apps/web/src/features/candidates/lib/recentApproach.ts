@@ -49,11 +49,9 @@ export function touchLine(touch: ApproachTouch, now: Date = new Date()): Approac
 /** A position the reader cannot open is "another position" and its stage, nothing more. */
 export function positionLine(position: ApproachPosition): ApproachLine {
   if (!position.visible) {
-    const text = position.placed
-      ? "Placed on another position"
-      : position.inProcess
-        ? `In process on another position · ${position.stageLabel}`
-        : "Out of process on another position";
+    const text = position.inProcess
+      ? `In process on another position · ${position.stageLabel}`
+      : "Out of process on another position";
     return { text, href: null };
   }
   const title = position.positionTitle ?? "another position";
@@ -88,12 +86,17 @@ export function isCaution(approach: RecentApproach | null | undefined): approach
   return approach?.tier === "CAUTION";
 }
 
-/** What was confirmed: a new touch or position since asks again, a poll answering the same does not. */
+/**
+ * What was confirmed: who, how and where, never when. A new teammate, kind or position asks again; a poll, or a
+ * scheduled email going out, does not.
+ */
 export function approachKeyOf(approach: RecentApproach | null | undefined): string | null {
   if (!isCaution(approach)) return null;
-  const touches = approach.touches.map((touch) => `${touch.kind}:${touch.byUserId}:${touch.at}`);
+  const touches = approach.touches.map(
+    (touch) => `${touch.kind}:${touch.byUserId}:${touch.projectId ?? (touch.positionHidden ? "elsewhere" : "none")}`,
+  );
   const positions = approach.elsewhere
     .filter((position) => position.inProcess)
     .map((position) => `${position.projectId ?? position.stageLabel}:${position.placed}`);
-  return [...touches, ...positions].join("|");
+  return [...new Set([...touches, ...positions])].sort().join("|");
 }

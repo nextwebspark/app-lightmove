@@ -567,9 +567,8 @@ function ChooseStep({
             </div>
             {members.map((person) => {
               const isSkipped = person.skipReason !== null;
-              const approachNote = !isSkipped && isCaution(person.recentApproach)
-                ? (approachLines(person.recentApproach!)[0]?.text ?? null)
-                : null;
+              const lines = !isSkipped && isCaution(person.recentApproach) ? approachLines(person.recentApproach) : [];
+              const approachNote = lines[0]?.text ?? null;
               return (
                 <label
                   key={person.candidateId}
@@ -591,21 +590,26 @@ function ChooseStep({
                   )}
                   <span
                     className={cn(
-                      "ms-auto font-mono text-[11.5px]",
-                      approachNote ? "min-w-0 truncate" : "shrink-0",
-                      person.skipReason === "DO_NOT_CONTACT"
-                        ? "text-u-offlimits"
-                        : approachNote
-                          ? "text-u-signal"
-                          : "text-u-text3",
+                      "ms-auto flex items-center gap-2 font-mono text-[11.5px]",
+                      approachNote ? "min-w-0" : "shrink-0",
                     )}
-                    title={
-                      approachNote
-                        ? approachLines(person.recentApproach!).map((line) => line.text).join("\n")
-                        : undefined
-                    }
                   >
-                    {approachNote ?? skipNoteOf(person)}
+                    {approachNote && (
+                      <span
+                        className="min-w-0 truncate text-u-signal"
+                        title={lines.map((line) => line.text).join("\n")}
+                      >
+                        {approachNote}
+                      </span>
+                    )}
+                    <span
+                      className={cn(
+                        "shrink-0",
+                        person.skipReason === "DO_NOT_CONTACT" ? "text-u-offlimits" : "text-u-text3",
+                      )}
+                    >
+                      {skipNoteOf(person)}
+                    </span>
                   </span>
                 </label>
               );

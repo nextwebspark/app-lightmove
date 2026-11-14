@@ -152,21 +152,33 @@ public interface OutreachMessageRepository extends JpaRepository<OutreachMessage
     List<PersonScheduledSender> findScheduledSendersOfEachPerson(UUID workspaceId, UUID projectId);
 
     /**
-     * Every email that went or waits to go to these people, and every reply, on any position: Recently approached's
-     * read. No subject and no body leave the query.
+     * Every email that went or waits to go to these people since {@code since}, and every reply, on any position:
+     * Recently approached's read. No subject and no body leave the query.
      */
     @Query("""
             select m.personId as personId, m.projectId as projectId, m.senderUserId as senderUserId,
                    m.direction as direction, coalesce(m.sentAt, m.sendAt, m.occurredAt) as at
             from OutreachMessage m
             where m.workspaceId = :workspaceId and m.personId in :personIds
+              and coalesce(m.sentAt, m.sendAt, m.occurredAt) >= :since
               and ((m.direction = app.lightmove.api.outreach.constant.MessageDirection.OUTBOUND
                     and m.status in (app.lightmove.api.outreach.constant.MessageStatus.SENT,
                                      app.lightmove.api.outreach.constant.MessageStatus.SCHEDULED))
                 or (m.direction = app.lightmove.api.outreach.constant.MessageDirection.INBOUND
                     and m.kind = app.lightmove.api.outreach.constant.MessageKind.REPLY))
             """)
-    List<PersonMessageTouch> findTouchesOfPeople(UUID workspaceId, Collection<UUID> personIds);
+    List<PersonMessageTouch> findTouchesOfPeople(UUID workspaceId, Collection<UUID> personIds, Instant since);
+
+    /** The same read before {@code since}: each person's newest email or reply per teammate and position. */
+    @Query(nativeQuery = true, value = """
+            SELECT DISTINCT ON (person_id, sender_user_id, project_id) * FROM app_lm_outreach_message
+            WHERE workspace_id = :workspaceId AND person_id IN (:personIds)
+              AND coalesce(sent_at, send_at, occurred_at) < :since
+              AND ((direction = 'OUTBOUND' AND status IN ('SENT', 'SCHEDULED'))
+                OR (direction = 'INBOUND' AND kind = 'REPLY'))
+            ORDER BY person_id, sender_user_id, project_id, coalesce(sent_at, send_at, occurred_at) DESC
+            """)
+    List<OutreachMessage> findLatestTouchesBefore(UUID workspaceId, Collection<UUID> personIds, Instant since);
 
     /** When the first email went to one executive on a position, or null before any has. */
     @Query("""

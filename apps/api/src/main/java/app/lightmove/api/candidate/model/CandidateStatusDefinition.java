@@ -31,6 +31,8 @@ public class CandidateStatusDefinition extends BaseEntity {
 
     public static final int MAX_LABEL = 40;
 
+    private static final String PLACED_KEY = "placed";
+
     /** Pipeline order: stage first, then the status within it. */
     public static final Comparator<CandidateStatusDefinition> PIPELINE_ORDER =
             Comparator.comparingInt((CandidateStatusDefinition status) -> status.getStage().getPosition())
@@ -148,6 +150,11 @@ public class CandidateStatusDefinition extends BaseEntity {
     /** Live and in process: somewhere a card can stand on the board. */
     public boolean isInProcess() {
         return !outOfProcess && !isRetired();
+    }
+
+    /** V163's seeded Placed: its key never changes, so a renamed Placed still answers. */
+    public boolean isPlacement() {
+        return PLACED_KEY.equals(statusKey);
     }
 
     /** Whether this status stands before {@code other} on the pipeline. */

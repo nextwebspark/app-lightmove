@@ -186,6 +186,7 @@ describe("EnrolDialog", () => {
     renderDialog();
 
     expect(await screen.findByText("Sara Al-Mansour emailed · 12 days ago · Head of Credit Risk")).toBeInTheDocument();
+    expect(screen.getByText("b@target.example")).toBeInTheDocument();
     const rajesh = screen.getByRole("checkbox", { name: "Rajesh Menon" });
     expect(rajesh).not.toBeChecked();
     expect(rajesh).toBeEnabled();

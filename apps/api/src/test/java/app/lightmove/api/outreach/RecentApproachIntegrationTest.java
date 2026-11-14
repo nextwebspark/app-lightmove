@@ -183,6 +183,47 @@ class RecentApproachIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a teammate's many emails are one line, and never crowd the rest of the team out")
+    void manyEmailsFromOneTeammateAreOneLine() throws Exception {
+        for (int day = 1; day <= 12; day++) {
+            email(saraId, creditRiskSearch, "OUTBOUND", "MANUAL", "SENT", Duration.ofDays(day));
+        }
+        loggedNote(yaraId, creditRiskSearch, "LINKEDIN", Duration.ofDays(20));
+
+        JsonNode touches = composerApproach().get("touches");
+        assertThat(touches).hasSize(2);
+        assertThat(touches.at("/0/kind").asText()).isEqualTo("EMAILED");
+        assertThat(touches.at("/0/byName").asText()).isEqualTo("Sara Al-Mansour");
+        assertThat(touches.at("/1/kind").asText()).isEqualTo("LINKEDIN_LOGGED");
+        assertThat(touches.at("/1/byYou").asBoolean()).isTrue();
+    }
+
+    @Test
+    @DisplayName("a teammate's email on an archived position still warns, though the mapping there says nothing")
+    void anArchivedPositionsEmailStillWarns() throws Exception {
+        email(saraId, creditRiskSearch, "OUTBOUND", "MANUAL", "SENT", Duration.ofDays(5));
+        jdbc.update("update app_lm_project set archived_at = now(), archived_by = ?::uuid where id = ?::uuid", saraId,
+                creditRiskSearch);
+
+        JsonNode approach = composerApproach();
+        assertThat(approach.get("tier").asText()).isEqualTo("CAUTION");
+        assertThat(approach.at("/touches/0/positionTitle").asText()).isEqualTo("Head of Credit Risk");
+        assertThat(approach.get("elsewhere")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("placed elsewhere reads placed, under whatever label the workspace gave Placed")
+    void aRenamedPlacedStillReadsPlaced() throws Exception {
+        moveTo(laylaOnCreditRisk, "placed");
+        jdbc.update("update app_lm_workspace_candidate_status set label = 'Hired' where workspace_id = ?::uuid "
+                + "and key = 'placed'", workspaceId);
+
+        JsonNode position = composerApproach().at("/elsewhere/0");
+        assertThat(position.get("placed").asBoolean()).isTrue();
+        assertThat(position.get("statusLabel").asText()).isEqualTo("Hired");
+    }
+
+    @Test
     @DisplayName("the caller's own email on this position is their conversation, not a warning; a teammate's is")
     void ownEmailHereIsLeftOut() throws Exception {
         email(yaraId, cfoSearch, "OUTBOUND", "MANUAL", "SENT", Duration.ofDays(2));
@@ -197,9 +238,11 @@ class RecentApproachIntegrationTest extends FlowTestSupport {
     @Test
     @DisplayName("an approach older than the window is the last approach, and a window of 0 says nothing")
     void theWindowDecidesWhatIsRecent() throws Exception {
-        email(saraId, creditRiskSearch, "OUTBOUND", "MANUAL", "SENT", Duration.ofDays(12));
+        loggedNote(saraId, creditRiskSearch, "CALL", Duration.ofDays(30));
         changeWindow(yara, 10).andExpect(status().isOk());
+        assertThat(composerApproach().at("/lastApproach/kind").asText()).isEqualTo("CALL_LOGGED");
 
+        email(saraId, creditRiskSearch, "OUTBOUND", "MANUAL", "SENT", Duration.ofDays(12));
         JsonNode approach = composerApproach();
         assertThat(approach.get("touches")).isEmpty();
         assertThat(approach.at("/lastApproach/kind").asText()).isEqualTo("EMAILED");
@@ -255,6 +298,14 @@ class RecentApproachIntegrationTest extends FlowTestSupport {
     private ResultActions changeWindow(String token, int days) throws Exception {
         return as(token, put("/api/v1/workspace/recently-approached").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"days\":%d}".formatted(days)));
+    }
+
+    private void loggedNote(String authorId, String projectId, String kind, Duration ago) {
+        jdbc.update("""
+                insert into app_lm_person_note (workspace_id, person_id, project_id, kind, body, author_user_id,
+                    occurred_at)
+                values (?::uuid, ?::uuid, ?::uuid, ?, 'Spoke about the move', ?::uuid, ?)""",
+                workspaceId, laylaPersonId, projectId, kind, authorId, Timestamp.from(Instant.now().minus(ago)));
     }
 
     private void email(String senderId, String projectId, String direction, String kind, String status,

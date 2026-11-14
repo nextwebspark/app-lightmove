@@ -6,6 +6,7 @@ import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.PersonNote;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -56,15 +57,26 @@ public interface PersonNoteRepository extends JpaRepository<PersonNote, UUID> {
             """, nativeQuery = true)
     int restore(@Param("id") UUID id, @Param("workspaceId") UUID workspaceId, @Param("personId") UUID personId);
 
-    /** Every live logged touch with these people, on any position, without its words: Recently approached's read. */
+    /** Every live logged touch with these people since {@code since}, on any position, without its words. */
     @Query("""
             select n.personId as personId, n.projectId as projectId, n.authorUserId as authorUserId, n.kind as kind,
                    coalesce(n.occurredAt, n.createdAt) as at
             from PersonNote n
             where n.workspaceId = :workspaceId and n.personId in :personIds and n.kind in :kinds
+              and coalesce(n.occurredAt, n.createdAt) >= :since
             """)
     List<LoggedContactRow> findLoggedContacts(UUID workspaceId, Collection<UUID> personIds,
-                                              Collection<PersonNoteKind> kinds);
+                                              Collection<PersonNoteKind> kinds, Instant since);
+
+    /** The same read before {@code since}: each person's newest logged touch per teammate and position. */
+    @Query(value = """
+            SELECT DISTINCT ON (person_id, author_user_id, project_id) * FROM app_lm_person_note
+            WHERE workspace_id = :workspaceId AND person_id IN (:personIds) AND kind IN (:kinds)
+              AND deleted_at IS NULL AND coalesce(occurred_at, created_at) < :since
+            ORDER BY person_id, author_user_id, project_id, coalesce(occurred_at, created_at) DESC
+            """, nativeQuery = true)
+    List<PersonNote> findLatestLoggedContactsBefore(UUID workspaceId, Collection<UUID> personIds,
+                                                    Collection<String> kinds, Instant since);
 
     /** The notes a viewpoint reads, pinned first and then newest first. */
     default List<PersonNote> findReadablePinnedFirst(UUID workspaceId, UUID personId, NoteViewpoint viewpoint) {

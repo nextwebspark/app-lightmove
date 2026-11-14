@@ -13,6 +13,7 @@ export function RecentApproachConfirm({
   fullName,
   approach,
   confirmLabel,
+  canConfirm = true,
   onConfirm,
   onClose,
 }: {
@@ -20,6 +21,7 @@ export function RecentApproachConfirm({
   fullName: string;
   approach: RecentApproach;
   confirmLabel: string;
+  canConfirm?: boolean;
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -34,7 +36,7 @@ export function RecentApproachConfirm({
       title={`${fullName} was recently approached`}
       confirmLabel={confirmLabel}
       tone="primary"
-      confirmDisabled={!isUnderstood}
+      confirmDisabled={!isUnderstood || !canConfirm}
       onConfirm={() => {
         setIsUnderstood(false);
         onConfirm();

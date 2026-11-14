@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.model.PersonTouch;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -11,5 +12,9 @@ import java.util.UUID;
  */
 public interface PersonApproachHistory {
 
-    List<PersonTouch> touchesOf(UUID workspaceId, Collection<UUID> personIds);
+    /** Emails and replies since {@code since}, and every live sequence however old. */
+    List<PersonTouch> touchesSince(UUID workspaceId, Collection<UUID> personIds, Instant since);
+
+    /** Before {@code since}: each person's newest email or reply per teammate and position. */
+    List<PersonTouch> latestTouchesBefore(UUID workspaceId, Collection<UUID> personIds, Instant since);
 }

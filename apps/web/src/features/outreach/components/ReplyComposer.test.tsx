@@ -623,7 +623,7 @@ describe("ReplyComposer", () => {
     await waitFor(() => expect(conversationApi.sendMessage).toHaveBeenCalledTimes(1));
   });
 
-  it("asks once for what it showed, and again when a new approach arrives while the composer is open", async () => {
+  it("asks once for what it showed, even as a scheduled email goes out, and again for a new approach", async () => {
     vi.mocked(conversationApi.sendMessage).mockRejectedValue(new Error("offline"));
     const sarasEmail: ApproachTouch = { kind: "EMAILED", byUserId: "u2", byName: "Sara Al-Mansour",
       at: new Date(Date.now() - 12 * 86_400_000).toISOString(), projectId: "p2", positionTitle: "Head of Credit Risk",
@@ -643,7 +643,7 @@ describe("ReplyComposer", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Send anyway" }));
     await waitFor(() => expect(conversationApi.sendMessage).toHaveBeenCalledTimes(1));
 
-    rerender(composerFor(approached([{ ...sarasEmail }])));
+    rerender(composerFor(approached([{ ...sarasEmail, at: new Date().toISOString() }])));
     await userEvent.click(await screen.findByRole("button", { name: "Send now" }));
     await waitFor(() => expect(conversationApi.sendMessage).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

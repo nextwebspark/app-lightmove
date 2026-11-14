@@ -402,12 +402,14 @@ function OpenComposer({
                 fullName={fullName}
                 approach={recentApproach}
                 confirmLabel={heldSend?.at ? "Schedule anyway" : "Send anyway"}
+                canConfirm={canSend}
                 onClose={() => setHeldSend(null)}
                 onConfirm={() => {
-                  const held = heldSend;
+                  if (!heldSend || !canSend) return;
+                  const at = heldSend.at;
                   setUnderstoodApproach(approachKey);
                   setHeldSend(null);
-                  if (held && canSend) send.mutate(held.at);
+                  send.mutate(at);
                 }}
               />
             )}

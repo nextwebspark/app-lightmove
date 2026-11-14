@@ -7,11 +7,11 @@ import app.lightmove.api.candidate.dto.ApproachPositionResponse;
 import app.lightmove.api.candidate.dto.ApproachTouchResponse;
 import app.lightmove.api.candidate.dto.RecentApproachResponse;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.PersonNote;
 import app.lightmove.api.candidate.model.PersonTouch;
+import app.lightmove.api.candidate.model.PositionVisibility;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonNoteRepository;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
-import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -36,22 +37,21 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Recently approached: who on the team has reached these people, on any position, and where else they are mapped —
- * the warning before an email, a sequence or an add. The caller's own touches on the position they are working from,
- * or on none, are already in their conversation and are left out. A position the caller does not work on as staff is
- * named only as another position, with its stage. It warns and never refuses.
- */
+/** Recently approached: who on the team reached these people on any position, and where else they are mapped. */
 @Service
 @RequiredArgsConstructor
 public class RecentApproachReader {
 
     static final int MAX_TOUCHES = 10;
     static final int MAX_OUT_OF_PROCESS = 3;
-    static final String PLACED_STATUS_KEY = "placed";
 
     private static final Set<PersonNoteKind> LOGGED_CONTACT = EnumSet.of(PersonNoteKind.CALL, PersonNoteKind.MEETING,
             PersonNoteKind.EMAIL, PersonNoteKind.LINKEDIN, PersonNoteKind.WHATSAPP);
+
+    private static final List<String> LOGGED_CONTACT_KEYS = LOGGED_CONTACT.stream().map(Enum::name).toList();
+
+    private static final BinaryOperator<PersonTouch> NEWER =
+            BinaryOperator.maxBy(Comparator.comparing(PersonTouch::at));
 
     private static final Comparator<PersonTouch> REPLY_THEN_ONGOING_THEN_NEWEST = Comparator
             .comparing((PersonTouch touch) -> touch.kind() != ApproachKind.REPLIED)
@@ -64,7 +64,7 @@ public class RecentApproachReader {
     private final ProjectRepository projects;
     private final WorkspaceRepository workspaces;
     private final UserRepository users;
-    private final ProjectAccess projectAccess;
+    private final PositionRedaction redaction;
     private final Clock clock;
 
     /** One answer per person asked about; {@code NONE} where there is nothing to say or the workspace turned it off. */
@@ -80,41 +80,42 @@ public class RecentApproachReader {
         Instant since = clock.instant().minus(Duration.ofDays(windowDays));
 
         Map<UUID, List<PersonTouch>> touchesByPerson = Stream.concat(
-                        history.touchesOf(workspaceId, asked).stream(),
-                        notes.findLoggedContacts(workspaceId, asked, LOGGED_CONTACT).stream()
+                        history.touchesSince(workspaceId, asked, since).stream(),
+                        notes.findLoggedContacts(workspaceId, asked, LOGGED_CONTACT, since).stream()
                                 .map(row -> new PersonTouch(row.getPersonId(), row.getProjectId(),
                                         row.getAuthorUserId(), ApproachKind.loggedAs(row.getKind()), row.getAt())))
-                .filter(touch -> touch.at() != null)
-                .filter(touch -> !isOwnHere(touch, callerId, currentProjectId))
-                .filter(touch -> !(touch.kind().isOngoing() && Objects.equals(touch.projectId(), currentProjectId)))
+                .filter(touch -> counts(touch, callerId, currentProjectId))
                 .collect(Collectors.groupingBy(PersonTouch::personId));
+        Set<UUID> quiet = asked.stream().filter(personId -> !touchesByPerson.containsKey(personId))
+                .collect(Collectors.toSet());
+        Map<UUID, PersonTouch> olderByPerson = quiet.isEmpty() ? Map.of() : Stream.concat(
+                        history.latestTouchesBefore(workspaceId, quiet, since).stream(),
+                        notes.findLatestLoggedContactsBefore(workspaceId, quiet, LOGGED_CONTACT_KEYS, since).stream()
+                                .map(RecentApproachReader::touchOf))
+                .filter(touch -> counts(touch, callerId, currentProjectId))
+                .collect(Collectors.toMap(PersonTouch::personId, Function.identity(), NEWER));
         Map<UUID, List<Candidate>> mappedByPerson = candidates.findPositionsOfPeople(workspaceId, asked).stream()
                 .filter(row -> !row.getProjectId().equals(currentProjectId))
                 .collect(Collectors.groupingBy(row -> row.getPerson().getId()));
 
-        Set<UUID> projectIds = Stream.concat(
-                        touchesByPerson.values().stream().flatMap(List::stream).map(PersonTouch::projectId),
+        List<PersonTouch> allTouches = Stream.concat(touchesByPerson.values().stream().flatMap(List::stream),
+                olderByPerson.values().stream()).toList();
+        Set<UUID> projectIds = Stream.concat(allTouches.stream().map(PersonTouch::projectId),
                         mappedByPerson.values().stream().flatMap(List::stream).map(Candidate::getProjectId))
                 .filter(Objects::nonNull).collect(Collectors.toSet());
         Map<UUID, Project> mandates = projects.findAllById(projectIds).stream()
                 .collect(Collectors.toMap(Project::getId, Function.identity()));
-        Set<UUID> viewable = projectAccess.projectsWithAction(callerId, workspaceId, List.copyOf(projectIds),
-                ProjectAction.WORK_EXECUTE);
-        Map<UUID, String> names = namesOf(Stream.concat(
-                touchesByPerson.values().stream().flatMap(List::stream).map(PersonTouch::byUserId),
+        PositionVisibility visibility = redaction.visibleTo(callerId, workspaceId, projectIds, currentProjectId);
+        Map<UUID, String> names = namesOf(Stream.concat(allTouches.stream().map(PersonTouch::byUserId),
                 mappedByPerson.values().stream().flatMap(List::stream).map(Candidate::getAddedBy)));
 
-        TouchNaming naming = new TouchNaming(callerId, currentProjectId, mandates, viewable, names);
+        TouchNaming naming = new TouchNaming(callerId, currentProjectId, mandates, visibility, names);
         Map<UUID, RecentApproachResponse> answers = new HashMap<>();
         for (UUID personId : asked) {
-            List<PersonTouch> touches = touchesByPerson.getOrDefault(personId, List.of());
-            List<PersonTouch> recent = touches.stream()
-                    .filter(touch -> touch.kind().isOngoing() || !touch.at().isBefore(since))
-                    .sorted(REPLY_THEN_ONGOING_THEN_NEWEST).limit(MAX_TOUCHES).toList();
-            PersonTouch older = recent.isEmpty()
-                    ? touches.stream().max(Comparator.comparing(PersonTouch::at)).orElse(null) : null;
+            List<PersonTouch> recent = newestOfEachApproach(touchesByPerson.getOrDefault(personId, List.of()));
+            PersonTouch older = olderByPerson.get(personId);
             List<ApproachPositionResponse> elsewhere = elsewhereOf(
-                    mappedByPerson.getOrDefault(personId, List.of()), mandates, viewable, names);
+                    mappedByPerson.getOrDefault(personId, List.of()), mandates, visibility, names);
             answers.put(personId, new RecentApproachResponse(tierOf(recent, older, elsewhere), windowDays,
                     recent.stream().map(naming::of).toList(), elsewhere,
                     older == null ? null : naming.of(older)));
@@ -127,9 +128,27 @@ public class RecentApproachReader {
         return approachesOf(callerId, workspaceId, List.of(personId), currentProjectId).get(personId);
     }
 
-    private static boolean isOwnHere(PersonTouch touch, UUID callerId, UUID currentProjectId) {
-        return Objects.equals(touch.byUserId(), callerId)
-                && (touch.projectId() == null || Objects.equals(touch.projectId(), currentProjectId));
+    /**
+     * The caller's own touch here or on no position is already in their conversation, and a live sequence here is
+     * this position's own; anything else counts, a touch on an archived position too.
+     */
+    private static boolean counts(PersonTouch touch, UUID callerId, UUID currentProjectId) {
+        boolean here = Objects.equals(touch.projectId(), currentProjectId);
+        boolean ownHere = Objects.equals(touch.byUserId(), callerId) && (touch.projectId() == null || here);
+        return touch.at() != null && !ownHere && !(touch.kind().isOngoing() && here);
+    }
+
+    /** One line per teammate, channel and position, so one sequence's steps never crowd out the rest of the team. */
+    private static List<PersonTouch> newestOfEachApproach(List<PersonTouch> touches) {
+        return touches.stream()
+                .collect(Collectors.toMap(touch -> new ApproachKey(touch.byUserId(), touch.projectId(), touch.kind()),
+                        Function.identity(), NEWER))
+                .values().stream().sorted(REPLY_THEN_ONGOING_THEN_NEWEST).limit(MAX_TOUCHES).toList();
+    }
+
+    private static PersonTouch touchOf(PersonNote note) {
+        return new PersonTouch(note.getPersonId(), note.getProjectId(), note.getAuthorUserId(),
+                ApproachKind.loggedAs(note.getKind()), note.happenedAt());
     }
 
     private static RecentApproachTier tierOf(List<PersonTouch> recent, PersonTouch older,
@@ -142,7 +161,8 @@ public class RecentApproachReader {
 
     /** In process on a live position, all of them; out of process, the newest few. A closed position says neither. */
     private static List<ApproachPositionResponse> elsewhereOf(List<Candidate> mapped, Map<UUID, Project> mandates,
-                                                              Set<UUID> viewable, Map<UUID, String> names) {
+                                                              PositionVisibility visibility,
+                                                              Map<UUID, String> names) {
         List<Candidate> live = mapped.stream()
                 .filter(row -> {
                     Project mandate = mandates.get(row.getProjectId());
@@ -155,8 +175,8 @@ public class RecentApproachReader {
         Stream<Candidate> outOfProcess = live.stream().filter(row -> row.getStatus().hasLeftTheRunning())
                 .limit(MAX_OUT_OF_PROCESS);
         return Stream.concat(inProcess, outOfProcess)
-                .map(row -> positionOf(row, mandates.get(row.getProjectId()), viewable.contains(row.getProjectId()),
-                        names))
+                .map(row -> positionOf(row, mandates.get(row.getProjectId()),
+                        !visibility.isHidden(row.getProjectId()), names))
                 .toList();
     }
 
@@ -169,7 +189,7 @@ public class RecentApproachReader {
         }
         return new ApproachPositionResponse(row.getProjectId(), mandate.getPositionTitle(), row.getStatus().getLabel(),
                 row.getStatus().getColour().value(), stage, inProcess,
-                PLACED_STATUS_KEY.equals(row.getStatus().getStatusKey()),
+                row.getStatus().isPlacement(),
                 names.get(row.getAddedBy()), row.getStatusChangedAt(), true);
     }
 
@@ -184,12 +204,14 @@ public class RecentApproachReader {
         return new RecentApproachResponse(RecentApproachTier.NONE, windowDays, List.of(), List.of(), null);
     }
 
+    private record ApproachKey(UUID byUserId, UUID projectId, ApproachKind kind) {}
+
     private record TouchNaming(UUID callerId, UUID currentProjectId, Map<UUID, Project> mandates,
-                               Set<UUID> viewable, Map<UUID, String> names) {
+                               PositionVisibility visibility, Map<UUID, String> names) {
 
         ApproachTouchResponse of(PersonTouch touch) {
             boolean here = Objects.equals(touch.projectId(), currentProjectId);
-            boolean hidden = touch.projectId() != null && !here && !viewable.contains(touch.projectId());
+            boolean hidden = visibility.isHidden(touch.projectId());
             Project mandate = touch.projectId() == null || hidden ? null : mandates.get(touch.projectId());
             return new ApproachTouchResponse(touch.kind(), touch.byUserId(), names.get(touch.byUserId()), touch.at(),
                     hidden ? null : touch.projectId(), mandate == null ? null : mandate.getPositionTitle(), here,
