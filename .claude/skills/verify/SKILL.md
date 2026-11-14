@@ -21,8 +21,10 @@ description: Build, run and drive LightMove locally to verify a change end-to-en
 ## Driving the API with curl
 
 CSRF is double-submit: `GET /api/v1/auth/csrf` with a cookie jar, then echo the `XSRF-TOKEN` cookie
-value as `X-XSRF-TOKEN` on every mutating request. Flow: signup → grep the API log for
-`auth/verify?token=` → `POST /api/v1/auth/verify?token=…` → login (returns `accessToken`) →
+value as `X-XSRF-TOKEN` on every mutating request. Flow: `POST /api/v1/auth/signup`
+`{"fullName","email","password","termsAccepted":true}` (a missing tick is 400) → grep the API log for
+`auth/verify?token=` → `POST /api/v1/auth/verify` with the token in a JSON body, `{"token":"…"}` (a query parameter
+is 400) → `POST /api/v1/auth/login {"email","password"}` (returns `accessToken`) →
 `POST /api/v1/onboarding/workspace` → **re-login** (the first token lacks workspace claims) → then
 clients/projects/etc. with `Authorization: Bearer`. A second workspace is `POST /api/v1/workspaces` with
 the same body; the session moves into it with `POST /api/v1/auth/switch-workspace {"workspaceId"}` (bearer +

@@ -58,6 +58,17 @@ rm -f "$RUN_DIR/cases.tsv"
 
 trap 'say "interrupted — tearing the stack down"; "$E2E_DIR/stack/down.sh" || true; exit 130' INT TERM
 
+# A missing tool reads as a thousand failed cases rather than one missing command: without jq every request body
+# is empty, without psql every fixture lookup is. Refuse up front instead.
+missing=()
+for tool in curl docker jq psql openssl node python3; do
+  command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
+done
+if [ ${#missing[@]} -gt 0 ]; then
+  say "not starting: the matrix needs ${missing[*]} on PATH"
+  exit 1
+fi
+
 # --- leg 1: the ordinary stack ----------------------------------------------
 # Torn down first: up.sh leaves an API that is already answering on :8080 alone, which is the right
 # behaviour for a developer and the wrong one here — a full run must not inherit whatever variant the
