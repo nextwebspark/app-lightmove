@@ -44,27 +44,46 @@ public class ProviderSignInService {
     private final Clock clock;
 
     /**
-     * Empty when nobody holds this identity or its address, which is the one case that needs the terms first. Matched
-     * on the provider's subject before the address: matching on email alone would attach the account to whoever now
-     * holds a recycled address.
+     * Empty when nobody holds this identity or its address, which is the one case that needs the terms first.
      */
     @Transactional
     public Optional<SignInOutcome> signInKnown(ProviderIdentity identity, HttpServletRequest request) {
-        Optional<User> user = identities.findByProviderAndProviderUserId(identity.provider(), identity.subject())
-                .flatMap(found -> users.findById(found.getUserId()))
-                .or(() -> users.findByEmail(identity.email()).map(existing -> link(existing, identity, request)));
-        return user.map(found -> complete(found, identity, request));
+        return findOrLink(identity, request).map(user -> complete(user, identity, request));
     }
 
     /**
      * The terms step's submit: spends the hold and creates the account with the tick's time — unless the identity or
      * its address arrived meanwhile (another tab, a password signup), when it signs in or links exactly as the
-     * callback would have. Two first sign-ins racing past the lookups lose on the unique address, as they always did.
+     * callback would have, and the tick is theirs. Two first sign-ins racing past the lookups lose on the unique
+     * address, as they always did.
      */
     @Transactional
     public SignInOutcome completeRegistration(String registrationToken, HttpServletRequest request) {
         ProviderIdentity identity = pendingRegistrations.redeem(registrationToken);
-        return signInKnown(identity, request).orElseGet(() -> complete(register(identity, request), identity, request));
+        User user = findOrLink(identity, request)
+                .map(known -> recordTick(known, request))
+                .orElseGet(() -> register(identity, request));
+        return complete(user, identity, request);
+    }
+
+    /**
+     * Matched on the provider's subject before the address: matching on email alone would attach the account to
+     * whoever now holds a recycled address.
+     */
+    private Optional<User> findOrLink(ProviderIdentity identity, HttpServletRequest request) {
+        return identities.findByProviderAndProviderUserId(identity.provider(), identity.subject())
+                .flatMap(found -> users.findById(found.getUserId()))
+                .or(() -> users.findByEmail(identity.email()).map(existing -> link(existing, identity, request)));
+    }
+
+    // A linked account nobody verified has just lost its claimant's acceptance; this tick is the owner's own.
+    private User recordTick(User user, HttpServletRequest request) {
+        if (user.owesTermsAcceptance(PrivacyPolicy.CURRENT_VERSION)) {
+            user.acceptTerms(PrivacyPolicy.CURRENT_VERSION, clock.instant());
+            audit.event(AuthEventType.USER_TERMS_ACCEPTED).actor(user.getId()).from(request)
+                    .detail("version", PrivacyPolicy.CURRENT_VERSION).record();
+        }
+        return user;
     }
 
     private User link(User existing, ProviderIdentity identity, HttpServletRequest request) {

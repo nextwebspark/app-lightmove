@@ -36,9 +36,11 @@ gated by its own configuration.
     double-submit check: the cookie is what creates an account.
   - An identity or address that gained an account while the step was open (another tab, a password signup) signs in
     or links exactly as the callback would have — an unverified claimant is still wiped first
-    (`UnverifiedAccountWipe`). A second sign-in by the same identity replaces the hold, so two tabs cannot both
+    (`UnverifiedAccountWipe`), and the tick made on the step is recorded as the owner's own. A second sign-in by the same identity replaces the hold, so two tabs cannot both
     register. Spent, replaced, unknown and late holds all answer `REGISTRATION_EXPIRED` (410).
-  - Linking into an existing account and every later sign-in are untouched: they ask nothing.
+  - Linking into an existing account and every later sign-in are untouched: they ask nothing — except that a wipe
+    also forgets the claimant's acceptance, which was theirs and not the owner's, so the re-acceptance sheet asks the
+    owner on their first screen.
 
 `ProviderSignInService` holds what the handler used to do inside its transaction (find by subject, link by address,
 register, complete), so the callback and the terms step share one path. Nothing in it names a provider.

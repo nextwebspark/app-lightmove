@@ -180,15 +180,19 @@ public class User extends BaseEntity {
         return user;
     }
 
-    /** Whether the terms and privacy policy changed since this person last accepted them, or they never did. */
     public boolean owesTermsAcceptance(String currentVersion) {
         return !currentVersion.equals(privacyPolicyVersion);
     }
 
-    /** The re-acceptance sheet's tick: the version they read, with when. */
     public void acceptTerms(String version, Instant acceptedAt) {
         this.privacyPolicyVersion = version;
         this.termsAcceptedAt = acceptedAt;
+    }
+
+    /** Whoever opened an account nobody verified ticked for themselves, not for the mailbox's owner. */
+    public void forgetTermsAcceptance() {
+        this.privacyPolicyVersion = null;
+        this.termsAcceptedAt = null;
     }
 
     /** @return whether the device moved to another zone, which only then is recorded */

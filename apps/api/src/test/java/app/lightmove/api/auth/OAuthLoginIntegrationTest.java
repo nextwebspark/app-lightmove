@@ -188,6 +188,25 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an unverified account that appeared while the terms waited is linked with the owner's own tick")
+    void anUnverifiedAccountMadeMeanwhileTakesTheOwnersTick() throws Exception {
+        String email = emailForThisTest();
+        Cookie hold = callback("linkedin", "linkedin-subject-claimed", email, Map.of()).getCookie(PENDING_REGISTRATION);
+        signup("Claimant", email);
+        Instant beforeTick = Instant.now();
+
+        MvcResult ticked = completeRegistration(hold, true);
+
+        assertThat(ticked.getResponse().getStatus()).as(ticked.getResponse().getContentAsString()).isEqualTo(200);
+        User owner = users.findByEmail(email).orElseThrow();
+        assertThat(owner.hasPassword()).isFalse();
+        assertThat(owner.getTermsAcceptedAt()).isAfterOrEqualTo(beforeTick.truncatedTo(ChronoUnit.MILLIS));
+        assertThat(owner.owesTermsAcceptance(PrivacyPolicy.CURRENT_VERSION)).isFalse();
+        assertThat(fixtures.queryForObject("SELECT count(*) FROM app_lm_audit_event WHERE actor_user_id = ? "
+                + "AND event_type = 'USER_TERMS_ACCEPTED'", Integer.class, owner.getId())).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("an address that gained an account while the terms waited is linked, not doubled")
     void anAccountMadeMeanwhileIsLinked() throws Exception {
         String email = "meanwhile@" + domain;
@@ -461,7 +480,11 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
         assertThat(codeOf(refusedPassword)).isEqualTo("INVALID_CREDENTIALS");
         mvc.perform(post("/api/v1/auth/refresh").cookie(claimantSession).with(csrf()))
                 .andExpect(status().isUnauthorized());
-        assertThat(users.findByEmail(email).orElseThrow().hasPassword()).isFalse();
+        User owner = users.findByEmail(email).orElseThrow();
+        assertThat(owner.hasPassword()).isFalse();
+        // The claimant ticked the terms, not the owner: the re-acceptance sheet asks the owner on their first screen.
+        assertThat(owner.getTermsAcceptedAt()).isNull();
+        assertThat(owner.owesTermsAcceptance(PrivacyPolicy.CURRENT_VERSION)).isTrue();
     }
 
     @Test
